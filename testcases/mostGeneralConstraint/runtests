@@ -1,0 +1,12 @@
+#!/bin/sh
+
+PRI=../../princess
+
+
+TESTS="bitvectorArith3.pri bitvectorArith4.pri omegaBug.pri"
+
+$PRI "$@" $TESTS | grep -v "^("
+
+# For the last testcase we have to check the output precisely
+
+$PRI "$@" closingConstraintBug.pri

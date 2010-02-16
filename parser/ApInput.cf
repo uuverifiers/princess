@@ -1,0 +1,129 @@
+-- This file is part of Princess, a theorem prover for Presburger
+-- arithmetic with uninterpreted predicates.
+-- <http://www.philipp.ruemmer.org/princess.shtml>
+--
+-- Copyright (C) 2009 Philipp Ruemmer <ph_r@gmx.net>
+--
+-- Princess is free software: you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation, either version 3 of the License, or
+-- (at your option) any later version.
+--
+-- Princess is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+
+
+entrypoints Entry;
+
+APIEntry.       Entry           ::= API;
+ExprEntry.      Entry           ::= Expression;
+
+BlockList.	API		::= [Block];
+terminator Block "";
+
+comment "//";
+comment "/*" "*/";
+
+--------------------------------------------------------------------------------
+-- Top-level blocks
+
+Problem.	Block		::= "\\problem" "{" Expression "}";
+FunctionDecls.	Block		::= "\\functions" "{" [DeclFunC] "}";
+ExConstants.	Block		::= ExConstantsSec "{" [DeclConstantC] "}";
+UniConstants.	Block		::= "\\universalConstants" "{" [DeclConstantC] "}";
+PredDecls.	Block		::= "\\predicates" "{" [DeclPredC] "}";
+Interpolant.    Block           ::= "\\interpolant" "{" [Ident] ";" [Ident] "}";
+
+ECS1.		ExConstantsSec  ::= "\\existentialConstants";
+ECS2.		ExConstantsSec  ::= "\\metaVariables";
+
+--------------------------------------------------------------------------------
+-- Expressions, which cover both first-order formulas and terms
+
+ExprEqv.	Expression	::= Expression "<->" Expression1;
+ExprImp.	Expression1	::= Expression2 "->" Expression1;
+ExprOr.		Expression2	::= Expression2 "|" Expression3;
+ExprAnd.	Expression3	::= Expression3 "&" Expression4;
+ExprNot.	Expression4	::= "!" Expression4;
+ExprQuant.	Expression4	::= Quant DeclBinder Expression4;
+ExprTrigger.	Expression4	::= "{" [ArgC] "}" Expression4;
+ExprPart.       Expression4     ::= "\\part" "[" Ident "]" Expression4;
+ExprTrue.	Expression5	::= "true";
+ExprFalse.	Expression5	::= "false";
+ExprRel.	Expression5	::= Expression6 RelSym Expression6;
+
+ExprPlus.	Expression6	::= Expression6 "+" Expression7;
+ExprMinus.	Expression6	::= Expression6 "-" Expression7;
+ExprMult.	Expression7	::= Expression7 "*" Expression8;
+ExprUnPlus.	Expression8	::= "+" Expression8;
+ExprUnMinus.	Expression8	::= "-" Expression8;
+ExprIdApp.	Expression9	::= Ident OptArgs;
+ExprLit.	Expression9	::= IntLit;
+
+coercions Expression 9;
+
+QuantAll.	Quant		::= "\\forall";
+QuantEx.	Quant		::= "\\exists";
+
+RelEq.		RelSym		::= "=";
+RelNEq.		RelSym		::= "!=";
+RelLeq.		RelSym		::= "<=";
+RelGeq.		RelSym		::= ">=";
+RelLt.		RelSym		::= "<";
+RelGt.		RelSym		::= ">";
+
+NoArgs.		OptArgs		::= ;
+Args.		OptArgs		::= "(" [ArgC] ")";
+Arg.		ArgC		::= Expression;
+separator ArgC ",";
+
+token IntLit digit+;
+
+--------------------------------------------------------------------------------
+-- Variable and constant declarations
+
+DeclVarConst.	DeclVarConstC	::= Type [Ident];
+separator nonempty Ident ",";
+
+DeclBinder1.	DeclBinder	::= DeclVarConstC ";";
+DeclBinderM.	DeclBinder	::= "(" [DeclVarConstC] ")";
+separator nonempty DeclVarConstC ";";
+
+--------------------------------------------------------------------------------
+-- Function declarations
+
+DeclFunConstant.DeclFunC	::= [FunOption] DeclVarConstC;
+DeclFun.	DeclFunC	::= [FunOption] Type Ident FormalArgsC;
+terminator DeclFunC ";";
+
+Partial.        FunOption       ::= "\\partial";
+Relational.     FunOption       ::= "\\relational";
+separator FunOption "";
+
+--------------------------------------------------------------------------------
+-- Declarations of existential constants
+
+DeclConstant.	DeclConstantC	::= DeclVarConstC;
+terminator DeclConstantC ";";
+
+--------------------------------------------------------------------------------
+-- Predicate declarations
+
+DeclPred.	DeclPredC	::= Ident OptFormalArgs;
+terminator DeclPredC ";";
+
+NoFormalArgs.	OptFormalArgs	::= ;
+WithFormalArgs.	OptFormalArgs	::= FormalArgsC;
+FormalArgs.	FormalArgsC	::= "(" [ArgTypeC] ")";
+ArgType.	ArgTypeC	::= Type;
+separator nonempty ArgTypeC ",";
+
+--------------------------------------------------------------------------------
+-- Types (there is only one type, int)
+
+TypeInt.	Type		::= "int";

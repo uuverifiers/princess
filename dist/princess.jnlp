@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JNLP file for KeY -->
+<jnlp spec="1.0+"
+  codebase="http://www.philipp.ruemmer.org/iprincess/webstart/"
+  href="princess.jnlp">
+<information> 
+<title>iPrincess</title>
+<vendor>Philipp Ruemmer, Oxford University</vendor> 
+<homepage href="http://www.philipp.ruemmer.org/iprincess.shtml"/> 
+<description>
+  The Prover iPrincess.
+</description> 
+<offline-allowed/> 
+</information> 
+<security> 
+<all-permissions/> 
+</security> 
+<resources> 
+<j2se version="1.6+" initial-heap-size="128m" max-heap-size="1024m"/> 
+<j2se version="1.5+" initial-heap-size="128m" max-heap-size="1024m"/> 
+
+<jar href="princess.jar"/> 
+<jar href="scala-library.jar" /> 
+<jar href="java-cup-11a.jar" /> 
+<jar href="parser.jar" /> 
+</resources> 
+<application-desc main-class="ap.DialogMain"/> 
+</jnlp> 

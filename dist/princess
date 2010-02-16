@@ -1,0 +1,8 @@
+#!/bin/sh
+
+BASEDIR=`dirname $0`
+
+export CLASSPATH=$CLASSPATH:$BASEDIR/scala-library.jar:$BASEDIR/princess.jar:$BASEDIR/parser.jar:$BASEDIR/java-cup-11a.jar
+export JAVA_OPTS="-Xss20000k -Xmx1500m"
+
+exec java ap.CmdlMain "$@"

@@ -1,0 +1,25 @@
+#!/bin/sh
+
+./rundir interpolation "" -logo -timeout=30000 -clausifier=none +posUnitResolution +constructProofs
+
+./rundir allSettings "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -constructProofs
+./rundir allSettings "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs
+./rundir allSettings "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs
+./rundir allSettings "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+
+./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs
+./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+
+./rundir onlyClausification "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+
+./rundir mostGeneralConstraint "" -logo -timeout=30000 +posUnitResolution +mostGeneralConstraint -constructProofs
+
+./rundir special "" -logo -constructProofs
+
+./rundir lira "" -logo -timeout=120000 -assert -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -constructProofs
+
+./rundir unprovable "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -constructProofs
+./rundir unprovable "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs
+./rundir unprovable "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs
+./rundir unprovable "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+

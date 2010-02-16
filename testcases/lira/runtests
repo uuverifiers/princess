@@ -1,0 +1,8 @@
+#!/bin/sh
+
+PRI=../../princess
+
+# the returned constraints and witnesses are filtered out, because
+# this data is too unstable and would cause the test cases to fail
+# most of the time
+find -name "*.pri" | sort | xargs $PRI "$@" | grep -v "^(" | grep -v "^true"
