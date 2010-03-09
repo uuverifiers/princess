@@ -299,6 +299,7 @@ object WolverineInterpolantLineariser {
     linConj(for (eq <- inEqs.elements) yield linEq(">=", eq))
 
   private def lin(ac : ArithConj) : String =
+    if(ac.isFalse) "(false)" else
     linConj(List(lin(ac.positiveEqs), lin(ac.negativeEqs), lin(ac.inEqs)).elements)
   
   def apply(conj : Conjunction) : String = {
@@ -314,7 +315,9 @@ object WolverineInterpolantLineariser {
       ""
     } else {
       //////////////////////////////////////////////////////////////////////////
-      Debug.assertPre(AC, conj.quans.isEmpty)
+      Debug.assertPre(AC, conj.quans.isEmpty && 
+                          conj.predConj.positiveLits.isEmpty && 
+                          conj.predConj.negativeLits.isEmpty)
       //////////////////////////////////////////////////////////////////////////
       linConj(Iterator.single(lin(conj.arithConj)) ++
               (for (c <- conj.negatedConjs.elements) yield neg(apply(c))))
