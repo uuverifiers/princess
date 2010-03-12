@@ -61,7 +61,7 @@ object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
   
-  Debug.enableAllAssertions(false)
+  Debug.enableAllAssertions(true)
   
   //////////////////////////////////////////////////////////////////////////////
   
