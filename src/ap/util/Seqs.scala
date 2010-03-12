@@ -686,5 +686,21 @@ object Seqs {
     
     null // never reached
   }
-     
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def unzip[A, B](seq : Seq[(A, B)]) : (Seq[A], Seq[B]) = {
+    val lefts = new Array[A] (seq.size)
+    val rights = new Array[B] (seq.size)
+    
+    var i = 0
+    while (i < seq.size) {
+      lefts(i) = seq(i)._1
+      rights(i) = seq(i)._2
+      i = i + 1
+    }
+    
+    (lefts, rights)
+  }
+  
 }
