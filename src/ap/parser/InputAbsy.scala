@@ -65,7 +65,7 @@ object IExpression {
     }
   implicit def toFunApplier(fun : IFunction) : ((ITerm*) => ITerm) =
     new Function1[Seq[ITerm], ITerm] {
-      def apply(args : Seq[ITerm]) = IFunApp(fun, args)
+      def apply(args : Seq[ITerm]) = IFunApp(fun, false, args)
     }
 
   def ex(f : IFormula) = IQuantified(Quantifier.EX, f)
@@ -238,7 +238,9 @@ class IFunction(val name : String, val arity : Int,
 
 }
 
-case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
+case class IFunApp(fun : IFunction,
+                   strong : Boolean,
+                   args : Seq[ITerm]) extends ITerm {
   ////////////////////////////////////////////////////////////////////////////
   Debug.assertCtor(IExpression.AC, fun.arity == args.length)
   ////////////////////////////////////////////////////////////////////////////  
@@ -247,21 +249,22 @@ case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
 
   override def update(newSubExprs : Seq[IExpression]) : IFunApp =
     IExpression.toTermSeq(newSubExprs, args) match {
-      case Some(newArgs) => IFunApp(fun, newArgs)
+      case Some(newArgs) => IFunApp(fun, strong, newArgs)
       case None => this
     }
   
   override def equals(that : Any) : Boolean = that match {
-    case IFunApp(thatFun, thatArgs) =>
-      (fun == thatFun) && (args sameElements thatArgs)
+    case IFunApp(thatFun, thatStrong, thatArgs) =>
+      (fun == thatFun) && (strong == thatStrong) && (args sameElements thatArgs)
     case _ => false
   }
   
   override def hashCode : Int =
-    fun.hashCode + Seqs.computeHashCode(args, 17, 3)
+    fun.hashCode + strong.hashCode + Seqs.computeHashCode(args, 17, 3)
   
   override def toString =
     fun.name + 
+    (if (strong) "!" else "") +
     (if (args.length > 0)
        "(" + (for (t <- args.elements) yield t.toString).mkString(", ") + ")"
      else

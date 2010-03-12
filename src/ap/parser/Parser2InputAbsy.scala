@@ -423,6 +423,10 @@ class Parser2InputAbsy private (env : Environment) {
               "Predicate " + pred +
               " is applied to a wrong number of arguments: " + (args mkString ", "))
         
+        if (!f.optstrongapp_.isInstanceOf[WeakApp])
+          throw new Parser2InputAbsy.TranslationException(
+              "Strong application ! cannot be used for predicate " + pred)
+        
         IAtom(pred, args)
       }
       
@@ -433,7 +437,9 @@ class Parser2InputAbsy private (env : Environment) {
               "Function " + fun +
               " is applied to a wrong number of arguments: " + (args mkString ", "))
         
-        IFunApp(fun, args)
+        val strong = f.optstrongapp_.isInstanceOf[StrongApp]
+        
+        IFunApp(fun, strong, args)
       }
       
       case Environment.Constant(c, _) => {
@@ -443,6 +449,11 @@ class Parser2InputAbsy private (env : Environment) {
                                "Constant " + c + " does not have arguments")
           case _ : NoArgs => // nothing
         }
+        
+        if (!f.optstrongapp_.isInstanceOf[WeakApp])
+          throw new Parser2InputAbsy.TranslationException(
+              "Strong application ! cannot be used for constant " + c)
+        
         c
       }
       
@@ -453,6 +464,11 @@ class Parser2InputAbsy private (env : Environment) {
                                "Variable " + f.ident_ + " does not have arguments")
           case _ : NoArgs => // nothing
         }
+        
+        if (!f.optstrongapp_.isInstanceOf[WeakApp])
+          throw new Parser2InputAbsy.TranslationException(
+              "Strong application ! cannot be used for variable " + f.ident_)
+        
         v(i)
       }
     }
