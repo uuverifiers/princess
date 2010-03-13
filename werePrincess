@@ -6,5 +6,5 @@ EXTLIBSDIR=$BASEDIR/extlibs
 export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
 export JAVA_OPTS="-Xss20000k"
 
-cd /home/philipp/tmp/papers/qfp-interpolants/implementation/trunk/
+cd $BASEDIR
 exec scala ap.interpolants.WolverineInterfaceMain "$@"
