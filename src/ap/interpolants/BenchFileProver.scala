@@ -86,7 +86,7 @@ class BenchFileProver(reader : java.io.Reader,
       val decisionTime = System.currentTimeMillis - timeBefore + timeToInternal
       result match {
         case null =>
-          println("Timeout when deciding")
+          println("Time to decide: T/O")
 
         case Left(model) =>
           println("Something very fishy happened: found countermodel")
@@ -121,7 +121,7 @@ class BenchFileProver(reader : java.io.Reader,
 
               inter
             } {
-              println("Timeout with proof lifting")
+              println("Time to compute interpolant: T/O")
               null
 	    }
           }
@@ -151,7 +151,7 @@ class BenchFileProver(reader : java.io.Reader,
         println("Time to compute interpolant with QE: " + timeQE)
 //          println("Interpolant with QE: " + interQE)
       } {
-        println("Timeout with QE")
+        println("Time to compute interpolant with QE: T/O")
       }
     }
     TimeoutCounterModel
