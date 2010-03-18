@@ -30,6 +30,9 @@
 }
 
 \functions {
+  \partial int select(int, int);
+  \partial int store(int, int, int);
+
   \partial \relational int shiftLeft(int, int);
   \partial \relational int shiftRight(int, int);
 
@@ -53,6 +56,18 @@
 }
 
 \problem {
+
+////////////////////////////////////////////////////////////////////////////////
+// Array axioms
+        \forall int ar, ind, val;
+             {select(store(ar, ind, val), ind)}
+             select(store(ar, ind, val), ind) = val
+->
+        \forall int ar, ind1, ind2, val;
+             {select(store(ar, ind1, val), ind2)}
+             (ind1 != ind2 ->
+              select(store(ar, ind1, val), ind2) = select(ar, ind2))
+->
 
 ////////////////////////////////////////////////////////////////////////////////
 // Bit-shifts (which are used in most of the other definitions)

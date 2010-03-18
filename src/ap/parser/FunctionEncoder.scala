@@ -198,8 +198,7 @@ class FunctionEncoder {
   private val relations =
     new scala.collection.mutable.HashMap[IFunction, Predicate]
   
-  def predTranslation : Map[Predicate, IFunction] =
-    Map() ++ (for ((f, p) <- relations.elements) yield (p -> f))
+  val predTranslation = new scala.collection.mutable.HashMap[Predicate, IFunction]
   
   private def totality(pred : Predicate) : IFormula = {
     val args = (for (i <- 1 until pred.arity) yield v(i)) ++ List(v(0))
@@ -228,6 +227,7 @@ class FunctionEncoder {
           axiomsVar = axiomsVar &&& functionality(pred)
         if (!fun.partial)
           axiomsVar = axiomsVar &&& totality(pred)
+        predTranslation += (pred -> fun)
         pred
       })
   

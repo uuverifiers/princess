@@ -30,6 +30,8 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.arithconj.ArithConj
 import ap.util.Debug
 
+import scala.collection.{Map => MMap}
+
 /**
  * Converter from the internal formula datastructures to the input level AST
  * datastructures
@@ -37,15 +39,15 @@ import ap.util.Debug
 object Internal2InputAbsy {
   private val AC = Debug.AC_INPUT_ABSY
   
-  def apply(f : Formula, predTranslation : Map[Predicate, IFunction]) : IFormula =
+  def apply(f : Formula, predTranslation : MMap[Predicate, IFunction]) : IFormula =
     new Internal2InputAbsy(predTranslation).convert(f)
   
-  def apply(t : Term, predTranslation : Map[Predicate, IFunction]) : ITerm =
+  def apply(t : Term, predTranslation : MMap[Predicate, IFunction]) : ITerm =
     new Internal2InputAbsy(predTranslation).convert(t)
   
 }
 
-class Internal2InputAbsy(predTranslation : Map[Predicate, IFunction]) {
+class Internal2InputAbsy(predTranslation : MMap[Predicate, IFunction]) {
   
   import IExpression._
   

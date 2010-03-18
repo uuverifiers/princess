@@ -133,10 +133,21 @@ object Simplifier {
     
     case INot(IBoolLit(value)) => !value
     
-    case IIntFormula(r, IPlus(t1, ITimes(IdealInt.MINUS_ONE, t2)))
-      if (t1 == t2 && (r == EqZero || r == GeqZero)) => true
-    case IIntFormula(r, IPlus(ITimes(IdealInt.MINUS_ONE, t2), t1))
-      if (t1 == t2 && (r == EqZero || r == GeqZero)) => true
+    // TODO: generalise
+    case IPlus(IIntLit(c1), IIntLit(c2)) => c1 * c2
+    case IPlus(t1, t2) if (t1 == t2) => t1 * 2
+    case IPlus(t1, ITimes(c, t2)) if (t1 == t2) => t1 * (c + 1)
+    case IPlus(ITimes(c, t2), t1) if (t1 == t2) => t1 * (c + 1)
+    case IPlus(ITimes(c1, t1), ITimes(c2, t2)) if (t1 == t2) => t1 * (c1 + c2)
+    
+    case ITimes(IdealInt.ONE, t) => t
+    case ITimes(IdealInt.ZERO, t) => 0
+    
+    case ITimes(c1, IIntLit(c2)) => c1 * c2
+    case ITimes(c1, ITimes(c2, t)) => t * (c1 * c2)
+    
+    case IIntFormula(EqZero, IIntLit(v)) => v.isZero
+    case IIntFormula(GeqZero, IIntLit(v)) => (v.signum >= 0)
       
     case _ => expr
   }

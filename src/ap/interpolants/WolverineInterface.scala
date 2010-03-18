@@ -29,12 +29,7 @@ import scala.util.Sorting
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
-import ap.terfor.{Formula, Term, OneTerm, ConstantTerm}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
-import ap.terfor.equations.{EquationConj, NegEquationConj}
-import ap.terfor.inequalities.InEqConj
-import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.arithconj.ArithConj
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
 import ap.terfor.TerForConvenience._
 import ap.proof.ModelSearchProver
 import ap.util.{Debug, Seqs}
@@ -61,7 +56,7 @@ object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
   
-  Debug.enableAllAssertions(true)
+  Debug.enableAllAssertions(false)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -157,10 +152,6 @@ object WolverineInterfaceMain {
           case Right(interpolants) => {
             println("VALID")
             for (i <- interpolants) {
-              Console.withOut(Console.err) {
-                println(i)
-              }
-              
               //////////////////////////////////////////////////////////////////
               Debug.assertInt(AC, i.predicates.isEmpty)
               //////////////////////////////////////////////////////////////////
@@ -171,7 +162,16 @@ object WolverineInterfaceMain {
                 else
                   PresburgerTools.eliminatePredicates(i, !backgroundPred) */
               
-              println(WolverineInterpolantLineariser(i))
+//              println(WolverineInterpolantLineariser(i))
+              
+              val internalInter = Internal2InputAbsy(i, functionEncoder.predTranslation)
+              val simpInter = Simplifier(internalInter)
+              Console.withOut(Console.err) {
+                println(simpInter)
+              }
+              
+              WolverineInterpolantLineariser.visit(simpInter, List())
+              println
             }
           }
         }
@@ -244,84 +244,91 @@ object WolverineInterfaceMain {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-object WolverineInterpolantLineariser {
+object WolverineInterpolantLineariser extends CollectingVisitor[List[String], Unit] {
 
+  import IBinJunctor._
+  import IIntRelation._
+  
   private val AC = Debug.AC_MAIN
 
-  private def binOp(emptyOp : String, binOp : String, args : Iterator[String])
-                   : String =
-    if (args.hasNext)
-      args.reduceLeft[String]({
-        case (f1 : String, f2 : String) => "(" + binOp + " " + f1 + " " + f2 + ")"
-      })
-    else
-      emptyOp
-  
-  private def linConj(fors : Iterator[String]) : String =
-    binOp("(true)", "&", for (f <- fors; if (f != "(true)")) yield f)
-
-  private def neg(f : String) : String = f match {
-    case "(true)" => "(false)"
-    case "(false)" => "(true)"
-    case f => "(! " + f + ")"
+  private def printOp(op : String) : PreVisitResult = {
+    print(op)
+    print(" ")
+    KeepArg
   }
   
-  private def linCoeffTerm(p : (IdealInt, Term)) : String = p match {
-    case (c, OneTerm) => "(lit " + c.toString + ")"
-    case (IdealInt.ONE, t) => "(sym " + t.toString + ")"
-    case (c, t) => "(* (lit " + c.toString + ") (sym " + t.toString + "))"
-  }
-  
-  private def linEq(op : String, eq : LinearCombination) : String = eq match {
-    case Seq() =>
-      "(true)"
-    case Seq(p @ (c, t)) if (c.signum >= 0) =>
-      "(" + op + " " + linCoeffTerm(p) + " (lit 0))"
-    case Seq(p @ (c, t)) if (c.signum < 0) =>
-      "(" + op + " (lit 0) " + linCoeffTerm((-c, t)) + ")"
-    case Seq(p1 @ (c1, t1), (c2, t2)) if (c1.signum >= 0 && c2.signum < 0) =>
-      "(" + op + " " + linCoeffTerm(p1) + " " + linCoeffTerm((-c2, t2)) + ")"
-    case Seq((c2, t2), p1 @ (c1, t1)) if (c1.signum >= 0 && c2.signum < 0) =>
-      "(" + op + " " + linCoeffTerm(p1) + " " + linCoeffTerm((-c2, t2)) + ")"
-    case seq =>
-      "(" + op + " " +
-        binOp("", "+",
-              for (p <- seq.elements) yield linCoeffTerm(p)) + " (lit 0))"
-  }
-  
-  private def lin(eqs : EquationConj) : String =
-    linConj(for (eq <- eqs.elements) yield linEq("=", eq))
-
-  private def lin(eqs : NegEquationConj) : String =
-    linConj(for (eq <- eqs.elements) yield neg(linEq("=", eq)))
-
-  private def lin(inEqs : InEqConj) : String =
-    linConj(for (eq <- inEqs.elements) yield linEq(">=", eq))
-
-  private def lin(ac : ArithConj) : String =
-    if(ac.isFalse) "(false)" else
-    linConj(List(lin(ac.positiveEqs), lin(ac.negativeEqs), lin(ac.inEqs)).elements)
-  
-  def apply(conj : Conjunction) : String = {
-    ////////////////////////////////////////////////////////////////////////////
-    Debug.assertPre(AC, conj.predConj.isTrue)
-    ////////////////////////////////////////////////////////////////////////////
-  
-    if (conj.isDivisibility) {
-      assert(false) // todo
-      ""
-    } else if (conj.isNonDivisibility) {
-      assert(false) // todo
-      ""
-    } else {
-      //////////////////////////////////////////////////////////////////////////
-      Debug.assertPre(AC, conj.quans.isEmpty && 
-                          conj.predConj.positiveLits.isEmpty && 
-                          conj.predConj.negativeLits.isEmpty)
-      //////////////////////////////////////////////////////////////////////////
-      linConj(Iterator.single(lin(conj.arithConj)) ++
-              (for (c <- conj.negatedConjs.elements) yield neg(apply(c))))
+  private object Difference {
+    def unapply(t : IExpression) : Option[(IExpression, IExpression)] = t match {
+      case ITimes(IdealInt.MINUS_ONE, t) => Some(0, t)
+      case IPlus(t1, ITimes(IdealInt.MINUS_ONE, t2)) => Some(t1, t2)
+      case IPlus(ITimes(IdealInt.MINUS_ONE, t2), t1) => Some(t1, t2)
+      case IPlus(t, IIntLit(c)) => Some(t, -c)
+      case IPlus(IIntLit(c), t) => Some(t, -c)
+      case _ => None
     }
+  }
+  
+  override def preVisit(t : IExpression, boundVars : List[String]) : PreVisitResult = {
+    print("(")
+    t match {
+      case _ : IIntLit =>                 printOp("lit")
+      case _ : IConstant =>               printOp("sym")
+      case _ : IVariable =>               printOp("boundVar")
+      case ITimes(c, _) => {
+        print("* (lit "); print(c); print(") ")
+        KeepArg
+      }
+      case _ : IPlus =>                   printOp("+")
+      
+      case IFunApp(f, _) =>               printOp(f.name)
+      
+      case _ : INot =>                    printOp("!")
+      case IBinFormula(And, _, _) =>      printOp("&")
+      case IBinFormula(Or, _, _) =>       printOp("|")
+      case _ : IAtom =>                   { assert(false); KeepArg } // TODO
+      
+      case IIntFormula(j, t) => {
+    	printOp(j match {
+                  case EqZero => "="
+                  case GeqZero => ">="
+        	    })
+     
+        t match {
+          case Difference(t1, t2) => {
+        	visit(t1, boundVars); visit(t2, boundVars)
+            print(")")
+        	ShortCutResult()
+          }
+          case _ => KeepArg
+        }
+      }
+      
+      case IQuantified(q, _) => {
+        printOp(q match {
+                  case Quantifier.ALL => "forall"
+                  case Quantifier.EX => "exists"
+                })
+        UniSubArgs(("x" + boundVars.size) :: boundVars)
+      }
+      
+      case _ : ITrigger | _ : INamedPart => { assert(false); KeepArg } // Oops
+      
+      case _ => KeepArg // nothing
+    }
+  }
+  
+  def postVisit(t : IExpression, boundVars : List[String], subres : Seq[Unit]) : Unit = {
+    t match {
+      case IIntLit(value) =>     print(value)
+      case IConstant(c) =>       print(c)
+      case IVariable(index) =>   print(boundVars(index))
+
+      case IBoolLit(value) =>    print(value)
+      case _ : IIntFormula =>    print("(lit 0)")
+      
+      case _ => // nothing
+    }
+    print(") ")
   }
   
 }
