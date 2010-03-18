@@ -95,11 +95,11 @@ object Interpolator
   {
     certificate match {
       
-      case cert@BetaCertificate(leftForm, rightForm, leftChild, rightChild, order) =>
+      case cert@BetaCertificate(leftForm, rightForm, leftChild, rightChild, _) =>
       {	  
         // the next statement is quite expensive. the term order should rather be
         // stored in the context
-        implicit val o = iContext extendOrder order
+        implicit val o = iContext.order
         val originalForm = cert.localAssumedFormulas.elements.next
       
         if(iContext isFromLeft originalForm)
@@ -156,8 +156,8 @@ object Interpolator
       case cert@StrengthenCertificate(inEq, eqCases, children, order) =>
       {
         val constTerm = newConstant
-        val newContext = iContext.addParameter(constTerm)
-        implicit val o = newContext extendOrder order
+        val newContext = iContext.addConstant(constTerm)
+        implicit val o = newContext.order
         val weakInterInEq = iContext getPartialInterpolant inEq
         
         val k = (eqCases * weakInterInEq.den).intValueSafe
@@ -335,7 +335,7 @@ object Interpolator
     inference match {
 
       case inf@CombineEquationsInference(equations, result, order) => {
-        implicit val o = iContext extendOrder order
+        implicit val o = iContext.order
       
         val combinedPartialInter =
           PartialInterpolant.sum(for ((c, eq) <- equations)
@@ -362,8 +362,8 @@ object Interpolator
 
       case inf@CombineInequalitiesInference(leftCoeff, leftInEq,
                                             rightCoeff, rightInEq,
-                                            result, order) => {
-        implicit val o = iContext.extendOrder(order)
+                                            result, _) => {
+        implicit val o = iContext.order
         
         val leftPartial = iContext.getPartialInterpolant(leftInEq)
         val rightPartial = iContext.getPartialInterpolant(rightInEq)
@@ -373,7 +373,7 @@ object Interpolator
                                        (rightCoeff, rightPartial)),
                                  PartialInterpolant.Kind.InEqLeft)
                   
-        roundInEq(inf.unsimplifiedLHS, result, newPartial, order,
+        roundInEq(inf.unsimplifiedLHS, result, newPartial,
                   remInferences, child, iContext)
       }
 
@@ -395,9 +395,9 @@ object Interpolator
     
       //////////////////////////////////////////////////////////////////////////
 
-      case inf@ReduceInference(equations, targetLit, result, order) => {
+      case inf@ReduceInference(equations, targetLit, result, _) => {
           
-        implicit val o = iContext extendOrder order
+        implicit val o = iContext.order
 
         val oldInter = iContext getPartialInterpolant targetLit
         
@@ -428,41 +428,40 @@ object Interpolator
           
           processBranchInferences(remInferences, child, newContext) 
         } else {
-          roundInEq(inf.unsimplifiedLHS, result.inEqs, combinedInter, order,
+          roundInEq(inf.unsimplifiedLHS, result.inEqs, combinedInter,
                     remInferences, child, iContext)
         }
       }
     
       //////////////////////////////////////////////////////////////////////////
 
-      case AntiSymmetryInference(left : InEqConj, right : InEqConj,
-                                 result : EquationConj, order : TermOrder) => {
+      case AntiSymmetryInference(left, right, result, _) => {
         // we simply translate AntiSymmetry to the Strengthen rule
         
-        implicit val o = order
+        implicit val o = iContext.order
         
-        val closeCert = CloseCertificate(Set(Conjunction.FALSE), order)
+        val closeCert = CloseCertificate(Set(Conjunction.FALSE), o)
         
         val combineInEqInf =
           CombineInequalitiesInference(1, left(0) >= 1, 1, right,
-                                       InEqConj.FALSE, order)
+                                       InEqConj.FALSE, o)
         
         val eqCaseCert =
-          BranchInferenceCertificate(remInferences, child, order)
+          BranchInferenceCertificate(remInferences, child, o)
         
         val inEqCaseCert =
-          BranchInferenceCertificate(List(combineInEqInf), closeCert, order)
+          BranchInferenceCertificate(List(combineInEqInf), closeCert, o)
         
         val strengthenCert =
-          StrengthenCertificate(left, 1, List(eqCaseCert, inEqCaseCert), order)
+          StrengthenCertificate(left, 1, List(eqCaseCert, inEqCaseCert), o)
         
         applyHelp(strengthenCert, iContext)
       }
 
       //////////////////////////////////////////////////////////////////////////
 
-      case ColumnReduceInference(_, newSymb, eq, subst, order) => {
-        implicit val o = iContext extendOrder order
+      case ColumnReduceInference(_, newSymb, eq, subst, _) => {
+        implicit val o = iContext.order
         
         def filtFunc = (pair : (IdealInt, Term)) =>  
         { 
@@ -474,7 +473,7 @@ object Interpolator
            }
          } 
   
-        val leftLinComb = LinearCombination(eq(0).filter(filtFunc), order)
+        val leftLinComb = LinearCombination(eq(0).filter(filtFunc), o)
         val newInterLHS = leftLinComb - newSymb
         
         val partialInter = PartialInterpolant.eqLeft(leftLinComb - newSymb)
@@ -487,32 +486,32 @@ object Interpolator
     
       //////////////////////////////////////////////////////////////////////////
       
-      case DirectStrengthenInference(inEq, eq, result, order) =>
+      case DirectStrengthenInference(inEq, eq, result, _) =>
       {
         // we simply translate DirectStrengthen to the ordinary Strengthen rule
         
-        implicit val o = order
+        implicit val o = iContext.order
         
-        val closeCert = CloseCertificate(Set(Conjunction.FALSE), order)
+        val closeCert = CloseCertificate(Set(Conjunction.FALSE), o)
         
         val redInf =
-          ReduceInference(List((-1, eq(0) === 0)), eq, ArithConj.FALSE, order)
+          ReduceInference(List((-1, eq(0) === 0)), eq, ArithConj.FALSE, o)
         
         val eqCaseCert =
-          BranchInferenceCertificate(List(redInf), closeCert, order)
+          BranchInferenceCertificate(List(redInf), closeCert, o)
         
         val inEqCaseCert =
-          BranchInferenceCertificate(remInferences, child, order)
+          BranchInferenceCertificate(remInferences, child, o)
         
         val strengthenCert =
-          StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), order)
+          StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), o)
         
         applyHelp(strengthenCert, iContext)
       }
       
       //////////////////////////////////////////////////////////////////////////
 
-      case PredUnifyInference(leftAtom, rightAtom, result, order)
+      case PredUnifyInference(leftAtom, rightAtom, result, _)
            // special case of nullary predicates, which can be handled much
            // more efficiently
            if (leftAtom.pred.arity == 0) => {
@@ -537,8 +536,8 @@ object Interpolator
       }
 
       // The general case
-      case PredUnifyInference(leftAtom, rightAtom, result, order) => {
-        implicit val extendedOrder = iContext extendOrder order
+      case PredUnifyInference(leftAtom, rightAtom, result, _) => {
+        implicit val extendedOrder = iContext.order
         
         val pred = leftAtom.predicates.elements.next
 
@@ -622,8 +621,8 @@ object Interpolator
       
       ////////////////////////////////////////////////////////////////////////
       
-      case GroundInstInference(qFormula, instTerms, result, order) => {
-        implicit val extOrder = iContext extendOrder order
+      case GroundInstInference(qFormula, instTerms, result, _) => {
+        implicit val extOrder = iContext.order
         
         //////////////////////////////////////////////////////////////////////////
         Debug.assertPre(AC, (iContext isFromLeft qFormula) ||
@@ -675,14 +674,17 @@ object Interpolator
       
       //////////////////////////////////////////////////////////////////////////
       
-      case QuantifierInference(qFormula, consts, result, order) => {
-        implicit val extendedOrder = iContext extendOrder order
+      case QuantifierInference(qFormula, consts, result, _) => {
+        implicit val order = iContext.order
         
-        val newContext=
+        val newConsts = consts.filter((c) => !(order.orderedConstants contains c))
+        
+        val newContext= (
           if(iContext isFromLeft qFormula) iContext addLeft result
           else if(iContext isFromRight qFormula) iContext addRight result
           else throw new Error("The formula " + qFormula + "has to come from left or right")
-          
+          ) addConstants(newConsts)
+
         val totalInter =
           processBranchInferences(remInferences, child, newContext)
          
@@ -731,7 +733,6 @@ object Interpolator
   private def roundInEq(unsimplifiedRes : LinearCombination,
                         result : InEqConj,
                         newPartialInterpolant : PartialInterpolant,
-                        order : TermOrder,
                         remInferences : List[BranchInference],
                         child : Certificate,
                         iContext : InterpolationContext) : Conjunction = {
@@ -755,8 +756,8 @@ object Interpolator
       val newPI = newPartialInterpolant / a
 
       val constTerm = newConstant
-      val newContext2 = iContext addParameter constTerm
-      implicit val o = newContext2 extendOrder order
+      val newContext2 = iContext addConstant constTerm
+      implicit val o = newContext2.order
 
       val partialIneqInter =
         PartialInterpolant(newPI.linComb - constTerm, newPI.den, newPI.kind)

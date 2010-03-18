@@ -232,7 +232,7 @@ object WolverineInterfaceMain {
               IInterpolantSpec((names take i).toList, (names drop i).toList)
             val iContext =
               new InterpolationContext (namedParts + (PartName.NO_NAME -> backgroundPred),
-                                        interspec)
+                                        interspec, cert.order)
 //            ap.util.Timer.measure("interpolating") {
                 Interpolator(cert, iContext)
 //            }

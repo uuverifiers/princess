@@ -46,22 +46,23 @@ class InterpolationContext(
   val commonFormulae : Set[Conjunction],
   partialInterpolants : Map[ArithConj, PartialInterpolant],
   rewrittenPredAtoms : Map[PredConj, (Seq[Seq[(IdealInt, EquationConj)]], PredConj)],
-  addedParameters : List[ConstantTerm])
+  val order : TermOrder)
 {
   def this(
     namedParts : Map[PartName, Conjunction],
-    spec : IInterpolantSpec) = this(
+    spec : IInterpolantSpec,
+    order : TermOrder) = this(
       Set()++(for(name<- spec.left.elements) yield namedParts(name).negate),
       Set()++(for(name<- spec.right.elements) yield namedParts(name).negate),
       Set()++(for (f <- (namedParts get PartName.NO_NAME).elements) yield f.negate),
-      Map(), Map(), List())
+      Map(), Map(), order)
 
    private def getConstants(fors : Iterable[Formula]) =
      Set() ++ (for(f <- fors.elements; c <- f.constants.elements) yield c)
 
    private def getPredicates(fors : Iterable[Formula]) =
      Set() ++ (for(f <- fors.elements; p <- f.predicates.elements) yield p)
-
+   
    lazy val commonFormulaConstants = getConstants(commonFormulae)
   
    lazy val leftConstants = getConstants(leftFormulae)
@@ -98,7 +99,7 @@ class InterpolationContext(
     
     new InterpolationContext(
       leftFormulae, rightFormulae, commonFormulae, newPartialInterpolants,
-      rewrittenPredAtoms, addedParameters)
+      rewrittenPredAtoms, order)
   }
   
   def getPartialInterpolant(literal : ArithConj) : PartialInterpolant =
@@ -166,11 +167,8 @@ class InterpolationContext(
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms + (result -> (newEqs, oriLit)),
-                             addedParameters)
+                             order)
   }
-  
-  def extendOrder(order : TermOrder) : TermOrder =
-     (order /: addedParameters)(_.extend(_, Set()))
  
   def isFromLeft(conj : Conjunction) : Boolean = leftFormulae contains conj
  
@@ -178,74 +176,81 @@ class InterpolationContext(
 
   def isCommon(conj : Conjunction) : Boolean = commonFormulae contains conj
 
-  def addParameter(constTerm : ConstantTerm) : InterpolationContext =
+  def addConstant(constTerm : ConstantTerm) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             constTerm :: addedParameters)
+                             order.extend(constTerm, Set()))
+  
+ def addConstants(constTerms : Seq[ConstantTerm]) : InterpolationContext =
+    new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
+                             partialInterpolants,
+                             rewrittenPredAtoms,
+                             (order /: constTerms)(_.extend(_, Set())))
+
 
   def addLeft(left : Conjunction) : InterpolationContext =
     new InterpolationContext(leftFormulae + left, rightFormulae,
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             addedParameters)
+                             order)
   
   def addLeft(lefts : Iterable[Conjunction]) : InterpolationContext =
     new InterpolationContext(leftFormulae ++ lefts, rightFormulae,
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             addedParameters)
+                             order)
   
   def addLeft(lefts : Iterator[Conjunction]) : InterpolationContext =
     new InterpolationContext(leftFormulae ++ lefts, rightFormulae,
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             addedParameters)
+                             order)
 
   def addRight(right : Conjunction) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae + right,
                              commonFormulae,
                              partialInterpolants,
-                             rewrittenPredAtoms,
-                             addedParameters)
+                             rewrittenPredAtoms, 
+                             order)
   
   def addRight(rights : Iterable[Conjunction]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae ++ rights,
                              commonFormulae,
                              partialInterpolants,
-                             rewrittenPredAtoms,
-                             addedParameters)
+                             rewrittenPredAtoms, 
+                             order)
   
   def addRight(rights : Iterator[Conjunction]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae ++ rights,
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             addedParameters)
+                             order)
   
   def addCommon(common : Conjunction) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae,
                              commonFormulae + common,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             addedParameters)
+                             order)
   
   def addCommon(commons : Iterable[Conjunction]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae,
                              commonFormulae ++ commons,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             addedParameters)
+                             order)
   
   def addCommon(commons : Iterator[Conjunction]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae,
                              commonFormulae ++ commons,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             addedParameters)
+                             order)
   
 }
 

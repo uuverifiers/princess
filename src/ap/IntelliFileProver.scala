@@ -126,7 +126,7 @@ class IntelliFileProver(reader : java.io.Reader,
           val interpolants = for (spec <- interpolantSpecs) yield {
             // TODO: check that all parts of the input formula are declared as
             // either left or right
-            val iContext = new InterpolationContext(namedParts, spec)
+            val iContext = new InterpolationContext(namedParts, spec, cert.order)
             Interpolator(cert, iContext)    
           }
           NoCounterModelCertInter(cert, interpolants)
