@@ -83,16 +83,24 @@ object IExpression {
     (consts :\ fWithSubstitutedConsts) ((c, f) => IQuantified(quan, f))
   }
   
+  def eqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
+  def geqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
+  
   def connect(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
     connect(fors.elements, op)
 
   def connect(fors : Iterator[IFormula], op : IBinJunctor.Value) : IFormula =
     if (fors.hasNext) {
-      fors.reduceLeft(IBinFormula(op, _, _))
+      fors reduceLeft (IBinFormula(op, _, _))
     } else op match {
       case IBinJunctor.And | IBinJunctor.Eqv => true
       case IBinJunctor.Or => false
     }
+
+  def sum(terms : Iterable[ITerm]) : ITerm = sum(terms.elements)
+
+  def sum(terms : Iterator[ITerm]) : ITerm =
+    if (terms.hasNext) terms reduceLeft (IPlus(_, _)) else i(0)
   
   // extract the value of constant terms
   object Const {
@@ -273,9 +281,9 @@ case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
 abstract class IFormula extends IExpression {
   def &(that : IFormula) : IFormula = IBinFormula(IBinJunctor.And, this, that)
   def |(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Or, this, that)
-  def <->(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Eqv, this, that)
+  def <=>(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Eqv, this, that)
   def </>(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Eqv, !this, that)
-  def ->(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Or, !this, that)
+  def ==>(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Or, !this, that)
   def unary_! : IFormula = INot(this)  
 
   // binary operators that directly simplify expressions involving true/false
@@ -296,12 +304,12 @@ abstract class IFormula extends IExpression {
     case _ => this | that
   }
   
-  def -->(that : IFormula) : IFormula = (this, that) match {
+  def ===>(that : IFormula) : IFormula = (this, that) match {
     case (IBoolLit(false), _) => true
     case (_, f@IBoolLit(true)) => f
     case (IBoolLit(true), f) => f
     case (f, IBoolLit(false)) => !f
-    case _ => this -> that
+    case _ => this ==> that
   }
   
   override def update(newSubExprs : Seq[IExpression]) : IFormula = {

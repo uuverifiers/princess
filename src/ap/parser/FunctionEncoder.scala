@@ -198,6 +198,9 @@ class FunctionEncoder {
   private val relations =
     new scala.collection.mutable.HashMap[IFunction, Predicate]
   
+  def predTranslation : Map[Predicate, IFunction] =
+    Map() ++ (for ((f, p) <- relations.elements) yield (p -> f))
+  
   private def totality(pred : Predicate) : IFormula = {
     val args = (for (i <- 1 until pred.arity) yield v(i)) ++ List(v(0))
     val atom = IAtom(pred, args)
@@ -208,7 +211,7 @@ class FunctionEncoder {
     val baseArgs = for (i <- 0 until (pred.arity - 1)) yield v(i)
     val atom1 = IAtom(pred, baseArgs ++ List(v(pred.arity - 1)))
     val atom2 = IAtom(pred, baseArgs ++ List(v(pred.arity)))
-    val matrix = atom1 -> (atom2 -> (v(pred.arity - 1) === v(pred.arity)))
+    val matrix = atom1 ==> (atom2 ==> (v(pred.arity - 1) === v(pred.arity)))
     quan(List.make(pred.arity + 1, Quantifier.ALL), matrix)
   }
 
@@ -318,7 +321,7 @@ class FunctionEncoder {
               val definedVar = v(newNum)
               val defAtom = IAtom(toRelation(t.fun),
                                   shiftedT.args ++ List(definedVar))
-              if (universal) defAtom -> f else defAtom & f 
+              if (universal) defAtom ==> f else defAtom & f 
             })
       
         val quan = if (universal) Quantifier.ALL else Quantifier.EX

@@ -148,7 +148,10 @@ object VariableShiftVisitor {
   private val AC = Debug.AC_INPUT_ABSY
   
   def apply(t : IExpression, offset : Int, shift : Int) : IExpression =
-    new VariableShiftVisitor(offset, shift).visit(t, 0)
+    if (shift == 0)
+      t
+    else
+      new VariableShiftVisitor(offset, shift).visit(t, 0)
   
   def apply(t : IFormula, offset : Int, shift : Int) : IFormula =
     apply(t.asInstanceOf[IExpression], offset, shift).asInstanceOf[IFormula]
@@ -280,6 +283,43 @@ object ConstantSubstVisitor
 
   def postVisit(t : IExpression,
                 subst : Map[ConstantTerm, ITerm],
+                subres : Seq[IExpression]) : IExpression = t update subres
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Substitute variables in an expression with arbitrary terms
+ */
+object VariableSubstVisitor
+       extends CollectingVisitor[(List[ITerm], Int), IExpression] {
+  def apply(t : IExpression, substShift : (List[ITerm], Int)) : IExpression =
+    VariableSubstVisitor.visit(t, substShift)
+  def apply(t : ITerm, substShift : (List[ITerm], Int)) : ITerm =
+    apply(t.asInstanceOf[IExpression], substShift).asInstanceOf[ITerm]
+  def apply(t : IFormula, substShift : (List[ITerm], Int)) : IFormula =
+    apply(t.asInstanceOf[IExpression], substShift).asInstanceOf[IFormula]
+
+  override def preVisit(t : IExpression,
+                        substShift : (List[ITerm], Int)) : PreVisitResult =
+    t match {
+      case IVariable(index) => {
+        val (subst, shift) = substShift
+        ShortCutResult(if (index >= subst.size)
+                         IVariable(index + shift)
+                       else
+                         subst(index))
+      }
+      case IQuantified(_, _) => {
+        val (subst, shift) = substShift
+        val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
+        UniSubArgs((IVariable(0) :: newSubst, shift))
+      }
+      case _ => KeepArg
+    }
+
+  def postVisit(t : IExpression,
+                substShift : (List[ITerm], Int),
                 subres : Seq[IExpression]) : IExpression = t update subres
 }
 

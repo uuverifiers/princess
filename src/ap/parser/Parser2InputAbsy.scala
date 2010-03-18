@@ -284,9 +284,9 @@ class Parser2InputAbsy private (env : Environment) {
     ////////////////////////////////////////////////////////////////////////////
     // Formulae
     case f : ExprEqv =>
-      translateBinForConnective(f.expression_1, f.expression_2, _ <-> _)
+      translateBinForConnective(f.expression_1, f.expression_2, _ <=> _)
     case f : ExprImp =>
-      translateBinForConnective(f.expression_1, f.expression_2, _ -> _)
+      translateBinForConnective(f.expression_1, f.expression_2, _ ==> _)
     case f : ExprOr => {
       val subs = collectSubExpressions(f, _.isInstanceOf[ExprOr])
       (for (f <- subs.elements)

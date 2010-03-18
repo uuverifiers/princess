@@ -39,7 +39,7 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
         if ((c.quans contains Quantifier.EX) ^ (c.polarity < 0))
           TryAgain((f1 & f2) | (!f1 & !f2), c)
         else
-          TryAgain((f1 -> f2) & (f2 -> f1), c)
+          TryAgain((f1 ==> f2) & (f2 ==> f1), c)
       case LeafFormula(_) | _ : ITerm =>
         // do not look into atoms or terms
         ShortCutResult(t)
