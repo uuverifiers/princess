@@ -461,7 +461,9 @@ object Interpolator
       //////////////////////////////////////////////////////////////////////////
 
       case ColumnReduceInference(_, newSymb, eq, subst, _) => {
-        implicit val o = iContext.order
+        implicit val o = 
+          if(iContext.order.orderedConstants contains newSymb) iContext.order
+          else iContext.order.extend(newSymb, Set())
         
         def filtFunc = (pair : (IdealInt, Term)) =>  
         { 
@@ -480,6 +482,7 @@ object Interpolator
         
         val newContext = iContext.addLeft(newInterLHS === 0)
                                  .addPartialInterpolant(eq, partialInter)
+                                 .addConstant(newSymb)
         
         processBranchInferences(remInferences, child, newContext)
       }
@@ -676,14 +679,12 @@ object Interpolator
       
       case QuantifierInference(qFormula, consts, result, _) => {
         implicit val order = iContext.order
-        
-        val newConsts = consts.filter((c) => !(order.orderedConstants contains c))
-        
+       
         val newContext= (
           if(iContext isFromLeft qFormula) iContext addLeft result
           else if(iContext isFromRight qFormula) iContext addRight result
           else throw new Error("The formula " + qFormula + "has to come from left or right")
-          ) addConstants(newConsts)
+          ) addConstants(consts)
 
         val totalInter =
           processBranchInferences(remInferences, child, newContext)

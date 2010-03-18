@@ -176,17 +176,21 @@ class InterpolationContext(
 
   def isCommon(conj : Conjunction) : Boolean = commonFormulae contains conj
 
-  def addConstant(constTerm : ConstantTerm) : InterpolationContext =
+  def addConstant(const : ConstantTerm) : InterpolationContext = {
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             order.extend(constTerm, Set()))
+                             if(order.orderedConstants contains const) order
+                             else order.extend(const, Set()))
+  }
   
- def addConstants(constTerms : Seq[ConstantTerm]) : InterpolationContext =
+ def addConstants(consts : Seq[ConstantTerm]) : InterpolationContext = {
+    val newConsts = consts.filter((c) => !(order.orderedConstants contains c))
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             (order /: constTerms)(_.extend(_, Set())))
+                             (order /: newConsts)(_.extend(_, Set())))
+  }
 
 
   def addLeft(left : Conjunction) : InterpolationContext =
