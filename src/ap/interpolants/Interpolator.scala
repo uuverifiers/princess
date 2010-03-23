@@ -655,9 +655,9 @@ object Interpolator
                case (true, false) => true
                case (false, true) => false
                case _ =>
-                 // This makes the interpolator prefer right formula if we can
+                 // This makes the interpolator prefer left formulae if we can
                  // choose; it should be considered whether this is meaningful
-                 Seqs.disjoint(termConsts, iContext.rightLocalConstants)
+                 !(termConsts subsetOf iContext.leftLocalConstants)
             }
           }
 
