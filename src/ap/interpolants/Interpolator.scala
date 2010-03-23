@@ -460,7 +460,7 @@ object Interpolator
 
       //////////////////////////////////////////////////////////////////////////
 
-      case ColumnReduceInference(_, newSymb, eq, subst, a) => {
+      case ColumnReduceInference(_, newSymb, eq, subst, _) => {
         implicit val o = 
           if(iContext.order.orderedConstants contains newSymb) iContext.order
           else iContext.order.extend(newSymb, Set())
@@ -483,7 +483,7 @@ object Interpolator
         val newContext = iContext.addLeft(newInterLHS === 0)
                                  .addPartialInterpolant(eq, partialInter)
                                  .addConstant(newSymb)
-        println(newContext.order + " " + a)
+        
         processBranchInferences(remInferences, child, newContext)
       }
     
