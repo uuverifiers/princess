@@ -56,7 +56,7 @@ object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
   
-  Debug.enableAllAssertions(false)
+  Debug.enableAllAssertions(true)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -152,10 +152,6 @@ object WolverineInterfaceMain {
           case Right(interpolants) => {
             println("VALID")
             for (i <- interpolants) {
-              //////////////////////////////////////////////////////////////////
-              Debug.assertInt(AC, i.predicates.isEmpty)
-              //////////////////////////////////////////////////////////////////
-              
 /*              val predFreeI =
                 if (i.predicates.isEmpty)
                   i
