@@ -72,7 +72,7 @@ object IExpression {
   def all(f : IFormula) = IQuantified(Quantifier.ALL, f)
 
   def quan(quans : Seq[Quantifier], f : IFormula) : IFormula =
-    (quans :\ f)(IQuantified(_, _))
+    (f /: quans)((f, q) => IQuantified(q, f))
 
   def quan(quan : Quantifier,
            consts : Collection[ConstantTerm],

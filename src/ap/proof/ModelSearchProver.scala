@@ -27,8 +27,7 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
-import ap.proof.goal.{Goal, FactsNormalisationTask, EliminateFactsTask,
-                      AddFactsTask, UpdateTasksTask}
+import ap.proof.goal.{Goal, NegLitClauseTask}
 import ap.proof.certificates.Certificate
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs}
 import ap.parameters.{GoalSettings, Param}
@@ -58,6 +57,8 @@ object ModelSearchProver {
       new WitnessTree (subtree, c, witness, vocabulary)
   }
 
+  private val nonRemovingPTF = new SimpleProofTreeFactory(false, simplifier)
+  
   private val cache = new LRUCache[Formula, Conjunction] (1000)
   
   /**
@@ -285,6 +286,74 @@ object ModelSearchProver {
                    order)
     Conjunction.conj(Array(valuesConj, facts), order)
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  // Prover that can be used incrementally
+  
+  def emptyIncProver(settings : GoalSettings) : IncProver =
+    new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings))
+  
+  class IncProver protected[proof] (goal : Goal) {
+    
+    def assert(f : Conjunction, newOrder : TermOrder) : IncProver =
+      conclude(f.negate, newOrder)
+
+    def assert(fors : Iterable[Conjunction],
+               newOrder : TermOrder) : IncProver =
+      conclude(for (f <- fors) yield f.negate, newOrder)
+
+    def conclude(f : Conjunction, newOrder : TermOrder) : IncProver =
+      conclude(List(f), newOrder)
+
+    def conclude(fors : Iterable[Conjunction],
+                 newOrder : TermOrder) : IncProver = {
+      //////////////////////////////////////////////////////////////////////////
+      Debug.assertPre(AC,
+                      (goal.order isSubOrderOf newOrder) &&
+                      goal.bindingContext.constantSeq.size <= 1)
+      //////////////////////////////////////////////////////////////////////////
+      
+      // check whether we have to update the <code>TermOrder</code> of the goal
+      val newOrderGoal =
+        if (newOrder == goal.order) {
+          goal
+        } else {
+          val newConsts = newOrder.orderedConstants -- goal.order.orderedConstants
+          val newVocabulary =
+            Vocabulary(newOrder,
+                       goal.bindingContext.addAndContract(newConsts, Quantifier.ALL),
+                       goal.constantFreedom addTopStatus newConsts)
+
+          nonRemovingPTF.updateGoal(goal.eliminatedConstants ++ newConsts,
+                                    newVocabulary, List(),
+                                    goal).asInstanceOf[Goal]
+        }
+      
+      var resGoal = newOrderGoal addTasksFor fors
+      
+      // apply the most simple tasks right away
+      var cont = true
+      while (cont && resGoal.stepPossible) {
+        cont = resGoal.tasks.max match {
+            case _ : NegLitClauseTask => true
+            case _ => false
+          }
+        if (cont)
+          resGoal = (resGoal step ptf).asInstanceOf[Goal]
+      }
+      
+      new IncProver(resGoal)
+    }
+    
+    def checkValidity : Either[Conjunction, Certificate] =
+      findModel(goal, List(), Set(), 0, goal.settings) match {
+        case Left(model) => Left(model)
+        case Right(Seq()) => Left(Conjunction.FALSE)
+        case Right(Seq(cert)) => Right(cert)
+      }
+    
+  }
+  
 }
 
  

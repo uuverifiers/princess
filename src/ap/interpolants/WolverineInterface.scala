@@ -56,7 +56,7 @@ object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
   
-  Debug.enableAllAssertions(true)
+  Debug.enableAllAssertions(false)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -70,8 +70,11 @@ object WolverineInterfaceMain {
   //////////////////////////////////////////////////////////////////////////////
   
   private val preprocSettings = PreprocessingSettings.DEFAULT
-  private val goalSettings = Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true)
+  private val interpolationSettings =
+    Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true)
   
+  //////////////////////////////////////////////////////////////////////////////
+
   private val preludeEnv = new Environment
   private val functionEncoder = new FunctionEncoder
   
@@ -104,6 +107,29 @@ object WolverineInterfaceMain {
     (reducedRes, order)
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private val wolverineLineariser = {
+    val select = 
+      preludeEnv.lookupSym("select") match {
+        case Environment.Function(f) => f
+        case _ => throw new Error("Expected select to be defined as a function");
+      }
+  
+    val store = 
+      preludeEnv.lookupSym("store") match {
+        case Environment.Function(f) => f
+        case _ => throw new Error("Expected store to be defined as a function");
+      }
+  
+    new WolverineInterpolantLineariser(select, store)
+  }
+  
+  private val interpolationProver = {
+    val prover = ModelSearchProver emptyIncProver interpolationSettings
+    prover.conclude(backgroundPred, preludeOrder)
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
   
   def main(args: Array[String]) : Unit = Console.withOut(Console.err) {
@@ -162,11 +188,11 @@ object WolverineInterfaceMain {
               
               val internalInter = Internal2InputAbsy(i, functionEncoder.predTranslation)
               val simpInter = Simplifier(internalInter)
-              Console.withOut(Console.err) {
-                println(simpInter)
-              }
+/*              Console.withOut(Console.err) {
+                  println(simpInter)
+                } */
               
-              WolverineInterpolantLineariser.visit(simpInter, List())
+              wolverineLineariser.visit(simpInter, List())
               println
             }
           }
@@ -210,18 +236,18 @@ object WolverineInterfaceMain {
                              : Either[Conjunction, Iterator[Conjunction]] = {
     val names = Seqs.toArray((Set() ++ namedParts.keys) - PartName.NO_NAME)
     Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
-    
-    val inputFors = (for (n <- names) yield namedParts(n)) ++ List(backgroundPred)
-    
+
 //    ap.util.Timer.measure("solving") {
-      ModelSearchProver(inputFors, sig.order, goalSettings)
+       interpolationProver.conclude(for (n <- names) yield namedParts(n),
+                                    sig.order)
+                          .checkValidity
 //    }
     match {
       case Left(counterexample) =>
         Left(counterexample)
       case Right(cert) => {
         println("Found proof (size " + cert.inferenceCount + ")")
-            
+
         Right(
           for (i <- Iterator.range(1, names.size)) yield {
             val interspec =
@@ -240,8 +266,10 @@ object WolverineInterfaceMain {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-object WolverineInterpolantLineariser extends CollectingVisitor[List[String], Unit] {
+class WolverineInterpolantLineariser(select : IFunction, store : IFunction)
+      extends CollectingVisitor[List[String], Unit] {
 
+  import IExpression._
   import IBinJunctor._
   import IIntRelation._
   
@@ -254,7 +282,7 @@ object WolverineInterpolantLineariser extends CollectingVisitor[List[String], Un
   }
   
   private object Difference {
-    def unapply(t : IExpression) : Option[(IExpression, IExpression)] = t match {
+    def unapply(t : IExpression) : Option[(ITerm, ITerm)] = t match {
       case ITimes(IdealInt.MINUS_ONE, t) => Some(0, t)
       case IPlus(t1, ITimes(IdealInt.MINUS_ONE, t2)) => Some(t1, t2)
       case IPlus(ITimes(IdealInt.MINUS_ONE, t2), t1) => Some(t1, t2)
@@ -267,6 +295,19 @@ object WolverineInterpolantLineariser extends CollectingVisitor[List[String], Un
   override def preVisit(t : IExpression, boundVars : List[String]) : PreVisitResult = {
     print("(")
     t match {
+      // we do some special rewriting for the theory of arrays (to avoid
+      // quantifiers if possible)
+      // TODO: generalise this
+      
+      case IQuantified(Quantifier.EX, IIntFormula(EqZero,
+                 Difference(IFunApp(store, Seq(IVariable(0), t1, t2)), t3))) => {
+        print("= ")
+        visit(select(t3, t1), "" :: boundVars)
+        visit(t2, "" :: boundVars)
+        print(") ")
+        ShortCutResult()
+      }
+      
       case _ : IIntLit =>                 printOp("lit")
       case _ : IConstant =>               printOp("sym")
       case _ : IVariable =>               printOp("boundVar")
@@ -287,13 +328,13 @@ object WolverineInterpolantLineariser extends CollectingVisitor[List[String], Un
     	printOp(j match {
                   case EqZero => "="
                   case GeqZero => ">="
-        	    })
+                })
      
         t match {
           case Difference(t1, t2) => {
-        	visit(t1, boundVars); visit(t2, boundVars)
+            visit(t1, boundVars); visit(t2, boundVars)
             print(")")
-        	ShortCutResult()
+            ShortCutResult()
           }
           case _ => KeepArg
         }

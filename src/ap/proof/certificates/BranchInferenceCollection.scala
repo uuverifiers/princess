@@ -100,6 +100,12 @@ trait BranchInferenceCollector extends ComputationLogger {
   def getCollection : BranchInferenceCollection
   
   /**
+   * Inform the collector that a new formula has occurred on the branch
+   * (important for alpha-rules)
+   */
+  def newFormula(f : Conjunction) : Unit
+
+  /**
    * Inference corresponding to an application of the <code>col-red</code> or
    * <code>col-red-subst</code> rule. This will simply introduce a new constant
    * <code>newSymbol</code> that is defined as the term
@@ -134,6 +140,7 @@ trait BranchInferenceCollector extends ComputationLogger {
 
 object NonLoggingBranchInferenceCollector
        extends ComputationLogger.NonLoggingLogger with BranchInferenceCollector {
+  def newFormula(f : Conjunction) : Unit = {}
   def getCollection : BranchInferenceCollection = BranchInferenceCollection.EMPTY
   def columnReduce(oldSymbol : ConstantTerm, newSymbol : ConstantTerm,
                    newSymbolDef : LinearCombination, subst : Boolean,
@@ -169,10 +176,12 @@ class LoggingBranchInferenceCollector private
   
   def apply(inf : BranchInference) : Unit = {
     inferences = inf :: inferences
-    for (f <- inf.providedFormulas.elements;
-         alphaInf <- BranchInferenceCollection.genAlphaInferences(f).elements)
-      inferences = alphaInf :: inferences
+    for (f <- inf.providedFormulas) newFormula(f)
   }
+
+  def newFormula(f : Conjunction) : Unit =
+    for (alphaInf <- BranchInferenceCollection genAlphaInferences f)
+      inferences = alphaInf :: inferences
   
   def getCollection : BranchInferenceCollection =
     BranchInferenceCollection(inferences)

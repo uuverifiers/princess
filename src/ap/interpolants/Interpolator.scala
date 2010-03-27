@@ -649,7 +649,7 @@ object Interpolator
                 result.negatedConjs(0).predConj.elements.toList
               else
                 (for (lit <- result.predConj.elements) yield !lit).toList
-            
+
             (instAtoms exists (iContext isRewrittenLeftLit _),
              instAtoms exists (iContext isRewrittenRightLit _)) match {
                case (true, false) => true
