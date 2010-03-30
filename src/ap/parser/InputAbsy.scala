@@ -173,6 +173,21 @@ abstract class ITerm extends IExpression {
   def <(that : ITerm) : IFormula =
     IIntFormula(IIntRelation.GeqZero, that - this + IIntLit(IdealInt.MINUS_ONE))
 
+  def +++(that : ITerm) : ITerm = (this, that) match {
+    case (IExpression.Const(IdealInt.ZERO), t) => t
+    case (t, IExpression.Const(IdealInt.ZERO)) => t
+    case (IExpression.Const(a), IExpression.Const(b)) => IIntLit(a + b)
+    case _ => this + that
+  }
+
+  def ***(coeff : IdealInt) : ITerm = (coeff, this) match {
+    case (IdealInt.ZERO, _) => IIntLit(0)
+    case (IdealInt.ONE, t) => t
+    case (coeff, IExpression.Const(a)) => IIntLit(coeff * a)
+    case (coeff, ITimes(c, t)) => ITimes(c * coeff, t)
+    case _ => this * coeff
+  }
+
   override def update(newSubExprs : Seq[IExpression]) : ITerm = {
     ////////////////////////////////////////////////////////////////////////////
     Debug.assertPre(IExpression.AC, newSubExprs.isEmpty)

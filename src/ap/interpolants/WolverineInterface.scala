@@ -56,7 +56,7 @@ object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
   
-  Debug.enableAllAssertions(false)
+  Debug.enableAllAssertions(true)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -220,9 +220,9 @@ object WolverineInterfaceMain {
       Preprocessing(problem, List(), signature, preprocSettings, functionEncoder)
     functionEncoder.clearAxioms
 
-    lazy val namedParts =
+    val namedParts =
       Map() ++ (for (INamedPart(name, f) <- iProblemParts)
-                yield (name -> conj(InputAbsy2Internal(f, order))))
+                yield (name -> conj(InputAbsy2Internal(f, signature2.order))))
 
     println("Parsed problem")
 
@@ -238,7 +238,8 @@ object WolverineInterfaceMain {
     Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
 
 //    ap.util.Timer.measure("solving") {
-       interpolationProver.conclude(for (n <- names) yield namedParts(n),
+       interpolationProver.conclude((for (n <- names) yield namedParts(n)) ++
+                                      (namedParts get PartName.NO_NAME).toList,
                                     sig.order)
                           .checkValidity
 //    }
@@ -292,6 +293,42 @@ class WolverineInterpolantLineariser(select : IFunction, store : IFunction)
     }
   }
   
+  /**
+   * Rewrite a term to the form <code>coeff * symbol + remainder</code>
+   * (where remainder does not contain the atomic term
+   * <code>symbol</code>) and determine the coefficient and the remainder
+   */
+  private case class Sum(symbol : ITerm) {
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertCtor(AC, symbol.isInstanceOf[IVariable] || symbol.isInstanceOf[IConstant])
+    ////////////////////////////////////////////////////////////////////////////
+    
+    def unapply(t : ITerm) : Option[(IdealInt, ITerm)] ={
+      val (coeff, remainder) = decompose(t, 1)
+      symbol match {
+        case symbol : IVariable
+          if ((SymbolCollector variables remainder) contains symbol) => None
+        case IConstant(c)
+          if ((SymbolCollector constants remainder) contains c) => None
+        case _ => Some(coeff, remainder)
+      }
+    }
+
+    private def decompose(t : ITerm,
+                          coeff : IdealInt) : (IdealInt, ITerm) = t match {
+      case `symbol` => (coeff, 0)
+      case ITimes(c, t) => decompose(t, coeff * c)
+      case IPlus(a, b) => {
+        val (ca, ra) = decompose(a, coeff)
+        val (cb, rb) = decompose(b, coeff)
+        (ca + cb, ra +++ rb)
+      }
+      case _ => (0, t *** coeff)
+    }
+  }
+  
+  private val Var0Plus = Sum(IVariable(0))
+  
   override def preVisit(t : IExpression, boundVars : List[String]) : PreVisitResult = {
     print("(")
     t match {
@@ -307,7 +344,24 @@ class WolverineInterpolantLineariser(select : IFunction, store : IFunction)
         print(") ")
         ShortCutResult()
       }
-      
+
+      // divisibility constraints
+      case IQuantified(Quantifier.EX,
+                       IIntFormula(EqZero, Var0Plus(c, t))) => {
+        print("divides "); print(c); print(" ")
+        visit(t, "" :: boundVars)
+        print(") ")
+        ShortCutResult()
+      }
+
+      case IQuantified(Quantifier.ALL,
+                       INot(IIntFormula(EqZero, Var0Plus(c, t)))) => {
+        print("! (divides "); print(c); print(" ")
+        visit(t, "" :: boundVars)
+        print(")) ")
+        ShortCutResult()
+      }
+
       case _ : IIntLit =>                 printOp("lit")
       case _ : IConstant =>               printOp("sym")
       case _ : IVariable =>               printOp("boundVar")
@@ -333,7 +387,7 @@ class WolverineInterpolantLineariser(select : IFunction, store : IFunction)
         t match {
           case Difference(t1, t2) => {
             visit(t1, boundVars); visit(t2, boundVars)
-            print(")")
+            print(") ")
             ShortCutResult()
           }
           case _ => KeepArg

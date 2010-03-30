@@ -270,37 +270,44 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
     }
     ////////////////////////////////////////////////////////////////////////////
      
-    // we need some atom with the given predicate to do binary search
-    val atom = Atom(pred, Array.make(pred.arity, LinearCombination.ZERO), order)
+    // first check whether the predicate is available at all (otherwise,
+    // comparisons using the <code>TermOrder</code> might fail)
+    if (!(predicates contains pred)) {
+      post(Array())
+    } else {
+      
+      // we need some atom with the given predicate to do binary search
+      val atom = Atom(pred, Array.make(pred.arity, LinearCombination.ZERO), order)
     
-    // we assume that the sequence of atoms is sorted
-    implicit def orderAtom(thisA : Atom) =
-      new Ordered[Atom] {
-        def compare(thatA : Atom) : Int =
-          order.compare(thatA, thisA)
-      }
+      // we assume that the sequence of atoms is sorted
+      implicit def orderAtom(thisA : Atom) =
+        new Ordered[Atom] {
+          def compare(thatA : Atom) : Int =
+            order.compare(thatA, thisA)
+        }
 
-    def findAllAtoms(i : Int) = {
-      var lowerBound : Int = i
-      var upperBound : Int = i+1
-      while (lowerBound > 0 && otherAtoms(lowerBound-1).pred == pred)
-        lowerBound = lowerBound - 1
-      while (upperBound < otherAtoms.size && otherAtoms(upperBound).pred == pred)
-        upperBound = upperBound + 1
-      post(otherAtoms.slice(lowerBound, upperBound))
-    }
+      def findAllAtoms(i : Int) = {
+        var lowerBound : Int = i
+        var upperBound : Int = i+1
+        while (lowerBound > 0 && otherAtoms(lowerBound-1).pred == pred)
+          lowerBound = lowerBound - 1
+        while (upperBound < otherAtoms.size && otherAtoms(upperBound).pred == pred)
+          upperBound = upperBound + 1
+        post(otherAtoms.slice(lowerBound, upperBound))
+      }
     
-    Seqs.binSearch(otherAtoms, 0, otherAtoms.size, atom) match {
-    case Seqs.Found(i) =>
-      findAllAtoms(i)
-    case Seqs.NotFound(i) =>
-      if (i > 0 && otherAtoms(i-1).pred == pred)
-        findAllAtoms(i-1)
-      else if (i < otherAtoms.size && otherAtoms(i).pred == pred)
+      Seqs.binSearch(otherAtoms, 0, otherAtoms.size, atom) match {
+      case Seqs.Found(i) =>
         findAllAtoms(i)
-      else
-        // no other atoms with the same predicate exist
-        post(otherAtoms.slice(0, 0))
+      case Seqs.NotFound(i) =>
+        if (i > 0 && otherAtoms(i-1).pred == pred)
+          findAllAtoms(i-1)
+        else if (i < otherAtoms.size && otherAtoms(i).pred == pred)
+          findAllAtoms(i)
+        else
+          // no other atoms with the same predicate exist
+          post(otherAtoms.slice(0, 0))
+      }
     }
   }
                 
