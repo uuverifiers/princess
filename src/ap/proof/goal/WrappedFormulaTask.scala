@@ -74,19 +74,7 @@ case class WrappedFormulaTask(realTask : FormulaTask, simplifiedTasks : Seq[Form
     Debug.assertCtor(WrappedFormulaTask.AC, Param.PROOF_CONSTRUCTION(goal.settings))
     ////////////////////////////////////////////////////////////////////////////
     
-    simplifiedTasks match {
-      case Seq(simpTask) => {
-        // if there is only a single simplified task, we continue with the
-        // reduced formula
-
-        val reducedFormula = goal reduceWithFacts simpTask.formula
-        if (reducedFormula == simpTask.formula)
-          List(this)
-        else
-          realTask.constructWrappedTask(reducedFormula, goal)
-      }
-      case _ => realTask.updateTask(goal, factCollector)
-    }
+    realTask.updateTask(goal, factCollector)
   }
 
   /**

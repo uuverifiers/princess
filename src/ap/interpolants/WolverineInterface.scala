@@ -224,7 +224,7 @@ object WolverineInterfaceMain {
       Map() ++ (for (INamedPart(name, f) <- iProblemParts)
                 yield (name -> conj(InputAbsy2Internal(f, signature2.order))))
 
-    println("Parsed problem")
+    // println("Parsed problem")
 
     (namedParts, signature2)
   }
