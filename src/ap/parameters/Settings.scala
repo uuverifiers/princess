@@ -111,7 +111,8 @@ object GoalSettings {
 
 object PreprocessingSettings {
 
-  val allParams = List(Param.CLAUSIFIER)
+  val allParams = List(Param.CLAUSIFIER,
+                       Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())

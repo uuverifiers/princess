@@ -46,16 +46,20 @@ object Preprocessing {
             settings : PreprocessingSettings,
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
-              
+
     // turn the formula into a list of its named parts
     val fors = PartExtractor(f)
     
     // expand equivalences
     val fors2 = for (f <- fors) yield EquivExpander(f).asInstanceOf[INamedPart]
     
+    val triggerGenerator =
+      new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings))
+    val fors2b = for (f <- fors2) yield triggerGenerator(f)
+
     // translate functions to relations
     var order3 = signature.order
-    val fors3 = for (INamedPart(n, f) <- fors2) yield INamedPart(n, {
+    val fors3 = for (INamedPart(n, f) <- fors2b) yield INamedPart(n, {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
       g

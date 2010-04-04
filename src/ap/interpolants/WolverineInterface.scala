@@ -56,7 +56,7 @@ object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
   
-  Debug.enableAllAssertions(true)
+  Debug.enableAllAssertions(false)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -69,12 +69,6 @@ object WolverineInterfaceMain {
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private val preprocSettings = PreprocessingSettings.DEFAULT
-  private val interpolationSettings =
-    Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true)
-  
-  //////////////////////////////////////////////////////////////////////////////
-
   private val preludeEnv = new Environment
   private val functionEncoder = new FunctionEncoder
   
@@ -86,7 +80,7 @@ object WolverineInterfaceMain {
 
     val (iBackgroundFors, _, signature2) =
       Preprocessing(iBackgroundPredRaw, List(), signature,
-                    preprocSettings, functionEncoder)
+                    PreprocessingSettings.DEFAULT, functionEncoder)
     functionEncoder.clearAxioms
     
     val iBackgroundPred =
@@ -109,21 +103,30 @@ object WolverineInterfaceMain {
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private val wolverineLineariser = {
-    val select = 
-      preludeEnv.lookupSym("select") match {
-        case Environment.Function(f) => f
-        case _ => throw new Error("Expected select to be defined as a function");
-      }
+  private val select =
+    preludeEnv.lookupSym("select") match {
+      case Environment.Function(f) => f
+      case _ => throw new Error("Expected select to be defined as a function");
+    }
   
-    val store = 
-      preludeEnv.lookupSym("store") match {
-        case Environment.Function(f) => f
-        case _ => throw new Error("Expected store to be defined as a function");
-      }
+  private val store = 
+    preludeEnv.lookupSym("store") match {
+      case Environment.Function(f) => f
+      case _ => throw new Error("Expected store to be defined as a function");
+    }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val preprocSettings =
+    Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(PreprocessingSettings.DEFAULT,
+                                                     Set(select, store))
+  private val interpolationSettings =
+    Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true)
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private val wolverineLineariser =
     new WolverineInterpolantLineariser(select, store)
-  }
   
   private val interpolationProver = {
     val prover = ModelSearchProver emptyIncProver interpolationSettings

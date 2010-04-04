@@ -86,6 +86,11 @@ object Param {
     val defau : ClausifierOptions.Value = ClausifierOptions.None
   }
 
+  case object TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS extends Param {
+    type Value = Set[ap.parser.IFunction]
+    val defau : Set[ap.parser.IFunction] = Set()
+  }
+  
   case object SYMBOL_WEIGHTS extends Param {
     type Value = ap.proof.goal.SymbolWeights
     val defau : ap.proof.goal.SymbolWeights = ap.proof.goal.SymbolWeights.DEFAULT
