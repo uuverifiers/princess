@@ -40,12 +40,12 @@ object ComposeSubsts {
   def apply(secondSubst : Substitution,
             firstSubst : Substitution,
             order : TermOrder) : Substitution = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // a sufficient, but not a necessary condition for getting the composed
     // substitution work correctly. This could be weakened
     Debug.assertPre(AC,
                     firstSubst.order == order && secondSubst.order == order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     (secondSubst, firstSubst) match {
       case (_, _ : IdentitySubst) =>
@@ -77,12 +77,12 @@ class ComposeSubsts private (private val secondSubst : Substitution,
                              protected [substitutions] val order : TermOrder)
       extends Substitution {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // a sufficient, but not a necessary condition for getting the composed
   // substitution work correctly. This could be weakened
   Debug.assertCtor(ComposeSubsts.AC,
                    firstSubst.order == order && secondSubst.order == order)
-  //////////////////////////////////////////////////////////////////////////////     
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   protected[substitutions] def passQuantifiers(num : Int) : Substitution =
     new ComposeSubsts (secondSubst.passQuantifiers(num),

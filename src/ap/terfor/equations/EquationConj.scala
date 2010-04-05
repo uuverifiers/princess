@@ -116,10 +116,10 @@ object EquationConj {
            logger : ComputationLogger,
            order : TermOrder) : EquationConj =
     Formula.conj(conjs, TRUE, (nonTrivialConjs:RandomAccessSeq[EquationConj]) => {
-                   /////////////////////////////////////////////////////////////
+                   //-BEGIN-ASSERTION-//////////////////////////////////////////
                    Debug.assertPre(AC, Logic.forall(for (c <- nonTrivialConjs.elements)
                                                     yield (c isSortedBy order)))
-                   /////////////////////////////////////////////////////////////
+                   //-END-ASSERTION-////////////////////////////////////////////
                    apply(for (c <- nonTrivialConjs.elements; lhs <- c.elements)
                            yield lhs,
                          logger,
@@ -152,14 +152,14 @@ class EquationConj private (_lhss : Array[LinearCombination],
                             _order : TermOrder)
       extends EquationSet(_lhss, _order) with SortedWithOrder[EquationConj] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // no two equations must have the same leading term (otherwise the conjunction
   // of equations is not properly normalised)
   Debug.assertCtor(EquationConj.AC,
                    Logic.forall(0, this.size - 1,
                                 (i:Int) => order.compare(this(i).leadingTerm,
                                                          this(i+1).leadingTerm) > 0))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : EquationConj = {
     if (isSortedBy(newOrder))
@@ -200,9 +200,9 @@ class EquationConj private (_lhss : Array[LinearCombination],
    */
   def updateEqsSubset(newEqs : Seq[LinearCombination])(implicit newOrder : TermOrder)
                      : EquationConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(NegEquationConj.AC, Seqs.subSeq(newEqs.elements, this.elements))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (newEqs.size == this.size)
       this
     else
@@ -226,9 +226,9 @@ class EquationConj private (_lhss : Array[LinearCombination],
     if (this.isTrue) {
       NegEquationConj.FALSE
     } else {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(EquationConj.AC, this.size == 1)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       NegEquationConj(this(0), order)
     }
   }
@@ -316,12 +316,12 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     if (!lhs.isZero) {
       checkNonZero(lhs)
       val primLhs = lhs.makePrimitiveAndPositive
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(EquationConj.AC,
                       nonRedLhss.isEmpty ||
                       order.compare(nonRedLhss.last.leadingTerm,
                                     primLhs.leadingTerm) > 0)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       logger.ceScope.finish(primLhs)
       nonRedLhss += primLhs
     }
@@ -333,9 +333,9 @@ private class RowSolver(lhss : Iterator[LinearCombination],
   // pairwise distinct
    
   for (lhs <- lhss) {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(EquationConj.AC, lhs isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////    
+    //-END-ASSERTION-///////////////////////////////////////////////////////////    
     addNonCanon(lhs)
   }
 
@@ -345,9 +345,9 @@ private class RowSolver(lhss : Iterator[LinearCombination],
    * <code>addNonCanon</code>
    */
   private def canonise(currentLhss : ArrayBuffer[LinearCombination]) : Unit = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(EquationConj.AC, !currentLhss.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (currentLhss.size == 1)
       addNonReduced(currentLhss(0))
@@ -357,9 +357,9 @@ private class RowSolver(lhss : Iterator[LinearCombination],
 
   private def canoniseMultiple(currentLhss : ArrayBuffer[LinearCombination])
                                                                     : Unit = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(EquationConj.AC, currentLhss.size > 1)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val (gcd, factors) =
       IdealInt.gcdAndCofactors(for (lc <- currentLhss) yield lc.leadingCoeff)
@@ -382,12 +382,12 @@ private class RowSolver(lhss : Iterator[LinearCombination],
       
       val combination = Array((IdealInt.ONE, lc), (-(lc.leadingCoeff / gcd), gcdLhs))
       val rem = LinearCombination.sum(combination, order)
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(EquationConj.AC,
                       rem.isZero ||
                       order.compare(rem.leadingTerm,
                                     currentLhss(0).leadingTerm) < 0)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       logger.ceScope.start((combination, order)) {
         addNonCanon(rem)
       }
@@ -438,20 +438,20 @@ private class RowSolver(lhss : Iterator[LinearCombination],
    * if it is detected that the conjunction of equations is unsatisfiable
    */
   private def addReduced(lhs : LinearCombination) : LinearCombination = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(EquationConj.AC,
                     !lhs.isZero && eqIndex >= 0 && eqIndex < nonRedLhss.size)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     checkNonZero(lhs)
     val primLhs = lhs.makePrimitiveAndPositive
     
-    //////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
     Debug.assertInt(EquationConj.AC,
                     eqIndex == redLhss.size - 1 ||
                       order.compare(redLhss(eqIndex+1).leadingTerm,
                                     primLhs.leadingTerm) < 0)
-    //////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-/////////////////////////////////////////////////////////
     
     logger.ceScope.finish(primLhs)
     redLhss(eqIndex) = primLhs

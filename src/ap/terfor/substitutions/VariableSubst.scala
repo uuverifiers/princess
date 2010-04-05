@@ -42,12 +42,12 @@ class VariableSubst(offset : Int,
                     protected [substitutions] val order : TermOrder)
       extends SimpleSubstitution {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(VariableSubst.AC,
                    (offset >= 0) &&
                    Logic.forall(for (t <- replacements.elements)
                                 yield (order isSortingOf t)))
-  //////////////////////////////////////////////////////////////////////////////     
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////     
 
   protected[substitutions] def passQuantifiers(num : Int) : Substitution = {
     // TODO: could be optimised by caching

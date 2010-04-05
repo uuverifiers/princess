@@ -70,9 +70,9 @@ trait PseudoDivSubstitution extends Substitution {
                     case OneTerm => (IdealInt.ONE, OneTerm)
                   }
        
-                  //////////////////////////////////////////////////////////////
+                  //-BEGIN-ASSERTION-///////////////////////////////////////////
                   Debug.assertInt(PseudoDivSubstitution.AC, !replDenom.isZero)
-                  //////////////////////////////////////////////////////////////
+                  //-END-ASSERTION-/////////////////////////////////////////////
                          
                   if (replDenom.isOne) {
                     (coeff, IdealInt.ONE, repl)
@@ -86,9 +86,9 @@ trait PseudoDivSubstitution extends Substitution {
     
     val denomLcm = IdealInt.lcm(for (r <- repls.elements) yield (r _2))
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(PseudoDivSubstitution.AC, denomLcm.signum > 0)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     LinearCombination(for ((num, denom, repl) <- repls.elements)
                       yield (num * (denomLcm / denom), repl),

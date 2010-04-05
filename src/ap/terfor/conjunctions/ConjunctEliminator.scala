@@ -50,7 +50,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   
   private var conj = oriConj
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // we only know how to eliminate constants and variables
   Debug.assertCtor(ConjunctEliminator.AC,
                    Logic.forall(for (t <- universalSymbols.elements)
@@ -59,7 +59,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                                   case _ : VariableTerm => true
                                   case _ => false
                                 })))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   private def occursIn(f : TerFor, c : Term) = c match {
     case c : ConstantTerm => f.constants contains c
@@ -121,9 +121,9 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   }
 
   private def eliminablePositiveEqsNonU(c : Term) : Boolean = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ConjunctEliminator.AC, !(universalSymbols contains c))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     // we do not remove the equation if c is not an eliminated constant, but
     // the equation contains other eliminated constants;
     // there are chances that we can remove the equation completely later
@@ -165,9 +165,9 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   // eliminated equations
     
   private def elimNegativeEqsU(c : Term) : NegEquationConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ConjunctEliminator.AC, universalSymbols contains c)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val eqs = conj.arithConj.negativeEqs
     
     val (eliminatedEqs, remainingEqs) =
@@ -199,9 +199,9 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   }
 
   private def elimOnesidedInEqsU(c : Term, logger : ComputationLogger) : InEqConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ConjunctEliminator.AC, universalSymbols contains c)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val inEqs = conj.arithConj.inEqs
     
     val (eliminatedInEqs, remainingInEqs) =
@@ -223,9 +223,9 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                  yield (!occursIn(lc, c) || !containsEliminatedSymbols(lc)))
 
   private def elimNegativeEqs(c : Term) : Unit = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ConjunctEliminator.AC, !(universalSymbols contains c))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val (constraintEqs, remainingEqs) =
       Seqs.split(conj.arithConj.negativeEqs, occursIn(_ : LinearCombination, c))
@@ -342,10 +342,10 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
           case None => inEqs
           case Some(c) => {
             val (eliminated, remaining) = InEqConj.exactShadow(c, inEqs, logger, order)
-            ////////////////////////////////////////////////////////////////////
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(ConjunctEliminator.AC,
                             remaining forall (!occursIn(_, c)))
-            ////////////////////////////////////////////////////////////////////
+            //-END-ASSERTION-///////////////////////////////////////////////////
             c match {
               case c : ConstantTerm => {
                 val eliminatedFor = ArithConj.conj(InEqConj(eliminated, order), order)

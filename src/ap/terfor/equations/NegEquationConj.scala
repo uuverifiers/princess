@@ -81,10 +81,10 @@ object NegEquationConj {
    */
   def conj(conjs : Iterator[NegEquationConj], order : TermOrder) : NegEquationConj =
     Formula.conj(conjs, TRUE, (nonTrivialConjs:RandomAccessSeq[NegEquationConj]) => {
-                   /////////////////////////////////////////////////////////////
+                   //-BEGIN-ASSERTION-//////////////////////////////////////////
                    Debug.assertPre(AC, Logic.forall(for (c <- nonTrivialConjs.elements)
                                                     yield (c isSortedBy order)))
-                   /////////////////////////////////////////////////////////////
+                   //-END-ASSERTION-////////////////////////////////////////////
                    apply(for (c <- nonTrivialConjs.elements; lhs <- c.elements)
                          yield lhs,
                          order)
@@ -134,9 +134,9 @@ class NegEquationConj private (_lhss : Array[LinearCombination],
    */
   def updateEqsSubset(newEqs : Seq[LinearCombination])(implicit newOrder : TermOrder)
                      : NegEquationConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(NegEquationConj.AC, Seqs.subSeq(newEqs.elements, this.elements))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (newEqs.size == this.size)
       this
     else
@@ -160,9 +160,9 @@ class NegEquationConj private (_lhss : Array[LinearCombination],
     if (this.isTrue) {
       EquationConj.FALSE
     } else {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(NegEquationConj.AC, this.size == 1)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       EquationConj(this(0), order)
     }
   }

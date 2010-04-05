@@ -47,10 +47,10 @@ object FunctionEncoder {
                                criticalVars : Iterable[IVariable]) : IFormula =
     t match {
       case IBinFormula(op, _, _) => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPre(FunctionEncoder.AC,
                         op == IBinJunctor.And || op == IBinJunctor.Or)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         val parts = LineariseVisitor(t, op)
         val (outside, inside) =
           parts partition (x => Seqs.disjointSeq(SymbolCollector variables x,
@@ -121,10 +121,10 @@ object FunctionEncoder {
    */
   private def selectFrameFor(t : IFunApp, topFrame : AbstractionFrame)
                                      : (IFunApp, AbstractionFrame) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(FunctionEncoder.AC,
                     t forall (s => !s.isInstanceOf[IFunApp]))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     var curFrame = topFrame
     var tVars =
@@ -176,11 +176,11 @@ class FunctionEncoder {
       Context(AddDefinitions(new AbstractionFrame (null, 0), List()))
     
     val newF = visitor.visit(nnfF, context).asInstanceOf[IFormula]
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // no dangling variables in the result
     Debug.assertInt(FunctionEncoder.AC,
                     Set() ++ (SymbolCollector variables newF) == Set() ++ freeVars)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     (newF, visitor.order)
   }
 
@@ -259,9 +259,9 @@ class FunctionEncoder {
           // exists
           (definingFrame.abstractions get shiftedT) match {
             case Some(s) => {
-              //////////////////////////////////////////////////////////////////
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
               Debug.assertInt(FunctionEncoder.AC, s.size == 1)
-              //////////////////////////////////////////////////////////////////
+              //-END-ASSERTION-/////////////////////////////////////////////////
               s.elements.next
             }
             case None => allocNewAbstraction
@@ -333,10 +333,10 @@ class FunctionEncoder {
     override def preVisit(t : IExpression, c : Context[EncodingContext])
                                                     : PreVisitResult = t match {
       case INot(sub) => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         // we assume that the formula is in negation normal form
         Debug.assertPre(FunctionEncoder.AC, LeafFormula.unapply(sub) != None)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         super.preVisit(t, toNormal(c))
       }
       case IQuantified(q1, IQuantified(q2, _)) if (q1 == q2) =>

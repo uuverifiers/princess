@@ -113,12 +113,14 @@ object Seqs {
    */
   def binSearch[T <% Ordered[T]](seq : RandomAccessSeq[T],
                                  begin : Int, end : Int, wanted : T) : BS_Result = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
                     end >= begin &&
                     Logic.forall(begin, end - 1,
                                  (i:Int) => seq(i) <= seq(i+1)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     def post(res:BS_Result) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC,
                        res match {
                        case Found(i) => i >= begin && i < end &&
@@ -127,9 +129,9 @@ object Seqs {
                          (i == begin || seq(i-1) < wanted) &&
                          (i == end || seq(i) > wanted)
                        })
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     }
-    ////////////////////////////////////////////////////////////////////////////
     
     var lo : Int = begin
     var hi : Int = end
@@ -180,11 +182,11 @@ object Seqs {
         }
       }
       
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC, Logic.forall(0, res.size,
                                         i => Logic.forall(i+1, res.size,
                                           j => res(i) != res(j))))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     } else {
       s
@@ -567,16 +569,16 @@ object Seqs {
    * occur in <code>oldSeq</code>.
    */
   def diff[A <% Ordered[A]](newSeq : Seq[A], oldSeq : Seq[A]) : (Seq[A], Seq[A]) = {
-    ////////////////////////////////////////////////////////////////////////////
     def post(res : (Seq[A], Seq[A])) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC, {
         val (resOld, resNew) = res
         val (checkOld, checkNew) = newSeq partition (oldSeq contains _)
         (resOld sameElements checkOld) && (resNew sameElements checkNew)
       })
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     }
-    ////////////////////////////////////////////////////////////////////////////
 
     if (newSeq.isEmpty)
       return post(newSeq, newSeq)
@@ -622,8 +624,8 @@ object Seqs {
    */
   def diff3[A <% Ordered[A]](seq0 : Seq[A], seq1 : Seq[A])
                                           : (Seq[A], Seq[A], Seq[A]) = {
-    ////////////////////////////////////////////////////////////////////////////
     def post(res : (Seq[A], Seq[A], Seq[A])) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC, {
         val (left, common, right) = res
         val (ccommon, cleft) = diff(seq0, seq1)
@@ -632,9 +634,9 @@ object Seqs {
         (ccommon sameElements common) &&
         (cright sameElements right)
       })
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     }
-    ////////////////////////////////////////////////////////////////////////////
 
     if (seq0.isEmpty)
       return post(seq0, seq0, seq1)

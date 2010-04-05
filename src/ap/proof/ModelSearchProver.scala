@@ -68,10 +68,10 @@ object ModelSearchProver {
    * is valid).
    */
   def apply(inputFor : Formula, order : TermOrder) : Conjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ModelSearchProver.AC,
                     inputFor.variables.isEmpty && (order isSortingOf inputFor))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     cache(inputFor) {
       applyHelp(List(Conjunction.conj(inputFor, order)),
                 order, GoalSettings.DEFAULT).left.get
@@ -87,11 +87,11 @@ object ModelSearchProver {
    */
   def apply(inputDisjuncts : Seq[Conjunction], order : TermOrder,
             settings : GoalSettings) : Either[Conjunction, Certificate] = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ModelSearchProver.AC,
                     inputDisjuncts forall ((inputFor) =>
                       inputFor.variables.isEmpty && (order isSortingOf inputFor)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     applyHelp(inputDisjuncts, order,
               Param.CONSTRAINT_SIMPLIFIER.set(settings, simplifier))
   }
@@ -123,10 +123,10 @@ object ModelSearchProver {
         Left(model)
       case Right(certificates) => {
         if (Param.PROOF_CONSTRUCTION(settings)) {
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(ModelSearchProver.AC,
                           certificates.size == 1 && certificates(0) != null)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           val Seq(cert) = certificates
 
           /*
@@ -148,11 +148,11 @@ object ModelSearchProver {
           traceBF(cert)
           */
           
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(ModelSearchProver.AC,
                           cert.assumedFormulas subsetOf
                             (Set() ++ (for (d <- disjuncts.elements) yield d.negate)))
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           
           Right(cert)
         } else {
@@ -235,13 +235,13 @@ object ModelSearchProver {
                   depth, settings)
 
       case tree : ProofTreeOneChild => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(ModelSearchProver.AC, tree match {
                           case _ : WeakenTree => false
                           case tree : QuantifiedTree => tree.quan == Quantifier.ALL
                           case _ => true
                         })
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         val newConstsToIgnore = tree match {
           case tree : QuantifiedTree => constsToIgnore ++ tree.quantifiedConstants
           case _ => constsToIgnore
@@ -307,11 +307,11 @@ object ModelSearchProver {
 
     def conclude(fors : Iterable[Conjunction],
                  newOrder : TermOrder) : IncProver = {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC,
                       (goal.order isSubOrderOf newOrder) &&
                       goal.bindingContext.constantSeq.size <= 1)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       // check whether we have to update the <code>TermOrder</code> of the goal
       val newOrderGoal =

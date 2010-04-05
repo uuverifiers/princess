@@ -77,11 +77,11 @@ class LazyMatchTask(age : Int) extends PrioritisedTask {
                 : Seq[PrioritisedTask] = List(this)
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(LazyMatchTask.AC,
                     !(goal.compoundFormulas.eagerQuantifiedClauses factsAreOutdated
                                                            goal.facts.predConj))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     MatchFunctions.updateMatcher(goal, ptf, false)
   }
   

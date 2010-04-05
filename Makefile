@@ -49,6 +49,15 @@ scala-src:
 	$(shell [ -d bin ] || mkdir bin)
 	cd src && $(MAKE)
 
+gen-src-assertionless:
+	rm -rf src_assertionless
+	cd src && ./genSrcAssertionless
+	cd src_assertionless && ln -s ../src/Makefile .
+
+scala-src-assertionless: gen-src-assertionless
+	$(shell [ -d bin ] || mkdir bin)
+	cd src_assertionless && $(MAKE)
+
 parser-jar:
 	cd parser && $(MAKE)
 

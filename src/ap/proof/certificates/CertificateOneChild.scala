@@ -84,10 +84,10 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
   
 } with CertificateOneChild(_child) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInferenceCertificate.AC,
                    uniqueLocalProvidedFormulas forall (_ isSortedBy child.order))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
     "BranchInferences(" + (inferences mkString ", ") + ", " + child + ")"
@@ -108,11 +108,11 @@ object BranchInference {
  */
 abstract class BranchInference {
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInference.AC,
                    (assumedFormulas forall ((c:Conjunction) => !c.isTrue)) &&
                    !(providedFormulas forall ((c:Conjunction) => c.isTrue)))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   val assumedFormulas : Set[Conjunction]
   
@@ -173,7 +173,7 @@ case class QuantifierInference(quantifiedFormula : Conjunction,
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(QuantifierInference.AC,
                    !newConstants.isEmpty &&
                    {
@@ -187,7 +187,7 @@ case class QuantifierInference(quantifiedFormula : Conjunction,
                       quans(quans.size - newConstants.size - 1) != quans.last)
                    } &&
                    result == quantifiedFormula.instantiate(newConstants)(order))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def propagateConstraint(closingConstraint : Conjunction) = {
     implicit val o = order
@@ -223,7 +223,7 @@ case class GroundInstInference(quantifiedFormula : Conjunction,
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(GroundInstInference.AC,
                    !instanceTerms.isEmpty &&
                    (instanceTerms forall (_.variables.isEmpty)) &&
@@ -238,7 +238,7 @@ case class GroundInstInference(quantifiedFormula : Conjunction,
                       quans(quans.size - instanceTerms.size - 1) != quans.last)
                    } &&
                    result == quantifiedFormula.instantiate(instanceTerms)(order))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
 
@@ -269,7 +269,7 @@ case class ReduceInference(equations : Seq[(IdealInt, EquationConj)],
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ReduceInference.AC,
                    targetLit.isLiteral && targetLit.positiveEqs.isTrue &&
                    !equations.size.isEmpty &&
@@ -282,7 +282,7 @@ case class ReduceInference(equations : Seq[(IdealInt, EquationConj)],
                                negEqs +++ modifier =/= 0, inEqs +++ modifier >= 0,
                                order)
                    })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint  
 
@@ -328,7 +328,7 @@ case class ReducePredInference(equations : Seq[Seq[(IdealInt, EquationConj)]],
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ReducePredInference.AC,
                    targetLit.isLiteral && result.isLiteral &&
                    targetLit.positiveLits.isEmpty == result.positiveLits.isEmpty &&
@@ -353,7 +353,7 @@ case class ReducePredInference(equations : Seq[Seq[(IdealInt, EquationConj)]],
                      else
                        atom2PredConj(newAtom)
                    })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint  
 
@@ -387,7 +387,7 @@ case class CombineEquationsInference(equations : Seq[(IdealInt, EquationConj)],
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(CombineEquationsInference.AC,
                    // no interesting inferences can be made from only one
                    // equation
@@ -396,7 +396,7 @@ case class CombineEquationsInference(equations : Seq[(IdealInt, EquationConj)],
                    !result.isTrue &&
                    (result.isFalse || result.size == 1) &&
                    result == { implicit val o = order; unsimplifiedLHS === 0 })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
 
@@ -436,13 +436,13 @@ case class ColumnReduceInference(oldSymbol : ConstantTerm, newSymbol : ConstantT
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ColumnReduceInference.AC,
                    definingEquation.size == 1 && !definingEquation.isFalse &&
                    (definingEquation(0) get (oldSymbol)).abs.isOne &&
                    (definingEquation(0) get (newSymbol)) ==
                      -(definingEquation(0) get (oldSymbol)))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   private lazy val constraintSubst = {
     implicit val o = order
@@ -485,7 +485,7 @@ case class CombineInequalitiesInference(leftCoeff : IdealInt, leftInEq : InEqCon
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(CombineInequalitiesInference.AC,
                    leftInEq.size == 1 && rightInEq.size == 1 &&
                    !leftInEq.isFalse && !rightInEq.isFalse &&
@@ -493,7 +493,7 @@ case class CombineInequalitiesInference(leftCoeff : IdealInt, leftInEq : InEqCon
                    !result.isTrue &&
                    (result.isFalse || result.size == 1) &&
                    result == { implicit val o = order; unsimplifiedLHS >= 0})
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
 
@@ -530,7 +530,7 @@ case class AntiSymmetryInference(leftInEq : InEqConj, rightInEq : InEqConj,
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AntiSymmetryInference.AC,
                    leftInEq.size == 1 && rightInEq.size == 1 &&
                    !leftInEq.isFalse && !rightInEq.isFalse &&
@@ -540,7 +540,7 @@ case class AntiSymmetryInference(leftInEq : InEqConj, rightInEq : InEqConj,
                      implicit val o = order
                      leftInEq(0) === 0
                    })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
   
@@ -569,7 +569,7 @@ case class DirectStrengthenInference(inequality : InEqConj, equation : NegEquati
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(DirectStrengthenInference.AC,
                    inequality.size == 1 && !inequality.isFalse &&
                    equation.size == 1 && !equation.isFalse &&
@@ -579,7 +579,7 @@ case class DirectStrengthenInference(inequality : InEqConj, equation : NegEquati
                      implicit val o = order
                      inequality(0) > 0
                    })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
   
@@ -607,7 +607,7 @@ case class DivRightInference(divisibility : Conjunction,
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(DivRightInference.AC,
                    divisibility.isNonDivisibility && {
                       implicit val o = order
@@ -617,7 +617,7 @@ case class DivRightInference(divisibility : Conjunction,
                       result == exists(exists(
                         (divTerm + v(1) === 0) & (v(1) > 0) & (v(1) < divCoeff)))
                     })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
   
@@ -647,7 +647,7 @@ case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
 
 } with BranchInference {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(PredUnifyInference.AC, {
                      implicit val o = order
                      leftAtom.pred == rightAtom.pred &&
@@ -655,7 +655,7 @@ case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
                        ((for ((l, r) <- leftAtom.elements zip rightAtom.elements)
                            yield (l - r)).toList === 0)
                    })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
   

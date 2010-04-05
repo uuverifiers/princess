@@ -202,14 +202,14 @@ private class GoalColumnSolver(eqs : EquationConj,
     } else {
       // then lc contains exactly one eliminated constant, which is the leading
       // term and has a coefficient that is not 1
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(FactsNormalisationTask.AC,
                       {
                         val (c, t) = lc(0)
                         !c.isOne && isEliminated(t)
                       } &&
                       Logic.forall(1, lc.size, (i) => !isEliminated(lc(i) _2)))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       Some(makeLeadingTermSmall(lc, order))
     }
 
@@ -319,8 +319,8 @@ private class GoalColumnSolver(eqs : EquationConj,
    * none or at least two terms that are eliminated in <code>goal</code>
    */
   private def noneOrTwoElimConstants(lc : LinearCombination) : Boolean = {
-    ////////////////////////////////////////////////////////////////////////////
     def post(b : Boolean) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(FactsNormalisationTask.AC,
                        b ==
                        (Logic.exists(0, lc.size, (i) =>
@@ -329,9 +329,9 @@ private class GoalColumnSolver(eqs : EquationConj,
                         ||
                         Logic.forall(for ((_, t) <- lc.elements)
                                      yield !isEliminated(t)))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       b
     }
-    ////////////////////////////////////////////////////////////////////////////
 
     post (if (lc.isEmpty) {
             true

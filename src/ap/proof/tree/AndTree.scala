@@ -74,14 +74,14 @@ object AndTree {
   def apply(subtrees : Seq[ProofTree], vocabulary : Vocabulary,
             partialCert : PartialCertificate,
             simplifier : ConstraintSimplifier) : ProofTree = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, !subtrees.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     subtrees match {
       case Seq(subtree) => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPre(AC, partialCert == null)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         subtree
       }
       case Seq(left, right) =>
@@ -123,9 +123,9 @@ object AndTree {
   private def combineCertificates(rootCert : PartialCertificate,
                                   leftCert : PartialCertificate,
                                   rightCert : PartialCertificate) : PartialCertificate = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, rootCert != null || leftCert == null && rightCert == null)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     (leftCert, rightCert) match {
       case (null, null) =>
         rootCert
@@ -165,7 +165,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
 
   import AndTree.{heightOf, certificateArityOf}
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AndTree.AC,
                    // Branching points in proof trees are represented as
                    // balanced binary trees
@@ -184,7 +184,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
                       case t : AndTree => t.partialCertificate == null
                       case _ => true
                     })))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   lazy val height : Int = 1 + (heightOf(left) max heightOf(right))
 

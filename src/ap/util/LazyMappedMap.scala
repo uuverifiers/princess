@@ -41,9 +41,9 @@ class LazyMappedMap[A,B,C,D] (oriMap : scala.collection.Map[A,B],
   def get(key : C) : Option[D] =
     if (keyUnmapping isDefinedAt key) {
       val oriKey = keyUnmapping(key)
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(LazyMappedMap.AC, keyMapping(oriKey) == key)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       (oriMap get oriKey) map valueMapping
     } else {
       None
@@ -55,10 +55,10 @@ class LazyMappedMap[A,B,C,D] (oriMap : scala.collection.Map[A,B],
     for ((key, value) <- oriMap.elements) yield {
       val mappedKey = keyMapping(key)
       val mappedValue = valueMapping(value)
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(LazyMappedMap.AC, (keyUnmapping isDefinedAt mappedKey) &&
                                         keyUnmapping(mappedKey) == key)
-      //////////////////////////////////////////////////////////////////////////      
+      //-END-ASSERTION-/////////////////////////////////////////////////////////      
       (mappedKey, mappedValue)
     }
   

@@ -29,9 +29,9 @@ object ReduceWithPredLits {
   private val AC = Debug.AC_PROPAGATION
   
   def apply(conj : PredConj, order : TermOrder) : ReduceWithPredLits = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, conj isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     new ReduceWithPredLits(conj.positiveLitsAsSet, conj.negativeLitsAsSet,
                            conj.predicates, order)
   }
@@ -43,11 +43,11 @@ class ReduceWithPredLits private (positiveLits : scala.collection.Set[Atom],
                                   preds : scala.collection.Set[Predicate],
                                   order : TermOrder) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ReduceWithPredLits.AC,
                    preds == Set() ++ (for (a <- positiveLits) yield a.pred) ++
                                      (for (a <- negativeLits) yield a.pred))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def addLits(furtherLits : PredConj) : ReduceWithPredLits =
     if (furtherLits.isTrue)
@@ -80,9 +80,9 @@ class ReduceWithPredLits private (positiveLits : scala.collection.Set[Atom],
     !Seqs.disjoint(preds, conj.predicates)
 
   def apply(conj : PredConj) : PredConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithPredLits.AC, conj isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     if (reductionPossible(conj)) {
       // TODO: should be done using binary search

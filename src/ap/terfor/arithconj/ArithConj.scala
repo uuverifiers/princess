@@ -62,9 +62,9 @@ object ArithConj {
     val inEqs = new ArrayBuffer[InEqConj]
     
     for (conj <- conjs) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC, order isSortingOf conj)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       conj match {
       case conj : EquationConj => posEqs += conj
@@ -104,13 +104,13 @@ class ArithConj private (val positiveEqs : EquationConj,
                          val order : TermOrder)
                 extends Formula with SortedWithOrder[ArithConj] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ArithConj.AC,
                    (positiveEqs isSortedBy order) &&
                    (negativeEqs isSortedBy order) &&
                    (inEqs isSortedBy order) &&
                    !negativeEqs.isFalse && !inEqs.isFalse)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : ArithConj = {
     if (isSortedBy(newOrder)) {
@@ -156,9 +156,9 @@ class ArithConj private (val positiveEqs : EquationConj,
    * Create the negation of at most one equation
    */
   def negate : ArithConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ArithConj.AC, this.size <= 1)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (!negativeEqs.isEmpty) {
       ArithConj(negativeEqs.negate, NegEquationConj.TRUE, InEqConj.TRUE, order)
     } else if (!positiveEqs.isEmpty) {

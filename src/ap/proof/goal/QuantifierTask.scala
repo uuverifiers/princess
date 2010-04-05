@@ -36,12 +36,12 @@ object QuantifierTask {
 abstract class QuantifierTask(_formula : Conjunction, _age : Int)
                extends FormulaTask(_formula, _age) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(QuantifierTask.AC,
                    !formula.isTrue && !formula.isFalse &&
                    !formula.isLiteral && !formula.isNegatedConjunction &&
                    !formula.quans.isEmpty)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
     
   /**
    * The name prefix to use for generated constants
@@ -103,9 +103,9 @@ abstract class QuantifierTask(_formula : Conjunction, _age : Int)
    * TODO: do this in a smarter way (determine which quantifiers can be permuted)?   
    */
   private def firstQuans(f : Conjunction) : (Quantifier, Int) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(QuantifierTask.AC, !f.quans.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
                                                                 
     val quans = f.quans
                                                                   

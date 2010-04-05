@@ -35,9 +35,9 @@ class PriorityQueueWithIterators[A <% Ordered[A]] extends PeekIterator[A] {
                                                    : Ordered[PeekIterator[A]] =
     new Ordered[PeekIterator[A]] {
       def compare(thatIt : PeekIterator[A]) : Int = {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, thisIt.hasNext && thatIt.hasNext)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         thisIt.peekNext compare thatIt.peekNext
       }
     }
@@ -66,9 +66,9 @@ class PriorityQueueWithIterators[A <% Ordered[A]] extends PeekIterator[A] {
         val maxSeq = sequences.dequeue
         maxElement = maxSeq.next
         if (maxSeq.hasNext) {
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, maxElement >= maxSeq.peekNext)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           sequences += maxSeq
         }
       }

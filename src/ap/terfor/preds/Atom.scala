@@ -49,11 +49,11 @@ class Atom private (val pred : Predicate,
               with SortedWithOrder[Atom]
               with RandomAccessSeq[LinearCombination] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(Atom.AC,
                    args.size == pred.arity &&
                    Logic.forall(for (lc <- this.elements) yield (lc isSortedBy order)))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   /**
    * Derive equations that describe under which condition this atom describes

@@ -89,9 +89,9 @@ object PredConj {
 
   // extract a predicate from a conjunction of literals
   def FALSE(conj : PredConj) : PredConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, !conj.isTrue)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val atom = if (conj.positiveLits.isEmpty)
                  conj.negativeLits(0)
                else 
@@ -108,9 +108,9 @@ object PredConj {
       val posLits = new ArrayBuffer[Atom]
       val negLits = new ArrayBuffer[Atom]
       for (c <- nonTrivialConjs) {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, c isSortedBy order)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         posLits ++= c.positiveLits
         negLits ++= c.negativeLits
       }
@@ -138,7 +138,7 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
                         val order : TermOrder)
       extends Formula with SortedWithOrder[PredConj] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   private def isSortedSeq(seq : RandomAccessSeq[Atom]) : Boolean =
     Logic.forall(for (a <- seq.elements) yield (a isSortedBy order)) &&
     Logic.forall(0, seq.size - 1,
@@ -150,8 +150,8 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
                    // conjunctions
                    Seqs.disjointSeq(Set() ++ positiveLits, negativeLits) ||
                    (positiveLits.size == 1 && negativeLits.size == 1))
-  //////////////////////////////////////////////////////////////////////////////
-  
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
   def sortBy(newOrder : TermOrder) : PredConj =
     if (isSortedBy(newOrder))
       this
@@ -192,12 +192,12 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
   def updateLitsSubset(newPosLits : Seq[Atom],
                        newNegLits : Seq[Atom],
                        newOrder : TermOrder) : PredConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(PredConj.AC,
                     Seqs.subSeq(newPosLits.elements, this.positiveLits.elements) &&
                     Seqs.subSeq(newNegLits.elements, this.negativeLits.elements) &&
                     (this isSortedBy newOrder))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (positiveLits.size == newPosLits.size &&
         negativeLits.size == newNegLits.size)
       this
@@ -232,9 +232,9 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
           (a.predicates subsetOf predicates)) {
         // in this case, binary search for the atom
         
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPre(PredConj.AC, a isSortedBy order)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         
         Seqs.binSearch(seq, 0, seq.size, a) match {
         case Seqs.Found(_) => true
@@ -259,16 +259,16 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
    */
   private def findLitsWithPred
      (pred : Predicate, otherAtoms : RandomAccessSeq[Atom]) : RandomAccessSeq[Atom] = {
-    ////////////////////////////////////////////////////////////////////////////
     def post(res : RandomAccessSeq[Atom]) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(PredConj.AC,
                        Logic.forall(for (a <- res.elements)
                                     yield (a.pred == pred)) &&
                        (for (a <- otherAtoms; if (a.pred == pred))
                         yield a).size == res.size)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     }
-    ////////////////////////////////////////////////////////////////////////////
      
     // first check whether the predicate is available at all (otherwise,
     // comparisons using the <code>TermOrder</code> might fail)
@@ -368,9 +368,9 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
    * in <code>oldConj</code>.
    */
   def diff(oldConj : PredConj) : (PredConj, PredConj) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(PredConj.AC, oldConj isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     implicit def orderAtom(thisA : Atom) =
       new Ordered[Atom] {
@@ -402,9 +402,9 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
    * Create the negation of exactly one literal
    */
   def negate : PredConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(PredConj.AC, this.isLiteral)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     new PredConj (negativeLits, positiveLits, order)
   }
 

@@ -49,10 +49,10 @@ object Conjunction {
     val (arithConj, predConj, negatedConjs) =
       segregateFormulas(formulas, logger, order)
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, !negatedConjs.containsLiteral &&
                         !negatedConjs.containsNegatedConjunction)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     createHelp(quans, arithConj, predConj, negatedConjs, order)
   }
@@ -79,10 +79,10 @@ object Conjunction {
         if (negC.isLiteral) {
           val negAC = negC.arithConj
           val negPC = negC.predConj
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC,
                           (negAC.isLiteral != negPC.isLiteral) && negC.negatedConjs.isEmpty)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           if (negAC.isLiteral)
             arithFors += negAC.negate
           else
@@ -183,10 +183,10 @@ object Conjunction {
    */
   def quantify(quan : Quantifier, constants : Seq[ConstantTerm],
                f : Formula, order : TermOrder) : Conjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // This is only well-defined if the formula does not contain free variables
     Debug.assertPre(AC, f.variables.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val constantSubst = ConstantSubst(Map() ++
                                       (for ((c, i) <- constants.elements.zipWithIndex)
@@ -370,7 +370,7 @@ class Conjunction private (val quans : Seq[Quantifier],
                            val order : TermOrder)
                   extends Formula with SortedWithOrder[Conjunction] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(Conjunction.AC,
                    (arithConj isSortedBy order) &&
                    (predConj isSortedBy order) &&
@@ -393,7 +393,7 @@ class Conjunction private (val quans : Seq[Quantifier],
                    // pulled out to the top-level
                    !(arithConj.isTrue && predConj.isTrue && negatedConjs.size == 1 &&
                      !negatedConjs(0).quans.isEmpty))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : Conjunction = {
     if (isSortedBy(newOrder)) {
@@ -474,7 +474,7 @@ class Conjunction private (val quans : Seq[Quantifier],
   def isDivisibility : Boolean = {
     val res = (quans sameElements List(Quantifier.EX)) && isDivisibilityHelp
 	              
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Conjunction.AC,
          res == (!arithConj.positiveEqs.isEmpty &&
                  (arithConj.positiveEqs(0).variables contains VariableTerm(0)) && 
@@ -482,7 +482,7 @@ class Conjunction private (val quans : Seq[Quantifier],
                                               EquationConj(arithConj.positiveEqs(0),
                                                            order),
                                               order)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
       
     res
   }
@@ -493,10 +493,10 @@ class Conjunction private (val quans : Seq[Quantifier],
    */
   def isQuantifiedDivisibility : Boolean = {
     val res = (quans startsWith List(Quantifier.EX)) && isDivisibilityHelp
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Conjunction.AC,
                      res == this.unquantify(quans.size - 1).isDivisibility)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
    
@@ -514,7 +514,7 @@ class Conjunction private (val quans : Seq[Quantifier],
   def isNonDivisibility : Boolean = {
     val res = (quans sameElements List(Quantifier.ALL)) && isNonDivisibilityHelp
                  
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Conjunction.AC,
          res == (!arithConj.negativeEqs.isEmpty &&
                  (arithConj.negativeEqs(0).variables contains VariableTerm(0)) && 
@@ -522,7 +522,7 @@ class Conjunction private (val quans : Seq[Quantifier],
                                               NegEquationConj(arithConj.negativeEqs(0),
                                                               order),
                                               order)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
        
     res
   }
@@ -533,10 +533,10 @@ class Conjunction private (val quans : Seq[Quantifier],
    */
   def isQuantifiedNonDivisibility : Boolean = {
     val res = (quans startsWith List(Quantifier.ALL)) && isNonDivisibilityHelp
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Conjunction.AC,
                      res == this.unquantify(quans.size - 1).isNonDivisibility)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
     

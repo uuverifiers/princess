@@ -302,9 +302,9 @@ class WolverineInterpolantLineariser(select : IFunction, store : IFunction)
    * <code>symbol</code>) and determine the coefficient and the remainder
    */
   private case class Sum(symbol : ITerm) {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertCtor(AC, symbol.isInstanceOf[IVariable] || symbol.isInstanceOf[IConstant])
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     def unapply(t : ITerm) : Option[(IdealInt, ITerm)] ={
       val (coeff, remainder) = decompose(t, 1)

@@ -65,11 +65,11 @@ object QuantifierElimProver {
             // for quantifier elimination unexpanded
             completeCNF : Boolean,
             order : TermOrder) : Conjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(QuantifierElimProver.AC,
                     ((Conjunction collectQuantifiers inputFor) subsetOf Set(Quantifier.ALL)) &&
                     (order isSortingOf inputFor))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val settings = if (completeCNF) completeCNFSettings else nonCompleteCNFSettings
     val goal = Goal.reduceAndCreateGoal(inputFor, order, settings)
     expandProof(goal, Conjunction.FALSE, 0)
@@ -97,12 +97,12 @@ object QuantifierElimProver {
     } else tree match { 
       case goal : Goal =>
         if (checkPruning(goal)) {
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(QuantifierElimProver.AC,
                           // check that no defined symbols occur in the
                           // pruning criterion
                           (goal definedSyms pruningFor) == pruningFor)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           val newPruningFor = goal definedSyms (goal reduceWithFacts pruningFor)
           if (newPruningFor.isTrue) {
 //            println("pruning")
@@ -121,10 +121,10 @@ object QuantifierElimProver {
         // quantifiers can be ignored, because it is assumed that eliminated
         // constants actually are eliminated and do not occur in constraints
         val res = expandProof(subtree, pruningFor, depth)
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPre(QuantifierElimProver.AC,
                         Seqs.disjointSeq(res.constants, consts))
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         res
       }
 

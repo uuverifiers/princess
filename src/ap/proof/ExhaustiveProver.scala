@@ -87,12 +87,12 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
 
   def apply(inputFor : Formula, signature : Signature) : ProofTree = {
     val order = signature.order
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ExhaustiveProver.AC,
                     inputFor.variables.isEmpty &&
                     (order isSortingOf inputFor) &&
                     Seqs.disjoint(inputFor.constants, signature.nullaryFunctions))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val goal = Goal.reduceAndCreateGoal(inputFor, order, settings)
     Timeout.unfinished {
       
@@ -113,10 +113,10 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
    * is valid
    */
   def isValidConstraint(constraint : Conjunction, signature : Signature) : Boolean = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ExhaustiveProver.AC,
                     Seqs.disjoint(constraint.constants, signature.nullaryFunctions))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (Seqs.disjoint(constraint.constants, signature.existentialConstants)) {
       PresburgerTools isValid constraint
     } else if (Seqs.disjoint(constraint.constants, signature.universalConstants)) {
@@ -209,10 +209,10 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
                                        signature : Signature,
                                        swpBefore : Boolean)
                                                        : (ProofTree, Boolean) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // if there are free constants, we have to expand in a fair manner
     Debug.assertPre(ExhaustiveProver.AC, tree.constantFreedom.isBottom)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (Timeout.unfinishedValue(tree) {
           continueProving(tree, underConstraintWeakener, signature)
         })
@@ -242,11 +242,11 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
       }
       
       case tree : ProofTreeOneChild => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(ExhaustiveProver.AC,
                         tree.isInstanceOf[QuantifiedTree] ||
                         tree.isInstanceOf[WeakenTree])
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         val (newSubtree, swp) =
           Timeout.unfinished {
             expandDepthFirstUntilSat(tree.subtree, true, signature, false)

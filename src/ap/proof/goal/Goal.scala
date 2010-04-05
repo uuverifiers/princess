@@ -122,11 +122,11 @@ object Goal {
       List(new AddFactsTask(formula, age))
     } else if (formula.isNegatedConjunction) {
       val disj = formula.negatedConjs(0)
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // possibly existing quantifiers should have been pulled out and
       // should not occur at this point
       Debug.assertInt(Goal.AC, disj.quans.isEmpty)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-///////////////////////////////////////////////////////
 
       (for (f <- disj.negatedConjs;
             g <- formulaTasks(f, age, eliminatedConstants, vocabulary, settings))
@@ -163,7 +163,7 @@ class Goal private (val facts : Conjunction,
                     val branchInferences : BranchInferenceCollection,
                     val settings : GoalSettings) extends ProofTree {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(Goal.AC,
                    // facts are really just literals (equations, inequalities,
                    // predicate literals)
@@ -202,15 +202,15 @@ class Goal private (val facts : Conjunction,
                    (definedSyms isSortedBy order) &&
                    (order constantsAreMaximal eliminatedConstants) &&
                    (order constantsAreMaximal eliminatedConstants))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   private def elimConstants(tfs : Seq[LinearCombination]) : Seq[LinearCombination] = {
     val res = new ArrayBuffer[LinearCombination]
     for (tf <- tfs) {
       if (!tf.isEmpty && !(this eliminates tf.leadingTerm)) {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Goal.AC, Seqs.disjoint(tf.constants, eliminatedConstants))
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         res += tf
       }
     }
@@ -221,10 +221,10 @@ class Goal private (val facts : Conjunction,
                                                 : Iterator[LinearCombination] =
     FilterIt(tfs, (tf:LinearCombination) => {
       val res = tf.isEmpty || !(this eliminates tf.leadingTerm)
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(Goal.AC,
                        res == Seqs.disjoint(tf.constants, eliminatedConstants))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     })
     
@@ -323,9 +323,9 @@ class Goal private (val facts : Conjunction,
   val stepMeaningful : Boolean = stepPossible
   
   def step(ptf : ProofTreeFactory) : ProofTree = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Goal.AC, this.stepPossible)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     // apply the first task to the goal and then stop immediately
     val task = tasks.max
@@ -406,9 +406,9 @@ class Goal private (val facts : Conjunction,
         // call the ModelSearchProver to construct a certificate, this should
         // be generalised
 
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Goal.AC, !facts.predConj.isTrue)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
       
         val factDisjuncts = (for (l <- facts.arithConj.elements)
                                yield Conjunction.conj(l.negate, order)).toList

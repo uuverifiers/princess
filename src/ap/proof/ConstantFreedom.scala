@@ -64,14 +64,14 @@ class ConstantFreedom private (private val constantStatus :
 
   import ConstantFreedom.{NonFree, ShieldingEquations, ConstantStatus}
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // The status map only explicitly mentions the free constants. All other
   // constants are supposed to be mapped to NonFree by the default-method
   // of the map
   Debug.assertCtor(ConstantFreedom.AC,
                    !(constantStatus.values contains NonFree) &&
                    constantStatus(new ConstantTerm ("X")) == NonFree)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def <=[B >: ConstantFreedom <% PartiallyOrdered[B]](that : B) : Boolean =
     that match {

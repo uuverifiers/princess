@@ -85,7 +85,7 @@ case class OmegaCertificate(elimConst : ConstantTerm,
 
 } with Certificate {
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(OmegaCertificate.AC,
                    (boundsA forall ((conj) => conj.size == 1 &&
                                     (conj.constants contains elimConst) &&
@@ -98,7 +98,7 @@ case class OmegaCertificate(elimConst : ConstantTerm,
                    (boundsA.isEmpty || boundsB.isEmpty ||
                      (boundsA(0)(0) get elimConst).signum ==
                       -(boundsB(0)(0) get elimConst).signum))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def length = children.length
   def apply(i : Int) : Certificate = children(i)

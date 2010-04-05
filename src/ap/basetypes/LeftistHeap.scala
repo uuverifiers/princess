@@ -252,9 +252,9 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
   def hasNext : Boolean = !remainder.isEmpty
 
   def next : A = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre ( LeftistHeap.AC, !remainder.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
      
     val res = remainder.findMin
     remainder = remainder.deleteMin
@@ -344,14 +344,14 @@ case class Node[T <% Ordered[T], HC <: HeapCollector[T, HC]]
                 left : LeftistHeap[T, HC], right : LeftistHeap[T, HC],
                 emptyHeap : LeftistHeap[T, HC]) extends LeftistHeap[T, HC] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(LeftistHeap.AC,
                    // the heap property
                    (left.isEmpty || data <= left.findMin) &&
                    (right.isEmpty || data <= right.findMin) &&
                    // the property of a leftist heap
                    right.rightHeight <= left.rightHeight)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
    
   /**
    * Length of the right spine, i.e. the length of the path from the

@@ -40,13 +40,13 @@ object ModelFinder {
 class ModelFinder(ac : ArithConj, c : ConstantTerm)
       extends ((Substitution, TermOrder) => Substitution) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // The handled cases: either a single positive equation, or a conjunction
   // of negated equations and inequalities
   Debug.assertCtor(ModelFinder.AC,
                    ac.positiveEqs.size == 1 && ac.size == 1 ||
                    ac.positiveEqs.isEmpty)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
    
   def apply(subst : Substitution, order : TermOrder) : Substitution = {
     val res = if (ac.positiveEqs.isEmpty)
@@ -54,9 +54,9 @@ class ModelFinder(ac : ArithConj, c : ConstantTerm)
               else
                 solveEquation(subst, order)
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(ModelFinder.AC, res(ac).isTrue)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
 
@@ -66,11 +66,11 @@ class ModelFinder(ac : ArithConj, c : ConstantTerm)
     val negEqs = instantiatedAC.negativeEqs
     val inEqs = instantiatedAC.inEqs
       
-    //////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
     Debug.assertInt(ModelFinder.AC,
                     inEqs.size <= 2 && (instantiatedAC.constants subsetOf Set(c)) &&
                     (inEqs.isEmpty || (inEqs(0) get c).abs.isOne))
-    //////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-/////////////////////////////////////////////////////////
     
     // seach for the right value (we know that one must exist ...)
     var value =
@@ -92,12 +92,12 @@ class ModelFinder(ac : ArithConj, c : ConstantTerm)
   private def solveEquation(subst : Substitution, order : TermOrder) : Substitution = {
     val (instantiatedEq, extendedSubst) =
       insertKnownValues(subst, ac.positiveEqs, order)
-    ////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////
     Debug.assertPost(ModelFinder.AC,
                      instantiatedEq.size == 1 &&
                      instantiatedEq.constants == Set(c) &&
                      (instantiatedEq(0) get c).isOne)
-    ////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////
     val value = -instantiatedEq(0).constant
     val valueSubst = ConstantSubst(c, LinearCombination(value), order)
     ComposeSubsts(Array(extendedSubst, valueSubst), order)

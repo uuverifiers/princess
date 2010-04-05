@@ -110,9 +110,9 @@ object InEqConj {
         val c = new FMInfsComputer (INF_THROTTLE_THRESHOLD, THROTTLED_INF_NUM,
                                     logger, order)
         for (conj <- nonTrivialConjs) {
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertPre(AC, conj isSortedBy order)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           c.addPrecomputedGeqs(conj.geqZero.elements,
                                conj.geqZeroInfs.elements,
                                conj.equalityInfs.elements)
@@ -136,14 +136,14 @@ object InEqConj {
    */
   def conj(conjs : Iterable[InEqConj], order : TermOrder) : InEqConj = {
     val res = conj(conjs.elements, order)
-    ////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
     Debug.assertPost(AC, !res.completeInfs || {
                        val otherRes =
                          apply(for (conj <- conjs.elements; lc <- conj.elements)
                                yield lc, order)
                        !res.completeInfs || res == otherRes
                      })
-    ////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////
     res
   }
 
@@ -156,14 +156,14 @@ object InEqConj {
                   logger : ComputationLogger,
                   order : TermOrder)
                        : (Seq[LinearCombination], Seq[LinearCombination]) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InEqConj.AC,
                     (inEqs forall ((lc:LinearCombination) =>
                                              (lc get t) <= IdealInt.ONE))
                     ||
                     (inEqs forall ((lc:LinearCombination) =>
                                              (lc get t) >= IdealInt.MINUS_ONE)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val geqs = new ArrayBuffer[LinearCombination]
     val leqs = new ArrayBuffer[LinearCombination]
@@ -237,7 +237,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       extends Formula with SortedWithOrder[InEqConj]
                       with RandomAccessSeq[LinearCombination] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   private def validLCSeq(lcs : RandomAccessSeq[LinearCombination]) =
     // normally, only primitive linear combinations are allowed
     Logic.forall(for (lc <- lcs.elements) yield (
@@ -260,7 +260,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                    Logic.forall(for (lc <- geqZeroInfs.elements)
                                 yield findBound(lc, geqZero) == None) &&
                    (equalityInfs isSortedBy order))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : InEqConj = {
     if (isSortedBy(newOrder))
@@ -273,10 +273,10 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   //////////////////////////////////////////////////////////////////////////////
 
   def isTrue : Boolean = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(InEqConj.AC, !geqZero.isEmpty ||
                                  geqZeroInfs.isEmpty && equalityInfs.isTrue)      
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     geqZero.isEmpty
   }
 
@@ -314,9 +314,9 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
     if (this.isTrue) {
       InEqConj.FALSE
     } else {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(InEqConj.AC, this.size == 1)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       val negLC = LinearCombination.sum(Array((IdealInt.MINUS_ONE, this(0)),
                                               (IdealInt.MINUS_ONE, LinearCombination.ONE)),
                                         order)
@@ -331,9 +331,9 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                     logger : ComputationLogger)(implicit newOrder : TermOrder)
                    : InEqConj =
     if (geqZero sameElements newGeqZero) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(InEqConj.AC, this isSortedBy newOrder)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       this
     } else {
       InEqConj(newGeqZero.elements, logger, newOrder)
@@ -349,11 +349,11 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   def updateGeqZeroSubset(newGeqZero : Iterable[LinearCombination],
                           logger : ComputationLogger)(implicit newOrder : TermOrder)
                    : InEqConj = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InEqConj.AC,
                     newGeqZero forall ((lc:LinearCombination) =>
                                          findLowerBound(lc) == Some(IdealInt.ZERO)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     if (completeInfs)
       // we can assume that no computations have to be logged in this case,
@@ -418,9 +418,9 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                !(lc.variables subsetOf this.variables)) {
       None
     } else {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(InEqConj.AC, lc isSortedBy order)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       if (lc.isPrimitive) {
         findBound(lc, geqZero) orElse findBound(lc, geqZeroInfs)
@@ -486,12 +486,12 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   override def equals(that : Any) : Boolean = that match {
     case that : InEqConj => {
       val res = this.geqZero sameElements that.geqZero
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(InEqConj.AC,
                        !res || !this.completeInfs || !that.completeInfs ||
                        (this.geqZeroInfs sameElements that.geqZeroInfs) &&
                        (this.equalityInfs == that.equalityInfs))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     }
     case _ => false
@@ -531,9 +531,9 @@ private class FMInfsComputer(infThrottleThreshold : Int,
    * Add a single input geq-zero-inequality
    */
   def addGeqTodo(lc : LinearCombination) : Unit = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InEqConj.AC, lc isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     addGeqTodo(lc, false, -1)
   }
 
@@ -553,16 +553,16 @@ private class FMInfsComputer(infThrottleThreshold : Int,
     runningSource = runningSource + 1
 
     inEqsQueue += (for (lc <- lcs) yield {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(InEqConj.AC, (lc isSortedBy order) && lc.isPrimitive)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       GeqZero(lc, source)
     })
     
     inEqsQueue += (for (lc <- inEqInfs) yield {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(InEqConj.AC, (lc isSortedBy order) && lc.isPrimitive)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       GeqZeroInf(lc, source)
     })
     
@@ -664,7 +664,7 @@ private class FMInfsComputer(infThrottleThreshold : Int,
       // already in the buffer. Note that <code>GeqZeroInf</code> comes
       // before <code>GeqZero</code>, so that inequalities that are inferred
       // by other inequalities are also detected and removed
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(InEqConj.AC,
                       { val diff = (ie.lc constantDiff buffer.last.lc).get
                         diff.signum > 0 ||
@@ -674,7 +674,7 @@ private class FMInfsComputer(infThrottleThreshold : Int,
                         !(ie.isInstanceOf[GeqZeroInf] &&
                           buffer.last.isInstanceOf[GeqZeroInf] &&
                           buffer.last.source < ie.source)})
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
     } else {
       buffer += ie
       addToResult(ie)

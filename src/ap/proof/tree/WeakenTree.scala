@@ -60,11 +60,11 @@ class WeakenTree private (val subtree : ProofTree,
       extends { protected val subtreeOrder : TermOrder = vocabulary.order }
               with ProofTreeOneChild {
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(WeakenTree.AC,
                    (order isSortingOf disjunct) &&
                    !subtree.isInstanceOf[WeakenTree])
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   private lazy val unshieldedDisjunct =
     constantFreedom.unshieldedPart(disjunct, bindingContext) 

@@ -91,9 +91,9 @@ object IterativeClauseMatcher {
           // we generate a system of equations that precisely describes the
           // match conditions
           
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(IterativeClauseMatcher.AC, matchedLits.size == selectedLits.size)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           
           val newEqs = EquationConj(
             (for ((a1, a2) <- (matchedLits.elements zip selectedLits.elements);
@@ -108,22 +108,22 @@ object IterativeClauseMatcher {
               // be captured in the proof) and rather just substitute terms for
               // the quantified variables. Hopefully this is possible ...
               
-              //////////////////////////////////////////////////////////////////
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
               // Currently, we just assume that all leading quantifiers are
               // existential (is the other case possible at all?)
               Debug.assertInt(IterativeClauseMatcher.AC,
                               quans forall (Quantifier.EX == _))
-              //////////////////////////////////////////////////////////////////
+              //-END-ASSERTION-/////////////////////////////////////////////////
               
               val reducer = ReduceWithEqs(newEqs, order)
               val instanceTerms =
                 (for (i <- 0 until quans.size)
                  yield reducer(LinearCombination(VariableTerm(i), order))).toList
 
-              //////////////////////////////////////////////////////////////////
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
               Debug.assertInt(IterativeClauseMatcher.AC,
                               instanceTerms forall (_.variables.isEmpty))
-              //////////////////////////////////////////////////////////////////
+              //-END-ASSERTION-/////////////////////////////////////////////////
 
               val result = originalClause.instantiate(instanceTerms)(order)
               
@@ -146,13 +146,13 @@ object IterativeClauseMatcher {
           val eqs = selectedLits(litNrA).unify(selectedLits(litNrB), order)
           if (!eqs.isFalse) {
             if (logger.isLogging) {
-              //////////////////////////////////////////////////////////////////
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
               // We currently only support the case that the first unified
               // literal is the start literal
               // (otherwise, we would have to store more information about
               // polarity of unified predicates)
               Debug.assertInt(AC, litNrA == 0 && litNrB == 1)
-              //////////////////////////////////////////////////////////////////
+              //-END-ASSERTION-/////////////////////////////////////////////////
               val (leftNr, rightNr) =
                 if (negatedStartLit) (litNrB, litNrA) else (litNrA, litNrB)
               logger.unifyPredicates(selectedLits(leftNr), selectedLits(rightNr),
@@ -166,10 +166,10 @@ object IterativeClauseMatcher {
         }
         
         case Choice(options) :: progTail => {
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           // Choice always has to be the last statement in a program
           Debug.assertInt(IterativeClauseMatcher.AC, progTail.isEmpty)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           
           for (prog <- options)
             exec(prog)
@@ -215,19 +215,19 @@ object IterativeClauseMatcher {
    */
   private def constructMatcher(startLit : Atom, negStartLit : Boolean,
                                clause : Conjunction) : List[MatchStatement] = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
                     ((if (negStartLit)
                        clause.predConj.negativeLitsAsSet
                      else
                        clause.predConj.positiveLitsAsSet) contains startLit) &&
                     (clause.quans forall (Quantifier.EX ==)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val (matchedLits, remainingLits) = determineMatchedLits(clause.predConj)
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, matchedLits contains startLit)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val nonStartMatchedLits = matchedLits filter (startLit !=)
     
@@ -345,7 +345,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                       generatedInstances : Set[Conjunction])
       extends Sorted[IterativeClauseMatcher] {
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(IterativeClauseMatcher.AC,
                    (clauses forall ((c) =>
                         (c.quans forall (Quantifier.EX ==)) &&
@@ -354,7 +354,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                    // we assume that FALSE always exists as a generated
                    // instance, because we don't want to generate it at all
                    (generatedInstances contains Conjunction.FALSE))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   private def matcherFor(pred : Predicate, negated : Boolean) : List[MatchStatement] =
     matchers.getOrElseUpdate(
@@ -484,11 +484,11 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
   private def reduceIfNecessary(conj : Conjunction,
                                 reducer : (Conjunction) => Conjunction) : Conjunction =
     if (conj.constants.isEmpty && conj.groundAtoms.isEmpty) {
-      ////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // The assumption is that clauses without constants or ground atoms
       // are already fully reduced
       Debug.assertInt(IterativeClauseMatcher.AC, reducer(conj) == conj)
-      ////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       conj
     } else {
       reducer(conj)

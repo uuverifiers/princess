@@ -186,11 +186,11 @@ class Parser2InputAbsy private (env : Environment) {
 
   private def determineArity(args : FormalArgsC) : Int = args match {
     case args : FormalArgs => {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(Parser2InputAbsy.AC,
                       Logic.forall(for (at <- args.listargtypec_.elements)
                                    yield (at.asInstanceOf[ArgType].type_.isInstanceOf[TypeInt])))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       args.listargtypec_.size
     }
   }
@@ -200,9 +200,9 @@ class Parser2InputAbsy private (env : Environment) {
   private def collectDeclFunC(decl : DeclFunC, addCmd : String => unit) : Unit =
     decl match {
       case decl : DeclFun => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Parser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         val wrappedOpts = toWrappedList(decl.listfunoption_)
         val (partialOpts, otherOpts1) = wrappedOpts partition (_.isInstanceOf[Partial])
         val (relationalOpts, otherOpts2) = otherOpts1 partition (_.isInstanceOf[Relational])
@@ -245,9 +245,9 @@ class Parser2InputAbsy private (env : Environment) {
   private def collectDeclarations(decl : DeclVarConstC,
                                   addCmd : String => Unit) : Unit = decl match {
     case decl : DeclVarConst => { 
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(Parser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       for (id <- decl.listident_.elements) addCmd(id)
     }
   }

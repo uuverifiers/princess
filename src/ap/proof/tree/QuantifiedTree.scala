@@ -98,7 +98,7 @@ class QuantifiedTree private (val subtree : ProofTree,
                               simplifier : ConstraintSimplifier)
       extends ProofTreeOneChild {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(QuantifiedTree.AC,
                    !quantifiedConstants.isEmpty &&
                    (subtree match {
@@ -110,7 +110,7 @@ class QuantifiedTree private (val subtree : ProofTree,
                        !Seqs.disjointSeq(subtree.disjunct.constants, quantifiedConstants)
                      case _ => true
                     }))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   lazy val closingConstraint : Conjunction =
     simplifier(QuantifiedTree.quantify(subtree.closingConstraint, quan,

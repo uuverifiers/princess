@@ -65,7 +65,7 @@ object Interpolator
 
     val res = PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPostFast(
       AC,
       {
@@ -77,7 +77,7 @@ object Interpolator
         isValid(conj(iContext.leftFormulae ++ iContext.commonFormulae) ==> res) &&
         isValid(!(conj(iContext.rightFormulae ++ iContext.commonFormulae) & res))
       })
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
 
@@ -169,10 +169,10 @@ object Interpolator
         val rightInequality = weakInterInEq.linComb.isZero
         
         if (leftInequality || rightInequality) {
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, (!leftInequality || !rightInequality) &&
                               weakInterInEq.den.isOne)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           
           val totalEqInters = for (i <- 0 until k) yield {
             val lhs = inEq(0) - i
@@ -300,10 +300,10 @@ object Interpolator
       //////////////////////////////////////////////////////////////////////////
 
       case CloseCertificate(contradFors, order) => {
-        ////////////////////////////////////////////////////////////////////       
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////       
         Debug.assertInt(AC, contradFors.size == 1 &&
                             contradFors.elements.next.isFalse)
-        ////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////
         
         extractTotalInterpolant(iContext getPartialInterpolant ArithConj.FALSE,
                                 iContext)
@@ -348,9 +348,9 @@ object Interpolator
                          } else {
                            val (a, b) = getFactorRounding(inf.unsimplifiedLHS,
                                                           result(0))
-                           /////////////////////////////////////////////////////
+                           //-BEGIN-ASSERTION-//////////////////////////////////
                            Debug.assertInt(Interpolator.AC, b.isZero)
-                           /////////////////////////////////////////////////////
+                           //-END-ASSERTION-////////////////////////////////////
                            iContext.addPartialInterpolant(result,
                                                           combinedPartialInter / a)
                          }
@@ -418,11 +418,11 @@ object Interpolator
         
           val (a, b) = getFactorRounding(inf.unsimplifiedLHS, result.negativeEqs(0))
           
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           // rounding would turn the literal into FALSE, and we can assume that
           // such useless inferences are not present in the proof
           Debug.assertInt(AC, b.isZero)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
         
           val newContext = iContext.addPartialInterpolant(result, combinedInter / a)
           
@@ -522,13 +522,13 @@ object Interpolator
         val leftFor : Conjunction = leftAtom
         val rightFor : Conjunction = !atom2Conj(rightAtom)
 
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC,
                         leftAtom == rightAtom &&
                         // The following case is currently not handled
                         !(iContext isCommon leftFor) &&
                         !(iContext isCommon rightFor))
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         
         (iContext isFromLeft leftFor, iContext isFromLeft rightFor) match {
           case (true, true) => Conjunction.FALSE
@@ -551,12 +551,12 @@ object Interpolator
         val (rightEqs, rightOriLit) =
           iContext getPredAtomRewriting !atom2PredConj(rightAtom)
 
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC,
                         // The following case is currently not handled
                         !(iContext isCommon leftOriLit) &&
                         !(iContext isCommon rightOriLit))
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         
         val lInterpolation =
           (iContext isFromLeft leftOriLit, iContext isFromLeft rightOriLit) match {
@@ -627,11 +627,11 @@ object Interpolator
       case GroundInstInference(qFormula, instTerms, result, _) => {
         implicit val extOrder = iContext.order
         
-        //////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
         Debug.assertPre(AC, (iContext isFromLeft qFormula) ||
                             (iContext isFromRight qFormula) ||
                             (iContext isCommon qFormula))
-        //////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-/////////////////////////////////////////////////////////
         
         val termConsts = Set() ++ (for(t <- instTerms.elements;
                                        c <- t.constants.elements) yield c)
@@ -821,9 +821,9 @@ object Interpolator
     if (Seqs.disjointSeq(literal.constants, constants)) {
       literal
     } else {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC, literal.isLiteral)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       val ArithConj(posEqs, negEqs, inEqs) = literal
       if (!posEqs.isTrue) {
@@ -870,10 +870,10 @@ object Interpolator
         (factor, rounding)
       }
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Interpolator.AC,
                      simplified * (res _1) + (res _2) == unsimplified)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
 

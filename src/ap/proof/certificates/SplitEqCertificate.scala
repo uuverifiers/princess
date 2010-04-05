@@ -51,14 +51,14 @@ case class SplitEqCertificate(leftInEq : InEqConj, rightInEq : InEqConj,
   
 } with BinaryCertificate(_leftChild, _rightChild, _order) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(SplitEqCertificate.AC,
                    leftInEq.size == 1 && rightInEq.size == 1 &&
                    {
                      implicit val o = _order
                      leftInEq(0) + 1 == -(rightInEq(0) + 1)
                    })
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
     "SplitEq(" + localAssumedFormulas.elements.next + ", " +

@@ -44,10 +44,10 @@ class PseudoConstantSubst(private val coeff : IdealInt,
                           protected [substitutions] val order : TermOrder)
       extends PseudoDivSubstitution {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(PseudoConstantSubst.AC,
                    (order isSortingOf replacement) && !coeff.isZero)
-  //////////////////////////////////////////////////////////////////////////////     
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////     
 
   protected[substitutions] def passQuantifiers(num : Int) : Substitution =
     new PseudoConstantSubst(coeff,

@@ -91,9 +91,9 @@ class InterpolationContext(
   def addPartialInterpolant(literal : ArithConj,
                             partialInter : PartialInterpolant) : InterpolationContext =
   {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InterpolationContext.AC, partialInter compatible literal)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val newPartialInterpolants = partialInterpolants + (literal -> partialInter)
     
@@ -104,9 +104,9 @@ class InterpolationContext(
   
   def getPartialInterpolant(literal : ArithConj) : PartialInterpolant =
   {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InterpolationContext.AC, literal.isLiteral)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     (partialInterpolants get literal) match {
       case Some(res) => res
@@ -153,12 +153,12 @@ class InterpolationContext(
   def rewritePredAtom(equations : Seq[Seq[(IdealInt, EquationConj)]],
                       targetLit : PredConj,
                       result : PredConj) : InterpolationContext = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InterpolationContext.AC,
                     targetLit.isLiteral && result.isLiteral &&
                     targetLit.positiveLits.isEmpty == result.positiveLits.isEmpty &&
                     targetLit.predicates == result.predicates)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val (oldEqs, oriLit) = getPredAtomRewriting(targetLit)
     val newEqs = (for ((eqs1, eqs2) <- oldEqs.elements zip equations.elements)

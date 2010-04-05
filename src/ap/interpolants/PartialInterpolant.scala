@@ -91,11 +91,11 @@ class PartialInterpolant private (val linComb : LinearCombination,
   
   import PartialInterpolant.Kind._
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(PartialInterpolant.AC,
                    (linComb.nonConstCoeffGcd gcd linComb.constant gcd den).isOne &&
                    den.signum > 0)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def compatible(literal : ArithConj) : Boolean =
     // FALSE can be annotated will all kinds of partial interpolants

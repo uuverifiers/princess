@@ -70,9 +70,9 @@ trait Substitution extends ((TerFor) => TerFor) with Sorted[Substitution] {
   protected[substitutions] def isIdentityOn(t : TerFor) : Boolean
 
   protected def idOrElse[A <: TerFor](t : A, otherwise : => A) : A = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Substitution.AC, order isSortingOf t)
-    ////////////////////////////////////////////////////////////////////////////     
+    //-END-ASSERTION-///////////////////////////////////////////////////////////     
      
     if (isIdentityOn(t)) t else otherwise     
   }

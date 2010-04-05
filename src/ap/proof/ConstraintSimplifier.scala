@@ -105,9 +105,9 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
   private val cache = new LRUCache[Conjunction, Conjunction] (1000)
   
   def apply(f : Conjunction, order : TermOrder) : Conjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ConstraintSimplifier.AC, order isSortingOf f)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     cache(f) {
       collectQuantifiers(f) match {
       case ALL => simplify(f, order)

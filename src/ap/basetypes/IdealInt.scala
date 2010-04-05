@@ -170,14 +170,14 @@ object IdealInt {
     var bFactor0 = ZERO_BI
     var bFactor1 = ONE_BI
 
-    ///////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     def inv1 = Debug.assertInt(AC,
                                (_a * aFactor0 + _b * aFactor1 == apply(a)) &&
                                (_a * bFactor0 + _b * bFactor1 == apply(b)))
     def inv2 = Debug.assertInt(AC, a.signum >= 0 && b.signum >= 0)
-    ///////////////////////////////////////////////////////////////////////////
 
     inv1
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
       
     if (a.signum < 0) {
       a = a.negate
@@ -188,7 +188,9 @@ object IdealInt {
       bFactor1 = MINUS_ONE_BI
     }
 
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     inv1; inv2
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     while (b.signum != 0) {
       val dr = a divideAndRemainder b
@@ -205,15 +207,17 @@ object IdealInt {
       bFactor0 = newBFactor0
       bFactor1 = newBFactor1
       
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       inv1; inv2
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
     }
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(AC,
                      apply(a) >= 0 &&
                      (apply(a) divides _a) && (apply(a) divides _b) &&
                      (_a * aFactor0 + _b * aFactor1 == apply(a)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     (a, aFactor0, aFactor1)
   }
@@ -224,9 +228,9 @@ object IdealInt {
   def gcd(vals : Iterable[IdealInt]) : IdealInt = {
      val res = gcd(vals.elements)    
      
-     ///////////////////////////////////////////////////////////////////////////
+     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
      Debug.assertPost(AC, res == (gcdAndCofactors(vals.toList) _1))
-     ///////////////////////////////////////////////////////////////////////////
+     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
      res
   }
@@ -243,9 +247,9 @@ object IdealInt {
        if (nextValue.signum != 0) currentGcd = currentGcd gcd nextValue
      }
 
-     ///////////////////////////////////////////////////////////////////////////
+     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
      Debug.assertPost(AC, currentGcd.signum >= 0)
-     ///////////////////////////////////////////////////////////////////////////
+     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
      currentGcd
   }
@@ -256,10 +260,10 @@ object IdealInt {
   def lcm(vals : Iterable[IdealInt]) : IdealInt = {
      val res = lcm(vals.elements)
 
-     ///////////////////////////////////////////////////////////////////////////
+     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
      Debug.assertPost(AC,
                       Logic.forall(for (v <- vals.elements) yield (v divides res)))
-     ///////////////////////////////////////////////////////////////////////////
+     //-END-ASSERTION-//////////////////////////////////////////////////////////
      
      res
   }
@@ -276,9 +280,9 @@ object IdealInt {
          currentLcm = (currentLcm multiply nextValue) divide (currentLcm gcd nextValue)
      }
 
-     ///////////////////////////////////////////////////////////////////////////
+     //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
      Debug.assertPost(AC, currentLcm.signum > 0)
-     ///////////////////////////////////////////////////////////////////////////
+     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
      currentLcm
   }
@@ -306,15 +310,17 @@ object IdealInt {
      val finalCofactors = Array.make(vals.length, ZERO)
 
      ///////////////////////////////////////////////////////////////////////////
-     def post(gcd : IdealInt) =
+     def post(gcd : IdealInt) = {
+       //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
        Debug.assertPost(AC,
                         gcd >= 0 &&
                         Logic.forall(for (v <- vals) yield (gcd divides v)) &&
                         gcd == sum(for (i <- PlainRange(vals.length))
                                    yield (vals(i) * finalCofactors(i)))
                         )
-     ///////////////////////////////////////////////////////////////////////////
-
+       //-END-ASSERTION-////////////////////////////////////////////////////////
+     }
+  
      // special case: there are no inputs that are not zero
      if (valsTodo.isEmpty) {
        post(ZERO)
@@ -336,13 +342,15 @@ object IdealInt {
        cofactors += MINUS_ONE_BI
      }
 
-     ///////////////////////////////////////////////////////////////////////////
-     def inv1 = Debug.assertInt(AC,
-                                currentGcd.signum >= 0 &&
-                                apply(currentGcd) ==
-                                  sum(for (i <- PlainRange(nums.length))
-                                      yield (vals(nums(i)) * cofactors(i))))
-     ///////////////////////////////////////////////////////////////////////////
+     def inv1 = {
+       //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
+       Debug.assertInt(AC,
+                       currentGcd.signum >= 0 &&
+                       apply(currentGcd) ==
+                         sum(for (i <- PlainRange(nums.length))
+                             yield (vals(nums(i)) * cofactors(i))))
+       //-END-ASSERTION-////////////////////////////////////////////////////////
+     }
 
      inv1
 
@@ -352,7 +360,7 @@ object IdealInt {
        currentGcd = nextGcd
        
        for (i <- PlainRange(cofactors.length))
-	 cofactors(i) = cofactors(i) multiply cofactorA
+	     cofactors(i) = cofactors(i) multiply cofactorA
          
        cofactors += cofactorB
        nums += nextNum
@@ -502,12 +510,12 @@ class IdealInt private (private val bigInteger: BigInteger) {
 
     val res = (IdealInt(dr(0)), IdealInt(dr(1)))
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(IdealInt.AC,
                      (res _2).signum >= 0 &&
                      ((res _2) compareTo that.abs) < 0 &&
                      that * (res _1) + (res _2) == this)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     res
   }
@@ -540,11 +548,11 @@ class IdealInt private (private val bigInteger: BigInteger) {
     
     val res = (IdealInt(dr(0)), IdealInt(dr(1)))
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(IdealInt.AC,
                      that * (res _1) + (res _2) == this &&
                      ((res _2) isAbsMinMod that))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     res
   }
@@ -609,9 +617,9 @@ class IdealInt private (private val bigInteger: BigInteger) {
   def intValue    = this.bigInteger.intValue
 
   def intValueSafe = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IdealInt.AC, this <= Math.MAX_INT && this >= Math.MIN_INT)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     this.bigInteger.intValue
   }
 

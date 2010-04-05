@@ -51,9 +51,9 @@ object WrappedFormulaTask {
 case class WrappedFormulaTask(realTask : FormulaTask, simplifiedTasks : Seq[FormulaTask])
            extends FormulaTask(realTask.formula, realTask.age) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(WrappedFormulaTask.AC, !simplifiedTasks.isEmpty)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
         
   val priority : Int =
     // we use the mean of the real priority and the simplified task priority
@@ -70,9 +70,9 @@ case class WrappedFormulaTask(realTask : FormulaTask, simplifiedTasks : Seq[Form
    */
   override def updateTask(goal : Goal, factCollector : Conjunction => unit)
                                                    : Seq[FormulaTask] = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertCtor(WrappedFormulaTask.AC, Param.PROOF_CONSTRUCTION(goal.settings))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     realTask.updateTask(goal, factCollector)
   }

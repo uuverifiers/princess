@@ -38,11 +38,11 @@ class FileModelSearcher(reader : java.io.Reader, output : Boolean,
       extends AbstractFileProver(reader, output, Math.MAX_INT, false,
                                  preprocSettings, goalSettings) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(FileModelSearcher.AC, (formulas forall ((f:Conjunction) =>
                    Seqs.disjoint(f.constants, signature.existentialConstants) &&
                    (Conjunction.collectQuantifiers(f) subsetOf Set(Quantifier.ALL)))))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   val counterModel : Conjunction =
     Timeout.catchTimeout {

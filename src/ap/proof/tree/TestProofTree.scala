@@ -30,10 +30,13 @@ object TestProofTree {
 
   private val AC = Debug.AC_PROOF_TREE
 
-  def assertNormalisedTree(t : ProofTree) : Unit =
+  def assertNormalisedTree(t : ProofTree) : Unit = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, isNormalisedTree(t) &&
                         correctBindings(t, BindingContext.EMPTY) &&
                         t.fixedConstantFreedom)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+  }
 
   /**
    * The information about bound constants is consistent with the actual

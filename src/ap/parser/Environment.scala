@@ -60,14 +60,14 @@ class Environment {
   
   def order = orderVar
   def order_=(newOrder : TermOrder) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Environment.AC,
                     signature.values forall {
                       case Constant(c, _) => newOrder.orderedConstants contains c
                       case Predicate(pred) => newOrder.orderedPredicates contains pred
                       case _ => true
                     })
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     orderVar = newOrder
   }
   

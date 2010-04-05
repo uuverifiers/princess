@@ -113,7 +113,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
                           extends Formula with SortedWithOrder[NegatedConjunctions]
                                           with RandomAccessSeq[Conjunction] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(NegatedConjunctions.AC,
                    Logic.forall(for (conj <- this.elements)
                                 yield ((conj isSortedBy order) && !conj.isFalse))
@@ -130,7 +130,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
                                 (i) => NegatedConjunctions.compare
                                         (conjs(i), conjs(i+1), order) > 0)
                  )
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : NegatedConjunctions = {
     if (isSortedBy(newOrder)) {
@@ -193,9 +193,9 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
    */
   def diff(oldConj : NegatedConjunctions)
                         : (NegatedConjunctions, NegatedConjunctions) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(NegatedConjunctions.AC, oldConj isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     implicit def orderConjunctions(thisC : Conjunction) = 
       new Ordered[Conjunction] {

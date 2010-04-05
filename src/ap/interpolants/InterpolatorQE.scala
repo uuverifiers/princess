@@ -47,7 +47,7 @@ object InterpolatorQE
       exists(o sort iContext.leftLocalConstants, conj(iContext.leftFormulae)), o)
     
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(
       AC,
       {
@@ -57,7 +57,7 @@ object InterpolatorQE
         ModelSearchProver(conj(iContext.leftFormulae) ==> res, o).isFalse &&
         ModelSearchProver(!(conj(iContext.rightFormulae) & res), o).isFalse
       })
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
     

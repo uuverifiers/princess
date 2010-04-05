@@ -41,13 +41,13 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
                             lazyQuantifiedClauses : IterativeClauseMatcher)
            extends Sorted[CompoundFormulas] {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(CompoundFormulas.AC,
                    !qfClauses.containsLiteral &&
                    !qfClauses.containsNegatedConjunction &&
                    qfClauses.variables.isEmpty &&
                    qfClauses.predicates.isEmpty)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def updateQFClauses(newQFClauses : NegatedConjunctions) =
     CompoundFormulas(newQFClauses, eagerQuantifiedClauses, lazyQuantifiedClauses)

@@ -37,7 +37,7 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
                                       val order : TermOrder)
                extends Formula with RandomAccessSeq[LinearCombination] {
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(EquationSet.AC,
                    (
                      // as a special case, we allow a singleton set with a
@@ -55,7 +55,7 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
                                 (i:Int) => order.compare(this(i), this(i+1)) > 0)
                    &&
                    Logic.forall(for (lc <- this.elements) yield lc isSortedBy order))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def length : Int = lhss.length
     
@@ -69,9 +69,9 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
     if (lc.constants subsetOf this.constants) {
       // in this case, binary search for the linear combination
       
-      ////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
       Debug.assertPre(EquationSet.AC, lc isSortedBy order)
-      ////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-///////////////////////////////////////////////////////
       
       implicit def orderLC(thisLC : LinearCombination) =
         new Ordered[LinearCombination] {

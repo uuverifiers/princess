@@ -66,14 +66,14 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     res
   }
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   private def noDuplicates[A](seq : Seq[A]) : Boolean =
     Logic.forall(0, seq.size, (i:Int) =>
     Logic.forall(i+1, seq.size, (j:Int) =>
                  seq(i) != seq(j)))
   Debug.assertCtor(TermOrder.AC,
                    noDuplicates(constantSeq) && noDuplicates(predicateSeq))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   /**
    * Test whether <code>x</code> is sorting by this <code>TermOrder</code>, or
@@ -128,13 +128,13 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
 
     while (i > 0 && (seq(i-1).isEmpty || seq(i-1).leadingTerm == lt)) i = i - 1
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(TermOrder.AC,
                      (i <= 0 || seq(i-1).isEmpty ||
                       compare(seq(i-1).leadingTerm, lt) > 0) &&
                      (i >= seq.size || seq(i).isEmpty ||
                       compare(seq(i).leadingTerm, lt) <= 0))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     i
   }
       
@@ -144,12 +144,12 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
   def compare(t1 : Term, t2 : Term) : Int = (t1, t2) match {
     case (t1 : LinearCombination, t2 : LinearCombination) => {
       val res = fastCompare(t1, t2)
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(TermOrder.AC, {
         val otherRes = Seqs.lexCompare(weightIt(t1), weightIt(t2))
         (res < 0) == (otherRes < 0) && (res > 0) == (otherRes > 0)
       })
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res      
     }
     case _ => Seqs.lexCompare(weightIt(t1), weightIt(t2))
@@ -268,11 +268,11 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    */
   def extend(newConst : ConstantTerm,
              biggerConstants : scala.collection.Set[ConstantTerm]) : TermOrder = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(TermOrder.AC,
                     !(constantWeight contains newConst) &&
                     !(biggerConstants contains newConst))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val newConstantSeq = new Array[ConstantTerm](constantSeq.size + 1)
     var pos : Int = 0
@@ -292,7 +292,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     
     val res = new TermOrder (newConstantSeq, predicateSeq)
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(TermOrder.AC,
                      res.constantSeq.size == constantSeq.size + 1 &&
                      (this isSubOrderOf res) &&
@@ -301,7 +301,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
                           Logic.forall(0, i,
                                        (j:Int) => !(biggerConstants contains
                                                     res.constantSeq(j)))))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     res
   }
@@ -313,11 +313,11 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    */
   def makeMaximal(movedConst : ConstantTerm,
                   biggerConstants : scala.collection.Set[ConstantTerm]) : TermOrder = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(TermOrder.AC,
                     (constantWeight contains movedConst) &&
                     !(biggerConstants contains movedConst))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val newConstantSeq = new Array[ConstantTerm](constantSeq.size)
     var pos : Int = 0
@@ -335,23 +335,23 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
       }
     }
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(TermOrder.AC,
                     pos == constantSeq.size + (if (inserted) 0 else -1))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     if (!inserted) newConstantSeq(pos) = movedConst
     
     val res = new TermOrder (newConstantSeq, predicateSeq)
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(TermOrder.AC,
                      Logic.exists(0, res.constantSeq.size,
                        (i:Int) => res.constantSeq(i) == movedConst &&
                           Logic.forall(0, i,
                                        (j:Int) => !(biggerConstants contains
                                                     res.constantSeq(j)))))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     res
   }
@@ -369,16 +369,16 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    */
   def constantsAreMaximal(consts: Set[ConstantTerm]) : Boolean = {
 
-    ////////////////////////////////////////////////////////////////////////////
     def post(b : Boolean) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(TermOrder.AC,
                        b != (Logic.exists(0, constantSeq.size, (i) =>
                              Logic.exists(i+1, constantSeq.size, (j) =>
                                (consts contains constantSeq(i)) &&
                                !(consts contains constantSeq(j))))))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       b
     }
-    ////////////////////////////////////////////////////////////////////////////
     
     var elem : Boolean = false
     for (c <- constantSeq) {

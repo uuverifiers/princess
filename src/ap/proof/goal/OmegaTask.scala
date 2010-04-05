@@ -48,14 +48,14 @@ case object OmegaTask extends EagerTask {
     val order = goal.order
     
     if (!Seqs.disjoint(goal.eliminatedConstants, ac.positiveEqs.constants)) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // the reason has to be that we are constructing a proof, and that certain
       // constants cannot be eliminated from arithmetic clauses
       Debug.assertPre(AC, Param.PROOF_CONSTRUCTION(goal.settings) &&
                           !Seqs.disjoint(goal.eliminatedConstants,
                                          ac.positiveEqs.constants,
                                          goal.compoundFormulas.qfClauses.constants))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       // In this case, we have to split an arithmetic clause
       
@@ -65,14 +65,14 @@ case object OmegaTask extends EagerTask {
             yield c)
       findFormulaSplitPossibilitiesHelp(goal, ptf, leadingConstants, store)
       
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, store.currentCases != None)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       return store.currentBest()
     }
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
                     // constants should already have been eliminated from the
                     // positive equations
@@ -81,7 +81,7 @@ case object OmegaTask extends EagerTask {
                     // OmegaTask should be the last remaining task to be done
                     Seqs.disjoint(goal.eliminatedConstants,
                                   goal.tasks.taskInfos.constants))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val ec = eliminableConsts(goal)
     val store = new BestSplitPossibilityStore
@@ -409,9 +409,9 @@ case object OmegaTask extends EagerTask {
         otherConjuncts += conjunct
     }
     
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, selectedConjunct != null)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     // make sure that the clause is removed from the goal (might lead to
     // infinite loops otherwise)
@@ -489,9 +489,9 @@ case object OmegaTask extends EagerTask {
       if (lc.leadingCoeff.signum > 0 && !Seqs.disjoint(lc.constants, eConsts)) {
         inEqs.findLowerBound(-lc) match {
           case Some(negDistance) => {
-            ////////////////////////////////////////////////////////////////////
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(AC, negDistance.signum < 0)
-            ////////////////////////////////////////////////////////////////////
+            //-END-ASSERTION-///////////////////////////////////////////////////
             
             val cases = -negDistance + 1
             store.push(cases) {
@@ -551,9 +551,9 @@ case object OmegaTask extends EagerTask {
     val ac = goal.facts.arithConj
     val order = goal.order
 
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(OmegaTask.AC, !ac.inEqs.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val newTasks =
       for (lc <- ac.inEqs.geqZero ++ ac.inEqs.geqZeroInfs)
@@ -638,11 +638,11 @@ case object OmegaTask extends EagerTask {
       val qfBoundFormula =
         ConstraintSimplifier.FAIR_SIMPLIFIER(boundFormula, order)
       
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC,
                       (qfBoundFormula.constants subsetOf Set(elimConst)) &&
                       qfBoundFormula.predicates.isEmpty)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       if (qfBoundFormula.isFalse) {
         // the the considered <code>ac</code> really is unsatisfiable, and we
@@ -674,18 +674,18 @@ case object OmegaTask extends EagerTask {
                                                : Option[(IdealInt, IdealInt)] = {
     val ac = cValFormula.arithConj
     if (!ac.positiveEqs.isTrue) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, cValFormula.isLiteral)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       val bound = -ac.positiveEqs(0).constant
       return Some(bound, bound)
     } else if (!ac.inEqs.isTrue) {
       if (ac.inEqs.size == 2) {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC,
                         ac.inEqs(0).leadingCoeff.isMinusOne &&
                         ac.inEqs(1).leadingCoeff.isOne)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return Some(-ac.inEqs(1).constant, ac.inEqs(0).constant)
       } else if (cValFormula.negatedConjs.isTrue) {
         return None
@@ -736,9 +736,9 @@ case object OmegaTask extends EagerTask {
     if (bound.isFalse) {
       None
     } else {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, bound.isLiteral && !bound.arithConj.positiveEqs.isTrue)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       Some(-bound.arithConj.positiveEqs(0).constant)
     }
   }
@@ -753,28 +753,28 @@ case object OmegaTask extends EagerTask {
     val ac = boundFormula.arithConj
 
     if (!ac.positiveEqs.isTrue) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, c.arithConj.positiveEqs.size == 1)
-      ////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-///////////////////////////////////////////////////////
       val bound = -c.arithConj.positiveEqs(0).constant
       Bounded(bound, bound)
     }
     
     for (c <- boundFormula.elements) yield {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, c.constants == Set(const))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       if (!c.arithConj.positiveEqs.isTrue) {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, c.arithConj.positiveEqs.size == 1)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         val bound = -c.arithConj.positiveEqs(0).constant
         Bounded(bound, bound)
       } else if (!c.arithConj.negativeEqs.isTrue) {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, c.arithConj.positiveEqs.size == 1)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         val bound = -c.arithConj.positiveEqs(0).constant
         Bounded(bound, bound)
       }
@@ -872,9 +872,9 @@ case object OmegaTask extends EagerTask {
   private case class LowerBounded(bound : IdealInt) extends Interval
   private case class UpperBounded(bound : IdealInt) extends Interval
   private case class Bounded(lower : IdealInt, upper : IdealInt) extends Interval {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertCtor(AC, lower <= upper)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
   }
   */
 }

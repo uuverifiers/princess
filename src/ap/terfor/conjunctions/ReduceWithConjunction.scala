@@ -33,11 +33,11 @@ object ReduceWithConjunction {
   private val AC = Debug.AC_PROPAGATION
 
   def apply(conj : Conjunction, order : TermOrder) : ReduceWithConjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, (conj isSortedBy order) &&
                     // conjunctions with quantifiers are not supported right now
                     conj.quans.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     new ReduceWithConjunction(ReduceWithAC(conj.arithConj, order),
                               ReduceWithPredLits(conj.predConj, order),
@@ -150,9 +150,9 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
                                      private val order : TermOrder) {
 
   def passQuantifiers(num : Int) : ReduceWithConjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, num >= 0)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (num == 0)
       this
     else
@@ -162,9 +162,9 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
   }
 
   def addArithConj(ac : ArithConj) : ReduceWithConjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, ac isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (ac.isEmpty)
       this
@@ -176,34 +176,34 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     apply(conj, ComputationLogger.NonLogger)
 
   def apply(conj : Conjunction, logger : ComputationLogger) : Conjunction = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, conj isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
       
     val res = ReduceWithConjunction.reduceConj(conj, this, logger)
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithConjunction.AC,
                          ReduceWithConjunction.reduceConj(res, this) == res)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
 
   def apply(conjs : NegatedConjunctions) : NegatedConjunctions = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, conjs isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val res = conjs.update(for (c <- conjs)
                            yield (ReduceWithConjunction.reduceConj(c, this)),
                            order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithConjunction.AC,
                          Logic.forall(for (c <- res.elements) yield (this(c) == c)))
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
 
@@ -224,9 +224,9 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
   
   private def reduce(ac : ArithConj,
                      logger : ComputationLogger) : (ArithConj, ReduceWithConjunction) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, ac isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (newArithConj, newACReducer) = acReducer.reduceAndAdd(ac, logger)
     if (newArithConj.isFalse) throw FALSE_EXCEPTION
     (newArithConj, this replaceAC newACReducer)
@@ -234,9 +234,9 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
   
   private def reduce(conj : PredConj,
                      logger : ComputationLogger) : (PredConj, ReduceWithConjunction) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, conj isSortedBy order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val redConj = predReducer(acReducer(conj, logger))
     if (redConj.isFalse) throw FALSE_EXCEPTION
     (redConj, this replacePred (predReducer addLits redConj))

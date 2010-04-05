@@ -1,0 +1,10 @@
+#!/bin/sh
+
+find -name "*.scala" | \
+(
+    while read name; do
+        echo $name
+        mkdirhier ../src_assertionless/`dirname $name`
+        gawk -f elimAssertions.awk <$name >../src_assertionless/$name
+    done
+)

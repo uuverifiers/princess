@@ -113,9 +113,9 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
 
             val newTriggers : ListSet[(ITerm, Set[Int])] =
               if (allVariables.isEmpty) {
-                ////////////////////////////////////////////////////////////////
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 Debug.assertInt(TriggerGenerator.AC, subTriggers.isEmpty)
-                ////////////////////////////////////////////////////////////////
+                //-END-ASSERTION-///////////////////////////////////////////////
                 ListSet.empty
               } else if (foundMoreVars) {
                 // ignore the triggers from the subterms

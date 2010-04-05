@@ -154,11 +154,11 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
                       _age : Int, symbolWeights : SymbolWeights)
       extends FormulaTask(_formula, _age) {
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BetaFormulaTask.AC,
                    !formula.isTrue && !formula.isFalse &&
                    !formula.isLiteral && !formula.isNegatedConjunction)
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
       
   val priority : Int =
     (if (addToQFClauses)
@@ -174,13 +174,13 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
    */
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
     if (addToQFClauses) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(BetaFormulaTask.AC,
                       !BetaFormulaTask.splittingNecessary(formula,
                                                           goal.eliminatedConstants,
                                                           goal.vocabulary,
                                                           goal.settings))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       ptf.updateGoalAddQFClause(formula, goal)
     } else {
       if (formula.arithConj.isTrue && formula.predConj.isTrue) {
@@ -194,9 +194,9 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
 
      
   private def splitNegatedConjs(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(BetaFormulaTask.AC, formula.negatedConjs.size > 1)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val subtrees = for (negConj <- formula.negatedConjs)
                    yield ptf.updateGoal(goal.formulaTasks(negConj.negate),
@@ -239,9 +239,9 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
                                               : (Conjunction, Conjunction) = {
     val weights = Param.SYMBOL_WEIGHTS(goal.settings)
     if (conj.predConj.isTrue) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(BetaFormulaTask.AC, !conj.arithConj.isTrue)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       val (sel, rem) =
         selectCutLiteral(conj.arithConj, goal.eliminatedConstants, weights)
       (Conjunction.conj(sel, conj.order), conj.updateArithConj(rem)(conj.order))      
@@ -285,9 +285,9 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
                                eliminatedConstants : Set[ConstantTerm],
                                weights : SymbolWeights)
                                                 : (ArithConj, ArithConj) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(BetaFormulaTask.AC, !ac.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
       selectHeaviestLiteral(ac.elements, (p:ArithConj) => weights maxWeight p)
     (bestLit, ArithConj.conj(remainingLits, ac.order))    
@@ -330,9 +330,9 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
 
   private def selectCutLiteral(eqs : EquationConj, weights : SymbolWeights)
                                            : (EquationConj, EquationConj) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(BetaFormulaTask.AC, !eqs.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
       selectHeaviestLiteral(eqs.elements, lcWeighter(weights))
     (EquationConj(bestLit, eqs.order), eqs.updateEqs(remainingLits)(eqs.order))
@@ -340,9 +340,9 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
 
   private def selectCutLiteral(eqs : NegEquationConj, weights : SymbolWeights)
                                       : (NegEquationConj, NegEquationConj) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(BetaFormulaTask.AC, !eqs.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
       selectHeaviestLiteral(eqs.elements, lcWeighter(weights))
     (NegEquationConj(bestLit, eqs.order),
@@ -351,9 +351,9 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
   
   private def selectCutLiteral(inEqs : InEqConj, weights : SymbolWeights)
                                                    : (InEqConj, InEqConj) = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(BetaFormulaTask.AC, !inEqs.isEmpty)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
       selectHeaviestLiteral(inEqs.elements, lcWeighter(weights))
     (InEqConj(bestLit, inEqs.order), InEqConj(remainingLits, inEqs.order))

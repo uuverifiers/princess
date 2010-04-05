@@ -148,9 +148,9 @@ object LinearCombination {
      case 0 => ZERO
      case 1 => {
                  val (coeff, lc) = lcs(0)
-                 ////////////////////////////////////////////////////////////////
+                 //-BEGIN-ASSERTION-/////////////////////////////////////////////
                  Debug.assertPre(AC, lc isSortedBy order)
-                 ////////////////////////////////////////////////////////////////
+                 //-END-ASSERTION-///////////////////////////////////////////////
                  lc * coeff
                }
      case _ => {
@@ -177,7 +177,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
                         extends Term with SortedWithOrder[LinearCombination]
                                      with RandomAccessSeq[(IdealInt, Term)] {
   
-  //////////////////////////////////////////////////////////////////////////////
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(LinearCombination.AC,
                    Logic.forall(for ((coeff, t) <- this.elements)
                                 yield (!t.isInstanceOf[LinearCombination] &&
@@ -185,7 +185,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
                    &&
                    Logic.forall(0, this.size - 1,
                      (i:Int) => order.compare(this(i) _2, this(i+1) _2) > 0))
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def sortBy(newOrder : TermOrder) : LinearCombination = {
     if (isSortedBy(newOrder)) {
@@ -212,12 +212,12 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
    * zero if the term does not occur. This is done by binary search
    */
   def get(t : Term) : IdealInt = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     def notFoundPost =
       Debug.assertPost(LinearCombination.AC,
                        Logic.forall(for ((_, term) <- this.elements)
                                     yield term != t))
-    ////////////////////////////////////////////////////////////////////////////      
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (t.constants subsetOf this.constants) {
       // then there are chances to find the searched term in this
@@ -231,22 +231,22 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
 
       Seqs.binSearch(this, 0, length, (IdealInt.ZERO, t)) match {
       case Seqs.Found(i) => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPost(LinearCombination.AC, (this(i) _2) == t)
-        ////////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         this(i) _1
       }
       case Seqs.NotFound(_) => {
-        ////////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         notFoundPost
-        ////////////////////////////////////////////////////////////////////////      
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         IdealInt.ZERO
       }
       }
     } else {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       notFoundPost
-      //////////////////////////////////////////////////////////////////////////    
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       IdealInt.ZERO
     }
   }
@@ -283,9 +283,9 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
     case 0 => true
     case 1 => this.leadingTerm == OneTerm
     case _ => {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(LinearCombination.AC, this.leadingTerm != OneTerm)
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       false
     }
   }
@@ -298,11 +298,11 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
     // we assume that the constant term is always the last/smallest term of the
     // linear combination
     if (this.isEmpty || (this.last _2) != OneTerm) {
-      //////////////////////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(LinearCombination.AC,
                       Logic.forall(for ((_, t) <- this.elements)
                                    yield t != OneTerm))
-      //////////////////////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       IdealInt.ZERO
     } else {
       this.last _1
@@ -370,9 +370,9 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
    * downwards
    */
   def / (denom : IdealInt) : LinearCombination = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(LinearCombination.AC, !denom.isZero)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     if (denom.isOne) {
       this
@@ -428,8 +428,8 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
    * (<code>this = that + d</code>), and <code>None</code> otherwise.
    */
   def constantDiff(that : LinearCombination) : Option[IdealInt] = {
-    ////////////////////////////////////////////////////////////////////////////
     def post(res : Option[IdealInt]) : Option[IdealInt] = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(LinearCombination.AC,
                        res match {
                          case Some(d) => this == that + d
@@ -439,9 +439,9 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
                            Logic.exists(for ((c, t) <- that.elements)
                                         yield t != OneTerm && (this get t) != c)
                        })
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     }
-    ////////////////////////////////////////////////////////////////////////////
     
     if (sameNonConstantTerms(that))
       post(Some(this.constant - that.constant))
