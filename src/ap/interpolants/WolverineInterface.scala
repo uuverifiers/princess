@@ -149,9 +149,12 @@ object WolverineInterfaceMain {
   def main(args: Array[String]) : Unit = Console.withOut(Console.err) {
     println
     println("Waiting for input ...")
-    println("-> Terminate each interpolation problem with a \".\" in a separate line")
-    println("-> Stop Princess with a \"quit\" in a separate line")
+    print  ("-> Terminate each problem with \"interpolate.\" or \"checkValidity.\"")
+    println(" in a separate line")
+    println("-> Stop Princess with a \"quit.\" in a separate line")
 
+    val mainActor = Actor.self
+    
     while (true) {
       val stdinOutputStream = new java.io.PipedOutputStream
       val stdinInputStream = new java.io.PipedInputStream(stdinOutputStream)
@@ -162,12 +165,15 @@ object WolverineInterfaceMain {
         try {
           var line = Console.in.readLine
           Console.withOut(stdinOutputStream) {
-            while (line != ".") {
-              if (line == null || line == "quit")
-                java.lang.System.exit(0);
+            while (line != null && !(line endsWith ".")) {
               println(line)
               line = Console.in.readLine
             }
+          }
+          
+          line match {
+            case null | "quit." => java.lang.System.exit(0);
+            case _              => mainActor ! line
           }
         } catch {
           case e : java.io.IOException => {
@@ -177,86 +183,126 @@ object WolverineInterfaceMain {
         }
         stdinOutputStream.close
       }
-    
+
       val (transitionParts, sig) =
         parseProblem(new java.io.BufferedReader (
                      new java.io.InputStreamReader(stdinInputStream)))
 
-      val names = Seqs.toArray((Set() ++ transitionParts.keys) - PartName.NO_NAME)
-      Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
-
-      val res = genInterpolants(names, transitionParts, sig)
-      Console.withOut(java.lang.System.out) {
-        res match {
-          case Left(counterexample) => {
-            println("INVALID")
-            println(counterexample)
-          }
-          case Right(interpolants) => {
-            println("VALID")
-            
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            // used for assertions: interpolants imply each other
-            var lastInterpolant : IFormula = true
-            val interpolantImpChecker =
-              validityCheckProver.conclude((transitionParts get PartName.NO_NAME).toList,
-                                           sig.order)
-            //-END-ASSERTION-///////////////////////////////////////////////////
-            
-            for ((i, num) <- interpolants.zipWithIndex) {
-/*              val predFreeI =
-                if (i.predicates.isEmpty)
-                  i
-                else
-                  PresburgerTools.eliminatePredicates(i, !backgroundPred) */
-              
-              val internalInter = Internal2InputAbsy(i, functionEncoder.predTranslation)
-              val simpInter = Simplifier(internalInter)
-/*              Console.withOut(Console.err) {
-                  println(simpInter)
-                } */
-
-              wolverineLineariser.visit(simpInter, List())
-              println
-
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              // Check that the implications I_i & T_(i+1) => I_(i+1) hold,
-              // where T_i are the transition relations and I_i the generated
-              // interpolants
-              Debug.assertIntFast(AC, {
-                val implication = lastInterpolant ==> simpInter
-                
-                val (interParts, _, sig2) =
-                  Preprocessing(implication, List(), sig,
-                                preprocSettings, functionEncoder)
-   		        functionEncoder.clearAxioms
-   		        implicit val order = sig2.order
-
-   		        val internalInterParts =
-   		          for (INamedPart(_, f) <- interParts)
-   		            yield conj(InputAbsy2Internal(f, order))
-
-                interpolantImpChecker.conclude(transitionParts(names(num)), order)
-                                     .conclude(internalInterParts, order)
-                                     .checkValidity == Left(Conjunction.FALSE)
-              })
-              
-              lastInterpolant = simpInter
-              //-END-ASSERTION-/////////////////////////////////////////////////
-            }
-          }
+      receive {
+        case "interpolate."   => doInterpolation(transitionParts, sig)
+        case "checkValidity." => doCheckValidity(transitionParts, sig)
+        case x : String       => {
+          println("Unknown command: " + x)
+          java.lang.System.exit(1)
         }
+      }
+      
+      Console.withOut(java.lang.System.out) {
         println(".")
-        
+      }
+
 /*        Console.withOut(Console.err) {
           println
           println(ap.util.Timer)
           ap.util.Timer.reset
           } */
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def doInterpolation(transitionParts : Map[PartName, Conjunction],
+                              sig : Signature) : Unit = {
+    val names = Seqs.toArray((Set() ++ transitionParts.keys) - PartName.NO_NAME)
+    Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
+
+    val res = genInterpolants(names, transitionParts, sig)
+    Console.withOut(java.lang.System.out) {
+      res match {
+        case Left(counterexample) => {
+          println("INVALID")
+          println(counterexample)
+        }
+        case Right(interpolants) => {
+          println("VALID")
+          
+          //-BEGIN-ASSERTION-/////////////////////////////////////////////
+          // used for assertions: interpolants imply each other
+          var lastInterpolant : IFormula = true
+          val interpolantImpChecker =
+            validityCheckProver.conclude((transitionParts get
+                                            PartName.NO_NAME).toList,
+                                         sig.order)
+          //-END-ASSERTION-///////////////////////////////////////////////
+          
+          for ((i, num) <- interpolants.zipWithIndex) {
+/*          val predFreeI =
+              if (i.predicates.isEmpty)
+                i
+              else
+                PresburgerTools.eliminatePredicates(i, !backgroundPred) */
+            
+            val internalInter =
+              Internal2InputAbsy(i, functionEncoder.predTranslation)
+            val simpInter = Simplifier(internalInter)
+
+/*          Console.withOut(Console.err) {
+              println(simpInter)
+            } */
+    
+            wolverineLineariser.visit(simpInter, List())
+            println
+    
+            //-BEGIN-ASSERTION-///////////////////////////////////////////
+            // Check that the implications I_i & T_(i+1) => I_(i+1) hold,
+            // where T_i are the transition relations and I_i the generated
+            // interpolants
+            Debug.assertIntFast(AC, {
+              val implication = lastInterpolant ==> simpInter
+              
+              val (interParts, _, sig2) =
+                Preprocessing(implication, List(), sig,
+                              preprocSettings, functionEncoder)
+              functionEncoder.clearAxioms
+              implicit val order = sig2.order
+    
+              val internalInterParts =
+                for (INamedPart(_, f) <- interParts)
+                  yield conj(InputAbsy2Internal(f, order))
+    
+              interpolantImpChecker.conclude(transitionParts(names(num)), order)
+                                   .conclude(internalInterParts, order)
+                                   .checkValidity == Left(Conjunction.FALSE)
+            })
+            
+            lastInterpolant = simpInter
+            //-END-ASSERTION-/////////////////////////////////////////////
+          }
+        }
       }
     }
   }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def doCheckValidity(transitionParts : Map[PartName, Conjunction],
+                              sig : Signature) : Unit = {
+    val res =
+      validityCheckProver.conclude(transitionParts.values.toList, sig.order)
+                         .checkValidity
+    
+    Console.withOut(java.lang.System.out) {
+      res match {
+        case Left(Conjunction.FALSE) =>
+          println("VALID")
+        case Left(counterexample) => {
+          println("INVALID")
+          println(counterexample)
+        }
+      }
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def parseProblem(reader : java.io.Reader) = {
