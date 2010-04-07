@@ -55,11 +55,29 @@ object ResourceFiles {
 object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
+
+  private var assertions = true
   
+  java.lang.System getenv "WERE_PRINCESS_OPTIONS" match {
+    case null => // nothing
+    case str => {
+      for (option <- str split ',') option match {
+        case "noAssertions" => assertions = false
+        case x => Console.withOut(Console.err) {
+          println("Unknown option: " + x)
+          println("Possible options are: noAssertions")
+          java.lang.System.exit(1)
+        }
+      }
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   Debug.enabledAssertions = {
     // we do our own implication checks in this class
     case (_, Debug.AC_INTERPOLATION_IMPLICATION_CHECKS) => false
-    case _ => true
+    case _ => assertions
   }
   
   //////////////////////////////////////////////////////////////////////////////
