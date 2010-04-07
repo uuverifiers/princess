@@ -66,17 +66,18 @@ object Interpolator
     val res = PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPostFast(
-      AC,
-      {
-        implicit val o = certificate.order
-        res.variables.isEmpty &&
-        (!res.predicates.isEmpty || (Conjunction collectQuantifiers res).isEmpty) &&
-        (res.constants subsetOf iContext.globalConstants) &&
-        (res.predicates subsetOf iContext.globalPredicates) &&
-        isValid(conj(iContext.leftFormulae ++ iContext.commonFormulae) ==> res) &&
-        isValid(!(conj(iContext.rightFormulae ++ iContext.commonFormulae) & res))
-      })
+    Debug.assertPost(AC, {
+      res.variables.isEmpty &&
+      (!res.predicates.isEmpty || (Conjunction collectQuantifiers res).isEmpty) &&
+      (res.constants subsetOf iContext.globalConstants) &&
+      (res.predicates subsetOf iContext.globalPredicates)
+    })
+    // the following assertions are quite expensive ...
+    Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS, {
+      implicit val o = certificate.order
+      isValid(conj(iContext.leftFormulae ++ iContext.commonFormulae) ==> res) &&
+      isValid(!(conj(iContext.rightFormulae ++ iContext.commonFormulae) & res))
+    })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }

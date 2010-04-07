@@ -56,7 +56,11 @@ object WolverineInterfaceMain {
   
   private val AC = Debug.AC_MAIN
   
-  Debug.enableAllAssertions(false)
+  Debug.enabledAssertions = {
+    // we do our own implication checks in this class
+    case (_, Debug.AC_INTERPOLATION_IMPLICATION_CHECKS) => false
+    case _ => true
+  }
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -122,14 +126,21 @@ object WolverineInterfaceMain {
                                                      Set(select, store))
   private val interpolationSettings =
     Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true)
+  private val validityCheckSettings =
+    GoalSettings.DEFAULT
   
   //////////////////////////////////////////////////////////////////////////////
   
   private val wolverineLineariser =
     new WolverineInterpolantLineariser(select, store)
   
-  private val interpolationProver = {
+  private lazy val interpolationProver = {
     val prover = ModelSearchProver emptyIncProver interpolationSettings
+    prover.conclude(backgroundPred, preludeOrder)
+  }
+  
+  private lazy val validityCheckProver = {
+    val prover = ModelSearchProver emptyIncProver validityCheckSettings
     prover.conclude(backgroundPred, preludeOrder)
   }
   
@@ -167,11 +178,14 @@ object WolverineInterfaceMain {
         stdinOutputStream.close
       }
     
-      val (namedParts, sig) =
+      val (transitionParts, sig) =
         parseProblem(new java.io.BufferedReader (
                      new java.io.InputStreamReader(stdinInputStream)))
 
-      val res = genInterpolants(namedParts, sig)
+      val names = Seqs.toArray((Set() ++ transitionParts.keys) - PartName.NO_NAME)
+      Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
+
+      val res = genInterpolants(names, transitionParts, sig)
       Console.withOut(java.lang.System.out) {
         res match {
           case Left(counterexample) => {
@@ -180,23 +194,55 @@ object WolverineInterfaceMain {
           }
           case Right(interpolants) => {
             println("VALID")
-            for (i <- interpolants) {
+            
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            // used for assertions: interpolants imply each other
+            var lastInterpolant : IFormula = true
+            val interpolantImpChecker =
+              validityCheckProver.conclude((transitionParts get PartName.NO_NAME).toList,
+                                           sig.order)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            
+            for ((i, num) <- interpolants.zipWithIndex) {
 /*              val predFreeI =
                 if (i.predicates.isEmpty)
                   i
                 else
                   PresburgerTools.eliminatePredicates(i, !backgroundPred) */
               
-//              println(WolverineInterpolantLineariser(i))
-              
               val internalInter = Internal2InputAbsy(i, functionEncoder.predTranslation)
               val simpInter = Simplifier(internalInter)
 /*              Console.withOut(Console.err) {
                   println(simpInter)
                 } */
-              
+
               wolverineLineariser.visit(simpInter, List())
               println
+
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              // Check that the implications I_i & T_(i+1) => I_(i+1) hold,
+              // where T_i are the transition relations and I_i the generated
+              // interpolants
+              Debug.assertIntFast(AC, {
+                val implication = lastInterpolant ==> simpInter
+                
+                val (interParts, _, sig2) =
+                  Preprocessing(implication, List(), sig,
+                                preprocSettings, functionEncoder)
+   		        functionEncoder.clearAxioms
+   		        implicit val order = sig2.order
+
+   		        val internalInterParts =
+   		          for (INamedPart(_, f) <- interParts)
+   		            yield conj(InputAbsy2Internal(f, order))
+
+                interpolantImpChecker.conclude(transitionParts(names(num)), order)
+                                     .conclude(internalInterParts, order)
+                                     .checkValidity == Left(Conjunction.FALSE)
+              })
+              
+              lastInterpolant = simpInter
+              //-END-ASSERTION-/////////////////////////////////////////////////
             }
           }
         }
@@ -234,15 +280,13 @@ object WolverineInterfaceMain {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def genInterpolants(namedParts : Map[PartName, Conjunction],
+  private def genInterpolants(names : Seq[PartName],
+                              transitionParts : Map[PartName, Conjunction],
                               sig : Signature)
                              : Either[Conjunction, Iterator[Conjunction]] = {
-    val names = Seqs.toArray((Set() ++ namedParts.keys) - PartName.NO_NAME)
-    Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
-
 //    ap.util.Timer.measure("solving") {
-       interpolationProver.conclude((for (n <- names) yield namedParts(n)) ++
-                                      (namedParts get PartName.NO_NAME).toList,
+       interpolationProver.conclude((for (n <- names) yield transitionParts(n)) ++
+                                      (transitionParts get PartName.NO_NAME).toList,
                                     sig.order)
                           .checkValidity
 //    }
@@ -257,7 +301,7 @@ object WolverineInterfaceMain {
             val interspec =
               IInterpolantSpec((names take i).toList, (names drop i).toList)
             val iContext =
-              new InterpolationContext (namedParts + (PartName.NO_NAME -> backgroundPred),
+              new InterpolationContext (transitionParts + (PartName.NO_NAME -> backgroundPred),
                                         interspec, cert.order)
 //            ap.util.Timer.measure("interpolating") {
                 Interpolator(cert, iContext)
