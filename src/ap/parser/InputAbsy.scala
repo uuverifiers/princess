@@ -123,6 +123,41 @@ object IExpression {
     }
   }
   
+  /**
+   * Rewrite a term to the form <code>coeff * symbol + remainder</code>
+   * (where remainder does not contain the atomic term
+   * <code>symbol</code>) and determine the coefficient and the remainder
+   */
+  case class SymbolSum(symbol : ITerm) {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertCtor(AC, symbol.isInstanceOf[IVariable] ||
+                         symbol.isInstanceOf[IConstant])
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    def unapply(t : ITerm) : Option[(IdealInt, ITerm)] ={
+      val (coeff, remainder) = decompose(t, 1)
+      symbol match {
+        case symbol : IVariable
+          if ((SymbolCollector variables remainder) contains symbol) => None
+        case IConstant(c)
+          if ((SymbolCollector constants remainder) contains c) => None
+        case _ => Some(coeff, remainder)
+      }
+    }
+
+    private def decompose(t : ITerm,
+                          coeff : IdealInt) : (IdealInt, ITerm) = t match {
+      case `symbol` => (coeff, 0)
+      case ITimes(c, t) => decompose(t, coeff * c)
+      case IPlus(a, b) => {
+        val (ca, ra) = decompose(a, coeff)
+        val (cb, rb) = decompose(b, coeff)
+        (ca + cb, ra +++ rb)
+      }
+      case _ => (0, t *** coeff)
+    }
+  }
+
   protected[parser] def toTermSeq(newExprs : Seq[IExpression],
                                   oldExprs : Seq[ITerm]) : Option[Seq[ITerm]] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

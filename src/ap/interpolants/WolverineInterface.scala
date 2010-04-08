@@ -163,7 +163,11 @@ object WolverineInterfaceMain {
   }
   
   //////////////////////////////////////////////////////////////////////////////
+
+  private val simplifier = new WolverineSimplifier (select, store)
   
+  //////////////////////////////////////////////////////////////////////////////
+
   def main(args: Array[String]) : Unit = Console.withOut(Console.err) {
     println
     println("Waiting for input ...")
@@ -219,11 +223,11 @@ object WolverineInterfaceMain {
         println(".")
       }
 
-/*        Console.withOut(Console.err) {
+/*      Console.withOut(Console.err) {
           println
           println(ap.util.Timer)
-          ap.util.Timer.reset
-          } */
+//          ap.util.Timer.reset
+        } */
     }
   }
 
@@ -262,11 +266,14 @@ object WolverineInterfaceMain {
             
             val internalInter =
               Internal2InputAbsy(i, functionEncoder.predTranslation)
-            val simpInter = Simplifier(internalInter)
+            val simpInter =
+//              ap.util.Timer.measure("simplifying") {
+                simplifier(internalInter)
+//              }
 
-/*          Console.withOut(Console.err) {
-              println(simpInter)
-            } */
+     /*       Console.withOut(Console.err) {
+                println(simpInter)
+     } */
     
             wolverineLineariser.visit(simpInter, List())
             println
@@ -368,12 +375,84 @@ object WolverineInterfaceMain {
               new InterpolationContext (transitionParts + (PartName.NO_NAME -> backgroundPred),
                                         interspec, cert.order)
 //            ap.util.Timer.measure("interpolating") {
-                Interpolator(cert, iContext)
+              Interpolator(cert, iContext)
 //            }
           })
       }
     }
   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Extended version of the InputAbsy simplifier that also rewrites certain
+ * array expressions
+ */
+class WolverineSimplifier(select : IFunction, store : IFunction)
+      extends ap.parser.Simplifier {
+  import IBinJunctor._
+  import IIntRelation._
+  import IExpression._
+  import Quantifier._
+
+  private class StoreRewriter(depth : Int) {
+    var foundProblem : Boolean = false
+    var storeArgs : Option[(ITerm, ITerm)] = None
+
+    def rewrite(t : ITerm) : ITerm = t match {
+      case IPlus(t1, t2) => rewrite(t1) +++ rewrite(t2)
+      case IFunApp(`store`, Seq(IVariable(`depth`), t1, t2)) => {
+        if (storeArgs != None)
+          foundProblem = true
+        storeArgs = Some(shiftVariables(t1), shiftVariables(t2))
+        0
+      }
+      case _ => shiftVariables(t)
+    }
+    
+    private def shiftVariables(t : ITerm) : ITerm = {
+      if ((SymbolCollector variables t) contains IVariable(depth))
+        foundProblem = true
+      VariableShiftVisitor(t, depth + 1, -1)
+    }
+  }
+  
+  private def rewriteEquation(t : ITerm, depth : Int) : Option[IFormula] = {
+    val rewriter = new StoreRewriter(depth)
+    val newT = rewriter rewrite t
+
+    rewriter.storeArgs match {
+      case Some((t1, t2)) if (!rewriter.foundProblem) =>
+        Some(select(newT, t1) === t2)
+      case _ =>
+        None
+    }
+  }
+  
+  private def translate(f : IFormula,
+                        negated : Boolean,
+                        depth : Int) : Option[IFormula] = f match {
+      
+    case IQuantified(q, subF) if (q == (if (negated) ALL else EX)) =>
+      for (res <- translate(subF, negated, depth + 1)) yield IQuantified(q, res)
+        
+    case IIntFormula(EqZero, t) if (!negated) =>
+      rewriteEquation(t, depth)
+    
+    case INot(IIntFormula(EqZero, t)) if (negated) =>
+      for (f <- rewriteEquation(t, depth)) yield !f
+        
+    case _ => None
+  }
+  
+  private def elimStore(expr : IExpression) : IExpression = expr match {
+    case IQuantified(EX, f) =>  translate(f, false, 0) getOrElse expr
+    case IQuantified(ALL, f) => translate(f, true, 0) getOrElse expr
+    case _ => expr
+  }
+
+  protected override def furtherSimplifications(expr : IExpression) = elimStore(expr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -404,58 +483,11 @@ class WolverineInterpolantLineariser(select : IFunction, store : IFunction)
     }
   }
   
-  /**
-   * Rewrite a term to the form <code>coeff * symbol + remainder</code>
-   * (where remainder does not contain the atomic term
-   * <code>symbol</code>) and determine the coefficient and the remainder
-   */
-  private case class Sum(symbol : ITerm) {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertCtor(AC, symbol.isInstanceOf[IVariable] || symbol.isInstanceOf[IConstant])
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    def unapply(t : ITerm) : Option[(IdealInt, ITerm)] ={
-      val (coeff, remainder) = decompose(t, 1)
-      symbol match {
-        case symbol : IVariable
-          if ((SymbolCollector variables remainder) contains symbol) => None
-        case IConstant(c)
-          if ((SymbolCollector constants remainder) contains c) => None
-        case _ => Some(coeff, remainder)
-      }
-    }
-
-    private def decompose(t : ITerm,
-                          coeff : IdealInt) : (IdealInt, ITerm) = t match {
-      case `symbol` => (coeff, 0)
-      case ITimes(c, t) => decompose(t, coeff * c)
-      case IPlus(a, b) => {
-        val (ca, ra) = decompose(a, coeff)
-        val (cb, rb) = decompose(b, coeff)
-        (ca + cb, ra +++ rb)
-      }
-      case _ => (0, t *** coeff)
-    }
-  }
-  
-  private val Var0Plus = Sum(IVariable(0))
+  private val Var0Plus = SymbolSum(IVariable(0))
   
   override def preVisit(t : IExpression, boundVars : List[String]) : PreVisitResult = {
     print("(")
     t match {
-      // we do some special rewriting for the theory of arrays (to avoid
-      // quantifiers if possible)
-      // TODO: generalise this
-      
-      case IQuantified(Quantifier.EX, IIntFormula(EqZero,
-                 Difference(IFunApp(store, Seq(IVariable(0), t1, t2)), t3))) => {
-        print("= ")
-        visit(select(t3, t1), "" :: boundVars)
-        visit(t2, "" :: boundVars)
-        print(") ")
-        ShortCutResult()
-      }
-
       // divisibility constraints
       case IQuantified(Quantifier.EX,
                        IIntFormula(EqZero, Var0Plus(c, t))) => {

@@ -30,8 +30,23 @@ import IExpression._
 import Quantifier._
 import SymbolCollector.variables
 
-object Simplifier {
+class Simplifier {
 
+  /**
+   * Transformation to negation normal form
+   */
+  private def toNNF(expr : IExpression) : IExpression = expr match {
+    case INot(INot(f))                  => f
+    case INot(IBinFormula(And, f1, f2)) => (!f1) | !f2
+    case INot(IBinFormula(Or, f1, f2))  => (!f1) & !f2
+    case INot(IBinFormula(Eqv, f1, f2)) => (!f1) <=> f2
+    case INot(IQuantified(q, f))        => IQuantified(q.dual, !f)
+    case INot(IBoolLit(v))              => !v
+    case _                              => expr
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
   /**
    * Simple mini-scoping, pushing down all quantifiers as far as possible
    */
@@ -59,6 +74,8 @@ object Simplifier {
           
      case _ => expr
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   /**
    * Eliminate quantifiers of the form <code>ALL _0 = t ==> ...</code> and
@@ -90,30 +107,26 @@ object Simplifier {
 
       case INot(eq @ IIntFormula(EqZero, t)) if (universal) =>
         findDefinition(eq, varIndex, false)
+       
+      case _ => {
+        // check for equations that represent definitions
+        val VarIndexSum = SymbolSum(IVariable(varIndex))
         
-      // TODO: generalise the following patterns
-      case IIntFormula(EqZero,
-                       IPlus(t, ITimes(IdealInt.MINUS_ONE, IVariable(`varIndex`))))
-        if (!universal && allIndexesLargerThan(t, varIndex)) =>
-          Some(VariableShiftVisitor(t, varIndex + 1, -varIndex - 1))
-      case IIntFormula(EqZero,
-                       IPlus(ITimes(IdealInt.MINUS_ONE, IVariable(`varIndex`)), t))
-        if (!universal && allIndexesLargerThan(t, varIndex)) =>
-          Some(VariableShiftVisitor(t, varIndex + 1, -varIndex - 1))
-      case IIntFormula(EqZero,
-                       IPlus(IVariable(`varIndex`), ITimes(IdealInt.MINUS_ONE, t)))
-        if (!universal && allIndexesLargerThan(t, varIndex)) =>
-          Some(VariableShiftVisitor(t, varIndex + 1, -varIndex - 1))
-      case IIntFormula(EqZero,
-                       IPlus(ITimes(IdealInt.MINUS_ONE, t), IVariable(`varIndex`)))
-        if (!universal && allIndexesLargerThan(t, varIndex)) =>
-          Some(VariableShiftVisitor(t, varIndex + 1, -varIndex - 1))
+        f match {
+          case IIntFormula(EqZero, VarIndexSum(coeff, t))
+            if ((coeff == IdealInt.ONE || coeff == IdealInt.MINUS_ONE) &&
+                !universal && allIndexesLargerThan(t, varIndex)) =>
+              Some(VariableShiftVisitor(t *** (-coeff), varIndex + 1, -varIndex - 1))
         
-      case _ => None
+          case _ => None
+        }
+      }
     }
   
   private def allIndexesLargerThan(t : IExpression, limit : Int) : Boolean =
     variables(t) forall ((v) => v.index > limit)
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   /**
    * Do some boolean simplifications, as well as elimination of trivial
@@ -132,19 +145,28 @@ object Simplifier {
     case IBinFormula(Or, f, IBoolLit(false)) => f
     
     case INot(IBoolLit(value)) => !value
-    
-    // TODO: generalise
-    case IPlus(IIntLit(c1), IIntLit(c2)) => c1 * c2
-    case IPlus(t1, t2) if (t1 == t2) => t1 * 2
-    case IPlus(t1, ITimes(c, t2)) if (t1 == t2) => t1 * (c + 1)
-    case IPlus(ITimes(c, t2), t1) if (t1 == t2) => t1 * (c + 1)
-    case IPlus(ITimes(c1, t1), ITimes(c2, t2)) if (t1 == t2) => t1 * (c1 + c2)
-    
+
+    // Simplification of linear combinations
     case ITimes(IdealInt.ONE, t) => t
     case ITimes(IdealInt.ZERO, t) => 0
-    
     case ITimes(c1, IIntLit(c2)) => c1 * c2
     case ITimes(c1, ITimes(c2, t)) => t * (c1 * c2)
+    
+    case ITimes(c, IPlus(t1, t2)) => (t1 * c) + (t2 * c)
+    
+    case IPlus(IIntLit(IdealInt.ZERO), t) => t
+    case IPlus(t, IIntLit(IdealInt.ZERO)) => t
+    case IPlus(IIntLit(c1), IIntLit(c2)) => c1 + c2
+    case IPlus(IIntLit(c1), IPlus(IIntLit(c2), t3)) => (c1 + c2) + t3
+    
+    // turn everything into right-associative form
+    case IPlus(IPlus(t1, t2), t3) => t1 + (t2 + t3)
+    
+    // move literals to the beginning of a term
+    case IPlus(t1, t2 : IIntLit) => t2 + t1
+    case IPlus(t1, IPlus(t2 : IIntLit, t3)) => t2 + (t1 + t3)
+    
+    case SimplifiableSum(t) => t
     
     case IIntFormula(EqZero, IIntLit(v)) => v.isZero
     case IIntFormula(GeqZero, IIntLit(v)) => (v.signum >= 0)
@@ -152,21 +174,48 @@ object Simplifier {
     case _ => expr
   }
   
+  private object SimplifiableSum {
+    def unapply(t : IPlus) : Option[ITerm] = t match {
+      case IPlus(ITimes(c1, t1), t2) => {
+        val (coeff, rem) = extractTerm(t1, t2)
+        if (rem eq t2) None else Some(t1 * (c1 + coeff) + rem)
+      }
+      case IPlus(t1, t2) => {
+        val (coeff, rem) = extractTerm(t1, t2)
+        if (rem eq t2) None else Some(t1 * (coeff + 1) + rem)
+      }
+    }
+
+    private def extractTerm(searchedTerm : ITerm,
+                            in : ITerm) : (IdealInt, ITerm) = in match {
+      case ITimes(c, `searchedTerm`) => (c, 0)
+      case IPlus(in1, in2) => {
+        val (c1, rem1) = extractTerm(searchedTerm, in1)
+        val (c2, rem2) = extractTerm(searchedTerm, in2)
+        (c1 + c2, in update List(rem1, rem2))
+      }
+      case _ => (0, in)
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /**
+   * Hook for subclasses
+   */
+  protected def furtherSimplifications(expr : IExpression) = expr
+  
+  private val defaultRewritings =
+    Array(toNNF _, elimSimpleLiterals _, miniScope _, elimQuantifier _,
+          furtherSimplifications _)
+  
   /**
    * Perform various kinds of simplification to the given formula, in particular
    * mini-scoping and eliminate of simple kinds of quantifiers
    */
   def apply(expr : IFormula) : IFormula = {
     import Rewriter._
-    
-    val e2 = Transform2NNF(expr)
-    
-    val e3 =
-      rewrite(e2, combineRewritings(Array(elimSimpleLiterals _,
-                                          miniScope _,
-                                          elimQuantifier _))).asInstanceOf[IFormula]
-    
-    e3
+    rewrite(expr, combineRewritings(defaultRewritings)).asInstanceOf[IFormula]
   }
   
 }
