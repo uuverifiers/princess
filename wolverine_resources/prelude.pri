@@ -53,6 +53,11 @@
 
 // General (unbounded) multiplication
   \partial \relational int mul(int, int);
+
+// Arith-1 functions  
+  \partial \relational int equals(int, int);
+  \partial \relational int lessThan(int, int);
+  \partial \relational int lessEqual(int, int);
 }
 
 \problem {
@@ -247,6 +252,28 @@
              |
              n = 1 & res = subres + x
        )))
+&
+
+// Arith-1 Functions
+// Equals
+
+  \forall int x, y; {equals(x, y)} (x = y -> equals(x, y) = 1)
+&
+  \forall int x, y; {equals(x, y)} (x != y -> equals(x, y) = 0)
+
+&
+
+// LessEqual
+  \forall int x, y; {lessEqual(x, y)} (x <= y -> lessEqual(x, y)=1)
+&
+  \forall int x, y; {lessEqual(x, y)} (x > y -> lessEqual(x, y)=0)
+
+&
+
+// LessThan
+  \forall int x, y; {lessThan(x, y)} (x < y -> lessThan(x, y)=1)
+&
+  \forall int x, y; {lessThan(x, y)} (x >= y -> lessThan(x, y)=0)
 
 
 ////////////////////////////////////////////////////////////////////////////////
