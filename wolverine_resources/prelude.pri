@@ -84,12 +84,17 @@
 &
   \forall int x; {shiftLeft(x, 32)}
     shiftLeft(x, 32) = 4*1024*1024*1024*x
-&  \forall int x, y, res; {shiftLeft(x, y)} (
-    shiftLeft(x, y) = res -> (
-    y > 0 & res = shiftLeft(2*x, y-1)
-    |
-    y <= 0 & res = x
-  ))
+&
+  \forall int x; {shiftLeft(x, 31)}
+    shiftLeft(x, 31) = 2*1024*1024*1024*x
+&
+  \forall int x, y; {shiftLeft(x, y)} (
+    16 <= y & y < 31 -> shiftLeft(x, y) = shiftLeft(64*1024*x, y-16))
+&
+  \forall int x, y; {shiftLeft(x, y)} (
+    y < 16 & y > 0 -> shiftLeft(x, y) = shiftLeft(2*x, y-1))
+&
+  \forall int x; {shiftLeft(x, 0)} shiftLeft(x, 0) = x
 &
 
   \forall int x, y, res; {shiftRight(x, y)} (
@@ -100,14 +105,6 @@
       |
       x < 0 & subres >= x & subres - diff < x
     )))
-&
-  \forall int x; {shiftLeft(x, 31)}
-    shiftLeft(x, 31) = 2*1024*1024*1024*x
-&
-  \forall int x, y; {shiftLeft(x, y)} (
-    y < 31 & y > 0 -> shiftLeft(x, y) = shiftLeft(2*x, y-1))
-&
-  \forall int x; {shiftLeft(x, 0)} shiftLeft(x, 0) = x
 &
 
 ////////////////////////////////////////////////////////////////////////////////
