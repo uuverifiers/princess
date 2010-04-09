@@ -197,9 +197,9 @@ object ModelSearchProver {
           // if the constant freedom of the goal has changed, we need to confirm
           // the update
           val uGoal =
-            if (!goal.fixedConstantFreedom &&
-                (!goal.stepPossible ||
-                 (ExhaustiveProver ruleApplicationYield goal)))
+            if ((!goal.stepPossible ||
+                 (ExhaustiveProver ruleApplicationYield goal)) &&
+                !goal.fixedConstantFreedom)
               goal updateConstantFreedom goal.closingConstantFreedom
             else
               goal
