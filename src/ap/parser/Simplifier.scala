@@ -82,32 +82,71 @@ class Simplifier {
    * <code>EX _0 = t & ...</code>
    */
   private def elimQuantifier(expr : IExpression) : IExpression = expr match {
-    case IQuantified(EX, f) => findDefinition(f, 0, false) match {
-      case Some(t) => VariableSubstVisitor(f, (List(t), -1))
-      case None => expr
-    }
-    case IQuantified(ALL, f) => findDefinition(f, 0, true) match {
-      case Some(t) => VariableSubstVisitor(f, (List(t), -1))
-      case None => expr
+    case IQuantified(q, f) => findDefinition(f, 0, q == ALL) match {
+      case NoDefFound => expr
+      case GoodDef(t) => VariableSubstVisitor(f, (List(t), -1))
+      case DefRequiresShifting => {
+        // we need to pull out quantifiers first
+        var prenexF = PullUpQuantifiers.visit(f, q)
+        
+        // check how many inner quantifiers we have
+        var cont = true
+        var quanNum = 0
+        while (cont) prenexF match {
+          case IQuantified(`q`, f) => {
+            prenexF = f
+            quanNum = quanNum + 1
+          }
+          case _ =>
+            cont = false
+        }
+        
+        // permute the variables (the quantifier to be eliminated will be the
+        // innermost one)
+        val shifts = IVarShift(List.make(quanNum, 1) ::: List(-quanNum), 0)
+        val shiftedF = VariablePermVisitor(prenexF, shifts)
+        
+        val substitutedF = findDefinition(shiftedF, 0, q == ALL) match {
+          case GoodDef(t) => VariableSubstVisitor(shiftedF, (List(t), -1))
+          case _ => { assert(false); null }
+        }
+
+        quan(Array.make(quanNum, q), substitutedF)
+      }
     }
     case _ => expr
   }
   
+  private abstract sealed class Def
+  
+  private case object NoDefFound extends Def
+  /** A defining equation was found */
+  private case class  GoodDef(t : ITerm) extends Def
+  /** A defining equation was found, but contains bound variables that have to
+      be moved first*/
+  private case object DefRequiresShifting extends Def
+  
   private def findDefinition(f : IFormula,
-                             varIndex : Int,
-                             universal : Boolean) : Option[ITerm] =
+                             varIndex : Int, universal : Boolean) : Def =
     f match {
       case IQuantified(q, subF)
         if (q == (if (universal) ALL else EX)) =>
           findDefinition(subF, varIndex + 1, true)
       case IBinFormula(j, f1, f2)
         if (j == (if (universal) Or else And)) =>
-          findDefinition(f1, varIndex, universal) orElse
-            (findDefinition(f2, varIndex, universal))
+          findDefinition(f1, varIndex, universal) match {
+            case d : GoodDef         => d
+            case NoDefFound          => findDefinition(f2, varIndex, universal)
+            case DefRequiresShifting =>
+              findDefinition(f2, varIndex, universal) match {
+                case d : GoodDef => d
+                case _ => DefRequiresShifting
+              }
+          }
 
-      case INot(eq @ IIntFormula(EqZero, t)) if (universal) =>
+      case INot(eq @ IIntFormula(EqZero, _)) if (universal) =>
         findDefinition(eq, varIndex, false)
-       
+
       case _ => {
         // check for equations that represent definitions
         val VarIndexSum = SymbolSum(IVariable(varIndex))
@@ -115,16 +154,69 @@ class Simplifier {
         f match {
           case IIntFormula(EqZero, VarIndexSum(coeff, t))
             if ((coeff == IdealInt.ONE || coeff == IdealInt.MINUS_ONE) &&
-                !universal && allIndexesLargerThan(t, varIndex)) =>
-              Some(VariableShiftVisitor(t *** (-coeff), varIndex + 1, -varIndex - 1))
+                !universal) =>
+              if (allIndexesLargerThan(t, varIndex))
+                GoodDef(VariableShiftVisitor(t *** (-coeff),
+                                             varIndex + 1, -varIndex - 1))
+              else
+                DefRequiresShifting
         
-          case _ => None
+          case _ => NoDefFound
         }
       }
     }
   
   private def allIndexesLargerThan(t : IExpression, limit : Int) : Boolean =
     variables(t) forall ((v) => v.index > limit)
+  
+  /**
+   * Pull up universal or existential quantifiers as far as possible. This can
+   * be necessary to eliminate a quantifier
+   */
+  private object PullUpQuantifiers
+                 extends CollectingVisitor[Quantifier, IFormula] {
+  
+    override def preVisit(f : IExpression,
+                          Quan : Quantifier) : PreVisitResult = f match {
+      // we only descend below propositional connectives and quantifiers of
+      // the specified type
+      case IBinFormula(And | Or, _, _) | IQuantified(Quan, _) => KeepArg
+      case f : IFormula => ShortCutResult(f)
+    }
+
+    def postVisit(f : IExpression, Quan : Quantifier,
+                  subres : Seq[IFormula]) : IFormula = f match {
+      case f @ IBinFormula(And | Or, _, _) => {
+        var Seq(left, right) = subres
+        
+        var cont = true
+        var quanNum = 0
+        while (cont) (left, right) match {
+          case (IQuantified(Quan, l), IQuantified(Quan, r)) => {
+            quanNum = quanNum + 1
+            left = l
+            right = r
+          }
+          case (IQuantified(Quan, l), _) => {
+            quanNum = quanNum + 1
+            left = l
+            right = VariableShiftVisitor(right, 0, 1)
+          }
+          case (_, IQuantified(Quan, r)) => {
+            quanNum = quanNum + 1
+            left = VariableShiftVisitor(left, 0, 1)
+            right = r
+          }
+          case _ =>
+            cont = false
+        }
+        
+        quan(Array.make(quanNum, Quan), f update List(left, right))
+      }
+        
+      case f @ IQuantified(Quan, _) => f update subres
+    }
+  }
   
   //////////////////////////////////////////////////////////////////////////////
   
