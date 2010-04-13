@@ -659,6 +659,11 @@ object Interpolator
                  // This makes the interpolator prefer left formulae if we can
                  // choose; it should be considered whether this is meaningful
                  !(termConsts subsetOf iContext.leftLocalConstants)
+                 
+                 //Comment the previous line and uncomment the following to 
+                 //violate the assertion I_i & T_(i+1) => I_(i+1) in
+                 //WolverineInterface.scala:285
+                 //Seqs.disjoint(termConsts, iContext.rightLocalConstants)
             }
           }
 
