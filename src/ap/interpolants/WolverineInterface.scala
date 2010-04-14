@@ -171,8 +171,9 @@ object WolverineInterfaceMain {
   def main(args: Array[String]) : Unit = Console.withOut(Console.err) {
     println
     println("Waiting for input ...")
-    print  ("-> Terminate each problem with \"interpolate.\" or \"checkValidity.\"")
-    println(" in a separate line")
+    println("-> Terminate each problem with \"interpolate.\" or \"checkValidity.\"")
+    println("   in a separate line")
+    println("-> Specify options using the environment variable \"WERE_PRINCESS_OPTIONS\"")
     println("-> Stop Princess with a \"quit.\" in a separate line")
 
     val mainActor = Actor.self
