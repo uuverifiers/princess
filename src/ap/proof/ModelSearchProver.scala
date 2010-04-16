@@ -27,6 +27,7 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
+import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask}
 import ap.proof.certificates.Certificate
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs}
@@ -162,11 +163,6 @@ object ModelSearchProver {
     }
   }
 
-  private def isSatisfiableGoal(tree : ProofTree) : Boolean = tree match {
-    case goal : Goal => PresburgerTools.isValid(goal.closingConstraint)
-    case _ => false
-  }
-  
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -188,12 +184,15 @@ object ModelSearchProver {
     tree match {
       case goal : Goal =>
         if (goal.facts.isFalse) {
+
 //          println("backtracking " + depth)
           Right(if (Param.PROOF_CONSTRUCTION(settings))
                   List(goal.getCertificate)
                 else
                   List())
+
         } else {
+
           // if the constant freedom of the goal has changed, we need to confirm
           // the update
           val uGoal =
@@ -204,22 +203,16 @@ object ModelSearchProver {
             else
               goal
           
-          if (uGoal.stepPossible)
+          if (uGoal.stepPossible) {
+
             findModel(uGoal step ptf, witnesses, constsToIgnore, depth, settings)
-          else if (isSatisfiableGoal(uGoal))
-            Right(if (Param.PROOF_CONSTRUCTION(settings))
-                    List(uGoal.getCertificate)
-                  else
-                    List())
-          else if (uGoal.compoundFormulas.qfClauses.isTrue)
-            Left(constructModel(uGoal.facts,
-                                witnesses, constsToIgnore,
-                                uGoal.order))
-          else {
+
+          } else if (!uGoal.compoundFormulas.qfClauses.isTrue) {
+
             // the free constant optimisation can lead to the situation that
             // not all formulae are fully split; in this case, we have to
             // continue proving to derive a full counterexample
-            
+
             val order = uGoal.order
             val disjuncts =
               List(uGoal.facts.negate) ++ uGoal.compoundFormulas.qfClauses
@@ -227,6 +220,41 @@ object ModelSearchProver {
                                Vocabulary(order), uGoal.settings)
               
             findModel(newGoal, witnesses, constsToIgnore, depth, settings)
+
+          } else if (uGoal.facts.arithConj.isTrue) {
+
+            // then we have found a counterexample
+
+            Left(constructModel(uGoal.facts,
+                                witnesses, constsToIgnore,
+                                uGoal.order))
+
+          } else {
+
+            // if the goal contains uninterpreted predicates, we might
+            // have to remove them first to construct a proper
+            // countermodel
+
+            ////////////////////////////////////////////////////////////////////
+            Debug.assertInt(ModelSearchProver.AC, !uGoal.facts.predConj.isTrue)
+            ////////////////////////////////////////////////////////////////////
+
+            val order = uGoal.order
+            val newFacts = uGoal.facts.updatePredConj(PredConj.TRUE)(order)
+            val newGoal = Goal(List(newFacts.negate), uGoal.eliminatedConstants,
+                               Vocabulary(order), uGoal.settings)
+              
+            findModel(newGoal, witnesses, Set(), depth, settings) match {
+              case Left(model) => {
+                val order = model.order
+                val completeModel =
+                  Conjunction.quantify(Quantifier.EX, order sort constsToIgnore,
+                    Conjunction.conj(Array(model, uGoal.facts.predConj), order), order)
+                Left(ReduceWithConjunction(Conjunction.TRUE, order)(completeModel))
+              }
+              case Right(cert) => Right(cert)
+            }
+            
           }
         }
         

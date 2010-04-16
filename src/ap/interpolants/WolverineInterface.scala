@@ -211,6 +211,8 @@ object WolverineInterfaceMain {
         parseProblem(new java.io.BufferedReader (
                      new java.io.InputStreamReader(stdinInputStream)))
 
+//      dumpInterpolationProblem(transitionParts)
+      
       receive {
         case "interpolate."   => doInterpolation(transitionParts, sig)
         case "checkValidity." => doCheckValidity(transitionParts, sig)
@@ -234,10 +236,20 @@ object WolverineInterfaceMain {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def dumpInterpolationProblem
+              (transitionParts : Map[PartName, Conjunction]) : Unit = {
+    for (n <- sortNames(transitionParts)) {
+      val f = !transitionParts(n)
+      println(f)
+      println(PresburgerTools.eliminatePredicates(f, !backgroundPred))
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   private def doInterpolation(transitionParts : Map[PartName, Conjunction],
                               sig : Signature) : Unit = {
-    val names = Seqs.toArray((Set() ++ transitionParts.keys) - PartName.NO_NAME)
-    Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
+    val names = sortNames(transitionParts)
 
     val res = genInterpolants(names, transitionParts, sig)
     Console.withOut(java.lang.System.out) {
@@ -307,6 +319,12 @@ object WolverineInterfaceMain {
         }
       }
     }
+  }
+  
+  private def sortNames(transitionParts : Map[PartName, Conjunction]) : Seq[PartName] = {
+    val names = Seqs.toArray((Set() ++ transitionParts.keys) - PartName.NO_NAME)
+    Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
+    names
   }
   
   //////////////////////////////////////////////////////////////////////////////
