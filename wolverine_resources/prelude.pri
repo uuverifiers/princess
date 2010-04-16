@@ -38,6 +38,9 @@
 
   \relational \partial int addSigned(int, int, int);
   \relational \partial int addUnsigned(int, int, int);
+
+  \relational \partial int subSigned(int, int, int);
+  \relational \partial int subUnsigned(int, int, int);
   
 // Bit-wise boolean operations that are independent of
 // the number of bits
@@ -169,12 +172,23 @@
     \exists int k; res = x + y + shiftLeft(k, width) &
     inUnsigned(width, res)
   ) */
-&
 
+////////////////////////////////////////////////////////////////////////////////
+// Subtraction with overflow
+
+&
+  \forall int x, y, z; {subSigned(x, y, z)}
+    subSigned(x, y, z) = addSigned(x, y, -z)
+&
+  \forall int x, y, z; {subUnsigned(x, y, z)}
+    subUnsigned(x, y, z) = addUnsigned(x, y, -z)
+
+////////////////////////////////////////////////////////////////////////////////
 // Bit-wise and. This mainly does a case analysis over the second
 // argument, which means that it is usually more
 // efficient to have constant values as the second argument
 
+&
   \forall int x; {and(x, 0)} and(x, 0) = 0
 &
   \forall int x; {and(x, -1)} and(x, -1) = x
@@ -228,6 +242,7 @@
   \forall int x; {zeros(x)} zeros(x) = ones(-x-1)
 &
 
+////////////////////////////////////////////////////////////////////////////////
 // Modulo
 
   \forall int x, y, res; {mod(x, y)}
@@ -236,6 +251,7 @@
        0 <= res & (res < y | res < -y))
 &
 
+////////////////////////////////////////////////////////////////////////////////
 // General multiplication (on the unbounded integers)
 
   \forall int x; {mul(x, 0)} mul(x, 0) = 0
@@ -253,6 +269,7 @@
        )))
 &
 
+////////////////////////////////////////////////////////////////////////////////
 // Arith-1 Functions
 // Equals
 

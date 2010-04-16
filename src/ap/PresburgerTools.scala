@@ -426,8 +426,9 @@ object PresburgerTools {
    * predicates that implies the given formula, modulo the given axioms. If the
    * input formula or the axioms contain quantifiers, this might not terminate.
    */
-  def eliminatePredicates(c : Conjunction, axioms : Conjunction) : Conjunction = {
-    implicit val order = c.order
+  def eliminatePredicates(c : Conjunction, axioms : Conjunction,
+                          order : TermOrder) : Conjunction = {
+    implicit val o = order
     val fors = !c | !axioms
     expansionProver(fors, order).closingConstraint.negate
   }

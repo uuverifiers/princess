@@ -364,6 +364,13 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     new TermOrder(constantSeq, predicateSeq ++ List(newPred))
 
   /**
+   * Generate a new <code>TermOrder</code> that coincides with this one, except
+   * that all predicates have been removed
+   */
+  def resetPredicates : TermOrder =
+    if (predicateSeq.isEmpty) this else new TermOrder(constantSeq, List())
+  
+  /**
    * Determine whether this term order does not consider any constants as bigger
    * than the given constants 
    */

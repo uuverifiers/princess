@@ -57,12 +57,19 @@ object WolverineInterfaceMain {
   private val AC = Debug.AC_MAIN
 
   private var assertions = true
+  private var interpolationProblemBasename = ""
+  private var interpolationProblemNum = 0
   
   java.lang.System getenv "WERE_PRINCESS_OPTIONS" match {
     case null => // nothing
     case str => {
+      val DumpInterpolationProblems = """dumpInterpolationProblems=(.+)""".r
+      
       for (option <- str split ',') option match {
-        case "noAssertions" => assertions = false
+        case "noAssertions" =>
+          assertions = false
+        case DumpInterpolationProblems(filename) =>
+          interpolationProblemBasename = filename
         case x => Console.withOut(Console.err) {
           println("Unknown option: " + x)
           println("Possible options are: noAssertions")
@@ -211,8 +218,6 @@ object WolverineInterfaceMain {
         parseProblem(new java.io.BufferedReader (
                      new java.io.InputStreamReader(stdinInputStream)))
 
-//      dumpInterpolationProblem(transitionParts)
-      
       receive {
         case "interpolate."   => doInterpolation(transitionParts, sig)
         case "checkValidity." => doCheckValidity(transitionParts, sig)
@@ -236,14 +241,32 @@ object WolverineInterfaceMain {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def dumpInterpolationProblem
-              (transitionParts : Map[PartName, Conjunction]) : Unit = {
-    for (n <- sortNames(transitionParts)) {
-      val f = !transitionParts(n)
-      println(f)
-      println(PresburgerTools.eliminatePredicates(f, !backgroundPred))
+  private def dumpInterpolationProblem(transitionParts : Map[PartName, Conjunction],
+               	                       sig : Signature) : Unit =
+    if (interpolationProblemBasename == "") {
+      // nothing to do
+    } else {
+      import IExpression._
+    
+      val simpParts =
+        for (n <- (if (transitionParts contains PartName.NO_NAME)
+                     List(PartName.NO_NAME)
+                   else
+                     List()) ++
+                   sortNames(transitionParts)) yield {
+        val f = !transitionParts(n)
+        val sf = PresburgerTools.eliminatePredicates(f, !backgroundPred, sig.order)
+        INamedPart(n, Internal2InputAbsy(sf, Map()))
+      }
+
+      val filename = interpolationProblemBasename + interpolationProblemNum + ".pri"
+      interpolationProblemNum = interpolationProblemNum + 1
+      
+      Console.withOut(new java.io.FileOutputStream(filename)) {
+        PrincessLineariser(!connect(simpParts, IBinJunctor.And),
+                           sig updateOrder sig.order.resetPredicates)
+      }
     }
-  }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -270,6 +293,8 @@ object WolverineInterfaceMain {
                                          sig.order)
           //-END-ASSERTION-///////////////////////////////////////////////
           
+          dumpInterpolationProblem(transitionParts, sig)
+
           for ((i, num) <- interpolants.zipWithIndex) {
 /*          val predFreeI =
               if (i.predicates.isEmpty)
