@@ -22,6 +22,8 @@
 
 package ap.interpolants
 
+import scala.util.Random
+
 import ap.parameters.{Param, GoalSettings, PreprocessingSettings}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.{ConstantTerm, TermOrder}
@@ -58,7 +60,9 @@ class BenchFileProver(reader : java.io.Reader,
 {
   import BenchFileProver._
  
-  val leftRightRatios = List(0.2,0.5,0.8)
+  val leftRightRatios = List(0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9)
+  
+  val randomizer = new Random(321)
   
   val (iFormulas, specs) = partitionFormulas(inputFormulas)
   
@@ -137,8 +141,8 @@ class BenchFileProver(reader : java.io.Reader,
     for(spec <- specs)
     {
       val iContextWoPreds = new InterpolationContext(namedPartsWoPreds, spec, extOrder)
-      println("Nb of constants: " + iContextWoPreds.allConstants.size)
-      println("Nb of constants to be eliminated: " +
+      println("Nb of constants with QE: " + iContextWoPreds.allConstants.size)
+      println("Nb of constants to be eliminated with QE: " +
                 iContextWoPreds.leftLocalConstants.size)
         
       val timeBeforeQE = System.currentTimeMillis
@@ -196,7 +200,17 @@ class BenchFileProver(reader : java.io.Reader,
   private def nodeCount(c : Conjunction) : Int =
     (c.size /: c.negatedConjs) {case (n,d) => n + nodeCount(d)}
   
-
+  private def randomizeFormulas(l : List[IFormula], n : Int) : List[IFormula] = {
+    val swaped = randomizer.nextBoolean match  {
+      case true => {
+        val (left, right) = l.splitAt(randomizer.nextInt(l.size))
+        right ++ left
+      }
+      case false => l
+    }
+    if(n>0) randomizeFormulas(swaped, n-1) else swaped
+  } 
+  
   private def partitionFormulas(iFormulas : List[IFormula]) : (List[IFormula], List[IInterpolantSpec]) =
   {
     interpolantSpecs match 
@@ -207,10 +221,12 @@ class BenchFileProver(reader : java.io.Reader,
                                g <- LineariseVisitor(nnf, IBinJunctor.Or))
                           yield g
         
-        val leftLengths = for(leftRightRatio <- leftRightRatios) yield
-          (allFormulas.length * leftRightRatio).toInt
+        val randomizedFormulas = randomizeFormulas(allFormulas, allFormulas.size)        
         
-        val parts = getParts(allFormulas, List(0) ++ leftLengths) 
+        val leftLengths = for(leftRightRatio <- leftRightRatios) yield
+          (randomizedFormulas.length * leftRightRatio).toInt
+        
+        val parts = getParts(randomizedFormulas, List(0) ++ leftLengths) 
  
         val partsAsFors = for (h <- parts) yield connect(h, IBinJunctor.Or)
         val namedParts = (for ((h, i) <- partsAsFors.elements.zipWithIndex)
