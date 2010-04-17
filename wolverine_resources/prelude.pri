@@ -39,6 +39,9 @@
   \relational \partial int addSigned(int, int, int);
   \relational \partial int addUnsigned(int, int, int);
 
+  \relational \partial int mulSigned(int, int, int);
+  \relational \partial int mulUnsigned(int, int, int);
+
   \relational \partial int subSigned(int, int, int);
   \relational \partial int subUnsigned(int, int, int);
   
@@ -267,6 +270,19 @@
              |
              n = 1 & res = subres + x
        )))
+&
+
+  \forall int x, y, res, width; {mulUnsigned(width, x, y)} (
+    mulUnsigned(width, x, y) = res ->
+    \exists int k; res = mul(x, y) + shiftLeft(k, width) &
+    inUnsigned(width, res)
+  )
+&
+  \forall int x, y, res, width; {mulSigned(width, x, y)} (
+    mulSigned(width, x, y) = res ->
+    \exists int k; res = mul(x, y) + shiftLeft(k, width) &
+    inSigned(width, res)
+  )
 &
 
 ////////////////////////////////////////////////////////////////////////////////
