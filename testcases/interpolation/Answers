@@ -390,3 +390,13 @@ true
 (prob_index'2 + -1 != 0)
 (prob_index'2 + -1 != 0)
 
+Loading constOrderBug.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 171), interpolating ...
+
+No countermodel exists, formula is valid
+
+Interpolants:
+(! (sym2 + -1*sym1 != 0 & sym2 != 0) & ! (sym2 != 0 & -1*sym1 >= 0) & ! (sym2 != 0 & sym1 + -3 >= 0))
+

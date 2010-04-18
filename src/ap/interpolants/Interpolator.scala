@@ -154,10 +154,10 @@ object Interpolator
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cert@StrengthenCertificate(inEq, eqCases, children, order) =>
+      case cert@StrengthenCertificate(inEq, eqCases, children, proofOrder) =>
       {
         val constTerm = newConstant
-        val newContext = iContext.addConstant(constTerm)
+        val newContext = iContext addConstant constTerm
         implicit val o = newContext.order
         val weakInterInEq = iContext getPartialInterpolant inEq
         
@@ -227,7 +227,7 @@ object Interpolator
             val defaultEqInter =
               if (den > 1) {
                 val ctxt = newContext.addPartialInterpolant(ArithConj.FALSE, eqPartialInter)
-                applyHelp(CloseCertificate(Set(Conjunction.FALSE), order), ctxt)
+                applyHelp(CloseCertificate(Set(Conjunction.FALSE), proofOrder), ctxt)
               } else {
                 null
               }
@@ -295,12 +295,12 @@ object Interpolator
       
       //////////////////////////////////////////////////////////////////////////
 
-      case BranchInferenceCertificate(inferences, child, order) =>
+      case BranchInferenceCertificate(inferences, child, _) =>
         processBranchInferences(inferences.toList, child, iContext)        
 
       //////////////////////////////////////////////////////////////////////////
 
-      case CloseCertificate(contradFors, order) => {
+      case CloseCertificate(contradFors, _) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////       
         Debug.assertInt(AC, contradFors.size == 1 &&
                             contradFors.elements.next.isFalse)
@@ -335,7 +335,7 @@ object Interpolator
 
     inference match {
 
-      case inf@CombineEquationsInference(equations, result, order) => {
+      case inf@CombineEquationsInference(equations, result, _) => {
         implicit val o = iContext.order
       
         val combinedPartialInter =
@@ -461,10 +461,15 @@ object Interpolator
 
       //////////////////////////////////////////////////////////////////////////
 
-      case ColumnReduceInference(_, newSymb, eq, subst, _) => {
-        implicit val o = 
-          if(iContext.order.orderedConstants contains newSymb) iContext.order
-          else iContext.order.extend(newSymb, Set())
+      case ColumnReduceInference(_, newSymb, eq, subst, proofOrder) => {
+        
+        // we have to insert the new constant into our (extended) ordering
+        // at the same place as in the proof
+        val largerConsts =
+          for (c <- proofOrder.orderedConstants;
+               if (proofOrder.compare(c, newSymb) > 0)) yield c
+        
+        implicit val extendedOrder = iContext.order.extend(newSymb, largerConsts)
         
         def filtFunc = (pair : (IdealInt, Term)) =>  
         { 
@@ -476,14 +481,14 @@ object Interpolator
            }
          } 
   
-        val leftLinComb = LinearCombination(eq(0).filter(filtFunc), o)
+        val leftLinComb = LinearCombination(eq(0).filter(filtFunc), extendedOrder)
         val newInterLHS = leftLinComb - newSymb
         
         val partialInter = PartialInterpolant.eqLeft(leftLinComb - newSymb)
         
-        val newContext = iContext.addLeft(newInterLHS === 0)
+        val newContext = iContext.setOrder(extendedOrder)
+                                 .addLeft(newInterLHS === 0)
                                  .addPartialInterpolant(eq, partialInter)
-                                 .addConstant(newSymb)
         
         processBranchInferences(remInferences, child, newContext)
       }
@@ -618,7 +623,7 @@ object Interpolator
       
       //////////////////////////////////////////////////////////////////////////
 
-      case ReducePredInference(equations, targetLit, result, order) => {
+      case ReducePredInference(equations, targetLit, result, _) => {
         val newContext = iContext.rewritePredAtom(equations, targetLit, result)
         processBranchInferences(remInferences, child, newContext)
       }
@@ -690,7 +695,7 @@ object Interpolator
           if(iContext isFromLeft qFormula) iContext addLeft result
           else if(iContext isFromRight qFormula) iContext addRight result
           else throw new Error("The formula " + qFormula + "has to come from left or right")
-          ) addConstants(consts)
+          ).addConstants(consts)
 
         val totalInter =
           processBranchInferences(remInferences, child, newContext)

@@ -184,14 +184,13 @@ class InterpolationContext(
                              else order.extend(const, Set()))
   }
   
- def addConstants(consts : Seq[ConstantTerm]) : InterpolationContext = {
+  def addConstants(consts : Seq[ConstantTerm]) : InterpolationContext = {
     val newConsts = consts.filter((c) => !(order.orderedConstants contains c))
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
                              (order /: newConsts)(_.extend(_, Set())))
   }
-
 
   def addLeft(left : Conjunction) : InterpolationContext =
     new InterpolationContext(leftFormulae + left, rightFormulae,
@@ -256,5 +255,9 @@ class InterpolationContext(
                              rewrittenPredAtoms,
                              order)
   
+  def setOrder(newOrder : TermOrder) : InterpolationContext =
+    new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
+                             partialInterpolants, rewrittenPredAtoms,
+                             newOrder)
 }
 

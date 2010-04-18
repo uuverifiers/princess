@@ -222,8 +222,6 @@ private class GoalColumnSolver(eqs : EquationConj,
   private def addDefinedSym(subst : Substitution, order : TermOrder) =
     definedSyms = ComposeSubsts(definedSyms sortBy order, subst, order)
   
-  private def vocabulary = Vocabulary(order, bindingContext, constantFreedom)
-  
   /**
    * Introduce a small constant as new name for the leading term of
    * <code>lc</code> (rule div-close)
@@ -232,7 +230,7 @@ private class GoalColumnSolver(eqs : EquationConj,
                                    order : TermOrder)
                                       : (Term, LinearCombination, TermOrder) = {
     assert(!logger.isLogging) // TODO
-                                        
+
     val (leadingCoeff, leadingTerm) = lc(0)
     val smallConst = newConst
     val extendedOrder = order.extend(smallConst, lc.constants)
@@ -257,7 +255,7 @@ private class GoalColumnSolver(eqs : EquationConj,
                                               NegEquationConj(lcMod, order),
                                               order)
                                             
-    val oldVocabulary = vocabulary
+    val oldVocabulary = Vocabulary(order, bindingContext, constantFreedom)
     postProcessor = postProcessor compose
             ((p:ProofTree) => ptf.weaken(p, definedSyms(notDividedByLC), oldVocabulary))
     addDefinedSym(backSubst, extendedOrder)
@@ -285,7 +283,7 @@ private class GoalColumnSolver(eqs : EquationConj,
                           symDefinition, false, extendedOrder)
     
       eliminatedConstants = eliminatedConstants + smallConst
-      val oldVocabulary = vocabulary
+      val oldVocabulary = Vocabulary(order, bindingContext, constantFreedom)
       bindingContext = bindingContext.addAndContract(smallConst, Quantifier.ALL)
       constantFreedom = constantFreedom addTopStatus List(smallConst)
       postProcessor = postProcessor compose

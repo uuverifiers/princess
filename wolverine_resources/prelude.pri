@@ -48,7 +48,6 @@
 // Bit-wise boolean operations that are independent of
 // the number of bits
   \partial \relational int and(int, int);
-  \partial \relational int andBit(int, int);
 
 // ones and zeros
   \partial \relational int ones(int);
@@ -196,36 +195,14 @@
 &
   \forall int x; {and(x, -1)} and(x, -1) = x
 &
-  \forall int x; {andBit(x, 0)} andBit(x, 0) = 0
-&
-  \forall int x; {andBit(x, -1)} andBit(x, -1) = x
-&
-  \forall int x, y, res; {andBit(x, y)}
-      ((y >= 1 | y <= -2) -> andBit(x, y) = res ->
+  \forall int x, y, res; {and(x, y)}
+      ((y >= 1 | y <= -2) -> and(x, y) = res ->
        \exists int k, l, m, n, subres; (
-           andBit(k, l) = subres &
+           and(k, l) = subres &
            x = 2*k + m & y = 2*l + n & m >= 0 & m <= 1 & (
              n = 0 & res = subres * 2
              |
              n = 1 & res = subres * 2 + m
-       )))
-&
-
-// Optimised version for common cases (y is of the form 2^n-1)
-  \forall int x, y, res; {and(x, y)}
-      ((y >= 1 | y <= -2) -> and(x, y) = res ->
-       \exists int n1, n2, threshold; (
-           n1 = ones(y) & threshold = shiftLeft(1, n1)
-           &
-           (
-             n1 > 0 &
-             y >= 0 & y < threshold &
-                // HACK to prevent the "mod" from escaping
-                // (should be fixed in the function encoder, TODO)
-             \exists int x'; (x' = x & res = mod(x', threshold))
-             |
-             !(n1 > 0 & y >= 0 & y < threshold) &
-             \exists int x'; (x' = x & res = andBit(x', y))
        )))
 &
 
