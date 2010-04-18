@@ -49,10 +49,6 @@
 // the number of bits
   \partial \relational int and(int, int);
 
-// ones and zeros
-  \partial \relational int ones(int);
-  \partial \relational int zeros(int);
-
 // Modulo, which we assume not reveal any overflows (correct?)
   \partial \relational int mod(int, int);
 
@@ -204,22 +200,6 @@
              |
              n = 1 & res = subres * 2 + m
        )))
-&
-
-// Ones and zeros
-  \forall int x, res; {ones(x)} (ones(x) = res ->
-    x = 0 & res = 0
-    |
-    x = -1 & res = -1
-    |
-    (x > 0 | x < -1) &
-    \exists int k; (
-      x = 2*k & res = 0
-      |
-      x = 2*k + 1 & res = 1 + ones(k)
-  ))
-&
-  \forall int x; {zeros(x)} zeros(x) = ones(-x-1)
 &
 
 ////////////////////////////////////////////////////////////////////////////////
