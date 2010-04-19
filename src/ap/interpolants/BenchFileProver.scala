@@ -22,6 +22,7 @@
 
 package ap.interpolants
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 import ap.parameters.{Param, GoalSettings, PreprocessingSettings}
@@ -200,16 +201,24 @@ class BenchFileProver(reader : java.io.Reader,
   private def nodeCount(c : Conjunction) : Int =
     (c.size /: c.negatedConjs) {case (n,d) => n + nodeCount(d)}
   
-  private def randomizeFormulas(l : List[IFormula], n : Int) : List[IFormula] = {
-    val swaped = randomizer.nextBoolean match  {
-      case true => {
-        val (left, right) = l.splitAt(randomizer.nextInt(l.size))
-        right ++ left
+  private def randomizeFormulas(l : List[IFormula]) : List[IFormula] = {
+    val ori = new ArrayBuffer[IFormula]
+    ori ++= l
+    val res = new Array[IFormula] (l.size)
+    val taken = for (_ <- Array.range(0, l.size)) yield false
+    
+    var i = 0
+    while (i < l.size) {
+      val nextIndex = randomizer.nextInt(l.size)
+      if (!taken(nextIndex)) {
+        taken(nextIndex) = true
+        res(i) = ori(nextIndex)
+        i = i + 1
       }
-      case false => l
     }
-    if(n>0) randomizeFormulas(swaped, n-1) else swaped
-  } 
+
+    res.toList
+  }
   
   private def partitionFormulas(iFormulas : List[IFormula]) : (List[IFormula], List[IInterpolantSpec]) =
   {
@@ -221,7 +230,9 @@ class BenchFileProver(reader : java.io.Reader,
                                g <- LineariseVisitor(nnf, IBinJunctor.Or))
                           yield g
         
-        val randomizedFormulas = randomizeFormulas(allFormulas, allFormulas.size)        
+        val randomizedFormulas = randomizeFormulas(allFormulas)        
+        
+        assert(Set() ++ allFormulas == Set() ++ randomizedFormulas)
         
         val leftLengths = for(leftRightRatio <- leftRightRatios) yield
           (randomizedFormulas.length * leftRightRatio).toInt
