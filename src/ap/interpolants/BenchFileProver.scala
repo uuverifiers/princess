@@ -104,7 +104,7 @@ class BenchFileProver(reader : java.io.Reader,
           val interpolants = for (spec <- specs) yield {
             // TODO: check that all parts of the input formula are declared as
             // either left or right
-            val iContext = new InterpolationContext(namedParts2, spec, cert.order)
+            val iContext = new InterpolationContext(namedParts2, spec, order)
            
             val timeBeforeInter = System.currentTimeMillis
             withTimeout {
@@ -230,7 +230,7 @@ class BenchFileProver(reader : java.io.Reader,
                                g <- LineariseVisitor(nnf, IBinJunctor.Or))
                           yield g
         
-        val randomizedFormulas = randomizeFormulas(allFormulas)        
+        val randomizedFormulas = randomizeFormulas(allFormulas)
         
         assert(Set() ++ allFormulas == Set() ++ randomizedFormulas)
         
