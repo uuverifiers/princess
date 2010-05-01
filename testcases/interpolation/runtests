@@ -16,7 +16,7 @@ TESTS="columnRed.pri cryptarithm.pri \
        super_queen2-1.pri super_queen3-1.pri super_queen4-1.pri \
        super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
        cav-ex4b.pri quan.pri ring_2exp10_3vars_2ite_unsat.pri \
-       arrays0.pri constOrderBug.pri"
+       arrays0.pri constOrderBug.pri strange_concurrency.pri"
 
 $PRI "$@" $TESTS
 

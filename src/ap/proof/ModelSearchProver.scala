@@ -207,20 +207,32 @@ object ModelSearchProver {
 
             findModel(uGoal step ptf, witnesses, constsToIgnore, depth, settings)
 
-          } else if (!uGoal.compoundFormulas.qfClauses.isTrue) {
+          } else if (!uGoal.compoundFormulas.qfClauses.isTrue ||
+                     (!uGoal.facts.arithConj.isTrue &&
+                      !uGoal.constantFreedom.isBottom)) {
 
-            // the free constant optimisation can lead to the situation that
-            // not all formulae are fully split; in this case, we have to
-            // continue proving to derive a full counterexample
+            // In all those cases, we have found a satisfiable goal and can
+            // extract a counterexample; however, we need to set the constant
+            // freedom to bottom first, because
+            // * maybe not all formulae are fully split
+            // * we also need to determine values of the free constants
+            
+        	//-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(ModelSearchProver.AC, !uGoal.constantFreedom.isBottom)
+            //-END-ASSERTION-///////////////////////////////////////////////////
 
-            val order = uGoal.order
-            val disjuncts =
-              List(uGoal.facts.negate) ++ uGoal.compoundFormulas.qfClauses
-            val newGoal = Goal(disjuncts, uGoal.eliminatedConstants,
-                               Vocabulary(order), uGoal.settings)
-              
-            findModel(newGoal, witnesses, constsToIgnore, depth, settings)
+            val res = findModel(uGoal updateConstantFreedom ConstantFreedom.BOTTOM,
+                                witnesses, constsToIgnore, depth, settings)
 
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            // We should be able to derive a counterexample
+            Debug.assertPost(ModelSearchProver.AC, res match {
+                               case Left(model) => !model.isFalse
+                               case Right(_) => false
+                             })
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            res
+            
           } else if (uGoal.facts.arithConj.isTrue) {
 
             // then we have found a counterexample
@@ -235,22 +247,31 @@ object ModelSearchProver {
             // have to remove them first to construct a proper
             // countermodel
 
-            ////////////////////////////////////////////////////////////////////
-            Debug.assertInt(ModelSearchProver.AC, !uGoal.facts.predConj.isTrue)
-            ////////////////////////////////////////////////////////////////////
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(ModelSearchProver.AC,
+                            !uGoal.facts.predConj.isTrue &&
+                            uGoal.constantFreedom.isBottom)
+            //-END-ASSERTION-///////////////////////////////////////////////////
 
             val order = uGoal.order
             val newFacts = uGoal.facts.updatePredConj(PredConj.TRUE)(order)
             val newGoal = Goal(List(newFacts.negate), uGoal.eliminatedConstants,
                                Vocabulary(order), uGoal.settings)
-              
+
             findModel(newGoal, witnesses, Set(), depth, settings) match {
               case Left(model) => {
                 val order = model.order
-                val completeModel =
+                val modelWithPreds =
+                  Conjunction.conj(Array(model, uGoal.facts.predConj), order)
+                val quantifiedModel =
                   Conjunction.quantify(Quantifier.EX, order sort constsToIgnore,
-                    Conjunction.conj(Array(model, uGoal.facts.predConj), order), order)
-                Left(ReduceWithConjunction(Conjunction.TRUE, order)(completeModel))
+                                       modelWithPreds, order)
+                val simpModel =
+                  ReduceWithConjunction(Conjunction.TRUE, order)(quantifiedModel)
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
+                Debug.assertInt(ModelSearchProver.AC, !simpModel.isFalse)
+                //-END-ASSERTION-///////////////////////////////////////////////
+                Left(simpModel)
               }
               case Right(cert) => Right(cert)
             }
