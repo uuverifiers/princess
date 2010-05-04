@@ -42,6 +42,9 @@
   \relational \partial int mulSigned(int, int, int);
   \relational \partial int mulUnsigned(int, int, int);
 
+  \relational \partial int divSigned(int, int, int);
+  \relational \partial int divUnsigned(int, int, int);
+
   \relational \partial int subSigned(int, int, int);
   \relational \partial int subUnsigned(int, int, int);
   
@@ -55,11 +58,20 @@
 // General (unbounded) multiplication
   \partial \relational int mul(int, int);
 
+// General (unbounded) division
+  \partial \relational int div(int, int);
+
+// Absolute value
+  \partial \relational int abs(int);
+
 // Arith-1 functions  
   \partial \relational int equals(int, int);
   \partial \relational int lessThan(int, int);
   \partial \relational int lessEqual(int, int);
   \partial \relational int bitNegU1(int);
+
+// Typecasts
+  \relational \partial int signed2unsigned(int, int);
 
 }
 
@@ -155,13 +167,13 @@
   \forall int x, y, res, width; {addUnsigned(width, x, y)} (
     width != 32 -> addUnsigned(width, x, y) = res ->
     (res = x + y | res = x + y - shiftLeft(1, width)) &
-    inUnsigned(width, res)
+    inUnsigned(width, signed2unsigned(width,res))
   )
 &
   \forall int x, y, res; {addUnsigned(32, x, y)} (
     addUnsigned(32, x, y) = res ->
     (res = x + y | res = x + y - 4*1024*1024*1024) &
-    res >= 0 & res < 4*1024*1024*1024
+    inUnsigned(32, signed2unsigned(32,res))
   )
 
 /* This version currently does not perform well due to rounding
@@ -228,11 +240,10 @@
              n = 1 & res = subres + x
        )))
 &
-
   \forall int x, y, res, width; {mulUnsigned(width, x, y)} (
     mulUnsigned(width, x, y) = res ->
     \exists int k; res = mul(x, y) + shiftLeft(k, width) &
-    inUnsigned(width, res)
+    inUnsigned(width, signed2unsigned(width,res))
   )
 &
   \forall int x, y, res, width; {mulSigned(width, x, y)} (
@@ -240,6 +251,42 @@
     \exists int k; res = mul(x, y) + shiftLeft(k, width) &
     inSigned(width, res)
   )
+&
+
+////////////////////////////////////////////////////////////////////////////////
+// General division (on the unbounded integers)
+
+  \forall int x; {div(x, 1)} div(x, 1) = x
+&
+  \forall int x; {div(x, -1)} div(x, -1) = -x
+&
+  \forall int x, y, res; {div(x, y)}
+      ((y >= 2 | y <= -2) -> div(x, y) = res ->
+       \exists int r; (
+         x = mul(res, y) + r &
+         ((x >= 0 & 0 <= r & r < abs(y)) |
+          (x <  0 & -abs(y) < r & r <= 0))
+       ))
+&
+  \forall int x, y, res, width; {divUnsigned(width, x, y)} (
+    divUnsigned(width, x, y) = res ->
+    res = div(x, y) &
+    inUnsigned(width, signed2unsigned(width,res))
+  )
+&
+  \forall int x, y, res, width; {divSigned(width, x, y)} (
+    divSigned(width, x, y) = res ->
+    res = div(x, y) &
+    inSigned(width, res)
+  )
+&
+
+////////////////////////////////////////////////////////////////////////////////
+// Absolute value
+
+  \forall int x; {abs(x)} (x >= 0 -> abs(x) = x)
+&
+  \forall int x; {abs(x)} (x <  0 -> abs(x) = -x)
 &
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -270,6 +317,18 @@
   \forall int x; {bitNegU1(x)} (x = 0 -> bitNegU1(x) = 1)
 &
   \forall int x; {bitNegU1(x)} (x != 0 -> bitNegU1(x) = 0)
+&
+
+////////////////////////////////////////////////////////////////////////////////
+// Typecasts
+// Signed to Unsigned
+  \forall int x; {signed2unsigned(32, x)} (x < 0 -> signed2unsigned(32, x) = x + 4*1024*1024*1024)
+&
+  \forall int x; {signed2unsigned(32, x)} (x >= 0 -> signed2unsigned(32, x) = x)
+&
+  \forall int width, x; {signed2unsigned(width, x)} (x < 0 -> signed2unsigned(width, x) = x + shiftLeft(1, width))
+&
+  \forall int width, x; {signed2unsigned(width, x)} (x >= 0 -> signed2unsigned(width, x) = x)
 
 
 ////////////////////////////////////////////////////////////////////////////////
