@@ -369,14 +369,16 @@ object PresburgerTools {
               val freshConsts =
                 Array.fromFunction((i:Int) => new ConstantTerm("x"))(maxVar + 1)
             
+              val extendedOrder = order extend freshConsts
+              
               val vars2Consts =
-                new VariableSubst(0, freshConsts, order)
+                new VariableSubst(0, freshConsts, extendedOrder)
               val consts2Vars =
                 ConstantSubst(Map() ++ (for ((c, i) <- freshConsts.elements.zipWithIndex)
                                           yield (c, VariableTerm(i))),
-                              order)
+                              extendedOrder)
             
-              consts2Vars(simplifier(vars2Consts(c), order))
+              consts2Vars(simplifier(vars2Consts(c), extendedOrder))
             }
             
           } else if (c.quans.isEmpty) {

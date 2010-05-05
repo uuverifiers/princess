@@ -306,6 +306,9 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     res
   }
 
+  def extend(newConsts : Seq[ConstantTerm]) : TermOrder =
+    new TermOrder(constantSeq ++ newConsts, predicateSeq)
+
   /**
    * Change this ordering by making the constant <code>const</code> as big as
    * possible, but still smaller than all constants of the set

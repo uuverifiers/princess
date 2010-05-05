@@ -130,15 +130,16 @@ case object FactsNormalisationTask extends EagerTask {
 
         goal.compoundFormulas.map(
           qfClauseMapping _,
-          _.reduceClauses(clauseReducer _, order),
+          _.reduceClauses(clauseReducer _, reducer.apply _, order),
           Goal.formulaTasks(_, goal.age, eliminatedConstants,
                             updatedVocabulary, goal.settings),
           order)
 //        (List(), goal.compoundFormulas)
       } else {
+        val reducerObj : Conjunction => Conjunction = reducer.apply _
         goal.compoundFormulas.map(
           (c:NegatedConjunctions) => reducer(c) partition (illegalQFClause _),
-          _.reduceClauses(reducer.apply _, order),
+          _.reduceClauses(reducerObj, reducerObj, order),
           Goal.formulaTasks(_, goal.age, eliminatedConstants,
                             updatedVocabulary, goal.settings),
           order)

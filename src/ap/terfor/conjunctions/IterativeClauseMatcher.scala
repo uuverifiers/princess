@@ -42,12 +42,13 @@ object IterativeClauseMatcher {
                              additionalNegLits : Collection[Atom],
                              mayAlias : (LinearCombination, LinearCombination) => Boolean,
                              contextReducer : ReduceWithConjunction,
+                             isNotRedundant : Conjunction => Boolean,
                              logger : ComputationLogger,
                              order : TermOrder) : Iterator[Conjunction] = {
     
     val selectedLits = new ArrayBuffer[Atom]
     
-    val instances = new scala.collection.mutable.LinkedHashSet[Conjunction]
+    val instances = new ArrayBuffer[Conjunction]
     
     ////////////////////////////////////////////////////////////////////////////
     
@@ -125,18 +126,20 @@ object IterativeClauseMatcher {
                               instanceTerms forall (_.variables.isEmpty))
               //-END-ASSERTION-/////////////////////////////////////////////////
 
-              val result = originalClause.instantiate(instanceTerms)(order)
-              
-              if (!contextReducer(result).isFalse) {
+              val instance = originalClause.instantiate(instanceTerms)(order)
+              if (isNotRedundant(contextReducer(instance))) {
                 logger.groundInstantiateQuantifier(originalClause.negate,
-                                                   instanceTerms, result.negate, order)
-                instances += result
+                                                   instanceTerms, instance.negate, order)
+                instances += instance
               }
               
             } else {
               val newAC = arithConj.updatePositiveEqs(newEqs)(order)
-              instances += contextReducer(Conjunction(quans, newAC, remainingLits,
-                                                      negConjs, order))
+              val reducedInstance = 
+                contextReducer(Conjunction(quans, newAC, remainingLits,
+                                           negConjs, order))
+              if (isNotRedundant(reducedInstance))
+                instances += reducedInstance
             }
           
           exec(progTail)
@@ -155,12 +158,17 @@ object IterativeClauseMatcher {
               //-END-ASSERTION-/////////////////////////////////////////////////
               val (leftNr, rightNr) =
                 if (negatedStartLit) (litNrB, litNrA) else (litNrA, litNrB)
-              logger.unifyPredicates(selectedLits(leftNr), selectedLits(rightNr),
-                                     eqs, order)
-
-              instances += Conjunction.conj(eqs, order)
+              
+              val instance = Conjunction.conj(eqs, order)
+              if (isNotRedundant(contextReducer(instance))) {
+                logger.unifyPredicates(selectedLits(leftNr), selectedLits(rightNr),
+                                       eqs, order)
+                instances += instance
+              }
             } else {
-              instances += contextReducer(Conjunction.conj(eqs, order))
+              val reducedInstance = contextReducer(Conjunction.conj(eqs, order))
+              if (isNotRedundant(reducedInstance))
+            	instances += reducedInstance
             }
           }
         }
@@ -377,12 +385,18 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       val instances = new scala.collection.mutable.LinkedHashSet[Conjunction]
       val additionalPosLits, additionalNegLits = new ArrayBuffer[Atom]
       
-      val redundancyTester =
-        (c:Conjunction) => !(generatedInstances contains c) && !isIrrelevantMatch(c)
+      var newGeneratedInstances = generatedInstances
+      def isNotRedundant(reducedInstance : Conjunction) : Boolean =
+        if (newGeneratedInstances contains reducedInstance) {
+          false
+        } else {
+          newGeneratedInstances = newGeneratedInstances + reducedInstance
+          true
+        }
       
       for (negated <- List(false, true))
         for (a <- if (negated) addedFacts.negativeLits else addedFacts.positiveLits) {
-          val newInstances =
+          instances ++=
             IterativeClauseMatcher.executeMatcher(a,
                                                   negated,
                                                   matcherFor(a.pred, negated),
@@ -390,16 +404,16 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                   additionalPosLits, additionalNegLits,
                                                   mayAlias,
                                                   contextReducer,
+                                                  isNotRedundant _,
                                                   logger,
                                                   order)
-          instances ++= FilterIt(newInstances, redundancyTester)
             
           (if (negated) additionalNegLits else additionalPosLits) += a
         }
 
       (instances,
        new IterativeClauseMatcher(newFacts, clauses, matchAxioms, matchers,
-                                  generatedInstances ++ instances))
+                                  newGeneratedInstances))
     }
 
   def updateClauses(newClauses : NegatedConjunctions,
@@ -460,17 +474,20 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
    * Reduce the clauses of this matcher. All reducible clauses are removed from
    * the matcher and the reductions are returned
    */
-  def reduceClauses(reducer : (Conjunction) => Conjunction, order : TermOrder)
-                            : (Seq[Conjunction], IterativeClauseMatcher) = {
+  def reduceClauses(clauseReducer : (Conjunction) => Conjunction,
+                    instanceReducer : (Conjunction) => Conjunction,
+                    order : TermOrder)
+                   : (Seq[Conjunction], IterativeClauseMatcher) = {
     val reducedClauses =
-      clauses.update(for (c <- clauses) yield reduceIfNecessary(c, reducer), order)
+      clauses.update(for (c <- clauses) yield reduceIfNecessary(c, clauseReducer),
+                     order)
 
     val (keptClauses, reductions) = reducedClauses diff clauses
     
     // we also reduce the set of generated instances, because future
     // instantiations will be made modulo the new reducer
     val reducedInstances =
-      for (i <- generatedInstances) yield reduceIfNecessary(i, reducer)
+      for (i <- generatedInstances) yield reduceIfNecessary(i, instanceReducer)
     
     (reductions,
      if (keptClauses.size == clauses.size && generatedInstances == reducedInstances)
