@@ -48,6 +48,9 @@
   \relational \partial int subSigned(int, int, int);
   \relational \partial int subUnsigned(int, int, int);
   
+  \relational \partial int minusSigned(int, int);
+  \relational \partial int minusUnsigned(int, int);
+  
 // Bit-wise boolean operations that are independent of
 // the number of bits
   \partial \relational int and(int, int);
@@ -167,13 +170,13 @@
   \forall int x, y, res, width; {addUnsigned(width, x, y)} (
     width != 32 -> addUnsigned(width, x, y) = res ->
     (res = x + y | res = x + y - shiftLeft(1, width)) &
-    inUnsigned(width, signed2unsigned(width,res))
+    inUnsigned(width, res)
   )
 &
   \forall int x, y, res; {addUnsigned(32, x, y)} (
     addUnsigned(32, x, y) = res ->
     (res = x + y | res = x + y - 4*1024*1024*1024) &
-    inUnsigned(32, signed2unsigned(32,res))
+    inUnsigned(32, res)
   )
 
 /* This version currently does not perform well due to rounding
@@ -184,14 +187,45 @@
   ) */
 
 ////////////////////////////////////////////////////////////////////////////////
+// Unary minus with overflow
+
+&
+  \forall int x, res; {minusSigned(32, x)} (
+    minusSigned(32, x) = res ->
+    (res = -x | res = -x - 4*1024*1024*1024) &
+    inSigned(32, res)
+  )
+
+&
+  \forall int width, x, res; {minusSigned(width, x)} (
+    width != 32 -> minusSigned(width, x) = res ->
+    (res = -x | res = -x - shiftLeft(1, width)) &
+    inSigned(width, res)
+  )
+
+&
+  \forall int x, res; {minusUnsigned(32, x)} (
+    minusUnsigned(32, x) = res ->
+    (res = -x | res = -x + 4*1024*1024*1024) &
+    inUnsigned(32, res)
+  )
+
+&
+  \forall int width, x, res; {minusUnsigned(width, x)} (
+    width != 32 -> minusUnsigned(width, x) = res ->
+    (res = -x | res = -x + shiftLeft(1, width)) &
+    inUnsigned(width, res)
+  )
+
+////////////////////////////////////////////////////////////////////////////////
 // Subtraction with overflow
 
 &
-  \forall int x, y, z; {subSigned(x, y, z)}
-    subSigned(x, y, z) = addSigned(x, y, -z)
+  \forall int width, x, y; {subSigned(width, x, y)}
+    subSigned(width, x, y) = addSigned(width, x, minusSigned(width, y))
 &
-  \forall int x, y, z; {subUnsigned(x, y, z)}
-    subUnsigned(x, y, z) = addUnsigned(x, y, -z)
+  \forall int width, x, y; {subUnsigned(width, x, y)}
+    subUnsigned(width, x, y) = addUnsigned(width, x, minusUnsigned(width, y))
 
 ////////////////////////////////////////////////////////////////////////////////
 // Bit-wise and. This mainly does a case analysis over the second
@@ -243,7 +277,7 @@
   \forall int x, y, res, width; {mulUnsigned(width, x, y)} (
     mulUnsigned(width, x, y) = res ->
     \exists int k; res = mul(x, y) + shiftLeft(k, width) &
-    inUnsigned(width, signed2unsigned(width,res))
+    inUnsigned(width, res)
   )
 &
   \forall int x, y, res, width; {mulSigned(width, x, y)} (
@@ -322,13 +356,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Typecasts
 // Signed to Unsigned
-  \forall int x; {signed2unsigned(32, x)} (x < 0 -> signed2unsigned(32, x) = x + 4*1024*1024*1024)
+  \forall int x; {signed2unsigned(32, x)} (
+    x < 0 -> signed2unsigned(32, x) = x + 4*1024*1024*1024)
 &
-  \forall int x; {signed2unsigned(32, x)} (x >= 0 -> signed2unsigned(32, x) = x)
+  \forall int x; {signed2unsigned(32, x)} (
+    x >= 0 -> signed2unsigned(32, x) = x)
 &
-  \forall int width, x; {signed2unsigned(width, x)} (x < 0 -> signed2unsigned(width, x) = x + shiftLeft(1, width))
+  \forall int width, x; {signed2unsigned(width, x)} (
+    x < 0 -> signed2unsigned(width, x) = x + shiftLeft(1, width))
 &
-  \forall int width, x; {signed2unsigned(width, x)} (x >= 0 -> signed2unsigned(width, x) = x)
+  \forall int width, x; {signed2unsigned(width, x)} (
+    x >= 0 -> signed2unsigned(width, x) = x)
 
 
 ////////////////////////////////////////////////////////////////////////////////
