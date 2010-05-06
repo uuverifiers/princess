@@ -89,7 +89,32 @@ object Interpolator
     val closedF = forall(o sort f.constants, f)
     assertionProver(closedF, f.order).closingConstraint.isTrue
   }
-  
+ 
+/* 
+  private def checkInterpolant(interpolant : Conjunction,
+                               certificate : Certificate,
+                               inferences : List[BranchInference],
+                               iContext: InterpolationContext) : Boolean = {
+    implicit val o = iContext.order
+      
+    if (!isValid((conj(iContext.leftFormulae) &
+                  conj(iContext.commonFormulae)) ==> interpolant) ||
+        !isValid(!(conj(iContext.rightFormulae) &
+                   conj(iContext.commonFormulae) & interpolant))) {
+      println("Incorrect interpolant:")
+      println("Certificate: " + certificate)
+      println("Leading inferences: " + inferences)
+      println("Interpolant: " + interpolant)
+      println("Left formulae: " + iContext.leftFormulae)
+      println("Right formulae: " + iContext.rightFormulae)
+      println("Partial interpolants: " + iContext.partialInterpolants)
+      false
+    } else {
+      true
+    }
+  }
+*/
+
   private def applyHelp(
     certificate : Certificate, 
     iContext: InterpolationContext) : Conjunction =
