@@ -51,36 +51,45 @@ case object OmegaTask extends EagerTask {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // the reason has to be that we are constructing a proof, and that certain
       // constants cannot be eliminated from arithmetic clauses
-      Debug.assertPre(AC, Param.PROOF_CONSTRUCTION(goal.settings) &&
-                          !Seqs.disjoint(goal.eliminatedConstants,
-                                         ac.positiveEqs.constants,
-                                         goal.compoundFormulas.qfClauses.constants))
+      Debug.assertPre(AC, Param.PROOF_CONSTRUCTION(goal.settings))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       
-      // In this case, we have to split an arithmetic clause
+      if (Seqs.disjoint(goal.eliminatedConstants,
+                        ac.positiveEqs.constants,
+                        goal.compoundFormulas.qfClauses.constants)) {
+        // we cannot eliminate all constants due to quantified formula and
+        // don't do any Omega splitting for the time being
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(AC, !Seqs.disjoint(goal.eliminatedConstants,
+                                           ac.positiveEqs.constants,
+                                           goal.compoundFormulas.constants))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        return ptf updateGoal goal
+
+      } else {
+        
+        // In this case, we can split an arithmetic clause
       
-      val store = new BestSplitPossibilityStore
-      val leadingConstants = Set() ++
-        (for (Seq((_, c : ConstantTerm), _*) <- ac.positiveEqs.elements)
-            yield c)
-      findFormulaSplitPossibilitiesHelp(goal, ptf, leadingConstants, store)
+        val store = new BestSplitPossibilityStore
+        val leadingConstants = Set() ++
+          (for (Seq((_, c : ConstantTerm), _*) <- ac.positiveEqs.elements)
+              yield c)
+        findFormulaSplitPossibilitiesHelp(goal, ptf, leadingConstants, store)
       
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, store.currentCases != None)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(AC, store.currentCases != None)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
       
-      return store.currentBest()
+        return store.currentBest()
+      }
     }
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC,
-                    // constants should already have been eliminated from the
-                    // positive equations
-                    Seqs.disjoint(goal.eliminatedConstants,
-                                  ac.positiveEqs.constants) &&
-                    // OmegaTask should be the last remaining task to be done
-                    Seqs.disjoint(goal.eliminatedConstants,
-                                  goal.tasks.taskInfos.constants))
+    // OmegaTask should be the last remaining task to be done
+    Debug.assertPre(AC, Seqs.disjoint(goal.eliminatedConstants,
+                                      goal.tasks.taskInfos.constants))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val ec = eliminableConsts(goal)

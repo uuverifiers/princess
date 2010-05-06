@@ -417,3 +417,10 @@ No countermodel exists, formula is valid
 Interpolants:
 (! (i2 + -1*i1 = 0 & ! (! ALL (4*_0 + j2 + i1 + -2 != 0) & ! ALL (4*_0 + j1 + i1 + -1 != 0))) & ! (i2 + -1*i1 = 0 & ! (! ALL (4*_0 + j1 + i1 + -1 != 0) & ! ALL (4*_0 + i1 != 0))))
 
+Loading omegaBug.pri ...
+Preprocessing ...
+Constructing countermodel ...
+
+Formula is invalid, found a countermodel:
+(sym9 = 0 & sym8 = 0 & sym7 + -1 = 0 & sym6 + -1 = 0 & sym5 + -1 = 0 & sym4 + -2 = 0 & sym3 + -1 = 0 & sym2 = 0 & sym1 = 0 & sym0 + -268435456 = 0 & select(1, 1, 12) & store(1, 2, 3, 1) & store(0, 1, 12, 1) & inUnsigned(32, 2) & inUnsigned(32, 1) & inUnsigned(32, 0) & inSigned(32, 268435456) & inArray(1) & inArray(0) & !select(0, 1, 12))
+
