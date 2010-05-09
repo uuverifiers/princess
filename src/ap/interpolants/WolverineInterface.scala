@@ -309,9 +309,10 @@ object WolverineInterfaceMain {
                 simplifier(internalInter)
 //              }
 
-     /*       Console.withOut(Console.err) {
-                println(simpInter)
-     } */
+/*            Console.withOut(Console.err) {
+              println("Raw interpolant:        " + i)
+              println("Simplified interpolant: " + simpInter)
+          } */
     
             wolverineLineariser.visit(simpInter, List())
             println

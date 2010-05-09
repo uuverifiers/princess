@@ -290,27 +290,22 @@
 ////////////////////////////////////////////////////////////////////////////////
 // General division (on the unbounded integers)
 
-  \forall int x; {div(x, 1)} div(x, 1) = x
-&
-  \forall int x; {div(x, -1)} div(x, -1) = -x
-&
-  \forall int x, y, res; {div(x, y)}
-      ((y >= 2 | y <= -2) -> div(x, y) = res ->
-       \exists int r; (
-         x = mul(res, y) + r &
-         ((x >= 0 & 0 <= r & r < abs(y)) |
-          (x <  0 & -abs(y) < r & r <= 0))
-       ))
+  \forall int x, y, res; {div(x, y)} (
+      y != 0 ->
+      \exists int mulres; (
+         mul(div(x, y), y) = mulres &
+         mulres <= x & (mulres > x + y | mulres > x - y)
+      )
+  )
 &
   \forall int x, y, res, width; {divUnsigned(width, x, y)} (
-    divUnsigned(width, x, y) = res ->
-    res = div(x, y) &
-    inUnsigned(width, signed2unsigned(width,res))
+    divUnsigned(width, x, y) = div(x, y)
   )
 &
   \forall int x, y, res, width; {divSigned(width, x, y)} (
     divSigned(width, x, y) = res ->
-    res = div(x, y) &
+    \exists int divres; (divres = div(x, y) &
+                         (res = divres | res = divres - shiftLeft(1, width))) &
     inSigned(width, res)
   )
 &
