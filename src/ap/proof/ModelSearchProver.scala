@@ -28,7 +28,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
-import ap.proof.goal.{Goal, NegLitClauseTask}
+import ap.proof.goal.{Goal, NegLitClauseTask, CompoundFormulas}
 import ap.proof.certificates.Certificate
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs}
 import ap.parameters.{GoalSettings, Param}
@@ -203,80 +203,11 @@ object ModelSearchProver {
             else
               goal
           
-          if (uGoal.stepPossible) {
-
+          if (uGoal.stepPossible)
             findModel(uGoal step ptf, witnesses, constsToIgnore, depth, settings)
-
-          } else if (!uGoal.compoundFormulas.qfClauses.isTrue ||
-                     (!uGoal.facts.arithConj.isTrue &&
-                      !uGoal.constantFreedom.isBottom)) {
-
-            // In all those cases, we have found a satisfiable goal and can
-            // extract a counterexample; however, we need to set the constant
-            // freedom to bottom first, because
-            // * maybe not all formulae are fully split
-            // * we also need to determine values of the free constants
-            
-        	//-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(ModelSearchProver.AC, !uGoal.constantFreedom.isBottom)
-            //-END-ASSERTION-///////////////////////////////////////////////////
-
-            val res = findModel(uGoal updateConstantFreedom ConstantFreedom.BOTTOM,
-                                witnesses, constsToIgnore, depth, settings)
-
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            // We should be able to derive a counterexample
-            Debug.assertPost(ModelSearchProver.AC, res match {
-                               case Left(model) => !model.isFalse
-                               case Right(_) => false
-                             })
-            //-END-ASSERTION-///////////////////////////////////////////////////
-            res
-            
-          } else if (uGoal.facts.arithConj.isTrue) {
-
-            // then we have found a counterexample
-
-            Left(constructModel(uGoal.facts,
-                                witnesses, constsToIgnore,
-                                uGoal.order))
-
-          } else {
-
-            // if the goal contains uninterpreted predicates, we might
-            // have to remove them first to construct a proper
-            // countermodel
-
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(ModelSearchProver.AC,
-                            !uGoal.facts.predConj.isTrue &&
-                            uGoal.constantFreedom.isBottom)
-            //-END-ASSERTION-///////////////////////////////////////////////////
-
-            val order = uGoal.order
-            val newFacts = uGoal.facts.updatePredConj(PredConj.TRUE)(order)
-            val newGoal = Goal(List(newFacts.negate), uGoal.eliminatedConstants,
-                               Vocabulary(order), uGoal.settings)
-
-            findModel(newGoal, witnesses, Set(), depth, settings) match {
-              case Left(model) => {
-                val order = model.order
-                val modelWithPreds =
-                  Conjunction.conj(Array(model, uGoal.facts.predConj), order)
-                val quantifiedModel =
-                  Conjunction.quantify(Quantifier.EX, order sort constsToIgnore,
-                                       modelWithPreds, order)
-                val simpModel =
-                  ReduceWithConjunction(Conjunction.TRUE, order)(quantifiedModel)
-                //-BEGIN-ASSERTION-/////////////////////////////////////////////
-                Debug.assertInt(ModelSearchProver.AC, !simpModel.isFalse)
-                //-END-ASSERTION-///////////////////////////////////////////////
-                Left(simpModel)
-              }
-              case Right(cert) => Right(cert)
-            }
-            
-          }
+          else
+            handleSatGoal(uGoal, witnesses, constsToIgnore, depth, settings)
+          
         }
         
       case tree : WitnessTree =>
@@ -319,21 +250,138 @@ object ModelSearchProver {
     }
   }
 
-  private def constructModel(facts : Conjunction,
-                             witnesses : List[(Substitution, TermOrder) => Substitution],
-                             constsToIgnore : Set[ConstantTerm],
-                             order : TermOrder) : Conjunction = {
-    val constantValues : Substitution =
-      (new IdentitySubst(order).asInstanceOf[Substitution] /: witnesses)(
-                                                         (s, w) => w(s, order))
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def assembleModel(arithModel : Conjunction,
+                            literals : PredConj,
+                            constsToIgnore : Set[ConstantTerm],
+                            order : TermOrder) : Conjunction = {
+    val modelWithPreds = Conjunction.conj(Array(arithModel, literals), order)
+    val quantifiedModel = Conjunction.quantify(Quantifier.EX,
+                                               order sort constsToIgnore,
+                                               modelWithPreds, order)
+    val simpModel = ReduceWithConjunction(Conjunction.TRUE, order)(quantifiedModel)
     
-    val valuesConj =
-      EquationConj(for (c <- (order.orderedConstants -- constsToIgnore).elements)
-                   yield LinearCombination(Array((IdealInt.ONE, c),
-                                                 (IdealInt.MINUS_ONE, constantValues(c))),
-                                           order),
-                   order)
-    Conjunction.conj(Array(valuesConj, facts), order)
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ModelSearchProver.AC, !simpModel.isFalse)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    simpModel
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def handleSatGoal(goal : Goal,
+                            // functions to reconstruct witnesses for eliminated
+                            // constants
+                            witnesses : List[(Substitution, TermOrder) => Substitution],
+                            // explicitly quantified constants that do not have to
+                            // be included in models
+                            constsToIgnore : Set[ConstantTerm],
+                            depth : Int,
+                            settings : GoalSettings) : Either[Conjunction, Seq[Certificate]] = {
+ 
+    // used in case we have to reset the constant freeness stored in the
+    // goal
+
+    def extractModel = 
+      if (goal.constantFreedom.isBottom) {
+        val order = goal.order
+        
+        val constantValues : Substitution =
+          (new IdentitySubst(order).asInstanceOf[Substitution] /: witnesses)(
+                                                          (s, w) => w(s, order))
+    
+        val arithModel =
+          EquationConj(for (c <- order.orderedConstants.elements)
+                       yield LinearCombination(Array((IdealInt.ONE, c),
+                                                     (IdealInt.MINUS_ONE, constantValues(c))),
+                                               order),
+                       order)
+        
+        Left(assembleModel(Conjunction.conj(arithModel, order),
+                           goal.facts.predConj, constsToIgnore, order))
+      } else {
+        // TODO: the proof generation could be switched off from this point on
+        
+    	val res = findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
+                            witnesses, constsToIgnore, depth, settings)
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        // We should be able to derive a counterexample
+        Debug.assertPost(ModelSearchProver.AC, res match {
+                           case Left(model) => !model.isFalse
+                           case Right(_) => false
+                         })
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        res
+      }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    if (!goal.facts.arithConj.positiveEqs.isTrue &&
+        !goal.constantFreedom.isBottomWRT(goal.facts.arithConj.positiveEqs.constants)) {
+
+      // When constructing proofs, it can happen that not all
+      // equations can be eliminated. We have to make sure that this
+      // does not have any consequences for the created instantiations
+      // of quantified formulae
+    	
+      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+      Debug.assertInt(ModelSearchProver.AC, Param.PROOF_CONSTRUCTION(settings))
+      //-END-ASSERTION-///////////////////////////////////////////////////////
+
+      val lowerConstantFreedom =
+        goal.constantFreedom.findNonFreeness(
+          Conjunction.conj(goal.facts.arithConj, goal.order).negate,
+          goal.bindingContext)
+
+      findModel(goal updateConstantFreedom lowerConstantFreedom,
+   	            witnesses, constsToIgnore, depth, settings)
+
+    } else if (goal.facts.arithConj.isTrue) {
+      
+      // The goal is satisfiable, and we can extract a counterexample.
+      // However, due to the free-constant optimisation, 
+      // we might have to perform further splitting, etc. to construct a
+      // genuine counterexample
+
+      extractModel
+
+    } else {
+
+      // Not all arithmetic facts could be solved, which has to be because
+      // of uninterpreted predicates or compound formulae
+            
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(ModelSearchProver.AC,
+    		          (!goal.facts.predConj.isTrue || !goal.compoundFormulas.isEmpty))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      // First continue proving only on the arithmetic facts
+
+      val order = goal.order
+      val newFacts = goal.facts.updatePredConj(PredConj.TRUE)(order)
+      val newGoal =
+    	nonRemovingPTF.updateGoal(Conjunction.TRUE, CompoundFormulas.EMPTY,
+    			                  goal formulaTasks newFacts.negate, goal)
+
+      findModel(newGoal, witnesses, Set(), depth, settings) match {
+
+        case Left(model) if (goal.constantFreedom.isBottom) =>
+          Left(assembleModel(model, goal.facts.predConj, constsToIgnore, goal.order))
+
+        case Left(_) =>
+          // The goal is satisfiable, and we can extract a counterexample.
+          // However, due to the free-constant optimisation, 
+          // we might have to perform further splitting, etc. to construct a
+          // genuine counterexample
+
+          extractModel
+              
+        case res@Right(_) => res
+      }
+
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////

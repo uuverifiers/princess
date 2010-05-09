@@ -133,6 +133,14 @@ abstract class ProofTreeFactory {
                goal.vocabulary, goal.definedSyms, List(),
                goal.branchInferences, goal)
 
+  def updateGoal(updatedFacts : Conjunction,
+                 updatedCompoundFormulas : CompoundFormulas,
+                 newTasks : Iterable[PrioritisedTask],
+                 goal : Goal) : ProofTree =
+    updateGoal(updatedFacts, updatedCompoundFormulas, goal.eliminatedConstants,
+               goal.vocabulary, goal.definedSyms, newTasks,
+               goal.branchInferences, goal)
+
   def updateGoal(updatedCompoundFormulas : CompoundFormulas,
                  newTasks : Iterable[PrioritisedTask],
                  goal : Goal) : ProofTree =

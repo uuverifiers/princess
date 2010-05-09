@@ -140,41 +140,35 @@ object Interpolator
       
       //////////////////////////////////////////////////////////////////////////
       
-      /*case SplitEqCertificate(left, right, leftChild, rightChild, order) =>
-      {
-        implicit val o = order
+      case SplitEqCertificate(left, right, leftChild, rightChild, _) => {
+        implicit val o = iContext.order
         
-        val origiNegEq = (left(0) + 1 === 0)
+        val origiNegEq = (left(0) + 1 =/= 0)
         val origiPartInter = iContext getPartialInterpolant origiNegEq
-      
-        val dec = origiPartInter.kind.Value match
-        {
-          case _ : PartialInterpolant.Kind.EqRight => IdealInt(1) //is this correct?
-          case _ : PartialInterpolant.Kind.NegEqRight => IdealInt(0)
-          case _ => throw new Error("Partial interpolant of SplitEq Rule must be either Equation or NegEquation")
+
+        val dec = origiPartInter.kind match {
+          case PartialInterpolant.Kind.EqRight => IdealInt.ONE
+          case PartialInterpolant.Kind.NegEqRight => IdealInt.ZERO
+          case _ => throw new Error("Unexpected partial interpolant")
         }
         
-        val leftPartInter = 
-          new PartialInterpolant(leftInEq,
-                                 new Inequality(origiPartInter.linComb-dec))
-        val rightPartInter =
-          new PartialInterpolant(leftInEq,
-                                 new Inequality(-origiPartInter.linComb-dec))
+        val leftPartInter =  PartialInterpolant(origiPartInter.linComb-dec,
+                                                origiPartInter.den,
+                                                PartialInterpolant.Kind.InEqLeft)
+        val rightPartInter = PartialInterpolant(-origiPartInter.linComb-dec,
+                                                origiPartInter.den,
+                                                PartialInterpolant.Kind.InEqLeft)
+
+        val leftRes =
+          applyHelp(leftChild, iContext.addPartialInterpolant(left, leftPartInter))
+        val rightRes =
+          applyHelp(rightChild, iContext.addPartialInterpolant(right, rightPartInter))
         
-        val leftContext = iContext.addPartialInterpolant(leftPartInter)
-        val rightContext = iContext.addPartialInterpolant(rightPartInter)
-         
-        origiPartInter match
-        {
-          case _ : Equation => 
-            applyHelp(leftChild, leftContext) |
-            applyHelp(rightChild, rightContext)
-          case _ : NegEquation =>
-            applyHelp(leftChild, leftContext) &
-            applyHelp(rightChild, rightContext)
-          case _ => throw new Error
+        origiPartInter.kind match {
+          case PartialInterpolant.Kind.EqRight => leftRes | rightRes
+          case PartialInterpolant.Kind.NegEqRight => leftRes & rightRes
         }
-      }*/
+      }
       
 
       //////////////////////////////////////////////////////////////////////////

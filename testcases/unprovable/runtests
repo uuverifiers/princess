@@ -15,7 +15,8 @@ TESTS="optimisation7.pri predicates3.pri \
        reduceWithConjunctionBug.pri
        wrongFunctionAxioms.pri \
        relationalFun2.pri omegaBug.pri \
-       uniExConstants1.pri uniExConstantsBug.pri"
+       uniExConstants1.pri uniExConstantsBug.pri \
+       wrongModel.pri"
 
 $PRI "$@" $TESTS
 
