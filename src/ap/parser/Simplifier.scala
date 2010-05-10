@@ -30,6 +30,9 @@ import IExpression._
 import Quantifier._
 import SymbolCollector.variables
 
+/**
+ * Class to simplify input formulas using various rewritings
+ */
 class Simplifier {
 
   /**
@@ -53,27 +56,53 @@ class Simplifier {
   private def miniScope(expr : IExpression) : IExpression = expr match {
     case IQuantified(ALL, IBinFormula(And, f1, f2)) => all(f1) & all(f2)
     case IQuantified(EX, IBinFormula(Or, f1, f2)) => ex(f1) | ex(f2)
-        
-    case IQuantified(ALL, IBinFormula(Or, f1, f2))
-      if (!(variables(f1) contains IVariable(0))) =>
+
+    case IQuantified(ALL, f@IBinFormula(Or, f1, f2)) => {
+      if (!(variables(f1) contains IVariable(0)))
         VariableShiftVisitor(f1, 1, -1) | all(f2)
-    case IQuantified(ALL, IBinFormula(Or, f1, f2))
-      if (!(variables(f2) contains IVariable(0))) =>
+      else if (!(variables(f2) contains IVariable(0)))
         all(f1) | VariableShiftVisitor(f2, 1, -1)
-        
-    case IQuantified(EX, IBinFormula(And, f1, f2))
-      if (!(variables(f1) contains IVariable(0))) =>
+      else f match {
+        case AndSplitter(f1, f2) => all(f1) & all(f2)
+        case _ => expr
+      }
+    }
+                                        
+    case IQuantified(EX, f@IBinFormula(And, f1, f2)) => {
+      if (!(variables(f1) contains IVariable(0)))
         VariableShiftVisitor(f1, 1, -1) & ex(f2)
-    case IQuantified(EX, IBinFormula(And, f1, f2))
-      if (!(variables(f2) contains IVariable(0))) =>
+      else if (!(variables(f2) contains IVariable(0)))
         ex(f1) & VariableShiftVisitor(f2, 1, -1)
+      else f match {
+        case OrSplitter(f1, f2) => ex(f1) | ex(f2)
+        case _ => expr
+      }
+    }
       
     case IQuantified(_, t)
       if (!(variables(t) contains IVariable(0))) =>
         VariableShiftVisitor(t, 1, -1)
-          
-     case _ => expr
+
+    case _ => expr
   }
+  
+  private class FormulaSplitter(SplitOp : IBinJunctor.Value,
+                                DistributedOp : IBinJunctor.Value) {
+    def unapply(f : IFormula) : Option[(IFormula, IFormula)] = f match {
+      case IBinFormula(SplitOp, f1, f2) => Some(f1, f2)
+      case IBinFormula(DistributedOp, f1, f2) =>
+        (for ((f11, f12) <- unapply(f1))
+           yield (IBinFormula(DistributedOp, f11, f2),
+                  IBinFormula(DistributedOp, f12, f2))) orElse
+        (for ((f21, f22) <- unapply(f2))
+           yield (IBinFormula(DistributedOp, f1, f21),
+                  IBinFormula(DistributedOp, f1, f22)))
+      case _ => None
+    }
+  }
+
+  private val AndSplitter = new FormulaSplitter (IBinJunctor.And, IBinJunctor.Or)
+  private val OrSplitter =  new FormulaSplitter (IBinJunctor.Or, IBinJunctor.And)
   
   //////////////////////////////////////////////////////////////////////////////
   

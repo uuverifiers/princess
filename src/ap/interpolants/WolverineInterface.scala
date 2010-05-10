@@ -309,7 +309,7 @@ object WolverineInterfaceMain {
                 simplifier(internalInter)
 //              }
 
-/*            Console.withOut(Console.err) {
+            /* Console.withOut(Console.err) {
               println("Raw interpolant:        " + i)
               println("Simplified interpolant: " + simpInter)
           } */
@@ -469,7 +469,7 @@ class WolverineSimplifier(select : IFunction, store : IFunction)
 
     rewriter.storeArgs match {
       case Some((t1, t2)) if (!rewriter.foundProblem) =>
-        Some(select(newT, t1) === t2)
+        Some(select(-newT, t1) === t2)
       case _ =>
         None
     }
