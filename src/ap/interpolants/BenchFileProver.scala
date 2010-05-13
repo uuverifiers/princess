@@ -104,7 +104,7 @@ class BenchFileProver(reader : java.io.Reader,
           val interpolants = for (spec <- specs) yield {
             // TODO: check that all parts of the input formula are declared as
             // either left or right
-            val iContext = new InterpolationContext(namedParts2, spec, order)
+            val iContext = InterpolationContext(namedParts2, spec, order)
            
             val timeBeforeInter = System.currentTimeMillis
             withTimeout {
@@ -141,7 +141,7 @@ class BenchFileProver(reader : java.io.Reader,
     println("Interpolating by quantifier elimination ...")
     for(spec <- specs)
     {
-      val iContextWoPreds = new InterpolationContext(namedPartsWoPreds, spec, extOrder)
+      val iContextWoPreds = InterpolationContext(namedPartsWoPreds, spec, extOrder)
       println("Nb of constants with QE: " + iContextWoPreds.allConstants.size)
       println("Nb of constants to be eliminated with QE: " +
                 iContextWoPreds.leftLocalConstants.size)

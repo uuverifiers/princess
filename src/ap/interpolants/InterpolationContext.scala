@@ -38,6 +38,24 @@ object InterpolationContext {
   
   private val AC = Debug.AC_INTERPOLATION
   
+  def apply(namedParts : Map[PartName, Conjunction],
+            spec : IInterpolantSpec,
+            order : TermOrder) =
+    new InterpolationContext (
+      Set()++(for(name<- spec.left.elements) yield namedParts(name).negate),
+      Set()++(for(name<- spec.right.elements) yield namedParts(name).negate),
+      Set()++(for (f <- (namedParts get PartName.NO_NAME).elements) yield f.negate),
+      Map(), Map(), order)
+  
+  def apply(leftFormulas : Iterable[Conjunction],
+            rightFormulas : Iterable[Conjunction],
+            commonFormulas : Iterable[Conjunction],
+            order : TermOrder) =
+    new InterpolationContext (Set() ++ (for (f <- leftFormulas.elements) yield f.negate),
+                              Set() ++ (for (f <- rightFormulas.elements) yield f.negate),
+                              Set() ++ (for (f <- commonFormulas.elements) yield f.negate),
+                              Map(), Map(), order)
+  
 }
 
 class InterpolationContext(
@@ -48,15 +66,6 @@ class InterpolationContext(
   rewrittenPredAtoms : Map[PredConj, (Seq[Seq[(IdealInt, EquationConj)]], PredConj)],
   val order : TermOrder)
 {
-  def this(
-    namedParts : Map[PartName, Conjunction],
-    spec : IInterpolantSpec,
-    order : TermOrder) = this(
-      Set()++(for(name<- spec.left.elements) yield namedParts(name).negate),
-      Set()++(for(name<- spec.right.elements) yield namedParts(name).negate),
-      Set()++(for (f <- (namedParts get PartName.NO_NAME).elements) yield f.negate),
-      Map(), Map(), order)
-
    private def getConstants(fors : Iterable[Formula]) =
      Set() ++ (for(f <- fors.elements; c <- f.constants.elements) yield c)
 
