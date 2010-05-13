@@ -28,10 +28,8 @@ import scala.util.Sorting
 
 import ap.basetypes.IdealInt
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.TerForConvenience._
-import ap.proof.ModelSearchProver
 import ap.util.{Debug, Seqs}
 
 object WolverineInterfaceMain extends {
@@ -203,7 +201,7 @@ object WolverineInterfaceMain extends {
     
               interpolantImpChecker.conclude(transitionParts(names(num)), order)
                                    .conclude(implication, order)
-                                   .checkValidity == Left(Conjunction.FALSE)
+                                   .checkValidity(false) == Left(Conjunction.FALSE)
             })
             
             lastInterpolant = simpInter
@@ -219,7 +217,7 @@ object WolverineInterfaceMain extends {
   private def doCheckValidity(transitionParts : Map[PartName, Conjunction],
                               sig : Signature) : Unit = {
     val res = validityCheckProver.conclude(transitionParts.values.toList, sig.order)
-                                 .checkValidity
+                                 .checkValidity(false)
     
     Console.withOut(java.lang.System.out) {
       res match {

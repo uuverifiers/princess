@@ -194,7 +194,7 @@ abstract class SoftwareInterpolationFramework {
                                : Either[Conjunction, Iterator[Conjunction]] = {
 //    ap.util.Timer.measure("solving") {
        interpolationProver.conclude(formulas ++ List(commonFormula), order)
-                          .checkValidity
+                          .checkValidity(false)
 //    }
     match {
       case Left(counterexample) =>
@@ -202,16 +202,23 @@ abstract class SoftwareInterpolationFramework {
       case Right(cert) => {
         println("Found proof (size " + cert.inferenceCount + ")")
 
-        Right(
-          for (i <- Iterator.range(1, formulas.size)) yield {
-            val iContext =
-              InterpolationContext (formulas take i, formulas drop i,
-                                    List(commonFormula, backgroundPred),
-                                    order)
-//            ap.util.Timer.measure("interpolating") {
-              Interpolator(cert, iContext)
-//            }
-          })
+        Right {
+          var lastInterpolant = Conjunction.TRUE
+          for (i <- Iterator.range(1, formulas.size)) yield
+            if (formulas(i-1).isFalse) {
+              // no need to generate a new interpolant, just take the previous
+              // one
+              lastInterpolant
+            } else {
+              val iContext =
+                InterpolationContext (formulas take i, formulas drop i,
+                                      List(commonFormula, backgroundPred),
+                                      order)
+//              ap.util.Timer.measure("interpolating") {
+                lastInterpolant = Interpolator(cert, iContext)
+                lastInterpolant
+//              }
+          }}
       }
     }
   }

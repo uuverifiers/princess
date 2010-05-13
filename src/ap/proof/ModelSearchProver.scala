@@ -119,7 +119,7 @@ object ModelSearchProver {
     val goal = Goal(disjuncts, elimConstants, vocabulary, settings)
 
     //    val model = findModelFair(goal, 500)
-    findModel(goal, List(), Set(), 0, settings) match {
+    findModel(goal, List(), Set(), 0, settings, true) match {
       case Left(model) =>
         Left(model)
       case Right(certificates) => {
@@ -178,7 +178,10 @@ object ModelSearchProver {
                         // be included in models
                         constsToIgnore : Set[ConstantTerm],
                         depth : Int,
-                        settings : GoalSettings) : Either[Conjunction, Seq[Certificate]] = {
+                        settings : GoalSettings,
+                        // construct a complete model?
+                        constructModel : Boolean)
+                       : Either[Conjunction, Seq[Certificate]] = {
     Timeout.check
     
     tree match {
@@ -204,15 +207,17 @@ object ModelSearchProver {
               goal
           
           if (uGoal.stepPossible)
-            findModel(uGoal step ptf, witnesses, constsToIgnore, depth, settings)
+            findModel(uGoal step ptf, witnesses, constsToIgnore, depth,
+                      settings, constructModel)
           else
-            handleSatGoal(uGoal, witnesses, constsToIgnore, depth, settings)
+            handleSatGoal(uGoal, witnesses, constsToIgnore, depth,
+                          settings, constructModel)
           
         }
         
       case tree : WitnessTree =>
         findModel(tree.subtree, tree.witness :: witnesses, constsToIgnore,
-                  depth, settings)
+                  depth, settings, constructModel)
 
       case tree : ProofTreeOneChild => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -226,15 +231,18 @@ object ModelSearchProver {
           case tree : QuantifiedTree => constsToIgnore ++ tree.quantifiedConstants
           case _ => constsToIgnore
         }
-        findModel(tree.subtree, witnesses, newConstsToIgnore, depth, settings)
+        findModel(tree.subtree, witnesses, newConstsToIgnore, depth,
+                  settings, constructModel)
       }
      
       case AndTree(left, right, partialCert) => {
-        findModel(left, witnesses, constsToIgnore, depth + 1, settings) match {
+        findModel(left, witnesses, constsToIgnore, depth + 1,
+                  settings, constructModel) match {
           case res @ Left(_) =>
             res
           case Right(leftCerts) =>
-            findModel(right, witnesses, constsToIgnore, depth + 1, settings) match {
+            findModel(right, witnesses, constsToIgnore, depth + 1,
+                      settings, constructModel) match {
               case res @ Left(_) =>
                 res
               case Right(rightCerts) =>
@@ -278,13 +286,21 @@ object ModelSearchProver {
                             // be included in models
                             constsToIgnore : Set[ConstantTerm],
                             depth : Int,
-                            settings : GoalSettings) : Either[Conjunction, Seq[Certificate]] = {
+                            settings : GoalSettings,
+                            // construct a complete model?
+                            constructModel : Boolean)
+                           : Either[Conjunction, Seq[Certificate]] = {
  
     // used in case we have to reset the constant freeness stored in the
     // goal
 
-    def extractModel = 
-      if (goal.constantFreedom.isBottom) {
+    def extractModel =
+      if (!constructModel) {
+        // we don't care about the precise model
+        Left(Conjunction.TRUE)
+      } else if (goal.constantFreedom.isBottom) {
+        // we have indeed found a model
+        
         val order = goal.order
         
         val constantValues : Substitution =
@@ -304,7 +320,8 @@ object ModelSearchProver {
         // TODO: the proof generation could be switched off from this point on
         
     	val res = findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
-                            witnesses, constsToIgnore, depth, settings)
+                            witnesses, constsToIgnore, depth,
+                            settings, constructModel)
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         // We should be able to derive a counterexample
@@ -336,7 +353,7 @@ object ModelSearchProver {
           goal.bindingContext)
 
       findModel(goal updateConstantFreedom lowerConstantFreedom,
-   	            witnesses, constsToIgnore, depth, settings)
+   	            witnesses, constsToIgnore, depth, settings, constructModel)
 
     } else if (goal.facts.arithConj.isTrue) {
       
@@ -365,8 +382,10 @@ object ModelSearchProver {
     	nonRemovingPTF.updateGoal(Conjunction.TRUE, CompoundFormulas.EMPTY,
     			                  goal formulaTasks newFacts.negate, goal)
 
-      findModel(newGoal, witnesses, Set(), depth, settings) match {
-
+      findModel(newGoal, witnesses, Set(), depth, settings, constructModel) match {
+        case Left(_) if (!constructModel) =>
+          Left(Conjunction.TRUE)
+        
         case Left(model) if (goal.constantFreedom.isBottom) =>
           Left(assembleModel(model, goal.facts.predConj, constsToIgnore, goal.order))
 
@@ -442,8 +461,8 @@ object ModelSearchProver {
       new IncProver(resGoal)
     }
     
-    def checkValidity : Either[Conjunction, Certificate] =
-      findModel(goal, List(), Set(), 0, goal.settings) match {
+    def checkValidity(constructModel : Boolean) : Either[Conjunction, Certificate] =
+      findModel(goal, List(), Set(), 0, goal.settings, constructModel) match {
         case Left(model) => Left(model)
         case Right(Seq()) => Left(Conjunction.FALSE)
         case Right(Seq(cert)) => Right(cert)
