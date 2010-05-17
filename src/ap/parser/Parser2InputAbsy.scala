@@ -71,11 +71,7 @@ object Parser2InputAbsy {
     t collectDeclarations api
     val formula = t translateProblem api
     val interSpecs = t translateInterpolantSpecs api
-    val sig = new Signature (env.universalConstants,
-                             env.existentialConstants,
-                             env.nullaryFunctions,
-                             env.order)
-    (formula, interSpecs, sig)
+    (formula, interSpecs, env.toSignature)
   }
   
   def parseExpression(input : java.io.Reader, env : Environment) : IExpression = {

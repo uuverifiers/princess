@@ -80,15 +80,17 @@ abstract class SoftwareInterpolationFramework {
     (reducedRes, order)
   }
 
+  protected val preludeSignature = preludeEnv.toSignature
+  
   //////////////////////////////////////////////////////////////////////////////
   
-  private val select =
+  protected val select =
     preludeEnv.lookupSym("select") match {
       case Environment.Function(f) => f
       case _ => throw new Error("Expected select to be defined as a function");
     }
   
-  private val store = 
+  protected val store = 
     preludeEnv.lookupSym("store") match {
       case Environment.Function(f) => f
       case _ => throw new Error("Expected store to be defined as a function");
@@ -131,32 +133,29 @@ abstract class SoftwareInterpolationFramework {
     val env = preludeEnv.clone
     val (problem, _, signature) = Parser2InputAbsy(reader, env)
 
-    implicit val order = env.order
-
-    val (iProblemParts, _, signature2) =
-      Preprocessing(problem, List(), signature, preprocSettings, functionEncoder)
-    functionEncoder.clearAxioms
-
-    val namedParts =
-      Map() ++ (for (INamedPart(name, f) <- iProblemParts)
-                yield (name -> conj(InputAbsy2Internal(f, signature2.order))))
-
-    // println("Parsed problem")
-
-    (namedParts, signature2)
+    toNamedParts(problem, signature)
   }
 
-  protected def toInternal(f : IFormula,
-                           sig : Signature) : (Conjunction, TermOrder) = {
-    val (interParts, _, sig2) = Preprocessing(f, List(), sig,
-                                              preprocSettings, functionEncoder)
+  protected def toNamedParts(f : IFormula, sig : Signature) = {
+    val (iProblemParts, _, sig2) =
+      Preprocessing(f, List(), sig, preprocSettings, functionEncoder)
     functionEncoder.clearAxioms
     implicit val order = sig2.order
     
-    (conj(for (INamedPart(_, f) <- interParts) yield InputAbsy2Internal(f, order)),
-     order)
+    val namedParts =
+      Map() ++ (for (INamedPart(name, f) <- iProblemParts)
+                yield (name -> conj(InputAbsy2Internal(f, order))))
+
+    (namedParts, sig2)
   }
   
+  protected def toInternal(f : IFormula,
+                           sig : Signature) : (Conjunction, TermOrder) = {
+    val (parts, sig2) = toNamedParts(f, sig)
+    implicit val order = sig2.order
+    (disj(for ((_, f) <- parts) yield f), order)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   protected def dumpInterpolationProblem(transitionParts : Map[PartName, Conjunction],

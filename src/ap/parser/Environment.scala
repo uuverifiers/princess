@@ -142,4 +142,8 @@ class Environment {
   
   def lookupPartName(name : String) : PartName =
     partNames.getOrElseUpdate(name, new PartName (name))
+  
+  def toSignature =
+    new Signature (universalConstants, existentialConstants,
+                   nullaryFunctions, order)
 }
