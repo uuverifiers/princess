@@ -185,7 +185,7 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
        instantiatePreVars(inv2, id2, localState2, globalState)) ==>
       assertion.formula
   }
-                    
+
   case class NIInterpolation(inv1 : IFormula, inv2 : IFormula,
                              path1 : Int, path2 : Int)
                             (implicit st : SigTracker) {
@@ -227,6 +227,25 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
       INamedPart(rightParts, assertion.formula)
   }
 
+  case class OwickiGriesCheck(inv1 : IFormula, inv2 : IFormula)
+                             (implicit st : SigTracker) {
+	val id1 = cloneConsts(id, "1")
+    val id2 = cloneConsts(id, "2")
+
+    val globalState0 = cloneConsts(gPreVars, "0")
+    val globalState1 = cloneConsts(gPreVars, "1")
+    val localState1_0 = cloneConsts(lPreVars, "1_0")
+    val localState1_1 = cloneConsts(lPreVars, "1_1")
+    val localState2 = cloneConsts(lPreVars, "2")
+    
+    val formula =
+      ((id1 =/= id2) &
+       instantiatePreVars(inv1, id1, localState1_0, globalState0) &
+       instantiatePreVars(inv2, id2, localState2, globalState0) &
+       normalBody(id1, localState1_0, globalState0, localState1_1, globalState1)) ==>
+      instantiatePreVars(inv2, id2, localState2, globalState1)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   class ModelChecker {
@@ -263,6 +282,15 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
           case Left(Conjunction.FALSE) => cont = false
           case _ => // nothing
         }
+      }
+      
+      println
+      print("Checking Owicki-Gries conditions ... ")
+      if (owickiGriesChecks) {
+        println("passed")
+      } else {
+        println("failed")
+        System exit 1
       }
       
       println
@@ -367,6 +395,22 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
       }
       
     }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
+    def owickiGriesChecks : Boolean =
+      (0 until (invariants.size-1)) forall ((invNum1 : Int) =>
+      (invNum1 until (invariants.size-1)) forall ((invNum2 : Int) => {
+        
+        implicit val st = new SigTracker(preludeSignature)
+        val check = OwickiGriesCheck(invariants(invNum1), invariants(invNum2))
+        val (internalVC, order) = toInternal(check.formula, st.sig)
+        
+        validityCheckProver.conclude(internalVC, order).checkValidity(false) match {
+          case Left(Conjunction.FALSE) => true
+          case _ => false
+        }
+      }))
   }
   
   new ModelChecker
