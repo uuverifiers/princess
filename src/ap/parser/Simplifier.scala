@@ -112,8 +112,21 @@ class Simplifier {
    */
   private def elimQuantifier(expr : IExpression) : IExpression = expr match {
     case IQuantified(q, f) => findDefinition(f, 0, q == ALL) match {
-      case NoDefFound => expr
+      
+      case NoDefFound => {
+        // handle some cases of obviously invalid formulae
+        val VarSum = SymbolSum(IVariable(0))
+        expr match {
+          case IQuantified(ALL, IIntFormula(EqZero, VarSum(c, _)))
+            if (!c.isZero) => false
+          case IQuantified(EX, INot(IIntFormula(EqZero, VarSum(c, _))))
+            if (!c.isZero) => false
+          case _ => expr
+        }
+      }
+      
       case GoodDef(t) => VariableSubstVisitor(f, (List(t), -1))
+      
       case DefRequiresShifting => {
         // we need to pull out quantifiers first
         var prenexF = PullUpQuantifiers.visit(f, q)

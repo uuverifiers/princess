@@ -396,6 +396,8 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       
       for (negated <- List(false, true))
         for (a <- if (negated) addedFacts.negativeLits else addedFacts.positiveLits) {
+          (if (negated) additionalNegLits else additionalPosLits) += a
+          
           instances ++=
             IterativeClauseMatcher.executeMatcher(a,
                                                   negated,
@@ -407,8 +409,6 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                   isNotRedundant _,
                                                   logger,
                                                   order)
-            
-          (if (negated) additionalNegLits else additionalPosLits) += a
         }
 
       (instances,

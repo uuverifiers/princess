@@ -29,15 +29,45 @@ import ap.parser.IExpression._
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.Signature
+import ap.util.Debug
 
-object NonInterferenceChecker extends SoftwareInterpolationFramework {
-
-  def main(args: Array[String]) : Unit = {}
-  
+abstract class ConcurrentProgram {
+  // indexes of the variables used to record reads- and writes
   val READ = 2
   val WRITE = 3
   val READ_REC = 4
   val WRITE_REC = 5
+  
+  // local and global variables for pre- and post-states
+  val lPreVars, gPreVars, lPostVars, gPostVars : Seq[ConstantTerm]
+
+  val id : ConstantTerm
+  
+  val init, nBody, iBody : IFormula
+  
+  import NonInterferenceChecker.substitute
+  
+  def normalBody(concreteId : ConstantTerm,
+		         lPre : Seq[ConstantTerm], gPre : Seq[ConstantTerm],
+		         lPost : Seq[ConstantTerm], gPost : Seq[ConstantTerm])
+                : IFormula =
+    substitute(nBody,
+               lPreVars ++ gPreVars ++ lPostVars ++ gPostVars ++ List(id),
+               lPre     ++ gPre     ++ lPost     ++ gPost     ++ List(concreteId))
+  
+  def instrumentedBody(concreteId : ConstantTerm,
+                       lPre : Seq[ConstantTerm], gPre : Seq[ConstantTerm],
+                       lPost : Seq[ConstantTerm], gPost : Seq[ConstantTerm])
+                      : IFormula =
+    substitute(iBody,
+               lPreVars ++ gPreVars ++ lPostVars ++ gPostVars ++ List(id),
+               lPre     ++ gPre     ++ lPost     ++ gPost     ++ List(concreteId))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class ChunksOf4(voc : FrameworkVocabulary) extends ConcurrentProgram {
+  import voc.{select, store}
   
   val lVarNames = List("i", "j", "read", "write", "readRec", "writeRec")
   val gVarNames = List("A")
@@ -46,7 +76,7 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
   val gPreVars = for (n <- gVarNames) yield new ConstantTerm(n)
   val lPostVars = for (n <- lVarNames) yield new ConstantTerm(n + "'")
   val gPostVars = for (n <- gVarNames) yield new ConstantTerm(n + "'")
-  
+
   val id = new ConstantTerm("id")
   
   val (init, nBody, iBody) = {
@@ -74,35 +104,33 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
        ((j < 3) ==> (jp === j + 1)) &
        ((j === 3) ==> (jp === 0)) &
        (Ap === A),
+       //(Ap === store(A, i+j, select(A, i+j) + select(A, i+jp))),
      
      // Instrumented transition relation
      (i === ip) &
        ((j < 3) ==> (jp === j + 1)) &
        ((j === 3) ==> (jp === 0)) &
        (Ap === A) &
+       //(Ap === store(A, i+j, select(A, i+j) + select(A, i+jp))) &
        ((read === readp & readRec === readRecp) | 
         (readRecp === 1 & (readp === i+j | readp === i+jp))) &
        ((write === writep & writeRec === writeRecp) | 
         (writeRecp === 1 & writep === i+j)))
   }
-  
-  def normalBody(concreteId : ConstantTerm,
-		         lPre : Seq[ConstantTerm], gPre : Seq[ConstantTerm],
-		         lPost : Seq[ConstantTerm], gPost : Seq[ConstantTerm])
-                : IFormula =
-    substitute(nBody,
-               lPreVars ++ gPreVars ++ lPostVars ++ gPostVars ++ List(id),
-               lPre     ++ gPre     ++ lPost     ++ gPost     ++ List(concreteId))
-  
-  def instrumentedBody(concreteId : ConstantTerm,
-                       lPre : Seq[ConstantTerm], gPre : Seq[ConstantTerm],
-                       lPost : Seq[ConstantTerm], gPost : Seq[ConstantTerm])
-                      : IFormula =
-    substitute(iBody,
-               lPreVars ++ gPreVars ++ lPostVars ++ gPostVars ++ List(id),
-               lPre     ++ gPre     ++ lPost     ++ gPost     ++ List(concreteId))
-  
-  //////////////////////////////////////////////////////////////////////////////
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object NICheckerMain {
+  def main(args: Array[String]) : Unit = {
+    Debug.enableAllAssertions(false)
+    new NonInterferenceChecker((x) => new ChunksOf4(x))
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object NonInterferenceChecker {
 
   def substitute(f : IFormula,
                  before : Seq[ConstantTerm],
@@ -116,15 +144,8 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
                  before : ConstantTerm, after : ConstantTerm) : IFormula =
     ConstantSubstVisitor(f, Map() + (before -> i(after)))
   
-  def instantiatePreVars(f : IFormula,
-                         concreteId : ConstantTerm,
-                         lPre : Seq[ConstantTerm], gPre : Seq[ConstantTerm]) =
-    substitute(f,
-               lPreVars ++ gPreVars ++ List(id),
-               lPre     ++ gPre     ++ List(concreteId))
-  
   //////////////////////////////////////////////////////////////////////////////
-  
+
   class SigTracker(var sig : Signature) {
     def addConst(c : ConstantTerm) : Unit =
       sig = new Signature(sig.universalConstants, sig.existentialConstants,
@@ -145,6 +166,28 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
                   suffix : String)
                  (implicit st : SigTracker) : Seq[ConstantTerm] =
     for (c <- cs) yield cloneConsts(c, suffix)
+  
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class NonInterferenceChecker(progCtor : FrameworkVocabulary => ConcurrentProgram)
+      extends SoftwareInterpolationFramework {
+
+  val program = progCtor(frameworkVocabulary)
+
+  import NonInterferenceChecker.{substitute, addConst, cloneConsts, SigTracker}
+  import program.{READ, WRITE, READ_REC, WRITE_REC,
+                  lPreVars, gPreVars, lPostVars, gPostVars, id,
+                  init, normalBody, instrumentedBody}
+  
+  def instantiatePreVars(f : IFormula,
+                         concreteId : ConstantTerm,
+                         lPre : Seq[ConstantTerm], gPre : Seq[ConstantTerm]) =
+    substitute(f,
+               lPreVars ++ gPreVars ++ List(id),
+               lPre     ++ gPre     ++ List(concreteId))
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -248,6 +291,11 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  object InterferenceException extends
+    Exception("Interference is possible")
+  object OwickiGriesException extends
+    Exception("Owicki-Gries conditions do not hold, don't know what to do")
+                             
   class ModelChecker {
     var invariants = new ArrayBuffer[IFormula]
     
@@ -290,7 +338,7 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
         println("passed")
       } else {
         println("failed")
-        System exit 1
+        throw OwickiGriesException
       }
       
       println
@@ -329,7 +377,7 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
       val inter = NIInterpolation(invariants(invGoal1 - path1),
                                   invariants(invGoal2 - path2),
                                   path1, path2)
-            
+
       val (formulaParts, sig) = toNamedParts(inter.formula, st.sig)
       implicit val order = sig.order
       val partitions =
@@ -385,10 +433,10 @@ object NonInterferenceChecker extends SoftwareInterpolationFramework {
           if (strengthenInvariants(invariants.size - 1, invNum, path1, path2))
             established = true
         }
-          
+
         if (!established) {
           println("Strengthening failed, interference is possible")
-          System exit 1
+          throw InterferenceException
         }
         
         assert(invsImplyNI(invNum)) // not expected to hold in general

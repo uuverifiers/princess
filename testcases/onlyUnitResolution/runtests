@@ -10,6 +10,7 @@ TESTS="arrays0.pri arrays1.pri arrays2.pri \
        PUZ031p1-clauses.pri \
        functions2b.pri functions4.pri functions5.pri \
        sepLogic0.pri multiplication.pri multiplication2.pri \
-       group1.pri betaTaskBug.pri factNormalisationBug.pri"
+       group1.pri betaTaskBug.pri factNormalisationBug.pri \
+       instantiationBug.pri"
 
 $PRI "$@" $TESTS

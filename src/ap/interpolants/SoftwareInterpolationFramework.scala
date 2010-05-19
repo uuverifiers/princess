@@ -82,20 +82,9 @@ abstract class SoftwareInterpolationFramework {
 
   protected val preludeSignature = preludeEnv.toSignature
   
-  //////////////////////////////////////////////////////////////////////////////
-  
-  protected val select =
-    preludeEnv.lookupSym("select") match {
-      case Environment.Function(f) => f
-      case _ => throw new Error("Expected select to be defined as a function");
-    }
-  
-  protected val store = 
-    preludeEnv.lookupSym("store") match {
-      case Environment.Function(f) => f
-      case _ => throw new Error("Expected store to be defined as a function");
-    }
-  
+  protected val frameworkVocabulary = new FrameworkVocabulary(preludeEnv)
+  import frameworkVocabulary.{select, store}
+                                                              
   //////////////////////////////////////////////////////////////////////////////
 
   private val preprocSettings =
@@ -325,3 +314,16 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
   protected override def furtherSimplifications(expr : IExpression) = elimStore(expr)
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+class FrameworkVocabulary(preludeEnv : Environment) {
+  val select = preludeEnv.lookupSym("select") match {
+    case Environment.Function(f) => f
+    case _ => throw new Error("Expected select to be defined as a function");
+  }
+  
+  val store = preludeEnv.lookupSym("store") match {
+    case Environment.Function(f) => f
+    case _ => throw new Error("Expected store to be defined as a function");
+  }
+}
