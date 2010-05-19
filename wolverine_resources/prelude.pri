@@ -76,6 +76,11 @@
 // Typecasts
   \relational \partial int signed2unsigned(int, int);
 
+// Pairs
+  \partial int pair(int, int);
+  \partial int proj1(int);
+  \partial int proj2(int);
+
 }
 
 \problem {
@@ -362,7 +367,16 @@
 &
   \forall int width, x; {signed2unsigned(width, x)} (
     x >= 0 -> signed2unsigned(width, x) = x)
+&
 
+////////////////////////////////////////////////////////////////////////////////
+// Pairs
+
+  \forall int x, y; {pair(x, y)} (proj1(pair(x, y)) = x)
+&
+  \forall int x, y; {pair(x, y)} (proj2(pair(x, y)) = y)
+&
+  \forall int x, y; {proj1(x), proj2(x)} (pair(proj1(x), proj2(x)) = x)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Everything is negated (the definitions are premisses)

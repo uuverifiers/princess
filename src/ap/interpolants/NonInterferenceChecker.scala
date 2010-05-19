@@ -33,10 +33,10 @@ import ap.util.Debug
 
 abstract class ConcurrentProgram {
   // indexes of the variables used to record reads- and writes
-  val READ = 2
-  val WRITE = 3
-  val READ_REC = 4
-  val WRITE_REC = 5
+  val READ = 0
+  val WRITE = 1
+  val READ_REC = 2
+  val WRITE_REC = 3
   
   // local and global variables for pre- and post-states
   val lPreVars, gPreVars, lPostVars, gPostVars : Seq[ConstantTerm]
@@ -67,9 +67,9 @@ abstract class ConcurrentProgram {
 ////////////////////////////////////////////////////////////////////////////////
 
 class ChunksOf4(voc : FrameworkVocabulary) extends ConcurrentProgram {
-  import voc.{select, store}
+  import voc.{select, store, pair}
   
-  val lVarNames = List("i", "j", "read", "write", "readRec", "writeRec")
+  val lVarNames = List("read", "write", "readRec", "writeRec", "i", "j")
   val gVarNames = List("A")
   
   val lPreVars = for (n <- lVarNames) yield new ConstantTerm(n)
@@ -80,11 +80,11 @@ class ChunksOf4(voc : FrameworkVocabulary) extends ConcurrentProgram {
   val id = new ConstantTerm("id")
   
   val (init, nBody, iBody) = {
-    val i = lPreVars(0)
-    val j = lPreVars(1)
+    val i = lPreVars(4)
+    val j = lPreVars(5)
     val A = gPreVars(0)
-    val ip = lPostVars(0)
-    val jp = lPostVars(1)
+    val ip = lPostVars(4)
+    val jp = lPostVars(5)
     val Ap = gPostVars(0)
 
     val read = lPreVars(READ)
@@ -113,9 +113,65 @@ class ChunksOf4(voc : FrameworkVocabulary) extends ConcurrentProgram {
        (Ap === A) &
        //(Ap === store(A, i+j, select(A, i+j) + select(A, i+jp))) &
        ((read === readp & readRec === readRecp) | 
-        (readRecp === 1 & (readp === i+j | readp === i+jp))) &
+        (readRecp === 1 & (readp === pair(A, i+j) | readp === pair(A, i+jp)))) &
        ((write === writep & writeRec === writeRecp) | 
-        (writeRecp === 1 & writep === i+j)))
+        (writeRecp === 1 & writep === pair(A, i+j))))
+  }
+}
+
+class ChunksOf4Array(voc : FrameworkVocabulary) extends ConcurrentProgram {
+  import voc.{select, store, pair}
+  
+  val lVarNames = List("read", "write", "readRec", "writeRec", "i")
+  val gVarNames = List("A", "B")
+  
+  val lPreVars = for (n <- lVarNames) yield new ConstantTerm(n)
+  val gPreVars = for (n <- gVarNames) yield new ConstantTerm(n)
+  val lPostVars = for (n <- lVarNames) yield new ConstantTerm(n + "'")
+  val gPostVars = for (n <- gVarNames) yield new ConstantTerm(n + "'")
+
+  val id = new ConstantTerm("id")
+  
+  val (init, nBody, iBody) = {
+    val i = lPreVars(4)
+    val A = gPreVars(0)
+    val B = gPreVars(1)
+    val ip = lPostVars(4)
+    val Ap = gPostVars(0)
+    val Bp = gPostVars(1)
+
+    val read = lPreVars(READ)
+    val write = lPreVars(WRITE)
+    val readRec = lPreVars(READ_REC)
+    val writeRec = lPreVars(WRITE_REC)
+    val readp = lPostVars(READ)
+    val writep = lPostVars(WRITE)
+    val readRecp = lPostVars(READ_REC)
+    val writeRecp = lPostVars(WRITE_REC)
+
+    (// Initial states
+     (i === id * 4) & (select(B, id) === 0),
+     
+     // Transition relation
+     (i === ip) &
+       ((select(B, id) < 3) ==> (Bp === store(B, id, select(B, id)+1))) &
+       ((select(B, id) === 3) ==> (Bp === store(B, id, 0))) &
+       (Ap === A),
+       //(Ap === store(A, i+j, select(A, i+j) + select(A, i+jp))),
+     
+     // Instrumented transition relation
+     (i === ip) &
+       ((select(B, id) < 3) ==> (Bp === store(B, id, select(B, id)+1))) &
+       ((select(B, id) === 3) ==> (Bp === store(B, id, 0))) &
+       (Ap === A) &
+       //(Ap === store(A, i+j, select(A, i+j) + select(A, i+jp))) &
+       ((read === readp & readRec === readRecp) | 
+        (readRecp === 1 & (readp === pair(0, i+select(B, id)) |
+                           readp === pair(0, i+select(Bp, id)) |
+                           readp === pair(1, id)
+        ))) &
+       ((write === writep & writeRec === writeRecp) | 
+        (writeRecp === 1 & (writep === pair(0, i+select(B, id)) | writep === pair(1, id)))))
   }
 }
 
@@ -123,7 +179,7 @@ class ChunksOf4(voc : FrameworkVocabulary) extends ConcurrentProgram {
 
 object NICheckerMain {
   def main(args: Array[String]) : Unit = {
-    Debug.enableAllAssertions(false)
+    Debug.enableAllAssertions(true)
     new NonInterferenceChecker((x) => new ChunksOf4(x))
   }
 }
@@ -359,7 +415,7 @@ class NonInterferenceChecker(progCtor : FrameworkVocabulary => ConcurrentProgram
           println("holds")
           true
         }
-        case Left(_) => {
+        case Left(model) => {
           println("failed")
           false
         }

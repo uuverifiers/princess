@@ -317,13 +317,14 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
 ////////////////////////////////////////////////////////////////////////////////
 
 class FrameworkVocabulary(preludeEnv : Environment) {
-  val select = preludeEnv.lookupSym("select") match {
+  private def lookup(n : String) = preludeEnv.lookupSym(n) match {
     case Environment.Function(f) => f
-    case _ => throw new Error("Expected select to be defined as a function");
+    case _ => throw new Error("Expected " + n + " to be defined as a function");
   }
   
-  val store = preludeEnv.lookupSym("store") match {
-    case Environment.Function(f) => f
-    case _ => throw new Error("Expected store to be defined as a function");
-  }
+  val select = lookup("select")
+  val store = lookup("store")
+  val pair = lookup("pair")
+  val proj1 = lookup("proj1")
+  val proj2 = lookup("proj2")
 }
