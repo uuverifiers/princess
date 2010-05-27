@@ -135,6 +135,42 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond; stmt1, stmt2, assert}")
     println("\\interpolant {cond, stmt1; stmt2, assert}")
     println("\\interpolant {cond, stmt1, stmt2; assert}")
+    println
+    println("/*")
+    println("// Array example")
+    println("")
+    println("\\functions {")
+    println("  int x, y, z;")
+    println("  int ar;")
+    println("  \\partial int select(int, int);")
+    println("  \\partial int store(int, int, int);")
+    println("}")
+    println
+    println("\\problem {")
+    println("// Array axioms")
+    println("        \\forall int ar, ind, val;")
+    println("             {select(store(ar, ind, val), ind)}")
+    println("             select(store(ar, ind, val), ind) = val")
+    println("->")
+    println("        \\forall int ar, ind1, ind2, val;")
+    println("             {select(store(ar, ind1, val), ind2)}")
+    println("             (ind1 != ind2 ->")
+    println("              select(store(ar, ind1, val), ind2) = select(ar, ind2))")
+    println("->")
+    println
+    println("  \\part[p0] (select(ar, x) = 1)")
+    println("->")
+    println("  \\part[p1] (select(ar, y) >= select(ar, x))")
+    println("->")
+    println("  \\part[p2] (z = select(ar, y)+1)")
+    println("->")
+    println("  \\part[p3] (z < 0)")
+    println("->")
+    println("  false")
+    println("}")
+    println
+    println("\\interpolant {p0, p1; p2, p3}")
+    println("*/")
   }
   
   //////////////////////////////////////////////////////////////////////////////
