@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010 Philipp Ruemmer <ph_r@gmx.net>
  *                    Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -186,6 +186,19 @@ object NICheckerMain {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+class SigTracker(var sig : Signature) {
+  def addConst(c : ConstantTerm) : Unit =
+	sig = new Signature(sig.universalConstants, sig.existentialConstants,
+			            sig.nullaryFunctions + c, sig.order.extend(c, Set()))
+  def cloneConst(c : ConstantTerm, suffix : String) : ConstantTerm = {
+    val newC = new ConstantTerm (c.name + suffix)
+    addConst(newC)
+    newC
+  }
+}
+  
+////////////////////////////////////////////////////////////////////////////////
+
 object NonInterferenceChecker {
 
   def substitute(f : IFormula,
@@ -202,21 +215,11 @@ object NonInterferenceChecker {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  class SigTracker(var sig : Signature) {
-    def addConst(c : ConstantTerm) : Unit =
-      sig = new Signature(sig.universalConstants, sig.existentialConstants,
-                          sig.nullaryFunctions + c, sig.order.extend(c, Set()))
-  }
-  
   def addConst(c : ConstantTerm)(implicit st : SigTracker) : Unit = (st addConst c)
 
-  def cloneConsts(c : ConstantTerm,
-		          suffix : String)
-                 (implicit st : SigTracker) : ConstantTerm = {
-    val newC = new ConstantTerm (c.name + suffix)
-    addConst(newC)
-    newC
-  }
+  def cloneConsts(c : ConstantTerm, suffix : String)
+                 (implicit st : SigTracker) : ConstantTerm =
+    st.cloneConst(c, suffix)
 
   def cloneConsts(cs : Seq[ConstantTerm],
                   suffix : String)
@@ -233,7 +236,7 @@ class NonInterferenceChecker(progCtor : FrameworkVocabulary => ConcurrentProgram
 
   val program = progCtor(frameworkVocabulary)
 
-  import NonInterferenceChecker.{substitute, addConst, cloneConsts, SigTracker}
+  import NonInterferenceChecker.{substitute, addConst, cloneConsts}
   import program.{READ, WRITE, READ_REC, WRITE_REC,
                   lPreVars, gPreVars, lPostVars, gPostVars, id,
                   init, normalBody, instrumentedBody}

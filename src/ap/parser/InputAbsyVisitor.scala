@@ -261,12 +261,21 @@ case class IVarShift(prefix : List[Int], defaultShift : Int) {
  */
 object ConstantSubstVisitor
        extends CollectingVisitor[Map[ConstantTerm, ITerm], IExpression] {
+  import IExpression.i
+         
   def apply(t : IExpression, subst : Map[ConstantTerm, ITerm]) : IExpression =
     ConstantSubstVisitor.visit(t, subst)
   def apply(t : ITerm, subst : Map[ConstantTerm, ITerm]) : ITerm =
     apply(t.asInstanceOf[IExpression], subst).asInstanceOf[ITerm]
   def apply(t : IFormula, subst : Map[ConstantTerm, ITerm]) : IFormula =
     apply(t.asInstanceOf[IExpression], subst).asInstanceOf[IFormula]
+
+  def rename(t : ITerm, subst : Map[ConstantTerm, ConstantTerm]) : ITerm =
+    apply(t.asInstanceOf[IExpression],
+          subst transform ((_, c) => i(c))).asInstanceOf[ITerm]
+  def rename(t : IFormula, subst : Map[ConstantTerm, ConstantTerm]) : IFormula =
+    apply(t.asInstanceOf[IExpression],
+          subst transform ((_, c) => i(c))).asInstanceOf[IFormula]
 
   override def preVisit(t : IExpression,
                         subst : Map[ConstantTerm, ITerm]) : PreVisitResult =
