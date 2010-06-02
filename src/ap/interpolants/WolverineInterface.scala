@@ -227,6 +227,7 @@ object WolverineInterfaceMain extends {
           println("INVALID")
           println(counterexample)
         }
+        case _ => assert(false)
       }
     }
   }

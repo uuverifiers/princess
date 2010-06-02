@@ -332,6 +332,7 @@ object SimpleClausifier {
           }
           case t@IQuantified(ALL, _) =>
             Right(true, t update left(subres))
+          case _ => {assert(false); null}
         }
       else
         t match {
