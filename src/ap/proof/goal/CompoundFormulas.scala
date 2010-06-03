@@ -118,6 +118,25 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
    * @param qfClauseMapping map the qf-clauses to a set of clauses that is
    *                        supposed to be turned
    *                        into tasks, and a set that is supposed to be kept
+   */
+  def mapQFClauses(qfClauseMapping : (NegatedConjunctions) =>
+                                       (Seq[Conjunction], Seq[Conjunction]),
+                   taskifier :       (Conjunction) => Seq[FormulaTask],
+                   order :           TermOrder)
+                  : (Seq[PrioritisedTask], CompoundFormulas) = {
+    val (otherStuff, realClauses) = qfClauseMapping(this.qfClauses)
+    val newClauses = this.qfClauses.update(realClauses, order)
+
+    val newTasks = for (c <- otherStuff; t <- taskifier(c)) yield t
+
+    (newTasks,
+     CompoundFormulas(newClauses, eagerQuantifiedClauses, lazyQuantifiedClauses))
+  }
+
+  /**
+   * @param qfClauseMapping map the qf-clauses to a set of clauses that is
+   *                        supposed to be turned
+   *                        into tasks, and a set that is supposed to be kept
    * @param matcherMapping  map the matchers to a set of formulas that is
    *                        supposed to be turned into tasks, and a new matcher
    */

@@ -182,7 +182,7 @@ class ChunksOf4Array(voc : FrameworkVocabulary) extends ConcurrentProgram {
 
 object NICheckerMain {
   def main(args: Array[String]) : Unit = {
-    Debug.enableAllAssertions(true)
+    Debug.enableAllAssertions(false)
 //    new NonInterferenceChecker((x) => new ChunksOf4(x))
     
     val id = new ConstantTerm("id")

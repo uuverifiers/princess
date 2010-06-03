@@ -121,6 +121,7 @@ object EagerTaskManager {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
       case _ : AddFactsTask =>                            NonNormalisedFacts
       case _ : UpdateConstantFreedomTask =>               NormalisedFacts
+      case _ : NegLitClauseTask =>                        NormalisedFactsAndTasks
       case _ =>                                           MatchedEagerClauses
     }
     
@@ -135,8 +136,7 @@ object EagerTaskManager {
 
     protected def recommendationNecessary(t : Task) = t match {
       case _ : BetaFormulaTask |
-           _ : ExQuantifierTask |
-           _ : LazyMatchTask => true
+           _ : ExQuantifierTask => true
       case _ => false
     }
   }
@@ -153,6 +153,7 @@ object EagerTaskManager {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
       case _ : AddFactsTask =>                            NonNormalisedFacts
       case _ : UpdateConstantFreedomTask =>               NormalisedFacts
+      case _ : NegLitClauseTask =>                        NormalisedFactsAndTasks
       // all other tasks could result in the disappearance of constants in
       // the task queue, which could make it necessary to apply
       // <code>EliminateFactsTask</code> again
@@ -177,6 +178,7 @@ object EagerTaskManager {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
       case _ : AddFactsTask =>                            NonNormalisedFacts
       case _ : UpdateConstantFreedomTask =>               NormalisedFacts
+      case _ : NegLitClauseTask =>                        NormalisedFactsAndTasks
       case OmegaTask =>                                   Final
       // all other tasks could result in the disappearance of constants in
       // the task queue, which could make it necessary to apply

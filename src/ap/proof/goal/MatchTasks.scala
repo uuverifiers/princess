@@ -30,22 +30,44 @@ private object MatchFunctions {
                     ptf : ProofTreeFactory,
                     eager : Boolean) : ProofTree = {
     val order = goal.order
-    val voc = goal.vocabulary
-
-    val oldMatcher = goal.compoundFormulas quantifierClauses eager
-    
     val collector = goal.getInferenceCollector
-    val (instances, newMatcher) =
-      oldMatcher.updateFacts(goal.facts.predConj,
-                             goal.mayAlias,
-                             goal.reduceWithFacts,
-                             (voc.constantFreedom.isShielded(_, voc.bindingContext)),
-                             collector, order)
+    val oldMatcher = goal.compoundFormulas quantifierClauses eager
 
-    val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
-    val newTasks = for (f <- instances; t <- goal.formulaTasks(f)) yield t
-    
-    ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
+    val reducerObj : Conjunction => Conjunction = goal.reduceWithFacts.apply _
+
+    // first check whether any of the clauses has to be updated
+    val (removedClauses, reducedMatcher) =
+      if (collector.isLogging) {
+        // if we are producing proofs, we mostly check for subsumed clauses
+        // that can be removed
+
+        def clauseReducer(c : Conjunction) =
+          if (reducerObj(c).isFalse) Conjunction.FALSE else c
+      
+        oldMatcher.reduceClauses(clauseReducer _, reducerObj, order)
+      } else {
+        oldMatcher.reduceClauses(reducerObj, reducerObj, order)
+      }
+
+    if (removedClauses.isEmpty) {
+      val voc = goal.vocabulary
+  
+      val (instances, newMatcher) =
+        reducedMatcher.updateFacts(goal.facts.predConj,
+                                   goal.mayAlias,
+                                   goal.reduceWithFacts,
+                                   (voc.constantFreedom.isShielded(_, voc.bindingContext)),
+                                   collector, order)
+
+      val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
+      val newTasks = for (f <- instances; t <- goal.formulaTasks(f)) yield t
+
+      ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
+    } else {
+      val newTasks = for (c <- removedClauses; t <- goal formulaTasks c) yield t
+      val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, reducedMatcher)
+      ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
+    }
   }
 }
 

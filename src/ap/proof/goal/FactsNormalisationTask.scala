@@ -107,7 +107,7 @@ case object FactsNormalisationTask extends EagerTask {
     // update clauses
 
     val reducer = ReduceWithConjunction(facts, order)
-        
+
     def illegalQFClause(c : Conjunction) =
       c.isLiteral || c.isNegatedConjunction ||
       (!Seqs.disjoint(c.constants, eliminatedConstants) ||
@@ -125,21 +125,15 @@ case object FactsNormalisationTask extends EagerTask {
           clausesToKeep partition (illegalQFClause _)
         }
 
-        def clauseReducer(c : Conjunction) =
-          if (reducer(c).isFalse) Conjunction.FALSE else c
-
-        goal.compoundFormulas.map(
+        goal.compoundFormulas.mapQFClauses(
           qfClauseMapping _,
-          _.reduceClauses(clauseReducer _, reducer.apply _, order),
           Goal.formulaTasks(_, goal.age, eliminatedConstants,
                             updatedVocabulary, goal.settings),
           order)
-//        (List(), goal.compoundFormulas)
       } else {
         val reducerObj : Conjunction => Conjunction = reducer.apply _
-        goal.compoundFormulas.map(
+        goal.compoundFormulas.mapQFClauses(
           (c:NegatedConjunctions) => reducer(c) partition (illegalQFClause _),
-          _.reduceClauses(reducerObj, reducerObj, order),
           Goal.formulaTasks(_, goal.age, eliminatedConstants,
                             updatedVocabulary, goal.settings),
           order)
