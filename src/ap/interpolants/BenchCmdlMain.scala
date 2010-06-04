@@ -102,16 +102,11 @@ object CmdlMain {
           for ((filename, reader) <- problems) {
             val timeBefore = System.currentTimeMillis
             
-            val goalSettings =
-              Param.CONSTRAINT_SIMPLIFIER.set(settings.toGoalSettings,
-                                              determineSimplifier(settings))
-            
             println("Loading " + filename + " ...")
             val prover = new BenchFileProver(reader,
                                              Param.TIMEOUT(settings),
                                              userDefStoppingCond,
-                                             settings.toPreprocessingSettings,
-                                             goalSettings)
+                                             settings)
             
             prover.counterModelResult match {
               case BenchFileProver.CounterModel(model) =>  {
@@ -183,16 +178,6 @@ object CmdlMain {
     }
   }
 
-  private def determineSimplifier(settings : GlobalSettings) : ConstraintSimplifier =
-    Param.SIMPLIFY_CONSTRAINTS(settings) match {
-      case Param.ConstraintSimplifierOptions.None =>
-        ConstraintSimplifier.NO_SIMPLIFIER
-      case x =>
-        ConstraintSimplifier(x == Param.ConstraintSimplifierOptions.Lemmas,
-                             Param.DNF_CONSTRAINTS(settings),
-                             Param.TRACE_CONSTRAINT_SIMPLIFIER(settings))
-    }
-  
   def main(args: Array[String]) : Unit = {
     val (settings, inputs) = try { GlobalSettings.fromArguments(args) } catch {
       case e : Throwable => {

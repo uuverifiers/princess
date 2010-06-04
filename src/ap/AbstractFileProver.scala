@@ -21,8 +21,9 @@
 
 package ap;
 
-import ap.parameters.{GoalSettings, PreprocessingSettings, Param}
-import ap.parser.{InputAbsy2Internal, Parser2InputAbsy, Preprocessing, IExpression, INamedPart}
+import ap.parameters._
+import ap.parser.{InputAbsy2Internal, Parser2InputAbsy, Preprocessing,
+                  IExpression, INamedPart, IFunction, Environment}
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier,
@@ -34,14 +35,31 @@ import ap.util.Debug
 
 abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                                   timeout : Int, userDefStoppingCond : => Boolean,
-                                  preprocSettings : PreprocessingSettings,
-                                  initialGoalSettings : GoalSettings) {
+                                  settings : GlobalSettings) {
 
   protected def println(str : => String) : Unit = (if (output) Predef.println(str))
   
+  private def determineTriggerGenFunctions(settings : GlobalSettings,
+                                           env : Environment)
+                                          : Set[IFunction] =
+    Param.TRIGGER_GENERATION(settings) match {
+      case Param.TriggerGenerationOptions.None => Set()
+      case Param.TriggerGenerationOptions.All => env.nonNullaryFunctions
+      case Param.TriggerGenerationOptions.Total =>
+        for (f <- env.nonNullaryFunctions; if (!f.partial && !f.relational))
+          yield f
+    }
+  
   val (inputFormulas, interpolantSpecs, signature) = {
-    val (f, interpolantSpecs, signature) = Parser2InputAbsy(reader)
+    val env = new Environment
+    val (f, interpolantSpecs, signature) = Parser2InputAbsy(reader, env)
     reader.close
+    
+    val preprocSettings =
+      Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
+        settings.toPreprocessingSettings,
+        determineTriggerGenFunctions(settings, env))
+
     println("Preprocessing ...")
     Preprocessing(f, interpolantSpecs, signature, preprocSettings)
   }
@@ -50,16 +68,35 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   val formulas =
     for (f <- inputFormulas) yield
-      Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order), order)
+      Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
+                       order)
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   protected val goalSettings =
-    Param.SYMBOL_WEIGHTS.set(initialGoalSettings,
+    Param.SYMBOL_WEIGHTS.set(
+    Param.CONSTRAINT_SIMPLIFIER.set(settings.toGoalSettings,
+                             determineSimplifier(settings)),
                              SymbolWeights.normSymbolFrequencies(formulas, 1000))
   
+  private def determineSimplifier(settings : GlobalSettings) : ConstraintSimplifier =
+    Param.SIMPLIFY_CONSTRAINTS(settings) match {
+      case Param.ConstraintSimplifierOptions.None =>
+        ConstraintSimplifier.NO_SIMPLIFIER
+      case x =>
+        ConstraintSimplifier(x == Param.ConstraintSimplifierOptions.Lemmas,
+                             Param.DNF_CONSTRAINTS(settings),
+                             Param.TRACE_CONSTRAINT_SIMPLIFIER(settings))
+    }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   lazy val namedParts =
-  Map() ++ (for ((INamedPart(name, _), f) <-
+    Map() ++ (for ((INamedPart(name, _), f) <-
                    inputFormulas.elements zip formulas.elements)
-            yield (name -> f))
+              yield (name -> f))
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   protected def findModelTimeout : Either[Conjunction, Certificate] = {
     println("Constructing satisfying assignment for the existential constants ...")

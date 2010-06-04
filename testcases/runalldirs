@@ -1,25 +1,29 @@
 #!/bin/sh
 
-./rundir interpolation "" -logo -timeout=30000 -clausifier=none +posUnitResolution +constructProofs
+./rundir interpolation "" -logo -timeout=30000 -clausifier=none +posUnitResolution +constructProofs -generateTriggers=none
 
-./rundir allSettings "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -constructProofs
-./rundir allSettings "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs
-./rundir allSettings "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs
-./rundir allSettings "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+./rundir allSettings "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -constructProofs -generateTriggers=none
+./rundir allSettings "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs -generateTriggers=none
+./rundir allSettings "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs -generateTriggers=none
+./rundir allSettings "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs -generateTriggers=none
+./rundir allSettings "5" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs -generateTriggers=total
+./rundir allSettings "6" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs -generateTriggers=all
 
-./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs
-./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs -generateTriggers=none
+./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs -generateTriggers=none
+./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs -generateTriggers=all
+./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs -generateTriggers=all
 
-./rundir onlyClausification "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+./rundir onlyClausification "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs -generateTriggers=none
 
-./rundir mostGeneralConstraint "" -logo -timeout=30000 +posUnitResolution +mostGeneralConstraint -constructProofs
+./rundir mostGeneralConstraint "" -logo -timeout=30000 +posUnitResolution +mostGeneralConstraint -constructProofs -generateTriggers=none
 
-./rundir special "" -logo -constructProofs
+./rundir special "" -logo -constructProofs -generateTriggers=none
 
-./rundir lira "" -logo -timeout=120000 -assert -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -constructProofs
+./rundir lira "" -logo -timeout=120000 -assert -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -constructProofs -generateTriggers=none
 
-./rundir unprovable "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -constructProofs
-./rundir unprovable "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs
-./rundir unprovable "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs
-./rundir unprovable "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs
+./rundir unprovable "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -constructProofs -generateTriggers=none
+./rundir unprovable "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs -generateTriggers=none
+./rundir unprovable "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs -generateTriggers=none
+./rundir unprovable "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs -generateTriggers=none
 

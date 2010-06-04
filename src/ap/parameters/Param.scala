@@ -86,6 +86,14 @@ object Param {
     val defau : ClausifierOptions.Value = ClausifierOptions.None
   }
 
+  object TriggerGenerationOptions extends Enumeration {
+    val None, Total, All = Value
+  }
+  case object TRIGGER_GENERATION extends Param {
+    type Value = TriggerGenerationOptions.Value
+    val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.Total
+  }
+  
   case object TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS extends Param {
     type Value = Set[ap.parser.IFunction]
     val defau : Set[ap.parser.IFunction] = Set()
@@ -110,11 +118,6 @@ object Param {
   }
   
   case object PROOF_CONSTRUCTION extends Param {
-    type Value = Boolean
-    val defau : Boolean = false
-  }
-  
-  case object INTERPOLATE extends Param {
     type Value = Boolean
     val defau : Boolean = false
   }

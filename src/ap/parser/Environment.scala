@@ -116,6 +116,8 @@ class Environment {
   def nullaryFunctions : Set[ConstantTerm] = constants(NullaryFunction)
   def universalConstants : Set[ConstantTerm] = constants(Universal)
   def existentialConstants : Set[ConstantTerm] = constants(Existential)
+  def nonNullaryFunctions : Set[IFunction] =
+    Set.empty ++ (for (Function(f) <- signature.values) yield f)
   
   private def constants(kind : SymKind) : Set[ConstantTerm] = {
     val predicate : DeclaredSym => boolean = {

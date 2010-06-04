@@ -25,7 +25,7 @@ package ap.interpolants
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-import ap.parameters.{Param, GoalSettings, PreprocessingSettings}
+import ap.parameters.{Param, GlobalSettings}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.{InputAbsy2Internal, IExpression, IFormula, IInterpolantSpec,
@@ -53,11 +53,9 @@ object BenchFileProver
 class BenchFileProver(reader : java.io.Reader,
                       timeout : Int,
                       userDefStoppingCond : => Boolean,
-                      preprocSettings : PreprocessingSettings,
-                      initialGoalSettings : GoalSettings)
+                      settings : GlobalSettings)
       extends AbstractFileProver(reader, true, timeout,
-                                 userDefStoppingCond, preprocSettings,
-                                 initialGoalSettings)
+                                 userDefStoppingCond, settings)
 {
   import BenchFileProver._
  

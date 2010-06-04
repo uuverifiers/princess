@@ -25,7 +25,7 @@ import ap.proof.{ConstraintSimplifier, ModelSearchProver, Timeout}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
-import ap.parameters.{GoalSettings, PreprocessingSettings, Param}
+import ap.parameters.{GlobalSettings, Param}
 import ap.util.Seqs
 import ap.interpolants.{Interpolator, InterpolationContext}
 
@@ -69,11 +69,9 @@ class IntelliFileProver(reader : java.io.Reader,
                         mostGeneralConstraint : Boolean,
                         output : Boolean,
                         userDefStoppingCond : => Boolean,
-                        preprocSettings : PreprocessingSettings,
-                        goalSettings : GoalSettings)
+                        settings : GlobalSettings)
       extends AbstractFileProver(reader, output, timeout,
-                                 userDefStoppingCond, preprocSettings,
-                                 goalSettings) {
+                                 userDefStoppingCond, settings) {
 
   import IntelliFileProver._
         

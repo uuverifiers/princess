@@ -76,8 +76,15 @@ object GlobalSettings {
           Param.CLAUSIFIER.set(settings, Param.ClausifierOptions.Simple)
         case Opt("constructProofs", value) =>
           Param.PROOF_CONSTRUCTION.set(settings, value)
-        case Opt("interpolate", value) =>
-          Param.INTERPOLATE.set(settings, value)
+        case ValueOpt("generateTriggers", "none") =>
+          Param.TRIGGER_GENERATION.set(settings,
+                                       Param.TriggerGenerationOptions.None)
+        case ValueOpt("generateTriggers", "total") =>
+          Param.TRIGGER_GENERATION.set(settings,
+                                       Param.TriggerGenerationOptions.Total)
+        case ValueOpt("generateTriggers", "all") =>
+          Param.TRIGGER_GENERATION.set(settings,
+                                       Param.TriggerGenerationOptions.All)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -91,7 +98,7 @@ object GlobalSettings {
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
-         Param.PROOF_CONSTRUCTION, Param.INTERPOLATE)
+         Param.PROOF_CONSTRUCTION, Param.TRIGGER_GENERATION)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -102,7 +109,7 @@ object GoalSettings {
 
   val allParams = List(Param.POS_UNIT_RESOLUTION, Param.SYMBOL_WEIGHTS,
                        Param.FULL_SPLITTING, Param.CONSTRAINT_SIMPLIFIER,
-                       Param.PROOF_CONSTRUCTION, Param.INTERPOLATE)
+                       Param.PROOF_CONSTRUCTION)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

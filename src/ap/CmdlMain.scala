@@ -23,7 +23,7 @@ package ap;
 
 import ap.proof.ConstraintSimplifier
 import ap.proof.tree.ProofTree
-import ap.parameters.{GlobalSettings, GoalSettings, Param}
+import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, IExpression, IBinJunctor}
 import ap.util.{Debug, Seqs}
 
@@ -61,6 +61,10 @@ object CmdlMain {
     println("  -clausifier=val               Choose the clausifier (none, simple)     (default: none)")
     println("  [+-]posUnitResolution         Resolution of clauses with literals in   (default: +)")
     println("                                the antecedent")
+    println("  -generateTriggers=val         Automatically generate triggers for quantified formulae")
+    println("                                  none:  not at all")
+    println("                                  total: for all total functions         (default)")
+    println("                                  all:   for all functions")
     println("  [+-]constructProofs           Extract proofs and interpolants          (default: +)")
   }
   
@@ -103,18 +107,13 @@ object CmdlMain {
           for ((filename, reader) <- problems) {
             val timeBefore = System.currentTimeMillis
             
-            val goalSettings =
-              Param.CONSTRAINT_SIMPLIFIER.set(settings.toGoalSettings,
-                                              determineSimplifier(settings))
-            
             println("Loading " + filename + " ...")
             val prover = new IntelliFileProver(reader,
                                                Param.TIMEOUT(settings),
                                                Param.MOST_GENERAL_CONSTRAINT(settings),
                                                true,
                                                userDefStoppingCond,
-                                               settings.toPreprocessingSettings,
-                                               goalSettings)
+                                               settings)
 
             println
             
@@ -245,16 +244,6 @@ object CmdlMain {
     }
   }
 
-  private def determineSimplifier(settings : GlobalSettings) : ConstraintSimplifier =
-    Param.SIMPLIFY_CONSTRAINTS(settings) match {
-      case Param.ConstraintSimplifierOptions.None =>
-        ConstraintSimplifier.NO_SIMPLIFIER
-      case x =>
-        ConstraintSimplifier(x == Param.ConstraintSimplifierOptions.Lemmas,
-                             Param.DNF_CONSTRAINTS(settings),
-                             Param.TRACE_CONSTRAINT_SIMPLIFIER(settings))
-    }
-  
   def main(args: Array[String]) : Unit = {
     val (settings, inputs) =
       try { // switch on proof construction by default in the iPrincess version

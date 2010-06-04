@@ -22,6 +22,7 @@
 package ap;
 
 import ap.parameters.{GlobalSettings, Param}
+import ap.util.CmdlParser
 
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
@@ -221,13 +222,24 @@ class InputDialog extends JPanel {
     }
   })
 
-  private def startProver = {
+  private def startProver : Unit = {
     val reader = new java.io.StringReader(inputField.getText)
     
-    val settings =
+    val settings = try {
       GlobalSettings.fromArguments(optionField.getText.split(' '),
                                    // switch on proof construction by default in the iPrincess version
                                    Param.PROOF_CONSTRUCTION.set(GlobalSettings.DEFAULT, true)) _1
+    } catch {
+      case e : CmdlParser.UnknownArgumentException => {
+        outputField setText asString {
+          println(e.getMessage)
+          println
+          CmdlMain.printOptions
+        }
+        outputField setCaretPosition 0
+        return
+      }
+    }
 
     outputField setText ""
     goButton setText "STOP"
