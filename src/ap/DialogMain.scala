@@ -158,7 +158,7 @@ class InputDialog extends JPanel {
     println("              select(store(ar, ind1, val), ind2) = select(ar, ind2))")
     println("->")
     println
-    println("  \\part[p0] (select(ar, x) = 1)")
+    println("  \\part[p0] (store(0, x, 1) = ar)")
     println("->")
     println("  \\part[p1] (select(ar, y) >= select(ar, x))")
     println("->")
