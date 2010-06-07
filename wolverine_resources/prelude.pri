@@ -279,6 +279,42 @@
              n = 1 & res = subres + x
        )))
 &
+
+  \forall int width, x; {mulUnsigned(width, x, 0)} mulUnsigned(width, x, 0) = 0
+&
+  \forall int width, x, y, res; {mulUnsigned(width, x, y)}
+      (y >= 1 -> mulUnsigned(width, x, y) = res ->
+       \exists int l, n, subres; (
+           mulUnsigned(width, addUnsigned(width, x, x), l) = subres &
+           y = 2*l + n & (
+             n = 0 & res = subres
+             |
+                // HACK to prevent the "addUnsigned" from escaping
+                // (should be fixed in the function encoder, TODO)
+             n = 1 & \exists int x'; (x' = x & res = addUnsigned(width, subres, x'))
+       )))
+&
+
+  \forall int width, x; {mulSigned(width, x, 0)} mulSigned(width, x, 0) = 0
+&
+  \forall int width, x; {mulSigned(width, x, -1)} mulSigned(width, x, -1) = minusSigned(width, x)
+&
+  \forall int width, x, y, res; {mulSigned(width, x, y)}
+      ((y >= 1 | y <= -2) -> mulSigned(width, x, y) = res ->
+       \exists int l, n, subres; (
+           mulSigned(width, addSigned(width, x, x), l) = subres &
+           y = 2*l + n & (
+             n = 0 & res = subres
+             |
+                // HACK to prevent the "addSigned" from escaping
+                // (should be fixed in the function encoder, TODO)
+             n = 1 & \exists int x'; (x' = x & res = addSigned(width, subres, x'))
+       )))
+&
+
+/*
+ * The following axioms do not perform well due to rounding
+
   \forall int x, y, res, width; {mulUnsigned(width, x, y)} (
     mulUnsigned(width, x, y) = res ->
     \exists int k; res = mul(x, y) + shiftLeft(k, width) &
@@ -291,6 +327,7 @@
     inSigned(width, res)
   )
 &
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // General division (on the unbounded integers)
