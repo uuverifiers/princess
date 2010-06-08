@@ -39,19 +39,15 @@ import ap.parser.IExpression._
 
 object BenchFileProver
 {
-  abstract sealed class Result
-  abstract sealed class CounterModelResult extends Result
-  case class CounterModel(counterModel : Conjunction) extends CounterModelResult
-  case object NoCounterModel extends CounterModelResult
-  case class NoCounterModelCert(certificate : Certificate) extends CounterModelResult
-  case class NoCounterModelCertInter(certificate : Certificate,
-                                     interpolants : Seq[Conjunction]) extends CounterModelResult
-  case object TimeoutCounterModel extends CounterModelResult
-   
+  object Mode extends Enumeration {
+    val ProofBased, QEBased, SMTDump = Value
+  }
 }
 
 class BenchFileProver(filename : String,
                       reader : java.io.Reader,
+                      mode : BenchFileProver.Mode.Value,
+                      startNum : Int,
                       timeout : Int,
                       userDefStoppingCond : => Boolean,
                       settings : GlobalSettings)
@@ -73,38 +69,6 @@ class BenchFileProver(filename : String,
     (newF, newOrder)
   }
   
-  
-  // Output problem in the SMT-LIB format
-  println("Dumping interpolation problems in SMT-LIB format ...")
-  
-  Console.withOut (new java.io.FileOutputStream(filename + "-opensmt.smt")) {
-    val lin = new SMTLineariser(filename, "QF_LIA",
-                                order sort order.orderedConstants,
-                                order sortPreds order.orderedPredicates)
-    
-    for ((f, i) <- iFormulas.elements.zipWithIndex) {
-      println(":formula " + i)
-      lin.printFormula("assumption", !removePartName(f))
-    }
-    
-    lin.close
-  }
-  
-  Console.withOut (new java.io.FileOutputStream(filename + "-smtinterpol.smt")) {
-    val lin = new SMTLineariser(filename, "QF_LIA",
-                                order sort order.orderedConstants,
-                                order sortPreds order.orderedPredicates)
-    
-    println(":notes \"Interpolation Problem starts here\"")
-    
-    for (f <- iFormulas dropRight 1)
-      lin.printFormula("assumption", !removePartName(f))
-
-    lin.printFormula("formula", !removePartName(iFormulas.last))
-
-    lin.close
-  }
-  
   val timeToInternalBefore = System.currentTimeMillis
   val formulas2 = toInternal(iFormulas, order)
   val namedParts2 = getNamedParts(iFormulas, formulas2)
@@ -115,7 +79,41 @@ class BenchFileProver(filename : String,
   val namedPartsWoPreds = getNamedParts(iFormulasWoPreds, formulasWoPreds)
   val timeToInternalWoPreds = System.currentTimeMillis - timeToInternalWoPredsBefore
   
-  lazy val counterModelResult : CounterModelResult = {
+  mode match {
+    case BenchFileProver.Mode.SMTDump => {
+      println("Dumping interpolation problems in SMT-LIB format ...")
+  
+      Console.withOut (new java.io.FileOutputStream(filename + "-opensmt.smt")) {
+        val lin = new SMTLineariser(filename, "QF_LIA",
+                                    order sort order.orderedConstants,
+                                    order sortPreds order.orderedPredicates)
+    
+        for ((f, i) <- iFormulas.elements.zipWithIndex) {
+          println(":formula " + i)
+          lin.printFormula("assumption", !removePartName(f))
+        }
+    
+        lin.close
+      }
+  
+      Console.withOut (new java.io.FileOutputStream(filename + "-smtinterpol.smt")) {
+    	val lin = new SMTLineariser(filename, "QF_LIA",
+    			                    order sort order.orderedConstants,
+    			                    order sortPreds order.orderedPredicates)
+    
+        println(":notes \"Interpolation Problem starts here\"")
+    
+        for (f <- iFormulas dropRight 1)
+          lin.printFormula("assumption", !removePartName(f))
+
+        lin.printFormula("formula", !removePartName(iFormulas.last))
+
+        lin.close
+      }
+    }
+    
+    case BenchFileProver.Mode.ProofBased => {
+      
     val timeBefore = System.currentTimeMillis
     val result = findCounterModelTimeout(formulas2, order)
 
@@ -132,9 +130,12 @@ class BenchFileProver(filename : String,
           
           println("")
           println("Found proof (size " + cert.inferenceCount + "), interpolating ...")
-          val interpolants = for (spec <- specs) yield {
-            // TODO: check that all parts of the input formula are declared as
-            // either left or right
+          var num = startNum
+          for (spec <- specs drop startNum) {
+            println("")
+            println("Interpolation problem number: " + num)
+
+            println("Partitioning: " + spec)
             val iContext = InterpolationContext(namedParts2, spec, order)
            
             val timeBeforeInter = System.currentTimeMillis
@@ -153,28 +154,32 @@ class BenchFileProver(filename : String,
 
               println("Interpolant size: " + size)
               println("Time to compute interpolant: " + timeInter)
-//              println("Interpolant with proof lifting: " + inter)
+//              println("Interpolant: " + inter)
 
               inter
             } {
               println("Time to compute interpolant: T/O")
               null
-	    }
+	        }
+            println("Finished interpolation problem number: " + num)
+            num = num + 1
           }
-          NoCounterModelCertInter(cert, interpolants)
         }
 
         case Right(cert) =>
           println("Something very fishy happened: no interpolant specs")
       }
+    }
+    
+    case BenchFileProver.Mode.QEBased => {
       
-    println("")
-    println("Interpolating by quantifier elimination ...")
-    for(spec <- specs)
-    {
+    val spec = specs(startNum)
+            println("Interpolation problem number: " + startNum)
+            println("Partitioning: " + spec)
+    
       val iContextWoPreds = InterpolationContext(namedPartsWoPreds, spec, extOrder)
-      println("Nb of constants with QE: " + iContextWoPreds.allConstants.size)
-      println("Nb of constants to be eliminated with QE: " +
+      println("Nb of constants: " + iContextWoPreds.allConstants.size)
+      println("Nb of constants to be eliminated: " +
                 iContextWoPreds.leftLocalConstants.size)
         
       val timeBeforeQE = System.currentTimeMillis
@@ -183,14 +188,13 @@ class BenchFileProver(filename : String,
         val timeQE = System.currentTimeMillis - timeBeforeQE
      
         val sizeQE = nodeCount(interQE) 
-        println("Interpolant size with QE: " + sizeQE)
-        println("Time to compute interpolant with QE: " + timeQE)
-//          println("Interpolant with QE: " + interQE)
+        println("Interpolant size: " + sizeQE)
+        println("Time to compute interpolant: " + timeQE)
+//          println("Interpolant: " + interQE)
       } {
-        println("Time to compute interpolant with QE: T/O")
+        println("Time to compute interpolant: T/O")
       }
     }
-    TimeoutCounterModel
   }
       
   private def toInternal(iFormulas : List[IFormula], o : TermOrder) : List[Conjunction] = {
@@ -230,7 +234,9 @@ class BenchFileProver(filename : String,
   }
   
   private def nodeCount(c : Conjunction) : Int =
-    (c.size /: c.negatedConjs) {case (n,d) => n + nodeCount(d)}
+    ((c.arithConj.size + c.predConj.size) /: c.negatedConjs) {
+      case (n,d) => n + nodeCount(d)
+    }
   
   private def randomizeFormulas(l : List[IFormula]) : List[IFormula] = {
     val ori = new ArrayBuffer[IFormula]

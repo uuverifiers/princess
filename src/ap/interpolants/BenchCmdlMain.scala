@@ -25,7 +25,7 @@ import ap.proof.ConstraintSimplifier
 import ap.proof.tree.ProofTree
 import ap.parameters.{GlobalSettings, GoalSettings, Param}
 import ap.parser.{SMTLineariser, IExpression, IBinJunctor}
-import ap.util.{Debug, Seqs}
+import ap.util.{Debug, Seqs, CmdlParser}
 
 object CmdlMain {
 
@@ -80,59 +80,11 @@ object CmdlMain {
             println("Loading " + filename + " ...")
             val prover = new BenchFileProver(filename,
                                              reader,
+                                             mode, num,
                                              Param.TIMEOUT(settings),
                                              userDefStoppingCond,
                                              settings)
             
-            prover.counterModelResult match {
-              case BenchFileProver.CounterModel(model) =>  {
-                println("Formula is invalid, found a countermodel:")
-                println("" + model)
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("false")
-                }
-              }              
-              case BenchFileProver.NoCounterModel =>  {
-                println("No countermodel exists, formula is valid")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("true")
-                }
-              }
-              case BenchFileProver.NoCounterModelCert(cert) =>  {
-                println("No countermodel exists, formula is valid")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("true")
-                }
-                println
-                println("Certificate: " + cert)
-                println("Assumed formulae: " + cert.assumedFormulas)
-              }
-              case BenchFileProver.NoCounterModelCertInter(cert, inters) => {
-                println("No countermodel exists, formula is valid")
-                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
-                  println
-                  println("Most-general constraint:")
-                  println("true")
-                }
-                println
-                //println("Certificate: " + cert)
-                //println("Assumed formulae: " + cert.assumedFormulas)
-                println
-                println("Interpolants:")
-                for (i <- inters) println(i)
-              }
-
-              case BenchFileProver.TimeoutCounterModel =>  {
-
-              }
-            }
-       
             val timeAfter = System.currentTimeMillis
             
             println
@@ -152,8 +104,26 @@ object CmdlMain {
     }
   }
 
+  private var mode = BenchFileProver.Mode.ProofBased
+  private var num = 0
+    
   def main(args: Array[String]) : Unit = {
-    val (settings, inputs) = try { GlobalSettings.fromArguments(args) } catch {
+    var remainingArgs = new scala.collection.mutable.ArrayBuffer[String]
+    for (a <- args)
+      a match {
+        case CmdlParser.ValueOpt("startNum", CmdlParser.IntVal(n)) =>
+          num = n
+        case CmdlParser.ValueOpt("mode", "proofbased") =>
+          mode = BenchFileProver.Mode.ProofBased
+        case CmdlParser.ValueOpt("mode", "qebased") =>
+          mode = BenchFileProver.Mode.QEBased
+        case CmdlParser.ValueOpt("mode", "smtdump") =>
+          mode = BenchFileProver.Mode.SMTDump
+        case _ =>
+          remainingArgs += a
+      }
+    
+    val (settings, inputs) = try { GlobalSettings.fromArguments(remainingArgs) } catch {
       case e : Throwable => {
         printGreeting
         println
@@ -164,11 +134,6 @@ object CmdlMain {
       }
     }
 
-    if (Param.LOGO(settings)) {
-      printGreeting
-      println
-    }
-    
     proveProblems(settings,
                   for (name <- inputs.projection)
                   yield (name, new java.io.BufferedReader (

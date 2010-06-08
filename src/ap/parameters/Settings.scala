@@ -33,10 +33,10 @@ object GlobalSettings {
   
   import CmdlParser._
 
-  def fromArguments(args : Array[String]) : (GlobalSettings, Seq[String]) =
+  def fromArguments(args : Seq[String]) : (GlobalSettings, Seq[String]) =
     fromArguments(args, DEFAULT)
     
-  def fromArguments(args : Array[String],
+  def fromArguments(args : Seq[String],
                     initSettings : GlobalSettings) : (GlobalSettings, Seq[String]) = {
     var settings = initSettings
     val inputs = new scala.collection.mutable.ArrayBuffer[String]
