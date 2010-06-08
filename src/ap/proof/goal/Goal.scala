@@ -184,6 +184,9 @@ class Goal private (val facts : Conjunction,
                    // if a contradiction is detected, we can forget about
                    // everything
                    (!facts.isFalse || tasks.isEmpty && compoundFormulas.isEmpty) &&
+                   // contradictions of compound formulae should directly be
+                   // propagated to the facts
+                   !compoundFormulas.isFalse &&
                    // if clauses need to be rematched, a task for this should
                    // have been generated
                    (!compoundFormulas.lazyQuantifiedClauses.factsAreOutdated(facts.predConj) ||

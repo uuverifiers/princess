@@ -34,7 +34,7 @@ TESTS="cryptarithm.pri \
        relationalFun.pri relationalFun3.pri \
        uniExConstants0.pri uniExConstants2.pri \
        interpolant0.pri interpolant1.pri \
-       vocabularyBug.pri"
+       vocabularyBug.pri compoundFormulaeBug.pri"
 
 $PRI "$@" $TESTS
 

@@ -109,7 +109,7 @@ case object FactsNormalisationTask extends EagerTask {
     val reducer = ReduceWithConjunction(facts, order)
 
     def illegalQFClause(c : Conjunction) =
-      c.isLiteral || c.isNegatedConjunction ||
+      c.isTrue || c.isLiteral || c.isNegatedConjunction ||
       (!Seqs.disjoint(c.constants, eliminatedConstants) ||
        !Conjunction.collectQuantifiers(c).isEmpty) &&
       !constantFreedom.isShielded(c, bindingContext)

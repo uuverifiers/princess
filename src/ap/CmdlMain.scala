@@ -85,7 +85,6 @@ object CmdlMain {
         println("Saving in SMT format to " +
                 Param.PRINT_SMT_FILE(settings) + " ...")
         val out = new java.io.FileOutputStream(Param.PRINT_SMT_FILE(settings))
-        assert(false)
         Console.withOut(out) { linearise }
         out.close
       } else {

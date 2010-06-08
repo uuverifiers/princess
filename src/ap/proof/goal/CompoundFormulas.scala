@@ -66,6 +66,11 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
     eagerQuantifiedClauses.clauses.isEmpty &&
     lazyQuantifiedClauses.clauses.isEmpty
   
+  def isFalse =
+    qfClauses.isFalse ||
+    eagerQuantifiedClauses.clauses.isFalse ||
+    lazyQuantifiedClauses.clauses.isFalse
+  
   def sortBy(order : TermOrder) : CompoundFormulas =
     CompoundFormulas(qfClauses sortBy order,
                      eagerQuantifiedClauses sortBy order,
