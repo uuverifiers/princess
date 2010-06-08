@@ -63,31 +63,6 @@ object CmdlMain {
     println("                                the antecedent")
   }
   
-  private def printSMT(prover : AbstractFileProver,
-                       filename : String,  settings : GlobalSettings) =
-    if (Param.PRINT_SMT_FILE(settings) != "") {
-      println
-      
-      def linearise : Unit = {
-        import IExpression._
-        val completeFormula =
-          connect(for (f <- prover.inputFormulas.elements) yield removePartName(f),
-                  IBinJunctor.Or)
-        SMTLineariser(completeFormula, prover.signature, filename)
-      }
-      
-      if (Param.PRINT_SMT_FILE(settings) != "-") {
-        println("Saving in SMT format to " +
-                Param.PRINT_SMT_FILE(settings) + " ...")
-        val out = new java.io.FileOutputStream(Param.PRINT_SMT_FILE(settings))
-        assert(false)
-        Console.withOut(out) { linearise }
-        out.close
-      } else {
-        linearise
-      }
-    }
-  
   def proveProblems(settings : GlobalSettings,
                     problems : Seq[(String, java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
@@ -103,7 +78,8 @@ object CmdlMain {
             val timeBefore = System.currentTimeMillis
             
             println("Loading " + filename + " ...")
-            val prover = new BenchFileProver(reader,
+            val prover = new BenchFileProver(filename,
+                                             reader,
                                              Param.TIMEOUT(settings),
                                              userDefStoppingCond,
                                              settings)
@@ -163,8 +139,6 @@ object CmdlMain {
             if (Param.LOGO(settings))
               println("" + (timeAfter - timeBefore) + "ms")
               
-            printSMT(prover, filename, settings)
-            
             /* println
             println(ap.util.Timer)
             ap.util.Timer.reset */

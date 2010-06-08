@@ -94,7 +94,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
   }
 
   /**
-   * Sort the given constants according in ascending order
+   * Sort the given constants in ascending order
    */
   def sort(constants : Iterable[ConstantTerm]) : Seq[ConstantTerm] = {
     val res = new ArrayBuffer[ConstantTerm]
@@ -102,6 +102,18 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
 
     def comesBefore(a : ConstantTerm, b : ConstantTerm) : Boolean =
       this.compare(a, b) < 0
+    Sorting.stableSort(res, comesBefore _)
+  }
+  
+  /**
+   * Sort the given predicates in ascending order
+   */
+  def sortPreds(preds : Iterable[Predicate]) : Seq[Predicate] = {
+    val res = new ArrayBuffer[Predicate]
+    res ++= preds
+
+    def comesBefore(a : Predicate, b : Predicate) : Boolean =
+      predicateWeight(a) < predicateWeight(b)
     Sorting.stableSort(res, comesBefore _)
   }
   

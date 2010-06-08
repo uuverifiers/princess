@@ -30,7 +30,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.{InputAbsy2Internal, IExpression, IFormula, IInterpolantSpec,
                   Transform2NNF, LineariseVisitor, IBinJunctor, INamedPart,
-                  PartName}
+                  PartName, SMTLineariser}
 import ap.proof.certificates.Certificate
 import ap.proof.{Timeout, ModelSearchProver}
 import ap.parser.IExpression._
@@ -50,7 +50,8 @@ object BenchFileProver
    
 }
 
-class BenchFileProver(reader : java.io.Reader,
+class BenchFileProver(filename : String,
+                      reader : java.io.Reader,
                       timeout : Int,
                       userDefStoppingCond : => Boolean,
                       settings : GlobalSettings)
@@ -70,6 +71,38 @@ class BenchFileProver(reader : java.io.Reader,
     val (newF, newConst) =  removePred(iFormulas)
     val newOrder = (order /: newConst)(_.extend(_, Set()))
     (newF, newOrder)
+  }
+  
+  
+  // Output problem in the SMT-LIB format
+  println("Dumping interpolation problems in SMT-LIB format ...")
+  
+  Console.withOut (new java.io.FileOutputStream(filename + "-opensmt.smt")) {
+    val lin = new SMTLineariser(filename, "QF_LIA",
+                                order sort order.orderedConstants,
+                                order sortPreds order.orderedPredicates)
+    
+    for ((f, i) <- iFormulas.elements.zipWithIndex) {
+      println(":formula " + i)
+      lin.printFormula("assumption", !removePartName(f))
+    }
+    
+    lin.close
+  }
+  
+  Console.withOut (new java.io.FileOutputStream(filename + "-smtinterpol.smt")) {
+    val lin = new SMTLineariser(filename, "QF_LIA",
+                                order sort order.orderedConstants,
+                                order sortPreds order.orderedPredicates)
+    
+    println(":notes \"Interpolation Problem starts here\"")
+    
+    for (f <- iFormulas dropRight 1)
+      lin.printFormula("assumption", !removePartName(f))
+
+    lin.printFormula("formula", !removePartName(iFormulas.last))
+
+    lin.close
   }
   
   val timeToInternalBefore = System.currentTimeMillis
@@ -112,7 +145,7 @@ class BenchFileProver(reader : java.io.Reader,
               println("Nb of predicates to be eliminated: " + iContext.leftLocalPredicates.size)
 
               val inter = Interpolator(cert, iContext)
-                        
+                      println("" + inter)  
               val timeInter = System.currentTimeMillis - timeBeforeInter
             
               val size = nodeCount(inter)
