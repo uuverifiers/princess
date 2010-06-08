@@ -145,7 +145,7 @@ class BenchFileProver(filename : String,
               println("Nb of predicates to be eliminated: " + iContext.leftLocalPredicates.size)
 
               val inter = Interpolator(cert, iContext)
-                      println("" + inter)  
+
               val timeInter = System.currentTimeMillis - timeBeforeInter
             
               val size = nodeCount(inter)
