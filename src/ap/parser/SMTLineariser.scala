@@ -170,7 +170,7 @@ class SMTLineariser(benchmarkName : String,
         KeepArg
       }
       case IBoolLit(value) => {
-        print(value)
+        print(value + " ")
         ShortCutResult()
       }
       case IIntFormula(rel, _) => {

@@ -278,7 +278,7 @@ class BenchFileProver(filename : String,
  
         val partsAsFors = for (h <- parts) yield connect(h, IBinJunctor.Or)
         val namedParts = (for ((h, i) <- partsAsFors.elements.zipWithIndex)
-                          yield INamedPart(new PartName (i.toString), h)).toList
+                          yield INamedPart(new PartName ("p" + i), h)).toList
         
         val names = for(part <- namedParts) yield part.name
         
