@@ -16,6 +16,9 @@ JAVAC_FLAGS:=-target 1.5
 JAVA:=java
 JAVA_FLAGS:=
 
+# enough memory for the compiler on 64-bit architectures
+JAVA_OPTS=-Xmx1G
+
 SCALABASEDIR:=/usr/local/scala
 SCALALIBDIR:=$(SCALABASEDIR)/lib
 
@@ -23,7 +26,7 @@ JARSIGNERCMD:=jarsigner -keystore ../myKeys -storepass ../myPass -keypass ../myP
 JARSIGNERALIAS:=phr
 
 
-export SCALAC SCALAC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH
+export SCALAC SCALAC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH JAVA_OPTS
 
 
 all: scala-src
