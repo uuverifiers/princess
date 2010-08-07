@@ -95,7 +95,7 @@ class LazyMatchTask(age : Int) extends PrioritisedTask {
   
   val priority : Int = -500 + age
   
-  def updateTask(goal : Goal, factCollector : Conjunction => unit)
+  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                 : Seq[PrioritisedTask] = List(this)
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {

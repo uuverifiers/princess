@@ -21,6 +21,7 @@
 
 package ap.proof.goal
 
+import ap.proof._
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.terfor.conjunctions.Conjunction
 
@@ -29,7 +30,7 @@ class UpdateConstantFreedomTask(newConstantFreedom : ConstantFreedom,
 
   val priority : Int = -40000 + age
   
-  def updateTask(goal : Goal, factCollector : Conjunction => unit)
+  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                 : Seq[PrioritisedTask] = List(this)
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {

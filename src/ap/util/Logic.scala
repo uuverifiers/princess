@@ -30,10 +30,10 @@ object Logic {
     true
   }
   
-  def forall(it : Iterable[Boolean]) : Boolean = forall(it.elements)
+  def forall(it : Iterable[Boolean]) : Boolean = forall(it.iterator)
   
   def forall(start : Int, end : Int, p : (Int) => Boolean) : Boolean =
-    forall(for (i <- PlainRange(start, end).elements) yield p(i))
+    forall(for (i <- PlainRange(start, end).iterator) yield p(i))
   
   def exists(it : Iterator[Boolean]) : Boolean = {
     while (it.hasNext) {
@@ -42,10 +42,10 @@ object Logic {
     false
   }
 
-  def exists(it : Iterable[Boolean]) : Boolean = exists(it.elements)
+  def exists(it : Iterable[Boolean]) : Boolean = exists(it.iterator)
 
   def exists(start : Int, end : Int, p : (Int) => Boolean) : Boolean =
-    exists(for (i <- PlainRange(start, end).elements) yield p(i))
+    exists(for (i <- PlainRange(start, end).iterator) yield p(i))
 
   /**
    * Determines whether <code>true</code> occurs exactly once in the given stream

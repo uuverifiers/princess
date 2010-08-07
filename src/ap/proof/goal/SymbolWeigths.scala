@@ -47,7 +47,8 @@ object SymbolWeights {
     }
   }
 
-  def normSymbolFrequencies(exprs : Collection[TerFor], maxW : Int) : SymbolWeights = {
+  def normSymbolFrequencies(exprs : Iterable[TerFor],
+                            maxW : Int) : SymbolWeights = {
     val consts = new scala.collection.mutable.HashMap[ConstantTerm, Int]
     val preds = new scala.collection.mutable.HashMap[Predicate, Int]
     for (t <- exprs) countSymbols(t, consts, preds)
@@ -94,7 +95,7 @@ object SymbolWeights {
     
   private def normalise[A](weights : scala.collection.Map[A, Int], maxWeight : Int)
                                 : scala.collection.Map[A, Int] = {
-    val oldMax = Seqs.max(for ((x, weight) <- weights.elements) yield weight)
+    val oldMax = Seqs.max(for ((x, weight) <- weights.iterator) yield weight)
     
     val res = new scala.collection.mutable.HashMap[A, Int]
     for ((x, weight) <- weights) res += (x -> weight * maxWeight / oldMax)
@@ -112,7 +113,7 @@ trait SymbolWeights {
   def apply(p : Predicate) : Int
 
   def maxWeight(t : TerFor) : Int =
-    Seqs.max(for (c <- t.constants.elements) yield apply(c)) max
-        Seqs.max(for (p <- t.predicates.elements) yield apply(p))
+    Seqs.max(for (c <- t.constants.iterator) yield apply(c)) max
+        Seqs.max(for (p <- t.predicates.iterator) yield apply(p))
   
 }

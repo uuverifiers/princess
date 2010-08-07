@@ -21,7 +21,6 @@
 
 package ap.util;
 
-import scala.collection.immutable.EmptySet 
 import scala.util.Random
 
 /**

@@ -47,7 +47,7 @@ case class StrengthenCertificate(weakInEq : InEqConj, eqCases : IdealInt,
 
   val closingConstraint = {
     implicit val o = order
-    conj(for (c <- children.elements) yield c.closingConstraint)
+    conj(for (c <- children.iterator) yield c.closingConstraint)
   }
   
   val localAssumedFormulas : Set[Conjunction] = Set(weakInEq)
@@ -69,11 +69,11 @@ case class StrengthenCertificate(weakInEq : InEqConj, eqCases : IdealInt,
 
   def length = children.length
   def apply(i : Int) : Certificate = children(i)
-  def elements = children.elements
+  def iterator = children.iterator
 
   override def toString : String =
     "Strengthen(" + weakInEq + " -> " + "[" +
-    ((for (s <- localProvidedFormulas.elements) yield s.elements.next) mkString ", ") +
+    ((for (s <- localProvidedFormulas.iterator) yield s.iterator.next) mkString ", ") +
     "]" + ", " + (children mkString ", ") + ")"
 
 }

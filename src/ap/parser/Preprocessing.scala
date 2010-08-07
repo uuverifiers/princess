@@ -21,6 +21,7 @@
 
 package ap.parser
 
+import ap._
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parameters.{PreprocessingSettings, Param}
 

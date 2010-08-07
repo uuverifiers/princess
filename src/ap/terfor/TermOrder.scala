@@ -55,14 +55,14 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
 
   private val constantWeight : scala.collection.Map[ConstantTerm, NonCoeffWeight] = {
     val res = new scala.collection.mutable.HashMap[ConstantTerm, NonCoeffWeight]
-    res ++= (constantSeq.elements zip
+    res ++= (constantSeq.iterator zip
              (for (i <- new CountIt) yield ConstantWeight(i)))
     res
   }
   
   private val predicateWeight : scala.collection.Map[Predicate, Int] = {
     val res = new scala.collection.mutable.HashMap[Predicate, Int]
-    res ++= predicateSeq.elements.zipWithIndex
+    res ++= predicateSeq.iterator.zipWithIndex
     res
   }
   
@@ -126,7 +126,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * leading term could be <code>lt</code> 
    */
   def findFirstIndex(lt : Term,
-                     seq : RandomAccessSeq[LinearCombination]) : Int = {
+                     seq : IndexedSeq[LinearCombination]) : Int = {
     implicit def orderLC(thisLC : LinearCombination) =
       new Ordered[LinearCombination] {
         def compare(thatLC : LinearCombination) : Int =
@@ -198,7 +198,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
         
       i = i + 1
     }
-      
+
     throw new Error // never reached
   }
   
@@ -209,14 +209,14 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
           TermOrder.this.compare(thisLC, thatLC)
       }
       
-    Seqs.lexCompare(c1.elements, c2.elements)
+    Seqs.lexCompare(c1.iterator, c2.iterator)
   }
 
   def compare(c1 : ArithConj, c2 : ArithConj) : Int =
     Seqs.lexCombineInts(compare(c1.positiveEqs, c2.positiveEqs),
                         compare(c1.negativeEqs, c2.negativeEqs),
                         compare(c1.inEqs, c2.inEqs))
-    
+
   //////////////////////////////////////////////////////////////////////////////
 
   def compare(a1 : Atom, a2 : Atom) : Int = {
@@ -227,9 +227,9 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
       }
 
     Seqs.lexCombineInts(predicateWeight(a1.pred) compare predicateWeight(a2.pred),
-                        Seqs.lexCompare(a1.elements, a2.elements))
+                        Seqs.lexCompare(a1.iterator, a2.iterator))
   }
-    
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -237,7 +237,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * <code>Weight</code> objects
    */
   private def weightIt(t : Term) : Iterator[Weight] = t match {
-    case t : LinearCombination => (for ((coeff, ter) <- t.elements)
+    case t : LinearCombination => (for ((coeff, ter) <- t.iterator)
                                    yield CoeffWeight(coeff, weightOfAtomicTerm(ter)))
     case _ => Iterator.single(weightOfAtomicTerm(t))
   }
@@ -255,8 +255,8 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * order.
    */
   def isSubOrderOf(that : TermOrder) : Boolean = 
-    Seqs.subSeq(this.constantSeq.elements, that.constantSeq.elements) &&
-    Seqs.subSeq(this.predicateSeq.elements, that.predicateSeq.elements)
+    Seqs.subSeq(this.constantSeq.iterator, that.constantSeq.iterator) &&
+    Seqs.subSeq(this.predicateSeq.iterator, that.predicateSeq.iterator)
 
   /**
    * Return <code>true</code> iff the term order <code>that</code> is an
@@ -268,10 +268,10 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
   def isSubOrderOf(that : TermOrder,
                    consideredConstants : scala.collection.Set[ConstantTerm],
                    consideredPredicates : scala.collection.Set[Predicate]) : Boolean = 
-    Seqs.subSeq(this.constantSeq.elements, consideredConstants,
-                that.constantSeq.elements) &&
-    Seqs.subSeq(this.predicateSeq.elements, consideredPredicates,
-                that.predicateSeq.elements)
+    Seqs.subSeq(this.constantSeq.iterator, consideredConstants,
+                that.constantSeq.iterator) &&
+    Seqs.subSeq(this.predicateSeq.iterator, consideredPredicates,
+                that.predicateSeq.iterator)
 
   /**
    * Extend this ordering by inserting a further constant <code>newConst</code>.

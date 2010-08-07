@@ -68,7 +68,7 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
     }
     
     val relevantPredicates =
-      for (eq <- List(lowerBoundEq, upperBoundEq).removeDuplicates;
+      for (eq <- List(lowerBoundEq, upperBoundEq).distinct;
            if (!eq.isTrue)) yield eq
     
     relevantPredicates match {
@@ -96,7 +96,7 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
    * can be derived, these are put into <code>factCollector</code>
    */
   def updateTask(goal : Goal,
-                 factCollector : Conjunction => unit) : Seq[PrioritisedTask] =
+                 factCollector : Conjunction => Unit) : Seq[PrioritisedTask] =
     // we do not update anything in this task; if no inequalities for the
     // specified linear combination occur in the goal anymore, we will just
     // ignore the task when it is to be applied

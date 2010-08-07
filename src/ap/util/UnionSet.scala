@@ -45,7 +45,7 @@ class UnionSet[A] private (set1 : scala.collection.Set[A],
 
   def contains(x : A) : Boolean = (set1 contains x) || (set2 contains x)
   
-  lazy val size : Int = {
+  override lazy val size : Int = {
     var res = set1.size
     for (x <- set2) {
       if (!(set1 contains x))
@@ -54,7 +54,10 @@ class UnionSet[A] private (set1 : scala.collection.Set[A],
     res
   }
   
-  def elements : Iterator[A] =
-    set1.elements ++ FilterIt(set2.elements, (x:A) => !(set1 contains x))
+  def iterator : Iterator[A] =
+    set1.iterator ++ FilterIt(set2.iterator, (x:A) => !(set1 contains x))
   
+  def +(elem: A) = throw new UnsupportedOperationException
+  def -(elem: A) = throw new UnsupportedOperationException
+
 }

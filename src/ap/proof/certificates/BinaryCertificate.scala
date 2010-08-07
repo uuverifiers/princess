@@ -27,9 +27,9 @@ import ap.terfor.TerForConvenience._
 /**
  * Abstract superclass of certificates with two children
  */
-abstract case class BinaryCertificate(leftChild : Certificate,
-                                      rightChild : Certificate,
-                                      order : TermOrder) extends {
+abstract class BinaryCertificate(val leftChild : Certificate,
+                                 val rightChild : Certificate,
+                                 val order : TermOrder) extends {
 
   val closingConstraint = {
     implicit val o = order
@@ -44,6 +44,6 @@ abstract case class BinaryCertificate(leftChild : Certificate,
     case 1 => rightChild
     case _ => throw new NoSuchElementException
   }
-  def elements = Array(leftChild, rightChild).elements
+  def iterator = Array(leftChild, rightChild).iterator
 
 }

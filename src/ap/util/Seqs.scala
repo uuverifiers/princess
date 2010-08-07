@@ -22,7 +22,7 @@
 package ap.util;
 
 import scala.util.Sorting
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ArrayBuilder
 
 object Seqs {
 
@@ -111,7 +111,7 @@ object Seqs {
    * next-bigger element in <code>seq</code>. Note, that elements are never
    * compared with <code>==<code>, only with <code>(a compare b) == 0</code> 
    */
-  def binSearch[T <% Ordered[T]](seq : RandomAccessSeq[T],
+  def binSearch[T <% Ordered[T]](seq : IndexedSeq[T],
                                  begin : Int, end : Int, wanted : T) : BS_Result = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
@@ -168,20 +168,21 @@ object Seqs {
    * Remove all duplicates from a sorted sequence. It is assumed that duplicates
    * can only occur immediately following each other
    */
-  def removeDuplicates[A](s : Seq[A]) : Seq[A] = {
-    val it = s.elements
+  def removeDuplicates[A](s : IndexedSeq[A]) : IndexedSeq[A] = {
+    val it = s.iterator
     if (it.hasNext) {
-      val res = new ArrayBuffer[A]
+      val resBuf = Vector.newBuilder[A]
       var prevEl = it.next
-      res += prevEl
+      resBuf += prevEl
       
       for (el <- it) {
         if (el != prevEl) {
           prevEl = el
-          res += el
+          resBuf += el
         }
       }
       
+      val res = resBuf.result
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC, Logic.forall(0, res.size,
                                         i => Logic.forall(i+1, res.size,
@@ -206,19 +207,20 @@ object Seqs {
    * <code>FoundBadElement</code> is returned, otherwise a sorted array with the
    * elements that were kept is created and returned.
    */
-  def filterAndSort[A](it : Iterator[A],
-                       skipEl : A => Boolean, badEl : A => Boolean,
-                       trafo : A => A,
-                       comesBefore : (A, A) => Boolean)
+  def filterAndSort[A : ClassManifest]
+                   (it : Iterator[A],
+                    skipEl : A => Boolean, badEl : A => Boolean,
+                    trafo : A => A,
+                    comesBefore : (A, A) => Boolean)
                                                             : FAS_RESULT[A] = {
-    val buf = new ArrayBuffer[A]
+    val buf = ArrayBuilder.make[A]
     while (it.hasNext) {
       val el = it.next
       if (badEl(el)) return FoundBadElement(el)
       if (!skipEl(el)) buf += trafo(el)
     }
 
-    val ar = buf.toArray
+    val ar = buf.result
     Sorting.stableSort(ar, comesBefore)
 
     FilteredSorted(ar)
@@ -239,7 +241,7 @@ object Seqs {
   }
    
   def some[A](vals : Iterable[Option[A]]) : Option[A] =
-    some(vals.elements)
+    some(vals.iterator)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -247,11 +249,11 @@ object Seqs {
     Logic.forall(for (x <- b) yield !(a contains x))
 
   def disjointSeq[A](a : scala.collection.Set[A], b : Iterable[A]) : Boolean =
-    disjointSeq(a, b.elements)
+    disjointSeq(a, b.iterator)
 
   def disjointSeq[A](a1 : scala.collection.Set[A], a2 : scala.collection.Set[A],
                      b : Iterable[A]) : Boolean =
-    disjointSeq(a1, a2, b.elements)
+    disjointSeq(a1, a2, b.iterator)
 
   def disjointSeq[A](a1 : scala.collection.Set[A], a2 : scala.collection.Set[A],
                      b : Iterator[A]) : Boolean =
@@ -283,28 +285,10 @@ object Seqs {
     
   //////////////////////////////////////////////////////////////////////////////
 
-  def toRandomAccess[A](els : Iterator[A]) : RandomAccessSeq[A] = {
-    val buf = new ArrayBuffer[A]
+  def toArray[A : ClassManifest](els : Iterator[A]) : Array[A] = {
+    val buf = ArrayBuilder.make[A]
     buf ++= els
-    buf.readOnly
-  }
-    
-  def toRandomAccess[A](els : Iterable[A]) : RandomAccessSeq[A] = toArray(els)
-
-  def toArray[A](els : Iterator[A]) : Array[A] = {
-    val buf = new ArrayBuffer[A]
-    buf ++= els
-    buf.toArray
-  }
-
-  def toArray[A](els : Iterable[A]) : Array[A] = els match {
-    case els : Collection[A] => {
-      // size is finite and known
-      val res = new Array[A] (els.size)
-      els.copyToArray(res, 0)
-      res
-    }
-    case _ => toArray(els.elements)
+    buf.result
   }
     
   //////////////////////////////////////////////////////////////////////////////
@@ -325,7 +309,7 @@ object Seqs {
    * reduceLeft that also works for empty sequences
    */
   def reduceLeft[A](els : Iterable[A], f : (A, A) => A) : Option[A] =
-    reduceLeft(els.elements, f)
+    reduceLeft(els.iterator, f)
     
   //////////////////////////////////////////////////////////////////////////////
 
@@ -359,13 +343,13 @@ object Seqs {
    * Compute the maximum of a sequence of ints. If the sequence
    * is empty, <code>0</code> is returned
    */
-  def max(els : Iterable[Int]) : Int = max(els.elements)
+  def max(els : Iterable[Int]) : Int = max(els.iterator)
     
   /**
    * Determine a maximum element of a sequence of things under a given measure
    */
   def max[A, B <% Ordered[B]](it : Iterable[A], measure : (A) => B) : A =
-    max(it.elements, measure)
+    max(it.iterator, measure)
 
   /**
    * Determine a maximum element of a sequence of things under a given measure
@@ -390,7 +374,7 @@ object Seqs {
    * Determine a minimum element of a sequence of things under a given measure
    */
   def min[A, B <% Ordered[B]](it : Iterable[A], measure : (A) => B) : A =
-    min(it.elements, measure)
+    min(it.iterator, measure)
 
   /**
    * Determine a minimum element of a sequence of things under a given measure
@@ -442,9 +426,9 @@ object Seqs {
    * predicate does not hold
    */
   def split[A](els : Iterator[A], firstKind : (A) => Boolean)
-                                  : (RandomAccessSeq[A], RandomAccessSeq[A]) = {
-    val res1 = new ArrayBuffer[A]
-    val res2 = new ArrayBuffer[A]
+                              : (Vector[A], Vector[A]) = {
+    val res1 = Vector.newBuilder[A]
+    val res2 = Vector.newBuilder[A]
     while (els.hasNext) {
       val n = els.next
       if (firstKind(n))
@@ -452,12 +436,8 @@ object Seqs {
       else
         res2 += n
     }
-    (res1, res2)
+    (res1.result, res2.result)
   }
-
-  def split[A](els : Iterable[A], firstKind : (A) => Boolean)
-                                : (RandomAccessSeq[A], RandomAccessSeq[A]) =
-    split(els.elements, firstKind)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -497,22 +477,22 @@ object Seqs {
    * produce a descending sequence with all elements occurring in at least one
    * of the sequences
    */
-  def mergeSortedSeqs[A <% Ordered[A]]
-                     (a : RandomAccessSeq[A], b : RandomAccessSeq[A]) : RandomAccessSeq[A] = {
+  def mergeSortedSeqs[A](a : IndexedSeq[A], b : IndexedSeq[A])
+                     (implicit ord : Ordering[A]) : IndexedSeq[A] = {
     if (a.isEmpty)
       return b
     if (b.isEmpty)
       return a
     
-    val res = new ArrayBuffer[A]
-    val aIt = a.elements
-    val bIt = b.elements
+    val res = Vector.newBuilder[A]
+    val aIt = a.iterator
+    val bIt = b.iterator
     
     var aNext = aIt.next
     var bNext = bIt.next
       
     while (true) {
-      val c = aNext compare bNext
+      val c = ord.compare(aNext, bNext)
       
       if (c > 0) {
         res += aNext
@@ -521,7 +501,7 @@ object Seqs {
         } else {
           res += bNext
           res ++= bIt
-          return res
+          return res.result
         }
       } else if (c < 0) {
         res += bNext
@@ -530,7 +510,7 @@ object Seqs {
         } else {
           res += aNext
           res ++= aIt
-          return res
+          return res.result
         }
       } else {
         // both elements are considered equal, so we drop one of them
@@ -539,18 +519,18 @@ object Seqs {
         } else {
           res += bNext
           res ++= bIt
-          return res            
+          return res.result
         }
       }
     }
     
-    res // please the compiler
+    null // never reached
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
   def count[A](els : Iterable[A], p : (A) => Boolean) : Int =
-    count(els.elements, p)
+    count(els.iterator, p)
 
   def count[A](els : Iterator[A], p : (A) => Boolean) : Int = {
     var res : Int = 0
@@ -568,44 +548,45 @@ object Seqs {
    * <code>oldSeq</code>, and those elements in <code>newSeq</code> that do not
    * occur in <code>oldSeq</code>.
    */
-  def diff[A <% Ordered[A]](newSeq : Seq[A], oldSeq : Seq[A]) : (Seq[A], Seq[A]) = {
-    def post(res : (Seq[A], Seq[A])) = {
+  def diff[A](newSeq : IndexedSeq[A], oldSeq : IndexedSeq[A])
+             (implicit ord : Ordering[A])
+             : (IndexedSeq[A], IndexedSeq[A]) = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+    def post(resOld : IndexedSeq[A], resNew : IndexedSeq[A]) = {
       Debug.assertPost(AC, {
-        val (resOld, resNew) = res
         val (checkOld, checkNew) = newSeq partition (oldSeq contains _)
         (resOld sameElements checkOld) && (resNew sameElements checkNew)
       })
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      res
+      (resOld, resNew)
     }
 
     if (newSeq.isEmpty)
       return post(newSeq, newSeq)
 
     if (oldSeq.isEmpty)
-      return post(List(), newSeq)
+      return post(IndexedSeq.empty, newSeq)
 
-    val resOld = new ArrayBuffer [A]
-    val resNew = new ArrayBuffer [A]
+    val resOld = Vector.newBuilder[A]
+    val resNew = Vector.newBuilder[A]
 
-    val newIt = newSeq.elements
-    val oldIt = oldSeq.elements
+    val newIt = newSeq.iterator
+    val oldIt = oldSeq.iterator
     var oldEl = oldIt.next
     var c : Int = 0
     
     while (newIt.hasNext) {
       val newEl = newIt.next
-      c = newEl compare oldEl
+      c = ord.compare(newEl, oldEl)
       
       while (c < 0)
         if (oldIt.hasNext) {
           oldEl = oldIt.next
-          c = newEl compare oldEl
+          c = ord.compare(newEl, oldEl)
         } else {
           resNew += newEl
           resNew ++= newIt
-          return post(resOld, resNew)
+          return post(resOld.result, resNew.result)
         }
       
       if (c > 0)
@@ -614,7 +595,7 @@ object Seqs {
         resOld += newEl
     }
     
-    post(resOld, resNew)
+    post(resOld.result, resNew.result)
   }
   
   /**
@@ -622,10 +603,11 @@ object Seqs {
    * determine those elements that only occur in <code>seq0</code>, those that
    * occur in both sequences, and those that only occur in <code>seq1</code>.
    */
-  def diff3[A <% Ordered[A]](seq0 : Seq[A], seq1 : Seq[A])
-                                          : (Seq[A], Seq[A], Seq[A]) = {
-    def post(res : (Seq[A], Seq[A], Seq[A])) = {
+  def diff3[A](seq0 : IndexedSeq[A], seq1 : IndexedSeq[A])
+              (implicit ord : Ordering[A])
+              : (IndexedSeq[A], IndexedSeq[A], IndexedSeq[A]) = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+    def post(res : (IndexedSeq[A], IndexedSeq[A], IndexedSeq[A])) = {
       Debug.assertPost(AC, {
         val (left, common, right) = res
         val (ccommon, cleft) = diff(seq0, seq1)
@@ -644,17 +626,17 @@ object Seqs {
     if (seq1.isEmpty)
       return post(seq0, seq1, seq1)
 
-    val left = new ArrayBuffer [A]
-    val common = new ArrayBuffer [A]
-    val right = new ArrayBuffer [A]
+    val left = Vector.newBuilder[A]
+    val common = Vector.newBuilder[A]
+    val right = Vector.newBuilder[A]
 
-    val seq0It = seq0.elements
-    val seq1It = seq1.elements
+    val seq0It = seq0.iterator
+    val seq1It = seq1.iterator
     var seq0El = seq0It.next
     var seq1El = seq1It.next
     
     while (true) {
-      val c = seq0El compare seq1El
+      val c = ord.compare(seq0El, seq1El)
     
       if (c < 0)
         right += seq1El
@@ -670,7 +652,7 @@ object Seqs {
           if (c < 0)
             left += seq0El
           left ++= seq0It
-          return post(left, common, right)
+          return post(left.result, common.result, right.result)
         }
       }
 
@@ -681,7 +663,7 @@ object Seqs {
           if (c > 0)
             right += seq1El
           right ++= seq1It
-          return post(left, common, right)
+          return post(left.result, common.result, right.result)
         }
       }
     }
@@ -691,7 +673,8 @@ object Seqs {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def unzip[A, B](seq : Seq[(A, B)]) : (Seq[A], Seq[B]) = {
+  def unzip[A : ClassManifest, B : ClassManifest]
+           (seq : Seq[(A, B)]) : (Seq[A], Seq[B]) = {
     val lefts = new Array[A] (seq.size)
     val rights = new Array[B] (seq.size)
     

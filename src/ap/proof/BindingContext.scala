@@ -45,21 +45,24 @@ case class BindingContext private (// the groups of constants that are bound in 
   
   private val constantPos : scala.collection.Map[ConstantTerm, Int] = {
     val res = new scala.collection.mutable.HashMap[ConstantTerm, Int]
-    res ++= (for (((_, consts), num) <- constantSeq.elements.zipWithIndex;
-                  c <- consts.elements)
+    res ++= (for (((_, consts), num) <- constantSeq.iterator.zipWithIndex;
+                  c <- consts.iterator)
              yield (c, -num))
     res
   }
 
   private val quantifiers : scala.collection.Map[ConstantTerm, Quantifier] = {
     val res = new scala.collection.mutable.HashMap[ConstantTerm, Quantifier]
-    res ++= (for ((q, consts) <- constantSeq.elements; c <- consts.elements)
+    res ++= (for ((q, consts) <- constantSeq.iterator; c <- consts.iterator)
              yield (c, q))
     res    
   }
   
   def binder(c : ConstantTerm) : Option[Quantifier] = quantifiers get c
   
+  def tryCompare(x : ConstantTerm, y : ConstantTerm) : Option[Int] =
+    throw new UnsupportedOperationException
+
   def lteq (x : ConstantTerm, y : ConstantTerm) : Boolean =
     (constantPos get x, constantPos get y) match {
       case (None, _) => true

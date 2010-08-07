@@ -21,8 +21,9 @@
 
 package ap.terfor.substitutions;
 
-
 import ap.util.{Debug, Logic}
+
+import ap.terfor._
 
 object VariableSubst {
   
@@ -45,7 +46,7 @@ class VariableSubst(offset : Int,
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(VariableSubst.AC,
                    (offset >= 0) &&
-                   Logic.forall(for (t <- replacements.elements)
+                   Logic.forall(for (t <- replacements.iterator)
                                 yield (order isSortingOf t)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////     
 
@@ -69,7 +70,7 @@ class VariableSubst(offset : Int,
   protected[substitutions] def applyToConstant(c : ConstantTerm) : Term = c
 
   protected[substitutions] def isIdentityOn(t : TerFor) : Boolean =
-    Logic.forall(for (VariableTerm(i) <- t.variables.elements) yield (i < offset))
+    Logic.forall(for (VariableTerm(i) <- t.variables.iterator) yield (i < offset))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -81,7 +82,7 @@ class VariableSubst(offset : Int,
   //////////////////////////////////////////////////////////////////////////////
 
   override def toString : String = {
-    val strings = for ((t, i) <- replacements.elements.zipWithIndex)
+    val strings = for ((t, i) <- replacements.iterator.zipWithIndex)
                   yield ("" + VariableTerm(i+offset) + "|->" + t)
     val substs = if (strings.hasNext)
                    strings.reduceLeft((s1 : String, s2 : String) => s1 + " | " + s2)

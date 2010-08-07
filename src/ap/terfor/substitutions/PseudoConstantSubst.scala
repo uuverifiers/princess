@@ -21,6 +21,7 @@
 
 package ap.terfor.substitutions;
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.util.Debug
 

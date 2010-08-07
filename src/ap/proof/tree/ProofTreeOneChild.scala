@@ -21,6 +21,7 @@
 
 package ap.proof.tree;
 
+import ap.proof._
 import ap.terfor.TermOrder
 import ap.util.Debug
 

@@ -21,6 +21,7 @@
 
 package ap.terfor.preds;
 
+import ap.terfor._
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.util.{Debug, Seqs, LazyMappedSet, UnionSet}
 

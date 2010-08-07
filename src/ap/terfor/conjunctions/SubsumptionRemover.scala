@@ -21,6 +21,8 @@
 
 package ap.terfor.conjunctions;
 
+import ap.terfor._
+
 /**
  * Naive version of a subsumption test
  */
@@ -43,7 +45,7 @@ class SubsumptionRemover(order : TermOrder) {
       val cWithoutDisj = c.updateNegatedConjs(NegatedConjunctions.TRUE)(order)
       val newConjunct = Conjunction.conj(Array(conjunct, cWithoutDisj), order)
       
-      for (d <- disj.updateNegatedConjs(NegatedConjunctions.TRUE)(order).elements)
+      for (d <- disj.updateNegatedConjs(NegatedConjunctions.TRUE)(order).iterator)
         addDisjunct(Conjunction.conj(Array(d.negate, newConjunct), order))
       for (d <- disj.negatedConjs)
         addDisjuncts(d, newConjunct)

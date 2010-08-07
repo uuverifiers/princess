@@ -81,11 +81,11 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
                   ctxt : Context[Int],
                   subres : Seq[(Option[ITerm], ListSet[(ITerm, Set[Int])], Set[Int])])
                  : (Option[ITerm], ListSet[(ITerm, Set[Int])], Set[Int]) = {
-      val subTriggers = (ListSet.empty ++ (for ((_, ts, _) <- subres.elements;
-                                                t <- ts.elements) yield t))
+      val subTriggers = (ListSet.empty ++ (for ((_, ts, _) <- subres.iterator;
+                                                t <- ts.iterator) yield t))
                         .asInstanceOf[ListSet[(ITerm, Set[Int])]]
       lazy val allVariables =
-        Set() ++ (for ((_, _, vars) <- subres.elements; v <- vars.elements) yield v)
+        Set() ++ (for ((_, _, vars) <- subres.iterator; v <- vars.iterator) yield v)
 
       val considerTerm =
         subres forall { case (Some(_), _, _) => true; case _ => false }
@@ -119,7 +119,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
                 ListSet.empty
               } else if (foundMoreVars) {
                 // ignore the triggers from the subterms
-                ListSet.empty + (shiftedTerm, allVariables)
+                ListSet.empty + (shiftedTerm -> allVariables)
               } else {
                 // only consider the subtriggers
                 subTriggers
@@ -193,7 +193,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
         if (triggers exists { case (_, vars) => allVars(vars) }) {
           // there are uni-triggers that contain all variables
           
-          for ((t, vars) <- triggers.elements; if (allVars(vars))) yield List(t)
+          for ((t, vars) <- triggers.iterator; if (allVars(vars))) yield List(t)
       } else {
         // generate all minimal multi-triggers
         

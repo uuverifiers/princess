@@ -92,10 +92,10 @@ class AddFactsTask(_formula : Conjunction, _age : Int)
           // when constructing proofs, we decompose conjunctions of inequalities
           // so that all computations concerning the new inequalities can be
           // recorded
-          Array(goal.facts, newFacts.updateInEqs(InEqConj.TRUE)(order)).elements ++
-            (for (lc <- newFacts.arithConj.inEqs.elements) yield InEqConj(lc, order))
+          Array(goal.facts, newFacts.updateInEqs(InEqConj.TRUE)(order)).iterator ++
+            (for (lc <- newFacts.arithConj.inEqs.iterator) yield InEqConj(lc, order))
         else
-          Array(goal.facts, newFacts).elements
+          Array(goal.facts, newFacts).iterator
       val updatedFacts = Conjunction(List(), allFacts, collector, order)
       (updatedFacts, collector.getCollection)
     }

@@ -145,7 +145,7 @@ class Simplifier {
         
         // permute the variables (the quantifier to be eliminated will be the
         // innermost one)
-        val shifts = IVarShift(List.make(quanNum, 1) ::: List(-quanNum), 0)
+        val shifts = IVarShift(List.fill(quanNum)(1) ::: List(-quanNum), 0)
         val shiftedF = VariablePermVisitor(prenexF, shifts)
         
         val substitutedF = findDefinition(shiftedF, 0, q == ALL) match {
@@ -153,7 +153,7 @@ class Simplifier {
           case _ => { assert(false); null }
         }
 
-        quan(Array.make(quanNum, q), substitutedF)
+        quan(Array.fill(quanNum)(q), substitutedF)
       }
     }
     case _ => expr
@@ -253,7 +253,7 @@ class Simplifier {
             cont = false
         }
         
-        quan(Array.make(quanNum, Quan), f update List(left, right))
+        quan(Array.fill(quanNum)(Quan), f update List(left, right))
       }
         
       case f @ IQuantified(Quan, _) => f update subres

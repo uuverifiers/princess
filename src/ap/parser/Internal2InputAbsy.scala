@@ -56,7 +56,7 @@ class Internal2InputAbsy(predTranslation : MMap[Predicate, IFunction]) {
     case c : ConstantTerm => c
     case VariableTerm(index) => v(index)
     case lc : LinearCombination =>
-      sum(for ((c, t) <- lc.elements) yield {
+      sum(for ((c, t) <- lc.iterator) yield {
         if (c.isOne) convert(t) else (convert(t) * c)
       })
   }
@@ -78,26 +78,26 @@ class Internal2InputAbsy(predTranslation : MMap[Predicate, IFunction]) {
     else
       quan(c.quans,
            convert(c.arithConj) &&& convert(c.predConj) &&&
-           connect(for (d <- c.negatedConjs.elements) yield !convert(d),
+           connect(for (d <- c.negatedConjs.iterator) yield !convert(d),
                    IBinJunctor.And))
   
   private def convert(ac : ArithConj) : IFormula =
     convert(ac.positiveEqs) &&& convert(ac.negativeEqs) &&& convert(ac.inEqs)
   
   private def convert(eqs : EquationConj) : IFormula =
-    connect(for (lc <- eqs.elements) yield eqZero(convert(lc)), IBinJunctor.And)
+    connect(for (lc <- eqs.iterator) yield eqZero(convert(lc)), IBinJunctor.And)
 
   private def convert(eqs : NegEquationConj) : IFormula =
-    connect(for (lc <- eqs.elements) yield !eqZero(convert(lc)), IBinJunctor.And)
+    connect(for (lc <- eqs.iterator) yield !eqZero(convert(lc)), IBinJunctor.And)
   
   private def convert(eqs : InEqConj) : IFormula =
-    connect(for (lc <- eqs.elements) yield geqZero(convert(lc)), IBinJunctor.And)
+    connect(for (lc <- eqs.iterator) yield geqZero(convert(lc)), IBinJunctor.And)
   
   private def convert(preds : PredConj) : IFormula =
     convert(preds.positiveLits, false) &&& convert(preds.negativeLits, true)
   
   private def convert(lits : Seq[Atom], negate : Boolean) : IFormula = connect(
-    for (a <- lits.elements) yield {
+    for (a <- lits.iterator) yield {
       val ifor = (predTranslation get a.pred) match {
         case Some(f) =>
           IFunApp(f, for (t <- a take f.arity) yield convert(t)) === convert(a.last)

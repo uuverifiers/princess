@@ -21,6 +21,7 @@
 
 package ap.proof.tree;
 
+import ap.proof._
 import ap.proof.certificates.PartialCertificate
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
@@ -131,11 +132,11 @@ object AndTree {
         rootCert
       case (leftCert, null) =>
         rootCert compose (List(leftCert) ++
-                          Array.make(rootCert.arity - 1,
-                                     PartialCertificate.IDENTITY))
+                          Array.fill(rootCert.arity - 1){
+                                     PartialCertificate.IDENTITY})
       case (null, rightCert) =>
-        rootCert compose (Array.make(rootCert.arity - 1,
-                                     PartialCertificate.IDENTITY) ++
+        rootCert compose (Array.fill(rootCert.arity - 1){
+                                     PartialCertificate.IDENTITY} ++
                           List(rightCert))
       case (leftCert, rightCert) =>
         rootCert compose Array(leftCert, rightCert)
@@ -191,7 +192,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
   lazy val subtrees : Seq[ProofTree] = Array(left, right)
     
   lazy val closingConstraint : Conjunction =
-    simplifier(Conjunction.conj(for (t <- subtrees.elements) yield t.closingConstraint,
+    simplifier(Conjunction.conj(for (t <- subtrees.iterator) yield t.closingConstraint,
                                 order),
                order)
 
@@ -204,7 +205,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
     constantFreedom == closingConstantFreedom 
 
   lazy val stepPossible : Boolean =
-    Logic.exists(for (subtree <- subtrees.elements) yield subtree.stepPossible)
+    Logic.exists(for (subtree <- subtrees.iterator) yield subtree.stepPossible)
 
   lazy val stepMeaningful : Boolean =
     (left.stepMeaningful, right.stepMeaningful) match {

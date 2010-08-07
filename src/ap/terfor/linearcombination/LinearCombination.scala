@@ -22,8 +22,9 @@
 package ap.terfor.linearcombination;
 
 import scala.util.Sorting
-import scala.collection.mutable.{Buffer, ArrayBuffer}
+import scala.collection.mutable.{Buffer, ArrayBuffer, ArrayBuilder}
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.util.{Debug, Logic, Seqs, FilterIt}
 
@@ -46,16 +47,16 @@ object LinearCombination {
    */
   def apply(terms : Iterator[(IdealInt, Term)], order : TermOrder)
                                                        : LinearCombination = {
-    val flattened = flattenTerms(terms).toArray
+    val flattened = flattenTerms(terms)
     sortTerms(flattened, order)
     val contracted = contractTerms(flattened)
     
-    new LinearCombination (contracted.toArray, order)
+    new LinearCombination (contracted, order)
   }
 
   def apply(terms : Iterable[(IdealInt, Term)], order : TermOrder)
                                                       : LinearCombination =
-    apply(terms.elements, order)                                                      
+    apply(terms.iterator, order)                                                      
 
   def apply(t : Term, order : TermOrder) : LinearCombination =
     apply(Array((IdealInt.ONE, t)), order)
@@ -84,20 +85,20 @@ object LinearCombination {
    * pairs in which no term has type LinearCombination
    */
   private def flattenTerms(terms : Iterator[(IdealInt, Term)])
-                                              : Buffer[(IdealInt, Term)] = {
-    val res = new ArrayBuffer[(IdealInt, Term)]
+                                              : Array[(IdealInt, Term)] = {
+    val res = ArrayBuilder.make[(IdealInt, Term)]
     
     def flatten(it : Iterator[(IdealInt, Term)], coeff : IdealInt) : Unit = {
       for ((c, t) <- it) {
         t match {
-        case t : LinearCombination => flatten(t.elements, coeff * c)
-        case _ => res += (coeff * c, t)
+        case t : LinearCombination => flatten(t.iterator, coeff * c)
+        case _ => res += (coeff * c -> t)
         }
       }
     }
     
     flatten(terms, IdealInt.ONE)
-    res
+    res.result
   }
   
   /**
@@ -116,8 +117,8 @@ object LinearCombination {
    * <code>0 * t</code>
    */
   private def contractTerms(terms : Iterable[(IdealInt, Term)])
-                                                : Buffer[(IdealInt, Term)] = {
-    val res = new ArrayBuffer[(IdealInt, Term)]
+                                                : Array[(IdealInt, Term)] = {
+    val res = ArrayBuilder.make[(IdealInt, Term)]
     
     var currentTerm : Term = null
     var currentCoeff : IdealInt = IdealInt.ZERO
@@ -126,15 +127,15 @@ object LinearCombination {
       if (t == currentTerm) {
         currentCoeff = currentCoeff + c
       } else {
-        if (!currentCoeff.isZero) res += (currentCoeff, currentTerm)
+        if (!currentCoeff.isZero) res += (currentCoeff -> currentTerm)
         currentTerm = t
         currentCoeff = c
       }
     }
 
-    if (!currentCoeff.isZero) res += (currentCoeff, currentTerm)
+    if (!currentCoeff.isZero) res += (currentCoeff -> currentTerm)
 
-    res
+    res.result
   }
   
   /**
@@ -175,11 +176,11 @@ object LinearCombination {
 class LinearCombination private (private val terms : Array[(IdealInt, Term)],
                                  val order : TermOrder)
                         extends Term with SortedWithOrder[LinearCombination]
-                                     with RandomAccessSeq[(IdealInt, Term)] {
+                                     with IndexedSeq[(IdealInt, Term)] {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(LinearCombination.AC,
-                   Logic.forall(for ((coeff, t) <- this.elements)
+                   Logic.forall(for ((coeff, t) <- this.iterator)
                                 yield (!t.isInstanceOf[LinearCombination] &&
                                        !coeff.isZero))
                    &&
@@ -191,7 +192,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
     if (isSortedBy(newOrder)) {
       this
     } else {
-      val newTerms = terms.toArray
+      val newTerms = terms.clone
       LinearCombination.sortTerms(newTerms, newOrder)
       new LinearCombination (newTerms, newOrder)
     }
@@ -203,7 +204,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
   
   def apply(i : Int) : (IdealInt, Term) = terms(i)
   
-  override def elements = terms.elements
+  override def elements = terms.iterator
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -215,7 +216,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     def notFoundPost =
       Debug.assertPost(LinearCombination.AC,
-                       Logic.forall(for ((_, term) <- this.elements)
+                       Logic.forall(for ((_, term) <- this.iterator)
                                     yield term != t))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
@@ -300,7 +301,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
     if (this.isEmpty || (this.last _2) != OneTerm) {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(LinearCombination.AC,
-                      Logic.forall(for ((_, t) <- this.elements)
+                      Logic.forall(for ((_, t) <- this.iterator)
                                    yield t != OneTerm))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       IdealInt.ZERO
@@ -314,7 +315,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
    */
   lazy val nonConstCoeffGcd : IdealInt =
     IdealInt.gcd(for ((c, _) <-
-                      FilterIt(this.elements,
+                      FilterIt(this.iterator,
                                (v : (IdealInt, Term)) => (v _2) != OneTerm))
                  yield c)
 
@@ -378,9 +379,9 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
       this
     } else {
       val buf = new ArrayBuffer[(IdealInt, Term)]
-      for ((c, t) <- this.elements) {
+      for ((c, t) <- this.iterator) {
         val newC = c / denom
-        if (!newC.isZero) buf += (newC, t)
+        if (!newC.isZero) buf += (newC -> t)
       }
       LinearCombination.createFromSortedSeq(buf, order)
     }
@@ -434,9 +435,9 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
                        res match {
                          case Some(d) => this == that + d
                          case None =>
-                           Logic.exists(for ((c, t) <- this.elements)
+                           Logic.exists(for ((c, t) <- this.iterator)
                                         yield t != OneTerm && (that get t) != c) ||
-                           Logic.exists(for ((c, t) <- that.elements)
+                           Logic.exists(for ((c, t) <- that.iterator)
                                         yield t != OneTerm && (this get t) != c)
                        })
       //-END-ASSERTION-/////////////////////////////////////////////////////////
@@ -494,10 +495,10 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for ((_, t) <- this.elements; v <- t.variables.elements) yield v)
+    Set.empty ++ (for ((_, t) <- this.iterator; v <- t.variables.iterator) yield v)
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for ((_, t) <- this.elements; c <- t.constants.elements) yield c)
+    Set.empty ++ (for ((_, t) <- this.iterator; c <- t.constants.iterator) yield c)
     
   //////////////////////////////////////////////////////////////////////////////
 
@@ -511,7 +512,7 @@ class LinearCombination private (private val terms : Array[(IdealInt, Term)],
   override def hashCode = hashCodeVal
 
   override def toString = {
-    val strings = (for (pair <- this.elements) yield {
+    val strings = (for (pair <- this.iterator) yield {
                    pair match {
                    case (IdealInt.ONE, t) => t.toString
                    case (c, OneTerm) => c.toString

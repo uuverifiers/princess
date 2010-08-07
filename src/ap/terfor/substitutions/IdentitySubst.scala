@@ -21,6 +21,8 @@
 
 package ap.terfor.substitutions;
 
+import ap.terfor._
+
 object IdentitySubst {
   
   def unapply(s : Substitution) : Boolean = s.isInstanceOf[IdentitySubst]

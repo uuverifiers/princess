@@ -124,9 +124,9 @@ object PresburgerTools {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (formula.quans.isEmpty) {
-      (for (c <- formula.arithConj.elements)
+      (for (c <- formula.arithConj.iterator)
          yield conj(Array(conjuncts, c.negate), formula.order)) ++
-      (for (c <- formula.negatedConjs.elements;
+      (for (c <- formula.negatedConjs.iterator;
             d <- enumDisjunctsPos(c, conjuncts)) yield d)
     } else {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -367,14 +367,14 @@ object PresburgerTools {
               val maxVar =
                 Seqs.max(for (VariableTerm(i) <- c.variables) yield i)
               val freshConsts =
-                Array.fromFunction((i:Int) => new ConstantTerm("x"))(maxVar + 1)
+                Array.tabulate(maxVar + 1)((i:Int) => new ConstantTerm("x"))
             
               val extendedOrder = order extend freshConsts
               
               val vars2Consts =
                 new VariableSubst(0, freshConsts, extendedOrder)
               val consts2Vars =
-                ConstantSubst(Map() ++ (for ((c, i) <- freshConsts.elements.zipWithIndex)
+                ConstantSubst(Map() ++ (for ((c, i) <- freshConsts.iterator.zipWithIndex)
                                           yield (c, VariableTerm(i))),
                               extendedOrder)
             

@@ -29,17 +29,19 @@ object TaskManager {
   
   private def AC = Debug.AC_GOAL
   
-  private implicit def orderTask(thisTask : PrioritisedTask) : Ordered[PrioritisedTask] =
-    new Ordered[PrioritisedTask] {
-      def compare(thatTask : PrioritisedTask) : Int =
-        (thisTask.priority compare thatTask.priority)
+  private implicit val orderTask : Ordering[PrioritisedTask] =
+    new Ordering[PrioritisedTask] {
+      def compare(thisTask : PrioritisedTask,
+                  thatTask : PrioritisedTask) : Int =
+        thisTask.priority compare thatTask.priority
     }
   
   protected[goal] type TaskHeap = LeftistHeap[PrioritisedTask, TaskInfoCollector]
     
   //////////////////////////////////////////////////////////////////////////////
   
-  private val EMPTY_HEAP : TaskHeap = LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY)
+  private val EMPTY_HEAP : TaskHeap =
+    LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY)
     
   val EMPTY : TaskManager =
     new TaskManager (EMPTY_HEAP, EagerTaskManager.INITIAL)
@@ -62,7 +64,7 @@ class TaskManager private (// the regular tasks that have a priority
   def +(t : PrioritisedTask) = new TaskManager (prioTasks + t, eagerTasks)
 
   def ++ (elems: Iterable[PrioritisedTask]): TaskManager =
-    this ++ elems.elements
+    this ++ elems.iterator
 
   def ++ (elems: Iterator[PrioritisedTask]): TaskManager =
     if (elems.hasNext)
@@ -70,7 +72,7 @@ class TaskManager private (// the regular tasks that have a priority
     else
       this
 
-  def enqueue(elems: PrioritisedTask*): TaskManager = (this ++ elems.elements)
+  def enqueue(elems: PrioritisedTask*): TaskManager = (this ++ elems.iterator)
 
   /**
    * Remove the first task from the queue.
@@ -124,17 +126,15 @@ class TaskManager private (// the regular tasks that have a priority
       try {
         val facts = new scala.collection.mutable.ArrayBuffer[Conjunction]
         
-        val factCollector = (f : Conjunction) => if (f.isTrue)
-                                                   throw TRUE_EXCEPTION
-                                                 else
-                                                   facts += f
+        def factCollector(f : Conjunction) : Unit =
+          if (f.isTrue) throw TRUE_EXCEPTION else (facts += f)
         var foundFactsTask : Boolean = false
         
         def updateTask(prioTask : PrioritisedTask) : Iterator[PrioritisedTask] = {
-          val res = prioTask.updateTask(goal, factCollector)
+          val res = prioTask.updateTask(goal, factCollector _)
           if (res exists stopUpdating)
             foundFactsTask = true
-          res.elements
+          res.iterator
         }
         
         val tasks = prioTasks.flatMap(updateTask _, (h) => foundFactsTask)
@@ -167,7 +167,7 @@ class TaskManager private (// the regular tasks that have a priority
     var num = 0
     var factsBefore = 0
     var factsAfter = 0
-    for (t <- prioTasks.elements) {
+    for (t <- prioTasks.iterator) {
       t match {
         case t : FormulaTask => {
           val newTasks = t updateTask goal
@@ -194,7 +194,7 @@ class TaskManager private (// the regular tasks that have a priority
 */
   override def toString : String = {
     val strings =
-      for (t <- nextEagerTask.elements ++
+      for (t <- nextEagerTask.iterator ++
                 prioTasks.sortedIterator.take(2)) yield t.toString
 
     "[" + (if (strings.hasNext)

@@ -21,6 +21,7 @@
 
 package ap.terfor.conjunctions
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, ReduceWithEqs}
@@ -38,8 +39,8 @@ object IterativeClauseMatcher {
                              negatedStartLit : Boolean,
                              program : List[MatchStatement],
                              litFacts : PredConj,
-                             additionalPosLits : Collection[Atom],
-                             additionalNegLits : Collection[Atom],
+                             additionalPosLits : Iterable[Atom],
+                             additionalNegLits : Iterable[Atom],
                              mayAlias : (LinearCombination, LinearCombination) => Boolean,
                              contextReducer : ReduceWithConjunction,
                              isNotRedundant : Conjunction => Boolean,
@@ -97,10 +98,10 @@ object IterativeClauseMatcher {
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
           val newEqs = EquationConj(
-            (for ((a1, a2) <- (matchedLits.elements zip selectedLits.elements);
+            (for ((a1, a2) <- (matchedLits.iterator zip selectedLits.iterator);
                   lc <- a1.unificationConditions(a2, order))
              yield lc) ++
-            arithConj.positiveEqs.elements,
+            arithConj.positiveEqs.iterator,
             order)
           
           if (!newEqs.isFalse)
@@ -189,7 +190,7 @@ object IterativeClauseMatcher {
     selectedLits += startLit
     exec(program)
     
-    instances.elements
+    instances.iterator
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -243,17 +244,17 @@ object IterativeClauseMatcher {
     val knownTerms = new HashMap[LinearCombination, ArrayBuffer[(Int, Int)]]
 
     def genAliasChecks(a : Atom, litNr : Int) : Unit =
-      for ((lc, argNr) <- a.elements.zipWithIndex) {
+      for ((lc, argNr) <- a.iterator.zipWithIndex) {
         for ((oldLitNr, oldArgNr) <- knownTerms.getOrElseUpdate(lc, new ArrayBuffer))
           res += CheckMayAlias(oldLitNr, oldArgNr, litNr, argNr)
         if (lc.variables.isEmpty)
           res += CheckMayAliasUnary(litNr, argNr, lc)
-        knownTerms.getOrElseUpdate(lc, new ArrayBuffer) += (litNr, argNr)
+        knownTerms.getOrElseUpdate(lc, new ArrayBuffer) += (litNr -> argNr)
       }
 
     genAliasChecks(startLit, 0)
     
-    for ((a, litNr) <- nonStartMatchedLits.elements.zipWithIndex) {
+    for ((a, litNr) <- nonStartMatchedLits.iterator.zipWithIndex) {
       res += SelectLiteral(a.pred, !isPositivelyMatched(a))
       genAliasChecks(a, litNr + 1)
     }
@@ -376,7 +377,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                   // (e.g., to filter out shielded formulae)
                   isIrrelevantMatch : (Conjunction) => Boolean,
                   logger : ComputationLogger,
-                  order : TermOrder) : (Collection[Conjunction], IterativeClauseMatcher) =
+                  order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =
     if (currentFacts == newFacts) {
       (List(), this)
     } else {
@@ -423,7 +424,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                     // (e.g., to filter out shielded formulae)
                     isIrrelevantMatch : (Conjunction) => Boolean,
                     logger : ComputationLogger,
-                    order : TermOrder) : (Collection[Conjunction], IterativeClauseMatcher) =
+                    order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =
     if (clauses == newClauses) {
       (List(), this)
     } else {

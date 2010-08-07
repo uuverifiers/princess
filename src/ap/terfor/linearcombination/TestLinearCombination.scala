@@ -21,6 +21,7 @@
 
 package ap.terfor.linearcombination;
 
+import ap.terfor._
 import ap.util.{Debug, Logic, APTestCase, PlainRange}
 import ap.basetypes.IdealInt
 

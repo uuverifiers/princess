@@ -64,6 +64,9 @@ class PartExtractor extends ContextAwareVisitor[Boolean, Boolean] {
 
   override def preVisit(t : IExpression, c : Context[Boolean]) : PreVisitResult =
     t match {
+      case LeafFormula(_) | _ : ITerm =>
+        // do not look into atoms or terms
+        ShortCutResult(false)
       case IBinFormula(IBinJunctor.Or, _, _) if (c.polarity > 0) =>
         super.preVisit(t, c)
       case IBinFormula(IBinJunctor.And, _, _) if (c.polarity < 0) =>
@@ -73,9 +76,6 @@ class PartExtractor extends ContextAwareVisitor[Boolean, Boolean] {
       case INamedPart(_, _) if (!c.a) =>
         throw new Preprocessing.PreprocessingException(
                             "Named formula part in illegal position: " + t)
-      case LeafFormula(_) | _ : ITerm =>
-        // do not look into atoms or terms
-        ShortCutResult(false)
       case _ =>
         // no named parts are allowed underneath other connectives
         super.preVisit(t, if (c.a) c(false) else c)

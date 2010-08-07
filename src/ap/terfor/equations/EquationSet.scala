@@ -21,6 +21,7 @@
 
 package ap.terfor.equations;
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{Predicate, Atom}
 import ap.basetypes.IdealInt
@@ -35,7 +36,7 @@ object EquationSet {
 
 abstract class EquationSet protected (protected val lhss : Array[LinearCombination],
                                       val order : TermOrder)
-               extends Formula with RandomAccessSeq[LinearCombination] {
+               extends Formula with IndexedSeq[LinearCombination] {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(EquationSet.AC,
@@ -47,21 +48,21 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
                                    this(0) == LinearCombination.ONE) 
                      ||
                      // otherwise, only primitive elements are allowed
-                     Logic.forall(for (lhs <- this.elements)
+                     Logic.forall(for (lhs <- this.iterator)
                                   yield (lhs.isPrimitive && lhs.isPositive))
                    )
                    &&
                    Logic.forall(0, this.size - 1,
                                 (i:Int) => order.compare(this(i), this(i+1)) > 0)
                    &&
-                   Logic.forall(for (lc <- this.elements) yield lc isSortedBy order))
+                   Logic.forall(for (lc <- this.iterator) yield lc isSortedBy order))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def length : Int = lhss.length
     
   def apply(i : Int) : LinearCombination = lhss(i)
   
-  override def elements = lhss.elements
+  override def iterator = lhss.iterator
 
   def contains(lc : LinearCombination) : Boolean =
     // we first check the set of contained constants to avoid problems with
@@ -90,14 +91,16 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
   //////////////////////////////////////////////////////////////////////////////
 
   def toSet = new scala.collection.Set[LinearCombination] {
-    def size = EquationSet.this.size
-    def elements = EquationSet.this.elements
+    override def size = EquationSet.this.size
+    def iterator = EquationSet.this.iterator
     def contains(lc : LinearCombination) = EquationSet.this contains lc
+    def +(elem: LinearCombination) = throw new UnsupportedOperationException
+    def -(elem: LinearCombination) = throw new UnsupportedOperationException
   }
 
   lazy val leadingTermSet : scala.collection.Set[Term] = {
     val res = new scala.collection.mutable.HashSet[Term]
-    res ++= (for (lc <- this.elements) yield lc.leadingTerm)
+    res ++= (for (lc <- this.iterator) yield lc.leadingTerm)
     res
   }
 
@@ -110,10 +113,10 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (lc <- this.elements; v <- lc.variables.elements) yield v)
+    Set.empty ++ (for (lc <- this.iterator; v <- lc.variables.iterator) yield v)
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (lc <- this.elements; c <- lc.constants.elements) yield c)
+    Set.empty ++ (for (lc <- this.iterator; c <- lc.constants.iterator) yield c)
       
   def predicates : Set[Predicate] = Set.empty
 
@@ -129,7 +132,7 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
     } else if (isFalse) {
       "false"
     } else {
-      val strings = for (lhs <- this.elements)
+      val strings = for (lhs <- this.iterator)
                     yield ("" + lhs + " " + relationString + " 0")
       if (strings.hasNext)
         strings.reduceLeft((s1 : String, s2 : String) =>

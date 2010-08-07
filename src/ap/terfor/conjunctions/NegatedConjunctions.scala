@@ -21,6 +21,7 @@
 
 package ap.terfor.conjunctions;
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{Atom, Predicate, PredConj}
@@ -35,7 +36,7 @@ object NegatedConjunctions {
   
   def apply(conjs : Iterable[Conjunction], order : TermOrder)
                                                 : NegatedConjunctions =
-    apply(conjs.elements, order)
+    apply(conjs.iterator, order)
 
   def apply(conjs : Iterator[Conjunction], order : TermOrder)
                                                 : NegatedConjunctions =
@@ -71,7 +72,7 @@ object NegatedConjunctions {
         }
       }
     
-    Seqs.lexCompare(quans1.elements, quans2.elements)
+    Seqs.lexCompare(quans1.iterator, quans2.iterator)
   }
   
   private def compare(c1 : PredConj, c2 : PredConj, order : TermOrder) = {
@@ -80,10 +81,10 @@ object NegatedConjunctions {
         def compare(thatA : Atom) = order.compare(thisA, thatA)
       }
     
-    Seqs.lexCombineInts(Seqs.lexCompare(c1.positiveLits.elements,
-                                        c2.positiveLits.elements),
-                        Seqs.lexCompare(c1.negativeLits.elements,
-                                        c2.negativeLits.elements))
+    Seqs.lexCombineInts(Seqs.lexCompare(c1.positiveLits.iterator,
+                                        c2.positiveLits.iterator),
+                        Seqs.lexCompare(c1.negativeLits.iterator,
+                                        c2.negativeLits.iterator))
   }
   
   private def compare(c1 : NegatedConjunctions, c2 : NegatedConjunctions,
@@ -94,7 +95,7 @@ object NegatedConjunctions {
           NegatedConjunctions.compare(thisC, thatC, order)
       }
     
-    Seqs.lexCompare(c1.elements, c2.elements)
+    Seqs.lexCompare(c1.iterator, c2.iterator)
   }
   
   val TRUE : NegatedConjunctions =
@@ -111,11 +112,11 @@ object NegatedConjunctions {
 class NegatedConjunctions private (private val conjs : Array[Conjunction],
                                    val order : TermOrder) 
                           extends Formula with SortedWithOrder[NegatedConjunctions]
-                                          with RandomAccessSeq[Conjunction] {
+                                          with IndexedSeq[Conjunction] {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(NegatedConjunctions.AC,
-                   Logic.forall(for (conj <- this.elements)
+                   Logic.forall(for (conj <- this.iterator)
                                 yield ((conj isSortedBy order) && !conj.isFalse))
                    &&
                    (
@@ -123,7 +124,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
                      // we allow singleton conjunctions whose only conjunct is true
                      this.size == 1 && this(0) == Conjunction.TRUE
                      ||
-                     Logic.forall(for (conj <- this.elements) yield !conj.isTrue)
+                     Logic.forall(for (conj <- this.iterator) yield !conj.isTrue)
                    )
                    &&
                    Logic.forall(0, conjs.size - 1,
@@ -136,7 +137,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
     if (isSortedBy(newOrder)) {
       this
     } else {
-      NegatedConjunctions(for (conj <- this.elements) yield (conj sortBy newOrder),
+      NegatedConjunctions(for (conj <- this.iterator) yield (conj sortBy newOrder),
                           newOrder)
     }
   }
@@ -147,7 +148,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
    
   def apply(i : Int) : Conjunction = conjs(i)
    
-  override def elements = conjs.elements
+  override def elements = conjs.iterator
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -167,16 +168,16 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (conj <- conjs.elements; v <- conj.variables.elements) yield v)
+    Set.empty ++ (for (conj <- conjs.iterator; v <- conj.variables.iterator) yield v)
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (conj <- conjs.elements; c <- conj.constants.elements) yield c)
+    Set.empty ++ (for (conj <- conjs.iterator; c <- conj.constants.iterator) yield c)
 
   lazy val predicates : Set[Predicate] =
-    Set.empty ++ (for (conj <- conjs.elements; p <- conj.predicates.elements) yield p)
+    Set.empty ++ (for (conj <- conjs.iterator; p <- conj.predicates.iterator) yield p)
 
   lazy val groundAtoms : Set[Atom] =
-    Set.empty ++ (for (conj <- conjs.elements; g <- conj.groundAtoms.elements) yield g)
+    Set.empty ++ (for (conj <- conjs.iterator; g <- conj.groundAtoms.iterator) yield g)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -197,11 +198,10 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
     Debug.assertPre(NegatedConjunctions.AC, oldConj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    implicit def orderConjunctions(thisC : Conjunction) = 
-      new Ordered[Conjunction] {
-        def compare(thatC : Conjunction) =
-          NegatedConjunctions.compare(thisC, thatC, order)
-      }
+    implicit val orderConjunctions = new Ordering[Conjunction] {
+      def compare(thisC : Conjunction, thatC : Conjunction) =
+        NegatedConjunctions.compare(thisC, thatC, order)
+    }
 
     val (unchanged, changed) = Seqs.diff(this, oldConj)
     (this.update(unchanged, order), this.update(changed, order))
@@ -210,10 +210,10 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
   //////////////////////////////////////////////////////////////////////////////
 
   def containsLiteral : Boolean =
-    Logic.exists(for (conj <- this.elements) yield conj.isLiteral)
+    Logic.exists(for (conj <- this.iterator) yield conj.isLiteral)
 
   def containsNegatedConjunction : Boolean =
-    Logic.exists(for (conj <- this.elements) yield conj.isNegatedConjunction)
+    Logic.exists(for (conj <- this.iterator) yield conj.isNegatedConjunction)
     
   def isNegatedQuantifiedConjunction : Boolean =
     (this.size == 1 && !this(0).quans.isEmpty)
@@ -226,7 +226,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
     } else if (isFalse) {
       "false"
     } else {
-      val strings = for (conj <- this.elements) yield ("! " + conj)
+      val strings = for (conj <- this.iterator) yield ("! " + conj)
       if (strings.hasNext)
         strings.reduceLeft((s1 : String, s2 : String) =>
                            s1 + " & " + s2)

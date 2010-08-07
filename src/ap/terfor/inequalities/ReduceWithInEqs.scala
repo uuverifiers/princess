@@ -21,6 +21,7 @@
 
 package ap.terfor.inequalities;
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
@@ -144,7 +145,7 @@ class ReduceWithInEqsImpl protected[inequalities]
 
     // the only possible inference is that the conjunction of equations is
     // unsatisfiable
-    if (Logic.exists(for (lc <- conj.elements) yield isNonZero(lc)))
+    if (Logic.exists(for (lc <- conj.iterator) yield isNonZero(lc)))
       EquationConj.FALSE
     else
       conj
@@ -181,7 +182,7 @@ class ReduceWithInEqsImpl protected[inequalities]
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     try {
-      conj.updateGeqZero(for (lc <- conj.elements; newLC <- refine(lc))
+      conj.updateGeqZero(for (lc <- conj.iterator; newLC <- refine(lc))
                            yield newLC)(order)
     } catch {
       case CONTRADICTION_EXCEPTION => InEqConj.FALSE
@@ -207,7 +208,7 @@ class ReduceWithInEqsImpl protected[inequalities]
               case (_, Some(IdealInt.ZERO)) =>
                 // we can infer an equation from an inequality by inserting an
                 // upper bound as well
-                Array(lc, -lc).elements
+                Array(lc, -lc).iterator
               case _ =>
                 // we have to keep the inequality
                 Iterator.single(lc)              

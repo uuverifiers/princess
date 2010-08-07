@@ -38,7 +38,7 @@ case class CloseCertificate(localAssumedFormulas : Set[Conjunction],
 
   def length = 0
   def apply(i : Int) : Certificate = throw new NoSuchElementException
-  def elements = Iterator.empty
+  def iterator = Iterator.empty
 
   override def toString : String =
     "Close(" + (localAssumedFormulas mkString ", ") + ")"

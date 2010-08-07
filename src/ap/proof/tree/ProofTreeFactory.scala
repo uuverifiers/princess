@@ -21,6 +21,7 @@
 
 package ap.proof.tree;
 
+import ap.proof._
 import ap.proof.goal.{PrioritisedTask, Goal, TaskManager, CompoundFormulas}
 import ap.proof.certificates.{BranchInferenceCollection, PartialCertificate}
 import ap.terfor.{Formula, ConstantTerm, TermOrder}
@@ -121,7 +122,7 @@ abstract class ProofTreeFactory {
                branchInferences, goal)
 
   def updateGoalAddQFClause(clause : Conjunction, goal : Goal) : ProofTree = {
-    val newClauses = NegatedConjunctions(goal.compoundFormulas.qfClauses.elements ++
+    val newClauses = NegatedConjunctions(goal.compoundFormulas.qfClauses.iterator ++
                                          Iterator.single(clause),
                                          goal.order)
     updateGoal(goal.compoundFormulas updateQFClauses newClauses, goal)

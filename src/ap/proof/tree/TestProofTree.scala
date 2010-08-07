@@ -21,6 +21,7 @@
 
 package ap.proof.tree;
 
+import ap.proof._
 import ap.proof.goal.Goal
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor._
@@ -53,7 +54,7 @@ object TestProofTree {
        case t : ProofTreeOneChild =>
          correctBindings(t.subtree, bc)
        case t : AndTree =>
-         Logic.forall(for (subtree <- t.subtrees.elements)
+         Logic.forall(for (subtree <- t.subtrees.iterator)
                       yield correctBindings(subtree, bc))
        case _ => true
      })
@@ -73,16 +74,16 @@ object TestProofTree {
         for (subtree <- t.subtrees) yield isNormalisedTree(subtree)
 
       !(normalisedSubTrees contains false) ||
-      ((normalisedSubTrees.elements zip t.subtrees.elements) exists {
+      ((normalisedSubTrees.iterator zip t.subtrees.iterator) exists {
          case (norm, tree) => norm && tree.closingConstraint.isFalse
        })
     }
     case goal : Goal =>
       goal.tasks.isEmpty &&
       (goal.facts.isFalse ||
-        Logic.forall(for (lc <- goal.facts.arithConj.positiveEqs.elements)
+        Logic.forall(for (lc <- goal.facts.arithConj.positiveEqs.iterator)
                      yield isNormalisedPosEq(lc, goal)) &&
-        Logic.forall(for (lc <- goal.facts.arithConj.negativeEqs.elements)
+        Logic.forall(for (lc <- goal.facts.arithConj.negativeEqs.iterator)
                      yield isNormalisedNegEq(lc, goal)) &&
         goal.facts.arithConj.inEqs.equalityInfs.isTrue &&
         Seqs.disjoint(goal.facts.arithConj.inEqs.constants,
@@ -98,7 +99,7 @@ object TestProofTree {
       lc.leadingCoeff.isOne */
 
   private def isNormalisedNegEq(lc : LinearCombination, goal : Goal) =
-    Logic.forall(for (posLc <- goal.facts.arithConj.positiveEqs.elements)
+    Logic.forall(for (posLc <- goal.facts.arithConj.positiveEqs.iterator)
                  yield ((lc.leadingTerm != posLc.leadingTerm) &&
                         (if (goal eliminates posLc.leadingTerm)
                            lc.get(posLc.leadingTerm) isAbsMinMod posLc.leadingCoeff

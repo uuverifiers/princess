@@ -67,7 +67,7 @@ class MultiSet[A] private (private val multiplicities : Map[A, Int])
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(MultiSet.AC,
-                   Logic.forall(for ((key, mult) <- multiplicities.elements)
+                   Logic.forall(for ((key, mult) <- multiplicities.iterator)
                                 yield mult > 0))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
@@ -99,16 +99,16 @@ class MultiSet[A] private (private val multiplicities : Map[A, Int])
                                 MultiSet.addMultiplicity(m, el)))
 
   def ++(els : Iterable[(A, Int)]) : MultiSet[A] =
-    ++(els.elements)
+    ++(els.iterator)
 
   def +++(els : Iterator[A]) : MultiSet[A] =
     ++(for (el <- els) yield (el, 1))
 
   def +++(els : Iterable[A]) : MultiSet[A] =
-    ++(for (el <- els.elements) yield (el, 1))
+    ++(for (el <- els.iterator) yield (el, 1))
 
   def ++(els : MultiSet[A]) : MultiSet[A] =
-    ++(els.multiplicities.elements)
+    ++(els.multiplicities.iterator)
 
   //////////////////////////////////////////////////////////////////////////////
     
@@ -119,15 +119,15 @@ class MultiSet[A] private (private val multiplicities : Map[A, Int])
     updateMultiplicities((multiplicities /: els) ((m, el) =>
                                 MultiSet.addMultiplicity(m, el)))
 
-  def --(els : Iterable[(A, Int)]) : MultiSet[A] = --(els.elements)
+  def --(els : Iterable[(A, Int)]) : MultiSet[A] = --(els.iterator)
 
   def ---(els : Iterator[A]) : MultiSet[A] =
     --(for (el <- els) yield (el, 1))
 
   def ---(els : Iterable[A]) : MultiSet[A] =
-    --(for (el <- els.elements) yield (el, 1))
+    --(for (el <- els.iterator) yield (el, 1))
 
-  def --(els : MultiSet[A]) : MultiSet[A] = --(els.multiplicities.elements)
+  def --(els : MultiSet[A]) : MultiSet[A] = --(els.multiplicities.iterator)
 
   //////////////////////////////////////////////////////////////////////////////
 

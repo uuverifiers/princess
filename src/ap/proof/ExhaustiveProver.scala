@@ -21,6 +21,7 @@
 
 package ap.proof;
 
+import ap._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.proof.goal._

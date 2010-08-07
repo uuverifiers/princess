@@ -23,6 +23,7 @@ package ap.terfor.inequalities;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
@@ -32,7 +33,7 @@ import ap.util.{Debug, Logic, Seqs, PriorityQueueWithIterators, FilterIt}
 object InEqConj {
   
   val AC = Debug.AC_INEQUALITIES
-  
+
   /**
    * When computing the inferences for a given set of inequalities, throttle
    * the number of inferences that are stored for each leading term as soon as
@@ -56,12 +57,13 @@ object InEqConj {
                                   logger, order)
       for (lc <- lhss) c.addGeqTodo(lc)
       c.compute
-      val eqs = EquationConj(c.equalityInfs.elements, logger, order)
+      val eqs = EquationConj(c.equalityInfs.iterator, logger, order)
       if (eqs.isFalse)
         FALSE
       else
-        new InEqConj (c.geqZero.toArray, c.geqZeroInfs.toArray, eqs,
-                      c.completeInfs, order)
+        new InEqConj (c.geqZero.toArray[LinearCombination],
+                      c.geqZeroInfs.toArray[LinearCombination],
+                      eqs, c.completeInfs, order)
     } catch {
       case `UNSATISFIABLE_CONJUNCTION_EXCEPTION` => FALSE
     }
@@ -74,14 +76,12 @@ object InEqConj {
    * geq-zero-inequalities (left-hand sides).
    */
   def apply(lhss : Iterable[LinearCombination], order : TermOrder) : InEqConj =
-    lhss match {
-      case lhss : Collection[LinearCombination] if (lhss.isEmpty) =>
-        TRUE
-      case lhss : Collection[LinearCombination] if (lhss.size == 1) =>
-        apply(lhss.elements.next, order)
-      case _ => 
-        apply(lhss.elements, order)
-    }
+    if (lhss.isEmpty)
+      TRUE
+    else if (lhss.size == 1)
+      apply(lhss.iterator.next, order)
+    else
+      apply(lhss.iterator, order)
 
   def apply(lhs : LinearCombination, order : TermOrder) : InEqConj =
     if (lhs.isConstant) {
@@ -91,12 +91,13 @@ object InEqConj {
         TRUE
     } else {
       new InEqConj (Array(lhs.makePrimitive),
-                    Array(), EquationConj.TRUE, true, order)
+                    IndexedSeq.empty, EquationConj.TRUE, true, order)
     }
     
-  val TRUE = new InEqConj (Array(), Array(), EquationConj.TRUE, true, TermOrder.EMPTY)
+  val TRUE = new InEqConj (IndexedSeq.empty, IndexedSeq.empty,
+                           EquationConj.TRUE, true, TermOrder.EMPTY)
 
-  val FALSE = new InEqConj (Array(LinearCombination.MINUS_ONE), Array(),
+  val FALSE = new InEqConj (Array(LinearCombination.MINUS_ONE), IndexedSeq.empty,
                             EquationConj.TRUE, true, TermOrder.EMPTY)
 
   /**
@@ -105,7 +106,7 @@ object InEqConj {
   def conj(conjs : Iterator[InEqConj],
            logger : ComputationLogger,
            order : TermOrder) : InEqConj =
-    Formula.conj(conjs, TRUE, (nonTrivialConjs:RandomAccessSeq[InEqConj]) => {
+    Formula.conj(conjs, TRUE, (nonTrivialConjs:IndexedSeq[InEqConj]) => {
       try {
         val c = new FMInfsComputer (INF_THROTTLE_THRESHOLD, THROTTLED_INF_NUM,
                                     logger, order)
@@ -113,17 +114,18 @@ object InEqConj {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertPre(AC, conj isSortedBy order)
           //-END-ASSERTION-/////////////////////////////////////////////////////
-          c.addPrecomputedGeqs(conj.geqZero.elements,
-                               conj.geqZeroInfs.elements,
-                               conj.equalityInfs.elements)
+          c.addPrecomputedGeqs(conj.geqZero.iterator,
+                               conj.geqZeroInfs.iterator,
+                               conj.equalityInfs.iterator)
         }
         c.compute
-        val eqs = EquationConj(c.equalityInfs.elements, logger, order)
+        val eqs = EquationConj(c.equalityInfs.iterator, logger, order)
         if (eqs.isFalse)
           FALSE
         else
-          new InEqConj (c.geqZero.toArray, c.geqZeroInfs.toArray, eqs,
-                        c.completeInfs, order)
+          new InEqConj (c.geqZero.toArray[LinearCombination],
+                        c.geqZeroInfs.toArray[LinearCombination],
+                        eqs, c.completeInfs, order)
       } catch {
         case `UNSATISFIABLE_CONJUNCTION_EXCEPTION` => FALSE
       } } )
@@ -135,11 +137,11 @@ object InEqConj {
    * Compute the conjunction of a number of inequality conjunctions.
    */
   def conj(conjs : Iterable[InEqConj], order : TermOrder) : InEqConj = {
-    val res = conj(conjs.elements, order)
+    val res = conj(conjs.iterator, order)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
     Debug.assertPost(AC, !res.completeInfs || {
                        val otherRes =
-                         apply(for (conj <- conjs.elements; lc <- conj.elements)
+                         apply(for (conj <- conjs.iterator; lc <- conj.iterator)
                                yield lc, order)
                        !res.completeInfs || res == otherRes
                      })
@@ -223,10 +225,10 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                         // These inequalities can also be accessed using the
                         // top-level methods <code>apply(Int)</code>, etc. of the
                         // class <code>InEqConj</code> 
-                        val geqZero : RandomAccessSeq[LinearCombination],
+                        val geqZero : IndexedSeq[LinearCombination],
                         // Fourier-Motzkin inferences that can be drawn from the
                         // inequalities above
-                        val geqZeroInfs : RandomAccessSeq[LinearCombination],
+                        val geqZeroInfs : IndexedSeq[LinearCombination],
                         // equations that are implied by the inequalities above
                         // (not necessarily /all/ implied equations)
                         val equalityInfs : EquationConj,
@@ -235,12 +237,12 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                         val completeInfs : Boolean,
                         val order : TermOrder)
       extends Formula with SortedWithOrder[InEqConj]
-                      with RandomAccessSeq[LinearCombination] {
+                      with IndexedSeq[LinearCombination] {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  private def validLCSeq(lcs : RandomAccessSeq[LinearCombination]) =
+  private def validLCSeq(lcs : IndexedSeq[LinearCombination]) =
     // normally, only primitive linear combinations are allowed
-    Logic.forall(for (lc <- lcs.elements) yield (
+    Logic.forall(for (lc <- lcs.iterator) yield (
                    (lc isSortedBy order) && lc.isPrimitive)) &&
     Logic.forall(0, lcs.size - 1, (i:Int) =>
                  // the sequence is sorted
@@ -257,7 +259,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                    validLCSeq(geqZeroInfs) &&
                    // the two lists of inequalities do not contain bounds for
                    // the same linear combination
-                   Logic.forall(for (lc <- geqZeroInfs.elements)
+                   Logic.forall(for (lc <- geqZeroInfs.iterator)
                                 yield findBound(lc, geqZero) == None) &&
                    (equalityInfs isSortedBy order))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -266,7 +268,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
     if (isSortedBy(newOrder))
       this
     else
-      InEqConj(for (lc <- geqZero.elements) yield lc.sortBy(newOrder),
+      InEqConj(for (lc <- geqZero.iterator) yield lc.sortBy(newOrder),
                newOrder)
   }
 
@@ -336,7 +338,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       this
     } else {
-      InEqConj(newGeqZero.elements, logger, newOrder)
+      InEqConj(newGeqZero.iterator, logger, newOrder)
     }
 
   /**
@@ -373,7 +375,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
    */
   def updateGeqZero(newGeqZero : Iterator[LinearCombination])(implicit newOrder : TermOrder)
                    : InEqConj =
-    updateGeqZero(Seqs toRandomAccess newGeqZero)
+    updateGeqZero(Seqs toArray newGeqZero)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -391,7 +393,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   //////////////////////////////////////////////////////////////////////////////
 
   private def findBound(lc : LinearCombination,
-                        bounds : RandomAccessSeq[LinearCombination]) : Option[IdealInt] = {
+                        bounds : IndexedSeq[LinearCombination]) : Option[IdealInt] = {
     
     implicit def orderLC(thisLC : LinearCombination) =
       new Ordered[LinearCombination] {
@@ -440,7 +442,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
    
   def apply(i : Int) : LinearCombination = geqZero(i)
     
-  override def elements = geqZero.elements
+  override def iterator = geqZero.iterator
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -454,10 +456,10 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (lc <- geqZero.elements; v <- lc.variables.elements) yield v)
+    Set.empty ++ (for (lc <- geqZero.iterator; v <- lc.variables.iterator) yield v)
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (lc <- geqZero.elements; c <- lc.constants.elements) yield c)
+    Set.empty ++ (for (lc <- geqZero.iterator; c <- lc.constants.iterator) yield c)
 
   def predicates : Set[Predicate] = Set.empty
 
@@ -473,7 +475,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
     } else if (isFalse) {
       "false"
     } else {
-      val strings = for (lhs <- this.elements)
+      val strings = for (lhs <- this.iterator)
                     yield ("" + lhs + " " + relationString + " 0")
       if (strings.hasNext)
         strings.reduceLeft((s1 : String, s2 : String) =>
@@ -575,17 +577,16 @@ private class FMInfsComputer(infThrottleThreshold : Int,
    * and then the kind of the inequality (geq is greater than leq, inferences
    * are greater than independent inequalities) 
    */
-  private implicit def orderTodo(thisIE : InEquality) : Ordered[InEquality] =
-    new Ordered[InEquality] {
-      def compare(thatIE : InEquality) : Int =
-        Seqs.lexCombineInts((thisIE.lc constantDiff thatIE.lc) match {
-                              case None => 0
-                              case Some(d) =>
-                                Seqs.lexCombineInts(-(d.signum),
-                                                    thisIE.kind - thatIE.kind,
-                                                    thisIE.source - thatIE.source)
-                            },
-                            order.compare(thisIE.lc, thatIE.lc))
+  private implicit val orderTodo = new Ordering[InEquality] {
+    def compare(thisIE : InEquality, thatIE : InEquality) =
+      Seqs.lexCombineInts((thisIE.lc constantDiff thatIE.lc) match {
+                            case None => 0
+                            case Some(d) =>
+                              Seqs.lexCombineInts(-(d.signum),
+                                                  thisIE.kind - thatIE.kind,
+                                                  thisIE.source - thatIE.source)
+                          },
+                          order.compare(thisIE.lc, thatIE.lc))
     }
 
   /**

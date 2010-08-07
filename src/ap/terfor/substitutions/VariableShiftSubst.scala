@@ -21,6 +21,7 @@
 
 package ap.terfor.substitutions;
 
+import ap.terfor._
 import ap.util.{Debug, Logic}
 
 object VariableShiftSubst {
@@ -28,7 +29,7 @@ object VariableShiftSubst {
   private val AC = Debug.AC_SUBSTITUTIONS
   
   def apply(offset : Int, shift : Int, order : TermOrder) =
-    new VariableShiftSubst (Array.make(offset, 0), shift, order)
+    new VariableShiftSubst (Array.fill(offset){0}, shift, order)
   
   def apply(prefix : Array[Int], defaultShift : Int, order : TermOrder) =
     new VariableShiftSubst (prefix, defaultShift, order)
@@ -70,11 +71,11 @@ class VariableShiftSubst private (private val prefix : Array[Int],
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(VariableShiftSubst.AC,
                    defaultShift + prefix.length >= 0 &&
-                   (prefix.elements.zipWithIndex forall {case (i, j) => i + j >= 0}))
+                   (prefix.iterator.zipWithIndex forall {case (i, j) => i + j >= 0}))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   protected[substitutions] def passQuantifiers(num : Int) : Substitution =
-    new VariableShiftSubst(Array.make(num, 0) ++ prefix, defaultShift, order)
+    new VariableShiftSubst(Array.fill(num){0} ++ prefix, defaultShift, order)
 
   private def applyToVariable(i : Int) : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -103,7 +104,7 @@ class VariableShiftSubst private (private val prefix : Array[Int],
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val newPrefix = new scala.collection.mutable.ArrayBuffer[Int]
-    for ((o, i) <- that.prefix.elements.zipWithIndex)
+    for ((o, i) <- that.prefix.iterator.zipWithIndex)
       newPrefix += (applyToVariable(i + o) - i)
     for (i <- that.prefix.length until (this.prefix.length - that.defaultShift))
       newPrefix += (applyToVariable(i + that.defaultShift) - i)

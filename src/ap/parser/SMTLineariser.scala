@@ -21,6 +21,7 @@
 
 package ap.parser
 
+import ap._
 import ap.basetypes.IdealInt
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
@@ -29,6 +30,9 @@ import ap.util.Seqs
 
 import java.io.PrintStream
 
+/**
+ * Class for printing <code>IFormula</code>s in the SMT-Lib format
+ */
 object SMTLineariser {
   
   def apply(formula : IFormula, signature : Signature,

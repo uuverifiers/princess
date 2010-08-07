@@ -93,7 +93,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   lazy val namedParts =
     Map() ++ (for ((INamedPart(name, _), f) <-
-                   inputFormulas.elements zip formulas.elements)
+                   inputFormulas.iterator zip formulas.iterator)
               yield (name -> f))
   
   //////////////////////////////////////////////////////////////////////////////

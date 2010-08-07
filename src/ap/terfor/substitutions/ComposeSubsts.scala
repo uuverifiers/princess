@@ -21,6 +21,7 @@
 
 package ap.terfor.substitutions;
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
@@ -31,7 +32,7 @@ object ComposeSubsts {
   private val AC = Debug.AC_SUBSTITUTIONS
 
   def apply(substs : Iterable[Substitution], order : TermOrder) : Substitution =
-    apply(substs.elements, order)
+    apply(substs.iterator, order)
 
   def apply(substs : Iterator[Substitution], order : TermOrder) : Substitution =
     (new IdentitySubst (order).asInstanceOf[Substitution] /: substs)(

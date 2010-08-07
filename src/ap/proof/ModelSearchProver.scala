@@ -21,6 +21,7 @@
 
 package ap.proof;
 
+import ap._
 import ap.basetypes.IdealInt
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
@@ -135,7 +136,7 @@ object ModelSearchProver {
            * never provided) in a certificate
            * 
           val badFormula =
-            (cert.assumedFormulas -- (Set() ++ (for (d <- disjuncts.elements) yield d.negate))).elements.next
+            (cert.assumedFormulas -- (Set() ++ (for (d <- disjuncts.iterator) yield d.negate))).iterator.next
           println(badFormula)
 
           def traceBF(c : Certificate) : Unit = {
@@ -152,7 +153,7 @@ object ModelSearchProver {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(ModelSearchProver.AC,
                           cert.assumedFormulas subsetOf
-                            (Set() ++ (for (d <- disjuncts.elements) yield d.negate)))
+                            (Set() ++ (for (d <- disjuncts.iterator) yield d.negate)))
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
           Right(cert)
@@ -308,7 +309,7 @@ object ModelSearchProver {
                                                           (s, w) => w(s, order))
     
         val arithModel =
-          EquationConj(for (c <- order.orderedConstants.elements)
+          EquationConj(for (c <- order.orderedConstants.iterator)
                        yield LinearCombination(Array((IdealInt.ONE, c),
                                                      (IdealInt.MINUS_ONE, constantValues(c))),
                                                order),

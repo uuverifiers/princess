@@ -21,6 +21,7 @@
 
 package ap.terfor.arithconj;
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
 import ap.terfor.equations.{EquationConj, NegEquationConj, ReduceWithEqs,

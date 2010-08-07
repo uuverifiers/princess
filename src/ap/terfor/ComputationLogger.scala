@@ -171,7 +171,7 @@ trait ComputationLogger {
   
   //////////////////////////////////////////////////////////////////////////////
   // Some convenience methods that ease logging
-  
+
   /**
    * Convenient interface for <code>combineEquations</code>
    */

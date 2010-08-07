@@ -40,14 +40,14 @@ object BetaCertificate {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     implicit val o = order
     
-    val childrenIt = children.elements
+    val childrenIt = children.iterator
     childrenIt.next
     childrenIt.next
     
     (BetaCertificate(children(0) _1, children(1) _1,
                      children(0) _2, children(1) _2, order) /: childrenIt) {
        case (cert, (formula, child)) =>
-         BetaCertificate(cert.localAssumedFormulas.elements.next, formula,
+         BetaCertificate(cert.localAssumedFormulas.iterator.next, formula,
                          cert, child, order)
     }
   }
@@ -71,13 +71,14 @@ case class BetaCertificate(leftFormula : Conjunction, rightFormula : Conjunction
     leftFormula | rightFormula
   })
   
-  val localProvidedFormulas =
-    Array(Set(leftFormula), Set(rightFormula, !leftFormula))
+  val localProvidedFormulas : Seq[Set[Conjunction]] =
+    Array(Set(leftFormula),
+          Set(rightFormula, !leftFormula))
   
 } with BinaryCertificate(_leftChild, _rightChild, _order) {
   
   override def toString : String =
-    "Beta(" + localAssumedFormulas.elements.next + ", " +
+    "Beta(" + localAssumedFormulas.iterator.next + ", " +
     leftChild + ", " + rightChild + ")"
   
 }

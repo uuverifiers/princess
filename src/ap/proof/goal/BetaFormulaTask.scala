@@ -21,6 +21,7 @@
 
 package ap.proof.goal;
 
+import ap.proof._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.{Formula, ConstantTerm, TerFor}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
@@ -210,7 +211,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
     
       def pCertFunction(children : Seq[Certificate]) : Certificate = {
         val betaCert =
-          BetaCertificate((negatedConjs.elements zip children.elements).toList,
+          BetaCertificate((negatedConjs.iterator zip children.iterator).toList,
                           order)
         branchInferences.getCertificate(betaCert, order)
       }
@@ -255,7 +256,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
    
   private def selectHeaviestLiteral(conj : PredConj, weighter : (PredConj) => Int)
                                                  : (PredConj, PredConj) = {
-    val (bestLit, remainingLits) = selectHeaviestLiteral(conj.elements, weighter)    
+    val (bestLit, remainingLits) = selectHeaviestLiteral(conj.iterator, weighter)    
     (bestLit, PredConj.conj(remainingLits, conj.order))
   }
 
@@ -289,7 +290,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
     Debug.assertPre(BetaFormulaTask.AC, !ac.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
-      selectHeaviestLiteral(ac.elements, (p:ArithConj) => weights maxWeight p)
+      selectHeaviestLiteral(ac.iterator, (p:ArithConj) => weights maxWeight p)
     (bestLit, ArithConj.conj(remainingLits, ac.order))    
   }
 
@@ -334,7 +335,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
     Debug.assertPre(BetaFormulaTask.AC, !eqs.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
-      selectHeaviestLiteral(eqs.elements, lcWeighter(weights))
+      selectHeaviestLiteral(eqs.iterator, lcWeighter(weights))
     (EquationConj(bestLit, eqs.order), eqs.updateEqs(remainingLits)(eqs.order))
   }
 
@@ -344,7 +345,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
     Debug.assertPre(BetaFormulaTask.AC, !eqs.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
-      selectHeaviestLiteral(eqs.elements, lcWeighter(weights))
+      selectHeaviestLiteral(eqs.iterator, lcWeighter(weights))
     (NegEquationConj(bestLit, eqs.order),
      eqs.updateEqs(remainingLits)(eqs.order))
   }
@@ -355,14 +356,14 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
     Debug.assertPre(BetaFormulaTask.AC, !inEqs.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (bestLit, remainingLits) =
-      selectHeaviestLiteral(inEqs.elements, lcWeighter(weights))
+      selectHeaviestLiteral(inEqs.iterator, lcWeighter(weights))
     (InEqConj(bestLit, inEqs.order), InEqConj(remainingLits, inEqs.order))
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
   private def size(eqs : Iterable[LinearCombination]) : Int =
-    (0 /: (for (lc <- eqs.elements) yield lc.size)) ((s:Int, n:Int) => s+n)
+    (0 /: (for (lc <- eqs.iterator) yield lc.size)) ((s:Int, n:Int) => s+n)
 
   private def size(ac : ArithConj) : Int =
     size(ac.positiveEqs) + size(ac.negativeEqs) + size(ac.inEqs)
@@ -375,7 +376,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
   /**
    * Update the task with possibly new information from the goal
    */
-  override def updateTask(goal : Goal, factCollector : Conjunction => unit)
+  override def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                          : Seq[FormulaTask] =
     if (addToQFClauses &&
         BetaFormulaTask.splittingNecessary(formula, goal.eliminatedConstants,

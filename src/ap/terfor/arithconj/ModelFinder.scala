@@ -21,6 +21,7 @@
 
 package ap.terfor.arithconj;
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.substitutions.{Substitution, ConstantSubst, ComposeSubsts}
 import ap.terfor.linearcombination.LinearCombination
@@ -111,7 +112,7 @@ class ModelFinder(ac : ArithConj, c : ConstantTerm)
     //it might be that the formulas contains further constants apart
     //from c, we eliminate them by replacing them with 0
     val furtherConstsZero =
-      ConstantSubst(Map() ++ (for (d <- (instantiatedFor.constants - c).elements)
+      ConstantSubst(Map() ++ (for (d <- (instantiatedFor.constants - c).iterator)
                               yield (d -> LinearCombination.ZERO)), order)
 
     (furtherConstsZero(instantiatedFor).asInstanceOf[A],

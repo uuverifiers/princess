@@ -23,6 +23,7 @@ package ap.terfor.linearcombination;
 
 import scala.collection.mutable.{PriorityQueue, Buffer, ArrayBuffer}
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.util.{PeekIterator, PriorityQueueWithIterators, Debug}
 
@@ -34,12 +35,10 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
   
   private val AC = Debug.AC_LINEAR_COMB
    
-  private implicit def orderPairs(thisTerm : (IdealInt,Term)) =
-    new Ordered[(IdealInt,Term)] {
-      def compare(thatTerm : (IdealInt,Term)) : Int = {
-        order.compare(thisTerm _2, thatTerm _2)
-      }
-    }
+  private implicit val orderPairs = new Ordering[(IdealInt,Term)] {
+    def compare(thisTerm : (IdealInt,Term), thatTerm : (IdealInt,Term)) =
+      order.compare(thisTerm _2, thatTerm _2)
+  }
    
   private val terms = new PriorityQueueWithIterators[(IdealInt,Term)]
   

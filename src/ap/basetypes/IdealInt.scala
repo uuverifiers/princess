@@ -128,7 +128,7 @@ object IdealInt {
       ZERO
     }
 
-  def max(els : Iterable[IdealInt]) : IdealInt = max(els.elements)
+  def max(els : Iterable[IdealInt]) : IdealInt = max(els.iterator)
 
   /**
    * Compute the maximum of a sequence of <code>IdealInt</code>. If the sequence
@@ -143,7 +143,7 @@ object IdealInt {
       ZERO
     }
 
-  def min(els : Iterable[IdealInt]) : IdealInt = min(els.elements)
+  def min(els : Iterable[IdealInt]) : IdealInt = min(els.iterator)
 
   /**
    * Extended euclidean algorithm for computing both the gcd and the cofactors
@@ -226,7 +226,7 @@ object IdealInt {
    * The gcd of a collection of <code>IdealInt</code>.
    */
   def gcd(vals : Iterable[IdealInt]) : IdealInt = {
-     val res = gcd(vals.elements)    
+     val res = gcd(vals.iterator)    
      
      //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
      Debug.assertPost(AC, res == (gcdAndCofactors(vals.toList) _1))
@@ -258,11 +258,11 @@ object IdealInt {
    * The lcm of a collection of <code>IdealInt</code>.
    */
   def lcm(vals : Iterable[IdealInt]) : IdealInt = {
-     val res = lcm(vals.elements)
+     val res = lcm(vals.iterator)
 
      //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
      Debug.assertPost(AC,
-                      Logic.forall(for (v <- vals.elements) yield (v divides res)))
+                      Logic.forall(for (v <- vals.iterator) yield (v divides res)))
      //-END-ASSERTION-//////////////////////////////////////////////////////////
      
      res
@@ -295,19 +295,18 @@ object IdealInt {
      // we order the value to start with the smallest ones
      // (this is expected to give a higher performance that is determined by the
      // absolute value of the smallest element)
-     implicit def orderTodo(todo : (BigInteger, Int)) =
-       new Ordered[(BigInteger, Int)] {
-         def compare(that : (BigInteger, Int)) =
-           ((that _1).abs) compareTo ((todo _1).abs)
-       }
+     implicit val orderTodo = new Ordering[(BigInteger, Int)] {
+       def compare(x : (BigInteger, Int), y : (BigInteger, Int)) =
+         ((y _1).abs) compareTo ((x _1).abs)
+     }
      val valsTodo = new PriorityQueue[(BigInteger, Int)]
      
-     for ((valueII, num) <- vals.elements.zipWithIndex) {
+     for ((valueII, num) <- vals.iterator.zipWithIndex) {
        val value = valueII.bigInteger
        if (value.signum != 0) valsTodo += ((value, num))
      }
      
-     val finalCofactors = Array.make(vals.length, ZERO)
+     val finalCofactors = Array.fill(vals.length)(ZERO)
 
      ///////////////////////////////////////////////////////////////////////////
      def post(gcd : IdealInt) = {
@@ -513,7 +512,7 @@ class IdealInt private (private val bigInteger: BigInteger) {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(IdealInt.AC,
                      (res _2).signum >= 0 &&
-                     ((res _2) compareTo that.abs) < 0 &&
+                     ((res _2) compare that.abs) < 0 &&
                      that * (res _1) + (res _2) == this)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
@@ -618,7 +617,7 @@ class IdealInt private (private val bigInteger: BigInteger) {
 
   def intValueSafe = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this <= Math.MAX_INT && this >= Math.MIN_INT)
+    Debug.assertPre(IdealInt.AC, this <= Int.MaxValue && this >= Int.MinValue)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     this.bigInteger.intValue
   }

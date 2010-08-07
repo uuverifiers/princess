@@ -21,8 +21,9 @@
 
 package ap.terfor.substitutions;
 
-import ap.util.{Debug, Seqs}
+import ap.terfor._
 
+import ap.util.{Debug, Seqs}
 import scala.collection.mutable.HashMap
 
 object ConstantSubst {
@@ -47,7 +48,8 @@ class ConstantSubst private
       extends SimpleSubstitution {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(ConstantSubst.AC, replacements.values forall (order isSortingOf _))
+  Debug.assertCtor(ConstantSubst.AC,
+                   replacements.valuesIterator forall (order isSortingOf _))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////     
 
   protected[substitutions] def passQuantifiers(num : Int) : Substitution =
@@ -68,7 +70,7 @@ class ConstantSubst private
     replacements.getOrElse(c, c)
 
   protected[substitutions] def isIdentityOn(t : TerFor) : Boolean =
-    Seqs.disjointSeq(t.constants, replacements.keys)
+    Seqs.disjointSeq(t.constants, replacements.keysIterator)
 
   //////////////////////////////////////////////////////////////////////////////
 

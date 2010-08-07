@@ -39,7 +39,7 @@ trait PrioritisedTask extends Task {
    * Update the task with possibly new information from the goal. If new facts
    * can be derived, these are put into <code>factCollector</code>
    */
-  def updateTask(goal : Goal, factCollector : Conjunction => unit)
+  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                                                    : Seq[PrioritisedTask]
   
 }

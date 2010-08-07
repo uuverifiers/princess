@@ -36,30 +36,33 @@ class LazyMappedMap[A,B,C,D] (oriMap : scala.collection.Map[A,B],
                               keyMapping : (A) => C,
                               keyUnmapping : PartialFunction[C, A],
                               valueMapping : (B) => D)
-      extends scala.collection.Map[C,D] {
+      extends Map[C,D] {
 
   def get(key : C) : Option[D] =
     if (keyUnmapping isDefinedAt key) {
       val oriKey = keyUnmapping(key)
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
       Debug.assertInt(LazyMappedMap.AC, keyMapping(oriKey) == key)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
       (oriMap get oriKey) map valueMapping
     } else {
       None
     }
       
-  def size : Int = oriMap.size
+  override def size : Int = oriMap.size
   
-  def elements : Iterator[(C,D)] =
-    for ((key, value) <- oriMap.elements) yield {
+  def iterator : Iterator[(C,D)] =
+    for ((key, value) <- oriMap.iterator) yield {
       val mappedKey = keyMapping(key)
       val mappedValue = valueMapping(value)
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
       Debug.assertInt(LazyMappedMap.AC, (keyUnmapping isDefinedAt mappedKey) &&
                                         keyUnmapping(mappedKey) == key)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////      
+      //////////////////////////////////////////////////////////////////////////      
       (mappedKey, mappedValue)
     }
   
+
+  def + [D1 >: D](kv: (C, D1)) = throw new UnsupportedOperationException
+  def -(key: C) = throw new UnsupportedOperationException
 }

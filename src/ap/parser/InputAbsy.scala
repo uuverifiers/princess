@@ -34,10 +34,11 @@ import ap.util.{Debug, Seqs}
  * that inputs first have to be normalised in some way so that the prover can
  * handle them.
  */
-abstract class IExpression extends RandomAccessSeq[IExpression] {
+abstract class IExpression {
   // by default, there are no subexpressions
   def apply(i : Int) : IExpression = throw new IndexOutOfBoundsException
   def length : Int = 0
+  def iterator : Iterator[IExpression] = Iterator.empty
   
   /**
    * Replace the subexpressions of this node with new expressions
@@ -47,6 +48,12 @@ abstract class IExpression extends RandomAccessSeq[IExpression] {
     Debug.assertPre(IExpression.AC, newSubExprs.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     this
+  }
+
+  def subExpressions = new IndexedSeq[IExpression] {
+    def apply(i : Int) : IExpression = IExpression.this.apply(i)
+    def length : Int = IExpression.this.length
+    override def iterator = IExpression.this.iterator
   }
 }
 
@@ -75,10 +82,10 @@ object IExpression {
     (f /: quans)((f, q) => IQuantified(q, f))
 
   def quan(quan : Quantifier,
-           consts : Collection[ConstantTerm],
+           consts : Iterable[ConstantTerm],
            f : IFormula) : IFormula = {
     val fWithShiftedVars = VariableShiftVisitor(f, 0, consts.size)
-    val subst = Map() ++ (for ((c, i) <- consts.elements.zipWithIndex) yield (c, v(i)))
+    val subst = Map() ++ (for ((c, i) <- consts.iterator.zipWithIndex) yield (c, v(i)))
     val fWithSubstitutedConsts = ConstantSubstVisitor(fWithShiftedVars, subst)
     (consts :\ fWithSubstitutedConsts) ((c, f) => IQuantified(quan, f))
   }
@@ -87,7 +94,7 @@ object IExpression {
   def geqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
   
   def connect(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
-    connect(fors.elements, op)
+    connect(fors.iterator, op)
 
   def connect(fors : Iterator[IFormula], op : IBinJunctor.Value) : IFormula =
     if (fors.hasNext) {
@@ -97,7 +104,7 @@ object IExpression {
       case IBinJunctor.Or => false
     }
 
-  def sum(terms : Iterable[ITerm]) : ITerm = sum(terms.elements)
+  def sum(terms : Iterable[ITerm]) : ITerm = sum(terms.iterator)
 
   def sum(terms : Iterator[ITerm]) : ITerm =
     if (terms.hasNext) terms reduceLeft (IPlus(_, _)) else i(0)
@@ -168,7 +175,7 @@ object IExpression {
     } else {
       val newArgs = new scala.collection.mutable.ArrayBuffer[ITerm]
       var changed = false
-      for ((newE, oldE) <- newExprs.elements zip oldExprs.elements) {
+      for ((newE, oldE) <- newExprs.iterator zip oldExprs.iterator) {
         val newArg = newE.asInstanceOf[ITerm]
         if (!(newArg eq oldE)) changed = true
         newArgs += newArg
@@ -317,11 +324,11 @@ case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
   
   override def hashCode : Int =
     fun.hashCode + Seqs.computeHashCode(args, 17, 3)
-  
+
   override def toString =
     fun.name + 
     (if (args.length > 0)
-       "(" + (for (t <- args.elements) yield t.toString).mkString(", ") + ")"
+       "(" + (for (t <- args.iterator) yield t.toString).mkString(", ") + ")"
      else
        "")
 }
@@ -453,7 +460,7 @@ case class IAtom(pred : Predicate, args : Seq[ITerm]) extends IFormula {
   override def toString =
     pred.name + 
     (if (args.length > 0)
-       "(" + (for (t <- args.elements) yield t.toString).mkString(", ") + ")"
+       "(" + (for (t <- args.iterator) yield t.toString).mkString(", ") + ")"
      else
        "")
 }

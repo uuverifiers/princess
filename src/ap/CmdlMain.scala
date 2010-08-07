@@ -76,7 +76,7 @@ object CmdlMain {
       def linearise : Unit = {
         import IExpression._
         val completeFormula =
-          connect(for (f <- prover.inputFormulas.elements) yield removePartName(f),
+          connect(for (f <- prover.inputFormulas.iterator) yield removePartName(f),
                   IBinJunctor.Or)
         SMTLineariser(completeFormula, prover.signature, filename)
       }
@@ -265,7 +265,7 @@ object CmdlMain {
     }
     
     proveProblems(settings,
-                  for (name <- inputs.projection)
+                  for (name <- inputs.view)
                   yield (name, new java.io.BufferedReader (
                                new java.io.FileReader(new java.io.File (name)))),
                   false)

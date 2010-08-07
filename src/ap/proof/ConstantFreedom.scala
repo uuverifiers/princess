@@ -69,7 +69,7 @@ class ConstantFreedom private (private val constantStatus :
   // constants are supposed to be mapped to NonFree by the default-method
   // of the map
   Debug.assertCtor(ConstantFreedom.AC,
-                   !(constantStatus.values contains NonFree) &&
+                   !(constantStatus.valuesIterator contains NonFree) &&
                    constantStatus(new ConstantTerm ("X")) == NonFree)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
@@ -77,7 +77,7 @@ class ConstantFreedom private (private val constantStatus :
     that match {
       case that : ConstantFreedom =>
         this.constantStatus.size <= that.constantStatus.size &&
-        Logic.forall(for ((c, s) <- this.constantStatus.elements)
+        Logic.forall(for ((c, s) <- this.constantStatus.iterator)
                      yield (s <= that.constantStatus(c)))
       case _ => false
     }
@@ -99,7 +99,7 @@ class ConstantFreedom private (private val constantStatus :
   def isBottom : Boolean = constantStatus.isEmpty
                             
   def isBottomWRT(constants : Set[ConstantTerm]) : Boolean =
-    Seqs.disjointSeq(constants, constantStatus.keys)
+    Seqs.disjointSeq(constants, constantStatus.keysIterator)
   
   def meet(that : ConstantFreedom) : ConstantFreedom = {
     var newStatus = this.constantStatus
@@ -118,7 +118,7 @@ class ConstantFreedom private (private val constantStatus :
    */
   def addTopStatus(consts : Iterable[ConstantTerm]) : ConstantFreedom =
     new ConstantFreedom(this.constantStatus ++
-                        (for (c <- consts.elements) yield (c -> ShieldingEquations)))
+                        (for (c <- consts.iterator) yield (c -> ShieldingEquations)))
   
   def --(consts : Iterable[ConstantTerm]) : ConstantFreedom =
     new ConstantFreedom(this.constantStatus -- consts)
@@ -161,7 +161,7 @@ class ConstantFreedom private (private val constantStatus :
   def isShielded(c : Conjunction, bc : BindingContext) : Boolean =
     (c.arithConj.positiveEqs exists (isShieldingLC(_, bc))) ||
     (c.arithConj.inEqs.equalityInfs exists (isShieldingLC(_, bc))) ||
-    (c.negatedConjs exists (nc => nc.elements forall (isShieldedNeg(_, bc))))
+    (c.negatedConjs exists (nc => nc.iterator forall (isShieldedNeg(_, bc))))
   
   /**
    * Determine whether the formula <code>lc1 - lc2 = 0 & phi</code> is shielded
@@ -191,7 +191,7 @@ class ConstantFreedom private (private val constantStatus :
     else if (isShielded(c, bc))
       Conjunction.FALSE
     else if (c.isNegatedConjunction)
-      Conjunction.conj(FilterIt(c.negatedConjs(0).elements,
+      Conjunction.conj(FilterIt(c.negatedConjs(0).iterator,
                                 (d:Conjunction) => !isShieldedNeg(d, bc)),
                        c.order).negate
     else
@@ -204,5 +204,6 @@ class ConstantFreedom private (private val constantStatus :
    * Only used for runtime assertion purposes
    */
   def freeConstsAreUniversal(bc : BindingContext) : Boolean =
-    (constantStatus.keys forall (c => (bc binder c) == Some(Quantifier.ALL)))
+    (constantStatus.keysIterator forall
+      (c => (bc binder c) == Some(Quantifier.ALL)))
 }

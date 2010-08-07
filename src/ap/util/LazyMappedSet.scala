@@ -34,28 +34,30 @@ object LazyMappedSet {
 class LazyMappedSet[A,B] (oriSet : scala.collection.Set[A],
                           mapping : (A) => B,
                           unmapping : PartialFunction[B,A])
-      extends scala.collection.Set[B] {
+      extends scala.collection.immutable.Set[B] {
 
-  def size : Int = oriSet.size
+  override def size : Int = oriSet.size
   
   def contains(x : B) : Boolean =
     if (unmapping isDefinedAt x) {
       val oriX = unmapping(x)
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
       Debug.assertInt(LazyMappedSet.AC, mapping(oriX) == x)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      //////////////////////////////////////////////////////////////////////////
       oriSet contains oriX
     } else {
       false
     }
   
-  def elements : Iterator[B] = for (x <- oriSet.elements) yield {
+  def iterator : Iterator[B] = for (x <- oriSet.iterator) yield {
     val mappedX = mapping(x)
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     Debug.assertInt(LazyMappedSet.AC, (unmapping isDefinedAt mappedX) &&
                                       unmapping(mappedX) == x)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////  
+    ////////////////////////////////////////////////////////////////////////////  
     mappedX
   }
   
+  def +(elem: B) = throw new UnsupportedOperationException
+  def -(elem: B) = throw new UnsupportedOperationException
 }

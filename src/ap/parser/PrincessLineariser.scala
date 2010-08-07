@@ -21,6 +21,7 @@
 
 package ap.parser
 
+import ap.Signature
 import ap.basetypes.IdealInt
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}

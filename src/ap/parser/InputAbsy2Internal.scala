@@ -81,7 +81,7 @@ private class InputAbsy2Internal(order : TermOrder)
         binResult(OrOp, subres)
       case IAtom(pred, _) =>
         FormulaResult(Atom(pred,
-                           for (r <- subres.elements)
+                           for (r <- subres.iterator)
                              yield LinearCombination(r.asTerm(order), order),
                            order))
       case IIntFormula(IIntRelation.EqZero, _) =>
@@ -93,6 +93,9 @@ private class InputAbsy2Internal(order : TermOrder)
       case IQuantified(quan, _) =>
         FormulaResult(Conjunction.quantify(List(quan), subres(0).asFormula(order),
                                            order))
+      case INamedPart(_, _) =>
+        // names are just ignored
+        subres(0)
     }
 }
 
@@ -116,7 +119,7 @@ private case class FormulaResult(override val asFormula : Formula) extends Simpl
 
 private case class BinResult(op : BinOp, r1 : ConversionResult, r2 : ConversionResult)
                    extends ConversionResult with Iterable[SimpleResult] {
-  def elements = new Iterator[SimpleResult] {
+  def iterator = new Iterator[SimpleResult] {
     private val todo = new Stack[ConversionResult]
     todo push BinResult.this
     
@@ -132,7 +135,7 @@ private case class BinResult(op : BinOp, r1 : ConversionResult, r2 : ConversionR
     }
   }
 
-  def simplify(order : TermOrder) : SimpleResult = op(this.elements, order)
+  def simplify(order : TermOrder) : SimpleResult = op(this.iterator, order)
 
   override def simplifyIfOpChanged(newOp : BinOp, order : TermOrder) =
     if (op == newOp) this else simplify(order)

@@ -21,6 +21,7 @@
 
 package ap.terfor.substitutions;
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
@@ -128,15 +129,15 @@ trait Substitution extends ((TerFor) => TerFor) with Sorted[Substitution] {
   
   def apply(conj : EquationConj) : EquationConj =
     idOrElse(conj,
-             EquationConj(for (lc <- conj.elements) yield pseudoApply(lc), order))
+             EquationConj(for (lc <- conj.iterator) yield pseudoApply(lc), order))
                                     
   def apply(negConj : NegEquationConj) : NegEquationConj =
     idOrElse(negConj,
-             NegEquationConj(for (lc <- negConj.elements) yield pseudoApply(lc), order))
+             NegEquationConj(for (lc <- negConj.iterator) yield pseudoApply(lc), order))
 
   def apply(conj : InEqConj) : InEqConj =
     idOrElse(conj,
-             InEqConj(for (lc <- conj.elements) yield pseudoApply(lc), order))
+             InEqConj(for (lc <- conj.iterator) yield pseudoApply(lc), order))
 
   def apply(conj : ArithConj) : ArithConj =
     idOrElse(conj,

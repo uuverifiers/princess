@@ -139,10 +139,10 @@ class IntelliFileProver(reader : java.io.Reader,
 
   val result : IntelliFileProver.Result = {
     val quantifiers =
-      Set() ++ (for (f <- formulas.elements;
-                     q <- Conjunction.collectQuantifiers(f).elements) yield q)
+      Set() ++ (for (f <- formulas.iterator;
+                     q <- Conjunction.collectQuantifiers(f).iterator) yield q)
     val constants =
-      Set() ++ (for (f <- formulas.elements; c <- f.constants.elements) yield c)
+      Set() ++ (for (f <- formulas.iterator; c <- f.constants.iterator) yield c)
 
     if ((formulas exists (_.isTrue)) ||
         Seqs.disjoint(constants, signature.existentialConstants) &&

@@ -26,7 +26,8 @@ object UnionMap {
   private val AC = Debug.AC_MAP_UTILS
 
   def apply[A, B](map1 : scala.collection.Map[A, B],
-                  map2 : scala.collection.Map[A, B]) : scala.collection.Map[A, B] =
+                  map2 : scala.collection.Map[A, B])
+                 : scala.collection.Map[A, B] =
     if (map1.size == 0)
       map2
     else if (map2.size == 0)
@@ -42,20 +43,23 @@ object UnionMap {
  */
 class UnionMap[A, B] private (map1 : scala.collection.Map[A, B],
                               map2 : scala.collection.Map[A, B])
-      extends scala.collection.Map[A, B] {
+      extends scala.collection.immutable.Map[A, B] {
 
   def get(t : A) : Option[B] = (map1 get t) match {
     case x@Some(_) => x
     case None => map2 get t
   }
   
-  def size : Int = {
+  override def size : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(UnionMap.AC, Seqs.disjoint(map1.keySet, map2.keySet))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     map1.size + map2.size
   }
   
-  def elements : Iterator[(A, B)] = map1.elements ++ map2.elements
+  def iterator : Iterator[(A, B)] = map1.iterator ++ map2.iterator
   
+  def + [B1 >: B](kv: (A, B1)) = throw new UnsupportedOperationException
+  def -(key: A) = throw new UnsupportedOperationException
+
 }

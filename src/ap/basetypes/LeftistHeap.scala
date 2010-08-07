@@ -21,23 +21,29 @@
 
 package ap.basetypes;
 
+import scala.collection.IterableLike
+import scala.collection.mutable.ArrayBuffer
+
 import ap.util.Debug
 
 object LeftistHeap {
 
   private[basetypes] val AC = Debug.AC_BASE_TYPE
 
-  def EMPTY_HEAP[T <% Ordered[T]] : LeftistHeap[T, HeapCollector.None[T]] =
+  def EMPTY_HEAP[T](implicit ord : Ordering[T])
+                   : LeftistHeap[T, HeapCollector.None[T]] =
     new EmptyHeap[T, HeapCollector.None[T]](HeapCollector.NONE[T])
 
-  def EMPTY_HEAP[T <% Ordered[T], HC <: HeapCollector[T, HC]](emptyCollector : HC)
-                                                       : LeftistHeap[T, HC] =
+  def EMPTY_HEAP[T, HC <: HeapCollector[T, HC]]
+                (emptyCollector : HC)(implicit ord : Ordering[T])
+                : LeftistHeap[T, HC] =
     new EmptyHeap[T, HC](emptyCollector)    
-    
-  private[basetypes] def node[T <% Ordered[T], HC <: HeapCollector[T, HC]]
+
+  private[basetypes] def node[T, HC <: HeapCollector[T, HC]]
                              (element : T,
                               a : LeftistHeap[T, HC], b : LeftistHeap[T, HC],
-                              empty : LeftistHeap[T, HC]) : Node[T, HC] =
+                              empty : LeftistHeap[T, HC])
+                             (implicit ord : Ordering[T]) : Node[T, HC] =
     if (a.rightHeight <= b.rightHeight)
       new Node (element, b, a, empty)
     else
@@ -48,7 +54,10 @@ object LeftistHeap {
  * This class implements the leftist heap, see &quot;Functional Data
  * Structures&quot; by Chris Okasaki
  */
-abstract class LeftistHeap[T <% Ordered[T], HC <: HeapCollector[T, HC]] extends Collection[T] {
+abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
+                          (implicit ord : Ordering[T])
+               extends Iterable[T]
+               with IterableLike[T, LeftistHeap[T, HC]] {
 
    /**
     * @return true iff this heap is empty
@@ -146,14 +155,19 @@ abstract class LeftistHeap[T <% Ordered[T], HC <: HeapCollector[T, HC]] extends 
 
    /////////////////////////////////////////////////////////////////////////////
    
-   def elements : Iterator[T] = unsortedIterator
+   def iterator : Iterator[T] = unsortedIterator
    
    def +(el : T) : LeftistHeap[T, HC] = this.insert(el)
    
    def ++(els : Iterator[T]) : LeftistHeap[T, HC] = this.insertIt(els)
    
-   def ++(els : Iterable[T]) : LeftistHeap[T, HC] = this.insertIt(els.elements)
-   
+   def ++(els : Iterable[T]) : LeftistHeap[T, HC] = this.insertIt(els.iterator)
+
+   protected[this] override def newBuilder =
+     (new ArrayBuffer[T]) mapResult {
+       (vals : Iterable[T]) => empty ++ vals
+     }
+
    /////////////////////////////////////////////////////////////////////////////
 
    /**
@@ -267,7 +281,8 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
   /**
    * Use this class to construct new heaps
    */
-  class EmptyHeap[T <% Ordered[T], HC <: HeapCollector[T, HC]](val collector : HC)
+  class EmptyHeap[T, HC <: HeapCollector[T, HC]](val collector : HC)
+                 (implicit ord : Ordering[T])
         extends LeftistHeap[T, HC] {
 
     /**
@@ -279,7 +294,7 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
     /**
      * @return the number of elements this heap holds
      */
-    val size : Int = 0
+    override val size : Int = 0
 
     /**
      * @return true iff this heap is empty
@@ -339,16 +354,18 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
  * avoid creating new objects (ugly ... there should really be explicit 
  * Node-classes for nodes with no or only one child)
  */
-case class Node[T <% Ordered[T], HC <: HeapCollector[T, HC]]
+case class Node[T, HC <: HeapCollector[T, HC]]
                (data : T,
                 left : LeftistHeap[T, HC], right : LeftistHeap[T, HC],
-                emptyHeap : LeftistHeap[T, HC]) extends LeftistHeap[T, HC] {
+                emptyHeap : LeftistHeap[T, HC])
+               (implicit ord : Ordering[T])
+           extends LeftistHeap[T, HC] {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(LeftistHeap.AC,
                    // the heap property
-                   (left.isEmpty || data <= left.findMin) &&
-                   (right.isEmpty || data <= right.findMin) &&
+                   (left.isEmpty || ord.lteq(data, left.findMin)) &&
+                   (right.isEmpty || ord.lteq(data, right.findMin)) &&
                    // the property of a leftist heap
                    right.rightHeight <= left.rightHeight)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -359,7 +376,7 @@ case class Node[T <% Ordered[T], HC <: HeapCollector[T, HC]]
    */
   val rightHeight : Int = right.rightHeight + 1
   
-  val size : Int = left.size + right.size + 1
+  override val size : Int = left.size + right.size + 1
 
   /**
    * @return true iff this heap is empty
@@ -383,7 +400,7 @@ case class Node[T <% Ordered[T], HC <: HeapCollector[T, HC]]
    * additionally <code>element</code>
    */
   def insert(element : T) : LeftistHeap[T, HC] =
-    if (element <= data)
+    if (ord.lteq(element, data))
       LeftistHeap.node(element, this, empty, empty)
     else
       LeftistHeap.node(data, left, right.insert(element), empty)
@@ -397,7 +414,7 @@ case class Node[T <% Ordered[T], HC <: HeapCollector[T, HC]]
   protected[basetypes] def insertHeap(h : LeftistHeap[T, HC]) : LeftistHeap[T, HC] = h match {
     case _ : EmptyHeap[T, HC] => this
     case Node(hdata, hleft, hright, _) =>
-      if (data <= hdata)
+      if (ord.lteq(data, hdata))
         LeftistHeap.node(data, left, right.insertHeap(h), empty)
       else
         LeftistHeap.node(hdata, hleft, this.insertHeap(hright), empty)
@@ -423,7 +440,7 @@ case class Node[T <% Ordered[T], HC <: HeapCollector[T, HC]]
    * removed
    */
   def removeAll(element : T) : LeftistHeap[T, HC] = {
-    val c = data.compareTo ( element )
+    val c = ord.compare(data, element)
 
     if ( c > 0 ) {
       this

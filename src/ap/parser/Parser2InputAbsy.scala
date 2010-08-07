@@ -21,6 +21,7 @@
 
 package ap.parser;
 
+import ap._
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
@@ -141,31 +142,32 @@ class Parser2InputAbsy private (env : Environment) {
   
   /** Implicit conversion so that we can get a scala-like iterator from a
     * a Java list */
-  private implicit def toWrappedList[A](list : java.util.LinkedList[A]) =
-    new scala.collection.jcl.LinkedList(list)
+  import scala.collection.JavaConversions.{asBuffer, asIterator}
+//  private implicit def toWrappedList[A](list : java.util.LinkedList[A]) =
+//    new scala.collection.jcl.LinkedList(list)
   
   //////////////////////////////////////////////////////////////////////////////
     
   private def collectDeclarations(api : API) : Unit = api match {
     case api : BlockList =>
-      for (block <- api.listblock_.elements) block match {
+      for (block <- api.listblock_.iterator) block match {
         case block : FunctionDecls =>
-          for (decl <- block.listdeclfunc_.elements)
+          for (decl <- block.listdeclfunc_.iterator)
             collectDeclFunC(decl,
                             (id) => env.addConstant(new ConstantTerm(id),
                                                     Environment.NullaryFunction))
         case block : ExConstants =>
-          for (decl <- block.listdeclconstantc_.elements)
+          for (decl <- block.listdeclconstantc_.iterator)
             collectDeclConstantC(decl,
                                  (id) => env.addConstant(new ConstantTerm(id),
                                                          Environment.Existential))
         case block : UniConstants =>
-          for (decl <- block.listdeclconstantc_.elements)
+          for (decl <- block.listdeclconstantc_.iterator)
             collectDeclConstantC(decl,
                                  (id) => env.addConstant(new ConstantTerm(id),
                                                          Environment.Universal))
         case block : PredDecls =>
-          for (decl <- block.listdeclpredc_.elements) decl match {
+          for (decl <- block.listdeclpredc_.iterator) decl match {
             case decl : DeclPred => {
               val name = decl.ident_
               val arity = decl.optformalargs_ match {
@@ -184,7 +186,7 @@ class Parser2InputAbsy private (env : Environment) {
     case args : FormalArgs => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(Parser2InputAbsy.AC,
-                      Logic.forall(for (at <- args.listargtypec_.elements)
+                      Logic.forall(for (at <- args.listargtypec_.iterator)
                                    yield (at.asInstanceOf[ArgType].type_.isInstanceOf[TypeInt])))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       args.listargtypec_.size
@@ -193,13 +195,13 @@ class Parser2InputAbsy private (env : Environment) {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private def collectDeclFunC(decl : DeclFunC, addCmd : String => unit) : Unit =
+  private def collectDeclFunC(decl : DeclFunC, addCmd : String => Unit) : Unit =
     decl match {
       case decl : DeclFun => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Parser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
         //-END-ASSERTION-///////////////////////////////////////////////////////
-        val wrappedOpts = toWrappedList(decl.listfunoption_)
+        val wrappedOpts = asBuffer(decl.listfunoption_)
         val (partialOpts, otherOpts1) = wrappedOpts partition (_.isInstanceOf[Partial])
         val (relationalOpts, otherOpts2) = otherOpts1 partition (_.isInstanceOf[Relational])
         
@@ -232,9 +234,9 @@ class Parser2InputAbsy private (env : Environment) {
     collectDeclarations(decl.asInstanceOf[DeclConstant].declvarconstc_, addCmd)
 
   private def collectDeclBinder(decl : DeclBinder,
-                                addCmd : String => unit) : Unit = decl match {
+                                addCmd : String => Unit) : Unit = decl match {
     case decl : DeclBinder1 => collectDeclarations(decl.declvarconstc_, addCmd)
-    case decl : DeclBinderM => for (decl <- decl.listdeclvarconstc_.elements) 
+    case decl : DeclBinderM => for (decl <- decl.listdeclvarconstc_.iterator) 
                                  collectDeclarations(decl, addCmd)
   }
 
@@ -244,7 +246,7 @@ class Parser2InputAbsy private (env : Environment) {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(Parser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      for (id <- decl.listident_.elements) addCmd(id)
+      for (id <- decl.listident_.iterator) addCmd(id)
     }
   }
 
@@ -285,12 +287,12 @@ class Parser2InputAbsy private (env : Environment) {
       translateBinForConnective(f.expression_1, f.expression_2, _ ==> _)
     case f : ExprOr => {
       val subs = collectSubExpressions(f, _.isInstanceOf[ExprOr])
-      (for (f <- subs.elements)
+      (for (f <- subs.iterator)
          yield asFormula(translateExpression(f))) reduceLeft (_ | _)
     }
     case f : ExprAnd => {
       val subs = collectSubExpressions(f, _.isInstanceOf[ExprAnd])
-      (for (f <- subs.elements)
+      (for (f <- subs.iterator)
          yield asFormula(translateExpression(f))) reduceLeft (_ & _)
     }
     case f : ExprNot =>
@@ -402,7 +404,7 @@ class Parser2InputAbsy private (env : Environment) {
                       (id) => { quantNum = quantNum + 1; env pushVar id })
     
     val res = translateUnForConnective(f.expression_,
-                                       quan(Array.make(quantNum, quant), _))
+                                       quan(Array.fill(quantNum){quant}, _))
 
     // pop the variables from the environment
     for (_ <- PlainRange(quantNum)) env.popVar
@@ -459,7 +461,7 @@ class Parser2InputAbsy private (env : Environment) {
     ITrigger(patterns, body)
   }
   
-  private def translateOptArgs(args : OptArgs) = args match {
+  private def translateOptArgs(args : OptArgs) : Seq[ITerm] = args match {
     case args : Args => translateArgs(args.listargc_)
     case _ : NoArgs => List()
   }

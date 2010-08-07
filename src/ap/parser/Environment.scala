@@ -21,6 +21,7 @@
 
 package ap.parser;
 
+import ap.Signature
 import ap.terfor.{VariableTerm, ConstantTerm, TermOrder}
 import ap.util.{FilterIt, Debug}
 
@@ -62,7 +63,7 @@ class Environment {
   def order_=(newOrder : TermOrder) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Environment.AC,
-                    signature.values forall {
+                    signature.valuesIterator forall {
                       case Constant(c, _) => newOrder.orderedConstants contains c
                       case Predicate(pred) => newOrder.orderedPredicates contains pred
                       case _ => true
@@ -120,11 +121,12 @@ class Environment {
     Set.empty ++ (for (Function(f) <- signature.values) yield f)
   
   private def constants(kind : SymKind) : Set[ConstantTerm] = {
-    val predicate : DeclaredSym => boolean = {
+    val predicate : DeclaredSym => Boolean = {
       case Constant(_, `kind`) => true
       case _ => false
     }
-    Set.empty ++ (for (Constant(c, _) <- FilterIt(signature.values, predicate))
+    Set.empty ++ (for (Constant(c, _) <-
+                    FilterIt(signature.valuesIterator, predicate))
                   yield c)
   }
   

@@ -68,7 +68,7 @@ abstract class ConcurrentProgram {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+/*
 class ChunksOf4(voc : FrameworkVocabulary) extends ConcurrentProgram {
   import voc.{select, store, pair}
   
@@ -206,7 +206,7 @@ object NICheckerMain {
     new NonInterferenceChecker2(prog _, id, List(id, i, j, t), List(A))
   }
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////
 
 class SigTracker(var sig : Signature) {
@@ -230,7 +230,7 @@ object NonInterferenceChecker {
   def substitute(f : IFormula,
                  before : Seq[ConstantTerm],
                  after : Seq[ConstantTerm]) : IFormula = {
-    val map = Map() ++ (for ((b, a) <- before.elements zip after.elements)
+    val map = Map() ++ (for ((b, a) <- before.iterator zip after.iterator)
                           yield (b -> i(a)))
     ConstantSubstVisitor(f, map)
   }
@@ -275,7 +275,7 @@ object NonInterferenceChecker2 {
   
   def createRenaming(vars : Iterable[ConstantTerm], suffix : String)
                     (implicit st : SigTracker) : Renaming =
-    Map() ++ (for (c <- vars.elements) yield (c -> cloneConst(c, suffix)))
+    Map() ++ (for (c <- vars.iterator) yield (c -> cloneConst(c, suffix)))
 }
 
 
@@ -300,7 +300,7 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
                    !(assignedVars(program) contains id))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
-  val gVarNums = Map() ++ (for ((c, i) <- gVars.elements.zipWithIndex) yield (c -> i))
+  val gVarNums = Map() ++ (for ((c, i) <- gVars.iterator.zipWithIndex) yield (c -> i))
   
   val readRec = new ConstantTerm ("readRec")
   val read1 = new ConstantTerm ("read1")
@@ -341,7 +341,7 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
                      tRec : ConstantTerm, t1 : ConstantTerm, t2 : ConstantTerm) =
     if (accesses exists { case IFunApp(Op, _) => true; case _ => false }) {
       val assFormula =
-        connect(for (IFunApp(Op, Seq(IConstant(ar), ind, _*)) <- accesses.elements)
+        connect(for (IFunApp(Op, Seq(IConstant(ar), ind, _*)) <- accesses.iterator)
                   yield (t1 === gVarNums(ar) & t2 === ind),
                 IBinJunctor.Or)
       Skip | (Assumption((tRec === 0) & assFormula) + (i(tRec) := 1))
@@ -353,7 +353,7 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
                     tRec : ConstantTerm, t1 : ConstantTerm, t2 : ConstantTerm) =
     if (accesses exists { case IFunApp(Op, _) => true; case _ => false }) {
       val assFormula =
-        connect(for (IFunApp(Op, Seq(IConstant(ar), ind, _*)) <- accesses.elements)
+        connect(for (IFunApp(Op, Seq(IConstant(ar), ind, _*)) <- accesses.iterator)
                   yield (!(t1 === gVarNums(ar) & t2 === ind)),
                 IBinJunctor.And)
       Skip | (Assumption(tRec === 1) + Assertion(assFormula))
@@ -551,7 +551,7 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
         val prover =
           validityCheckProver.assert(toInternal(invariants.last, sig) _1, order)
         val prover2 =
-          (prover /: (invariants.projection take (invariants.size - 1))) {
+          (prover /: (invariants.view take (invariants.size - 1))) {
             case (p, i) => p.conclude(toInternal(i, sig) _1, order)
           }
 
@@ -621,9 +621,9 @@ class NonInterferenceChecker2(progCtor : FrameworkVocabulary =>
             val substInterpolant =
               ConstantSubstVisitor.rename(toInputAbsyAndSimplify(interpolant),
                                           Map() ++
-                                          (for ((c, d) <- inter.localStates1(i+1).elements)
+                                          (for ((c, d) <- inter.localStates1(i+1).iterator)
                                              yield (d -> c)) ++
-                                          (for ((c, d) <- inter.globalStates(i+1).elements)
+                                          (for ((c, d) <- inter.globalStates(i+1).iterator)
                                              yield (d -> c)))
             val in = invGoal1 - path1 + i + 1
                   
@@ -863,7 +863,7 @@ class NonInterferenceChecker(progCtor : FrameworkVocabulary => ConcurrentProgram
         val prover =
           validityCheckProver.assert(toInternal(invariants.last, sig) _1, order)
         val prover2 =
-          (prover /: (invariants.projection take (invariants.size - 1))) {
+          (prover /: (invariants.view take (invariants.size - 1))) {
             case (p, i) => p.conclude(toInternal(i, sig) _1, order)
           }
 

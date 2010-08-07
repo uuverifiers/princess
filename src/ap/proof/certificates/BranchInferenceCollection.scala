@@ -52,7 +52,7 @@ object BranchInferenceCollection {
    */
   private[certificates] def genAlphaInferences(f : Conjunction) : Seq[BranchInference] =
     if (f.size > 1)
-      List(AlphaInference(f, Set() ++ f.elements))
+      List(AlphaInference(f, Set() ++ f.iterator))
     else
       List()
 }

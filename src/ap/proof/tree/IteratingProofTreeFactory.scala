@@ -21,6 +21,7 @@
 
 package ap.proof.tree;
 
+import ap.proof._
 import ap.proof.goal.{PrioritisedTask, Goal, TaskManager, CompoundFormulas}
 import ap.proof.certificates.BranchInferenceCollection
 import ap.terfor.{Formula, ConstantTerm, TermOrder}

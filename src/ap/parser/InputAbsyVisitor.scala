@@ -221,7 +221,7 @@ case class IVarShift(prefix : List[Int], defaultShift : Int) {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(IVarShift.AC,
                    defaultShift + prefix.length >= 0 &&
-                   (prefix.elements.zipWithIndex forall {case (i, j) => i + j >= 0}))
+                   (prefix.iterator.zipWithIndex forall {case (i, j) => i + j >= 0}))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def push(n : Int) = IVarShift(n :: prefix, defaultShift)
@@ -235,7 +235,7 @@ case class IVarShift(prefix : List[Int], defaultShift : Int) {
   
   def compose(that : IVarShift) : IVarShift = {
     val newPrefix = new scala.collection.mutable.ArrayBuffer[Int]
-    for ((o, i) <- that.prefix.elements.zipWithIndex)
+    for ((o, i) <- that.prefix.iterator.zipWithIndex)
       newPrefix += (apply(i + o) - i)
     for (i <- that.prefix.length until (this.prefix.length - that.defaultShift))
       newPrefix += (apply(i + that.defaultShift) - i)
@@ -411,13 +411,13 @@ object Transform2NNF extends CollectingVisitor[Boolean, IExpression] {
   override def preVisit(t : IExpression, negate : Boolean) : PreVisitResult =
     t match {
       case INot(f) => TryAgain(f, !negate)  // eliminate negations
-      case IBinFormula(Eqv, _, _) => SubArgs(List(negate, false))
       case t@IBoolLit(b) => ShortCutResult(if (negate) !b else t)
-      case LeafFormula(t) => ShortCutResult(if (negate) !t else t)
+      case LeafFormula(s) => ShortCutResult(if (negate) !s else s)
+      case IBinFormula(Eqv, _, _) => SubArgs(List(negate, false))
       case _ : IFormula => KeepArg
       case _ : ITerm => ShortCutResult(t)
     }
-  
+
   def postVisit(t : IExpression, negate : Boolean,
                 subres : Seq[IExpression]) : IExpression =
     if (negate) t match {

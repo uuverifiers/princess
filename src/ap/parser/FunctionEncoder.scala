@@ -84,7 +84,7 @@ object FunctionEncoder {
           if (abstractionNums.size > 1)
             throw new Preprocessing.PreprocessingException(
               "Ambiguous trigger for relational function: " + trigger)
-          val abstractionNum = abstractionNums.elements.next
+          val abstractionNum = abstractionNums.iterator.next
           v(abstractionNum + definingFrame.depth - frame.depth)
         }
         case t : ITerm => t update subres
@@ -123,19 +123,20 @@ object FunctionEncoder {
                                      : (IFunApp, AbstractionFrame) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(FunctionEncoder.AC,
-                    t forall (s => !s.isInstanceOf[IFunApp]))
+                    t.subExpressions forall (s => !s.isInstanceOf[IFunApp]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     var curFrame = topFrame
     var tVars =
-      Set() ++ (for (v <- (SymbolCollector variables t).elements) yield v.index)
+      Set() ++ (for (v <- (SymbolCollector variables t).iterator) yield v.index)
     
     // We insert the definition of the new bound variable at the outermost
     // possible point, which is determined by the variables occurring in
     // <code>t</code>
     while (curFrame.prevFrame != null &&
            Seqs.disjointSeq(tVars, 0 until curFrame.quantifierNum) &&
-           Seqs.disjointSeq(tVars, curFrame.abstractions.values flatMap (_.elements))) {
+           Seqs.disjointSeq(tVars, curFrame.abstractions.valuesIterator
+                                                 flatMap (_.iterator))) {
       tVars = for (i <- tVars) yield (i - curFrame.quantifierNum)
       curFrame = curFrame.prevFrame
     }
@@ -166,10 +167,10 @@ class FunctionEncoder {
   
   def apply(f : IFormula, order : TermOrder) : (IFormula, TermOrder) = {
     val nnfF = Transform2NNF(f)
-    
+
     val freeVars = SymbolCollector variables nnfF
     val firstFreeVariableIndex =
-      Seqs.max(for (IVariable(i) <- freeVars.elements) yield i) + 1
+      Seqs.max(for (IVariable(i) <- freeVars.iterator) yield i) + 1
     val visitor =
       new EncoderVisitor(firstFreeVariableIndex, order)
     val context : Context[EncodingContext] =
@@ -204,7 +205,7 @@ class FunctionEncoder {
   private def totality(pred : Predicate) : IFormula = {
     val args = (for (i <- 1 until pred.arity) yield v(i)) ++ List(v(0))
     val atom = IAtom(pred, args)
-    quan(List.make(pred.arity - 1, Quantifier.ALL), ex(atom))
+    quan(List.fill(pred.arity - 1){Quantifier.ALL}, ex(atom))
   }
   
   private def functionality(pred : Predicate) : IFormula = {
@@ -212,7 +213,7 @@ class FunctionEncoder {
     val atom1 = IAtom(pred, baseArgs ++ List(v(pred.arity - 1)))
     val atom2 = IAtom(pred, baseArgs ++ List(v(pred.arity)))
     val matrix = atom1 ==> (atom2 ==> (v(pred.arity - 1) === v(pred.arity)))
-    quan(List.make(pred.arity + 1, Quantifier.ALL), matrix)
+    quan(List.fill(pred.arity + 1){Quantifier.ALL}, matrix)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -263,7 +264,7 @@ class FunctionEncoder {
               //-BEGIN-ASSERTION-///////////////////////////////////////////////
               Debug.assertInt(FunctionEncoder.AC, s.size == 1)
               //-END-ASSERTION-/////////////////////////////////////////////////
-              s.elements.next
+              s.iterator.next
             }
             case None => allocNewAbstraction
           }
@@ -284,8 +285,8 @@ class FunctionEncoder {
                                    matchedApps : scala.collection.Set[IFunApp],
                                    frame : AbstractionFrame,
                                    minimiseScope : Boolean) : IFormula = {
-      val abstractions = (for ((t, s) <- frame.abstractions.elements;
-                               n <- s.elements) yield (t, n)          ).toList
+      val abstractions = (for ((t, s) <- frame.abstractions.iterator;
+                               n <- s.iterator) yield (t, n)          ).toList
       val (posAbstractions, negAbstractions) =
         abstractions partition (x => matchedApps contains (x _1))
       
@@ -303,19 +304,19 @@ class FunctionEncoder {
       if (abstractions.isEmpty) {
         f
       } else {
-        val oldMaxNum = Seqs.max(for ((_, i) <- abstractions.elements) yield i)
+        val oldMaxNum = Seqs.max(for ((_, i) <- abstractions.iterator) yield i)
     
         // all the previous bound variables have to be shifted upwards to make
         // place for the abstraction variables
-        val shiftsAr = Array.make(oldMaxNum + 1, abstractions.length)
+        val shiftsAr = Array.fill(oldMaxNum + 1){abstractions.length}
         // the abstraction variables are mapped to the indexes
         // 0 .. (abstractions.length-1)
-        for (((_, oldNum), newNum) <- abstractions.elements.zipWithIndex)
+        for (((_, oldNum), newNum) <- abstractions.iterator.zipWithIndex)
           shiftsAr(oldNum) = newNum - oldNum
     
         val shifts = IVarShift(shiftsAr.toList, abstractions.length)
         val fWithDefs =
-          (VariablePermVisitor(f, shifts) /: abstractions.elements.zipWithIndex) (
+          (VariablePermVisitor(f, shifts) /: abstractions.iterator.zipWithIndex) (
             (f, abstraction) => {
               val ((t, oldNum), newNum) = abstraction
               val shiftedT = VariablePermVisitor(t, shifts).asInstanceOf[IFunApp]
@@ -326,7 +327,7 @@ class FunctionEncoder {
             })
       
         val quan = if (universal) Quantifier.ALL else Quantifier.EX
-        IExpression.quan(Array.make(abstractions.length, quan), fWithDefs)
+        IExpression.quan(Array.fill(abstractions.length){quan}, fWithDefs)
       }
     
     ////////////////////////////////////////////////////////////////////////////
@@ -395,9 +396,9 @@ class FunctionEncoder {
           
           case (Quantifier.EX :: _, triggers) => {
             val actualTriggers = if (triggers.isEmpty) List(List()) else triggers
-            val innerQuans = Array.make(c.a.frame.quantifierNum, Quantifier.EX)
+            val innerQuans = Array.fill(c.a.frame.quantifierNum){Quantifier.EX}
             
-            connect(for (exprs <- actualTriggers.elements) yield {
+            connect(for (exprs <- actualTriggers.iterator) yield {
                val triggerVisitor = new TriggerVisitor(c.a.frame)
                for (e <- exprs) triggerVisitor.visit(e, e)
                val withDefs = addAbstractionDefs(abstracted.asInstanceOf[IFormula],

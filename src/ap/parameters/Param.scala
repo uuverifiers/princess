@@ -69,7 +69,7 @@ object Param {
   
   case object TIMEOUT extends Param {
     type Value = Int
-    val defau : Int = Math.MAX_INT
+    val defau : Int = Int.MaxValue
   }
 
   // resolve negative predicate literals in clauses with positive facts

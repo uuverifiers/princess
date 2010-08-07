@@ -59,7 +59,7 @@ case class WrappedFormulaTask(realTask : FormulaTask, simplifiedTasks : Seq[Form
     // we use the mean of the real priority and the simplified task priority
     // (this can boost certain expensive tasks, in particular the
     // BetaFormulaTask)
-    (Seqs.min(for (t <- simplifiedTasks.elements) yield t.priority) +
+    (Seqs.min(for (t <- simplifiedTasks.iterator) yield t.priority) +
        realTask.priority) / 2
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
@@ -68,7 +68,7 @@ case class WrappedFormulaTask(realTask : FormulaTask, simplifiedTasks : Seq[Form
   /**
    * Update the task with possibly new information from the goal
    */
-  override def updateTask(goal : Goal, factCollector : Conjunction => unit)
+  override def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                                                    : Seq[FormulaTask] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertCtor(WrappedFormulaTask.AC, Param.PROOF_CONSTRUCTION(goal.settings))

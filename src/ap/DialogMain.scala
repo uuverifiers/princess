@@ -289,6 +289,6 @@ class InputDialog extends JPanel {
 
   frame.pack
   splitPane setDividerLocation 0.35
-  frame.show
+  frame setVisible true
   
 }

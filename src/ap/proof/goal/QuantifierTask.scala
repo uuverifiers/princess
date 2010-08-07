@@ -21,6 +21,7 @@
 
 package ap.proof.goal;
 
+import ap.proof._
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.substitutions.VariableSubst

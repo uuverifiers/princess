@@ -35,7 +35,7 @@ import ap.terfor.preds.{PredConj, Predicate, Atom}
  */
 object TerForConvenience {
 
-  implicit def l(i: Int) : LinearCombination = LinearCombination(i)
+  implicit def l(i: Int) : LinearCombination = LinearCombination(IdealInt(i))
 
   implicit def l(i: IdealInt) : LinearCombination = LinearCombination(i)
 
@@ -75,7 +75,7 @@ object TerForConvenience {
     new RichLinearCombination(lc, order)
 
   implicit def termSeq2RichLCSeq(lcs : Seq[Term])(implicit order : TermOrder) =
-    new RichLinearCombinationSeq(for (lc <- lcs) yield lc, order)
+    new RichLinearCombinationSeq(for (lc <- lcs) yield l(lc), order)
 
   implicit def pred2RichPred(pred : Predicate)(implicit order : TermOrder) =
     new RichPredicate(pred, order)
@@ -174,7 +174,7 @@ object TerForConvenience {
     LinearCombination.sum(lcs, order)
 
   def lcSum(lcs : Iterable[LinearCombination])(implicit order : TermOrder) =
-    LinearCombination.sum(for (lc <- lcs.elements) yield (IdealInt.ONE, lc), order)
+    LinearCombination.sum(for (lc <- lcs.iterator) yield (IdealInt.ONE, lc), order)
 
   def lcSum(lcs : Iterator[LinearCombination])(implicit order : TermOrder) =
     LinearCombination.sum(for (lc <- lcs) yield (IdealInt.ONE, lc), order)
@@ -224,21 +224,21 @@ class RichLinearCombinationSeq(lcs : Seq[LinearCombination], order : TermOrder) 
   
   // various component-wise operations
   def +++(that : Seq[Term]) : Seq[LinearCombination] =
-    (for ((lc1, lc2) <- lcs.elements zip that.elements) yield (lc1 + lc2)).toList
+    (for ((lc1, lc2) <- lcs.iterator zip that.iterator) yield (lc1 + lc2)).toList
   def +++(that : Term) : Seq[LinearCombination] =
     for (lc <- lcs) yield (lc + that)
   def ---(that : Seq[Term]) : Seq[LinearCombination] =
-    (for ((lc1, lc2) <- lcs.elements zip that.elements) yield (lc1 - lc2)).toList
+    (for ((lc1, lc2) <- lcs.iterator zip that.iterator) yield (lc1 - lc2)).toList
   def ---(that : Term) : Seq[LinearCombination] =
     for (lc <- lcs) yield (lc - that)
   def ***(that : Seq[Term]) : Seq[LinearCombination] =
-    (for ((lc1, lc2) <- lcs.elements zip that.elements) yield (lc1 * lc2)).toList
+    (for ((lc1, lc2) <- lcs.iterator zip that.iterator) yield (lc1 * lc2)).toList
   def ***(that : Term) : Seq[LinearCombination] =
     for (lc <- lcs) yield (lc * that)
   
   // the dot-product
   def *:*(that : Seq[Term]) : LinearCombination =
-    lcSum(for ((lc1, lc2) <- lcs.elements zip that.elements) yield (lc1 * lc2))
+    lcSum(for ((lc1, lc2) <- lcs.iterator zip that.iterator) yield (lc1 * lc2))
 
   def unary_- : Seq[LinearCombination] =
     for (lc <- lcs) yield -lc

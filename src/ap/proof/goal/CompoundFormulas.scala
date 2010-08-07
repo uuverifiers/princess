@@ -21,6 +21,7 @@
 
 package ap.proof.goal
 
+import ap.proof._
 import ap.terfor.{TermOrder, Sorted, Formula, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                IterativeClauseMatcher, ReduceWithConjunction}

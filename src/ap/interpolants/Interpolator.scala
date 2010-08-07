@@ -126,7 +126,7 @@ object Interpolator
         // the next statement is quite expensive. the term order should rather be
         // stored in the context
         implicit val o = iContext.order
-        val originalForm = cert.localAssumedFormulas.elements.next
+        val originalForm = cert.localAssumedFormulas.iterator.next
       
         if(iContext isFromLeft originalForm)
           applyHelp(leftChild, iContext addLeft leftForm) |
@@ -222,7 +222,7 @@ object Interpolator
           
           val partialInterWithParam = weakInterInEq.linComb - constTerm
           val totalIneqInter = {
-            val newIneq = cert.localProvidedFormulas(eqCasesInt).elements.next.arithConj
+            val newIneq = cert.localProvidedFormulas(eqCasesInt).iterator.next.arithConj
             val newPartInter =
               PartialInterpolant(partialInterWithParam, weakInterInEq.den,
                                  PartialInterpolant.Kind.InEqLeft)
@@ -253,11 +253,11 @@ object Interpolator
 
             val eqCasesInt = eqCases.intValueSafe
             
-            val eqInters = Array.fromFunction((i : Int) => {
-              val newEq = cert.localProvidedFormulas(i).elements.next.arithConj
+            val eqInters = Array.tabulate(eqCasesInt)((i : Int) => {
+              val newEq = cert.localProvidedFormulas(i).iterator.next.arithConj
               val ctxt = newContext.addPartialInterpolant(newEq, eqPartialInter)
               applyHelp(cert.children(i), ctxt)
-            }) (eqCasesInt)
+            })
 
 //            println("Strengthening: " + k + " cases")
 
@@ -276,7 +276,7 @@ object Interpolator
                    (v < k ==> const2v(defaultEqInter))
                  else
                    Conjunction.TRUE) &
-                conj(for ((inter, i) <- eqInters.elements.zipWithIndex)
+                conj(for ((inter, i) <- eqInters.iterator.zipWithIndex)
                        yield (v <= i * den ==> const2v(inter)))
               
               val result = exists(matrix)
@@ -322,7 +322,7 @@ object Interpolator
       case CloseCertificate(contradFors, _) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////       
         Debug.assertInt(AC, contradFors.size == 1 &&
-                            contradFors.elements.next.isFalse)
+                            contradFors.iterator.next.isFalse)
         //-END-ASSERTION-///////////////////////////////////////////////////
         
         extractTotalInterpolant(iContext getPartialInterpolant ArithConj.FALSE,
@@ -339,7 +339,7 @@ object Interpolator
   private def extractTotalInterpolant(pi : PartialInterpolant,
                                       iContext : InterpolationContext)
                                      : Conjunction = {
-    val constToQuantify = pi.linComb.constants ** iContext.leftLocalConstants
+    val constToQuantify = pi.linComb.constants & iContext.leftLocalConstants
     exSimplify(constToQuantify, pi.toConjunction)
   }
   
@@ -403,11 +403,11 @@ object Interpolator
       {
         val newContext =
           if(iContext isFromLeft splitFormula)
-            iContext.addLeft(providedFormulae.elements)
+            iContext.addLeft(providedFormulae.iterator)
           else if(iContext isFromRight splitFormula)
-            iContext.addRight(providedFormulae.elements)
+            iContext.addRight(providedFormulae.iterator)
           else if(iContext isCommon splitFormula)
-            iContext.addCommon(providedFormulae.elements)
+            iContext.addCommon(providedFormulae.iterator)
           else throw new Error("Origin of Formula " + splitFormula + " is unclear")
           
         processBranchInferences(remInferences, child, newContext) 
@@ -427,7 +427,7 @@ object Interpolator
                                  PartialInterpolant.Kind.EqLeft)
 
         val combinedInter =
-          PartialInterpolant.sum(Array((1, oldInter), (1, interModifier)),
+          PartialInterpolant.sum(List((1, oldInter), (1, interModifier)),
                                  oldInter.kind)
 
         if (result.isFalse) {
@@ -567,7 +567,7 @@ object Interpolator
       case PredUnifyInference(leftAtom, rightAtom, result, _) => {
         implicit val extendedOrder = iContext.order
         
-        val pred = leftAtom.predicates.elements.next
+        val pred = leftAtom.predicates.iterator.next
 
         // Compute the other components necessary for the interpolant
         
@@ -658,8 +658,8 @@ object Interpolator
                             (iContext isCommon qFormula))
         //-END-ASSERTION-/////////////////////////////////////////////////////////
         
-        val termConsts = Set() ++ (for(t <- instTerms.elements;
-                                       c <- t.constants.elements) yield c)
+        val termConsts = Set() ++ (for(t <- instTerms.iterator;
+                                       c <- t.constants.iterator) yield c)
 
         val leftQFormula =
           (iContext isFromLeft qFormula) ||
@@ -671,9 +671,9 @@ object Interpolator
 
             val instAtoms =
               if (result.isNegatedConjunction)
-                result.negatedConjs(0).predConj.elements.toList
+                result.negatedConjs(0).predConj.iterator.toList
               else
-                (for (lit <- result.predConj.elements) yield !lit).toList
+                (for (lit <- result.predConj.iterator) yield !lit).toList
 
             (instAtoms exists (iContext isRewrittenLeftLit _),
              instAtoms exists (iContext isRewrittenRightLit _)) match {
@@ -698,9 +698,9 @@ object Interpolator
         
         val rawRes =
           if (leftQFormula)
-            forall(extOrder.sort(termConsts**iContext.rightLocalConstants), totalInter)
+            forall(extOrder.sort(termConsts&iContext.rightLocalConstants), totalInter)
           else
-            exists(extOrder.sort(termConsts**iContext.leftLocalConstants), totalInter)
+            exists(extOrder.sort(termConsts&iContext.leftLocalConstants), totalInter)
 
         ReduceWithConjunction(Conjunction.TRUE, extOrder)(rawRes)
       }
@@ -751,7 +751,7 @@ object Interpolator
     val combinedPartialInter =
       PartialInterpolant.sum((for ((c, eq) <- equations)
                                 yield (-c, iContext getPartialInterpolant eq)) ++
-                             List((1, modifierPI)),
+                             List((IdealInt.ONE, modifierPI)),
                              piKind)
     extractTotalInterpolant(combinedPartialInter, iContext)
   }
@@ -799,7 +799,7 @@ object Interpolator
 
       if (childInter.constants contains constTerm) {
         val constToQuantify =
-          newPI.linComb.constants ** newContext.leftLocalConstants
+          newPI.linComb.constants & newContext.leftLocalConstants
           
         val roundingCases = b * newPartialInterpolant.den
         
@@ -858,9 +858,9 @@ object Interpolator
       val ArithConj(posEqs, negEqs, inEqs) = literal
       if (!posEqs.isTrue) {
         val lc = posEqs(0)
-        val gcd = IdealInt.gcd(for (c <- constants.elements) yield (lc get c))
+        val gcd = IdealInt.gcd(for (c <- constants.iterator) yield (lc get c))
         val remainingTerms =
-          FilterIt[(IdealInt, Term)](lc.elements, {
+          FilterIt[(IdealInt, Term)](lc.iterator, {
             case (_, t : ConstantTerm) => !(constants contains t)
             case _ => true
           })

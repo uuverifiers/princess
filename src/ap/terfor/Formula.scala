@@ -23,8 +23,6 @@ package ap.terfor;
 
 import ap.terfor.preds.Atom
 
-import scala.collection.mutable.ArrayBuffer
-
 object Formula {
   
   /**
@@ -32,23 +30,23 @@ object Formula {
    * elements (in this case, a singleton sequence containing only this element
    * is returned), and otherwise remove all tautologies from it.
    */
-  def filterForConj[A <: Formula](fors : Iterator[A]) : RandomAccessSeq[A] = {
-    if (!fors.hasNext) return EMPTY_ARRAY
+  def filterForConj[A <: Formula]
+                   (fors : Iterator[A]) : IndexedSeq[A] = {
+    if (!fors.hasNext) return IndexedSeq.empty
     
-    val nonTrivialFors = new ArrayBuffer[A]
+    val nonTrivialFors = Vector.newBuilder[A]
     while (fors.hasNext) {
       val c = fors.next
-      if (c.isFalse) return Array(c)
+      if (c.isFalse) return Vector(c)
       if (!c.isTrue) nonTrivialFors += c
     }
     
-    nonTrivialFors
+    nonTrivialFors.result
   }
   
-  private val EMPTY_ARRAY : RandomAccessSeq[Nothing] = Array()
-  
-  def conj[A <: Formula](fors : Iterator[A],
-                         trueFor : A, comb : (RandomAccessSeq[A]) => A) : A = {
+  def conj[A <: Formula : ClassManifest]
+          (fors : Iterator[A],
+           trueFor : A, comb : (IndexedSeq[A]) => A) : A = {
     val nonTrivialFors = filterForConj(fors)
     
     nonTrivialFors.size match {

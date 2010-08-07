@@ -21,6 +21,7 @@
 
 package ap.terfor.equations;
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.Seqs
@@ -49,7 +50,7 @@ abstract class ColumnSolver(equations : EquationConj,
   lazy val result = {
     var cont : Boolean = true    
     while (cont && !curEqs.isFalse) {
-      Seqs.some(for (lc <- curEqs.elements) yield isSolvableEq(lc, curOrder)) match {
+      Seqs.some(for (lc <- curEqs.iterator) yield isSolvableEq(lc, curOrder)) match {
         case Some((smallConst, definition, newOrder)) => {
           curOrder = newOrder
           val scLc = LinearCombination(smallConst, curOrder)

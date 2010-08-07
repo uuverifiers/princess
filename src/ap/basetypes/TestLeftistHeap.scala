@@ -82,7 +82,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
                      ( h.size  == 0 ) == h.isEmpty  )
 
         assertTrue ( "Unsorted heap iterator does not return the right elements",
-                     sameElements ( h.unsortedIterator , elements.elements  ) )
+                     sameElements ( h.unsortedIterator , elements.iterator  ) )
 
         {
         val sortedEls = h.sortedIterator.toList.toArray
@@ -92,7 +92,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
         }
         
         assertTrue ( "Sorted heap iterator does not return the right elements",
-                     sameElements ( h.sortedIterator , elements.elements  ) )
+                     sameElements ( h.sortedIterator , elements.iterator  ) )
 
         var list : List[Int] = List()
         var hv = h
@@ -109,7 +109,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
         }
 
         assertTrue ( "findMin does not return the right elements",
-                     sameElements ( list.elements , elements.elements  ) )        
+                     sameElements ( list.iterator , elements.iterator  ) )        
   }
 
   private def removeAll[T, HC <: HeapCollector[T, HC]]
@@ -123,18 +123,18 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
   def testInsertIterator = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
 
-        h = h.insertIt ( List[Int]().elements  )
+        h = h.insertIt ( List[Int]().iterator  )
         checkHeap ( List[Int](), h )
         assertTrue("Empty heap should be empty",
                    h.isEmpty  && h.size  == 0)
         
-        h = h.insertIt ( a.elements  )        
+        h = h.insertIt ( a.iterator  )        
         checkHeap ( a, h )
 
-        h = h.insertIt ( a.elements  )        
+        h = h.insertIt ( a.iterator  )        
         checkHeap ( a ::: a, h )
 
-        h = h.insertIt ( List[Int]().elements  )
+        h = h.insertIt ( List[Int]().iterator  )
         checkHeap ( a ::: a, h )
         
         h = h.insertIt ( h.unsortedIterator  )
@@ -147,7 +147,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
   def testInsertHeap = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
 
-        h = h.insertIt ( a.elements  )        
+        h = h.insertIt ( a.iterator  )        
         checkHeap ( a, h )
 
         h = h.insertHeap ( LeftistHeap.EMPTY_HEAP[Int] )
@@ -164,27 +164,27 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
         var h = LeftistHeap.EMPTY_HEAP[Int]
 
         // Test removal of all elements (from empty heap)
-        checkHeap ( List[Int](), removeAll( h, a.elements  ) )
+        checkHeap ( List[Int](), removeAll( h, a.iterator  ) )
 
-        h = h.insertIt ( a.elements  )        
+        h = h.insertIt ( a.iterator  )        
         checkHeap ( a, h )
 
         // Test removal of arbitrary elements
-        checkHeap ( a.remove( (i) => (i == a.head)  ), h.removeAll( a.head  ) )
+        checkHeap ( a.filterNot( (i) => (i == a.head)  ), h.removeAll( a.head  ) )
 
         // Test removal of all elements
-        checkHeap ( List[Int](), removeAll( h, a.elements  ) )
+        checkHeap ( List[Int](), removeAll( h, a.iterator  ) )
 
         // Test removal of non-existing elements
         assertEquals ( "Heap should not be different",
-                       h, removeAll ( h, b.elements  ) )
+                       h, removeAll ( h, b.iterator  ) )
   }
  
   def testLargeHeap = {
         var h = LeftistHeap.EMPTY_HEAP[Int]
         val l = Debug.randoms(0, 1000000).take(1000).toList
         
-        h = h.insertIt ( l.elements )
+        h = h.insertIt ( l.iterator )
 
         checkHeap ( l, h )
   }
@@ -200,12 +200,12 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
     val filled = empty ++ elements
     
     checkHeap(elements, filled)
-    assert(sameElements(filled.collector.conts.elements, elements.elements))
+    assert(sameElements(filled.collector.conts.iterator, elements.iterator))
     
     var emptied = filled
     while (!emptied.isEmpty) {
       emptied = emptied.deleteMin
-      assert(sameElements(emptied.collector.conts.elements, emptied.unsortedIterator))
+      assert(sameElements(emptied.collector.conts.iterator, emptied.unsortedIterator))
     }
   }
 
@@ -213,7 +213,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
     var h = LeftistHeap.EMPTY_HEAP[Int]
     val l = Debug.randoms(0, 1000000).take(1000).toList
     
-    h = h.insertIt ( l.elements )
+    h = h.insertIt ( l.iterator )
 
     val h2 = h.flatMap((i) => Iterator.single(i+1), (h) => false)
     val h3 = h2.flatMap((i) => Iterator.single(i-1), (h) => false)

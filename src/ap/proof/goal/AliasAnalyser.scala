@@ -21,6 +21,7 @@
 
 package ap.proof.goal
 
+import ap.proof._
 import ap.basetypes.IdealInt
 import ap.terfor.TermOrder
 import ap.terfor.linearcombination.LinearCombination

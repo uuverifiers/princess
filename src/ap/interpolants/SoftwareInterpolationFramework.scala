@@ -24,6 +24,7 @@ package ap.interpolants
 
 import scala.util.Sorting
 
+import ap._
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
@@ -217,7 +218,7 @@ abstract class SoftwareInterpolationFramework {
    * Sort the transition relations lexicographically according to their name
    */
   protected def sortNamesLex(transitionParts : Map[PartName, Conjunction]) : Seq[PartName] = {
-    val names = Seqs.toArray((Set() ++ transitionParts.keys) - PartName.NO_NAME)
+    val names = (transitionParts.keySet - PartName.NO_NAME).toArray
     Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
     names
   }

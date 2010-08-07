@@ -21,7 +21,7 @@
 
 package ap.util;
 
-import scala.collection.mutable.{Stack, HashMap, ArrayBuffer}
+import scala.collection.mutable.{Stack, HashMap, ArrayBuilder}
 import scala.util.Sorting
 
 /**
@@ -70,12 +70,12 @@ object Timer {
   }
   
   override def toString : String = {
-    val resBuf = new ArrayBuffer[(String, Int, Long)]
+    val resBuf = ArrayBuilder.make[(String, Int, Long)]
 
     for ((op, time) <- accumulatedTimes)
-      resBuf += (op, callCounters(op), time)
+      resBuf += ((op, callCounters(op), time))
 
-    val resAr = resBuf.toArray
+    val resAr = resBuf.result
     Sorting.stableSort(resAr)
 
     val table =
@@ -91,10 +91,10 @@ object Timer {
       (paddedOp + "\t" + count + "\t" + timeInMS + "ms")
     }) mkString "\n"
     
-    val totalTime = (0l /: accumulatedTimes.values)(_ + _)
+    val totalTime = (0l /: accumulatedTimes.valuesIterator)(_ + _)
     val totalTimeInMS = totalTime.toDouble / 1000000.0
     
-    val totalCalls = (0 /: callCounters.values)(_ + _)
+    val totalCalls = (0 /: callCounters.valuesIterator)(_ + _)
     
     val total = "Total: " + totalCalls + ", " + totalTimeInMS + "ms"
     

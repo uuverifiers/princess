@@ -21,6 +21,7 @@
 
 package ap.proof.tree;
 
+import ap.proof._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug

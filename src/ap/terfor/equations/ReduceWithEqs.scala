@@ -21,6 +21,7 @@
 
 package ap.terfor.equations;
 
+import ap.terfor._
 import ap.terfor.linearcombination.{LinearCombination, LCBlender}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.arithconj.ArithConj
@@ -62,7 +63,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ReduceWithEqs.AC,
-                   Logic.forall(for (t <- equations.keys)
+                   Logic.forall(for (t <- equations.keysIterator)
                                 yield (t.isInstanceOf[ConstantTerm] ||
                                        t.isInstanceOf[VariableTerm])))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -135,7 +136,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         if (rem != nextCoeff) {
           blender += (-quot, eq)
           if (terms != null)
-            terms += (-quot, eq)
+            terms += (-quot -> eq)
           changed = true
         }
                    
@@ -232,7 +233,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
       runBlender(blender, negTerms)
       
       if (terms != null)
-        terms ++= (for ((c, t) <- negTerms.elements) yield (-c, t))
+        terms ++= (for ((c, t) <- negTerms.iterator) yield (-c, t))
       blender.result
     } else {
       curLC
@@ -253,7 +254,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val res = if (reductionPossible(conj))
-                conj.updateEqs(EquationConj(conj.elements, this, order))(order)
+                conj.updateEqs(EquationConj(conj.iterator, this, order))(order)
               else
                 conj
 
@@ -359,7 +360,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         val newArgs = for (lc <- a) yield {
           val newArg = apply(lc, terms)
           
-          argModifiers += terms.toArray
+          argModifiers += terms.toArray[(IdealInt, LinearCombination)]
           if (!terms.isEmpty)
             changed = true
           terms.clear
@@ -411,8 +412,8 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
 
   //////////////////////////////////////////////////////////////////////////////
   private def isCompletelyReduced(lcs : Iterable[LinearCombination]) : Boolean =
-    Logic.forall(for (lc <- lcs.elements) yield
-                 Logic.forall(for ((c, t) <- lc.elements) yield (
+    Logic.forall(for (lc <- lcs.iterator) yield
+                 Logic.forall(for ((c, t) <- lc.iterator) yield (
                                 equations.get(t) match {
                                 case Some(eq) => c isAbsMinMod eq.leadingCoeff
                                 case None => true
@@ -427,14 +428,14 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     Debug.assertPre(ReduceWithEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    val res = NegEquationConj(for (lc <- conj.elements)
+    val res = NegEquationConj(for (lc <- conj.iterator)
                               yield pseudoReduce(lc), order)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(ReduceWithEqs.AC,
       res.isFalse ||
-      Logic.forall(for (lc <- res.elements) yield
+      Logic.forall(for (lc <- res.iterator) yield
                    (!(equations contains lc.leadingTerm) &&
-                    Logic.forall(for ((c, t) <- lc.elements) yield (
+                    Logic.forall(for ((c, t) <- lc.iterator) yield (
                                    equations.get(t) match {
                                    case Some(eq) => c isAbsMinMod eq.leadingCoeff
                                    case None => true

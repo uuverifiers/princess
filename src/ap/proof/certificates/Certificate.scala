@@ -41,7 +41,7 @@ object Certificate {
  * proofs, with rule applications assuming certain formulae on a branch and
  * producing new formulae.
  */
-abstract class Certificate extends Seq[Certificate] {
+abstract class Certificate {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(Certificate.AC,
@@ -62,8 +62,8 @@ abstract class Certificate extends Seq[Certificate] {
    */
   lazy val assumedFormulas : Set[Conjunction] =
     localAssumedFormulas ++
-    (for ((cert, providedFormulas) <- elements zip localProvidedFormulas.elements;
-          f <- FilterIt(cert.assumedFormulas.elements,
+    (for ((cert, providedFormulas) <- iterator zip localProvidedFormulas.iterator;
+          f <- FilterIt(cert.assumedFormulas.iterator,
                         (f : Conjunction) => !(providedFormulas contains f))) yield f)
   
   val localAssumedFormulas : Set[Conjunction]
@@ -77,8 +77,20 @@ abstract class Certificate extends Seq[Certificate] {
 
   val order : TermOrder
 
-  def inferenceCount : Int = (1 /: this) { case (num, cert) => num + cert.inferenceCount }
+  def inferenceCount : Int =
+    (1 /: this.subCertificates) { case (num, cert) => num + cert.inferenceCount }
+
+  def apply(i : Int) : Certificate
+  def length : Int
+  def iterator : Iterator [Certificate]
   
+  def size = length
+
+  def subCertificates = new IndexedSeq[Certificate] {
+    def apply(i : Int) : Certificate = Certificate.this.apply(i)
+    def length : Int = Certificate.this.length
+    override def iterator = Certificate.this.iterator
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -87,7 +99,7 @@ object PartialCertificate {
   
   private val AC = Debug.AC_CERTIFICATES
   
-  val IDENTITY = new PartialCertificate((x : Seq[Certificate]) => x.first, 1)
+  val IDENTITY = new PartialCertificate((x : Seq[Certificate]) => x.head, 1)
   
   private val failingCertificateCache =
     new LRUCache[Int, PartialCertificate] (100)
@@ -124,7 +136,7 @@ class PartialCertificate private (f : Seq[Certificate] => Certificate, val arity
     Debug.assertPre(PartialCertificate.AC, arity == that.size)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    val newArity = (0 /: (that.elements map (_.arity)))(_ + _)
+    val newArity = (0 /: (that.iterator map (_.arity)))(_ + _)
     
     val newF = (certs : Seq[Certificate]) => {
       val subRes = new ArrayBuffer[Certificate]

@@ -23,6 +23,7 @@ package ap.terfor.conjunctions;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.terfor._
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.{PredConj, Atom, Predicate}
@@ -123,15 +124,15 @@ object Conjunction {
       addFormula(f)
     }
     
-    (ArithConj.conj(arithFors.elements, logger, order),
-     PredConj.conj(predConjs.elements, logger, order),
+    (ArithConj.conj(arithFors.iterator, logger, order),
+     PredConj.conj(predConjs.iterator, logger, order),
      NegatedConjunctions(negConjs, order))
   }
    
   def apply(quans : Seq[Quantifier],
             formulas : Iterable[Formula],
             order : TermOrder) : Conjunction =
-    apply(quans, formulas.elements, order)
+    apply(quans, formulas.iterator, order)
 
   /**
    * Compute a conjunction from an arbitrary set of formulas
@@ -140,7 +141,7 @@ object Conjunction {
     apply(List(), formulas, order)    
 
   def conj(formulas : Iterable[Formula], order : TermOrder) : Conjunction =
-    apply(List(), formulas.elements, order)  
+    apply(List(), formulas.iterator, order)  
     
   def conj(f : Formula, order : TermOrder) : Conjunction =
     apply(List(), Iterator.single(f), order)  
@@ -153,7 +154,7 @@ object Conjunction {
          order).negate
 
   def disj(formulas : Iterable[Formula], order : TermOrder) : Conjunction =
-    disj(formulas.elements, order)
+    disj(formulas.iterator, order)
 
   /**
    * Form the implication between two formulas
@@ -189,7 +190,7 @@ object Conjunction {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val constantSubst = ConstantSubst(Map() ++
-                                      (for ((c, i) <- constants.elements.zipWithIndex)
+                                      (for ((c, i) <- constants.iterator.zipWithIndex)
                                        yield (c -> VariableTerm(i))),
                                       order)
     val quans : Seq[Quantifier] =
@@ -298,7 +299,7 @@ object Conjunction {
       val variableShifts = new Array[Int] (quans.size)
       
       var usedVars : Int = 0
-      for ((q, i) <- quans.elements.zipWithIndex) {
+      for ((q, i) <- quans.iterator.zipWithIndex) {
         variableShifts(i) = usedVars - i
         if (occurringVars contains VariableTerm(i)) {
           usedVars = usedVars + 1
@@ -441,12 +442,12 @@ class Conjunction private (val quans : Seq[Quantifier],
 
   def size : Int = arithConj.size + predConj.size + negatedConjs.size
   
-  def elements : Iterator[Conjunction] =
-    (for (c <- arithConj.elements)
+  def iterator : Iterator[Conjunction] =
+    (for (c <- arithConj.iterator)
        yield Conjunction.conj(c, order)) ++
-    (for (atom <- predConj.elements)
+    (for (atom <- predConj.iterator)
        yield Conjunction.conj(atom, order)) ++
-    (for (c <- negatedConjs.elements) yield c.negate)
+    (for (c <- negatedConjs.iterator) yield c.negate)
   
   /**
    * Return whether this conjunction actually only is a single literal
@@ -552,8 +553,8 @@ class Conjunction private (val quans : Seq[Quantifier],
    * <code>ALL (1*_0 + t != 0)</code>)
    */
   def isProperDivisibility : Boolean = {
-    val lc = (arithConj.positiveEqs.elements ++
-              arithConj.negativeEqs.elements).next()(0)._1
+    val lc = (arithConj.positiveEqs.iterator ++
+              arithConj.negativeEqs.iterator).next()(0)._1
     !lc.isOne
   }
     

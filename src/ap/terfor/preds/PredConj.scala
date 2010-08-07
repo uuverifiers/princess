@@ -23,6 +23,7 @@ package ap.terfor.preds;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 import ap.util.{Debug, Logic, Seqs, PlainRange}
@@ -34,12 +35,12 @@ object PredConj {
   private def sort(lits : Iterator[Atom],
                    badLits : scala.collection.Set[Atom],
                    logger : ComputationLogger,
-                   order : TermOrder) : RandomAccessSeq[Atom] =
+                   order : TermOrder) : IndexedSeq[Atom] =
     Seqs.filterAndSort[Atom](lits, a => false, a => badLits contains a,
                              a => a,
                              (a1, a2) => order.compare(a1, a2) > 0) match {
       case Seqs.FilteredSorted(sortedLits) =>
-        Seqs.removeDuplicates(sortedLits).toArray
+        Seqs.removeDuplicates(sortedLits)
       case Seqs.FoundBadElement(bad) => {
         logger.unifyPredicates(bad, bad, EquationConj.TRUE, order)
         throw CONTRADICTION
@@ -77,13 +78,14 @@ object PredConj {
   def apply(positiveLits : Iterable[Atom],
             negativeLits : Iterable[Atom],
             order : TermOrder) : PredConj =
-    apply(positiveLits.elements, negativeLits.elements, order)
+    apply(positiveLits.iterator, negativeLits.iterator, order)
 
-  val TRUE : PredConj = new PredConj(Array(), Array(), TermOrder.EMPTY)
+  val TRUE : PredConj =
+    new PredConj(IndexedSeq.empty, IndexedSeq.empty, TermOrder.EMPTY)
 
   // we need some predicate to create a contradiction
   def FALSE(pred : Predicate, order : TermOrder) : PredConj = {
-    val atom = Atom(pred, Array.make(pred.arity, LinearCombination.ZERO), order)
+    val atom = Atom(pred, Array.fill(pred.arity){LinearCombination.ZERO}, order)
     new PredConj(Array(atom), Array(atom), order)
   }
 
@@ -104,7 +106,7 @@ object PredConj {
    */
   def conj(conjs : Iterator[PredConj],
            logger : ComputationLogger, order : TermOrder) : PredConj =
-    Formula.conj(conjs, TRUE, (nonTrivialConjs:RandomAccessSeq[PredConj]) => {
+    Formula.conj(conjs, TRUE, (nonTrivialConjs:IndexedSeq[PredConj]) => {
       val posLits = new ArrayBuffer[Atom]
       val negLits = new ArrayBuffer[Atom]
       for (c <- nonTrivialConjs) {
@@ -115,7 +117,7 @@ object PredConj {
         negLits ++= c.negativeLits
       }
 
-      apply(posLits.elements, negLits.elements, logger, order)
+      apply(posLits.iterator, negLits.iterator, logger, order)
     } )
 
   def conj(conjs : Iterator[PredConj], order : TermOrder) : PredConj =
@@ -125,7 +127,7 @@ object PredConj {
    * Compute the conjunction of equations, inequations and inequalities.
    */
   def conj(conjs : Iterable[PredConj], order : TermOrder) : PredConj =
-    conj(conjs.elements, order)
+    conj(conjs.iterator, order)
 
 }
 
@@ -133,14 +135,14 @@ object PredConj {
  * A class for representing a conjunction of positive and negative predicate
  * literals
  */
-class PredConj private (val positiveLits : RandomAccessSeq[Atom],
-                        val negativeLits : RandomAccessSeq[Atom],
+class PredConj private (val positiveLits : IndexedSeq[Atom],
+                        val negativeLits : IndexedSeq[Atom],
                         val order : TermOrder)
       extends Formula with SortedWithOrder[PredConj] {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  private def isSortedSeq(seq : RandomAccessSeq[Atom]) : Boolean =
-    Logic.forall(for (a <- seq.elements) yield (a isSortedBy order)) &&
+  private def isSortedSeq(seq : IndexedSeq[Atom]) : Boolean =
+    Logic.forall(for (a <- seq.iterator) yield (a isSortedBy order)) &&
     Logic.forall(0, seq.size - 1,
                  (i:Int) => order.compare(seq(i), seq(i+1)) > 0)
       
@@ -156,8 +158,8 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
     if (isSortedBy(newOrder))
       this
     else
-      PredConj (for (a <- positiveLits.elements) yield (a sortBy newOrder),
-                for (a <- negativeLits.elements) yield (a sortBy newOrder),
+      PredConj (for (a <- positiveLits.iterator) yield (a sortBy newOrder),
+                for (a <- negativeLits.iterator) yield (a sortBy newOrder),
                 newOrder)
     
   //////////////////////////////////////////////////////////////////////////////
@@ -166,22 +168,23 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
    * Update the literals of this conjunction; if nothing has changed,
    * the old object is returned
    */
-  def updateLits(newPosLits : Seq[Atom],
-                 newNegLits : Seq[Atom],
+  def updateLits(newPosLits : IndexedSeq[Atom],
+                 newNegLits : IndexedSeq[Atom],
                  logger : ComputationLogger)
                 (implicit newOrder : TermOrder) : PredConj =
-    if (Seqs.subSeq(newPosLits.elements, this.positiveLits.elements) &&
-        Seqs.subSeq(newNegLits.elements, this.negativeLits.elements)) {
+    if (Seqs.subSeq(newPosLits.iterator, this.positiveLits.iterator) &&
+        Seqs.subSeq(newNegLits.iterator, this.negativeLits.iterator)) {
       if (positiveLits.size == newPosLits.size &&
           negativeLits.size == newNegLits.size)
         this
       else
-        new PredConj(newPosLits.toArray, newNegLits.toArray, newOrder)
+        new PredConj(newPosLits, newNegLits, newOrder)
     } else {
-      PredConj(newPosLits.elements, newNegLits.elements, logger, newOrder)
+      PredConj(newPosLits.iterator, newNegLits.iterator, logger, newOrder)
     }
 
-  def updateLits(newPosLits : Seq[Atom], newNegLits : Seq[Atom])
+  def updateLits(newPosLits : IndexedSeq[Atom],
+                 newNegLits : IndexedSeq[Atom])
                 (implicit newOrder : TermOrder) : PredConj =
     updateLits(newPosLits, newNegLits, ComputationLogger.NonLogger)(newOrder)
 
@@ -189,20 +192,20 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
    * Update the atoms of this conjunction under the assumption that the
    * new atoms form a subset of the old atoms
    */
-  def updateLitsSubset(newPosLits : Seq[Atom],
-                       newNegLits : Seq[Atom],
+  def updateLitsSubset(newPosLits : IndexedSeq[Atom],
+                       newNegLits : IndexedSeq[Atom],
                        newOrder : TermOrder) : PredConj = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(PredConj.AC,
-                    Seqs.subSeq(newPosLits.elements, this.positiveLits.elements) &&
-                    Seqs.subSeq(newNegLits.elements, this.negativeLits.elements) &&
+                    Seqs.subSeq(newPosLits.iterator, this.positiveLits.iterator) &&
+                    Seqs.subSeq(newNegLits.iterator, this.negativeLits.iterator) &&
                     (this isSortedBy newOrder))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (positiveLits.size == newPosLits.size &&
         negativeLits.size == newNegLits.size)
       this
     else
-      new PredConj(newPosLits.toArray, newNegLits.toArray, newOrder)
+      new PredConj(newPosLits, newNegLits, newOrder)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -213,11 +216,11 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
   lazy val negativeLitsAsSet : scala.collection.Set[Atom] =
     new OrderedSet(negativeLits)
     
-  private class OrderedSet(seq : RandomAccessSeq[Atom])
+  private class OrderedSet(seq : IndexedSeq[Atom])
                 extends scala.collection.Set[Atom] {
       
-    def size = seq.size
-    def elements = seq.elements
+    override def size = seq.size
+    def iterator = seq.iterator
     
     private implicit def orderAtom(thisA : Atom) =
       new Ordered[Atom] {
@@ -243,14 +246,17 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
       } else {
         false
       }
+
+    def +(elem: Atom) = throw new UnsupportedOperationException
+    def -(elem: Atom) = throw new UnsupportedOperationException
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def positiveLitsWithPred(pred : Predicate) : RandomAccessSeq[Atom] =
+  def positiveLitsWithPred(pred : Predicate) : IndexedSeq[Atom] =
     findLitsWithPred(pred, positiveLits)
 
-  def negativeLitsWithPred(pred : Predicate) : RandomAccessSeq[Atom] =
+  def negativeLitsWithPred(pred : Predicate) : IndexedSeq[Atom] =
     findLitsWithPred(pred, negativeLits)
 
   /**
@@ -258,11 +264,11 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
    * predicate as <code>atom</code>
    */
   private def findLitsWithPred
-     (pred : Predicate, otherAtoms : RandomAccessSeq[Atom]) : RandomAccessSeq[Atom] = {
-    def post(res : RandomAccessSeq[Atom]) = {
+     (pred : Predicate, otherAtoms : IndexedSeq[Atom]) : IndexedSeq[Atom] = {
+    def post(res : IndexedSeq[Atom]) = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(PredConj.AC,
-                       Logic.forall(for (a <- res.elements)
+                       Logic.forall(for (a <- res.iterator)
                                     yield (a.pred == pred)) &&
                        (for (a <- otherAtoms; if (a.pred == pred))
                         yield a).size == res.size)
@@ -273,11 +279,11 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
     // first check whether the predicate is available at all (otherwise,
     // comparisons using the <code>TermOrder</code> might fail)
     if (!(predicates contains pred)) {
-      post(Array())
+      post(IndexedSeq.empty)
     } else {
       
       // we need some atom with the given predicate to do binary search
-      val atom = Atom(pred, Array.make(pred.arity, LinearCombination.ZERO), order)
+      val atom = Atom(pred, Array.fill(pred.arity){LinearCombination.ZERO}, order)
     
       // we assume that the sequence of atoms is sorted
       implicit def orderAtom(thisA : Atom) =
@@ -325,23 +331,23 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
     
   lazy val variables : Set[VariableTerm] =
     Set.empty ++
-    (for (a <- positiveLits.elements; v <- a.variables.elements) yield v) ++
-    (for (a <- negativeLits.elements; v <- a.variables.elements) yield v)
+    (for (a <- positiveLits.iterator; v <- a.variables.iterator) yield v) ++
+    (for (a <- negativeLits.iterator; v <- a.variables.iterator) yield v)
 
   lazy val constants : Set[ConstantTerm] =
     Set.empty ++
-    (for (a <- positiveLits.elements; v <- a.constants.elements) yield v) ++
-    (for (a <- negativeLits.elements; v <- a.constants.elements) yield v)
+    (for (a <- positiveLits.iterator; v <- a.constants.iterator) yield v) ++
+    (for (a <- negativeLits.iterator; v <- a.constants.iterator) yield v)
 
   lazy val predicates : Set[Predicate] =
     Set.empty ++
-    (for (a <- positiveLits.elements) yield a.pred) ++
-    (for (a <- negativeLits.elements) yield a.pred)
+    (for (a <- positiveLits.iterator) yield a.pred) ++
+    (for (a <- negativeLits.iterator) yield a.pred)
 
   lazy val groundAtoms : Set[Atom] =
     Set.empty ++
-    (for (a <- positiveLits.elements; g <- a.groundAtoms.elements) yield g) ++
-    (for (a <- negativeLits.elements; g <- a.groundAtoms.elements) yield g)
+    (for (a <- positiveLits.iterator; g <- a.groundAtoms.iterator) yield g) ++
+    (for (a <- negativeLits.iterator; g <- a.groundAtoms.iterator) yield g)
 
   /** Return <code>true</code> if this formula is obviously always true */
   def isTrue : Boolean = positiveLits.isEmpty && negativeLits.isEmpty
@@ -356,9 +362,9 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
 
   def size : Int = positiveLits.size + negativeLits.size
 
-  def elements : Iterator[PredConj] =
-    (for (atom <- positiveLits.elements) yield PredConj(List(atom), List(), order)) ++
-    (for (atom <- negativeLits.elements) yield PredConj(List(), List(atom), order))
+  def iterator : Iterator[PredConj] =
+    (for (atom <- positiveLits.iterator) yield PredConj(List(atom), List(), order)) ++
+    (for (atom <- negativeLits.iterator) yield PredConj(List(), List(atom), order))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -372,11 +378,10 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
     Debug.assertPre(PredConj.AC, oldConj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    implicit def orderAtom(thisA : Atom) =
-      new Ordered[Atom] {
-        def compare(thatA : Atom) : Int =
-          order.compare(thisA, thatA)
-      }
+    implicit val orderAtom = new Ordering[Atom] {
+      def compare(thisA : Atom, thatA : Atom) : Int =
+        order.compare(thisA, thatA)
+    }
 
     val (unchangedPosLits, changedPosLits) =
       Seqs.diff(this.positiveLits, oldConj.positiveLits)
@@ -418,8 +423,8 @@ class PredConj private (val positiveLits : RandomAccessSeq[Atom],
     } else if (isFalse) {
       "false"
     } else {
-      val strings = (for (lit <- positiveLits.elements) yield ("" + lit)) ++
-                    (for (lit <- negativeLits.elements) yield ("!" + lit))
+      val strings = (for (lit <- positiveLits.iterator) yield ("" + lit)) ++
+                    (for (lit <- negativeLits.iterator) yield ("!" + lit))
       if (strings.hasNext)
         strings.reduceLeft((s1 : String, s2 : String) =>
                            s1 + " & " + s2)

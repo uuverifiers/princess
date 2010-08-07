@@ -23,6 +23,7 @@ package ap.terfor.conjunctions;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.{TerFor, Term, Formula, ConstantTerm, TermOrder}
 import ap.terfor.linearcombination.LinearCombination
@@ -53,7 +54,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // we only know how to eliminate constants and variables
   Debug.assertCtor(ConjunctEliminator.AC,
-                   Logic.forall(for (t <- universalSymbols.elements)
+                   Logic.forall(for (t <- universalSymbols.iterator)
                                 yield (t match {
                                   case _ : ConstantTerm => true
                                   case _ : VariableTerm => true
@@ -104,7 +105,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     
   private def eliminablePositiveEqs(c : Term) : Boolean = {
     var occurred : Boolean = false
-    val lcIt = conj.arithConj.positiveEqs.elements
+    val lcIt = conj.arithConj.positiveEqs.iterator
     while (lcIt.hasNext) {
       val lc = lcIt.next
       if (occursIn(lc, c)) {
@@ -127,7 +128,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     // we do not remove the equation if c is not an eliminated constant, but
     // the equation contains other eliminated constants;
     // there are chances that we can remove the equation completely later
-    !Logic.exists(for (lc <- conj.arithConj.positiveEqs.elements)
+    !Logic.exists(for (lc <- conj.arithConj.positiveEqs.iterator)
                   yield (occursIn(lc, c) && containsEliminatedSymbols(lc)))
   }
 
@@ -171,7 +172,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     val eqs = conj.arithConj.negativeEqs
     
     val (eliminatedEqs, remainingEqs) =
-      Seqs.split(eqs, occursIn(_ : LinearCombination, c))
+      eqs partition (occursIn(_ : LinearCombination, c))
     conj = conj.updateNegativeEqs(eqs.updateEqsSubset(remainingEqs)(order))(order)
 
     // we give back the eliminated equations
@@ -185,7 +186,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     // the coefficient of the constant must have the same sign in all inequalities
     
     var signum : Int = 0
-    val lcIt = conj.arithConj.inEqs.elements
+    val lcIt = conj.arithConj.inEqs.iterator
     while (lcIt.hasNext) {
       val lc = lcIt.next
       val newSignum = (lc get c).signum
@@ -205,7 +206,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     val inEqs = conj.arithConj.inEqs
     
     val (eliminatedInEqs, remainingInEqs) =
-      Seqs.split(inEqs, occursIn(_ : LinearCombination, c))
+      inEqs partition (occursIn(_ : LinearCombination, c))
     conj = conj.updateInEqs(inEqs.updateGeqZeroSubset(remainingInEqs, logger)
                                                      (order))(order)
 
@@ -219,7 +220,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   private def eliminableNegativeEqs(c : Term) : Boolean =
     // we only move equations to the constraints if no eliminated
     // constants occur in any of them
-    Logic.forall(for (lc <- conj.arithConj.negativeEqs.elements)
+    Logic.forall(for (lc <- conj.arithConj.negativeEqs.iterator)
                  yield (!occursIn(lc, c) || !containsEliminatedSymbols(lc)))
 
   private def elimNegativeEqs(c : Term) : Unit = {
@@ -228,9 +229,9 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val (constraintEqs, remainingEqs) =
-      Seqs.split(conj.arithConj.negativeEqs, occursIn(_ : LinearCombination, c))
+      conj.arithConj.negativeEqs partition (occursIn(_ : LinearCombination, c))
       
-    nonUniversalElimination(Conjunction.disj(for (lc <- constraintEqs.elements)
+    nonUniversalElimination(Conjunction.disj(for (lc <- constraintEqs.iterator)
                                              yield EquationConj(lc, order),
                   order))
     conj = conj.updateNegativeEqs(NegEquationConj(remainingEqs, order))(order)
@@ -265,7 +266,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     var lowerCount : Int = 0
     var upperCount : Int = 0
     
-    val lcIt = inEqs.elements
+    val lcIt = inEqs.iterator
     while (lcIt.hasNext) {
       val lc = lcIt.next
       if (!lc.isEmpty) {

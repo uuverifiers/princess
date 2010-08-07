@@ -23,6 +23,7 @@ package ap.terfor.arithconj;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.terfor._
 import ap.terfor.equations.{EquationConj, NegEquationConj, ReduceWithEqs}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.{Predicate, Atom}
@@ -80,7 +81,7 @@ object ArithConj {
     
     apply(EquationConj.conj(posEqs, logger, order),
           NegEquationConj.conj(negEqs, order),
-          InEqConj.conj(inEqs.elements, logger, order),
+          InEqConj.conj(inEqs.iterator, logger, order),
           order)
   }
 
@@ -89,7 +90,7 @@ object ArithConj {
     conj(conjs, ComputationLogger.NonLogger, order)
 
   def conj(conjs : Iterable[Formula], order : TermOrder) : ArithConj =
-    conj(conjs.elements, order)
+    conj(conjs.iterator, order)
 
   def conj(f : Formula, order : TermOrder) : ArithConj = conj(List(f), order)
 
@@ -133,16 +134,16 @@ class ArithConj private (val positiveEqs : EquationConj,
   
   def isEmpty : Boolean = size == 0
 
-  def elements : Iterator[ArithConj] =
-    (for (eq <- positiveEqs.elements) yield ArithConj(EquationConj(eq, order),
+  def iterator : Iterator[ArithConj] =
+    (for (eq <- positiveEqs.iterator) yield ArithConj(EquationConj(eq, order),
                                                       NegEquationConj.TRUE,
                                                       InEqConj.TRUE,
                                                       order)) ++
-    (for (eq <- negativeEqs.elements) yield ArithConj(EquationConj.TRUE,
+    (for (eq <- negativeEqs.iterator) yield ArithConj(EquationConj.TRUE,
                                                       NegEquationConj(eq, order),
                                                       InEqConj.TRUE,
                                                       order)) ++
-    (for (eq <- inEqs.elements) yield ArithConj(EquationConj.TRUE,
+    (for (eq <- inEqs.iterator) yield ArithConj(EquationConj.TRUE,
                                                 NegEquationConj.TRUE,
                                                 InEqConj(eq, order),
                                                 order))
@@ -229,9 +230,9 @@ class ArithConj private (val positiveEqs : EquationConj,
     } else if (isFalse) {
       "false"
     } else {
-      val strings = (for (lhs <- positiveEqs.elements) yield ("" + lhs + " = 0")) ++
-                    (for (lhs <- negativeEqs.elements) yield ("" + lhs + " != 0")) ++
-                    (for (lhs <- inEqs.elements) yield ("" + lhs + " >= 0"))
+      val strings = (for (lhs <- positiveEqs.iterator) yield ("" + lhs + " = 0")) ++
+                    (for (lhs <- negativeEqs.iterator) yield ("" + lhs + " != 0")) ++
+                    (for (lhs <- inEqs.iterator) yield ("" + lhs + " >= 0"))
       if (strings.hasNext)
         strings.reduceLeft((s1 : String, s2 : String) => s1 + " & " + s2)
       else

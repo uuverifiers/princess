@@ -108,7 +108,7 @@ class TestGenConjunctions {
    }
 
    private def randomNegConjs(sizeFactor : Double, acGen : () => ArithConj) : NegatedConjunctions = {
-     val conjs = for (_ <- PlainRange(0, Debug.random(0, Math.max(1, sizeFactor.toInt))))
+     val conjs = for (_ <- PlainRange(0, Debug.random(0, 1 max sizeFactor.toInt)))
                  yield randomConj(sizeFactor, acGen)
      
      NegatedConjunctions(conjs, to)

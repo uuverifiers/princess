@@ -21,6 +21,7 @@
 
 package ap.proof.goal;
 
+import ap.proof._
 import ap.basetypes.IdealInt
 import ap.parameters.{GoalSettings, Param}
 import ap.terfor.{Term, TermOrder, ConstantTerm, OneTerm}
@@ -74,7 +75,7 @@ case object OmegaTask extends EagerTask {
       
         val store = new BestSplitPossibilityStore
         val leadingConstants = Set() ++
-          (for (Seq((_, c : ConstantTerm), _*) <- ac.positiveEqs.elements)
+          (for (Seq((_, c : ConstantTerm), _*) <- ac.positiveEqs.iterator)
               yield c)
         findFormulaSplitPossibilitiesHelp(goal, ptf, leadingConstants, store)
       
@@ -205,7 +206,7 @@ case object OmegaTask extends EagerTask {
     val ac = goal.facts.arithConj
     val order = goal.order
 
-    val elimCandidates = (ac.inEqs.constants ** eConsts) --
+    val elimCandidates = (ac.inEqs.constants & eConsts) --
                          ac.negativeEqs.constants --
                          goal.compoundFormulas.constants
     
@@ -273,7 +274,7 @@ case object OmegaTask extends EagerTask {
         // we add a <code>ModelFinder</code> so that a witness for the eliminated
         // constant can be constructed
         val eliminatedInEqs =
-          ArithConj.conj(InEqConj(lowerBounds.elements ++ upperBounds.elements,
+          ArithConj.conj(InEqConj(lowerBounds.iterator ++ upperBounds.iterator,
                                   order), order)
         newGoals += ptf.eliminatedConstant(darkShadowGoal,
                                            elimConst,
@@ -304,9 +305,9 @@ case object OmegaTask extends EagerTask {
   private def predictOmegaSplitting(elimConst : ConstantTerm,
                                     lowerBounds : Seq[LinearCombination],
                                     upperBounds : Seq[LinearCombination]) : IdealInt = {
-    val m = IdealInt.max(for (lc <- upperBounds.elements) yield (lc get elimConst).abs)
+    val m = IdealInt.max(for (lc <- upperBounds.iterator) yield (lc get elimConst).abs)
     (IdealInt.ONE /: 
-       (for (lc <- lowerBounds.elements) yield {
+       (for (lc <- lowerBounds.iterator) yield {
           val coeff = (lc get elimConst).abs
           ((m - IdealInt.ONE) * coeff - m) / m + IdealInt.ONE
         })) (_ + _)
@@ -322,11 +323,11 @@ case object OmegaTask extends EagerTask {
                          lowerBounds : Seq[LinearCombination],
                          upperBounds : Seq[LinearCombination],
                          order : TermOrder) : Seq[LinearCombination] =
-    (for ((geq, cases) <- lowerBounds.elements zip
+    (for ((geq, cases) <- lowerBounds.iterator zip
                           strengthenCases(elimConst, lowerBounds, upperBounds);
           val geqCoeff = (geq get elimConst).abs;
           val casesSucc = -(cases + IdealInt.ONE);
-          leq <- upperBounds.elements) yield {
+          leq <- upperBounds.iterator) yield {
        val leqCoeff = (leq get elimConst).abs
        val correction = casesSucc * leqCoeff // always negative
 
@@ -342,9 +343,9 @@ case object OmegaTask extends EagerTask {
                           lowerBounds : Seq[LinearCombination],
                           upperBounds : Seq[LinearCombination],
                           order : TermOrder) : Iterator[Conjunction] =
-    for ((lc, cases) <- lowerBounds.elements zip
+    for ((lc, cases) <- lowerBounds.iterator zip
                         strengthenCases(elimConst, lowerBounds, upperBounds);
-         k <- PlainRange(cases.intValueSafe + 1).elements)
+         k <- PlainRange(cases.intValueSafe + 1).iterator)
     yield Conjunction.conj(NegEquationConj(lc + IdealInt(-k), order), order)
 
   private def strengthenCases(elimConst : ConstantTerm,
@@ -352,8 +353,8 @@ case object OmegaTask extends EagerTask {
                               upperBounds : Seq[LinearCombination])
                              : Iterator[IdealInt] = {
     val m =
-      IdealInt.max(for (lc <- upperBounds.elements) yield (lc get elimConst).abs)
-    for (lc <- lowerBounds.elements; val coeff = (lc get elimConst).abs)
+      IdealInt.max(for (lc <- upperBounds.iterator) yield (lc get elimConst).abs)
+    for (lc <- lowerBounds.iterator; val coeff = (lc get elimConst).abs)
       yield (((m - IdealInt.ONE) * coeff - m) / m)
   }
   
@@ -371,7 +372,7 @@ case object OmegaTask extends EagerTask {
     // those constants are interesting that have to be eliminated and that occur
     // both in equations in the succedent and in inequalities, or that occur
     // in compound formulas and in inequalities
-    val elimCandidates = ac.inEqs.constants ** eConsts **
+    val elimCandidates = ac.inEqs.constants & eConsts &
                          (ac.negativeEqs.constants ++
                           goal.compoundFormulas.qfClauses.constants)
    
@@ -396,7 +397,7 @@ case object OmegaTask extends EagerTask {
         if (clauses.isEmpty)
           splitEq(eqs.last, goal, ptf)
         else
-          splitClause(clauses.first, elimConst, goal, ptf)
+          splitClause(clauses.head, elimConst, goal, ptf)
       }
     }
   }
@@ -410,7 +411,7 @@ case object OmegaTask extends EagerTask {
                           goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
     var selectedConjunct : Conjunction = null 
     val otherConjuncts = new ArrayBuffer[Conjunction]
-    for (conjunct <- c.elements) {
+    for (conjunct <- c.iterator) {
       if (selectedConjunct == null &&
           (conjunct.constants contains isolatedConstant))
         selectedConjunct = conjunct
@@ -427,7 +428,7 @@ case object OmegaTask extends EagerTask {
     val oldQFClauses =
       goal.compoundFormulas.qfClauses
     val newQFClauses =
-      NegatedConjunctions(FilterIt(oldQFClauses.elements, c != ), goal.order)
+      NegatedConjunctions(FilterIt(oldQFClauses.iterator, c != ), goal.order)
     
     BetaFormulaTask.doSplit(selectedConjunct,
                             Conjunction.conj(otherConjuncts, goal.order),
@@ -583,7 +584,7 @@ case object OmegaTask extends EagerTask {
     val ac = goal.facts.arithConj
     val order = goal.order
 
-    val elimCandidates = (ac.inEqs.constants ** eConsts)
+    val elimCandidates = (ac.inEqs.constants & eConsts)
 
     for (elimConst <- order sort elimCandidates) store.currentCases match {
       case Some(n) if (n <= 1) =>
@@ -637,7 +638,7 @@ case object OmegaTask extends EagerTask {
     val ac = goal.facts.arithConj
     val order = goal.order
 
-    val elimCandidates = (ac.inEqs.constants ** eConsts)
+    val elimCandidates = (ac.inEqs.constants & eConsts)
     
     for (elimConst <- order sort elimCandidates) {
       val boundFormula =
@@ -769,7 +770,7 @@ case object OmegaTask extends EagerTask {
       Bounded(bound, bound)
     }
     
-    for (c <- boundFormula.elements) yield {
+    for (c <- boundFormula.iterator) yield {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(AC, c.constants == Set(const))
       //-END-ASSERTION-/////////////////////////////////////////////////////////

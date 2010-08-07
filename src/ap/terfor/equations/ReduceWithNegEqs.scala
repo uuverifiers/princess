@@ -21,6 +21,7 @@
 
 package ap.terfor.equations;
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.substitutions.VariableShiftSubst

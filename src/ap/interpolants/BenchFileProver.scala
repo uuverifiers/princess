@@ -25,6 +25,7 @@ package ap.interpolants
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
+import ap._
 import ap.parameters.{Param, GlobalSettings}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.{ConstantTerm, TermOrder}
@@ -88,7 +89,7 @@ class BenchFileProver(filename : String,
                                     order sort order.orderedConstants,
                                     order sortPreds order.orderedPredicates)
     
-        for ((f, i) <- iFormulas.elements.zipWithIndex) {
+        for ((f, i) <- iFormulas.iterator.zipWithIndex) {
           println(":formula " + i)
           lin.printFormula("assumption", !removePartName(f))
         }
@@ -206,7 +207,7 @@ class BenchFileProver(filename : String,
 
   private def getNamedParts(iFormulas : List[IFormula], formulas : List[Conjunction]) = 
     Map() ++ (for ((INamedPart(name, _), f) <-
-                   iFormulas.elements zip formulas.elements)
+                   iFormulas.iterator zip formulas.iterator)
             yield (name -> f))
   
   private def withTimeout[A](comp: => A)(timeoutComp: => A) : A = {
@@ -277,7 +278,7 @@ class BenchFileProver(filename : String,
         val parts = getParts(randomizedFormulas, List(0) ++ leftLengths) 
  
         val partsAsFors = for (h <- parts) yield connect(h, IBinJunctor.Or)
-        val namedParts = (for ((h, i) <- partsAsFors.elements.zipWithIndex)
+        val namedParts = (for ((h, i) <- partsAsFors.iterator.zipWithIndex)
                           yield INamedPart(new PartName ("p" + i), h)).toList
         
         val names = for(part <- namedParts) yield part.name
@@ -299,14 +300,14 @@ class BenchFileProver(filename : String,
   
   private def removePred(iFormulas : List[IFormula]) : (List[IFormula], List[ConstantTerm]) =
   {
-    val preds =  Set() ++ (for(f <- iFormulas.elements; p <- PredicateCollector(f).elements) yield p)
+    val preds =  Set() ++ (for(f <- iFormulas.iterator; p <- PredicateCollector(f).iterator) yield p)
     
     preds.size match
     {
       case 0 => (iFormulas, List())
       case _ =>
       {
-        val map = Map() ++ (for(at <- preds.elements) yield
+        val map = Map() ++ (for(at <- preds.iterator) yield
                           (at, new ConstantTerm(at.pred.name)))    
     
         val cleanedFormulas = for(f <- iFormulas) yield 

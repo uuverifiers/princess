@@ -23,6 +23,7 @@ package ap.proof.goal;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.proof._
 import ap.terfor.{Formula, ConstantTerm, VariableTerm,
                   TermOrder, TerFor, Term}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
@@ -73,9 +74,9 @@ object Goal {
             settings : GoalSettings) : Goal = {
 
     val tasks =
-      (for (c <- initialConjs.elements;
+      (for (c <- initialConjs.iterator;
             t <- formulaTasks(c, 0, eliminatedConstants,
-                              vocabulary, settings).elements) yield t).toList
+                              vocabulary, settings).iterator) yield t).toList
 
       // TODO: this has to be done in a more systematic manner
     val initialInfCollection = if (Param.PROOF_CONSTRUCTION(settings))
@@ -261,8 +262,8 @@ class Goal private (val facts : Conjunction,
         val selectedNegEqs =
           ac.negativeEqs.updateEqsSubset(elimConstants(ac.negativeEqs))(order)
         val selectedInEqs =
-          InEqConj(elimConstants(ac.inEqs.elements ++
-                                 ac.inEqs.geqZeroInfs.elements),
+          InEqConj(elimConstants(ac.inEqs.iterator ++
+                                 ac.inEqs.geqZeroInfs.iterator),
                    order)
 
         ArithConj(selectedPosEqs, selectedNegEqs, selectedInEqs, order)
@@ -386,7 +387,7 @@ class Goal private (val facts : Conjunction,
    * collections for the subgoals. All compound formulae introduced by the split
    * rule (formulae that are not literals) have to be given as arguments.
    */
-  def startNewInferenceCollection(initialFors : => Collection[Conjunction])
+  def startNewInferenceCollection(initialFors : => Iterable[Conjunction])
                                  : BranchInferenceCollection =
     if (Param.PROOF_CONSTRUCTION(settings))
       BranchInferenceCollection(initialFors)
@@ -413,7 +414,7 @@ class Goal private (val facts : Conjunction,
         Debug.assertInt(Goal.AC, !facts.predConj.isTrue)
         //-END-ASSERTION-///////////////////////////////////////////////////////
       
-        val factDisjuncts = (for (l <- facts.arithConj.elements)
+        val factDisjuncts = (for (l <- facts.arithConj.iterator)
                                yield Conjunction.conj(l.negate, order)).toList
         ModelSearchProver(factDisjuncts, order, settings).right.get
       }, order)

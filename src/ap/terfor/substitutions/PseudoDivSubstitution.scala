@@ -21,6 +21,7 @@
 
 package ap.terfor.substitutions;
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
@@ -84,13 +85,13 @@ trait PseudoDivSubstitution extends Substitution {
                   }
                 }
     
-    val denomLcm = IdealInt.lcm(for (r <- repls.elements) yield (r _2))
+    val denomLcm = IdealInt.lcm(for (r <- repls.iterator) yield (r _2))
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(PseudoDivSubstitution.AC, denomLcm.signum > 0)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    LinearCombination(for ((num, denom, repl) <- repls.elements)
+    LinearCombination(for ((num, denom, repl) <- repls.iterator)
                       yield (num * (denomLcm / denom), repl),
                       order)
   }

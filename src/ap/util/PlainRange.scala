@@ -31,12 +31,14 @@ object PlainRange {
 
 /**
  * Extremely simple class for iterating over intervals of integers
+ *
+ * TODO: this should be removed
  */
 abstract class PlainRange extends Seq[Int]
 
 protected class IntervalPlainRange(start : Int, end : Int) extends PlainRange {
 
-  override def foreach(f: Int => Unit) : Unit = {
+  override def foreach[U](f: Int => U) : Unit = {
     var i : Int = start
     while (i < end) {
       f(i)
@@ -49,7 +51,7 @@ protected class IntervalPlainRange(start : Int, end : Int) extends PlainRange {
   
   def length = end - start
   
-  def elements = new Iterator[Int] {
+  def iterator = new Iterator[Int] {
     private var i : Int = start
     def hasNext = (i < end)
     def next = {
@@ -66,7 +68,7 @@ protected class IntervalPlainRange(start : Int, end : Int) extends PlainRange {
 protected class PredicatedPlainRange(start : Int, end : Int, pred : Int => Boolean)
       extends IntervalPlainRange(start, end) {
 
-  override def foreach(f: Int => Unit) : Unit = {
+  override def foreach[U](f: Int => U) : Unit = {
     var i : Int = start
     while (i < end) {
       if (pred(i)) f(i)
@@ -77,7 +79,7 @@ protected class PredicatedPlainRange(start : Int, end : Int, pred : Int => Boole
   override def filter(pred2 : Int => Boolean) : PlainRange =
     new PredicatedPlainRange(start, end, (i) => pred(i) && pred2(i))
 
-  override def length = throw new Predef.UnsupportedOperationException
+  override def length = throw new UnsupportedOperationException
 
-  override def apply(n : Int) = throw new Predef.UnsupportedOperationException
+  override def apply(n : Int) = throw new UnsupportedOperationException
 }

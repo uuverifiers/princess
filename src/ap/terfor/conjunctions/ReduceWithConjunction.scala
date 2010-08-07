@@ -21,6 +21,7 @@
 
 package ap.terfor.conjunctions;
 
+import ap.terfor._
 import ap.terfor.arithconj.{ArithConj, ReduceWithAC}
 import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{PredConj, ReduceWithPredLits}
@@ -90,7 +91,7 @@ object ReduceWithConjunction {
                             newPredConj : PredConj,
                             newNegConjs : NegatedConjunctions,
                             order : TermOrder) : Conjunction =
-    quans.firstOption match {
+    quans.headOption match {
       case Some(Quantifier.EX) => {
         var eliminableVars : Set[Term] = Set()
     
@@ -115,7 +116,7 @@ object ReduceWithConjunction {
             Conjunction(quans, essentialLits.arithConj, essentialLits.predConj,
                         newNegConjs, order)
           
-          if (newConj.quans.firstOption == Some(Quantifier.ALL))
+          if (newConj.quans.headOption == Some(Quantifier.ALL))
             // iterate because it might be possible to eliminate further
             // quantifiers now
             constructConj(newConj.quans, newConj.arithConj, newConj.predConj,
@@ -202,7 +203,7 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithConjunction.AC,
-                         Logic.forall(for (c <- res.elements) yield (this(c) == c)))
+                         Logic.forall(for (c <- res.iterator) yield (this(c) == c)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
@@ -260,6 +261,6 @@ private class LiteralEliminator(literals : Conjunction,
   }
 
   protected def eliminationCandidates(literals : Conjunction) : Iterator[Term] =
-    uniVariables.elements
+    uniVariables.iterator
   
 }

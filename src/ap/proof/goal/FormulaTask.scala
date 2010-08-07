@@ -62,7 +62,7 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
   /**
    * Update the task with possibly new information from the goal
    */
-  def updateTask(goal : Goal, factCollector : Conjunction => unit)
+  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                                                    : Seq[FormulaTask] = {
     val reducedFormula = goal reduceWithFacts formula
     if (reducedFormula == formula) {

@@ -47,7 +47,7 @@ case class SplitEqCertificate(leftInEq : InEqConj, rightInEq : InEqConj,
   })
   
   val localProvidedFormulas : Seq[Set[Conjunction]] =
-    Array(Set(leftInEq), Set(rightInEq))
+    Array(Set[Conjunction](leftInEq), Set[Conjunction](rightInEq))
   
 } with BinaryCertificate(_leftChild, _rightChild, _order) {
 
@@ -61,7 +61,7 @@ case class SplitEqCertificate(leftInEq : InEqConj, rightInEq : InEqConj,
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
-    "SplitEq(" + localAssumedFormulas.elements.next + ", " +
+    "SplitEq(" + localAssumedFormulas.iterator.next + ", " +
     leftChild + ", " + rightChild + ")"
 
 }

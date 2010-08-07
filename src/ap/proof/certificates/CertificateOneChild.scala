@@ -36,7 +36,8 @@ import ap.util.Debug
 /**
  * Abstract superclass of all certificate nodes that only have a single subtree
  */
-abstract case class CertificateOneChild(child : Certificate) extends Certificate {
+abstract class CertificateOneChild(val child : Certificate)
+               extends Certificate {
 
   lazy val localProvidedFormulas : Seq[Set[Conjunction]] =
     List(uniqueLocalProvidedFormulas)
@@ -51,7 +52,7 @@ abstract case class CertificateOneChild(child : Certificate) extends Certificate
       throw new NoSuchElementException
     child
   }
-  def elements = Iterator single child
+  def iterator = Iterator single child
 
 }
 
@@ -264,7 +265,7 @@ case class ReduceInference(equations : Seq[(IdealInt, EquationConj)],
            extends {
 
   val assumedFormulas = Set[Conjunction](targetLit) ++
-                             (for ((_, e) <- equations.elements) yield eqConj2Conj(e))
+                             (for ((_, e) <- equations.iterator) yield eqConj2Conj(e))
   val providedFormulas = Set[Conjunction](result)
 
 } with BranchInference {
@@ -276,7 +277,7 @@ case class ReduceInference(equations : Seq[(IdealInt, EquationConj)],
                    result == {
                      implicit val o = order
                      val modifier =
-                       sum(for ((c, e) <- equations.elements) yield (c, e(0)))
+                       sum(for ((c, e) <- equations.iterator) yield (c, e(0)))
                      val ArithConj(_, negEqs, inEqs) = targetLit
                      ArithConj(EquationConj.TRUE,
                                negEqs +++ modifier =/= 0, inEqs +++ modifier >= 0,
@@ -294,7 +295,7 @@ case class ReduceInference(equations : Seq[(IdealInt, EquationConj)],
     implicit val o = order
     val ArithConj(_, negEqs, inEqs) = targetLit
     val oriLHS = if (negEqs.isTrue) inEqs(0) else negEqs(0)
-    val modifier = sum(for ((c, e) <- equations.elements) yield (c, e(0)))
+    val modifier = sum(for ((c, e) <- equations.iterator) yield (c, e(0)))
     oriLHS + modifier
   }
 
@@ -322,8 +323,8 @@ case class ReducePredInference(equations : Seq[Seq[(IdealInt, EquationConj)]],
            extends {
 
   val assumedFormulas = Set[Conjunction](targetLit) ++
-                             (for (eqs <- equations.elements;
-                                   (_, e) <- eqs.elements) yield eqConj2Conj(e))
+                             (for (eqs <- equations.iterator;
+                                   (_, e) <- eqs.iterator) yield eqConj2Conj(e))
   val providedFormulas = Set[Conjunction](result)
 
 } with BranchInference {
@@ -334,7 +335,7 @@ case class ReducePredInference(equations : Seq[Seq[(IdealInt, EquationConj)]],
                    targetLit.positiveLits.isEmpty == result.positiveLits.isEmpty &&
                    targetLit.predicates == result.predicates &&
                    targetLit.predicates.size == 1 &&
-                   targetLit.predicates.elements.next.arity == equations.size &&
+                   targetLit.predicates.iterator.next.arity == equations.size &&
                    (equations exists (!_.isEmpty)) &&
                    result == {
                      implicit val o = order
@@ -344,8 +345,8 @@ case class ReducePredInference(equations : Seq[Seq[(IdealInt, EquationConj)]],
                                         targetLit.positiveLits(0)
                      
                      val newArgs =
-                       for ((lc, eqs) <- targetAtom.elements zip equations.elements)
-                       yield (lc + sum(for ((c, e) <- eqs.elements) yield (c, e(0))))
+                       for ((lc, eqs) <- targetAtom.iterator zip equations.iterator)
+                       yield (lc + sum(for ((c, e) <- eqs.iterator) yield (c, e(0))))
                      
                      val newAtom = targetAtom.pred(newArgs)
                      if (targetLit.positiveLits.isEmpty)
@@ -382,7 +383,7 @@ case class CombineEquationsInference(equations : Seq[(IdealInt, EquationConj)],
            extends {
 
   val assumedFormulas =
-    Set() ++ (for ((_, e) <- equations.elements) yield eqConj2Conj(e))
+    Set() ++ (for ((_, e) <- equations.iterator) yield eqConj2Conj(e))
   val providedFormulas = Set[Conjunction](result)
 
 } with BranchInference {
@@ -406,7 +407,7 @@ case class CombineEquationsInference(equations : Seq[(IdealInt, EquationConj)],
    */
   lazy val unsimplifiedLHS : LinearCombination = {
     implicit val o = order
-    sum(for ((c, e) <- equations.elements) yield (c, e(0)))
+    sum(for ((c, e) <- equations.iterator) yield (c, e(0)))
   }
 
   override def toString : String =
@@ -652,7 +653,7 @@ case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
                      implicit val o = order
                      leftAtom.pred == rightAtom.pred &&
                      result ==
-                       ((for ((l, r) <- leftAtom.elements zip rightAtom.elements)
+                       ((for ((l, r) <- leftAtom.iterator zip rightAtom.iterator)
                            yield (l - r)).toList === 0)
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////

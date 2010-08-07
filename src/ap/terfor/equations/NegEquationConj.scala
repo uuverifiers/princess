@@ -23,6 +23,7 @@ package ap.terfor.equations;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.basetypes.IdealInt
 import ap.util.{Debug, Logic, FilterIt, Seqs}
@@ -36,14 +37,12 @@ object NegEquationConj {
    * (left-hand sides).
    */
   def apply(lhss : Iterable[LinearCombination], order : TermOrder) : NegEquationConj =
-    lhss match {
-      case lhss : Collection[LinearCombination] if (lhss.isEmpty) =>
-        TRUE
-      case lhss : Collection[LinearCombination] if (lhss.size == 1) =>
-        apply(lhss.elements.next, order)
-      case _ => 
-        apply(lhss.elements, order)
-    }
+    if (lhss.isEmpty)
+      TRUE
+    else if (lhss.size == 1)
+      apply(lhss.iterator.next, order)
+    else
+      apply(lhss.iterator, order)
 
   def apply(lhs : LinearCombination, order : TermOrder) : NegEquationConj =
     if (lhs.isZero)
@@ -80,18 +79,18 @@ object NegEquationConj {
    * TODO: This could be optimised much more.
    */
   def conj(conjs : Iterator[NegEquationConj], order : TermOrder) : NegEquationConj =
-    Formula.conj(conjs, TRUE, (nonTrivialConjs:RandomAccessSeq[NegEquationConj]) => {
+    Formula.conj(conjs, TRUE, (nonTrivialConjs:IndexedSeq[NegEquationConj]) => {
                    //-BEGIN-ASSERTION-//////////////////////////////////////////
-                   Debug.assertPre(AC, Logic.forall(for (c <- nonTrivialConjs.elements)
+                   Debug.assertPre(AC, Logic.forall(for (c <- nonTrivialConjs.iterator)
                                                     yield (c isSortedBy order)))
                    //-END-ASSERTION-////////////////////////////////////////////
-                   apply(for (c <- nonTrivialConjs.elements; lhs <- c.elements)
+                   apply(for (c <- nonTrivialConjs.iterator; lhs <- c.iterator)
                          yield lhs,
                          order)
                  } )
    
   def conj(conjs : Iterable[NegEquationConj], order : TermOrder) : NegEquationConj =
-    conj(conjs.elements, order)
+    conj(conjs.iterator, order)
 
 }
 
@@ -107,7 +106,7 @@ class NegEquationConj private (_lhss : Array[LinearCombination],
     if (isSortedBy(newOrder))
       this
     else
-      NegEquationConj(for (lc <- this.elements) yield lc.sortBy(newOrder),
+      NegEquationConj(for (lc <- this.iterator) yield lc.sortBy(newOrder),
                       newOrder)
   }
 
@@ -119,7 +118,7 @@ class NegEquationConj private (_lhss : Array[LinearCombination],
    */
   def updateEqs(newEqs : Seq[LinearCombination])(implicit newOrder : TermOrder)
                : NegEquationConj =
-    if (Seqs.subSeq(newEqs.elements, this.elements)) {
+    if (Seqs.subSeq(newEqs.iterator, this.iterator)) {
       if (newEqs.size == this.size)
         this
       else
@@ -135,7 +134,7 @@ class NegEquationConj private (_lhss : Array[LinearCombination],
   def updateEqsSubset(newEqs : Seq[LinearCombination])(implicit newOrder : TermOrder)
                      : NegEquationConj = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(NegEquationConj.AC, Seqs.subSeq(newEqs.elements, this.elements))
+    Debug.assertPre(NegEquationConj.AC, Seqs.subSeq(newEqs.iterator, this.iterator))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (newEqs.size == this.size)
       this

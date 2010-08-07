@@ -27,21 +27,20 @@ import scala.collection.mutable.PriorityQueue
  * Priority queue that can handle both single elements and pre-sorted sequences
  * (iterators) of elements
  */
-class PriorityQueueWithIterators[A <% Ordered[A]] extends PeekIterator[A] {
+class PriorityQueueWithIterators[A](implicit ord: Ordering[A])
+      extends PeekIterator[A] {
 
   private val AC = Debug.AC_QUEUE_WITH_ITERATORS
 
-  private implicit def orderIterator(thisIt : PeekIterator[A])
-                                                   : Ordered[PeekIterator[A]] =
-    new Ordered[PeekIterator[A]] {
-      def compare(thatIt : PeekIterator[A]) : Int = {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(AC, thisIt.hasNext && thatIt.hasNext)
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        thisIt.peekNext compare thatIt.peekNext
-      }
+  private implicit val orderIterator = new Ordering[PeekIterator[A]] {
+    def compare(thisIt : PeekIterator[A], thatIt : PeekIterator[A]) : Int = {
+      ////////////////////////////////////////////////////////////////////////
+      Debug.assertInt(AC, thisIt.hasNext && thatIt.hasNext)
+      ////////////////////////////////////////////////////////////////////////
+      ord.compare(thisIt.peekNext, thatIt.peekNext)
     }
-  
+  }
+
   /** the internal priority queue holding the single elements */
   private val singleElements = new PriorityQueue[A]
   
@@ -67,7 +66,7 @@ class PriorityQueueWithIterators[A <% Ordered[A]] extends PeekIterator[A] {
         maxElement = maxSeq.next
         if (maxSeq.hasNext) {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, maxElement >= maxSeq.peekNext)
+          Debug.assertInt(AC, ord.gteq(maxElement, maxSeq.peekNext))
           //-END-ASSERTION-/////////////////////////////////////////////////////
           sequences += maxSeq
         }
@@ -80,7 +79,7 @@ class PriorityQueueWithIterators[A <% Ordered[A]] extends PeekIterator[A] {
         if (sequences.isEmpty) {
           maxElement = singleElements.dequeue
         } else {
-          if (sequences.max.peekNext > singleElements.max) {
+          if (ord.gt(sequences.max.peekNext, singleElements.max)) {
             peekNextFromSequence
           } else {
             maxElement = singleElements.dequeue            
@@ -123,7 +122,7 @@ class PriorityQueueWithIterators[A <% Ordered[A]] extends PeekIterator[A] {
   }
 
   /** Adds all elements provided by an iterable into the priority queue. */
-  def ++=(it: Iterable[A]): Unit = (this ++= it.elements)
+  def ++=(it: Iterable[A]): Unit = (this ++= it.iterator)
 
   /** Adds all elements provided by an iterator into the priority queue. */
   def ++=(it: Iterator[A]): Unit = it foreach { e => this += e }
@@ -158,7 +157,4 @@ class PriorityQueueWithIterators[A <% Ordered[A]] extends PeekIterator[A] {
     singleElements.clear
     sequences.clear
   }
-
-  /** Returns whether this queue contains any elements */
-  def isEmpty : Boolean = !hasNext
 }

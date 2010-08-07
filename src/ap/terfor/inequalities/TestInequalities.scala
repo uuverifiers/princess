@@ -21,6 +21,7 @@
 
 package ap.terfor.inequalities;
 
+import ap.terfor._
 import ap.util.{Debug, Logic, APTestCase, PlainRange, FilterIt}
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
@@ -67,7 +68,7 @@ class TestInequalities(n : String) extends APTestCase(n) {
       println */
       
       assertTrue(eqConj.isFalse ||
-                 Logic.forall(for (lc <- input.elements)
+                 Logic.forall(for (lc <- input.iterator)
                               yield (eqConj findLowerBound lc) match {
                                        case None => false
                                        case Some(d) => d.signum >= 0
@@ -83,7 +84,7 @@ class TestInequalities(n : String) extends APTestCase(n) {
       // equations
 /*        assertTrue(eqConj.isFalse ||
                    { val reducer = ReduceWithEqs(eqConj, to)
-                     Logic.forall(for (lc <- input.elements)
+                     Logic.forall(for (lc <- input.iterator)
                                   yield reducer(lc).isZero) })
         
         val (sEqConj, sTo) = solve(eqConj, to)
@@ -92,11 +93,11 @@ class TestInequalities(n : String) extends APTestCase(n) {
         assertEquals(sEqConj.isFalse, sEqConjRev.isFalse)
         assertTrue(sEqConjRev.isFalse ||
                    { val reducer = ReduceWithEqs(sEqConjRev, sToRev)
-                     Logic.forall(for (lc <- eqConj.elements)
+                     Logic.forall(for (lc <- eqConj.iterator)
                                   yield reducer(lc.sortBy(toRev)).isZero) })
         assertTrue(sEqConj.isFalse ||
                    { val reducer = ReduceWithEqs(sEqConj, sTo)
-                     Logic.forall(for (lc <- eqConjRev.elements)
+                     Logic.forall(for (lc <- eqConjRev.iterator)
                                   yield reducer(lc.sortBy(to)).isZero) }) */
       }
     }

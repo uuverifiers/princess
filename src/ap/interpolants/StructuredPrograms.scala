@@ -94,7 +94,7 @@ object StructuredPrograms {
 
   def equalStates(stateVars : Iterable[ConstantTerm],
                   inst1 : Renaming, inst2 : Renaming) : IFormula =
-    connect(for (c <- stateVars.elements) yield (inst1(c) === inst2(c)),
+    connect(for (c <- stateVars.iterator) yield (inst1(c) === inst2(c)),
             IBinJunctor.And)
   
   //////////////////////////////////////////////////////////////////////////////
@@ -140,7 +140,7 @@ object StructuredPrograms {
       case Choice(a, b) => {
         val assignable = st.sig.order sort assignedVars(prog)
         val newVars = Map() ++
-          (for (c <- assignable.elements) yield (c -> st.cloneConst(in(c), "_i")))
+          (for (c <- assignable.iterator) yield (c -> st.cloneConst(in(c), "_i")))
 
         val (cont, out) = post(in ++ newVars)
         

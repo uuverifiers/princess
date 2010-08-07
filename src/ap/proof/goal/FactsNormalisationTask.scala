@@ -21,6 +21,7 @@
 
 package ap.proof.goal;
 
+import ap.proof._
 import ap.terfor.{Term, Formula, TermOrder, ConstantTerm, VariableTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                NegatedConjunctions}
@@ -272,7 +273,7 @@ private class GoalColumnSolver(eqs : EquationConj,
       // then also the new constant can be eliminated, and has to be put in
       // between the non-eliminated and the eliminated constants
       val extendedOrder = order.extend(smallConst,
-                                       eliminatedConstants ** lc.constants)
+                                       eliminatedConstants & lc.constants)
 
       logger.columnReduce(lc.leadingTerm.asInstanceOf[ConstantTerm], smallConst,
                           symDefinition, false, extendedOrder)

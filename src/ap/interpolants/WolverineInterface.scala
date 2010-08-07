@@ -26,6 +26,7 @@ import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 import scala.util.Sorting
 
+import ap._
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.terfor.conjunctions.{Conjunction, Quantifier}

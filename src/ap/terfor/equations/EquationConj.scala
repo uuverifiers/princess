@@ -23,6 +23,7 @@ package ap.terfor.equations;
 
 import scala.collection.mutable.{PriorityQueue, ArrayBuffer}
 
+import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.basetypes.IdealInt
 import ap.util.{Debug, Logic, FilterIt, Seqs}
@@ -70,22 +71,20 @@ object EquationConj {
    * (left-hand sides).
    */
   def apply(lhss : Iterable[LinearCombination], order : TermOrder) : EquationConj =
-    lhss match {
-      case lhss : Collection[LinearCombination] if (lhss.isEmpty) =>
-        TRUE
-      case lhss : Collection[LinearCombination] if (lhss.size == 1) =>
-        apply(lhss.elements.next, order)
-      case _ => 
-        apply(lhss.elements,
-              ReduceWithEqs(Map.empty.asInstanceOf[Map[Term, LinearCombination]],
-                            order),
-              order)
-    }
+    if (lhss.isEmpty)
+      TRUE
+    else if (lhss.size == 1)
+      apply(lhss.iterator.next, order)
+    else
+      apply(lhss.iterator,
+            ReduceWithEqs(Map.empty.asInstanceOf[Map[Term, LinearCombination]],
+                          order),
+            order)
 
   def apply(lhss : Iterable[LinearCombination],
             modEquations : ReduceWithEqs,
             order : TermOrder) : EquationConj =
-    apply(lhss.elements, modEquations, order)
+    apply(lhss.iterator, modEquations, order)
 
   def apply(lhs : LinearCombination, order : TermOrder) : EquationConj =
     if (lhs.isZero)
@@ -115,12 +114,12 @@ object EquationConj {
   def conj(conjs : Iterator[EquationConj],
            logger : ComputationLogger,
            order : TermOrder) : EquationConj =
-    Formula.conj(conjs, TRUE, (nonTrivialConjs:RandomAccessSeq[EquationConj]) => {
+    Formula.conj(conjs, TRUE, (nonTrivialConjs:IndexedSeq[EquationConj]) => {
                    //-BEGIN-ASSERTION-//////////////////////////////////////////
-                   Debug.assertPre(AC, Logic.forall(for (c <- nonTrivialConjs.elements)
+                   Debug.assertPre(AC, Logic.forall(for (c <- nonTrivialConjs.iterator)
                                                     yield (c isSortedBy order)))
                    //-END-ASSERTION-////////////////////////////////////////////
-                   apply(for (c <- nonTrivialConjs.elements; lhs <- c.elements)
+                   apply(for (c <- nonTrivialConjs.iterator; lhs <- c.iterator)
                            yield lhs,
                          logger,
                          order)
@@ -128,13 +127,13 @@ object EquationConj {
 
   def conj(conjs : Iterable[EquationConj], logger : ComputationLogger,
            order : TermOrder) : EquationConj =
-    conj(conjs.elements, logger, order)
+    conj(conjs.iterator, logger, order)
 
   def conj(conjs : Iterator[EquationConj], order : TermOrder) : EquationConj =
     conj(conjs, ComputationLogger.NonLogger, order)
 
   def conj(conjs : Iterable[EquationConj], order : TermOrder) : EquationConj =
-    conj(conjs.elements, ComputationLogger.NonLogger, order)
+    conj(conjs.iterator, ComputationLogger.NonLogger, order)
   
 }
 
@@ -165,7 +164,7 @@ class EquationConj private (_lhss : Array[LinearCombination],
     if (isSortedBy(newOrder))
       this
     else
-      EquationConj(for (lc <- this.elements) yield lc.sortBy(newOrder),
+      EquationConj(for (lc <- this.iterator) yield lc.sortBy(newOrder),
                    newOrder)
   }
 
@@ -173,7 +172,7 @@ class EquationConj private (_lhss : Array[LinearCombination],
 
   lazy val toMap : scala.collection.Map[Term, LinearCombination] = {
     val res = new scala.collection.mutable.HashMap[Term, LinearCombination]
-    res ++= (for (lc <- this.elements) yield (lc.leadingTerm, lc))
+    res ++= (for (lc <- this.iterator) yield (lc.leadingTerm, lc))
     res
   }
 
@@ -185,7 +184,7 @@ class EquationConj private (_lhss : Array[LinearCombination],
    */
   def updateEqs(newEqs : Seq[LinearCombination])(implicit newOrder : TermOrder)
                : EquationConj =
-    if (Seqs.subSeq(newEqs.elements, this.elements)) {
+    if (Seqs.subSeq(newEqs.iterator, this.iterator)) {
       if (newEqs.size == this.size)
         this
       else
@@ -201,7 +200,7 @@ class EquationConj private (_lhss : Array[LinearCombination],
   def updateEqsSubset(newEqs : Seq[LinearCombination])(implicit newOrder : TermOrder)
                      : EquationConj = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(NegEquationConj.AC, Seqs.subSeq(newEqs.elements, this.elements))
+    Debug.assertPre(NegEquationConj.AC, Seqs.subSeq(newEqs.iterator, this.iterator))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (newEqs.size == this.size)
       this
@@ -264,12 +263,10 @@ private class RowSolver(lhss : Iterator[LinearCombination],
    * The left-hand sides are sorted by the leading term and worked off in this
    * order
    */
-  private implicit def orderTodo(thisLC : LinearCombination)
-                                                : Ordered[LinearCombination] =
-    new Ordered[LinearCombination] {
-            def compare(thatLC : LinearCombination) : Int =
-        order.compare(thisLC.leadingTerm, thatLC.leadingTerm)
-    }
+  private implicit val orderTodo = new Ordering[LinearCombination] {
+    def compare(thisLC : LinearCombination, thatLC : LinearCombination) =
+      order.compare(thisLC.leadingTerm, thatLC.leadingTerm)
+  }
 
   /**
    * The queue holding the left-hand sides that we still need to canonise
@@ -364,7 +361,7 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     val (gcd, factors) =
       IdealInt.gcdAndCofactors(for (lc <- currentLhss) yield lc.leadingCoeff)
     val gcdLhs =
-      LinearCombination.sum(factors.elements zip currentLhss.elements, order)
+      LinearCombination.sum(factors.iterator zip currentLhss.iterator, order)
 
     if (logger.isLogging && Seqs.count(factors, (f:IdealInt) => !f.isZero) > 1) {
       val terms = for ((f, e) <- factors.toList zip currentLhss.toList; if !f.isZero)
@@ -479,7 +476,7 @@ private class RowSolver(lhss : Iterator[LinearCombination],
       val reduced = modEquations.addEquations(lhsMap)(nextToReduce, reducerTerms)
       val primAndReduced =
         if (logger.isLogging && reducerTerms.size > 0) {
-          reducerTerms += (IdealInt.ONE, nextToReduce)
+          reducerTerms += (IdealInt.ONE -> nextToReduce)
           logger.ceScope.start((reducerTerms, order)) { addReduced(reduced) }
         } else {
           addReduced(reduced)

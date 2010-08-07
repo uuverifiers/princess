@@ -21,6 +21,7 @@
 
 package ap.terfor.preds;
 
+import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
@@ -33,26 +34,26 @@ object Atom {
   def apply(pred : Predicate,
             args : Iterator[LinearCombination],
             order : TermOrder) : Atom =
-    new Atom (pred, Seqs toRandomAccess args, order)
+    new Atom (pred, Seqs toArray args, order)
 
   def apply(pred : Predicate,
             args : Iterable[LinearCombination],
             order : TermOrder) : Atom =
-    new Atom (pred, Seqs toRandomAccess args, order)
+    new Atom (pred, args.toArray[LinearCombination], order)
 
 }
 
 class Atom private (val pred : Predicate,
-                    args : RandomAccessSeq[LinearCombination],
+                    args : IndexedSeq[LinearCombination],
                     val order : TermOrder)
       extends Formula
               with SortedWithOrder[Atom]
-              with RandomAccessSeq[LinearCombination] {
+              with IndexedSeq[LinearCombination] {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(Atom.AC,
                    args.size == pred.arity &&
-                   Logic.forall(for (lc <- this.elements) yield (lc isSortedBy order)))
+                   Logic.forall(for (lc <- this.iterator) yield (lc isSortedBy order)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   /**
@@ -72,7 +73,7 @@ class Atom private (val pred : Predicate,
     }
     
   def unificationConditions(that : Atom, order : TermOrder) : Iterator[LinearCombination] =
-    for ((arg1, arg2) <- (this.elements zip that.elements))
+    for ((arg1, arg2) <- (this.iterator zip that.iterator))
       yield LinearCombination.sum(Array((IdealInt.ONE, arg1),
                                         (IdealInt.MINUS_ONE, arg2)),
                                   order)
@@ -83,7 +84,7 @@ class Atom private (val pred : Predicate,
       
   def apply(i : Int) : LinearCombination = args(i)
   
-  override def elements = args.elements
+  override def elements = args.iterator
 
   def updateArgs(newArgs : Iterable[LinearCombination])
                 (implicit order : TermOrder) : Atom =
@@ -99,16 +100,17 @@ class Atom private (val pred : Predicate,
       this
     else
       new Atom (pred,
-                (for (a <- args) yield (a sortBy newOrder)).toArray,
+                (for (a <- args)
+                 yield (a sortBy newOrder)).toArray[LinearCombination],
                 newOrder)
   
   //////////////////////////////////////////////////////////////////////////////
   
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (lc <- this.elements; v <- lc.variables.elements) yield v)
+    Set.empty ++ (for (lc <- this.iterator; v <- lc.variables.iterator) yield v)
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (lc <- this.elements; c <- lc.constants.elements) yield c)
+    Set.empty ++ (for (lc <- this.iterator; c <- lc.constants.iterator) yield c)
 
   val predicates : Set[Predicate] = Set(pred)
 
@@ -134,7 +136,7 @@ class Atom private (val pred : Predicate,
   override def hashCode = hashCodeVal
 
   override def toString = {
-    val strings = for (lc <- this.elements) yield lc.toString
+    val strings = for (lc <- this.iterator) yield lc.toString
     pred.name +
     (if (strings.hasNext)
        "(" + strings.reduceLeft((s1 : String, s2 : String) => s1 + ", " + s2) + ")"

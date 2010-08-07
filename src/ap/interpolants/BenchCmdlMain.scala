@@ -135,7 +135,7 @@ object CmdlMain {
     }
 
     proveProblems(settings,
-                  for (name <- inputs.projection)
+                  for (name <- inputs.view)
                   yield (name, new java.io.BufferedReader (
                                new java.io.FileReader(new java.io.File (name)))),
                   false)

@@ -42,18 +42,18 @@ object InterpolationContext {
             spec : IInterpolantSpec,
             order : TermOrder) =
     new InterpolationContext (
-      Set()++(for(name<- spec.left.elements) yield namedParts(name).negate),
-      Set()++(for(name<- spec.right.elements) yield namedParts(name).negate),
-      Set()++(for (f <- (namedParts get PartName.NO_NAME).elements) yield f.negate),
+      Set()++(for(name<- spec.left.iterator) yield namedParts(name).negate),
+      Set()++(for(name<- spec.right.iterator) yield namedParts(name).negate),
+      Set()++(for (f <- (namedParts get PartName.NO_NAME).iterator) yield f.negate),
       Map(), Map(), order)
   
   def apply(leftFormulas : Iterable[Conjunction],
             rightFormulas : Iterable[Conjunction],
             commonFormulas : Iterable[Conjunction],
             order : TermOrder) =
-    new InterpolationContext (Set() ++ (for (f <- leftFormulas.elements) yield f.negate),
-                              Set() ++ (for (f <- rightFormulas.elements) yield f.negate),
-                              Set() ++ (for (f <- commonFormulas.elements) yield f.negate),
+    new InterpolationContext (Set() ++ (for (f <- leftFormulas.iterator) yield f.negate),
+                              Set() ++ (for (f <- rightFormulas.iterator) yield f.negate),
+                              Set() ++ (for (f <- commonFormulas.iterator) yield f.negate),
                               Map(), Map(), order)
   
 }
@@ -67,10 +67,10 @@ class InterpolationContext(
   val order : TermOrder)
 {
    private def getConstants(fors : Iterable[Formula]) =
-     Set() ++ (for(f <- fors.elements; c <- f.constants.elements) yield c)
+     Set() ++ (for(f <- fors.iterator; c <- f.constants.iterator) yield c)
 
    private def getPredicates(fors : Iterable[Formula]) =
-     Set() ++ (for(f <- fors.elements; p <- f.predicates.elements) yield p)
+     Set() ++ (for(f <- fors.iterator; p <- f.predicates.iterator) yield p)
    
    lazy val commonFormulaConstants = getConstants(commonFormulae)
   
@@ -83,7 +83,7 @@ class InterpolationContext(
    lazy val rightLocalConstants =  rightConstants -- leftConstants
    
    lazy val globalConstants =
-     (leftConstants ** rightConstants) ++ commonFormulaConstants
+     (leftConstants & rightConstants) ++ commonFormulaConstants
   
    lazy val commonFormulaPredicates = getPredicates(commonFormulae)
    lazy val leftPredicates = getPredicates(leftFormulae)
@@ -94,7 +94,7 @@ class InterpolationContext(
 
    lazy val leftLocalPredicates = leftPredicates -- rightPredicates
    lazy val globalPredicates =
-     (leftPredicates ** rightPredicates) ++ commonFormulaPredicates
+     (leftPredicates & rightPredicates) ++ commonFormulaPredicates
   
   
   def addPartialInterpolant(literal : ArithConj,
@@ -144,9 +144,9 @@ class InterpolationContext(
   
   def getPredAtomRewriting(rewrittenLit : PredConj)
                           : (Seq[Seq[(IdealInt, EquationConj)]], PredConj) = {
-    val pred = rewrittenLit.predicates.elements.next
+    val pred = rewrittenLit.predicates.iterator.next
     rewrittenPredAtoms.getOrElse(rewrittenLit,
-                                 (Array.make(pred.arity, List()), rewrittenLit))
+                                 (Array.fill(pred.arity)(List()), rewrittenLit))
   }
   
   def isRewrittenLeftLit(lit : PredConj) : Boolean = {
@@ -170,7 +170,7 @@ class InterpolationContext(
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val (oldEqs, oriLit) = getPredAtomRewriting(targetLit)
-    val newEqs = (for ((eqs1, eqs2) <- oldEqs.elements zip equations.elements)
+    val newEqs = (for ((eqs1, eqs2) <- oldEqs.iterator zip equations.iterator)
                     yield (eqs1 ++ eqs2)).toList
     
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,

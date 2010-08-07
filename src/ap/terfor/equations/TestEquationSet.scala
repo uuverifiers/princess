@@ -23,6 +23,7 @@ package ap.terfor.equations;
 
 import scala.collection.immutable.HashMap
 
+import ap.terfor._
 import ap.util.{Debug, Logic, APTestCase, PlainRange, FilterIt}
 import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
@@ -69,7 +70,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       }.result
     
     assertTrue(resEqs.isTrue ||
-               Logic.forall(for (lc <- resEqs.elements)
+               Logic.forall(for (lc <- resEqs.iterator)
                             yield (lc.leadingCoeff.isOne)))
     (resEqs, resOrder)
   }
@@ -90,7 +91,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       // equations
       assertTrue(eqConj.isFalse ||
                  { val reducer = ReduceWithEqs(eqConj, to)
-                   Logic.forall(for (lc <- input.elements)
+                   Logic.forall(for (lc <- input.iterator)
                                 yield reducer(lc).isZero) })
       
       val (sEqConj, sTo) = solve(eqConj, to)
@@ -99,11 +100,11 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       assertEquals(sEqConj.isFalse, sEqConjRev.isFalse)
       assertTrue(sEqConjRev.isFalse ||
                  { val reducer = ReduceWithEqs(sEqConjRev, sToRev)
-                   Logic.forall(for (lc <- eqConj.elements)
+                   Logic.forall(for (lc <- eqConj.iterator)
                                 yield reducer(lc.sortBy(toRev)).isZero) })
       assertTrue(sEqConj.isFalse ||
                  { val reducer = ReduceWithEqs(sEqConj, sTo)
-                   Logic.forall(for (lc <- eqConjRev.elements)
+                   Logic.forall(for (lc <- eqConjRev.iterator)
                                 yield reducer(lc.sortBy(to)).isZero) })
     }
   }
@@ -127,7 +128,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
         val (sConj, sTo) = solve(asConj, to)
         val reducer = ReduceWithEqs(sConj, sTo)
         assertTrue(reducer(eqDisj).isFalse)
-        assertTrue(Logic.exists(for (lhs <- input.elements)
+        assertTrue(Logic.exists(for (lhs <- input.iterator)
                                 yield reducer(lhs).isZero))
       }
     }
@@ -155,7 +156,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       val toBeReduced = randomLC(Debug.random(0, 10))
       val reduced = ReduceWithEqs(eqsMap, to)(toBeReduced)
       
-      assertTrue(Logic.forall(for (t <- eqsMap.keys)
+      assertTrue(Logic.forall(for (t <- eqsMap.keysIterator)
                               yield reduced.get(t).isZero))
       assertTrue(to.compare(toBeReduced, reduced) >= 0)
     }
@@ -182,7 +183,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
                    IdealInt.sum(for (t <- eqsMap.keySet.toList)
                                 yield toBeReduced.get(t)) + toBeReduced.constant)
       assertTrue(Logic.forall(
-          for (t <- FilterIt(constsAndOne.elements,
+          for (t <- FilterIt(constsAndOne.iterator,
                              (t:Term) => t.isInstanceOf[ConstantTerm] &&
                                          !(eqsMap.keySet contains t)))
           yield reduced.get(t) == toBeReduced.get(t)))
@@ -210,7 +211,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       val toBeReduced = randomLC(Debug.random(0, 10))
       val reduced = ReduceWithEqs(eqsMap, to)(toBeReduced)
          
-      assertTrue(Logic.forall(for (lc <- eqsMap.values)
+      assertTrue(Logic.forall(for (lc <- eqsMap.valuesIterator)
                               yield (reduced.get(lc.leadingTerm)
                                      isAbsMinMod lc.leadingCoeff)))
       assertTrue(to.compare(toBeReduced, reduced) >= 0)
@@ -242,14 +243,14 @@ class TestEquationSet(n : String) extends APTestCase(n) {
       val reduced2 = ReduceWithEqs(eqsMap, to)(toBeReduced2)
       
       assertTrue(toBeReduced.size != 1 ||
-                 Logic.forall(for (lc <- reduced.elements)
+                 Logic.forall(for (lc <- reduced.iterator)
                               yield (to.compare(toBeReduced(0), lc) >= 0)))
       assertTrue(toBeReduced2.size != 1 ||
-                 Logic.forall(for (lc <- reduced2.elements)
+                 Logic.forall(for (lc <- reduced2.iterator)
                               yield (to.compare(toBeReduced2(0), lc) >= 0)))
 
       assertTrue(reduced2.isFalse ||
-                 Logic.forall(for (lc <- reduced2.elements)
+                 Logic.forall(for (lc <- reduced2.iterator)
                               yield !(eqsMap contains lc.leadingTerm)))
     }
   }

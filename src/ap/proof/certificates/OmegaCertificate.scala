@@ -52,24 +52,24 @@ case class OmegaCertificate(elimConst : ConstantTerm,
 
   val closingConstraint = {
     implicit val o = order
-    conj(for (c <- children.elements) yield c.closingConstraint)
+    conj(for (c <- children.iterator) yield c.closingConstraint)
   }
   
   val localAssumedFormulas : Set[Conjunction] =
-    Set() ++ (for (c <- boundsA.elements ++ boundsB.elements) yield inEqConj2Conj(c))
+    Set() ++ (for (c <- boundsA.iterator ++ boundsB.iterator) yield inEqConj2Conj(c))
   
   val strengthenCases = {
     val m =
-      IdealInt.max(for (conj <- boundsB.elements) yield (conj(0) get elimConst).abs)
+      IdealInt.max(for (conj <- boundsB.iterator) yield (conj(0) get elimConst).abs)
     for (conj <- boundsA; val coeff = (conj(0) get elimConst).abs)
       yield (((m - IdealInt.ONE) * coeff - m) / m + 1)
   }
 
   val darkShadow : Seq[InEqConj] = {
     implicit val o = order
-    (for ((geq, cases) <- boundsA.elements zip strengthenCases.elements;
+    (for ((geq, cases) <- boundsA.iterator zip strengthenCases.iterator;
           val geqCoeff = (geq(0) get elimConst).abs;
-          leq <- boundsB.elements) yield {
+          leq <- boundsB.iterator) yield {
        val leqCoeff = (leq(0) get elimConst).abs
        leqCoeff * geq(0) + geqCoeff * leq(0) - cases * leqCoeff >= 0
      }).toList
@@ -77,8 +77,8 @@ case class OmegaCertificate(elimConst : ConstantTerm,
   
   val localProvidedFormulas : Seq[Set[Conjunction]] = {
     implicit val o = order
-    (for ((conj, cases) <- boundsA.elements zip strengthenCases.elements;
-         i <- (0 until cases.intValueSafe).elements)
+    (for ((conj, cases) <- boundsA.iterator zip strengthenCases.iterator;
+         i <- (0 until cases.intValueSafe).iterator)
        yield Set[Conjunction](conj(0) === i)).toList ++
     List(Set() ++ (for (c <- darkShadow) yield inEqConj2Conj(c)))
   }
@@ -102,11 +102,11 @@ case class OmegaCertificate(elimConst : ConstantTerm,
 
   def length = children.length
   def apply(i : Int) : Certificate = children(i)
-  def elements = children.elements
+  def iterator = children.iterator
 
   override def toString : String =
     "Omega(" + elimConst + ", {" +
-    ((boundsA.elements zip strengthenCases.elements) mkString ", ") + "}, {" +
+    ((boundsA.iterator zip strengthenCases.iterator) mkString ", ") + "}, {" +
     (boundsB mkString ", ") + "} -> " + (children mkString ", ") + ")"
 
 }
