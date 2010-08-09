@@ -60,6 +60,12 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     res
   }
   
+  private val constantNum : scala.collection.Map[ConstantTerm, Int] = {
+    val res = new scala.collection.mutable.HashMap[ConstantTerm, Int]
+    res ++= constantSeq.iterator.zipWithIndex
+    res
+  }
+  
   private val predicateWeight : scala.collection.Map[Predicate, Int] = {
     val res = new scala.collection.mutable.HashMap[Predicate, Int]
     res ++= predicateSeq.iterator.zipWithIndex
@@ -101,7 +107,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     res ++= constants
 
     def comesBefore(a : ConstantTerm, b : ConstantTerm) : Boolean =
-      this.compare(a, b) < 0
+      this.compareTerms(a, b) < 0
     Sorting.stableSort(res, comesBefore _)
   }
   
@@ -130,7 +136,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     implicit def orderLC(thisLC : LinearCombination) =
       new Ordered[LinearCombination] {
         def compare(thatLC : LinearCombination) : Int =
-          TermOrder.this.compare(thatLC, thisLC)
+          TermOrder.this.fastCompare(thatLC, thisLC)
       }
    
     var i = Seqs.binSearch(seq, 0, seq.size, LinearCombination(lt, this)) match {
@@ -153,18 +159,33 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def compare(t1 : Term, t2 : Term) : Int = (t1, t2) match {
-    case (t1 : LinearCombination, t2 : LinearCombination) => {
-      val res = fastCompare(t1, t2)
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPost(TermOrder.AC, {
-        val otherRes = Seqs.lexCompare(weightIt(t1), weightIt(t2))
-        (res < 0) == (otherRes < 0) && (res > 0) == (otherRes > 0)
-      })
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      res      
+  def compare(t1 : Term, t2 : Term) : Int = compareTerms(t1, t2)
+
+  private def compareTerms(t1 : Term, t2 : Term) : Int = {
+    val res = (t1, t2) match {
+      case (_ : VariableTerm, _ : ConstantTerm | OneTerm) |
+           (_ : ConstantTerm, OneTerm) =>
+        1
+      case (_ : ConstantTerm, _ : VariableTerm) |
+           (OneTerm, _ : VariableTerm | _ : ConstantTerm) =>
+        -1
+      case (VariableTerm(i1), VariableTerm(i2)) =>
+        i2 - i1
+      case (OneTerm, OneTerm) =>
+        0
+      case (c1 : ConstantTerm, c2 : ConstantTerm) =>
+        constantNum(c1) - constantNum(c2)
+      case (t1 : LinearCombination, t2 : LinearCombination) =>
+        fastCompare(t1, t2)
+      case _ => Seqs.lexCompare(weightIt(t1), weightIt(t2))
     }
-    case _ => Seqs.lexCompare(weightIt(t1), weightIt(t2))
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertPost(TermOrder.AC, {
+      val otherRes = Seqs.lexCompare(weightIt(t1), weightIt(t2))
+      (res < 0) == (otherRes < 0) && (res > 0) == (otherRes > 0)
+    })
+    ////////////////////////////////////////////////////////////////////////////
+    res
   }
 
   /**
@@ -181,7 +202,8 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
           val (c1, v1) = t1(i)
           val (c2, v2) = t2(i)
           
-          val cmp0 = weightOfAtomicTerm(v1) compare weightOfAtomicTerm(v2)
+//          val cmp0 = weightOfAtomicTerm(v1) compare weightOfAtomicTerm(v2)
+          val cmp0 = compareTerms(v1, v2)
           if (cmp0 != 0) return cmp0
           
           val cmp1 = c1 compareAbs c2
@@ -206,7 +228,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     implicit def orderLCs(thisLC : LinearCombination) =
       new Ordered[LinearCombination] {
         def compare(thatLC : LinearCombination) : Int =
-          TermOrder.this.compare(thisLC, thatLC)
+          TermOrder.this.fastCompare(thisLC, thatLC)
       }
       
     Seqs.lexCompare(c1.iterator, c2.iterator)
@@ -223,7 +245,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     implicit def orderLCs(thisLC : LinearCombination) =
       new Ordered[LinearCombination] {
         def compare(thatLC : LinearCombination) : Int =
-          TermOrder.this.compare(thisLC, thatLC)
+          TermOrder.this.fastCompare(thisLC, thatLC)
       }
 
     Seqs.lexCombineInts(predicateWeight(a1.pred) compare predicateWeight(a2.pred),
