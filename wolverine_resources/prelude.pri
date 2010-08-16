@@ -144,43 +144,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Domain predicates
 
-  \forall int x, width; (width != 32 & width != 8 -> inSigned(width, x) ->
-    \exists int y; (y = shiftLeft(1, width - 1) & x >= -y & x < y))
+  \forall int x, base; (inSigned(base, x) -> x >= -base & x < base)
 &
-  \forall int x, width; (width != 32 & width != 8 -> inUnsigned(width, x) ->
-    x >= 0 & x < shiftLeft(1, width))
+  \forall int x, base; (inUnsigned(base, x) -> x >= 0 & x < 2*base)
 &
 
-  \forall int x; (inSigned(32, x) ->
-    x >= -2*1024*1024*1024 & x < 2*1024*1024*1024)
-&
-  \forall int x; (inUnsigned(32, x) ->
-    x >= 0 & x < 4*1024*1024*1024)
-&
-
-  \forall int x; (inSigned(8, x) ->
-    x >= -128 & x < 128)
-&
-  \forall int x; (inUnsigned(8, x) ->
-    x >= 0 & x < 256)
-&
 
 ////////////////////////////////////////////////////////////////////////////////
 // Addition with overflow
 
-  \forall int x, y, res, width; {addSigned(width, x, y)} (
-    width != 32 -> addSigned(width, x, y) = res ->
-    \exists int corr; (corr = shiftLeft(1, width) &
-                       (res = x + y | res = x + y - corr |
-                                      res = x + y + corr)) &
-    inSigned(width, res)
-  )
-&
-  \forall int x, y, res; {addSigned(32, x, y)} (
-    addSigned(32, x, y) = res ->
-    (res = x + y | res = x + y - 4*1024*1024*1024 |
-                   res = x + y + 4*1024*1024*1024) &
-    res >= -2*1024*1024*1024 & res < 2*1024*1024*1024
+  \forall int x, y, res, base; {addSigned(base, x, y)} (
+    addSigned(base, x, y) = res ->
+    (x + y >= base -> res = x + y - 2*base) &
+    (x + y < -base -> res = x + y + 2*base) &
+    (x + y >= -base & x + y < base -> res = x + y)
   )
 
 /* This version currently does not perform well due to rounding
@@ -192,65 +169,38 @@
 
 &
 
-  \forall int x, y, res, width; {addUnsigned(width, x, y)} (
-    width != 32 -> addUnsigned(width, x, y) = res ->
-    (res = x + y | res = x + y - shiftLeft(1, width)) &
-    inUnsigned(width, res)
+  \forall int x, y, res, base; {addUnsigned(base, x, y)} (
+    addUnsigned(base, x, y) = res ->
+    (x + y >= 2*base -> res = x + y - 2*base) &
+    (x + y < 2*base -> res = x + y)
   )
-&
-  \forall int x, y, res; {addUnsigned(32, x, y)} (
-    addUnsigned(32, x, y) = res ->
-    (res = x + y | res = x + y - 4*1024*1024*1024) &
-    inUnsigned(32, res)
-  )
-
-/* This version currently does not perform well due to rounding
-  \forall int x, y, res, width; {addUnsigned(width, x, y)} (
-    addUnsigned(width, x, y) = res ->
-    \exists int k; res = x + y + shiftLeft(k, width) &
-    inUnsigned(width, res)
-  ) */
 
 ////////////////////////////////////////////////////////////////////////////////
 // Unary minus with overflow
 
 &
-  \forall int x, res; {minusSigned(32, x)} (
-    minusSigned(32, x) = res ->
-    (res = -x | res = -x - 4*1024*1024*1024) &
-    inSigned(32, res)
+  \forall int base, x, res; {minusSigned(base, x)} (
+    minusSigned(base, x) = res ->
+    (-x >= base -> res = -x - 2*base) &
+    (-x < base -> res = -x)
   )
 
 &
-  \forall int width, x, res; {minusSigned(width, x)} (
-    width != 32 -> minusSigned(width, x) = res ->
-    (res = -x | res = -x - shiftLeft(1, width)) &
-    inSigned(width, res)
-  )
-
-&
-  \forall int x, res; {minusUnsigned(32, x)} (
-    minusUnsigned(32, x) = res ->
-    (res = -x | res = -x + 4*1024*1024*1024) &
-    inUnsigned(32, res)
-  )
-
-&
-  \forall int width, x, res; {minusUnsigned(width, x)} (
-    width != 32 -> minusUnsigned(width, x) = res ->
-    (res = -x | res = -x + shiftLeft(1, width)) &
-    inUnsigned(width, res)
+  \forall int base, x, res; {minusUnsigned(base, x)} (
+    minusUnsigned(base, x) = res ->
+    (x = 0 -> res = 0) &
+    (x > 0 -> res = 2*base -x)
   )
 
 ////////////////////////////////////////////////////////////////////////////////
 // Subtraction with overflow
 
 &
-  \forall int width, x, y; {subSigned(width, x, y)}
-    subSigned(width, x, y) = addSigned(width, x, minusSigned(width, y))
+  \forall int base, x, y; {subSigned(base, x, y)}
+    subSigned(base, x, y) = addSigned(base, x, minusSigned(base, y))
 &
-  \forall int width, x, y; {subUnsigned(width, x, y)}
-    subUnsigned(width, x, y) = addUnsigned(width, x, minusUnsigned(width, y))
+  \forall int base, x, y; {subUnsigned(base, x, y)}
+    subUnsigned(base, x, y) = addUnsigned(base, x, minusUnsigned(base, y))
 
 ////////////////////////////////////////////////////////////////////////////////
 // Bit-wise and. This mainly does a case analysis over the second
@@ -300,35 +250,35 @@
        )))
 &
 
-  \forall int width, x; {mulUnsigned(width, x, 0)} mulUnsigned(width, x, 0) = 0
+  \forall int base, x; {mulUnsigned(base, x, 0)} mulUnsigned(base, x, 0) = 0
 &
-  \forall int width, x, y, res; {mulUnsigned(width, x, y)}
-      (y >= 1 -> mulUnsigned(width, x, y) = res ->
+  \forall int base, x, y, res; {mulUnsigned(base, x, y)}
+      (y >= 1 -> mulUnsigned(base, x, y) = res ->
        \exists int l, n, subres; (
-           mulUnsigned(width, addUnsigned(width, x, x), l) = subres &
+           mulUnsigned(base, addUnsigned(base, x, x), l) = subres &
            y = 2*l + n & (
              n = 0 & res = subres
              |
                 // HACK to prevent the "addUnsigned" from escaping
                 // (should be fixed in the function encoder, TODO)
-             n = 1 & \exists int x'; (x' = x & res = addUnsigned(width, subres, x'))
+             n = 1 & \exists int x'; (x' = x & res = addUnsigned(base, subres, x'))
        )))
 &
 
-  \forall int width, x; {mulSigned(width, x, 0)} mulSigned(width, x, 0) = 0
+  \forall int base, x; {mulSigned(base, x, 0)} mulSigned(base, x, 0) = 0
 &
-  \forall int width, x; {mulSigned(width, x, -1)} mulSigned(width, x, -1) = minusSigned(width, x)
+  \forall int base, x; {mulSigned(base, x, -1)} mulSigned(base, x, -1) = minusSigned(base, x)
 &
-  \forall int width, x, y, res; {mulSigned(width, x, y)}
-      ((y >= 1 | y <= -2) -> mulSigned(width, x, y) = res ->
+  \forall int base, x, y, res; {mulSigned(base, x, y)}
+      ((y >= 1 | y <= -2) -> mulSigned(base, x, y) = res ->
        \exists int l, n, subres; (
-           mulSigned(width, addSigned(width, x, x), l) = subres &
+           mulSigned(base, addSigned(base, x, x), l) = subres &
            y = 2*l + n & (
              n = 0 & res = subres
              |
                 // HACK to prevent the "addSigned" from escaping
                 // (should be fixed in the function encoder, TODO)
-             n = 1 & \exists int x'; (x' = x & res = addSigned(width, subres, x'))
+             n = 1 & \exists int x'; (x' = x & res = addSigned(base, subres, x'))
        )))
 &
 
@@ -360,15 +310,15 @@
       )
   )
 &
-  \forall int x, y, res, width; {divUnsigned(width, x, y)} (
-    divUnsigned(width, x, y) = div(x, y)
+  \forall int x, y, res, base; {divUnsigned(base, x, y)} (
+    divUnsigned(base, x, y) = div(x, y)
   )
 &
-  \forall int x, y, res, width; {divSigned(width, x, y)} (
-    divSigned(width, x, y) = res ->
+  \forall int x, y, res, base; {divSigned(base, x, y)} (
+    divSigned(base, x, y) = res ->
     \exists int divres; (divres = div(x, y) &
-                         (res = divres | res = divres - shiftLeft(1, width))) &
-    inSigned(width, res)
+                         (divres >= base -> res = divres - 2*base) &
+                         (divres < base -> res = divres))
   )
 &
 
@@ -413,17 +363,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Typecasts
 // Signed to Unsigned
-  \forall int x; {signed2unsigned(32, x)} (
-    x < 0 -> signed2unsigned(32, x) = x + 4*1024*1024*1024)
+
+  \forall int base, x; {signed2unsigned(base, x)} (
+    x < 0 -> signed2unsigned(base, x) = x + 2*base)
 &
-  \forall int x; {signed2unsigned(32, x)} (
-    x >= 0 -> signed2unsigned(32, x) = x)
-&
-  \forall int width, x; {signed2unsigned(width, x)} (
-    x < 0 -> signed2unsigned(width, x) = x + shiftLeft(1, width))
-&
-  \forall int width, x; {signed2unsigned(width, x)} (
-    x >= 0 -> signed2unsigned(width, x) = x)
+  \forall int base, x; {signed2unsigned(base, x)} (
+    x >= 0 -> signed2unsigned(base, x) = x)
 &
 
 ////////////////////////////////////////////////////////////////////////////////
