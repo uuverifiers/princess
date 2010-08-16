@@ -110,12 +110,25 @@
     shiftLeft(x, 31) = 2*1024*1024*1024*x
 &
   \forall int x, y; {shiftLeft(x, y)} (
-    16 <= y & y < 31 -> shiftLeft(x, y) = shiftLeft(64*1024*x, y-16))
+    y < 31 & y >= 16 -> shiftLeft(x, y) = shiftLeft(64*1024*x, y-16))
 &
   \forall int x, y; {shiftLeft(x, y)} (
-    y < 16 & y > 0 -> shiftLeft(x, y) = shiftLeft(2*x, y-1))
+    y < 16 & y > 8 -> shiftLeft(x, y) = shiftLeft(256*x, y-8))
 &
-  \forall int x; {shiftLeft(x, 0)} shiftLeft(x, 0) = x
+  \forall int x, y; {shiftLeft(x, 8)}
+    shiftLeft(x, 8) = 256*x
+&
+  \forall int x, y; {shiftLeft(x, y)} (
+    y < 8 & y >= 4 -> shiftLeft(x, y) = shiftLeft(16*x, y-4))
+&
+  \forall int x, y; {shiftLeft(x, y)} (
+    y < 4 & y >= 2 -> shiftLeft(x, y) = shiftLeft(4*x, y-2))
+&
+  \forall int x, y; {shiftLeft(x, 1)}
+    shiftLeft(x, 1) = 2*x
+&
+  \forall int x; {shiftLeft(x, 0)}
+    shiftLeft(x, 0) = x
 &
 
   \forall int x, y, res; {shiftRight(x, y)} (
@@ -131,10 +144,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Domain predicates
 
-  \forall int x, width; (width != 32 -> inSigned(width, x) ->
+  \forall int x, width; (width != 32 & width != 8 -> inSigned(width, x) ->
     \exists int y; (y = shiftLeft(1, width - 1) & x >= -y & x < y))
 &
-  \forall int x, width; (width != 32 -> inUnsigned(width, x) ->
+  \forall int x, width; (width != 32 & width != 8 -> inUnsigned(width, x) ->
     x >= 0 & x < shiftLeft(1, width))
 &
 
@@ -143,6 +156,13 @@
 &
   \forall int x; (inUnsigned(32, x) ->
     x >= 0 & x < 4*1024*1024*1024)
+&
+
+  \forall int x; (inSigned(8, x) ->
+    x >= -128 & x < 128)
+&
+  \forall int x; (inUnsigned(8, x) ->
+    x >= 0 & x < 256)
 &
 
 ////////////////////////////////////////////////////////////////////////////////
