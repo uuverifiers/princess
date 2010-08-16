@@ -7,7 +7,7 @@
 ->
   \part[p1] (x-y <= 2 & x-y >= -2)
 ->
-  \part[p2] (z = addSigned(32, y, 13))
+  \part[p2] (z = addSigned(2*1024*1024*1024, y, 13))
 ->
   \part[p3] (z > 20)
 ->
