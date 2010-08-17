@@ -338,6 +338,13 @@ class FrameworkVocabulary(preludeEnv : Environment) {
   val proj2 = lookupFun("proj2")
   
   val addSigned = lookupFun("addSigned")
+  val addUnsigned = lookupFun("addUnsigned")
+  val subSigned = lookupFun("subSigned")
+  val subUnsigned = lookupFun("subUnsigned")
+  val mulSigned = lookupFun("mulSigned")
+  val mulUnsigned = lookupFun("mulUnsigned")
+  val minusSigned = lookupFun("minusSigned")
+  val minusUnsigned = lookupFun("minusUnsigned")
 
   val inSigned = lookupPred("inSigned")
   val inUnsigned = lookupPred("inUnsigned")
@@ -398,13 +405,15 @@ case class Interval(lower : IdealInt, upper : IdealInt) {
   def subsetOf(that : Interval) =
     (this.lower >= that.lower) && (this.upper <= that.upper)
     
-  def *(that : IdealInt) =
+  def +(that : Interval) =
+    Interval(this.lower + that.lower, this.upper + that.upper)
+  def *(that : IdealInt) : Interval =
     if (that.isPositive)
       Interval(lower * that, upper * that)
     else
       Interval(upper * that, lower * that)
-  def +(that : Interval) =
-    Interval(this.lower + that.lower, this.upper + that.upper)
+  def *(that : Interval) : Interval =
+    (this * that.lower) join (this * that.upper)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -419,9 +428,68 @@ class BitvectorSimplifier(ranges : SymbolRangeEnvironment,
       extends CollectingVisitor[Unit, (IExpression, Option[Interval])] {
   import IExpression._
   
+  /**
+   * Map from unary bit-vector operations to Presburger operations
+   */
+  private val unaryBitvectorOps
+              : Map[IFunction,
+                    (// range of the operand/result type
+                     IdealInt => Interval,
+                     // corresponding operation on intervals
+                     Interval => Interval,
+                     // corresponding operation on Presburger terms
+                     // (might only be defined for some operands)
+                     PartialFunction[ITerm, ITerm])] =
+    Map(voc.minusSigned ->   (Interval signed _,
+                              _ * IdealInt.MINUS_ONE,
+                              { case x => -x }),
+        voc.minusUnsigned -> (Interval unsigned _,
+                              _ * IdealInt.MINUS_ONE,
+                              { case x => -x }))
+  
+  /**
+   * Map from binary bit-vector operations to Presburger operations
+   */
+  private val binBitvectorOps
+              : Map[IFunction,
+                    (// range of the operand/result type
+                     IdealInt => Interval,
+                     // corresponding operation on intervals
+                     (Interval, Interval) => Interval,
+                     // corresponding operation on Presburger terms
+                     // (might only be defined for some operands)
+                     PartialFunction[(ITerm, ITerm), ITerm])] =
+    Map(voc.addSigned ->   (Interval signed _,
+                            _ + _,
+                            { case (x, y) => x + y }),
+        voc.addUnsigned -> (Interval unsigned _,
+                            _ + _,
+                            { case (x, y) => x + y }),
+        voc.subSigned ->   (Interval signed _,
+                            (x, y) => x + y * IdealInt.MINUS_ONE,
+                            { case (x, y) => x - y }),
+        voc.subUnsigned -> (Interval unsigned _,
+                            (x, y) => x + y * IdealInt.MINUS_ONE,
+                            { case (x, y) => x - y }),
+        voc.mulSigned ->   (Interval signed _,
+                            _ * _,
+                            { case (Const(v), x) => x * v
+                              case (x, Const(v)) => x * v }),
+        voc.mulUnsigned -> (Interval unsigned _,
+                            _ * _,
+                            { case (Const(v), x) => x * v
+                              case (x, Const(v)) => x * v }))
+  
   private def toFirst(subres : Seq[(IExpression, Option[Interval])]) =
     for ((a, _) <- subres) yield a
   
+  override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = t match {
+    case t : ITrigger =>
+      // don't descend below triggers
+      ShortCutResult((t, None))
+    case _ => super.preVisit(t, arg)
+  }
+    
   def postVisit(t : IExpression, arg : Unit,
                 subres : Seq[(IExpression, Option[Interval])])
                : (IExpression, Option[Interval]) = t match {
@@ -435,27 +503,58 @@ class BitvectorSimplifier(ranges : SymbolRangeEnvironment,
       (t update toFirst(subres),
        for (i1 <- subres(0)._2; i2 <- subres(1)._2) yield (i1 + i2))
 
-    case IFunApp(voc.addSigned, Seq(SignConst(base, 1), _, _)) => {
-      val typeRange = Interval signed base
-      
-      (for (i1 <- subres(1)._2; if (i1 subsetOf typeRange);
-            i2 <- subres(2)._2; if (i2 subsetOf typeRange)) yield (i1 + i2)) match {
-        case Some(iv) =>
+    case IFunApp(fun, Seq(SignConst(base, 1), _))
+      // unary bit-vector operators
+      if (unaryBitvectorOps contains fun) => {
+        val (typeCtor, intervalOp, presburgerOp) = unaryBitvectorOps(fun)
+        val typeRange = typeCtor(base)
+        val t1 = subres(1)._1.asInstanceOf[ITerm]
+        
+        if ((presburgerOp isDefinedAt t1) &&
+            (subres(1)._2 exists (_ subsetOf typeRange))) {
+          val iv = intervalOp(subres(1)._2.get)
+
           if (iv subsetOf typeRange)
             // then we know that there are no overflows and can just apply
-            // normal addition
-            (subres(1)._1.asInstanceOf[ITerm] + subres(2)._1.asInstanceOf[ITerm],
-             Some(iv))
+            // normal Presburger operations
+            (presburgerOp(t1), Some(iv))
           else
             // if the operands are at least within the correct range, it is
             // guaranteed that the result also is
             (t update toFirst(subres), Some(typeRange))
-        case _ =>
-          // if the operands might be outside of the correct range,
-          // we don't know anything about the result of the operation
+        } else {
           (t update toFirst(subres), None)
+        }
       }
-    }
+
+    case IFunApp(fun, Seq(SignConst(base, 1), _, _))
+      // binary bit-vector operators
+      if (binBitvectorOps contains fun) => {
+        val (typeCtor, intervalOp, presburgerOp) = binBitvectorOps(fun)
+        val typeRange = typeCtor(base)
+        val t1 = subres(1)._1.asInstanceOf[ITerm]
+        val t2 = subres(2)._1.asInstanceOf[ITerm]
+        
+        if ((presburgerOp isDefinedAt (t1, t2)) &&
+            (subres(1)._2 exists (_ subsetOf typeRange)) &&
+            (subres(2)._2 exists (_ subsetOf typeRange))) {
+          val iv = intervalOp(subres(1)._2.get, subres(2)._2.get)
+
+          if (iv subsetOf typeRange)
+            // then we know that there are no overflows and can just apply
+            // normal Presburger operations
+            (presburgerOp(t1, t2), Some(iv))
+          else
+            // if the operands are at least within the correct range, it is
+            // guaranteed that the result also is
+            (t update toFirst(subres), Some(typeRange))
+        } else {
+          (t update toFirst(subres), None)
+        }
+      }
+
+    case _ =>
+      (t update toFirst(subres), None)
   }
   
 }
