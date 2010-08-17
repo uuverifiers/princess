@@ -153,8 +153,8 @@ object WolverineInterfaceMain extends {
 
     val res =
       genInterpolants(parts,
-    		          transitionParts.getOrElse(PartName.NO_NAME, Conjunction.TRUE),
-    		          sig.order)
+                      transitionParts.getOrElse(PartName.NO_NAME, Conjunction.TRUE),
+                      sig.order)
     Console.withOut(java.lang.System.out) {
       res match {
         case Left(counterexample) => {

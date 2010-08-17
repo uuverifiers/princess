@@ -120,6 +120,14 @@ object IExpression {
     }
   }
 
+  // extract the value and sign of constant terms
+  object SignConst {
+    def unapply(t : ITerm) : Option[(IdealInt, Int)] = t match {
+      case Const(v) => Some((v, v.signum))
+      case _ => None
+    }
+  }
+  
   // identify formulae that do not have direct subformulae
   object LeafFormula {
     def unapply(t : IExpression) : Option[IFormula] = t match {

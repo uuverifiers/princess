@@ -23,6 +23,7 @@
 package ap.interpolants
 
 import scala.util.Sorting
+import scala.collection.mutable.{Stack => MStack, Map => MMap, HashMap => MHashMap}
 
 import ap._
 import ap.basetypes.IdealInt
@@ -30,10 +31,9 @@ import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
 import ap.terfor.TerForConvenience._
-import ap.terfor.TermOrder
+import ap.terfor.{TermOrder, ConstantTerm}
 import ap.proof.ModelSearchProver
 import ap.util.{Debug, Seqs}
-
 
 /**
  * Abstract class providing some functionality commonly needed for
@@ -178,7 +178,7 @@ abstract class SoftwareInterpolationFramework {
   //////////////////////////////////////////////////////////////////////////////
 
   protected def genInterpolants(formulas : Seq[Conjunction],
-		                        commonFormula : Conjunction,
+                                commonFormula : Conjunction,
                                 order : TermOrder)
                                : Either[Conjunction, Iterator[Conjunction]] = {
 //    ap.util.Timer.measure("solving") {
@@ -247,7 +247,10 @@ object ResourceFiles {
 
 /**
  * Extended version of the InputAbsy simplifier that also rewrites certain
- * array expressions
+ * array expressions:
+ *    \exists int a; x = store(a, b, c)
+ * is replaced with
+ *    select(x, b) = c 
  */
 class InterpolantSimplifier(select : IFunction, store : IFunction)
       extends ap.parser.Simplifier {
@@ -318,14 +321,141 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
 ////////////////////////////////////////////////////////////////////////////////
 
 class FrameworkVocabulary(preludeEnv : Environment) {
-  private def lookup(n : String) = preludeEnv.lookupSym(n) match {
+  private def lookupFun(n : String) = preludeEnv.lookupSym(n) match {
     case Environment.Function(f) => f
     case _ => throw new Error("Expected " + n + " to be defined as a function");
   }
   
-  val select = lookup("select")
-  val store = lookup("store")
-  val pair = lookup("pair")
-  val proj1 = lookup("proj1")
-  val proj2 = lookup("proj2")
+  private def lookupPred(n : String) = preludeEnv.lookupSym(n) match {
+    case Environment.Predicate(p) => p
+    case _ => throw new Error("Expected " + n + " to be defined as a predicate");
+  }
+  
+  val select = lookupFun("select")
+  val store = lookupFun("store")
+  val pair = lookupFun("pair")
+  val proj1 = lookupFun("proj1")
+  val proj2 = lookupFun("proj2")
+  
+  val addSigned = lookupFun("addSigned")
+
+  val inSigned = lookupPred("inSigned")
+  val inUnsigned = lookupPred("inUnsigned")
+  val inArray = lookupPred("inArray")
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class to store information about the value range of constants; this
+ * information is later used to simplify expressions
+ */
+class SymbolRangeEnvironment {
+  import IExpression._
+  
+  private val frames = new MStack[MMap[ConstantTerm, Interval]]
+  frames.push(new MHashMap)
+  
+  private def topFrame = frames.top
+  
+  def push = frames.push(topFrame.clone)
+  
+  def pop = frames.pop
+  
+  def addRange(c : ConstantTerm, iv : Interval) = (topFrame get c) match {
+    case Some(oldIV) => topFrame += (c -> (oldIV meet iv))
+    case None => topFrame += (c -> iv)
+  }
+  
+  def apply(c : ConstantTerm) = topFrame get c
+
+  /**
+   * Extract information from the inSigned and inUnsigned predicates in a
+   * formula
+   */
+  def inferRanges(f : IFormula, voc : FrameworkVocabulary) =
+    for (conj <- LineariseVisitor(f, IBinJunctor.And)) conj match {
+      case IAtom(voc.inSigned, Seq(SignConst(base, 1), IConstant(c))) =>
+        addRange(c, (Interval signed base))
+      case IAtom(voc.inUnsigned, Seq(SignConst(base, 1), IConstant(c))) =>
+        addRange(c, (Interval unsigned base))
+      case _ => // nothing
+    }
+  
+}
+
+object Interval {
+  def signed(base : IdealInt) = Interval(-base, base - 1)
+  def unsigned(base : IdealInt) = Interval(0, base * 2 - 1)
+}
+
+case class Interval(lower : IdealInt, upper : IdealInt) {
+  def meet(that : Interval) =
+    Interval(this.lower max that.lower, this.upper min that.upper)
+  def join(that : Interval) =
+    Interval(this.lower min that.lower, this.upper max that.upper)
+    
+  def subsetOf(that : Interval) =
+    (this.lower >= that.lower) && (this.upper <= that.upper)
+    
+  def *(that : IdealInt) =
+    if (that.isPositive)
+      Interval(lower * that, upper * that)
+    else
+      Interval(upper * that, lower * that)
+  def +(that : Interval) =
+    Interval(this.lower + that.lower, this.upper + that.upper)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class to simplify bit-vector expressions using information about the range of
+ * operands. In particular, bit-vector operations are replaced with simple
+ * Presburger operations if it is guaranteed that no overflows can occur
+ */
+class BitvectorSimplifier(ranges : SymbolRangeEnvironment,
+                          voc : FrameworkVocabulary)
+      extends CollectingVisitor[Unit, (IExpression, Option[Interval])] {
+  import IExpression._
+  
+  private def toFirst(subres : Seq[(IExpression, Option[Interval])]) =
+    for ((a, _) <- subres) yield a
+  
+  def postVisit(t : IExpression, arg : Unit,
+                subres : Seq[(IExpression, Option[Interval])])
+               : (IExpression, Option[Interval]) = t match {
+    case IIntLit(v) => (t, Some(Interval(v, v)))
+    case IConstant(c) => (t, ranges(c))
+    case IVariable(_) => (t, None)
+    case ITimes(coeff, _) =>
+      (t update toFirst(subres),
+       for (i <- subres(0)._2) yield (i * coeff))
+    case IPlus(_, _) =>
+      (t update toFirst(subres),
+       for (i1 <- subres(0)._2; i2 <- subres(1)._2) yield (i1 + i2))
+
+    case IFunApp(voc.addSigned, Seq(SignConst(base, 1), _, _)) => {
+      val typeRange = Interval signed base
+      
+      (for (i1 <- subres(1)._2; if (i1 subsetOf typeRange);
+            i2 <- subres(2)._2; if (i2 subsetOf typeRange)) yield (i1 + i2)) match {
+        case Some(iv) =>
+          if (iv subsetOf typeRange)
+            // then we know that there are no overflows and can just apply
+            // normal addition
+            (subres(1)._1.asInstanceOf[ITerm] + subres(2)._1.asInstanceOf[ITerm],
+             Some(iv))
+          else
+            // if the operands are at least within the correct range, it is
+            // guaranteed that the result also is
+            (t update toFirst(subres), Some(typeRange))
+        case _ =>
+          // if the operands might be outside of the correct range,
+          // we don't know anything about the result of the operation
+          (t update toFirst(subres), None)
+      }
+    }
+  }
+  
 }
