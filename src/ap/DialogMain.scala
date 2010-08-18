@@ -24,11 +24,12 @@ package ap;
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.CmdlParser
 
+import scala.collection.mutable.ArrayBuffer
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 
 import javax.swing._
-import java.awt.{BorderLayout, Dimension, Font}
+import java.awt.{BorderLayout, Dimension, Font, Color}
 import java.awt.event.{ActionEvent, ActionListener}
 
 object DialogMain {
@@ -37,45 +38,47 @@ object DialogMain {
   
 }
 
-object InputDialog {
+object DialogUtil {
   
-  private def asString[A](computation : => A) : String =
+  def asString[A](computation : => A) : String =
     captureOutput(computation) _2
 
-  private def captureOutput[A](computation : => A) : (A, String) = {
+  def captureOutput[A](computation : => A) : (A, String) = {
     val buffer = new java.io.ByteArrayOutputStream
     val res = Console.withOut(buffer) (computation)
     (res, buffer.toString)
   }
 
-  private def doLater[A](computation : => A) =
+  def doLater[A](computation : => A) =
     SwingUtilities.invokeLater(new Runnable {
       def run = computation
     })
   
-}
-
-class InputDialog extends JPanel {
-
-  import InputDialog._
-  
-  private def ss(c : java.awt.Component,
-                 minWidth : Int, prefWidth : Int,
-                 minHeight : Int, prefHeight : Int) = {
+  def ss(c : java.awt.Component,
+         minWidth : Int, prefWidth : Int,
+         minHeight : Int, prefHeight : Int) = {
     c.setMinimumSize(new Dimension(minWidth, minHeight))
     c.setPreferredSize(new Dimension(prefWidth, prefHeight))
   }
   
-  private def vScrolled(c : JComponent) =
+  def vScrolled(c : JComponent) =
     new JScrollPane(c,
                     javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
                     javax.swing.ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED)
 
-  private def setupTextField(f : JTextArea) =
+  def setupTextField(f : JTextArea) =
     f.setFont(new Font("Courier", Font.PLAIN, 14)) 
 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class InputDialog extends JPanel {
+
+  import DialogUtil._
+  
   //////////////////////////////////////////////////////////////////////////////
-    
+
   private val frame = new JFrame ("Princess")
   frame add this
   ss(frame, 400, 800, 400, 800)
@@ -84,32 +87,19 @@ class InputDialog extends JPanel {
   frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
   
   //////////////////////////////////////////////////////////////////////////////
-  
-  private val inputField = new JTextArea
-  private val outputField = new JTextArea
-  setupTextField(inputField)
-  setupTextField(outputField)
-  outputField setEditable false
-  
-  private val scrolledInputField = vScrolled(inputField)
-  private val scrolledOutputField = vScrolled(outputField)
 
-  ss(scrolledInputField, 200, 700, 150, 200)
-  ss(scrolledOutputField, 200, 700, 350, 350)
+  private val tabbedPane = new JTabbedPane (SwingConstants.BOTTOM)
+  add(tabbedPane)
+
+  def tabColorSetter(i : Int, c : Color) : () => Unit =
+    () => tabbedPane.setBackgroundAt(i, c)
   
-  private val splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                                         vScrolled(outputField),
-                                         vScrolled(inputField))
-                                         
-  add(splitPane, BorderLayout.CENTER)
-    
-  outputField setText asString {
-    CmdlMain.printGreeting
-    println
-    CmdlMain.printOptions
-  }
+  val tabs = new ArrayBuffer[PrincessPanel]
   
-  inputField setText asString {
+  tabs += new PrincessPanel (tabColorSetter(0, Color.red),
+                             tabColorSetter(0, Color.green))
+  tabbedPane.addTab("Arithmetic interpolation example", tabs.last)
+  tabs.last.inputField setText asString {
     println("\\functions {")
     println("  /* Declare constants and functions occurring in the problem")
     println("   * (implicitly universally quantified). */")
@@ -136,10 +126,12 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond; stmt1, stmt2, assert}")
     println("\\interpolant {cond, stmt1; stmt2, assert}")
     println("\\interpolant {cond, stmt1, stmt2; assert}")
-    println
-    println("/*")
-    println("// Array example")
-    println("")
+  }
+  
+  tabs += new PrincessPanel (tabColorSetter(1, Color.red),
+                             tabColorSetter(1, Color.green))
+  tabbedPane.addTab("Array interpolation example", tabs.last)
+  tabs.last.inputField setText asString {
     println("\\functions {")
     println("  int x, y, z;")
     println("  int ar;")
@@ -171,9 +163,52 @@ class InputDialog extends JPanel {
     println("}")
     println
     println("\\interpolant {p0, p1; p2, p3}")
-    println("*/")
   }
+    
+  tabbedPane setSelectedIndex 0
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  frame.pack
+  
+  for (t <- tabs) t.setup
+  
+  frame setVisible true
+  
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends JPanel {
+
+  import DialogUtil._
+  
+  setLayout(new BorderLayout)
+
+  val inputField = new JTextArea
+  val outputField = new JTextArea
+  setupTextField(inputField)
+  setupTextField(outputField)
+  outputField setEditable false
+  
+  private val scrolledInputField = vScrolled(inputField)
+  private val scrolledOutputField = vScrolled(outputField)
+
+  ss(scrolledInputField, 200, 700, 150, 200)
+  ss(scrolledOutputField, 200, 700, 350, 350)
+  
+  private val splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
+                                         vScrolled(outputField),
+                                         vScrolled(inputField))
+                                         
+  add(splitPane, BorderLayout.CENTER)
+    
+  outputField setText asString {
+    CmdlMain.printGreeting
+    println
+    CmdlMain.printOptions
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val buttonPanel = new JPanel
@@ -192,9 +227,11 @@ class InputDialog extends JPanel {
     println("</pre></html>")
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   optionLabel setToolTipText toolTip
   optionField setToolTipText toolTip
-  
+
   optionField addActionListener (new ActionListener {
     def actionPerformed(e : ActionEvent) = {
       if (currentProver == null)
@@ -206,7 +243,6 @@ class InputDialog extends JPanel {
 
   private val goButton = new JButton("Go!")
   buttonPanel.add(goButton, BorderLayout.EAST)
-  goButton setToolTipText toolTip
 
   private var currentProver : Actor = null
   
@@ -242,7 +278,8 @@ class InputDialog extends JPanel {
 
     outputField setText ""
     goButton setText "STOP"
-      
+    setRunning()
+
     val proverOutputStream = new java.io.PipedOutputStream
     val logInputStream = new java.io.PipedInputStream(proverOutputStream)
     
@@ -261,6 +298,7 @@ class InputDialog extends JPanel {
         currentProver = null
         goButton setEnabled true
         goButton setText "Go!"
+        setFinished()
       }
     }
     
@@ -269,16 +307,16 @@ class InputDialog extends JPanel {
       val buf = new StringBuffer
       var c = logInputStream.read
       while (c != -1) {
-	buf append c.toChar
-	if (logInputStream.available == 0) {
-	  // otherwise, read all available data and
-	  // display it at once
-	  val str = buf.toString
-	  buf.delete(0, buf.length)
-          doLater {
-            outputField append str
-          }
-	}
+        buf append c.toChar
+        if (logInputStream.available == 0) {
+          // otherwise, read all available data and
+          // display it at once
+          val str = buf.toString
+          buf.delete(0, buf.length)
+            doLater {
+              outputField append str
+            }
+        }
         c = logInputStream.read
       }
     }    
@@ -286,8 +324,8 @@ class InputDialog extends JPanel {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  frame.pack
-  splitPane setDividerLocation 0.35
-  frame setVisible true
+  splitPane setContinuousLayout true
+  
+  def setup = splitPane setDividerLocation 0.35
   
 }
