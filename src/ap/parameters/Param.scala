@@ -121,6 +121,17 @@ object Param {
     type Value = Boolean
     val defau : Boolean = false
   }
+
+  // globally, we can also choose to construct proofs depending on whether
+  // interpolation specs were given (the default)
+  object ProofConstructionOptions extends Enumeration {
+    val Never, Always, IfInterpolating = Value
+  }
+  case object PROOF_CONSTRUCTION_GLOBAL extends Param {
+    type Value = ProofConstructionOptions.Value
+    val defau : ProofConstructionOptions.Value =
+      ProofConstructionOptions.IfInterpolating
+  }
 }
 
 abstract class Param {

@@ -109,18 +109,29 @@ object Parser2InputAbsy {
 
 /**
  * Class for removing all CR-characters in a stream (necessary because the
- * lexer seems to dislike CRs in comments)
+ * lexer seems to dislike CRs in comments). This also adds an LF in the end,
+ * because the lexer does not allow inputs that end with a //-comment line
+ * either
  */
 private class CRRemover2(input : java.io.Reader) extends java.io.Reader {
   
   private val CR : Int = '\r'
-   
+  private val LF : Int = '\n'
+  private var addedLF : Boolean = false
+    
   def read(cbuf : Array[Char], off : Int, len : Int) : Int = {
     var read = 0
     while (read < len) {
       val next = input.read
       next match {
-        case -1 => return if (read == 0) -1 else read
+        case -1 =>
+          if (addedLF) {
+            return if (read == 0) -1 else read
+          } else {
+            cbuf(off + read) = LF.toChar
+            read = read + 1
+            addedLF = true
+          }
         case CR => // nothing, read next character
         case _ => {
           cbuf(off + read) = next.toChar

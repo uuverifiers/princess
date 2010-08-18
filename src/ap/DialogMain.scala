@@ -227,8 +227,7 @@ class InputDialog extends JPanel {
     
     val settings = try {
       GlobalSettings.fromArguments(optionField.getText.split(' '),
-                                   // switch on proof construction by default in the iPrincess version
-                                   Param.PROOF_CONSTRUCTION.set(GlobalSettings.DEFAULT, true)) _1
+                                   GlobalSettings.DEFAULT) _1
     } catch {
       case e : CmdlParser.UnknownArgumentException => {
         outputField setText asString {

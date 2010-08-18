@@ -23,7 +23,7 @@ package ap;
 
 import ap.parameters._
 import ap.parser.{InputAbsy2Internal, Parser2InputAbsy, Preprocessing,
-                  IExpression, INamedPart, IFunction, Environment}
+                  IExpression, INamedPart, IFunction, IInterpolantSpec, Environment}
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier,
@@ -50,15 +50,24 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           yield f
     }
   
+  private def determineProofConstruction(settings : GlobalSettings,
+                                         interpolantSpecs : List[IInterpolantSpec])
+                                        : Boolean =
+    Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
+      case Param.ProofConstructionOptions.Never => false
+      case Param.ProofConstructionOptions.Always => true
+      case Param.ProofConstructionOptions.IfInterpolating => !interpolantSpecs.isEmpty
+    }
+  
   val (inputFormulas, interpolantSpecs, signature) = {
     val env = new Environment
     val (f, interpolantSpecs, signature) = Parser2InputAbsy(reader, env)
     reader.close
     
     val preprocSettings =
-      Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
-        settings.toPreprocessingSettings,
-        determineTriggerGenFunctions(settings, env))
+       Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
+           settings.toPreprocessingSettings,
+           determineTriggerGenFunctions(settings, env))
 
     println("Preprocessing ...")
     Preprocessing(f, interpolantSpecs, signature, preprocSettings)
@@ -74,10 +83,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   //////////////////////////////////////////////////////////////////////////////
   
   protected val goalSettings =
+    Param.PROOF_CONSTRUCTION.set(
     Param.SYMBOL_WEIGHTS.set(
     Param.CONSTRAINT_SIMPLIFIER.set(settings.toGoalSettings,
                              determineSimplifier(settings)),
-                             SymbolWeights.normSymbolFrequencies(formulas, 1000))
+                             SymbolWeights.normSymbolFrequencies(formulas, 1000)),
+                             determineProofConstruction(settings, interpolantSpecs))
   
   private def determineSimplifier(settings : GlobalSettings) : ConstraintSimplifier =
     Param.SIMPLIFY_CONSTRAINTS(settings) match {

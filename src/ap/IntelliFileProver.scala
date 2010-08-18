@@ -74,7 +74,7 @@ class IntelliFileProver(reader : java.io.Reader,
                                  userDefStoppingCond, settings) {
 
   import IntelliFileProver._
-        
+
   lazy val proofResult : ProofResult =
     Timeout.catchTimeout[ProofResult] {
       val (tree, validConstraint) = constructProofTree(mostGeneralConstraint)
@@ -122,8 +122,6 @@ class IntelliFileProver(reader : java.io.Reader,
           println("Found proof (size " + cert.inferenceCount + "), interpolating ...")
 
           val interpolants = for (spec <- interpolantSpecs) yield {
-            // TODO: check that all parts of the input formula are declared as
-            // either left or right
             val iContext = InterpolationContext(namedParts, spec, order)
             Interpolator(cert, iContext)    
           }

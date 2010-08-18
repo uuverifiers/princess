@@ -11,5 +11,8 @@
 ->
   \part[p3] (z > 20)
 ->
+  // without the following assumptions, the problem becomes unprovable
+  inSigned(2*1024*1024*1024, y) & inSigned(2*1024*1024*1024, x)
+->
   false
 }

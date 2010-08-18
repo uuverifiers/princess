@@ -65,11 +65,14 @@ object CmdlMain {
     println("                                  none:  not at all")
     println("                                  total: for all total functions         (default)")
     println("                                  all:   for all functions")
-    println("  [+-]constructProofs           Extract proofs and interpolants          (default: +)")
+    println("  -constructProofs=val          Extract proofs")
+    println("                                  never")
+    println("                                  ifInterpolating: if \\interpolant is present (default)")
+    println("                                  always")
   }
   
   private def printSMT(prover : AbstractFileProver,
-                       filename : String,  settings : GlobalSettings) =
+                       filename : String, settings : GlobalSettings) =
     if (Param.PRINT_SMT_FILE(settings) != "") {
       println
       
@@ -246,8 +249,7 @@ object CmdlMain {
   def main(args: Array[String]) : Unit = {
     val (settings, inputs) =
       try { // switch on proof construction by default in the iPrincess version
-            GlobalSettings.fromArguments(args,
-                                         Param.PROOF_CONSTRUCTION.set(GlobalSettings.DEFAULT, true))
+            GlobalSettings.fromArguments(args, GlobalSettings.DEFAULT)
           } catch {
       case e : Throwable => {
         printGreeting
