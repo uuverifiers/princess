@@ -119,11 +119,9 @@ abstract class SoftwareInterpolationFramework {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  protected def parseProblem(reader : java.io.Reader) = {
-    val env = preludeEnv.clone
-    val (problem, _, signature) = Parser2InputAbsy(reader, env)
-
-    toNamedParts(problem, signature)
+  protected def parseProblem(reader : java.io.Reader) : (IFormula, Signature) = {
+    val (problem, _, sig) = Parser2InputAbsy(reader, preludeEnv.clone)
+    (problem, sig)
   }
 
   protected def toNamedParts(f : IFormula, sig : Signature) = {
@@ -146,6 +144,81 @@ abstract class SoftwareInterpolationFramework {
     (disj(for ((_, f) <- parts) yield f), order)
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Read a given problem, split it into the different parts, try to
+   * simplify bitvector expressions as far as possible, and convert it to
+   * internal presentation. Bitvector simplifications are done based on the type
+   * declarations inSigned, inUnsigned, and inArray. The problem will also be
+   * restructured such that the type declaration of a constant occurs in the
+   * first part in which the constant is used (sorted the partitions
+   * lexicographically according to their name).
+   */
+  protected def parseAndSimplify(input : java.io.Reader)
+                                : (Map[PartName, Conjunction], Signature) = {
+    import IExpression._
+    import IBinJunctor._
+    
+    val (problem, signature) = parseProblem(input)
+
+    // turn the formula into a list of its named parts
+    val fors = PartExtractor(problem)
+    val namedParts =
+      Map() ++ (for (INamedPart(name, f) <- fors.elements) yield (name -> f))
+    
+    // extract the given type assumptions, which we then add to the first
+    // partition where the declared symbol is used
+    val assumptions = namedParts.getOrElse(PartName.NO_NAME, i(false))
+    
+    val (typeAssumptions, otherAssumptions) =
+      LineariseVisitor(Transform2NNF(assumptions), Or) partition {
+        case INot(IAtom(frameworkVocabulary.inSigned | frameworkVocabulary.inUnsigned,
+                        Seq(Const(_), IConstant(_)))) |
+             INot(IAtom(frameworkVocabulary.inArray, Seq(IConstant(_)))) =>
+          true
+        case _ =>
+          false
+      }
+    
+    val namedPartsWithoutTypeAssumptions =
+      namedParts + (PartName.NO_NAME -> connect(otherAssumptions, Or))
+    
+    // simplify expressions and re-inject the type assumptions
+    val env = new SymbolRangeEnvironment
+    env.inferRanges(assumptions, frameworkVocabulary)
+    
+    val simplifier = new BitvectorSimplifier(env, frameworkVocabulary)
+
+    var remainingTypeAssumptions = typeAssumptions
+    val simplifiedParts =
+      for (name <- sortNamesLex(namedPartsWithoutTypeAssumptions) ++
+                   List(PartName.NO_NAME)) yield {
+        val namedFor = namedPartsWithoutTypeAssumptions(name)
+        
+        env.push
+        env.inferRanges(namedFor, frameworkVocabulary)
+        val simplifiedFor = simplifier.visit(namedFor, {})._1.asInstanceOf[IFormula]
+        env.pop
+        
+        val occurringConsts = SymbolCollector constants simplifiedFor
+        val (usedAssumptions, unusedAssumptions) =
+          remainingTypeAssumptions partition (
+            (c) => (SymbolCollector constants c) subsetOf occurringConsts)
+
+        val simplifiedForWithAssumptions =
+          simplifiedFor ||| connect(usedAssumptions, Or)
+        remainingTypeAssumptions = unusedAssumptions
+        
+        INamedPart(name, simplifiedForWithAssumptions)
+      }
+    
+    val simplifiedRes = connect(simplifiedParts, Or) |
+                        INamedPart(PartName.NO_NAME, connect(otherAssumptions, Or))
+    
+    toNamedParts(simplifiedRes, signature)
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
 
   protected def dumpInterpolationProblem(transitionParts : Map[PartName, Conjunction],
@@ -215,14 +288,26 @@ abstract class SoftwareInterpolationFramework {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Sort the transition relations lexicographically according to their name
+   * Sort the transition relations lexicographically according to their name;
+   * NO_NAME is ignored and removed
    */
-  protected def sortNamesLex(transitionParts : Map[PartName, Conjunction]) : Seq[PartName] = {
+  protected def sortNamesLex[A](transitionParts : Map[PartName, A]) : Seq[PartName] = {
     val names = (transitionParts.keySet - PartName.NO_NAME).toArray
     Sorting.stableSort(names, (x : PartName, y : PartName) => x.toString < y.toString)
     names
   }
 
+  protected def simplifyBitvectorFor(f : IFormula,
+                                     typeAssumptions : IFormula) : IFormula = {
+    val env = new SymbolRangeEnvironment
+    env.inferRanges(typeAssumptions, frameworkVocabulary)
+    env.inferRanges(f, frameworkVocabulary)
+    
+    val simplifier = new BitvectorSimplifier(env, frameworkVocabulary)
+    
+    simplifier.visit(f, {})._1.asInstanceOf[IFormula]
+  }
+  
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -378,13 +463,13 @@ class SymbolRangeEnvironment {
 
   /**
    * Extract information from the inSigned and inUnsigned predicates in a
-   * formula
+   * formula in the succedent
    */
   def inferRanges(f : IFormula, voc : FrameworkVocabulary) =
-    for (conj <- LineariseVisitor(f, IBinJunctor.And)) conj match {
-      case IAtom(voc.inSigned, Seq(SignConst(base, 1), IConstant(c))) =>
+    for (conj <- LineariseVisitor(Transform2NNF(f), IBinJunctor.Or)) conj match {
+      case INot(IAtom(voc.inSigned, Seq(SignConst(base, 1), IConstant(c)))) =>
         addRange(c, (Interval signed base))
-      case IAtom(voc.inUnsigned, Seq(SignConst(base, 1), IConstant(c))) =>
+      case INot(IAtom(voc.inUnsigned, Seq(SignConst(base, 1), IConstant(c)))) =>
         addRange(c, (Interval unsigned base))
       case _ => // nothing
     }

@@ -25,6 +25,7 @@ package ap.interpolants
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 import scala.util.Sorting
+import scala.collection.mutable.ArrayBuffer
 
 import ap._
 import ap.basetypes.IdealInt
@@ -120,8 +121,8 @@ object WolverineInterfaceMain extends {
       }
 
       val (transitionParts, sig) =
-        parseProblem(new java.io.BufferedReader (
-                     new java.io.InputStreamReader(stdinInputStream)))
+        parseAndSimplify(new java.io.BufferedReader (
+                         new java.io.InputStreamReader(stdinInputStream)))
 
       receive {
         case "interpolate."   => doInterpolation(transitionParts, sig)
