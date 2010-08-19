@@ -29,7 +29,7 @@ import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 
 import javax.swing._
-import java.awt.{BorderLayout, Dimension, Font, Color}
+import java.awt.{BorderLayout, FlowLayout, Dimension, Font, Color}
 import java.awt.event.{ActionEvent, ActionListener}
 
 object DialogMain {
@@ -91,27 +91,114 @@ class InputDialog extends JPanel {
   private val tabbedPane = new JTabbedPane (SwingConstants.BOTTOM)
   add(tabbedPane)
 
-  def tabColorSetter(i : Int, c : Color) : () => Unit =
-    () => tabbedPane.setBackgroundAt(i, c)
+  private def newPanel : PrincessPanel =
+    new PrincessPanel {
+      def setRunning = {
+        val i = tabbedPane.indexOfComponent(this)
+        tabbedPane.setBackgroundAt(i, Color.red)
+        tabbedPane.setToolTipTextAt(i, "Solving ...")
+      }
+      def setFinished = {
+        val i = tabbedPane.indexOfComponent(this)
+        tabbedPane.setBackgroundAt(i, null)
+        tabbedPane.setToolTipTextAt(i, null)
+      }
+      def newTab = {
+        val tab = newPanel
+        createdTabs = createdTabs + 1
+        tabbedPane.addTab("Problem " + createdTabs, tab)
+        tab.inputField setText asString {
+          println("\\universalConstants {")
+          println("  /* Declare universally quantified constants of the problem */")
+          println("  ")
+          println("}")
+          println
+          println("\\existentialConstants {")
+          println("  /* Declare existentially quantified constants of the problem */")
+          println("  ")
+          println("}")
+          println
+          println("\\functions {")
+          println("  /* Declare constants and functions occurring in the problem")
+          println("   * (implicitly universally quantified).")
+          println("   * The keyword \"\\partial\" can be used to define functions without totality axiom,")
+          println("   * while \"\\relational\" can be used to define \"functions\" without functionality axiom. */")
+          println("  ")
+          println("}")
+          println
+          println("\\predicates {")
+          println("  /* Declare predicates occurring in the problem")
+          println("   * (implicitly universally quantified) */  ")
+          println("  ")
+          println("}")
+          println
+          println("\\problem {")
+          println("  /* Problem to be proven. The implicit quantification is:")
+          println("   *    \\forall <universalConstants>;")
+          println("   *      \\exists <existentialConstants>;")
+          println("   *        \\forall <functions/predicates>; ... */")
+          println
+          println("  true")
+          println("}")
+        }
+        tab.inputField setCaretPosition 0
+        tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
+      }
+      def closeTab = {
+        if (tabbedPane.getTabCount == 1)
+          // make sure that there is at least one tab left
+          newTab
+        tabbedPane remove this
+      }
+    }
   
-  val tabs = new ArrayBuffer[PrincessPanel]
+  private var createdTabs = 3
   
-  tabs += new PrincessPanel (tabColorSetter(0, Color.red),
-                             tabColorSetter(0, Color.green))
-  tabbedPane.addTab("Arithmetic interpolation example", tabs.last)
-  tabs.last.inputField setText asString {
-    println("\\functions {")
-    println("  /* Declare constants and functions occurring in the problem")
-    println("   * (implicitly universally quantified). */")
+  {
+  val tab = newPanel
+  tabbedPane.addTab("Arithmetic example", tab)
+  tab.inputField setText asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Problem in Presburger arithmetic with uninterpreted predicates")
+    println(" */")
     println
+    println("\\existentialConstants {")
+    println("  /* Declare existentially quantified constants of the problem */")
+    println
+    println("  int A;")
+    println("}")
+    println
+    println("\\predicates {")
+    println("  /* Declare predicates occurring in the problem */  ")
+    println
+    println("  divides(int, int);")
+    println("}")
+    println
+    println("\\problem {")
+    println("  /* Problem to be proven. The implicit quantification is:")
+    println("   *    \\exists <existentialConstants>; \\forall <predicates>; ... */")
+    println
+    println("     \\forall int x; divides(x, x)")
+    println("  -> \\forall int x, y; (divides(x, y) -> divides(x, y+x) & divides(x, y-x))")
+    println("  ->")
+    println("     divides(A, 42) & divides(A, 49) & A > 1")
+    println("}")
+  }
+  }
+  {
+  val tab = newPanel
+  tabbedPane.addTab("Arithmetic interpolation example", tab)
+  tab.inputField setText asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Craig interpolation problem in Presburger arithmetic")
+    println(" */")
+    println
+    println("\\functions {")
     println("   int x, a, b, c;")
     println("}")
-    println("\\predicates {")
-    println("  /* Declare predicates occurring in the problem")
-    println("   * (implicitly universally quantified)")
-    println("   *")
-    println("   * e.g., divides(int, int);  */")
-    println("}")
+    println
     println("\\problem {")
     println("  /* Problem to be proven and interpolated */")
     println
@@ -127,28 +214,29 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond, stmt1; stmt2, assert}")
     println("\\interpolant {cond, stmt1, stmt2; assert}")
   }
-  
-  tabs += new PrincessPanel (tabColorSetter(1, Color.red),
-                             tabColorSetter(1, Color.green))
-  tabbedPane.addTab("Array interpolation example", tabs.last)
-  tabs.last.inputField setText asString {
+  }
+  {
+  val tab = newPanel
+  tabbedPane.addTab("Array interpolation example", tab)
+  tab.inputField setText asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Craig interpolation problem in the theory of arrays")
+    println(" */")
+    println
     println("\\functions {")
-    println("  int x, y, z;")
-    println("  int ar;")
+    println("  int x, y, z, ar;")
     println("  \\partial int select(int, int);")
     println("  \\partial int store(int, int, int);")
     println("}")
     println
     println("\\problem {")
     println("// Array axioms")
-    println("        \\forall int ar, ind, val;")
-    println("             {select(store(ar, ind, val), ind)}")
-    println("             select(store(ar, ind, val), ind) = val")
+    println("  \\forall int ar, ind, val; {select(store(ar, ind, val), ind)}")
+    println("    select(store(ar, ind, val), ind) = val")
     println("->")
-    println("        \\forall int ar, ind1, ind2, val;")
-    println("             {select(store(ar, ind1, val), ind2)}")
-    println("             (ind1 != ind2 ->")
-    println("              select(store(ar, ind1, val), ind2) = select(ar, ind2))")
+    println("  \\forall int ar, ind1, ind2, val; {select(store(ar, ind1, val), ind2)}")
+    println("    (ind1 != ind2 -> select(store(ar, ind1, val), ind2) = select(ar, ind2))")
     println("->")
     println
     println("  \\part[p0] (store(0, x, 1) = ar)")
@@ -164,24 +252,29 @@ class InputDialog extends JPanel {
     println
     println("\\interpolant {p0, p1; p2, p3}")
   }
-    
+  }
+  
   tabbedPane setSelectedIndex 0
   
   //////////////////////////////////////////////////////////////////////////////
 
   frame.pack
-  
-  for (t <- tabs) t.setup
-  
   frame setVisible true
   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends JPanel {
+abstract class PrincessPanel extends JPanel {
 
   import DialogUtil._
+
+  def setRunning : Unit
+  def setFinished : Unit
+  def closeTab : Unit
+  def newTab : Unit
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   setLayout(new BorderLayout)
 
@@ -194,12 +287,11 @@ class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends J
   private val scrolledInputField = vScrolled(inputField)
   private val scrolledOutputField = vScrolled(outputField)
 
-  ss(scrolledInputField, 200, 700, 150, 200)
-  ss(scrolledOutputField, 200, 700, 350, 350)
+  ss(scrolledInputField, 200, 700, 0, 350)
+  ss(scrolledOutputField, 200, 700, 0, 250)
   
   private val splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-                                         vScrolled(outputField),
-                                         vScrolled(inputField))
+                                         scrolledOutputField, scrolledInputField)
                                          
   add(splitPane, BorderLayout.CENTER)
     
@@ -211,15 +303,38 @@ class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends J
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val buttonPanel = new JPanel
-  buttonPanel.setLayout(new BorderLayout)
-  add(buttonPanel, BorderLayout.SOUTH)
+  private val controlPanel = new JPanel
+  controlPanel.setLayout(new BorderLayout)
+  add(controlPanel, BorderLayout.SOUTH)
 
+  private val leftPanel = new JPanel
+  leftPanel setLayout (new FlowLayout (FlowLayout.LEADING, 2, 1))
+  controlPanel.add(leftPanel, BorderLayout.WEST)
+  
+  private val newTabButton = new JButton("New tab")
+  leftPanel.add(newTabButton)
+
+  newTabButton addActionListener (new ActionListener {
+    def actionPerformed(e : ActionEvent) = newTab
+  })
+
+  private val closeTabButton = new JButton("Close tab")
+  leftPanel.add(closeTabButton)
+
+  closeTabButton addActionListener (new ActionListener {
+    def actionPerformed(e : ActionEvent) = {
+      if (currentProver != null)
+        currentProver ! "stop"
+      closeTab
+    }
+  })
+
+  leftPanel add Box.createRigidArea(new Dimension (8, 0))
   private val optionLabel = new JLabel("Options: ")
-  buttonPanel.add(optionLabel, BorderLayout.WEST)
+  leftPanel.add(optionLabel)
   
   private val optionField = new JTextField
-  buttonPanel.add(optionField, BorderLayout.CENTER)
+  controlPanel.add(optionField, BorderLayout.CENTER)
   
   private val toolTip = asString {
     println("<html><pre>")
@@ -242,7 +357,8 @@ class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends J
   //////////////////////////////////////////////////////////////////////////////
 
   private val goButton = new JButton("Go!")
-  buttonPanel.add(goButton, BorderLayout.EAST)
+  goButton setForeground Color.BLUE
+  controlPanel.add(goButton, BorderLayout.EAST)
 
   private var currentProver : Actor = null
   
@@ -278,7 +394,8 @@ class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends J
 
     outputField setText ""
     goButton setText "STOP"
-    setRunning()
+    goButton setForeground Color.RED
+    setRunning
 
     val proverOutputStream = new java.io.PipedOutputStream
     val logInputStream = new java.io.PipedInputStream(proverOutputStream)
@@ -297,8 +414,9 @@ class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends J
       doLater {
         currentProver = null
         goButton setEnabled true
+        goButton setForeground Color.BLUE
         goButton setText "Go!"
-        setFinished()
+        setFinished
       }
     }
     
@@ -325,7 +443,5 @@ class PrincessPanel(setRunning : () => Unit, setFinished : () => Unit) extends J
   //////////////////////////////////////////////////////////////////////////////
 
   splitPane setContinuousLayout true
-  
-  def setup = splitPane setDividerLocation 0.35
   
 }

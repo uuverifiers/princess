@@ -22,6 +22,7 @@
 package ap.util;
 
 import scala.util.Random
+import scala.util.DynamicVariable
 
 /**
  * A collect of methods for writing runtime assertions and inserting debugging
@@ -84,29 +85,23 @@ object Debug {
   private val everythingDisabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => false 
   
-  // TODO: this variable should be thread-local
-  var enabledAssertions : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
-    everythingEnabled
+  val enabledAssertions =
+    new DynamicVariable[(ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean] (everythingEnabled)
   
-  def enableAllAssertions(v : Boolean) = (enabledAssertions = (at, ac) => v)
+  def enableAllAssertions(v : Boolean) = (enabledAssertions.value_= ((at, ac) => v))
   
   def assertTrue(at : ASSERTION_TYPE, ac : ASSERTION_CATEGORY,
                  assertion : => Boolean, message : => String) : Unit = {
-    if (enabledAssertions(at, ac)) assert(assertion, message)
+    if (enabledAssertions.value(at, ac)) assert(assertion, message)
   }
 
   def assertTrue(at : ASSERTION_TYPE, ac : ASSERTION_CATEGORY,
                  assertion : => Boolean) : Unit = {
-    if (enabledAssertions(at, ac)) assert(assertion)
+    if (enabledAssertions.value(at, ac)) assert(assertion)
   }
 
-  def withoutAssertions[A](comp : => A) : A = {
-    val oldEnabledness = enabledAssertions
-    enabledAssertions = everythingDisabled
-    val res = comp
-    enabledAssertions = oldEnabledness
-    res
-  }
+  def withoutAssertions[A](comp : => A) : A =
+    enabledAssertions.withValue(everythingDisabled) { comp }
   
   /** Preconditions of methods */
   def assertPre(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =

@@ -69,7 +69,7 @@ object WolverineInterfaceMain extends {
     }
   }
   
-  Debug.enabledAssertions = {
+  Debug.enabledAssertions.value_= {
     // we do our own implication checks in this class
     case (_, Debug.AC_INTERPOLATION_IMPLICATION_CHECKS) => false
     case _ => assertions
