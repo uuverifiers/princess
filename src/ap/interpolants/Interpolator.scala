@@ -176,7 +176,7 @@ object Interpolator
       case cert@StrengthenCertificate(inEq, eqCases, children, proofOrder) =>
       {
         val constTerm = newConstant
-        val newContext = iContext addConstant constTerm
+        val newContext = iContext addParameter constTerm
         implicit val o = newContext.order
         val weakInterInEq = iContext getPartialInterpolant inEq
         
@@ -616,14 +616,14 @@ object Interpolator
         val allInterpolantParts =
           leftModifierInterpolants ++ rightModifierInterpolants ++
           List(subInterpolant, leftPredInterpolant, rightPredInterpolant)
-        
+
         val unquantifiedInterpolant = if (lInterpolation)
                                         disj(allInterpolantParts)
                                       else
                                         conj(allInterpolantParts)
-        
+
         val constsToQuantify =
-          unquantifiedInterpolant.constants -- iContext.globalConstants
+          unquantifiedInterpolant.constants -- iContext.globalConstants -- iContext.parameters
         
         val res =
           if (constsToQuantify.isEmpty) {
@@ -787,7 +787,7 @@ object Interpolator
       val newPI = newPartialInterpolant / a
 
       val constTerm = newConstant
-      val newContext2 = iContext addConstant constTerm
+      val newContext2 = iContext addParameter constTerm
       implicit val o = newContext2.order
 
       val partialIneqInter =

@@ -45,7 +45,7 @@ object InterpolationContext {
       Set()++(for(name<- spec.left.iterator) yield namedParts(name).negate),
       Set()++(for(name<- spec.right.iterator) yield namedParts(name).negate),
       Set()++(for (f <- (namedParts get PartName.NO_NAME).iterator) yield f.negate),
-      Map(), Map(), order)
+      Map(), Map(), Set(), order)
   
   def apply(leftFormulas : Iterable[Conjunction],
             rightFormulas : Iterable[Conjunction],
@@ -54,7 +54,7 @@ object InterpolationContext {
     new InterpolationContext (Set() ++ (for (f <- leftFormulas.iterator) yield f.negate),
                               Set() ++ (for (f <- rightFormulas.iterator) yield f.negate),
                               Set() ++ (for (f <- commonFormulas.iterator) yield f.negate),
-                              Map(), Map(), order)
+                              Map(), Map(), Set(), order)
   
 }
 
@@ -64,6 +64,7 @@ class InterpolationContext(
   val commonFormulae : Set[Conjunction],
   partialInterpolants : Map[ArithConj, PartialInterpolant],
   rewrittenPredAtoms : Map[PredConj, (Seq[Seq[(IdealInt, EquationConj)]], PredConj)],
+  val parameters : Set[ConstantTerm],
   val order : TermOrder)
 {
    private def getConstants(fors : Iterable[Formula]) =
@@ -108,7 +109,7 @@ class InterpolationContext(
     
     new InterpolationContext(
       leftFormulae, rightFormulae, commonFormulae, newPartialInterpolants,
-      rewrittenPredAtoms, order)
+      rewrittenPredAtoms, parameters, order)
   }
   
   def getPartialInterpolant(literal : ArithConj) : PartialInterpolant =
@@ -176,7 +177,7 @@ class InterpolationContext(
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms + (result -> (newEqs, oriLit)),
-                             order)
+                             parameters, order)
   }
  
   def isFromLeft(conj : Conjunction) : Boolean = leftFormulae contains conj
@@ -185,27 +186,35 @@ class InterpolationContext(
 
   def isCommon(conj : Conjunction) : Boolean = commonFormulae contains conj
 
-  def addConstant(const : ConstantTerm) : InterpolationContext = {
+  def addConstant(const : ConstantTerm) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              if(order.orderedConstants contains const) order
                              else order.extend(const, Set()))
-  }
   
-  def addConstants(consts : Seq[ConstantTerm]) : InterpolationContext = {
-    val newConsts = consts.filter((c) => !(order.orderedConstants contains c))
+  def addConstants(consts : Seq[ConstantTerm]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             (order /: newConsts)(_.extend(_, Set())))
-  }
+                             parameters,
+                             (order /: consts)(_.extend(_, Set())))
 
+  def addParameter(const : ConstantTerm) : InterpolationContext =
+    new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
+                             partialInterpolants,
+                             rewrittenPredAtoms,
+                             parameters + const,
+                             if(order.orderedConstants contains const) order
+                             else order.extend(const, Set()))
+  
   def addLeft(left : Conjunction) : InterpolationContext =
     new InterpolationContext(leftFormulae + left, rightFormulae,
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              order)
   
   def addLeft(lefts : Iterable[Conjunction]) : InterpolationContext =
@@ -213,6 +222,7 @@ class InterpolationContext(
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              order)
   
   def addLeft(lefts : Iterator[Conjunction]) : InterpolationContext =
@@ -220,6 +230,7 @@ class InterpolationContext(
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              order)
 
   def addRight(right : Conjunction) : InterpolationContext =
@@ -227,6 +238,7 @@ class InterpolationContext(
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms, 
+                             parameters,
                              order)
   
   def addRight(rights : Iterable[Conjunction]) : InterpolationContext =
@@ -234,6 +246,7 @@ class InterpolationContext(
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms, 
+                             parameters,
                              order)
   
   def addRight(rights : Iterator[Conjunction]) : InterpolationContext =
@@ -241,6 +254,7 @@ class InterpolationContext(
                              commonFormulae,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              order)
   
   def addCommon(common : Conjunction) : InterpolationContext =
@@ -248,6 +262,7 @@ class InterpolationContext(
                              commonFormulae + common,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              order)
   
   def addCommon(commons : Iterable[Conjunction]) : InterpolationContext =
@@ -255,6 +270,7 @@ class InterpolationContext(
                              commonFormulae ++ commons,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              order)
   
   def addCommon(commons : Iterator[Conjunction]) : InterpolationContext =
@@ -262,11 +278,12 @@ class InterpolationContext(
                              commonFormulae ++ commons,
                              partialInterpolants,
                              rewrittenPredAtoms,
+                             parameters,
                              order)
   
   def setOrder(newOrder : TermOrder) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              partialInterpolants, rewrittenPredAtoms,
-                             newOrder)
+                             parameters, newOrder)
 }
 
