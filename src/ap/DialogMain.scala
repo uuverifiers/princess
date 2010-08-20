@@ -297,8 +297,8 @@ abstract class PrincessPanel extends JPanel {
     
   outputField setText asString {
     CmdlMain.printGreeting
-    println
-    CmdlMain.printOptions
+//    println
+//    CmdlMain.printOptions
   }
 
   //////////////////////////////////////////////////////////////////////////////

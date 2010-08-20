@@ -35,6 +35,14 @@ object CmdlMain {
     println("__  /_/ /_  ___/_  /__  __ \\  ___/  _ \\_  ___/_  ___/")
     println("_  ____/_  /   _  / _  / / / /__ /  __/(__  )_(__  )")
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
+    println
+    println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
+    println
+    println("(c) Philipp Rümmer and Angelo Brillout, 2009-2010")
+    println("Free software under GNU General Public License (GPL).")
+    println("Bug reports to ph_r@gmx.net")
+    println
+    println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
   }
   
   def printUsage = {
