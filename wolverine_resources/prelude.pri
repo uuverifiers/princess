@@ -111,7 +111,8 @@
      \exists int x; select(ar1, x) != select(ar2, x))
 ->
   \forall int ar1, ar2, x; {eqArrays(ar1, ar2), select(ar1, x)}
-                           {eqArrays(ar1, ar2), select(ar2, x)}
+//                           {eqArrays(ar1, ar2), select(ar2, x)}  // seems enough to
+                                                                   // have one trigger
     (eqArrays(ar1, ar2) = 0 -> select(ar1, x) = select(ar2, x))
 ->
 
