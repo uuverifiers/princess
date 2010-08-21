@@ -477,6 +477,7 @@ class SymbolRangeEnvironment {
 }
 
 object Interval {
+  def apply(v : IdealInt) : Interval = Interval(v, v)
   def signed(base : IdealInt) = Interval(-base, base - 1)
   def unsigned(base : IdealInt) = Interval(0, base * 2 - 1)
 }
@@ -492,6 +493,7 @@ case class Interval(lower : IdealInt, upper : IdealInt) {
     
   def +(that : Interval) =
     Interval(this.lower + that.lower, this.upper + that.upper)
+  def -(that : Interval) = this + (that * IdealInt.MINUS_ONE)
   def *(that : IdealInt) : Interval =
     if (that.isPositive)
       Interval(lower * that, upper * that)
@@ -574,11 +576,11 @@ class BitvectorSimplifier(ranges : SymbolRangeEnvironment,
       ShortCutResult((t, None))
     case _ => super.preVisit(t, arg)
   }
-    
+  
   def postVisit(t : IExpression, arg : Unit,
                 subres : Seq[(IExpression, Option[Interval])])
                : (IExpression, Option[Interval]) = t match {
-    case IIntLit(v) => (t, Some(Interval(v, v)))
+    case IIntLit(v) => (t, Some(Interval(v)))
     case IConstant(c) => (t, ranges(c))
     case IVariable(_) => (t, None)
     case ITimes(coeff, _) =>
@@ -612,13 +614,27 @@ class BitvectorSimplifier(ranges : SymbolRangeEnvironment,
         }
       }
 
+    // special handling of unsigned multiplications: if it seems advantageous,
+    // add an explicit negation operator
+    case IFunApp(voc.mulUnsigned, Seq(SignConst(base, 1), _, _))
+      if ((subres(1)._2 exists (_ subsetOf (Interval unsigned base))) &&
+          (subres(2)._2 exists (_ subsetOf Interval(base + 1, base * 2 - 1)))) => {
+      
+      val Seq(_, (t1 : ITerm, Some(i1)), (t2 : ITerm, Some(i2))) = subres
+
+      postVisit(t, arg,
+                List(subres(0),
+                     (voc.minusUnsigned(base, t1), Some(Interval unsigned base)),
+                     (base * 2 - t2, Some(Interval(base * 2) - i2))))
+    }
+
     case IFunApp(fun, Seq(SignConst(base, 1), _, _))
       // binary bit-vector operators
       if (binBitvectorOps contains fun) => {
         val (typeCtor, intervalOp, presburgerOp) = binBitvectorOps(fun)
         val typeRange = typeCtor(base)
-        val t1 = subres(1)._1.asInstanceOf[ITerm]
-        val t2 = subres(2)._1.asInstanceOf[ITerm]
+        
+        val Seq(_, (t1 : ITerm, _), (t2 : ITerm, _)) = subres
         
         if ((presburgerOp isDefinedAt (t1, t2)) &&
             (subres(1)._2 exists (_ subsetOf typeRange)) &&
