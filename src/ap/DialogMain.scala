@@ -30,7 +30,7 @@ import scala.actors.{Actor, TIMEOUT}
 
 import javax.swing._
 import java.awt.{BorderLayout, FlowLayout, Dimension, Font, Color}
-import java.awt.event.{ActionEvent, ActionListener}
+import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
 
 object DialogMain {
   
@@ -69,6 +69,11 @@ object DialogUtil {
   def setupTextField(f : JTextArea) =
     f.setFont(new Font("Courier", Font.PLAIN, 14)) 
 
+  def addActionListener(x : AbstractButton)(action : => Unit) =
+    x addActionListener (new ActionListener {
+      def actionPerformed(e : ActionEvent) = action
+    })
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,71 +93,124 @@ class InputDialog extends JPanel {
   
   //////////////////////////////////////////////////////////////////////////////
 
+  private val menu = new JPopupMenu()
+  
+  private def addMenuItem(name : String)(action : => Unit) = {
+    val item = new JMenuItem(name)
+    menu add item
+    addActionListener(item) {
+      action
+    }
+  }
+  
+  addMenuItem("New tab") { newTab }
+  
+  addMenuItem("Duplicate tab") {
+    val i = tabbedPane.getSelectedIndex
+    val oldTitle = tabbedPane getTitleAt i
+
+    val tab = newPanel
+    createdTabs = createdTabs + 1
+    tabbedPane.addTab(oldTitle + " b", tab)
+
+    tab.inputField setText getEnabledPanel.inputField.getText
+        
+    tab.inputField setCaretPosition 0
+    tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
+  }
+  
+  addMenuItem("Close tab") {
+    getEnabledPanel.stopProver
+    if (tabbedPane.getTabCount == 1)
+      // make sure that there is at least one tab left
+      newTab
+    tabbedPane remove getEnabledPanel
+  }
+  
+/*  menu.addSeparator
+  
+  addMenuItem("Load ...") {
+    getEnabledPanel.stopProver
+    if (tabbedPane.getTabCount == 1)
+      // make sure that there is at least one tab left
+      newTab
+    tabbedPane remove getEnabledPanel
+  } */
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   private val tabbedPane = new JTabbedPane (SwingConstants.BOTTOM)
   add(tabbedPane)
-
+  
+  tabbedPane addMouseListener (new MouseAdapter {
+    override def mouseClicked(e : MouseEvent) =
+      if (e.getButton != MouseEvent.BUTTON1 && e.getClickCount == 1)
+        menu.show(e.getComponent, e.getX, e.getY)
+  })
+  
+  private def getEnabledPanel =
+    tabbedPane.getSelectedComponent.asInstanceOf[PrincessPanel]
+  
   private def newPanel : PrincessPanel =
-    new PrincessPanel {
+    new PrincessPanel(menu) {
       def setRunning = {
-        val i = tabbedPane.indexOfComponent(this)
+        val i = tabbedPane indexOfComponent this
         tabbedPane.setBackgroundAt(i, Color.red)
         tabbedPane.setToolTipTextAt(i, "Solving ...")
       }
       def setFinished = {
-        val i = tabbedPane.indexOfComponent(this)
+        val i = tabbedPane indexOfComponent this
         tabbedPane.setBackgroundAt(i, null)
         tabbedPane.setToolTipTextAt(i, null)
       }
-      def newTab = {
-        val tab = newPanel
-        createdTabs = createdTabs + 1
-        tabbedPane.addTab("Problem " + createdTabs, tab)
-        tab.inputField setText asString {
-          println("\\universalConstants {")
-          println("  /* Declare universally quantified constants of the problem */")
-          println("  ")
-          println("}")
-          println
-          println("\\existentialConstants {")
-          println("  /* Declare existentially quantified constants of the problem */")
-          println("  ")
-          println("}")
-          println
-          println("\\functions {")
-          println("  /* Declare constants and functions occurring in the problem")
-          println("   * (implicitly universally quantified).")
-          println("   * The keyword \"\\partial\" can be used to define functions without totality axiom,")
-          println("   * while \"\\relational\" can be used to define \"functions\" without functionality axiom. */")
-          println("  ")
-          println("}")
-          println
-          println("\\predicates {")
-          println("  /* Declare predicates occurring in the problem")
-          println("   * (implicitly universally quantified) */  ")
-          println("  ")
-          println("}")
-          println
-          println("\\problem {")
-          println("  /* Problem to be proven. The implicit quantification is:")
-          println("   *    \\forall <universalConstants>;")
-          println("   *      \\exists <existentialConstants>;")
-          println("   *        \\forall <functions/predicates>; ... */")
-          println
-          println("  true")
-          println("}")
-        }
-        tab.inputField setCaretPosition 0
-        tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
-      }
-      def closeTab = {
-        if (tabbedPane.getTabCount == 1)
-          // make sure that there is at least one tab left
-          newTab
-        tabbedPane remove this
-      }
     }
   
+  private def newTab = {
+    val tab = newPanel
+    createdTabs = createdTabs + 1
+    tabbedPane.addTab("Problem " + createdTabs, tab)
+    tab.inputField setText asString {
+      println("\\universalConstants {")
+      println("  /* Declare universally quantified constants of the problem */")
+      println("  ")
+      println("}")
+      println
+      println("\\existentialConstants {")
+      println("  /* Declare existentially quantified constants of the problem */")
+      println("  ")
+      println("}")
+      println
+      println("\\functions {")
+      println("  /* Declare constants and functions occurring in the problem")
+      println("   * (implicitly universally quantified).")
+      println("   * The keyword \"\\partial\" can be used to define functions without totality axiom,")
+      println("   * while \"\\relational\" can be used to define \"functions\" without functionality axiom. */")
+      println("  ")
+      println("}")
+      println
+      println("\\predicates {")
+      println("  /* Declare predicates occurring in the problem")
+      println("   * (implicitly universally quantified) */  ")
+      println("  ")
+      println("}")
+      println
+      println("\\problem {")
+      println("  /* Problem to be proven. The implicit quantification is:")
+      println("   *    \\forall <universalConstants>;")
+      println("   *      \\exists <existentialConstants>;")
+      println("   *        \\forall <functions/predicates>; ... */")
+      println
+      println("  true")
+      println("}")
+    }
+    tab.inputField setCaretPosition 0
+    tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
+  }
+
   private var createdTabs = 3
+  
+  //////////////////////////////////////////////////////////////////////////////
+  // Set up the example tabs
   
   {
   val tab = newPanel
@@ -265,14 +323,12 @@ class InputDialog extends JPanel {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-abstract class PrincessPanel extends JPanel {
+abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
 
   import DialogUtil._
 
   def setRunning : Unit
   def setFinished : Unit
-  def closeTab : Unit
-  def newTab : Unit
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -311,24 +367,15 @@ abstract class PrincessPanel extends JPanel {
   leftPanel setLayout (new FlowLayout (FlowLayout.LEADING, 2, 1))
   controlPanel.add(leftPanel, BorderLayout.WEST)
   
-  private val newTabButton = new JButton("New tab")
-  leftPanel.add(newTabButton)
+  private val menuButton = new JButton("File ...")
+  leftPanel.add(menuButton)
+  
+  addActionListener(menuButton) {
+    menu.show(menuButton, menuButton.getX, menuButton.getY)
+  }
 
-  newTabButton addActionListener (new ActionListener {
-    def actionPerformed(e : ActionEvent) = newTab
-  })
-
-  private val closeTabButton = new JButton("Close tab")
-  leftPanel.add(closeTabButton)
-
-  closeTabButton addActionListener (new ActionListener {
-    def actionPerformed(e : ActionEvent) = {
-      if (currentProver != null)
-        currentProver ! "stop"
-      closeTab
-    }
-  })
-
+  //////////////////////////////////////////////////////////////////////////////
+  
   leftPanel add Box.createRigidArea(new Dimension (8, 0))
   private val optionLabel = new JLabel("Options: ")
   leftPanel.add(optionLabel)
@@ -362,17 +409,19 @@ abstract class PrincessPanel extends JPanel {
 
   private var currentProver : Actor = null
   
-  goButton addActionListener (new ActionListener {
-    def actionPerformed(e : ActionEvent) = {
-      if (currentProver == null) {
-        startProver
-      } else {
-        currentProver ! "stop"
-        goButton setEnabled false
-        goButton setText "Stopping ..."
-      }
+  def stopProver =
+    if (currentProver != null) {
+      currentProver ! "stop"
+      goButton setEnabled false
+      goButton setText "Stopping ..."
     }
-  })
+  
+  addActionListener(goButton) {
+    if (currentProver == null)
+      startProver
+    else
+      stopProver
+  }
 
   private def startProver : Unit = {
     val reader = new java.io.StringReader(inputField.getText)
