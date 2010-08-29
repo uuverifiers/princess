@@ -30,7 +30,8 @@ import scala.actors.{Actor, TIMEOUT}
 
 import javax.swing._
 import java.awt.{BorderLayout, FlowLayout, Dimension, Font, Color}
-import java.awt.event.{ActionEvent, ActionListener, MouseAdapter, MouseEvent}
+import java.awt.event.{ActionEvent, ActionListener, MouseAdapter,
+                       MouseEvent, KeyEvent}
 
 object DialogMain {
   
@@ -94,7 +95,7 @@ class InputDialog extends JPanel {
   //////////////////////////////////////////////////////////////////////////////
 
   private val menu = new JPopupMenu()
-  
+
   private def addMenuItem(name : String)(action : => Unit) = {
     val item = new JMenuItem(name)
     menu add item
@@ -103,7 +104,7 @@ class InputDialog extends JPanel {
     }
   }
   
-  addMenuItem("New tab") { newTab }
+  addMenuItem("New tab") { defaultNewTab }
   
   addMenuItem("Duplicate tab") {
     val i = tabbedPane.getSelectedIndex
@@ -120,23 +121,92 @@ class InputDialog extends JPanel {
   }
   
   addMenuItem("Close tab") {
-    getEnabledPanel.stopProver
+    val tabToClose = getEnabledPanel
+    tabToClose.stopProver
     if (tabbedPane.getTabCount == 1)
       // make sure that there is at least one tab left
-      newTab
-    tabbedPane remove getEnabledPanel
+      defaultNewTab
+    tabbedPane remove tabToClose
   }
   
-/*  menu.addSeparator
+  //////////////////////////////////////////////////////////////////////////////
+  // Loading and saving files
+  
+  menu.addSeparator
+  
+  lazy val loadFileChooser = new JFileChooser
   
   addMenuItem("Load ...") {
-    getEnabledPanel.stopProver
-    if (tabbedPane.getTabCount == 1)
-      // make sure that there is at least one tab left
-      newTab
-    tabbedPane remove getEnabledPanel
-  } */
+    try {
+    loadFileChooser.showOpenDialog(frame) match {
+      case JFileChooser.APPROVE_OPTION => {
+        val file = loadFileChooser.getSelectedFile
+        val reader = new java.io.BufferedReader (new java.io.FileReader(file))
+        newTabWithInput(file.getName, asString {
+          var str = reader.readLine
+          while (str != null) {
+            println(str)
+            str = reader.readLine
+          }
+        })
+      }
+      case _ => // nothing
+    }
+    } catch {
+      case e : java.io.IOException =>
+        JOptionPane.showMessageDialog(frame, "Error loading file: \n" + e.getMessage)
+      case x => throw x
+    }
+  }
   
+  lazy val saveFileChooser = new JFileChooser {
+    override def approveSelection = {
+      val file = getSelectedFile
+      if (file.exists) {
+        JOptionPane.showConfirmDialog(this,
+                                      "Overwrite existing file?\n" + file.getName,
+                                      getDialogTitle,
+                                      JOptionPane.YES_NO_OPTION,
+                                      JOptionPane.WARNING_MESSAGE) match {
+          case JOptionPane.YES_OPTION =>
+            super.approveSelection
+          case _ => // nothing
+        }
+      } else {
+        super.approveSelection
+      }
+    }
+  }
+
+  addMenuItem("Save ...") {
+    try {
+    saveFileChooser.showSaveDialog(this) match {
+      case JFileChooser.APPROVE_OPTION => {
+        val file = saveFileChooser.getSelectedFile
+        val out = new java.io.FileOutputStream(file)
+        Console.withOut(out) { Console.print(getEnabledPanel.inputField.getText) }
+        out.close
+      }
+      case _ => // nothing
+    }
+    } catch {
+      case e : java.io.IOException =>
+        JOptionPane.showMessageDialog(frame, "Error saving file: \n" + e.getMessage)
+      case x => throw x
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  {
+    // register the shortcut F1
+    this.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+        .put(KeyStroke.getKeyStroke("F1"), "theAction")
+    this.getActionMap.put("theAction", new AbstractAction {
+      def actionPerformed(e : ActionEvent) = getEnabledPanel.startOrStopProver
+    })
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val tabbedPane = new JTabbedPane (SwingConstants.BOTTOM)
@@ -165,11 +235,17 @@ class InputDialog extends JPanel {
       }
     }
   
-  private def newTab = {
+  private def newTabWithInput(name : String, problem : String) = {
     val tab = newPanel
     createdTabs = createdTabs + 1
-    tabbedPane.addTab("Problem " + createdTabs, tab)
-    tab.inputField setText asString {
+    tabbedPane.addTab(name, tab)
+    tab.inputField setText problem
+    tab.inputField setCaretPosition 0
+    tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
+  }
+  
+  private def defaultNewTab =
+    newTabWithInput("Problem " + (createdTabs + 1), asString {
       println("\\universalConstants {")
       println("  /* Declare universally quantified constants of the problem */")
       println("  ")
@@ -202,20 +278,14 @@ class InputDialog extends JPanel {
       println
       println("  true")
       println("}")
-    }
-    tab.inputField setCaretPosition 0
-    tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
-  }
+    })
 
-  private var createdTabs = 3
+  private var createdTabs = 0
   
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
   
-  {
-  val tab = newPanel
-  tabbedPane.addTab("Arithmetic example", tab)
-  tab.inputField setText asString {
+  newTabWithInput("Arithmetic example", asString {
     println("/**")
     println(" * Example:")
     println(" * Problem in Presburger arithmetic with uninterpreted predicates")
@@ -242,12 +312,9 @@ class InputDialog extends JPanel {
     println("  ->")
     println("     divides(A, 42) & divides(A, 49) & A > 1")
     println("}")
-  }
-  }
-  {
-  val tab = newPanel
-  tabbedPane.addTab("Arithmetic interpolation example", tab)
-  tab.inputField setText asString {
+  })
+
+  newTabWithInput("Arithmetic interpolation example", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in Presburger arithmetic")
@@ -271,12 +338,9 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond; stmt1, stmt2, assert}")
     println("\\interpolant {cond, stmt1; stmt2, assert}")
     println("\\interpolant {cond, stmt1, stmt2; assert}")
-  }
-  }
-  {
-  val tab = newPanel
-  tabbedPane.addTab("Array interpolation example", tab)
-  tab.inputField setText asString {
+  })
+
+  newTabWithInput("Array interpolation example", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in the theory of arrays")
@@ -309,8 +373,7 @@ class InputDialog extends JPanel {
     println("}")
     println
     println("\\interpolant {p0, p1; p2, p3}")
-  }
-  }
+  })
   
   tabbedPane setSelectedIndex 0
   
@@ -339,6 +402,12 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   setupTextField(inputField)
   setupTextField(outputField)
   outputField setEditable false
+  
+  inputField addMouseListener (new MouseAdapter {
+    override def mouseClicked(e : MouseEvent) =
+      if (e.getButton != MouseEvent.BUTTON1 && e.getClickCount == 1)
+        menu.show(e.getComponent, e.getX, e.getY)
+  })
   
   private val scrolledInputField = vScrolled(inputField)
   private val scrolledOutputField = vScrolled(outputField)
@@ -403,10 +472,17 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private val goButton = new JButton("Go!")
-  goButton setForeground Color.BLUE
+  private val goButton = new JButton("")
+  setGoButtonGo
   controlPanel.add(goButton, BorderLayout.EAST)
 
+  private def setGoButtonGo = {
+    goButton setEnabled true
+    goButton setText "Go!"
+    goButton setForeground Color.BLUE
+    goButton setToolTipText "Start proving (F1)"
+  }
+  
   private var currentProver : Actor = null
   
   def stopProver =
@@ -414,14 +490,13 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
       currentProver ! "stop"
       goButton setEnabled false
       goButton setText "Stopping ..."
+      goButton setToolTipText null
     }
   
-  addActionListener(goButton) {
-    if (currentProver == null)
-      startProver
-    else
-      stopProver
-  }
+  def startOrStopProver = 
+    if (currentProver == null) startProver else stopProver
+  
+  addActionListener(goButton) { startOrStopProver }
 
   private def startProver : Unit = {
     val reader = new java.io.StringReader(inputField.getText)
@@ -444,6 +519,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     outputField setText ""
     goButton setText "STOP"
     goButton setForeground Color.RED
+    goButton setToolTipText "Stop proving (F1)"
     setRunning
 
     val proverOutputStream = new java.io.PipedOutputStream
@@ -462,9 +538,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
       proverOutputStream.close
       doLater {
         currentProver = null
-        goButton setEnabled true
-        goButton setForeground Color.BLUE
-        goButton setText "Go!"
+        setGoButtonGo
         setFinished
       }
     }
