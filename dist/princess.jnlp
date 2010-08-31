@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- JNLP file for KeY -->
+<!-- JNLP file for Princess -->
 <jnlp spec="1.0+"
-  codebase="http://www.philipp.ruemmer.org/iprincess/webstart/"
+  codebase="http://www.philipp.ruemmer.org/princess/webstart/"
   href="princess.jnlp">
 <information> 
-<title>iPrincess</title>
+<title>Princess</title>
 <vendor>Philipp Ruemmer, Oxford University</vendor> 
-<homepage href="http://www.philipp.ruemmer.org/iprincess.shtml"/> 
+<homepage href="http://www.philipp.ruemmer.org/princess.shtml"/> 
 <description>
-  The Prover iPrincess.
+  The Prover Princess.
 </description> 
 <offline-allowed/> 
 </information> 
