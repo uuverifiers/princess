@@ -112,7 +112,7 @@ class InputDialog extends JPanel {
 
     val tab = newPanel
     createdTabs = createdTabs + 1
-    tabbedPane.addTab(oldTitle + " b", tab)
+    tabbedPane.addTab(oldTitle + " (b)", tab)
 
     tab.inputField setText getEnabledPanel.inputField.getText
         
@@ -178,11 +178,13 @@ class InputDialog extends JPanel {
     }
   }
 
-  addMenuItem("Save ...") {
+  addMenuItem("Save as ...") {
     try {
     saveFileChooser.showSaveDialog(this) match {
       case JFileChooser.APPROVE_OPTION => {
         val file = saveFileChooser.getSelectedFile
+        val i = tabbedPane.getSelectedIndex
+        tabbedPane.setTitleAt(i, file.getName)
         val out = new java.io.FileOutputStream(file)
         Console.withOut(out) { Console.print(getEnabledPanel.inputField.getText) }
         out.close
@@ -405,7 +407,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   
   inputField addMouseListener (new MouseAdapter {
     override def mouseClicked(e : MouseEvent) =
-      if (e.getButton != MouseEvent.BUTTON1 && e.getClickCount == 1)
+      if (e.getButton == MouseEvent.BUTTON3 && e.getClickCount == 1)
         menu.show(e.getComponent, e.getX, e.getY)
   })
   
@@ -417,7 +419,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   
   private val splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
                                          scrolledOutputField, scrolledInputField)
-                                         
+
   add(splitPane, BorderLayout.CENTER)
     
   outputField setText asString {
