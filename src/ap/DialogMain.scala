@@ -29,7 +29,7 @@ import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 
 import javax.swing._
-import java.awt.{BorderLayout, FlowLayout, Dimension, Font, Color}
+import java.awt.{BorderLayout, FlowLayout, Dimension, Font, Color, Point}
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter,
                        MouseEvent, KeyEvent}
 
@@ -115,7 +115,8 @@ class InputDialog extends JPanel {
     tabbedPane.addTab(oldTitle + " (b)", tab)
 
     tab.inputField setText getEnabledPanel.inputField.getText
-        
+    tab.optionField setText getEnabledPanel.optionField.getText
+
     tab.inputField setCaretPosition 0
     tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
   }
@@ -142,7 +143,7 @@ class InputDialog extends JPanel {
       case JFileChooser.APPROVE_OPTION => {
         val file = loadFileChooser.getSelectedFile
         val reader = new java.io.BufferedReader (new java.io.FileReader(file))
-        newTabWithInput(file.getName, asString {
+        newTabWithInput(file.getName, "", asString {
           var str = reader.readLine
           while (str != null) {
             println(str)
@@ -237,17 +238,18 @@ class InputDialog extends JPanel {
       }
     }
   
-  private def newTabWithInput(name : String, problem : String) = {
+  private def newTabWithInput(name : String, options : String, problem : String) = {
     val tab = newPanel
     createdTabs = createdTabs + 1
     tabbedPane.addTab(name, tab)
     tab.inputField setText problem
     tab.inputField setCaretPosition 0
+    tab.optionField setText options
     tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
   }
   
   private def defaultNewTab =
-    newTabWithInput("Problem " + (createdTabs + 1), asString {
+    newTabWithInput("Problem " + (createdTabs + 1), "", asString {
       println("\\universalConstants {")
       println("  /* Declare universally quantified constants of the problem */")
       println("  ")
@@ -287,7 +289,7 @@ class InputDialog extends JPanel {
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
   
-  newTabWithInput("Arithmetic example", asString {
+  newTabWithInput("Arithmetic example", "-assert", asString {
     println("/**")
     println(" * Example:")
     println(" * Problem in Presburger arithmetic with uninterpreted predicates")
@@ -316,7 +318,7 @@ class InputDialog extends JPanel {
     println("}")
   })
 
-  newTabWithInput("Arithmetic interpolation example", asString {
+  newTabWithInput("Arithmetic interpolation example", "-assert", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in Presburger arithmetic")
@@ -342,7 +344,7 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond, stmt1, stmt2; assert}")
   })
 
-  newTabWithInput("Array interpolation example", asString {
+  newTabWithInput("Array interpolation example", "-assert", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in the theory of arrays")
@@ -448,10 +450,14 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   //////////////////////////////////////////////////////////////////////////////
   
   leftPanel add Box.createRigidArea(new Dimension (8, 0))
-  private val optionLabel = new JLabel("Options: ")
+  private val optionLabel = new JLabel("Options: ") {
+    override def getToolTipLocation(e : MouseEvent) = new Point (0, -400)
+  }
   leftPanel.add(optionLabel)
   
-  private val optionField = new JTextField
+  val optionField = new JTextField {
+    override def getToolTipLocation(e : MouseEvent) = new Point (0, -400)
+  }
   controlPanel.add(optionField, BorderLayout.CENTER)
   
   private val toolTip = asString {
@@ -459,6 +465,24 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     CmdlMain.printOptions
     println("</pre></html>")
   }
+
+  /**
+   * Make sure that the option tooltip stays open for a long time
+   */
+  private val optionToolTipMouseListener = new MouseAdapter {
+    private var oldDismissDelay = ToolTipManager.sharedInstance.getDismissDelay
+
+    override def mouseEntered(e : MouseEvent) = {
+      oldDismissDelay = ToolTipManager.sharedInstance.getDismissDelay
+      ToolTipManager.sharedInstance setDismissDelay 10000000
+    }
+    override def mouseExited(e : MouseEvent) = {
+      ToolTipManager.sharedInstance setDismissDelay oldDismissDelay
+    }
+  }
+
+  optionLabel addMouseListener optionToolTipMouseListener
+  optionField addMouseListener optionToolTipMouseListener
 
   //////////////////////////////////////////////////////////////////////////////
 
