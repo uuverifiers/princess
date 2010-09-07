@@ -39,16 +39,21 @@ object ComputationLogger {
   } with ComputationLogger {
     def combineEquations(equations : Seq[(IdealInt, LinearCombination)],
                          result : LinearCombination,
+                         resultAfterRounding : LinearCombination,
                          order : TermOrder) : Unit = {}
-    def reduceArithFormula(equations : Seq[(IdealInt, LinearCombination)],
-                           targetLit : ArithConj, result : ArithConj,
-                           order : TermOrder) : Unit = {}
+    def reduceNegEquation(equations : Seq[(IdealInt, LinearCombination)],
+                          targetLit : LinearCombination,
+                          order : TermOrder) : Unit = {}
+    def reduceInequality(equations : Seq[(IdealInt, LinearCombination)],
+                         targetLit : LinearCombination,
+                         order : TermOrder) : Unit = {}
     def reducePredFormula(equations : Seq[Seq[(IdealInt, LinearCombination)]],
                           targetLit : PredConj, result : PredConj,
                           order : TermOrder) : Unit = {}
     def combineInequalities(leftCoeff : IdealInt, leftInEq : LinearCombination,
                             rightCoeff : IdealInt, rightInEq : LinearCombination,
                             result : LinearCombination,
+                            resultAfterRounding : LinearCombination,
                             order : TermOrder) : Unit = {}
     def antiSymmetry(leftInEq : LinearCombination, rightInEq : LinearCombination,
                      order : TermOrder) : Unit = {}
@@ -106,20 +111,29 @@ trait ComputationLogger {
   /**
    * Inference corresponding to a series of applications of the reduce rule:
    * form the linear combination of a number of positive equations. The
-   * given terms shall be primitive, with a positive leading coefficient
+   * given terms (apart from <code>result</code>) shall be primitive, with
+   * a positive leading coefficient
    */
   def combineEquations(equations : Seq[(IdealInt, LinearCombination)],
                        result : LinearCombination,
+                       resultAfterRounding : LinearCombination,
                        order : TermOrder) : Unit
 
   /**
    * Inference corresponding to a series of applications of the reduce rule to a
-   * negated equation or an inequality (reduction of positive equalities is
+   * negated equation (reduction of positive equalities is
    * described using <code>CombineEquationsInference</code>).
    */
-  def reduceArithFormula(equations : Seq[(IdealInt, LinearCombination)],
-                         targetLit : ArithConj, result : ArithConj,
-                         order : TermOrder) : Unit
+  def reduceNegEquation(equations : Seq[(IdealInt, LinearCombination)],
+                        targetLit : LinearCombination, order : TermOrder) : Unit
+
+  /**
+   * Inference corresponding to a series of applications of the reduce rule to a
+   * an inequality (reduction of positive equalities is
+   * described using <code>CombineEquationsInference</code>).
+   */
+  def reduceInequality(equations : Seq[(IdealInt, LinearCombination)],
+                       targetLit : LinearCombination, order : TermOrder) : Unit
 
   /**
    * Inference corresponding to a series of applications of the reduce rule to
@@ -138,6 +152,7 @@ trait ComputationLogger {
   def combineInequalities(leftCoeff : IdealInt, leftInEq : LinearCombination,
                           rightCoeff : IdealInt, rightInEq : LinearCombination,
                           result : LinearCombination,
+                          resultAfterRounding : LinearCombination,
                           order : TermOrder) : Unit
 
   /**
@@ -177,10 +192,10 @@ trait ComputationLogger {
    */
   val ceScope =
     new LogScope[(Seq[(IdealInt, LinearCombination)], TermOrder),
-                 LinearCombination](isLogging) {
+                 (LinearCombination, LinearCombination)](isLogging) {
       def log(input : (Seq[(IdealInt, LinearCombination)], TermOrder),
-              result : LinearCombination) : Unit =
-        combineEquations(input _1, result, input _2)
+              result : (LinearCombination, LinearCombination)) : Unit =
+        combineEquations(input _1, result _1, result _2, input _2)
     }
 
   /**
@@ -188,10 +203,11 @@ trait ComputationLogger {
    */
   val cieScope =
     new LogScope[(IdealInt, LinearCombination, IdealInt, LinearCombination, TermOrder),
-                 LinearCombination](isLogging) {
+                 (LinearCombination, LinearCombination)](isLogging) {
       def log(input : (IdealInt, LinearCombination, IdealInt, LinearCombination,
                        TermOrder),
-              result : LinearCombination) : Unit =
-        combineInequalities(input _1, input _2, input _3, input _4, result, input _5)
+              result : (LinearCombination, LinearCombination)) : Unit =
+        combineInequalities(input _1, input _2, input _3, input _4,
+                            result _1, result _2, input _5)
     }
 }

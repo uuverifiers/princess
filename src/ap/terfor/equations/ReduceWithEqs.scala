@@ -274,21 +274,6 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     else
       null
     
-  private def logReduction(terms : ArrayBuffer[(IdealInt, LinearCombination)],
-                           oriLC : LinearCombination, newLC : LinearCombination,
-                           formulaCtor : (LinearCombination) => Formula,
-                           logger : ComputationLogger,
-                           order : TermOrder) : LinearCombination = {
-    if (terms != null && !terms.isEmpty) {
-      val oriFor = ArithConj.conj(formulaCtor(oriLC), order)
-      val newFor = ArithConj.conj(formulaCtor(newLC), order)
-      if (!newFor.isTrue)
-        logger.reduceArithFormula(terms, oriFor, newFor, order)
-      terms.clear
-    }
-    newLC
-  }
-
   //////////////////////////////////////////////////////////////////////////////
 
   def apply(conj : NegEquationConj) : NegEquationConj =
@@ -302,10 +287,13 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     val terms = createTermBuffer(logger)
     val res = if (reductionPossible(conj))
                 conj.updateEqs(for (lc <- conj) yield {
-                                 logReduction(terms, lc,
-                                              reduceAndMakePositive(lc, terms),
-                                              NegEquationConj(_, order),
-                                              logger, order)
+                                 val newLC = reduceAndMakePositive(lc, terms)
+                                 if (terms != null && !terms.isEmpty &&
+                                     !newLC.isNonZero) {
+                                   logger.reduceNegEquation(terms, lc, order)
+                                   terms.clear
+                                 }
+                                 newLC
                                })(order)
               else
                 conj
@@ -326,10 +314,13 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     val terms = createTermBuffer(logger)
     val res = if (reductionPossible(conj))
                 conj.updateGeqZero(for (lc <- conj) yield {
-                                     logReduction(terms, lc,
-                                                  apply(lc, terms),
-                                                  InEqConj(_, order),
-                                                  logger, order)
+                                     val newLC = apply(lc, terms)
+                                     if (terms != null && !terms.isEmpty &&
+                                         !(newLC.isConstant && newLC.constant.signum >= 0)) {
+                                       logger.reduceInequality(terms, lc, order)
+                                       terms.clear
+                                     }
+                                     newLC
                                    }, logger)(order)
               else
                 conj

@@ -30,11 +30,12 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.equations.EquationConj
 import ap.terfor.ComputationLogger
-import ap.util.Seqs
+import ap.util.{Seqs, Debug}
 
 import scala.collection.mutable.{HashSet => MHashSet}
 
 object BranchInferenceCollection {
+  private val AC = Debug.AC_CERTIFICATES
   
   val EMPTY = new BranchInferenceCollection(List())
 
@@ -42,19 +43,64 @@ object BranchInferenceCollection {
     if (initialFors.isEmpty)
       EMPTY
     else
-      apply((for (f <- initialFors; inf <- genAlphaInferences(f)) yield inf).toList)
+      apply((for (f <- initialFors;
+                  inf <- genDefaultInferences(CertFormula(f))) yield inf).toList)
   
   def apply(inferences : List[BranchInference]) =
     new BranchInferenceCollection(inferences)
   
   /**
+   * Check whether alpha or simplification rules are applicable to the given
+   * formula
+   */
+  private[certificates]
+    def genDefaultInferences(f : CertFormula) : Seq[BranchInference] = {
+      val alphaInfs = genAlphaInferences(f)
+      val directSimpInfs = genSimpInferences(f)
+      val indirectSimpInfs = for (inf <- alphaInfs;
+                                  f <- inf.providedFormulas;
+                                  i <- genSimpInferences(f)) yield i
+      alphaInfs ++ directSimpInfs ++ indirectSimpInfs
+    }
+  
+  /**
    * Generate applications of the alpha rule to the given conjunction
    */
-  private[certificates] def genAlphaInferences(f : Conjunction) : Seq[BranchInference] =
-    if (f.size > 1)
-      List(AlphaInference(f, Set() ++ f.iterator))
-    else
+  private def genAlphaInferences(cf : CertFormula) : Seq[BranchInference] =
+    cf match {
+      case cf@CertCompoundFormula(f) if (f.size > 1 && f.quans.isEmpty) =>
+        List(AlphaInference(cf, Set() ++ (for (l <- f.iterator) yield CertFormula(l))))
+      case _ => List()
+    }
+
+  /**
+   * Check whether the given formula can be simplified, and generate a
+   * corresponding inference in this case
+   */
+  private def genSimpInferences(f : CertFormula) : Seq[BranchInference] =
+    if (f.isTrue || f.isFalse) {
       List()
+    } else f match {
+      case f@CertInequality(lhs) => {
+        val simplified = lhs.makePrimitive
+        if (simplified == lhs)
+          List()
+        else
+          List(SimpInference(f, CertInequality(simplified), f.order))
+      }
+      case f : CertArithLiteral => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(AC, f.isInstanceOf[CertEquation] ||
+                            f.isInstanceOf[CertNegEquation])
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        val simplified = f.lhs.makePrimitiveAndPositive
+        if (simplified == f.lhs)
+          List()
+        else
+          List(SimpInference(f, f update simplified, f.order))
+      }
+      case _ => List()
+    }
 }
 
 /**
@@ -72,7 +118,7 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
     if (inferences.isEmpty) {
       child
     } else {
-      val requiredFormulas = new MHashSet[Conjunction]
+      val requiredFormulas = new MHashSet[CertFormula]
       requiredFormulas ++= child.assumedFormulas
     
       var selectedInferences : List[BranchInference] = List()
@@ -89,6 +135,14 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
       else
         BranchInferenceCertificate(selectedInferences, child, order)
     }
+  
+  /**
+   * Check whether any of the stored inferences produced an unsatisfiable
+   * formula
+   */
+  def findFalseFormula : Option[CertFormula] =
+    (for (inf <- inferences.iterator;
+          f <- inf.providedFormulas.iterator) yield f) find (_.isFalse)
   
   override def toString : String = inferences.toString
   
@@ -132,7 +186,7 @@ trait BranchInferenceCollector extends ComputationLogger {
 
   /**
    * An inference that turns a universally quantified divisibility constraint into
-   * an existentially quantified disjunction equations.
+   * an existentially quantified disjunction of equations.
    */
   def divRight(divisibility : Conjunction,
                result : Conjunction, order : TermOrder) : Unit
@@ -156,6 +210,8 @@ object NonLoggingBranchInferenceCollector
 ////////////////////////////////////////////////////////////////////////////////
 
 object LoggingBranchInferenceCollector {
+  private val AC = Debug.AC_CERTIFICATES
+
   def empty = new LoggingBranchInferenceCollector(List())
   def apply(inferences : List[BranchInference]) =
     new LoggingBranchInferenceCollector(inferences)
@@ -174,14 +230,19 @@ class LoggingBranchInferenceCollector private
 
 } with BranchInferenceCollector {
   
-  def apply(inf : BranchInference) : Unit = {
-    inferences = inf :: inferences
-    for (f <- inf.providedFormulas) newFormula(f)
+  private def addPlusDefaultInfs(inf : BranchInference) : Unit = {
+    addDirectly(inf)
+    for (f <- inf.providedFormulas) newCertFormula(f)
   }
 
-  def newFormula(f : Conjunction) : Unit =
-    for (alphaInf <- BranchInferenceCollection genAlphaInferences f)
-      inferences = alphaInf :: inferences
+  private def addDirectly(inf : BranchInference) : Unit =
+    inferences = inf :: inferences
+  
+  def newFormula(f : Conjunction) : Unit = newCertFormula(CertFormula(f))
+  
+  private def newCertFormula(f : CertFormula) : Unit =
+    for (alphaInf <- BranchInferenceCollection genDefaultInferences f)
+      addDirectly(alphaInf)
   
   def getCollection : BranchInferenceCollection =
     BranchInferenceCollection(inferences)
@@ -190,82 +251,98 @@ class LoggingBranchInferenceCollector private
   
   def combineEquations(equations : Seq[(IdealInt, LinearCombination)],
                        result : LinearCombination,
+                       resultAfterRounding : LinearCombination,
                        order : TermOrder) : Unit = {
-    implicit val o = order
-    apply(CombineEquationsInference(for ((c, lc) <- equations) yield (c, lc === 0),
-                                    result === 0,
-                                    order))
+    val resultF = CertEquation(result)
+    addDirectly(CombineEquationsInference(for ((c, lc) <- equations) yield (c, CertEquation(lc)),
+                                          resultF, order))
+    if (result != resultAfterRounding)
+      addDirectly(SimpInference(resultF, CertEquation(resultAfterRounding), order))
   }
 
-  def reduceArithFormula(equations : Seq[(IdealInt, LinearCombination)],
-                         targetLit : ArithConj, result : ArithConj,
-                         order : TermOrder) : Unit = {
-    implicit val o = order
-    apply(ReduceInference(for ((c, lc) <- equations) yield (c, lc === 0),
-                          targetLit, result,
-                          order))
-  }
+  def reduceNegEquation(equations : Seq[(IdealInt, LinearCombination)],
+                        targetLit : LinearCombination, order : TermOrder) : Unit =
+    addPlusDefaultInfs(ReduceInference(for ((c, lc) <- equations) yield (c, CertEquation(lc)),
+                                       CertNegEquation(targetLit), order))
+
+  def reduceInequality(equations : Seq[(IdealInt, LinearCombination)],
+                       targetLit : LinearCombination, order : TermOrder) : Unit =
+    addPlusDefaultInfs(ReduceInference(for ((c, lc) <- equations) yield (c, CertEquation(lc)),
+                                       CertInequality(targetLit), order))
 
   def reducePredFormula(equations : Seq[Seq[(IdealInt, LinearCombination)]],
                         targetLit : PredConj, result : PredConj,
-                        order : TermOrder) : Unit = {
-    implicit val o = order
-    apply(ReducePredInference(for (eqs <- equations) yield
-                                (for ((c, lc) <- eqs) yield (c, lc === 0)),
-                              targetLit, result,
-                              order))
-  }
+                        order : TermOrder) : Unit =
+    addPlusDefaultInfs(ReducePredInference(for (eqs <- equations) yield
+                                             (for ((c, lc) <- eqs) yield (c, CertEquation(lc))),
+                                           CertFormula(targetLit).asInstanceOf[CertPredLiteral],
+                                           CertFormula(result).asInstanceOf[CertPredLiteral],
+                                           order))
 
   def combineInequalities(leftCoeff : IdealInt, leftInEq : LinearCombination,
                           rightCoeff : IdealInt, rightInEq : LinearCombination,
                           result : LinearCombination,
+                          resultAfterRounding : LinearCombination,
                           order : TermOrder) : Unit = {
-    implicit val o = order
-    apply(CombineInequalitiesInference(leftCoeff, leftInEq >= 0,
-                                       rightCoeff, rightInEq >= 0,
-                                       result >= 0, order))
+    val resultF = CertInequality(result)
+    addDirectly(CombineInequalitiesInference(leftCoeff, CertInequality(leftInEq),
+                                             rightCoeff, CertInequality(rightInEq),
+                                             resultF, order))
+    if (result != resultAfterRounding)
+      addDirectly(SimpInference(resultF, CertInequality(resultAfterRounding), order))
   }
 
   def antiSymmetry(leftInEq : LinearCombination, rightInEq : LinearCombination,
-                   order : TermOrder) : Unit = {
-    implicit val o = order
-    apply(AntiSymmetryInference(leftInEq >= 0, rightInEq >= 0,
-                                leftInEq === 0, order))
-  }
+                   order : TermOrder) : Unit =
+    addDirectly(AntiSymmetryInference(CertInequality(leftInEq),
+                                      CertInequality(rightInEq),
+                                      order))
 
   def directStrengthen(inequality : LinearCombination, equation : LinearCombination,
-                       result : LinearCombination, order : TermOrder) : Unit = {
-    implicit val o = order
-    apply(DirectStrengthenInference(inequality >= 0, equation =/= 0,
-                                    result >= 0, order))
-  }
+                       result : LinearCombination, order : TermOrder) : Unit =
+    addDirectly(DirectStrengthenInference(CertInequality(inequality),
+                                          CertNegEquation(equation),
+                                          CertInequality(result),
+                                          order))
   
   def columnReduce(oldSymbol : ConstantTerm, newSymbol : ConstantTerm,
                    newSymbolDef : LinearCombination, subst : Boolean,
                    newOrder : TermOrder) : Unit = {
     implicit val o = newOrder
-    apply(ColumnReduceInference(oldSymbol, newSymbol,
-                                newSymbol === newSymbolDef, subst, newOrder))
+    addDirectly(ColumnReduceInference(oldSymbol, newSymbol,
+                                      CertEquation(newSymbolDef - newSymbol),
+                                      subst, newOrder))
   }
 
   def instantiateQuantifier(quantifiedFormula : Conjunction,
                             newConstants : Seq[ConstantTerm],
                             result : Conjunction,
                             order : TermOrder) : Unit =
-    apply(QuantifierInference(quantifiedFormula, newConstants, result, order))
+    addPlusDefaultInfs(QuantifierInference(CertCompoundFormula(quantifiedFormula),
+                                           newConstants,
+                                           CertFormula(result),
+                                           order))
 
   def groundInstantiateQuantifier(quantifiedFormula : Conjunction,
                                   instanceTerms : Seq[LinearCombination],
                                   result : Conjunction,
                                   order : TermOrder) : Unit =
-    apply(GroundInstInference(quantifiedFormula, instanceTerms, result, order))
+    addPlusDefaultInfs(GroundInstInference(CertCompoundFormula(quantifiedFormula),
+                                           instanceTerms,
+                                           CertFormula(result),
+                                           order))
 
   def divRight(divisibility : Conjunction,
                result : Conjunction, order : TermOrder) : Unit =
-    apply(DivRightInference(divisibility, result, order))
+    addDirectly(DivRightInference(CertCompoundFormula(divisibility),
+                                  CertCompoundFormula(result),
+                                  order))
 
   def unifyPredicates(leftAtom : Atom, rightAtom : Atom,
                       result : EquationConj, order : TermOrder) : Unit =
-    apply(PredUnifyInference(leftAtom, rightAtom, result, order))
+    addPlusDefaultInfs(PredUnifyInference(CertPredLiteral(false, leftAtom),
+                                          CertPredLiteral(true, rightAtom),
+                                          CertFormula(result),
+                                          order))
 
 }

@@ -182,12 +182,12 @@ object InEqConj {
     def addRemainingLC(lc : LinearCombination) : Unit =
       if (lc.isConstant) {
         if (lc.constant.signum < 0) {
-          logger.cieScope.finish(LinearCombination.MINUS_ONE)
+          logger.cieScope.finish(lc, lc)
           remainder += LinearCombination.MINUS_ONE
         }
       } else {
         val primLC = lc.makePrimitive
-        logger.cieScope.finish(primLC)
+        logger.cieScope.finish(lc, primLC)
         remainder += primLC
       }
 
@@ -600,7 +600,7 @@ private class FMInfsComputer(infThrottleThreshold : Int,
   private def addGeqTodo(lc : LinearCombination, inf : Boolean, source : Int) : Unit =
     if (lc.isConstant) {
       if (lc.constant.signum < 0) {
-        logger.cieScope.finish(LinearCombination.MINUS_ONE)
+        logger.cieScope.finish(lc, lc)
         throw UNSATISFIABLE_CONJUNCTION_EXCEPTION
       }
       // otherwise: we can simply remove the trivial inequality
@@ -609,7 +609,7 @@ private class FMInfsComputer(infThrottleThreshold : Int,
           infsTodoCount < infThrottleThreshold ||
           infsLocalTodoCount < throttledInfNum) {
         val primLC = lc.makePrimitive // round the constant term downwards
-        logger.cieScope.finish(primLC)
+        logger.cieScope.finish(lc, primLC)
         inEqsQueue +=
           (if (inf) GeqZeroInf(primLC, source) else GeqZero(primLC, source))
       } else {

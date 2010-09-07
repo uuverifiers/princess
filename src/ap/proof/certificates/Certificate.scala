@@ -47,7 +47,7 @@ abstract class Certificate {
   Debug.assertCtor(Certificate.AC,
                    (closingConstraint isSortedBy order) &&
                    size == localProvidedFormulas.size &&
-                   (assumedFormulas forall (_ isSortedBy order)))
+                   (assumedFormulas forall (order isSortingOf _)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   /**
@@ -60,20 +60,20 @@ abstract class Certificate {
    * premisses of rules applied in the proof). We assume that all formulae
    * live in the antecedent.
    */
-  lazy val assumedFormulas : Set[Conjunction] =
+  lazy val assumedFormulas : Set[CertFormula] =
     localAssumedFormulas ++
     (for ((cert, providedFormulas) <- iterator zip localProvidedFormulas.iterator;
           f <- FilterIt(cert.assumedFormulas.iterator,
-                        (f : Conjunction) => !(providedFormulas contains f))) yield f)
+                        (f : CertFormula) => !(providedFormulas contains f))) yield f)
   
-  val localAssumedFormulas : Set[Conjunction]
+  val localAssumedFormulas : Set[CertFormula]
   
   /**
    * Formulae that are introduced into the antecedent by this rule application
    * (one set for each subproof). This will implicitly simplify formulae (all
    * simplifications that are built into the datastructures are carried out).
    */
-  val localProvidedFormulas : Seq[Set[Conjunction]]
+  val localProvidedFormulas : Seq[Set[CertFormula]]
 
   val order : TermOrder
 

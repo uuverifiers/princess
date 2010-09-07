@@ -59,7 +59,8 @@ object Interpolator
   def apply(
     certificate : Certificate, 
     iContext: InterpolationContext) : Conjunction = {
-    val resWithQuantifiers = applyHelp(certificate, iContext)
+    return Conjunction.TRUE
+    val resWithQuantifiers = null // applyHelp(certificate, iContext)
 
     implicit val o = certificate.order
 
@@ -114,7 +115,7 @@ object Interpolator
     }
   }
 */
-
+/*
   private def applyHelp(
     certificate : Certificate, 
     iContext: InterpolationContext) : Conjunction =
@@ -906,5 +907,5 @@ object Interpolator
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
-
+*/
 }

@@ -33,7 +33,7 @@ object BetaCertificate {
   /**
    * Convenience method to handle splits with many children
    */
-  def apply(children : Seq[(Conjunction, Certificate)],
+  def apply(children : Seq[(CertFormula, Certificate)],
             order : TermOrder) : BetaCertificate = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, children.size >= 2)
@@ -62,16 +62,16 @@ object BetaCertificate {
  * (In many cases, the formula <code>!leftFormula</code> will not be used in the
  * right branch.)
  */
-case class BetaCertificate(leftFormula : Conjunction, rightFormula : Conjunction,
+case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula,
                            _leftChild : Certificate, _rightChild : Certificate,
                            _order : TermOrder) extends {
   
-  val localAssumedFormulas = Set({
+  val localAssumedFormulas = Set[CertFormula]({
     implicit val o = _order
-    leftFormula | rightFormula
+    CertCompoundFormula(leftFormula.toConj | rightFormula.toConj)
   })
   
-  val localProvidedFormulas : Seq[Set[Conjunction]] =
+  val localProvidedFormulas : Seq[Set[CertFormula]] =
     Array(Set(leftFormula),
           Set(rightFormula, !leftFormula))
   

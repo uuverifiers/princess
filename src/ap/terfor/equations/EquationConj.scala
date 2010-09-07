@@ -277,7 +277,7 @@ private class RowSolver(lhss : Iterator[LinearCombination],
 
   private def checkNonZero(lhs : LinearCombination) : Unit =
     if (lhs.isNonZero) {
-      logger.ceScope.finish(LinearCombination.ONE)
+      logger.ceScope.finish(lhs, lhs)
       throw UNSATISFIABLE_CONJUNCTION_EXCEPTION
     }
   
@@ -287,12 +287,17 @@ private class RowSolver(lhss : Iterator[LinearCombination],
    * if it is detected that the conjunction of equations is unsatisfiable
    */
   private def addNonCanon(rawlhs : LinearCombination) : Unit = {
-    // TODO: add logger
-    val lhs = modEquations.pseudoReduce(rawlhs)
+    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+    // it should not be necessary to log the reduction at this point
+    Debug.assertInt(EquationConj.AC, !logger.isLogging || modEquations.isEmpty)
+    //-END-ASSERTION-/////////////////////////////////////////////////////////
+    
+    val lhs =
+      if (modEquations.isEmpty) rawlhs else (modEquations pseudoReduce rawlhs)
     if (!lhs.isZero) {
       checkNonZero(lhs)
       val primLhs = lhs.makePrimitiveAndPositive
-      logger.ceScope.finish(primLhs)
+      logger.ceScope.finish(rawlhs, primLhs)
       nonCanonLhss += primLhs
     }
   }
@@ -319,7 +324,7 @@ private class RowSolver(lhss : Iterator[LinearCombination],
                       order.compare(nonRedLhss.last.leadingTerm,
                                     primLhs.leadingTerm) > 0)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      logger.ceScope.finish(primLhs)
+      logger.ceScope.finish(lhs, primLhs)
       nonRedLhss += primLhs
     }
   }
@@ -450,7 +455,7 @@ private class RowSolver(lhss : Iterator[LinearCombination],
                                     primLhs.leadingTerm) < 0)
     //-END-ASSERTION-/////////////////////////////////////////////////////////
     
-    logger.ceScope.finish(primLhs)
+    logger.ceScope.finish(lhs, primLhs)
     redLhss(eqIndex) = primLhs
     eqIndex = eqIndex - 1
     

@@ -41,7 +41,7 @@ object StrengthenCertificate {
  * <code>weakInEq(0) === 1</code>, etc. and the inequality
  * <code>Set(weakInEq(0) >= eqCases</code>.
  */
-case class StrengthenCertificate(weakInEq : InEqConj, eqCases : IdealInt,
+case class StrengthenCertificate(weakInEq : CertInequality, eqCases : IdealInt,
                                  children : Seq[Certificate],
                                  order : TermOrder) extends {
 
@@ -50,21 +50,20 @@ case class StrengthenCertificate(weakInEq : InEqConj, eqCases : IdealInt,
     conj(for (c <- children.iterator) yield c.closingConstraint)
   }
   
-  val localAssumedFormulas : Set[Conjunction] = Set(weakInEq)
+  val localAssumedFormulas : Set[CertFormula] = Set(weakInEq)
   
-  val localProvidedFormulas : Seq[Set[Conjunction]] = {
+  val localProvidedFormulas : Seq[Set[CertFormula]] = {
     implicit val o = order
     (for (i <- 0 until eqCases.intValueSafe)
-       yield Set[Conjunction](weakInEq(0) === i)) ++
-      List(Set[Conjunction](weakInEq(0) >= eqCases))
+       yield Set[CertFormula](CertEquation(weakInEq.lhs - i))) ++
+      List(Set[CertFormula](CertInequality(weakInEq.lhs - eqCases)))
   }
   
 } with Certificate {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(StrengthenCertificate.AC,
-                   weakInEq.size == 1 && !weakInEq.isFalse &&
-                   eqCases.signum > 0)
+                   !weakInEq.isFalse && eqCases.signum > 0)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def length = children.length

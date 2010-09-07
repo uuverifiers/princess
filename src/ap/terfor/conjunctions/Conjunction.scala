@@ -442,12 +442,16 @@ class Conjunction private (val quans : Seq[Quantifier],
 
   def size : Int = arithConj.size + predConj.size + negatedConjs.size
   
-  def iterator : Iterator[Conjunction] =
+  def iterator : Iterator[Conjunction] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(Conjunction.AC, quans.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     (for (c <- arithConj.iterator)
        yield Conjunction.conj(c, order)) ++
     (for (atom <- predConj.iterator)
        yield Conjunction.conj(atom, order)) ++
     (for (c <- negatedConjs.iterator) yield c.negate)
+  }
   
   /**
    * Return whether this conjunction actually only is a single literal

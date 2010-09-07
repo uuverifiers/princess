@@ -400,10 +400,12 @@ class Goal private (val facts : Conjunction,
     else
       BranchInferenceCollection.EMPTY
   
-  def getCertificate : Certificate = {
+  def getCertificate : Certificate =
     branchInferences.getCertificate(
       if (facts.isFalse) {
-        CloseCertificate(Set(Conjunction.FALSE), order)
+        // we currently just assume that some inference generating a
+        // contradiction has to be present in this case
+        CloseCertificate(Set(branchInferences.findFalseFormula.get), order)
       } else {
         // In the presence of predicates, it can happen that a sub-proof was used
         // to show the inconsistency of the arithmetic facts. We currently just
@@ -418,7 +420,6 @@ class Goal private (val facts : Conjunction,
                                yield Conjunction.conj(l.negate, order)).toList
         ModelSearchProver(factDisjuncts, order, settings).right.get
       }, order)
-  }
     
   //////////////////////////////////////////////////////////////////////////////
   
