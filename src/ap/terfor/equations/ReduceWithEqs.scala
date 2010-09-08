@@ -288,9 +288,9 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     val res = if (reductionPossible(conj))
                 conj.updateEqs(for (lc <- conj) yield {
                                  val newLC = reduceAndMakePositive(lc, terms)
-                                 if (terms != null && !terms.isEmpty &&
-                                     !newLC.isNonZero) {
-                                   logger.reduceNegEquation(terms, lc, order)
+                                 if (terms != null && !terms.isEmpty) {
+                                   if (!newLC.isNonZero)
+                                     logger.reduceNegEquation(terms, lc, order)
                                    terms.clear
                                  }
                                  newLC
@@ -315,9 +315,10 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     val res = if (reductionPossible(conj))
                 conj.updateGeqZero(for (lc <- conj) yield {
                                      val newLC = apply(lc, terms)
-                                     if (terms != null && !terms.isEmpty &&
-                                         !(newLC.isConstant && newLC.constant.signum >= 0)) {
-                                       logger.reduceInequality(terms, lc, order)
+                                     if (terms != null && !terms.isEmpty) {
+                                       if (!(newLC.isConstant &&
+                                             newLC.constant.signum >= 0))
+                                         logger.reduceInequality(terms, lc, order)
                                        terms.clear
                                      }
                                      newLC
@@ -361,15 +362,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         
         if (changed) {
           val newAtom = a.updateArgs(newArgs)(order)
-          val oldLit = if (positive)
-                         PredConj(List(a), List(), order)
-                       else
-                         PredConj(List(), List(a), order)
-          val newLit = if (positive)
-                         PredConj(List(newAtom), List(), order)
-                       else
-                         PredConj(List(), List(newAtom), order)
-          logger.reducePredFormula(argModifiers, oldLit, newLit, order)
+          logger.reducePredFormula(argModifiers, a, !positive, newAtom, order)
           newAtom
         } else {
           a

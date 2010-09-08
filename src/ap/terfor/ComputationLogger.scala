@@ -48,7 +48,7 @@ object ComputationLogger {
                          targetLit : LinearCombination,
                          order : TermOrder) : Unit = {}
     def reducePredFormula(equations : Seq[Seq[(IdealInt, LinearCombination)]],
-                          targetLit : PredConj, result : PredConj,
+                          targetLit : Atom, negated : Boolean, result : Atom,
                           order : TermOrder) : Unit = {}
     def combineInequalities(leftCoeff : IdealInt, leftInEq : LinearCombination,
                             rightCoeff : IdealInt, rightInEq : LinearCombination,
@@ -142,7 +142,7 @@ trait ComputationLogger {
    * reduced simultaneously
    */
   def reducePredFormula(equations : Seq[Seq[(IdealInt, LinearCombination)]],
-                        targetLit : PredConj, result : PredConj,
+                        targetLit : Atom, negated : Boolean, result : Atom,
                         order : TermOrder) : Unit
 
   /**

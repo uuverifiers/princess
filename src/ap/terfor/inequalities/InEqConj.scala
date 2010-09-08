@@ -453,6 +453,17 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                             case None => false
                           })
 
+  def toSet = new scala.collection.Set[LinearCombination] {
+    override def size = InEqConj.this.size
+    def iterator = InEqConj.this.iterator
+    def contains(lc : LinearCombination) = findBound(lc, geqZero) match {
+      case Some(IdealInt.ZERO) => true
+      case _ => false
+    }
+    def +(elem: LinearCombination) = throw new UnsupportedOperationException
+    def -(elem: LinearCombination) = throw new UnsupportedOperationException
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =

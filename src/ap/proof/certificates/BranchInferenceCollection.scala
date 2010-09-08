@@ -271,12 +271,12 @@ class LoggingBranchInferenceCollector private
                                        CertInequality(targetLit), order))
 
   def reducePredFormula(equations : Seq[Seq[(IdealInt, LinearCombination)]],
-                        targetLit : PredConj, result : PredConj,
+                        targetLit : Atom, negated : Boolean, result : Atom,
                         order : TermOrder) : Unit =
     addPlusDefaultInfs(ReducePredInference(for (eqs <- equations) yield
                                              (for ((c, lc) <- eqs) yield (c, CertEquation(lc))),
-                                           CertFormula(targetLit).asInstanceOf[CertPredLiteral],
-                                           CertFormula(result).asInstanceOf[CertPredLiteral],
+                                           CertPredLiteral(negated, targetLit),
+                                           CertPredLiteral(negated, result),
                                            order))
 
   def combineInequalities(leftCoeff : IdealInt, leftInEq : LinearCombination,
