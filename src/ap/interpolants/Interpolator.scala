@@ -56,15 +56,14 @@ object Interpolator
     res
   }
   
-  def apply(
-    certificate : Certificate, 
-    iContext: InterpolationContext) : Conjunction = {
-    return Conjunction.TRUE
-    val resWithQuantifiers = null // applyHelp(certificate, iContext)
+  def apply(certificate : Certificate, 
+            iContext: InterpolationContext) : Conjunction = {
+    val resWithQuantifiers = applyHelp(certificate, iContext)
 
     implicit val o = certificate.order
-
+println("With quantifiers: " + resWithQuantifiers)
     val res = PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
+println("Without quantifiers: " + res)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(AC, {
@@ -184,7 +183,7 @@ object Interpolator
         
         val k = (eqCases * weakInterInEq.den).intValueSafe
         
-        val negationFactor = inEq.lhs.leadingCoeff.signum
+//        val negationFactor = inEq.lhs.leadingCoeff.signum
 
         // special cases that can be handled much more efficiently
         val leftInequality =
@@ -201,7 +200,7 @@ object Interpolator
           val totalEqInters = for (i <- 0 until k) yield {
             val lhs = inEq.lhs - i
             val partialInter =
-              PartialInterpolant eqLeft (if (leftInequality) negationFactor * lhs else 0)
+              PartialInterpolant eqLeft (if (leftInequality) lhs else 0)
             applyHelp(cert children i,
                       newContext.addPartialInterpolant(CertEquation(lhs), partialInter))
           }
@@ -241,7 +240,7 @@ object Interpolator
             // interpolants for the splinters
           
             val eqPartialInter =
-              PartialInterpolant(partialInterWithParam * negationFactor,
+              PartialInterpolant(partialInterWithParam,
                                  weakInterInEq.den, PartialInterpolant.Kind.EqLeft)
         
             // because of the denominator we might get more cases, which can all
@@ -332,6 +331,15 @@ object Interpolator
         contradFors.iterator.next match {
           case f : CertArithLiteral =>
             extractTotalInterpolant(iContext getPartialInterpolant f, iContext)
+          case f : CertCompoundFormula if (f.isFalse) =>
+            if (iContext isFromLeft f) {
+              Conjunction.FALSE
+            } else if (iContext isFromRight f) {
+              Conjunction.TRUE
+            } else {
+              assert(false)
+              null
+            }
           case _ => { assert(false); null }
         }
       }
@@ -434,6 +442,79 @@ object Interpolator
     
       //////////////////////////////////////////////////////////////////////////
 
+      // Simplification without rounding
+      // (which might concern equations or inequalities)
+      case inf@SimpInference(targetLit, result, _) if (inf.constantDiff.isZero) => {
+        val oldPI = iContext getPartialInterpolant targetLit
+        val newContext = iContext.addPartialInterpolant(result, oldPI / inf.factor)
+        processBranchInferences(remInferences, child, newContext)
+      }
+      
+      //////////////////////////////////////////////////////////////////////////
+
+      // Simplification with rounding for inequalities
+      case inf@SimpInference(targetLit : CertInequality,
+                             result : CertInequality, _) => {
+        val newPartialInterpolant = iContext getPartialInterpolant targetLit
+        
+        if (newPartialInterpolant.linComb.isZero) {
+          // special case of an R-labelled formula
+          
+          val newContext = iContext.addPartialInterpolant(result, newPartialInterpolant)
+          processBranchInferences(remInferences, child, newContext)
+          
+        } else if (newPartialInterpolant.linComb == targetLit.lhs &&
+                   newPartialInterpolant.den.isOne) {
+          // special case of an L-labelled formula
+          
+          val newPI = PartialInterpolant inEqLeft result.lhs
+          val newContext = iContext.addPartialInterpolant(result, newPI)
+          processBranchInferences(remInferences, child, newContext)
+          
+        } else {
+          // the general rounding case
+          
+          val newPI = newPartialInterpolant / inf.factor
+
+          val constTerm = newConstant
+          val newContext2 = iContext addParameter constTerm
+          implicit val o = newContext2.order
+
+          val partialIneqInter =
+            PartialInterpolant(newPI.linComb - constTerm, newPI.den, newPI.kind)
+      
+          val newContext = newContext2.addPartialInterpolant(result, partialIneqInter)
+          
+          val childInter = processBranchInferences(remInferences, child, newContext)
+
+          if (childInter.constants contains constTerm) {
+            val constToQuantify =
+              newPI.linComb.constants & newContext.leftLocalConstants
+          
+            val roundingCases = inf.constantDiff * newPartialInterpolant.den
+        
+//        println("Rounding: " + roundingCases + " cases")
+        
+            // We rely on the existing quantifier elimination, which often is
+            // more efficient than just expanding to a disjunction
+          
+            val v = VariableTerm(0)
+            exists(v >= 0 & v < roundingCases & {
+                     val I = ConstantSubst(constTerm, v, o)(childInter)
+                     val C = exSimplify(constToQuantify, newPI.linComb === v)
+                     I & C
+                   }) | ConstantSubst(constTerm, roundingCases, o)(childInter)
+        
+          } else {
+        
+            childInter
+              
+          }
+        }
+      }
+      
+      //////////////////////////////////////////////////////////////////////////
+      
       case AntiSymmetryInference(left, right, result, _) => {
         // we simply translate AntiSymmetry to the Strengthen rule
         
@@ -500,7 +581,15 @@ object Interpolator
         val closeCert = CloseCertificate(Set(CertNegEquation(0)), o)
         
         val redInf =
-          ReduceInference(List((-1, !eq)), eq, CertNegEquation(0), o)
+          if (inEq.lhs == eq.lhs) {
+            ReduceInference(List((-1, !eq)), eq, CertNegEquation(0), o)
+          } else {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+            Debug.assertInt(AC, inEq.lhs == -eq.lhs)
+            //-END-ASSERTION-///////////////////////////////////////////////////////
+            ReduceInference(List((1, CertEquation(inEq.lhs))), eq,
+                            CertNegEquation(0), o)
+          }
         
         val eqCaseCert =
           BranchInferenceCertificate(List(redInf), closeCert, o)
@@ -646,11 +735,12 @@ object Interpolator
             // that this will happen later in the proof, and gives us a hint as to
             // whether the result should be considered a left or a right formula)
 
+            val resConj = result.toConj
             val instAtoms =
-              if (result.isNegatedConjunction)
-                result.negatedConjs(0).predConj.iterator.toList
-              else
-                (for (lit <- result.predConj.iterator) yield !lit).toList
+              (if (resConj.isNegatedConjunction)
+                 atomsIterator(resConj.negatedConjs(0).predConj, false)
+               else
+                 atomsIterator(resConj.predConj, true)).toList
 
             (instAtoms exists (iContext isRewrittenLeftLit _),
              instAtoms exists (iContext isRewrittenRightLit _)) match {
@@ -738,6 +828,7 @@ object Interpolator
    * Cancel common coefficients and round an inequality, adjusting the
    * partial interpolant appropriately
    */
+  /*
   private def roundInEq(unsimplifiedRes : LinearCombination,
                         result : InEqConj,
                         newPartialInterpolant : PartialInterpolant,
@@ -820,6 +911,11 @@ object Interpolator
       }
     }
   }
+  */
+  private def atomsIterator(conj : PredConj,
+                            negated : Boolean) : Iterator[CertPredLiteral] =
+    (for (atom <- conj.positiveLits.iterator) yield CertPredLiteral(negated, atom)) ++
+    (for (atom <- conj.negativeLits.iterator) yield CertPredLiteral(!negated, atom))
   
   private def exSimplify(constants : Set[ConstantTerm],
                          literal : ArithConj) : Conjunction = {
@@ -862,6 +958,7 @@ object Interpolator
   * Compute values a, b, such that
   * <code>simplified * a + b == unsimplified</code>
   */
+  /*
   private def getFactorRounding(unsimplified : LinearCombination,
                                 simplified : LinearCombination) : (IdealInt, IdealInt) =
   {
@@ -883,5 +980,5 @@ object Interpolator
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
-
+*/
 }

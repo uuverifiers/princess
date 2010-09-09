@@ -538,6 +538,7 @@ case class SimpInference(targetLit : CertArithLiteral, result : CertArithLiteral
                    !result.isFalse && !result.isTrue &&
                    targetLit != result &&
                    getLHS(result) * factor + constantDiff == getLHS(targetLit) &&
+                   constantDiff.signum >= 0 &&
                    ((targetLit, result) match {
                      case (CertEquation(unsimplified), CertEquation(simplified)) =>
                        constantDiff.isZero &&
@@ -718,5 +719,6 @@ case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
   
   override def toString : String =
-    "PredUnify(" + leftAtom + ", " + rightAtom +" -> " + result + ")"
+    "PredUnify(" + leftAtom + ", " + rightAtom + " -> " +
+                   providedFormulas.iterator.next + ")"
 }
