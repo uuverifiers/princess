@@ -66,7 +66,8 @@ case object EliminateFactsTask extends EagerTask {
       // after elimination, or that new inequalities occur. In this case, we
       // have to ensure that facts are normalised again, etc. This is done 
       // simply by generating a task to add the new equations or inequalities
-        
+      
+      // TODO: this check can probably be optimised
       val newTasks =
         if (newFacts.isFalse ||
             newFacts.arithConj.inEqs.equalityInfs.isTrue &&

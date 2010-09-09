@@ -263,19 +263,17 @@ case class GroundInstInference(quantifiedFormula : CertCompoundFormula,
 
 object ReduceInference {
   private val AC = Debug.AC_CERTIFICATES
-}
-
-/**
- * Inference corresponding to a series of applications of the reduce rule to a
- * negated equation or an inequality (reduction of positive equalities is
- * described using <code>CombineEquationsInference</code>).
- */
-case class ReduceInference(equations : Seq[(IdealInt, CertEquation)],
-                           targetLit : CertArithLiteral,
-                           order : TermOrder)
-           extends {
-
-  val result = {
+  
+  def apply(equations : Seq[(IdealInt, CertEquation)],
+            targetLit : CertArithLiteral,
+            order : TermOrder) : ReduceInference =
+    ReduceInference(equations, targetLit,
+                    computeResult(equations, targetLit, order),
+                    order)
+  
+  private def computeResult(equations : Seq[(IdealInt, CertEquation)],
+                            targetLit : CertArithLiteral,
+                            order : TermOrder) = {
     implicit val o = order
     val modifier =
       sum(for ((c, e) <- equations.iterator) yield (c, e.lhs))
@@ -285,7 +283,18 @@ case class ReduceInference(equations : Seq[(IdealInt, CertEquation)],
       case _ => { assert(false); null }
     }
   }
-  
+}
+
+/**
+ * Inference corresponding to a series of applications of the reduce rule to a
+ * negated equation or an inequality (reduction of positive equalities is
+ * described using <code>CombineEquationsInference</code>).
+ */
+case class ReduceInference(equations : Seq[(IdealInt, CertEquation)],
+                           targetLit : CertArithLiteral, result : CertArithLiteral,
+                           order : TermOrder)
+           extends {
+
   val assumedFormulas = Set[CertFormula](targetLit) ++
                              (for ((_, e) <- equations.iterator) yield e)
   val providedFormulas = Set[CertFormula](result)
@@ -293,7 +302,10 @@ case class ReduceInference(equations : Seq[(IdealInt, CertEquation)],
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(ReduceInference.AC, !equations.size.isEmpty)
+  Debug.assertCtor(ReduceInference.AC,
+                   !equations.size.isEmpty &&
+                   result ==
+                     ReduceInference.computeResult(equations, targetLit, order))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint  
@@ -385,7 +397,6 @@ case class CombineEquationsInference(equations : Seq[(IdealInt, CertEquation)],
                    // equation
                    equations.size >= 2 &&
                    (equations forall { case (c, e) => !c.isZero }) &&
-                   !result.isTrue &&
                    result.lhs == {
                      implicit val o = order
                      sum(for ((c, e) <- equations.iterator) yield (c, e.lhs))
@@ -557,21 +568,25 @@ case class SimpInference(targetLit : CertArithLiteral, result : CertArithLiteral
 
 object AntiSymmetryInference {
   private val AC = Debug.AC_CERTIFICATES
+  
+  def apply(leftInEq : CertInequality, rightInEq : CertInequality,
+            order : TermOrder) : AntiSymmetryInference =
+    AntiSymmetryInference(leftInEq, rightInEq,
+                          if (leftInEq.lhs.isPositive)
+                            CertEquation(leftInEq.lhs)
+                          else
+                            CertEquation(rightInEq.lhs),
+                          order)
 }
 
 /**
  * Turn two complementary inequalities into an equation
  */
 case class AntiSymmetryInference(leftInEq : CertInequality, rightInEq : CertInequality,
+                                 result : CertEquation,
                                  order : TermOrder)
            extends {
 
-  val result =
-    if (leftInEq.lhs.isPositive)
-      CertEquation(leftInEq.lhs)
-    else
-      CertEquation(rightInEq.lhs)
-  
   val assumedFormulas = Set[CertFormula](leftInEq, rightInEq)
   val providedFormulas = Set[CertFormula](result)
 
@@ -580,7 +595,7 @@ case class AntiSymmetryInference(leftInEq : CertInequality, rightInEq : CertIneq
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AntiSymmetryInference.AC,
                    !leftInEq.isFalse && !rightInEq.isFalse &&
-                   !result.isTrue && result.lhs.isPositive &&
+                   result.lhs.isPositive &&
                    leftInEq.lhs == -rightInEq.lhs)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
@@ -680,11 +695,12 @@ object PredUnifyInference {
  * system of equations (in the succedent) that express the unification
  * conditions: the predicate arguments are matched pair-wise
  */
-case class PredUnifyInference(leftAtom : CertPredLiteral, rightAtom : CertPredLiteral,
+case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
                               result : CertFormula, order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[CertFormula](leftAtom, rightAtom)
+  val assumedFormulas = Set[CertFormula](CertPredLiteral(false, leftAtom),
+                                         CertPredLiteral(true, rightAtom))
   val providedFormulas = Set[CertFormula](!result)
 
 } with BranchInference {
@@ -692,10 +708,9 @@ case class PredUnifyInference(leftAtom : CertPredLiteral, rightAtom : CertPredLi
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(PredUnifyInference.AC, {
                      implicit val o = order
-                     !leftAtom.negated && rightAtom.negated &&
-                     leftAtom.atom.pred == rightAtom.atom.pred &&
+                     leftAtom.pred == rightAtom.pred &&
                      result.toConj ==
-                       eqConj2Conj((for ((l, r) <- leftAtom.atom.iterator zip rightAtom.atom.iterator)
+                       eqConj2Conj((for ((l, r) <- leftAtom.iterator zip rightAtom.iterator)
                                     yield (l - r)).toList === 0)
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////

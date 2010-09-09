@@ -340,8 +340,7 @@ class LoggingBranchInferenceCollector private
 
   def unifyPredicates(leftAtom : Atom, rightAtom : Atom,
                       result : EquationConj, order : TermOrder) : Unit =
-    addPlusDefaultInfs(PredUnifyInference(CertPredLiteral(false, leftAtom),
-                                          CertPredLiteral(true, rightAtom),
+    addPlusDefaultInfs(PredUnifyInference(leftAtom, rightAtom,
                                           CertFormula(result),
                                           order))
 

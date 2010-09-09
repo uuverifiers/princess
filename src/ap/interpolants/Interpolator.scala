@@ -76,8 +76,8 @@ object Interpolator
     // the following assertions are quite expensive ...
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS, {
       implicit val o = certificate.order
-      isValid(conj(iContext.leftFormulae ++ iContext.commonFormulae) ==> res) &&
-      isValid(!(conj(iContext.rightFormulae ++ iContext.commonFormulae) & res))
+      isValid(certConj(iContext.leftFormulae ++ iContext.commonFormulae) ==> res) &&
+      isValid(!(certConj(iContext.rightFormulae ++ iContext.commonFormulae) & res))
     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
@@ -91,6 +91,10 @@ object Interpolator
     assertionProver(closedF, f.order).closingConstraint.isTrue
   }
  
+  private def certConj(fors : Iterable[CertFormula])
+                      (implicit o : TermOrder) : Conjunction =
+    conj(for (f <- fors.iterator) yield f.toConj)
+  
 /* 
   private def checkInterpolant(interpolant : Conjunction,
                                certificate : Certificate,
@@ -115,7 +119,7 @@ object Interpolator
     }
   }
 */
-/*
+
   private def applyHelp(
     certificate : Certificate, 
     iContext: InterpolationContext) : Conjunction =
@@ -124,8 +128,6 @@ object Interpolator
       
       case cert@BetaCertificate(leftForm, rightForm, leftChild, rightChild, _) =>
       {	  
-        // the next statement is quite expensive. the term order should rather be
-        // stored in the context
         implicit val o = iContext.order
         val originalForm = cert.localAssumedFormulas.iterator.next
       
@@ -144,7 +146,7 @@ object Interpolator
       case SplitEqCertificate(left, right, leftChild, rightChild, _) => {
         implicit val o = iContext.order
         
-        val origiNegEq = (left(0) + 1 =/= 0)
+        val origiNegEq = CertNegEquation(left.lhs)
         val origiPartInter = iContext getPartialInterpolant origiNegEq
 
         val dec = origiPartInter.kind match {
@@ -171,7 +173,6 @@ object Interpolator
         }
       }
       
-
       //////////////////////////////////////////////////////////////////////////
 
       case cert@StrengthenCertificate(inEq, eqCases, children, proofOrder) =>
@@ -183,11 +184,13 @@ object Interpolator
         
         val k = (eqCases * weakInterInEq.den).intValueSafe
         
-        val negationFactor = inEq(0).leadingCoeff.signum
+        val negationFactor = inEq.lhs.leadingCoeff.signum
 
         // special cases that can be handled much more efficiently
-        val leftInequality = weakInterInEq.linComb == inEq(0) && weakInterInEq.den.isOne
-        val rightInequality = weakInterInEq.linComb.isZero
+        val leftInequality =
+          weakInterInEq.linComb == inEq.lhs && weakInterInEq.den.isOne
+        val rightInequality =
+          weakInterInEq.linComb.isZero
         
         if (leftInequality || rightInequality) {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
@@ -196,19 +199,19 @@ object Interpolator
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
           val totalEqInters = for (i <- 0 until k) yield {
-            val lhs = inEq(0) - i
+            val lhs = inEq.lhs - i
             val partialInter =
               PartialInterpolant eqLeft (if (leftInequality) negationFactor * lhs else 0)
-            applyHelp(cert.children(i),
-                      newContext.addPartialInterpolant(lhs === 0, partialInter))
+            applyHelp(cert children i,
+                      newContext.addPartialInterpolant(CertEquation(lhs), partialInter))
           }
           
           val totalInEqInter = {
-            val lhs = inEq(0) - k
+            val lhs = inEq.lhs - k
             val partialInter =
               PartialInterpolant inEqLeft (if (leftInequality) lhs else 0)
-            applyHelp(cert.children(k),
-                      newContext.addPartialInterpolant(lhs >= 0, partialInter))
+            applyHelp(cert children k,
+                      newContext.addPartialInterpolant(CertInequality(lhs), partialInter))
           }
           
           if (leftInequality)
@@ -223,12 +226,13 @@ object Interpolator
           
           val partialInterWithParam = weakInterInEq.linComb - constTerm
           val totalIneqInter = {
-            val newIneq = cert.localProvidedFormulas(eqCasesInt).iterator.next.arithConj
+            val newIneq = cert.localProvidedFormulas(eqCasesInt)
+                              .iterator.next.asInstanceOf[CertInequality]
             val newPartInter =
               PartialInterpolant(partialInterWithParam, weakInterInEq.den,
                                  PartialInterpolant.Kind.InEqLeft)
           
-            applyHelp(cert.children(eqCasesInt),
+            applyHelp(cert children eqCasesInt,
                       newContext.addPartialInterpolant(newIneq, newPartInter))
           }
 
@@ -244,20 +248,19 @@ object Interpolator
             // be closed trivially
             val den = weakInterInEq.den.intValueSafe
         
-            val defaultEqInter =
-              if (den > 1) {
-                val ctxt = newContext.addPartialInterpolant(ArithConj.FALSE, eqPartialInter)
-                applyHelp(CloseCertificate(Set(Conjunction.FALSE), proofOrder), ctxt)
-              } else {
-                null
-              }
+            val defaultEqInter = if (den > 1) {
+              val ctxt = newContext.addPartialInterpolant(CertEquation(1),
+                                                          eqPartialInter)
+              applyHelp(CloseCertificate(Set(CertEquation(1)), proofOrder), ctxt)
+            } else {
+              null
+            }
 
-            val eqCasesInt = eqCases.intValueSafe
-            
             val eqInters = Array.tabulate(eqCasesInt)((i : Int) => {
-              val newEq = cert.localProvidedFormulas(i).iterator.next.arithConj
+              val newEq = cert.localProvidedFormulas(i)
+                              .iterator.next.asInstanceOf[CertEquation]
               val ctxt = newContext.addPartialInterpolant(newEq, eqPartialInter)
-              applyHelp(cert.children(i), ctxt)
+              applyHelp(cert children i, ctxt)
             })
 
 //            println("Strengthening: " + k + " cases")
@@ -325,9 +328,12 @@ object Interpolator
         Debug.assertInt(AC, contradFors.size == 1 &&
                             contradFors.iterator.next.isFalse)
         //-END-ASSERTION-///////////////////////////////////////////////////
-        
-        extractTotalInterpolant(iContext getPartialInterpolant ArithConj.FALSE,
-                                iContext)
+
+        contradFors.iterator.next match {
+          case f : CertArithLiteral =>
+            extractTotalInterpolant(iContext getPartialInterpolant f, iContext)
+          case _ => { assert(false); null }
+        }
       }
 	    
       //////////////////////////////////////////////////////////////////////////
@@ -343,6 +349,8 @@ object Interpolator
     val constToQuantify = pi.linComb.constants & iContext.leftLocalConstants
     exSimplify(constToQuantify, pi.toConjunction)
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   private def processBranchInferences(
     inferences : List[BranchInference],
@@ -363,18 +371,8 @@ object Interpolator
                                    yield (c, iContext getPartialInterpolant eq),
                                  PartialInterpolant.Kind.EqLeft)
         
-        val newContext = if (result.isFalse) {
-                           iContext.addPartialInterpolant(ArithConj.FALSE,
-                                                          combinedPartialInter)
-                         } else {
-                           val (a, b) = getFactorRounding(inf.unsimplifiedLHS,
-                                                          result(0))
-                           //-BEGIN-ASSERTION-//////////////////////////////////
-                           Debug.assertInt(Interpolator.AC, b.isZero)
-                           //-END-ASSERTION-////////////////////////////////////
-                           iContext.addPartialInterpolant(result,
-                                                          combinedPartialInter / a)
-                         }
+        val newContext =
+          iContext.addPartialInterpolant(result, combinedPartialInter)
         
         processBranchInferences(remInferences, child, newContext)
       }
@@ -393,9 +391,8 @@ object Interpolator
           PartialInterpolant.sum(Array((leftCoeff, leftPartial),
                                        (rightCoeff, rightPartial)),
                                  PartialInterpolant.Kind.InEqLeft)
-                  
-        roundInEq(inf.unsimplifiedLHS, result, newPartial,
-                  remInferences, child, iContext)
+        val newContext = iContext.addPartialInterpolant(result, newPartial)  
+        processBranchInferences(remInferences, child, newContext)
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -431,27 +428,8 @@ object Interpolator
           PartialInterpolant.sum(List((1, oldInter), (1, interModifier)),
                                  oldInter.kind)
 
-        if (result.isFalse) {
-          val newContext = iContext.addPartialInterpolant(result, combinedInter)
-          processBranchInferences(remInferences, child, newContext)
-        } else if (targetLit.inEqs.isTrue) {
-          // the rewritten literal is an equation
-        
-          val (a, b) = getFactorRounding(inf.unsimplifiedLHS, result.negativeEqs(0))
-          
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          // rounding would turn the literal into FALSE, and we can assume that
-          // such useless inferences are not present in the proof
-          Debug.assertInt(AC, b.isZero)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-        
-          val newContext = iContext.addPartialInterpolant(result, combinedInter / a)
-          
-          processBranchInferences(remInferences, child, newContext) 
-        } else {
-          roundInEq(inf.unsimplifiedLHS, result.inEqs, combinedInter,
-                    remInferences, child, iContext)
-        }
+        val newContext = iContext.addPartialInterpolant(result, combinedInter)
+        processBranchInferences(remInferences, child, newContext)
       }
     
       //////////////////////////////////////////////////////////////////////////
@@ -461,11 +439,11 @@ object Interpolator
         
         implicit val o = iContext.order
         
-        val closeCert = CloseCertificate(Set(Conjunction.FALSE), o)
+        val closeCert = CloseCertificate(Set(CertInequality(-1)), o)
         
         val combineInEqInf =
-          CombineInequalitiesInference(1, left(0) >= 1, 1, right,
-                                       InEqConj.FALSE, o)
+          CombineInequalitiesInference(1, CertInequality(left.lhs - 1), 1, right,
+                                       CertInequality(-1), o)
         
         val eqCaseCert =
           BranchInferenceCertificate(remInferences, child, o)
@@ -491,23 +469,21 @@ object Interpolator
         
         implicit val extendedOrder = iContext.order.extend(newSymb, largerConsts)
         
-        def filtFunc = (pair : (IdealInt, Term)) =>  
-        { 
+        def filtFunc = (pair : (IdealInt, Term)) => { 
            val (_, term) = pair
-           term match
-           {
+           term match {
              case c : ConstantTerm => (iContext.leftConstants contains c)
              case _ => false
            }
-         } 
+         }
   
-        val leftLinComb = LinearCombination(eq(0).filter(filtFunc), extendedOrder)
+        val leftLinComb = LinearCombination(eq.lhs.filter(filtFunc), extendedOrder)
         val newInterLHS = leftLinComb - newSymb
         
         val partialInter = PartialInterpolant.eqLeft(leftLinComb - newSymb)
         
         val newContext = iContext.setOrder(extendedOrder)
-                                 .addLeft(newInterLHS === 0)
+                                 .addLeft(CertEquation(newInterLHS))
                                  .addPartialInterpolant(eq, partialInter)
         
         processBranchInferences(remInferences, child, newContext)
@@ -521,10 +497,10 @@ object Interpolator
         
         implicit val o = iContext.order
         
-        val closeCert = CloseCertificate(Set(Conjunction.FALSE), o)
+        val closeCert = CloseCertificate(Set(CertNegEquation(0)), o)
         
         val redInf =
-          ReduceInference(List((-1, eq(0) === 0)), eq, ArithConj.FALSE, o)
+          ReduceInference(List((-1, !eq)), eq, CertNegEquation(0), o)
         
         val eqCaseCert =
           BranchInferenceCertificate(List(redInf), closeCert, o)
@@ -545,8 +521,8 @@ object Interpolator
            // more efficiently
            if (leftAtom.pred.arity == 0) => {
              
-        val leftFor : Conjunction = leftAtom
-        val rightFor : Conjunction = !atom2Conj(rightAtom)
+        val leftFor = CertPredLiteral(false, leftAtom)
+        val rightFor = CertPredLiteral(true, rightAtom)
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC,
@@ -559,8 +535,8 @@ object Interpolator
         (iContext isFromLeft leftFor, iContext isFromLeft rightFor) match {
           case (true, true) => Conjunction.FALSE
           case (false, false) => Conjunction.TRUE
-          case (true, false) => leftFor
-          case (false, true) => rightFor
+          case (true, false) => leftFor.toConj
+          case (false, true) => rightFor.toConj
         }
       }
 
@@ -573,9 +549,9 @@ object Interpolator
         // Compute the other components necessary for the interpolant
         
         val (leftEqs, leftOriLit) =
-          iContext getPredAtomRewriting leftAtom
+          iContext getPredAtomRewriting CertPredLiteral(false, leftAtom)
         val (rightEqs, rightOriLit) =
-          iContext getPredAtomRewriting !atom2PredConj(rightAtom)
+          iContext getPredAtomRewriting CertPredLiteral(true, rightAtom)
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC,
@@ -592,18 +568,18 @@ object Interpolator
           }
         
         val newContext = if (lInterpolation)
-                           iContext addLeft !eqConj2Conj(result)
+                           iContext addLeft !result
                          else
-                           iContext addRight !eqConj2Conj(result)
+                           iContext addRight !result
 
         val subInterpolant = processBranchInferences(remInferences, child, newContext)
 
-        def computePredInterpolant(lit : PredConj) : Conjunction =
+        def computePredInterpolant(lit : CertPredLiteral) : Conjunction =
           (iContext isFromLeft lit, lInterpolation) match {
             case (true, true) => Conjunction.FALSE
             case (false, false) => Conjunction.TRUE
-            case (true, false) => lit
-            case (false, true) => !lit
+            case (true, false) => lit.toConj
+            case (false, true) => (!lit).toConj
           }
 
         val leftPredInterpolant = computePredInterpolant(leftOriLit)
@@ -735,7 +711,7 @@ object Interpolator
     }
   }
   
-  private def derivePredModifier(equations : Seq[(IdealInt, EquationConj)],
+  private def derivePredModifier(equations : Seq[(IdealInt, CertEquation)],
                                  lInterpolation : Boolean,
                                  iContext : InterpolationContext)
                                 (implicit order : TermOrder) : Conjunction = {
@@ -745,7 +721,7 @@ object Interpolator
                    PartialInterpolant.Kind.NegEqRight
     val modifierPI =
       if (lInterpolation)
-        PartialInterpolant eqRight sum(for ((c, eq) <- equations) yield (c, eq(0)))
+        PartialInterpolant eqRight sum(for ((c, eq) <- equations) yield (c, eq.lhs))
       else
         PartialInterpolant negEqRight 0
     
@@ -907,5 +883,5 @@ object Interpolator
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
-*/
+
 }
