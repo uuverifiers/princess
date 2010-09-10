@@ -13,12 +13,13 @@ TESTS="columnRed.pri cryptarithm.pri \
        prog.pri \
        prop0.pri prop1.pri prop2.pri prop3.pri prop4.pri prop5.pri \
        queen2-1.pri queen3-1.pri \
-       super_queen2-1.pri super_queen3-1.pri super_queen4-1.pri \
-       super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
+       super_queen2-1.pri super_queen3-1.pri \
        cav-ex4b.pri quan.pri ring_2exp10_3vars_2ite_unsat.pri \
        arrays0.pri constOrderBug.pri strange_concurrency.pri \
        wrongInterpolant3.pri omegaBug.pri splitEq.pri \
        incorrectPredInterpolant.pri"
+
+#       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 
 $PRI "$@" $TESTS
 

@@ -150,8 +150,6 @@ object ModelSearchProver {
           traceBF(cert)
           */
           
-          println(cert)
-          
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(ModelSearchProver.AC,
                           cert.assumedFormulas subsetOf

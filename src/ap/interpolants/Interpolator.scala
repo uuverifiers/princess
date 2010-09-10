@@ -61,9 +61,7 @@ object Interpolator
     val resWithQuantifiers = applyHelp(certificate, iContext)
 
     implicit val o = certificate.order
-println("With quantifiers: " + resWithQuantifiers)
     val res = PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
-println("Without quantifiers: " + res)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(AC, {
@@ -142,10 +140,11 @@ println("Without quantifiers: " + res)
       
       //////////////////////////////////////////////////////////////////////////
       
-      case SplitEqCertificate(left, right, leftChild, rightChild, _) => {
+      case cert@SplitEqCertificate(left, right, leftChild, rightChild, _) => {
         implicit val o = iContext.order
         
-        val origiNegEq = CertNegEquation(left.lhs)
+        val origiNegEq =
+          cert.localAssumedFormulas.iterator.next.asInstanceOf[CertNegEquation]
         val origiPartInter = iContext getPartialInterpolant origiNegEq
 
         val dec = origiPartInter.kind match {
