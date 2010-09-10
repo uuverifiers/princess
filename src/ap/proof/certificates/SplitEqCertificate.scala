@@ -37,26 +37,25 @@ object SplitEqCertificate {
  * Certificate corresponding to splitting a negated equation into two
  * inequalities.
  */
-case class SplitEqCertificate(leftInEq : InEqConj, rightInEq : InEqConj,
+case class SplitEqCertificate(leftInEq : CertInequality, rightInEq : CertInequality,
                               _leftChild : Certificate, _rightChild : Certificate,
                               _order : TermOrder) extends {
   
-  val localAssumedFormulas : Set[Conjunction] = Set({
+  val localAssumedFormulas : Set[CertFormula] = Set({
     implicit val o = _order
-    leftInEq(0) + 1 =/= 0
+    CertNegEquation(rightInEq.lhs + 1)
   })
   
-  val localProvidedFormulas : Seq[Set[Conjunction]] =
-    Array(Set[Conjunction](leftInEq), Set[Conjunction](rightInEq))
+  val localProvidedFormulas : Seq[Set[CertFormula]] =
+    Array(Set[CertFormula](leftInEq), Set[CertFormula](rightInEq))
   
 } with BinaryCertificate(_leftChild, _rightChild, _order) {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(SplitEqCertificate.AC,
-                   leftInEq.size == 1 && rightInEq.size == 1 &&
-                   {
+  Debug.assertCtor(SplitEqCertificate.AC, {
                      implicit val o = _order
-                     leftInEq(0) + 1 == -(rightInEq(0) + 1)
+                     rightInEq.lhs.isPositive &&
+                     leftInEq.lhs + 1 == -(rightInEq.lhs + 1)
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 

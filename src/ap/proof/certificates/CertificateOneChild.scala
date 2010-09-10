@@ -39,10 +39,10 @@ import ap.util.Debug
 abstract class CertificateOneChild(val child : Certificate)
                extends Certificate {
 
-  lazy val localProvidedFormulas : Seq[Set[Conjunction]] =
+  lazy val localProvidedFormulas : Seq[Set[CertFormula]] =
     List(uniqueLocalProvidedFormulas)
 
-  protected val uniqueLocalProvidedFormulas : Set[Conjunction]
+  protected val uniqueLocalProvidedFormulas : Set[CertFormula]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -70,15 +70,15 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
                                       _child : Certificate,
                                       order : TermOrder) extends {
 
-  private val providedAssumed : (Set[Conjunction], Set[Conjunction]) =
-    ((Set[Conjunction](), Set[Conjunction]()) /: inferences) {
+  private val providedAssumed : (Set[CertFormula], Set[CertFormula]) =
+    ((Set[CertFormula](), Set[CertFormula]()) /: inferences) {
       case ((provided, assumed), inf) =>
         (provided ++ inf.providedFormulas,
          assumed ++ (inf.assumedFormulas -- provided))
     }
 
-  val uniqueLocalProvidedFormulas : Set[Conjunction] = providedAssumed _1
-  val localAssumedFormulas : Set[Conjunction] = providedAssumed _2
+  val uniqueLocalProvidedFormulas : Set[CertFormula] = providedAssumed _1
+  val localAssumedFormulas : Set[CertFormula] = providedAssumed _2
 
   val closingConstraint =
     (inferences :\ _child.closingConstraint)(_ propagateConstraint _)
@@ -87,7 +87,7 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInferenceCertificate.AC,
-                   uniqueLocalProvidedFormulas forall (_ isSortedBy child.order))
+                   uniqueLocalProvidedFormulas forall (child.order isSortingOf _))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
@@ -111,18 +111,18 @@ abstract class BranchInference {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInference.AC,
-                   (assumedFormulas forall ((c:Conjunction) => !c.isTrue)) &&
-                   !(providedFormulas forall ((c:Conjunction) => c.isTrue)))
+                   (assumedFormulas forall ((c:CertFormula) => !c.isTrue)) &&
+                   !(providedFormulas forall ((c:CertFormula) => c.isTrue)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
-  val assumedFormulas : Set[Conjunction]
+  val assumedFormulas : Set[CertFormula]
   
   /**
    * Formulae that are introduced into the antecedent by this rule application.
    * This will implicitly simplify formulae (all
    * simplifications that are built into the datastructures are carried out).
    */
-  val providedFormulas : Set[Conjunction]
+  val providedFormulas : Set[CertFormula]
 
   /**
    * Define the modification imposed by this rule application on the closing
@@ -134,16 +134,27 @@ abstract class BranchInference {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object AlphaInference {
+  private val AC = Debug.AC_CERTIFICATES
+}
+
 /**
  * Inference corresponding to an application of alpha rules.
  */
-case class AlphaInference(splitFormula : Conjunction,
-                          providedFormulas : Set[Conjunction]) extends {
+case class AlphaInference(splitFormula : CertCompoundFormula,
+                          providedFormulas : Set[CertFormula]) extends {
   
-  val assumedFormulas = Set[Conjunction](splitFormula)
+  val assumedFormulas = Set[CertFormula](splitFormula)
   
 } with BranchInference {
   
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(AlphaInference.AC, {
+                     implicit val o = splitFormula.order
+                     splitFormula.f == conj(for (f <- providedFormulas) yield f.toConj)
+                   })
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
 
   override def toString : String =
@@ -163,13 +174,13 @@ object QuantifierInference {
  * <code>newConstants</code> are the constants introduced to instantiate the
  * quantifiers, starting with the innermost instantiated quantifier.
  */
-case class QuantifierInference(quantifiedFormula : Conjunction,
+case class QuantifierInference(quantifiedFormula : CertCompoundFormula,
                                newConstants : Seq[ConstantTerm],
-                               result : Conjunction,
+                               result : CertFormula,
                                order : TermOrder)
            extends {
 
-  val assumedFormulas = Set(quantifiedFormula)
+  val assumedFormulas = Set[CertFormula](quantifiedFormula)
   val providedFormulas = Set(result)
 
 } with BranchInference {
@@ -178,7 +189,7 @@ case class QuantifierInference(quantifiedFormula : Conjunction,
   Debug.assertCtor(QuantifierInference.AC,
                    !newConstants.isEmpty &&
                    {
-                     val quans = quantifiedFormula.quans
+                     val quans = quantifiedFormula.f.quans
                      !quans.isEmpty &&
                      // the instantiate quantifiers are uniform
                      (quans.drop(quans.size - newConstants.size) forall
@@ -187,12 +198,12 @@ case class QuantifierInference(quantifiedFormula : Conjunction,
                      (quans.size == newConstants.size ||
                       quans(quans.size - newConstants.size - 1) != quans.last)
                    } &&
-                   result == quantifiedFormula.instantiate(newConstants)(order))
+                   result.toConj == quantifiedFormula.f.instantiate(newConstants)(order))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def propagateConstraint(closingConstraint : Conjunction) = {
     implicit val o = order
-    quantify(quantifiedFormula.quans.last.dual, newConstants, closingConstraint)
+    quantify(quantifiedFormula.f.quans.last.dual, newConstants, closingConstraint)
   }
 
   override def toString : String =
@@ -213,13 +224,13 @@ object GroundInstInference {
  * <code>newConstants</code> are the constants introduced to instantiate the
  * quantifiers, starting with the innermost instantiated quantifier.
  */
-case class GroundInstInference(quantifiedFormula : Conjunction,
+case class GroundInstInference(quantifiedFormula : CertCompoundFormula,
                                instanceTerms : Seq[LinearCombination],
-                               result : Conjunction,
+                               result : CertFormula,
                                order : TermOrder)
            extends {
 
-  val assumedFormulas = Set(quantifiedFormula)
+  val assumedFormulas = Set[CertFormula](quantifiedFormula)
   val providedFormulas = Set(result)
 
 } with BranchInference {
@@ -229,7 +240,7 @@ case class GroundInstInference(quantifiedFormula : Conjunction,
                    !instanceTerms.isEmpty &&
                    (instanceTerms forall (_.variables.isEmpty)) &&
                    {
-                     val quans = quantifiedFormula.quans
+                     val quans = quantifiedFormula.f.quans
                      !quans.isEmpty &&
                      // the instantiate quantifiers are universal
                      (quans.drop(quans.size - instanceTerms.size) forall
@@ -238,7 +249,7 @@ case class GroundInstInference(quantifiedFormula : Conjunction,
                      (quans.size == instanceTerms.size ||
                       quans(quans.size - instanceTerms.size - 1) != quans.last)
                    } &&
-                   result == quantifiedFormula.instantiate(instanceTerms)(order))
+                   result.toConj == quantifiedFormula.f.instantiate(instanceTerms)(order))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
@@ -252,6 +263,26 @@ case class GroundInstInference(quantifiedFormula : Conjunction,
 
 object ReduceInference {
   private val AC = Debug.AC_CERTIFICATES
+  
+  def apply(equations : Seq[(IdealInt, CertEquation)],
+            targetLit : CertArithLiteral,
+            order : TermOrder) : ReduceInference =
+    ReduceInference(equations, targetLit,
+                    computeResult(equations, targetLit, order),
+                    order)
+  
+  private def computeResult(equations : Seq[(IdealInt, CertEquation)],
+                            targetLit : CertArithLiteral,
+                            order : TermOrder) = {
+    implicit val o = order
+    val modifier =
+      sum(for ((c, e) <- equations.iterator) yield (c, e.lhs))
+    targetLit match {
+      case CertNegEquation(lhs) => CertNegEquation(lhs + modifier)
+      case CertInequality(lhs) => CertInequality(lhs + modifier)
+      case _ => { assert(false); null }
+    }
+  }
 }
 
 /**
@@ -259,45 +290,25 @@ object ReduceInference {
  * negated equation or an inequality (reduction of positive equalities is
  * described using <code>CombineEquationsInference</code>).
  */
-case class ReduceInference(equations : Seq[(IdealInt, EquationConj)],
-                           targetLit : ArithConj, result : ArithConj,
+case class ReduceInference(equations : Seq[(IdealInt, CertEquation)],
+                           targetLit : CertArithLiteral, result : CertArithLiteral,
                            order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[Conjunction](targetLit) ++
-                             (for ((_, e) <- equations.iterator) yield eqConj2Conj(e))
-  val providedFormulas = Set[Conjunction](result)
+  val assumedFormulas = Set[CertFormula](targetLit) ++
+                             (for ((_, e) <- equations.iterator) yield e)
+  val providedFormulas = Set[CertFormula](result)
 
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ReduceInference.AC,
-                   targetLit.isLiteral && targetLit.positiveEqs.isTrue &&
                    !equations.size.isEmpty &&
-                   result == {
-                     implicit val o = order
-                     val modifier =
-                       sum(for ((c, e) <- equations.iterator) yield (c, e(0)))
-                     val ArithConj(_, negEqs, inEqs) = targetLit
-                     ArithConj(EquationConj.TRUE,
-                               negEqs +++ modifier =/= 0, inEqs +++ modifier >= 0,
-                               order)
-                   })
+                   result ==
+                     ReduceInference.computeResult(equations, targetLit, order))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
-             
-  def propagateConstraint(closingConstraint : Conjunction) = closingConstraint  
 
-  /**
-   * The left-hand side of the resulting inequality or negated equation, before
-   * any simplification steps
-   */
-  lazy val unsimplifiedLHS : LinearCombination = {
-    implicit val o = order
-    val ArithConj(_, negEqs, inEqs) = targetLit
-    val oriLHS = if (negEqs.isTrue) inEqs(0) else negEqs(0)
-    val modifier = sum(for ((c, e) <- equations.iterator) yield (c, e(0)))
-    oriLHS + modifier
-  }
+  def propagateConstraint(closingConstraint : Conjunction) = closingConstraint  
 
   override def toString : String =
     "Reduce(" + targetLit + " + " +
@@ -317,42 +328,33 @@ object ReducePredInference {
  * <code>ReduceInference</code>, only that all of the arguments can be reduced
  * simultaneously
  */
-case class ReducePredInference(equations : Seq[Seq[(IdealInt, EquationConj)]],
-                               targetLit : PredConj, result : PredConj,
+case class ReducePredInference(equations : Seq[Seq[(IdealInt, CertEquation)]],
+                               targetLit : CertPredLiteral, result : CertPredLiteral,
                                order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[Conjunction](targetLit) ++
+  val assumedFormulas = Set[CertFormula](targetLit) ++
                              (for (eqs <- equations.iterator;
-                                   (_, e) <- eqs.iterator) yield eqConj2Conj(e))
-  val providedFormulas = Set[Conjunction](result)
+                                   (_, e) <- eqs.iterator) yield e)
+  val providedFormulas = Set[CertFormula](result)
 
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ReducePredInference.AC,
-                   targetLit.isLiteral && result.isLiteral &&
-                   targetLit.positiveLits.isEmpty == result.positiveLits.isEmpty &&
                    targetLit.predicates == result.predicates &&
-                   targetLit.predicates.size == 1 &&
+                   targetLit.negated == result.negated &&
                    targetLit.predicates.iterator.next.arity == equations.size &&
                    (equations exists (!_.isEmpty)) &&
-                   result == {
+                   result.atom == {
                      implicit val o = order
-                     val targetAtom = if (targetLit.positiveLits.isEmpty)
-                                        targetLit.negativeLits(0)
-                                      else
-                                        targetLit.positiveLits(0)
+                     val targetAtom = targetLit.atom
                      
                      val newArgs =
                        for ((lc, eqs) <- targetAtom.iterator zip equations.iterator)
-                       yield (lc + sum(for ((c, e) <- eqs.iterator) yield (c, e(0))))
+                       yield (lc + sum(for ((c, e) <- eqs.iterator) yield (c, e.lhs)))
                      
-                     val newAtom = targetAtom.pred(newArgs)
-                     if (targetLit.positiveLits.isEmpty)
-                       !atom2PredConj(newAtom)
-                     else
-                       atom2PredConj(newAtom)
+                     targetAtom pred newArgs
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
@@ -377,14 +379,15 @@ object CombineEquationsInference {
  * the linear combination of a sequence of equations. The result is implicitly
  * made primitive (divided by common coefficients)
  */
-case class CombineEquationsInference(equations : Seq[(IdealInt, EquationConj)],
-                                     result : EquationConj,
+case class CombineEquationsInference(equations : Seq[(IdealInt, CertEquation)],
+                                     result : CertEquation,
                                      order : TermOrder)
            extends {
 
   val assumedFormulas =
-    Set() ++ (for ((_, e) <- equations.iterator) yield eqConj2Conj(e))
-  val providedFormulas = Set[Conjunction](result)
+    Set[CertFormula]() ++ (for ((_, e) <- equations.iterator) yield e)
+  val providedFormulas =
+    Set[CertFormula](result)
 
 } with BranchInference {
 
@@ -393,22 +396,14 @@ case class CombineEquationsInference(equations : Seq[(IdealInt, EquationConj)],
                    // no interesting inferences can be made from only one
                    // equation
                    equations.size >= 2 &&
-                   (equations forall { case (c, e) => !c.isZero && e.size == 1 }) &&
-                   !result.isTrue &&
-                   (result.isFalse || result.size == 1) &&
-                   result == { implicit val o = order; unsimplifiedLHS === 0 })
+                   (equations forall { case (c, e) => !c.isZero }) &&
+                   result.lhs == {
+                     implicit val o = order
+                     sum(for ((c, e) <- equations.iterator) yield (c, e.lhs))
+                   })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
-
-  /**
-   * The left-hand side of the resulting equation, before
-   * any simplification steps
-   */
-  lazy val unsimplifiedLHS : LinearCombination = {
-    implicit val o = order
-    sum(for ((c, e) <- equations.iterator) yield (c, e(0)))
-  }
 
   override def toString : String =
     "CombineEquations(" +
@@ -428,27 +423,27 @@ object ColumnReduceInference {
  * <code>newSymbol</code> that is defined by <code>definingEquation</code>.
  */
 case class ColumnReduceInference(oldSymbol : ConstantTerm, newSymbol : ConstantTerm,
-                                 definingEquation : EquationConj,
+                                 definingEquation : CertEquation,
                                  subst : Boolean, order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[Conjunction]()
-  val providedFormulas = Set[Conjunction](definingEquation)
+  val assumedFormulas = Set[CertFormula]()
+  val providedFormulas = Set[CertFormula](definingEquation)
 
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ColumnReduceInference.AC,
-                   definingEquation.size == 1 && !definingEquation.isFalse &&
-                   (definingEquation(0) get (oldSymbol)).abs.isOne &&
-                   (definingEquation(0) get (newSymbol)) ==
-                     -(definingEquation(0) get (oldSymbol)))
+                   !definingEquation.isFalse &&
+                   (definingEquation.lhs get oldSymbol).abs.isOne &&
+                   (definingEquation.lhs get newSymbol) ==
+                     -(definingEquation.lhs get oldSymbol))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   private lazy val constraintSubst = {
     implicit val o = order
     ConstantSubst(newSymbol,
-                  newSymbol - definingEquation(0) * (definingEquation(0) get (newSymbol)),
+                  newSymbol - definingEquation.lhs * (definingEquation.lhs get newSymbol),
                   order)
   }
   
@@ -475,37 +470,29 @@ object CombineInequalitiesInference {
  * the linear combination of a sequence of equations. The result is implicitly
  * made primitive (divided by common coefficients) and rounded
  */
-case class CombineInequalitiesInference(leftCoeff : IdealInt, leftInEq : InEqConj,
-                                        rightCoeff : IdealInt, rightInEq : InEqConj,
-                                        result : InEqConj,
+case class CombineInequalitiesInference(leftCoeff : IdealInt, leftInEq : CertInequality,
+                                        rightCoeff : IdealInt, rightInEq : CertInequality,
+                                        result : CertInequality,
                                         order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[Conjunction](leftInEq, rightInEq)
-  val providedFormulas = Set[Conjunction](result)
+  val assumedFormulas = Set[CertFormula](leftInEq, rightInEq)
+  val providedFormulas = Set[CertFormula](result)
 
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(CombineInequalitiesInference.AC,
-                   leftInEq.size == 1 && rightInEq.size == 1 &&
                    !leftInEq.isFalse && !rightInEq.isFalse &&
                    leftCoeff.signum > 0 && rightCoeff.signum > 0 &&
                    !result.isTrue &&
-                   (result.isFalse || result.size == 1) &&
-                   result == { implicit val o = order; unsimplifiedLHS >= 0})
+                   result.lhs == {
+                     implicit val o = order
+                     leftInEq.lhs * leftCoeff + rightInEq.lhs * rightCoeff
+                   })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
-
-  /**
-   * The left-hand side of the resulting equation, before
-   * any simplification steps
-   */
-  lazy val unsimplifiedLHS : LinearCombination = {
-    implicit val o = order
-    leftInEq(0) * leftCoeff + rightInEq(0) * rightCoeff
-  }
 
   override def toString : String =
     "CombineInequalities(" +
@@ -515,32 +502,102 @@ case class CombineInequalitiesInference(leftCoeff : IdealInt, leftInEq : InEqCon
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object SimpInference {
+  private val AC = Debug.AC_CERTIFICATES
+}
+
+/**
+ * Inference representing the simplification of an equation, a negated equation,
+ * or an inequality
+ */
+case class SimpInference(targetLit : CertArithLiteral, result : CertArithLiteral,
+                         order : TermOrder)
+           extends {
+  
+  val assumedFormulas = Set[CertFormula](targetLit)
+  val providedFormulas = Set[CertFormula](result)
+
+} with BranchInference {
+
+  val (factor, constantDiff) = {
+    val unsimplified = getLHS(targetLit)
+    val simplified = getLHS(result)
+    
+    if (unsimplified.isConstant) {
+      (IdealInt.ONE, unsimplified.constant - simplified.constant)
+    } else {
+      val factor = unsimplified.leadingCoeff / simplified.leadingCoeff
+      val constantDiff = unsimplified.constant - simplified.constant * factor
+      (factor, constantDiff)
+    }
+  }
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(SimpInference.AC,
+                   !targetLit.isFalse &&
+                   !result.isFalse && !result.isTrue &&
+                   targetLit != result &&
+                   getLHS(result) * factor + constantDiff == getLHS(targetLit) &&
+                   constantDiff.signum >= 0 &&
+                   ((targetLit, result) match {
+                     case (CertEquation(unsimplified), CertEquation(simplified)) =>
+                       constantDiff.isZero &&
+                       simplified.isPrimitive && simplified.isPositive
+                     case (CertNegEquation(unsimplified), CertNegEquation(simplified)) =>
+                       constantDiff.isZero &&
+                       simplified.isPrimitive && simplified.isPositive
+                     case (CertInequality(unsimplified), CertInequality(simplified)) =>
+                       factor.isPositive && simplified.isPrimitive
+                     case _ => false
+                   }))
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+             
+  def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
+  
+  private def getLHS(f : CertFormula) = f match {
+    case CertEquation(lhs) => lhs
+    case CertNegEquation(lhs) => lhs
+    case CertInequality(lhs) => lhs
+    case _ => { assert(false); null }
+  }
+  
+  override def toString : String =
+    "Simp(" + targetLit + " -> " + result + ")"
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 object AntiSymmetryInference {
   private val AC = Debug.AC_CERTIFICATES
+  
+  def apply(leftInEq : CertInequality, rightInEq : CertInequality,
+            order : TermOrder) : AntiSymmetryInference =
+    AntiSymmetryInference(leftInEq, rightInEq,
+                          if (leftInEq.lhs.isPositive)
+                            CertEquation(leftInEq.lhs)
+                          else
+                            CertEquation(rightInEq.lhs),
+                          order)
 }
 
 /**
  * Turn two complementary inequalities into an equation
  */
-case class AntiSymmetryInference(leftInEq : InEqConj, rightInEq : InEqConj,
-                                 result : EquationConj, order : TermOrder)
+case class AntiSymmetryInference(leftInEq : CertInequality, rightInEq : CertInequality,
+                                 result : CertEquation,
+                                 order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[Conjunction](leftInEq, rightInEq)
-  val providedFormulas = Set[Conjunction](result)
+  val assumedFormulas = Set[CertFormula](leftInEq, rightInEq)
+  val providedFormulas = Set[CertFormula](result)
 
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AntiSymmetryInference.AC,
-                   leftInEq.size == 1 && rightInEq.size == 1 &&
                    !leftInEq.isFalse && !rightInEq.isFalse &&
-                   result.size == 1 && !result.isFalse &&
-                   leftInEq(0) == -rightInEq(0) &&
-                   result == {
-                     implicit val o = order
-                     leftInEq(0) === 0
-                   })
+                   result.lhs.isPositive &&
+                   leftInEq.lhs == -rightInEq.lhs)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
@@ -561,24 +618,25 @@ object DirectStrengthenInference {
  * the inequality <code>t-1 >= 0</code>. This kind of inference exists as a
  * separate rule to keep certificates more compact.
  */
-case class DirectStrengthenInference(inequality : InEqConj, equation : NegEquationConj,
-                                     result : InEqConj, order : TermOrder)
+case class DirectStrengthenInference(inequality : CertInequality,
+                                     equation : CertNegEquation,
+                                     result : CertInequality,
+                                     order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[Conjunction](inequality, equation)
-  val providedFormulas = Set[Conjunction](result)
+  val assumedFormulas = Set[CertFormula](inequality, equation)
+  val providedFormulas = Set[CertFormula](result)
 
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(DirectStrengthenInference.AC,
-                   inequality.size == 1 && !inequality.isFalse &&
-                   equation.size == 1 && !equation.isFalse &&
-                   result.size == 1 && !result.isFalse &&
-                   (Set(equation(0), -equation(0)) contains inequality(0)) &&
-                   result == {
+                   !inequality.isFalse && !equation.isTrue &&
+                   !result.isTrue &&
+                   (Set(equation.lhs, -equation.lhs) contains inequality.lhs) &&
+                   result.lhs == {
                      implicit val o = order
-                     inequality(0) > 0
+                     inequality.lhs - 1
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
@@ -599,23 +657,23 @@ object DivRightInference {
  * An inference that turns a universally quantified divisibility constraint into
  * an existentially quantified conjunction of inequalities and an equation.
  */
-case class DivRightInference(divisibility : Conjunction,
-                             result : Conjunction, order : TermOrder)
+case class DivRightInference(divisibility : CertCompoundFormula,
+                             result : CertCompoundFormula, order : TermOrder)
            extends {
 
-  val assumedFormulas = Set(divisibility)
-  val providedFormulas = Set(result)
+  val assumedFormulas = Set[CertFormula](divisibility)
+  val providedFormulas = Set[CertFormula](result)
 
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(DivRightInference.AC,
-                   divisibility.isNonDivisibility && {
+                   divisibility.f.isNonDivisibility && {
                       implicit val o = order
-                      val divTerm = divisibility.arithConj.negativeEqs(0)
+                      val divTerm = divisibility.f.arithConj.negativeEqs(0)
                       val divCoeff = (divTerm(0) _1)
                       
-                      result == exists(exists(
+                      result.f == exists(exists(
                         (divTerm + v(1) === 0) & (v(1) > 0) & (v(1) < divCoeff)))
                     })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -639,27 +697,28 @@ object PredUnifyInference {
  * conditions: the predicate arguments are matched pair-wise
  */
 case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
-                              result : EquationConj, order : TermOrder)
+                              result : CertFormula, order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[Conjunction](PredConj(List(leftAtom), List(), order),
-                                         PredConj(List(), List(rightAtom), order))
-  val providedFormulas = Set[Conjunction](!result)
+  val assumedFormulas = Set[CertFormula](CertPredLiteral(false, leftAtom),
+                                         CertPredLiteral(true, rightAtom))
+  val providedFormulas = Set[CertFormula](!result)
 
 } with BranchInference {
-
+  
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(PredUnifyInference.AC, {
                      implicit val o = order
                      leftAtom.pred == rightAtom.pred &&
-                     result ==
-                       ((for ((l, r) <- leftAtom.iterator zip rightAtom.iterator)
-                           yield (l - r)).toList === 0)
+                     result.toConj ==
+                       eqConj2Conj((for ((l, r) <- leftAtom.iterator zip rightAtom.iterator)
+                                    yield (l - r)).toList === 0)
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
   
   override def toString : String =
-    "PredUnify(" + leftAtom + ", " + rightAtom +" -> " + result + ")"
+    "PredUnify(" + leftAtom + ", " + rightAtom + " -> " +
+                   providedFormulas.iterator.next + ")"
 }

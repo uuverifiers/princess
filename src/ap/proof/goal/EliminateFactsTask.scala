@@ -37,28 +37,46 @@ case object EliminateFactsTask extends EagerTask {
   val AC = Debug.AC_ELIM_FACTS_TASK
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
-    val eliminator = new Eliminator(goal.facts, goal, ptf)
+    val oldFacts = goal.facts
+    val eliminator = new Eliminator(oldFacts, goal, ptf)
     val collector = goal.getInferenceCollector
     val newFacts = eliminator.eliminate(collector)
     
     ////////////////////////////////////////////////////////////////////////////
     
-    if (newFacts == goal.facts) {
+    if (newFacts == oldFacts) {
       // nothing has changed and the application of this task was unnecessary
       ptf.updateGoal(goal)
     } else {
       
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(EliminateFactsTask.AC,
+                      newFacts.isFalse ||
+                      (newFacts.predConj.positiveLitsAsSet subsetOf
+                          oldFacts.predConj.positiveLitsAsSet) &&
+                      (newFacts.predConj.negativeLitsAsSet subsetOf
+                          oldFacts.predConj.negativeLitsAsSet) &&
+                      (newFacts.arithConj.positiveEqs.toSet subsetOf
+                          oldFacts.arithConj.positiveEqs.toSet) &&
+                      (newFacts.arithConj.negativeEqs.toSet subsetOf
+                          oldFacts.arithConj.negativeEqs.toSet))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      
       // It can happen that new equalities can be inferred from the inequalities
-      // after elimination. In this case, we have to ensure that facts are
-      // normalised again, etc. This is done simply by generating a task
-      // to add the new equations
-        
+      // after elimination, or that new inequalities occur. In this case, we
+      // have to ensure that facts are normalised again, etc. This is done 
+      // simply by generating a task to add the new equations or inequalities
+      
+      // TODO: this check can probably be optimised
       val newTasks =
-        if (newFacts.arithConj.inEqs.equalityInfs.isTrue) {
+        if (newFacts.isFalse ||
+            newFacts.arithConj.inEqs.equalityInfs.isTrue &&
+            (newFacts.arithConj.inEqs.toSet subsetOf
+                oldFacts.arithConj.inEqs.toSet)) {
           List()
         } else {
           goal formulaTasks
-            Conjunction.conj(newFacts.arithConj.inEqs.equalityInfs, goal.order).negate
+            Conjunction.conj(newFacts.arithConj.inEqs, goal.order).negate
         }
       eliminator.postProcessor(ptf.updateGoal(newFacts, newTasks,
                                               collector.getCollection, goal))

@@ -46,7 +46,8 @@ object OmegaCertificate {
  * Strenghten is applied once (and there are two cases). 
  */
 case class OmegaCertificate(elimConst : ConstantTerm,
-                            boundsA : Seq[InEqConj], boundsB : Seq[InEqConj],
+                            boundsA : Seq[CertInequality],
+                            boundsB : Seq[CertInequality],
                             children : Seq[Certificate],
                             order : TermOrder) extends {
 
@@ -55,49 +56,49 @@ case class OmegaCertificate(elimConst : ConstantTerm,
     conj(for (c <- children.iterator) yield c.closingConstraint)
   }
   
-  val localAssumedFormulas : Set[Conjunction] =
-    Set() ++ (for (c <- boundsA.iterator ++ boundsB.iterator) yield inEqConj2Conj(c))
+  val localAssumedFormulas : Set[CertFormula] =
+    Set[CertFormula]() ++ boundsA.iterator ++ boundsB.iterator
   
-  val strengthenCases = {
-    val m =
-      IdealInt.max(for (conj <- boundsB.iterator) yield (conj(0) get elimConst).abs)
-    for (conj <- boundsA; val coeff = (conj(0) get elimConst).abs)
+  val strengthenCases : Seq[IdealInt] = {
+    val m = IdealInt.max(for (ineq <- boundsB.iterator)
+                         yield (ineq.lhs get elimConst).abs)
+    for (ineq <- boundsA; val coeff = (ineq.lhs get elimConst).abs)
       yield (((m - IdealInt.ONE) * coeff - m) / m + 1)
   }
 
-  val darkShadow : Seq[InEqConj] = {
+  val darkShadow : Seq[CertInequality] = {
     implicit val o = order
     (for ((geq, cases) <- boundsA.iterator zip strengthenCases.iterator;
-          val geqCoeff = (geq(0) get elimConst).abs;
+          val geqCoeff = (geq.lhs get elimConst).abs;
           leq <- boundsB.iterator) yield {
-       val leqCoeff = (leq(0) get elimConst).abs
-       leqCoeff * geq(0) + geqCoeff * leq(0) - cases * leqCoeff >= 0
+       val leqCoeff = (leq.lhs get elimConst).abs
+       CertInequality(leqCoeff * geq.lhs + geqCoeff * leq.lhs - cases * leqCoeff)
      }).toList
   }
   
-  val localProvidedFormulas : Seq[Set[Conjunction]] = {
+  val localProvidedFormulas : Seq[Set[CertFormula]] = {
     implicit val o = order
     (for ((conj, cases) <- boundsA.iterator zip strengthenCases.iterator;
          i <- (0 until cases.intValueSafe).iterator)
-       yield Set[Conjunction](conj(0) === i)).toList ++
-    List(Set() ++ (for (c <- darkShadow) yield inEqConj2Conj(c)))
+       yield Set[CertFormula](CertEquation(conj.lhs - i))).toList ++
+    List(Set[CertFormula]() ++ darkShadow)
   }
 
 } with Certificate {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(OmegaCertificate.AC,
-                   (boundsA forall ((conj) => conj.size == 1 &&
+                   (boundsA forall ((conj) =>
                                     (conj.constants contains elimConst) &&
-                                    (conj(0) get elimConst).signum ==
-                                      (boundsA(0)(0) get elimConst).signum)) &&
-                   (boundsB forall ((conj) => conj.size == 1 &&
+                                    (conj.lhs get elimConst).signum ==
+                                      (boundsA(0).lhs get elimConst).signum)) &&
+                   (boundsB forall ((conj) =>
                                     (conj.constants contains elimConst) &&
-                                    (conj(0) get elimConst).signum ==
-                                      (boundsB(0)(0) get elimConst).signum)) &&
+                                    (conj.lhs get elimConst).signum ==
+                                      (boundsB(0).lhs get elimConst).signum)) &&
                    (boundsA.isEmpty || boundsB.isEmpty ||
-                     (boundsA(0)(0) get elimConst).signum ==
-                      -(boundsB(0)(0) get elimConst).signum))
+                     (boundsA(0).lhs get elimConst).signum ==
+                      -(boundsB(0).lhs get elimConst).signum))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def length = children.length

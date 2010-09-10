@@ -30,7 +30,7 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask, CompoundFormulas}
-import ap.proof.certificates.Certificate
+import ap.proof.certificates.{Certificate, CertFormula}
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
@@ -153,7 +153,8 @@ object ModelSearchProver {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(ModelSearchProver.AC,
                           cert.assumedFormulas subsetOf
-                            (Set() ++ (for (d <- disjuncts.iterator) yield d.negate)))
+                            (Set() ++ (for (d <- disjuncts.iterator)
+                                         yield CertFormula(d.negate))))
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
           Right(cert)

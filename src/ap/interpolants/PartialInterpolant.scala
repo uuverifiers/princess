@@ -29,6 +29,8 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.TermOrder
+import ap.proof.certificates.{CertArithLiteral, CertEquation,
+                              CertNegEquation, CertInequality}
 import ap.basetypes.IdealInt
 import ap.util.Debug
 
@@ -97,18 +99,12 @@ class PartialInterpolant private (val linComb : LinearCombination,
                    den.signum > 0)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
-  def compatible(literal : ArithConj) : Boolean =
-    // FALSE can be annotated will all kinds of partial interpolants
-    literal.isFalse ||
-    ((literal.positiveEqs.isTrue,
-      literal.negativeEqs.isTrue,
-      literal.inEqs.isTrue,
-      kind) match {
-        case (false, true, true, EqLeft) => true
-        case (true, false, true, EqRight | NegEqRight) => true
-        case (true, true, false, InEqLeft) => true
-        case _ => false
-     })
+  def compatible(literal : CertArithLiteral) : Boolean = (literal, kind) match {
+    case (_ : CertEquation, EqLeft) |
+         (_ : CertNegEquation, EqRight | NegEqRight) |
+         (_ : CertInequality, InEqLeft) => true
+    case _ => false
+  }
   
   def toConjunction : ArithConj = {
     implicit val o = linComb.order

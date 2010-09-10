@@ -34,7 +34,7 @@ import ap.util.{Debug, PlainRange, Seqs, FilterIt}
 import ap.parameters.{Param, GoalSettings}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{BranchInferenceCollection, Certificate,
-                              BetaCertificate, PartialCertificate}
+                              BetaCertificate, PartialCertificate, CertFormula}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -103,7 +103,8 @@ object BetaFormulaTask {
       val branchInferences = goal.branchInferences
     
       def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert = BetaCertificate(selectedConjunct.negate, otherConjuncts.negate,
+        val betaCert = BetaCertificate(CertFormula(selectedConjunct.negate),
+                                       CertFormula(otherConjuncts.negate),
                                        children(0), children(1), order)
         branchInferences.getCertificate(betaCert, order)
       }
@@ -211,7 +212,8 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
     
       def pCertFunction(children : Seq[Certificate]) : Certificate = {
         val betaCert =
-          BetaCertificate((negatedConjs.iterator zip children.iterator).toList,
+          BetaCertificate((for ((f, c) <- negatedConjs.iterator zip children.iterator)
+                             yield (CertFormula(f), c)).toList,
                           order)
         branchInferences.getCertificate(betaCert, order)
       }

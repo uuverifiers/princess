@@ -39,12 +39,11 @@ object InterpolatorQE
   
   private val simplifier = ConstraintSimplifier.LEMMA_SIMPLIFIER_NON_DNF
   
-  def apply(
-    implicit o : TermOrder, 
-    iContext: InterpolationContext) : Conjunction = {
+  def apply(implicit o : TermOrder, 
+            iContext: InterpolationContext) : Conjunction = {
     
     val res = simplifier(
-      exists(o sort iContext.leftLocalConstants, conj(iContext.leftFormulae)), o)
+      exists(o sort iContext.leftLocalConstants, certConj(iContext.leftFormulae)), o)
     
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -54,11 +53,15 @@ object InterpolatorQE
         res.variables.isEmpty &&
         (res.constants subsetOf iContext.globalConstants) &&
         (res.predicates subsetOf iContext.globalPredicates) &&
-        ModelSearchProver(conj(iContext.leftFormulae) ==> res, o).isFalse &&
-        ModelSearchProver(!(conj(iContext.rightFormulae) & res), o).isFalse
+        ModelSearchProver(certConj(iContext.leftFormulae) ==> res, o).isFalse &&
+        ModelSearchProver(!(certConj(iContext.rightFormulae) & res), o).isFalse
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
-    
- }
+
+  private def certConj(fors : Iterable[CertFormula])
+                      (implicit o : TermOrder) : Conjunction =
+    conj(for (f <- fors.iterator) yield f.toConj)
+
+}

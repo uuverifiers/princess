@@ -34,7 +34,7 @@ import ap.util.{Debug, Seqs, PlainRange, FilterIt}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificate,
                               AntiSymmetryInference, BranchInferenceCertificate,
-                              StrengthenCertificate, OmegaCertificate}
+                              StrengthenCertificate, OmegaCertificate, CertInequality}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -287,8 +287,8 @@ case object OmegaTask extends EagerTask {
     
           def pCertFunction(children : Seq[Certificate]) : Certificate = {
             val betaCert = OmegaCertificate(elimConst,
-                                            for (b <- boundsA) yield InEqConj(b, order),
-                                            for (b <- boundsB) yield InEqConj(b, order),
+                                            for (b <- boundsA) yield CertInequality(b),
+                                            for (b <- boundsB) yield CertInequality(b),
                                             children, order)
             branchInferences.getCertificate(betaCert, order)
           }
@@ -466,8 +466,8 @@ case object OmegaTask extends EagerTask {
       val branchInferences = goal.branchInferences
     
       def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert = SplitEqCertificate(lowerBoundInEq.negate,
-                                          upperBoundInEq.negate,
+        val betaCert = SplitEqCertificate(CertInequality(lowerBoundInEq.negate(0)),
+                                          CertInequality(upperBoundInEq.negate(0)),
                                           children(0), children(1), order)
         branchInferences.getCertificate(betaCert, order)
       }
@@ -521,16 +521,15 @@ case object OmegaTask extends EagerTask {
                   // complementary inequalities
                   val lastLC = lc + negDistance
                   val lastInf =
-                    AntiSymmetryInference(InEqConj(lastLC, order),
-                                          InEqConj(-lastLC, order),
-                                          EquationConj(lastLC, order),
+                    AntiSymmetryInference(CertInequality(lastLC),
+                                          CertInequality(-lastLC),
                                           order)
                   val lastCert =
                     BranchInferenceCertificate(List(lastInf), children.last, order)
                   val allCerts =
                     children.take(children.size - 1) ++ List(lastCert)
                   val strengthenCert =
-                    StrengthenCertificate(InEqConj(lc, order), -negDistance,
+                    StrengthenCertificate(CertInequality(lc), -negDistance,
                                           allCerts, order)
                   branchInferences.getCertificate(strengthenCert, order)
                 }

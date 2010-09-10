@@ -28,10 +28,11 @@ import ap.terfor.TermOrder
 /**
  * Certificate corresponding to an application of the close rule.
  */
-case class CloseCertificate(localAssumedFormulas : Set[Conjunction],
+case class CloseCertificate(localAssumedFormulas : Set[CertFormula],
                             order : TermOrder) extends {
 
-  val closingConstraint = !conj(localAssumedFormulas)(order)
+  val closingConstraint =
+    !conj(for (f <- localAssumedFormulas.elements) yield f.toConj)(order)
   val localProvidedFormulas = List()
   
 } with Certificate {
