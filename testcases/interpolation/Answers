@@ -404,3 +404,13 @@ No countermodel exists, formula is valid
 Interpolants:
 (! (-1*e + d + 1 >= 0 & ! (e + -1*d + -1 = 0 & p(-1*d)) & ! (e = 0 & ! (d >= 0 & ! (d = 0 & p(0))))))
 
+Loading certificateBug.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 1), interpolating ...
+
+No countermodel exists, formula is valid
+
+Interpolants:
+true
+

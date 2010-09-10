@@ -40,7 +40,8 @@ import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, CloseCertificate,
                               BranchInferenceCollection,
                               BranchInferenceCollector,
-                              NonLoggingBranchInferenceCollector}
+                              NonLoggingBranchInferenceCollector,
+                              CertCompoundFormula}
 
 object Goal {
   
@@ -403,9 +404,10 @@ class Goal private (val facts : Conjunction,
   def getCertificate : Certificate =
     branchInferences.getCertificate(
       if (facts.isFalse) {
-        // we currently just assume that some inference generating a
-        // contradiction has to be present in this case
-        CloseCertificate(Set(branchInferences.findFalseFormula.get), order)
+        val contradFor =
+          branchInferences.findFalseFormula
+                          .getOrElse(CertCompoundFormula(Conjunction.FALSE))
+        CloseCertificate(Set(contradFor), order)
       } else {
         // In the presence of predicates, it can happen that a sub-proof was used
         // to show the inconsistency of the arithmetic facts. We currently just
