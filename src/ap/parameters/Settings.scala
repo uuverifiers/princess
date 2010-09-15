@@ -49,6 +49,8 @@ object GlobalSettings {
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>
           Param.PRINT_SMT_FILE.set(settings, value)
+        case ValueOpt("printDOT", value) =>
+          Param.PRINT_DOT_CERTIFICATE_FILE.set(settings, value)
         case Opt("assert", value) =>
           Param.ASSERTIONS.set(settings, value)
         case ValueOpt("simplifyConstraints", "none") =>
@@ -102,6 +104,7 @@ object GlobalSettings {
   
   val allParams =
     List(Param.LOGO, Param.ASSERTIONS, Param.PRINT_TREE, Param.PRINT_SMT_FILE,
+         Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,

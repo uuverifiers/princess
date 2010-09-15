@@ -105,6 +105,10 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     Debug.assertPre(ReduceWithEqs.AC, lc isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+{    val blender = new LCBlender (order)
+    blender += (IdealInt.ONE, lc)
+    runBlender(blender) }
+
     val blender = new LCBlender (order)
     blender += (IdealInt.ONE, lc)
     val changed = runBlender(blender, terms)
@@ -120,6 +124,16 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
    * coefficients given to the blender will be logged
    */
   private def runBlender(blender : LCBlender,
+                         terms : Buffer[(IdealInt, LinearCombination)]) : Boolean = {
+                           val changed = runBlenderX(blender, terms)
+    if (changed)
+      ap.util.Timer.measure("changed") {}
+    else
+      ap.util.Timer.measure("unchanged") {}
+
+                           changed
+                         }
+  private def runBlenderX(blender : LCBlender,
                          terms : Buffer[(IdealInt, LinearCombination)]) : Boolean = {
     var changed : Boolean = false
     while (blender.hasNext) {
@@ -179,6 +193,9 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
 
       val lcGcd = curLCCoeff gcd eqCoeff
       
+{      val blender = new LCBlender (order)
+      blender ++= Array((eqCoeff / lcGcd, curLC), (-curLCCoeff / lcGcd, eq))
+      runBlender(blender) }
       val blender = new LCBlender (order)
       blender ++= Array((eqCoeff / lcGcd, curLC), (-curLCCoeff / lcGcd, eq))
       runBlender(blender)
@@ -198,9 +215,14 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     } else if (curLC.leadingCoeff.signum < 0) {
       // when the leading coefficient of the <code>LinearCombination</code> is
       // made positive, it might be possible to apply further reductions
+
+{      val blender = new LCBlender (order)
+      blender += (IdealInt.MINUS_ONE, curLC)
+      runBlender(blender) }
       val blender = new LCBlender (order)
       blender += (IdealInt.MINUS_ONE, curLC)
       runBlender(blender)
+
       blender.result
     } else {
       curLC
@@ -228,6 +250,9 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
                      else
                        new ArrayBuffer[(IdealInt, LinearCombination)]
 
+{      val blender = new LCBlender (order)
+      blender += (IdealInt.MINUS_ONE, curLC)
+      runBlender(blender) }
       val blender = new LCBlender (order)
       blender += (IdealInt.MINUS_ONE, curLC)
       runBlender(blender, negTerms)

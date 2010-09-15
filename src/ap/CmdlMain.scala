@@ -23,6 +23,7 @@ package ap;
 
 import ap.proof.ConstraintSimplifier
 import ap.proof.tree.ProofTree
+import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, IExpression, IBinJunctor}
 import ap.util.{Debug, Seqs}
@@ -56,6 +57,7 @@ object CmdlMain {
     println("  [+-]logo                      Print logo and elapsed time              (default: +)")
     println("  [+-]printTree                 Output the constructed proof tree        (default: -)")
     println("  -printSMT=filename            Output the problem in SMT-Lib format     (default: \"\")")
+    println("  -printDOT=filename            Output the proof in GraphViz format      (default: \"\")")
     println("  [+-]assert                    Enable runtime assertions                (default: +)")
     println("  -timeout=val                  Set a timeout in milliseconds            (default: infty)")
     println("  -simplifyConstraints=val      How to simplify constraints:")
@@ -100,6 +102,23 @@ object CmdlMain {
         out.close
       } else {
         linearise
+      }
+    }
+  
+  private def printDOTCertificate(cert : Certificate,
+                                  filename : String, settings : GlobalSettings) =
+    if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "") {
+      println
+      
+      if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "-") {
+        println("Saving certificate in GraphViz format to " +
+                Param.PRINT_DOT_CERTIFICATE_FILE(settings) + " ...")
+        val out =
+          new java.io.FileOutputStream(Param.PRINT_DOT_CERTIFICATE_FILE(settings))
+        Console.withOut(out) { DotLineariser(cert) }
+        out.close
+      } else {
+        DotLineariser(cert)
       }
     }
   
@@ -185,6 +204,8 @@ object CmdlMain {
                 println("Certificate: " + cert)
                 println("Assumed formulae: " + cert.assumedFormulas)
                 println("Constraint: " + cert.closingConstraint)
+                
+                printDOTCertificate(cert, filename, settings)
               }
               case IntelliFileProver.NoCounterModelCertInter(cert, inters) => {
                 println("No countermodel exists, formula is valid")
@@ -200,6 +221,8 @@ object CmdlMain {
                 println
                 println("Interpolants:")
                 for (i <- inters) println(i)
+
+                printDOTCertificate(cert, filename, settings)
               }
               case IntelliFileProver.Model(model) =>  {
                 println("Formula is valid, satisfying assignment for the existential constants is:")
@@ -241,9 +264,9 @@ object CmdlMain {
               
             printSMT(prover, filename, settings)
             
-            /* println
+            println
             println(ap.util.Timer)
-            ap.util.Timer.reset */
+            ap.util.Timer.reset 
           }
     } catch {
       case e : Throwable => {

@@ -43,6 +43,11 @@ object Param {
     val defau : String = ""
   }
   
+  case object PRINT_DOT_CERTIFICATE_FILE extends Param {
+    type Value = String
+    val defau : String = ""
+  }
+  
   object ConstraintSimplifierOptions extends Enumeration {
     val None, Fair, Lemmas = Value
   }

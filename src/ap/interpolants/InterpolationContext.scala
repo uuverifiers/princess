@@ -129,7 +129,7 @@ class InterpolationContext (val leftFormulae : Set[CertFormula],
   
   def getPredAtomRewriting(rewrittenLit : CertPredLiteral)
                           : (Seq[Seq[(IdealInt, CertEquation)]], CertPredLiteral) = {
-    val pred = rewrittenLit.predicates.iterator.next
+    val pred = rewrittenLit.predicates.head
     rewrittenPredAtoms.getOrElse(rewrittenLit,
                                  (Array.fill(pred.arity)(List()), rewrittenLit))
   }
