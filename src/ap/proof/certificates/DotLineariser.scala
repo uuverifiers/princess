@@ -82,16 +82,13 @@ class DotLineariser {
   }
   
   private def formulaStyle(formula : CertFormula) = formula match {
-    case _ : CertCompoundFormula =>
-      "shape=box"
-    case _ =>
-      if (formula.isTrue)
-        "shape=none,style=filled,color=green"
-      else if (formula.isFalse)
-        "shape=none,style=filled,color=red"
-      else 
-        "shape=none,style=filled,color=lightgray"
+    case _ if (formula.isTrue) => "shape=none,style=filled,color=green"
+    case _ if (formula.isFalse) => "shape=none,style=filled,color=red"
+    case _ : CertCompoundFormula => "shape=box"
+    case _ => "shape=none,style=filled,color=lightgray"
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   private case class LineariserContext(depth : Int,
                                        ruleAppNum : Int,
@@ -99,20 +96,33 @@ class DotLineariser {
     def increaseDepth = this.copy(depth = depth + 1)
     
     def increaseRuleAppNum = this.copy(ruleAppNum = ruleAppNum + 1)
+
+    private def createFormulaName(formula : CertFormula) : String = {
+      val name = newNodeName
+      println(name +
+              " [" + formulaStyle(formula) + ",label=\"" +
+              formatFormula(formula) + "\"];") 
+      name
+    }
     
     def formulaName(formula : CertFormula) : (String, LineariserContext) =
       (formulas get formula) match {
         case None => {
-          val name = newNodeName
-            
-          println(name +
-                  " [" + formulaStyle(formula) + ",label=\"" +
-                  formatFormula(formula) + "\"];")
+          val name = createFormulaName(formula)
           (name, this.copy(formulas = formulas + (formula -> (name, depth))))
         }
-        case Some((name, _)) =>
-          (name, this)
+        case Some((name, _)) => (name, this)
       }
+    
+    def freshFormulaName(formula : CertFormula) : (String, LineariserContext) = {
+      val name = createFormulaName(formula)
+      (formulas get formula) match {
+        case None => {
+          (name, this.copy(formulas = formulas + (formula -> (name, depth))))
+        }
+        case Some(_) => (name, this)
+      }
+    }
     
     def updateFormula(formula : CertFormula) : LineariserContext = {
       val oldName = formulas(formula) _1
@@ -124,6 +134,8 @@ class DotLineariser {
     
     def formulaDepth(formula : CertFormula) = formulas(formula) _2
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   private var formulaCounter = 0
   
@@ -137,17 +149,44 @@ class DotLineariser {
   
   private val arcs = new ArrayBuffer[String]
   
-  private def printInferenceArc(from : CertFormula, to : CertFormula,
-                                ctxt : LineariserContext)
-                               : LineariserContext = {
-    val (fromName, ctxt2) = ctxt formulaName from
-    val (toName, ctxt3) = ctxt2 formulaName to
-    arcs += (fromName + " -> " + toName + " [label=" + ctxt.ruleAppNum + "];")
-    ctxt3
-  }
+  private def printInferenceArcs(from : Set[CertFormula], to : Set[CertFormula],
+                                 inf : AnyRef, ctxt : LineariserContext)
+                                : LineariserContext =
+    if (from.size == 1) (ctxt /: to) {
+      case (ctxt, to) => {
+        val (fromName, ctxt2) = ctxt formulaName from.head
+        val (toName, ctxt3) = ctxt freshFormulaName to
+        arcs += (fromName + " -> " + toName + arcAttributes(inf, ctxt.ruleAppNum ) + ";")
+        ctxt3
+      }
+    } else {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(DotLineariser.AC, to.size == 1)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      (ctxt /: from) {
+        case (ctxt, from) => {
+          val (fromName, ctxt2) = ctxt formulaName from
+          val (toName, ctxt3) = ctxt formulaName to.head
+          arcs += (fromName + " -> " + toName + arcAttributes(inf, ctxt.ruleAppNum ) + ";")
+          ctxt3
+        }
+      }
+    }
   
-  private def inferenceCode(inf : BranchInference) : String = inf match {
-    case _ : AlphaInference => "a"
+  private def arcAttributes(inf : AnyRef, ruleAppNum: Int) : String = inf match {
+    case _ : SplitEqCertificate |
+         _ : OmegaCertificate |
+         _ : BetaCertificate |
+         _ : StrengthenCertificate => " [label=" + ruleAppNum + ",color=red]"
+    case _ : CombineEquationsInference |
+         _ : CombineInequalitiesInference |
+         _ : DirectStrengthenInference |
+         _ : PredUnifyInference |
+         _ : ReduceInference |
+         _ : ReducePredInference |
+         _ : AntiSymmetryInference |
+         _ : SimpInference => " [label=" + ruleAppNum + ",color=blue]"
+    case _ => " [label=" + ruleAppNum + "]"
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -156,25 +195,9 @@ class DotLineariser {
                    ctxt : LineariserContext) : Unit = cert match {
     case BranchInferenceCertificate(infs, childCert, _) => {
       val newFormulaNames = (ctxt /: infs) {
-        case (ctxt, inf) => (if (inf.providedFormulas.size == 1) {
-          
-          (ctxt /: inf.assumedFormulas) {
-            case (ctxt, assFormula) =>
-              printInferenceArc(assFormula, inf.providedFormulas.head, ctxt)
-          }
-          
-        } else {
-          
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(DotLineariser.AC, inf.assumedFormulas.size == 1)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-
-          (ctxt /: inf.providedFormulas) {
-            case (ctxt, providedFormula) =>
-              printInferenceArc(inf.assumedFormulas.head, providedFormula, ctxt)
-          }
-          
-        }).increaseRuleAppNum
+        case (ctxt, inf) =>
+          printInferenceArcs(inf.assumedFormulas, inf.providedFormulas,
+                             inf, ctxt).increaseRuleAppNum
       }
       
       dump(childCert, newFormulaNames)
@@ -190,11 +213,9 @@ class DotLineariser {
           ctxt updateFormula cert.localAssumedFormulas.head
       
       def dumpPremise(i : Int) : Unit = {
-        val newCtxt2 = (newCtxt.increaseDepth /: cert.localProvidedFormulas(i)) {
-          case (ctxt, providedFormula) =>
-            printInferenceArc(cert.localAssumedFormulas.head, providedFormula, ctxt)
-        }
-        
+        val newCtxt2 = printInferenceArcs(cert.localAssumedFormulas,
+                                          cert.localProvidedFormulas(i),
+                                          cert, newCtxt.increaseDepth)
         dump(cert(i), newCtxt2.increaseRuleAppNum)
       }
       
@@ -204,6 +225,7 @@ class DotLineariser {
         for (i <- 0 until cert.localProvidedFormulas.size) {
           println("subgraph " + newName("cluster") + "{")
           dumpPremise(i)
+          println("color=green")
           println("}")
         }
       
@@ -215,10 +237,9 @@ class DotLineariser {
                       cert.localProvidedFormulas.head.size == 1)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       
-      val newCtxt = (ctxt /: cert.localAssumedFormulas) {
-        case (ctxt, assFormula) =>
-          printInferenceArc(assFormula, cert.localProvidedFormulas.head.head, ctxt)
-      }
+      val newCtxt = printInferenceArcs(cert.localAssumedFormulas,
+                                       cert.localProvidedFormulas.head,
+                                       cert, ctxt)
       
       dump(cert(0), newCtxt.increaseRuleAppNum)
       
