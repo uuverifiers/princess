@@ -264,9 +264,9 @@ object CmdlMain {
               
             printSMT(prover, filename, settings)
             
-            println
+            /* println
             println(ap.util.Timer)
-            ap.util.Timer.reset 
+            ap.util.Timer.reset */
           }
     } catch {
       case e : Throwable => {
