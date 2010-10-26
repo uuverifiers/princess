@@ -140,15 +140,20 @@ object PresburgerTools {
 
   def isSatisfiable(formula : Conjunction) : Boolean = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, isQFPresburger(formula))
+    Debug.assertPre(AC, isPresburger(formula))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (formula.isTrue)
       true
     else if (formula.isFalse)
       false
-    else
+    else if (isQFPresburger(formula))
       !ModelSearchProver(formula.negate, formula.order).isFalse
+    else
+      exhaustiveProver(Conjunction.quantify(Quantifier.EX,
+                                            formula.order sort formula.constants,
+                                            formula, formula.order),
+                       formula.order).closingConstraint.isTrue
   }
 
   def isValid(formula : Conjunction) : Boolean = {

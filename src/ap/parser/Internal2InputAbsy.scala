@@ -41,10 +41,14 @@ object Internal2InputAbsy {
   
   def apply(f : Formula, predTranslation : MMap[Predicate, IFunction]) : IFormula =
     new Internal2InputAbsy(predTranslation).convert(f)
-  
+
+  def apply(f : Formula) : IFormula = apply(f, Map())
+
   def apply(t : Term, predTranslation : MMap[Predicate, IFunction]) : ITerm =
     new Internal2InputAbsy(predTranslation).convert(t)
-  
+
+  def apply(t : Term) : ITerm = apply(t, Map())
+
 }
 
 class Internal2InputAbsy(predTranslation : MMap[Predicate, IFunction]) {

@@ -23,7 +23,7 @@ package ap.parser;
 
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
-import ap.util.{Debug, Logic, PlainRange}
+import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.Stack
 
@@ -215,6 +215,17 @@ object VariablePermVisitor extends CollectingVisitor[IVarShift, IExpression] {
 
 object IVarShift {
   private val AC = Debug.AC_INPUT_ABSY
+  
+  def apply(mapping : Map[IVariable, IVariable],
+            defaultShift : Int) : IVarShift = {
+    val maxIndex = Seqs.max(for (IVariable(i) <- mapping.keysIterator) yield i)
+    val prefix = (for (i <- 0 to (maxIndex + 1))
+                  yield (mapping get IVariable(i)) match {
+                    case Some(IVariable(j)) => j - i
+                    case None => defaultShift
+                  }).toList
+    IVarShift(prefix, defaultShift)
+  }
 }
 
 case class IVarShift(prefix : List[Int], defaultShift : Int) {
