@@ -75,6 +75,25 @@ object DialogUtil {
       def actionPerformed(e : ActionEvent) = action
     })
 
+  def updateTextField(outputField : JTextArea, stream : java.io.InputStream) =
+    actor {
+      val buf = new StringBuffer
+      var c = stream.read
+      while (c != -1) {
+        buf append c.toChar
+        if (stream.available == 0) {
+          // otherwise, read all available data and
+          // display it at once
+          val str = buf.toString
+          buf.delete(0, buf.length)
+          doLater {
+            outputField append str
+          }
+        }
+        c = stream.read
+      }
+    }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -570,23 +589,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     }
     
     // and another one for logging the output
-    actor {
-      val buf = new StringBuffer
-      var c = logInputStream.read
-      while (c != -1) {
-        buf append c.toChar
-        if (logInputStream.available == 0) {
-          // otherwise, read all available data and
-          // display it at once
-          val str = buf.toString
-          buf.delete(0, buf.length)
-            doLater {
-              outputField append str
-            }
-        }
-        c = logInputStream.read
-      }
-    }    
+    updateTextField(outputField, logInputStream)
   }
   
   //////////////////////////////////////////////////////////////////////////////
