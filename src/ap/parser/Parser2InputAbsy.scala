@@ -153,9 +153,7 @@ class Parser2InputAbsy private (env : Environment) {
   
   /** Implicit conversion so that we can get a scala-like iterator from a
     * a Java list */
-  import scala.collection.JavaConversions.{asBuffer, asIterator}
-//  private implicit def toWrappedList[A](list : java.util.LinkedList[A]) =
-//    new scala.collection.jcl.LinkedList(list)
+  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
   
   //////////////////////////////////////////////////////////////////////////////
     
@@ -212,7 +210,7 @@ class Parser2InputAbsy private (env : Environment) {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Parser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
         //-END-ASSERTION-///////////////////////////////////////////////////////
-        val wrappedOpts = asBuffer(decl.listfunoption_)
+        val wrappedOpts = asScalaBuffer(decl.listfunoption_)
         val (partialOpts, otherOpts1) = wrappedOpts partition (_.isInstanceOf[Partial])
         val (relationalOpts, otherOpts2) = otherOpts1 partition (_.isInstanceOf[Relational])
         

@@ -31,7 +31,7 @@ object PartExtractor {
     val extractor = new PartExtractor
     if (!extractor.visit(f, Context(true)))
       extractor.addPart(f)
-    (for ((name, f) <- extractor.parts.elements) yield INamedPart(name, f)).toList
+    (for ((name, f) <- extractor.parts.iterator) yield INamedPart(name, f)).toList
   }
 
 }

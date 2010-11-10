@@ -32,7 +32,7 @@ case class CloseCertificate(localAssumedFormulas : Set[CertFormula],
                             order : TermOrder) extends {
 
   val closingConstraint =
-    !conj(for (f <- localAssumedFormulas.elements) yield f.toConj)(order)
+    !conj(for (f <- localAssumedFormulas.iterator) yield f.toConj)(order)
   val localProvidedFormulas = List()
   
 } with Certificate {
