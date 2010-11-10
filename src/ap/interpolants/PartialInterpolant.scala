@@ -68,9 +68,9 @@ object PartialInterpolant {
   
   def sum(terms : Seq[(IdealInt, PartialInterpolant)], kind : Kind.Value)
          (implicit order : TermOrder) : PartialInterpolant = {
-    val denLCM = IdealInt lcm (for ((_, pi) <- terms.elements) yield pi.den)
+    val denLCM = IdealInt lcm (for ((_, pi) <- terms.iterator) yield pi.den)
     
-    val newLinComb = LinearCombination.sum(for ((c, pi) <- terms.elements)
+    val newLinComb = LinearCombination.sum(for ((c, pi) <- terms.iterator)
                                              yield (c * denLCM / pi.den, pi.linComb),
                                            order)
     

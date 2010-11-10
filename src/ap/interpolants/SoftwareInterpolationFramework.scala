@@ -64,7 +64,7 @@ abstract class SoftwareInterpolationFramework {
     functionEncoder.clearAxioms
     
     val iBackgroundPred =
-      IExpression.connect(for (INamedPart(_, f) <- iBackgroundFors.elements)
+      IExpression.connect(for (INamedPart(_, f) <- iBackgroundFors.iterator)
                             yield f,
                           IBinJunctor.Or)
     implicit val order = signature2.order
@@ -165,7 +165,7 @@ abstract class SoftwareInterpolationFramework {
     // turn the formula into a list of its named parts
     val fors = PartExtractor(problem)
     val namedParts =
-      Map() ++ (for (INamedPart(name, f) <- fors.elements) yield (name -> f))
+      Map() ++ (for (INamedPart(name, f) <- fors.iterator) yield (name -> f))
     
     // extract the given type assumptions, which we then add to the first
     // partition where the declared symbol is used
