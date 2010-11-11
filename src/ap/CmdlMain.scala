@@ -126,7 +126,9 @@ object CmdlMain {
                     problems : Seq[(String, java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
     if (problems.isEmpty) {
-      println("No inputs given, exiting")
+      Console.withOut(Console.err) {
+        println("No inputs given, exiting")
+      }
       return
     }
     
@@ -136,7 +138,9 @@ object CmdlMain {
           for ((filename, reader) <- problems) {
             val timeBefore = System.currentTimeMillis
             
-            println("Loading " + filename + " ...")
+            Console.withOut(Console.err) {
+              println("Loading " + filename + " ...")
+            }
             val prover = new IntelliFileProver(reader,
                                                Param.TIMEOUT(settings),
                                                Param.MOST_GENERAL_CONSTRAINT(settings),
@@ -144,7 +148,9 @@ object CmdlMain {
                                                userDefStoppingCond,
                                                settings)
 
-            println
+            Console.withOut(Console.err) {
+              println
+            }
             
             prover.result match {
               case IntelliFileProver.Proof(tree) => {
@@ -258,9 +264,11 @@ object CmdlMain {
             
             val timeAfter = System.currentTimeMillis
             
-            println
-            if (Param.LOGO(settings))
-              println("" + (timeAfter - timeBefore) + "ms")
+            Console.withOut(Console.err) {
+              println
+              if (Param.LOGO(settings))
+                println("" + (timeAfter - timeBefore) + "ms")
+            }
               
             printSMT(prover, filename, settings)
             
@@ -270,8 +278,10 @@ object CmdlMain {
           }
     } catch {
       case e : Throwable => {
-        println("ERROR: " + e.getMessage)
-        e.printStackTrace
+        Console.withOut(Console.err) {
+          println("ERROR: " + e.getMessage)
+//          e.printStackTrace
+        }
         return
       }
     }
@@ -283,16 +293,18 @@ object CmdlMain {
             GlobalSettings.fromArguments(args, GlobalSettings.DEFAULT)
           } catch {
       case e : Throwable => {
-        printGreeting
-        println
-        println(e.getMessage)
-        println
-        printUsage
+        Console.withOut(Console.err) {
+          printGreeting
+          println
+          println(e.getMessage)
+          println
+          printUsage
+        }
         return
       }
     }
 
-    if (Param.LOGO(settings)) {
+    if (Param.LOGO(settings)) Console.withOut(Console.err) {
       printGreeting
       println
     }

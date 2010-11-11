@@ -470,12 +470,12 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   
   leftPanel add Box.createRigidArea(new Dimension (8, 0))
   private val optionLabel = new JLabel("Options: ") {
-    override def getToolTipLocation(e : MouseEvent) = new Point (0, -400)
+    override def getToolTipLocation(e : MouseEvent) = new Point (0, -450)
   }
   leftPanel.add(optionLabel)
   
   val optionField = new JTextField {
-    override def getToolTipLocation(e : MouseEvent) = new Point (0, -400)
+    override def getToolTipLocation(e : MouseEvent) = new Point (0, -450)
   }
   controlPanel.add(optionField, BorderLayout.CENTER)
   
@@ -573,13 +573,13 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     // start one thread for proving the problem
     currentProver = actor {
       var stop : Boolean = false
-      Console.withOut(proverOutputStream) {
+      Console.withOut(proverOutputStream) { Console.withErr(proverOutputStream) {
         CmdlMain.proveProblems(settings, List(("", reader)), {
           receiveWithin(0) { case TIMEOUT => // nothing
                              case _ => stop = true }
           stop
         } )
-      }
+      }}
       proverOutputStream.close
       doLater {
         currentProver = null

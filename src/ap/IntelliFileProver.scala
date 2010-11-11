@@ -119,9 +119,11 @@ class IntelliFileProver(reader : java.io.Reader,
           else
             CounterModel(model)
         case Right(cert) if (!interpolantSpecs.isEmpty) => {
-          println("Found proof (size " + cert.inferenceCount + "), interpolating ...")
+          Console.withOut(Console.err) {
+            println("Found proof (size " + cert.inferenceCount + "), interpolating ...")
+          }
 
-          val interpolants = for (spec <- interpolantSpecs) yield {
+          val interpolants = for (spec <- interpolantSpecs.view) yield {
             val iContext = InterpolationContext(namedParts, spec, order)
             Interpolator(cert, iContext)    
           }

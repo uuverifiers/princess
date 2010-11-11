@@ -69,7 +69,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
            settings.toPreprocessingSettings,
            determineTriggerGenFunctions(settings, env))
 
-    println("Preprocessing ...")
+    Console.withOut(Console.err) {
+      println("Preprocessing ...")
+    }
     Preprocessing(f, interpolantSpecs, signature, preprocSettings)
   }
   
@@ -110,12 +112,16 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   //////////////////////////////////////////////////////////////////////////////
   
   protected def findModelTimeout : Either[Conjunction, Certificate] = {
-    println("Constructing satisfying assignment for the existential constants ...")
+    Console.withOut(Console.err) {
+      println("Constructing satisfying assignment for the existential constants ...")
+    }
     findCounterModelTimeout(List(Conjunction.disj(formulas, order).negate))
   }
   
   protected def findCounterModelTimeout : Either[Conjunction, Certificate] = {
-    println("Constructing countermodel ...")
+    Console.withOut(Console.err) {
+      println("Constructing countermodel ...")
+    }
     findCounterModelTimeout(if (formulas exists (_.isTrue))
                               List(Conjunction.TRUE)
                             else
@@ -145,7 +151,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                                          order sort signature.nullaryFunctions,
                                          Conjunction.disj(formulas, order), order)
     
-    println("Proving ...")
+    Console.withOut(Console.err) {
+      println("Proving ...")
+    }
     
     val timeBefore = System.currentTimeMillis
     val stoppingCond = () => {

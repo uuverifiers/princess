@@ -11,7 +11,7 @@ shift
 echo -n "$DIR ($@) ... "
 
 export TIMEFORMAT="%U"
-TIME=`time ( cd $DIR; ./runtests "$@" 2>&1 >Output"$ANSWER_SUFFIX"; ) 2>&1`
+TIME=`time ( cd $DIR; ./runtests "$@" >Output"$ANSWER_SUFFIX" 2>&1; ) 2>&1`
 
 if cmp -s "$DIR"/Answers"$ANSWER_SUFFIX" "$DIR"/Output"$ANSWER_SUFFIX"; then
     echo -ne "\tSucceeded"
