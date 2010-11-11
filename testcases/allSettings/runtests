@@ -45,4 +45,4 @@ $PRI "$@" $TESTS
 
 TESTS="linearRanking.pri linearRanking2-quantified.pri"
 
-$PRI "$@" $TESTS | grep -v "^("
+$PRI "$@" $TESTS 2>&1 | grep -v "^("

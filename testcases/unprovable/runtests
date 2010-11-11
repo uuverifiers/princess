@@ -25,4 +25,4 @@ $PRI "$@" $TESTS
 
 TESTS="cryptarithm.pri cryptarithm4.pri"
 
-$PRI "$@" $TESTS | grep -v "^("
+$PRI "$@" $TESTS 2>&1 | grep -v "^("
