@@ -172,7 +172,7 @@ class Simplifier {
                              varIndex : Int, universal : Boolean) : Def =
     f match {
       case IQuantified(q, subF)
-        if (q == (if (universal) ALL else EX)) =>
+        if (q == Quantifier(universal)) =>
           findDefinition(subF, varIndex + 1, true)
       case IBinFormula(j, f1, f2)
         if (j == (if (universal) Or else And)) =>

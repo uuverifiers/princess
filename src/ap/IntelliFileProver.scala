@@ -24,7 +24,7 @@ package ap;
 import ap.proof.{ConstraintSimplifier, ModelSearchProver, Timeout}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.Seqs
 import ap.interpolants.{Interpolator, InterpolationContext}
@@ -138,17 +138,28 @@ class IntelliFileProver(reader : java.io.Reader,
     }
 
   val result : IntelliFileProver.Result = {
+    val constants =
+      Set() ++ (for (f <- formulas.iterator; c <- f.constants.iterator) yield c)
     val quantifiers =
       Set() ++ (for (f <- formulas.iterator;
                      q <- Conjunction.collectQuantifiers(f).iterator) yield q)
-    val constants =
-      Set() ++ (for (f <- formulas.iterator; c <- f.constants.iterator) yield c)
+    val isFullyMatchable =
+      formulas forall (IterativeClauseMatcher isMatchableRec _)
 
-    if ((formulas exists (_.isTrue)) ||
-        Seqs.disjoint(constants, signature.existentialConstants) &&
-        (quantifiers subsetOf Set(Quantifier.ALL)) ||
-        // currently, only the ModelSearchProver can construct proofs
-        Param.PROOF_CONSTRUCTION(goalSettings)) {
+    val canUseModelSearchProver =
+      Seqs.disjoint(constants, signature.existentialConstants) &&
+      (if (Param.POS_UNIT_RESOLUTION(goalSettings))
+         isFullyMatchable
+       else
+         (quantifiers subsetOf Set(Quantifier.ALL)))
+    
+    // currently, only the ModelSearchProver can construct proofs
+    if (Param.PROOF_CONSTRUCTION(goalSettings) && !canUseModelSearchProver)
+      throw new Exception ("Currently no proofs can be constructed for the given" +
+                           " problem, since it contains existential constants or" +
+                           " quantifiers that cannot be handled by unit resolution")
+      
+    if ((formulas exists (_.isTrue)) || canUseModelSearchProver) {
       // try to find a countermodel
       counterModelResult
     } else if (!mostGeneralConstraint &&

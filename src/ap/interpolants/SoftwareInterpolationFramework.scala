@@ -382,7 +382,7 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
                         negated : Boolean,
                         depth : Int) : Option[IFormula] = f match {
       
-    case IQuantified(q, subF) if (q == (if (negated) ALL else EX)) =>
+    case IQuantified(q, subF) if (q == Quantifier(negated)) =>
       for (res <- translate(subF, negated, depth + 1)) yield IQuantified(q, res)
         
     case IIntFormula(EqZero, t) if (!negated) =>

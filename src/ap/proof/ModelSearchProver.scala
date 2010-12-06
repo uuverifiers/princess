@@ -107,6 +107,9 @@ object ModelSearchProver {
   private def applyHelp(inputDisjuncts : Seq[Conjunction], order : TermOrder,
                         settings : GoalSettings) : Either[Conjunction, Certificate] = {
     val disjuncts = if (Param.PROOF_CONSTRUCTION(settings)) {
+      // when generating proofs and extracting interpolants, up-front
+      // simplification rather seems to slow down the system. Needs to be
+      // re-evaluated
       inputDisjuncts
     } else {
       val reducer = ReduceWithConjunction(Conjunction.TRUE, order)

@@ -28,6 +28,7 @@ object Quantifier {
   case object EX extends Quantifier {
     def dual : Quantifier = ALL
   }
+  def apply(universal : Boolean) : Quantifier = if (universal) ALL else EX
 }
 
 sealed abstract class Quantifier {

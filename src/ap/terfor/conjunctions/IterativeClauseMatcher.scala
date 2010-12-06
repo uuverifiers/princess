@@ -21,6 +21,7 @@
 
 package ap.terfor.conjunctions
 
+import ap.basetypes.IdealInt
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
@@ -302,6 +303,51 @@ object IterativeClauseMatcher {
       Matchable.Complete
     else
       Matchable.ProducesLits
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Determine whether all quantifiers in the given formula can be handled
+   * using matching or using Skolemisation. This is relevant, because then
+   * the formula can be treated without using free variables at all, i.e.,
+   * a more efficient way of proof construction (<code>ModelSearchProver</code>)
+   * can be used
+   */
+  def isMatchableRec(c : Conjunction) : Boolean =
+    isMatchableRecHelp(c, false)
+  
+  private def isMatchableRecHelp(c : Conjunction, negated : Boolean) : Boolean = {
+    val lastUniQuantifier = (c.quans lastIndexOf Quantifier(negated)) match {
+      case -1 => 0
+      case x => x + 1
+    }
+    
+    // the quantifier sequence has to be ALL* EX* ...
+    !((c.quans take lastUniQuantifier) contains (Quantifier(!negated))) &&
+    // ... the expression underneath the quantifiers has to be a literal
+    // or a disjunction ...
+    (lastUniQuantifier == 0 ||
+     (lastUniQuantifier == 1 &&
+      (c.isQuantifiedDivisibility || c.isQuantifiedNonDivisibility)) ||
+     ((c.size == 1 && c.predConj.isLiteral) || !negated) && {
+       // ... and all bound variables occur in matched predicate literals,
+       // or can be eliminated through equations
+       val reducedPreds =
+         ReduceWithEqs(c.arithConj.positiveEqs, c.order)(c.predConj)
+       val (matchLits, _) =
+         determineMatchedLits(if (negated) reducedPreds.negate else reducedPreds)
+       // figure out which variables are actually uniquely determined by
+       // the matching
+       val matchedVariables =
+         (for (a <- matchLits.elements; lc <- a.elements;
+               if (lc.variables.size == 1 && lc.constants.size == 0))
+            yield lc.variables.head.index).toSet ++
+         (for (Seq((IdealInt.ONE, VariableTerm(ind)), _*) <-
+                 c.arithConj.positiveEqs.elements) yield ind).toSet
+       (0 until lastUniQuantifier).toSet subsetOf matchedVariables
+     }) &&
+    (c.negatedConjs forall (isMatchableRecHelp(_, !negated)))
   }
   
   //////////////////////////////////////////////////////////////////////////////

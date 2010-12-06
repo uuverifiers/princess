@@ -1,3 +1,6 @@
+// Not provable, because we don't specify functionality of
+// the relations
+
 \predicates {
   select(int, int, int);
   store(int, int, int, int);

@@ -317,7 +317,7 @@ object Conjunction {
   
   /**
    * Determine the quantifiers that occur in a formula. Because there are 
-   * different points of views, a function can be given as parameter that
+   * different points of view, a function can be given as parameter that
    * determines whether (quantified) divisibility/indivisibility statements are
    * counted as quantifiers
    */

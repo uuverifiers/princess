@@ -162,7 +162,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
                  
   override def preVisit(t : IExpression, ctxt : Context[Int])
                        : PreVisitResult = t match {
-    case IQuantified(q, _) if (q == (if (ctxt.polarity > 0) EX else ALL)) =>
+    case IQuantified(q, _) if (q == Quantifier(ctxt.polarity <= 0)) =>
         super.preVisit(t, ctxt(ctxt.a + 1))
     case _ =>
         super.preVisit(t, ctxt(0))
@@ -179,7 +179,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
 
     // only consider blocks of quantifiers, i.e., wait for the innermost
     // quantifier
-    case IQuantified(q, _) if (q == (if (ctxt.polarity > 0) EX else ALL)) =>
+    case IQuantified(q, _) if (q == Quantifier(ctxt.polarity <= 0)) =>
       t update subres
 
     // this is the case in which we want to generate triggers
