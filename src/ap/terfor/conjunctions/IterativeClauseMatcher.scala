@@ -340,11 +340,11 @@ object IterativeClauseMatcher {
        // figure out which variables are actually uniquely determined by
        // the matching
        val matchedVariables =
-         (for (a <- matchLits.elements; lc <- a.elements;
+         (for (a <- matchLits.iterator; lc <- a.iterator;
                if (lc.variables.size == 1 && lc.constants.size == 0))
             yield lc.variables.head.index).toSet ++
          (for (Seq((IdealInt.ONE, VariableTerm(ind)), _*) <-
-                 c.arithConj.positiveEqs.elements) yield ind).toSet
+                 c.arithConj.positiveEqs.iterator) yield ind).toSet
        (0 until lastUniQuantifier).toSet subsetOf matchedVariables
      }) &&
     (c.negatedConjs forall (isMatchableRecHelp(_, !negated)))

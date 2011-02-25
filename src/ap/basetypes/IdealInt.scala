@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009,2011 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,82 +31,104 @@ object IdealInt {
   private val AC = Debug.AC_BASE_TYPE
 
   //////////////////////////////////////////////////////////////////////////////
+  // We only use 63 bits in the Long representation, and use the full range
+  // to detect overflows. The number Long.MaxValue is used to signal that the
+  // long store is not used (but instead the BigInteger store)
+  private val longReprBits = 62
+  private val minLongRepr : Long = -(1l << longReprBits)
+  private val maxLongRepr : Long = (1l << longReprBits) - 1
+
   // small numbers are cached to reduce memory consumption
   
-  private val minCached = -1024
-  private val maxCached = 1024
-  private val minCachedBI = BigInteger.valueOf(minCached)
-  private val maxCachedBI = BigInteger.valueOf(maxCached)
+  private val cachedBits = 10
+  private val minCached = -(1 << cachedBits)
+  private val maxCached = (1 << cachedBits) - 1
+  
   private val cache = new Array[IdealInt](maxCached - minCached + 1)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val ZERO = apply(0)
+  val ONE = apply(1)
+  val MINUS_ONE = apply(-1)
 
   /** Constructs a <code>IdealInt</code> whose value is equal to that of the
    *  specified integer value.
    */
-  def apply(i : Int) : IdealInt = {
-    if (minCached <= i && i <= maxCached) {
-      toIdealIntNoChecks(i)
-    } else {
-      new IdealInt(BigInteger.valueOf(i))
-    }
-  }
+  def apply(i : Int) : IdealInt =
+    if (minCached <= i && i <= maxCached) fromCache(i) else newIdealInt(i)
+  
+  def apply(i : Long) : IdealInt =
+    if (minCached <= i && i <= maxCached) fromCache(i.toInt) else newIdealInt(i)
 
-  private def toIdealIntNoChecks(i : Int) : IdealInt = {
+  private def apply(i : BigInteger) : IdealInt =
+    if (i.bitLength <= cachedBits) fromCache(i) else newIdealInt(i)
+
+  /** Translates the decimal String representation of an <code>IdealInt</code>
+    * into an <code>IdealInt</code>.
+    */
+  def apply(intString: String) : IdealInt = apply(new BigInteger(intString))
+
+  /**
+   * Pre-condition: i is in [minCached, maxCached]
+   */
+  private def fromCache(i : Int) : IdealInt = {
     val offset = i - minCached
     var n = cache(offset)
     if (n eq null) {
-      n = new IdealInt(BigInteger.valueOf(i))
+      n = newIdealInt(i)
       cache(offset) = n
     }
     n    
   }
   
-  /** Constructs a <code>IdealInt</code> whose value is equal to that of the
-   *  specified long value.
+  /**
+   * Pre-condition: i is in [minCached, maxCached]
    */
-  def apply(l: Long): IdealInt =
-    if (minCached <= l && l <= maxCached) {
-      toIdealIntNoChecks(l.toInt)
-    } else {
-      new IdealInt(BigInteger.valueOf(l))
+  private def fromCache(i : BigInteger) : IdealInt = {
+    val asInt = i.intValue
+    val offset = asInt - minCached
+    var n = cache(offset)
+    if (n eq null) {
+      n = new IdealInt(asInt, i)
+      cache(offset) = n
     }
-
-  /** Constructs a <code>IdealInt</code> whose value is equal to that of the
-   *  specified <code>BigInteger</code> value.
-   */
-  protected def apply(i : BigInteger) : IdealInt = {
-    if (minCachedBI.compareTo(i) <= 0 && maxCachedBI.compareTo(i) >= 0) {
-      toIdealIntNoChecks(i.intValue)
-    } else {
-      new IdealInt(i)
-    }
+    n    
   }
-    
-  /** Translates the decimal String representation of an <code>IdealInt</code>
-    * into an <code>IdealInt</code>.
-    */
-  def apply(intString: String) : IdealInt =
-    IdealInt(new BigInteger(intString))
-    
-  //////////////////////////////////////////////////////////////////////////////
   
+  private def newIdealInt(i : Long) : IdealInt =
+    if (minLongRepr <= i && i <= maxLongRepr)
+      new IdealInt(i, null)
+    else
+      new IdealInt(Long.MaxValue, BigInteger valueOf i)
+  
+  private def newIdealInt(i : Int) : IdealInt = new IdealInt(i, null)
+  
+  private def newIdealInt(i : BigInteger) : IdealInt =
+    if (i.bitLength <= longReprBits)
+      new IdealInt(i.longValue, i)
+    else
+      new IdealInt(Long.MaxValue, i)
+  
+  //////////////////////////////////////////////////////////////////////////////
     
   /** Implicit conversion from <code>Int</code> to <code>IdealInt</code>. */
   implicit def int2idealInt(i: Int): IdealInt = apply(i)
 
-  /** Implicit copnversion from <code>Long</code> to <code>IdealInt</code> */
+  /** Implicit conversion from <code>Long</code> to <code>IdealInt</code> */
   implicit def long2idealInt(l: Long): IdealInt = apply(l)
 
   /** Implicit conversion from <code>IdealInt</code> to <code>Ordered</code>. */
-  implicit def idealInt2ordered(x: IdealInt): Ordered[IdealInt] = {
+  implicit def IdealInt2ordered(x: IdealInt): Ordered[IdealInt] = {
     new Ordered[IdealInt] with Proxy {
       def self: Any = x;
-      def compare (y: IdealInt): Int = x.bigInteger.compareTo(y.bigInteger)
+      def compare (y: IdealInt): Int = x compare y
     }
   }
 
   /** (Internal) Implicit conversion from <code>BigInteger</code> to
     * <code>IdealInt</code> */
-  implicit def bigInteger2idealInt(bi: BigInteger): IdealInt = apply(bi)
+  implicit private def bigInteger2idealInt(bi: BigInteger): IdealInt = apply(bi)
 
   /** Compute the sum of a sequence of <code>IdealInt</code> */
   def sum(it : Iterable[IdealInt]) : IdealInt = {
@@ -151,41 +173,30 @@ object IdealInt {
    */
   def gcdAndCofactors(_a : IdealInt, _b : IdealInt)
                                      : (IdealInt, IdealInt, IdealInt) = {
-    val (a, b, c) = gcdAndCofactorsBI(_a.bigInteger, _b.bigInteger)
-    // use the implicit conversion to <code>IdealInt</code>
-    (a, b, c)
-  }
-       
-  /**
-   * Extended euclidean algorithm for computing both the gcd and the cofactors
-   * of two <code>IdealInt</code>.
-   */
-  private def gcdAndCofactorsBI(_a : BigInteger, _b : BigInteger)
-                                     : (BigInteger, BigInteger, BigInteger) = {
     var a = _a
     var b = _b
     
-    var aFactor0 = ONE_BI
-    var aFactor1 = ZERO_BI
-    var bFactor0 = ZERO_BI
-    var bFactor1 = ONE_BI
+    var aFactor0 = ONE
+    var aFactor1 = ZERO
+    var bFactor0 = ZERO
+    var bFactor1 = ONE
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     def inv1 = Debug.assertInt(AC,
-                               (_a * aFactor0 + _b * aFactor1 == apply(a)) &&
-                               (_a * bFactor0 + _b * bFactor1 == apply(b)))
+                               (_a * aFactor0 + _b * aFactor1 == a) &&
+                               (_a * bFactor0 + _b * bFactor1 == b))
     def inv2 = Debug.assertInt(AC, a.signum >= 0 && b.signum >= 0)
 
     inv1
     //-END-ASSERTION-///////////////////////////////////////////////////////////
       
     if (a.signum < 0) {
-      a = a.negate
-      aFactor0 = MINUS_ONE_BI
+      a = -a
+      aFactor0 = MINUS_ONE
     }
     if (b.signum < 0) {
-      b = b.negate
-      bFactor1 = MINUS_ONE_BI
+      b = -b
+      bFactor1 = MINUS_ONE
     }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -193,13 +204,13 @@ object IdealInt {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     while (b.signum != 0) {
-      val dr = a divideAndRemainder b
+      val (quot, rem) = a anyDivideAndRemainder b
 
       a = b
-      b = dr(1)
+      b = rem
       
-      val newBFactor0 = aFactor0 subtract (bFactor0 multiply dr(0))
-      val newBFactor1 = aFactor1 subtract (bFactor1 multiply dr(0))
+      val newBFactor0 = aFactor0 - (bFactor0 * quot)
+      val newBFactor1 = aFactor1 - (bFactor1 * quot)
       
       aFactor0 = bFactor0
       aFactor1 = bFactor1
@@ -214,14 +225,14 @@ object IdealInt {
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(AC,
-                     apply(a) >= 0 &&
-                     (apply(a) divides _a) && (apply(a) divides _b) &&
-                     (_a * aFactor0 + _b * aFactor1 == apply(a)))
+                     a >= 0 &&
+                     (a divides _a) && (a divides _b) &&
+                     (_a * aFactor0 + _b * aFactor1 == a))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     (a, aFactor0, aFactor1)
   }
-
+       
   /**
    * The gcd of a collection of <code>IdealInt</code>.
    */
@@ -241,10 +252,10 @@ object IdealInt {
   def gcd(vals : Iterator[IdealInt]) : IdealInt = {
      if (!vals.hasNext) return ZERO
      
-     var currentGcd = vals.next.bigInteger.abs
-     while (vals.hasNext && !(currentGcd equals ONE_BI)) {
-       val nextValue = vals.next.bigInteger
-       if (nextValue.signum != 0) currentGcd = currentGcd gcd nextValue
+     var currentGcd = vals.next.abs
+     while (vals.hasNext && !currentGcd.isOne) {
+       val nextValue = vals.next
+       if (!nextValue.isZero) currentGcd = nextValue gcd currentGcd
      }
 
      //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
@@ -272,12 +283,12 @@ object IdealInt {
    * The lcm of a collection of <code>IdealInt</code>.
    */
   def lcm(vals : Iterator[IdealInt]) : IdealInt = {
-     var currentLcm = ONE_BI
+     var currentLcm = ONE
      while (vals.hasNext) {
-       val nextValue = vals.next.bigInteger.abs
-       if (nextValue.signum == 0) return ZERO
-       if (!nextValue.equals(ONE_BI))
-         currentLcm = (currentLcm multiply nextValue) divide (currentLcm gcd nextValue)
+       val nextValue = vals.next.abs
+       if (nextValue.isZero) return ZERO
+       if (!nextValue.isOne)
+         currentLcm = (currentLcm * nextValue) / (currentLcm gcd nextValue)
      }
 
      //-BEGIN-ASSERTION-////////////////////////////////////////////////////////
@@ -295,15 +306,14 @@ object IdealInt {
      // we order the value to start with the smallest ones
      // (this is expected to give a higher performance that is determined by the
      // absolute value of the smallest element)
-     implicit val orderTodo = new Ordering[(BigInteger, Int)] {
-       def compare(x : (BigInteger, Int), y : (BigInteger, Int)) =
-         ((y _1).abs) compareTo ((x _1).abs)
+     implicit val orderTodo = new Ordering[(IdealInt, Int)] {
+       def compare(x : (IdealInt, Int), y : (IdealInt, Int)) =
+         ((y _1).abs) compare ((x _1).abs)
      }
-     val valsTodo = new PriorityQueue[(BigInteger, Int)]
+     val valsTodo = new PriorityQueue[(IdealInt, Int)]
      
-     for ((valueII, num) <- vals.iterator.zipWithIndex) {
-       val value = valueII.bigInteger
-       if (value.signum != 0) valsTodo += ((value, num))
+     for ((value, num) <- vals.iterator.zipWithIndex) {
+       if (!value.isZero) valsTodo += ((value, num))
      }
      
      val finalCofactors = Array.fill(vals.length)(ZERO)
@@ -332,34 +342,33 @@ object IdealInt {
      val nums = new ArrayBuffer[Int]
      nums += firstNum
      
-     val cofactors = new ArrayBuffer[BigInteger]
+     val cofactors = new ArrayBuffer[IdealInt]
      
      if (currentGcd.signum > 0) {       
-       cofactors += ONE_BI
+       cofactors += ONE
      } else {
-       currentGcd = currentGcd.negate
-       cofactors += MINUS_ONE_BI
+       currentGcd = -currentGcd
+       cofactors += MINUS_ONE
      }
 
      def inv1 = {
        //-BEGIN-ASSERTION-//////////////////////////////////////////////////////
        Debug.assertInt(AC,
                        currentGcd.signum >= 0 &&
-                       apply(currentGcd) ==
-                         sum(for (i <- PlainRange(nums.length))
-                             yield (vals(nums(i)) * cofactors(i))))
+                       currentGcd == sum(for (i <- PlainRange(nums.length))
+                                         yield (vals(nums(i)) * cofactors(i))))
        //-END-ASSERTION-////////////////////////////////////////////////////////
      }
 
      inv1
 
-     while (!(currentGcd equals ONE_BI) && !valsTodo.isEmpty) {
+     while (!currentGcd.isOne && !valsTodo.isEmpty) {
        val (nextTodo, nextNum) = valsTodo.dequeue
-       val (nextGcd, cofactorB, cofactorA) = gcdAndCofactorsBI(nextTodo, currentGcd)
+       val (nextGcd, cofactorB, cofactorA) = gcdAndCofactors(nextTodo, currentGcd)
        currentGcd = nextGcd
        
        for (i <- PlainRange(cofactors.length))
-	     cofactors(i) = cofactors(i) multiply cofactorA
+         cofactors(i) = cofactors(i) * cofactorA
          
        cofactors += cofactorB
        nums += nextNum
@@ -369,30 +378,36 @@ object IdealInt {
 
      for (i <- PlainRange(nums.length)) finalCofactors(nums(i)) = cofactors(i)
 
-     val gcd : IdealInt = currentGcd
+     val gcd = currentGcd
      post(gcd)
      (gcd, finalCofactors)
   }
-   
-  private val ZERO_BI = BigInteger.ZERO
-  private val ONE_BI = BigInteger.ONE
-  private val MINUS_ONE_BI = BigInteger.ONE.negate
-  
-  val ZERO = apply(0)
-  val ONE = apply(1)
-  val MINUS_ONE = apply(-1)
 }
 
-/**
- * Class for arbitrary-precision integers, for the moment based on
- * <code>java.math.BigInteger</code> and <code>scala.BigInt</code>. We introduce
- * an own class for this purpose to make it easier to exchange the underlying
- * implementation with a more efficient one later on. 
- */
-class IdealInt private (private val bigInteger: BigInteger) {
+////////////////////////////////////////////////////////////////////////////////
+
+sealed class IdealInt private (private val longStore : Long,
+                               private var biStore : BigInteger) {
+ 
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertPost(IdealInt.AC,
+                   usesLong || biStore.bitLength > IdealInt.longReprBits)
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  private def usesLong = (longStore != Long.MaxValue)
+  
+  private def getBI = {
+    var bi = biStore
+    if (bi == null) {
+      bi = BigInteger valueOf longStore
+      biStore = bi
+    }
+    bi
+  }
   
   /** Returns the hash code for this <code>IdealInt</code>. */
-  override def hashCode(): Int = this.bigInteger.hashCode()
+  override def hashCode(): Int =
+    if (usesLong) longStore.hashCode else biStore.hashCode 
 
   /** Compares this <code>IdealInt</code> with the specified value for equality. */
   override def equals (that: Any): Boolean = that match {
@@ -403,67 +418,116 @@ class IdealInt private (private val bigInteger: BigInteger) {
   /** Compares this <code>IdealInt</code> with the specified
     * <code>IdealInt</code> for equality.
     */
-  def equals (that: IdealInt): Boolean = this.bigInteger equals that.bigInteger
+  def equals (that: IdealInt): Boolean =
+    if (this.usesLong)
+      this.longStore == that.longStore
+    else
+      this.biStore equals that.biStore
 
   /** Compares this <code>IdealInt</code> with the specified <code>IdealInt</code> */
-  def compare (that: IdealInt): Int = this.bigInteger.compareTo(that.bigInteger)
+  def compare (that: IdealInt): Int =
+    if (this.usesLong && that.usesLong)
+      this.longStore compareTo that.longStore
+    else
+      this.getBI compareTo that.getBI
 
   /** A total order on integers that first compares the absolute value and then
    * the sign: 0 < 1 < -1 < 2 < -2 < 3 < -3 < ...
    */
   def compareAbs (that: IdealInt): Int =
-    compareAbs(this.bigInteger, that.bigInteger)
+    (this.abs compare that.abs) match {
+      case 0 => that.signum compareTo this.signum
+      case x => x
+    }
   
-  private def compareAbs(thisBI : BigInteger, thatBI : BigInteger) : Int = 
-    Seqs.lexCombineInts(thisBI.abs compareTo thatBI.abs,
-                        thatBI.signum compare thisBI.signum)
+  /** Returns the sign of this <code>IdealInt</code>, i.e. 
+   *   -1 if it is less than 0, 
+   *   +1 if it is greater than 0
+   *   0  if it is equal to 0
+   */
+  def signum: Int =
+    if (usesLong) {
+      if (longStore < 0)
+        -1
+      else if (longStore > 0)
+        1
+      else
+        0
+    } else {
+      biStore.signum
+    }
   
+  /** Returns <code>true</code> iff this <code>IdealInt</code> is zero */
+  def isZero : Boolean = longStore == 0
+
+    /** Returns <code>true</code> iff this <code>IdealInt</code> is one */
+  def isOne : Boolean = longStore == 1
+
+    /** Returns <code>true</code> iff this <code>IdealInt</code> is -one */
+  def isMinusOne : Boolean = longStore == -1
+
   /**
    * Return whether <code>this</code> is minimal (in the
    * <code>compareAbs</code> order) modulo <code>that</code>, i.e., if
    * <code>that</code> is zero or if
-   * <code>(result compareAbs (result + a*that)) < 0</code> for all non-zero
+   * <code>(this compareAbs (this + a*that)) <= 0</code> for all non-zero
    * <code>a</code> 
    */ 
-  def isAbsMinMod(that : IdealInt) : Boolean = {
-    if (that.isZero) {
+  def isAbsMinMod(that : IdealInt) : Boolean =
+    if (this.isZero || that.isZero)
       true
-    } else {
-      // TODO: better implementation?
-      val this_bi = this.bigInteger
-      val that_bi = that.bigInteger
-      compareAbs(this_bi, this_bi add that_bi) < 0 &&
-      compareAbs(this_bi, this_bi subtract that_bi) < 0
-    }
-  }
+    else
+      (this compareAbs (this + that)) < 0 && (this compareAbs (this - that)) < 0
   
   /** Less-than-or-equals comparison of <code>IdealInt</code> */
   def <= (that: IdealInt): Boolean =
-    this.bigInteger.compareTo(that.bigInteger) <= 0
+    if (this.usesLong && that.usesLong)
+      this.longStore <= that.longStore
+    else
+      (this.getBI compareTo that.getBI) <= 0
 
   /** Greater-than-or-equals comparison of <code>IdealInt</code> */
   def >= (that: IdealInt): Boolean =
-    this.bigInteger.compareTo(that.bigInteger) >= 0
+    if (this.usesLong && that.usesLong)
+      this.longStore >= that.longStore
+    else
+      (this.getBI compareTo that.getBI) >= 0
 
   /** Less-than of <code>IdealInt</code> */
   def <  (that: IdealInt): Boolean =
-    this.bigInteger.compareTo(that.bigInteger) <  0
+    if (this.usesLong && that.usesLong)
+      this.longStore < that.longStore
+    else
+      (this.getBI compareTo that.getBI) < 0
 
   /** Greater-than comparison of <code>IdealInt</code> */
   def >  (that: IdealInt): Boolean =
-    this.bigInteger.compareTo(that.bigInteger) > 0
+    if (this.usesLong && that.usesLong)
+      this.longStore > that.longStore
+    else
+      (this.getBI compareTo that.getBI) > 0
 
   /** Addition of <code>IdealInt</code> */
   def +  (that: IdealInt): IdealInt =
-    IdealInt(this.bigInteger.add(that.bigInteger))
+    if (this.usesLong && that.usesLong)
+      IdealInt(this.longStore + that.longStore)
+    else
+      IdealInt(this.getBI add that.getBI)
 
   /** Subtraction of <code>IdealInt</code> */
   def -  (that: IdealInt): IdealInt =
-    IdealInt(this.bigInteger.subtract(that.bigInteger))
+    if (this.usesLong && that.usesLong)
+      IdealInt(this.longStore - that.longStore)
+    else
+      IdealInt(this.getBI subtract that.getBI)
 
   /** Multiplication of <code>IdealInt</code> */
   def *  (that: IdealInt): IdealInt =
-    IdealInt(this.bigInteger.multiply(that.bigInteger))
+    if (Int.MinValue <= this.longStore && this.longStore <= Int.MaxValue &&
+        Int.MinValue <= that.longStore && that.longStore <= Int.MaxValue)
+      IdealInt(this.longStore * that.longStore)
+    else
+      IdealInt(this.getBI multiply that.getBI)
 
   /**
    * Division of <code>IdealInt</code>. We use euclidian division with remainder,
@@ -493,30 +557,57 @@ class IdealInt private (private val bigInteger: BigInteger) {
    * <code>this % that < that.abs</code>.
    */
   def /% (that: IdealInt): (IdealInt, IdealInt) = {
-    val this_bi = this.bigInteger
-    val that_bi = that.bigInteger
-    val dr = this_bi.divideAndRemainder(that_bi)
-    
-    // we need to correct the results so that they comply to the euclidian
-    // definition
-    if (dr(1).signum < 0) {
-      dr(1) = dr(1) add that_bi.abs
-      if (that_bi.signum > 0)
-        dr(0) = dr(0) subtract IdealInt.ONE_BI
+    var quot =
+      if (this.usesLong && that.usesLong)
+        IdealInt(this.longStore / that.longStore)
       else
-        dr(0) = dr(0) add IdealInt.ONE_BI
+        IdealInt(this.getBI divide that.getBI)
+    
+    var rem = this - that * quot
+    
+    if (rem.signum < 0) {
+      // we need to correct the results so that they comply to the euclidian
+      // definition
+      if (that.signum > 0) {
+        quot = quot - IdealInt.ONE
+        rem = rem + that
+      } else {
+        quot = quot + IdealInt.ONE
+        rem = rem - that
+      }
     }
-
-    val res = (IdealInt(dr(0)), IdealInt(dr(1)))
-
+    
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(IdealInt.AC,
-                     (res _2).signum >= 0 &&
-                     ((res _2) compare that.abs) < 0 &&
-                     that * (res _1) + (res _2) == this)
+                     rem.signum >= 0 &&
+                     (rem compare that.abs) < 0 &&
+                     that * quot + rem == this)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+    (quot, rem)
+  }
+
+  /** 
+   * Returns a pair of two <code>IdealInt</code> containing
+   * <code>(this / that)</code> and <code>(this % that)</code>.
+   * This operation only guarantees
+   * <code>this == (this / that) * that + (this % that)</code>, and that the
+   * absolute value of <code>(this % that)</code> is less than the absolute
+   * value of <code>that</code>.
+   */
+  def anyDivideAndRemainder (that: IdealInt): (IdealInt, IdealInt) = {
+    var quot =
+      if (this.usesLong && that.usesLong)
+        IdealInt(this.longStore / that.longStore)
+      else
+        IdealInt(this.getBI divide that.getBI)
     
-    res
+    var rem = this - that * quot
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(IdealInt.AC,
+                     (rem compare that.abs) < 0 && that * quot + rem == this)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    (quot, rem)
   }
 
    /**
@@ -529,83 +620,83 @@ class IdealInt private (private val bigInteger: BigInteger) {
     * <code>a</code>.
     */
   def reduceAbs (that : IdealInt) : (IdealInt, IdealInt) = {
-    val this_bi = this.bigInteger
-    val that_bi = that.bigInteger
-    val dr = this_bi.divideAndRemainder(that_bi)
+    var quot =
+      if (this.usesLong && that.usesLong)
+        IdealInt(this.longStore / that.longStore)
+      else
+        IdealInt(this.getBI divide that.getBI)
+    
+    var rem = this - that * quot
 
-    val more = dr(1) add that_bi
-    if (compareAbs(more, dr(1)) < 0) {
-      dr(0) = dr(0) subtract IdealInt.ONE_BI
-      dr(1) = more
+    val more = rem + that
+    if ((more compareAbs rem) < 0) {
+      quot = quot - IdealInt.ONE
+      rem = more
     }
     
-    val less = dr(1) subtract that_bi
-    if (compareAbs(less, dr(1)) < 0) {
-      dr(0) = dr(0) add IdealInt.ONE_BI
-      dr(1) = less
+    val less = rem - that
+    if ((less compareAbs rem) < 0) {
+      quot = quot + IdealInt.ONE
+      rem = less
     }
     
-    val res = (IdealInt(dr(0)), IdealInt(dr(1)))
-
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(IdealInt.AC,
-                     that * (res _1) + (res _2) == this &&
-                     ((res _2) isAbsMinMod that))
+                     that * quot + rem == this &&
+                     (rem isAbsMinMod that))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    res
+    (quot, rem)
   }
-   
+  
   /** Return whether this divides that */
-  def divides (that : IdealInt) : Boolean = {
-    if (that.bigInteger.signum == 0) {
-      true      
-    } else {
-      this.bigInteger.signum != 0 &&
-      (that.bigInteger remainder this.bigInteger).signum == 0
-    }
-  }
+  def divides (that : IdealInt) : Boolean =
+    that.isZero || (!this.isZero && (that % this).isZero)
   
   /** Returns the greatest common divisor of abs(this) and abs(that)
    */
-  def gcd (that: IdealInt): IdealInt = IdealInt(this.bigInteger.gcd(that.bigInteger))
+  def gcd (that: IdealInt): IdealInt =
+    if (this.usesLong && that.usesLong) {
+      var a = this.longStore.abs
+      var b = that.longStore.abs
+      
+      if (a < b) {
+        val t = a
+        a = b
+        b = t
+      }
+      
+      while (b > 0) {
+        val r = a % b
+        a = b
+        b = r
+      }
+      
+      IdealInt(a)
+    } else {
+      IdealInt(this.getBI gcd that.getBI)
+    }
 
   /** Returns the minimum of this and that */
   def min (that: IdealInt): IdealInt =
-    IdealInt(this.bigInteger.min(that.bigInteger))
+    if (this < that) this else that
 
   /** Returns the maximum of this and that */
   def max (that: IdealInt): IdealInt =
-    IdealInt(this.bigInteger.max(that.bigInteger))
+    if (this > that) this else that
 
   /** Returns the absolute value of this <code>IdealInt</code> */
-  def abs: IdealInt = IdealInt(this.bigInteger.abs())
+  def abs: IdealInt = if (this.signum < 0) -this else this
 
   /** Returns a <code>IdealInt</code> whose value is the negation of this
     * <code>IdealInt</code>
     */
-  def unary_- : IdealInt   = IdealInt(this.bigInteger.negate())
+  def unary_- : IdealInt =
+    if (usesLong) IdealInt(-longStore) else IdealInt(getBI.negate)
 
   /** Returns a <code>IdealInt</code> whose value is (<tt>this</tt> raised
    * to the power of <tt>exp</tt>).
    */
-  def pow (exp: Int): IdealInt = IdealInt(this.bigInteger.pow(exp))
-
-  /** Returns the sign of this <code>IdealInt</code>, i.e. 
-   *   -1 if it is less than 0, 
-   *   +1 if it is greater than 0
-   *   0  if it is equal to 0
-   */
-  def signum: Int = this.bigInteger.signum()
-
-  /** Returns <code>true</code> iff this <code>IdealInt</code> is zero */
-  def isZero : Boolean = (this.bigInteger.signum == 0)
-
-    /** Returns <code>true</code> iff this <code>IdealInt</code> is one */
-  def isOne : Boolean = (this.bigInteger equals IdealInt.ONE_BI)
-
-    /** Returns <code>true</code> iff this <code>IdealInt</code> is -one */
-  def isMinusOne : Boolean = (this.bigInteger equals IdealInt.MINUS_ONE_BI)
+  def pow (exp: Int): IdealInt = IdealInt(this.getBI pow exp)
 
   /** Converts this <code>IdealInt</code> to an <tt>int</tt>. 
    *  If the <code>IdealInt</code> is too big to fit in a char, only the
@@ -613,13 +704,15 @@ class IdealInt private (private val bigInteger: BigInteger) {
    *  information about the overall magnitude of the <code>IdealInt</code>
    *  value as well as return a result with the opposite sign.
    */
-  def intValue    = this.bigInteger.intValue
+  def intValue    = this.longStore.toInt
 
   def intValueSafe = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC, this <= Int.MaxValue && this >= Int.MinValue)
+    Debug.assertPre(IdealInt.AC,
+                    usesLong &&
+                    longStore <= Int.MaxValue && longStore >= Int.MinValue)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    this.bigInteger.intValue
+    this.longStore.toInt
   }
 
   /** Converts this <code>IdealInt</code> to a <tt>long</tt>.
@@ -628,11 +721,12 @@ class IdealInt private (private val bigInteger: BigInteger) {
    *  information about the overall magnitude of the <code>IdealInt</code>
    *  value as well as return a result with the opposite sign.
    */
-  def longValue   = this.bigInteger.longValue
+  def longValue   = if (usesLong) longStore else biStore.longValue
 
   /** Returns the decimal <code>String</code> representation of this
     * <code>IdealInt</code>.
     */
-  override def toString(): String = this.bigInteger.toString()
-
+  override def toString(): String =
+    if (usesLong) "" + longStore else this.biStore.toString
 }
+
