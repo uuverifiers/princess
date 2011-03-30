@@ -26,7 +26,7 @@ import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.TerForConvenience._
-import ap.util.Debug
+import ap.util.{Debug, IdealRange}
 
 object OmegaCertificate {
   
@@ -79,7 +79,7 @@ case class OmegaCertificate(elimConst : ConstantTerm,
   val localProvidedFormulas : Seq[Set[CertFormula]] = {
     implicit val o = order
     (for ((conj, cases) <- boundsA.iterator zip strengthenCases.iterator;
-         i <- (0 until cases.intValueSafe).iterator)
+          i <- IdealRange(0, cases).iterator)
        yield Set[CertFormula](CertEquation(conj.lhs - i))).toList ++
     List(Set[CertFormula]() ++ darkShadow)
   }

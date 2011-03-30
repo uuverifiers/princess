@@ -30,7 +30,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.arithconj.{ArithConj, ModelFinder}
 import ap.terfor.linearcombination.LinearCombination
-import ap.util.{Debug, Seqs, PlainRange, FilterIt}
+import ap.util.{Debug, Seqs, PlainRange, FilterIt, IdealRange}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificate,
                               AntiSymmetryInference, BranchInferenceCertificate,
@@ -345,8 +345,8 @@ case object OmegaTask extends EagerTask {
                           order : TermOrder) : Iterator[Conjunction] =
     for ((lc, cases) <- lowerBounds.iterator zip
                         strengthenCases(elimConst, lowerBounds, upperBounds);
-         k <- PlainRange(cases.intValueSafe + 1).iterator)
-    yield Conjunction.conj(NegEquationConj(lc + IdealInt(-k), order), order)
+         k <- IdealRange(cases + 1).iterator)
+    yield Conjunction.conj(NegEquationConj(lc + (-k), order), order)
 
   private def strengthenCases(elimConst : ConstantTerm,
                               lowerBounds : Seq[LinearCombination],
@@ -505,8 +505,8 @@ case object OmegaTask extends EagerTask {
             
             val cases = -negDistance + 1
             store.push(cases) {
-              val goals = for (d <- 0 until cases.intValueSafe) yield {
-                val shiftedLC = lc + IdealInt(-d)
+              val goals = for (d <- IdealRange(cases)) yield {
+                val shiftedLC = lc + (-d)
                 val newFacts = Conjunction.conj(NegEquationConj(shiftedLC, order), order)
                 ptf.updateGoal(goal.formulaTasks(newFacts),
                                goal.startNewInferenceCollection, goal)
@@ -611,7 +611,7 @@ case object OmegaTask extends EagerTask {
             val upperBound = -negUpperBound
             val cases = upperBound - lowerBound + 1
             store.push(cases) {
-              val goals = for (d <- 0 until cases.intValueSafe) yield {
+              val goals = for (d <- IdealRange(cases)) yield {
                 val lc = LinearCombination(List((IdealInt.ONE, elimConst),
                                                 (-(lowerBound + d), OneTerm)), order)
                 val newFacts = Conjunction.conj(NegEquationConj(lc, order), order)
@@ -664,7 +664,7 @@ case object OmegaTask extends EagerTask {
         for ((glb, lub) <- findBounds(elimConst, qfBoundFormula)) {
           val cases = lub - glb + 1
           store.push(cases) {
-            val goals = for (d <- 0 until cases.intValueSafe) yield {
+            val goals = for (d <- IdealRange(cases)) yield {
               val lc = LinearCombination(List((IdealInt.ONE, elimConst),
                                               (-(glb + d), OneTerm)), order)
               val newFacts = Conjunction.conj(NegEquationConj(lc, order), order)

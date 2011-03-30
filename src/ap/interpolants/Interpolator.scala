@@ -57,16 +57,22 @@ object Interpolator
   }
   
   def apply(certificate : Certificate, 
-            iContext: InterpolationContext) : Conjunction = {
+            iContext: InterpolationContext,
+            elimQuantifiers : Boolean = true) : Conjunction = {
     val resWithQuantifiers = applyHelp(certificate, iContext)
 
     implicit val o = certificate.order
-    val res = PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
+    val res =
+      if (elimQuantifiers)
+        PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
+      else
+    	ReduceWithConjunction(Conjunction.TRUE, o)(resWithQuantifiers)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(AC, {
       res.variables.isEmpty &&
-      (!res.predicates.isEmpty || (Conjunction collectQuantifiers res).isEmpty) &&
+      (!res.predicates.isEmpty || !elimQuantifiers ||
+       (Conjunction collectQuantifiers res).isEmpty) &&
       (res.constants subsetOf iContext.globalConstants) &&
       (res.predicates subsetOf iContext.globalPredicates)
     })
@@ -244,7 +250,7 @@ object Interpolator
         
             // because of the denominator we might get more cases, which can all
             // be closed trivially
-            val den = weakInterInEq.den.intValueSafe
+            val den = weakInterInEq.den
         
             val defaultEqInter = if (den > 1) {
               val ctxt = newContext.addPartialInterpolant(CertEquation(1),
@@ -263,8 +269,9 @@ object Interpolator
 
 //            println("Strengthening: " + k + " cases")
 
-            if (totalIneqInter.predicates.isEmpty &&
-                (eqInters forall (_.predicates.isEmpty))) {
+//            if (totalIneqInter.predicates.isEmpty &&
+//                (eqInters forall (_.predicates.isEmpty))) {
+
               // We rely on the existing quantifier elimination, which often is more
               // efficient than just expanding to a disjunction
         
@@ -287,7 +294,8 @@ object Interpolator
               
               result
               
-            } else {
+/*            Old: special case when predicates are present
+              } else {
               
               def spreadEqInters(i : Int) =
                 if (i % den == 0)
@@ -306,7 +314,8 @@ object Interpolator
               ReduceWithConjunction(Conjunction.TRUE, o)(result)
           
             }
-            
+        */
+              
           } else {
           
             totalIneqInter

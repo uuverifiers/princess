@@ -31,7 +31,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst, ConstantSubst}
 import ap.terfor.TerForConvenience._
 import ap.parameters.{GoalSettings, Param}
-import ap.util.{Debug, Seqs}
+import ap.util.{Debug, Seqs, IdealRange}
 
 /**
  * A collection of tools for analysing and transforming formulae in Presburger
@@ -356,6 +356,41 @@ object PresburgerTools {
       reducer(c.updateNegatedConjs(newNegatedConjs)(order))
     }
     
+    /**
+     * Simple heuristic to expand quantifiers ranging over bounded domains
+     */
+    def expandQuantifiers(c : Conjunction) : Conjunction = c.quans.lastOption match {
+      case (Some(Quantifier.EX)) => {
+        val qvar = v(c.quans.size - 1)
+        (c.arithConj.inEqs.findLowerBound(qvar),
+         c.arithConj.inEqs.findLowerBound(-qvar)) match {
+          case (Some(lb), Some(ub)) =>
+            disj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
+                 yield expandQuantifiers(c.instantiate(List(i))), order)
+          case _ =>
+            c
+        }
+      }
+      
+      case (Some(Quantifier.ALL))
+        if (c.arithConj.isTrue && c.predConj.isTrue && c.negatedConjs.size == 1) => {
+        val qvar = v(c.quans.size - 1)
+        val subC = c.negatedConjs.head
+        
+        (subC.arithConj.inEqs.findLowerBound(qvar),
+         subC.arithConj.inEqs.findLowerBound(-qvar)) match {
+          case (Some(lb), Some(ub)) =>
+            conj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
+                 yield expandQuantifiers(c.instantiate(List(i))), order)
+          case _ =>
+            c
+        }
+      }
+        
+      case _ =>
+        c
+    }
+    
     def elimHelp(c : Conjunction) : Conjunction =
       if (Conjunction.collectQuantifiers(c).isEmpty) {
         c // nothing to do
@@ -411,7 +446,7 @@ object PresburgerTools {
           } else {
             // then we cannot eliminate the quantifiers
             
-            descend(c)
+            descend(expandQuantifiers(c))
             
           }
 

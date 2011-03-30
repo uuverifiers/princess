@@ -79,6 +79,7 @@ object CmdlMain {
     println("                                  never")
     println("                                  ifInterpolating: if \\interpolant is present (default)")
     println("                                  always")
+    println("  [+-]elimInterpolantQuants     Eliminate quantifiers from interpolants  (default: +)")
   }
   
   private def printSMT(prover : AbstractFileProver,

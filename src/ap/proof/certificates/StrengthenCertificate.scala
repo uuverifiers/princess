@@ -24,9 +24,8 @@ package ap.proof.certificates
 import ap.basetypes.IdealInt
 import ap.terfor.TermOrder
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.inequalities.InEqConj
 import ap.terfor.TerForConvenience._
-import ap.util.Debug
+import ap.util.{Debug, IdealRange}
 
 object StrengthenCertificate {
   
@@ -54,7 +53,7 @@ case class StrengthenCertificate(weakInEq : CertInequality, eqCases : IdealInt,
   
   val localProvidedFormulas : Seq[Set[CertFormula]] = {
     implicit val o = order
-    (for (i <- 0 until eqCases.intValueSafe)
+    (for (i <- IdealRange(0, eqCases))
        yield Set[CertFormula](CertEquation(weakInEq.lhs - i))) ++
       List(Set[CertFormula](CertInequality(weakInEq.lhs - eqCases)))
   }

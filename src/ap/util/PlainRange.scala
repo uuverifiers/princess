@@ -21,6 +21,8 @@
 
 package ap.util;
 
+import ap.basetypes.IdealInt
+
 object PlainRange {
   def apply(end : Int) : PlainRange =
     new IntervalPlainRange(0, end)
@@ -78,6 +80,73 @@ protected class PredicatedPlainRange(start : Int, end : Int, pred : Int => Boole
 
   override def filter(pred2 : Int => Boolean) : PlainRange =
     new PredicatedPlainRange(start, end, (i) => pred(i) && pred2(i))
+
+  override def length = throw new UnsupportedOperationException
+
+  override def apply(n : Int) = throw new UnsupportedOperationException
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object IdealRange {
+  def apply(end : IdealInt) : IdealRange =
+    new IntervalIdealRange(IdealInt.ZERO, end)
+    
+  def apply(start : IdealInt, end : IdealInt) : IdealRange =
+    new IntervalIdealRange(start, end)
+}
+
+/**
+ * Extremely simple class for iterating over intervals of integers
+ *
+ * TODO: this should be removed
+ */
+abstract class IdealRange extends Seq[IdealInt]
+
+protected class IntervalIdealRange(start : IdealInt,
+                                   end : IdealInt) extends IdealRange {
+
+  override def foreach[U](f: IdealInt => U) : Unit = {
+    var i : IdealInt = start
+    while (i < end) {
+      f(i)
+      i = i+IdealInt.ONE
+    }
+  }
+  
+  override def filter(pred : IdealInt => Boolean) : IdealRange =
+    new PredicatedIdealRange(start, end, pred)
+  
+  def length = (end - start).intValueSafe
+  
+  def iterator = new Iterator[IdealInt] {
+    private var i : IdealInt = start
+    def hasNext = (i < end)
+    def next = {
+      val res = i
+      i = i+IdealInt.ONE
+      res
+    }
+  }
+
+  def apply(n : Int) = (start + IdealInt(n))
+  
+}
+
+protected class PredicatedIdealRange(start : IdealInt, end : IdealInt,
+                                     pred : IdealInt => Boolean)
+      extends IntervalIdealRange(start, end) {
+
+  override def foreach[U](f: IdealInt => U) : Unit = {
+    var i : IdealInt = start
+    while (i < end) {
+      if (pred(i)) f(i)
+      i = i+IdealInt.ONE
+    }
+  }
+
+  override def filter(pred2 : IdealInt => Boolean) : IdealRange =
+    new PredicatedIdealRange(start, end, (i) => pred(i) && pred2(i))
 
   override def length = throw new UnsupportedOperationException
 

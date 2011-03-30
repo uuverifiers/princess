@@ -125,7 +125,8 @@ class IntelliFileProver(reader : java.io.Reader,
 
           val interpolants = for (spec <- interpolantSpecs.view) yield {
             val iContext = InterpolationContext(namedParts, spec, order)
-            Interpolator(cert, iContext)    
+            Interpolator(cert, iContext,
+            		     Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings))    
           }
           NoCounterModelCertInter(cert, interpolants)
         }
