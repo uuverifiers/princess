@@ -23,3 +23,12 @@ TESTS="columnRed.pri cryptarithm.pri \
 
 $PRI "$@" $TESTS
 
+# Some examples that need special settings.
+# We switch off quantifier elimination in interpolants for those
+# examples, as well as assertions (because just checking that
+# the interpolants are correct takes too long)
+
+TESTS="surprising25.pri bignum_lia1.pri"
+
+$PRI "$@" -elimInterpolantQuants -assert $TESTS
+
