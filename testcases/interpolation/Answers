@@ -444,3 +444,12 @@ No countermodel exists, formula is valid
 Interpolants:
 (! (-1*x4 + 19670160000*x1 + -1 >= 0 & -1*x4 + 16039976000*x1 + -1 >= 0 & -1*x4 + 12890400000*x1 + -1 >= 0 & -1*x4 + 9835080000*x1 + -1 >= 0 & -1*x4 + 8019988000*x1 + -1 >= 0 & -1*x4 >= 0))
 
+Loading ring_2exp10_3vars_0ite_unsat.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 3100), simplifying (3097)
+
+
+No countermodel exists, formula is valid
+
+Constraint: true

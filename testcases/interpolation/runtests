@@ -35,6 +35,5 @@ $PRI "$@" -elimInterpolantQuants -assert $TESTS
 
 # Testing proof simplification (still very experimental)
 
-TESTS="bignum_lia1.pri"
-
-$PRI "$@" +simplifyProofs $TESTS
+$PRI "$@" +simplifyProofs bignum_lia1.pri
+$PRI "$@" +simplifyProofs -constructProofs=always ring_2exp10_3vars_0ite_unsat.pri | grep -v "^Certificate" | grep -v "^Assumed"

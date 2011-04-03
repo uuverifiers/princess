@@ -149,7 +149,7 @@ object ProofSimplifier {
               simplifyInfs(newOtherInfs2, newChild2)
             }
             case _ =>
-              (inf :: newOtherInfs, newChild, wkn)
+              (inf :: newOtherInfs, newChild, defaultWeakening)
           }
                                               
         case inf => (inf :: newOtherInfs, newChild, defaultWeakening)
@@ -197,7 +197,8 @@ object ProofSimplifier {
 
     case cert => {
       val newChildren =
-        for (c <- cert.subCertificates) yield elimSimp(c, replacement)
+        for ((c, i) <- cert.subCertificates.zipWithIndex)
+          yield elimSimp(c, replacement -- ineqSubset(cert.localProvidedFormulas(i)))
       cert update newChildren
     }
   }
@@ -264,7 +265,7 @@ object ProofSimplifier {
            replacement + (result -> (newTarget, factor * inf.factor, constantDiff)))
         }
 
-        case inf => (List(inf), replacement)
+        case inf => (List(inf), replacement -- ineqSubset(inf.providedFormulas))
       }
 
       val (newOtherInfs, newChild) = elimSimpInfs(otherInfs, child, newRepl)
