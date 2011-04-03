@@ -162,7 +162,8 @@ class BenchFileProver(filename : String,
               println("Nb of predicates: " + iContext.allPredicates.size)
               println("Nb of predicates to be eliminated: " + iContext.leftLocalPredicates.size)
 
-              val inter = Interpolator(finalCert, iContext)
+              val inter = Interpolator(finalCert, iContext,
+                                       Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings))
 
               val timeInter = System.currentTimeMillis - timeBeforeInter
             
