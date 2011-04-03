@@ -676,6 +676,10 @@ sealed class IdealInt private (private val longStore : Long,
       IdealInt(this.getBI gcd that.getBI)
     }
 
+  /** Returns the least common multiple of abs(this) and abs(that)
+   */
+  def lcm (that: IdealInt): IdealInt = (this.abs / (this gcd that)) * that.abs
+
   /** Returns the minimum of this and that */
   def min (that: IdealInt): IdealInt =
     if (this < that) this else that

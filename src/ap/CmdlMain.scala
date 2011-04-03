@@ -106,8 +106,7 @@ object CmdlMain {
       }
     }
   
-  private def printDOTCertificate(cert : Certificate,
-                                  filename : String, settings : GlobalSettings) =
+  private def printDOTCertificate(cert : Certificate, settings : GlobalSettings) =
     if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "") {
       println
       
@@ -212,7 +211,7 @@ object CmdlMain {
                 println("Assumed formulae: " + cert.assumedFormulas)
                 println("Constraint: " + cert.closingConstraint)
                 
-                printDOTCertificate(cert, filename, settings)
+                printDOTCertificate(cert, settings)
               }
               case IntelliFileProver.NoCounterModelCertInter(cert, inters) => {
                 println("No countermodel exists, formula is valid")
@@ -229,7 +228,7 @@ object CmdlMain {
                 println("Interpolants:")
                 for (i <- inters) println(i)
 
-                printDOTCertificate(cert, filename, settings)
+                printDOTCertificate(cert, settings)
               }
               case IntelliFileProver.Model(model) =>  {
                 println("Formula is valid, satisfying assignment for the existential constants is:")

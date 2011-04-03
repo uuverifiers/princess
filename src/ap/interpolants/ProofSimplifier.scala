@@ -35,16 +35,12 @@ object ProofSimplifier {
 
   type WeakeningRange = Map[CertInequality, IdealInt]
   
+  def apply(cert : Certificate) : Certificate = simplify(cert) _1
+  
   //////////////////////////////////////////////////////////////////////////////
 
   private def simplify(cert : Certificate)
         : (Certificate, WeakeningRange) = cert match {
-    case cert@BetaCertificate(leftForm, rightForm, leftChild, rightChild, _) => {
-      val (newLeft,  wLeft)  = simplify(leftChild)
-      val (newRight, wRight) = simplify(rightChild)
-      (cert.copy(_leftChild = newLeft, _rightChild = newRight),
-       mergeWeakening(wLeft, wRight))
-    }
     
     case CloseCertificate(contradFors, _) => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////       
@@ -61,6 +57,27 @@ object ProofSimplifier {
         case _ =>
           (cert, Map())
       }
+    }
+    
+    case cert@BranchInferenceCertificate(infs, child, _) => {
+      val (newInfs, newChild, wr) = simplifyInfs(infs.toList, child)
+      if (newInfs.isEmpty)
+        (newChild, wr)
+      else
+        (cert.copy(inferences = newInfs, _child = newChild), wr)
+    }
+    
+    case cert => {
+      val (newChildren, weakenings) =
+        (for (c <- cert.subCertificates) yield simplify(c)).unzip
+        cert match {
+        case c : StrengthenCertificate => {
+          println(c.weakInEq)
+          println(weakenings)
+        }
+        case _ => {}
+      }
+      (cert update newChildren, weakenings reduceLeft mergeWeakening)
     }
   }
   
@@ -101,13 +118,40 @@ object ProofSimplifier {
               case (None, None, Some(resultW)) =>
                 wkn - result + (leftInEq -> (resultW / leftCoeff),
                                 rightInEq -> (resultW / rightCoeff))
-              case (_, _, None) => wkn
-              case _ => defaultWeakening
+              case (_, _, None)                => wkn
+              case _                           => defaultWeakening
             }
             
           (inf :: newOtherInfs, newChild, newWeakening2)
         }
-                                 
+                  
+        case inf@SimpInference(target : CertInequality,
+                               result : CertInequality, _) =>
+          if (inf.constantDiff.isZero) {
+            // nothing to be simplified, but we can propagate the weakening
+            // bound
+            val newWeakening2 =
+              (wkn get target, wkn get result) match {
+                case (None, Some(resultW)) => wkn - result + (target -> resultW)
+                case (_, None)             => wkn
+                case _                     => defaultWeakening
+              }
+            (inf :: newOtherInfs, newChild, newWeakening2)
+          } else (wkn get result) match {
+            case Some(resultW) if (inf.constantDiff <= resultW * inf.factor) => {
+              // The simplification can be eliminated: everywhere in this
+              // subproof, replace <code>result</code> with
+              // <code>target = result * factor + constantDiff</code>
+              val (newOtherInfs2, newChild2) =
+                elimSimpInfs(newOtherInfs, newChild,
+                             Map(result -> (target, inf.factor, inf.constantDiff)))
+         
+              simplifyInfs(newOtherInfs2, newChild2)
+            }
+            case _ =>
+              (inf :: newOtherInfs, newChild, wkn)
+          }
+                                              
         case inf => (inf :: newOtherInfs, newChild, defaultWeakening)
       }
     }
@@ -121,7 +165,110 @@ object ProofSimplifier {
       newBounds + (ineq -> (bound min newBounds.getOrElse(ineq, bound)))
     }
  
-  private def ineqSubset(s : Set[CertFormula]) = s collect {
-    case f : CertInequality => f
-  } 
+  private def ineqSubset(s : Set[CertFormula]) =
+    s collect { case f : CertInequality => f }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  type ReplMap = Map[CertInequality, (CertInequality, IdealInt, IdealInt)]
+  
+  private def elimSimp(cert : Certificate,
+                       replacement : ReplMap) : Certificate = cert match {
+    case cert@CloseCertificate(contradFors, _) => {
+      val newContrad =
+        for (f <- contradFors) yield f match {
+          case f : CertInequality => replacement.getOrElse(f, (f, null, null)) _1
+          case f => f
+        }
+      
+      if (newContrad == contradFors)
+        cert
+      else
+        cert.copy(localAssumedFormulas = newContrad)
+    }
+
+    case cert@BranchInferenceCertificate(infs, child, _) => {
+      val (newInfs, newChild) = elimSimpInfs(infs.toList, child, replacement)
+      if (newInfs.isEmpty)
+        newChild
+      else
+        cert.copy(inferences = newInfs, _child = newChild)
+    }
+
+    case cert => {
+      val newChildren =
+        for (c <- cert.subCertificates) yield elimSimp(c, replacement)
+      cert update newChildren
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def elimSimpInfs(infs : List[BranchInference], child : Certificate,
+                           replacement : ReplMap)
+                          : (List[BranchInference], Certificate) = infs match {
+
+    case List() =>
+      (List(), elimSimp(child, replacement))
+    
+    case inf :: otherInfs => {
+      val (newInf, newRepl) = inf match {
+        
+        case inf@ReduceInference(equations,
+                                 target : CertInequality,
+                                 result : CertInequality, _)
+          if (replacement contains target) => {
+               
+          val (newTarget, factor, constantDiff) = replacement(target)
+          val newEquations = for ((c, eq) <- equations) yield (c * factor, eq)
+          val newResult = CertInequality(result.lhs * factor + constantDiff)
+          (List(inf.copy(equations = newEquations,
+                         targetLit = newTarget, result = newResult)),
+           replacement + (result -> (newResult, factor, constantDiff)))
+        }
+                  
+        case inf@CombineInequalitiesInference(leftCoeff, leftInEq,
+                                              rightCoeff, rightInEq, result, _)
+          if ((replacement contains leftInEq) || (replacement contains rightInEq)) => {
+              
+          val (newLeft, leftFactor, leftDiff) =
+            replacement.getOrElse(leftInEq, (leftInEq, IdealInt.ONE, IdealInt.ZERO))
+          val (newRight, rightFactor, rightDiff) =
+            replacement.getOrElse(rightInEq, (rightInEq, IdealInt.ONE, IdealInt.ZERO))
+
+          val commonFactor = leftFactor lcm rightFactor
+          val newLeftCoeff = commonFactor / leftFactor * leftCoeff
+          val newRightCoeff = commonFactor / rightFactor * rightCoeff
+          val commonDiff = newLeftCoeff * leftDiff + newRightCoeff * rightDiff
+            
+          val newResult = CertInequality(result.lhs * commonFactor + commonDiff)
+            
+          (List(inf.copy(leftCoeff = newLeftCoeff, leftInEq = newLeft,
+                         rightCoeff = newRightCoeff, rightInEq = newRight,
+                         result = newResult)),
+           replacement + (result -> (newResult, commonFactor, commonDiff)))
+        }
+
+        case inf@SimpInference(target : CertInequality,
+                               result : CertInequality, _)
+          if (replacement contains target) => {
+          
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////       
+          Debug.assertInt(AC, inf.constantDiff.isZero && !inf.factor.isZero)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          
+          val (newTarget, factor, constantDiff) = replacement(target)
+
+          // just skip this simplification step
+          (List(),
+           replacement + (result -> (newTarget, factor * inf.factor, constantDiff)))
+        }
+
+        case inf => (List(inf), replacement)
+      }
+
+      val (newOtherInfs, newChild) = elimSimpInfs(otherInfs, child, newRepl)
+      (newInf ::: newOtherInfs, newChild)
+    }
+  }
 }

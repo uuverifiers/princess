@@ -87,13 +87,22 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInferenceCertificate.AC,
-                   uniqueLocalProvidedFormulas forall (child.order isSortingOf _))
+                   !inferences.isEmpty &&
+                   (uniqueLocalProvidedFormulas forall (child.order isSortingOf _)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
     "BranchInferences(" + (inferences mkString ", ") + ", " + child + ")"
   
   override def inferenceCount : Int = super.inferenceCount - 1 + inferences.size
+
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+    Debug.assertPre(BranchInferenceCertificate.AC, newSubCerts.size == 1)
+    //-END-ASSERTION-/////////////////////////////////////////////////////////////
+    val newChild = newSubCerts.head
+    if (newChild eq child) this else copy(_child = newChild)
+  }
 
 }
 

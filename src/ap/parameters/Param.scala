@@ -138,6 +138,11 @@ object Param {
       ProofConstructionOptions.IfInterpolating
   }
   
+  case object PROOF_SIMPLIFICATION extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
   case object ELIMINATE_INTERPOLANT_QUANTIFIERS extends Param {
 	type Value = Boolean
 	val defau : Boolean = true

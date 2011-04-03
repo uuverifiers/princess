@@ -77,6 +77,17 @@ case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula
   
 } with BinaryCertificate(_leftChild, _rightChild, _order) {
   
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(BetaCertificate.AC, newSubCerts.size == 2)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val Seq(newLeft, newRight) = newSubCerts
+    if ((newLeft eq leftChild) && (newRight eq rightChild))
+      this
+    else
+      copy(_leftChild = newLeft, _rightChild = newRight)
+  }
+
   override def toString : String =
     "Beta(" + localAssumedFormulas.iterator.next + ", " +
     leftChild + ", " + rightChild + ")"

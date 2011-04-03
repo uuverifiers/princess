@@ -91,6 +91,8 @@ abstract class Certificate {
     def length : Int = Certificate.this.length
     override def iterator = Certificate.this.iterator
   }
+  
+  def update(newSubCerts : Seq[Certificate]) : Certificate
 }
 
 ////////////////////////////////////////////////////////////////////////////////

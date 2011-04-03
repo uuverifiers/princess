@@ -535,7 +535,10 @@ object Interpolator
                                        CertInequality(-1), o)
         
         val eqCaseCert =
-          BranchInferenceCertificate(remInferences, child, o)
+          if (remInferences.isEmpty)
+            child
+          else
+            BranchInferenceCertificate(remInferences, child, o)
         
         val inEqCaseCert =
           BranchInferenceCertificate(List(combineInEqInf), closeCert, o)
@@ -603,7 +606,10 @@ object Interpolator
           BranchInferenceCertificate(List(redInf), closeCert, o)
         
         val inEqCaseCert =
-          BranchInferenceCertificate(remInferences, child, o)
+          if (remInferences.isEmpty)
+            child
+          else
+            BranchInferenceCertificate(remInferences, child, o)
         
         val strengthenCert =
           StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), o)

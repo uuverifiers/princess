@@ -59,6 +59,17 @@ case class SplitEqCertificate(leftInEq : CertInequality, rightInEq : CertInequal
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(SplitEqCertificate.AC, newSubCerts.size == 2)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val Seq(newLeft, newRight) = newSubCerts
+    if ((newLeft eq leftChild) && (newRight eq rightChild))
+      this
+    else
+      copy(_leftChild = newLeft, _rightChild = newRight)
+  }
+
   override def toString : String =
     "SplitEq(" + localAssumedFormulas.iterator.next + ", " +
     leftChild + ", " + rightChild + ")"

@@ -24,6 +24,11 @@ package ap.proof.certificates
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.TerForConvenience._
 import ap.terfor.TermOrder
+import ap.util.Debug
+
+object CloseCertificate {
+  private val AC = Debug.AC_CERTIFICATES
+}
 
 /**
  * Certificate corresponding to an application of the close rule.
@@ -40,6 +45,13 @@ case class CloseCertificate(localAssumedFormulas : Set[CertFormula],
   def length = 0
   def apply(i : Int) : Certificate = throw new NoSuchElementException
   def iterator = Iterator.empty
+
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+    Debug.assertPre(CloseCertificate.AC, newSubCerts.isEmpty)
+    //-END-ASSERTION-/////////////////////////////////////////////////////////////
+    this
+  }
 
   override def toString : String =
     "Close(" + (localAssumedFormulas mkString ", ") + ")"

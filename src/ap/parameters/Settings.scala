@@ -85,6 +85,8 @@ object GlobalSettings {
         case ValueOpt("constructProofs", "ifInterpolating") =>
           Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
                                               Param.ProofConstructionOptions.IfInterpolating)
+        case Opt("simplifyProofs", value) =>
+          Param.PROOF_SIMPLIFICATION.set(settings, value)
         case Opt("elimInterpolantQuants", value) =>
           Param.ELIMINATE_INTERPOLANT_QUANTIFIERS.set(settings, value)
         case ValueOpt("generateTriggers", "none") =>
@@ -110,7 +112,8 @@ object GlobalSettings {
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
-         Param.PROOF_CONSTRUCTION_GLOBAL, Param.TRIGGER_GENERATION,
+         Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
+         Param.TRIGGER_GENERATION,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS)
 
   val DEFAULT =

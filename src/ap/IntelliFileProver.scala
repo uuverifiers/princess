@@ -26,10 +26,12 @@ import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
 import ap.parameters.{GlobalSettings, Param}
-import ap.util.Seqs
-import ap.interpolants.{Interpolator, InterpolationContext}
+import ap.util.{Seqs, Debug}
+import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier}
 
 object IntelliFileProver {
+  
+  private val AC = Debug.AC_MAIN
   
   abstract sealed class Result
   
@@ -110,6 +112,21 @@ class IntelliFileProver(reader : java.io.Reader,
       case _ => TimeoutModel
     }
 
+  private def processCert(cert : Certificate) : Certificate = {
+    print("Found proof (size " + cert.inferenceCount + ")")
+    if (Param.PROOF_SIMPLIFICATION(settings)) {
+      print(", simplifying ")
+      val simpCert = ProofSimplifier(cert)
+      print("(" + simpCert.inferenceCount + ")")
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC, simpCert.assumedFormulas subsetOf cert.assumedFormulas)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      simpCert
+    } else {
+      cert
+    }
+  }
+    
   lazy val counterModelResult : CounterModelResult =
     Timeout.catchTimeout[CounterModelResult] { 
       findCounterModelTimeout match {
@@ -119,20 +136,28 @@ class IntelliFileProver(reader : java.io.Reader,
           else
             CounterModel(model)
         case Right(cert) if (!interpolantSpecs.isEmpty) => {
-          Console.withOut(Console.err) {
-            println("Found proof (size " + cert.inferenceCount + "), interpolating ...")
+          val finalCert = Console.withOut(Console.err) {
+            val c = processCert(cert)
+            println(", interpolating ...")
+            c
           }
 
           val interpolants = for (spec <- interpolantSpecs.view) yield {
             val iContext = InterpolationContext(namedParts, spec, order)
-            Interpolator(cert, iContext,
+            Interpolator(finalCert, iContext,
             		     Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings))    
           }
-          NoCounterModelCertInter(cert, interpolants)
+          NoCounterModelCertInter(finalCert, interpolants)
         }
 
-        case Right(cert) =>
-          NoCounterModelCert(cert)          
+        case Right(cert) => {
+          val finalCert = Console.withOut(Console.err) {
+            val c = processCert(cert)
+            println("")
+            c
+          }
+          NoCounterModelCert(finalCert)
+        }
       }
     } {
       case _ => TimeoutCounterModel

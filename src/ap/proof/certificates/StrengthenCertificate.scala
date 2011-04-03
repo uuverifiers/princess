@@ -69,6 +69,13 @@ case class StrengthenCertificate(weakInEq : CertInequality, eqCases : IdealInt,
   def apply(i : Int) : Certificate = children(i)
   def iterator = children.iterator
 
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(StrengthenCertificate.AC, newSubCerts.size == children.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (newSubCerts == children) this else copy(children = newSubCerts)
+  }
+
   override def toString : String =
     "Strengthen(" + weakInEq + " -> " + "[" +
     ((for (s <- localProvidedFormulas.iterator) yield s.iterator.next) mkString ", ") +

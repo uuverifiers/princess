@@ -105,6 +105,13 @@ case class OmegaCertificate(elimConst : ConstantTerm,
   def apply(i : Int) : Certificate = children(i)
   def iterator = children.iterator
 
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(OmegaCertificate.AC, newSubCerts.size == children.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (newSubCerts == children) this else copy(children = newSubCerts)
+  }
+
   override def toString : String =
     "Omega(" + elimConst + ", {" +
     ((boundsA.iterator zip strengthenCases.iterator) mkString ", ") + "}, {" +
