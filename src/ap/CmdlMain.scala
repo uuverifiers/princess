@@ -79,6 +79,7 @@ object CmdlMain {
     println("                                  never")
     println("                                  ifInterpolating: if \\interpolant is present (default)")
     println("                                  always")
+    println("  [+-]simplifyProofs            Simplify extracted proofs                (default: -)")
     println("  [+-]elimInterpolantQuants     Eliminate quantifiers from interpolants  (default: +)")
   }
   

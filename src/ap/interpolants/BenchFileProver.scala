@@ -130,7 +130,23 @@ class BenchFileProver(filename : String,
           println("Time to decide: " + decisionTime)
           
           println("")
-          println("Found proof (size " + cert.inferenceCount + "), interpolating ...")
+          
+          print("Found proof (size " + cert.inferenceCount + ")")
+          val finalCert =
+            if (Param.PROOF_SIMPLIFICATION(settings)) {
+              print(", simplifying ")
+              val simpCert = ProofSimplifier(cert)
+              print("(" + simpCert.inferenceCount + ")")
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+              assert(simpCert.assumedFormulas subsetOf cert.assumedFormulas)
+              //-END-ASSERTION-/////////////////////////////////////////////////////////
+              simpCert
+            } else {
+              cert
+            }
+          
+          println(", interpolating ...")
+          
           var num = startNum
           for (spec <- specs drop startNum) {
             println("")
@@ -146,7 +162,7 @@ class BenchFileProver(filename : String,
               println("Nb of predicates: " + iContext.allPredicates.size)
               println("Nb of predicates to be eliminated: " + iContext.leftLocalPredicates.size)
 
-              val inter = Interpolator(cert, iContext)
+              val inter = Interpolator(finalCert, iContext)
 
               val timeInter = System.currentTimeMillis - timeBeforeInter
             
