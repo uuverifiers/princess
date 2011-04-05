@@ -70,13 +70,6 @@ object ProofSimplifier {
     case cert => {
       val (newChildren, weakenings) =
         (for (c <- cert.subCertificates) yield simplify(c)).unzip
-        cert match {
-        case c : StrengthenCertificate => {
-          println(c.weakInEq)
-          println(weakenings)
-        }
-        case _ => {}
-      }
       (cert update newChildren, weakenings reduceLeft mergeWeakening)
     }
   }
@@ -148,8 +141,15 @@ object ProofSimplifier {
          
               simplifyInfs(newOtherInfs2, newChild2)
             }
-            case _ =>
-              (inf :: newOtherInfs, newChild, defaultWeakening)
+            case _ => {
+              // it might be possible to eliminate simplifications before this
+              // one
+              val newTargetW =
+                wkn.getOrElse(target, inf.factor) min (inf.factor - inf.constantDiff - 1)
+              val newWeakening2 =
+                wkn - result + (target -> newTargetW)
+              (inf :: newOtherInfs, newChild, newWeakening2)
+            }
           }
                                               
         case inf => (inf :: newOtherInfs, newChild, defaultWeakening)
@@ -237,9 +237,10 @@ object ProofSimplifier {
           val (newRight, rightFactor, rightDiff) =
             replacement.getOrElse(rightInEq, (rightInEq, IdealInt.ONE, IdealInt.ZERO))
 
-          val commonFactor = leftFactor lcm rightFactor
-          val newLeftCoeff = commonFactor / leftFactor * leftCoeff
-          val newRightCoeff = commonFactor / rightFactor * rightCoeff
+          val commonFactor = (leftFactor / (leftCoeff gcd leftFactor)) lcm
+                             (rightFactor / (rightCoeff gcd rightFactor))
+          val newLeftCoeff = commonFactor * leftCoeff / leftFactor
+          val newRightCoeff = commonFactor * rightCoeff / rightFactor
           val commonDiff = newLeftCoeff * leftDiff + newRightCoeff * rightDiff
             
           val newResult = CertInequality(result.lhs * commonFactor + commonDiff)
@@ -253,18 +254,20 @@ object ProofSimplifier {
         case inf@SimpInference(target : CertInequality,
                                result : CertInequality, _)
           if (replacement contains target) => {
-          
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////       
-          Debug.assertInt(AC, inf.constantDiff.isZero && !inf.factor.isZero)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          
+
           val (newTarget, factor, constantDiff) = replacement(target)
 
-          // just skip this simplification step
-          (List(),
-           replacement + (result -> (newTarget, factor * inf.factor, constantDiff)))
+          if (inf.constantDiff.isZero) {
+            // just skip this simplification step
+            (List(),
+             replacement + (result -> (newTarget, factor * inf.factor, constantDiff)))
+          } else {
+            // the replacement should not change the result of the simplification
+            println("replacing " + inf + " -> " + inf.copy(targetLit = newTarget))
+            (List(inf.copy(targetLit = newTarget)), replacement)
+          }
         }
-
+          
         case inf => (List(inf), replacement -- ineqSubset(inf.providedFormulas))
       }
 

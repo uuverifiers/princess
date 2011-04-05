@@ -556,7 +556,8 @@ case class SimpInference(targetLit : CertArithLiteral, result : CertArithLiteral
                        constantDiff.isZero &&
                        simplified.isPrimitive && simplified.isPositive
                      case (CertInequality(unsimplified), CertInequality(simplified)) =>
-                       factor.isPositive && simplified.isPrimitive
+                       factor.isPositive && simplified.isPrimitive &&
+                       constantDiff == getLHS(targetLit).constant % factor
                      case _ => false
                    }))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
