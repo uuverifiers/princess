@@ -41,7 +41,7 @@ import ap.proof.certificates.{Certificate, CloseCertificate,
                               BranchInferenceCollection,
                               BranchInferenceCollector,
                               NonLoggingBranchInferenceCollector,
-                              CertCompoundFormula}
+                              CertCompoundFormula, CertFormula}
 
 object Goal {
   
@@ -392,6 +392,13 @@ class Goal private (val facts : Conjunction,
                                  : BranchInferenceCollection =
     if (Param.PROOF_CONSTRUCTION(settings))
       BranchInferenceCollection(initialFors)
+    else
+      BranchInferenceCollection.EMPTY
+  
+  def startNewInferenceCollectionCert(initialFors : => Iterable[CertFormula])
+                                 : BranchInferenceCollection =
+    if (Param.PROOF_CONSTRUCTION(settings))
+      BranchInferenceCollection applyCert initialFors
     else
       BranchInferenceCollection.EMPTY
   

@@ -34,7 +34,8 @@ import ap.util.{Debug, Seqs, PlainRange, FilterIt, IdealRange}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificate,
                               AntiSymmetryInference, BranchInferenceCertificate,
-                              StrengthenCertificate, OmegaCertificate, CertInequality}
+                              StrengthenCertificate, OmegaCertificate, CertInequality,
+                              CertEquation}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -231,14 +232,21 @@ case object OmegaTask extends EagerTask {
       
       store.push(if (lowerSplitting) lowerSplittingNum else upperSplittingNum) {
         val newGoals = new ArrayBuffer[ProofTree]
-        val (boundsA, boundsB) =
-          if (lowerSplitting) (lowerBounds, upperBounds) else (upperBounds, lowerBounds)
+        val (boundsA, boundsB) = if (lowerSplitting)
+                                   (lowerBounds, upperBounds)
+                                 else
+                                   (upperBounds, lowerBounds)
         
         // the splinters
-        for (eq <- splinterEqs(elimConst, boundsA, boundsB, order))
-          newGoals += ptf.updateGoal(goal.formulaTasks(eq),
-                                     goal.startNewInferenceCollection, goal)
-
+        for (lc <- splinterEqs(elimConst, boundsA, boundsB, order)) {
+          val newTasks =
+            goal formulaTasks Conjunction.conj(NegEquationConj(lc, order), order)
+          val newCollection =
+            goal startNewInferenceCollectionCert List(CertEquation(lc))
+            
+          newGoals += ptf.updateGoal(newTasks, newCollection, goal)
+        }
+        
         // the dark shadow
         val darkShadowInEqs = darkShadow(elimConst, boundsA, boundsB, order)
         
@@ -251,7 +259,12 @@ case object OmegaTask extends EagerTask {
                              else
                                List(InEqConj(darkShadowInEqs, order))
 
-        val remainder = InEqConj(remainingInEqs, order)
+        val newCollector =
+          goal.startNewInferenceCollectionCert(
+                 for (lc <- darkShadowInEqs) yield CertInequality(lc))
+              .getCollector
+                       
+        val remainder = InEqConj(remainingInEqs.iterator, newCollector, order)
 
         val newFormulas =
           if (darkShadowFors forall (_.isTrue))
@@ -262,13 +275,13 @@ case object OmegaTask extends EagerTask {
           else
             darkShadowFors
 
-        val newTasks = for (f <- newFormulas;
-                            t <- goal.formulaTasks(Conjunction.conj(f, order).negate))
-                       yield t
+        val newTasks =
+          for (f <- newFormulas;
+               t <- goal.formulaTasks(Conjunction.conj(f, order).negate))
+          yield t
 
         val darkShadowGoal = ptf.updateGoal(goal.facts.updateInEqs(remainder)(order),
-                                            newTasks,
-                                            goal.startNewInferenceCollection,
+                                            newTasks, newCollector.getCollection,
                                             goal)
         
         // we add a <code>ModelFinder</code> so that a witness for the eliminated
@@ -286,10 +299,11 @@ case object OmegaTask extends EagerTask {
           val branchInferences = goal.branchInferences
     
           def pCertFunction(children : Seq[Certificate]) : Certificate = {
-            val betaCert = OmegaCertificate(elimConst,
-                                            for (b <- boundsA) yield CertInequality(b),
-                                            for (b <- boundsB) yield CertInequality(b),
-                                            children, order)
+            val betaCert =
+              OmegaCertificate(elimConst,
+                               for (b <- boundsA) yield CertInequality(b),
+                               for (b <- boundsB) yield CertInequality(b),
+                               children, order)
             branchInferences.getCertificate(betaCert, order)
           }
       
@@ -342,11 +356,11 @@ case object OmegaTask extends EagerTask {
   private def splinterEqs(elimConst : ConstantTerm,
                           lowerBounds : Seq[LinearCombination],
                           upperBounds : Seq[LinearCombination],
-                          order : TermOrder) : Iterator[Conjunction] =
+                          order : TermOrder) : Iterator[LinearCombination] =
     for ((lc, cases) <- lowerBounds.iterator zip
                         strengthenCases(elimConst, lowerBounds, upperBounds);
          k <- IdealRange(cases + 1).iterator)
-    yield Conjunction.conj(NegEquationConj(lc + (-k), order), order)
+    yield (lc + (-k))
 
   private def strengthenCases(elimConst : ConstantTerm,
                               lowerBounds : Seq[LinearCombination],

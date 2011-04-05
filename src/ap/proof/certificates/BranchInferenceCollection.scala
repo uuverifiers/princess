@@ -40,11 +40,14 @@ object BranchInferenceCollection {
   val EMPTY = new BranchInferenceCollection(List())
 
   def apply(initialFors : Iterable[Conjunction]) : BranchInferenceCollection =
+    applyCert(for (c <- initialFors) yield CertFormula(c))
+  
+  def applyCert(initialFors : Iterable[CertFormula]) : BranchInferenceCollection =
     if (initialFors.isEmpty)
       EMPTY
     else
       apply((for (f <- initialFors;
-                  inf <- genDefaultInferences(CertFormula(f))) yield inf).toList)
+                  inf <- genDefaultInferences(f)) yield inf).toList)
   
   def apply(inferences : List[BranchInference]) =
     new BranchInferenceCollection(inferences)
