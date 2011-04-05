@@ -263,7 +263,6 @@ object ProofSimplifier {
              replacement + (result -> (newTarget, factor * inf.factor, constantDiff)))
           } else {
             // the replacement should not change the result of the simplification
-            println("replacing " + inf + " -> " + inf.copy(targetLit = newTarget))
             (List(inf.copy(targetLit = newTarget)), replacement)
           }
         }
