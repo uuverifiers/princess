@@ -523,34 +523,6 @@ object Interpolator
       
       //////////////////////////////////////////////////////////////////////////
       
-      case AntiSymmetryInference(left, right, result, _) => {
-        // we simply translate AntiSymmetry to the Strengthen rule
-        
-        implicit val o = iContext.order
-        
-        val closeCert = CloseCertificate(Set(CertInequality(-1)), o)
-        
-        val combineInEqInf =
-          CombineInequalitiesInference(1, CertInequality(left.lhs - 1), 1, right,
-                                       CertInequality(-1), o)
-        
-        val eqCaseCert =
-          if (remInferences.isEmpty)
-            child
-          else
-            BranchInferenceCertificate(remInferences, child, o)
-        
-        val inEqCaseCert =
-          BranchInferenceCertificate(List(combineInEqInf), closeCert, o)
-        
-        val strengthenCert =
-          StrengthenCertificate(left, 1, List(eqCaseCert, inEqCaseCert), o)
-        
-        applyHelp(strengthenCert, iContext)
-      }
-
-      //////////////////////////////////////////////////////////////////////////
-
       case ColumnReduceInference(_, newSymb, eq, subst, proofOrder) => {
         
         // we have to insert the new constant into our (extended) ordering
@@ -583,42 +555,6 @@ object Interpolator
     
       //////////////////////////////////////////////////////////////////////////
       
-      case DirectStrengthenInference(inEq, eq, result, _) =>
-      {
-        // we simply translate DirectStrengthen to the ordinary Strengthen rule
-        
-        implicit val o = iContext.order
-        
-        val closeCert = CloseCertificate(Set(CertNegEquation(0)), o)
-        
-        val redInf =
-          if (inEq.lhs == eq.lhs) {
-            ReduceInference(List((-1, !eq)), eq, CertNegEquation(0), o)
-          } else {
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-            Debug.assertInt(AC, inEq.lhs == -eq.lhs)
-            //-END-ASSERTION-///////////////////////////////////////////////////////
-            ReduceInference(List((1, CertEquation(inEq.lhs))), eq,
-                            CertNegEquation(0), o)
-          }
-        
-        val eqCaseCert =
-          BranchInferenceCertificate(List(redInf), closeCert, o)
-        
-        val inEqCaseCert =
-          if (remInferences.isEmpty)
-            child
-          else
-            BranchInferenceCertificate(remInferences, child, o)
-        
-        val strengthenCert =
-          StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), o)
-        
-        applyHelp(strengthenCert, iContext)
-      }
-      
-      //////////////////////////////////////////////////////////////////////////
-
       case PredUnifyInference(leftAtom, rightAtom, result, _)
            // special case of nullary predicates, which can be handled much
            // more efficiently

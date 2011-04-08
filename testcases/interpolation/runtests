@@ -17,11 +17,12 @@ TESTS="columnRed.pri cryptarithm.pri \
        cav-ex4b.pri quan.pri ring_2exp10_3vars_2ite_unsat.pri \
        arrays0.pri constOrderBug.pri strange_concurrency.pri \
        wrongInterpolant3.pri omegaBug.pri splitEq.pri \
-       incorrectPredInterpolant.pri certificateBug.pri"
+       incorrectPredInterpolant.pri certificateBug.pri \
+       missingOmegaSupport.pri"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 
-$PRI "$@" $TESTS
+$PRI "$@" +simplifyProofs $TESTS
 
 # Some examples that need special settings.
 

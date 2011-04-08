@@ -23,6 +23,7 @@ package ap.interpolants
 
 import ap.basetypes.IdealInt
 import ap.proof.certificates._
+import ap.terfor.TerForConvenience._
 import ap.util.Debug
 
 /**
@@ -33,14 +34,168 @@ object ProofSimplifier {
 
   private val AC = Debug.AC_INTERPOLATION
 
-  type WeakeningRange = Map[CertInequality, IdealInt]
-  
-  def apply(cert : Certificate) : Certificate = simplify(cert) _1
-  
+  def apply(cert : Certificate) : Certificate = weaken(encode(cert)) _1
+
   //////////////////////////////////////////////////////////////////////////////
 
-  private def simplify(cert : Certificate)
-        : (Certificate, WeakeningRange) = cert match {
+  /**
+   * Encoding of some non-elementary proof rules into simpler ones. This will
+   * eliminate all applications of Omega, DirectStrengthen, and AntiSymm
+   */
+  
+  private def encode(cert : Certificate) : Certificate = cert match {
+    
+    case cert@BranchInferenceCertificate(infs, child, o) => {
+      val (newInfs, newChild) = encodeInfs(infs.toList, child)
+      if (newInfs == infs)
+        cert update List(newChild)
+      else
+        BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
+    }
+    
+    case cert@OmegaCertificate(elimConst, boundsA, boundsB, children, order) => {
+      // translate to the ordinary strengthen rule
+      
+      implicit val o = order
+
+      val newChildren = for (c <- children) yield encode(c)
+
+      val ineqResolutions =
+        (for ((geq, cases) <- boundsA.iterator zip cert.strengthenCases.iterator;
+              val geqCoeff = (geq.lhs get elimConst).abs;
+              val strengthenedGeq = CertInequality(geq.lhs - cases);
+              leq <- boundsB.iterator) yield {
+           val leqCoeff = (leq.lhs get elimConst).abs
+           CombineInequalitiesInference(leqCoeff, strengthenedGeq,
+                                        geqCoeff, leq,
+                                        CertInequality(leqCoeff * strengthenedGeq.lhs +
+                                                       geqCoeff * leq.lhs),
+                                        order)
+         }).toList
+
+      val darkShadow =
+        BranchInferenceCertificate.checkEmptiness(ineqResolutions,
+                                                  newChildren.last, order)
+         
+      def setupStrengthenCerts(i : Int, childrenStart : Int) : Certificate =
+        if (i == boundsA.size) {
+          darkShadow
+        } else {
+          val cases = cert.strengthenCases(i)
+          val intCases = cases.intValueSafe
+          val lastChild = setupStrengthenCerts(i+1, childrenStart + intCases)
+          
+          if (cases.isZero) {
+            lastChild
+          } else {
+            val children =
+              newChildren.slice(childrenStart,
+                                childrenStart + intCases) ++ List(lastChild)
+            StrengthenCertificate(boundsA(i), cases, children, order)
+          }
+        }
+              
+      setupStrengthenCerts(0, 0)
+    }
+    
+    case cert =>
+      cert update (for (c <- cert.subCertificates) yield encode(c))
+    
+  }
+
+  private def encodeInfs(infs : List[BranchInference], child : Certificate)
+                        : (List[BranchInference], Certificate) = infs match {
+
+    case List() =>
+      (List(), encode(child))
+    
+    case inf :: otherInfs => {
+      val (newOtherInfs, newChild) = encodeInfs(otherInfs, child)
+    
+      inf match {
+
+        case DirectStrengthenInference(inEq, eq, result, order) => {
+          // we simply translate DirectStrengthen to the ordinary Strengthen rule
+
+          implicit val o = order
+
+          val closeCert = CloseCertificate(Set(CertNegEquation(0)), o)
+        
+          val redInf =
+            if (inEq.lhs == eq.lhs) {
+              ReduceInference(List((-1, !eq)), eq, CertNegEquation(0), o)
+            } else {
+              //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+              Debug.assertInt(AC, inEq.lhs == -eq.lhs)
+              //-END-ASSERTION-///////////////////////////////////////////////////////
+              ReduceInference(List((1, CertEquation(inEq.lhs))), eq,
+                              CertNegEquation(0), o)
+            }
+        
+          val eqCaseCert =
+            BranchInferenceCertificate(List(redInf), closeCert, o)
+        
+          val inEqCaseCert =
+            BranchInferenceCertificate.checkEmptiness(newOtherInfs, newChild, o)
+        
+          val strengthenCert =
+            StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), o)
+        
+          (List(), strengthenCert)
+        }
+
+        case AntiSymmetryInference(left, right, result, order) => {
+          // we simply translate AntiSymmetry to the Strengthen rule
+        
+          implicit val o = order
+          
+          val closeCert = CloseCertificate(Set(CertInequality(-1)), o)
+         
+          val combineInEqInf =
+            CombineInequalitiesInference(1, CertInequality(left.lhs - 1), 1, right,
+                                         CertInequality(-1), o)
+        
+          val eqCaseCert =
+            BranchInferenceCertificate.checkEmptiness(newOtherInfs, newChild, o)
+        
+          val inEqCaseCert =
+            BranchInferenceCertificate(List(combineInEqInf), closeCert, o)
+        
+          val strengthenCert =
+            StrengthenCertificate(left, 1, List(eqCaseCert, inEqCaseCert), o)
+        
+          (List(), strengthenCert)
+        }
+
+        case inf => (inf :: newOtherInfs, newChild)
+      }
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /**
+   * Checking whether it is ok to weaken individual inequalities, leaving
+   * out applications of Simp, Strengthen, etc. 
+   */
+  
+  type WeakeningRange = Map[CertInequality, IdealInt]
+  
+  private def mergeWeakening(a : WeakeningRange, b : WeakeningRange)
+                          : WeakeningRange =
+    (a /: b) { case (newBounds, (ineq, bound)) =>
+      newBounds + (ineq -> (bound min newBounds.getOrElse(ineq, bound)))
+    }
+ 
+  private def ineqSubset(s : Set[CertFormula]) =
+    s collect { case f : CertInequality => f }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Recursive weakening of a certificate
+   */
+  private def weaken(cert : Certificate) : (Certificate, WeakeningRange) = cert match {
     
     case CloseCertificate(contradFors, _) => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////       
@@ -59,54 +214,57 @@ object ProofSimplifier {
       }
     }
     
-    case cert@BranchInferenceCertificate(infs, child, _) => {
-      val (newInfs, newChild, wr) = simplifyInfs(infs.toList, child)
-      if (newInfs.isEmpty)
-        (newChild, wr)
+    case cert@BranchInferenceCertificate(infs, child, o) => {
+      val (newInfs, newChild, wr) = weakenInfs(infs.toList, child)
+      if (newInfs == infs)
+        (cert update List(newChild), wr)
       else
-        (cert.copy(inferences = newInfs, _child = newChild), wr)
+        (BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o), wr)
     }
     
     case cert => {
       val (newChildren, weakenings) =
-        (for (c <- cert.subCertificates) yield simplify(c)).unzip
+        (for (c <- cert.subCertificates) yield weaken(c)).unzip
       (cert update newChildren, weakenings reduceLeft mergeWeakening)
     }
   }
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private def simplifyInfs(infs : List[BranchInference], child : Certificate)
+  /**
+   * Recursive weakening of branch inferences
+   */
+  private def weakenInfs(infs : List[BranchInference], child : Certificate)
         : (List[BranchInference], Certificate, WeakeningRange) = infs match {
 
     case List() => {
-      val (newChild, weakening) = simplify(child)
+      val (newChild, weakening) = weaken(child)
       (List(), newChild, weakening)
     }
     
     case inf :: otherInfs => {
-      val (newOtherInfs, newChild, wkn) = simplifyInfs(otherInfs, child)
+      val (newOtherInfs, newChild, wkn) = weakenInfs(otherInfs, child)
       
-      lazy val defaultWeakening =
+      def defaultWeakening =
         wkn -- ineqSubset(inf.providedFormulas) ++ (
           for (f <- ineqSubset(inf.assumedFormulas)) yield (f -> IdealInt.ZERO))
       
       inf match {
         case inf@ReduceInference(_, target : CertInequality,
                                  result : CertInequality, _) => {
-          val newWeakening2 =
+          val wkn2 =
             (wkn get target, wkn get result) match {
               case (None, Some(resultW)) => wkn - result + (target -> resultW)
               case (_, None)             => wkn
               case _                     => defaultWeakening
             }
           
-          (inf :: newOtherInfs, newChild, newWeakening2)
+          (inf :: newOtherInfs, newChild, wkn2)
         }
         
         case inf@CombineInequalitiesInference(leftCoeff, leftInEq,
                                               rightCoeff, rightInEq, result, _) => {
-          val newWeakening2 =
+          val wkn2 =
             (wkn get leftInEq, wkn get rightInEq, wkn get result) match {
               case (None, None, Some(resultW)) =>
                 wkn - result + (leftInEq -> (resultW / leftCoeff),
@@ -115,7 +273,7 @@ object ProofSimplifier {
               case _                           => defaultWeakening
             }
             
-          (inf :: newOtherInfs, newChild, newWeakening2)
+          (inf :: newOtherInfs, newChild, wkn2)
         }
                   
         case inf@SimpInference(target : CertInequality,
@@ -123,13 +281,13 @@ object ProofSimplifier {
           if (inf.constantDiff.isZero) {
             // nothing to be simplified, but we can propagate the weakening
             // bound
-            val newWeakening2 =
+            val wkn2 =
               (wkn get target, wkn get result) match {
                 case (None, Some(resultW)) => wkn - result + (target -> resultW)
                 case (_, None)             => wkn
                 case _                     => defaultWeakening
               }
-            (inf :: newOtherInfs, newChild, newWeakening2)
+            (inf :: newOtherInfs, newChild, wkn2)
           } else (wkn get result) match {
             case Some(resultW) if (inf.constantDiff <= resultW * inf.factor) => {
               // The simplification can be eliminated: everywhere in this
@@ -139,16 +297,16 @@ object ProofSimplifier {
                 elimSimpInfs(newOtherInfs, newChild,
                              Map(result -> (target, inf.factor, inf.constantDiff)))
          
-              simplifyInfs(newOtherInfs2, newChild2)
+              weakenInfs(newOtherInfs2, newChild2)
             }
             case _ => {
               // it might be possible to eliminate simplifications before this
               // one
               val newTargetW =
                 wkn.getOrElse(target, inf.factor) min (inf.factor - inf.constantDiff - 1)
-              val newWeakening2 =
+              val wkn2 =
                 wkn - result + (target -> newTargetW)
-              (inf :: newOtherInfs, newChild, newWeakening2)
+              (inf :: newOtherInfs, newChild, wkn2)
             }
           }
                                               
@@ -159,17 +317,11 @@ object ProofSimplifier {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private def mergeWeakening(a : WeakeningRange, b : WeakeningRange)
-                          : WeakeningRange =
-    (a /: b) { case (newBounds, (ineq, bound)) =>
-      newBounds + (ineq -> (bound min newBounds.getOrElse(ineq, bound)))
-    }
- 
-  private def ineqSubset(s : Set[CertFormula]) =
-    s collect { case f : CertInequality => f }
-
-  //////////////////////////////////////////////////////////////////////////////
-
+  /**
+   * Recursive replacement of an inequality <code>t >= 0</code> with the
+   * weakened inequality <code>a * t + b >= 0</code>
+   */
+  
   type ReplMap = Map[CertInequality, (CertInequality, IdealInt, IdealInt)]
   
   private def elimSimp(cert : Certificate,
@@ -187,12 +339,9 @@ object ProofSimplifier {
         cert.copy(localAssumedFormulas = newContrad)
     }
 
-    case cert@BranchInferenceCertificate(infs, child, _) => {
+    case cert@BranchInferenceCertificate(infs, child, o) => {
       val (newInfs, newChild) = elimSimpInfs(infs.toList, child, replacement)
-      if (newInfs.isEmpty)
-        newChild
-      else
-        cert.copy(inferences = newInfs, _child = newChild)
+      BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
     }
 
     case cert => {

@@ -60,6 +60,14 @@ abstract class CertificateOneChild(val child : Certificate)
 
 object BranchInferenceCertificate {
   private val AC = Debug.AC_CERTIFICATES
+
+  def checkEmptiness(inferences : Seq[BranchInference],
+                     child : Certificate,
+                     order : TermOrder) =
+    if (inferences.isEmpty)
+      child
+    else
+      BranchInferenceCertificate(inferences, child, order)
 }
 
 /**
