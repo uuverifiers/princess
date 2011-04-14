@@ -34,44 +34,60 @@ object ProofSimplifier {
 
   private val AC = Debug.AC_INTERPOLATION
 
-  def apply(cert : Certificate) : Certificate = weaken(encode(cert)) _1
+  def apply(cert : Certificate) : Certificate =
+    weaken(encode(cert, cert.assumedFormulas)) _1
 
   //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Encoding of some non-elementary proof rules into simpler ones. This will
-   * eliminate all applications of Omega, DirectStrengthen, and AntiSymm
+   * eliminate all applications of Omega, DirectStrengthen, and AntiSymm.
+   * Also, this function tries to remove redundant rule applications from
+   * the proof
    */
   
-  private def encode(cert : Certificate) : Certificate = cert match {
+  private def encode(cert : Certificate,
+                     availableFors : Set[CertFormula]) : Certificate = cert match {
     
     case cert@BranchInferenceCertificate(infs, child, o) => {
-      val (newInfs, newChild) = encodeInfs(infs.toList, child)
+      val (newInfs, newChild, _) = encodeInfs(infs.toList, child, availableFors)
       if (newInfs == infs)
         cert update List(newChild)
       else
         BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
     }
     
+    case cert if (cert.localProvidedFormulas exists (_ subsetOf availableFors)) =>
+      // then we can remove this rule application, potentially pruning away
+      // whole sub-proofs
+      if (cert.length == 1)
+        cert(0)
+      else
+        cert(cert.localProvidedFormulas findIndexOf (_ subsetOf availableFors))
+    
     case cert@OmegaCertificate(elimConst, boundsA, boundsB, children, order) => {
       // translate to the ordinary strengthen rule
       
       implicit val o = order
 
-      val newChildren = for (c <- children) yield encode(c)
+      val newChildren = for ((c, fs) <- children zip cert.localProvidedFormulas)
+                        yield encode(c, availableFors ++ fs)
 
+      val inEqCaseAssumedFors = newChildren.last.assumedFormulas
+      
       val ineqResolutions =
         (for ((geq, cases) <- boundsA.iterator zip cert.strengthenCases.iterator;
               val geqCoeff = (geq.lhs get elimConst).abs;
               val strengthenedGeq = CertInequality(geq.lhs - cases);
-              leq <- boundsB.iterator) yield {
-           val leqCoeff = (leq.lhs get elimConst).abs
+              leq <- boundsB.iterator;
+              val leqCoeff = (leq.lhs get elimConst).abs;
+              val newInEq = CertInequality(leqCoeff * strengthenedGeq.lhs +
+                                           geqCoeff * leq.lhs);
+              if (!uselessFormulas(List(newInEq),
+                                   availableFors, inEqCaseAssumedFors))) yield
            CombineInequalitiesInference(leqCoeff, strengthenedGeq,
-                                        geqCoeff, leq,
-                                        CertInequality(leqCoeff * strengthenedGeq.lhs +
-                                                       geqCoeff * leq.lhs),
-                                        order)
-         }).toList
+                                        geqCoeff, leq, newInEq, order)
+         ).toList
 
       val darkShadow =
         BranchInferenceCertificate.checkEmptiness(ineqResolutions,
@@ -99,19 +115,34 @@ object ProofSimplifier {
     }
     
     case cert =>
-      cert update (for (c <- cert.subCertificates) yield encode(c))
+      cert update (
+        for ((c, fs) <- cert.subCertificates zip cert.localProvidedFormulas)
+        yield encode(c, availableFors ++ fs))
     
   }
 
-  private def encodeInfs(infs : List[BranchInference], child : Certificate)
-                        : (List[BranchInference], Certificate) = infs match {
+  private def encodeInfs(infs : List[BranchInference], child : Certificate,
+                         availableFors : Set[CertFormula])
+                        : (List[BranchInference], Certificate,
+                           Set[CertFormula]) = infs match {
 
-    case List() =>
-      (List(), encode(child))
+    case List() => {
+      val newCert = encode(child, availableFors)
+      (List(), newCert, newCert.assumedFormulas)
+    }
     
-    case inf :: otherInfs => {
-      val (newOtherInfs, newChild) = encodeInfs(otherInfs, child)
+    case inf :: otherInfs => if (inf.providedFormulas subsetOf availableFors) {
+      encodeInfs(otherInfs, child, availableFors)
+    } else {
+        
+      val (newOtherInfs, newChild, newAssumedFors) =
+        encodeInfs(otherInfs, child, availableFors ++ inf.providedFormulas)
     
+      if (uselessFormulas(inf.providedFormulas, availableFors, newAssumedFors)) {
+        // then the formulas produced by this inference are not actually needed
+        (newOtherInfs, newChild, newAssumedFors)
+      } else
+        
       inf match {
 
         case DirectStrengthenInference(inEq, eq, result, order) => {
@@ -141,7 +172,7 @@ object ProofSimplifier {
           val strengthenCert =
             StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), o)
         
-          (List(), strengthenCert)
+          (List(), strengthenCert, strengthenCert.assumedFormulas)
         }
 
         case AntiSymmetryInference(left, right, result, order) => {
@@ -164,13 +195,20 @@ object ProofSimplifier {
           val strengthenCert =
             StrengthenCertificate(left, 1, List(eqCaseCert, inEqCaseCert), o)
         
-          (List(), strengthenCert)
+          (List(), strengthenCert, strengthenCert.assumedFormulas)
         }
 
-        case inf => (inf :: newOtherInfs, newChild)
+        case inf =>
+          (inf :: newOtherInfs, newChild,
+           (newAssumedFors -- inf.providedFormulas) ++ inf.assumedFormulas)
       }
     }
   }
+  
+  private def uselessFormulas(fs : Iterable[CertFormula],
+                              availableFors : Set[CertFormula],
+                              assumedFors : Set[CertFormula]) : Boolean =
+    fs forall { case f => (availableFors contains f) || !(assumedFors contains f) }
   
   //////////////////////////////////////////////////////////////////////////////
   
