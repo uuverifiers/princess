@@ -47,7 +47,7 @@ object ProofSimplifier {
    */
   
   private def encode(cert : Certificate,
-                     availableFors : Set[CertFormula]) : Certificate = cert match {
+      availableFors : Set[CertFormula]) : Certificate = cert match {
     
     case cert@BranchInferenceCertificate(infs, child, o) => {
       val (newInfs, newChild, _) = encodeInfs(infs.toList, child, availableFors)
@@ -57,67 +57,64 @@ object ProofSimplifier {
         BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
     }
     
-    case cert if (cert.localProvidedFormulas exists (_ subsetOf availableFors)) =>
-      // then we can remove this rule application, potentially pruning away
-      // whole sub-proofs
-      if (cert.length == 1)
-        cert(0)
-      else
-        cert(cert.localProvidedFormulas findIndexOf (_ subsetOf availableFors))
-    
     case cert@OmegaCertificate(elimConst, boundsA, boundsB, children, order) => {
       // translate to the ordinary strengthen rule
       
-      implicit val o = order
+      val newChildren =
+        for ((c, fs) <- children zip cert.localProvidedFormulas)
+        yield encode(c, availableFors ++ fs)
 
-      val newChildren = for ((c, fs) <- children zip cert.localProvidedFormulas)
-                        yield encode(c, availableFors ++ fs)
+      updateCert(cert, availableFors, newChildren, {
+          implicit val o = order
 
-      val inEqCaseAssumedFors = newChildren.last.assumedFormulas
+          val inEqCaseAssumedFors = newChildren.last.assumedFormulas
       
-      val ineqResolutions =
-        (for ((geq, cases) <- boundsA.iterator zip cert.strengthenCases.iterator;
-              val geqCoeff = (geq.lhs get elimConst).abs;
-              val strengthenedGeq = CertInequality(geq.lhs - cases);
-              leq <- boundsB.iterator;
-              val leqCoeff = (leq.lhs get elimConst).abs;
-              val newInEq = CertInequality(leqCoeff * strengthenedGeq.lhs +
-                                           geqCoeff * leq.lhs);
-              if (!uselessFormulas(List(newInEq),
-                                   availableFors, inEqCaseAssumedFors))) yield
-           CombineInequalitiesInference(leqCoeff, strengthenedGeq,
-                                        geqCoeff, leq, newInEq, order)
-         ).toList
+          val ineqResolutions =
+            (for ((geq, cases) <- boundsA.iterator zip cert.strengthenCases.iterator;
+                  val geqCoeff = (geq.lhs get elimConst).abs;
+                  val strengthenedGeq = CertInequality(geq.lhs - cases);
+                  leq <- boundsB.iterator;
+                  val leqCoeff = (leq.lhs get elimConst).abs;
+                  val newInEq = CertInequality(leqCoeff * strengthenedGeq.lhs +
+                                               geqCoeff * leq.lhs);
+                  if (!(availableFors contains newInEq) &&
+                      (inEqCaseAssumedFors contains newInEq))) yield
+               CombineInequalitiesInference(leqCoeff, strengthenedGeq,
+                                            geqCoeff, leq, newInEq, order)
+             ).toList
 
-      val darkShadow =
-        BranchInferenceCertificate.checkEmptiness(ineqResolutions,
-                                                  newChildren.last, order)
+          val darkShadow =
+            BranchInferenceCertificate.checkEmptiness(ineqResolutions,
+                                                      newChildren.last, order)
          
-      def setupStrengthenCerts(i : Int, childrenStart : Int) : Certificate =
-        if (i == boundsA.size) {
-          darkShadow
-        } else {
-          val cases = cert.strengthenCases(i)
-          val intCases = cases.intValueSafe
-          val lastChild = setupStrengthenCerts(i+1, childrenStart + intCases)
+          def setupStrengthenCerts(i : Int, childrenStart : Int) : Certificate =
+            if (i == boundsA.size) {
+              darkShadow
+            } else {
+              val cases = cert.strengthenCases(i)
+              val intCases = cases.intValueSafe
+              val lastChild = setupStrengthenCerts(i+1, childrenStart + intCases)
           
-          if (cases.isZero) {
-            lastChild
-          } else {
-            val children =
-              newChildren.slice(childrenStart,
-                                childrenStart + intCases) ++ List(lastChild)
-            StrengthenCertificate(boundsA(i), cases, children, order)
-          }
-        }
+              if (cases.isZero) {
+                lastChild
+              } else {
+                val children =
+                  newChildren.slice(childrenStart,
+                                    childrenStart + intCases) ++ List(lastChild)
+                StrengthenCertificate(boundsA(i), cases, children, order)
+              }
+            }
               
-      setupStrengthenCerts(0, 0)
+          setupStrengthenCerts(0, 0)
+        })
     }
     
-    case cert =>
-      cert update (
+    case cert => {
+      val newSubCerts =
         for ((c, fs) <- cert.subCertificates zip cert.localProvidedFormulas)
-        yield encode(c, availableFors ++ fs))
+        yield encode(c, availableFors ++ fs)
+      updateCert(cert, availableFors, newSubCerts, cert update newSubCerts)
+    }
     
   }
 
@@ -131,9 +128,7 @@ object ProofSimplifier {
       (List(), newCert, newCert.assumedFormulas)
     }
     
-    case inf :: otherInfs => if (inf.providedFormulas subsetOf availableFors) {
-      encodeInfs(otherInfs, child, availableFors)
-    } else {
+    case inf :: otherInfs => {
         
       val (newOtherInfs, newChild, newAssumedFors) =
         encodeInfs(otherInfs, child, availableFors ++ inf.providedFormulas)
@@ -205,11 +200,28 @@ object ProofSimplifier {
     }
   }
   
+  private def updateCert(cert : Certificate,
+                         availableFors : Set[CertFormula],
+                         newSubCerts : Seq[Certificate],
+                         newCert : => Certificate) : Certificate =
+    (0 until cert.length) findIndexOf { case i =>
+        uselessFormulas(cert.localProvidedFormulas(i),
+                        availableFors,
+                        newSubCerts(i).assumedFormulas)
+       } match {
+        case -1 =>
+          newCert
+        case i =>
+          // then we can remove this rule application, potentially pruning away
+          // whole sub-proofs
+          newSubCerts(i)
+      }
+  
   private def uselessFormulas(fs : Iterable[CertFormula],
                               availableFors : Set[CertFormula],
                               assumedFors : Set[CertFormula]) : Boolean =
     fs forall { case f => (availableFors contains f) || !(assumedFors contains f) }
-  
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**
