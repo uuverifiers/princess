@@ -35,7 +35,8 @@ object ProofSimplifier {
   private val AC = Debug.AC_INTERPOLATION
 
   def apply(cert : Certificate) : Certificate =
-    weaken(encode(cert, cert.assumedFormulas)) _1
+    weaken(mergeStrengthen(encode(cert, cert.assumedFormulas)) _1) _1
+//    weaken(encode(cert, cert.assumedFormulas)) _1
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -117,6 +118,8 @@ object ProofSimplifier {
     }
     
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   private def encodeInfs(infs : List[BranchInference], child : Certificate,
                          availableFors : Set[CertFormula])
@@ -200,6 +203,8 @@ object ProofSimplifier {
     }
   }
   
+  //////////////////////////////////////////////////////////////////////////////
+
   private def updateCert(cert : Certificate,
                          availableFors : Set[CertFormula],
                          newSubCerts : Seq[Certificate],
@@ -223,7 +228,93 @@ object ProofSimplifier {
     fs forall { case f => (availableFors contains f) || !(assumedFors contains f) }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Try to merge consecutive applications of strengthen in a proof into
+   * single applications
+   */
+  private def mergeStrengthen(cert : Certificate)
+                             : (Certificate, Set[CertInequality]) = {
+    val (newSubCerts, subInEqs) =
+      (for (c <- cert.subCertificates) yield mergeStrengthen(c)).unzip
+      
+    // propagate strengthen-inequalities from the children
+    val propInEqs = propagatedSubInEqs(newSubCerts, subInEqs) --
+                    ineqSubset(cert.localAssumedFormulas)
+      
+    cert match {
+      case cert@StrengthenCertificate(inEq, eqCases, children, order) => {
+        val strengthenedInEq = ineqSubset(cert.localProvidedFormulas.last).head
+        
+        // possibly add the inequality strengthened by this rule application
+        val newInEqs =
+          if (newSubCerts exists (_.assumedFormulas contains inEq))
+            Set()
+          else
+            Set(inEq)
+
+        val allPropInEqs = propInEqs ++ newInEqs
+          
+        if (subInEqs.last contains strengthenedInEq) {
+          // then we can merge this application of strengthen with a subsequent
+          // application
+        
+          val newSubCert = doMergeStrengthen(strengthenedInEq, cert,
+                             newSubCerts dropRight 1, newSubCerts.last)
+        
+                           assert(newSubCert.assumedFormulas subsetOf cert.assumedFormulas)
+                           
+          (newSubCert, allPropInEqs - strengthenedInEq)
+        } else {
+          (cert update newSubCerts, allPropInEqs)
+        }
+      }
+    
+      case cert =>
+        (cert update newSubCerts, propInEqs)
+    }
+  }
+
+  private def doMergeStrengthen(interfaceInEq : CertInequality,
+                                firstStrengthen : StrengthenCertificate,
+                                eqChildren1 : Seq[Certificate],
+                                subCert : Certificate)
+                                : Certificate = subCert match {
+    case subCert@StrengthenCertificate(`interfaceInEq`, eqCases2, children2, order2) => {
+      val StrengthenCertificate(inEq, eqCases1, _, _) = firstStrengthen
+      StrengthenCertificate(inEq,
+                            eqCases1 + eqCases2,
+                            eqChildren1 ++ children2,
+                            order2)
+    }
+    case subCert => {
+      val newSubCerts = for (c <- subCert.subCertificates) yield {
+        if (c.assumedFormulas contains interfaceInEq)
+          doMergeStrengthen(interfaceInEq, firstStrengthen, eqChildren1, c)
+        else
+          c
+      }
+      subCert update newSubCerts
+    }
+  }
   
+  private def propagatedSubInEqs(subCerts : Seq[Certificate],
+                                 subInEqs : Seq[Set[CertInequality]])
+                                : Set[CertInequality] = {
+    val propagated =
+      for (ind <- 0 until subCerts.size) yield
+        (subInEqs(ind) /: (0 until subCerts.size)) { case (ies, j) =>
+          if (ind == j)
+            ies
+          else
+            ies -- ineqSubset(subCerts(j).assumedFormulas)
+        }
+    
+    Set() ++ (for (s <- propagated.iterator; ie <- s.iterator) yield ie)
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Checking whether it is ok to weaken individual inequalities, leaving
    * out applications of Simp, Strengthen, etc. 
