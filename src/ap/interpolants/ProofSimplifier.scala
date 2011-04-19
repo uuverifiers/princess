@@ -143,7 +143,7 @@ object ProofSimplifier {
         
       inf match {
 
-        case DirectStrengthenInference(inEq, eq, result, order) => {
+        case DirectStrengthenInference(inEq, eq, _, order) => {
           // we simply translate DirectStrengthen to the ordinary Strengthen rule
 
           implicit val o = order
@@ -173,7 +173,7 @@ object ProofSimplifier {
           (List(), strengthenCert, strengthenCert.assumedFormulas)
         }
 
-        case AntiSymmetryInference(left, right, result, order) => {
+        case AntiSymmetryInference(left, right, _, order) => {
           // we simply translate AntiSymmetry to the Strengthen rule
         
           implicit val o = order
@@ -243,7 +243,7 @@ object ProofSimplifier {
                     ineqSubset(cert.localAssumedFormulas)
       
     cert match {
-      case cert@StrengthenCertificate(inEq, eqCases, children, order) => {
+      case cert@StrengthenCertificate(inEq, _, _, _) => {
         val strengthenedInEq = ineqSubset(cert.localProvidedFormulas.last).head
         
         // possibly add the inequality strengthened by this rule application
@@ -259,12 +259,9 @@ object ProofSimplifier {
           // then we can merge this application of strengthen with a subsequent
           // application
         
-          val newSubCert = doMergeStrengthen(strengthenedInEq, cert,
-                             newSubCerts dropRight 1, newSubCerts.last)
-        
-                           assert(newSubCert.assumedFormulas subsetOf cert.assumedFormulas)
-                           
-          (newSubCert, allPropInEqs - strengthenedInEq)
+          (doMergeStrengthen(strengthenedInEq, cert,
+                             newSubCerts dropRight 1, newSubCerts.last),
+           allPropInEqs - strengthenedInEq)
         } else {
           (cert update newSubCerts, allPropInEqs)
         }
@@ -363,6 +360,34 @@ object ProofSimplifier {
         (BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o), wr)
     }
     
+    case cert@StrengthenCertificate(inEq, eqCases, children, o) => {
+      val (newChildren, weakenings) =
+        (for (c <- cert.subCertificates) yield weaken(c)).unzip
+      val strengthenedInEq = ineqSubset(cert.localProvidedFormulas.last).head
+      
+      (weakenings.last get strengthenedInEq) match {
+        case Some(resultW) if (!resultW.isZero) => {
+          // then it is possible to strengthen with a smaller number of cases
+          val inc = eqCases min resultW
+          val newLastChild =
+            elimSimp(newChildren.last,
+                     Map(strengthenedInEq ->
+                           (CertInequality(strengthenedInEq.lhs + inc), 1, inc)))
+          
+          val newEqCases = eqCases - inc
+          weaken(if (newEqCases.isZero) {
+                   newLastChild
+                 } else {
+                   val newChildren2 =
+                     (newChildren take newEqCases.intValueSafe) ++ List(newLastChild)
+                   StrengthenCertificate(inEq, newEqCases, newChildren2, o)
+                 })
+        }
+        case _ =>
+          (cert update newChildren, weakenings reduceLeft mergeWeakening)
+      }
+    }
+    
     case cert => {
       val (newChildren, weakenings) =
         (for (c <- cert.subCertificates) yield weaken(c)).unzip
@@ -450,7 +475,7 @@ object ProofSimplifier {
               (inf :: newOtherInfs, newChild, wkn2)
             }
           }
-                                              
+            
         case inf => (inf :: newOtherInfs, newChild, defaultWeakening)
       }
     }
