@@ -319,12 +319,6 @@ object ProofSimplifier {
   
   type WeakeningRange = Map[CertInequality, IdealInt]
   
-  private def mergeWeakening(a : WeakeningRange, b : WeakeningRange)
-                          : WeakeningRange =
-    (a /: b) { case (newBounds, (ineq, bound)) =>
-      newBounds + (ineq -> (bound min newBounds.getOrElse(ineq, bound)))
-    }
- 
   private def ineqSubset(s : Set[CertFormula]) =
     s collect { case f : CertInequality => f }
 
@@ -384,17 +378,37 @@ object ProofSimplifier {
                  })
         }
         case _ =>
-          (cert update newChildren, weakenings reduceLeft mergeWeakening)
+          stdWeaken(cert, newChildren, weakenings)
       }
     }
     
     case cert => {
       val (newChildren, weakenings) =
         (for (c <- cert.subCertificates) yield weaken(c)).unzip
-      (cert update newChildren, weakenings reduceLeft mergeWeakening)
+      stdWeaken(cert, newChildren, weakenings)
     }
   }
   
+  private def stdWeaken(cert : Certificate,
+                        newChildren : Seq[Certificate],
+                        weakenings : Seq[WeakeningRange])
+                       : (Certificate, WeakeningRange) = {
+    val mergedWeakening =
+      (for ((wkn, providedFors) <-
+              weakenings.iterator zip cert.localProvidedFormulas.iterator)
+       yield wkn -- ineqSubset(providedFors)) reduceLeft mergeWeakening
+        
+    (cert update newChildren,
+     mergedWeakening ++ (
+       for (f <- ineqSubset(cert.localAssumedFormulas)) yield (f -> IdealInt.ZERO)))
+  }
+
+  private def mergeWeakening(a : WeakeningRange, b : WeakeningRange)
+                            : WeakeningRange =
+    (a /: b) { case (newBounds, (ineq, bound)) =>
+      newBounds + (ineq -> (bound min newBounds.getOrElse(ineq, bound)))
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -463,6 +477,13 @@ object ProofSimplifier {
                 elimSimpInfs(newOtherInfs, newChild,
                              Map(result -> (target, inf.factor, inf.constantDiff)))
          
+              if(newChild2.assumedFormulas contains result) {  // TODO: remove this!
+                println(newChild)
+                println(newChild2)
+                elimSimpInfs(newOtherInfs, newChild,
+                             Map(result -> (target, inf.factor, inf.constantDiff)))
+              }
+                             
               weakenInfs(newOtherInfs2, newChild2)
             }
             case _ => {
