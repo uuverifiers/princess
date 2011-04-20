@@ -116,7 +116,8 @@ case object OmegaTask extends EagerTask {
     if (goal.constants subsetOf goal.eliminatedConstants) {
       // this is just a satisfiability-problem
       
-      if (store.currentCases.get > 50 && formulaSplitStore.currentCases == None) {
+      if (store.currentCases.get > 50 && formulaSplitStore.currentCases == None &&
+          !Param.PROOF_CONSTRUCTION(goal.settings)) {
         // If there are so many cases that the situation seems hopeless, and
         // all constants are to be eliminated, we instead split random
         // inequalities with a non-unit leading coefficient. This yields a
