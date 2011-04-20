@@ -30,7 +30,7 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask, CompoundFormulas}
-import ap.proof.certificates.{Certificate, CertFormula}
+import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate}
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
@@ -240,24 +240,46 @@ object ModelSearchProver {
                   settings, constructModel)
       }
      
-      case AndTree(left, right, partialCert) => {
-        findModel(left, witnesses, constsToIgnore, depth + 1,
-                  settings, constructModel) match {
-          case res @ Left(_) =>
-            res
-          case Right(leftCerts) =>
-            findModel(right, witnesses, constsToIgnore, depth + 1,
+      case tree@AndTree(left, right, partialCert) => {
+        // we use a local recursive function at this point to implement pruning 
+
+        var pCert = partialCert
+        
+        def handleAnds(tree : ProofTree)
+                      : Option[Either[Conjunction, Certificate]] = tree match {
+          case tree@AndTree(left, right, null) =>
+            handleAnds(left) orElse handleAnds(right)
+          case tree =>
+            findModel(tree, witnesses, constsToIgnore, depth + 1,
                       settings, constructModel) match {
-              case res @ Left(_) =>
-                res
-              case Right(rightCerts) =>
-                Right(if (leftCerts.isEmpty || rightCerts.isEmpty)
-                        List()
-                      else if (partialCert == null)
-                        leftCerts ++ rightCerts
-                      else
-                        List(partialCert(leftCerts ++ rightCerts)))
+              case Left(model) => Some(Left(model))
+              case Right(Seq(subCert)) => (pCert bindFirst subCert) match {
+                case Left(newPCert) => {
+                  pCert = newPCert
+                  None
+                }
+                case Right(totalCert) => {
+                  Some(Right(totalCert))
+                }
+              }
+              case _ =>
+                None
             }
+        }
+        
+        (handleAnds(left) orElse handleAnds(right)) match {
+          case Some(Left(model)) => {
+            Left(model)
+          }
+          case Some(Right(cert)) => {
+            Right(List(cert))
+          }
+          case None              => {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+            Debug.assertInt(ModelSearchProver.AC, pCert == null)
+            //-END-ASSERTION-///////////////////////////////////////////////////////
+            Right(List())
+          }
         }
       }
     }

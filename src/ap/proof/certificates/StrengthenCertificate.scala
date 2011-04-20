@@ -27,10 +27,26 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.TerForConvenience._
 import ap.util.{Debug, IdealRange}
 
+object StrengthenCertificateHelper {
+  
+  def providedFormulas(weakInEq : CertInequality, eqCases : IdealInt,
+                       order : TermOrder) = {
+    implicit val o = order
+    (for (i <- IdealRange(eqCases))
+       yield Set[CertFormula](CertEquation(weakInEq.lhs - i))) ++
+      List(Set[CertFormula](CertInequality(weakInEq.lhs - eqCases)))
+  }
+  
+}
+
 object StrengthenCertificate {
   
   private val AC = Debug.AC_CERTIFICATES
   
+  def providedFormulas(weakInEq : CertInequality, eqCases : IdealInt,
+                       order : TermOrder) =
+    StrengthenCertificateHelper.providedFormulas(weakInEq, eqCases, order)
+    
 }
 
 /**
@@ -51,12 +67,8 @@ case class StrengthenCertificate(weakInEq : CertInequality, eqCases : IdealInt,
   
   val localAssumedFormulas : Set[CertFormula] = Set(weakInEq)
   
-  val localProvidedFormulas : Seq[Set[CertFormula]] = {
-    implicit val o = order
-    (for (i <- IdealRange(0, eqCases))
-       yield Set[CertFormula](CertEquation(weakInEq.lhs - i))) ++
-      List(Set[CertFormula](CertInequality(weakInEq.lhs - eqCases)))
-  }
+  val localProvidedFormulas : Seq[Set[CertFormula]] =
+    StrengthenCertificateHelper.providedFormulas(weakInEq, eqCases, order)
   
 } with Certificate {
 

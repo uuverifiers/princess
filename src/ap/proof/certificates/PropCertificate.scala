@@ -26,6 +26,17 @@ import ap.terfor.TerForConvenience._
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
+object BetaCertificateHelper {
+  
+  /**
+   * Apparently this function cannot be included in BetaCertificate ("illegal
+   * cyclic reference"). Compiler bug?
+   */
+  def providedFormulas(leftFormula : CertFormula, rightFormula : CertFormula) =
+    Array(Set(leftFormula), Set(rightFormula, !leftFormula))
+  
+}
+
 object BetaCertificate {
   
   private val AC = Debug.AC_CERTIFICATES
@@ -52,6 +63,9 @@ object BetaCertificate {
     }
   }
 
+  def providedFormulas(leftFormula : CertFormula, rightFormula : CertFormula) =
+    BetaCertificateHelper.providedFormulas(leftFormula, rightFormula)
+  
 }
 
 /**
@@ -72,8 +86,7 @@ case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula
   })
   
   val localProvidedFormulas : Seq[Set[CertFormula]] =
-    Array(Set(leftFormula),
-          Set(rightFormula, !leftFormula))
+    BetaCertificateHelper.providedFormulas(leftFormula, rightFormula)
   
 } with BinaryCertificate(_leftChild, _rightChild, _order) {
   

@@ -477,13 +477,6 @@ object ProofSimplifier {
                 elimSimpInfs(newOtherInfs, newChild,
                              Map(result -> (target, inf.factor, inf.constantDiff)))
          
-              if(newChild2.assumedFormulas contains result) {  // TODO: remove this!
-                println(newChild)
-                println(newChild2)
-                elimSimpInfs(newOtherInfs, newChild,
-                             Map(result -> (target, inf.factor, inf.constantDiff)))
-              }
-                             
               weakenInfs(newOtherInfs2, newChild2)
             }
             case _ => {

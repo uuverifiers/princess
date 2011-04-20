@@ -35,7 +35,7 @@ import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificate,
                               AntiSymmetryInference, BranchInferenceCertificate,
                               StrengthenCertificate, OmegaCertificate, CertInequality,
-                              CertEquation}
+                              CertEquation, CertFormula}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -479,15 +479,21 @@ case object OmegaTask extends EagerTask {
       val order = goal.order
       val branchInferences = goal.branchInferences
     
+      val leftFormula = CertInequality(lowerBoundInEq.negate(0))
+      val rightFormula = CertInequality(upperBoundInEq.negate(0))
+      
       def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert = SplitEqCertificate(CertInequality(lowerBoundInEq.negate(0)),
-                                          CertInequality(upperBoundInEq.negate(0)),
+        val betaCert = SplitEqCertificate(leftFormula, rightFormula,
                                           children(0), children(1), order)
         branchInferences.getCertificate(betaCert, order)
       }
       
       ptf.and(Array(goal1, goal2),
-              PartialCertificate(pCertFunction _, 2),
+              PartialCertificate(pCertFunction _,
+                                 Array(Set(leftFormula).asInstanceOf[Set[CertFormula]],
+                                       Set(rightFormula).asInstanceOf[Set[CertFormula]]),
+                                 (branchInferences.getCertificate(_, order)),
+                                 2),
               goal.vocabulary)
     } else {
       ptf.and(Array(goal1, goal2), goal.vocabulary)
@@ -530,6 +536,8 @@ case object OmegaTask extends EagerTask {
                 val order = goal.order
                 val branchInferences = goal.branchInferences
     
+                val weakInEq = CertInequality(lc)
+                
                 def pCertFunction(children : Seq[Certificate]) : Certificate = {
                   // in the last goal, we have to infer an equation from two
                   // complementary inequalities
@@ -543,7 +551,7 @@ case object OmegaTask extends EagerTask {
                   val allCerts =
                     children.take(children.size - 1) ++ List(lastCert)
                   val strengthenCert =
-                    StrengthenCertificate(CertInequality(lc), -negDistance,
+                    StrengthenCertificate(weakInEq, -negDistance,
                                           allCerts, order)
                   branchInferences.getCertificate(strengthenCert, order)
                 }

@@ -102,15 +102,21 @@ object BetaFormulaTask {
       val order = goal.order
       val branchInferences = goal.branchInferences
     
+      val leftFormula = CertFormula(selectedConjunct.negate)
+      val rightFormula = CertFormula(otherConjuncts.negate)
+      
       def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert = BetaCertificate(CertFormula(selectedConjunct.negate),
-                                       CertFormula(otherConjuncts.negate),
+        val betaCert = BetaCertificate(leftFormula, rightFormula,
                                        children(0), children(1), order)
         branchInferences.getCertificate(betaCert, order)
       }
       
       ptf.and(Array(secondTree, firstTree),
-              PartialCertificate(pCertFunction _, 2),
+              PartialCertificate(pCertFunction _,
+                                 BetaCertificate.providedFormulas(
+                                     leftFormula, rightFormula),
+                                 (branchInferences.getCertificate(_, order)),
+                                 2),
               goal.vocabulary)
     } else {
       ptf.and(Array(secondTree, firstTree), goal.vocabulary)
@@ -219,7 +225,10 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
       }
       
       ptf.and(subtrees,
-              PartialCertificate(pCertFunction _, negatedConjs.size),
+              PartialCertificate(pCertFunction _,
+                                 for (f <- negatedConjs) yield Set(CertFormula(f)),
+                                 (branchInferences.getCertificate(_, order)),
+                                 negatedConjs.size),
               goal.vocabulary)
     } else {
       ptf.and(subtrees, goal.vocabulary)
