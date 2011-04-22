@@ -551,8 +551,8 @@ object Seqs {
   def diff[A](newSeq : IndexedSeq[A], oldSeq : IndexedSeq[A])
              (implicit ord : Ordering[A])
              : (IndexedSeq[A], IndexedSeq[A]) = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
     def post(resOld : IndexedSeq[A], resNew : IndexedSeq[A]) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC, {
         val (checkOld, checkNew) = newSeq partition (oldSeq contains _)
         (resOld sameElements checkOld) && (resNew sameElements checkNew)
@@ -606,8 +606,8 @@ object Seqs {
   def diff3[A](seq0 : IndexedSeq[A], seq1 : IndexedSeq[A])
               (implicit ord : Ordering[A])
               : (IndexedSeq[A], IndexedSeq[A], IndexedSeq[A]) = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
     def post(res : (IndexedSeq[A], IndexedSeq[A], IndexedSeq[A])) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC, {
         val (left, common, right) = res
         val (ccommon, cleft) = diff(seq0, seq1)
