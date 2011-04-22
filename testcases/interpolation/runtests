@@ -18,11 +18,11 @@ TESTS="columnRed.pri cryptarithm.pri \
        arrays0.pri constOrderBug.pri strange_concurrency.pri \
        wrongInterpolant3.pri omegaBug.pri splitEq.pri \
        incorrectPredInterpolant.pri certificateBug.pri \
-       missingOmegaSupport.pri"
+       missingOmegaSupport.pri bignum_lia1.pri"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 
-$PRI "$@" +simplifyProofs $TESTS
+$PRI "$@" $TESTS
 
 # Some examples that need special settings.
 
@@ -32,9 +32,8 @@ $PRI "$@" +simplifyProofs $TESTS
 
 TESTS="surprising25.pri bignum_lia1.pri"
 
-$PRI "$@" -elimInterpolantQuants -assert $TESTS
+$PRI "$@" -elimInterpolantQuants -simplifyProofs -assert $TESTS
 
-# Testing proof simplification (still very experimental)
+# Testing proof simplification
 
-$PRI "$@" +simplifyProofs bignum_lia1.pri
 $PRI "$@" +simplifyProofs -constructProofs=always ring_2exp10_3vars_0ite_unsat.pri | grep -v "^Certificate" | grep -v "^Assumed"

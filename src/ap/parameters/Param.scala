@@ -140,7 +140,7 @@ object Param {
   
   case object PROOF_SIMPLIFICATION extends Param {
     type Value = Boolean
-    val defau : Boolean = false
+    val defau : Boolean = true
   }
   
   case object ELIMINATE_INTERPOLANT_QUANTIFIERS extends Param {
