@@ -79,7 +79,7 @@ case class OmegaCertificate(elimConst : ConstantTerm,
   val localProvidedFormulas : Seq[Set[CertFormula]] = {
     implicit val o = order
     (for ((conj, cases) <- boundsA.iterator zip strengthenCases.iterator;
-          i <- IdealRange(0, cases).iterator)
+          i <- IdealRange(cases).iterator)
        yield Set[CertFormula](CertEquation(conj.lhs - i))).toList ++
     List(Set[CertFormula]() ++ darkShadow)
   }

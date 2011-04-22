@@ -44,9 +44,6 @@ object Certificate {
 abstract class Certificate {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  if (!(assumedFormulas forall (order isSortingOf _)))
-    for (f <- assumedFormulas; if (!(order isSortingOf f)))
-    println("hello: " + f)
   Debug.assertCtor(Certificate.AC,
                    (closingConstraint isSortedBy order) &&
                    size == localProvidedFormulas.size &&
