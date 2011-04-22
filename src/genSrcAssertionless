@@ -4,7 +4,7 @@ find -name "*.scala" | \
 (
     while read name; do
         echo $name
-        mkdirhier ../src_assertionless/`dirname $name`
+        mkdir -p ../src_assertionless/`dirname $name`
         gawk -f elimAssertions.awk <$name >../src_assertionless/$name
     done
 )
