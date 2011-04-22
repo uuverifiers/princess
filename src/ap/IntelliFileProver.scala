@@ -21,12 +21,12 @@
 
 package ap;
 
-import ap.proof.{ConstraintSimplifier, ModelSearchProver, Timeout}
+import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
 import ap.parameters.{GlobalSettings, Param}
-import ap.util.{Seqs, Debug}
+import ap.util.{Seqs, Debug, Timeout}
 import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier}
 
 object IntelliFileProver {

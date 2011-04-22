@@ -33,8 +33,9 @@ import ap.parser.{InputAbsy2Internal, IExpression, IFormula, IInterpolantSpec,
                   Transform2NNF, LineariseVisitor, IBinJunctor, INamedPart,
                   PartName, SMTLineariser}
 import ap.proof.certificates.Certificate
-import ap.proof.{Timeout, ModelSearchProver}
+import ap.proof.ModelSearchProver
 import ap.parser.IExpression._
+import ap.util.Timeout
 
 
 
@@ -176,7 +177,7 @@ class BenchFileProver(filename : String,
 
               inter
             } {
-              println("Time to compute interpolant: T/O")
+              println("Time to compute interpolant: T/O " + (System.currentTimeMillis - timeBeforeInter))
               null
 	        }
             println("Finished interpolation problem number: " + num)

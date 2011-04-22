@@ -31,7 +31,7 @@ import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask, CompoundFormulas}
 import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate}
-import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs}
+import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 

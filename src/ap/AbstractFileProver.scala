@@ -26,12 +26,11 @@ import ap.parser.{InputAbsy2Internal, Parser2InputAbsy, Preprocessing,
                   IExpression, INamedPart, IFunction, IInterpolantSpec, Environment}
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
-import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier,
-                 Timeout}
+import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.Certificate
-import ap.util.Debug
+import ap.util.{Debug, Timeout}
 
 abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                                   timeout : Int, userDefStoppingCond : => Boolean,

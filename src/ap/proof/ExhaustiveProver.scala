@@ -25,7 +25,7 @@ import ap._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.proof.goal._
-import ap.util.{Logic, Debug, Seqs}
+import ap.util.{Logic, Debug, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 

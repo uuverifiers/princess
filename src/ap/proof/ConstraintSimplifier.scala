@@ -26,7 +26,7 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, SubsumptionRemover}
 import ap.proof.goal.Goal
 import ap.proof.tree.TestProofTree
 import ap.parameters.{GoalSettings, Param}
-import ap.util.{Debug, Seqs, LRUCache}
+import ap.util.{Debug, Seqs, LRUCache, Timeout}
 
 object ConstraintSimplifier {
   

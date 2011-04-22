@@ -19,7 +19,7 @@
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ap.proof
+package ap.util
 
 import scala.util.DynamicVariable
 

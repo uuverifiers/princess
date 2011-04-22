@@ -26,7 +26,7 @@ import ap.terfor.arithconj.{ArithConj, ReduceWithAC}
 import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.Substitution
-import ap.util.{Debug, Logic, PlainRange}
+import ap.util.{Debug, Logic, PlainRange, Timeout}
 
 
 object ReduceWithConjunction {
@@ -54,6 +54,8 @@ object ReduceWithConjunction {
     if (conj.isTrue)
       conj
     else try {
+      Timeout.check
+      
       val (newArithConj, reducer) =
         if (conj.quans.size > 0)
           initialReducer.passQuantifiers(conj.quans.size)
