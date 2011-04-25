@@ -35,11 +35,16 @@ object EagerTaskManager {
    * Abstract superclass for the task managers that are currently used (to
    * factor out common functionality)
    */
-  private abstract class DefaultEagerTaskManager(recommendedTask : Option[EagerTask])
+  private abstract class DefaultEagerTaskManager(recommendedTask : Option[EagerTask],
+                                                 checkBetaSimpTasks : Boolean)
                          extends EagerTaskManager {
     def recommend(npt : Option[PrioritisedTask]) = npt match {
       case None =>
         recommendedTask
+      case Some(WrappedFormulaTask(_ : BetaFormulaTask, simpTasks))
+        if (checkBetaSimpTasks &&
+            (simpTasks exists (!recommendationNecessary(_)))) =>
+        None
       case Some(MaybeWrapped(t)) if (recommendationNecessary(t)) =>
         recommendedTask
       case _ =>
@@ -53,7 +58,8 @@ object EagerTaskManager {
    * It is unknown whether the facts of the current goal are normalised
    */
   private object NonNormalisedFacts
-                 extends DefaultEagerTaskManager(Some(FactsNormalisationTask)) {
+                 extends DefaultEagerTaskManager(Some(FactsNormalisationTask),
+                                                 false) {
     def afterTask(task : Task) = unwrapReal(task) match {
       case FactsNormalisationTask => NormalisedFacts
       case _ =>                      NonNormalisedFacts
@@ -73,7 +79,8 @@ object EagerTaskManager {
    * facts of the current goal are normalised
    */
   private object NormalisedFacts
-                 extends DefaultEagerTaskManager(Some(UpdateTasksTask)) {
+                 extends DefaultEagerTaskManager(Some(UpdateTasksTask),
+                                                 true) {
     def afterTask(task : Task) = unwrapReal(task) match {
       case _ : AddFactsTask =>   NonNormalisedFacts
       case UpdateTasksTask =>    NormalisedFactsAndTasks 
@@ -95,7 +102,8 @@ object EagerTaskManager {
    * normalised
    */
   private object NormalisedFactsAndTasks
-                 extends DefaultEagerTaskManager(Some(EagerMatchTask)) {
+                 extends DefaultEagerTaskManager(Some(EagerMatchTask),
+                                                 true) {
     def afterTask(task : Task) = unwrapReal(task) match {
       case _ : AddFactsTask =>   NonNormalisedFacts
       case EagerMatchTask =>     MatchedEagerClauses
@@ -116,7 +124,8 @@ object EagerTaskManager {
    * normalised. In addition, eagerly matched clauses have been instantiated.
    */
   private object MatchedEagerClauses
-                 extends DefaultEagerTaskManager(Some(EliminateFactsTask)) {
+                 extends DefaultEagerTaskManager(Some(EliminateFactsTask),
+                                                 true) {
     def afterTask(task : Task) = unwrapReal(task) match {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
       case _ : AddFactsTask =>                            NonNormalisedFacts
@@ -125,15 +134,6 @@ object EagerTaskManager {
       case _ =>                                           MatchedEagerClauses
     }
     
-    override def recommend(npt : Option[PrioritisedTask]) = npt match {
-      // it is not meaningful to apply <code>EliminateFactsTask<code> in this
-      // special case
-      case Some(WrappedFormulaTask(_ : BetaFormulaTask, simpTasks))
-           if (simpTasks exists (!recommendationNecessary(_))) =>
-        None
-      case _ => super.recommend(npt)
-    }
-
     protected def recommendationNecessary(t : Task) = t match {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask => true
@@ -148,7 +148,8 @@ object EagerTaskManager {
    * queue, so that further eliminations might be possible
    */
   private object ProbablyReducedFacts
-                 extends DefaultEagerTaskManager(Some(EliminateFactsTask)) {
+                 extends DefaultEagerTaskManager(Some(EliminateFactsTask),
+                                                 false) {
     def afterTask(task : Task) = unwrapReal(task) match {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
       case _ : AddFactsTask =>                            NonNormalisedFacts
@@ -173,7 +174,8 @@ object EagerTaskManager {
    * removed (with respect to the current tasks)
    */
   private object ReducedFacts
-                 extends DefaultEagerTaskManager(Some(OmegaTask)) {
+                 extends DefaultEagerTaskManager(Some(OmegaTask),
+                                                 false) {
     def afterTask(task : Task) = unwrapReal(task) match {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
       case _ : AddFactsTask =>                            NonNormalisedFacts

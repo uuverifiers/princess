@@ -25,7 +25,7 @@ import ap.parameters._
 import ap.parser.{InputAbsy2Internal, Parser2InputAbsy, Preprocessing,
                   IExpression, INamedPart, IFunction, IInterpolantSpec, Environment}
 import ap.terfor.{Formula, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -49,15 +49,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           yield f
     }
   
-  private def determineProofConstruction(settings : GlobalSettings,
-                                         interpolantSpecs : List[IInterpolantSpec])
-                                        : Boolean =
-    Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
-      case Param.ProofConstructionOptions.Never => false
-      case Param.ProofConstructionOptions.Always => true
-      case Param.ProofConstructionOptions.IfInterpolating => !interpolantSpecs.isEmpty
-    }
-  
   val (inputFormulas, interpolantSpecs, signature) = {
     val env = new Environment
     val (f, interpolantSpecs, signature) = Parser2InputAbsy(reader, env)
@@ -74,12 +65,25 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Preprocessing(f, interpolantSpecs, signature, preprocSettings)
   }
   
+  private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
+    case Param.ProofConstructionOptions.Never => false
+    case Param.ProofConstructionOptions.Always => true
+    case Param.ProofConstructionOptions.IfInterpolating => !interpolantSpecs.isEmpty
+  }
+    
   val order = signature.order
+  
+  private val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
+  
+  private def simplify(f : Conjunction) : Conjunction =
+    // if we are constructing proofs, we simplify formulae right away
+    if (constructProofs) reducer(f) else f
   
   val formulas =
     for (f <- inputFormulas) yield
-      Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
-                       order)
+      simplify(
+        Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
+                         order))
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -89,7 +93,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Param.CONSTRAINT_SIMPLIFIER.set(settings.toGoalSettings,
                              determineSimplifier(settings)),
                              SymbolWeights.normSymbolFrequencies(formulas, 1000)),
-                             determineProofConstruction(settings, interpolantSpecs))
+                             constructProofs)
   
   private def determineSimplifier(settings : GlobalSettings) : ConstraintSimplifier =
     Param.SIMPLIFY_CONSTRAINTS(settings) match {

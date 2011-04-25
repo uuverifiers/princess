@@ -21,6 +21,8 @@
 
 package ap.proof.goal;
 
+import scala.collection.mutable.ArrayBuilder
+
 import ap.proof._
 import ap.terfor.{Term, Formula, TermOrder, ConstantTerm, VariableTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
@@ -120,10 +122,20 @@ case object FactsNormalisationTask extends EagerTask {
         // if we are producing proofs, we mostly check for subsumed clauses
         // that can be removed
 
-        def qfClauseMapping(conjs : NegatedConjunctions) = {
-          val clausesToKeep =
-            (for (c <- conjs.elements; if (!reducer(c).isFalse)) yield c).toList
-          clausesToKeep partition (illegalQFClause _)
+        def qfClauseMapping(conjs : NegatedConjunctions)
+                           : (Seq[Conjunction], Seq[Conjunction]) = {
+          val otherStuff, realClauses = ArrayBuilder.make[Conjunction]
+
+          for (c <- conjs) {
+            val reducedC = reducer(c)
+            if (!reducedC.isFalse)
+              (if (reducedC.isTrue || reducedC.isLiteral || illegalQFClause(c))
+                 otherStuff
+               else
+                 realClauses) += c
+          }
+          
+          (otherStuff.result, realClauses.result)
         }
 
         goal.compoundFormulas.mapQFClauses(

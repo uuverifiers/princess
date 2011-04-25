@@ -21,6 +21,8 @@
 
 package ap.interpolants
 
+import scala.collection.mutable.{HashSet => MHashSet}
+
 import ap.basetypes.IdealInt
 import ap.proof.certificates._
 import ap.terfor.TerForConvenience._
@@ -298,16 +300,14 @@ object ProofSimplifier {
   private def propagatedSubInEqs(subCerts : Seq[Certificate],
                                  subInEqs : Seq[Set[CertInequality]])
                                 : Set[CertInequality] = {
-    val propagated =
-      for (ind <- 0 until subCerts.size) yield
-        (subInEqs(ind) /: (0 until subCerts.size)) { case (ies, j) =>
-          if (ind == j)
-            ies
-          else
-            ies -- ineqSubset(subCerts(j).assumedFormulas)
-        }
+    val res = new MHashSet[CertInequality]
     
-    Set() ++ (for (s <- propagated.iterator; ie <- s.iterator) yield ie)
+    for (ind <- 0 until subCerts.size)
+      res ++= (subInEqs(ind) /: (0 until subCerts.size)) { case (ies, j) =>
+        if (ind == j) ies else (ies -- ineqSubset(subCerts(j).assumedFormulas))
+      }
+
+    res.toSet
   }
   
   //////////////////////////////////////////////////////////////////////////////

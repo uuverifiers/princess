@@ -149,6 +149,7 @@ object BetaFormulaTask {
                                  eliminatedConstants : Set[ConstantTerm],
                                  vocabulary : Vocabulary,
                                  settings : GoalSettings) : Boolean =
+    Param.PROOF_CONSTRUCTION(settings) ||
     !formula.predicates.isEmpty ||
     !vocabulary.constantFreedom.isShielded(formula, vocabulary.bindingContext) &&
     (Param.FULL_SPLITTING(settings) ||

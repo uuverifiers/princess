@@ -108,8 +108,8 @@ object ModelSearchProver {
                         settings : GoalSettings) : Either[Conjunction, Certificate] = {
     val disjuncts = if (Param.PROOF_CONSTRUCTION(settings)) {
       // when generating proofs and extracting interpolants, up-front
-      // simplification rather seems to slow down the system. Needs to be
-      // re-evaluated
+      // simplification cannot be applied at this point, because
+      // otherwise the proof would not correspond to the input formulae
       inputDisjuncts
     } else {
       val reducer = ReduceWithConjunction(Conjunction.TRUE, order)

@@ -26,6 +26,12 @@ $PRI "$@" $TESTS
 
 # Some examples that need special settings.
 
+# Testing some large examples for which we have to switch off assertions
+
+TESTS="prp-2-17.pri prp-3-18.pri"
+
+$PRI "$@" -assert $TESTS
+
 # We switch off quantifier elimination in interpolants for those
 # examples, as well as assertions (because just checking that
 # the interpolants are correct takes too long)
