@@ -24,7 +24,7 @@ package ap.interpolants;
 import ap.proof.ConstraintSimplifier
 import ap.proof.tree.ProofTree
 import ap.parameters.{GlobalSettings, GoalSettings, Param}
-import ap.parser.{SMTLineariser, IExpression, IBinJunctor}
+import ap.parser.{SMTLineariser, CSIsatLineariser, IExpression, IBinJunctor}
 import ap.util.{Debug, Seqs, CmdlParser}
 
 object CmdlMain {
@@ -119,6 +119,8 @@ object CmdlMain {
           mode = BenchFileProver.Mode.QEBased
         case CmdlParser.ValueOpt("mode", "smtdump") =>
           mode = BenchFileProver.Mode.SMTDump
+        case CmdlParser.ValueOpt("mode", "csisatdump") =>
+          mode = BenchFileProver.Mode.CSIsatDump
         case _ =>
           remainingArgs += a
       }

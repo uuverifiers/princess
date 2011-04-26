@@ -31,7 +31,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.{InputAbsy2Internal, IExpression, IFormula, IInterpolantSpec,
                   Transform2NNF, LineariseVisitor, IBinJunctor, INamedPart,
-                  PartName, SMTLineariser}
+                  PartName, SMTLineariser, CSIsatLineariser}
 import ap.proof.certificates.Certificate
 import ap.proof.ModelSearchProver
 import ap.parser.IExpression._
@@ -42,7 +42,7 @@ import ap.util.Timeout
 object BenchFileProver
 {
   object Mode extends Enumeration {
-    val ProofBased, QEBased, SMTDump = Value
+    val ProofBased, QEBased, SMTDump , CSIsatDump = Value
   }
 }
 
@@ -112,6 +112,19 @@ class BenchFileProver(filename : String,
 
         lin.close
       }
+    }
+    
+    case BenchFileProver.Mode.CSIsatDump => {
+      println("Dumping interpolation problems in CSIsat format ...")
+  
+      Console.withOut (new java.io.FileOutputStream(filename + ".csi")) {
+        for (f <- iFormulas dropRight 1) {
+	  CSIsatLineariser(f)
+          println(";")
+        }
+        CSIsatLineariser(iFormulas.last)
+      }
+  
     }
     
     case BenchFileProver.Mode.ProofBased => {
