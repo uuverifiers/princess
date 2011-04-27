@@ -84,23 +84,25 @@ object CSIsatLineariser {
         
       // Formulae
       case IAtom(pred, _) => {
-        print(pred.name)
-        if (pred.arity > 0)
-          print("(")
-        allButLast(ctxt, ", ", pred.arity)
+	assert (pred.arity == 0)         // we do not handle positive-arity predicates
+        print("(" + pred.name + " > 0)") // dump Boolean variable "q" everywhere as "q > 0"
+        noParentOp(ctxt)
       }
       case IBinFormula(junctor, _, _) => {
         print("(")
         allButLast(ctxt,
                    (junctor match {
                      case IBinJunctor.And => " & "
-                     case IBinJunctor.Or => " | "
+                     case IBinJunctor.Or  => " | "
                      case IBinJunctor.Eqv => " <-> "
                     }),
                    2)
       }
       case IBoolLit(value) => {
-        print(value)
+	if (value)
+	  print("(x = x)") // "true"
+	else
+	  print("(x > x)") // "false"
         noParentOp(ctxt)
       }
       case IIntFormula(rel, _) => {
@@ -120,7 +122,7 @@ object CSIsatLineariser {
         UniSubArgs(ctxt pushVar varName)
       }
       case INamedPart(name, _) => {
-/*        if (name != PartName.NO_NAME)
+/*      if (name != PartName.NO_NAME)
           print("\\part[" + name + "] ") */
         print("(")
         UniSubArgs(ctxt setParentOp "")
