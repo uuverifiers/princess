@@ -119,10 +119,10 @@ class BenchFileProver(filename : String,
   
       Console.withOut (new java.io.FileOutputStream(filename + ".csi")) {
         for (f <- iFormulas dropRight 1) {
-	  CSIsatLineariser(f)
+	  CSIsatLineariser(! f)
           println(";")
         }
-        CSIsatLineariser(iFormulas.last)
+        CSIsatLineariser(! iFormulas.last)
       }
   
     }
