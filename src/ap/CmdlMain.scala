@@ -58,7 +58,7 @@ object CmdlMain {
     println("  [+-]printTree                 Output the constructed proof tree        (default: -)")
     println("  -printSMT=filename            Output the problem in SMT-Lib format     (default: \"\")")
     println("  -printDOT=filename            Output the proof in GraphViz format      (default: \"\")")
-    println("  [+-]assert                    Enable runtime assertions                (default: +)")
+    println("  [+-]assert                    Enable runtime assertions                (default: -)")
     println("  -timeout=val                  Set a timeout in milliseconds            (default: infty)")
     println("  -simplifyConstraints=val      How to simplify constraints:")
     println("                                  none:   not at all")

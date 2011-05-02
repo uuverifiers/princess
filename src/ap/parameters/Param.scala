@@ -30,7 +30,7 @@ object Param {
   
   case object ASSERTIONS extends Param {
     type Value = Boolean
-    val defau : Boolean = true
+    val defau : Boolean = false
   }
   
   case object PRINT_TREE extends Param {

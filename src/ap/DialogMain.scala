@@ -308,7 +308,7 @@ class InputDialog extends JPanel {
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
   
-  newTabWithInput("Arithmetic example", "-assert", asString {
+  newTabWithInput("Arithmetic example", "", asString {
     println("/**")
     println(" * Example:")
     println(" * Problem in Presburger arithmetic with uninterpreted predicates")
@@ -337,7 +337,7 @@ class InputDialog extends JPanel {
     println("}")
   })
 
-  newTabWithInput("Arithmetic interpolation example", "-assert", asString {
+  newTabWithInput("Arithmetic interpolation example", "", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in Presburger arithmetic")
@@ -363,7 +363,7 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond, stmt1, stmt2; assert}")
   })
 
-  newTabWithInput("Array interpolation example", "-assert", asString {
+  newTabWithInput("Array interpolation example", "", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in the theory of arrays")
