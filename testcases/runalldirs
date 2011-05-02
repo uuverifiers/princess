@@ -1,29 +1,29 @@
 #!/bin/sh
 
-./rundir interpolation "" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
+./rundir interpolation "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
 
-./rundir allSettings "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "5" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
-./rundir allSettings "6" -logo -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
+./rundir allSettings "1" -logo +assert -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2" -logo +assert -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "3" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "4" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "5" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
+./rundir allSettings "6" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
 
-./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
-./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
-./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=all
-./rundir onlyUnitResolution "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=all
+./rundir onlyUnitResolution "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir onlyUnitResolution "" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir onlyUnitResolution "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=all
+./rundir onlyUnitResolution "" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=all
 
-./rundir onlyClausification "" -logo -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir onlyClausification "" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
 
-./rundir mostGeneralConstraint "" -logo -timeout=30000 +posUnitResolution +mostGeneralConstraint -generateTriggers=none
+./rundir mostGeneralConstraint "" -logo +assert -timeout=30000 +posUnitResolution +mostGeneralConstraint -generateTriggers=none
 
-./rundir special "" -logo -generateTriggers=none
+./rundir special "" -logo +assert -generateTriggers=none
 
-./rundir lira "" -logo -timeout=120000 -assert -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -generateTriggers=none
+./rundir lira "" -logo +assert -timeout=120000 -assert -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -generateTriggers=none
 
-./rundir unprovable "1" -logo -timeout=30000 -clausifier=none -posUnitResolution -generateTriggers=none
-./rundir unprovable "2" -logo -timeout=30000 -clausifier=simple -posUnitResolution -generateTriggers=none
-./rundir unprovable "3" -logo -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
-./rundir unprovable "4" -logo -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir unprovable "1" -logo +assert -timeout=30000 -clausifier=none -posUnitResolution -generateTriggers=none
+./rundir unprovable "2" -logo +assert -timeout=30000 -clausifier=simple -posUnitResolution -generateTriggers=none
+./rundir unprovable "3" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir unprovable "4" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
 
