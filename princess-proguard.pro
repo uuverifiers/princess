@@ -7,10 +7,10 @@
 
 # Specify the input jars, output jars, and library jars.
 
--injars  dist/princess.jar
--libraryjars  dist/java-cup-11a.jar
--libraryjars  dist/parser.jar
--libraryjars  dist/scala-library.jar
+-injars dist/princess.jar
+-injars dist/java-cup-11a.jar
+-injars dist/parser.jar
+-injars dist/scala-library.jar(!META-INF/**)
 -libraryjars /usr/share/java/ant.jar
 -outjars dist/princess-all.jar
 
@@ -136,3 +136,7 @@
 # -keep public interface mypackage.MyInterface
 # -keep public class * implements mypackage.MyInterface
 
+# optimisation rather seems to slow down Princess
+-dontoptimize
+
+-flattenpackagehierarchy
