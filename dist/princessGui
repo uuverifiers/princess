@@ -1,7 +1,0 @@
-#!/bin/sh
-
-BASEDIR=`dirname $0`
-
-export CLASSPATH=$CLASSPATH:$BASEDIR/princess.jar:$BASEDIR/parser.jar:$BASEDIR/java-cup-11a.jar
-
-exec scala ap.DialogMain "$@"

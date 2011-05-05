@@ -5,7 +5,7 @@
   href="princess.jnlp">
 <information> 
 <title>Princess</title>
-<vendor>Philipp Ruemmer, Oxford University</vendor> 
+<vendor>Philipp Ruemmer, Uppsala University</vendor> 
 <homepage href="http://www.philipp.ruemmer.org/princess.shtml"/> 
 <description>
   The Prover Princess.
@@ -19,10 +19,7 @@
 <j2se version="1.6+" initial-heap-size="128m" max-heap-size="1024m"/> 
 <j2se version="1.5+" initial-heap-size="128m" max-heap-size="1024m"/> 
 
-<jar href="princess.jar"/> 
-<jar href="scala-library.jar" /> 
-<jar href="java-cup-11a.jar" /> 
-<jar href="parser.jar" /> 
+<jar href="princess-all.jar"/> 
 </resources> 
 <application-desc main-class="ap.DialogMain"/> 
 </jnlp> 

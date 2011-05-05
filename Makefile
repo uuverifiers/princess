@@ -25,6 +25,8 @@ SCALALIBDIR:=$(SCALABASEDIR)/lib
 JARSIGNERCMD:=jarsigner -keystore ../myKeys -storepass ../myPass -keypass ../myPass
 JARSIGNERALIAS:=phr
 
+PROGUARDJAR:=/home/philipp/tmp/proguard4.6/lib/proguard.jar
+
 
 export SCALAC SCALAC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH JAVA_OPTS
 
@@ -39,10 +41,8 @@ dist: jar
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
-	$(JARSIGNERCMD) dist/princess.jar $(JARSIGNERALIAS)
-	$(JARSIGNERCMD) dist/parser.jar $(JARSIGNERALIAS)
-	$(JARSIGNERCMD) dist/java-cup-11a.jar $(JARSIGNERALIAS)
-	$(JARSIGNERCMD) dist/scala-library.jar $(JARSIGNERALIAS)
+	java -jar $(PROGUARDJAR) @princess-proguard.pro
+	$(JARSIGNERCMD) dist/princess-all.jar $(JARSIGNERALIAS)
 
 clean:
 	rm -rf bin
