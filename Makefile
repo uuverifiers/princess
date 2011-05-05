@@ -42,6 +42,8 @@ dist: jar
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	java -jar $(PROGUARDJAR) @princess-proguard.pro
+
+signed-dist: dist
 	$(JARSIGNERCMD) dist/princess-all.jar $(JARSIGNERALIAS)
 
 clean:
