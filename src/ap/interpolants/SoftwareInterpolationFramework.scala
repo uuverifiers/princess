@@ -261,8 +261,15 @@ abstract class SoftwareInterpolationFramework {
     match {
       case Left(counterexample) =>
         Left(counterexample)
-      case Right(cert) => {
-        println("Found proof (size " + cert.inferenceCount + ")")
+      case Right(rawCert) => {
+        print("Found proof (size " + rawCert.inferenceCount + "), simplifying ")
+
+        val cert = ProofSimplifier(rawCert)
+        println("(" + cert.inferenceCount + ")")
+        
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(AC, cert.assumedFormulas subsetOf rawCert.assumedFormulas)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
 
         Right {
           var lastInterpolant = Conjunction.TRUE
