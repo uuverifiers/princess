@@ -78,14 +78,16 @@ object FunctionEncoder {
           val updatedT = t update subres
           val (shiftedT, definingFrame) = selectFrameFor(updatedT, frame)
           if (frame eq definingFrame) occurringApps += updatedT
+          if (!(definingFrame.abstractions contains shiftedT))
+            println("hello")
           val abstractionNums = definingFrame.abstractions.getOrElse( shiftedT,
             throw new Preprocessing.PreprocessingException(
               "Trigger has to occur in body of quantified formula: " + trigger))
           if (abstractionNums.size > 1)
             throw new Preprocessing.PreprocessingException(
               "Ambiguous trigger for relational function: " + trigger)
-          val abstractionNum = abstractionNums.iterator.next
-          v(abstractionNum + definingFrame.depth - frame.depth)
+          val abstractionNum = abstractionNums.head
+          v(abstractionNum + frame.depth - definingFrame.depth)
         }
         case t : ITerm => t update subres
         case _ => 
@@ -97,7 +99,7 @@ object FunctionEncoder {
   //////////////////////////////////////////////////////////////////////////////
 
   // Abstraction frames are pushed immediately underneath each level of
-  // quantifiers are collect all function definitions that should be
+  // quantifiers and collect all function definitions that should be
   // inserted at this point in the <code>postVisit</code> phase
   private class AbstractionFrame(val prevFrame : AbstractionFrame,
                                  // the number of quantifiers immediately above
