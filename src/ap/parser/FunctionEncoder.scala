@@ -78,8 +78,6 @@ object FunctionEncoder {
           val updatedT = t update subres
           val (shiftedT, definingFrame) = selectFrameFor(updatedT, frame)
           if (frame eq definingFrame) occurringApps += updatedT
-          if (!(definingFrame.abstractions contains shiftedT))
-            println("hello")
           val abstractionNums = definingFrame.abstractions.getOrElse( shiftedT,
             throw new Preprocessing.PreprocessingException(
               "Trigger has to occur in body of quantified formula: " + trigger))
