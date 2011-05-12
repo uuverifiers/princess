@@ -275,7 +275,7 @@ class FunctionEncoder {
     ////////////////////////////////////////////////////////////////////////////
   
     /**
-     * Add the abstraction definitions given in <code>frame</code> as premisses
+     * Add the abstraction definitions given in <code>frame</code> as premises
      * or conjuncts to <code>f</code>. The resulting formula has the form
      * <code>EX* p1(..) & p2(...) ... & ALL* p'1(...) -> p'2(...) -> f</code>,
      * where <code>p1, p2, ...</code> are the applications given in
@@ -395,6 +395,9 @@ class FunctionEncoder {
                                frame, false)
           
           case (Quantifier.EX :: _, triggers) => {
+            // we might have to add also triggers following existential
+            // quantifiers. in the presence of multiple sets of triggers, the
+            // quantified formula will be duplicated
             val actualTriggers = if (triggers.isEmpty) List(List()) else triggers
             val innerQuans = Array.fill(c.a.frame.quantifierNum){Quantifier.EX}
             
