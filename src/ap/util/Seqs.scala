@@ -22,7 +22,7 @@
 package ap.util;
 
 import scala.util.Sorting
-import scala.collection.mutable.ArrayBuilder
+import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
 
 object Seqs {
 
@@ -673,19 +673,15 @@ object Seqs {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def unzip[A : ClassManifest, B : ClassManifest]
-           (seq : Seq[(A, B)]) : (Seq[A], Seq[B]) = {
-    val lefts = new Array[A] (seq.size)
-    val rights = new Array[B] (seq.size)
+  /**
+   * Determine all elements that occur in more than one of the given collections
+   */
+  def findDuplicates[A](els : Iterator[A]) : Set[A] = {
+    val seenEls, duplicates = new MHashSet[A]
     
-    var i = 0
-    while (i < seq.size) {
-      lefts(i) = seq(i)._1
-      rights(i) = seq(i)._2
-      i = i + 1
-    }
+    for (e <- els)
+      (if (seenEls contains e) duplicates else seenEls) += e
     
-    (lefts, rights)
+    duplicates.toSet
   }
-  
 }
