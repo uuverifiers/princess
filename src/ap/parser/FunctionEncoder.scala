@@ -173,10 +173,9 @@ class FunctionEncoder {
       Seqs.max(for (IVariable(i) <- freeVars.iterator) yield i) + 1
     val visitor =
       new EncoderVisitor(firstFreeVariableIndex, order)
-    val context : Context[EncodingContext] =
-      Context(AddDefinitions(new AbstractionFrame (null, 0), List()))
     
-    val newF = visitor.visit(nnfF, context).asInstanceOf[IFormula]
+    // on the top level, all function definitions are distributed
+    val newF = visitor.encode(nnfF)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // no dangling variables in the result
     Debug.assertInt(FunctionEncoder.AC,
@@ -221,6 +220,22 @@ class FunctionEncoder {
   private class EncoderVisitor(var nextAbstractionNum : Int, var order : TermOrder)
                 extends ContextAwareVisitor[EncodingContext, IExpression] {
   
+    def encode(f : IFormula) : IFormula = f match {
+ /*     case IBinFormula(op, left, right) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(FunctionEncoder.AC,
+                        op == IBinJunctor.And || op == IBinJunctor.Or)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        val parts = LineariseVisitor(f, op)
+        connect(for (p <- parts.iterator) yield encode(p), op)
+      } */
+      case _ => {
+        val context : Context[EncodingContext] =
+          Context(AddDefinitions(new AbstractionFrame (null, 0), List()))
+        visit(f, context).asInstanceOf[IFormula]
+      }
+    }
+    
     private def toRelation(fun : IFunction) : Predicate = 
       relations.getOrElseUpdate(fun, {
         val pred = new Predicate(fun.name, fun.arity + 1)
