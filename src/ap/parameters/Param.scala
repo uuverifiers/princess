@@ -109,6 +109,19 @@ object Param {
     val defau : ap.proof.goal.SymbolWeights = ap.proof.goal.SymbolWeights.DEFAULT
   }
 
+  case object GARBAGE_COLLECTED_FUNCTIONS extends Param {
+    type Value = Set[ap.terfor.preds.Predicate]
+    val defau : Set[ap.terfor.preds.Predicate] = Set()
+  }
+  
+  object FunctionGCOptions extends Enumeration {
+    val None, Total, All = Value
+  }
+  case object FUNCTION_GC extends Param {
+    type Value = FunctionGCOptions.Value
+    val defau : FunctionGCOptions.Value = FunctionGCOptions.Total
+  }
+  
   // even split propositional formulae that do not contain quantifiers or
   // eliminated constants
   case object FULL_SPLITTING extends Param {

@@ -579,7 +579,8 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
    * Only used for assertion purposes
    */
   def factsAreOutdated(actualFacts : PredConj) : Boolean =
-    actualFacts != currentFacts
+    !(actualFacts.positiveLitsAsSet subsetOf currentFacts.positiveLitsAsSet) ||
+    !(actualFacts.negativeLitsAsSet subsetOf currentFacts.negativeLitsAsSet)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

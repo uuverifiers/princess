@@ -252,7 +252,7 @@ private object FALSE_EXCEPTION extends Exception
 private class LiteralEliminator(literals : Conjunction,
                                 uniVariables : Set[Term],
                                 order : TermOrder)
-              extends ConjunctEliminator(literals, uniVariables, order) {
+              extends ConjunctEliminator(literals, uniVariables, Set(), order) {
   
   protected def nonUniversalElimination(f : Conjunction) =
     throw new UnsupportedOperationException

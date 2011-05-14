@@ -64,7 +64,9 @@ private object MatchFunctions {
 
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     } else {
-      val newTasks = for (c <- removedClauses; t <- goal formulaTasks c) yield t
+      val newTasks =
+        (for (c <- removedClauses; t <- goal formulaTasks c) yield t) ++
+        (if (eager) List() else List(new LazyMatchTask (goal.age)))
       val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, reducedMatcher)
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     }

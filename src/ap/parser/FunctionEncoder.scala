@@ -21,8 +21,6 @@
 
 package ap.parser
 
-import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
-
 import ap.terfor.TermOrder
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Quantifier
@@ -43,6 +41,30 @@ object FunctionEncoder {
                                     triggers : List[Seq[ITerm]])
                      extends EncodingContext(_frame)
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def withMinimalScope(t : IFormula, f : (IFormula) => IFormula,
+                               criticalVars : Iterable[IVariable]) : IFormula =
+    t match {
+      case IBinFormula(op, _, _) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(FunctionEncoder.AC,
+                        op == IBinJunctor.And || op == IBinJunctor.Or)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        val parts = LineariseVisitor(t, op)
+        val (outside, inside) =
+          parts partition (x => Seqs.disjointSeq(SymbolCollector variables x,
+                                                 criticalVars))
+        val outsideFor = connect(outside, op)
+        val insideFor = if (inside.size == 1)
+          withMinimalScope(inside(0), f, criticalVars)
+        else
+          f(connect(inside, op))
+        IBinFormula(op, outsideFor, insideFor)
+      }
+      case _ => f(t)
+    }
+                     
   //////////////////////////////////////////////////////////////////////////////
 
   private class TriggerVisitor(frame : AbstractionFrame)
@@ -87,7 +109,6 @@ object FunctionEncoder {
     // e.g.  f(c) = f(c) has to be invalid if "f" is not functional
     // Therefore, the value of the abstractions map is a set
     var abstractions : Map[IFunApp, Set[Int]] = Map()
-    var abstractionList : List[(IFunApp, Int)] = List()
     // the number of all quantifiers above this point
     val depth : Int =
       (if (prevFrame == null) 0 else prevFrame.depth) + quantifierNum
@@ -114,7 +135,8 @@ object FunctionEncoder {
     // <code>t</code>
     while (curFrame.prevFrame != null &&
            Seqs.disjointSeq(tVars, 0 until curFrame.quantifierNum) &&
-           Seqs.disjointSeq(tVars, curFrame.abstractionList.iterator map (_._2))) {
+           Seqs.disjointSeq(tVars, curFrame.abstractions.valuesIterator
+                                                 flatMap (_.iterator))) {
       tVars = for (i <- tVars) yield (i - curFrame.quantifierNum)
       curFrame = curFrame.prevFrame
     }
@@ -126,37 +148,6 @@ object FunctionEncoder {
     (shiftedT, curFrame)
   }
 
-  /**
-   * Determine all abstractions that are used in the given formula.
-   * This depends on the fact that the list <code>abstractions</code> is ordered
-   * topologically, starting with the outermost function applications;
-   * this order will be preserved by the function
-   */
-  private def findRelevantAbstractions
-    (p : IFormula, abstractions : Seq[(IFunApp, Int)]) : Seq[(IFunApp, Int)] = {
- 
-    val vars = new scala.collection.mutable.HashSet[IVariable]
-    val defs = ArrayBuilder.make[(IFunApp, Int)]
-    
-    vars ++= SymbolCollector variables p
-    
-    for (newApp@(funApp, newVarNum) <- abstractions)
-      if (vars contains v(newVarNum)) {
-        vars ++= SymbolCollector variables funApp
-        defs += newApp
-      }
-
-    val res = defs.result
-    
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    // Check that we have actually found all definitions relevant for this
-    // sub-formula 
-    Debug.assertPost(FunctionEncoder.AC, abstractions forall {
-      case app@(_, num) => !(vars contains v(num)) || (res contains app)
-    })
-    //-END-ASSERTION-/////////////////////////////////////////////////////////// 
-    res
-  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -257,8 +248,6 @@ class FunctionEncoder {
         definingFrame.abstractions =
           definingFrame.abstractions +
           (shiftedT -> (definingFrame.abstractions.getOrElse(shiftedT, Set()) + localIndex))
-        definingFrame.abstractionList =
-          (shiftedT, localIndex) :: definingFrame.abstractionList
         localIndex
       }
       
@@ -286,7 +275,7 @@ class FunctionEncoder {
     ////////////////////////////////////////////////////////////////////////////
   
     /**
-     * Add the given abstraction definitions as premises
+     * Add the abstraction definitions given in <code>frame</code> as premises
      * or conjuncts to <code>f</code>. The resulting formula has the form
      * <code>EX* p1(..) & p2(...) ... & ALL* p'1(...) -> p'2(...) -> f</code>,
      * where <code>p1, p2, ...</code> are the applications given in
@@ -294,53 +283,20 @@ class FunctionEncoder {
      */
     private def addAbstractionDefs(f : IFormula,
                                    matchedApps : scala.collection.Set[IFunApp],
-                                   abstractions : Seq[(IFunApp, Int)])
-                                  : IFormula = {
+                                   frame : AbstractionFrame,
+                                   minimiseScope : Boolean) : IFormula = {
+      val abstractions = (for ((t, s) <- frame.abstractions.iterator;
+                               n <- s.iterator) yield (t, n)          ).toList
       val (posAbstractions, negAbstractions) =
         abstractions partition (x => matchedApps contains (x _1))
       
-      val unmatched = distributeUniDefinitions(f, negAbstractions)
+      val unmatched = if (minimiseScope)
+          withMinimalScope(f, addAbstractionsHelp(_, true, negAbstractions),
+                           for ((_, n) <- negAbstractions) yield IVariable(n))
+        else
+          addAbstractionsHelp(f, true, negAbstractions)
       addAbstractionsHelp(unmatched, false, posAbstractions)
     }
-    
-    /**
-     * Add the given abstraction definitions as premises to the formula
-     * <code>f</code>. This function will try to distribute the definitions
-     * to the sub-formulae as far as possible.
-     */
-    private def distributeUniDefinitions
-       (f : IFormula, abstractions : Seq[(IFunApp, Int)]) : IFormula =
-      if (abstractions.isEmpty)
-        f
-      else f match {
-        case IBinFormula(op, _, _) => {
-          val parts = LineariseVisitor(f, op)
-          val relevantDefs = for (p <- parts) 
-                             yield findRelevantAbstractions(p, abstractions)
-        
-          val toplevelDefs = op match {
-            case IBinJunctor.And =>
-              // we distribute those definitions that do not occur in all
-              // conjuncts
-              (for (defs <- relevantDefs.iterator) yield defs.toSet) reduceLeft (_ ** _)
-            case IBinJunctor.Or =>
-              // we distribute those definitions that occur only in a single
-              // disjunct
-              Seqs findDuplicates (
-                for (d <- relevantDefs.iterator; e <- d.iterator) yield e)
-          }
-
-          val subres = connect(
-            for ((p, defs) <- parts.iterator zip relevantDefs.iterator) yield {
-              distributeUniDefinitions(p, defs filterNot (toplevelDefs contains _))
-            }, op)
-
-          addAbstractionsHelp(subres, true,
-                              abstractions filter (toplevelDefs contains _))
-        }
-        case _ =>
-          addAbstractionsHelp(f, true, abstractions)
-      }
     
     private def addAbstractionsHelp(f : IFormula,
                                     universal : Boolean,
@@ -436,7 +392,7 @@ class FunctionEncoder {
         case AddDefinitions(frame, triggers) => (c.quans, triggers) match {
           case ((Quantifier.ALL :: _) | List(), List()) =>
             addAbstractionDefs(abstracted.asInstanceOf[IFormula], Set(),
-                               frame.abstractionList)
+                               frame, false)
           
           case (Quantifier.EX :: _, triggers) => {
             // we might have to add also triggers following existential
@@ -450,7 +406,7 @@ class FunctionEncoder {
                for (e <- exprs) triggerVisitor.visit(e, e)
                val withDefs = addAbstractionDefs(abstracted.asInstanceOf[IFormula],
                                                  triggerVisitor.occurringApps,
-                                                 frame.abstractionList)
+                                                 frame, true)
                quan(innerQuans, withDefs)
             }, IBinJunctor.Or)
           }

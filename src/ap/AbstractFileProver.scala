@@ -23,9 +23,11 @@ package ap;
 
 import ap.parameters._
 import ap.parser.{InputAbsy2Internal, Parser2InputAbsy, Preprocessing,
-                  IExpression, INamedPart, IFunction, IInterpolantSpec, Environment}
+                  FunctionEncoder, IExpression, INamedPart, IFunction,
+                  IInterpolantSpec, Environment}
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
+import ap.terfor.preds.Predicate
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -49,7 +51,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           yield f
     }
   
-  val (inputFormulas, interpolantSpecs, signature) = {
+  val (inputFormulas, interpolantSpecs, signature, gcedFunctions) = {
     val env = new Environment
     val (f, interpolantSpecs, signature) = Parser2InputAbsy(reader, env)
     reader.close
@@ -62,7 +64,22 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Console.withOut(Console.err) {
       println("Preprocessing ...")
     }
-    Preprocessing(f, interpolantSpecs, signature, preprocSettings)
+    
+    val functionEnc = new FunctionEncoder
+    
+    val (inputFormulas, interpolantS, sig) =
+      Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)
+    
+    val gcedFunctions = Param.FUNCTION_GC(settings) match {
+      case Param.FunctionGCOptions.None =>
+        Set[Predicate]()
+      case Param.FunctionGCOptions.Total =>
+        Set() ++ (for ((p, f) <- functionEnc.predTranslation.iterator;
+                       if (!f.partial)) yield p)
+      case Param.FunctionGCOptions.All =>
+        functionEnc.predTranslation.keySet.toSet
+    }
+    (inputFormulas, interpolantS, sig, gcedFunctions)
   }
   
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
@@ -87,13 +104,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
   
-  protected val goalSettings =
-    Param.PROOF_CONSTRUCTION.set(
-    Param.SYMBOL_WEIGHTS.set(
-    Param.CONSTRAINT_SIMPLIFIER.set(settings.toGoalSettings,
-                             determineSimplifier(settings)),
-                             SymbolWeights.normSymbolFrequencies(formulas, 1000)),
-                             constructProofs)
+  protected val goalSettings = {
+    var gs = settings.toGoalSettings
+    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
+    gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
+    gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
+    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
+    gs
+  }
   
   private def determineSimplifier(settings : GlobalSettings) : ConstraintSimplifier =
     Param.SIMPLIFY_CONSTRAINTS(settings) match {

@@ -98,6 +98,12 @@ object GlobalSettings {
         case ValueOpt("generateTriggers", "all") =>
           Param.TRIGGER_GENERATION.set(settings,
                                        Param.TriggerGenerationOptions.All)
+        case ValueOpt("functionGC", "none") =>
+          Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.None)
+        case ValueOpt("functionGC", "total") =>
+          Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.Total)
+        case ValueOpt("functionGC", "all") =>
+          Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.All)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -113,7 +119,7 @@ object GlobalSettings {
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
-         Param.TRIGGER_GENERATION,
+         Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS)
 
   val DEFAULT =
@@ -124,6 +130,7 @@ object GlobalSettings {
 object GoalSettings {
 
   val allParams = List(Param.POS_UNIT_RESOLUTION, Param.SYMBOL_WEIGHTS,
+                       Param.GARBAGE_COLLECTED_FUNCTIONS,
                        Param.FULL_SPLITTING, Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION)
 

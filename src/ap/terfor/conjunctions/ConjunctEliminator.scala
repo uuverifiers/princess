@@ -29,6 +29,7 @@ import ap.terfor.{TerFor, Term, Formula, ConstantTerm, TermOrder}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.arithconj.{ArithConj, ModelFinder}
+import ap.terfor.preds.Predicate
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.Substitution
 import ap.util.{Logic, Debug, Seqs, FilterIt}
@@ -47,6 +48,10 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                                   // symbols that are universally quantified on
                                   // the innermost level
                                   universalSymbols : Set[Term],
+                                  // predicates encoding functions that can
+                                  // be eliminated from the e-graph if they are
+                                  // not referred to from anywhere else
+                                  eliminableFunctionPreds : Set[Predicate],
                                   order : TermOrder) {
   
   private var conj = oriConj
@@ -238,6 +243,60 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   }  
 
   //////////////////////////////////////////////////////////////////////////////
+  // Eliminable symbols that only occur in the "congruence graph", i.e.,
+  // only in predicates of the form <code>f(t, c)</code>, for some predicate
+  // <code>f/<code> encoding a function
+  
+  private def eliminableFunctionValue(c : Term) : Boolean = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ConjunctEliminator.AC, (universalSymbols contains c))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (eliminableFunctionPreds.isEmpty) return false
+    
+    // check in how many predicates the symbol occurs
+    var occurred : Boolean = false
+    val atomIt = conj.predConj.positiveLits.iterator
+    while (atomIt.hasNext) {
+      val a = atomIt.next
+      if (occursIn(a, c)) {
+        if (!(eliminableFunctionPreds contains a.pred)) return false
+        // we currently only eliminate predicates that only contain
+        // universal symbols. this could be relaxed ... however, one has to be
+        // careful not to destroy completeness, since one could potentially
+        // eliminate predicates that have just been introduced by the
+        // totality axioms
+        if (!(a.constants.asInstanceOf[scala.collection.Set[Term]] subsetOf
+                                      universalSymbols)) return false
+        if (!(a.variables.asInstanceOf[scala.collection.Set[Term]] subsetOf
+                                      universalSymbols)) return false
+        
+        // the symbol must occur in at most one literal
+        if (occurred) return false
+        occurred = true
+        
+        // the constant must only occur in the last argument of the atom
+        var i = 0
+        while (i < a.length - 1) {
+          if (occursIn(a(i), c)) return false
+          i = i + 1
+        }
+        
+        // and the coefficient of the symbol in the last argument must be a unit
+        if ((a.last get c).abs != IdealInt.ONE) return false
+      }
+    }
+  
+    // the symbol must not occur in any negated literals
+    conj.predConj.negativeLits forall (!occursIn(_, c))
+  }
+
+  private def elimFunctionValue(c : Term) : Unit = {
+    val (eliminated, remainingPredConj) = conj.predConj partition (occursIn(_, c))
+    conj = conj.updatePredConj(remainingPredConj)(order)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   // Determine best possible Fourier-Motzkin application
   
   private def bestExactShadow(inEqs : Seq[LinearCombination]) : Option[Term] = {
@@ -299,26 +358,29 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   do {
     oldconj = conj
 
-    for (c <- eliminationCandidates(conj)) // otherwise we cannot do anything
-                                           if (!occursInPreds(c)) {
+    for (c <- eliminationCandidates(conj)) {
       (occursInPositiveEqs(c),
        occursInNegativeEqs(c),
        occursInInEqs(c),
+       occursInPreds(c),
        universalSymbols contains c) match {
 
-      case (false, false, false, _) => // nothing
+      case (false, false, false, true, true) if (eliminableFunctionValue(c))
+        => elimFunctionValue(c)
       
-      case (true, false, false, true) if (eliminablePositiveEqs(c))
+      case (false, false, false, _, _) => // nothing
+      
+      case (true, false, false, false, true) if (eliminablePositiveEqs(c))
           => elimPositiveEqs(c)
    
-      case (true, false, false, false)
+      case (true, false, false, false, false)
         if (eliminablePositiveEqsNonU(c) && eliminablePositiveEqs(c))
           => elimPositiveEqs(c)
  
-      case (false, true, false, false) if (eliminableNegativeEqs(c))
+      case (false, true, false, false, false) if (eliminableNegativeEqs(c))
           => elimNegativeEqs(c)
 
-      case (false, _, _, true) if (onesidedInEqsU(c))
+      case (false, _, _, false, true) if (onesidedInEqsU(c))
           => {
                val eliminatedFor = ArithConj.conj(Array(elimNegativeEqsU(c),
                                                         elimOnesidedInEqsU(c, logger)),
