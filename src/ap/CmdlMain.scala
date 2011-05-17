@@ -79,6 +79,7 @@ object CmdlMain {
     println("                                  none:  not at all")
     println("                                  total: for all total functions         (default)")
     println("                                  all:   for all functions")
+    println("  [+-]tightFunctionScopes       Keep function application defs. local    (default: +)")
     println("  -constructProofs=val          Extract proofs")
     println("                                  never")
     println("                                  ifInterpolating: if \\interpolant is present (default)")
@@ -127,6 +128,21 @@ object CmdlMain {
       }
     }
   
+  private def determineInputFormat(filename : String,
+                                   settings : GlobalSettings)
+                                  : Param.InputFormat.Value =
+    Param.INPUT_FORMAT(settings) match {
+      case Param.InputFormat.Auto =>
+        // try to guess the file type from the extension
+        if (filename endsWith ".pri")
+          Param.InputFormat.Princess
+        else if (filename endsWith ".smt2")
+          Param.InputFormat.SMTLIB
+        else
+          throw new Exception ("could not figure out the input format")
+      case f => f
+  }
+  
   def proveProblems(settings : GlobalSettings,
                     problems : Seq[(String, java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
@@ -146,12 +162,14 @@ object CmdlMain {
             Console.withOut(Console.err) {
               println("Loading " + filename + " ...")
             }
-            val prover = new IntelliFileProver(reader,
-                                               Param.TIMEOUT(settings),
-                                               Param.MOST_GENERAL_CONSTRAINT(settings),
-                                               true,
-                                               userDefStoppingCond,
-                                               settings)
+            val prover =
+              new IntelliFileProver(reader,
+                                    Param.TIMEOUT(settings),
+                                    Param.MOST_GENERAL_CONSTRAINT(settings),
+                                    true,
+                                    userDefStoppingCond,
+                                    Param.INPUT_FORMAT.set(settings,
+                                      determineInputFormat(filename, settings)))
 
             Console.withOut(Console.err) {
               println

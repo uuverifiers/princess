@@ -1,0 +1,161 @@
+-- This file is part of the SMT-LIB 2 preprocessor.
+-- <http://www.cprover.org/SMT-LIB-LSM/>
+--
+-- Copyright (C) 2009,2010 Philipp Ruemmer <ph_r@gmx.net>
+--
+-- The SMT-LIB 2 preprocessor is free software: you can redistribute it and/or modify
+-- it under the terms of the GNU General Public License as published by
+-- the Free Software Foundation, either version 3 of the License, or
+-- (at your option) any later version.
+--
+-- The SMT-LIB 2 preprocessor is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- GNU General Public License for more details.
+--
+-- You should have received a copy of the GNU General Public License
+-- along with the SMT-LIB 2 preprocessor.  If not, see <http://www.gnu.org/licenses/>.
+
+--------------------------------------------------------------------------------
+-- BNF Grammar of the SMT-LIB 2 Format
+
+comment ";";
+
+--------------------------------------------------------------------------------
+-- Entry point
+
+Script.                 ScriptC         ::= [Command];
+
+--------------------------------------------------------------------------------
+-- Benchmark Commands
+
+-- In the next rule, "Symbol" actually has to start with a letter
+SetLogicCommand.        Command         ::= "(" "set-logic" Symbol ")";
+SetOptionCommand.       Command         ::= "(" "set-option" OptionC ")";
+SetInfoCommand.         Command         ::= "(" "set-info" Annotation ")";
+SortDeclCommand. 	Command	        ::= "(" "declare-sort" Symbol Numeral ")";
+SortDefCommand. 	Command	        ::= "(" "define-sort" Symbol Sort ")";
+FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
+                                                "(" MESorts ")" Sort ")";
+FunctionDefCommand.	Command	        ::= "(" "define-fun" Symbol
+                                                "(" [SortedVariableC] ")"
+                                                Sort Term ")";
+PushCommand.            Command         ::= "(" "push" Numeral ")";
+PopCommand.             Command         ::= "(" "pop" Numeral ")";
+AssertCommand.          Command	        ::= "(" "assert" Term ")";
+CheckSatCommand.        Command	        ::= "(" "check-sat" ")";
+ExitCommand.            Command	        ::= "(" "exit" ")";
+
+separator Command "";
+
+--------------------------------------------------------------------------------
+-- Benchmark Options
+
+Option.                 OptionC         ::= Annotation;
+
+--------------------------------------------------------------------------------
+-- Sort and their declarations
+
+IdentSort.	Sort		::= Identifier;
+CompositeSort.	Sort		::= "(" Identifier [Sort] ")";
+
+separator nonempty Sort "";
+
+SomeSorts.      MESorts         ::= [Sort];
+NoSorts.        MESorts         ::= ;
+
+--------------------------------------------------------------------------------
+-- Terms
+
+ConstantTerm.	Term		::= SpecConstant;
+-- The following rule captures both nullary functions (constants)
+-- and variables
+NullaryTerm.	Term		::= SymbolRef;
+FunctionTerm.	Term		::= "(" SymbolRef [Term] ")";
+LetTerm.	Term		::= "(" "let" "(" [BindingC] ")" Term ")";
+QuantifierTerm.	Term		::= "(" Quantifier
+				    	"(" [SortedVariableC] ")" Term ")";
+
+AnnotationTerm.	Term		::= "(" "!" Term [Annotation] ")";
+
+separator nonempty Term "";
+
+Binding.	BindingC	::= "(" Symbol Term ")";
+
+separator nonempty BindingC "";
+
+AllQuantifier.	Quantifier	::= "forall";
+ExQuantifier.	Quantifier	::= "exists";
+
+--------------------------------------------------------------------------------
+-- Functions, constants, variables
+
+-- The category "SymbolRef" is used both for variables and nullary
+-- functions
+IdentifierRef.	SymbolRef	::= Identifier;
+CastIdentifierRef.SymbolRef	::= "(" "as" Identifier Sort ")";
+
+--------------------------------------------------------------------------------
+-- Variables
+
+SortedVariable.	SortedVariableC	::= "(" Symbol Sort ")";
+
+separator nonempty SortedVariableC "";
+
+--------------------------------------------------------------------------------
+-- Literals
+
+NumConstant.	SpecConstant	::= Numeral;
+RatConstant.	SpecConstant	::= Rational;
+HexConstant.	SpecConstant	::= Hexadecimal;
+BinConstant.	SpecConstant	::= Binary;
+StringConstant.	SpecConstant	::= String;
+
+token Numeral     ('0' | (["123456789"] ["0123456789"]*));
+token Rational    (('0' | (["123456789"] ["0123456789"]*)) '.' ["0123456789"]+);
+token Hexadecimal ({"#hex"} ["0123456789ABCDEF"]+);
+token Binary      ({"#bin"} ["01"]+);
+
+NumMetaConstant.MetaConstant	::= "NUMERAL";
+RatMetaConstant.MetaConstant	::= "RATIONAL";
+HexMetaConstant.MetaConstant	::= "HEXADECIMAL";
+BinMetaConstant.MetaConstant	::= "BINARY";
+StringMetaConstant.MetaConstant	::= "STRING";
+
+--------------------------------------------------------------------------------
+-- Tokens for identifiers and benchmark/family/logic names
+
+SymbolIdent.	Identifier	::= Symbol;
+IndexIdent.	Identifier	::= "(" "_" Symbol [IndexC] ")";
+
+Index.		IndexC		::= Numeral;
+
+separator nonempty IndexC "";
+
+NormalSymbol.   Symbol          ::= NormalSymbolT;
+QuotedSymbol.   Symbol          ::= QuotedSymbolT;
+
+token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
+                     (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
+
+token QuotedSymbolT ('|' [" `^~<=>_,;:!/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ"]* '|');
+
+--------------------------------------------------------------------------------
+-- Annotations
+
+AttrAnnotation.	Annotation	::= AnnotAttribute AttrParam;
+
+separator nonempty Annotation "";
+
+SomeAttrParam.	AttrParam	::= SExpr;
+NoAttrParam.	AttrParam	::= ;
+
+token AnnotAttribute(':'
+                     (["+-/*=~?!._$%&^<>@:"] | letter)
+                     (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
+
+ConstantSExpr.	SExpr		::= SpecConstant;
+SymbolSExpr.	SExpr		::= Symbol;
+ParenSExpr.	SExpr		::= "(" [SExpr] ")";
+
+separator SExpr "";

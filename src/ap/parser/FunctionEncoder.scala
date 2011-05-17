@@ -194,7 +194,7 @@ object FunctionEncoder {
  * consists of the mapping from functions to relations (so far), as well as
  * the axioms that have been introduced for the relational encoding.
  */
-class FunctionEncoder {
+class FunctionEncoder (tightFunctionScopes : Boolean) {
   
   import FunctionEncoder._
   import IExpression._
@@ -368,9 +368,9 @@ class FunctionEncoder {
           val relevantDefs = for (p <- parts) 
                              yield findRelevantAbstractions(p, abstractions)
         
-//          val toplevelDefs = abstractions.toSet
-          
           val toplevelDefs = op match {
+            case _ if (!tightFunctionScopes) =>
+              abstractions.toSet
             case IBinJunctor.And =>
               // distribute all definitions
               Set[(IFunApp, Int, IAtom)]()
@@ -380,7 +380,7 @@ class FunctionEncoder {
               Set() ++ (for ((defs, p) <- relevantDefs.iterator zip parts.iterator;
                              if (!p.isInstanceOf[IBinFormula]);
                              d <- defs.iterator) yield d)
-          }
+          } 
 
           val subres = connect(
             for ((p, defs) <- parts.iterator zip relevantDefs.iterator) yield {

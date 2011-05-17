@@ -50,12 +50,14 @@ abstract class SoftwareInterpolationFramework {
   //////////////////////////////////////////////////////////////////////////////
   
   private val preludeEnv = new Environment
-  private val functionEncoder = new FunctionEncoder
+  private val functionEncoder =
+    new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT))
   
   private val (backgroundPred, preludeOrder) = Console.withOut(Console.err) {
     print("Reading prelude ... ")
     val reader = ResourceFiles.preludeReader
-    val (iBackgroundPredRaw, _, signature) = Parser2InputAbsy(reader, preludeEnv)
+    val (iBackgroundPredRaw, _, signature) =
+      new ApParser2InputAbsy(preludeEnv)(reader)
     reader.close
 
     val (iBackgroundFors, _, signature2) =
@@ -120,7 +122,7 @@ abstract class SoftwareInterpolationFramework {
   //////////////////////////////////////////////////////////////////////////////
 
   protected def parseProblem(reader : java.io.Reader) : (IFormula, Signature) = {
-    val (problem, _, sig) = Parser2InputAbsy(reader, preludeEnv.clone)
+    val (problem, _, sig) = new ApParser2InputAbsy(preludeEnv.clone)(reader)
     (problem, sig)
   }
 
@@ -414,7 +416,7 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
 
 class FrameworkVocabulary(preludeEnv : Environment) {
   private def lookupFun(n : String) = preludeEnv.lookupSym(n) match {
-    case Environment.Function(f) => f
+    case Environment.Function(f, _) => f
     case _ => throw new Error("Expected " + n + " to be defined as a function");
   }
   

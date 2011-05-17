@@ -20,7 +20,7 @@ TESTS="cryptarithm.pri \
        sameModule.pri sameModule2.pri sameModule3.pri \
        simpleEq0.pri simpleEq1.pri simpleEq2.pri simpleEq4.pri \
        simpleEq5.pri simpleEq6.pri simpleEq9.pri \
-       simplify19.key \
+       simplify19.pri \
        simplifyInequalities0.pri simplifyInequalities1.pri \
        simplifyInequalities2.pri simplifyInequalities3.pri \
        simplifyInequalities4.pri \

@@ -68,3 +68,9 @@ parser-jar:
 
 ApInput-pdf:
 	cd parser && $(MAKE) ApInput.pdf
+
+smt-parser-jar:
+	cd smt-parser && $(MAKE)
+
+smtlib-pdf:
+	cd smt-parser && $(MAKE) smtlib.pdf

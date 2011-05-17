@@ -39,7 +39,8 @@ object Preprocessing {
             signature : Signature,
             settings : PreprocessingSettings)
             : (List[INamedPart], List[IInterpolantSpec], Signature) =
-    apply(f, interpolantSpecs, signature, settings, new FunctionEncoder)
+    apply(f, interpolantSpecs, signature, settings,
+          new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings)))
 
   def apply(f : IFormula,
             interpolantSpecs : List[IInterpolantSpec],

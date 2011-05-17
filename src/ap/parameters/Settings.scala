@@ -45,6 +45,12 @@ object GlobalSettings {
       settings = arg match {
         case Opt("logo", value) =>
           Param.LOGO.set(settings, value)
+        case ValueOpt("inputFormat", "auto") =>
+          Param.INPUT_FORMAT.set(settings, Param.InputFormat.Auto)
+        case ValueOpt("inputFormat", "pri") =>
+          Param.INPUT_FORMAT.set(settings, Param.InputFormat.Princess)
+        case ValueOpt("inputFormat", "smtlib") =>
+          Param.INPUT_FORMAT.set(settings, Param.InputFormat.SMTLIB)
         case Opt("printTree", value) =>
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>
@@ -104,6 +110,8 @@ object GlobalSettings {
           Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.Total)
         case ValueOpt("functionGC", "all") =>
           Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.All)
+        case Opt("tightFunctionScopes", value) =>
+          Param.TIGHT_FUNCTION_SCOPES.set(settings, value)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -113,14 +121,15 @@ object GlobalSettings {
   }
   
   val allParams =
-    List(Param.LOGO, Param.ASSERTIONS, Param.PRINT_TREE, Param.PRINT_SMT_FILE,
+    List(Param.LOGO, Param.INPUT_FORMAT,
+         Param.ASSERTIONS, Param.PRINT_TREE, Param.PRINT_SMT_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
-         Param.ELIMINATE_INTERPOLANT_QUANTIFIERS)
+         Param.TIGHT_FUNCTION_SCOPES, Param.ELIMINATE_INTERPOLANT_QUANTIFIERS)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -142,7 +151,8 @@ object GoalSettings {
 object PreprocessingSettings {
 
   val allParams = List(Param.CLAUSIFIER,
-                       Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS)
+                       Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS,
+                       Param.TIGHT_FUNCTION_SCOPES)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())

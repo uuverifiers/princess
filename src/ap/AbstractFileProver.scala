@@ -22,7 +22,9 @@
 package ap;
 
 import ap.parameters._
-import ap.parser.{InputAbsy2Internal, Parser2InputAbsy, Preprocessing,
+import ap.parser.{InputAbsy2Internal,
+                  ApParser2InputAbsy, SMTParser2InputAbsy,
+                  Preprocessing,
                   FunctionEncoder, IExpression, INamedPart, IFunction,
                   IInterpolantSpec, Environment}
 import ap.terfor.{Formula, TermOrder}
@@ -51,9 +53,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           yield f
     }
   
+  private def newParser(env : Environment) = Param.INPUT_FORMAT(settings) match {
+    case Param.InputFormat.Princess => new ApParser2InputAbsy(env)
+    case Param.InputFormat.SMTLIB =>   new SMTParser2InputAbsy(env)
+  }
+  
   val (inputFormulas, interpolantSpecs, signature, gcedFunctions) = {
     val env = new Environment
-    val (f, interpolantSpecs, signature) = Parser2InputAbsy(reader, env)
+    val (f, interpolantSpecs, signature) = newParser(env)(reader)
     reader.close
     
     val preprocSettings =
@@ -65,7 +72,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       println("Preprocessing ...")
     }
     
-    val functionEnc = new FunctionEncoder
+    val functionEnc = new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings))
     
     val (inputFormulas, interpolantS, sig) =
       Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)

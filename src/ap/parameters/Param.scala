@@ -27,6 +27,15 @@ object Param {
     type Value = Boolean
     val defau : Boolean = true
   }
+
+  object InputFormat extends Enumeration {
+    val Auto, Princess, SMTLIB = Value
+  }
+
+  case object INPUT_FORMAT extends Param {
+    type Value = InputFormat.Value
+    val defau : InputFormat.Value = InputFormat.Auto
+  }
   
   case object ASSERTIONS extends Param {
     type Value = Boolean
@@ -120,6 +129,11 @@ object Param {
   case object FUNCTION_GC extends Param {
     type Value = FunctionGCOptions.Value
     val defau : FunctionGCOptions.Value = FunctionGCOptions.Total
+  }
+  
+  case object TIGHT_FUNCTION_SCOPES extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
   
   // even split propositional formulae that do not contain quantifiers or

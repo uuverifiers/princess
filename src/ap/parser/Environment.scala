@@ -38,7 +38,7 @@ object Environment {
   case class Constant(c : ConstantTerm, k : SymKind) extends DeclaredSym
   case class Variable(index : Int) extends DeclaredSym
   case class Predicate(pred : ap.terfor.preds.Predicate) extends DeclaredSym
-  case class Function(fun : IFunction) extends DeclaredSym
+  case class Function(fun : IFunction, encodesBool : Boolean) extends DeclaredSym
 
   class EnvironmentException(msg : String) extends Exception(msg)
 
@@ -111,14 +111,14 @@ class Environment {
     orderVar = orderVar extend pred
   }
   
-  def addFunction(fun : IFunction) : Unit =
-    addSym(fun.name, Function(fun))
+  def addFunction(fun : IFunction, encodesBool : Boolean = false) : Unit =
+    addSym(fun.name, Function(fun, encodesBool))
   
   def nullaryFunctions : Set[ConstantTerm] = constants(NullaryFunction)
   def universalConstants : Set[ConstantTerm] = constants(Universal)
   def existentialConstants : Set[ConstantTerm] = constants(Existential)
   def nonNullaryFunctions : Set[IFunction] =
-    Set.empty ++ (for (Function(f) <- signature.values) yield f)
+    Set.empty ++ (for (Function(f, _) <- signature.values) yield f)
   
   private def constants(kind : SymKind) : Set[ConstantTerm] = {
     val predicate : DeclaredSym => Boolean = {
