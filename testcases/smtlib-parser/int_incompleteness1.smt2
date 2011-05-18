@@ -6,6 +6,6 @@
 (set-info :notes |This benchmark is designed to check if the integer DP is complete.|)
 (declare-fun x1 () Int)
 (declare-fun x2 () Int)
-(assert (= (+ (* 3 x1) (* 3 x2)) 3))
+(assert (= (+ (* 3 x1) (* 3 x2)) 1))
 (check-sat)
 (exit)

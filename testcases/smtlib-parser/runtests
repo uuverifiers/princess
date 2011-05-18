@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# test the SMT-LIB parser
+
+PRI=../../princess
+
+TESTS="init-1.smt2 int_incompleteness1.smt2"
+
+$PRI "$@" $TESTS

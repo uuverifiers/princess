@@ -68,7 +68,7 @@ object SMTParser2InputAbsy {
    * everything else is considered as integers
    */
   object Type extends Enumeration {
-    val Bool, Int = Value
+    val Bool, Integer = Value
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -105,16 +105,16 @@ object SMTParser2InputAbsy {
   
   private def translateSort(s : Sort) : Type.Value = s match {
     case s : IdentSort => asString(s.identifier_) match {
-      case "Int" => Type.Int
+      case "Int" => Type.Integer
       case "Bool" => Type.Bool
       case id => {
         warn("treating sort " + (PrettyPrinter print s) + " as Int")
-        Type.Int
+        Type.Integer
       }
     }
     case s : CompositeSort => {
       warn("treating sort " + (PrettyPrinter print s) + " as Int")
-      Type.Int
+      Type.Integer
     }
   }
   
@@ -173,7 +173,6 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
 //      case cmd : FunctionDefCommand =>
 //      case cmd : PushCommand =>
 //      case cmd : PopCommand =>
-//      case cmd : AssertCommand =>
 //      case cmd : CheckSatCommand =>
 //      case cmd : ExitCommand =>
 
@@ -191,7 +190,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
           // use a real function
           env.addFunction(new IFunction(name, args.length, false, false),
                           res == Type.Bool)
-        else if (res == Type.Int)
+        else if (res == Type.Integer)
           // use a constant
           env.addConstant(new ConstantTerm(name), Environment.NullaryFunction)
         else
@@ -215,17 +214,74 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
 
   private def translateTerm(t : Term, polarity : Int)
                            : (IExpression, Type.Value) = t match {
-    case t : smtlib.Absyn.ConstantTerm => t.specconstant_ match {
-      case c : NumConstant => (i(IdealInt(c.numeral_)), Type.Int)
+    case t : smtlib.Absyn.ConstantTerm =>
+      (translateSpecConstant(t.specconstant_), Type.Integer)
+      
+    case t : NullaryTerm =>
+      symApp(t.symbolref_, List(), polarity)
+    case t : FunctionTerm =>
+      symApp(t.symbolref_, t.listterm_, polarity)
+
+    case t : QuantifierTerm => {
+      val quant : Quantifier = t.quantifier_ match {
+        case _ : AllQuantifier => Quantifier.ALL
+        case _ : ExQuantifier => Quantifier.EX
+      }
+
+      // add the bound variables to the environment and record their number
+      var quantNum : Int = 0
+      for (binder <- t.listsortedvariablec_) binder match {
+        case binder : SortedVariable => {
+          val sort = translateSort(binder.sort_)
+          assert(sort == Type.Integer)
+          env pushVar asString(binder.symbol_)
+          quantNum = quantNum + 1
+        }
+      }
+    
+      val res = quan(Array.fill(quantNum){quant},
+                     asFormula(translateTerm(t.term_, polarity)))
+
+      // pop the variables from the environment
+      for (_ <- PlainRange(quantNum)) env.popVar
+    
+      (res, Type.Bool)
     }
-    case t : NullaryTerm => symApp(t.symbolref_, List(), polarity)
-    case t : FunctionTerm => symApp(t.symbolref_, t.listterm_, polarity)
+    
+    case t : AnnotationTerm => {
+      val triggers = for (annot <- t.listannotation_.toList;
+                          val a = annot.asInstanceOf[AttrAnnotation];
+                          if (a.annotattribute_ == ":pattern")) yield {
+        a.attrparam_ match {
+          case p : SomeAttrParam => p.sexpr_ match {
+            case e : ParenSExpr => 
+              for (expr <- e.listsexpr_.toList) yield translateTrigger(expr)
+            case _ =>
+              throw new Parser2InputAbsy.TranslationException(
+                 "Expected list of patterns after \":pattern\"")
+          }
+          case _ : NoAttrParam =>
+            throw new Parser2InputAbsy.TranslationException(
+               "Expected trigger patterns after \":pattern\"")
+        }
+      }
+      
+      if (triggers.isEmpty)
+        translateTerm(t.term_, polarity)
+      else
+        ((asFormula(translateTerm(t.term_, polarity)) /: triggers) {
+           case (res, trigger) => ITrigger(trigger, res)
+         }, Type.Bool)
+    }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   private def symApp(sym : SymbolRef, args : Seq[Term], polarity : Int)
                     : (IExpression, Type.Value) = sym match {
     ////////////////////////////////////////////////////////////////////////////
-    // Hardcoded operations on formulae
+    // Hardcoded connectives of formulae
+    
     case PlainSymbol("true") => {
       checkArgNum("true", 0, args)
       (i(true), Type.Bool)
@@ -257,12 +313,15 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         throw new Parser2InputAbsy.TranslationException(
           "Operator \"=>\" has to be applied to at least one argument")
 
-      (connect((for (a <- args dropRight 1) yield
+      (connect((for (a <- args.init) yield
                  asFormula(translateTerm(a, -polarity))) ++
                List(asFormula(translateTerm(args.last, polarity))),
                IBinJunctor.Or),
        Type.Bool)
     }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Hardcoded predicates (which might also operate on booleans)
     
     case PlainSymbol("=") => {
       val transArgs = for (a <- args) yield translateTerm(a, 0)
@@ -270,23 +329,61 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
          connect(for (a <- transArgs) yield asFormula(a),
                  IBinJunctor.Eqv)
        else
-         connect(for (Seq(a, b) <- (transArgs map (asTerm _)) sliding 2)
+         connect(for (Seq(a, b) <- (transArgs map (asTerm(_, Type.Integer))) sliding 2)
                    yield (a === b),
                  IBinJunctor.And),
        Type.Bool)
     }
     
+    case PlainSymbol("distinct") => {
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      (if (transArgs forall (_._2 == Type.Bool)) transArgs.length match {
+         case 0 | 1 => true
+         case 2 => asTerm(transArgs(0)) =/= asTerm(transArgs(1))
+         case _ => false
+       } else {
+         connect(for (firstIndex <- 1 until transArgs.length;
+                      val firstTerm = asTerm(transArgs(firstIndex), Type.Integer);
+                      secondIndex <- 0 until firstIndex) yield {
+           firstTerm =/= asTerm(transArgs(secondIndex), Type.Integer)
+         }, IBinJunctor.And)
+       }, Type.Bool)
+    }
+    
+    case PlainSymbol("<=") =>
+      (translateChainablePred(args, _ <= _), Type.Bool)
+    case PlainSymbol("<") =>
+      (translateChainablePred(args, _ < _), Type.Bool)
+    case PlainSymbol(">=") =>
+      (translateChainablePred(args, _ >= _), Type.Bool)
+    case PlainSymbol(">") =>
+      (translateChainablePred(args, _ > _), Type.Bool)
+    
     ////////////////////////////////////////////////////////////////////////////
-    // Hardcoded operations on terms
+    // Hardcoded integer operations
 
     case PlainSymbol("+") =>
-      (sum(for (s <- flatten("+", args)) yield asTerm(translateTerm(s, 0))),
-       Type.Int)
-    
+      (sum(for (s <- flatten("+", args))
+             yield asTerm(translateTerm(s, 0), Type.Integer)),
+       Type.Integer)
+
+    case PlainSymbol("-") if (args.length == 1) =>
+      (-asTerm(translateTerm(args.head, 0), Type.Integer), Type.Integer)
+
+    case PlainSymbol("-") => {
+      if (args.size != 2)
+        throw new Parser2InputAbsy.TranslationException(
+          "Operator \"-\" has to be applied to one or two arguments")
+      (asTerm(translateTerm(args.head, 0), Type.Integer) -
+          asTerm(translateTerm(args.last, 0), Type.Integer),
+       Type.Integer)
+    }
+
     case PlainSymbol("*") =>
-      ((for (s <- flatten("*", args)) yield asTerm(translateTerm(s, 0)))
+      ((for (s <- flatten("*", args))
+          yield asTerm(translateTerm(s, 0), Type.Integer))
           reduceLeft (mult _),
-       Type.Int)
+       Type.Integer)
 
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
@@ -303,14 +400,77 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       case Environment.Function(fun, encodesBool) => {
         checkArgNum(PrettyPrinter print sym, fun.arity, args)
         (IFunApp(fun, for (a <- args) yield asTerm(translateTerm(a, 0))),
-         if (encodesBool) Type.Bool else Type.Int)
+         if (encodesBool) Type.Bool else Type.Integer)
       }
 
-      case Environment.Constant(c, _) => (c, Type.Int)
+      case Environment.Constant(c, _) => (c, Type.Integer)
       
-      case Environment.Variable(i) => (v(i), Type.Int)
+      case Environment.Variable(i) => (v(i), Type.Integer)
     }
         
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private def translateTrigger(expr : SExpr) : ITerm = expr match {
+    
+    case expr : ConstantSExpr => translateSpecConstant(expr.specconstant_)
+    
+    case expr : SymbolSExpr => (env lookupSym asString(expr.symbol_)) match {
+      case Environment.Predicate(_) =>
+        throw new Parser2InputAbsy.TranslationException(
+          "Predicate \"" + (PrettyPrinter print expr.symbol_) +
+          "\" cannot be handled in a trigger")
+      case Environment.Function(fun, _) => {
+        checkArgNumSExpr(PrettyPrinter print expr.symbol_,
+                         fun.arity, List[SExpr]())
+        IFunApp(fun, List())
+      }
+      case Environment.Constant(c, _) => c
+      case Environment.Variable(i) => v(i)
+    }
+    
+    case expr : ParenSExpr => {
+      if (expr.listsexpr_.isEmpty)
+        throw new Parser2InputAbsy.TranslationException(
+          "Expected a function application, not " + (PrettyPrinter print expr))
+      
+      expr.listsexpr_.head match {
+        case funExpr : SymbolSExpr => (env lookupSym asString(funExpr.symbol_)) match {
+          case Environment.Predicate(_) =>
+            throw new Parser2InputAbsy.TranslationException(
+              "Predicate \"" + (PrettyPrinter print funExpr.symbol_) +
+              "\" cannot be handled in a trigger")
+          case Environment.Function(fun, _) => {
+            val args = expr.listsexpr_.tail.toList
+            checkArgNumSExpr(PrettyPrinter print funExpr.symbol_, fun.arity, args)
+            IFunApp(fun, for (e <- args) yield translateTrigger(e))
+          }
+          case Environment.Constant(c, _) => {
+            checkArgNumSExpr(PrettyPrinter print funExpr.symbol_,
+                             0, expr.listsexpr_.tail)
+            c
+          }
+          case Environment.Variable(i) => {
+            checkArgNumSExpr(PrettyPrinter print funExpr.symbol_,
+                             0, expr.listsexpr_.tail)
+            v(i)
+          }
+        }
+      }
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private def translateSpecConstant(c : SpecConstant) = c match {
+    case c : NumConstant => i(IdealInt(c.numeral_))
+  }
+  
+  private def translateChainablePred(args : Seq[Term],
+                                     op : (ITerm, ITerm) => IFormula) : IFormula = {
+    val transArgs = for (a <- args) yield asTerm(translateTerm(a, 0))
+    connect(for (Seq(a, b) <- transArgs sliding 2) yield op(a, b), IBinJunctor.And)
   }
   
   private def flatten(op : String, args : Seq[Term]) : Seq[Term] =
@@ -320,6 +480,20 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
                 case _ => false
               }, SMTConnective))
     yield b
+
+  private def checkArgNum(op : => String, expected : Int, args : Seq[Term]) : Unit =
+    if (expected != args.size)
+      throw new Parser2InputAbsy.TranslationException(
+          "Operator \"" + op +
+          "\" is applied to a wrong number of arguments: " +
+          ((for (a <- args) yield (PrettyPrinter print a)) mkString ", "))
+  
+  private def checkArgNumSExpr(op : => String, expected : Int, args : Seq[SExpr]) : Unit =
+    if (expected != args.size)
+      throw new Parser2InputAbsy.TranslationException(
+          "Operator \"" + op +
+          "\" is applied to a wrong number of arguments: " +
+          ((for (a <- args) yield (PrettyPrinter print a)) mkString ", "))
   
   private object SMTConnective extends ASTConnective {
     def unapplySeq(t : Term) : scala.Option[Seq[Term]] = t match {
@@ -328,6 +502,8 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   private def asFormula(expr : (IExpression, Type.Value)) : IFormula = expr match {
     case (expr : IFormula, Type.Bool) =>
       expr
@@ -340,17 +516,19 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   }
 
   private def asTerm(expr : (IExpression, Type.Value)) : ITerm = expr match {
-    case (expr : ITerm, Type.Int) =>
+    case (expr : ITerm, _) =>
       expr
     case (expr, _) =>
       throw new Parser2InputAbsy.TranslationException(
                    "Expected a term, not " + expr)
   }
 
-  private def checkArgNum(op : String, expected : Int, args : Seq[Term]) : Unit =
-    if (expected != args.size)
+  private def asTerm(expr : (IExpression, Type.Value),
+                     expectedSort : Type.Value) : ITerm = expr match {
+    case (expr : ITerm, `expectedSort`) =>
+      expr
+    case (expr, _) =>
       throw new Parser2InputAbsy.TranslationException(
-          "Operator \"" + op +
-          "\" is applied to a wrong number of arguments: " +
-          ((for (a <- args) yield (PrettyPrinter print a)) mkString ", "))
+                   "Expected a term of type " + expectedSort + ", not " + expr)
+  }
 }

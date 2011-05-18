@@ -1,5 +1,7 @@
 #!/bin/sh
 
+./rundir smtlib-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
+
 ./rundir interpolation "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
 
 ./rundir allSettings "1" -logo +assert -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none

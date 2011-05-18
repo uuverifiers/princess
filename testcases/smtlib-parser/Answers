@@ -1,0 +1,30 @@
+Loading init-1.smt2 ...
+Warning: ignoring (set-logic AUFLIA)
+Warning: ignoring (set-info :source |
+      Tokeneer case study <http://www.adacore.com/home/products/gnatpro/tokeneer/>
+  |)
+Warning: ignoring (set-info :smt-lib-version 2.0)
+Warning: ignoring (set-info :category "industrial")
+Warning: ignoring (set-info :status unknown)
+Warning: ignoring (check-sat)
+Warning: ignoring (exit)
+Preprocessing ...
+Proving ...
+
+Formula is valid, resulting constraint:
+true
+
+Loading int_incompleteness1.smt2 ...
+Warning: ignoring (set-logic QF_LIA)
+Warning: ignoring (set-info :source | SMT-COMP'06 Organizers |)
+Warning: ignoring (set-info :smt-lib-version 2.0)
+Warning: ignoring (set-info :category "check")
+Warning: ignoring (set-info :status unsat)
+Warning: ignoring (set-info :notes |This benchmark is designed to check if the integer DP is complete.|)
+Warning: ignoring (check-sat)
+Warning: ignoring (exit)
+Preprocessing ...
+Constructing countermodel ...
+
+No countermodel exists, formula is valid
+
