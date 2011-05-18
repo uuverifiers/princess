@@ -4,7 +4,7 @@ BASEDIR:=$(shell pwd)
 EXTLIBSDIR:=$(BASEDIR)/extlibs
 
 SCALAC:=scalac
-SCALAC_OPTIONS:=-deprecation -unchecked -d $(BASEDIR)/bin -classpath $(BASEDIR)/parser/parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
+SCALAC_OPTIONS:=-deprecation -unchecked -d $(BASEDIR)/bin -classpath $(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
 
 CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
 
