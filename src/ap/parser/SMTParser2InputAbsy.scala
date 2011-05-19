@@ -179,9 +179,9 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       case cmd : FunctionDeclCommand => {
         // Functions are always declared to have integer inputs and outputs
         val name = asString(cmd.symbol_)
-        val args = cmd.mesorts_ match {
+        val args : Seq[Type.Value] = cmd.mesorts_ match {
           case sorts : SomeSorts =>
-            for (s <- sorts.listsort_.toList) yield translateSort(s)
+            for (s <- sorts.listsort_) yield translateSort(s)
           case _ : NoSorts =>
             List()
         }
@@ -233,7 +233,11 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       for (binder <- t.listsortedvariablec_) binder match {
         case binder : SortedVariable => {
           val sort = translateSort(binder.sort_)
-          assert(sort == Type.Integer)
+          if (sort != Type.Integer)
+            throw new Parser2InputAbsy.TranslationException(
+                 "Quantification of variables of type " +
+                 (PrettyPrinter print binder.sort_) +
+                 " is currently not supported")
           env pushVar asString(binder.symbol_)
           quantNum = quantNum + 1
         }
@@ -249,7 +253,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     }
     
     case t : AnnotationTerm => {
-      val triggers = for (annot <- t.listannotation_.toList;
+      val triggers = for (annot <- t.listannotation_;
                           val a = annot.asInstanceOf[AttrAnnotation];
                           if (a.annotattribute_ == ":pattern")) yield {
         a.attrparam_ match {
@@ -272,6 +276,54 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         ((asFormula(translateTerm(t.term_, polarity)) /: triggers) {
            case (res, trigger) => ITrigger(trigger, res)
          }, Type.Bool)
+    }
+    
+    /**
+     * If t is an integer term, let expression in positive position:
+     *   (let ((v t)) s)
+     *   ->
+     *   \forall int v; (v=t -> s)
+     * 
+     * If t is a formula, let expression in positive position:
+     *   (let ((v t)) s)
+     *   ->
+     *   \forall int v; ((t <-> v=0) -> s)
+     *   
+     * TODO: possible optimisation: use implications instead of <->, depending
+     * on the polarity of occurrences of v
+     */
+    case t : LetTerm => {
+      val bindings = for (b <- t.listbindingc_) yield {
+        val binding = b.asInstanceOf[Binding]
+        val (boundTerm, boundType) = translateTerm(binding.term_, 0)
+        (asString(binding.symbol_), boundType, boundTerm)
+      }
+      
+      for ((v, t, _) <- bindings) env.pushVar(v, t == Type.Bool)
+
+      val definingEqs =
+        connect(for (((_, t, s), i) <- bindings.iterator.zipWithIndex) yield {
+          val bv = v(bindings.length - i - 1)
+          t match {        
+            case Type.Integer =>
+              asTerm((s, t)) === bv
+            case Type.Bool    =>
+              asFormula((s, t)) <=> IIntFormula(IIntRelation.EqZero, bv)
+          }}, IBinJunctor.And)
+      val wholeBody@(body, bodyType) = translateTerm(t.term_, polarity)
+      
+      for (_ <- bindings) env.popVar
+
+      bodyType match {
+        case Type.Bool =>
+          (if (polarity > 0)
+            quan(Array.fill(bindings.length){Quantifier.ALL},
+                 definingEqs ==> asFormula(wholeBody))
+           else
+             quan(Array.fill(bindings.length){Quantifier.EX},
+                  definingEqs &&& asFormula(wholeBody)),
+           Type.Bool)
+      }
     }
   }
 
@@ -388,14 +440,11 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => (env lookupSym asString(id)) match {
- /*     case Environment.Predicate(pred) => {
-        if (pred.arity != 0)
-          throw new Parser2InputAbsy.TranslationException(
-              "Predicate " + pred +
-              "  arguments: " + (args mkString ", "))
-          
-        IAtom(pred, args)
-      } */
+      case Environment.Predicate(pred) => {
+        checkArgNum(PrettyPrinter print sym, pred.arity, args)
+        (IAtom(pred, for (a <- args) yield asTerm(translateTerm(a, 0))),
+         Type.Bool)
+      }
       
       case Environment.Function(fun, encodesBool) => {
         checkArgNum(PrettyPrinter print sym, fun.arity, args)
@@ -403,9 +452,11 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
          if (encodesBool) Type.Bool else Type.Integer)
       }
 
-      case Environment.Constant(c, _) => (c, Type.Integer)
+      case Environment.Constant(c, _) =>
+        (c, Type.Integer)
       
-      case Environment.Variable(i) => (v(i), Type.Integer)
+      case Environment.Variable(i, encodesBool) =>
+        (v(i), if (encodesBool) Type.Bool else Type.Integer)
     }
         
   }
@@ -417,17 +468,17 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     case expr : ConstantSExpr => translateSpecConstant(expr.specconstant_)
     
     case expr : SymbolSExpr => (env lookupSym asString(expr.symbol_)) match {
-      case Environment.Predicate(_) =>
-        throw new Parser2InputAbsy.TranslationException(
-          "Predicate \"" + (PrettyPrinter print expr.symbol_) +
-          "\" cannot be handled in a trigger")
       case Environment.Function(fun, _) => {
         checkArgNumSExpr(PrettyPrinter print expr.symbol_,
                          fun.arity, List[SExpr]())
         IFunApp(fun, List())
       }
       case Environment.Constant(c, _) => c
-      case Environment.Variable(i) => v(i)
+      case Environment.Variable(i, false) => v(i)
+      case _ =>
+        throw new Parser2InputAbsy.TranslationException(
+          "Unexpected symbol in a trigger: " +
+          (PrettyPrinter print expr.symbol_))
     }
     
     case expr : ParenSExpr => {
@@ -437,10 +488,6 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       
       expr.listsexpr_.head match {
         case funExpr : SymbolSExpr => (env lookupSym asString(funExpr.symbol_)) match {
-          case Environment.Predicate(_) =>
-            throw new Parser2InputAbsy.TranslationException(
-              "Predicate \"" + (PrettyPrinter print funExpr.symbol_) +
-              "\" cannot be handled in a trigger")
           case Environment.Function(fun, _) => {
             val args = expr.listsexpr_.tail.toList
             checkArgNumSExpr(PrettyPrinter print funExpr.symbol_, fun.arity, args)
@@ -451,11 +498,15 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
                              0, expr.listsexpr_.tail)
             c
           }
-          case Environment.Variable(i) => {
+          case Environment.Variable(i, false) => {
             checkArgNumSExpr(PrettyPrinter print funExpr.symbol_,
                              0, expr.listsexpr_.tail)
             v(i)
           }
+          case _ =>
+            throw new Parser2InputAbsy.TranslationException(
+              "Unexpected symbol in a trigger: " +
+              (PrettyPrinter print funExpr.symbol_))
         }
       }
     }
@@ -509,7 +560,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       expr
     case (expr : ITerm, Type.Bool) =>
       // then we assume that an integer encoding of boolean values was chosen
-      expr === 0
+      IIntFormula(IIntRelation.EqZero, expr)
     case (expr, _) =>
       throw new Parser2InputAbsy.TranslationException(
                    "Expected a formula, not " + expr)

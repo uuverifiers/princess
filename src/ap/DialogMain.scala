@@ -470,12 +470,12 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   
   leftPanel add Box.createRigidArea(new Dimension (8, 0))
   private val optionLabel = new JLabel("Options: ") {
-    override def getToolTipLocation(e : MouseEvent) = new Point (0, -480)
+    override def getToolTipLocation(e : MouseEvent) = new Point (0, -550)
   }
   leftPanel.add(optionLabel)
   
   val optionField = new JTextField {
-    override def getToolTipLocation(e : MouseEvent) = new Point (0, -480)
+    override def getToolTipLocation(e : MouseEvent) = new Point (0, -550)
   }
   controlPanel.add(optionField, BorderLayout.CENTER)
   
@@ -547,8 +547,9 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     val reader = new java.io.StringReader(inputField.getText)
     
     val settings = try {
-      GlobalSettings.fromArguments(optionField.getText.split(' '),
-                                   GlobalSettings.DEFAULT) _1
+      val initS =
+        Param.INPUT_FORMAT.set(GlobalSettings.DEFAULT, Param.InputFormat.Princess)
+      GlobalSettings.fromArguments(optionField.getText.split(' '), initS) _1
     } catch {
       case e : CmdlParser.UnknownArgumentException => {
         outputField setText asString {

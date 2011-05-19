@@ -36,7 +36,7 @@ object Environment {
 
   abstract sealed class DeclaredSym
   case class Constant(c : ConstantTerm, k : SymKind) extends DeclaredSym
-  case class Variable(index : Int) extends DeclaredSym
+  case class Variable(index : Int, encodesBool : Boolean) extends DeclaredSym
   case class Predicate(pred : ap.terfor.preds.Predicate) extends DeclaredSym
   case class Function(fun : IFunction, encodesBool : Boolean) extends DeclaredSym
 
@@ -51,8 +51,10 @@ class Environment {
   /** The declared symbols */
   private val signature = new scala.collection.mutable.HashMap[String, DeclaredSym]
   
-  /** The variables bound at the present point */
-  private val context = new scala.collection.mutable.ArrayBuffer[String]
+  /** The variables bound at the present point, together with a flag
+   *  telling whether the variables represent integers or booleans */
+  private val context =
+    new scala.collection.mutable.ArrayBuffer[(String, Boolean)]
   
   /** A <code>TermOrder</code> containing all declared constants */
   private var orderVar = TermOrder.EMPTY
@@ -82,13 +84,17 @@ class Environment {
     res
   }
   
-  def lookupSym(name : String) : DeclaredSym = (context lastIndexOf name) match {
-    case -1 => (signature get name) match {
-      case Some(t) => t
-      case None => throw new EnvironmentException("Symbol " + name + " not declared")
+  def lookupSym(name : String) : DeclaredSym =
+    (context lastIndexWhere (_._1 == name)) match {
+      case -1 => (signature get name) match {
+        case Some(t) =>
+          t
+        case None =>
+          throw new EnvironmentException("Symbol " + name + " not declared")
+      }
+      case index =>
+        Variable(context.size - index - 1, context(index)._2)
     }
-    case index => Variable(context.size - index - 1)
-  }
   
   def addConstant(c : ConstantTerm, kind : SymKind) : Unit = {
     addSym(c.name, Constant(c, kind))
@@ -136,7 +142,8 @@ class Environment {
     else
       signature += (name -> t)
   
-  def pushVar(name : String) : Unit = (context += name)
+  def pushVar(name : String, encodesBool : Boolean = false) : Unit =
+    context += ((name, encodesBool))
 
   def popVar : Unit =
     if (context isEmpty)

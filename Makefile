@@ -39,6 +39,7 @@ jar: scala-src
 dist: jar
 	$(shell cp bin/princess.jar dist/)
 	$(shell cp parser/parser.jar dist/)
+	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	java -jar $(PROGUARDJAR) @princess-proguard.pro

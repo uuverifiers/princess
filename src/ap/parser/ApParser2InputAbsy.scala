@@ -398,7 +398,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         c
       }
       
-      case Environment.Variable(i) => {
+      case Environment.Variable(i, _) => {
         f.optargs_ match {
           case _ : Args =>
             throw new Parser2InputAbsy.TranslationException(

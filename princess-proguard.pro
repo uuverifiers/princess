@@ -10,6 +10,7 @@
 -injars dist/princess.jar
 -injars dist/java-cup-11a.jar
 -injars dist/parser.jar
+-injars dist/smt-parser.jar
 -injars dist/scala-library.jar(!META-INF/**)
 -libraryjars /usr/share/java/ant.jar
 -outjars dist/princess-all.jar

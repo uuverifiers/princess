@@ -4,6 +4,9 @@
 
 PRI=../../princess
 
-TESTS="init-1.smt2 int_incompleteness1.smt2"
+TESTS="bignum_quant.smt2 \
+       int_incompleteness1.smt2 int_incompleteness2.smt2 \
+       int_incompleteness3.smt2 \
+       init-1.smt2 MULTIPLIER_2.msat.smt2"
 
 $PRI "$@" $TESTS
