@@ -3,6 +3,7 @@
 (set-info :smt-lib-version 2.0)
 (set-info :category "industrial")
 (set-info :status unsat)
+(set-option :boolean-functions-as-predicates true)
 (declare-fun s_0 (Int) Bool)
 (declare-fun s_1 (Int) Bool)
 (declare-fun s_2 (Int) Bool)

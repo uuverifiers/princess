@@ -130,6 +130,42 @@ object SMTParser2InputAbsy {
       case _ => None
     }
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private object LetInlineVisitor
+          extends CollectingVisitor[(List[IExpression], Int), IExpression] {
+
+    override def preVisit(t : IExpression,
+                          substShift : (List[IExpression], Int)) : PreVisitResult = {
+      val (subst, shift) = substShift
+      t match {
+        case IVariable(index)
+          if (index < subst.size && subst(index).isInstanceOf[ITerm]) =>
+          ShortCutResult(subst(index))
+
+        case IVariable(index)
+          if (index >= subst.size) =>
+          ShortCutResult(IVariable(index + shift))
+
+        case IIntFormula(IIntRelation.EqZero, IVariable(index))
+          if (index < subst.size && subst(index).isInstanceOf[IFormula]) =>
+          ShortCutResult(subst(index))
+          
+        case IQuantified(_, _) => {
+          val (subst, shift) = substShift
+          val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
+          UniSubArgs((IVariable(0) :: newSubst, shift))
+        }
+        case _ => KeepArg
+      }
+    }
+
+    def postVisit(t : IExpression,
+                  substShift : (List[IExpression], Int),
+                  subres : Seq[IExpression]) : IExpression = t update subres
+  }
+
 }
 
 
@@ -160,13 +196,38 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     apply(parseWithEntry(input, env, entry _))
   }
 
+  /**
+   * Translate boolean-valued functions as predicates or as functions? 
+   */
+  private var booleanFunctionsAsPredicates = false
+  /**
+   * Inline all let-expressions?
+   */
+  private var inlineLetExpressions = true
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private object BooleanParameter {
+    def unapply(param : AttrParam) : scala.Option[Boolean] = param match {
+      case param : SomeAttrParam => param.sexpr_ match {
+        case expr : SymbolSExpr =>
+          asString(expr.symbol_) match {
+            case "true" => Some(true)
+            case "false" => Some(false)
+            case _ => None
+          }
+        case _ => None
+      }
+      case _ : NoAttrParam => None
+    }
+  }
+  
   private def apply(script : Script)
                    : (IFormula, List[IInterpolantSpec], Signature) = {
     var assumptions : IFormula = true
     
     for (cmd <- script.listcommand_) cmd match {
 //      case cmd : SetLogicCommand =>
-//      case cmd : SetOptionCommand =>
 //      case cmd : SetInfoCommand =>
 //      case cmd : SortDeclCommand =>
 //      case cmd : SortDefCommand =>
@@ -176,6 +237,37 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
 //      case cmd : CheckSatCommand =>
 //      case cmd : ExitCommand =>
 
+      //////////////////////////////////////////////////////////////////////////
+      
+      case cmd : SetOptionCommand => {
+        val annot = cmd.optionc_.asInstanceOf[Option]
+                                .annotation_.asInstanceOf[AttrAnnotation]
+        annot.annotattribute_ match {
+          case ":boolean-functions-as-predicates" => annot.attrparam_ match {
+            case BooleanParameter(value) =>
+              booleanFunctionsAsPredicates = value
+            case _ =>
+              throw new Parser2InputAbsy.TranslationException(
+                 "Expected a boolean parameter after option " +
+                 ":boolean-functions-as-predicates")
+          }
+          
+          case ":inline-let" => annot.attrparam_ match {
+            case BooleanParameter(value) =>
+              inlineLetExpressions = value
+            case _ =>
+              throw new Parser2InputAbsy.TranslationException(
+                 "Expected a boolean parameter after option " +
+                 ":inline-let")
+          }
+          
+          case opt =>
+            warn("ignoring option " + opt)
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+      
       case cmd : FunctionDeclCommand => {
         // Functions are always declared to have integer inputs and outputs
         val name = asString(cmd.symbol_)
@@ -186,11 +278,15 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
             List()
         }
         val res = translateSort(cmd.sort_)
-        if (args.length > 0)
-          // use a real function
-          env.addFunction(new IFunction(name, args.length, false, false),
-                          res == Type.Bool)
-        else if (res == Type.Integer)
+        if (args.length > 0) {
+          if (!booleanFunctionsAsPredicates || res != Type.Bool)
+            // use a real function
+            env.addFunction(new IFunction(name, args.length, false, false),
+                            res == Type.Bool)
+          else
+            // use a predicate
+            env.addPredicate(new Predicate(name, args.length))
+        } else if (res == Type.Integer)
           // use a constant
           env.addConstant(new ConstantTerm(name), Environment.NullaryFunction)
         else
@@ -198,11 +294,15 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
           env.addPredicate(new Predicate(name, 0))
       }
 
+      //////////////////////////////////////////////////////////////////////////
+      
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
         assumptions = assumptions &&& f
       }
 
+      //////////////////////////////////////////////////////////////////////////
+      
       case _ =>
         warn("ignoring " + (PrettyPrinter print cmd))
     }
@@ -301,7 +401,23 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       
       for ((v, t, _) <- bindings) env.pushVar(v, t == Type.Bool)
 
-      val definingEqs =
+      val wholeBody@(body, bodyType) = translateTerm(t.term_, polarity)
+      
+      for (_ <- bindings) env.popVar
+
+      //////////////////////////////////////////////////////////////////////////
+      
+      if (inlineLetExpressions) {
+        // then we directly inline the bound formulae and terms
+        
+        val subst = for ((_, t, s) <- bindings.toList.reverse) yield t match {
+          case Type.Integer => asTerm((s, t))
+          case Type.Bool    => asFormula((s, t))
+        }
+        
+        (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
+      } else {
+        val definingEqs =
         connect(for (((_, t, s), i) <- bindings.iterator.zipWithIndex) yield {
           val bv = v(bindings.length - i - 1)
           t match {        
@@ -310,10 +426,8 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
             case Type.Bool    =>
               asFormula((s, t)) <=> IIntFormula(IIntRelation.EqZero, bv)
           }}, IBinJunctor.And)
-      val wholeBody@(body, bodyType) = translateTerm(t.term_, polarity)
-      
-      for (_ <- bindings) env.popVar
 
+      
       bodyType match {
         case Type.Bool =>
           (if (polarity > 0)
@@ -323,6 +437,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
              quan(Array.fill(bindings.length){Quantifier.EX},
                   definingEqs &&& asFormula(wholeBody)),
            Type.Bool)
+      }
       }
     }
   }
@@ -366,7 +481,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
           "Operator \"=>\" has to be applied to at least one argument")
 
       (connect((for (a <- args.init) yield
-                 asFormula(translateTerm(a, -polarity))) ++
+                 !asFormula(translateTerm(a, -polarity))) ++
                List(asFormula(translateTerm(args.last, polarity))),
                IBinJunctor.Or),
        Type.Bool)
