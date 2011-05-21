@@ -359,7 +359,18 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         a.attrparam_ match {
           case p : SomeAttrParam => p.sexpr_ match {
             case e : ParenSExpr => 
-              for (expr <- e.listsexpr_.toList) yield translateTrigger(expr)
+              for (expr <- e.listsexpr_.toList;
+                   val transTriggers = {
+                     try { List(translateTrigger(expr)) }
+                     catch { case _ : TranslationException |
+                                  _ : Environment.EnvironmentException => {
+                       warn("could not parse trigger " +
+                            (PrettyPrinter print expr) +
+                            ", ignoring")
+                       List()
+                     } }
+                   };
+                   t <- transTriggers) yield t
             case _ =>
               throw new Parser2InputAbsy.TranslationException(
                  "Expected list of patterns after \":pattern\"")
