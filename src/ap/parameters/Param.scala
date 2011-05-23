@@ -133,7 +133,7 @@ object Param {
   
   case object TIGHT_FUNCTION_SCOPES extends Param {
     type Value = Boolean
-    val defau : Boolean = false
+    val defau : Boolean = true
   }
   
   // even split propositional formulae that do not contain quantifiers or
