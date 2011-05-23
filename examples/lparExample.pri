@@ -1,3 +1,9 @@
+/**
+ * Example used in the LPAR 2008 paper
+ * "A Constraint Sequent Calculus for First-Order Logic
+ *  with Linear Integer Arithmetic"
+ */
+
 \predicates {
   p(int);
 }
