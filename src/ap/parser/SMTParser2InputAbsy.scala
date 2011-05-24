@@ -204,6 +204,18 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
    * Inline all let-expressions?
    */
   private var inlineLetExpressions = true
+  /**
+   * Totality axioms?
+   */
+  private var totalityAxiom = true
+  /**
+   * Functionality axioms?
+   */
+  private var functionalityAxiom = true
+  /**
+   * Set up things for interpolant generation?
+   */
+  private var genInterpolants = false
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -224,7 +236,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   
   private def apply(script : Script)
                    : (IFormula, List[IInterpolantSpec], Signature) = {
-    var assumptions : IFormula = true
+    val assumptions = new ArrayBuffer[IFormula]
     
     for (cmd <- script.listcommand_) cmd match {
 //      case cmd : SetLogicCommand =>
@@ -240,6 +252,10 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       //////////////////////////////////////////////////////////////////////////
       
       case cmd : SetOptionCommand => {
+        def noBooleanParam(option : String) =
+          throw new Parser2InputAbsy.TranslationException(
+              "Expected a boolean parameter after option " + option)
+        
         val annot = cmd.optionc_.asInstanceOf[Option]
                                 .annotation_.asInstanceOf[AttrAnnotation]
         annot.annotattribute_ match {
@@ -247,18 +263,28 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
             case BooleanParameter(value) =>
               booleanFunctionsAsPredicates = value
             case _ =>
-              throw new Parser2InputAbsy.TranslationException(
-                 "Expected a boolean parameter after option " +
-                 ":boolean-functions-as-predicates")
+              noBooleanParam(":boolean-functions-as-predicates")
           }
           
           case ":inline-let" => annot.attrparam_ match {
             case BooleanParameter(value) =>
               inlineLetExpressions = value
             case _ =>
-              throw new Parser2InputAbsy.TranslationException(
-                 "Expected a boolean parameter after option " +
-                 ":inline-let")
+               noBooleanParam(":inline-let")
+          }
+          
+          case ":totality-axiom" => annot.attrparam_ match {
+            case BooleanParameter(value) =>
+              totalityAxiom = value
+            case _ =>
+               noBooleanParam(":totality-axiom")
+          }
+          
+          case ":functionality-axiom" => annot.attrparam_ match {
+            case BooleanParameter(value) =>
+              functionalityAxiom = value
+            case _ =>
+               noBooleanParam(":functionality-axiom")
           }
           
           case opt =>
@@ -281,7 +307,8 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         if (args.length > 0) {
           if (!booleanFunctionsAsPredicates || res != Type.Bool)
             // use a real function
-            env.addFunction(new IFunction(name, args.length, false, false),
+            env.addFunction(new IFunction(name, args.length,
+                                          !totalityAxiom, !functionalityAxiom),
                             res == Type.Bool)
           else
             // use a predicate
@@ -298,16 +325,33 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
-        assumptions = assumptions &&& f
+        assumptions += f
       }
 
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetInterpolantsCommand =>
+        genInterpolants = true
+      
       //////////////////////////////////////////////////////////////////////////
       
       case _ =>
         warn("ignoring " + (PrettyPrinter print cmd))
     }
 
-    (!assumptions, List(), env.toSignature)
+    val (assumptionFormula, interpolantSpecs) =
+      if (genInterpolants) {
+        val namedParts = (for ((a, i) <- assumptions.iterator.zipWithIndex)
+                          yield INamedPart(new PartName ("p" + i), a)).toList
+        val names = for(part <- namedParts) yield part.name
+        val interSpecs = (for(i <- 1 until names.length)
+                          yield new IInterpolantSpec(names take i, names drop i)).toList
+        (connect(namedParts, IBinJunctor.And), interSpecs)
+      } else {
+        (connect(assumptions, IBinJunctor.And), List())
+      }
+    
+    (!assumptionFormula, interpolantSpecs, env.toSignature)
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -124,6 +124,7 @@ class InputDialog extends JPanel {
   }
   
   addMenuItem("New tab") { defaultNewTab }
+  addMenuItem("New SMT-LIB tab") { defaultSMTNewTab }
   
   addMenuItem("Duplicate tab") {
     val i = tabbedPane.getSelectedIndex
@@ -162,7 +163,9 @@ class InputDialog extends JPanel {
       case JFileChooser.APPROVE_OPTION => {
         val file = loadFileChooser.getSelectedFile
         val reader = new java.io.BufferedReader (new java.io.FileReader(file))
-        newTabWithInput(file.getName, "", asString {
+        val options =
+          if (file.getName endsWith ".smt2") "-inputFormat=smtlib" else ""
+        newTabWithInput(file.getName, options, asString {
           var str = reader.readLine
           while (str != null) {
             println(str)
@@ -303,6 +306,36 @@ class InputDialog extends JPanel {
       println("}")
     })
 
+  private def defaultSMTNewTab =
+    newTabWithInput("Problem " + (createdTabs + 1), "-inputFormat=smtlib", asString {
+     println("(set-logic AUFLIA)")
+     println
+     println(";; Set some options")
+     println(";; The options affect all sub-sequent commands,")
+     println(";; and can be specified more than once in a problem")
+     println
+     println(";; Translate boolean functions as predicates, or as functions?")
+     println(";; (set-option :boolean-functions-as-predicates true) ; default: false")
+     println
+     println(";; Inline let-expressions, or encode them using quantifiers?")
+     println(";; (set-option :inline-let false) ; default: true")
+     println
+     println(";; Introduce totality axiom for functions?")
+     println(";; (set-option :totality-axiom false) ; default: true")
+     println
+     println(";; Introduce functionality axiom for functions?")
+     println(";; (set-option :functionality-axiom false) ; default: true")
+     println
+     println(";; Declare functions and constants")
+     println(";; (declare-fun f (Int) Int)")
+     println(";; (declare-fun p (Int Int) Bool)")
+     println(";; (declare-fun c () Int)")
+     println
+     println("(assert true)")
+     println("(check-sat)")
+     println("; (get-interpolants) ; also generate Craig interpolants?")
+    })
+
   private var createdTabs = 0
   
   //////////////////////////////////////////////////////////////////////////////
@@ -396,6 +429,20 @@ class InputDialog extends JPanel {
     println("}")
     println
     println("\\interpolant {p0, p1; p2, p3}")
+  })
+  
+  newTabWithInput("SMT-LIB example", "-inputFormat=smtlib", asString{
+    println("(set-logic AUFLIA)")
+    println("(declare-fun a () Int)")
+    println("(declare-fun p (Int) Bool)")
+    println
+    println("(assert (forall ((x Int)) (p (* 2 x))))")
+    println("(assert (forall ((x Int)) (not (p (+ (* 2 x) 1)))))")
+    println
+    println("(assert (p a))")
+    println("(assert (not (p (+ a 10))))")
+    println
+    println("(check-sat)")
   })
   
   tabbedPane setSelectedIndex 0
