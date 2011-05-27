@@ -1,6 +1,7 @@
 #!/bin/sh
 
-BASEDIR=`dirname $0`
+ABSEXECUTABLE=`readlink -m $0`
+BASEDIR=`dirname $ABSEXECUTABLE`
 EXTLIBSDIR=$BASEDIR/extlibs
 
 export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
