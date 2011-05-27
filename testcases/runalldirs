@@ -1,10 +1,10 @@
 #!/bin/sh
 
-./rundir werePrincess ""
-
 ./rundir smtlib-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution
 
 ./rundir interpolation "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
+
+./rundir werePrincess ""
 
 ./rundir allSettings "1" -logo +assert -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
 ./rundir allSettings "2" -logo +assert -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
