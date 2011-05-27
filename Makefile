@@ -49,7 +49,9 @@ signed-dist: dist
 
 clean:
 	rm -rf bin
+	rm dist/*.jar
 	cd parser && $(MAKE) clean
+	cd smt-parser && $(MAKE) clean
 
 scala-src:
 	$(shell [ -d bin ] || mkdir bin)
