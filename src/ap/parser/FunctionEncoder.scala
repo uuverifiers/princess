@@ -69,25 +69,39 @@ object FunctionEncoder {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private class TriggerVisitor(frame : AbstractionFrame)
+  private class TriggerVisitor(frame : AbstractionFrame,
+                               var localAbstractionIndex : Int)
                 extends CollectingVisitor[ITerm, ITerm] {
     
     val occurringApps = new scala.collection.mutable.HashSet[IFunApp]
-
+    
+    // we potentially introduce local abstractions when scanning triggers
+    // containing terms that are not part of the matrix of the quantified
+    // formula
+    val localAbstractions = new AbstractionFrame(null, frame.depth)
+    
     def postVisit(t : IExpression, trigger : ITerm, subres : Seq[ITerm]) : ITerm =
       t match {
         case t : IFunApp => {
           val updatedT = t update subres
           val (shiftedT, definingFrame) = selectFrameFor(updatedT, frame)
           if (frame eq definingFrame) occurringApps += updatedT
-          val abstractionNums = definingFrame.abstractions.getOrElse( shiftedT,
-            throw new Preprocessing.PreprocessingException(
-              "Trigger has to occur in body of quantified formula: " + trigger))
-          if (abstractionNums.size > 1)
-            throw new Preprocessing.PreprocessingException(
-              "Ambiguous trigger for relational function: " + trigger)
-          val abstractionNum = abstractionNums.head
-          v(abstractionNum + frame.depth - definingFrame.depth)
+          
+          (definingFrame.abstractions get shiftedT) match {
+            case Some(abstractionNums) => {
+              if (abstractionNums.size > 1)
+                throw new Preprocessing.PreprocessingException(
+                  "Ambiguous trigger for relational function: " + trigger)
+              v(abstractionNums.head + frame.depth - definingFrame.depth)
+            }
+            case None =>
+              // otherwise we have to introduce a local abstraction
+              v(localAbstractions.getAbstraction(t, {
+                val res = localAbstractionIndex
+                localAbstractionIndex = localAbstractionIndex + 1
+                res
+              }))
+          }
         }
         case t : ITerm => t update subres
         case _ => 
@@ -115,6 +129,34 @@ object FunctionEncoder {
     // the number of all quantifiers above this point
     val depth : Int =
       (if (prevFrame == null) 0 else prevFrame.depth) + quantifierNum
+  
+    def getAbstraction(t : IFunApp, newGlobalAbstractionIndex : => Int) : Int = {
+      def allocNewAbstraction = {
+        val localIndex = newGlobalAbstractionIndex + depth
+        abstractions =
+          abstractions + (t -> (abstractions.getOrElse(t, Set()) + localIndex))
+        abstractionList =
+          (t, localIndex) :: abstractionList
+        localIndex
+      }
+      
+      if (t.fun.relational)
+        // We use a new definition for each occurrence of a relational
+        // function
+        allocNewAbstraction
+      else
+        // Check whether a definition for this function application already
+        // exists
+        (abstractions get t) match {
+          case Some(s) => {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(FunctionEncoder.AC, s.size == 1)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            s.head
+          }
+          case None => allocNewAbstraction
+        }
+    }
   }
 
   /**
@@ -276,35 +318,12 @@ class FunctionEncoder (tightFunctionScopes : Boolean) {
     def abstractFunApp(t : IFunApp, frame : AbstractionFrame) : IVariable = {
       val (shiftedT, definingFrame) = selectFrameFor(t, frame)    
     
-      def allocNewAbstraction = {
-        val localIndex = nextAbstractionNum + definingFrame.depth
+      val localVarIndex = definingFrame.getAbstraction(shiftedT, {
+        val res = nextAbstractionNum
         nextAbstractionNum = nextAbstractionNum + 1
-        definingFrame.abstractions =
-          definingFrame.abstractions +
-          (shiftedT -> (definingFrame.abstractions.getOrElse(shiftedT, Set()) + localIndex))
-        definingFrame.abstractionList =
-          (shiftedT, localIndex) :: definingFrame.abstractionList
-        localIndex
-      }
+        res
+      })
       
-      val localVarIndex =
-        if (t.fun.relational)
-          // We use a new definition for each occurrence of a relational
-          // function
-          allocNewAbstraction
-        else
-          // Check whether a definition for this function application already
-          // exists
-          (definingFrame.abstractions get shiftedT) match {
-            case Some(s) => {
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              Debug.assertInt(FunctionEncoder.AC, s.size == 1)
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              s.iterator.next
-            }
-            case None => allocNewAbstraction
-          }
-    
       v(localVarIndex + frame.depth - definingFrame.depth)
     }
 
@@ -502,11 +521,14 @@ class FunctionEncoder (tightFunctionScopes : Boolean) {
             val innerQuans = Array.fill(c.a.frame.quantifierNum){Quantifier.EX}
             
             connect(for (exprs <- actualTriggers.iterator) yield {
-               val triggerVisitor = new TriggerVisitor(c.a.frame)
+               val triggerVisitor = new TriggerVisitor(c.a.frame, nextAbstractionNum)
                for (e <- exprs) triggerVisitor.visit(e, e)
-               val withDefs = addAbstractionDefs(abstracted.asInstanceOf[IFormula],
-                                                 triggerVisitor.occurringApps,
-                                                 frame.abstractionList, true)
+               val withDefs =
+                 addAbstractionDefs(abstracted.asInstanceOf[IFormula],
+                                    triggerVisitor.occurringApps,
+                                    frame.abstractionList :::
+                                      triggerVisitor.localAbstractions.abstractionList,
+                                    true)
                quan(innerQuans, withDefs)
             }, IBinJunctor.Or)
           }
