@@ -22,7 +22,7 @@
 package ap.parser;
 
 import ap.basetypes.IdealInt
-import ap.terfor.{TerFor, Formula, Term, VariableTerm, TermOrder}
+import ap.terfor.{TerFor, Formula, Term, VariableTerm, OneTerm, TermOrder}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
@@ -30,135 +30,128 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.inequalities.InEqConj
 import ap.util.Debug
 
-import scala.collection.mutable.{ArrayBuffer, Stack}
+import scala.collection.mutable.{ArrayBuffer, ArrayStack => Stack}
 
 object InputAbsy2Internal {
   private val AC = Debug.AC_INPUT_ABSY
   
-  def apply(expr : IExpression, order : TermOrder) : TerFor =
-    new InputAbsy2Internal(order).visit(expr, 0).simplify(order) match {
-      case r : TermResult => r.asTerm
-      case r : FormulaResult => r.asFormula
-    }
-
-  def apply(expr : ITerm, order : TermOrder) : Term =
-    apply(expr.asInstanceOf[IExpression], order).asInstanceOf[Term]
-
-  def apply(expr : IFormula, order : TermOrder) : Formula =
-    apply(expr.asInstanceOf[IExpression], order).asInstanceOf[Formula]
-}
-
-private class InputAbsy2Internal(order : TermOrder)
-        extends CollectingVisitor[Unit, ConversionResult] {
-
-  private def binResult(op : BinOp, subres : Seq[ConversionResult]) =
-    BinResult(op,
-              subres(0).simplifyIfOpChanged(op, order),
-              subres(1).simplifyIfOpChanged(op, order))    
-        
-  def postVisit(t : IExpression, arg : Unit, subres : Seq[ConversionResult])
-                                                   : ConversionResult =
-    t match {
-      case IIntLit(v) =>
-        TermResult(LinearCombination(v))
-      case IConstant(c) =>
-        TermResult(c)
-      case IVariable(i) =>
-        TermResult(VariableTerm(i))
-      case ITimes(c, _) =>
-        TermResult(LinearCombination(List((c, subres(0).asTerm(order))), order))
-      case _ : IPlus =>
-        binResult(PlusOp, subres)
-      case IBoolLit(true) =>
-        FormulaResult(Conjunction.TRUE)
-      case IBoolLit(false) =>
-        FormulaResult(Conjunction.FALSE)
-      case _ : INot =>
-        FormulaResult(Conjunction.negate(subres(0).asFormula(order), order))
-      case IBinFormula(IBinJunctor.And, _, _) =>
-        binResult(AndOp, subres)
-      case IBinFormula(IBinJunctor.Or, _, _) =>
-        binResult(OrOp, subres)
-      case IAtom(pred, _) =>
-        FormulaResult(Atom(pred,
-                           for (r <- subres.iterator)
-                             yield LinearCombination(r.asTerm(order), order),
-                           order))
-      case IIntFormula(IIntRelation.EqZero, _) =>
-        FormulaResult(EquationConj(LinearCombination(subres(0).asTerm(order), order),
-                                   order))
-      case IIntFormula(IIntRelation.GeqZero, _) =>
-        FormulaResult(InEqConj(LinearCombination(subres(0).asTerm(order), order),
-                               order))
-      case IQuantified(quan, _) =>
-        FormulaResult(Conjunction.quantify(List(quan), subres(0).asFormula(order),
-                                           order))
-      case INamedPart(_, _) =>
-        // names are just ignored
-        subres(0)
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-      
-private abstract class ConversionResult {
-  def simplify(order : TermOrder) : SimpleResult
-  def asTerm(order : TermOrder) : Term = this.simplify(order).asTerm
-  def asFormula(order : TermOrder) : Formula = this.simplify(order).asFormula
-  def simplifyIfOpChanged(newOp : BinOp, order : TermOrder) : ConversionResult = this
-}
-
-private abstract class SimpleResult extends ConversionResult {
-  def simplify(order : TermOrder) : SimpleResult = this
-  def asFormula : Formula = throw new UnsupportedOperationException
-  def asTerm : Term = throw new UnsupportedOperationException  
-}
-
-private case class TermResult(override val asTerm : Term) extends SimpleResult
-private case class FormulaResult(override val asFormula : Formula) extends SimpleResult
-
-private case class BinResult(op : BinOp, r1 : ConversionResult, r2 : ConversionResult)
-                   extends ConversionResult with Iterable[SimpleResult] {
-  def iterator = new Iterator[SimpleResult] {
-    private val todo = new Stack[ConversionResult]
-    todo push BinResult.this
-    
-    def hasNext = !todo.isEmpty
-    
-    def next = todo.pop match {
-      case BinResult(`op`, left, right) => {
-        todo push right
-        todo push left
-        next
-      }
-      case x : SimpleResult => x
-    }
+  def apply(expr : IExpression, order : TermOrder) : TerFor = expr match {
+    case expr : ITerm => apply(expr, order)
+    case expr : IFormula => apply(expr, order)
   }
 
-  def simplify(order : TermOrder) : SimpleResult = op(this.iterator, order)
+  def apply(expr : ITerm, order : TermOrder) : Term =
+    new InputAbsy2Internal(order).translateLinComb(expr)
 
-  override def simplifyIfOpChanged(newOp : BinOp, order : TermOrder) =
-    if (op == newOp) this else simplify(order)
+  def apply(expr : IFormula, order : TermOrder) : Formula =
+    new InputAbsy2Internal(order).translateFor(expr)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-           
-private abstract class BinOp {
-  def apply(els : Iterator[SimpleResult], order : TermOrder) : SimpleResult
-}
+private class InputAbsy2Internal(order : TermOrder) {
+  
+  import IExpression._
+  
+  private val inputStack = new Stack[IExpression]
+  
+  /**
+   * Translate an expression to the internal representation
+   */
+  private def translateTermCoeff(t : ITerm) : (IdealInt, Term) = t match {
+    case IIntLit(v) =>
+      (v, OneTerm)
+    case IConstant(c) =>
+      (IdealInt.ONE, c)
+    case IVariable(i) =>
+      (IdealInt.ONE, VariableTerm(i))
+    case ITimes(c, subT) => {
+      val (subC, subRes) = translateTermCoeff(subT)
+      (c * subC, subRes)
+    }
+    
+    case IPlus(t1, t2) => {
+      val preInputSize = inputStack.size
+      
+      inputStack push t1
+      inputStack push t2
+      
+      val subRes = new Iterator[(IdealInt, Term)] {
+        def hasNext = inputStack.size > preInputSize
+        def next : (IdealInt, Term) = inputStack.pop match {
+          case IPlus(t1, t2) => {
+            inputStack push t1
+            inputStack push t2
+            next
+          }
+          case t : ITerm =>
+            translateTermCoeff(t)
+        }
+      }
+      
+      val res = LinearCombination(subRes, order)
 
-private case object PlusOp extends BinOp {
-  def apply(els : Iterator[SimpleResult], order : TermOrder) : SimpleResult =
-    TermResult(LinearCombination(for (r <- els) yield (IdealInt.ONE, r.asTerm),
-                                 order))
-}
+      // ensure that no garbage remain on the stack
+      while (subRes.hasNext) subRes.next
 
-private case object AndOp extends BinOp {
-  def apply(els : Iterator[SimpleResult], order : TermOrder) : SimpleResult =
-    FormulaResult(Conjunction.conj(for (r <- els) yield r.asFormula, order))
-}
+      (IdealInt.ONE, res)
+    }
+  }
+  
+  private def translateLinComb(t : ITerm) : LinearCombination =
+    translateTermCoeff(t) match {
+      case (IdealInt.ONE, res : LinearCombination) =>
+        res
+      case pair =>
+        LinearCombination(List(pair), order)
+    }
+  
+  private def translateFor(f : IFormula) : Formula = f match {
+    case IBoolLit(true) =>
+      Conjunction.TRUE
+    case IBoolLit(false) =>
+      Conjunction.FALSE
+    case INot(subF) =>
+      Conjunction.negate(translateFor(subF), order)
+    case IAtom(pred, args) =>
+      Atom(pred, for (r <- args.iterator) yield translateLinComb(r), order)
+    case IIntFormula(IIntRelation.EqZero, t) =>
+      EquationConj(translateLinComb(t), order)
+    case IIntFormula(IIntRelation.GeqZero, t) =>
+      InEqConj(translateLinComb(t), order)
+    case IQuantified(quan, subF) =>
+      Conjunction.quantify(List(quan), translateFor(subF), order)
+    case INamedPart(_, subF) =>
+      // names are just ignored
+      translateFor(subF)
+      
+    case IBinFormula(op, f1, f2) => {
+      val preInputSize = inputStack.size
 
-private case object OrOp extends BinOp {
-  def apply(els : Iterator[SimpleResult], order : TermOrder) : SimpleResult =
-    FormulaResult(Conjunction.disj(for (r <- els) yield r.asFormula, order))
+      inputStack push f1
+      inputStack push f2
+
+      val subRes = new Iterator[Formula] {
+        def hasNext = inputStack.size > preInputSize
+        def next : Formula = inputStack.pop match {
+          case IBinFormula(`op`, f1, f2) => {
+            inputStack push f1
+            inputStack push f2
+            next
+          }
+          case f : IFormula =>
+            translateFor(f)
+        }
+      }
+
+      val res = op match {
+        case IBinJunctor.And => Conjunction.conj(subRes, order)
+        case IBinJunctor.Or =>  Conjunction.disj(subRes, order)
+      }
+      
+      // ensure that no garbage remain on the stack
+      while (subRes.hasNext) subRes.next
+      
+      res
+    }
+  }
+  
 }
