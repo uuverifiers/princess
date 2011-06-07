@@ -33,8 +33,6 @@ import ap.basetypes.IdealInt
 import ApInput._
 import ApInput.Absyn._
 
-import scala.collection.mutable.{Stack, ArrayBuffer}
-
 object ApParser2InputAbsy {
 
   private val AC = Debug.AC_PARSER

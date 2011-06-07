@@ -29,8 +29,6 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
-import scala.collection.mutable.Stack
-
 object ComputationLogger {
   private val AC = Debug.AC_COMPUTATION_LOGGER
   

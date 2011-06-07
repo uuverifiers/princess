@@ -23,7 +23,7 @@ package ap.parser
 
 import ap.util.Debug
 
-import scala.collection.mutable.Stack
+import scala.collection.mutable.{ArrayStack => Stack}
 
 /**
  * Simple rewriting engine on the input AST datastructures

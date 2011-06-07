@@ -22,7 +22,7 @@
 package ap.basetypes;
 
 import scala.collection.IterableLike
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ArrayStack => Stack}
 
 import ap.util.Debug
 
@@ -122,7 +122,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
    def insertIt(elements : Iterator[T]) : LeftistHeap[T, HC] = {
         // Use bottom-up strategy to compose new heap in O(n)
 
-        val s = new scala.collection.mutable.Stack[LeftistHeap[T, HC]]
+        val s = new Stack[LeftistHeap[T, HC]]
         s.push(this)
         while (elements.hasNext) {
             var h : LeftistHeap[T, HC] = new Node(elements.next, empty, empty, empty)
@@ -177,7 +177,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
     */
    def flatMap(f : (T) => Iterator[T],
                stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] = {
-      val todo = new scala.collection.mutable.Stack[LeftistHeap[T, HC]]
+      val todo = new Stack[LeftistHeap[T, HC]]
       var res = empty
 
       def push(h : LeftistHeap[T, HC]) = if (!h.isEmpty) todo push h
@@ -231,7 +231,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
 
 class UnsortedIterator[A, HC <: HeapCollector[A, HC]] extends Iterator[A] {
   
-  private val remainder = new scala.collection.mutable.Stack[LeftistHeap[A, HC]]
+  private val remainder = new Stack[LeftistHeap[A, HC]]
 
   def this(heap : LeftistHeap[A, HC]) = {
     this()

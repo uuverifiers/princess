@@ -31,7 +31,7 @@ import ap.terfor.preds.{Predicate, Atom}
 import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 
-import scala.collection.mutable.{Stack, ArrayBuffer}
+import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer}
 
 object Parser2InputAbsy {
 

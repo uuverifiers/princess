@@ -25,7 +25,7 @@ import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
-import scala.collection.mutable.Stack
+import scala.collection.mutable.{ArrayStack => Stack}
 
 
 object CollectingVisitor {

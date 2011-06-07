@@ -35,8 +35,6 @@ import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 
-import scala.collection.mutable.Stack
-
 
 /**
  * A prover that tries to construct a countermodel of a ground formula. This

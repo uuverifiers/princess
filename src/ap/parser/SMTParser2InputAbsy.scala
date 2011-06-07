@@ -33,7 +33,7 @@ import ap.basetypes.IdealInt
 import smtlib._
 import smtlib.Absyn._
 
-import scala.collection.mutable.{Stack, ArrayBuffer}
+import scala.collection.mutable.ArrayBuffer
 
 object SMTParser2InputAbsy {
 

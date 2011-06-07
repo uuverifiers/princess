@@ -23,7 +23,8 @@
 package ap.interpolants
 
 import scala.util.Sorting
-import scala.collection.mutable.{Stack => MStack, Map => MMap, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayStack => MStack,
+                                 Map => MMap, HashMap => MHashMap}
 
 import ap._
 import ap.basetypes.IdealInt

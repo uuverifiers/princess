@@ -21,7 +21,7 @@
 
 package ap.util;
 
-import scala.collection.mutable.{Stack, HashMap, ArrayBuilder}
+import scala.collection.mutable.{ArrayStack => Stack, HashMap, ArrayBuilder}
 import scala.util.Sorting
 
 /**
