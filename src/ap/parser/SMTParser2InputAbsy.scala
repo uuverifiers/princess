@@ -542,6 +542,22 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
        Type.Bool)
     }
     
+    case PlainSymbol("ite") => {
+      checkArgNum("ite", 3, args)
+      val transArgs = for (a <- args) yield translateTerm(a, 0)
+      (transArgs map (_._2)) match {
+        case Seq(Type.Bool, Type.Bool, Type.Bool) => {
+          val forArgs = transArgs map (asFormula _)
+          ((forArgs(0) ===> forArgs(1)) &&& (!forArgs(0) ===> forArgs(2)),
+           Type.Bool)
+        }
+        case Seq(Type.Bool, Type.Integer, Type.Integer) =>
+          (ITermITE(asFormula(transArgs(0)),
+                    asTerm(transArgs(1)), asTerm(transArgs(2))),
+           Type.Integer)
+      }
+    }
+    
     ////////////////////////////////////////////////////////////////////////////
     // Hardcoded predicates (which might also operate on booleans)
     
@@ -611,13 +627,13 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     // Declared symbols from the environment
     case id => (env lookupSym asString(id)) match {
       case Environment.Predicate(pred) => {
-        checkArgNum(PrettyPrinter print sym, pred.arity, args)
+        checkArgNumLazy(PrettyPrinter print sym, pred.arity, args)
         (IAtom(pred, for (a <- args) yield asTerm(translateTerm(a, 0))),
          Type.Bool)
       }
       
       case Environment.Function(fun, encodesBool) => {
-        checkArgNum(PrettyPrinter print sym, fun.arity, args)
+        checkArgNumLazy(PrettyPrinter print sym, fun.arity, args)
         (IFunApp(fun, for (a <- args) yield asTerm(translateTerm(a, 0))),
          if (encodesBool) Type.Bool else Type.Integer)
       }
@@ -702,7 +718,10 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
               }, SMTConnective))
     yield b
 
-  private def checkArgNum(op : => String, expected : Int, args : Seq[Term]) : Unit =
+  private def checkArgNumLazy(op : => String, expected : Int, args : Seq[Term]) : Unit =
+    if (expected != args.size) checkArgNum(op, expected, args)
+      
+  private def checkArgNum(op : String, expected : Int, args : Seq[Term]) : Unit =
     if (expected != args.size)
       throw new Parser2InputAbsy.TranslationException(
           "Operator \"" + op +

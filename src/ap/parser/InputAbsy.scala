@@ -341,6 +341,34 @@ case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
        "")
 }
 
+case class ITermITE(cond : IFormula, left : ITerm, right : ITerm) extends ITerm {
+  override def apply(i : Int) : IExpression = i match {
+    case 0 => cond
+    case 1 => left
+    case 2 => right
+    case _ => throw new IndexOutOfBoundsException
+  }
+  
+  override def length : Int = 3
+
+  override def update(newSubExprs : Seq[IExpression]) : ITermITE = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IExpression.AC, newSubExprs.length == 3)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val newCond = newSubExprs(0).asInstanceOf[IFormula]
+    val newLeft = newSubExprs(1).asInstanceOf[ITerm]
+    val newRight = newSubExprs(2).asInstanceOf[ITerm]
+    if ((newCond eq cond) && (newLeft eq left) && (newRight eq right))
+      this
+    else
+      ITermITE(newCond, newLeft, newRight)
+  }
+
+  override def toString =
+    "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
+}
+
+
 //////////////////////////////////////////////////////////////////////////////
 
 abstract class IFormula extends IExpression {

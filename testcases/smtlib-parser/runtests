@@ -7,6 +7,7 @@ PRI=../../princess
 TESTS="bignum_quant.smt2 \
        int_incompleteness1.smt2 int_incompleteness2.smt2 \
        int_incompleteness3.smt2 \
-       init-1.smt2 MULTIPLIER_2.msat.smt2"
+       init-1.smt2 MULTIPLIER_2.msat.smt2 \
+       ite.smt2 ite2.smt2"
 
 $PRI "$@" $TESTS
