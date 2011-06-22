@@ -295,6 +295,16 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       translateUnTerConnective(t.expression_, - _)
     case t : ExprLit =>
       IIntLit(IdealInt(t.intlit_))
+    ////////////////////////////////////////////////////////////////////////////
+    // If-then-else (can be formula or term)
+    case t : ExprIfThenElse => {
+      val cond = translateExpression(t.expression_1).asInstanceOf[IFormula]
+      (translateExpression(t.expression_2),
+       translateExpression(t.expression_3)) match {
+        case (left : IFormula, right : IFormula) => IFormulaITE(cond, left, right)
+        case (left : ITerm, right : ITerm) =>       ITermITE(cond, left, right)
+      }
+    }
   }
   
   private object ApConnective extends ASTConnective {

@@ -548,6 +548,34 @@ case class IQuantified(quan : Quantifier, subformula : IFormula) extends IFormul
   override def toString = "" + quan + " " + subformula
 }
 
+case class IFormulaITE(cond : IFormula,
+                       left : IFormula, right : IFormula) extends IFormula {
+  override def apply(i : Int) : IExpression = i match {
+    case 0 => cond
+    case 1 => left
+    case 2 => right
+    case _ => throw new IndexOutOfBoundsException
+  }
+  
+  override def length : Int = 3
+
+  override def update(newSubExprs : Seq[IExpression]) : IFormulaITE = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IExpression.AC, newSubExprs.length == 3)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val newCond = newSubExprs(0).asInstanceOf[IFormula]
+    val newLeft = newSubExprs(1).asInstanceOf[IFormula]
+    val newRight = newSubExprs(2).asInstanceOf[IFormula]
+    if ((newCond eq cond) && (newLeft eq left) && (newRight eq right))
+      this
+    else
+      IFormulaITE(newCond, newLeft, newRight)
+  }
+
+  override def toString =
+    "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
+}
+
 case class ITrigger(patterns : Seq[ITerm], subformula : IFormula) extends IFormula {
   override def apply(i : Int) : IExpression = 
     if (i == patterns.length) subformula else patterns(i)

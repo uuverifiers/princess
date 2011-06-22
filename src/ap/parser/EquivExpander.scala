@@ -73,6 +73,12 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
         }
       }
       
+      case IFormulaITE(cond, left, right) =>
+        if ((c.quans contains Quantifier.EX) ^ (c.polarity < 0))
+          TryAgain((cond & left) | (!cond & right), c)
+        else
+          TryAgain((cond ==> left) & (!cond ==> right), c)
+      
       case IBinFormula(IBinJunctor.Eqv, f1, f2) =>
         if ((c.quans contains Quantifier.EX) ^ (c.polarity < 0))
           TryAgain((f1 & f2) | (!f1 & !f2), c)

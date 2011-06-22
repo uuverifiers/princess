@@ -546,11 +546,10 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       checkArgNum("ite", 3, args)
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       (transArgs map (_._2)) match {
-        case Seq(Type.Bool, Type.Bool, Type.Bool) => {
-          val forArgs = transArgs map (asFormula _)
-          ((forArgs(0) ===> forArgs(1)) &&& (!forArgs(0) ===> forArgs(2)),
+        case Seq(Type.Bool, Type.Bool, Type.Bool) =>
+          (IFormulaITE(asFormula(transArgs(0)),
+                       asFormula(transArgs(1)), asFormula(transArgs(2))),
            Type.Bool)
-        }
         case Seq(Type.Bool, Type.Integer, Type.Integer) =>
           (ITermITE(asFormula(transArgs(0)),
                     asTerm(transArgs(1)), asTerm(transArgs(2))),
