@@ -136,7 +136,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
           }
           
         case IVariable(index) => {
-          val effectiveIndex = index - ctxt.quans.size
+          val effectiveIndex = index - ctxt.binders.size
           if (effectiveIndex >= 0)
             (Some(v(effectiveIndex)), ListSet.empty, Set(effectiveIndex))
           else

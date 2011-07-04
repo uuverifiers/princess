@@ -77,6 +77,7 @@ object IExpression {
 
   def ex(f : IFormula) = IQuantified(Quantifier.EX, f)
   def all(f : IFormula) = IQuantified(Quantifier.ALL, f)
+  def eps(f : IFormula) = IEpsilon(f)
 
   def quan(quans : Seq[Quantifier], f : IFormula) : IFormula =
     (f /: quans)((f, q) => IQuantified(q, f))
@@ -366,6 +367,25 @@ case class ITermITE(cond : IFormula, left : ITerm, right : ITerm) extends ITerm 
 
   override def toString =
     "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
+}
+
+case class IEpsilon(cond : IFormula) extends ITerm {
+  override def apply(i : Int) : IExpression = i match {
+    case 0 => cond
+    case _ => throw new IndexOutOfBoundsException
+  }
+  
+  override def length : Int = 1
+
+  override def update(newSubExprs : Seq[IExpression]) : IEpsilon = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IExpression.AC, newSubExprs.length == 1)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val newCond = newSubExprs(0).asInstanceOf[IFormula]
+    if (newCond eq cond) this else IEpsilon(newCond)
+  }
+
+  override def toString = "EPS " + cond
 }
 
 

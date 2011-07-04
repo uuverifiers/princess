@@ -51,6 +51,7 @@ ExprOr.		Expression2	::= Expression2 "|" Expression3;
 ExprAnd.	Expression3	::= Expression3 "&" Expression4;
 ExprNot.	Expression4	::= "!" Expression4;
 ExprQuant.	Expression4	::= Quant DeclBinder Expression4;
+ExprEpsilon.	Expression4	::= "\\eps" DeclSingleVarC ";" Expression4;
 ExprTrigger.	Expression4	::= "{" [ArgC] "}" Expression4;
 ExprPart.       Expression4     ::= "\\part" "[" Ident "]" Expression4;
 ExprTrue.	Expression5	::= "true";
@@ -89,6 +90,8 @@ token IntLit digit+;
 
 --------------------------------------------------------------------------------
 -- Variable and constant declarations
+
+DeclSingleVar.  DeclSingleVarC  ::= Type Ident;
 
 DeclVarConst.	DeclVarConstC	::= Type [Ident];
 separator nonempty Ident ",";

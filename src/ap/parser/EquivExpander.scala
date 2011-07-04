@@ -25,62 +25,58 @@ import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 
 /**
- * Class to turn <-> into conjunction and disjunctions
+ * Class to turn <-> into conjunction and disjunctions, eliminate
+ * if-then-else expressions and epsilon terms
  */
 object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
 
   import IExpression._
   
   def apply(f : IFormula) : IFormula =
-    this.visit(f, Context()).asInstanceOf[IFormula]
+    this.visit(TermITETranslator.visit(f, {}), Context()).asInstanceOf[IFormula]
   
   override def preVisit(t : IExpression, c : Context[Unit]) : PreVisitResult =
     t match {
     
       case LeafFormula(t) => {
-        // check whether there are any ITEs that we have to expand
+        // check whether there are any epsilon terms that we have to expand
 
-        val searcher = new ITESearcher
-        val iteLessFor = searcher.visit(t, true).asInstanceOf[IFormula]
+        val searcher = new EPSSearcher
+        val epsLessFor = searcher.visit(t, true).asInstanceOf[IFormula]
         
-        if (searcher.foundITE == null) {
+        if (searcher.foundEPS == null) {
           ShortCutResult(t)
         } else {
           
-          // replace the ite constant with a fresh variable, shift all other
+          // replace the eps constant with a fresh variable, shift all other
           // variables upwards
           val shiftedBody = new VariableShiftVisitor(0, 1) {
             override def postVisit(t : IExpression, quantifierNum : Int,
                                    subres : Seq[IExpression]) : IExpression =
               t match {
-                case IConstant(c) if (c == searcher.iteConst) =>
+                case IConstant(c) if (c == searcher.epsConst) =>
                   v(quantifierNum)
                 case t =>
                   super.postVisit(t, quantifierNum, subres)
               }
-          }.visit(iteLessFor, 0).asInstanceOf[IFormula]
+          }.visit(epsLessFor, 0).asInstanceOf[IFormula]
         
-          val shiftedITE =
-            VariableShiftVisitor(searcher.foundITE, 0, 1).asInstanceOf[ITermITE]
-          
-          val guard = (!shiftedITE.cond | (v(0) === shiftedITE.left)) &
-                      ( shiftedITE.cond | (v(0) === shiftedITE.right))
-          
-          if (c.polarity > 0)
-            TryAgain(all(guard ==> shiftedBody), c)
-          else
-            TryAgain(ex(guard & shiftedBody), c)
+          TryAgain(if (c.polarity > 0)
+                     all(searcher.foundEPS.cond ==> shiftedBody)
+                   else
+                     ex(searcher.foundEPS.cond & shiftedBody),
+                   c)
         }
       }
       
       case IFormulaITE(cond, left, right) =>
-        if ((c.quans contains Quantifier.EX) ^ (c.polarity < 0))
+        if ((c.binders contains Context.EX) ^ (c.polarity < 0))
           TryAgain((cond & left) | (!cond & right), c)
         else
           TryAgain((cond ==> left) & (!cond ==> right), c)
       
       case IBinFormula(IBinJunctor.Eqv, f1, f2) =>
-        if ((c.quans contains Quantifier.EX) ^ (c.polarity < 0))
+        if ((c.binders contains Context.EX) ^ (c.polarity < 0))
           TryAgain((f1 & f2) | (!f1 & !f2), c)
         else
           TryAgain((f1 ==> f2) & (f2 ==> f1), c)
@@ -100,25 +96,23 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
  * occurrence is stored in the field <code>foundITE</code> and replaced with a
  * fresh constant <code>iteConst</code>
  */
-private class ITESearcher extends CollectingVisitor[Boolean, IExpression] {
+private class EPSSearcher extends CollectingVisitor[Boolean, IExpression] {
   
   import IExpression._
   
-  var foundITE : ITermITE = _
-  var iteConst : ConstantTerm = _
+  var foundEPS : IEpsilon = _
+  var epsConst : ConstantTerm = _
   
   override def preVisit(t : IExpression,
                         descendIntoFors : Boolean) : PreVisitResult =
     t match {
-      case t : ITermITE if (foundITE == null) => {
-        foundITE = t
-        iteConst = new ConstantTerm("ite")
-        ShortCutResult(iteConst)
+      case t if (foundEPS != null) =>
+        ShortCutResult(t)
+      case t : IEpsilon if (foundEPS == null) => {
+        foundEPS = t
+        epsConst = new ConstantTerm("eps")
+        ShortCutResult(epsConst)
       }
-      // replace possible further occurrences of the ite term with the same
-      // constant
-      case t : ITermITE if (t == foundITE) =>
-        ShortCutResult(iteConst)
       case t : ITerm =>
         UniSubArgs(false)
       case t : IFormula =>
@@ -131,4 +125,24 @@ private class ITESearcher extends CollectingVisitor[Boolean, IExpression] {
                 subres : Seq[IExpression]) : IExpression =
     t update subres
   
+}
+
+/**
+ * Visitor for replacing if-then-else expressions with epsilon terms
+ */
+private object TermITETranslator extends CollectingVisitor[Unit, IExpression] {
+  import IExpression._
+  
+  def postVisit(t : IExpression,
+                arg : Unit,
+                subres : Seq[IExpression]) : IExpression = t match {
+    case _ : ITermITE => {
+      val cond = VariableShiftVisitor(subres(0), 0, 1).asInstanceOf[IFormula]
+      val left = VariableShiftVisitor(subres(1), 0, 1).asInstanceOf[ITerm]
+      val right = VariableShiftVisitor(subres(2), 0, 1).asInstanceOf[ITerm]
+      eps((!cond | (v(0) === left)) & (cond | (v(0) === right)))
+    }
+    case t =>
+      t update subres
+  }
 }

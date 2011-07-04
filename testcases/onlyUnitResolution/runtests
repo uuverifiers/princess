@@ -12,6 +12,7 @@ TESTS="arrays0.pri arrays1.pri arrays2.pri \
        sepLogic0.pri multiplication.pri multiplication2.pri \
        group1.pri betaTaskBug.pri factNormalisationBug.pri \
        instantiationBug.pri transitivityCounterExample.pri \
-       arrayProperties.pri"
+       arrayProperties.pri \
+       eps1.pri eps2.pri eps3.pri eps4.pri"
 
 $PRI "$@" $TESTS

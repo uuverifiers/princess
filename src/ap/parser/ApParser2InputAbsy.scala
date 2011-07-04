@@ -241,6 +241,16 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     }
   }
 
+  private def collectDeclarations(decl : DeclSingleVarC,
+                                  addCmd : String => Unit) : Unit = decl match {
+    case decl : DeclSingleVar => { 
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(ApParser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      addCmd(decl.ident_)
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def translateExpression(f : Expression) : IExpression = f match {
@@ -295,10 +305,16 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       translateUnTerConnective(t.expression_, - _)
     case t : ExprLit =>
       IIntLit(IdealInt(t.intlit_))
+    case t : ExprEpsilon => {
+      collectDeclarations(t.declsinglevarc_, (id : String) => env pushVar id)
+      val cond = asFormula(translateExpression(t.expression_))
+      env.popVar
+      IEpsilon(cond)
+    }
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)
     case t : ExprIfThenElse => {
-      val cond = translateExpression(t.expression_1).asInstanceOf[IFormula]
+      val cond = asFormula(translateExpression(t.expression_1))
       (translateExpression(t.expression_2),
        translateExpression(t.expression_3)) match {
         case (left : IFormula, right : IFormula) => IFormulaITE(cond, left, right)

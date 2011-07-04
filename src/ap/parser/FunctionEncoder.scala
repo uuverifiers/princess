@@ -468,14 +468,14 @@ class FunctionEncoder (tightFunctionScopes : Boolean) {
         // otherwise, push an abstraction frame and tell the
         // <code>postVisit</code> method to define function abstractions at
         // this point
-        val quantifierNum = c.quans.length - c.a.frame.depth + 1
+        val quantifierNum = c.binders.length - c.a.frame.depth + 1
         val newFrame = new AbstractionFrame (c.a.frame, quantifierNum)
         super.preVisit(t, c(AddDefinitions(newFrame, List())))
       }
-      case ITrigger(exprs, body) => (c.a, c.quans) match {
-        case (AddDefinitions(frame, triggers), Quantifier.EX :: _) =>
+      case ITrigger(exprs, body) => (c.a, c.binders) match {
+        case (AddDefinitions(frame, triggers), Context.EX :: _) =>
           TryAgain(body, c(AddDefinitions(frame, exprs :: triggers)))
-        case (AddDefinitions(frame, triggers), Quantifier.ALL :: _) =>
+        case (AddDefinitions(frame, triggers), Context.ALL :: _) =>
           // ignore triggers underneath universal quantifiers
           TryAgain(body, c(AddDefinitions(frame, triggers)))
         case _ => 
@@ -508,12 +508,12 @@ class FunctionEncoder (tightFunctionScopes : Boolean) {
 
       // check whether definitions for function applications have to be added
       c.a match {
-        case AddDefinitions(frame, triggers) => (c.quans, triggers) match {
-          case ((Quantifier.ALL :: _) | List(), List()) =>
+        case AddDefinitions(frame, triggers) => (c.binders, triggers) match {
+          case ((Context.ALL :: _) | List(), List()) =>
             addAbstractionDefs(abstracted.asInstanceOf[IFormula], Set(),
                                frame.abstractionList, false)
           
-          case (Quantifier.EX :: _, triggers) => {
+          case (Context.EX :: _, triggers) => {
             // we might have to add also triggers following existential
             // quantifiers. in the presence of multiple sets of triggers, the
             // quantified formula will be duplicated

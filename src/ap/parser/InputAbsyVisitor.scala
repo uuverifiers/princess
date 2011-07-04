@@ -167,7 +167,7 @@ class VariableShiftVisitor(offset : Int, shift : Int)
 
   override def preVisit(t : IExpression, quantifierNum : Int) : PreVisitResult =
     t match {
-      case IQuantified(_, _) => UniSubArgs(quantifierNum + 1)
+      case _ : IQuantified | _ : IEpsilon => UniSubArgs(quantifierNum + 1)
       case _ => KeepArg
     }
   def postVisit(t : IExpression, quantifierNum : Int,
@@ -201,7 +201,7 @@ object VariablePermVisitor extends CollectingVisitor[IVarShift, IExpression] {
 
   override def preVisit(t : IExpression, shifts : IVarShift) : PreVisitResult =
     t match {
-      case IQuantified(_, _) => UniSubArgs(shifts push 0)
+      case _ : IQuantified | _ : IEpsilon => UniSubArgs(shifts push 0)
       case _ => KeepArg
     }
 
@@ -293,7 +293,7 @@ object ConstantSubstVisitor
     t match {
       case IConstant(c) =>
         ShortCutResult(subst.getOrElse(c, c))
-      case IQuantified(_, _) => {
+      case _ : IQuantified | _ : IEpsilon => {
         val newSubst =
           subst transform ((_, value) => VariableShiftVisitor(value, 0, 1))
         UniSubArgs(newSubst)
@@ -330,7 +330,7 @@ object VariableSubstVisitor
                        else
                          subst(index))
       }
-      case IQuantified(_, _) => {
+      case _ : IQuantified | _ : IEpsilon => {
         val (subst, shift) = substShift
         val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
         UniSubArgs((IVariable(0) :: newSubst, shift))
@@ -364,7 +364,7 @@ class SymbolCollector extends CollectingVisitor[Int, Unit] {
 
   override def preVisit(t : IExpression, boundVars : Int) : PreVisitResult =
     t match {
-      case _ : IQuantified => UniSubArgs(boundVars + 1)
+      case _ : IQuantified | _ : IEpsilon => UniSubArgs(boundVars + 1)
       case _ => super.preVisit(t, boundVars)
     }
 
@@ -381,14 +381,33 @@ class SymbolCollector extends CollectingVisitor[Int, Unit] {
 ////////////////////////////////////////////////////////////////////////////////
 
 object Context {
+  abstract sealed class Binder {
+    def toQuantifier : Quantifier = throw new UnsupportedOperationException
+  }
+  case object ALL extends Binder {
+    override def toQuantifier = Quantifier.ALL
+  }
+  case object EX extends Binder {
+    override def toQuantifier = Quantifier.EX
+  }
+  case object EPS extends Binder
+  
+  def toBinder(q : Quantifier) = q match {
+    case Quantifier.ALL => ALL
+    case Quantifier.EX => EX
+  }
+  
   def apply[A](a : A) : Context[A] = Context(List(), +1, a)
 }
 
-case class Context[A](quans : List[Quantifier], polarity : Int, a : A) {
-  def togglePolarity = Context(quans, -polarity, a)
-  def noPolarity = Context(quans, 0, a)
-  def push(q : Quantifier) = Context(q :: quans, polarity, a)
-  def apply(newA : A) = Context(quans, polarity, newA)
+case class Context[A](binders : List[Context.Binder], polarity : Int, a : A) {
+  import Context._
+  
+  def togglePolarity = Context(binders, -polarity, a)
+  def noPolarity = Context(binders, 0, a)
+  def push(q : Quantifier) = Context(toBinder(q) :: binders, polarity, a)
+  def push(b : Binder) = Context(b :: binders, polarity, a)
+  def apply(newA : A) = Context(binders, polarity, newA)
 }
 
 abstract class ContextAwareVisitor[A, R] extends CollectingVisitor[Context[A], R] {
@@ -401,6 +420,7 @@ abstract class ContextAwareVisitor[A, R] extends CollectingVisitor[Context[A], R
         val actualQuan = if (arg.polarity < 0) quan.dual else quan
         UniSubArgs(arg push actualQuan)
       }
+      case IEpsilon(_) => UniSubArgs(arg push Context.EPS)
       case _ => UniSubArgs(arg) // a subclass might have overridden this method
                                 // and substituted a different context
     }
@@ -423,10 +443,12 @@ object Transform2NNF extends CollectingVisitor[Boolean, IExpression] {
     t match {
       case INot(f) => TryAgain(f, !negate)  // eliminate negations
       case t@IBoolLit(b) => ShortCutResult(if (negate) !b else t)
-      case LeafFormula(s) => ShortCutResult(if (negate) !s else s)
+      case LeafFormula(s) => UniSubArgs(false)
       case IBinFormula(Eqv, _, _) => SubArgs(List(negate, false))
+      case ITrigger(ts, _) => SubArgs(List.fill(ts.size){false} ::: List(negate))
+      case _ : IFormulaITE => SubArgs(List(false, negate, negate))
       case _ : IFormula => KeepArg
-      case _ : ITerm => ShortCutResult(t)
+      case _ : ITerm => KeepArg
     }
 
   def postVisit(t : IExpression, negate : Boolean,
@@ -440,8 +462,10 @@ object Transform2NNF extends CollectingVisitor[Boolean, IExpression] {
         subres(0).asInstanceOf[IFormula] & subres(1).asInstanceOf[IFormula]
       case IQuantified(quan, _) =>
         IQuantified(quan.dual, subres(0).asInstanceOf[IFormula])
+      case LeafFormula(t) =>
+        !(t.asInstanceOf[IFormula] update subres)
     } else {
-      t.asInstanceOf[IFormula] update subres
+      t update subres
     }
 }
 
