@@ -27,7 +27,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
-import ap.util.{Debug, FilterIt}
+import ap.util.{Debug, FilterIt, Seqs}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.collection.mutable.{Map => MutableMap}
@@ -337,15 +337,34 @@ object IterativeClauseMatcher {
          ReduceWithEqs(c.arithConj.positiveEqs, c.order)(c.predConj)
        val (matchLits, _) =
          determineMatchedLits(if (negated) reducedPreds.negate else reducedPreds)
+
+       val eqs = c.arithConj.positiveEqs
+         
        // figure out which variables are actually uniquely determined by
        // the matching
+       val maxVarIndex =
+         Seqs.max(for (a <- matchLits.iterator;
+                       v <- a.variables.iterator) yield v.index) max
+         Seqs.max(for (v <- eqs.variables.iterator) yield v.index)
+
+       // set up the equations that determine the values of variables
+       var i = maxVarIndex + 1
+       val quantVarEqs = EquationConj(
+             eqs.iterator ++
+             (for (a <- matchLits.iterator; lc <- a.iterator) yield {
+                val res =
+                  LinearCombination(Array((IdealInt.ONE, lc),
+                                          (IdealInt.MINUS_ONE, VariableTerm(i))),
+                                    c.order)
+                i = i + 1
+                res
+              }),
+           c.order)
+         
        val matchedVariables =
-         (for (a <- matchLits.iterator; lc <- a.iterator;
-               if (lc.variables.size == 1 && lc.constants.size == 0))
-            yield lc.variables.head.index).toSet ++
-         (for (Seq((IdealInt.ONE, VariableTerm(ind)), _*) <-
-                 c.arithConj.positiveEqs.iterator) yield ind).toSet
-       (0 until lastUniQuantifier).toSet subsetOf matchedVariables
+         (for (Seq((IdealInt.ONE, VariableTerm(ind)), _*) <- quantVarEqs.iterator)
+          yield ind).toSet
+       (0 until lastUniQuantifier) forall (matchedVariables contains _)
      }) &&
     (c.negatedConjs forall (isMatchableRecHelp(_, !negated)))
   }
