@@ -4,6 +4,6 @@
 
 PRI=../../princess
 
-TESTS="PUZ031p1.pri"
+TESTS="PUZ031p1.pri vstte-problem-2-vc.pri"
 
 $PRI "$@" $TESTS
