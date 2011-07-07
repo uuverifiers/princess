@@ -366,35 +366,8 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     case t : FunctionTerm =>
       symApp(t.symbolref_, t.listterm_, polarity)
 
-    case t : QuantifierTerm => {
-      val quant : Quantifier = t.quantifier_ match {
-        case _ : AllQuantifier => Quantifier.ALL
-        case _ : ExQuantifier => Quantifier.EX
-      }
-
-      // add the bound variables to the environment and record their number
-      var quantNum : Int = 0
-      for (binder <- t.listsortedvariablec_) binder match {
-        case binder : SortedVariable => {
-          val sort = translateSort(binder.sort_)
-          if (sort != Type.Integer)
-            throw new Parser2InputAbsy.TranslationException(
-                 "Quantification of variables of type " +
-                 (PrettyPrinter print binder.sort_) +
-                 " is currently not supported")
-          env pushVar asString(binder.symbol_)
-          quantNum = quantNum + 1
-        }
-      }
-    
-      val res = quan(Array.fill(quantNum){quant},
-                     asFormula(translateTerm(t.term_, polarity)))
-
-      // pop the variables from the environment
-      for (_ <- PlainRange(quantNum)) env.popVar
-    
-      (res, Type.Bool)
-    }
+    case t : QuantifierTerm =>
+      translateQuantifier(t, polarity)
     
     case t : AnnotationTerm => {
       val triggers = for (annot <- t.listannotation_;
@@ -433,66 +406,143 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
          }, Type.Bool)
     }
     
-    /**
-     * If t is an integer term, let expression in positive position:
-     *   (let ((v t)) s)
-     *   ->
-     *   \forall int v; (v=t -> s)
-     * 
-     * If t is a formula, let expression in positive position:
-     *   (let ((v t)) s)
-     *   ->
-     *   \forall int v; ((t <-> v=0) -> s)
-     *   
-     * TODO: possible optimisation: use implications instead of <->, depending
-     * on the polarity of occurrences of v
-     */
-    case t : LetTerm => {
-      val bindings = for (b <- t.listbindingc_) yield {
-        val binding = b.asInstanceOf[Binding]
-        val (boundTerm, boundType) = translateTerm(binding.term_, 0)
-        (asString(binding.symbol_), boundType, boundTerm)
+    case t : LetTerm =>
+      translateLet(t, polarity)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateQuantifier(t : QuantifierTerm, polarity : Int)
+                                 : (IExpression, Type.Value) = {
+    val quant : Quantifier = t.quantifier_ match {
+      case _ : AllQuantifier => Quantifier.ALL
+      case _ : ExQuantifier => Quantifier.EX
+    }
+
+    // add the bound variables to the environment and record their number
+    var quantNum : Int = 0
+    for (binder <- t.listsortedvariablec_) binder match {
+      case binder : SortedVariable => {
+        val sort = translateSort(binder.sort_)
+        if (sort != Type.Integer && sort != Type.Bool)
+          throw new Parser2InputAbsy.TranslationException(
+               "Quantification of variables of type " +
+               (PrettyPrinter print binder.sort_) +
+               " is currently not supported")
+        env pushVar asString(binder.symbol_)
+        quantNum = quantNum + 1
       }
-      
-      for ((v, t, _) <- bindings) env.pushVar(v, t == Type.Bool)
+    }
+    
+    val body = asFormula(translateTerm(t.term_, polarity))
 
-      val wholeBody@(body, bodyType) = translateTerm(t.term_, polarity)
+    // we might need guards 0 <= x <= 1 for quantifiers ranging over booleans
+    val guard = connect(
+        for (binderC <- t.listsortedvariablec_.iterator;
+             val binder = binderC.asInstanceOf[SortedVariable];
+             if (translateSort(binder.sort_) == Type.Bool)) yield {
+          (env lookupSym asString(binder.symbol_)) match {
+            case Environment.Variable(ind, _) => (v(ind) >= 0) & (v(ind) <= 1)
+            case _ => { // just prevent a compiler warning
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              Debug.assertInt(SMTParser2InputAbsy.AC, false)
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              null
+            }
+          }
+        },
+        IBinJunctor.And)
       
-      for (_ <- bindings) env.popVar
-
-      //////////////////////////////////////////////////////////////////////////
-      
-      if (inlineLetExpressions) {
-        // then we directly inline the bound formulae and terms
-        
-        val subst = for ((_, t, s) <- bindings.toList.reverse) yield t match {
-          case Type.Integer => asTerm((s, t))
-          case Type.Bool    => asFormula((s, t))
+    val matrix = guard match {
+      case IBoolLit(true) =>
+        body
+      case _ => {
+        // we need to insert the guard underneath possible triggers
+        def insertGuard(f : IFormula) : IFormula = f match {
+          case ITrigger(pats, subF) =>
+            ITrigger(pats, insertGuard(subF))
+          case _ => quant match {
+            case Quantifier.ALL => guard ===> f
+            case Quantifier.EX => guard &&& f
+          }
         }
         
-        (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
-      } else {
-        val definingEqs =
-        connect(for (((_, t, s), i) <- bindings.iterator.zipWithIndex) yield {
-          val bv = v(bindings.length - i - 1)
-          t match {        
-            case Type.Integer =>
-              asTerm((s, t)) === bv
-            case Type.Bool    =>
-              asFormula((s, t)) <=> IIntFormula(IIntRelation.EqZero, bv)
-          }}, IBinJunctor.And)
-
-      
-      bodyType match {
-        case Type.Bool =>
-          (if (polarity > 0)
-            quan(Array.fill(bindings.length){Quantifier.ALL},
-                 definingEqs ==> asFormula(wholeBody))
-           else
-             quan(Array.fill(bindings.length){Quantifier.EX},
-                  definingEqs &&& asFormula(wholeBody)),
-           Type.Bool)
+        insertGuard(body)
       }
+    }
+      
+    val res = quan(Array.fill(quantNum){quant}, matrix)
+
+    // pop the variables from the environment
+    for (_ <- PlainRange(quantNum)) env.popVar
+    
+    (res, Type.Bool)
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * If t is an integer term, let expression in positive position:
+   *   (let ((v t)) s)
+   *   ->
+   *   \forall int v; (v=t -> s)
+   * 
+   * If t is a formula, let expression in positive position:
+   *   (let ((v t)) s)
+   *   ->
+   *   \forall int v; ((t <-> v=0) -> s)
+   *   
+   * TODO: possible optimisation: use implications instead of <->, depending
+   * on the polarity of occurrences of v
+   */
+  private def translateLet(t : LetTerm, polarity : Int)
+                          : (IExpression, Type.Value) = {
+    val bindings = for (b <- t.listbindingc_) yield {
+      val binding = b.asInstanceOf[Binding]
+      val (boundTerm, boundType) = translateTerm(binding.term_, 0)
+      (asString(binding.symbol_), boundType, boundTerm)
+    }
+      
+    for ((v, t, _) <- bindings) env.pushVar(v, t == Type.Bool)
+
+    val wholeBody@(body, bodyType) = translateTerm(t.term_, polarity)
+      
+    for (_ <- bindings) env.popVar
+
+    //////////////////////////////////////////////////////////////////////////
+      
+    if (inlineLetExpressions) {
+      // then we directly inline the bound formulae and terms
+        
+      val subst = for ((_, t, s) <- bindings.toList.reverse) yield t match {
+        case Type.Integer => asTerm((s, t))
+        case Type.Bool    => asTerm((s, t))
+      }
+        
+      (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
+    } else {
+      val definingEqs =
+      connect(for (((_, t, s), num) <- bindings.iterator.zipWithIndex) yield {
+        val shiftedS = VariableShiftVisitor(s, 0, bindings.size)
+        val bv = v(bindings.length - num - 1)
+        t match {        
+          case Type.Integer =>
+            asTerm((shiftedS, t)) === bv
+          case Type.Bool    =>
+            IFormulaITE(asFormula((shiftedS, t)),
+                        IIntFormula(IIntRelation.EqZero, bv),
+                        IIntFormula(IIntRelation.EqZero, bv + i(-1)))
+        }}, IBinJunctor.And)
+      
+    bodyType match {
+      case Type.Bool =>
+        (if (polarity > 0)
+          quan(Array.fill(bindings.length){Quantifier.ALL},
+               definingEqs ==> asFormula(wholeBody))
+         else
+           quan(Array.fill(bindings.length){Quantifier.EX},
+                definingEqs &&& asFormula(wholeBody)),
+         Type.Bool)
       }
     }
   }
@@ -757,6 +807,8 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   private def asTerm(expr : (IExpression, Type.Value)) : ITerm = expr match {
     case (expr : ITerm, _) =>
       expr
+    case (expr : IFormula, Type.Bool) =>
+      ITermITE(expr, i(0), i(1))
     case (expr, _) =>
       throw new Parser2InputAbsy.TranslationException(
                    "Expected a term, not " + expr)
