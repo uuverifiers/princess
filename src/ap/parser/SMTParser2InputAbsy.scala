@@ -131,6 +131,21 @@ object SMTParser2InputAbsy {
     }
   }
   
+  private object IndexedSymbol {
+    def unapplySeq(s : SymbolRef) : scala.Option[Seq[String]] = s match {
+      case s : IdentifierRef => s.identifier_ match {
+        case id : IndexIdent => id.symbol_ match {
+          case s : NormalSymbol =>
+            Some(List(s.normalsymbolt_) ++
+                 (id.listindexc_ map (_.asInstanceOf[Index].numeral_)))
+          case _ => None
+        }
+        case _ => None
+      }
+      case _ => None
+    }
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
   
   private object LetInlineVisitor
@@ -646,6 +661,13 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     case PlainSymbol(">") =>
       (translateChainablePred(args, _ > _), Type.Bool)
     
+    case IndexedSymbol("divisible", denomStr) => {
+      checkArgNum("divisible", 1, args)
+      val denom = i(IdealInt(denomStr))
+      val num = VariableShiftVisitor(asTerm(translateTerm(args.head, 0)), 0, 1)
+      (ex(num === v(0) * denom), Type.Bool)
+    }
+      
     ////////////////////////////////////////////////////////////////////////////
     // Hardcoded integer operations
 
@@ -658,11 +680,9 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       (-asTerm(translateTerm(args.head, 0), Type.Integer), Type.Integer)
 
     case PlainSymbol("-") => {
-      if (args.size != 2)
-        throw new Parser2InputAbsy.TranslationException(
-          "Operator \"-\" has to be applied to one or two arguments")
       (asTerm(translateTerm(args.head, 0), Type.Integer) -
-          asTerm(translateTerm(args.last, 0), Type.Integer),
+          sum(for (a <- args.tail)
+                yield asTerm(translateTerm(a, 0), Type.Integer)),
        Type.Integer)
     }
 
@@ -672,6 +692,31 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
           reduceLeft (mult _),
        Type.Integer)
 
+    case PlainSymbol("div") => {
+      checkArgNum("div", 2, args)
+      val Seq(num, denom) =
+        for (a <- args) yield VariableShiftVisitor(asTerm(translateTerm(a, 0)), 0, 1)
+      (eps((v(0) * denom <= num) &
+           ((num < v(0) * denom + denom) | (num < v(0) * denom - denom))),
+       Type.Integer)
+    }
+       
+    case PlainSymbol("mod") => {
+      checkArgNum("mod", 2, args)
+      val Seq(num, denom) =
+        for (a <- args) yield VariableShiftVisitor(asTerm(translateTerm(a, 0)), 0, 1)
+      (eps((v(0) >= 0) & ((v(0) < denom) | (v(0) < -denom)) &
+           ex(VariableShiftVisitor(num, 0, 1) ===
+              v(0) * VariableShiftVisitor(denom, 0, 1) + v(1))),
+       Type.Integer)
+    }
+
+    case PlainSymbol("abs") => {
+      checkArgNum("abs", 1, args)
+      val arg = VariableShiftVisitor(asTerm(translateTerm(args.head, 0)), 0, 1)
+      (eps((v(0) === arg | v(0) === -arg) & (v(0) >= 0)), Type.Integer)
+    }
+      
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => (env lookupSym asString(id)) match {
