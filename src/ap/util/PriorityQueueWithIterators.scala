@@ -79,7 +79,7 @@ class PriorityQueueWithIterators[A](implicit ord: Ordering[A])
         if (sequences.isEmpty) {
           maxElement = singleElements.dequeue
         } else {
-          if (ord.gt(sequences.max.peekNext, singleElements.max)) {
+          if (ord.gt(sequences.head.peekNext, singleElements.head)) {
             peekNextFromSequence
           } else {
             maxElement = singleElements.dequeue            

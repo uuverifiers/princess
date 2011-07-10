@@ -408,7 +408,7 @@ private class RowSolver(lhss : Iterator[LinearCombination],
       currentLhss += firstLhs
     
       while (!nonCanonLhss.isEmpty &&
-             nonCanonLhss.max.leadingTerm == leadingTerm)
+             nonCanonLhss.head.leadingTerm == leadingTerm)
         currentLhss += nonCanonLhss.dequeue
 
       canonise(currentLhss)

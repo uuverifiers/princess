@@ -211,7 +211,7 @@ object ProofSimplifier {
                          availableFors : Set[CertFormula],
                          newSubCerts : Seq[Certificate],
                          newCert : => Certificate) : Certificate =
-    (0 until cert.length) findIndexOf { case i =>
+    (0 until cert.length) indexWhere { case i =>
         uselessFormulas(cert.localProvidedFormulas(i),
                         availableFors,
                         newSubCerts(i).assumedFormulas)

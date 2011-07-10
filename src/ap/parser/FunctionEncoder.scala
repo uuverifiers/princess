@@ -532,6 +532,13 @@ class FunctionEncoder (tightFunctionScopes : Boolean) {
                quan(innerQuans, withDefs)
             }, IBinJunctor.Or)
           }
+          case (List(), _) => {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            // this should not happen
+            Debug.assertInt(FunctionEncoder.AC, false)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            null
+          }
         }
         
         case _ : NormalContext =>

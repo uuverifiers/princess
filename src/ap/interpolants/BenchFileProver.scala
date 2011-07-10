@@ -325,6 +325,7 @@ class BenchFileProver(filename : String,
   private def getParts(formulas : List[IFormula], leftLengths : List[Int]) : List[List[IFormula]] =
     leftLengths match
     {
+      case List() => { assert(false); null }
       case List(leftLength) => List(formulas)
       case leftLength::remLengths =>  List(formulas take remLengths.head-leftLength) ++  getParts(formulas drop remLengths.head-leftLength, remLengths)
     }

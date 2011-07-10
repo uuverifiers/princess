@@ -24,7 +24,7 @@ package ap;
 import scala.testing.SUnit
 import SUnit._
 
-object AllTests extends TestSuite with Application {
+object AllTests extends TestSuite with App {
 
   addTest(new ap.basetypes.TestIdealInt ("testDiv"))
   addTest(new ap.basetypes.TestIdealInt ("testReduceAbs"))
