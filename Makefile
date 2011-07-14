@@ -49,7 +49,7 @@ signed-dist: dist
 
 clean:
 	rm -rf bin
-	rm dist/*.jar
+	rm -rf dist/*.jar
 	cd parser && $(MAKE) clean
 	cd smt-parser && $(MAKE) clean
 
