@@ -156,7 +156,7 @@ object CmdlMain {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
 
     try {
-          for ((filename, reader) <- problems) {
+          for ((filename, reader) <- problems) try {
             val timeBefore = System.currentTimeMillis
             
             Console.withOut(Console.err) {
@@ -298,6 +298,16 @@ object CmdlMain {
             /* println
             println(ap.util.Timer)
             ap.util.Timer.reset */
+          } catch {
+            case _ : StackOverflowError => Console.withOut(Console.err) {
+              println("Stack overflow, giving up")
+              // let's hope that everything is still in a valid state
+            }
+            case _ : OutOfMemoryError => Console.withOut(Console.err) {
+              println("Out of memory, giving up")
+              System.gc
+              // let's hope that everything is still in a valid state
+            }
           }
     } catch {
       case e : Throwable => {
