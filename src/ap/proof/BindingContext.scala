@@ -108,5 +108,33 @@ case class BindingContext private (// the groups of constants that are bound in 
     
     res
   }
+  
+  def containsMaximumConstantWith(consts : Iterable[ConstantTerm],
+                                  p : ConstantTerm => Boolean) : Boolean = {
+    var foundConstant : ConstantTerm = null
+    var maxConstantLevel : Option[Int] = None
+    
+    val constIt = consts.iterator
+    
+    while (constIt.hasNext) {
+      val c = constIt.next
+      val cLevel = constantPos get c
+
+      val cIsGreater = (maxConstantLevel, cLevel) match {
+        case (None, Some(_)) => true
+        case (Some(x), Some(y)) => x < y
+        case _ => false
+      }
+      
+      if (cIsGreater) {
+        foundConstant = (if (p(c)) c else null)
+        maxConstantLevel = cLevel
+      } else if (foundConstant == null && maxConstantLevel == cLevel && p(c)) {
+        foundConstant = c
+      }
+    }
+    
+    foundConstant != null
+  }
 
 }

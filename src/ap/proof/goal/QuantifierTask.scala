@@ -65,7 +65,8 @@ abstract class QuantifierTask(_formula : Conjunction, _age : Int)
     val constants = for (i <- PlainRange(num))
                     yield new ConstantTerm (constantNameBase + goal.age + "_" + i)
 
-    val newOrder = (goal.order /: constants)((o, c) => o.extend(c, Set.empty))
+    val newOrder = goal.order extend constants
+    
     val newBindingContext = goal.bindingContext.addAndContract(constants, quan)
     val newConstantFreedom = if (quan == Quantifier.ALL)
                                goal.constantFreedom addTopStatus constants

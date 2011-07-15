@@ -161,7 +161,7 @@ class ConstantFreedom private (private val constantStatus :
   def isShielded(c : Conjunction, bc : BindingContext) : Boolean =
     (c.arithConj.positiveEqs exists (isShieldingLC(_, bc))) ||
     (c.arithConj.inEqs.equalityInfs exists (isShieldingLC(_, bc))) ||
-    (c.negatedConjs exists (nc => nc.iterator forall (isShieldedNeg(_, bc))))
+    (c.negatedConjs exists (isAllShieldedNeg(_, bc)))
   
   /**
    * Determine whether the formula <code>lc1 - lc2 = 0 & phi</code> is shielded
@@ -172,16 +172,25 @@ class ConstantFreedom private (private val constantStatus :
     lc1.variables.isEmpty && lc2.variables.isEmpty && {
       val remainingConsts =
         (lc1.constants ++ lc2.constants) filter ((c) => (lc1 get c) != (lc2 get c))
-      ((bc maximumConstants remainingConsts) exists (constantStatus(_) != NonFree))
+      bc.containsMaximumConstantWith(remainingConsts, (constantStatus(_) != NonFree))
     }
   
   private def isShieldingLC(lc : LinearCombination, bc : BindingContext) : Boolean =
     lc.variables.isEmpty &&
-    ((bc maximumConstants lc.constants) exists (constantStatus(_) != NonFree))
+    bc.containsMaximumConstantWith(lc.constants, (constantStatus(_) != NonFree))
 
-  private def isShieldedNeg(c : Conjunction, bc : BindingContext) : Boolean =
-    isShielded(c.negate, bc)
-
+  /**
+   * Check whether <code>c</code>, seen as a negated conjunction,
+   * only consists of shielded terms. E.g., <code>!(A & B) = !A | !B</code>,
+   * where both <code>!A</code> and <code>!B</code> are shielded
+   */
+  private def isAllShieldedNeg(c : Conjunction, bc : BindingContext) : Boolean =
+    c.arithConj.positiveEqs.isTrue &&
+    c.arithConj.inEqs.isTrue &&
+    c.predConj.isTrue &&
+    (c.arithConj.negativeEqs forall (isShieldingLC(_, bc))) &&
+    (c.negatedConjs forall (isShielded(_, bc)))
+    
   /**
    * Determine the (disjunctively connected) unshielded part of a formula
    */
@@ -190,11 +199,24 @@ class ConstantFreedom private (private val constantStatus :
       c
     else if (isShielded(c, bc))
       Conjunction.FALSE
-    else if (c.isNegatedConjunction)
-      Conjunction.conj(FilterIt(c.negatedConjs(0).iterator,
-                                (d:Conjunction) => !isShieldedNeg(d, bc)),
-                       c.order).negate
-    else
+    else if (c.isNegatedConjunction) {
+      implicit val order = c.order
+      
+      val negConj = c.negatedConjs(0)
+      
+      val arithConj = negConj.arithConj
+      val newNegativeEqs =
+        arithConj.negativeEqs.updateEqsSubset(
+          arithConj.negativeEqs filterNot (isShieldingLC(_, bc)))
+      val newArithConj = arithConj updateNegativeEqs newNegativeEqs
+
+      val newNegatedConjs =
+        negConj.negatedConjs.update(
+          negConj.negatedConjs filterNot (isShielded(_, bc)), order)
+      
+      Conjunction(List(), newArithConj, negConj.predConj, newNegatedConjs,
+                  order).negate
+    } else
       // TODO: generalise?
       c
 

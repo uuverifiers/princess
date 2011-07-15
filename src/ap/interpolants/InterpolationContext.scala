@@ -181,7 +181,7 @@ class InterpolationContext (val leftFormulae : Set[CertFormula],
                              partialInterpolants,
                              rewrittenPredAtoms,
                              parameters,
-                             (order /: consts)(_.extend(_, Set())))
+                             order extend consts)
 
   def addParameter(const : ConstantTerm) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,

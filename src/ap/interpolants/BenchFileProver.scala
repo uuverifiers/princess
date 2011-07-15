@@ -67,7 +67,7 @@ class BenchFileProver(filename : String,
   val (iFormulasWoPreds, extOrder) =
   {
     val (newF, newConst) =  removePred(iFormulas)
-    val newOrder = (order /: newConst)(_.extend(_, Set()))
+    val newOrder = order extend newConst
     (newF, newOrder)
   }
   
