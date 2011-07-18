@@ -23,6 +23,7 @@ package ap.proof.goal
 
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.terfor.conjunctions.Conjunction
+import ap.parameters.Param
 import ap.util.Debug
 
 private object MatchFunctions {
@@ -66,7 +67,10 @@ private object MatchFunctions {
     } else {
       val newTasks =
         (for (c <- removedClauses; t <- goal formulaTasks c) yield t) ++
-        (if (eager) List() else List(new LazyMatchTask (goal.age)))
+        (if (eager)
+           List()
+         else
+           List(new LazyMatchTask (goal.age, Param.MATCHING_BASE_PRIORITY(goal.settings))))
       val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, reducedMatcher)
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     }
@@ -90,13 +94,15 @@ object LazyMatchTask {
     if (goal.tasks.taskInfos.containsLazyMatchTask)
       List()
     else
-      List(new LazyMatchTask (goal.age))
+      List(new LazyMatchTask (goal.age,
+                              Param.MATCHING_BASE_PRIORITY(goal.settings)))
 }
 
-class LazyMatchTask(age : Int) extends PrioritisedTask {
+class LazyMatchTask(age : Int, basePriority : Int)
+      extends PrioritisedTask {
   
-  val priority : Int = -500 + age
-  
+  val priority : Int = - basePriority + age
+
   def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                 : Seq[PrioritisedTask] = List(this)
 

@@ -174,6 +174,11 @@ object Param {
 	type Value = Boolean
 	val defau : Boolean = true
   }
+
+  case object MATCHING_BASE_PRIORITY extends Param {
+	type Value = Int
+	val defau : Int = 500
+  }
 }
 
 abstract class Param {
