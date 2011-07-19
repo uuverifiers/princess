@@ -22,11 +22,20 @@
 package ap.proof.goal
 
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
+import ap.proof.Vocabulary
 import ap.terfor.conjunctions.Conjunction
 import ap.parameters.Param
 import ap.util.Debug
 
 private object MatchFunctions {
+  
+  def isIrrelevantInstance(instance : Conjunction,
+                           voc : Vocabulary,
+                           reversePropagation : Boolean) =
+    reversePropagation && 
+    (!(AddFactsTask isCoveredFormula instance) &&
+     voc.constantFreedom.isShielded(instance, voc.bindingContext))
+  
   def updateMatcher(goal : Goal,
                     ptf : ProofTreeFactory,
                     eager : Boolean) : ProofTree = {
@@ -53,11 +62,13 @@ private object MatchFunctions {
     if (removedClauses.isEmpty) {
       val voc = goal.vocabulary
   
+      val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
       val (instances, newMatcher) =
         reducedMatcher.updateFacts(goal.facts.predConj,
                                    goal.mayAlias,
                                    goal.reduceWithFacts,
-                                   (voc.constantFreedom.isShielded(_, voc.bindingContext)),
+                                   (isIrrelevantInstance(_, voc, reverseProp)),
+                                   reverseProp,
                                    collector, order)
 
       val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
@@ -75,6 +86,7 @@ private object MatchFunctions {
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     }
   }
+  
 }
 
 ////////////////////////////////////////////////////////////////////////////////

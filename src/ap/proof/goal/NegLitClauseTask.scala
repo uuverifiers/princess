@@ -25,6 +25,7 @@ import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.PredConj
+import ap.parameters.Param
 import ap.util.{Debug, Logic, Seqs}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 
@@ -73,11 +74,13 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
                           order)
     
     val collector = goal.getInferenceCollector
+    val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
     val (instances, newMatcher) =
       oldMatcher.updateClauses(newClauses,
                                goal.mayAlias,
                                goal.reduceWithFacts,
-                               (voc.constantFreedom.isShielded(_, voc.bindingContext)),
+                               (MatchFunctions.isIrrelevantInstance(_, voc, reverseProp)),
+                               reverseProp,
                                collector, order)
     
     val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)

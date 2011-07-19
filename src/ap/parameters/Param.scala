@@ -175,6 +175,11 @@ object Param {
 	val defau : Boolean = true
   }
 
+  case object REVERSE_FUNCTIONALITY_PROPAGATION extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   case object MATCHING_BASE_PRIORITY extends Param {
 	type Value = Int
 	val defau : Int = 500

@@ -114,6 +114,8 @@ object GlobalSettings {
           Param.TIGHT_FUNCTION_SCOPES.set(settings, value)
         case ValueOpt("matchingBasePriority", IntVal(value)) =>
           Param.MATCHING_BASE_PRIORITY.set(settings, value)
+        case Opt("reverseFunctionalityPropagation", value) =>
+          Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(settings, value)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -132,7 +134,7 @@ object GlobalSettings {
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
-         Param.MATCHING_BASE_PRIORITY)
+         Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -144,7 +146,8 @@ object GoalSettings {
   val allParams = List(Param.POS_UNIT_RESOLUTION, Param.SYMBOL_WEIGHTS,
                        Param.GARBAGE_COLLECTED_FUNCTIONS,
                        Param.FULL_SPLITTING, Param.CONSTRAINT_SIMPLIFIER,
-                       Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY)
+                       Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
+                       Param.REVERSE_FUNCTIONALITY_PROPAGATION)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

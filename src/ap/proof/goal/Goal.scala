@@ -25,7 +25,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import ap.proof._
 import ap.terfor.{Formula, ConstantTerm, VariableTerm,
-                  TermOrder, TerFor, Term}
+                  TermOrder, TerFor, Term, AliasStatus}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                ReduceWithConjunction, Quantifier}
 import ap.terfor.arithconj.ArithConj
@@ -295,7 +295,7 @@ class Goal private (val facts : Conjunction,
   lazy val fixedConstantFreedom : Boolean =
     constantFreedom == closingConstantFreedom
 
-  lazy val mayAlias : ((LinearCombination, LinearCombination) => Boolean) =
+  lazy val mayAlias : ((LinearCombination, LinearCombination) => AliasStatus.Value) =
     new AliasAnalyser (reduceWithFacts,
                        constantFreedom, vocabulary.bindingContext,
                        order)

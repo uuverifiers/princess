@@ -23,7 +23,7 @@ package ap.proof.goal
 
 import ap.proof._
 import ap.basetypes.IdealInt
-import ap.terfor.TermOrder
+import ap.terfor.{TermOrder, AliasStatus}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj, ReduceWithNegEqs}
 import ap.terfor.conjunctions.ReduceWithConjunction
@@ -44,25 +44,37 @@ object AliasAnalyser {
 class AliasAnalyser (reducer : ReduceWithConjunction,
                      cf : ConstantFreedom, bc : BindingContext,
                      order : TermOrder)
-      extends ((LinearCombination, LinearCombination) => Boolean) {
+      extends ((LinearCombination, LinearCombination) => AliasStatus.Value) {
 
   private val cache =
-    new LRUCache[(LinearCombination, LinearCombination), Boolean] (10000)
+    new LRUCache[(LinearCombination, LinearCombination), AliasStatus.Value] (10000)
   
-  private def cacheKey(a : LinearCombination, b : LinearCombination) =
-    if (Seqs.lexCombineInts(a.hashCode - b.hashCode, order.compare(a, b)) < 0)
+  private def cacheKey(a : LinearCombination, b : LinearCombination) = {
+    val aHash = a.hashCode
+    val bHash = b.hashCode
+    if (aHash < bHash || (aHash == bHash && order.compare(a, b) < 0))
       (a, b)
-    else 
+    else
       (b, a)
+  }
   
-  def apply(a : LinearCombination, b : LinearCombination) : Boolean =
-    a == b || cache(cacheKey(a, b)) {
-      !cf.diffIsShieldingLC(a, b, bc) && {
-        val diff =
-          LinearCombination.sum(Array((IdealInt.ONE, a), (IdealInt.MINUS_ONE, b)),
-                                order)
-        !reducer(EquationConj(diff, order)).isFalse
-      }
+  def apply(a : LinearCombination, b : LinearCombination) : AliasStatus.Value =
+    if (a == b) {
+      AliasStatus.Must
+    } else cache(cacheKey(a, b)) {
+      val diff = LinearCombination.sum(Array((IdealInt.ONE, a),
+                                             (IdealInt.MINUS_ONE, b)),
+                                       order)
+      val reduced = reducer(EquationConj(diff, order))
+      
+      if (reduced.isTrue)
+        AliasStatus.Must
+      else if (reduced.isFalse)
+        AliasStatus.Cannot
+      else if (cf.diffIsShieldingLC(a, b, bc))
+        AliasStatus.CannotDueToFreedom
+      else
+        AliasStatus.May
     }
 
 }
