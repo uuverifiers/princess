@@ -72,7 +72,13 @@ private object MatchFunctions {
                                    collector, order)
 
       val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
-      val newTasks = for (f <- instances; t <- goal.formulaTasks(f)) yield t
+      val newTasks =
+        if (collector.isLogging)
+          // if we are producing proofs, we have to treat the instances
+          // separately (to log all performed simplifications)
+          for (f <- instances; t <- goal.formulaTasks(f)) yield t
+        else
+          for (t <- goal.formulaTasks(Conjunction.disj(instances, order))) yield t
 
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     } else {
