@@ -159,3 +159,15 @@ Constructing countermodel ...
 
 No countermodel exists, formula is valid
 
+Loading arrays.smt2 ...
+Warning: ignoring (set-logic AUFLIA)
+Warning: adding array axioms
+Warning: treating sort (Array Int Int) as Int
+Warning: ignoring (check-sat)
+Warning: ignoring (exit)
+Preprocessing ...
+Proving ...
+
+Formula is valid, resulting constraint:
+true
+

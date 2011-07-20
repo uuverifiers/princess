@@ -135,4 +135,35 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
                         "Do not know how to multiply " + t1 + " with " + t2)
     }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Declare functions <code>select, store</code> and generate axioms of the
+   * (non-extensional) theory of arrays. The argument determines whether the
+   * array functions should be declared as partial or as total functions
+   */
+  protected def genArrayAxioms(partial : Boolean) : IFormula = {
+    val select = new IFunction("select", 2, partial, false)
+    val store = new IFunction("store", 3, partial, false)
+    
+    env addFunction select
+    env addFunction store
+
+    arraysDefined = true
+    
+    all(all(all(
+        ITrigger(List(store(v(0), v(1), v(2))),
+                 select(store(v(0), v(1), v(2)), v(1)) === v(2))
+    ))) &
+    all(all(all(all(
+        ITrigger(List(select(store(v(0), v(1), v(2)), v(3))),
+                 (v(1) === v(3)) |
+                 (select(store(v(0), v(1), v(2)), v(3)) === select(v(0), v(3))))
+    ))))
+  }
+  
+  private var arraysDefined = false
+  
+  protected def arraysAlreadyDefined : Boolean = arraysDefined
+    
 }

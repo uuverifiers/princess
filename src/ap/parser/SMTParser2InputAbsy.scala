@@ -103,21 +103,6 @@ object SMTParser2InputAbsy {
     case s : QuotedSymbol => sanitise(s.quotedsymbolt_)
   }
   
-  private def translateSort(s : Sort) : Type.Value = s match {
-    case s : IdentSort => asString(s.identifier_) match {
-      case "Int" => Type.Integer
-      case "Bool" => Type.Bool
-      case id => {
-        warn("treating sort " + (PrettyPrinter print s) + " as Int")
-        Type.Integer
-      }
-    }
-    case s : CompositeSort => {
-      warn("treating sort " + (PrettyPrinter print s) + " as Int")
-      Type.Integer
-    }
-  }
-  
   private object PlainSymbol {
     def unapply(s : SymbolRef) : scala.Option[String] = s match {
       case s : IdentifierRef => s.identifier_ match {
@@ -209,6 +194,20 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     }
     
     apply(parseWithEntry(input, env, entry _))
+    
+    val (assumptionFormula, interpolantSpecs) =
+      if (genInterpolants) {
+        val namedParts = (for ((a, i) <- assumptions.iterator.zipWithIndex)
+                          yield INamedPart(new PartName ("p" + i), a)).toList
+        val names = for(part <- namedParts) yield part.name
+        val interSpecs = (for(i <- 1 until names.length)
+                          yield new IInterpolantSpec(names take i, names drop i)).toList
+        (connect(namedParts, IBinJunctor.And), interSpecs)
+      } else {
+        (connect(assumptions, IBinJunctor.And), List())
+      }
+    
+    (!assumptionFormula, interpolantSpecs, env.toSignature)
   }
 
   /**
@@ -248,12 +247,10 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       case _ : NoAttrParam => None
     }
   }
-  
-  private def apply(script : Script)
-                   : (IFormula, List[IInterpolantSpec], Signature) = {
-    val assumptions = new ArrayBuffer[IFormula]
-    
-    for (cmd <- script.listcommand_) cmd match {
+
+  val assumptions = new ArrayBuffer[IFormula]
+
+  private def apply(script : Script) = for (cmd <- script.listcommand_) cmd match {
 //      case cmd : SetLogicCommand =>
 //      case cmd : SetInfoCommand =>
 //      case cmd : SortDeclCommand =>
@@ -352,21 +349,27 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       
       case _ =>
         warn("ignoring " + (PrettyPrinter print cmd))
-    }
+  }
 
-    val (assumptionFormula, interpolantSpecs) =
-      if (genInterpolants) {
-        val namedParts = (for ((a, i) <- assumptions.iterator.zipWithIndex)
-                          yield INamedPart(new PartName ("p" + i), a)).toList
-        val names = for(part <- namedParts) yield part.name
-        val interSpecs = (for(i <- 1 until names.length)
-                          yield new IInterpolantSpec(names take i, names drop i)).toList
-        (connect(namedParts, IBinJunctor.And), interSpecs)
-      } else {
-        (connect(assumptions, IBinJunctor.And), List())
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateSort(s : Sort) : Type.Value = s match {
+    case s : IdentSort => asString(s.identifier_) match {
+      case "Int" => Type.Integer
+      case "Bool" => Type.Bool
+      case id => {
+        warn("treating sort " + (PrettyPrinter print s) + " as Int")
+        Type.Integer
       }
-    
-    (!assumptionFormula, interpolantSpecs, env.toSignature)
+    }
+    case s : CompositeSort => {
+      if (asString(s.identifier_) == "Array" && !arraysAlreadyDefined) {
+        warn("adding array axioms")
+        assumptions += genArrayAxioms(!totalityAxiom)
+      }
+      warn("treating sort " + (PrettyPrinter print s) + " as Int")
+      Type.Integer
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
