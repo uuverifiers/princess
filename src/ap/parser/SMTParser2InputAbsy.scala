@@ -610,6 +610,18 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
        Type.Bool)
     }
     
+    case PlainSymbol("xor") => {
+      if (args.size == 0)
+        throw new Parser2InputAbsy.TranslationException(
+          "Operator \"xor\" has to be applied to at least one argument")
+
+      (connect(List(asFormula(translateTerm(args.head, polarity))) ++
+               (for (a <- args.tail) yield
+                 !asFormula(translateTerm(a, -polarity))),
+               IBinJunctor.Eqv),
+       Type.Bool)
+    }
+    
     case PlainSymbol("ite") => {
       checkArgNum("ite", 3, args)
       val transArgs = for (a <- args) yield translateTerm(a, 0)
@@ -631,8 +643,9 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     case PlainSymbol("=") => {
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       (if (transArgs forall (_._2 == Type.Bool))
-         connect(for (a <- transArgs) yield asFormula(a),
-                 IBinJunctor.Eqv)
+         connect(for (Seq(a, b) <- (transArgs map (asFormula(_))) sliding 2)
+                   yield (a <=> b),
+                 IBinJunctor.And)
        else
          connect(for (Seq(a, b) <- (transArgs map (asTerm(_, Type.Integer))) sliding 2)
                    yield (a === b),
