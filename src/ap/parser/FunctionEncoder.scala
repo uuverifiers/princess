@@ -96,7 +96,7 @@ object FunctionEncoder {
             }
             case None =>
               // otherwise we have to introduce a local abstraction
-              v(localAbstractions.getAbstraction(t, {
+              v(localAbstractions.getAbstraction(updatedT, {
                 val res = localAbstractionIndex
                 localAbstractionIndex = localAbstractionIndex + 1
                 res

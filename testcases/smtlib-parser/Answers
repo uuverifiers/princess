@@ -171,3 +171,13 @@ Proving ...
 Formula is valid, resulting constraint:
 true
 
+Loading patternBug.smt2 ...
+Warning: ignoring (set-logic AUFLIA)
+Warning: ignoring (check-sat)
+Warning: ignoring (exit)
+Preprocessing ...
+Proving ...
+
+Formula is valid, resulting constraint:
+true
+

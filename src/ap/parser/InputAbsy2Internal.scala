@@ -94,6 +94,8 @@ private class InputAbsy2Internal(order : TermOrder) {
 
       (IdealInt.ONE, res)
     }
+    
+//    case t => { println(t); null }
   }
   
   private def translateLinComb(t : ITerm) : LinearCombination =
