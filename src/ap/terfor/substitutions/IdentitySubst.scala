@@ -22,6 +22,12 @@
 package ap.terfor.substitutions;
 
 import ap.terfor._
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.equations.{EquationConj, NegEquationConj}
+import ap.terfor.inequalities.InEqConj
+import ap.terfor.arithconj.ArithConj
+import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
+import ap.terfor.preds.{Atom, PredConj}
 
 object IdentitySubst {
   
@@ -30,16 +36,35 @@ object IdentitySubst {
 }
 
 class IdentitySubst (protected [substitutions] val order : TermOrder)
-      extends SimpleSubstitution {
+      extends Substitution {
 
   protected[substitutions] def passQuantifiers(num : Int) : Substitution = this
   
-  protected[substitutions] def applyToVariable(v : VariableTerm) : Term = v
+  def apply(t : Term) : Term = t
 
-  protected[substitutions] def applyToConstant(c : ConstantTerm) : Term = c
+  def apply(lc : LinearCombination) : LinearCombination = lc
 
-  protected[substitutions] def isIdentityOn(t : TerFor) : Boolean = true
+  protected[substitutions] def pseudoApply(lc : LinearCombination)
+                                          : LinearCombination = lc
 
+  override def apply(f : Formula) : Formula = f
+  
+  override def apply(conj : EquationConj) : EquationConj = conj
+
+  override def apply(negConj : NegEquationConj) : NegEquationConj = negConj
+
+  override def apply(conj : InEqConj) : InEqConj = conj
+
+  override def apply(conj : ArithConj) : ArithConj =  conj
+
+  override def apply(conj : Conjunction) : Conjunction = conj
+
+  override def apply(conjs : NegatedConjunctions) : NegatedConjunctions = conjs
+
+  override def apply(a : Atom) : Atom = a
+
+  override def apply(conj : PredConj) : PredConj = conj
+  
   //////////////////////////////////////////////////////////////////////////////
   
   def sortBy(newOrder : TermOrder) : IdentitySubst = new IdentitySubst(newOrder)

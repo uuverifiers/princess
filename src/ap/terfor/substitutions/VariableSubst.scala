@@ -69,9 +69,6 @@ class VariableSubst(offset : Int,
 
   protected[substitutions] def applyToConstant(c : ConstantTerm) : Term = c
 
-  protected[substitutions] def isIdentityOn(t : TerFor) : Boolean =
-    Logic.forall(for (VariableTerm(i) <- t.variables.iterator) yield (i < offset))
-
   //////////////////////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : VariableSubst =

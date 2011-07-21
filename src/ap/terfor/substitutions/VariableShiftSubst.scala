@@ -91,11 +91,6 @@ class VariableShiftSubst private (private val prefix : Array[Int],
 
   protected[substitutions] def applyToConstant(c : ConstantTerm) : Term = c
 
-  protected[substitutions] def isIdentityOn(t : TerFor) : Boolean =
-    t.variables forall { case VariableTerm(i) =>
-      (if (i < prefix.length) prefix(i) else defaultShift) == 0
-    }
-
   //////////////////////////////////////////////////////////////////////////////
   
   def compose(that : VariableShiftSubst) : VariableShiftSubst = {

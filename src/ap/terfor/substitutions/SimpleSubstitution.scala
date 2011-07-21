@@ -21,6 +21,8 @@
 
 package ap.terfor.substitutions;
 
+import ap.basetypes.IdealInt
+
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
@@ -37,28 +39,44 @@ object SimpleSubstitution {
  * A substitution that works by simple replacement of constants or variables
  * with arbitrary terms
  */
-trait SimpleSubstitution extends Substitution {
+abstract class SimpleSubstitution extends Substitution {
 
   protected[substitutions] def applyToVariable(v : VariableTerm) : Term
 
   protected[substitutions] def applyToConstant(c : ConstantTerm) : Term
 
-
   /**
    * Simple substitutions work by simple replacement
    */
-  def apply(t : Term) : Term = t match {
+  final def apply(t : Term) : Term = t match {
     case t : VariableTerm => applyToVariable(t)
     case t : ConstantTerm => applyToConstant(t)
     case OneTerm => OneTerm
     case t : LinearCombination => apply(t)
   }
      
-  def apply(lc : LinearCombination) : LinearCombination =
-    idOrElse(lc,
-             LinearCombination(for ((c, t) <- lc.elements)
-                               yield (c, apply(t)),
-                               order))
+  final def apply(lc : LinearCombination) : LinearCombination = {
+    val N = lc.size
+    val newTerms = new Array[(IdealInt, Term)](N)
+    
+    var i = 0
+    var changed = false
+    while (i < N) {
+      val (c, t) = lc(i)
+      val newT = apply(t)
+      newTerms(i) = (c, newT)
+      
+      if (!(newT eq t))
+        changed = true
+        
+      i = i + 1
+    }
+    
+    if (changed)
+      LinearCombination(newTerms, order)
+    else
+      lc
+  }
 
   protected[substitutions] def pseudoApply(lc : LinearCombination)
                                             : LinearCombination = apply(lc)

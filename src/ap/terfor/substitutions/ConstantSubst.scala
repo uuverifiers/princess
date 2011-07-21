@@ -69,9 +69,6 @@ class ConstantSubst private
   protected[substitutions] def applyToConstant(c : ConstantTerm) : Term =
     replacements.getOrElse(c, c)
 
-  protected[substitutions] def isIdentityOn(t : TerFor) : Boolean =
-    Seqs.disjointSeq(t.constants, replacements.keysIterator)
-
   //////////////////////////////////////////////////////////////////////////////
 
   protected[substitutions] def compose(that : ConstantSubst) : ConstantSubst = {

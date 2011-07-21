@@ -90,8 +90,8 @@ class IntelliFileProver(reader : java.io.Reader,
         NoProof(tree)
       }
     } {
-      // we assume that a partial proof tree is given back
       case x : ProofTree => TimeoutProof(x)
+      case _ => TimeoutProof(null)
     }
         
   lazy val proofTree : ProofTree = proofResult match {

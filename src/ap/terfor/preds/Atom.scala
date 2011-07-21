@@ -41,6 +41,11 @@ object Atom {
             order : TermOrder) : Atom =
     new Atom (pred, args.toArray[LinearCombination], order)
 
+  def createNoCopy(pred : Predicate,
+                   args : Array[LinearCombination],
+                   order : TermOrder) : Atom =
+    new Atom (pred, args, order)
+
 }
 
 class Atom private (val pred : Predicate,

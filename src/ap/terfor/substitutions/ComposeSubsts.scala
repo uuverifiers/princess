@@ -103,9 +103,6 @@ class ComposeSubsts private (private val secondSubst : Substitution,
   def pseudoApply(lc : LinearCombination) : LinearCombination =
     secondSubst pseudoApply (firstSubst pseudoApply lc)
 
-  protected[substitutions] def isIdentityOn(t : TerFor) : Boolean =
-    firstSubst.isIdentityOn(t) && secondSubst.isIdentityOn(t)
-
   //////////////////////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : ComposeSubsts =

@@ -229,9 +229,12 @@ object IVarShift {
 }
 
 case class IVarShift(prefix : List[Int], defaultShift : Int) {
+  
+  lazy val length = prefix.length
+  
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(IVarShift.AC,
-                   defaultShift + prefix.length >= 0 &&
+                   defaultShift + length >= 0 &&
                    (prefix.iterator.zipWithIndex forall {case (i, j) => i + j >= 0}))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
@@ -248,7 +251,7 @@ case class IVarShift(prefix : List[Int], defaultShift : Int) {
     val newPrefix = new scala.collection.mutable.ArrayBuffer[Int]
     for ((o, i) <- that.prefix.iterator.zipWithIndex)
       newPrefix += (apply(i + o) - i)
-    for (i <- that.prefix.length until (this.prefix.length - that.defaultShift))
+    for (i <- that.length until (this.length - that.defaultShift))
       newPrefix += (apply(i + that.defaultShift) - i)
     IVarShift(newPrefix.toList, this.defaultShift + that.defaultShift)
   }
@@ -257,7 +260,7 @@ case class IVarShift(prefix : List[Int], defaultShift : Int) {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IVarShift.AC, i >= 0)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    i + (if (i < prefix.length) prefix(i) else defaultShift)
+    i + (if (i < length) prefix(i) else defaultShift)
   }
   def apply(v : IVariable) : IVariable = {
     val newIndex = apply(v.index)

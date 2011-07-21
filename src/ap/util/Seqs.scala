@@ -245,8 +245,13 @@ object Seqs {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def disjointSeq[A](a : scala.collection.Set[A], b : Iterator[A]) : Boolean =
-    Logic.forall(for (x <- b) yield !(a contains x))
+  def disjointSeq[A](a : scala.collection.Set[A], b : Iterator[A]) : Boolean = {
+    while (b.hasNext) {
+      if (a contains b.next)
+        return false
+    }
+    true
+  }
 
   def disjointSeq[A](a : scala.collection.Set[A], b : Iterable[A]) : Boolean =
     disjointSeq(a, b.iterator)
@@ -256,8 +261,14 @@ object Seqs {
     disjointSeq(a1, a2, b.iterator)
 
   def disjointSeq[A](a1 : scala.collection.Set[A], a2 : scala.collection.Set[A],
-                     b : Iterator[A]) : Boolean =
-    Logic.forall(for (x <- b) yield !((a1 contains x) && (a2 contains x)))
+                     b : Iterator[A]) : Boolean =  {
+    while (b.hasNext) {
+      val x = b.next
+      if ((a1 contains x) && (a2 contains x))
+        return false
+    }
+    true
+  }
 
   def disjoint[A](a : scala.collection.Set[A],
                   b : scala.collection.Set[A]) : Boolean =

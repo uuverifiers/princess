@@ -39,7 +39,7 @@ object PseudoDivSubstitution {
  * coefficient, like <code>n * c</code>. This is done through
  * pseudo-division if necessary (and possible)
  */
-trait PseudoDivSubstitution extends Substitution {
+abstract class PseudoDivSubstitution extends Substitution {
 
   /**
    * The subclasses can specify both the coefficient of the variable or constant

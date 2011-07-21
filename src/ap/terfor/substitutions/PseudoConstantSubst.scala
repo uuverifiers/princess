@@ -63,9 +63,6 @@ class PseudoConstantSubst(private val coeff : IdealInt,
   protected[substitutions] def applyToConstant(c : ConstantTerm) : (IdealInt, Term) =
     if (c == constant) (coeff, replacement) else (IdealInt.ONE, c)
 
-  protected[substitutions] def isIdentityOn(t : TerFor) : Boolean =
-    !(t.constants contains constant)
-
   //////////////////////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : PseudoConstantSubst =
