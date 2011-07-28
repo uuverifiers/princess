@@ -56,8 +56,12 @@ object Preprocessing {
     val fors2 = for (f <- fors) yield EquivExpander(f).asInstanceOf[INamedPart]
     
     val triggerGenerator =
-      new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings))
-    val fors2b = for (f <- fors2) yield triggerGenerator(f)
+      new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
+                            TriggerGenerator.TriggerStrategy.Maximal)
+    for (f <- fors2)
+      triggerGenerator setup f
+    val fors2b =
+      for (f <- fors2) yield triggerGenerator(f)
 
     // translate functions to relations
     var order3 = signature.order

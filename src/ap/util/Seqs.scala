@@ -50,6 +50,26 @@ object Seqs {
     throw new Error // never reached
   }
 
+  def lexCompareOrdering[T](it1 : Iterator[T], it2 : Iterator[T])
+                           (implicit ord : Ordering[T]) : Int = {
+    while (true) {
+      if (it1.hasNext) {
+        if (!it2.hasNext)
+          return 1      
+      } else {
+        if (it2.hasNext)
+          return -1
+        else
+          return 0      
+      }      
+      
+      val compRes = ord.compare(it1.next, it2.next)
+      if (compRes != 0) return compRes
+    }
+    
+    throw new Error // never reached
+  }
+
   /**
    * Interpret the given integers as results of a <code>compare</code>
    * function (negative, zero, positive for less, equal, greater) and combine

@@ -22,13 +22,18 @@
 package ap.parser
 
 import ap.terfor.conjunctions.Quantifier
-import ap.util.Debug
+import ap.terfor.ConstantTerm
+import ap.util.{Debug, Seqs}
 
 import scala.collection.immutable.ListSet
 
 object TriggerGenerator {
   
   private val AC = Debug.AC_INPUT_ABSY
+  
+  object TriggerStrategy extends Enumeration {
+    val AllMinimal, AllMaximal, Maximal = Value
+  }
   
 }
 
@@ -39,10 +44,49 @@ object TriggerGenerator {
  * triggers. The argument of the visitor determines how many existential
  * quantifiers are immediately above the current position
  */
-class TriggerGenerator(consideredFunctions : Set[IFunction])
+class TriggerGenerator(consideredFunctions : Set[IFunction],
+                       strategy : TriggerGenerator.TriggerStrategy.Value)
       extends ContextAwareVisitor[Int, IExpression] {
   
   import IExpression._
+  import TriggerGenerator._
+
+  /**
+   * Prepare to process the given formula at a later point; this might include
+   * measuring the number of occurrences of the various symbols in the formulae
+   */
+  def setup(f : IFormula) : Unit = strategy match {
+    case TriggerStrategy.Maximal => funFreqs.visit(f, {})
+    case _ => // nothing
+  }
+
+  private val funFreqs = new CollectingVisitor[Unit, Unit] {
+    def postVisit(t : IExpression,
+                  arg : Unit, subres : Seq[Unit]) : Unit = t match {
+      case IFunApp(f, _) => funs += (f -> (funs.getOrElse(f, 0) + 1))
+      case IConstant(c)  => consts += (c -> (consts.getOrElse(c, 0) + 1))
+      case _ => // nothing
+    }
+  }
+
+  // maps to determine/store the frequencies of functions and constants
+  private val consts = new scala.collection.mutable.HashMap[ConstantTerm, Int]
+  private val funs = new scala.collection.mutable.HashMap[IFunction, Int]
+
+  private implicit def iTermOrdering =
+    new KBO((f) => 2, (c) => 1,
+      new Ordering[IFunction] {
+        def compare(f1 : IFunction, f2 : IFunction) : Int =
+          Seqs.lexCombineInts(funs(f2) - funs(f1), f1.name compare f2.name)
+        },
+      new Ordering[ConstantTerm] {
+        def compare(c1 : ConstantTerm, c2 : ConstantTerm) : Int =
+          Seqs.lexCombineInts(consts(c2) - consts(c1), c1.name compare c2.name)
+        })
+
+  private val reverseITermOrdering = iTermOrdering.reverse
+
+  //////////////////////////////////////////////////////////////////////////////
 
   def apply(f : IFormula) : IFormula =
     if (consideredFunctions.isEmpty)
@@ -100,14 +144,6 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
             
           } else {
             
-            // check whether the current term contains more variables than
-            // any of the individual subterms
-            // (otherwise we do not consider the term an interesting trigger)
-            val foundMoreVars = subres forall {
-              case (Some(_ : IFunApp), _, subVariables) => subVariables != allVariables
-              case _ => true
-            }
-
             val shiftedTerm =
               IFunApp(fun, for ((Some(t), _, _) <- subres) yield t)
 
@@ -117,17 +153,40 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
                 Debug.assertInt(TriggerGenerator.AC, subTriggers.isEmpty)
                 //-END-ASSERTION-///////////////////////////////////////////////
                 ListSet.empty
-              } else if (foundMoreVars) {
-                // ignore the triggers from the subterms
-                ListSet.empty + (shiftedTerm -> allVariables)
-              } else {
-                // only consider the subtriggers
-                subTriggers
+              } else strategy match {
+                
+                case TriggerStrategy.AllMaximal =>
+                  // ignore the triggers from the subterms
+                  ListSet.empty + (shiftedTerm -> allVariables)
+                  
+                case TriggerStrategy.AllMinimal => {
+                  // check whether the current term contains more variables than
+                  // any of the individual subterms
+                  // (otherwise we do not consider the term an interesting trigger)
+                  val foundMoreVars = subres forall {
+                    case (Some(_ : IFunApp), _, subVariables) =>
+                      subVariables != allVariables
+                    case _ =>
+                      true
+                  }
+                  
+                  if (foundMoreVars)
+                    // ignore the triggers from the subterms
+                    ListSet.empty + (shiftedTerm -> allVariables)
+                  else
+                    // only consider the subtriggers
+                    subTriggers
+                }
+                
+                case TriggerStrategy.Maximal =>
+                  // consider all triggers
+                  subTriggers + (shiftedTerm -> allVariables)
               }
 
             // if we already have found all variables, we do not have to consider
             // superterms
-            (if ((0 until ctxt.a) forall (allVariables contains _))
+            (if (strategy == TriggerStrategy.AllMinimal &&
+                 ((0 until ctxt.a) forall (allVariables contains _)))
                None
              else
                Some(shiftedTerm),
@@ -169,7 +228,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
   }
 
   //////////////////////////////////////////////////////////////////////////////
-                       
+
   def postVisit(t : IExpression, ctxt : Context[Int],
                 subres : Seq[IExpression]) : IExpression = t match {
     // do not generate triggers for quantified formulae that already contain
@@ -189,20 +248,21 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
       
       def allVars(vars : Set[Int]) = (0 until ctxt.a) forall (vars contains _)
       
-      val chosenTriggers =
+      val chosenTriggers : List[List[ITerm]] =
         if (triggers exists { case (_, vars) => allVars(vars) }) {
           // there are uni-triggers that contain all variables
           
-          for ((t, vars) <- triggers.iterator; if (allVars(vars))) yield List(t)
+          (for ((t, vars) <- triggers.iterator;
+                if (allVars(vars))) yield List(t)).toList
       } else {
         // generate all minimal multi-triggers
         
         def multiTriggers(triggers : List[(ITerm, Set[Int])],
-                          coveredVars : Set[Int]) : Iterator[List[ITerm]] =
+                          coveredVars : Set[Int]) : List[List[ITerm]] =
           if (allVars(coveredVars))
             // we have found a useable multi-trigger and can ignore the
             // remaining uni-triggers
-            Iterator.single(List())
+            List(List())
           else
             triggers match {
               case (trigger, vars) :: rem =>
@@ -210,20 +270,37 @@ class TriggerGenerator(consideredFunctions : Set[IFunction])
                   if (vars subsetOf coveredVars) {
                     // this uni-trigger does not add any new variables an
                     // can be ignored
-                    Iterator.empty
+                    List()
                   } else {
                     val newCoveredVars = coveredVars ++ vars
                     for (chosenTriggers <- multiTriggers(rem, newCoveredVars))
                       yield (trigger :: chosenTriggers)
                   })
               case _ =>
-                Iterator.empty
+                List()
             }
         
         multiTriggers(triggers.toList, Set())
       }
+
+//      println(chosenTriggers)
       
-      (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
+      strategy match {
+        case TriggerStrategy.Maximal => {
+          val sortedTriggers = for (t <- chosenTriggers)
+                               yield (t sorted reverseITermOrdering)
+          if (sortedTriggers.isEmpty) {
+            t
+          } else {
+            val maxTrigger = sortedTriggers.max(Ordering Iterable iTermOrdering)
+//            println("Max: " + maxTrigger)
+            ITrigger(maxTrigger, t)
+          }
+        }
+        case _ => {
+          (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
+        }
+      }
     }
     
     case _ =>
