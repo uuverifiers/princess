@@ -116,6 +116,12 @@ object GlobalSettings {
           Param.MATCHING_BASE_PRIORITY.set(settings, value)
         case Opt("reverseFunctionalityPropagation", value) =>
           Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(settings, value)
+        case ValueOpt("triggerStrategy", "allMinimal") =>
+          Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMinimal)
+        case ValueOpt("triggerStrategy", "allMaximal") =>
+          Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMaximal)
+        case ValueOpt("triggerStrategy", "maximal") =>
+          Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.Maximal)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -134,7 +140,8 @@ object GlobalSettings {
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
-         Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION)
+         Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
+         Param.TRIGGER_STRATEGY)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -158,7 +165,7 @@ object PreprocessingSettings {
 
   val allParams = List(Param.CLAUSIFIER,
                        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS,
-                       Param.TIGHT_FUNCTION_SCOPES)
+                       Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())

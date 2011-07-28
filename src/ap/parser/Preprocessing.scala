@@ -57,7 +57,7 @@ object Preprocessing {
     
     val triggerGenerator =
       new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
-                            TriggerGenerator.TriggerStrategy.Maximal)
+                            Param.TRIGGER_STRATEGY(settings))
     for (f <- fors2)
       triggerGenerator setup f
     val fors2b =

@@ -23,6 +23,7 @@ package ap.parser
 
 import ap.terfor.conjunctions.Quantifier
 import ap.terfor.ConstantTerm
+import ap.parameters.Param
 import ap.util.{Debug, Seqs}
 
 import scala.collection.immutable.ListSet
@@ -30,10 +31,6 @@ import scala.collection.immutable.ListSet
 object TriggerGenerator {
   
   private val AC = Debug.AC_INPUT_ABSY
-  
-  object TriggerStrategy extends Enumeration {
-    val AllMinimal, AllMaximal, Maximal = Value
-  }
   
 }
 
@@ -45,11 +42,11 @@ object TriggerGenerator {
  * quantifiers are immediately above the current position
  */
 class TriggerGenerator(consideredFunctions : Set[IFunction],
-                       strategy : TriggerGenerator.TriggerStrategy.Value)
+                       strategy : Param.TriggerStrategyOptions.Value)
       extends ContextAwareVisitor[Int, IExpression] {
   
   import IExpression._
-  import TriggerGenerator._
+  import Param.{TriggerStrategyOptions => TriggerStrategy}
 
   /**
    * Prepare to process the given formula at a later point; this might include

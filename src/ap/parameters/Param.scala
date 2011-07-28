@@ -107,7 +107,15 @@ object Param {
     type Value = TriggerGenerationOptions.Value
     val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.Total
   }
-  
+
+  object TriggerStrategyOptions extends Enumeration {
+    val AllMinimal, AllMaximal, Maximal = Value
+  }
+  case object TRIGGER_STRATEGY extends Param {
+    type Value = TriggerStrategyOptions.Value
+    val defau : TriggerStrategyOptions.Value = TriggerStrategyOptions.Maximal
+  }
+
   case object TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS extends Param {
     type Value = Set[ap.parser.IFunction]
     val defau : Set[ap.parser.IFunction] = Set()

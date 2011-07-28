@@ -68,7 +68,6 @@ object IntelliFileProver {
 class IntelliFileProver(reader : java.io.Reader,
                         // a timeout in milliseconds
                         timeout : Int,
-                        mostGeneralConstraint : Boolean,
                         output : Boolean,
                         userDefStoppingCond : => Boolean,
                         settings : GlobalSettings)
@@ -79,7 +78,7 @@ class IntelliFileProver(reader : java.io.Reader,
 
   lazy val proofResult : ProofResult =
     Timeout.catchTimeout[ProofResult] {
-      val (tree, validConstraint) = constructProofTree(mostGeneralConstraint)
+      val (tree, validConstraint) = constructProofTree
       if (validConstraint) {
         if (Seqs.disjoint(tree.closingConstraint.constants,
                           signature.universalConstants))
@@ -188,7 +187,7 @@ class IntelliFileProver(reader : java.io.Reader,
     if ((formulas exists (_.isTrue)) || canUseModelSearchProver) {
       // try to find a countermodel
       counterModelResult
-    } else if (!mostGeneralConstraint &&
+    } else if (!Param.MOST_GENERAL_CONSTRAINT(settings) &&
                (constants subsetOf signature.existentialConstants) &&
                (formulas forall ((f) => f.predicates.isEmpty)) &&
                (quantifiers subsetOf Set(Quantifier.EX))) {

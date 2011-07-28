@@ -48,11 +48,13 @@ object Timeout {
    * The idea is that the timeout argument should describe the partial
    * (unfinished) results that had been computed before the timeout
    */
-  def unfinished[A](comp : => A)(errorHandler : (Any) => Any) : A =
+  def unfinished[A](comp : => A)(errorHandler : PartialFunction[Any, Any]) : A =
     try { comp } catch {
       case Timeout(x) => {
         // avoid nested timeouts
-        val newRes = withChecker(() => {}) (errorHandler(x))
+        val newRes = withChecker(() => {}) {
+          (errorHandler.orElse[Any, Any] { case _ => x })(x)
+        }
         throw Timeout(newRes)
       }
     }

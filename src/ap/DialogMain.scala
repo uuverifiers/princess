@@ -576,10 +576,11 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   }
   
   private var currentProver : Actor = null
+  private var proverStopRequested : Boolean = false
   
   def stopProver =
     if (currentProver != null) {
-      currentProver ! "stop"
+      proverStopRequested = true
       goButton setEnabled false
       goButton setText "Stopping ..."
       goButton setToolTipText null
@@ -591,7 +592,8 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   addActionListener(goButton) { startOrStopProver }
 
   private def startProver : Unit = {
-    val reader = new java.io.StringReader(inputField.getText)
+    val input = inputField.getText
+    val reader = () => new java.io.StringReader(input)
     
     val settings = try {
       val initS =
@@ -620,14 +622,12 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     
     // start one thread for proving the problem
     currentProver = actor {
-      var stop : Boolean = false
+      proverStopRequested = false
+      
       Console.withOut(proverOutputStream) { Console.withErr(proverOutputStream) {
-        CmdlMain.proveProblems(settings, List(("", reader)), {
-          receiveWithin(0) { case TIMEOUT => // nothing
-                             case _ => stop = true }
-          stop
-        } )
+        CmdlMain.proveProblems(settings, List(("", reader)), proverStopRequested)
       }}
+      
       proverOutputStream.close
       doLater {
         currentProver = null

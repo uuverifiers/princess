@@ -144,7 +144,7 @@ object CmdlMain {
   }
   
   def proveProblems(settings : GlobalSettings,
-                    problems : Seq[(String, java.io.Reader)],
+                    problems : Seq[(String, () => java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
     if (problems.isEmpty) {
       Console.withOut(Console.err) {
@@ -162,14 +162,30 @@ object CmdlMain {
             Console.withOut(Console.err) {
               println("Loading " + filename + " ...")
             }
-            val prover =
-              new IntelliFileProver(reader,
+            val prover = {
+	      /*
+              val baseSettings = Param.INPUT_FORMAT.set(settings,
+                                      determineInputFormat(filename, settings))
+              val s1 = Param.TRIGGER_STRATEGY.set(baseSettings,
+                                       Param.TriggerStrategyOptions.AllMinimal)
+              val s2 = Param.TRIGGER_STRATEGY.set(baseSettings,
+                                       Param.TriggerStrategyOptions.Maximal)
+                                       
+              new ParallelFileProver(reader,
+                                     Param.TIMEOUT(settings),
+                                     true,
+                                     userDefStoppingCond,
+                                     List(s1, s2))
+              */                       
+
+              new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),
-                                    Param.MOST_GENERAL_CONSTRAINT(settings),
                                     true,
                                     userDefStoppingCond,
                                     Param.INPUT_FORMAT.set(settings,
                                       determineInputFormat(filename, settings)))
+
+            }
 
             Console.withOut(Console.err) {
               println
@@ -183,6 +199,11 @@ object CmdlMain {
                          else
                            "") + "constraint:")
                 println("" + tree.closingConstraint)
+                if (Param.PRINT_TREE(settings)) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
               }
               case IntelliFileProver.ProofWithModel(tree, model) => {
                 println("Formula is valid, resulting " +
@@ -195,6 +216,11 @@ object CmdlMain {
                   println
                   println("Concrete witness:")
                   println("" + model)
+                }
+                if (Param.PRINT_TREE(settings)) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
                 }
               }
               case IntelliFileProver.NoProof(_) =>  {
@@ -267,6 +293,11 @@ object CmdlMain {
                   println("Current constraint:")
                   println("" + tree.closingConstraint)
                 }
+                if (Param.PRINT_TREE(settings)) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
               }
               case IntelliFileProver.TimeoutModel |
                    IntelliFileProver.TimeoutCounterModel =>  {
@@ -279,12 +310,6 @@ object CmdlMain {
               }
             }
             
-            if (Param.PRINT_TREE(settings)) {
-              println
-              println("Proof tree:")
-              println(prover.proofTree)
-            }
-            
             val timeAfter = System.currentTimeMillis
             
             Console.withOut(Console.err) {
@@ -293,7 +318,7 @@ object CmdlMain {
                 println("" + (timeAfter - timeBefore) + "ms")
             }
               
-            printSMT(prover, filename, settings)
+    //        printSMT(prover, filename, settings)
             
             /* println
             println(ap.util.Timer)
@@ -344,7 +369,8 @@ object CmdlMain {
     
     proveProblems(settings,
                   for (name <- inputs.view)
-                  yield (name, new java.io.BufferedReader (
+                  yield (name,
+                         () => new java.io.BufferedReader (
                                new java.io.FileReader(new java.io.File (name)))),
                   false)
   }
