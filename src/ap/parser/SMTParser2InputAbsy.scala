@@ -232,6 +232,10 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   private var genInterpolants = false
   
   //////////////////////////////////////////////////////////////////////////////
+
+  private val printer = new PrettyPrinterNonStatic
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   private object BooleanParameter {
     def unapply(param : AttrParam) : scala.Option[Boolean] = param match {
@@ -348,7 +352,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       //////////////////////////////////////////////////////////////////////////
       
       case _ =>
-        warn("ignoring " + (PrettyPrinter print cmd))
+        warn("ignoring " + (printer print cmd))
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -358,7 +362,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       case "Int" => Type.Integer
       case "Bool" => Type.Bool
       case id => {
-        warn("treating sort " + (PrettyPrinter print s) + " as Int")
+        warn("treating sort " + (printer print s) + " as Int")
         Type.Integer
       }
     }
@@ -367,7 +371,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         warn("adding array axioms")
         assumptions += genArrayAxioms(!totalityAxiom)
       }
-      warn("treating sort " + (PrettyPrinter print s) + " as Int")
+      warn("treating sort " + (printer print s) + " as Int")
       Type.Integer
     }
   }
@@ -400,7 +404,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
                      catch { case _ : TranslationException |
                                   _ : Environment.EnvironmentException => {
                        warn("could not parse trigger " +
-                            (PrettyPrinter print expr) +
+                            (printer print expr) +
                             ", ignoring")
                        List()
                      } }
@@ -445,7 +449,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         if (sort != Type.Integer && sort != Type.Bool)
           throw new Parser2InputAbsy.TranslationException(
                "Quantification of variables of type " +
-               (PrettyPrinter print binder.sort_) +
+               (printer print binder.sort_) +
                " is currently not supported")
         env pushVar asString(binder.symbol_)
         quantNum = quantNum + 1
@@ -737,13 +741,13 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     // Declared symbols from the environment
     case id => (env lookupSym asString(id)) match {
       case Environment.Predicate(pred) => {
-        checkArgNumLazy(PrettyPrinter print sym, pred.arity, args)
+        checkArgNumLazy(printer print sym, pred.arity, args)
         (IAtom(pred, for (a <- args) yield asTerm(translateTerm(a, 0))),
          Type.Bool)
       }
       
       case Environment.Function(fun, encodesBool) => {
-        checkArgNumLazy(PrettyPrinter print sym, fun.arity, args)
+        checkArgNumLazy(printer print sym, fun.arity, args)
         (IFunApp(fun, for (a <- args) yield asTerm(translateTerm(a, 0))),
          if (encodesBool) Type.Bool else Type.Integer)
       }
@@ -765,7 +769,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     
     case expr : SymbolSExpr => (env lookupSym asString(expr.symbol_)) match {
       case Environment.Function(fun, _) => {
-        checkArgNumSExpr(PrettyPrinter print expr.symbol_,
+        checkArgNumSExpr(printer print expr.symbol_,
                          fun.arity, List[SExpr]())
         IFunApp(fun, List())
       }
@@ -774,35 +778,35 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       case _ =>
         throw new Parser2InputAbsy.TranslationException(
           "Unexpected symbol in a trigger: " +
-          (PrettyPrinter print expr.symbol_))
+          (printer print expr.symbol_))
     }
     
     case expr : ParenSExpr => {
       if (expr.listsexpr_.isEmpty)
         throw new Parser2InputAbsy.TranslationException(
-          "Expected a function application, not " + (PrettyPrinter print expr))
+          "Expected a function application, not " + (printer print expr))
       
       expr.listsexpr_.head match {
         case funExpr : SymbolSExpr => (env lookupSym asString(funExpr.symbol_)) match {
           case Environment.Function(fun, _) => {
             val args = expr.listsexpr_.tail.toList
-            checkArgNumSExpr(PrettyPrinter print funExpr.symbol_, fun.arity, args)
+            checkArgNumSExpr(printer print funExpr.symbol_, fun.arity, args)
             IFunApp(fun, for (e <- args) yield translateTrigger(e))
           }
           case Environment.Constant(c, _) => {
-            checkArgNumSExpr(PrettyPrinter print funExpr.symbol_,
+            checkArgNumSExpr(printer print funExpr.symbol_,
                              0, expr.listsexpr_.tail)
             c
           }
           case Environment.Variable(i, false) => {
-            checkArgNumSExpr(PrettyPrinter print funExpr.symbol_,
+            checkArgNumSExpr(printer print funExpr.symbol_,
                              0, expr.listsexpr_.tail)
             v(i)
           }
           case _ =>
             throw new Parser2InputAbsy.TranslationException(
               "Unexpected symbol in a trigger: " +
-              (PrettyPrinter print funExpr.symbol_))
+              (printer print funExpr.symbol_))
         }
       }
     }
@@ -836,14 +840,14 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       throw new Parser2InputAbsy.TranslationException(
           "Operator \"" + op +
           "\" is applied to a wrong number of arguments: " +
-          ((for (a <- args) yield (PrettyPrinter print a)) mkString ", "))
+          ((for (a <- args) yield (printer print a)) mkString ", "))
   
   private def checkArgNumSExpr(op : => String, expected : Int, args : Seq[SExpr]) : Unit =
     if (expected != args.size)
       throw new Parser2InputAbsy.TranslationException(
           "Operator \"" + op +
           "\" is applied to a wrong number of arguments: " +
-          ((for (a <- args) yield (PrettyPrinter print a)) mkString ", "))
+          ((for (a <- args) yield (printer print a)) mkString ", "))
   
   private object SMTConnective extends ASTConnective {
     def unapplySeq(t : Term) : scala.Option[Seq[Term]] = t match {

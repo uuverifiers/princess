@@ -176,7 +176,7 @@ object CmdlMain {
                                      true,
                                      userDefStoppingCond,
                                      List(s1, s2))
-              */                       
+              */
 
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),

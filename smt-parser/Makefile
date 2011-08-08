@@ -20,7 +20,7 @@ CLASSPATH:=$(CLASSPATH):$(PARSER_BASEDIR):$(JLEX_PATH)
 all: smt-parser.jar smtlib/Test.class
 
 
-smt-parser.jar: $(PARSER_BINDIR) $(PARSER_BINDIR)/smtlib/Absyn/smtlib.class $(PARSER_BINDIR)/smtlib/sym.class $(PARSER_BINDIR)/smtlib/Yylex.class $(PARSER_BINDIR)/smtlib/PrettyPrinter.class $(PARSER_BINDIR)/smtlib/parser.class
+smt-parser.jar: $(PARSER_BINDIR) $(PARSER_BINDIR)/smtlib/Absyn/smtlib.class $(PARSER_BINDIR)/smtlib/sym.class $(PARSER_BINDIR)/smtlib/Yylex.class $(PARSER_BINDIR)/smtlib/PrettyPrinterNonStatic.class $(PARSER_BINDIR)/smtlib/parser.class
 	cd $(PARSER_BINDIR) && jar cf $(PARSER_BASEDIR)/smt-parser.jar smtlib
 
 
@@ -66,8 +66,14 @@ $(PARSER_BINDIR)/smtlib/sym.class: smtlib/sym.java
 $(PARSER_BINDIR)/smtlib/parser.class: smtlib/parser.java smtlib/sym.java
 	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) smtlib/parser.java
 
+smtlib/PrettyPrinterNonStatic.java: smtlib/PrettyPrinter.java
+	sed 's/PrettyPrinter/PrettyPrinterNonStatic/g' <smtlib/PrettyPrinter.java | sed 's/static//g' >smtlib/PrettyPrinterNonStatic.java
+
 $(PARSER_BINDIR)/smtlib/PrettyPrinter.class: smtlib/PrettyPrinter.java
 	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) smtlib/PrettyPrinter.java
+
+$(PARSER_BINDIR)/smtlib/PrettyPrinterNonStatic.class: smtlib/PrettyPrinterNonStatic.java
+	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) smtlib/PrettyPrinterNonStatic.java
 
 smtlib/Test.class: smtlib/Test.java $(PARSER_BINDIR)/smtlib/PrettyPrinter.class $(PARSER_BINDIR)/smtlib/Yylex.class $(PARSER_BINDIR)/smtlib/parser.class $(PARSER_BINDIR)/smtlib/sym.class
 	${JAVAC} ${JAVAC_FLAGS} smtlib/Test.java

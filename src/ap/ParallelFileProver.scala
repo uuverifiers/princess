@@ -26,38 +26,39 @@ import ap.util.{Seqs, Debug, Timeout}
 
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
+import scala.collection.mutable.PriorityQueue
 
 object ParallelFileProver {
 
   private val AC = Debug.AC_MAIN
   
+  //////////////////////////////////////////////////////////////////////////////
+  // Commands that can be sent to the provers
+  
   private abstract sealed class SubProverCommand
   
   private case object SubProverStop extends SubProverCommand
+  private case class SubProverResume(until : Long) extends SubProverCommand
   
-  private abstract sealed class SubProverResult(num : Int)
+  //////////////////////////////////////////////////////////////////////////////
+  // Messages sent back by the provers
+  
+  private abstract sealed class SubProverMessage(num : Int)
+  
+  private abstract sealed class SubProverResult(_num : Int)
+               extends SubProverMessage(_num)
   
   private case class SubProverFinished(_num : Int, result : IntelliFileProver.Result)
                extends SubProverResult(_num)
   private case class SubProverKilled(_num : Int)
                extends SubProverResult(_num)
+  private case class SubProverException(_num : Int, e : Throwable)
+               extends SubProverResult(_num)
   
-  private class PrefixOutputStream(prefix : String,
-                                   subStream : java.io.OutputStream)
-                extends java.io.OutputStream {
-    private val prefixArray = for (b <- prefix.toCharArray) yield b.toByte
-    private var sawNewline = true
-    
-    def write(b : Int) = {
-      if (sawNewline) {
-        subStream write prefixArray
-        sawNewline = false
-      }
-      subStream write b
-      if (b == '\n')
-        sawNewline = true
-    }
-  }
+  private case class SubProverSuspended(_num : Int)
+               extends SubProverMessage(_num)
+  private case class SubProverPrintln(_num : Int, line : String, stream : Int)
+               extends SubProverMessage(_num)
 }
 
 /**
@@ -76,60 +77,203 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   private val mainActor = Actor.self
   
-  private val mainOut = Console.out
-  private val mainErr = Console.err
+  //////////////////////////////////////////////////////////////////////////////
+  // Definition of the actors running the individual provers
   
   private val proofActors = for ((s, num) <- settings.zipWithIndex) yield actor {
+    
+    class MessageOutputStream(stream : Int) extends java.io.OutputStream {
+      
+      private val line = new StringBuffer
+      
+      def write(b : Int) =
+        if (b == '\n') {
+          mainActor ! SubProverPrintln(num, line.toString, stream)
+          line setLength 0
+        } else {
+          line append b.toChar
+        }
+    }
+
     var actorStopped : Boolean = false
+    var runUntil : Long = 0
     
     def localStoppingCond : Boolean = actorStopped || {
       receiveWithin(0) {
         case SubProverStop => actorStopped = true
+        case SubProverResume(u) => runUntil = u
         case TIMEOUT => // nothing
       }
       
-      actorStopped || userDefStoppingCond
+      actorStopped || userDefStoppingCond || {
+        if (System.currentTimeMillis > runUntil) {
+          Console.err.println("suspending")
+          mainActor ! SubProverSuspended(num)
+          
+          var suspended = true
+          while (!actorStopped && suspended) receive {
+            case SubProverStop =>
+              actorStopped = true
+            case SubProverResume(u) => {
+              runUntil = u
+              suspended = false
+              Console.err.println("resuming")
+            }
+          }
+          
+          actorStopped || userDefStoppingCond
+        } else {
+          false
+        }
+      }
     }
     
-    val logStream = new PrefixOutputStream("Prover " + num + ": ", mainOut)
-    val logErrStream = new PrefixOutputStream("Prover " + num + ": ", mainErr)
-    
-    Console.withOut(logStream) { Console.withErr(logErrStream) {
-      println("spawning")
-    
-      val prover =
-        new IntelliFileProver(createReader(), timeout, true, localStoppingCond, s)
-    
-      if (actorStopped) {
-        println("killed")
+    Console.setOut(new MessageOutputStream(1))
+    Console.setErr(new MessageOutputStream(2))
+      
+    receive {
+      case SubProverStop => {
+        Console.err.println("killed right away")
         mainActor ! SubProverKilled(num)
-      } else {
-        println("finished")
-        mainActor ! SubProverFinished(num, prover.result)
       }
-    }}
+
+      case SubProverResume(u) => {
+        runUntil = u
+        Console.err.println("spawning")
+
+        try {
+          val prover =
+            new IntelliFileProver(createReader(), timeout, true, localStoppingCond, s)
+    
+          if (actorStopped) {
+            Console.err.println("killed")
+            mainActor ! SubProverKilled(num)
+          } else {
+            Console.err.println("finished")
+            mainActor ! SubProverFinished(num, prover.result)
+          }
+        } catch {
+          case t : Throwable => {
+            Console.err.println("exception")
+            mainActor ! SubProverException(num, t)
+          }
+        }
+      }
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
   
   val result : IntelliFileProver.Result = {
-    val subProverResults = Array.fill[SubProverResult](settings.size) { null }
-    var firstResult : IntelliFileProver.Result = null
     
-    while (subProverResults contains null) receive {
-      case r @ SubProverFinished(num, res) => {
-        subProverResults(num) = r
-        if (firstResult == null) {
-          firstResult = res
-          for (i <- 0 until settings.size)
-            if (subProverResults(i) == null)
-              proofActors(i) ! SubProverStop
-        }
+    ////////////////////////////////////////////////////////////////////////////
+    
+    class SubProverStatus(val num : Int) {
+      var result : SubProverResult = null
+      def unfinished = (result == null)
+      
+      var runtime : Long = 0
+      var lastStartTime : Long = 0
+      
+      def resume(nextDiff : Long) = {
+        // First let each prover run for 5s, to solve simple problems without
+        // any parallelism. Afterwards, use time slices of 1s.
+        val maxtime : Long = if (runtime <= 5000) 5000 else 1000
+        val nextPeriod = nextDiff max maxtime
+        lastStartTime = System.currentTimeMillis
+        proofActors(num) ! SubProverResume(lastStartTime + nextPeriod)
       }
-      case r @ SubProverKilled(num) =>
-        subProverResults(num) = r
+      
+      def suspended = {
+        runtime = runtime + (System.currentTimeMillis - lastStartTime)
+        Console.err.println("Prover " + num + " runtime: " + runtime)
+      }
     }
     
-    firstResult
+    ////////////////////////////////////////////////////////////////////////////
+    
+    implicit val statusOrdering = new Ordering[SubProverStatus] {
+      def compare(a : SubProverStatus, b : SubProverStatus) : Int =
+        b.runtime compare a.runtime
+    }
+    
+    val subProverStatus = Array.tabulate[SubProverStatus](settings.size) {
+      case num => new SubProverStatus(num)
+    }
+    
+    var firstResult : Either[IntelliFileProver.Result, Throwable] = null
+
+    var runningProverNum = settings.size
+    
+    // We use a priority queue to store provers which are currently not
+    // running, but which are supposed to continue at a later point. Provers
+    // with the least accumulated runtime are first in the queue
+    val pendingProvers = new PriorityQueue[SubProverStatus]
+    pendingProvers ++= subProverStatus
+    
+    def resumeProver = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC, !pendingProvers.isEmpty && pendingProvers.head.unfinished)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      val p = pendingProvers.dequeue
+      val nextDiff = pendingProvers.headOption match {
+        case None => 0
+        case Some(q) => q.runtime - p.runtime
+      }
+      
+      p resume nextDiff
+    }
+    
+    def killAllProvers(res : Either[IntelliFileProver.Result, Throwable]) =
+      if (firstResult == null) {
+        firstResult = res
+        for (i <- 0 until settings.size)
+          if (subProverStatus(i).unfinished)
+            proofActors(i) ! SubProverStop
+      }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
+    resumeProver
+    
+    // the main loop of the controller    
+    while (runningProverNum > 0) receive {
+      case r @ SubProverFinished(num, res) => {
+        subProverStatus(num).result = r
+        killAllProvers(Left(res))
+        runningProverNum = runningProverNum - 1
+      }
+      
+      case r @ SubProverException(num, t) => {
+        subProverStatus(num).result = r
+        killAllProvers(Right(t))
+        runningProverNum = runningProverNum - 1
+      }
+      
+      case r @ SubProverKilled(num) => {
+        subProverStatus(num).result = r
+        runningProverNum = runningProverNum - 1
+      }
+      
+      case SubProverSuspended(num) => {
+        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+        Debug.assertInt(AC,
+                        !(pendingProvers.iterator contains subProverStatus(num)))
+        //-END-ASSERTION-/////////////////////////////////////////////////////////
+        subProverStatus(num).suspended
+        pendingProvers += subProverStatus(num)
+        resumeProver
+      }
+
+      case SubProverPrintln(num, line, 1) =>
+        Console.out.println("Prover " + num + ": " + line)
+      case SubProverPrintln(num, line, 2) =>
+        Console.err.println("Prover " + num + ": " + line)
+    }
+    
+    firstResult match {
+      case Left(res) => res
+      case Right(t) => throw t
+    }
   }
 }
