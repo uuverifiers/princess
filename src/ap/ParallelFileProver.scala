@@ -65,13 +65,16 @@ object ParallelFileProver {
  * Prover that tries to solve a given problem using a number of different
  * strategies in parallel. Each individual strategy is run using the
  * <code>IntelliFileProver</code> class.
+ * 
+ * For each setting, there is a flag specifying whether the setting should be
+ * considered as complete (i.e., whether a sat-result should be trusted)
  */
 class ParallelFileProver(createReader : () => java.io.Reader,
                          // a timeout in milliseconds
                          timeout : Int,
                          output : Boolean,
                          userDefStoppingCond : => Boolean,
-                         settings : List[GlobalSettings]) {
+                         settings : List[(GlobalSettings, Boolean)]) {
 
   import ParallelFileProver._
   
@@ -80,7 +83,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   //////////////////////////////////////////////////////////////////////////////
   // Definition of the actors running the individual provers
   
-  private val proofActors = for ((s, num) <- settings.zipWithIndex) yield actor {
+  private val proofActors = for (((s, complete), num) <- settings.zipWithIndex) yield actor {
     
     class MessageOutputStream(stream : Int) extends java.io.OutputStream {
       
@@ -161,6 +164,16 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       }
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def inconclusiveResult(num : Int, res : IntelliFileProver.Result) =
+    !settings(num)._2 && (res match {
+      case IntelliFileProver.NoProof(_) |
+           IntelliFileProver.NoModel |
+           IntelliFileProver.CounterModel(_) => true
+      case _ => false
+    })
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -201,8 +214,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case num => new SubProverStatus(num)
     }
     
-    var firstResult : Either[IntelliFileProver.Result, Throwable] = null
-
+    var completeResult : Either[IntelliFileProver.Result, Throwable] = null
+    var incompleteResult : IntelliFileProver.Result = null
+    
     var runningProverNum = settings.size
     
     // We use a priority queue to store provers which are currently not
@@ -224,9 +238,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       p resume nextDiff
     }
     
-    def killAllProvers(res : Either[IntelliFileProver.Result, Throwable]) =
-      if (firstResult == null) {
-        firstResult = res
+    def addResult(res : Either[IntelliFileProver.Result, Throwable]) =
+      if (completeResult == null) {
+        completeResult = res
         for (i <- 0 until settings.size)
           if (subProverStatus(i).unfinished)
             proofActors(i) ! SubProverStop
@@ -240,14 +254,19 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     while (runningProverNum > 0) receive {
       case r @ SubProverFinished(num, res) => {
         subProverStatus(num).result = r
-        killAllProvers(Left(res))
         runningProverNum = runningProverNum - 1
+        if (inconclusiveResult(num, res)) {
+          incompleteResult = res
+          resumeProver
+        } else {
+          addResult(Left(res))
+        }
       }
       
       case r @ SubProverException(num, t) => {
         subProverStatus(num).result = r
-        killAllProvers(Right(t))
         runningProverNum = runningProverNum - 1
+        addResult(Right(t))
       }
       
       case r @ SubProverKilled(num) => {
@@ -271,7 +290,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Console.err.println("Prover " + num + ": " + line)
     }
     
-    firstResult match {
+    completeResult match {
+      case null =>
+        // no conclusive result could be derived, return something inconclusive
+        incompleteResult
       case Left(res) => res
       case Right(t) => throw t
     }

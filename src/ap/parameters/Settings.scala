@@ -112,6 +112,8 @@ object GlobalSettings {
           Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.All)
         case Opt("tightFunctionScopes", value) =>
           Param.TIGHT_FUNCTION_SCOPES.set(settings, value)
+        case Opt("genTotalityAxioms", value) =>
+          Param.GENERATE_TOTALITY_AXIOMS.set(settings, value)
         case ValueOpt("matchingBasePriority", IntVal(value)) =>
           Param.MATCHING_BASE_PRIORITY.set(settings, value)
         case Opt("reverseFunctionalityPropagation", value) =>
@@ -139,7 +141,8 @@ object GlobalSettings {
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
-         Param.TIGHT_FUNCTION_SCOPES, Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
+         Param.TIGHT_FUNCTION_SCOPES, Param.GENERATE_TOTALITY_AXIOMS,
+         Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY)
 
@@ -165,7 +168,8 @@ object PreprocessingSettings {
 
   val allParams = List(Param.CLAUSIFIER,
                        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS,
-                       Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY)
+                       Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY,
+                       Param.GENERATE_TOTALITY_AXIOMS)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())

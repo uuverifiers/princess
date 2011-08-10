@@ -72,7 +72,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       println("Preprocessing ...")
     }
     
-    val functionEnc = new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings))
+    val functionEnc =
+      new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
+                           Param.GENERATE_TOTALITY_AXIOMS(settings))
     
     val (inputFormulas, interpolantS, sig) =
       Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)

@@ -80,6 +80,7 @@ object CmdlMain {
     println("                                  total: for all total functions         (default)")
     println("                                  all:   for all functions")
     println("  [+-]tightFunctionScopes       Keep function application defs. local    (default: +)")
+    println("  [+-]genTotalityAxioms         Generate totality axioms for functions   (default: +)")
     println("  -constructProofs=val          Extract proofs")
     println("                                  never")
     println("                                  ifInterpolating: if \\interpolant is present (default)")
@@ -170,13 +171,17 @@ object CmdlMain {
                                        Param.TriggerStrategyOptions.AllMinimal)
               val s2 = Param.TRIGGER_STRATEGY.set(baseSettings,
                                        Param.TriggerStrategyOptions.Maximal)
+              val s3 = Param.GENERATE_TOTALITY_AXIOMS.set(
+                       Param.TRIGGER_STRATEGY.set(baseSettings,
+                                       Param.TriggerStrategyOptions.Maximal),
+                                       false)
                                        
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
                                      true,
                                      userDefStoppingCond,
-                                     List(s1, s2))
-              */
+                                     List((s1, true), (s2, true), (s3, false)))
+              */              
 
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),

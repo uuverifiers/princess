@@ -236,7 +236,8 @@ object FunctionEncoder {
  * consists of the mapping from functions to relations (so far), as well as
  * the axioms that have been introduced for the relational encoding.
  */
-class FunctionEncoder (tightFunctionScopes : Boolean) {
+class FunctionEncoder (tightFunctionScopes : Boolean,
+                       genTotalityAxioms : Boolean) {
   
   import FunctionEncoder._
   import IExpression._
@@ -303,7 +304,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean) {
         order = order extend pred
         if (!fun.relational)
           axiomsVar = axiomsVar &&& functionality(pred)
-        if (!fun.partial)
+        if (!fun.partial && genTotalityAxioms)
           axiomsVar = axiomsVar &&& totality(pred)
         predTranslation += (pred -> fun)
         pred

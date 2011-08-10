@@ -108,6 +108,11 @@ object Param {
     val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.Total
   }
 
+  case object GENERATE_TOTALITY_AXIOMS extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
+  }
+
   object TriggerStrategyOptions extends Enumeration {
     val AllMinimal, AllMaximal, Maximal = Value
   }
