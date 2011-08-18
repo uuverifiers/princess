@@ -22,8 +22,9 @@
 package ap;
 
 import ap.proof.ConstraintSimplifier
-import ap.proof.tree.ProofTree
+import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser}
+import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, IExpression, IBinJunctor}
 import ap.util.{Debug, Seqs}
@@ -144,6 +145,13 @@ object CmdlMain {
       case f => f
   }
   
+  private def existentialConstantNum(p : ProofTree) : Int = p match {
+    case QuantifiedTree(Quantifier.EX, consts, subtree) =>
+      existentialConstantNum(subtree) + consts.size
+    case t =>
+      (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
+  }
+
   def proveProblems(settings : GlobalSettings,
                     problems : Seq[(String, () => java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
@@ -204,6 +212,8 @@ object CmdlMain {
                          else
                            "") + "constraint:")
                 println("" + tree.closingConstraint)
+//                Console.err.println("Number of existential constants: " +
+//                                    existentialConstantNum(tree))
                 if (Param.PRINT_TREE(settings)) {
                   println
                   println("Proof tree:")
@@ -217,6 +227,8 @@ object CmdlMain {
                          else
                            "") + "constraint:")
                 println("" + tree.closingConstraint)
+//                Console.err.println("Number of existential constants: " +
+//                                    existentialConstantNum(tree))
                 if (!model.isTrue) {
                   println
                   println("Concrete witness:")
@@ -228,8 +240,10 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case IntelliFileProver.NoProof(_) =>  {
+              case IntelliFileProver.NoProof(tree) =>  {
                 println("No proof found")
+//                Console.err.println("Number of existential constants: " +
+//                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
