@@ -140,7 +140,7 @@ object CmdlMain {
         else if (filename endsWith ".smt2")
           Param.InputFormat.SMTLIB
         else
-          throw new Exception ("could not figure out the input format")
+          throw new Exception ("could not figure out the input format (recognised types: .pri, .smt2)")
       case f => f
   }
   
