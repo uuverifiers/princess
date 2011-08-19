@@ -172,24 +172,22 @@ object CmdlMain {
               println("Loading " + filename + " ...")
             }
             val prover = {
-	      /*
+	  /*    
               val baseSettings = Param.INPUT_FORMAT.set(settings,
                                       determineInputFormat(filename, settings))
-              val s1 = Param.TRIGGER_STRATEGY.set(baseSettings,
-                                       Param.TriggerStrategyOptions.AllMinimal)
-              val s2 = Param.TRIGGER_STRATEGY.set(baseSettings,
-                                       Param.TriggerStrategyOptions.Maximal)
-              val s3 = Param.GENERATE_TOTALITY_AXIOMS.set(
+              val s1 = Param.GENERATE_TOTALITY_AXIOMS.set(
                        Param.TRIGGER_STRATEGY.set(baseSettings,
                                        Param.TriggerStrategyOptions.Maximal),
                                        false)
+              val s2 = Param.TRIGGER_STRATEGY.set(baseSettings,
+                                       Param.TriggerStrategyOptions.AllMaximal)
                                        
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
                                      true,
                                      userDefStoppingCond,
-                                     List((s1, true), (s2, true), (s3, false)))
-              */              
+                                     List((s1, false), (s2, true)))
+            */                
 
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),
@@ -307,6 +305,8 @@ object CmdlMain {
               }
               case IntelliFileProver.TimeoutProof(tree) =>  {
                 println("Cancelled or timeout")
+//                Console.err.println("Number of existential constants: " +
+//                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Current constraint:")
