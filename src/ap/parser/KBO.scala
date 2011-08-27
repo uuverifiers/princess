@@ -64,10 +64,11 @@ class KBO(funWeights : IFunction => Int, constWeights : ConstantTerm => Int,
       })
       
     private def headSymKind(t : ITerm) : Int = t match {
-      case _ : IFunApp   => 5
-      case _ : IPlus     => 4
-      case _ : ITimes    => 3
-      case _ : IConstant => 2
+      case _ : IFunApp   => 6
+      case _ : IPlus     => 5
+      case _ : ITimes    => 4
+      case _ : IConstant => 3
+      case _ : IVariable => 2
       case _ : IIntLit   => 1
     }
   }

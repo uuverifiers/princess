@@ -38,7 +38,8 @@ abstract class IExpression {
   // by default, there are no subexpressions
   def apply(i : Int) : IExpression = throw new IndexOutOfBoundsException
   def length : Int = 0
-  def iterator : Iterator[IExpression] = Iterator.empty
+  def iterator : Iterator[IExpression] =
+    for (i <- (0 until length).iterator) yield apply(i)
   
   /**
    * Replace the subexpressions of this node with new expressions
