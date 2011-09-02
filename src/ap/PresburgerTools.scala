@@ -25,7 +25,8 @@ import ap.basetypes.IdealInt
 import ap.proof.{ConstraintSimplifier, ModelSearchProver, ExhaustiveProver}
 import ap.terfor.{Formula, ConstantTerm, VariableTerm, TermOrder}
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
+                               IterativeClauseMatcher}
 import ap.terfor.preds.PredConj
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst, ConstantSubst}
@@ -172,6 +173,26 @@ object PresburgerTools {
                                             formula.order sort formula.constants,
                                             formula, formula.order),
                        formula.order).closingConstraint.isTrue
+  }
+
+  def hasCountermodel(formula : Conjunction) : Option[Conjunction] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, isPresburger(formula))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (formula.isTrue) {
+      None
+    } else if (formula.isFalse) {
+      Some(Conjunction.TRUE)
+    } else if (IterativeClauseMatcher isMatchableRec formula) {
+      val model = ModelSearchProver(formula, formula.order)
+      if (model.isFalse) None else Some(model)
+    } else {
+      // then we first have to eliminate quantifiers
+      val qfFormula = elimQuantifiersWithPreds(formula)
+      val model = ModelSearchProver(formula, formula.order)
+      if (model.isFalse) None else Some(model)
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
