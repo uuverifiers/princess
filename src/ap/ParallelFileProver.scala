@@ -48,7 +48,7 @@ object ParallelFileProver {
   private abstract sealed class SubProverResult(_num : Int)
                extends SubProverMessage(_num)
   
-  private case class SubProverFinished(_num : Int, result : IntelliFileProver.Result)
+  private case class SubProverFinished(_num : Int, result : Prover.Result)
                extends SubProverResult(_num)
   private case class SubProverKilled(_num : Int)
                extends SubProverResult(_num)
@@ -74,7 +74,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
                          timeout : Int,
                          output : Boolean,
                          userDefStoppingCond : => Boolean,
-                         settings : List[(GlobalSettings, Boolean)]) {
+                         settings : List[(GlobalSettings, Boolean)]) extends Prover {
 
   import ParallelFileProver._
   
@@ -110,7 +110,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       
       actorStopped || userDefStoppingCond || {
         if (System.currentTimeMillis > runUntil) {
-          Console.err.println("suspending")
+//          Console.err.println("suspending")
           mainActor ! SubProverSuspended(num)
           
           var suspended = true
@@ -120,7 +120,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
             case SubProverResume(u) => {
               runUntil = u
               suspended = false
-              Console.err.println("resuming")
+//              Console.err.println("resuming")
             }
           }
           
@@ -136,28 +136,28 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       
     receive {
       case SubProverStop => {
-        Console.err.println("killed right away")
+//        Console.err.println("killed right away")
         mainActor ! SubProverKilled(num)
       }
 
       case SubProverResume(u) => {
         runUntil = u
-        Console.err.println("spawning")
+//        Console.err.println("spawning")
 
         try {
           val prover =
             new IntelliFileProver(createReader(), timeout, true, localStoppingCond, s)
     
           if (actorStopped) {
-            Console.err.println("killed")
+//            Console.err.println("killed")
             mainActor ! SubProverKilled(num)
           } else {
-            Console.err.println("finished")
+//            Console.err.println("finished")
             mainActor ! SubProverFinished(num, prover.result)
           }
         } catch {
           case t : Throwable => {
-            Console.err.println("exception")
+//            Console.err.println("exception")
             mainActor ! SubProverException(num, t)
           }
         }
@@ -167,17 +167,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def inconclusiveResult(num : Int, res : IntelliFileProver.Result) =
+  def inconclusiveResult(num : Int, res : Prover.Result) =
     !settings(num)._2 && (res match {
-      case IntelliFileProver.NoProof(_) |
-           IntelliFileProver.NoModel |
-           IntelliFileProver.CounterModel(_) => true
+      case Prover.NoProof(_) | Prover.NoModel | Prover.CounterModel(_) => true
       case _ => false
     })
   
   //////////////////////////////////////////////////////////////////////////////
   
-  val result : IntelliFileProver.Result = {
+  val result : Prover.Result = {
     
     ////////////////////////////////////////////////////////////////////////////
     
@@ -199,7 +197,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       
       def suspended = {
         runtime = runtime + (System.currentTimeMillis - lastStartTime)
-        Console.err.println("Prover " + num + " runtime: " + runtime)
+//        Console.err.println("Prover " + num + " runtime: " + runtime)
       }
     }
     
@@ -214,8 +212,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case num => new SubProverStatus(num)
     }
     
-    var completeResult : Either[IntelliFileProver.Result, Throwable] = null
-    var incompleteResult : IntelliFileProver.Result = null
+    var completeResult : Either[Prover.Result, Throwable] = null
+    var incompleteResult : Prover.Result = null
     
     var runningProverNum = settings.size
     
@@ -238,7 +236,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       p resume nextDiff
     }
     
-    def addResult(res : Either[IntelliFileProver.Result, Throwable]) =
+    def addResult(res : Either[Prover.Result, Throwable]) =
       if (completeResult == null) {
         completeResult = res
         for (i <- 0 until settings.size)

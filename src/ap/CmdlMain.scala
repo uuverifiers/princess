@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ object CmdlMain {
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println
-    println("(c) Philipp Rümmer and Angelo Brillout, 2009-2010")
+    println("(c) Philipp Rümmer and Angelo Brillout, 2009-2011")
     println("Free software under GNU General Public License (GPL).")
     println("Bug reports to ph_r@gmx.net")
     println
@@ -61,6 +61,7 @@ object CmdlMain {
     println("  -printDOT=filename            Output the proof in GraphViz format      (default: \"\")")
     println("  [+-]assert                    Enable runtime assertions                (default: -)")
     println("  -timeout=val                  Set a timeout in milliseconds            (default: infty)")
+    println("  [+-]multiStrategy             Use a portfolio of different strategies  (default: -)")
     println("  -simplifyConstraints=val      How to simplify constraints:")
     println("                                  none:   not at all")
     println("                                  fair:   by fair construction of a proof (default)")
@@ -171,8 +172,7 @@ object CmdlMain {
             Console.withOut(Console.err) {
               println("Loading " + filename + " ...")
             }
-            val prover = {
-	  /*    
+            val prover = if (Param.MULTI_STRATEGY(settings)) {
               val baseSettings = Param.INPUT_FORMAT.set(settings,
                                       determineInputFormat(filename, settings))
               val s1 = Param.GENERATE_TOTALITY_AXIOMS.set(
@@ -187,15 +187,13 @@ object CmdlMain {
                                      true,
                                      userDefStoppingCond,
                                      List((s1, false), (s2, true)))
-            */                
-
+            } else {
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),
                                     true,
                                     userDefStoppingCond,
                                     Param.INPUT_FORMAT.set(settings,
                                       determineInputFormat(filename, settings)))
-
             }
 
             Console.withOut(Console.err) {
@@ -203,7 +201,7 @@ object CmdlMain {
             }
             
             prover.result match {
-              case IntelliFileProver.Proof(tree) => {
+              case Prover.Proof(tree) => {
                 println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
                            "most-general "
@@ -218,7 +216,7 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case IntelliFileProver.ProofWithModel(tree, model) => {
+              case Prover.ProofWithModel(tree, model) => {
                 println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
                            "most-general "
@@ -238,7 +236,7 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case IntelliFileProver.NoProof(tree) =>  {
+              case Prover.NoProof(tree) =>  {
                 println("No proof found")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
@@ -248,7 +246,7 @@ object CmdlMain {
                   println("false")
                 }
               }
-              case IntelliFileProver.CounterModel(model) =>  {
+              case Prover.CounterModel(model) =>  {
                 println("Formula is invalid, found a countermodel:")
                 println("" + model)
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -257,7 +255,7 @@ object CmdlMain {
                   println("false")
                 }
               }
-              case IntelliFileProver.NoCounterModel =>  {
+              case Prover.NoCounterModel =>  {
                 println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
@@ -265,7 +263,7 @@ object CmdlMain {
                   println("true")
                 }
               }
-              case IntelliFileProver.NoCounterModelCert(cert) =>  {
+              case Prover.NoCounterModelCert(cert) =>  {
                 println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
@@ -279,7 +277,7 @@ object CmdlMain {
                 
                 printDOTCertificate(cert, settings)
               }
-              case IntelliFileProver.NoCounterModelCertInter(cert, inters) => {
+              case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
@@ -296,14 +294,14 @@ object CmdlMain {
 
                 printDOTCertificate(cert, settings)
               }
-              case IntelliFileProver.Model(model) =>  {
+              case Prover.Model(model) =>  {
                 println("Formula is valid, satisfying assignment for the existential constants is:")
                 println("" + model)
               }
-              case IntelliFileProver.NoModel =>  {
+              case Prover.NoModel =>  {
                 println("No satisfying assignment for the existential constants exists, formula is invalid")
               }
-              case IntelliFileProver.TimeoutProof(tree) =>  {
+              case Prover.TimeoutProof(tree) =>  {
                 println("Cancelled or timeout")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
@@ -318,8 +316,7 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case IntelliFileProver.TimeoutModel |
-                   IntelliFileProver.TimeoutCounterModel =>  {
+              case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
                 println("Cancelled or timeout")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println

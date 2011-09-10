@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010 Philipp Ruemmer <ph_r@gmx.net>
- *                    Angelo Brillout <bangelo@inf.ethz.ch>
+ * Copyright (C) 2010,2011 Philipp Ruemmer <ph_r@gmx.net>
+ *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
  *                    Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -349,4 +349,7 @@ class BenchFileProver(filename : String,
       }
     }
   }
+  
+  val result = null // not used here
+  
 }
