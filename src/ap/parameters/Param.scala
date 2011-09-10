@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -124,6 +124,11 @@ object Param {
   case object TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS extends Param {
     type Value = Set[ap.parser.IFunction]
     val defau : Set[ap.parser.IFunction] = Set()
+  }
+  
+  case object MULTI_STRATEGY extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
   
   case object SYMBOL_WEIGHTS extends Param {
