@@ -22,7 +22,9 @@
 package ap.terfor.equations;
 
 import ap.terfor._
-import ap.terfor.linearcombination.{LinearCombination, LCBlender}
+import ap.terfor.linearcombination.{LinearCombination,
+                                    LinearCombination0, LinearCombination1,
+                                    LCBlender}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{Atom, PredConj}
@@ -99,17 +101,23 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
 
   def apply(lc : LinearCombination) : LinearCombination = apply(lc, null)
 
-  def apply(lc : LinearCombination,
-            terms : Buffer[(IdealInt, LinearCombination)]) : LinearCombination = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ReduceWithEqs.AC, lc isSortedBy order)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
+  def apply(lc : LinearCombination, terms : Buffer[(IdealInt, LinearCombination)])
+           : LinearCombination = lc match {
+    case _ : LinearCombination0 =>
+      lc
+    case lc : LinearCombination1 if (!(equations contains lc.leadingTerm)) =>
+      lc
+    case _ => {
+      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+      Debug.assertPre(ReduceWithEqs.AC, lc isSortedBy order)
+      //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val blender = new LCBlender (order)
-    blender += (IdealInt.ONE, lc)
-    val changed = runBlender(blender, terms)
+      val blender = new LCBlender (order)
+      blender += (IdealInt.ONE, lc)
+      val changed = runBlender(blender, terms)
     
-    if (changed) blender.result else lc
+      if (changed) blender.result else lc
+    }
   }
 
   /**
@@ -124,7 +132,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     var changed : Boolean = false
     while (blender.hasNext) {
       val (nextCoeff, nextTerm) = blender.peekNext
-                 
+
       (equations get nextTerm) match {
       case Some(eq) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////

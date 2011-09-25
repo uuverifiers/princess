@@ -317,9 +317,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(InEqConj.AC, this.size == 1)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val negLC = LinearCombination.sum(IdealInt.MINUS_ONE, this(0),
-                                        IdealInt.MINUS_ONE, LinearCombination.ONE,
-                                        order)
+      val negLC = this(0).scaleAndAdd(IdealInt.MINUS_ONE, IdealInt.MINUS_ONE)
       InEqConj(List(negLC), order)
     }
 

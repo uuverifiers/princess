@@ -97,6 +97,20 @@ object LinearCombination {
       new LinearCombination1(coeff, t, IdealInt.ZERO, order)
   }
   
+  def apply(coeff : IdealInt, t : Term, constant : IdealInt,
+            order : TermOrder) : LinearCombination = t match {
+    case t : LinearCombination => {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, t isSortedBy order)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      t.scaleAndAdd(coeff, constant)
+    }
+    case OneTerm =>
+      apply(coeff + constant)
+    case _ =>
+      new LinearCombination1(coeff, t, constant, order)
+  }
+  
   def apply(c : IdealInt) : LinearCombination = c match {
     case IdealInt.ZERO => ZERO
     case IdealInt.ONE => ONE
@@ -351,7 +365,7 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
    */
   def getTerm(i : Int) : Term
   
-  def lastTerm = getTerm(size - 1)
+  def lastTerm : Term
   
   /**
    * Iterator over all terms of the linear combination
@@ -437,6 +451,12 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
    * Multiply all coefficients of this linear combination by a constant
    */
   def scale(coeff : IdealInt) : LinearCombination
+  
+  /**
+   * Multiply all coefficients of this linear combination by a constant, and
+   * add some constant term
+   */
+  def scaleAndAdd(coeff : IdealInt, constant : IdealInt) : LinearCombination
 
   def * (that : LinearCombination) : LinearCombination = (this.pairSeq, that.pairSeq) match {
     case (_, Seq()) | (Seq(), _) => LinearCombination.ZERO
@@ -512,10 +532,10 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
   }
    
   /** The leading coefficient of this linear combination */
-  def leadingCoeff : IdealInt = getCoeff(0)
+  def leadingCoeff : IdealInt
 
   /** The leading monomial of this linear combination */
-  def leadingTerm : Term = getTerm(0)
+  def leadingTerm : Term
 
   /**
    * Reduce all coefficients of <code>this</code> with
@@ -599,6 +619,8 @@ final class ArrayLinearCombination (
 
   def getTerm(i : Int) : Term = terms(i)._2
   
+  def lastTerm = terms(terms.size - 1)._2
+
   def termIterator : Iterator[Term] = for ((_, t) <- terms.iterator) yield t
 
   //////////////////////////////////////////////////////////////////////////////
@@ -673,14 +695,23 @@ final class ArrayLinearCombination (
   
   //////////////////////////////////////////////////////////////////////////////
 
-  def + (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
-    LinearCombination.sum(IdealInt.ONE, this, IdealInt.ONE, that, newOrder)
-
   def + (that : IdealInt) : LinearCombination =
-    LinearCombination.sum(IdealInt.ONE, this, that, LinearCombination.ONE, order)
+    if (that.isZero)
+      this
+    else
+      LinearCombination.rawSum(IdealInt.ONE, this, that, LinearCombination.ONE, order)
+
+  def + (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
+    if (that.isZero)
+      this
+    else
+      LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.ONE, that, newOrder)
 
   def - (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
-    LinearCombination.sum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
+    if (that.isZero)
+      this
+    else
+      LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
 
   def unary_- : LinearCombination =
     LinearCombination.createFromSortedSeq(for ((c, t) <- pairIterator) yield (-c, t),
@@ -692,6 +723,16 @@ final class ArrayLinearCombination (
     case _ => LinearCombination.createFromSortedSeq(for ((c, t) <- pairIterator)
                                                     yield (c * coeff, t),
                                                     order)
+  }
+
+  def scaleAndAdd(coeff : IdealInt,
+                  constant : IdealInt) : LinearCombination = coeff match {
+    case IdealInt.ZERO =>
+      LinearCombination(constant)
+    case IdealInt.ONE =>
+      this + constant
+    case _ =>
+      LinearCombination.rawSum(coeff, this, constant, LinearCombination.ONE, order)
   }
 
   def / (denom : IdealInt) : LinearCombination = {
@@ -742,6 +783,10 @@ final class ArrayLinearCombination (
     }
     case _ => false
   }
+
+  def leadingCoeff : IdealInt = terms.head._1
+
+  def leadingTerm : Term = terms.head._2
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -797,6 +842,8 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
 
   def getTerm(i : Int) : Term = OneTerm
   
+  def lastTerm = OneTerm
+
   def termIterator : Iterator[Term] = 
     if (isZero) Iterator.empty else (Iterator single OneTerm)
 
@@ -821,6 +868,9 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
   
   //////////////////////////////////////////////////////////////////////////////
 
+  def + (that : IdealInt) : LinearCombination =
+    if (that.isZero) this else LinearCombination(_constant + that)
+
   def + (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
     that match {
       case that : LinearCombination0 =>
@@ -832,9 +882,6 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
         that + this
     }
   
-  def + (that : IdealInt) : LinearCombination =
-    if (that.isZero) this else LinearCombination(_constant + that)
-
   def - (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
     that match {
       case that : LinearCombination0 =>
@@ -851,6 +898,12 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
   def scale(coeff : IdealInt) : LinearCombination =
     if (coeff.isOne) this else LinearCombination(_constant * coeff)
 
+  def scaleAndAdd(coeff : IdealInt, constant : IdealInt) : LinearCombination =
+    if (coeff.isOne && constant.isZero)
+      this
+    else
+      LinearCombination(_constant * coeff + constant)
+
   def / (denom : IdealInt) : LinearCombination = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(LinearCombination.AC, !denom.isZero)
@@ -862,6 +915,10 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
   def sameNonConstantTerms(that : LinearCombination) : Boolean =
     that.isInstanceOf[LinearCombination0]
     
+  def leadingCoeff : IdealInt = _constant
+
+  def leadingTerm : Term = OneTerm
+
   //////////////////////////////////////////////////////////////////////////////
 
   def variables : Set[VariableTerm] = Set.empty
@@ -937,6 +994,8 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
     case _ => OneTerm
   }
   
+  def lastTerm = if (_constant.isZero) _term0 else OneTerm
+
   def termIterator : Iterator[Term] = 
     if (_constant.isZero)
       (Iterator single _term0)
@@ -966,6 +1025,12 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
   
   //////////////////////////////////////////////////////////////////////////////
 
+  def + (that : IdealInt) : LinearCombination =
+    if (that.isZero)
+      this
+    else
+      new LinearCombination1(_coeff0, _term0, _constant + that, _order)
+
   def + (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
     that match {
       case that : LinearCombination0 =>
@@ -984,12 +1049,6 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
         that + this
     }
   
-  def + (that : IdealInt) : LinearCombination =
-    if (that.isZero)
-      this
-    else
-      new LinearCombination1(_coeff0, _term0, _constant + that, _order)
-
   def - (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
     that match {
       case that : LinearCombination0 =>
@@ -1017,6 +1076,13 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
     case _ => new LinearCombination1(_coeff0 * coeff, _term0, _constant * coeff, _order)
   }
 
+  def scaleAndAdd(coeff : IdealInt, constant : IdealInt) : LinearCombination =
+    if (coeff.isOne && constant.isZero)
+      this
+    else
+      LinearCombination.createFromFlatTerm(_coeff0 * coeff, _term0,
+                                           coeff * _constant + constant, _order)
+
   def / (denom : IdealInt) : LinearCombination = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(LinearCombination.AC, !denom.isZero)
@@ -1035,6 +1101,10 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
       false
   }
     
+  def leadingCoeff : IdealInt = _coeff0
+
+  def leadingTerm : Term = _term0
+
   //////////////////////////////////////////////////////////////////////////////
 
   def variables : Set[VariableTerm] = _term0.variables

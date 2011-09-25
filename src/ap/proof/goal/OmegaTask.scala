@@ -636,9 +636,10 @@ case object OmegaTask extends EagerTask {
             val cases = upperBound - lowerBound + 1
             store.push(cases) {
               val goals = for (d <- IdealRange(cases)) yield {
-                val lc = LinearCombination(List((IdealInt.ONE, elimConst),
-                                                (-(lowerBound + d), OneTerm)), order)
-                val newFacts = Conjunction.conj(NegEquationConj(lc, order), order)
+                val lc =
+                  LinearCombination(IdealInt.ONE, elimConst, -(lowerBound + d), order)
+                val newFacts =
+                  Conjunction.conj(NegEquationConj(lc, order), order)
                 ptf.updateGoal(goal.formulaTasks(newFacts), goal)
               }
               
@@ -689,8 +690,7 @@ case object OmegaTask extends EagerTask {
           val cases = lub - glb + 1
           store.push(cases) {
             val goals = for (d <- IdealRange(cases)) yield {
-              val lc = LinearCombination(List((IdealInt.ONE, elimConst),
-                                              (-(glb + d), OneTerm)), order)
+              val lc = LinearCombination(IdealInt.ONE, elimConst, -(glb + d), order)
               val newFacts = Conjunction.conj(NegEquationConj(lc, order), order)
               ptf.updateGoal(goal.formulaTasks(newFacts), goal)
             }

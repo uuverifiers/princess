@@ -78,8 +78,9 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
     val y = LinearCombination(VariableTerm(1), order)
     val newLC = lc + y
     
-    val yCond = InEqConj(Array(y + IdealInt.MINUS_ONE,
-                               -y + (coeff - IdealInt.ONE)), order)
+    val yCond =
+      InEqConj(Array(y + IdealInt.MINUS_ONE,
+                     y.scaleAndAdd(IdealInt.MINUS_ONE, coeff - IdealInt.ONE)), order)
     val newEq = EquationConj(newLC, order)
     
     val newMatrix = Conjunction.conj(Array(yCond, newEq), order)

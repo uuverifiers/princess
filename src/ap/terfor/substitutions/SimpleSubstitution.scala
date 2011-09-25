@@ -24,7 +24,8 @@ package ap.terfor.substitutions;
 import ap.basetypes.IdealInt
 
 import ap.terfor._
-import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.linearcombination.{LinearCombination,
+                                    LinearCombination0, LinearCombination1}
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.util.Debug
@@ -55,29 +56,40 @@ abstract class SimpleSubstitution extends Substitution {
     case t : LinearCombination => apply(t)
   }
      
-  final def apply(lc : LinearCombination) : LinearCombination = {
-    // TODO: can be optimised for special cases
-    
-    val N = lc.size
-    val newTerms = new Array[(IdealInt, Term)](N)
-    
-    var i = 0
-    var changed = false
-    while (i < N) {
-      val t = lc getTerm i
-      val newT = apply(t)
-      newTerms(i) = (lc getCoeff i, newT)
-      
-      if (!(newT eq t))
-        changed = true
-        
-      i = i + 1
-    }
-    
-    if (changed)
-      LinearCombination(newTerms, order)
-    else
+  final def apply(lc : LinearCombination) : LinearCombination = lc match {
+    case lc : LinearCombination0 => {
       lc
+    }
+    case lc : LinearCombination1 => {
+      val leadingTerm = lc.leadingTerm
+      val newLeadingTerm = apply(leadingTerm)
+      if (leadingTerm eq newLeadingTerm)
+        lc
+      else
+        LinearCombination(lc.leadingCoeff, newLeadingTerm, lc.constant, order)
+    }
+    case _ => {
+      val N = lc.size
+      val newTerms = new Array[(IdealInt, Term)](N)
+    
+      var i = 0
+      var changed = false
+      while (i < N) {
+        val t = lc getTerm i
+        val newT = apply(t)
+        newTerms(i) = (lc getCoeff i, newT)
+      
+        if (!(newT eq t))
+          changed = true
+        
+        i = i + 1
+      }
+    
+      if (changed)
+        LinearCombination(newTerms, order)
+      else
+        lc
+    }
   }
 
   protected[substitutions] def pseudoApply(lc : LinearCombination)
