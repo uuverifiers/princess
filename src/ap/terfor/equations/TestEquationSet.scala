@@ -171,9 +171,7 @@ class TestEquationSet(n : String) extends APTestCase(n) {
         (for (i <- FilterIt(Debug.randoms(0, constsAndOne.size),
                             (i:Int) => constsAndOne(i).isInstanceOf[ConstantTerm]))
          yield (constsAndOne(i),
-                LinearCombination(Array((IdealInt.ONE, constsAndOne(i)),
-                                        (IdealInt.MINUS_ONE, OneTerm)),
-                                  to)))
+                LinearCombination(constsAndOne(i), to) + IdealInt.MINUS_ONE))
         .take(eqsNum)
 
       val toBeReduced = randomLC(Debug.random(0, 10))

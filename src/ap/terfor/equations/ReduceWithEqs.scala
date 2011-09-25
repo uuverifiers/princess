@@ -397,7 +397,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
   //////////////////////////////////////////////////////////////////////////////
   private def isCompletelyReduced(lcs : Iterable[LinearCombination]) : Boolean =
     Logic.forall(for (lc <- lcs.iterator) yield
-                 Logic.forall(for ((c, t) <- lc.iterator) yield (
+                 Logic.forall(for ((c, t) <- lc.pairIterator) yield (
                                 equations.get(t) match {
                                 case Some(eq) => c isAbsMinMod eq.leadingCoeff
                                 case None => true
@@ -419,7 +419,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
       res.isFalse ||
       Logic.forall(for (lc <- res.iterator) yield
                    (!(equations contains lc.leadingTerm) &&
-                    Logic.forall(for ((c, t) <- lc.iterator) yield (
+                    Logic.forall(for ((c, t) <- lc.pairIterator) yield (
                                    equations.get(t) match {
                                    case Some(eq) => c isAbsMinMod eq.leadingCoeff
                                    case None => true

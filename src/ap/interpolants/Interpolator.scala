@@ -261,8 +261,7 @@ object Interpolator
             }
 
             val eqInters = Array.tabulate(eqCasesInt)((i : Int) => {
-              val newEq = cert.localProvidedFormulas(i)
-                              .iterator.next.asInstanceOf[CertEquation]
+              val newEq = cert.localProvidedFormulas(i).head.asInstanceOf[CertEquation]
               val ctxt = newContext.addPartialInterpolant(newEq, eqPartialInter)
               applyHelp(cert children i, ctxt)
             })
@@ -286,7 +285,7 @@ object Interpolator
                  else
                    Conjunction.TRUE) &
                 conj(for ((inter, i) <- eqInters.iterator.zipWithIndex)
-                       yield (v <= i * den ==> const2v(inter)))
+                       yield ((v <= den * i) ==> const2v(inter)))
               
               val result = exists(matrix)
               
@@ -533,15 +532,11 @@ object Interpolator
         
         implicit val extendedOrder = iContext.order.extend(newSymb, largerConsts)
         
-        def filtFunc = (pair : (IdealInt, Term)) => { 
-           val (_, term) = pair
-           term match {
-             case c : ConstantTerm => (iContext.leftConstants contains c)
-             case _ => false
-           }
-         }
-  
-        val leftLinComb = LinearCombination(eq.lhs.filter(filtFunc), extendedOrder)
+        val leftLinComb = eq.lhs filterPairs ( (c, t) => t match {
+          case c : ConstantTerm => iContext.leftConstants contains c
+          case _ => false
+        } )
+          
         val newInterLHS = leftLinComb - newSymb
         
         val partialInter = PartialInterpolant.eqLeft(leftLinComb - newSymb)
@@ -793,19 +788,18 @@ object Interpolator
       if (!posEqs.isTrue) {
         val lc = posEqs(0)
         val gcd = IdealInt.gcd(for (c <- constants.iterator) yield (lc get c))
-        val remainingTerms =
-          FilterIt[(IdealInt, Term)](lc.iterator, {
-            case (_, t : ConstantTerm) => !(constants contains t)
-            case _ => true
-          })
+        val remainingTerms = lc filterPairs ( (c, t) => t match {
+          case c : ConstantTerm => !(constants contains c)
+          case _ => true
+        } )
         
         // Shift variables by one to ensure that adding the quantifier does not
         // make variables point to the wrong binders
         val shifter = VariableShiftSubst.upShifter[Term](1, o)
-        val shiftedTerms = for ((c, t) <- remainingTerms) yield (c, shifter(t))
         
         exists(
-          LinearCombination(Iterator.single((gcd, VariableTerm(0))) ++ shiftedTerms,
+          LinearCombination(List((gcd, VariableTerm(0)),
+                                 (IdealInt.ONE, shifter(remainingTerms))),
                             literal.order) === 0)
       } else {
         // otherwise, the literal is an inequality or a negated equation, and

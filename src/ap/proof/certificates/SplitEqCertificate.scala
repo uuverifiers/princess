@@ -71,7 +71,6 @@ case class SplitEqCertificate(leftInEq : CertInequality, rightInEq : CertInequal
   }
 
   override def toString : String =
-    "SplitEq(" + localAssumedFormulas.iterator.next + ", " +
-    leftChild + ", " + rightChild + ")"
+    "SplitEq(" + localAssumedFormulas.head + ", " + leftChild + ", " + rightChild + ")"
 
 }

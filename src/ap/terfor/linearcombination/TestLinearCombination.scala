@@ -41,8 +41,16 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
   private val constsAndOne = consts ++ List(OneTerm)
   private val to = (TermOrder.EMPTY /: consts)((o, c) => o.extend(c, Set.empty))
   private val toRev = (consts :\ TermOrder.EMPTY)((c, o) => o.extend(c, Set.empty))
-  
-  private def coeffSum(searched : Term, pairs : Iterable[(IdealInt, Term)]) : IdealInt =
+
+  private def coeffSum(searched : Term,
+                       pairs : Iterable[(IdealInt, Term)]) : IdealInt =
+    coeffSum(searched, pairs.iterator)
+
+  private def coeffSum(searched : Term, pairs : LinearCombination) : IdealInt =
+    coeffSum(searched, pairs.pairIterator)
+
+  private def coeffSum(searched : Term,
+                       pairs : Iterator[(IdealInt, Term)]) : IdealInt =
     IdealInt.sum(for ((c, t) <- pairs) yield {
                  t match {
                  case `searched` => c
@@ -158,7 +166,7 @@ class TestLinearCombination(n : String) extends APTestCase(n) {
       
       blender += (IdealInt.ONE, lc1)
       
-      while (blender.hasNext && to.compare(blender.peekNext _2, lc2(0) _2) > 0)
+      while (blender.hasNext && to.compare(blender.peekNext _2, lc2.leadingTerm) > 0)
         blender.next
       blender += (IdealInt.ONE, lc2)
       blender.dropAll

@@ -42,8 +42,29 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
    
   private val terms = new PriorityQueueWithIterators[(IdealInt,Term)]
   
-  def +=(coeff : IdealInt, lc : LinearCombination) : Unit =
-    this ++= List((coeff, lc))
+  def +=(coeff : IdealInt, lc : LinearCombination) : Unit = {
+    if (nextVal != null) terms += nextVal
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, lc isSortedBy order)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    terms += ScalingIterator(coeff, lc.pairIterator)
+    nextVal = computeNext
+  }
+  
+  def +=(coeff1 : IdealInt, lc1 : LinearCombination,
+         coeff2 : IdealInt, lc2 : LinearCombination) : Unit = {
+    if (nextVal != null) terms += nextVal
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, (lc1 isSortedBy order) && (lc2 isSortedBy order))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    terms += ScalingIterator(coeff1, lc1.pairIterator)
+    terms += ScalingIterator(coeff2, lc2.pairIterator)
+    nextVal = computeNext
+  }
   
   def ++=(lcs : Iterable[(IdealInt, LinearCombination)]) : Unit = {
     if (nextVal != null) terms += nextVal
@@ -54,7 +75,7 @@ class LCBlender(order : TermOrder) extends PeekIterator[(IdealInt,Term)] {
       Debug.assertPre(AC, lc isSortedBy order)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      terms += ScalingIterator(coeff, lc.elements)
+      terms += ScalingIterator(coeff, lc.pairIterator)
     }
 
     nextVal = computeNext

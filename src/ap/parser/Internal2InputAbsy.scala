@@ -60,7 +60,7 @@ class Internal2InputAbsy(predTranslation : MMap[Predicate, IFunction]) {
     case c : ConstantTerm => c
     case VariableTerm(index) => v(index)
     case lc : LinearCombination =>
-      sum(for ((c, t) <- lc.iterator) yield {
+      sum(for ((c, t) <- lc.pairIterator) yield {
         if (c.isOne) convert(t) else (convert(t) * c)
       })
   }

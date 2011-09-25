@@ -361,7 +361,7 @@ case class ReducePredInference(equations : Seq[Seq[(IdealInt, CertEquation)]],
   Debug.assertCtor(ReducePredInference.AC,
                    targetLit.predicates == result.predicates &&
                    targetLit.negated == result.negated &&
-                   targetLit.predicates.iterator.next.arity == equations.size &&
+                   targetLit.predicates.head.arity == equations.size &&
                    (equations exists (!_.isEmpty)) &&
                    result.atom == {
                      implicit val o = order
@@ -460,7 +460,7 @@ case class ColumnReduceInference(oldSymbol : ConstantTerm, newSymbol : ConstantT
   private lazy val constraintSubst = {
     implicit val o = order
     ConstantSubst(newSymbol,
-                  newSymbol - definingEquation.lhs * (definingEquation.lhs get newSymbol),
+                  newSymbol - definingEquation.lhs scale (definingEquation.lhs get newSymbol),
                   order)
   }
   
@@ -505,7 +505,7 @@ case class CombineInequalitiesInference(leftCoeff : IdealInt, leftInEq : CertIne
                    !result.isTrue &&
                    result.lhs == {
                      implicit val o = order
-                     leftInEq.lhs * leftCoeff + rightInEq.lhs * rightCoeff
+                     (leftInEq.lhs scale leftCoeff) + (rightInEq.lhs scale rightCoeff)
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              
@@ -554,7 +554,7 @@ case class SimpInference(targetLit : CertArithLiteral, result : CertArithLiteral
                    !targetLit.isFalse &&
                    !result.isFalse && !result.isTrue &&
                    targetLit != result &&
-                   getLHS(result) * factor + constantDiff == getLHS(targetLit) &&
+                   (getLHS(result) scale factor) + constantDiff == getLHS(targetLit) &&
                    constantDiff.signum >= 0 &&
                    ((targetLit, result) match {
                      case (CertEquation(unsimplified), CertEquation(simplified)) =>
@@ -689,7 +689,7 @@ case class DivRightInference(divisibility : CertCompoundFormula,
                    divisibility.f.isNonDivisibility && {
                       implicit val o = order
                       val divTerm = divisibility.f.arithConj.negativeEqs(0)
-                      val divCoeff = (divTerm(0) _1)
+                      val divCoeff = divTerm.leadingCoeff
                       
                       result.f == exists(exists(
                         (divTerm + v(1) === 0) & (v(1) > 0) & (v(1) < divCoeff)))
@@ -738,5 +738,5 @@ case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
   
   override def toString : String =
     "PredUnify(" + leftAtom + ", " + rightAtom + " -> " +
-                   providedFormulas.iterator.next + ")"
+                   providedFormulas.head + ")"
 }

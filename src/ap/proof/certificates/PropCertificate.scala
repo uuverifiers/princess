@@ -58,8 +58,7 @@ object BetaCertificate {
     (BetaCertificate(children(0) _1, children(1) _1,
                      children(0) _2, children(1) _2, order) /: childrenIt) {
        case (cert, (formula, child)) =>
-         BetaCertificate(cert.localAssumedFormulas.iterator.next, formula,
-                         cert, child, order)
+         BetaCertificate(cert.localAssumedFormulas.head, formula, cert, child, order)
     }
   }
 
@@ -102,7 +101,6 @@ case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula
   }
 
   override def toString : String =
-    "Beta(" + localAssumedFormulas.iterator.next + ", " +
-    leftChild + ", " + rightChild + ")"
+    "Beta(" + localAssumedFormulas.head + ", " + leftChild + ", " + rightChild + ")"
   
 }

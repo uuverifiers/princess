@@ -356,8 +356,9 @@ object IterativeClauseMatcher {
      ((c.size == 1 && c.predConj.isLiteral) || !negated) && {
        // ... and all bound variables occur in matched predicate literals,
        // or can be eliminated through equations
+       implicit val order = c.order
        val reducedPreds =
-         ReduceWithEqs(c.arithConj.positiveEqs, c.order)(c.predConj)
+         ReduceWithEqs(c.arithConj.positiveEqs, order)(c.predConj)
        val (matchLits, _) =
          determineMatchedLits(if (negated) reducedPreds.negate else reducedPreds)
 
@@ -375,18 +376,18 @@ object IterativeClauseMatcher {
        val quantVarEqs = EquationConj(
              eqs.iterator ++
              (for (a <- matchLits.iterator; lc <- a.iterator) yield {
-                val res =
-                  LinearCombination(Array((IdealInt.ONE, lc),
-                                          (IdealInt.MINUS_ONE, VariableTerm(i))),
-                                    c.order)
+                val res = lc - LinearCombination(VariableTerm(i), order)
                 i = i + 1
                 res
               }),
            c.order)
          
        val matchedVariables =
-         (for (Seq((IdealInt.ONE, VariableTerm(ind)), _*) <- quantVarEqs.iterator)
-          yield ind).toSet
+         (for (// Seq((IdealInt.ONE, VariableTerm(ind)), _*) <- quantVarEqs.iterator;
+               lc <- quantVarEqs.iterator;
+               if (!lc.isEmpty && lc.leadingCoeff.isOne &&
+                   lc.leadingTerm.isInstanceOf[VariableTerm]))
+          yield lc.leadingTerm.asInstanceOf[VariableTerm].index).toSet
        (0 until lastUniQuantifier) forall (matchedVariables contains _)
      }) &&
     (c.negatedConjs forall (isMatchableRecHelp(_, !negated)))

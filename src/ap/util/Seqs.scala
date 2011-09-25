@@ -114,9 +114,12 @@ object Seqs {
   /**
    * Compute a polynomial hashcode for a sequence of things
    */
+  def computeHashCode[A](a : Iterator[A], init : Int, multiplier : Int) =
+    (init /: a)((hash, el) => hash * multiplier + el.hashCode)
+
   def computeHashCode[A](a : Iterable[A], init : Int, multiplier : Int) =
     (init /: a)((hash, el) => hash * multiplier + el.hashCode)
-    
+
   //////////////////////////////////////////////////////////////////////////////
 
   abstract class BS_Result

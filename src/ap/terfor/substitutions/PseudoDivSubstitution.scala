@@ -64,7 +64,7 @@ abstract class PseudoDivSubstitution extends Substitution {
   protected[substitutions] def pseudoApply(lc : LinearCombination) : LinearCombination = {
     // for each term of the linear combination, compute the replacing term and
     // the new rational coefficient in form of two <code>IdealInt</code>s
-    val repls = for ((coeff, ter) <- lc) yield {
+    val repls = for ((coeff, ter) <- lc.pairSeq) yield {
                   val (replDenom, repl) = ter match {
                     case c : ConstantTerm => applyToConstant(c)
                     case v : VariableTerm => applyToVariable(v)

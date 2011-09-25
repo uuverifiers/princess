@@ -74,7 +74,7 @@ object EquationConj {
     if (lhss.isEmpty)
       TRUE
     else if (lhss.size == 1)
-      apply(lhss.iterator.next, order)
+      apply(lhss.head, order)
     else
       apply(lhss.iterator,
             ReduceWithEqs(Map.empty.asInstanceOf[Map[Term, LinearCombination]],
@@ -382,15 +382,16 @@ private class RowSolver(lhss : Iterator[LinearCombination],
       // TODO: is it possible to leave out some of the produced linear
       // combinations?
       
-      val combination = Array((IdealInt.ONE, lc), (-(lc.leadingCoeff / gcd), gcdLhs))
-      val rem = LinearCombination.sum(combination, order)
+      val gccLhsCoeff = -(lc.leadingCoeff / gcd)
+      
+      val rem = LinearCombination.sum(IdealInt.ONE, lc, gccLhsCoeff, gcdLhs, order)
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(EquationConj.AC,
                       rem.isZero ||
                       order.compare(rem.leadingTerm,
                                     currentLhss(0).leadingTerm) < 0)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      logger.ceScope.start((combination, order)) {
+      logger.ceScope.start((Array((IdealInt.ONE, lc), (gccLhsCoeff, gcdLhs)), order)) {
         addNonCanon(rem)
       }
     }

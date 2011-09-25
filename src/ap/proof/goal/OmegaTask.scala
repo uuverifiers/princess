@@ -346,8 +346,9 @@ case object OmegaTask extends EagerTask {
        val leqCoeff = (leq get elimConst).abs
        val correction = casesSucc * leqCoeff // always negative
 
-       LinearCombination.sum(Array((leqCoeff, geq), (geqCoeff, leq),
-                                   (correction, LinearCombination.ONE)),
+       LinearCombination.sum(leqCoeff, geq,
+                             geqCoeff, leq,
+                             correction, LinearCombination.ONE,
                              order)
     }).toList
 

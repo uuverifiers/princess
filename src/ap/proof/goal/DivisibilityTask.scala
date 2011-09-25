@@ -73,11 +73,10 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
     Debug.assertInt(DivisibilityTask.AC, coeff.signum > 0)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val order = goal.order
+    implicit val order = goal.order
 
     val y = LinearCombination(VariableTerm(1), order)
-    val newLC = LinearCombination.sum(Array((IdealInt.ONE, lc),
-                                            (IdealInt.ONE, y)), order)
+    val newLC = lc + y
     
     val yCond = InEqConj(Array(y + IdealInt.MINUS_ONE,
                                -y + (coeff - IdealInt.ONE)), order)

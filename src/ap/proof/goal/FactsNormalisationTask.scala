@@ -212,11 +212,9 @@ private class GoalColumnSolver(eqs : EquationConj,
       // term and has a coefficient that is not 1
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(FactsNormalisationTask.AC,
-                      {
-                        val (c, t) = lc(0)
-                        !c.isOne && isEliminated(t)
-                      } &&
-                      Logic.forall(1, lc.size, (i) => !isEliminated(lc(i) _2)))
+                      !lc.leadingCoeff.isOne && isEliminated(lc.leadingTerm)
+                      &&
+                      Logic.forall(1, lc.size, (i) => !isEliminated(lc getTerm i)))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       Some(makeLeadingTermSmall(lc, order))
     }
@@ -234,30 +232,30 @@ private class GoalColumnSolver(eqs : EquationConj,
    * Introduce a small constant as new name for the leading term of
    * <code>lc</code> (rule div-close)
    */
-  private def makeLeadingTermSmall(lc : LinearCombination,
-                                   order : TermOrder)
+  private def makeLeadingTermSmall(lc : LinearCombination, order : TermOrder)
                                       : (Term, LinearCombination, TermOrder) = {
     assert(!logger.isLogging) // TODO
 
-    val (leadingCoeff, leadingTerm) = lc(0)
+    val leadingCoeff = lc.leadingCoeff
+    val leadingTerm = lc.leadingTerm
+    
     val smallConst = newConst
     val extendedOrder = order.extend(smallConst, lc.constants)
     
     // the new constant (times the old leading coefficient) has to be
     // substituted in the closing constraint
     val symDefinition = LinearCombination(leadingTerm, order)
-    val substLC = LinearCombination.sum(Array((leadingCoeff, symDefinition),
-                                              (IdealInt.MINUS_ONE, lc)),
-                                        order)    
+    val substLC = LinearCombination.sum(leadingCoeff, symDefinition,
+                                        IdealInt.MINUS_ONE, lc, order)
     val backSubst = new PseudoConstantSubst(leadingCoeff, smallConst,
                                             substLC, extendedOrder)
     
     // the negated divisibility judgement has to be added disjunctively
     // to the closing constraint
     val var0 = LinearCombination(VariableTerm(0), order)
-    val lcMod = LinearCombination.sum(Array((leadingCoeff, var0),
-                                            (-leadingCoeff, symDefinition),
-                                            (IdealInt.ONE, lc)),
+    val lcMod = LinearCombination.sum(leadingCoeff, var0,
+                                      -leadingCoeff, symDefinition,
+                                      IdealInt.ONE, lc,
                                       order)
     val notDividedByLC = Conjunction.quantify(Array(Quantifier.ALL),
                                               NegEquationConj(lcMod, order),
@@ -281,7 +279,7 @@ private class GoalColumnSolver(eqs : EquationConj,
     val symDefinition = lc.reduceWithLeadingCoeff
     val smallConst = newConst
     
-    if (isEliminated(lc(0) _2)) {
+    if (isEliminated(lc.leadingTerm)) {
       // then also the new constant can be eliminated, and has to be put in
       // between the non-eliminated and the eliminated constants
       val extendedOrder = order.extend(smallConst,
@@ -331,18 +329,17 @@ private class GoalColumnSolver(eqs : EquationConj,
                        b ==
                        (Logic.exists(0, lc.size, (i) =>
                         Logic.exists(i+1, lc.size, (j) =>
-                          isEliminated(lc(i) _2) && isEliminated(lc(j) _2))))
+                          isEliminated(lc getTerm i) && isEliminated(lc getTerm j))))
                         ||
-                        Logic.forall(for ((_, t) <- lc.elements)
-                                     yield !isEliminated(t)))
+                        (lc.termIterator forall (!isEliminated(_))))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       b
     }
 
     post (if (lc.isEmpty) {
             true
-          } else if (isEliminated(lc(0) _2)) {
-            (lc.size >= 2) && isEliminated(lc(1) _2)
+          } else if (isEliminated(lc.leadingTerm)) {
+            (lc.size >= 2) && isEliminated(lc getTerm 1)
           } else {
             true
           })

@@ -56,15 +56,17 @@ abstract class SimpleSubstitution extends Substitution {
   }
      
   final def apply(lc : LinearCombination) : LinearCombination = {
+    // TODO: can be optimised for special cases
+    
     val N = lc.size
     val newTerms = new Array[(IdealInt, Term)](N)
     
     var i = 0
     var changed = false
     while (i < N) {
-      val (c, t) = lc(i)
+      val t = lc getTerm i
       val newT = apply(t)
-      newTerms(i) = (c, newT)
+      newTerms(i) = (lc getCoeff i, newT)
       
       if (!(newT eq t))
         changed = true

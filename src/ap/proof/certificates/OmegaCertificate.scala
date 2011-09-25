@@ -72,7 +72,7 @@ case class OmegaCertificate(elimConst : ConstantTerm,
           val geqCoeff = (geq.lhs get elimConst).abs;
           leq <- boundsB.iterator) yield {
        val leqCoeff = (leq.lhs get elimConst).abs
-       CertInequality(leqCoeff * geq.lhs + geqCoeff * leq.lhs - cases * leqCoeff)
+       CertInequality((geq.lhs scale leqCoeff) + (leq.lhs scale geqCoeff) - cases * leqCoeff)
      }).toList
   }
   

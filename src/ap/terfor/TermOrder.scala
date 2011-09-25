@@ -199,14 +199,11 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     while (true) {
       if (i < len1) {
         if (i < len2) {
-          val (c1, v1) = t1(i)
-          val (c2, v2) = t2(i)
-          
 //          val cmp0 = weightOfAtomicTerm(v1) compare weightOfAtomicTerm(v2)
-          val cmp0 = compareTerms(v1, v2)
+          val cmp0 = compareTerms(t1 getTerm i, t2 getTerm i)
           if (cmp0 != 0) return cmp0
           
-          val cmp1 = c1 compareAbs c2
+          val cmp1 = (t1 getCoeff i) compareAbs (t2 getCoeff i)
           if (cmp1 != 0) return cmp1
         } else {
           return 1                        
@@ -259,7 +256,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * <code>Weight</code> objects
    */
   private def weightIt(t : Term) : Iterator[Weight] = t match {
-    case t : LinearCombination => (for ((coeff, ter) <- t.iterator)
+    case t : LinearCombination => (for ((coeff, ter) <- t.pairIterator)
                                    yield CoeffWeight(coeff, weightOfAtomicTerm(ter)))
     case _ => Iterator.single(weightOfAtomicTerm(t))
   }

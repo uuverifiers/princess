@@ -137,6 +137,12 @@ object IdealInt {
     res
   }
   
+  def sum(it : Iterator[IdealInt]) : IdealInt = {
+    var res = ZERO
+    for (t <- it) res = res + t
+    res
+  }
+  
   /**
    * Compute the maximum of a sequence of <code>IdealInt</code>. If the sequence
    * is empty, <code>ZERO</code> is returned

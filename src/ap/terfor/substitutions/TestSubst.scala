@@ -43,20 +43,20 @@ class TestSubst(n : String) extends APTestCase(n) {
   def testPseudoSubst = {
     implicit val order = to
     
-    val lc0 = constsLC(0) * 5 + constsLC(1) + 6
-    val subst0 = new PseudoConstantSubst(3, consts(1), constsLC(2) * 2, to)
+    val lc0 = (constsLC(0) scale 5) + constsLC(1) + 6
+    val subst0 = new PseudoConstantSubst(3, consts(1), constsLC(2) scale 2, to)
     
     assertEquals(subst0(EquationConj(lc0, to)),
-                 EquationConj(constsLC(0) * 15 + constsLC(2) * 2 + 18, to))
+                 EquationConj((constsLC(0) scale 15) + (constsLC(2) scale 2) + 18, to))
 
-    val subst1 = new PseudoConstantSubst(3, consts(1), constsLC(2) * 5, to)
+    val subst1 = new PseudoConstantSubst(3, consts(1), constsLC(2) scale 5, to)
                  
     assertEquals(subst1(EquationConj(lc0, to)),
                  EquationConj.FALSE)
 
-    val lc1 = constsLC(0) * 5 + constsLC(1) * 3 + 6
+    val lc1 = (constsLC(0) scale 5) + (constsLC(1) scale 3) + 6
     assertEquals(subst0(EquationConj(lc1, to)),
-                 EquationConj(constsLC(0) * 5 + constsLC(2) * 2 + 6, to))
+                 EquationConj((constsLC(0) scale 5) + (constsLC(2) scale 2) + 6, to))
   }
   
 }
