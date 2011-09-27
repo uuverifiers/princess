@@ -25,7 +25,8 @@ import ap.basetypes.IdealInt
 
 import ap.terfor._
 import ap.terfor.linearcombination.{LinearCombination,
-                                    LinearCombination0, LinearCombination1}
+                                    LinearCombination0, LinearCombination1,
+                                    LinearCombination2}
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.util.Debug
@@ -67,6 +68,21 @@ abstract class SimpleSubstitution extends Substitution {
         lc
       else
         LinearCombination(lc.leadingCoeff, newLeadingTerm, lc.constant, order)
+    }
+    case lc : LinearCombination2 => {
+      val t0 = lc getTerm 0
+      val t1 = lc getTerm 1
+      
+      val newT0 = apply(t0)
+      val newT1 = apply(t1)
+      
+      if ((t0 eq newT0) && (t1 eq newT1))
+        lc
+      else
+        LinearCombination(Array((lc getCoeff 0, newT0),
+                                (lc getCoeff 1, newT1),
+                                (lc.constant, OneTerm)),
+                          order)
     }
     case _ => {
       val N = lc.size

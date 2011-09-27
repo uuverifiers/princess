@@ -718,4 +718,37 @@ object Seqs {
     
     duplicates.toSet
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /**
+   * Iterator over exactly two elements
+   */
+  def doubleIterator[A](a : A, b : A) = new Iterator[A] {
+    private var i = 0
+    def hasNext = i < 2
+    def next = {
+      i = i + 1
+      i match {
+        case 1 => a
+        case 2 => b
+      }
+    }
+  }
+  
+  /**
+   * Iterator over exactly three elements
+   */
+  def tripleIterator[A](a : A, b : A, c : A) = new Iterator[A] {
+    private var i = 0
+    def hasNext = i < 3
+    def next = {
+      i = i + 1
+      i match {
+        case 1 => a
+        case 2 => b
+        case 3 => c
+      }
+    }
+  }
 }

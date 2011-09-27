@@ -392,8 +392,8 @@ object IdealInt {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-sealed class IdealInt private (private val longStore : Long,
-                               private var biStore : BigInteger) {
+final class IdealInt private (private val longStore : Long,
+                              private var biStore : BigInteger) {
  
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertPost(IdealInt.AC,

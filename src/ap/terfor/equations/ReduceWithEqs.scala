@@ -24,7 +24,7 @@ package ap.terfor.equations;
 import ap.terfor._
 import ap.terfor.linearcombination.{LinearCombination,
                                     LinearCombination0, LinearCombination1,
-                                    LCBlender}
+                                    LinearCombination2, LCBlender}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{Atom, PredConj}
@@ -106,6 +106,11 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     case _ : LinearCombination0 =>
       lc
     case lc : LinearCombination1 if (!(equations contains lc.leadingTerm)) =>
+      // could be further optimised
+      lc
+    case lc : LinearCombination2 if (!(equations contains (lc getTerm 0)) &&
+                                     !(equations contains (lc getTerm 1))) =>
+      // could be further optimised
       lc
     case _ => {
       //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

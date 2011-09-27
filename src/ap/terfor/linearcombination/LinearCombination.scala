@@ -48,23 +48,35 @@ object LinearCombination {
     val flattened = flattenTerms(terms)
     sortTerms(flattened, order)
     val contracted = contractTerms(flattened)
-    
-    contracted.size match {
+    createFromSortedArray(contracted, order)
+  }
+
+  private def createFromSortedArray(terms : Array[(IdealInt, Term)],
+                                    order : TermOrder) : LinearCombination =
+    terms.size match {
       case 0 =>
         ZERO
       case 1 =>
-        if (contracted.head._2 == OneTerm)
-          apply(contracted.head._1)
+        if (terms.head._2 == OneTerm)
+          apply(terms.head._1)
         else
-          new LinearCombination1(contracted.head._1, contracted.head._2,
+          new LinearCombination1(terms.head._1, terms.head._2,
                                  IdealInt.ZERO, order)
-      case 2 if (contracted.last._2 == OneTerm) =>
-        new LinearCombination1(contracted.head._1, contracted.head._2,
-                               contracted.last._1, order)
+      case 2 =>
+        if (terms.last._2 == OneTerm)
+          new LinearCombination1(terms.head._1, terms.head._2,
+                                 terms.last._1, order)
+        else
+          new LinearCombination2(terms.head._1, terms.head._2,
+                                 terms.last._1, terms.last._2,
+                                 IdealInt.ZERO, order)
+      case 3 if (terms.last._2 == OneTerm) =>
+          new LinearCombination2(terms(0)._1, terms(0)._2,
+                                 terms(1)._1, terms(1)._2,
+                                 terms(2)._1, order)
       case _ =>
-        new ArrayLinearCombination (contracted, order)
+        new ArrayLinearCombination (terms, order)
     }
-  }
 
   def apply(terms : Iterable[(IdealInt, Term)], order : TermOrder)
                                                       : LinearCombination =
@@ -131,9 +143,20 @@ object LinearCombination {
         if (terms.head._2 == OneTerm)
           apply(terms.head._1)
         else
-          new LinearCombination1(terms.head._1, terms.head._2, IdealInt.ZERO, order)
-      case 2 if (terms.last._2 == OneTerm) =>
-        new LinearCombination1(terms.head._1, terms.head._2, terms.last._1, order)
+          new LinearCombination1(terms.head._1, terms.head._2,
+                                 IdealInt.ZERO, order)
+      case 2 =>
+        if (terms.last._2 == OneTerm)
+          new LinearCombination1(terms.head._1, terms.head._2,
+                                 terms.last._1, order)
+        else
+          new LinearCombination2(terms.head._1, terms.head._2,
+                                 terms.last._1, terms.last._2,
+                                 IdealInt.ZERO, order)
+      case 3 if (terms.last._2 == OneTerm) =>
+          new LinearCombination2(terms(0)._1, terms(0)._2,
+                                 terms(1)._1, terms(1)._2,
+                                 terms(2)._1, order)
       case _ =>
         new ArrayLinearCombination (terms.toArray, order)
     }
@@ -148,6 +171,35 @@ object LinearCombination {
       apply(constant)
     else
       new LinearCombination1(coeff0, term0, constant, order)
+
+  /**
+   * Create a linear combination with at most two non-constant terms; the
+   * given terms are assumed to be already flat, and assumed to be sorted
+   */
+  def createFromFlatTerm(coeff0 : IdealInt, term0 : Term,
+                         coeff1 : IdealInt, term1 : Term,
+                         constant : IdealInt,
+                         order : TermOrder) : LinearCombination =
+    if (coeff0.isZero)
+      createFromFlatTerm(coeff1, term1, constant, order)
+    else if (coeff1.isZero)
+      new LinearCombination1(coeff0, term0, constant, order)
+    else
+      new LinearCombination2(coeff0, term0, coeff1, term1, constant, order)
+
+  protected[linearcombination]
+    def createFromFlatNonZeroTerms(coeff0 : IdealInt, term0 : Term,
+                                   coeff1 : IdealInt, term1 : Term,
+                                   coeff2 : IdealInt, term2 : Term,
+                                   constant : IdealInt,
+                                   order : TermOrder) : LinearCombination = {
+    val terms = if (constant.isZero)
+                  Array((coeff0, term0), (coeff1, term1), (coeff2, term2))
+                else
+                  Array((coeff0, term0), (coeff1, term1), (coeff2, term2),
+                        (constant, OneTerm))
+    new ArrayLinearCombination(terms, order)
+  }
 
   /**
    * Create a linear combination from an array of coefficient-term pairs that 
@@ -166,14 +218,25 @@ object LinearCombination {
           new LinearCombination1(first._1, first._2, IdealInt.ZERO, order)
       } else {
         val second = terms.next
-        if (!terms.hasNext && second._2 == OneTerm) {
-          new LinearCombination1(first._1, first._2, second._1, order)
+        if (!terms.hasNext) {
+          if (second._2 == OneTerm)
+            new LinearCombination1(first._1, first._2, second._1, order)
+          else
+            new LinearCombination2(first._1, first._2, second._1, second._2,
+                                   IdealInt.ZERO, order)
         } else {
-          val buf = ArrayBuilder.make[(IdealInt, Term)]
-          buf += first
-          buf += second
-          buf ++= terms
-          new ArrayLinearCombination (buf.result, order)
+          val third = terms.next
+          if (!terms.hasNext && third._2 == OneTerm) {
+            new LinearCombination2(first._1, first._2, second._1, second._2,
+                                   third._1, order)
+          } else {
+            val buf = ArrayBuilder.make[(IdealInt, Term)]
+            buf += first
+            buf += second
+            buf += third
+            buf ++= terms
+            new ArrayLinearCombination (buf.result, order)
+          }
         }
       }
     }
@@ -277,23 +340,50 @@ object LinearCombination {
           order : TermOrder) : LinearCombination = lc1 match {
     case lc1 : LinearCombination0 => lc2 match {
       case lc2 : LinearCombination0 =>
-        apply(lc1._constant * coeff1 + lc2._constant * coeff2)
+        apply(lc1.constant * coeff1 + lc2.constant * coeff2)
       case lc2 : LinearCombination1 =>
-        createFromFlatTerm(lc2._coeff0 * coeff2, lc2._term0,
-                           lc1._constant * coeff1 + lc2._constant * coeff2,
+        createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
+                           lc1.constant * coeff1 + lc2.constant * coeff2,
+                           order)
+      case lc2 : LinearCombination2 =>
+        createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
+                           lc2.coeff1 * coeff2, lc2.term1,
+                           lc1.constant * coeff1 + lc2.constant * coeff2,
                            order)
       case _ =>
         rawSum(coeff1, lc1, coeff2, lc2, order)
     }
     case lc1 : LinearCombination1 => lc2 match {
       case lc2 : LinearCombination0 =>
-        createFromFlatTerm(lc1._coeff0 * coeff1, lc1._term0,
-                           lc1._constant * coeff1 + lc2._constant * coeff2,
+        createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
+                           lc1.constant * coeff1 + lc2.constant * coeff2,
                            order)
-      case lc2 : LinearCombination1 if (lc1._term0 == lc2._term0) =>
-        createFromFlatTerm(lc1._coeff0 * coeff1 + lc2._coeff0 * coeff2,
-                           lc1._term0,
-                           lc1._constant * coeff1 + lc2._constant * coeff2,
+      case lc2 : LinearCombination1 => {
+        val c0 = order.compare(lc1.term0, lc2.term0)
+        if (c0 > 0)
+          createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
+                             lc2.coeff0 * coeff2, lc2.term0,
+                             lc1.constant * coeff1 + lc2.constant * coeff2,
+                             order)
+        else if (c0 > 0)
+          createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
+                             lc1.coeff0 * coeff1, lc1.term0,
+                             lc1.constant * coeff1 + lc2.constant * coeff2,
+                             order)
+        else
+          createFromFlatTerm(lc1.coeff0 * coeff1 + lc2.coeff0 * coeff2,
+                             lc1.term0,
+                             lc1.constant * coeff1 + lc2.constant * coeff2,
+                             order)
+      }
+      case _ =>
+        rawSum(coeff1, lc1, coeff2, lc2, order)
+    }
+    case lc1 : LinearCombination2 => lc2 match {
+      case lc2 : LinearCombination0 =>
+        createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
+                           lc1.coeff1 * coeff1, lc1.term1,
+                           lc1.constant * coeff1 + lc2.constant * coeff2,
                            order)
       case _ =>
         rawSum(coeff1, lc1, coeff2, lc2, order)
@@ -325,13 +415,13 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
                 {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(LinearCombination.AC,
+  protected def assertCtor = {
                    (pairIterator forall { case (coeff, t) =>
                                             !t.isInstanceOf[LinearCombination] &&
-                                            !coeff.isZero })
-                   &&
+                                            !coeff.isZero }) &&
                    Logic.forall(0, this.size - 1,
-                     (i:Int) => order.compare(getTerm(i), getTerm(i+1)) > 0))
+                     (i:Int) => order.compare(getTerm(i), getTerm(i+1)) > 0)
+  }
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def size : Int
@@ -341,8 +431,23 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
                      
   def getPair(i : Int) : (IdealInt, Term)
   
-  def pairIterator : Iterator[(IdealInt, Term)]
+  def pairIterator = new Iterator[(IdealInt, Term)] {
+    private var i = 0
+    private val s = LinearCombination.this.size
+    def hasNext = i < s
+    def next = {
+      val res = getPair(i)
+      i = i + 1
+      res
+    }
+  }
+
   def pairSeq : IndexedSeq[(IdealInt, Term)]
+
+  protected def lazyPairSeq = new IndexedSeq[(IdealInt, Term)] {
+    def apply(i : Int) = getPair(i)
+    def length = LinearCombination.this.size
+  }
 
   def filterPairs(f : (IdealInt, Term) => Boolean) : LinearCombination
   
@@ -404,7 +509,7 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
    * A linear combination is called positive if it is not constantly zero and if
    * the leading coefficient is positive
    */
-  def isPositive : Boolean
+  def isPositive : Boolean = leadingCoeff.signum > 0
     
   /**
    * Return whether this linear combination is an integer constant
@@ -456,7 +561,7 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
    * Multiply all coefficients of this linear combination by a constant, and
    * add some constant term
    */
-  def scaleAndAdd(coeff : IdealInt, constant : IdealInt) : LinearCombination
+  def scaleAndAdd(coeff : IdealInt, const : IdealInt) : LinearCombination
 
   def * (that : LinearCombination) : LinearCombination = (this.pairSeq, that.pairSeq) match {
     case (_, Seq()) | (Seq(), _) => LinearCombination.ZERO
@@ -584,9 +689,12 @@ final class ArrayLinearCombination (
                      _order : TermOrder)
       extends LinearCombination(_order) {
 
+//  ap.util.Timer.measure("ArrayLinearCombination" + terms.size){}
+
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(LinearCombination.AC,
-                   terms.size > 1 && terms(0)._2 != OneTerm && terms(1)._2 != OneTerm)
+                   assertCtor && // make sure that the assertions are not executed too early
+                   terms.size > 2 && terms(2)._2 != OneTerm)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def sortBy(newOrder : TermOrder) : LinearCombination = {
@@ -606,7 +714,7 @@ final class ArrayLinearCombination (
   
   def getPair(i : Int) : (IdealInt, Term) = terms(i)
   
-  def pairIterator = terms.iterator
+  override def pairIterator = terms.iterator
   def pairSeq : IndexedSeq[(IdealInt, Term)] = terms
 
   def filterPairs(f : (IdealInt, Term) => Boolean) : LinearCombination =
@@ -671,8 +779,6 @@ final class ArrayLinearCombination (
     !c.isZero && !(nonConstCoeffGcd divides c) 
   }
 
-  def isPositive : Boolean = leadingCoeff.signum > 0
-
   def isConstant : Boolean = false
 
   lazy val constant : IdealInt =
@@ -725,14 +831,13 @@ final class ArrayLinearCombination (
                                                     order)
   }
 
-  def scaleAndAdd(coeff : IdealInt,
-                  constant : IdealInt) : LinearCombination = coeff match {
+  def scaleAndAdd(coeff : IdealInt, const : IdealInt) : LinearCombination = coeff match {
     case IdealInt.ZERO =>
-      LinearCombination(constant)
+      LinearCombination(const)
     case IdealInt.ONE =>
-      this + constant
+      this + const
     case _ =>
-      LinearCombination.rawSum(coeff, this, constant, LinearCombination.ONE, order)
+      LinearCombination.rawSum(coeff, this, const, LinearCombination.ONE, order)
   }
 
   def / (denom : IdealInt) : LinearCombination = {
@@ -813,32 +918,38 @@ final class ArrayLinearCombination (
 /**
  * Constant linear combinations
  */
-final class LinearCombination0 (protected[linearcombination] val _constant : IdealInt)
+final class LinearCombination0 (val constant : IdealInt)
       extends LinearCombination(TermOrder.EMPTY) {
+
+//  ap.util.Timer.measure("LinearCombination0"){}
+  
+  val isZero = constant.isZero
   
   def sortBy(newOrder : TermOrder) : LinearCombination = this
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def size : Int = if (isZero) 0 else 1
+  val size = if (isZero) 0 else 1
   def length : Int = size
   
-  def getPair(i : Int) : (IdealInt, Term) = pairSeq(0)
+  private lazy val pair0 = (constant, OneTerm)
   
-  def pairIterator = pairSeq.iterator
+  def getPair(i : Int) : (IdealInt, Term) = pair0
+  
+  override def pairIterator =
+    if (isZero) Iterator.empty else (Iterator single pair0)
 
-  lazy val pairSeq : IndexedSeq[(IdealInt, Term)] =
-    if (isZero) Array[(IdealInt, Term)]() else Array((_constant, OneTerm))
+  lazy val pairSeq = lazyPairSeq
   
   def filterPairs(f : (IdealInt, Term) => Boolean) : LinearCombination =
-    if (isZero || f(_constant, OneTerm)) this else LinearCombination.ZERO
+    if (isZero || f(constant, OneTerm)) this else LinearCombination.ZERO
 
  ///////////////////////////////////////////////////////////////////////////////
     
-  def getCoeff(i : Int) : IdealInt = _constant
+  def getCoeff(i : Int) : IdealInt = constant
 
   def coeffIterator : Iterator[IdealInt] =
-    if (isZero) Iterator.empty else (Iterator single _constant)
+    if (isZero) Iterator.empty else (Iterator single constant)
 
   def getTerm(i : Int) : Term = OneTerm
   
@@ -849,27 +960,22 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
 
   //////////////////////////////////////////////////////////////////////////////
     
-  def get(t : Term) : IdealInt = if (t == OneTerm) _constant else IdealInt.ZERO
+  def get(t : Term) : IdealInt = if (t == OneTerm) constant else IdealInt.ZERO
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def isZero = _constant.isZero
-  def isNonZero = !_constant.isZero
+  def isNonZero = !isZero
   
   override def isPrimitive : Boolean = false
 
-  def isPositive : Boolean = _constant.signum > 0
-    
   def isConstant : Boolean = true
 
-  def constant = _constant
-  
   def nonConstCoeffGcd : IdealInt = IdealInt.ZERO
   
   //////////////////////////////////////////////////////////////////////////////
 
   def + (that : IdealInt) : LinearCombination =
-    if (that.isZero) this else LinearCombination(_constant + that)
+    if (that.isZero) this else LinearCombination(constant + that)
 
   def + (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
     that match {
@@ -877,7 +983,7 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
         if (that.isZero)
           this
         else
-          LinearCombination(this._constant + that._constant)
+          LinearCombination(this.constant + that.constant)
       case _ =>
         that + this
     }
@@ -888,34 +994,34 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
         if (that.isZero)
           this
         else
-          LinearCombination(this._constant - that._constant)
+          LinearCombination(this.constant - that.constant)
       case _ =>
         LinearCombination.sum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
     }
   
-  def unary_- : LinearCombination = LinearCombination(-_constant)
+  def unary_- : LinearCombination = LinearCombination(-constant)
 
   def scale(coeff : IdealInt) : LinearCombination =
-    if (coeff.isOne) this else LinearCombination(_constant * coeff)
+    if (coeff.isOne) this else LinearCombination(constant * coeff)
 
-  def scaleAndAdd(coeff : IdealInt, constant : IdealInt) : LinearCombination =
-    if (coeff.isOne && constant.isZero)
+  def scaleAndAdd(coeff : IdealInt, const : IdealInt) : LinearCombination =
+    if (coeff.isOne && const.isZero)
       this
     else
-      LinearCombination(_constant * coeff + constant)
+      LinearCombination(constant * coeff + const)
 
   def / (denom : IdealInt) : LinearCombination = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(LinearCombination.AC, !denom.isZero)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    if (denom.isOne) this else LinearCombination(_constant * denom)
+    if (denom.isOne) this else LinearCombination(constant * denom)
   }
 
   def sameNonConstantTerms(that : LinearCombination) : Boolean =
     that.isInstanceOf[LinearCombination0]
     
-  def leadingCoeff : IdealInt = _constant
+  def leadingCoeff : IdealInt = constant
 
   def leadingTerm : Term = OneTerm
 
@@ -926,12 +1032,17 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
 
   //////////////////////////////////////////////////////////////////////////////
     
-  override def hashCode = _constant.hashCode + 1873821
+  override def hashCode = constant.hashCode + 1873821
 
   override def equals(that : Any) : Boolean = that match {
-    case that : LinearCombination0 => this._constant == that._constant
+    case that : LinearCombination0 => this.constant == that.constant
     case _ => false
   }
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(LinearCombination.AC,
+                   assertCtor) // make sure that the assertions are not executed too early
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -939,89 +1050,88 @@ final class LinearCombination0 (protected[linearcombination] val _constant : Ide
 /**
  * Linear combinations with exactly one non-constant term
  */
-final class LinearCombination1 (protected[linearcombination] val _coeff0 : IdealInt,
-                                protected[linearcombination] val _term0 : Term,
-                                protected[linearcombination] val _constant : IdealInt,
+final class LinearCombination1 (val coeff0 : IdealInt, val term0 : Term,
+                                val constant : IdealInt,
                                 _order : TermOrder)
       extends LinearCombination(_order) {
+
+//  ap.util.Timer.measure("LinearCombination1"){}
   
   def sortBy(newOrder : TermOrder) : LinearCombination =
-    new LinearCombination1(_coeff0, _term0, _constant, newOrder)
+    new LinearCombination1(coeff0, term0, constant, newOrder)
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def size : Int = if (_constant.isZero) 1 else 2
+  private val zeroConstant = constant.isZero
+  
+  val size : Int = if (zeroConstant) 1 else 2
   def length : Int = size
   
-  def getPair(i : Int) : (IdealInt, Term) = pairSeq(i)
+  private lazy val pair0 = (coeff0, term0)
+  private lazy val pair1 = (constant, OneTerm)
   
-  def pairIterator = pairSeq.iterator
-
-  lazy val pairSeq : IndexedSeq[(IdealInt, Term)] =
-    if (_constant.isZero)
-      Array((_coeff0, _term0))
-    else
-      Array((_coeff0, _term0), (_constant, OneTerm))
+  def getPair(i : Int) = i match {
+    case 0 => pair0
+    case 1 => pair1
+  }
+  
+  lazy val pairSeq = lazyPairSeq
   
   def filterPairs(f : (IdealInt, Term) => Boolean) : LinearCombination =
-    if (f(_coeff0, _term0)) {
-      if (_constant.isZero || f(_constant, OneTerm))
+    if (f(coeff0, term0)) {
+      if (zeroConstant || f(constant, OneTerm))
         this
       else
-        new LinearCombination1(_coeff0, _term0, IdealInt.ZERO, _order)
+        new LinearCombination1(coeff0, term0, IdealInt.ZERO, _order)
     } else {
-      if (_constant.isZero || !f(_constant, OneTerm))
+      if (zeroConstant || !f(constant, OneTerm))
         LinearCombination.ZERO
       else
-        LinearCombination(_constant)
+        LinearCombination(constant)
     }
 
  ///////////////////////////////////////////////////////////////////////////////
     
   def getCoeff(i : Int) : IdealInt = i match {
-    case 0 => _coeff0
-    case _ => _constant
+    case 0 => coeff0
+    case _ => constant
   }
 
   def coeffIterator : Iterator[IdealInt] =
-    if (_constant.isZero)
-      (Iterator single _coeff0)
+    if (zeroConstant)
+      (Iterator single coeff0)
     else
-      Iterator(_coeff0, _constant)
+      Seqs.doubleIterator(coeff0, constant)
 
   def getTerm(i : Int) : Term = i match {
-    case 0 => _term0
+    case 0 => term0
     case _ => OneTerm
   }
   
-  def lastTerm = if (_constant.isZero) _term0 else OneTerm
+  def lastTerm = if (zeroConstant) term0 else OneTerm
 
   def termIterator : Iterator[Term] = 
-    if (_constant.isZero)
-      (Iterator single _term0)
+    if (zeroConstant)
+      (Iterator single term0)
     else
-      Iterator(_term0, OneTerm)
+      Seqs.doubleIterator(term0, OneTerm)
 
   //////////////////////////////////////////////////////////////////////////////
     
   def get(t : Term) : IdealInt = t match {
-    case `_term0` => _coeff0
-    case OneTerm => _constant
+    case `term0` => coeff0
+    case OneTerm => constant
     case _ => IdealInt.ZERO
   }
   
   //////////////////////////////////////////////////////////////////////////////
   
   def isZero = false
-  def isNonZero = !(_coeff0 divides _constant)
+  def isNonZero = !(coeff0 divides constant)
   
-  def isPositive : Boolean = _coeff0.signum > 0
-    
   def isConstant : Boolean = false
 
-  def constant = _constant
-  
-  def nonConstCoeffGcd : IdealInt = _coeff0.abs
+  def nonConstCoeffGcd : IdealInt = coeff0.abs
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1029,7 +1139,7 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
     if (that.isZero)
       this
     else
-      new LinearCombination1(_coeff0, _term0, _constant + that, _order)
+      new LinearCombination1(coeff0, term0, constant + that, _order)
 
   def + (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
     that match {
@@ -1037,14 +1147,20 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
         if (that.isZero)
           this
         else
-          new LinearCombination1(_coeff0, _term0,
-                                 this._constant + that._constant, newOrder)
-      case that : LinearCombination1 =>
-        if (this._term0 == that._term0)
-          LinearCombination.createFromFlatTerm(this._coeff0 + that._coeff0, _term0,
-                                               this._constant + that._constant, newOrder)
+          new LinearCombination1(coeff0, term0,
+                                 this.constant + that.constant, newOrder)
+      case that : LinearCombination1 => {
+        val c0 = newOrder.compare(this.term0, that.term0)
+        if (c0 > 0)
+          new LinearCombination2(this.coeff0, this.term0, that.coeff0, that.term0,
+                                 this.constant + that.constant, newOrder)
+        else if (c0 < 0)
+          new LinearCombination2(that.coeff0, that.term0, this.coeff0, this.term0,
+                                 this.constant + that.constant, newOrder)
         else
-          LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.ONE, that, newOrder)
+          LinearCombination.createFromFlatTerm(this.coeff0 + that.coeff0, term0,
+                                               this.constant + that.constant, newOrder)
+      }
       case _ =>
         that + this
     }
@@ -1055,33 +1171,39 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
         if (that.isZero)
           this
         else
-          new LinearCombination1(_coeff0, _term0,
-                                 this._constant - that._constant, newOrder)
-      case that : LinearCombination1 =>
-        if (this._term0 == that._term0)
-          LinearCombination.createFromFlatTerm(this._coeff0 - that._coeff0, _term0,
-                                               this._constant - that._constant, newOrder)
+          new LinearCombination1(coeff0, term0,
+                                 this.constant - that.constant, newOrder)
+      case that : LinearCombination1 => {
+        val c0 = newOrder.compare(this.term0, that.term0)
+        if (c0 > 0)
+          new LinearCombination2(this.coeff0, this.term0, -that.coeff0, that.term0,
+                                 this.constant - that.constant, newOrder)
+        else if (c0 < 0)
+          new LinearCombination2(-that.coeff0, that.term0, this.coeff0, this.term0,
+                                 this.constant - that.constant, newOrder)
         else
-          LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
+          LinearCombination.createFromFlatTerm(this.coeff0 - that.coeff0, term0,
+                                               this.constant - that.constant, newOrder)
+      }
       case _ =>
         LinearCombination.sum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
     }
   
   def unary_- : LinearCombination =
-    new LinearCombination1(-_coeff0, _term0, -_constant, _order)
+    new LinearCombination1(-coeff0, term0, -constant, _order)
 
   def scale(coeff : IdealInt) : LinearCombination = coeff match {
     case IdealInt.ZERO => LinearCombination.ZERO
     case IdealInt.ONE => this
-    case _ => new LinearCombination1(_coeff0 * coeff, _term0, _constant * coeff, _order)
+    case _ => new LinearCombination1(coeff0 * coeff, term0, constant * coeff, _order)
   }
 
-  def scaleAndAdd(coeff : IdealInt, constant : IdealInt) : LinearCombination =
-    if (coeff.isOne && constant.isZero)
+  def scaleAndAdd(coeff : IdealInt, const : IdealInt) : LinearCombination =
+    if (coeff.isOne && const.isZero)
       this
     else
-      LinearCombination.createFromFlatTerm(_coeff0 * coeff, _term0,
-                                           coeff * _constant + constant, _order)
+      LinearCombination.createFromFlatTerm(coeff0 * coeff, term0,
+                                           coeff * constant + const, _order)
 
   def / (denom : IdealInt) : LinearCombination = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -1091,35 +1213,343 @@ final class LinearCombination1 (protected[linearcombination] val _coeff0 : Ideal
     if (denom.isOne)
       this
     else
-      new LinearCombination1(_coeff0 / denom, _term0, _constant / denom, _order)
+      new LinearCombination1(coeff0 / denom, term0, constant / denom, _order)
   }
 
   def sameNonConstantTerms(that : LinearCombination) : Boolean = that match {
     case that : LinearCombination1 =>
-      this._coeff0 == that._coeff0 && this._term0 == that._term0
+      this.coeff0 == that.coeff0 && this.term0 == that.term0
     case _ =>
       false
   }
     
-  def leadingCoeff : IdealInt = _coeff0
+  def leadingCoeff : IdealInt = coeff0
 
-  def leadingTerm : Term = _term0
+  def leadingTerm : Term = term0
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def variables : Set[VariableTerm] = _term0.variables
-  def constants : Set[ConstantTerm] = _term0.constants
+  def variables : Set[VariableTerm] = term0.variables
+  def constants : Set[ConstantTerm] = term0.constants
 
   //////////////////////////////////////////////////////////////////////////////
     
   override def hashCode =
-    _coeff0.hashCode * 17 + _term0.hashCode + _constant.hashCode + 18733821
+    coeff0.hashCode * 17 + term0.hashCode + constant.hashCode + 18733821
 
   override def equals(that : Any) : Boolean = that match {
     case that : LinearCombination1 =>
-      this._term0 == that._term0 &&
-      this._coeff0 == that._coeff0 &&
-      this._constant == that._constant
+      this.term0 == that.term0 &&
+      this.coeff0 == that.coeff0 &&
+      this.constant == that.constant
     case _ => false
   }
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(LinearCombination.AC,
+                   assertCtor) // make sure that the assertions are not executed too early
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Linear combinations with exactly two non-constant term
+ */
+final class LinearCombination2 (val coeff0 : IdealInt, val term0 : Term,
+                                val coeff1 : IdealInt, val term1 : Term,
+                                val constant : IdealInt,
+                                _order : TermOrder)
+      extends LinearCombination(_order) {
+
+//  ap.util.Timer.measure("LinearCombination2"){}
+  
+  def sortBy(newOrder : TermOrder) : LinearCombination =
+    if (newOrder.compare(term0, term1) > 0)
+      new LinearCombination2(coeff0, term0, coeff1, term1, constant, newOrder)
+    else
+      new LinearCombination2(coeff1, term1, coeff0, term0, constant, newOrder)
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private val zeroConstant = constant.isZero
+  
+  val size : Int = if (zeroConstant) 2 else 3
+  def length : Int = size
+  
+  private lazy val pair0 = (coeff0, term0)
+  private lazy val pair1 = (coeff1, term1)
+  private lazy val pair2 = (constant, OneTerm)
+  
+  def getPair(i : Int) = i match {
+    case 0 => pair0
+    case 1 => pair1
+    case 2 => pair2
+  }
+  
+  lazy val pairSeq = lazyPairSeq
+  
+  def filterPairs(f : (IdealInt, Term) => Boolean) : LinearCombination =
+    if (f(coeff0, term0)) {
+      if (f(coeff1, term1)) {
+        if (zeroConstant || f(constant, OneTerm))
+          this
+        else
+          new LinearCombination2(coeff0, term0, coeff1, term1, IdealInt.ZERO, _order)
+      } else {
+        if (zeroConstant || f(constant, OneTerm))
+          new LinearCombination1(coeff0, term0, constant, _order)
+        else
+          new LinearCombination1(coeff0, term0, IdealInt.ZERO, _order)
+      }
+    } else {
+      if (f(coeff1, term1)) {
+        if (zeroConstant || f(constant, OneTerm))
+          new LinearCombination1(coeff1, term1, constant, _order)
+        else
+          new LinearCombination1(coeff1, term1, IdealInt.ZERO, _order)
+      } else {
+        if (zeroConstant || !f(constant, OneTerm))
+          LinearCombination.ZERO
+        else
+          LinearCombination(constant)
+      }
+    }
+
+ ///////////////////////////////////////////////////////////////////////////////
+    
+  def getCoeff(i : Int) : IdealInt = i match {
+    case 0 => coeff0
+    case 1 => coeff1
+    case _ => constant
+  }
+
+  def coeffIterator : Iterator[IdealInt] =
+    if (zeroConstant)
+      Seqs.doubleIterator(coeff0, coeff1)
+    else
+      Seqs.tripleIterator(coeff0, coeff1, constant)
+
+  def getTerm(i : Int) : Term = i match {
+    case 0 => term0
+    case 1 => term1
+    case _ => OneTerm
+  }
+  
+  def lastTerm = if (zeroConstant) term1 else OneTerm
+
+  def termIterator : Iterator[Term] = 
+    if (zeroConstant)
+      Seqs.doubleIterator(term0, term1)
+    else
+      Seqs.tripleIterator(term0, term1, OneTerm)
+
+  //////////////////////////////////////////////////////////////////////////////
+    
+  def get(t : Term) : IdealInt = t match {
+    case `term0` => coeff0
+    case `term1` => coeff1
+    case OneTerm => constant
+    case _ => IdealInt.ZERO
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def isZero = false
+  def isNonZero = !(nonConstCoeffGcd divides constant)
+  
+  def isConstant : Boolean = false
+
+  lazy val nonConstCoeffGcd : IdealInt = coeff0 gcd coeff1
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  def + (that : IdealInt) : LinearCombination =
+    if (that.isZero)
+      this
+    else
+      new LinearCombination2(coeff0, term0, coeff1, term1, constant + that, _order)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def + (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
+    that match {
+      
+      case that : LinearCombination0 =>
+        if (that.isZero)
+          this
+        else
+          new LinearCombination2(coeff0, term0, coeff1, term1,
+                                 this.constant + that.constant, newOrder)
+        
+      case that : LinearCombination1 => {
+        val c0 = newOrder.compare(this.term0, that.term0)
+        if (c0 > 0) {
+          val c1 = newOrder.compare(this.term1, that.term0)
+          if (c1 > 0)
+            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
+                                                         this.coeff1, this.term1,
+                                                         that.coeff0, that.term0,
+                                                         this.constant + that.constant,
+                                                         newOrder)
+          else if (c1 < 0)
+            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
+                                                         that.coeff0, that.term0,
+                                                         this.coeff1, this.term1,
+                                                         this.constant + that.constant,
+                                                         newOrder)
+          else          
+            LinearCombination.createFromFlatTerm(this.coeff0, this.term0,
+                                                 this.coeff1 + that.coeff0, this.term1,
+                                                 this.constant + that.constant,
+                                                 newOrder)
+        } else if (c0 < 0) {
+          LinearCombination.createFromFlatNonZeroTerms(that.coeff0, that.term0,
+                                                       this.coeff0, this.term0,
+                                                       this.coeff1, this.term1,
+                                                       this.constant + that.constant,
+                                                       newOrder)
+        } else {
+          LinearCombination.createFromFlatTerm(this.coeff0 + that.coeff0, this.term0,
+                                               this.coeff1, this.term1,
+                                               this.constant + that.constant,
+                                               newOrder)
+        }
+      }
+      
+      case that : LinearCombination2 =>
+        // TODO: optimise some special cases
+        LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.ONE, that, newOrder)
+      
+      case _ =>
+        that + this
+    }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  def - (that : LinearCombination)(implicit newOrder : TermOrder) : LinearCombination =
+    that match {
+    
+      case that : LinearCombination0 =>
+        if (that.isZero)
+          this
+        else
+          new LinearCombination2(coeff0, term0, coeff1, term1,
+                                 this.constant - that.constant, newOrder)
+        
+      case that : LinearCombination1 => {
+        val c0 = newOrder.compare(this.term0, that.term0)
+        if (c0 > 0) {
+          val c1 = newOrder.compare(this.term1, that.term0)
+          if (c1 > 0)
+            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
+                                                         this.coeff1, this.term1,
+                                                         -that.coeff0, that.term0,
+                                                         this.constant - that.constant,
+                                                         newOrder)
+          else if (c1 < 0)
+            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
+                                                         -that.coeff0, that.term0,
+                                                         this.coeff1, this.term1,
+                                                         this.constant - that.constant,
+                                                         newOrder)
+          else          
+            LinearCombination.createFromFlatTerm(this.coeff0, this.term0,
+                                                 this.coeff1 - that.coeff0, this.term1,
+                                                 this.constant - that.constant,
+                                                 newOrder)
+        } else if (c0 < 0) {
+          LinearCombination.createFromFlatNonZeroTerms(-that.coeff0, that.term0,
+                                                       this.coeff0, this.term0,
+                                                       this.coeff1, this.term1,
+                                                       this.constant - that.constant,
+                                                       newOrder)
+        } else {
+          LinearCombination.createFromFlatTerm(this.coeff0 - that.coeff0, this.term0,
+                                               this.coeff1, this.term1,
+                                               this.constant - that.constant,
+                                               newOrder)
+        }
+      }
+
+      case that : LinearCombination2 =>
+        // TODO: optimise some special cases
+        LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
+        
+      case _ =>
+        LinearCombination.sum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
+    }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  def unary_- : LinearCombination =
+    new LinearCombination2(-coeff0, term0, -coeff1, term1, -constant, _order)
+
+  def scale(coeff : IdealInt) : LinearCombination = coeff match {
+    case IdealInt.ZERO =>
+      LinearCombination.ZERO
+    case IdealInt.ONE =>
+      this
+    case _ =>
+      new LinearCombination2(coeff0 * coeff, term0,
+                             coeff1 * coeff, term1,
+                             constant * coeff, _order)
+  }
+
+  def scaleAndAdd(coeff : IdealInt, const : IdealInt) : LinearCombination =
+    if (coeff.isOne && const.isZero)
+      this
+    else
+      LinearCombination.createFromFlatTerm(coeff0 * coeff, term0,
+                                           coeff1 * coeff, term1,
+                                           coeff * constant + const, _order)
+
+  def / (denom : IdealInt) : LinearCombination = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(LinearCombination.AC, !denom.isZero)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    if (denom.isOne)
+      this
+    else
+      new LinearCombination2(coeff0 / denom, term0, coeff1 / denom, term1,
+                             constant / denom, _order)
+  }
+
+  def sameNonConstantTerms(that : LinearCombination) : Boolean = that match {
+    case that : LinearCombination2 =>
+      this.coeff0 == that.coeff0 && this.term0 == that.term0 &&
+      this.coeff1 == that.coeff1 && this.term1 == that.term1
+    case _ =>
+      false
+  }
+    
+  def leadingCoeff : IdealInt = coeff0
+
+  def leadingTerm : Term = term0
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def variables : Set[VariableTerm] = term0.variables ++ term1.variables
+  def constants : Set[ConstantTerm] = term0.constants ++ term1.constants
+
+  //////////////////////////////////////////////////////////////////////////////
+    
+  override def hashCode =
+    (coeff0.hashCode * 17 + term0.hashCode) * 23 +
+    coeff1.hashCode * 17 + term1.hashCode +
+    constant.hashCode + 18233821
+
+  override def equals(that : Any) : Boolean = that match {
+    case that : LinearCombination2 =>
+      this.term0 == that.term0 && this.coeff0 == that.coeff0 &&
+      this.term1 == that.term1 && this.coeff1 == that.coeff1 &&
+      this.constant == that.constant
+    case _ => false
+  }
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(LinearCombination.AC,
+                   assertCtor) // make sure that the assertions are not executed too early
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 }
