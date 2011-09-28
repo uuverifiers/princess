@@ -365,8 +365,13 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     
     val (gcd, factors) =
       IdealInt.gcdAndCofactors(for (lc <- currentLhss) yield lc.leadingCoeff)
-    val gcdLhs =
-      LinearCombination.sum(factors.iterator zip currentLhss.iterator, order)
+    val gcdLhs = // capture some common and easy cases
+                 if (factors(1).isZero &&
+                     (factors.size == 2 ||
+                         (factors.size == 3 && factors(2).isZero)))
+                   currentLhss.head
+                 else
+                   LinearCombination.sum(factors.iterator zip currentLhss.iterator, order)
 
     if (logger.isLogging && Seqs.count(factors, (f:IdealInt) => !f.isZero) > 1) {
       val terms = for ((f, e) <- factors.toList zip currentLhss.toList; if !f.isZero)

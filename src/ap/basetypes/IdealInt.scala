@@ -625,34 +625,39 @@ final class IdealInt private (private val longStore : Long,
     * <code>(rem compareAbs (rem + a*that)) < 0</code> for all non-zero
     * <code>a</code>.
     */
-  def reduceAbs (that : IdealInt) : (IdealInt, IdealInt) = {
-    var quot =
-      if (this.usesLong && that.usesLong)
-        IdealInt(this.longStore / that.longStore)
-      else
-        IdealInt(this.getBI divide that.getBI)
+  def reduceAbs (that : IdealInt) : (IdealInt, IdealInt) =
+    if (this == that) {
+      (IdealInt.ONE, IdealInt.ZERO)
+    } else {
+      var quot =
+        if (this.usesLong && that.usesLong)
+          IdealInt(this.longStore / that.longStore)
+        else
+          IdealInt(this.getBI divide that.getBI)
     
-    var rem = this - that * quot
+      var rem = this - that * quot
 
-    val more = rem + that
-    if ((more compareAbs rem) < 0) {
-      quot = quot - IdealInt.ONE
-      rem = more
-    }
+      if (!rem.isZero) {
+        val more = rem + that
+        if ((more compareAbs rem) < 0) {
+          quot = quot - IdealInt.ONE
+          rem = more
+        }
     
-    val less = rem - that
-    if ((less compareAbs rem) < 0) {
-      quot = quot + IdealInt.ONE
-      rem = less
-    }
+        val less = rem - that
+        if ((less compareAbs rem) < 0) {
+          quot = quot + IdealInt.ONE
+          rem = less
+        }
+      }
     
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(IdealInt.AC,
-                     that * quot + rem == this &&
-                     (rem isAbsMinMod that))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    (quot, rem)
-  }
+      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+      Debug.assertPost(IdealInt.AC,
+                       that * quot + rem == this &&
+                       (rem isAbsMinMod that))
+      //-END-ASSERTION-///////////////////////////////////////////////////////////
+      (quot, rem)
+    }
   
   /** Return whether this divides that */
   def divides (that : IdealInt) : Boolean =

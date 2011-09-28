@@ -101,30 +101,67 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
 
   def apply(lc : LinearCombination) : LinearCombination = apply(lc, null)
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   def apply(lc : LinearCombination, terms : Buffer[(IdealInt, LinearCombination)])
            : LinearCombination = lc match {
     case _ : LinearCombination0 =>
       lc
-    case lc : LinearCombination1 if (!(equations contains lc.leadingTerm)) =>
-      // could be further optimised
-      lc
-    case lc : LinearCombination2 if (!(equations contains (lc getTerm 0)) &&
-                                     !(equations contains (lc getTerm 1))) =>
-      // could be further optimised
-      lc
-    case _ => {
-      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-      Debug.assertPre(ReduceWithEqs.AC, lc isSortedBy order)
-      //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-      val blender = new LCBlender (order)
-      blender += (IdealInt.ONE, lc)
-      val changed = runBlender(blender, terms)
-    
-      if (changed) blender.result else lc
+      
+    case lc : LinearCombination1 => (equations get lc.leadingTerm) match {
+      case None =>
+        lc
+      case Some(eq) if (eq.leadingCoeff.isOne) =>
+        reduceWithEq(lc, lc.leadingCoeff, eq, terms)
+      case _ =>
+        generalApply(lc, terms)
     }
+    
+    case lc : LinearCombination2 => (equations get lc.leadingTerm) match {
+      case None => (equations get (lc getTerm 1)) match {
+        case None =>
+          lc
+        case Some(eq) if (eq.leadingCoeff.isOne) =>
+          reduceWithEq(lc, lc getCoeff 1, eq, terms)
+        case _ =>
+          generalApply(lc, terms)
+      }
+      case Some(eq) if (eq.leadingCoeff.isOne) =>
+        reduceWithEq(lc, lc.leadingCoeff, eq, terms)
+      case _ =>
+        generalApply(lc, terms)
+    }
+    
+    case _ => generalApply(lc, terms)
   }
 
+  private def reduceWithEq(lc : LinearCombination, lcCoeff : IdealInt,
+                           eq : LinearCombination,
+                           terms : Buffer[(IdealInt, LinearCombination)]) = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ReduceWithEqs.AC, eq.leadingCoeff.isOne)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val eqCoeff = -lcCoeff
+    if (terms != null)
+      terms += (eqCoeff -> eq)
+    apply(LinearCombination.sum(IdealInt.ONE, lc, eqCoeff, eq, order), terms)
+  }
+
+  private def generalApply(lc : LinearCombination,
+                           terms : Buffer[(IdealInt, LinearCombination)]) = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ReduceWithEqs.AC, lc isSortedBy order)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val blender = new LCBlender (order)
+    blender += (IdealInt.ONE, lc)
+    val changed = runBlender(blender, terms)
+    
+    if (changed) blender.result else lc
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
   /**
    * Run the <code>blender</code> and add linear combinations from
    * <code>eqs</code> whenever it is possible to reduce monomials.
@@ -146,7 +183,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         //-END-ASSERTION-///////////////////////////////////////////////////////
                        
         val (quot, rem) = (nextCoeff reduceAbs eq.leadingCoeff)
-        if (rem != nextCoeff) {
+        if (!quot.isZero) {
           blender += (-quot, eq)
           if (terms != null)
             terms += (-quot -> eq)

@@ -39,6 +39,8 @@ object LinearCombination {
 
   val MINUS_ONE : LinearCombination = new LinearCombination0(IdealInt.MINUS_ONE)
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   /**
    * Create a linear combination from an arbitrary set of terms with
    * coefficients
@@ -249,14 +251,24 @@ object LinearCombination {
                                               : Array[(IdealInt, Term)] = {
     val res = ArrayBuilder.make[(IdealInt, Term)]
     
-    def flatten(it : Iterator[(IdealInt, Term)], coeff : IdealInt) : Unit = {
-      for ((c, t) <- it) {
-        t match {
-        case t : LinearCombination => flatten(t.pairIterator, coeff * c)
-        case _ => res += (coeff * c -> t)
+    def flatten(it : Iterator[(IdealInt, Term)], coeff : IdealInt) : Unit =
+      if (coeff.isOne) {
+        while (it.hasNext) {
+          val p@(c, t) = it.next
+          t match {
+            case t : LinearCombination => flatten(t.pairIterator, c)
+            case _ => res += p
+          }
+        }
+      } else {
+        while (it.hasNext) {
+          val (c, t) = it.next
+          t match {
+            case t : LinearCombination => flatten(t.pairIterator, c * coeff)
+            case _ => res += (coeff * c -> t)
+          }
         }
       }
-    }
     
     flatten(terms, IdealInt.ONE)
     res.result
@@ -285,7 +297,9 @@ object LinearCombination {
     var currentTerm : Term = null
     var currentCoeff : IdealInt = IdealInt.ZERO
     
-    for ((c, t) <- terms) {
+    val it = terms.iterator
+    while (it.hasNext) {
+      val (c, t) = it.next
       if (t == currentTerm) {
         currentCoeff = currentCoeff + c
       } else {
@@ -329,12 +343,15 @@ object LinearCombination {
     def rawSum(coeff1 : IdealInt, lc1 : LinearCombination,
                coeff2 : IdealInt, lc2 : LinearCombination,
                order : TermOrder) : LinearCombination = {
+//    println("" + coeff1 + " *** " + lc1 + " +++++ " + coeff2 + " *** " + lc2)
     val blender = new LCBlender(order)
     blender.+=(coeff1, lc1, coeff2, lc2)
     blender.dropAll
     blender.result
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   def sum(coeff1 : IdealInt, lc1 : LinearCombination,
           coeff2 : IdealInt, lc2 : LinearCombination,
           order : TermOrder) : LinearCombination = lc1 match {
@@ -376,6 +393,10 @@ object LinearCombination {
                              lc1.constant * coeff1 + lc2.constant * coeff2,
                              order)
       }
+      case lc2 : LinearCombination2 if (coeff1.isOne) =>
+        sum_1_2(lc1, coeff2, lc2, order)
+      case lc2 : LinearCombination2 if (coeff2.isOne) =>
+        sum_2_1(lc2, coeff1, lc1, order)
       case _ =>
         rawSum(coeff1, lc1, coeff2, lc2, order)
     }
@@ -385,11 +406,147 @@ object LinearCombination {
                            lc1.coeff1 * coeff1, lc1.term1,
                            lc1.constant * coeff1 + lc2.constant * coeff2,
                            order)
+      case lc2 : LinearCombination1 if (coeff1.isOne) =>
+        sum_2_1(lc1, coeff2, lc2, order)
+      case lc2 : LinearCombination1 if (coeff2.isOne) =>
+        sum_1_2(lc2, coeff1, lc1, order)
+      case lc2 : LinearCombination2 =>
+        sum_2_2(coeff1, lc1, coeff2, lc2, order)
       case _ =>
         rawSum(coeff1, lc1, coeff2, lc2, order)
     }
     case _ =>
       rawSum(coeff1, lc1, coeff2, lc2, order)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected[linearcombination]
+    def sum_2_1(lc1 : LinearCombination2,
+                coeff2 : IdealInt, lc2 : LinearCombination1,
+                newOrder : TermOrder) =
+      if (coeff2.isZero) {
+        lc1
+      } else {
+        val c0 = newOrder.compare(lc1.term0, lc2.term0)
+        if (c0 > 0) {
+          val c1 = newOrder.compare(lc1.term1, lc2.term0)
+          if (c1 > 0)
+            createFromFlatNonZeroTerms(lc1.coeff0, lc1.term0,
+                                       lc1.coeff1, lc1.term1,
+                                       lc2.coeff0 * coeff2, lc2.term0,
+                                       lc1.constant + (lc2.constant * coeff2),
+                                       newOrder)
+          else if (c1 < 0)
+            createFromFlatNonZeroTerms(lc1.coeff0, lc1.term0,
+                                       lc2.coeff0 * coeff2, lc2.term0,
+                                       lc1.coeff1, lc1.term1,
+                                       lc1.constant + (lc2.constant * coeff2),
+                                       newOrder)
+          else          
+            createFromFlatTerm(lc1.coeff0, lc1.term0,
+                               lc1.coeff1 + (lc2.coeff0 * coeff2), lc1.term1,
+                               lc1.constant + (lc2.constant * coeff2),
+                               newOrder)
+        } else if (c0 < 0) {
+          createFromFlatNonZeroTerms(lc2.coeff0 * coeff2, lc2.term0,
+                                     lc1.coeff0, lc1.term0,
+                                     lc1.coeff1, lc1.term1,
+                                     lc1.constant + (lc2.constant * coeff2),
+                                     newOrder)
+        } else {
+          createFromFlatTerm(lc1.coeff0 + (lc2.coeff0 * coeff2), lc1.term0,
+                             lc1.coeff1, lc1.term1,
+                             lc1.constant + (lc2.constant * coeff2),
+                             newOrder)
+        }
+      }
+
+  protected[linearcombination]
+    def sum_1_2(lc1 : LinearCombination1,
+                coeff2 : IdealInt, lc2 : LinearCombination2,
+                newOrder : TermOrder) =
+      if (coeff2.isZero) {
+        lc1
+      } else {
+        val c0 = newOrder.compare(lc2.term0, lc1.term0)
+        if (c0 > 0) {
+          val c1 = newOrder.compare(lc2.term1, lc1.term0)
+          if (c1 > 0)
+            createFromFlatNonZeroTerms(lc2.coeff0 * coeff2, lc2.term0,
+                                       lc2.coeff1 * coeff2, lc2.term1,
+                                       lc1.coeff0, lc1.term0,
+                                       (lc2.constant * coeff2) + lc1.constant,
+                                       newOrder)
+          else if (c1 < 0)
+            createFromFlatNonZeroTerms(lc2.coeff0 * coeff2, lc2.term0,
+                                       lc1.coeff0, lc1.term0,
+                                       lc2.coeff1 * coeff2, lc2.term1,
+                                       (lc2.constant * coeff2) + lc1.constant,
+                                       newOrder)
+          else          
+            createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
+                               (lc2.coeff1 * coeff2) + lc1.coeff0, lc2.term1,
+                               (lc2.constant * coeff2) + lc1.constant,
+                               newOrder)
+        } else if (c0 < 0) {
+          createFromFlatNonZeroTerms(lc1.coeff0, lc1.term0,
+                                     lc2.coeff0 * coeff2, lc2.term0,
+                                     lc2.coeff1 * coeff2, lc2.term1,
+                                     (lc2.constant * coeff2) + lc1.constant,
+                                     newOrder)
+        } else {
+          createFromFlatTerm((lc2.coeff0 * coeff2) + lc1.coeff0, lc2.term0,
+                             lc2.coeff1 * coeff2, lc2.term1,
+                             (lc2.constant * coeff2) + lc1.constant,
+                             newOrder)
+        }
+      }
+
+  protected[linearcombination]
+    def sum_2_2(coeff1 : IdealInt, lc1 : LinearCombination2,
+                coeff2 : IdealInt, lc2 : LinearCombination2,
+                newOrder : TermOrder) = {
+    val c0 = newOrder.compare(lc1.term0, lc2.term0)
+    if (c0 > 0) {
+      if ((lc1.term1 == lc2.term0) &&
+          (lc1.coeff1 * coeff1 + lc2.coeff0 * coeff2).isZero)
+        createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
+                           lc2.coeff1 * coeff2, lc2.term1,
+                           lc1.constant * coeff1 + lc2.constant * coeff2,
+                           newOrder)
+      else
+        rawSum(coeff1, lc1, coeff2, lc2, newOrder)
+    } else if (c0 < 0) {
+      if ((lc2.term1 == lc1.term0) &&
+          (lc2.coeff1 * coeff2 + lc1.coeff0 * coeff1).isZero)
+        createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
+                           lc1.coeff1 * coeff1, lc1.term1,
+                           lc1.constant * coeff1 + lc2.constant * coeff2,
+                           newOrder)
+      else
+        rawSum(coeff1, lc1, coeff2, lc2, newOrder)
+    } else {
+      if ((lc1.coeff0 * coeff1 + lc2.coeff0 * coeff2).isZero) {
+        val c1 = newOrder.compare(lc1.term1, lc2.term1)
+        if (c1 > 0)
+          createFromFlatTerm(lc1.coeff1 * coeff1, lc1.term1,
+                             lc2.coeff1 * coeff2, lc2.term1,
+                             lc1.constant * coeff1 + lc2.constant * coeff2,
+                             newOrder)
+        else if (c1 < 0)
+          createFromFlatTerm(lc2.coeff1 * coeff2, lc2.term1,
+                             lc1.coeff1 * coeff1, lc1.term1,
+                             lc1.constant * coeff1 + lc2.constant * coeff2,
+                             newOrder)
+        else
+          createFromFlatTerm(lc2.coeff1 * coeff2 + lc1.coeff1 * coeff1, lc1.term1,
+                             lc1.constant * coeff1 + lc2.constant * coeff2,
+                             newOrder)
+      } else {
+        rawSum(coeff1, lc1, coeff2, lc2, newOrder)
+      }
+    }
   }
 
   def sum(coeff1 : IdealInt, lc1 : LinearCombination,
@@ -1185,8 +1342,12 @@ final class LinearCombination1 (val coeff0 : IdealInt, val term0 : Term,
           LinearCombination.createFromFlatTerm(this.coeff0 - that.coeff0, term0,
                                                this.constant - that.constant, newOrder)
       }
-      case _ =>
+      case that : LinearCombination2 =>
+        LinearCombination.sum_1_2(this, IdealInt.MINUS_ONE, that, newOrder)
+      case _ => {
+        //println("-1")
         LinearCombination.sum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
+      }
     }
   
   def unary_- : LinearCombination =
@@ -1382,44 +1543,11 @@ final class LinearCombination2 (val coeff0 : IdealInt, val term0 : Term,
           new LinearCombination2(coeff0, term0, coeff1, term1,
                                  this.constant + that.constant, newOrder)
         
-      case that : LinearCombination1 => {
-        val c0 = newOrder.compare(this.term0, that.term0)
-        if (c0 > 0) {
-          val c1 = newOrder.compare(this.term1, that.term0)
-          if (c1 > 0)
-            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
-                                                         this.coeff1, this.term1,
-                                                         that.coeff0, that.term0,
-                                                         this.constant + that.constant,
-                                                         newOrder)
-          else if (c1 < 0)
-            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
-                                                         that.coeff0, that.term0,
-                                                         this.coeff1, this.term1,
-                                                         this.constant + that.constant,
-                                                         newOrder)
-          else          
-            LinearCombination.createFromFlatTerm(this.coeff0, this.term0,
-                                                 this.coeff1 + that.coeff0, this.term1,
-                                                 this.constant + that.constant,
-                                                 newOrder)
-        } else if (c0 < 0) {
-          LinearCombination.createFromFlatNonZeroTerms(that.coeff0, that.term0,
-                                                       this.coeff0, this.term0,
-                                                       this.coeff1, this.term1,
-                                                       this.constant + that.constant,
-                                                       newOrder)
-        } else {
-          LinearCombination.createFromFlatTerm(this.coeff0 + that.coeff0, this.term0,
-                                               this.coeff1, this.term1,
-                                               this.constant + that.constant,
-                                               newOrder)
-        }
-      }
+      case that : LinearCombination1 =>
+        LinearCombination.sum_2_1(this, IdealInt.ONE, that, newOrder)
       
       case that : LinearCombination2 =>
-        // TODO: optimise some special cases
-        LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.ONE, that, newOrder)
+        LinearCombination.sum_2_2(IdealInt.ONE, this, IdealInt.ONE, that, newOrder)
       
       case _ =>
         that + this
@@ -1437,44 +1565,11 @@ final class LinearCombination2 (val coeff0 : IdealInt, val term0 : Term,
           new LinearCombination2(coeff0, term0, coeff1, term1,
                                  this.constant - that.constant, newOrder)
         
-      case that : LinearCombination1 => {
-        val c0 = newOrder.compare(this.term0, that.term0)
-        if (c0 > 0) {
-          val c1 = newOrder.compare(this.term1, that.term0)
-          if (c1 > 0)
-            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
-                                                         this.coeff1, this.term1,
-                                                         -that.coeff0, that.term0,
-                                                         this.constant - that.constant,
-                                                         newOrder)
-          else if (c1 < 0)
-            LinearCombination.createFromFlatNonZeroTerms(this.coeff0, this.term0,
-                                                         -that.coeff0, that.term0,
-                                                         this.coeff1, this.term1,
-                                                         this.constant - that.constant,
-                                                         newOrder)
-          else          
-            LinearCombination.createFromFlatTerm(this.coeff0, this.term0,
-                                                 this.coeff1 - that.coeff0, this.term1,
-                                                 this.constant - that.constant,
-                                                 newOrder)
-        } else if (c0 < 0) {
-          LinearCombination.createFromFlatNonZeroTerms(-that.coeff0, that.term0,
-                                                       this.coeff0, this.term0,
-                                                       this.coeff1, this.term1,
-                                                       this.constant - that.constant,
-                                                       newOrder)
-        } else {
-          LinearCombination.createFromFlatTerm(this.coeff0 - that.coeff0, this.term0,
-                                               this.coeff1, this.term1,
-                                               this.constant - that.constant,
-                                               newOrder)
-        }
-      }
+      case that : LinearCombination1 =>
+        LinearCombination.sum_2_1(this, IdealInt.MINUS_ONE, that, newOrder)
 
       case that : LinearCombination2 =>
-        // TODO: optimise some special cases
-        LinearCombination.rawSum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
+        LinearCombination.sum_2_2(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
         
       case _ =>
         LinearCombination.sum(IdealInt.ONE, this, IdealInt.MINUS_ONE, that, newOrder)
