@@ -53,7 +53,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
    * measuring the number of occurrences of the various symbols in the formulae
    */
   def setup(f : IFormula) : Unit = strategy match {
-    case TriggerStrategy.Maximal => funFreqs.visit(f, {})
+    case TriggerStrategy.Maximal => funFreqs.visitWithoutResult(f, {})
     case _ => // nothing
   }
 
