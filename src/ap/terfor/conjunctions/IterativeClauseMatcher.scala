@@ -166,7 +166,6 @@ object IterativeClauseMatcher {
                 instances += reducedInstance
             }
           
-          
           exec(progTail, conditional)
         }
         

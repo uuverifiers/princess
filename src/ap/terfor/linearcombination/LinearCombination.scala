@@ -178,10 +178,10 @@ object LinearCombination {
    * Create a linear combination with at most two non-constant terms; the
    * given terms are assumed to be already flat, and assumed to be sorted
    */
-  def createFromFlatTerm(coeff0 : IdealInt, term0 : Term,
-                         coeff1 : IdealInt, term1 : Term,
-                         constant : IdealInt,
-                         order : TermOrder) : LinearCombination =
+  def createFromFlatTerms(coeff0 : IdealInt, term0 : Term,
+                          coeff1 : IdealInt, term1 : Term,
+                          constant : IdealInt,
+                          order : TermOrder) : LinearCombination =
     if (coeff0.isZero)
       createFromFlatTerm(coeff1, term1, constant, order)
     else if (coeff1.isZero)
@@ -339,16 +339,9 @@ object LinearCombination {
                }
      }
 
-  protected[linearcombination]
-    def rawSum(coeff1 : IdealInt, lc1 : LinearCombination,
-               coeff2 : IdealInt, lc2 : LinearCombination,
-               order : TermOrder) : LinearCombination = {
-//    println("" + coeff1 + " *** " + lc1 + " +++++ " + coeff2 + " *** " + lc2)
-    val blender = new LCBlender(order)
-    blender.+=(coeff1, lc1, coeff2, lc2)
-    blender.dropAll
-    blender.result
-  }
+  def sum(lcs : Iterator[(IdealInt, LinearCombination)], order : TermOrder)
+                                                       : LinearCombination =
+    sum(Seqs toArray lcs, order)
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -363,10 +356,10 @@ object LinearCombination {
                            lc1.constant * coeff1 + lc2.constant * coeff2,
                            order)
       case lc2 : LinearCombination2 =>
-        createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
-                           lc2.coeff1 * coeff2, lc2.term1,
-                           lc1.constant * coeff1 + lc2.constant * coeff2,
-                           order)
+        createFromFlatTerms(lc2.coeff0 * coeff2, lc2.term0,
+                            lc2.coeff1 * coeff2, lc2.term1,
+                            lc1.constant * coeff1 + lc2.constant * coeff2,
+                            order)
       case _ =>
         rawSum(coeff1, lc1, coeff2, lc2, order)
     }
@@ -378,15 +371,15 @@ object LinearCombination {
       case lc2 : LinearCombination1 => {
         val c0 = order.compare(lc1.term0, lc2.term0)
         if (c0 > 0)
-          createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
-                             lc2.coeff0 * coeff2, lc2.term0,
-                             lc1.constant * coeff1 + lc2.constant * coeff2,
-                             order)
+          createFromFlatTerms(lc1.coeff0 * coeff1, lc1.term0,
+                              lc2.coeff0 * coeff2, lc2.term0,
+                              lc1.constant * coeff1 + lc2.constant * coeff2,
+                              order)
         else if (c0 > 0)
-          createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
-                             lc1.coeff0 * coeff1, lc1.term0,
-                             lc1.constant * coeff1 + lc2.constant * coeff2,
-                             order)
+          createFromFlatTerms(lc2.coeff0 * coeff2, lc2.term0,
+                              lc1.coeff0 * coeff1, lc1.term0,
+                              lc1.constant * coeff1 + lc2.constant * coeff2,
+                              order)
         else
           createFromFlatTerm(lc1.coeff0 * coeff1 + lc2.coeff0 * coeff2,
                              lc1.term0,
@@ -402,10 +395,10 @@ object LinearCombination {
     }
     case lc1 : LinearCombination2 => lc2 match {
       case lc2 : LinearCombination0 =>
-        createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
-                           lc1.coeff1 * coeff1, lc1.term1,
-                           lc1.constant * coeff1 + lc2.constant * coeff2,
-                           order)
+        createFromFlatTerms(lc1.coeff0 * coeff1, lc1.term0,
+                            lc1.coeff1 * coeff1, lc1.term1,
+                            lc1.constant * coeff1 + lc2.constant * coeff2,
+                            order)
       case lc2 : LinearCombination1 if (coeff1.isOne) =>
         sum_2_1(lc1, coeff2, lc2, order)
       case lc2 : LinearCombination1 if (coeff2.isOne) =>
@@ -419,7 +412,24 @@ object LinearCombination {
       rawSum(coeff1, lc1, coeff2, lc2, order)
   }
 
+  def sum(coeff1 : IdealInt, lc1 : LinearCombination,
+          coeff2 : IdealInt, lc2 : LinearCombination,
+          coeff3 : IdealInt, lc3 : LinearCombination,
+          order : TermOrder) : LinearCombination =
+    sum(Array((coeff1, lc1), (coeff2, lc2), (coeff3, lc3)), order)
+  
   //////////////////////////////////////////////////////////////////////////////
+
+  protected[linearcombination]
+    def rawSum(coeff1 : IdealInt, lc1 : LinearCombination,
+               coeff2 : IdealInt, lc2 : LinearCombination,
+               order : TermOrder) : LinearCombination = {
+//    println("" + coeff1 + " *** " + lc1 + " +++++ " + coeff2 + " *** " + lc2)
+    val blender = new LCBlender(order)
+    blender.+=(coeff1, lc1, coeff2, lc2)
+    blender.dropAll
+    blender.result
+  }
 
   protected[linearcombination]
     def sum_2_1(lc1 : LinearCombination2,
@@ -444,10 +454,10 @@ object LinearCombination {
                                        lc1.constant + (lc2.constant * coeff2),
                                        newOrder)
           else          
-            createFromFlatTerm(lc1.coeff0, lc1.term0,
-                               lc1.coeff1 + (lc2.coeff0 * coeff2), lc1.term1,
-                               lc1.constant + (lc2.constant * coeff2),
-                               newOrder)
+            createFromFlatTerms(lc1.coeff0, lc1.term0,
+                                lc1.coeff1 + (lc2.coeff0 * coeff2), lc1.term1,
+                                lc1.constant + (lc2.constant * coeff2),
+                                newOrder)
         } else if (c0 < 0) {
           createFromFlatNonZeroTerms(lc2.coeff0 * coeff2, lc2.term0,
                                      lc1.coeff0, lc1.term0,
@@ -455,10 +465,10 @@ object LinearCombination {
                                      lc1.constant + (lc2.constant * coeff2),
                                      newOrder)
         } else {
-          createFromFlatTerm(lc1.coeff0 + (lc2.coeff0 * coeff2), lc1.term0,
-                             lc1.coeff1, lc1.term1,
-                             lc1.constant + (lc2.constant * coeff2),
-                             newOrder)
+          createFromFlatTerms(lc1.coeff0 + (lc2.coeff0 * coeff2), lc1.term0,
+                              lc1.coeff1, lc1.term1,
+                              lc1.constant + (lc2.constant * coeff2),
+                              newOrder)
         }
       }
 
@@ -485,10 +495,10 @@ object LinearCombination {
                                        (lc2.constant * coeff2) + lc1.constant,
                                        newOrder)
           else          
-            createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
-                               (lc2.coeff1 * coeff2) + lc1.coeff0, lc2.term1,
-                               (lc2.constant * coeff2) + lc1.constant,
-                               newOrder)
+            createFromFlatTerms(lc2.coeff0 * coeff2, lc2.term0,
+                                (lc2.coeff1 * coeff2) + lc1.coeff0, lc2.term1,
+                                (lc2.constant * coeff2) + lc1.constant,
+                                newOrder)
         } else if (c0 < 0) {
           createFromFlatNonZeroTerms(lc1.coeff0, lc1.term0,
                                      lc2.coeff0 * coeff2, lc2.term0,
@@ -496,10 +506,10 @@ object LinearCombination {
                                      (lc2.constant * coeff2) + lc1.constant,
                                      newOrder)
         } else {
-          createFromFlatTerm((lc2.coeff0 * coeff2) + lc1.coeff0, lc2.term0,
-                             lc2.coeff1 * coeff2, lc2.term1,
-                             (lc2.constant * coeff2) + lc1.constant,
-                             newOrder)
+          createFromFlatTerms((lc2.coeff0 * coeff2) + lc1.coeff0, lc2.term0,
+                              lc2.coeff1 * coeff2, lc2.term1,
+                              (lc2.constant * coeff2) + lc1.constant,
+                              newOrder)
         }
       }
 
@@ -511,34 +521,34 @@ object LinearCombination {
     if (c0 > 0) {
       if ((lc1.term1 == lc2.term0) &&
           (lc1.coeff1 * coeff1 + lc2.coeff0 * coeff2).isZero)
-        createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
-                           lc2.coeff1 * coeff2, lc2.term1,
-                           lc1.constant * coeff1 + lc2.constant * coeff2,
-                           newOrder)
+        createFromFlatTerms(lc1.coeff0 * coeff1, lc1.term0,
+                            lc2.coeff1 * coeff2, lc2.term1,
+                            lc1.constant * coeff1 + lc2.constant * coeff2,
+                            newOrder)
       else
         rawSum(coeff1, lc1, coeff2, lc2, newOrder)
     } else if (c0 < 0) {
       if ((lc2.term1 == lc1.term0) &&
           (lc2.coeff1 * coeff2 + lc1.coeff0 * coeff1).isZero)
-        createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
-                           lc1.coeff1 * coeff1, lc1.term1,
-                           lc1.constant * coeff1 + lc2.constant * coeff2,
-                           newOrder)
+        createFromFlatTerms(lc2.coeff0 * coeff2, lc2.term0,
+                            lc1.coeff1 * coeff1, lc1.term1,
+                            lc1.constant * coeff1 + lc2.constant * coeff2,
+                            newOrder)
       else
         rawSum(coeff1, lc1, coeff2, lc2, newOrder)
     } else {
       if ((lc1.coeff0 * coeff1 + lc2.coeff0 * coeff2).isZero) {
         val c1 = newOrder.compare(lc1.term1, lc2.term1)
         if (c1 > 0)
-          createFromFlatTerm(lc1.coeff1 * coeff1, lc1.term1,
-                             lc2.coeff1 * coeff2, lc2.term1,
-                             lc1.constant * coeff1 + lc2.constant * coeff2,
-                             newOrder)
+          createFromFlatTerms(lc1.coeff1 * coeff1, lc1.term1,
+                              lc2.coeff1 * coeff2, lc2.term1,
+                              lc1.constant * coeff1 + lc2.constant * coeff2,
+                              newOrder)
         else if (c1 < 0)
-          createFromFlatTerm(lc2.coeff1 * coeff2, lc2.term1,
-                             lc1.coeff1 * coeff1, lc1.term1,
-                             lc1.constant * coeff1 + lc2.constant * coeff2,
-                             newOrder)
+          createFromFlatTerms(lc2.coeff1 * coeff2, lc2.term1,
+                              lc1.coeff1 * coeff1, lc1.term1,
+                              lc1.constant * coeff1 + lc2.constant * coeff2,
+                              newOrder)
         else
           createFromFlatTerm(lc2.coeff1 * coeff2 + lc1.coeff1 * coeff1, lc1.term1,
                              lc1.constant * coeff1 + lc2.constant * coeff2,
@@ -548,16 +558,6 @@ object LinearCombination {
       }
     }
   }
-
-  def sum(coeff1 : IdealInt, lc1 : LinearCombination,
-          coeff2 : IdealInt, lc2 : LinearCombination,
-          coeff3 : IdealInt, lc3 : LinearCombination,
-          order : TermOrder) : LinearCombination =
-    sum(Array((coeff1, lc1), (coeff2, lc2), (coeff3, lc3)), order)
-  
-  def sum(lcs : Iterator[(IdealInt, LinearCombination)], order : TermOrder)
-                                                       : LinearCombination =
-    sum(Seqs toArray lcs, order)
 }
 
 /**
@@ -841,9 +841,9 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
  * General implementation of linear combinations, with an unbounded number
  * of terms
  */
-final class ArrayLinearCombination (
-                     private val terms : Array[(IdealInt, Term)],
-                     _order : TermOrder)
+final class ArrayLinearCombination protected[linearcombination]
+                                   (private val terms : Array[(IdealInt, Term)],
+                                    _order : TermOrder)
       extends LinearCombination(_order) {
 
 //  ap.util.Timer.measure("ArrayLinearCombination" + terms.size){}
@@ -1075,7 +1075,8 @@ final class ArrayLinearCombination (
 /**
  * Constant linear combinations
  */
-final class LinearCombination0 (val constant : IdealInt)
+final class LinearCombination0 protected[linearcombination]
+                               (val constant : IdealInt)
       extends LinearCombination(TermOrder.EMPTY) {
 
 //  ap.util.Timer.measure("LinearCombination0"){}
@@ -1207,7 +1208,8 @@ final class LinearCombination0 (val constant : IdealInt)
 /**
  * Linear combinations with exactly one non-constant term
  */
-final class LinearCombination1 (val coeff0 : IdealInt, val term0 : Term,
+final class LinearCombination1 protected[linearcombination]
+                               (val coeff0 : IdealInt, val term0 : Term,
                                 val constant : IdealInt,
                                 _order : TermOrder)
       extends LinearCombination(_order) {
@@ -1417,7 +1419,8 @@ final class LinearCombination1 (val coeff0 : IdealInt, val term0 : Term,
 /**
  * Linear combinations with exactly two non-constant term
  */
-final class LinearCombination2 (val coeff0 : IdealInt, val term0 : Term,
+final class LinearCombination2 protected[linearcombination]
+                               (val coeff0 : IdealInt, val term0 : Term,
                                 val coeff1 : IdealInt, val term1 : Term,
                                 val constant : IdealInt,
                                 _order : TermOrder)
@@ -1595,9 +1598,9 @@ final class LinearCombination2 (val coeff0 : IdealInt, val term0 : Term,
     if (coeff.isOne && const.isZero)
       this
     else
-      LinearCombination.createFromFlatTerm(coeff0 * coeff, term0,
-                                           coeff1 * coeff, term1,
-                                           coeff * constant + const, _order)
+      LinearCombination.createFromFlatTerms(coeff0 * coeff, term0,
+                                            coeff1 * coeff, term1,
+                                            coeff * constant + const, _order)
 
   def / (denom : IdealInt) : LinearCombination = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
