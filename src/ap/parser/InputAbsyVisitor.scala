@@ -25,7 +25,7 @@ import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
-import scala.collection.mutable.{ArrayStack => Stack}
+import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer}
 
 
 object CollectingVisitor {
@@ -479,17 +479,24 @@ object Transform2NNF extends CollectingVisitor[Boolean, IExpression] {
  * (where <code>&lowast;</code> is some binary operator) into
  * <code>List(f1, f2, ..., fn)</code>
  */
-object LineariseVisitor
-       extends CollectingVisitor[IBinJunctor.Value, List[IFormula]] {
-  def apply(t : IFormula, op : IBinJunctor.Value) = this.visit(t, op)
-         
-  override def preVisit(t : IExpression, op : IBinJunctor.Value) : PreVisitResult =
-    t match {
-      case IBinFormula(`op`, _, _) => KeepArg
-      case t : IFormula => ShortCutResult(List(t))
-    }
+object LineariseVisitor {
+  def apply(t : IFormula, op : IBinJunctor.Value) : Seq[IFormula] = {
+    val parts = scala.collection.mutable.ArrayBuilder.make[IFormula]
+  
+    val visitor = new CollectingVisitor[Unit, Unit] {
+      override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = t match {
+        case IBinFormula(`op`, _, _) =>
+          KeepArg
+        case t : IFormula => {
+          parts += t
+          ShortCutResult({})
+        }
+      }
 
-  def postVisit(t : IExpression, op : IBinJunctor.Value,
-                subres : Seq[List[IFormula]]) : List[IFormula] =
-    for (l <- subres.toList; x <- l) yield x
+      def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = {}
+    }
+    
+    visitor.visit(t, {})
+    parts.result
+  }
 }
