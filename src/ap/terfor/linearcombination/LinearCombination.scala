@@ -167,8 +167,9 @@ object LinearCombination {
    * Create a linear combination with at most one non-constant term; this
    * given term is assumed to be already flat
    */
-  def createFromFlatTerm(coeff0 : IdealInt, term0 : Term, constant : IdealInt,
-                         order : TermOrder) : LinearCombination =
+  private[linearcombination]
+    def createFromFlatTerm(coeff0 : IdealInt, term0 : Term, constant : IdealInt,
+                           order : TermOrder) : LinearCombination =
     if (coeff0.isZero)
       apply(constant)
     else
@@ -178,10 +179,11 @@ object LinearCombination {
    * Create a linear combination with at most two non-constant terms; the
    * given terms are assumed to be already flat, and assumed to be sorted
    */
-  def createFromFlatTerms(coeff0 : IdealInt, term0 : Term,
-                          coeff1 : IdealInt, term1 : Term,
-                          constant : IdealInt,
-                          order : TermOrder) : LinearCombination =
+  private[linearcombination]
+    def createFromFlatTerms(coeff0 : IdealInt, term0 : Term,
+                            coeff1 : IdealInt, term1 : Term,
+                            constant : IdealInt,
+                            order : TermOrder) : LinearCombination =
     if (coeff0.isZero)
       createFromFlatTerm(coeff1, term1, constant, order)
     else if (coeff1.isZero)
@@ -189,7 +191,7 @@ object LinearCombination {
     else
       new LinearCombination2(coeff0, term0, coeff1, term1, constant, order)
 
-  protected[linearcombination]
+  private[linearcombination]
     def createFromFlatNonZeroTerms(coeff0 : IdealInt, term0 : Term,
                                    coeff1 : IdealInt, term1 : Term,
                                    coeff2 : IdealInt, term2 : Term,
@@ -420,7 +422,7 @@ object LinearCombination {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  protected[linearcombination]
+  private[linearcombination]
     def rawSum(coeff1 : IdealInt, lc1 : LinearCombination,
                coeff2 : IdealInt, lc2 : LinearCombination,
                order : TermOrder) : LinearCombination = {
@@ -431,7 +433,7 @@ object LinearCombination {
     blender.result
   }
 
-  protected[linearcombination]
+  private[linearcombination]
     def sum_2_1(lc1 : LinearCombination2,
                 coeff2 : IdealInt, lc2 : LinearCombination1,
                 newOrder : TermOrder) =
@@ -472,7 +474,7 @@ object LinearCombination {
         }
       }
 
-  protected[linearcombination]
+  private[linearcombination]
     def sum_1_2(lc1 : LinearCombination1,
                 coeff2 : IdealInt, lc2 : LinearCombination2,
                 newOrder : TermOrder) =
@@ -513,7 +515,7 @@ object LinearCombination {
         }
       }
 
-  protected[linearcombination]
+  private[linearcombination]
     def sum_2_2(coeff1 : IdealInt, lc1 : LinearCombination2,
                 coeff2 : IdealInt, lc2 : LinearCombination2,
                 newOrder : TermOrder) = {
@@ -566,7 +568,7 @@ object LinearCombination {
  * coefficients). The terms are stored in an array that is sorted in descending
  * order according to a <code>TermOrder</code>.
  */
-abstract sealed class LinearCombination protected (val order : TermOrder)
+abstract sealed class LinearCombination (val order : TermOrder)
          extends Term with SortedWithOrder[LinearCombination]
                 //      with IndexedSeq[(IdealInt, Term)]
                 {
@@ -841,7 +843,7 @@ abstract sealed class LinearCombination protected (val order : TermOrder)
  * General implementation of linear combinations, with an unbounded number
  * of terms
  */
-final class ArrayLinearCombination protected[linearcombination]
+final class ArrayLinearCombination private[linearcombination]
                                    (private val terms : Array[(IdealInt, Term)],
                                     _order : TermOrder)
       extends LinearCombination(_order) {
@@ -1075,7 +1077,7 @@ final class ArrayLinearCombination protected[linearcombination]
 /**
  * Constant linear combinations
  */
-final class LinearCombination0 protected[linearcombination]
+final class LinearCombination0 private[linearcombination]
                                (val constant : IdealInt)
       extends LinearCombination(TermOrder.EMPTY) {
 
@@ -1208,7 +1210,7 @@ final class LinearCombination0 protected[linearcombination]
 /**
  * Linear combinations with exactly one non-constant term
  */
-final class LinearCombination1 protected[linearcombination]
+final class LinearCombination1 private[linearcombination]
                                (val coeff0 : IdealInt, val term0 : Term,
                                 val constant : IdealInt,
                                 _order : TermOrder)
@@ -1419,7 +1421,7 @@ final class LinearCombination1 protected[linearcombination]
 /**
  * Linear combinations with exactly two non-constant term
  */
-final class LinearCombination2 protected[linearcombination]
+final class LinearCombination2 private[linearcombination]
                                (val coeff0 : IdealInt, val term0 : Term,
                                 val coeff1 : IdealInt, val term1 : Term,
                                 val constant : IdealInt,
