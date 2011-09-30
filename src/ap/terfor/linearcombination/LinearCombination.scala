@@ -570,8 +570,7 @@ object LinearCombination {
  */
 abstract sealed class LinearCombination (val order : TermOrder)
          extends Term with SortedWithOrder[LinearCombination]
-                //      with IndexedSeq[(IdealInt, Term)]
-                {
+                      with IndexedSeq[(IdealInt, Term)] {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   protected def assertCtor = {
@@ -583,16 +582,24 @@ abstract sealed class LinearCombination (val order : TermOrder)
   }
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
-  def size : Int
-  def length : Int
+  // IndexedSeq methods
+
+  def apply(i : Int) = getPair(i)
+  override def iterator = pairIterator
+  def length = lcSize
   
-  def isEmpty = (size == 0)
-                     
+  //////////////////////////////////////////////////////////////////////////////
+  
+  // Set of own access methods, to avoid the overhead of
+  // interface method dispatch
+  
+  def lcSize : Int
+  
   def getPair(i : Int) : (IdealInt, Term)
   
   def pairIterator = new Iterator[(IdealInt, Term)] {
     private var i = 0
-    private val s = LinearCombination.this.size
+    private val s = LinearCombination.this.lcSize
     def hasNext = i < s
     def next = {
       val res = getPair(i)
@@ -605,7 +612,7 @@ abstract sealed class LinearCombination (val order : TermOrder)
 
   protected def lazyPairSeq = new IndexedSeq[(IdealInt, Term)] {
     def apply(i : Int) = getPair(i)
-    def length = LinearCombination.this.size
+    def length = LinearCombination.this.lcSize
   }
 
   def filterPairs(f : (IdealInt, Term) => Boolean) : LinearCombination
@@ -615,7 +622,7 @@ abstract sealed class LinearCombination (val order : TermOrder)
    */
   def getCoeff(i : Int) : IdealInt
 
-  def lastCoeff = getCoeff(size - 1)
+  def lastCoeff = getCoeff(lcSize - 1)
 
   /**
    * Iterator over all coefficients of the linear combination
@@ -638,7 +645,7 @@ abstract sealed class LinearCombination (val order : TermOrder)
   
   lazy val termSeq : IndexedSeq[Term] = new IndexedSeq[Term] {
     def apply(i : Int) = getTerm(i)
-    def length = LinearCombination.this.length
+    def length = LinearCombination.this.lcSize
     override def iterator = termIterator
   }
   
@@ -868,8 +875,7 @@ final class ArrayLinearCombination private[linearcombination]
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def size : Int = terms.length
-  def length : Int = terms.length
+  def lcSize : Int = terms.length
   
   def getPair(i : Int) : (IdealInt, Term) = terms(i)
   
@@ -907,7 +913,7 @@ final class ArrayLinearCombination private[linearcombination]
           def compare(thatTerm : Term) : Int = order.compare(thatTerm, thisTerm)
         }
 
-      Seqs.binSearch(termSeq, 0, length, t) match {
+      Seqs.binSearch(termSeq, 0, lcSize, t) match {
       case Seqs.Found(i) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPost(LinearCombination.AC, getTerm(i) == t)
@@ -1018,22 +1024,22 @@ final class ArrayLinearCombination private[linearcombination]
 
   def sameNonConstantTerms(that : LinearCombination) : Boolean = that match {
     case that : ArrayLinearCombination => {
-       val lengthDiff = this.size - that.size
+       val lengthDiff = this.lcSize - that.lcSize
        var i : Int = 0
      
        // determine the point to start the comparison. we assume that constant
        // terms only occur as last term in a linear combination
        if (lengthDiff == -1) {
          if (that.lastTerm != OneTerm) return false
-         i = this.size - 1
+         i = this.lcSize - 1
        } else if (lengthDiff == 0) {
          if (this.lastTerm == OneTerm && that.lastTerm == OneTerm)
-           i = this.size - 2
+           i = this.lcSize - 2
          else
-           i = this.size - 1
+           i = this.lcSize - 1
        } else if (lengthDiff == 1) {
          if (this.lastTerm != OneTerm) return false
-         i = that.size - 1
+         i = that.lcSize - 1
        } else {
          return false
        }
@@ -1089,8 +1095,7 @@ final class LinearCombination0 private[linearcombination]
   
   //////////////////////////////////////////////////////////////////////////////
   
-  val size = if (isZero) 0 else 1
-  def length : Int = size
+  def lcSize : Int = if (isZero) 0 else 1
   
   private lazy val pair0 = (constant, OneTerm)
   
@@ -1225,8 +1230,7 @@ final class LinearCombination1 private[linearcombination]
   
   private val zeroConstant = constant.isZero
   
-  val size : Int = if (zeroConstant) 1 else 2
-  def length : Int = size
+  def lcSize : Int = if (zeroConstant) 1 else 2
   
   private lazy val pair0 = (coeff0, term0)
   private lazy val pair1 = (constant, OneTerm)
@@ -1440,8 +1444,7 @@ final class LinearCombination2 private[linearcombination]
   
   private val zeroConstant = constant.isZero
   
-  val size : Int = if (zeroConstant) 2 else 3
-  def length : Int = size
+  def lcSize : Int = if (zeroConstant) 2 else 3
   
   private lazy val pair0 = (coeff0, term0)
   private lazy val pair1 = (coeff1, term1)
