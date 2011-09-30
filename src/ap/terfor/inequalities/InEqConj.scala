@@ -391,13 +391,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   private def findBound(lc : LinearCombination,
                         bounds : IndexedSeq[LinearCombination]) : Option[IdealInt] = {
     
-    implicit def orderLC(thisLC : LinearCombination) =
-      new Ordered[LinearCombination] {
-        def compare(thatLC : LinearCombination) : Int =
-          order.compare(thatLC, thisLC)
-      }
-    
-    Seqs.binSearch(bounds, 0, bounds.size, lc) match {
+    Seqs.binSearch(bounds, 0, bounds.size, lc)(order.reverseLCOrdering) match {
     case Seqs.Found(_) => Some(IdealInt.ZERO)
     case Seqs.NotFound(i) =>
       (if (i < bounds.size) lc constantDiff bounds(i) else None) orElse

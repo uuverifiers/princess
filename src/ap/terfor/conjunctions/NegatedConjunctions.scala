@@ -62,24 +62,19 @@ object NegatedConjunctions {
                         compare(c1.negatedConjs, c2.negatedConjs, order))
   }
 
-  private def compare(quans1 : Seq[Quantifier], quans2 : Seq[Quantifier]) : Int = {
-    implicit def orderQuantifiers(thisQ : Quantifier) = 
-      new Ordered[Quantifier] {
-        def compare(thatQ : Quantifier) = (thisQ, thatQ) match {
-          case (Quantifier.ALL, Quantifier.EX) => -1          
-          case (Quantifier.EX, Quantifier.ALL) => 1
-          case _ => 0
-        }
-      }
-    
-    Seqs.lexCompare(quans1.iterator, quans2.iterator)
+  private val quanOrdering = new Ordering[Quantifier] {
+    def compare(a : Quantifier, b : Quantifier) = (a, b) match {
+      case (Quantifier.ALL, Quantifier.EX) => -1          
+      case (Quantifier.EX, Quantifier.ALL) => 1
+      case _ => 0
+    }
   }
   
+  private def compare(quans1 : Seq[Quantifier], quans2 : Seq[Quantifier]) : Int =
+    Seqs.lexCompare(quans1.iterator, quans2.iterator)(quanOrdering)
+  
   private def compare(c1 : PredConj, c2 : PredConj, order : TermOrder) = {
-    implicit def orderAtoms(thisA : Atom) = 
-      new Ordered[Atom] {
-        def compare(thatA : Atom) = order.compare(thisA, thatA)
-      }
+    implicit val ord = order.atomOrdering
     
     Seqs.lexCombineInts(Seqs.lexCompare(c1.positiveLits.iterator,
                                         c2.positiveLits.iterator),
@@ -89,11 +84,10 @@ object NegatedConjunctions {
   
   private def compare(c1 : NegatedConjunctions, c2 : NegatedConjunctions,
                       order : TermOrder) : Int = {
-    implicit def orderConjunctions(thisC : Conjunction) = 
-      new Ordered[Conjunction] {
-        def compare(thatC : Conjunction) =
-          NegatedConjunctions.compare(thisC, thatC, order)
-      }
+    implicit val conjOrdering = new Ordering[Conjunction] {
+      def compare(a : Conjunction, b : Conjunction) =
+        NegatedConjunctions.compare(a, b, order)
+    }
     
     Seqs.lexCompare(c1.iterator, c2.iterator)
   }

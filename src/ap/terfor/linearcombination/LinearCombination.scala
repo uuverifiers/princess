@@ -908,12 +908,7 @@ final class ArrayLinearCombination private[linearcombination]
       // then there are chances to find the searched term in this
       // <code>LinearCombination</code>
       
-      implicit def termOrder(thisTerm : Term) =
-        new Ordered[Term] {
-          def compare(thatTerm : Term) : Int = order.compare(thatTerm, thisTerm)
-        }
-
-      Seqs.binSearch(termSeq, 0, lcSize, t) match {
+      Seqs.binSearch(termSeq, 0, lcSize, t)(order.reverseTermOrdering) match {
       case Seqs.Found(i) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPost(LinearCombination.AC, getTerm(i) == t)

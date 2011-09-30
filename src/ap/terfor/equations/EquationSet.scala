@@ -73,13 +73,7 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
       Debug.assertPre(EquationSet.AC, lc isSortedBy order)
       //-END-ASSERTION-///////////////////////////////////////////////////////
       
-      implicit def orderLC(thisLC : LinearCombination) =
-        new Ordered[LinearCombination] {
-          def compare(thatLC : LinearCombination) : Int =
-            order.compare(thatLC, thisLC)
-        }
-      
-      Seqs.binSearch(this, 0, this.size, lc) match {
+      Seqs.binSearch(this, 0, this.size, lc)(order.reverseLCOrdering) match {
       case Seqs.Found(_) => true
       case Seqs.NotFound(_) => false
       }

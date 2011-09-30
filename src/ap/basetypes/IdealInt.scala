@@ -118,14 +118,6 @@ object IdealInt {
   /** Implicit conversion from <code>Long</code> to <code>IdealInt</code> */
   implicit def long2idealInt(l: Long): IdealInt = apply(l)
 
-  /** Implicit conversion from <code>IdealInt</code> to <code>Ordered</code>. */
-  implicit def IdealInt2ordered(x: IdealInt): Ordered[IdealInt] = {
-    new Ordered[IdealInt] with Proxy {
-      def self: Any = x;
-      def compare (y: IdealInt): Int = x compare y
-    }
-  }
-
   /** (Internal) Implicit conversion from <code>BigInteger</code> to
     * <code>IdealInt</code> */
   implicit private def bigInteger2idealInt(bi: BigInteger): IdealInt = apply(bi)
