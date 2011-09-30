@@ -319,7 +319,7 @@ class Goal private (val facts : Conjunction,
   }
 
   lazy val reduceWithFacts : ReduceWithConjunction =
-    ReduceWithConjunction(facts, order)
+    ReduceWithConjunction(facts, Param.FUNCTIONAL_PREDICATES(settings), order)
    
   //////////////////////////////////////////////////////////////////////////////
 

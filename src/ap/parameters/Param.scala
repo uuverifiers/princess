@@ -153,7 +153,12 @@ object Param {
     type Value = Boolean
     val defau : Boolean = true
   }
-  
+
+  case object FUNCTIONAL_PREDICATES extends Param {
+    type Value = Set[ap.terfor.preds.Predicate]
+    val defau : Set[ap.terfor.preds.Predicate] = Set()
+  }
+
   // even split propositional formulae that do not contain quantifiers or
   // eliminated constants
   case object FULL_SPLITTING extends Param {
