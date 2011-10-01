@@ -103,7 +103,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
   val order = signature.order
   
-  private val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
+  private val reducer =
+    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
   
   private def simplify(f : Conjunction) : Conjunction =
     // if we are constructing proofs, we simplify formulae right away

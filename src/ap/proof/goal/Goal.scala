@@ -65,9 +65,13 @@ object Goal {
   def reduceAndCreateGoal(f : Formula,
                           eliminatedConstants : Set[ConstantTerm],
                           order : TermOrder,
-                          settings : GoalSettings) : Goal =
-    apply(List(ReduceWithConjunction(Conjunction.TRUE, order)(Conjunction.conj(f, order))),
+                          settings : GoalSettings) : Goal = {
+    val reducer = ReduceWithConjunction(Conjunction.TRUE,
+                                        Param.FUNCTIONAL_PREDICATES(settings),
+                                        order)
+    apply(List(reducer(Conjunction.conj(f, order))),
           eliminatedConstants, Vocabulary(order), settings)
+  }
   
   def apply(initialConjs : Seq[Conjunction],
             eliminatedConstants : Set[ConstantTerm],

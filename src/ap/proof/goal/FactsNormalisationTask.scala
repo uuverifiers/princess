@@ -24,6 +24,7 @@ package ap.proof.goal;
 import scala.collection.mutable.ArrayBuilder
 
 import ap.proof._
+import ap.parameters.Param
 import ap.terfor.{Term, Formula, TermOrder, ConstantTerm, VariableTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                NegatedConjunctions}
@@ -33,7 +34,7 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{ColumnSolver, NegEquationConj, EquationConj}
 import ap.terfor.substitutions.{Substitution, ConstantSubst, PseudoConstantSubst,
                                 ComposeSubsts}
-import ap.terfor.preds.{Atom, PredConj}
+import ap.terfor.preds.{Atom, PredConj, Predicate}
 import ap.util.{Logic, Debug, Seqs}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.BranchInferenceCollector
@@ -54,6 +55,11 @@ case object FactsNormalisationTask extends EagerTask {
     var constantFreedom = goal.constantFreedom
     var definedSyms = goal.definedSyms
     var iteration = 0
+    
+    val functionalPreds = if (collector.isLogging)
+                            Set[Predicate]()
+                          else
+                            Param.FUNCTIONAL_PREDICATES(goal.settings)
     
     ////////////////////////////////////////////////////////////////////////////
     // normalise facts
@@ -82,7 +88,8 @@ case object FactsNormalisationTask extends EagerTask {
     var cont : Boolean = true
     while (cont) {
       // propagate the solved equations into the other facts
-      facts = ReduceWithConjunction(Conjunction.TRUE, order)(facts, collector)
+      facts = ReduceWithConjunction(Conjunction.TRUE,
+                                    functionalPreds, order)(facts, collector)
 
       if (facts.isFalse) {
         // then the goal can be closed immediately. if a proof is being
@@ -109,7 +116,7 @@ case object FactsNormalisationTask extends EagerTask {
     ////////////////////////////////////////////////////////////////////////////
     // update clauses
 
-    val reducer = ReduceWithConjunction(facts, order)
+    val reducer = ReduceWithConjunction(facts, functionalPreds, order)
 
     def illegalQFClause(c : Conjunction) =
       c.isTrue || c.isLiteral || c.isNegatedConjunction ||

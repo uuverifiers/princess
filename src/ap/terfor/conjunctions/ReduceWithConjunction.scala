@@ -93,9 +93,9 @@ object ReduceWithConjunction {
           // the reduction has made some new equations available
           val newAC = ArithConj.conj(List(newArithConj, newEqs), reducer.order)
           if (newAC.isFalse) throw FALSE_EXCEPTION
-          val newConj = constructConj(conj.quans,
-                                      newAC, newPredConj, conj.negatedConjs,
-                                      reducer.order)
+          val newConj = Conjunction(conj.quans,
+                                    newAC, newPredConj, conj.negatedConjs,
+                                    reducer.order)
           reduceConj(newConj, initialReducer, logger)
         }
         

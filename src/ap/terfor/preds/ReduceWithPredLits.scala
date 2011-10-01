@@ -29,7 +29,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.util.{Debug, Seqs, LazyMappedSet, UnionSet}
 
-import scala.collection.mutable.ArrayBuilder
+import scala.collection.mutable.{ArrayBuilder, ArrayBuffer}
 
 object ReduceWithPredLits3 {
   
@@ -115,8 +115,9 @@ object ReduceWithPredLits {
   private[preds] sealed abstract class FactStackElement
   private[preds] case class LitFacts(facts : PredConj)
                       extends FactStackElement
-  private[preds] case class PassBinders(up : Term => Term,
-                                        down : PartialFunction[Atom, Atom])
+  private[preds] case class PassBinders(
+               up : Term => Term,
+               down : PartialFunction[LinearCombination, LinearCombination])
                       extends FactStackElement
   
   private sealed abstract class ReductionResult
@@ -165,7 +166,7 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
    */
   def passQuantifiers(num : Int) : ReduceWithPredLits = {
     val upShifter = VariableShiftSubst.upShifter[Term](num, order)
-    val downShifter = VariableShiftSubst.downShifter[Atom](num, order)
+    val downShifter = VariableShiftSubst.downShifter[LinearCombination](num, order)
     new ReduceWithPredLits(PassBinders(upShifter, downShifter) :: facts,
                             allPreds, functions, order)
   }
@@ -185,15 +186,26 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     if (!reductionPossible(conj))
       return (conj, ArithConj.TRUE)
     
-    val newPosLits, newNegLits = ArrayBuilder.make[Atom]
+    val newPosLits = new ArrayBuffer[Atom]
+    val newNegLits = ArrayBuilder.make[Atom]
     val posEqs, negEqs = ArrayBuilder.make[LinearCombination]
     
     implicit val o = order
     
+    def addNewPosLit(a : Atom) =
+      if ((functions contains a.pred) && !newPosLits.isEmpty &&
+          sameFunctionApp(a, newPosLits.last) &&
+          ((0 until (a.length - 1)) forall (a(_).variables.isEmpty)))
+        // contract consecutive literals representing the same function
+        // application
+        posEqs += (a.last - newPosLits.last.last)
+      else
+        newPosLits += a
+    
     for (a <- conj.positiveLits)
       if (allPreds contains a.pred) reduce(a, facts, false) match {
         case UnchangedResult =>
-          newPosLits += a
+          addNewPosLit(a)
         case TrueResult =>
           // nothing
         case FalseResult =>
@@ -207,7 +219,7 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
           posEqs += eq
         }
       } else {
-        newPosLits += a
+        addNewPosLit(a)
       }
     
     for (a <- conj.negativeLits)
@@ -257,19 +269,25 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
         // Binary search for the literal among the positive facts; if we
         // know that some predicate satisfies the functionality axiom, it might
         // be possible to replace the literal with a simple equation
+        
         val posLits = conj.positiveLits
+        
         Seqs.binSearch(posLits, 0, posLits.size, atom)(order.reverseAtomOrdering) match {
-          case Seqs.Found(_) =>
-            TrueResult
+          case Seqs.Found(i) =>
+            if (replacedLastArg) {
+//              println("found: " + atom)
+              FunctionValueResult(posLits(i-1).last)
+            } else
+              TrueResult
           case Seqs.NotFound(i) => {
             if (functions contains atom.pred) {
               // maybe we know some literal representing the same function app
               if (i > 0 && sameFunctionApp(posLits(i-1), atom)) {
-                println("found: " + atom)
+//                println("found: " + atom)
                 FunctionValueResult(posLits(i-1).last)
               } else if (i >= 0 && i < posLits.size &&
                          sameFunctionApp(posLits(i), atom)) {
-                println("found: " + atom)
+//                println("found: " + atom)
                 FunctionValueResult(posLits(i).last)
               } else {
                 reduce(atom, rem, replacedLastArg)
@@ -282,28 +300,33 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
       }
     
     case PassBinders(up, down) :: rem =>
-      if (down isDefinedAt atom) {
-        reduce(down(atom), rem, replacedLastArg) match {
-          case FunctionValueResult(v) => FunctionValueResult(up(v))
-          case x => x
-        }
-      } else if (!replacedLastArg &&
-                 (functions contains atom.pred) &&
-                 !atom.last.variables.isEmpty) {
-        // check whether it might be enough to replace the last argument
-        // (function result) with a new constant
-        val c = new ConstantTerm ("c")
-        val newArgs = atom.updated(atom.size - 1, LinearCombination(c, order))
-        val newAtom = atom.updateArgs(newArgs)(order)
-        
-        if (down isDefinedAt atom) {
-          reduce(down(atom), rem, true) match {
+      if (atom.isEmpty) {
+        // nothing to shift
+        reduce(atom, rem, replacedLastArg)
+      } else if (((0 until (atom.length - 1)) forall (down isDefinedAt atom(_)))) {
+        // we can shift down this atom, though possible not the last argument
+
+        def recurse(newAtom : Atom, newReplacedLastArg : Boolean) =
+          reduce(newAtom, rem, newReplacedLastArg) match {
             case FunctionValueResult(v) => FunctionValueResult(up(v))
             case x => x
           }
+      
+        if (replacedLastArg || (down isDefinedAt atom.last)) {
+          recurse(atom.updateArgs(atom map (down(_)))(order), replacedLastArg)
+        } else if ((functions contains atom.pred) && !atom.last.variables.isEmpty) {
+          // we just replace the last argument with a 0, and continue searching
+          // for equivalent function applications
+          
+          val newArgs = Array.tabulate(atom.size) { case i =>
+            if (i == atom.size - 1) LinearCombination.ZERO else down(atom(i))
+          }
+          
+          recurse(atom.updateArgs(newArgs)(order), true)
         } else {
           UnchangedResult
         }
+        
       } else {
         UnchangedResult
       }
