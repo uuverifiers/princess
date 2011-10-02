@@ -25,7 +25,7 @@ import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
-import scala.collection.mutable.{ArrayStack => Stack}
+import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer}
 
 
 object CollectingVisitor {
@@ -135,6 +135,61 @@ abstract class CollectingVisitor[A, R] {
     Debug.assertInt(CollectingVisitor.AC, results.length == 1)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     results.pop
+  }
+  
+  def visitWithoutResult(expr : IExpression, arg : A) : Unit = {
+    val toVisit = new Stack[IExpression]
+    val argsToVisit = new Stack[A]
+    
+    toVisit push expr
+    argsToVisit push arg
+    
+    while (!toVisit.isEmpty) toVisit.pop match {
+      case PostVisit(expr, arg) =>
+        postVisit(expr, arg, null)
+      
+      case expr => {
+        val arg = argsToVisit.pop
+
+        preVisit(expr, arg) match {
+          case ShortCutResult(res) => {
+            // directly push the result, skip the call to postVisit and the
+            // recursive calls
+          }
+          
+          case TryAgain(newT, newArg) => {
+            toVisit push newT
+            argsToVisit push newArg
+          }
+            
+          case argModifier => 
+            if (expr.length > 0) {
+              // recurse
+          
+              toVisit push PostVisit(expr, arg)
+              for (i <- (expr.length - 1) to 0 by -1) toVisit push expr(i)
+        
+              argModifier match {
+                case KeepArg =>
+                  for (_ <- PlainRange(expr.length)) argsToVisit push arg
+                case UniSubArgs(subArg) =>
+                  for (_ <- PlainRange(expr.length)) argsToVisit push subArg
+                case SubArgs(subArgs) => {
+                  //-BEGIN-ASSERTION-///////////////////////////////////////////
+                  Debug.assertInt(CollectingVisitor.AC, subArgs.length == expr.length)
+                  //-END-ASSERTION-/////////////////////////////////////////////
+                  for (i <- (expr.length - 1) to 0 by -1) argsToVisit push subArgs(i)
+                }
+              }
+          
+            } else {
+              // otherwise, we can directly call the postVisit method
+          
+              postVisit(expr, arg, List())
+            }
+        }
+      }
+    }
   }
   
   private case class PostVisit(expr : IExpression, arg : A)
@@ -351,12 +406,12 @@ object VariableSubstVisitor
 object SymbolCollector {
   def variables(t : IExpression) : scala.collection.Set[IVariable] = {
     val c = new SymbolCollector
-    c.visit(t, 0)
+    c.visitWithoutResult(t, 0)
     c.variables
   }
   def constants(t : IExpression) : scala.collection.Set[ConstantTerm] = {
     val c = new SymbolCollector
-    c.visit(t, 0)
+    c.visitWithoutResult(t, 0)
     c.constants
   }
 }
@@ -479,17 +534,24 @@ object Transform2NNF extends CollectingVisitor[Boolean, IExpression] {
  * (where <code>&lowast;</code> is some binary operator) into
  * <code>List(f1, f2, ..., fn)</code>
  */
-object LineariseVisitor
-       extends CollectingVisitor[IBinJunctor.Value, List[IFormula]] {
-  def apply(t : IFormula, op : IBinJunctor.Value) = this.visit(t, op)
-         
-  override def preVisit(t : IExpression, op : IBinJunctor.Value) : PreVisitResult =
-    t match {
-      case IBinFormula(`op`, _, _) => KeepArg
-      case t : IFormula => ShortCutResult(List(t))
-    }
+object LineariseVisitor {
+  def apply(t : IFormula, op : IBinJunctor.Value) : Seq[IFormula] = {
+    val parts = scala.collection.mutable.ArrayBuilder.make[IFormula]
+  
+    val visitor = new CollectingVisitor[Unit, Unit] {
+      override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = t match {
+        case IBinFormula(`op`, _, _) =>
+          KeepArg
+        case t : IFormula => {
+          parts += t
+          ShortCutResult({})
+        }
+      }
 
-  def postVisit(t : IExpression, op : IBinJunctor.Value,
-                subres : Seq[List[IFormula]]) : List[IFormula] =
-    for (l <- subres.toList; x <- l) yield x
+      def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = {}
+    }
+    
+    visitor.visitWithoutResult(t, {})
+    parts.result
+  }
 }

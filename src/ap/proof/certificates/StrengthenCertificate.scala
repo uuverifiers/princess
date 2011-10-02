@@ -90,7 +90,7 @@ case class StrengthenCertificate(weakInEq : CertInequality, eqCases : IdealInt,
 
   override def toString : String =
     "Strengthen(" + weakInEq + " -> " + "[" +
-    ((for (s <- localProvidedFormulas.iterator) yield s.iterator.next) mkString ", ") +
+    ((for (s <- localProvidedFormulas.iterator) yield s.head) mkString ", ") +
     "]" + ", " + (children mkString ", ") + ")"
 
 }

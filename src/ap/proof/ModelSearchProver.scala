@@ -110,7 +110,9 @@ object ModelSearchProver {
       // otherwise the proof would not correspond to the input formulae
       inputDisjuncts
     } else {
-      val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
+      val reducer = ReduceWithConjunction(Conjunction.TRUE,
+                                          Param.FUNCTIONAL_PREDICATES(settings),
+                                          order)
       for (d <- inputDisjuncts) yield reducer(d)
     }
     val elimConstants = order.orderedConstants

@@ -222,11 +222,7 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
     override def size = seq.size
     def iterator = seq.iterator
     
-    private implicit def orderAtom(thisA : Atom) =
-      new Ordered[Atom] {
-        def compare(thatA : Atom) : Int =
-          order.compare(thatA, thisA)
-      }
+    private implicit val ord = order.reverseAtomOrdering
       
     def contains(a : Atom) : Boolean =
       // we first check the set of contained constants and predicates to avoid
@@ -285,13 +281,6 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
       // we need some atom with the given predicate to do binary search
       val atom = Atom(pred, Array.fill(pred.arity){LinearCombination.ZERO}, order)
     
-      // we assume that the sequence of atoms is sorted
-      implicit def orderAtom(thisA : Atom) =
-        new Ordered[Atom] {
-          def compare(thatA : Atom) : Int =
-            order.compare(thatA, thisA)
-        }
-
       def findAllAtoms(i : Int) = {
         var lowerBound : Int = i
         var upperBound : Int = i+1
@@ -302,7 +291,9 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
         post(otherAtoms.slice(lowerBound, upperBound))
       }
     
-      Seqs.binSearch(otherAtoms, 0, otherAtoms.size, atom) match {
+      // we assume that the sequence of atoms is sorted
+      Seqs.binSearch(otherAtoms, 0, otherAtoms.size, atom)(
+                                           order.reverseAtomOrdering) match {
       case Seqs.Found(i) =>
         findAllAtoms(i)
       case Seqs.NotFound(i) =>

@@ -96,13 +96,10 @@ private class InputAbsy2Internal(order : TermOrder) {
     }
   }
   
-  private def translateLinComb(t : ITerm) : LinearCombination =
-    translateTermCoeff(t) match {
-      case (IdealInt.ONE, res : LinearCombination) =>
-        res
-      case pair =>
-        LinearCombination(List(pair), order)
-    }
+  private def translateLinComb(t : ITerm) : LinearCombination = {
+    val (coeff, s) = translateTermCoeff(t)
+    LinearCombination(coeff, s, order)
+  }
   
   private def translateFor(f : IFormula) : Formula = f match {
     case IBoolLit(true) =>

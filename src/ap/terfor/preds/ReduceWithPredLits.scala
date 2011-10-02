@@ -22,55 +22,82 @@
 package ap.terfor.preds;
 
 import ap.terfor._
+import ap.terfor.arithconj.ArithConj
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.equations.{EquationConj, NegEquationConj}
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.VariableShiftSubst
-import ap.util.{Debug, Seqs, LazyMappedSet, UnionSet}
+import ap.util.{Debug, Seqs, UnionSet}
+
+import scala.collection.mutable.{ArrayBuilder, ArrayBuffer}
 
 object ReduceWithPredLits {
   
   private val AC = Debug.AC_PROPAGATION
+
+  private[preds] sealed abstract class FactStackElement
+  private[preds] case class LitFacts(facts : PredConj)
+                      extends FactStackElement
+  private[preds] case class PassBinders(
+               up : Term => Term,
+               down : PartialFunction[LinearCombination, LinearCombination])
+                      extends FactStackElement
   
-  def apply(conj : PredConj, order : TermOrder) : ReduceWithPredLits = {
+  private sealed abstract class ReductionResult
+  private case object UnchangedResult extends ReductionResult
+  private case object FalseResult extends ReductionResult
+  private case object TrueResult extends ReductionResult
+  private case class FunctionValueResult(v : Term) extends ReductionResult
+  
+  def apply(conj : PredConj,
+            functions : Set[Predicate],
+            order : TermOrder) : ReduceWithPredLits = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    new ReduceWithPredLits(conj.positiveLitsAsSet, conj.negativeLitsAsSet,
-                           conj.predicates, order)
+    new ReduceWithPredLits(List(LitFacts(conj)),
+                            conj.predicates, functions, order)
   }
-    
+
 }
 
-class ReduceWithPredLits private (positiveLits : scala.collection.Set[Atom],
-                                  negativeLits : scala.collection.Set[Atom],
-                                  preds : scala.collection.Set[Predicate],
+/**
+ * Class for reducing a conjunction of predicate literals using a set of
+ * known literals (facts). This reduction can be done modulo the axiom of
+ * functionality (for predicates encoding functions or partial functions), and
+ * then potentially replaces predicate literals with simple equations.
+ */
+class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackElement],
+                                  allPreds : scala.collection.Set[Predicate],
+                                  functions : Set[Predicate],
                                   order : TermOrder) {
-
+  
+  import ReduceWithPredLits._
+  
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(ReduceWithPredLits.AC,
-                   preds == Set() ++ (for (a <- positiveLits) yield a.pred) ++
-                                     (for (a <- negativeLits) yield a.pred))
+  Debug.assertCtor(AC, allPreds == (for (LitFacts(conj) <- facts;
+                                         p <- conj.predicates) yield p).toSet)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def addLits(furtherLits : PredConj) : ReduceWithPredLits =
     if (furtherLits.isTrue)
       this
     else
-      new ReduceWithPredLits(UnionSet(positiveLits, furtherLits.positiveLitsAsSet),
-                             UnionSet(negativeLits, furtherLits.negativeLitsAsSet),
-                             UnionSet(preds, furtherLits.predicates),
-                             order)
+      new ReduceWithPredLits(LitFacts(furtherLits) :: facts,
+                             UnionSet(allPreds, furtherLits.predicates),
+                             functions, order)
 
   /**
-   * Create a <code>ReduceWithEqs</code> that can be used underneath
+   * Create a <code>ReduceWithPredLits</code> that can be used underneath
    * <code>num</code> binders. The conversion of de Brujin-variables is done on
    * the fly, which should give a good performance when the resulting
    * <code>ReduceWithEqs</code> is not applied too often (TODO: caching)
    */
   def passQuantifiers(num : Int) : ReduceWithPredLits = {
-    val upShifter = VariableShiftSubst.upShifter[Atom](num, order)
-    val downShifter = VariableShiftSubst.downShifter[Atom](num, order)
-    new ReduceWithPredLits(new LazyMappedSet(positiveLits, upShifter, downShifter),
-                           new LazyMappedSet(negativeLits, upShifter, downShifter),
-                           preds, order)
+    val upShifter = VariableShiftSubst.upShifter[Term](num, order)
+    val downShifter = VariableShiftSubst.downShifter[LinearCombination](num, order)
+    new ReduceWithPredLits(PassBinders(upShifter, downShifter) :: facts,
+                            allPreds, functions, order)
   }
 
   /**
@@ -78,26 +105,170 @@ class ReduceWithPredLits private (positiveLits : scala.collection.Set[Atom],
    * reducible by this reducer
    */
   def reductionPossible(conj : PredConj) : Boolean =
-    !Seqs.disjoint(preds, conj.predicates)
+    !Seqs.disjoint(allPreds, conj.predicates)
 
-  def apply(conj : PredConj) : PredConj = {
+  def apply(conj : PredConj) : (PredConj, ArithConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithPredLits.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    if (reductionPossible(conj)) {
-      // TODO: should be done using binary search
-      if (!Seqs.disjointSeq(positiveLits, conj.negativeLits) ||
-          !Seqs.disjointSeq(negativeLits, conj.positiveLits))
-        // a contradiction has been found
-        PredConj.FALSE(conj)
-      else
-        conj.updateLitsSubset(conj.positiveLits filter ((a) => !(positiveLits contains a)),
-                              conj.negativeLits filter ((a) => !(negativeLits contains a)),
-                              order)
-    } else {
-      conj
-    }
+    if (!reductionPossible(conj))
+      return (conj, ArithConj.TRUE)
+    
+    val newPosLits = new ArrayBuffer[Atom]
+    val newNegLits = ArrayBuilder.make[Atom]
+    val posEqs, negEqs = ArrayBuilder.make[LinearCombination]
+    
+    implicit val o = order
+    
+    def addNewPosLit(a : Atom) =
+      if ((functions contains a.pred) && !newPosLits.isEmpty &&
+          sameFunctionApp(a, newPosLits.last) &&
+          ((0 until (a.length - 1)) forall (a(_).variables.isEmpty))) {
+        // contract consecutive literals representing the same function
+        // application
+//        println("found consec: " + a)
+        posEqs += (a.last - newPosLits.last.last)
+      } else
+        newPosLits += a
+    
+    for (a <- conj.positiveLits)
+      if (allPreds contains a.pred) reduce(a, facts, false) match {
+        case UnchangedResult =>
+          addNewPosLit(a)
+        case TrueResult =>
+          // nothing
+        case FalseResult =>
+          // found a contradiction
+          return (PredConj.FALSE(conj), ArithConj.TRUE)
+        case FunctionValueResult(v) => {
+          val eq = a.last - LinearCombination(v, order)
+          if (eq.isNonZero)
+            // found a contradiction
+            return (PredConj.FALSE(conj), ArithConj.TRUE)
+          posEqs += eq
+        }
+      } else {
+        addNewPosLit(a)
+      }
+    
+    for (a <- conj.negativeLits)
+      if (allPreds contains a.pred) reduce(a, facts, false) match {
+        case UnchangedResult =>
+          newNegLits += a
+        case TrueResult =>
+          // found a contradiction
+          return (PredConj.FALSE(conj), ArithConj.TRUE)
+        case FalseResult =>
+          // nothing
+        case FunctionValueResult(v) => {
+          val eq = a.last - LinearCombination(v, order)
+          if (eq.isZero)
+            // found a contradiction
+            return (PredConj.FALSE(conj), ArithConj.TRUE)
+          negEqs += eq
+        }
+      } else {
+        newNegLits += a
+      }
+    
+    val ac = ArithConj(EquationConj(posEqs.result, order),
+                       NegEquationConj(negEqs.result, order),
+                       InEqConj.TRUE, order)
+    if (ac.isFalse)
+      (PredConj.FALSE(conj), ArithConj.TRUE)
+    else
+      (conj.updateLitsSubset(newPosLits.result, newNegLits.result, order), ac)
   }
+
+  /**
+   * Recursively try to reduce a given atom
+   */
+  private def reduce(atom : Atom,
+                     remFacts : List[FactStackElement],
+                     replacedLastArg : Boolean)
+                                          : ReductionResult = remFacts match {
+    
+    case List() =>
+      UnchangedResult
+    
+    case LitFacts(conj) :: rem =>
+      if (!replacedLastArg && (conj.negativeLitsAsSet contains atom)) {
+        FalseResult
+      } else {
+        // Binary search for the literal among the positive facts; if we
+        // know that some predicate satisfies the functionality axiom, it might
+        // be possible to replace the literal with a simple equation
+        
+        val posLits = conj.positiveLits
+        
+        Seqs.binSearch(posLits, 0, posLits.size, atom)(order.reverseAtomOrdering) match {
+          case Seqs.Found(i) =>
+            if (replacedLastArg) {
+//              println("found: " + posLits(i))
+              FunctionValueResult(posLits(i).last)
+            } else
+              TrueResult
+          case Seqs.NotFound(i) => {
+            if (functions contains atom.pred) {
+              // maybe we know some literal representing the same function app
+              if (i > 0 && sameFunctionApp(posLits(i-1), atom)) {
+//                println("found: " + posLits(i-1))
+                FunctionValueResult(posLits(i-1).last)
+              } else if (i >= 0 && i < posLits.size &&
+                         sameFunctionApp(posLits(i), atom)) {
+//                println("found: " + posLits(i))
+                FunctionValueResult(posLits(i).last)
+              } else {
+                reduce(atom, rem, replacedLastArg)
+              }
+            } else {
+              reduce(atom, rem, replacedLastArg)
+            }
+          }
+        }
+      }
+    
+    case PassBinders(up, down) :: rem =>
+      if (atom.isEmpty) {
+        // nothing to shift
+        reduce(atom, rem, replacedLastArg)
+      } else if (((0 until (atom.length - 1)) forall (down isDefinedAt atom(_)))) {
+        // we can shift down this atom, though possible not the last argument
+
+        def recurse(newAtom : Atom, newReplacedLastArg : Boolean) =
+          reduce(newAtom, rem, newReplacedLastArg) match {
+            case FunctionValueResult(v) => FunctionValueResult(up(v))
+            case x => x
+          }
+      
+        if (replacedLastArg || (down isDefinedAt atom.last)) {
+          recurse(atom.updateArgs(atom map (down(_)))(order), replacedLastArg)
+        } else if ((functions contains atom.pred) && !atom.last.variables.isEmpty) {
+          // we just replace the last argument with a 0, and continue searching
+          // for equivalent function applications
+          
+          val newArgs = Array.tabulate(atom.size) { case i =>
+            if (i == atom.size - 1) LinearCombination.ZERO else down(atom(i))
+          }
+          
+          recurse(atom.updateArgs(newArgs)(order), true)
+        } else {
+          UnchangedResult
+        }
+        
+      } else {
+        UnchangedResult
+      }
+  }
+  
+  /**
+   * Assuming that the given predicates encode functions, check whether the
+   * arguments (apart from the last argument, the function result) coincide,
+   * and whether the predicates are the same
+   */
+  private def sameFunctionApp(a : Atom, b : Atom) =
+    a.pred == b.pred &&
+    ((0 until (a.length - 1)) forall { case i => a(i) == b(i) })
   
 }

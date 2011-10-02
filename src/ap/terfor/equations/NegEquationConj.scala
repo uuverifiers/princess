@@ -40,7 +40,7 @@ object NegEquationConj {
     if (lhss.isEmpty)
       TRUE
     else if (lhss.size == 1)
-      apply(lhss.iterator.next, order)
+      apply(lhss.head, order)
     else
       apply(lhss.iterator, order)
 

@@ -79,7 +79,7 @@ object InEqConj {
     if (lhss.isEmpty)
       TRUE
     else if (lhss.size == 1)
-      apply(lhss.iterator.next, order)
+      apply(lhss.head, order)
     else
       apply(lhss.iterator, order)
 
@@ -196,14 +196,14 @@ object InEqConj {
     if (geqs exists ((lc) => (lc get t) > IdealInt.ONE)) {
       for (geq <- geqs; val tCoeff = geq get t; leq <- leqs)
         logger.cieScope.start((IdealInt.ONE, geq, tCoeff, leq, order)) {
-          addRemainingLC(LinearCombination.sum(Array((IdealInt.ONE, geq),
-                                                     (tCoeff, leq)), order))
+          addRemainingLC(LinearCombination.sum(IdealInt.ONE, geq,
+                                               tCoeff, leq, order))
         }
     } else {
       for (leq <- leqs; val tCoeff = (leq get t).abs; geq <- geqs)
         logger.cieScope.start((tCoeff, geq, IdealInt.ONE, leq, order)) {
-          addRemainingLC(LinearCombination.sum(Array((tCoeff, geq),
-                                                     (IdealInt.ONE, leq)), order))
+          addRemainingLC(LinearCombination.sum(tCoeff, geq,
+                                               IdealInt.ONE, leq, order))
         }
     }
 
@@ -242,8 +242,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   private def validLCSeq(lcs : IndexedSeq[LinearCombination]) =
     // normally, only primitive linear combinations are allowed
-    Logic.forall(for (lc <- lcs.iterator) yield (
-                   (lc isSortedBy order) && lc.isPrimitive)) &&
+    (lcs forall { case lc => (lc isSortedBy order) && lc.isPrimitive }) &&
     Logic.forall(0, lcs.size - 1, (i:Int) =>
                  // the sequence is sorted
                  (order.compare(lcs(i), lcs(i+1)) > 0) &&
@@ -259,8 +258,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                    validLCSeq(geqZeroInfs) &&
                    // the two lists of inequalities do not contain bounds for
                    // the same linear combination
-                   Logic.forall(for (lc <- geqZeroInfs.iterator)
-                                yield findBound(lc, geqZero) == None) &&
+                   (geqZeroInfs forall (findBound(_, geqZero) == None)) &&
                    (equalityInfs isSortedBy order))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
@@ -319,9 +317,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(InEqConj.AC, this.size == 1)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val negLC = LinearCombination.sum(Array((IdealInt.MINUS_ONE, this(0)),
-                                              (IdealInt.MINUS_ONE, LinearCombination.ONE)),
-                                        order)
+      val negLC = this(0).scaleAndAdd(IdealInt.MINUS_ONE, IdealInt.MINUS_ONE)
       InEqConj(List(negLC), order)
     }
 
@@ -395,13 +391,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   private def findBound(lc : LinearCombination,
                         bounds : IndexedSeq[LinearCombination]) : Option[IdealInt] = {
     
-    implicit def orderLC(thisLC : LinearCombination) =
-      new Ordered[LinearCombination] {
-        def compare(thatLC : LinearCombination) : Int =
-          order.compare(thatLC, thisLC)
-      }
-    
-    Seqs.binSearch(bounds, 0, bounds.size, lc) match {
+    Seqs.binSearch(bounds, 0, bounds.size, lc)(order.reverseLCOrdering) match {
     case Seqs.Found(_) => Some(IdealInt.ZERO)
     case Seqs.NotFound(i) =>
       (if (i < bounds.size) lc constantDiff bounds(i) else None) orElse
@@ -708,8 +698,7 @@ private class FMInfsComputer(infThrottleThreshold : Int,
         val leqCoeff = leqLC.leadingCoeff / -gcd
         val geqCoeff = geqLC.leadingCoeff / gcd
         
-        val inf = LinearCombination.sum(Array((leqCoeff, geqLC), (geqCoeff, leqLC)),
-                                        order)
+        val inf = LinearCombination.sum(leqCoeff, geqLC, geqCoeff, leqLC, order)
         
         logger.cieScope.start((leqCoeff, geqLC, geqCoeff, leqLC, order)) {
           addGeqTodo(inf, true, -1)

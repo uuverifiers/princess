@@ -80,10 +80,10 @@ class TestTermOrder(n : String) extends APTestCase(n) {
     def smallerThan(lc1 : LinearCombination, lc2 : LinearCombination) : Boolean =
       Logic.exists(0, 10,
                    (i:Int) => Logic.forall(0, i,
-                                           (j:Int) => lc1(j) == lc2(j)) &&
-                              (to.compare(lc1(i) _2, lc2(i) _2) < 0 ||
-                               (lc1(i) _2) == (lc2(i) _2) &&
-                               ((lc1(i) _1) compareAbs (lc2(i) _1)) < 0))
+                                           (j:Int) => lc1.getPair(j) == lc2.getPair(j)) &&
+                              (to.compare(lc1 getTerm i, lc2 getTerm i) < 0 ||
+                               (lc1 getTerm i) == (lc2 getTerm i) &&
+                               ((lc1 getCoeff i) compareAbs (lc2 getCoeff i)) < 0))
 
     for (_ <- PlainRange(100)) {
       val lc1 = LinearCombination(randomInput, to)

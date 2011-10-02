@@ -61,6 +61,7 @@ class KBO(funWeights : IFunction => Int, constWeights : ConstantTerm => Int,
         case (IConstant(c1), IConstant(c2))   => constOrder.compare(c1, c2)
         case (IVariable(i1), IVariable(i2))   => i1 - i2
         case (IIntLit(v1), IIntLit(v2))       => v1 compare v2
+        case _                                => 0
       })
       
     private def headSymKind(t : ITerm) : Int = t match {

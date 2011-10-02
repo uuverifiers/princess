@@ -259,11 +259,9 @@ object PresburgerTools {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val bound = new ConstantTerm ("bound")
-    val order = constraint.order.extend(bound, Set())
+    implicit val order = constraint.order.extend(bound, Set())
     
-    val inEqLC = LinearCombination(Array((IdealInt.ONE, objective),
-                                         (IdealInt.MINUS_ONE, bound)),
-                                   order)
+    val inEqLC = objective - LinearCombination(bound, order)
     val boundInEq = InEqConj(inEqLC, order)
     val imp = implies(constraint, boundInEq, order)
     val quantifiedImp = quantify(Quantifier.ALL,
@@ -309,14 +307,10 @@ object PresburgerTools {
     
     val lowerBound = new ConstantTerm ("lowerBound")
     val upperBound = new ConstantTerm ("upperBound")
-    val order = constraint.order.extend(lowerBound, Set()).extend(upperBound, Set())
+    implicit val order = constraint.order.extend(lowerBound, Set()).extend(upperBound, Set())
     
-    val lowerInEqLC = LinearCombination(Array((IdealInt.ONE, objective),
-                                              (IdealInt.MINUS_ONE, lowerBound)),
-                                        order)
-    val upperInEqLC = LinearCombination(Array((IdealInt.MINUS_ONE, objective),
-                                              (IdealInt.ONE, upperBound)),
-                                        order)
+    val lowerInEqLC = objective - LinearCombination(lowerBound, order)
+    val upperInEqLC = LinearCombination(upperBound, order) - objective
     val boundInEqs = InEqConj(Array(lowerInEqLC, upperInEqLC), order)
     val imp = implies(constraint, boundInEqs, order)
     val quantifiedImp = quantify(Quantifier.ALL,

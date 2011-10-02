@@ -62,10 +62,8 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
     if (a == b) {
       AliasStatus.Must
     } else cache(cacheKey(a, b)) {
-      val diff = LinearCombination.sum(Array((IdealInt.ONE, a),
-                                             (IdealInt.MINUS_ONE, b)),
-                                       order)
-      val reduced = reducer(EquationConj(diff, order))
+      implicit val o = order
+      val reduced = reducer(EquationConj(a - b, order))
       
       if (reduced.isTrue)
         AliasStatus.Must

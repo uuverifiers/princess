@@ -126,6 +126,43 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Ordering on terms that lists large terms first
+   */
+  lazy val reverseTermOrdering = new Ordering[Term] {
+    def compare(a : Term, b : Term) = TermOrder.this.compare(b, a)
+  }
+
+  /**
+   * Ordering on linear combinations that lists large linear combinations last
+   */
+  lazy val lcOrdering = new Ordering[LinearCombination] {
+    def compare(a : LinearCombination, b : LinearCombination) = fastCompare(a, b)
+  }
+
+  /**
+   * Ordering on linear combinations that lists large linear combinations first
+   */
+  lazy val reverseLCOrdering = new Ordering[LinearCombination] {
+    def compare(a : LinearCombination, b : LinearCombination) = fastCompare(b, a)
+  }
+
+  /**
+   * Ordering on atoms that lists large atoms last
+   */
+  lazy val atomOrdering = new Ordering[Atom] {
+    def compare(a : Atom, b : Atom) = TermOrder.this.compare(a, b)
+  }
+  
+  /**
+   * Ordering on atoms that lists large atoms first
+   */
+  lazy val reverseAtomOrdering = new Ordering[Atom] {
+    def compare(a : Atom, b : Atom) = TermOrder.this.compare(b, a)
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Assuming that <code>seq</code> is a sequence of linear combinations
    * sorted in descending order according to <code>this</code>
    * <code>TermOrder</code>, find the index of the first element whose
@@ -133,13 +170,8 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    */
   def findFirstIndex(lt : Term,
                      seq : IndexedSeq[LinearCombination]) : Int = {
-    implicit def orderLC(thisLC : LinearCombination) =
-      new Ordered[LinearCombination] {
-        def compare(thatLC : LinearCombination) : Int =
-          TermOrder.this.fastCompare(thatLC, thisLC)
-      }
-   
-    var i = Seqs.binSearch(seq, 0, seq.size, LinearCombination(lt, this)) match {
+    var i = Seqs.binSearch(seq, 0, seq.size,
+                           LinearCombination(lt, this))(reverseLCOrdering) match {
               case Seqs.Found(i) => i
               case Seqs.NotFound(i) => i
             }
@@ -155,7 +187,6 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     i
   }
-      
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -199,14 +230,11 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     while (true) {
       if (i < len1) {
         if (i < len2) {
-          val (c1, v1) = t1(i)
-          val (c2, v2) = t2(i)
-          
 //          val cmp0 = weightOfAtomicTerm(v1) compare weightOfAtomicTerm(v2)
-          val cmp0 = compareTerms(v1, v2)
+          val cmp0 = compareTerms(t1 getTerm i, t2 getTerm i)
           if (cmp0 != 0) return cmp0
           
-          val cmp1 = c1 compareAbs c2
+          val cmp1 = (t1 getCoeff i) compareAbs (t2 getCoeff i)
           if (cmp1 != 0) return cmp1
         } else {
           return 1                        
@@ -224,15 +252,8 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     throw new Error // never reached
   }
   
-  def compare(c1 : Seq[LinearCombination], c2 : Seq[LinearCombination]) : Int = {
-    implicit def orderLCs(thisLC : LinearCombination) =
-      new Ordered[LinearCombination] {
-        def compare(thatLC : LinearCombination) : Int =
-          TermOrder.this.fastCompare(thisLC, thatLC)
-      }
-      
-    Seqs.lexCompare(c1.iterator, c2.iterator)
-  }
+  def compare(c1 : Seq[LinearCombination], c2 : Seq[LinearCombination]) : Int =
+    Seqs.lexCompare(c1.iterator, c2.iterator)(lcOrdering)
 
   def compare(c1 : ArithConj, c2 : ArithConj) : Int =
     Seqs.lexCombineInts(compare(c1.positiveEqs, c2.positiveEqs),
@@ -241,16 +262,9 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def compare(a1 : Atom, a2 : Atom) : Int = {
-    implicit def orderLCs(thisLC : LinearCombination) =
-      new Ordered[LinearCombination] {
-        def compare(thatLC : LinearCombination) : Int =
-          TermOrder.this.fastCompare(thisLC, thatLC)
-      }
-
+  def compare(a1 : Atom, a2 : Atom) : Int =
     Seqs.lexCombineInts(predicateWeight(a1.pred) compare predicateWeight(a2.pred),
-                        Seqs.lexCompare(a1.iterator, a2.iterator))
-  }
+                        Seqs.lexCompare(a1.iterator, a2.iterator)(lcOrdering))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -259,7 +273,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * <code>Weight</code> objects
    */
   private def weightIt(t : Term) : Iterator[Weight] = t match {
-    case t : LinearCombination => (for ((coeff, ter) <- t.iterator)
+    case t : LinearCombination => (for ((coeff, ter) <- t.pairIterator)
                                    yield CoeffWeight(coeff, weightOfAtomicTerm(ter)))
     case _ => Iterator.single(weightOfAtomicTerm(t))
   }

@@ -74,7 +74,7 @@ object EquationConj {
     if (lhss.isEmpty)
       TRUE
     else if (lhss.size == 1)
-      apply(lhss.iterator.next, order)
+      apply(lhss.head, order)
     else
       apply(lhss.iterator,
             ReduceWithEqs(Map.empty.asInstanceOf[Map[Term, LinearCombination]],
@@ -365,8 +365,13 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     
     val (gcd, factors) =
       IdealInt.gcdAndCofactors(for (lc <- currentLhss) yield lc.leadingCoeff)
-    val gcdLhs =
-      LinearCombination.sum(factors.iterator zip currentLhss.iterator, order)
+    val gcdLhs = // capture some common and easy cases
+                 if (factors(1).isZero &&
+                     (factors.size == 2 ||
+                         (factors.size == 3 && factors(2).isZero)))
+                   currentLhss.head
+                 else
+                   LinearCombination.sum(factors.iterator zip currentLhss.iterator, order)
 
     if (logger.isLogging && Seqs.count(factors, (f:IdealInt) => !f.isZero) > 1) {
       val terms = for ((f, e) <- factors.toList zip currentLhss.toList; if !f.isZero)
@@ -382,15 +387,16 @@ private class RowSolver(lhss : Iterator[LinearCombination],
       // TODO: is it possible to leave out some of the produced linear
       // combinations?
       
-      val combination = Array((IdealInt.ONE, lc), (-(lc.leadingCoeff / gcd), gcdLhs))
-      val rem = LinearCombination.sum(combination, order)
+      val gccLhsCoeff = -(lc.leadingCoeff / gcd)
+      
+      val rem = LinearCombination.sum(IdealInt.ONE, lc, gccLhsCoeff, gcdLhs, order)
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(EquationConj.AC,
                       rem.isZero ||
                       order.compare(rem.leadingTerm,
                                     currentLhss(0).leadingTerm) < 0)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      logger.ceScope.start((combination, order)) {
+      logger.ceScope.start((Array((IdealInt.ONE, lc), (gccLhsCoeff, gcdLhs)), order)) {
         addNonCanon(rem)
       }
     }

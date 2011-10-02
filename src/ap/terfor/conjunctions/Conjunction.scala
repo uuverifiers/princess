@@ -554,7 +554,7 @@ class Conjunction private (val quans : Seq[Quantifier],
    */
   def isProperDivisibility : Boolean = {
     val lc = (arithConj.positiveEqs.iterator ++
-              arithConj.negativeEqs.iterator).next()(0)._1
+              arithConj.negativeEqs.iterator).next.leadingCoeff
     !lc.isOne
   }
     

@@ -22,8 +22,7 @@
 package ap.proof.goal;
 
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
-                               Quantifier, ReduceWithConjunction,
-                               IterativeClauseMatcher}
+                               Quantifier, IterativeClauseMatcher}
 import ap.terfor.preds.PredConj
 import ap.parameters.Param
 import ap.util.{Debug, Logic, Seqs}

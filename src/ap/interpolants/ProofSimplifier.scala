@@ -78,8 +78,8 @@ object ProofSimplifier {
                   val strengthenedGeq = CertInequality(geq.lhs - cases);
                   leq <- boundsB.iterator;
                   val leqCoeff = (leq.lhs get elimConst).abs;
-                  val newInEq = CertInequality(leqCoeff * strengthenedGeq.lhs +
-                                               geqCoeff * leq.lhs);
+                  val newInEq = CertInequality((strengthenedGeq.lhs scale leqCoeff) +
+                                               (leq.lhs scale geqCoeff));
                   if (!(availableFors contains newInEq) &&
                       (inEqCaseAssumedFors contains newInEq))) yield
                CombineInequalitiesInference(leqCoeff, strengthenedGeq,
@@ -551,7 +551,7 @@ object ProofSimplifier {
                
           val (newTarget, factor, constantDiff) = replacement(target)
           val newEquations = for ((c, eq) <- equations) yield (c * factor, eq)
-          val newResult = CertInequality(result.lhs * factor + constantDiff)
+          val newResult = CertInequality((result.lhs scale factor) + constantDiff)
           (List(inf.copy(equations = newEquations,
                          targetLit = newTarget, result = newResult)),
            replacement + (result -> (newResult, factor, constantDiff)))
@@ -572,7 +572,7 @@ object ProofSimplifier {
           val newRightCoeff = commonFactor * rightCoeff / rightFactor
           val commonDiff = newLeftCoeff * leftDiff + newRightCoeff * rightDiff
             
-          val newResult = CertInequality(result.lhs * commonFactor + commonDiff)
+          val newResult = CertInequality((result.lhs scale commonFactor) + commonDiff)
             
           (List(inf.copy(leftCoeff = newLeftCoeff, leftInEq = newLeft,
                          rightCoeff = newRightCoeff, rightInEq = newRight,

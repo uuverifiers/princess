@@ -58,7 +58,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     case Param.InputFormat.SMTLIB =>   new SMTParser2InputAbsy(env)
   }
   
-  val (inputFormulas, interpolantSpecs, signature, gcedFunctions) = {
+  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds) = {
     val env = new Environment
     val (f, interpolantSpecs, signature) = newParser(env)(reader)
     reader.close
@@ -83,12 +83,16 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       case Param.FunctionGCOptions.None =>
         Set[Predicate]()
       case Param.FunctionGCOptions.Total =>
-        Set() ++ (for ((p, f) <- functionEnc.predTranslation.iterator;
-                       if (!f.partial)) yield p)
+        (for ((p, f) <- functionEnc.predTranslation.iterator; if (!f.partial))
+          yield p).toSet
       case Param.FunctionGCOptions.All =>
         functionEnc.predTranslation.keySet.toSet
     }
-    (inputFormulas, interpolantS, sig, gcedFunctions)
+    
+    val functionalPreds = 
+      (for ((p, f) <- functionEnc.predTranslation.iterator;
+            if (!f.relational)) yield p).toSet
+    (inputFormulas, interpolantS, sig, gcedFunctions, functionalPreds)
   }
   
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
@@ -99,7 +103,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
   val order = signature.order
   
-  private val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
+  private val reducer =
+    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
   
   private def simplify(f : Conjunction) : Conjunction =
     // if we are constructing proofs, we simplify formulae right away
@@ -119,6 +124,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
+    gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs
   }
   

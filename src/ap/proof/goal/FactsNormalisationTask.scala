@@ -24,6 +24,7 @@ package ap.proof.goal;
 import scala.collection.mutable.ArrayBuilder
 
 import ap.proof._
+import ap.parameters.Param
 import ap.terfor.{Term, Formula, TermOrder, ConstantTerm, VariableTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                NegatedConjunctions}
@@ -33,7 +34,7 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{ColumnSolver, NegEquationConj, EquationConj}
 import ap.terfor.substitutions.{Substitution, ConstantSubst, PseudoConstantSubst,
                                 ComposeSubsts}
-import ap.terfor.preds.{Atom, PredConj}
+import ap.terfor.preds.{Atom, PredConj, Predicate}
 import ap.util.{Logic, Debug, Seqs}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.BranchInferenceCollector
@@ -54,6 +55,11 @@ case object FactsNormalisationTask extends EagerTask {
     var constantFreedom = goal.constantFreedom
     var definedSyms = goal.definedSyms
     var iteration = 0
+    
+    val allFunctionalPreds =
+      Param.FUNCTIONAL_PREDICATES(goal.settings)
+    val functionalPreds =
+      if (collector.isLogging) Set[Predicate]() else allFunctionalPreds
     
     ////////////////////////////////////////////////////////////////////////////
     // normalise facts
@@ -82,7 +88,8 @@ case object FactsNormalisationTask extends EagerTask {
     var cont : Boolean = true
     while (cont) {
       // propagate the solved equations into the other facts
-      facts = ReduceWithConjunction(Conjunction.TRUE, order)(facts, collector)
+      facts = ReduceWithConjunction(Conjunction.TRUE,
+                                    functionalPreds, order)(facts, collector)
 
       if (facts.isFalse) {
         // then the goal can be closed immediately. if a proof is being
@@ -109,7 +116,7 @@ case object FactsNormalisationTask extends EagerTask {
     ////////////////////////////////////////////////////////////////////////////
     // update clauses
 
-    val reducer = ReduceWithConjunction(facts, order)
+    val reducer = ReduceWithConjunction(facts, allFunctionalPreds, order)
 
     def illegalQFClause(c : Conjunction) =
       c.isTrue || c.isLiteral || c.isNegatedConjunction ||
@@ -212,11 +219,9 @@ private class GoalColumnSolver(eqs : EquationConj,
       // term and has a coefficient that is not 1
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(FactsNormalisationTask.AC,
-                      {
-                        val (c, t) = lc(0)
-                        !c.isOne && isEliminated(t)
-                      } &&
-                      Logic.forall(1, lc.size, (i) => !isEliminated(lc(i) _2)))
+                      !lc.leadingCoeff.isOne && isEliminated(lc.leadingTerm)
+                      &&
+                      Logic.forall(1, lc.size, (i) => !isEliminated(lc getTerm i)))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       Some(makeLeadingTermSmall(lc, order))
     }
@@ -234,30 +239,30 @@ private class GoalColumnSolver(eqs : EquationConj,
    * Introduce a small constant as new name for the leading term of
    * <code>lc</code> (rule div-close)
    */
-  private def makeLeadingTermSmall(lc : LinearCombination,
-                                   order : TermOrder)
+  private def makeLeadingTermSmall(lc : LinearCombination, order : TermOrder)
                                       : (Term, LinearCombination, TermOrder) = {
     assert(!logger.isLogging) // TODO
 
-    val (leadingCoeff, leadingTerm) = lc(0)
+    val leadingCoeff = lc.leadingCoeff
+    val leadingTerm = lc.leadingTerm
+    
     val smallConst = newConst
     val extendedOrder = order.extend(smallConst, lc.constants)
     
     // the new constant (times the old leading coefficient) has to be
     // substituted in the closing constraint
     val symDefinition = LinearCombination(leadingTerm, order)
-    val substLC = LinearCombination.sum(Array((leadingCoeff, symDefinition),
-                                              (IdealInt.MINUS_ONE, lc)),
-                                        order)    
+    val substLC = LinearCombination.sum(leadingCoeff, symDefinition,
+                                        IdealInt.MINUS_ONE, lc, order)
     val backSubst = new PseudoConstantSubst(leadingCoeff, smallConst,
                                             substLC, extendedOrder)
     
     // the negated divisibility judgement has to be added disjunctively
     // to the closing constraint
     val var0 = LinearCombination(VariableTerm(0), order)
-    val lcMod = LinearCombination.sum(Array((leadingCoeff, var0),
-                                            (-leadingCoeff, symDefinition),
-                                            (IdealInt.ONE, lc)),
+    val lcMod = LinearCombination.sum(leadingCoeff, var0,
+                                      -leadingCoeff, symDefinition,
+                                      IdealInt.ONE, lc,
                                       order)
     val notDividedByLC = Conjunction.quantify(Array(Quantifier.ALL),
                                               NegEquationConj(lcMod, order),
@@ -281,7 +286,7 @@ private class GoalColumnSolver(eqs : EquationConj,
     val symDefinition = lc.reduceWithLeadingCoeff
     val smallConst = newConst
     
-    if (isEliminated(lc(0) _2)) {
+    if (isEliminated(lc.leadingTerm)) {
       // then also the new constant can be eliminated, and has to be put in
       // between the non-eliminated and the eliminated constants
       val extendedOrder = order.extend(smallConst,
@@ -331,18 +336,17 @@ private class GoalColumnSolver(eqs : EquationConj,
                        b ==
                        (Logic.exists(0, lc.size, (i) =>
                         Logic.exists(i+1, lc.size, (j) =>
-                          isEliminated(lc(i) _2) && isEliminated(lc(j) _2))))
+                          isEliminated(lc getTerm i) && isEliminated(lc getTerm j))))
                         ||
-                        Logic.forall(for ((_, t) <- lc.elements)
-                                     yield !isEliminated(t)))
+                        (lc.termIterator forall (!isEliminated(_))))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       b
     }
 
     post (if (lc.isEmpty) {
             true
-          } else if (isEliminated(lc(0) _2)) {
-            (lc.size >= 2) && isEliminated(lc(1) _2)
+          } else if (isEliminated(lc.leadingTerm)) {
+            (lc.size >= 2) && isEliminated(lc getTerm 1)
           } else {
             true
           })

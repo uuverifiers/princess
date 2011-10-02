@@ -54,9 +54,7 @@ abstract class ColumnSolver(equations : EquationConj,
         case Some((smallConst, definition, newOrder)) => {
           curOrder = newOrder
           val scLc = LinearCombination(smallConst, curOrder)
-          val scDefLc = LinearCombination.sum(Array((IdealInt.ONE, definition),
-                                                    (IdealInt.MINUS_ONE, scLc)),
-                                              curOrder)
+          val scDefLc = definition.-(scLc)(curOrder)
           val newEq = EquationConj(scDefLc, curOrder)
           curEqs = EquationConj.conj(Array(newEq, curEqs), logger, curOrder)
         }

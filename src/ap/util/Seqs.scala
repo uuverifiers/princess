@@ -31,7 +31,8 @@ object Seqs {
   /**
    * Lexicographic comparison of two lists of things
    */
-  def lexCompare[T <% Ordered[T]](it1 : Iterator[T], it2 : Iterator[T]) : Int = {
+  def lexCompare[T](it1 : Iterator[T], it2 : Iterator[T])
+                   (implicit ord : Ordering[T]): Int = {
     while (true) {
       if (it1.hasNext) {
         if (!it2.hasNext)
@@ -43,7 +44,7 @@ object Seqs {
           return 0      
       }      
       
-      val compRes = it1.next compare it2.next
+      val compRes = ord.compare(it1.next, it2.next)
       if (compRes != 0) return compRes
     }
     
@@ -114,9 +115,12 @@ object Seqs {
   /**
    * Compute a polynomial hashcode for a sequence of things
    */
+  def computeHashCode[A](a : Iterator[A], init : Int, multiplier : Int) =
+    (init /: a)((hash, el) => hash * multiplier + el.hashCode)
+
   def computeHashCode[A](a : Iterable[A], init : Int, multiplier : Int) =
     (init /: a)((hash, el) => hash * multiplier + el.hashCode)
-    
+
   //////////////////////////////////////////////////////////////////////////////
 
   abstract class BS_Result
@@ -131,23 +135,23 @@ object Seqs {
    * next-bigger element in <code>seq</code>. Note, that elements are never
    * compared with <code>==<code>, only with <code>(a compare b) == 0</code> 
    */
-  def binSearch[T <% Ordered[T]](seq : IndexedSeq[T],
-                                 begin : Int, end : Int, wanted : T) : BS_Result = {
+  def binSearch[T](seq : IndexedSeq[T], begin : Int, end : Int, wanted : T)
+                  (implicit ord : Ordering[T]) : BS_Result = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
                     end >= begin &&
                     Logic.forall(begin, end - 1,
-                                 (i:Int) => seq(i) <= seq(i+1)))
+                                 (i:Int) => ord.lteq(seq(i), seq(i+1))))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     def post(res:BS_Result) = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(AC,
                        res match {
                        case Found(i) => i >= begin && i < end &&
-                         (seq(i) compare wanted) == 0
+                         ord.compare(seq(i), wanted) == 0
                        case NotFound(i) => i >= begin && i <= end &&
-                         (i == begin || seq(i-1) < wanted) &&
-                         (i == end || seq(i) > wanted)
+                         (i == begin || ord.lt(seq(i-1), wanted)) &&
+                         (i == end || ord.gt(seq(i), wanted))
                        })
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
@@ -158,20 +162,20 @@ object Seqs {
       
     while ( lo + 1 < hi ) {
       val mid = (lo + hi) / 2
-      val c = (seq(mid) compare wanted)
+      val c = ord.compare(seq(mid), wanted)
       if (c < 0) {
         lo = mid + 1
       } else if (c > 0) {
         hi = mid
       } else {
-	return post(Found(mid))
+        return post(Found(mid))
       }
     }
       
     if (lo == hi) {
       post(NotFound(hi))
     } else {
-      val c = (seq(lo) compare wanted)
+      val c = ord.compare(seq(lo), wanted)
       if (c < 0) {
         post(NotFound(hi))
       } else if (c > 0) {
@@ -379,8 +383,8 @@ object Seqs {
   /**
    * Determine a maximum element of a sequence of things under a given measure
    */
-  def max[A, B <% Ordered[B]](it : Iterable[A], measure : (A) => B) : A =
-    max(it.iterator, measure)
+/*  def max[A, B <% Ordered[B]](it : Iterable[A], measure : (A) => B) : A =
+    max(it.iterator, measure) */
 
   /**
    * Determine a maximum element of a sequence of things under a given measure
@@ -509,7 +513,7 @@ object Seqs {
    * of the sequences
    */
   def mergeSortedSeqs[A](a : IndexedSeq[A], b : IndexedSeq[A])
-                     (implicit ord : Ordering[A]) : IndexedSeq[A] = {
+                        (implicit ord : Ordering[A]) : IndexedSeq[A] = {
     if (a.isEmpty)
       return b
     if (b.isEmpty)
@@ -714,5 +718,38 @@ object Seqs {
       (if (seenEls contains e) duplicates else seenEls) += e
     
     duplicates.toSet
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /**
+   * Iterator over exactly two elements
+   */
+  def doubleIterator[A](a : A, b : A) = new Iterator[A] {
+    private var i = 0
+    def hasNext = i < 2
+    def next = {
+      i = i + 1
+      i match {
+        case 1 => a
+        case 2 => b
+      }
+    }
+  }
+  
+  /**
+   * Iterator over exactly three elements
+   */
+  def tripleIterator[A](a : A, b : A, c : A) = new Iterator[A] {
+    private var i = 0
+    def hasNext = i < 3
+    def next = {
+      i = i + 1
+      i match {
+        case 1 => a
+        case 2 => b
+        case 3 => c
+      }
+    }
   }
 }

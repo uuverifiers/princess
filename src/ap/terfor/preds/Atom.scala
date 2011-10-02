@@ -77,11 +77,10 @@ class Atom private (val pred : Predicate,
       EquationConj.FALSE
     }
     
-  def unificationConditions(that : Atom, order : TermOrder) : Iterator[LinearCombination] =
-    for ((arg1, arg2) <- (this.iterator zip that.iterator))
-      yield LinearCombination.sum(Array((IdealInt.ONE, arg1),
-                                        (IdealInt.MINUS_ONE, arg2)),
-                                  order)
+  def unificationConditions(that : Atom, order : TermOrder) : Iterator[LinearCombination] = {
+    implicit val o = order
+    for ((arg1, arg2) <- this.iterator zip that.iterator) yield (arg1 - arg2)
+  }
   
   //////////////////////////////////////////////////////////////////////////////
     

@@ -118,20 +118,18 @@ object IdealInt {
   /** Implicit conversion from <code>Long</code> to <code>IdealInt</code> */
   implicit def long2idealInt(l: Long): IdealInt = apply(l)
 
-  /** Implicit conversion from <code>IdealInt</code> to <code>Ordered</code>. */
-  implicit def IdealInt2ordered(x: IdealInt): Ordered[IdealInt] = {
-    new Ordered[IdealInt] with Proxy {
-      def self: Any = x;
-      def compare (y: IdealInt): Int = x compare y
-    }
-  }
-
   /** (Internal) Implicit conversion from <code>BigInteger</code> to
     * <code>IdealInt</code> */
   implicit private def bigInteger2idealInt(bi: BigInteger): IdealInt = apply(bi)
 
   /** Compute the sum of a sequence of <code>IdealInt</code> */
   def sum(it : Iterable[IdealInt]) : IdealInt = {
+    var res = ZERO
+    for (t <- it) res = res + t
+    res
+  }
+  
+  def sum(it : Iterator[IdealInt]) : IdealInt = {
     var res = ZERO
     for (t <- it) res = res + t
     res
@@ -386,8 +384,8 @@ object IdealInt {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-sealed class IdealInt private (private val longStore : Long,
-                               private var biStore : BigInteger) {
+final class IdealInt private (private val longStore : Long,
+                              private var biStore : BigInteger) {
  
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertPost(IdealInt.AC,
@@ -619,34 +617,39 @@ sealed class IdealInt private (private val longStore : Long,
     * <code>(rem compareAbs (rem + a*that)) < 0</code> for all non-zero
     * <code>a</code>.
     */
-  def reduceAbs (that : IdealInt) : (IdealInt, IdealInt) = {
-    var quot =
-      if (this.usesLong && that.usesLong)
-        IdealInt(this.longStore / that.longStore)
-      else
-        IdealInt(this.getBI divide that.getBI)
+  def reduceAbs (that : IdealInt) : (IdealInt, IdealInt) =
+    if (this == that) {
+      (IdealInt.ONE, IdealInt.ZERO)
+    } else {
+      var quot =
+        if (this.usesLong && that.usesLong)
+          IdealInt(this.longStore / that.longStore)
+        else
+          IdealInt(this.getBI divide that.getBI)
     
-    var rem = this - that * quot
+      var rem = this - that * quot
 
-    val more = rem + that
-    if ((more compareAbs rem) < 0) {
-      quot = quot - IdealInt.ONE
-      rem = more
-    }
+      if (!rem.isZero) {
+        val more = rem + that
+        if ((more compareAbs rem) < 0) {
+          quot = quot - IdealInt.ONE
+          rem = more
+        }
     
-    val less = rem - that
-    if ((less compareAbs rem) < 0) {
-      quot = quot + IdealInt.ONE
-      rem = less
-    }
+        val less = rem - that
+        if ((less compareAbs rem) < 0) {
+          quot = quot + IdealInt.ONE
+          rem = less
+        }
+      }
     
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(IdealInt.AC,
-                     that * quot + rem == this &&
-                     (rem isAbsMinMod that))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    (quot, rem)
-  }
+      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+      Debug.assertPost(IdealInt.AC,
+                       that * quot + rem == this &&
+                       (rem isAbsMinMod that))
+      //-END-ASSERTION-///////////////////////////////////////////////////////////
+      (quot, rem)
+    }
   
   /** Return whether this divides that */
   def divides (that : IdealInt) : Boolean =

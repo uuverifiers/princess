@@ -48,14 +48,13 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
                                    this(0) == LinearCombination.ONE) 
                      ||
                      // otherwise, only primitive elements are allowed
-                     Logic.forall(for (lhs <- this.iterator)
-                                  yield (lhs.isPrimitive && lhs.isPositive))
+                     (this forall { case lhs => lhs.isPrimitive && lhs.isPositive })
                    )
                    &&
                    Logic.forall(0, this.size - 1,
                                 (i:Int) => order.compare(this(i), this(i+1)) > 0)
                    &&
-                   Logic.forall(for (lc <- this.iterator) yield lc isSortedBy order))
+                   (this forall (_ isSortedBy order)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def length : Int = lhss.length
@@ -74,13 +73,7 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
       Debug.assertPre(EquationSet.AC, lc isSortedBy order)
       //-END-ASSERTION-///////////////////////////////////////////////////////
       
-      implicit def orderLC(thisLC : LinearCombination) =
-        new Ordered[LinearCombination] {
-          def compare(thatLC : LinearCombination) : Int =
-            order.compare(thatLC, thisLC)
-        }
-      
-      Seqs.binSearch(this, 0, this.size, lc) match {
+      Seqs.binSearch(this, 0, this.size, lc)(order.reverseLCOrdering) match {
       case Seqs.Found(_) => true
       case Seqs.NotFound(_) => false
       }
