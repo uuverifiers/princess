@@ -195,11 +195,12 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     def addNewPosLit(a : Atom) =
       if ((functions contains a.pred) && !newPosLits.isEmpty &&
           sameFunctionApp(a, newPosLits.last) &&
-          ((0 until (a.length - 1)) forall (a(_).variables.isEmpty)))
+          ((0 until (a.length - 1)) forall (a(_).variables.isEmpty))) {
         // contract consecutive literals representing the same function
         // application
+//        println("found consec: " + a)
         posEqs += (a.last - newPosLits.last.last)
-      else
+      } else
         newPosLits += a
     
     for (a <- conj.positiveLits)
@@ -275,19 +276,19 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
         Seqs.binSearch(posLits, 0, posLits.size, atom)(order.reverseAtomOrdering) match {
           case Seqs.Found(i) =>
             if (replacedLastArg) {
-//              println("found: " + atom)
-              FunctionValueResult(posLits(i-1).last)
+//              println("found: " + posLits(i))
+              FunctionValueResult(posLits(i).last)
             } else
               TrueResult
           case Seqs.NotFound(i) => {
             if (functions contains atom.pred) {
               // maybe we know some literal representing the same function app
               if (i > 0 && sameFunctionApp(posLits(i-1), atom)) {
-//                println("found: " + atom)
+//                println("found: " + posLits(i-1))
                 FunctionValueResult(posLits(i-1).last)
               } else if (i >= 0 && i < posLits.size &&
                          sameFunctionApp(posLits(i), atom)) {
-//                println("found: " + atom)
+//                println("found: " + posLits(i))
                 FunctionValueResult(posLits(i).last)
               } else {
                 reduce(atom, rem, replacedLastArg)
