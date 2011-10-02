@@ -56,10 +56,10 @@ case object FactsNormalisationTask extends EagerTask {
     var definedSyms = goal.definedSyms
     var iteration = 0
     
-    val functionalPreds = if (collector.isLogging)
-                            Set[Predicate]()
-                          else
-                            Param.FUNCTIONAL_PREDICATES(goal.settings)
+    val allFunctionalPreds =
+      Param.FUNCTIONAL_PREDICATES(goal.settings)
+    val functionalPreds =
+      if (collector.isLogging) Set[Predicate]() else allFunctionalPreds
     
     ////////////////////////////////////////////////////////////////////////////
     // normalise facts
@@ -116,7 +116,7 @@ case object FactsNormalisationTask extends EagerTask {
     ////////////////////////////////////////////////////////////////////////////
     // update clauses
 
-    val reducer = ReduceWithConjunction(facts, functionalPreds, order)
+    val reducer = ReduceWithConjunction(facts, allFunctionalPreds, order)
 
     def illegalQFClause(c : Conjunction) =
       c.isTrue || c.isLiteral || c.isNegatedConjunction ||

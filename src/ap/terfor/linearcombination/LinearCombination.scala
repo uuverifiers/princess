@@ -191,6 +191,10 @@ object LinearCombination {
     else
       new LinearCombination2(coeff0, term0, coeff1, term1, constant, order)
 
+  /**
+   * Create a linear combination with exactly three non-constant terms; the
+   * given terms are assumed to be already flat, and assumed to be sorted
+   */
   private[linearcombination]
     def createFromFlatNonZeroTerms(coeff0 : IdealInt, term0 : Term,
                                    coeff1 : IdealInt, term1 : Term,
@@ -347,6 +351,11 @@ object LinearCombination {
 
   //////////////////////////////////////////////////////////////////////////////
   
+  /**
+   * Compute the sum of exactly two linear combinations with arbitrary
+   * coefficients. This method is optimised and tries to avoid the
+   * <code>LCBlender</code> as far as possible
+   */
   def sum(coeff1 : IdealInt, lc1 : LinearCombination,
           coeff2 : IdealInt, lc2 : LinearCombination,
           order : TermOrder) : LinearCombination = lc1 match {
@@ -414,6 +423,10 @@ object LinearCombination {
       rawSum(coeff1, lc1, coeff2, lc2, order)
   }
 
+  /**
+   * Compute the sum of exactly three linear combinations with arbitrary
+   * coefficients
+   */
   def sum(coeff1 : IdealInt, lc1 : LinearCombination,
           coeff2 : IdealInt, lc2 : LinearCombination,
           coeff3 : IdealInt, lc3 : LinearCombination,
@@ -592,6 +605,7 @@ abstract sealed class LinearCombination (val order : TermOrder)
   
   // Set of own access methods, to avoid the overhead of
   // interface method dispatch
+  // (TODO: does this actually make a significant difference?)
   
   def lcSize : Int
   

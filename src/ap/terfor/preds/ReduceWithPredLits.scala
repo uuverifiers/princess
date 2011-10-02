@@ -27,86 +27,9 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.VariableShiftSubst
-import ap.util.{Debug, Seqs, LazyMappedSet, UnionSet}
+import ap.util.{Debug, Seqs, UnionSet}
 
 import scala.collection.mutable.{ArrayBuilder, ArrayBuffer}
-
-object ReduceWithPredLits3 {
-  
-  private val AC = Debug.AC_PROPAGATION
-  
-  def apply(conj : PredConj, order : TermOrder) : ReduceWithPredLits3 = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, conj isSortedBy order)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    new ReduceWithPredLits3(conj.positiveLitsAsSet, conj.negativeLitsAsSet,
-                           conj.predicates, order)
-  }
-    
-}
-
-class ReduceWithPredLits3 private (positiveLits : scala.collection.Set[Atom],
-                                  negativeLits : scala.collection.Set[Atom],
-                                  preds : scala.collection.Set[Predicate],
-                                  order : TermOrder) {
-
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(ReduceWithPredLits3.AC,
-                   preds == Set() ++ (for (a <- positiveLits) yield a.pred) ++
-                                     (for (a <- negativeLits) yield a.pred))
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////
-
-  def addLits(furtherLits : PredConj) : ReduceWithPredLits3 =
-    if (furtherLits.isTrue)
-      this
-    else
-      new ReduceWithPredLits3(UnionSet(positiveLits, furtherLits.positiveLitsAsSet),
-                             UnionSet(negativeLits, furtherLits.negativeLitsAsSet),
-                             UnionSet(preds, furtherLits.predicates),
-                             order)
-
-  /**
-   * Create a <code>ReduceWithEqs</code> that can be used underneath
-   * <code>num</code> binders. The conversion of de Brujin-variables is done on
-   * the fly, which should give a good performance when the resulting
-   * <code>ReduceWithEqs</code> is not applied too often (TODO: caching)
-   */
-  def passQuantifiers(num : Int) : ReduceWithPredLits3 = {
-    val upShifter = VariableShiftSubst.upShifter[Atom](num, order)
-    val downShifter = VariableShiftSubst.downShifter[Atom](num, order)
-    new ReduceWithPredLits3(new LazyMappedSet(positiveLits, upShifter, downShifter),
-                           new LazyMappedSet(negativeLits, upShifter, downShifter),
-                           preds, order)
-  }
-
-  /**
-   * Determine whether a formula that contains the given predicates might be
-   * reducible by this reducer
-   */
-  def reductionPossible(conj : PredConj) : Boolean =
-    !Seqs.disjoint(preds, conj.predicates)
-
-  def apply(conj : PredConj) : PredConj = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ReduceWithPredLits3.AC, conj isSortedBy order)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    if (reductionPossible(conj)) {
-      // TODO: should be done using binary search
-      if (!Seqs.disjointSeq(positiveLits, conj.negativeLits) ||
-          !Seqs.disjointSeq(negativeLits, conj.positiveLits))
-        // a contradiction has been found
-        PredConj.FALSE(conj)
-      else
-        conj.updateLitsSubset(conj.positiveLits filter ((a) => !(positiveLits contains a)),
-                              conj.negativeLits filter ((a) => !(negativeLits contains a)),
-                              order)
-    } else {
-      conj
-    }
-  }
-  
-}
 
 object ReduceWithPredLits {
   
@@ -138,6 +61,12 @@ object ReduceWithPredLits {
 
 }
 
+/**
+ * Class for reducing a conjunction of predicate literals using a set of
+ * known literals (facts). This reduction can be done modulo the axiom of
+ * functionality (for predicates encoding functions or partial functions), and
+ * then potentially replaces predicate literals with simple equations.
+ */
 class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackElement],
                                   allPreds : scala.collection.Set[Predicate],
                                   functions : Set[Predicate],
@@ -333,6 +262,11 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
       }
   }
   
+  /**
+   * Assuming that the given predicates encode functions, check whether the
+   * arguments (apart from the last argument, the function result) coincide,
+   * and whether the predicates are the same
+   */
   private def sameFunctionApp(a : Atom, b : Atom) =
     a.pred == b.pred &&
     ((0 until (a.length - 1)) forall { case i => a(i) == b(i) })
