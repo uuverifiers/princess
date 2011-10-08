@@ -375,19 +375,6 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                     elimInEqs.size == 2)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-                    /**
-                     * 10x + c - 1 >= 0
-                     * 10x + c <= 8
-                     * 
-                     * -10x - c + 8 >= 0
-                     * 
-                     * -10_0 - c + 8 + 1 = 0 => 10_0 + c = 9
-                     * -10_0 - c + 8 + 2 = 0 => 10_0 + c = 10
-                     * 
-                     * 10x + c - 1 + 1 = 0 => 10_0 + c = 0
-                     * 10x + c - 1 + 2 = 0 => 10_0 + c = -1
-                     */
-      
     if (numDivs > 0) {
       val varLC = c match {
         case c : ConstantTerm =>
