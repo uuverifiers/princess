@@ -45,7 +45,7 @@ case object EliminateFactsTask extends EagerTask {
     
     ////////////////////////////////////////////////////////////////////////////
     
-    if (newFacts == oldFacts) {
+    if (newFacts == oldFacts && eliminator.divJudgements.isEmpty) {
       // nothing has changed and the application of this task was unnecessary
       ptf.updateGoal(goal)
     } else {
@@ -69,7 +69,7 @@ case object EliminateFactsTask extends EagerTask {
       // simply by generating a task to add the new equations or inequalities
       
       // TODO: this check can probably be optimised
-      val newTasks =
+      val factTasks =
         if (newFacts.isFalse ||
             newFacts.arithConj.inEqs.equalityInfs.isTrue &&
             (newFacts.arithConj.inEqs.toSet subsetOf
@@ -79,7 +79,9 @@ case object EliminateFactsTask extends EagerTask {
           goal formulaTasks
             Conjunction.conj(newFacts.arithConj.inEqs, goal.order).negate
         }
-      eliminator.postProcessor(ptf.updateGoal(newFacts, newTasks,
+      val divTasks =
+        for (f <- eliminator.divJudgements; t <- goal formulaTasks f) yield t
+      eliminator.postProcessor(ptf.updateGoal(newFacts, factTasks ++ divTasks,
                                               collector.getCollection, goal))
     }
   }
@@ -97,6 +99,8 @@ private class Eliminator(oriFacts : Conjunction,
   
   var postProcessor : ProofTree => ProofTree = ((p) => p)
 
+  var divJudgements : List[Conjunction] = List()
+  
   protected def nonUniversalElimination(f : Conjunction) =
     postProcessor = postProcessor compose
       ((pt:ProofTree) => ptf.weaken(pt, goal definedSyms f, goal.vocabulary))
@@ -106,6 +110,9 @@ private class Eliminator(oriFacts : Conjunction,
     postProcessor = postProcessor compose
       ((pt:ProofTree) => ptf.eliminatedConstant(pt, eliminatedConstant,
                                                 witness, goal.vocabulary))
+
+  protected def addDivisibility(f : Conjunction) =
+    divJudgements = f :: divJudgements
 
   private val taskInfoConstants = goal.tasks.taskInfos.constants
   private val compoundFormulaConstants = goal.compoundFormulas.constants

@@ -56,8 +56,8 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
 
   /**
    * Transform a formula <code>EX (n*_0 + t = 0)</code> in the succedent into
-   * a conjunction
-   * <code>ALL (n*_0 + t + 1 != 0) /\ ALL (n*_0 + t + 2 != 0) /\ ...</code>
+   * a formula
+   * <code>!EX EX (n*_1 + t + _0 = 0 /\ _0 > 0 /\ _0 < n)</code>
    * in the succedent
    */
   private def splitDivisibility(goal : Goal,

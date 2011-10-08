@@ -31,7 +31,7 @@ import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.arithconj.{ArithConj, ModelFinder}
 import ap.terfor.preds.Predicate
 import ap.terfor.inequalities.InEqConj
-import ap.terfor.substitutions.Substitution
+import ap.terfor.substitutions.{Substitution, ConstantSubst, VariableShiftSubst}
 import ap.util.{Logic, Debug, Seqs, FilterIt}
 
 object ConjunctEliminator {
@@ -105,6 +105,12 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   protected def universalElimination(eliminatedSymbol : ConstantTerm,
                                      witness : (Substitution, TermOrder) => Substitution)
 
+  /**
+   * Called when a new divisibility judgement (not containing any
+   * eliminated/universal symbols) is introduced
+   */
+  protected def addDivisibility(f : Conjunction)
+  
   ////////////////////////////////////////////////////////////////////////////
   // Positive equations
     
@@ -249,7 +255,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   
   private def eliminableFunctionValue(c : Term) : Boolean = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ConjunctEliminator.AC, (universalSymbols contains c))
+    Debug.assertPre(ConjunctEliminator.AC, universalSymbols contains c)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (eliminableFunctionPreds.isEmpty) return false
@@ -296,6 +302,117 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     conj = conj.updatePredConj(remainingPredConj)(order)
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  // Check whether <code>c</code> only occurs in inequalities
+  // <code>n*c + t >= a & n*c + t < b</code> such that
+  // <code>b - a >= n - maxDivJudgements<code>. In this case,
+  // the two inequalities can be replaced with a conjunction
+  // <code>!EX (n*_0 + t = b) & !EX (n*_0 + t = b+1) & ...</code>
+  
+  private def eliminableDivInEqs(c : Term) : Option[(IdealInt, Boolean)] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ConjunctEliminator.AC, universalSymbols contains c)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    var firstLC : LinearCombination = null
+    var negFirstLC : LinearCombination = null
+    var diffBound : IdealInt = null
+    var res : IdealInt = null
+    var otherUniSyms : Boolean = false
+    
+    val lcIt = conj.arithConj.inEqs.iterator
+    while (lcIt.hasNext) {
+      val lc = lcIt.next
+      
+      if (occursIn(lc, c)) {
+        if (firstLC == null) {
+            
+          firstLC = lc
+          negFirstLC = -lc
+          diffBound = (lc get c).abs - 1
+          
+          // check whether the inequality contains other eliminated symbols
+          otherUniSyms = firstLC.termIterator exists {
+            case s => s != c && (universalSymbols contains s)
+          }
+          
+        } else if (res != null) {
+          
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          // then we have to be in a case where nothing can be eliminated
+          Debug.assertInt(ConjunctEliminator.AC,
+                          !(firstLC sameNonConstantTerms lc) &&
+                          !(negFirstLC sameNonConstantTerms lc))
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          return None
+          
+        } else {
+          
+          (lc constantDiff negFirstLC) match {
+            case None =>
+              return None
+            case Some(d) => {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              Debug.assertInt(ConjunctEliminator.AC, d.signum > 0)
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              res = (diffBound - d) max IdealInt.ZERO
+            }
+          }
+          
+        }
+      }
+    }
+    
+    if (res == null) None else Some(res, otherUniSyms)
+  }
+  
+  private def elimDivInEqs(c : Term, numDivs : Int,
+                           logger : ComputationLogger) : Unit = {
+    val elimInEqs = elimOnesidedInEqsU(c, logger)
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConjunctEliminator.AC,
+                    elimInEqs.size == 2)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+                    /**
+                     * 10x + c - 1 >= 0
+                     * 10x + c <= 8
+                     * 
+                     * -10x - c + 8 >= 0
+                     * 
+                     * -10_0 - c + 8 + 1 = 0 => 10_0 + c = 9
+                     * -10_0 - c + 8 + 2 = 0 => 10_0 + c = 10
+                     * 
+                     * 10x + c - 1 + 1 = 0 => 10_0 + c = 0
+                     * 10x + c - 1 + 2 = 0 => 10_0 + c = -1
+                     */
+      
+    if (numDivs > 0) {
+      val varLC = c match {
+        case c : ConstantTerm =>
+          ConstantSubst(c, VariableTerm(0), order)(
+          VariableShiftSubst(0, 1, order)(elimInEqs(0)))
+        case v@VariableTerm(ind) => {
+          val shifter = Array.fill(ind + 1)(1)
+          shifter(ind) = -ind
+          VariableShiftSubst(shifter, 1, order)(elimInEqs(0))
+        }
+      }
+      for (i <- 1 to numDivs)
+        addDivisibility(Conjunction.quantify(List(Quantifier.EX),
+                                             EquationConj(varLC + i, order),
+                                             order))
+    }
+                    
+    val eliminatedFor = ArithConj.conj(elimInEqs, order)
+    c match {
+      case c : ConstantTerm =>
+        universalElimination(c, new ModelFinder (eliminatedFor, c))
+      case _ : VariableTerm => // nothing
+    }
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
   // Determine best possible Fourier-Motzkin application
   
@@ -382,17 +499,24 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
 
       case (false, _, _, false, true) if (onesidedInEqsU(c))
           => {
-               val eliminatedFor = ArithConj.conj(Array(elimNegativeEqsU(c),
-                                                        elimOnesidedInEqsU(c, logger)),
-                                                  order)
-               c match {
-                 case c : ConstantTerm =>
-                   universalElimination(c, new ModelFinder (eliminatedFor, c))
-                 case _ : VariableTerm => // nothing
-               }
-             }
+        val eliminatedFor = ArithConj.conj(Array(elimNegativeEqsU(c),
+                                                 elimOnesidedInEqsU(c, logger)),
+                                           order)
+        c match {
+          case c : ConstantTerm =>
+            universalElimination(c, new ModelFinder (eliminatedFor, c))
+          case _ : VariableTerm => // nothing
+        }
+      }
     
-      case _ => // nothing
+      case (false, false, true, false, true) => eliminableDivInEqs(c) match {
+        case Some((d, otherUniSyms))
+          if (d.isZero || (!otherUniSyms && !logger.isLogging && d <= 1)) =>
+            elimDivInEqs(c, d.intValueSafe, logger)
+        case _ => // nothing
+      }
+    
+     case _ => // nothing
         
       }
     }

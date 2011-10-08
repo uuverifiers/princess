@@ -131,13 +131,19 @@ object ReduceWithConjunction {
         } else {
           val literals =
             Conjunction.conj(Array(newArithConj, newPredConj), order)
+          val eliminator =
+            new LiteralEliminator(literals, eliminableVars, order)
           val essentialLits = 
-            new LiteralEliminator(literals, eliminableVars, order).eliminate(
-                                                   ComputationLogger.NonLogger)
+            eliminator eliminate ComputationLogger.NonLogger
           
+          val negConjs = if (eliminator.divJudgements.isEmpty)
+              newNegConjs
+            else
+              NegatedConjunctions(newNegConjs ++ eliminator.divJudgements, order)
+            
           val newConj =
             Conjunction(quans, essentialLits.arithConj, essentialLits.predConj,
-                        newNegConjs, order)
+                        negConjs, order)
           
           if (newConj.quans.headOption == Some(Quantifier.ALL))
             // iterate because it might be possible to eliminate further
@@ -286,6 +292,11 @@ private class LiteralEliminator(literals : Conjunction,
                   witness : (Substitution, TermOrder) => Substitution) : Unit = {
     // nothing ... we do not need any witness information at this point
   }
+
+  protected def addDivisibility(f : Conjunction) =
+    divJudgements = f :: divJudgements
+
+  var divJudgements : List[Conjunction] = List()
 
   protected def eliminationCandidates(literals : Conjunction) : Iterator[Term] =
     uniVariables.iterator
