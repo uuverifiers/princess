@@ -74,7 +74,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
                          timeout : Int,
                          output : Boolean,
                          userDefStoppingCond : => Boolean,
-                         settings : List[(GlobalSettings, Boolean)]) extends Prover {
+                         settings : List[(GlobalSettings, Boolean, String)]) extends Prover {
 
   import ParallelFileProver._
   
@@ -83,7 +83,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   //////////////////////////////////////////////////////////////////////////////
   // Definition of the actors running the individual provers
   
-  private val proofActors = for (((s, complete), num) <- settings.zipWithIndex) yield actor {
+  private val proofActors = for (((s, complete, desc), num) <- settings.zipWithIndex) yield actor {
     
     class MessageOutputStream(stream : Int) extends java.io.OutputStream {
       
@@ -142,7 +142,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
       case SubProverResume(u) => {
         runUntil = u
-//        Console.err.println("spawning")
+        Console.err.println("Options: " + desc)
 
         try {
           val prover =
@@ -152,7 +152,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 //            Console.err.println("killed")
             mainActor ! SubProverKilled(num)
           } else {
-//            Console.err.println("finished")
+            Console.err.println("found result")
             mainActor ! SubProverFinished(num, prover.result)
           }
         } catch {
@@ -183,7 +183,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       var result : SubProverResult = null
       def unfinished = (result == null)
       
-      var runtime : Long = 0
+      var runtime : Long = num // just make sure that the provers start in the right order
       var lastStartTime : Long = 0
       
       def resume(nextDiff : Long) = {

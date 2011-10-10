@@ -175,18 +175,38 @@ object CmdlMain {
             val prover = if (Param.MULTI_STRATEGY(settings)) {
               val baseSettings = Param.INPUT_FORMAT.set(settings,
                                       determineInputFormat(filename, settings))
-              val s1 = Param.GENERATE_TOTALITY_AXIOMS.set(
-                       Param.TRIGGER_STRATEGY.set(baseSettings,
-                                       Param.TriggerStrategyOptions.Maximal),
-                                       false)
-              val s2 = Param.TRIGGER_STRATEGY.set(baseSettings,
-                                       Param.TriggerStrategyOptions.AllMaximal)
+              val s1 = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
+                s
+              }
+              val s2 = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
+                s
+              }
+              val s3 = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
+                s
+              }
                                        
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
                                      true,
                                      userDefStoppingCond,
-                                     List((s1, false), (s2, true)))
+                                     List((s1, true, "+reverseFunctionalityPropagation -tightFunctionScopes"),
+                                          (s2, false, "-genTotalityAxioms -tightFunctionScopes"),
+                                          (s3, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation")))
             } else {
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),
