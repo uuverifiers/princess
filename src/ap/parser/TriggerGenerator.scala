@@ -123,11 +123,21 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                   ctxt : Context[Int],
                   subres : Seq[(Option[ITerm], ListSet[(ITerm, Set[Int])], Set[Int])])
                  : (Option[ITerm], ListSet[(ITerm, Set[Int])], Set[Int]) = {
+      
+      // the union of all subtrigger sets
       val subTriggers = (ListSet.empty ++ (for ((_, ts, _) <- subres.iterator;
                                                 t <- ts.iterator) yield t))
-                        .asInstanceOf[ListSet[(ITerm, Set[Int])]]
+                          .asInstanceOf[ListSet[(ITerm, Set[Int])]]
+
+      // the set of all variables occurring in subterms
       lazy val allVariables =
         Set() ++ (for ((_, _, vars) <- subres.iterator; v <- vars.iterator) yield v)
+
+      // the number of subterms that contain variables
+      lazy val subTermVarNum = (0 /: subres) {
+        case (n, (_, _, vars)) if (!vars.isEmpty) => n + 1
+        case (n, _) => n
+      }
 
       val considerTerm =
         subres forall { case (Some(_), _, _) => true; case _ => false }
@@ -154,8 +164,14 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
               } else strategy match {
                 
                 case TriggerStrategy.AllMaximal =>
-                  // ignore the triggers from the subterms
-                  ListSet.empty + (shiftedTerm -> allVariables)
+                  // We choose the complete term as a trigger only if at least
+                  // two subterms contain variables
+                  if (subTriggers.isEmpty || subTermVarNum >= 2)
+                    // ignore the triggers from the subterms
+                    ListSet.empty + (shiftedTerm -> allVariables)
+                  else
+                    // ignore this new trigger
+                    subTriggers
                   
                 case TriggerStrategy.AllMinimal => {
                   // check whether the current term contains more variables than
@@ -177,11 +193,16 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                 }
                 
                 case TriggerStrategy.Maximal =>
-                  // consider all triggers but those that are smaller
-                  // in KBO than the new trigger
-                  (subTriggers filterNot {
-                     case (t, _) => iTermOrdering.lt(t, shiftedTerm)
-                   }) + (shiftedTerm -> allVariables)
+                  // We choose the complete term as a trigger only if at least
+                  // two subterms contain variables
+                  if (subTriggers.isEmpty || subTermVarNum >= 2)
+                    // consider all triggers but those that are smaller
+                    // in KBO than the new trigger
+                    (subTriggers filterNot {
+                       case (t, _) => iTermOrdering.lt(t, shiftedTerm)
+                     }) + (shiftedTerm -> allVariables)
+                  else
+                    subTriggers
               }
 
             // if we already have found all variables, we do not have to consider
@@ -317,7 +338,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                     if (allVars(vars))) yield List(t)).toList
             else
               multiTriggers
-
+              
+//          println(chosenTriggers)
           (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
         }
       }
