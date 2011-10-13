@@ -3,7 +3,7 @@
 PRI=../../princess
 
 
-TESTS="bitvectorArith3.pri bitvectorArith4.pri omegaBug.pri"
+TESTS="bitvectorArith3.pri bitvectorArith4.pri omegaBug.pri splitting.pri"
 
 $PRI "$@" $TESTS 2>&1 | grep -v "^("
 

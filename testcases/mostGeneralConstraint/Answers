@@ -22,13 +22,21 @@ Formula is valid, resulting most-general constraint:
 
 Concrete witness:
 
+Loading splitting.pri ...
+Preprocessing ...
+Proving ...
+
+Formula is valid, resulting most-general constraint:
+
+Concrete witness:
+
 Loading closingConstraintBug.pri ...
 Preprocessing ...
 Proving ...
 
 Formula is valid, resulting most-general constraint:
-(! (-1*I1 + 7 >= 0 & I1 + -1 >= 0 & ! (O1 + -1*I1 != 0 & O1 != 0) & ! (O1 + -1*I1 != 0 & I1 + -1 != 0) & ! (O1 != 0 & -1*I1 + 1 >= 0) & ! (O1 != 0 & I1 + -8 >= 0)))
+(! (! (O1 + -1*I1 = 0 & ! (-1*I1 + 7 >= 0 & ! (I1 != 0 & -1*I1 + 1 >= 0))) & ! (O1 = 0 & I1 + -1 != 0) & ! (O1 + -1*I1 != 0 & O1 != 0)))
 
 Concrete witness:
-(I1 + -8 = 0)
+(O1 + -8 = 0 & I1 + -8 = 0)
 

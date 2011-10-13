@@ -18,7 +18,7 @@
 ./rundir onlyUnitResolution "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=all
 ./rundir onlyUnitResolution "" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=all
 
-./rundir onlyClausification "" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir onlyClausification "" -logo +assert -timeout=60000 -clausifier=simple +posUnitResolution -generateTriggers=none
 
 ./rundir mostGeneralConstraint "" -logo +assert -timeout=30000 +posUnitResolution +mostGeneralConstraint -generateTriggers=none
 

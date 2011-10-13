@@ -126,19 +126,15 @@ object BetaFormulaTask {
   private def introduceLemma(cutLiteral : Conjunction,
                              otherConjuncts : Conjunction,
                              goal : Goal) : Boolean =
-    if (cutLiteral.isLiteral) {
+    cutLiteral.isLiteral && {
       if (cutLiteral.predConj.isTrue)
         // the cut-literal is an arithmetic literal
-        !otherConjuncts.predicates.isEmpty  ||
-        (if (cutLiteral.arithConj.negativeEqs.isEmpty)
-           !Seqs.disjoint(goal.eliminatedConstants, cutLiteral.constants)
-         else
-           cutLiteral.constants subsetOf goal.eliminatedConstants)
+        !otherConjuncts.predicates.isEmpty ||
+        cutLiteral.arithConj.negativeEqs.isEmpty ||
+        (cutLiteral.constants subsetOf goal.eliminatedConstants)
       else
         // the cut-literal is a predicate literal
         cutLiteral.constants subsetOf goal.eliminatedConstants
-    } else {
-      false
     }
   
   /**
