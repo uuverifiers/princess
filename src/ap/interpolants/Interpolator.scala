@@ -539,7 +539,7 @@ object Interpolator
           
         val newInterLHS = leftLinComb - newSymb
         
-        val partialInter = PartialInterpolant.eqLeft(leftLinComb - newSymb)
+        val partialInter = PartialInterpolant.eqLeft(newInterLHS)
         
         val newContext = iContext.setOrder(extendedOrder)
                                  .addLeft(CertEquation(newInterLHS))

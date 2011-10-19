@@ -386,7 +386,7 @@ object LinearCombination {
                               lc2.coeff0 * coeff2, lc2.term0,
                               lc1.constant * coeff1 + lc2.constant * coeff2,
                               order)
-        else if (c0 > 0)
+        else if (c0 < 0)
           createFromFlatTerms(lc2.coeff0 * coeff2, lc2.term0,
                               lc1.coeff0 * coeff1, lc1.term0,
                               lc1.constant * coeff1 + lc2.constant * coeff2,
