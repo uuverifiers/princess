@@ -1,6 +1,6 @@
 #!/bin/sh
 
-BASEDIR=`dirname $0`
+BASEDIR=`dirname $(readlink -e $0)`
 EXTLIBSDIR=$BASEDIR/extlibs
 
 export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
