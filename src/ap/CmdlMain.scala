@@ -175,6 +175,8 @@ object CmdlMain {
             val prover = if (Param.MULTI_STRATEGY(settings)) {
               val baseSettings = Param.INPUT_FORMAT.set(settings,
                                       determineInputFormat(filename, settings))
+                                      
+              /*
               val s1 = {
                 var s = baseSettings
                 s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
@@ -199,14 +201,57 @@ object CmdlMain {
                 s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
                 s
               }
-                                       
+              
+              val strategies =
+                List((s1, true, "+reverseFunctionalityPropagation -tightFunctionScopes"),
+                     (s2, false, "-genTotalityAxioms -tightFunctionScopes"),
+                     (s3, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"))
+              */
+                                      
+              val S = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
+                s
+              }
+              val J = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
+                s
+              }
+              val P = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
+                s
+              }
+              val Y = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
+                s
+              }
+              
+              val strategies =
+                List((S, false, "-genTotalityAxioms -tightFunctionScopes"),
+                     (J, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"),
+                     (P, true, "-triggerStrategy=allMaximal -tightFunctionScopes"),
+                     (Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes"))
+
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
                                      true,
                                      userDefStoppingCond,
-                                     List((s1, true, "+reverseFunctionalityPropagation -tightFunctionScopes"),
-                                          (s2, false, "-genTotalityAxioms -tightFunctionScopes"),
-                                          (s3, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation")))
+                                     strategies)
             } else {
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),
