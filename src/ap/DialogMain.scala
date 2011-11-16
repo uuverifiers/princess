@@ -35,7 +35,12 @@ import java.awt.event.{ActionEvent, ActionListener, MouseAdapter,
 
 object DialogMain {
   
-  def main(args : Array[String]) : Unit = new InputDialog
+  def main(args : Array[String]) : Unit = {
+    // since some of the actors in the dialog class use blocking file operations,
+    // we have to disable the actor-fork-join stuff to prevent deadlocks
+    sys.props += ("actors.enableForkJoin" -> "false")
+    new InputDialog
+  }
   
 }
 
