@@ -24,6 +24,7 @@ package ap.proof.goal
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.Vocabulary
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.ConstantTerm
 import ap.parameters.Param
 import ap.util.Debug
 
@@ -31,10 +32,26 @@ private object MatchFunctions {
   
   def isIrrelevantInstance(instance : Conjunction,
                            voc : Vocabulary,
+                           // the constants occurring in all formulae that were
+                           // used to generate this instance; this might be
+                           // fewer/different constants than occurring in the
+                           // (reduced) instance, due to rewriting
+                           originatingConstants : Set[ConstantTerm],
                            reversePropagation : Boolean) =
     reversePropagation && 
-    (!(AddFactsTask isCoveredFormula instance) &&
-     voc.constantFreedom.isShielded(instance, voc.bindingContext))
+    !(AddFactsTask isCoveredFormula instance) && {
+      val constantFreedom =
+        if (instance.constants subsetOf originatingConstants)
+          voc.constantFreedom
+        else
+          // we assume the worst (non-free status) for constants that occur
+          // in the reduced instance, but do not occur in any of the formulae
+          // from which the instance was derived. otherwise, we might rule
+          // out too many instances as irrelevant, but not reconsider them
+          // at a later point
+          voc.constantFreedom -- (instance.constants -- originatingConstants)
+      constantFreedom.isShielded(instance, voc.bindingContext)
+    }
   
   def updateMatcher(goal : Goal,
                     ptf : ProofTreeFactory,
@@ -67,7 +84,7 @@ private object MatchFunctions {
         reducedMatcher.updateFacts(goal.facts.predConj,
                                    goal.mayAlias,
                                    goal.reduceWithFacts,
-                                   (isIrrelevantInstance(_, voc, reverseProp)),
+                                   isIrrelevantInstance(_, voc, _, reverseProp),
                                    reverseProp,
                                    collector, order)
 

@@ -45,7 +45,7 @@ object IterativeClauseMatcher {
                              mayAlias : (LinearCombination,
                                          LinearCombination) => AliasStatus.Value,
                              contextReducer : ReduceWithConjunction,
-                             isNotRedundant : Conjunction => Boolean,
+                             isNotRedundant : (Conjunction, Set[ConstantTerm]) => Boolean,
                              allowConditionalInstances : Boolean,
                              logger : ComputationLogger,
                              order : TermOrder) : Iterator[Conjunction] = {
@@ -62,7 +62,9 @@ object IterativeClauseMatcher {
      * remembers whether a previous alias check has introduced some condition
      * that could only be discharged using the free-constant optimisation
      */
-    def exec(program : List[MatchStatement], conditional : Boolean) : Unit =
+    def exec(program : List[MatchStatement],
+             originatingConstants : Set[ConstantTerm],
+             conditional : Boolean) : Unit =
       program match {
         
         case List() => // nothing
@@ -78,12 +80,12 @@ object IterativeClauseMatcher {
           
           for (a <- atoms) {
             selectedLits(selLitsNum) = a
-            exec(progTail, conditional)
+            exec(progTail, originatingConstants ++ a.constants, conditional)
           }
           for (a <- if (negative) additionalNegLits else additionalPosLits)
             if (a.pred == pred) {
               selectedLits(selLitsNum) = a
-              exec(progTail, conditional)
+              exec(progTail, originatingConstants ++ a.constants, conditional)
             }
           
           selectedLits reduceToSize selLitsNum
@@ -92,10 +94,10 @@ object IterativeClauseMatcher {
         case CheckMayAlias(litNrA, argNrA, litNrB, argNrB) :: progTail =>
           mayAlias(selectedLits(litNrA)(argNrA), selectedLits(litNrB)(argNrB)) match {
             case AliasStatus.Must | AliasStatus.May =>
-              exec(progTail, conditional)
+              exec(progTail, originatingConstants, conditional)
             case AliasStatus.CannotDueToFreedom
                 if (allowConditionalInstances && !conditional) =>
-              exec(progTail, true)
+              exec(progTail, originatingConstants, true)
             case _ =>
               // nothing
           }
@@ -103,10 +105,10 @@ object IterativeClauseMatcher {
         case CheckMayAliasUnary(litNr, argNr, lc) :: progTail =>
           mayAlias(selectedLits(litNr)(argNr), lc) match {
             case AliasStatus.Must | AliasStatus.May =>
-              exec(progTail, conditional)
+              exec(progTail, originatingConstants, conditional)
             case AliasStatus.CannotDueToFreedom
                 if (allowConditionalInstances && !conditional) =>
-              exec(progTail, true)
+              exec(progTail, originatingConstants, true)
             case _ =>
               // nothing
           }
@@ -127,7 +129,8 @@ object IterativeClauseMatcher {
             arithConj.positiveEqs.iterator,
             order)
           
-          if (!newEqs.isFalse)
+          if (!newEqs.isFalse) {
+            val allOriConstants = originatingConstants ++ originalClause.constants
             if (logger.isLogging) {
               // If we are logging, we avoid simplifications (which would not
               // be captured in the proof) and rather just substitute terms for
@@ -151,7 +154,7 @@ object IterativeClauseMatcher {
               //-END-ASSERTION-/////////////////////////////////////////////////
 
               val instance = originalClause.instantiate(instanceTerms)(order)
-              if (isNotRedundant(contextReducer(instance))) {
+              if (isNotRedundant(contextReducer(instance), allOriConstants)) {
                 logger.groundInstantiateQuantifier(originalClause.negate,
                                                    instanceTerms, instance.negate, order)
                 instances += instance
@@ -162,11 +165,12 @@ object IterativeClauseMatcher {
               val reducedInstance = 
                 contextReducer(Conjunction(quans, newAC, remainingLits,
                                            negConjs, order))
-              if (isNotRedundant(reducedInstance))
+              if (isNotRedundant(reducedInstance, allOriConstants))
                 instances += reducedInstance
             }
+          }
           
-          exec(progTail, conditional)
+          exec(progTail, originatingConstants, conditional)
         }
         
         case UnifyLiterals(litNrA, litNrB) :: progTail => {
@@ -184,14 +188,14 @@ object IterativeClauseMatcher {
                 if (negatedStartLit) (litNrB, litNrA) else (litNrA, litNrB)
               
               val instance = Conjunction.conj(eqs, order)
-              if (isNotRedundant(contextReducer(instance))) {
+              if (isNotRedundant(contextReducer(instance), originatingConstants)) {
                 logger.unifyPredicates(selectedLits(leftNr), selectedLits(rightNr),
                                        eqs, order)
                 instances += instance
               }
             } else {
               val reducedInstance = contextReducer(Conjunction.conj(eqs, order))
-              if (isNotRedundant(reducedInstance))
+              if (isNotRedundant(reducedInstance, originatingConstants))
             	instances += reducedInstance
             }
           }
@@ -204,14 +208,14 @@ object IterativeClauseMatcher {
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
           for (prog <- options)
-            exec(prog, conditional)
+            exec(prog, originatingConstants, conditional)
         }
       }
     
     ////////////////////////////////////////////////////////////////////////////
     
     selectedLits += startLit
-    exec(program, false)
+    exec(program, startLit.constants, false)
     
     instances.iterator
   }
@@ -463,7 +467,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                   contextReducer : ReduceWithConjunction,
                   // predicate to distinguish the relevant matches
                   // (e.g., to filter out shielded formulae)
-                  isIrrelevantMatch : (Conjunction) => Boolean,
+                  isIrrelevantMatch : (Conjunction, Set[ConstantTerm]) => Boolean,
                   allowConditionalInstances : Boolean,
                   logger : ComputationLogger,
                   order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =
@@ -476,9 +480,10 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       val additionalPosLits, additionalNegLits = new ArrayBuffer[Atom]
       
       var newGeneratedInstances = generatedInstances
-      def isNotRedundant(reducedInstance : Conjunction) : Boolean =
-        if (isIrrelevantMatch(reducedInstance) ||
-            (newGeneratedInstances contains reducedInstance)) {
+      def isNotRedundant(reducedInstance : Conjunction,
+                         originatingConstants : Set[ConstantTerm]) : Boolean =
+        if ((newGeneratedInstances contains reducedInstance) ||
+            isIrrelevantMatch(reducedInstance, originatingConstants)) {
           false
         } else {
           newGeneratedInstances = newGeneratedInstances + reducedInstance
@@ -513,7 +518,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                     contextReducer : ReduceWithConjunction,
                     // predicate to distinguish the relevant matches
                     // (e.g., to filter out shielded formulae)
-                    isIrrelevantMatch : (Conjunction) => Boolean,
+                    isIrrelevantMatch : (Conjunction, Set[ConstantTerm]) => Boolean,
                     allowConditionalInstances : Boolean,
                     logger : ComputationLogger,
                     order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =

@@ -423,7 +423,7 @@ object ModelSearchProver {
           // genuine counterexample
 
           extractModel
-              
+
         case res@Right(_) => res
       }
 
@@ -525,3 +525,23 @@ private case class WitnessTree(val subtree : ProofTree,
   
   def newConstantFreedomForSubtree(cf : ConstantFreedom) : ConstantFreedom = cf
 }
+
+/*                           
+object TreeLogger {
+  
+  private var lines : List[String] = List()
+  
+  def += (l : String) : Unit = (lines = l :: lines)
+  
+  def enterScope[A](comp : => A) : A = {
+    val currentLen = lines.size
+    try { comp }
+    finally {
+      lines = lines drop (lines.size - currentLen)
+    }
+  }
+  
+  def print = for (s <- lines.reverse) println(s) 
+  
+}
+*/                     

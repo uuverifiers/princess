@@ -26,3 +26,7 @@ $PRI "$@" $TESTS
 TESTS="cryptarithm.pri cryptarithm4.pri"
 
 $PRI "$@" $TESTS 2>&1 | grep -v "^("
+
+# Special settings for this testcase
+
+$PRI "$@" -genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes ricart-agrawala7.smt2

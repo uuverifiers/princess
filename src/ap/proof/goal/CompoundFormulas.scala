@@ -97,7 +97,8 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
     // handle qf-clauses
 
     def illegalQFClause(c : Conjunction) =
-      !Seqs.disjoint(c.constants, goal.eliminatedConstants) &&
+      (!Seqs.disjoint(c.constants, goal.eliminatedConstants) ||
+       !Conjunction.collectQuantifiers(c).isEmpty) &&
       !cf.isShielded(c, goal.bindingContext)
     
     // handle matched clauses: rematch literals and clauses that contain

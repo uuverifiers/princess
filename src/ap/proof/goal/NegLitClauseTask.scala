@@ -78,7 +78,7 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
       oldMatcher.updateClauses(newClauses,
                                goal.mayAlias,
                                goal.reduceWithFacts,
-                               (MatchFunctions.isIrrelevantInstance(_, voc, reverseProp)),
+                               (MatchFunctions.isIrrelevantInstance(_, voc, _, reverseProp)),
                                reverseProp,
                                collector, order)
     

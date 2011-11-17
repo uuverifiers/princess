@@ -9,3 +9,4 @@ $PRI "$@" -posUnitResolution tarskiGeometry2.pri
 $PRI "$@" -timeout=30000 -clausifier=none +posUnitResolution group0.pri
 $PRI "$@" -timeout=30000 +posUnitResolution -constructProofs=always counterExampleBug.pri
 $PRI "$@" -timeout=30000 -constructProofs=always omega_problem__031.smt.pri | grep -v "^Certificate" | grep -v "^Assumed"
+$PRI "$@" -generateTriggers=total -genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes ricart-agrawala7.smt2
