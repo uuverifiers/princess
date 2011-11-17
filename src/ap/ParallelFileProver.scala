@@ -83,7 +83,11 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   //////////////////////////////////////////////////////////////////////////////
   // Definition of the actors running the individual provers
   
+  private val enabledAssertions = Debug.enabledAssertions.value
+  
   private val proofActors = for (((s, complete, desc), num) <- settings.zipWithIndex) yield actor {
+    
+    Debug.enabledAssertions.value = enabledAssertions
     
     class MessageOutputStream(stream : Int) extends java.io.OutputStream {
       
