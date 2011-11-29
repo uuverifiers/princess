@@ -722,14 +722,16 @@ object Interpolator
       case QuantifierInference(qFormula, consts, result, _) => {
         implicit val order = iContext.order
        
-        val newContext= (
-          if(iContext isFromLeft qFormula) iContext addLeft result
-          else if(iContext isFromRight qFormula) iContext addRight result
-          else throw new Error("The formula " + qFormula + "has to come from left or right")
+        val newContext = (
+          if (iContext isFromLeft qFormula)
+            iContext addLeft result
+          else if (iContext isFromRight qFormula)
+            iContext addRight result
+          else
+            throw new Error("The formula " + qFormula + "has to come from left or right")
           ).addConstants(consts)
 
-        val totalInter =
-          processBranchInferences(remInferences, child, newContext)
+        val totalInter = processBranchInferences(remInferences, child, newContext)
          
         if(iContext isFromLeft qFormula)
           forall(consts.filter(iContext.rightLocalConstants contains _), totalInter)
@@ -740,6 +742,20 @@ object Interpolator
       
       //////////////////////////////////////////////////////////////////////////
 
+      case DivRightInference(divFormula, result, _) => {
+        val newContext =
+          if (iContext isFromLeft divFormula)
+            iContext addLeft result
+          else if (iContext isFromRight divFormula)
+            iContext addRight result
+          else
+            throw new Error("The formula " + divFormula + "has to come from left or right")
+        
+        processBranchInferences(remInferences, child, newContext)
+      }
+      
+      //////////////////////////////////////////////////////////////////////////
+      
       case _ => throw new Error("Unsuported Inference :" + inference)
      
     }
