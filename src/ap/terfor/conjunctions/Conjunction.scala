@@ -23,6 +23,7 @@ package ap.terfor.conjunctions;
 
 import scala.collection.mutable.ArrayBuffer
 
+import ap.basetypes.IdealInt
 import ap.terfor._
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
@@ -30,6 +31,7 @@ import ap.terfor.preds.{PredConj, Atom, Predicate}
 import ap.terfor.substitutions.{IdentitySubst, VariableShiftSubst, Substitution,
                                 ConstantSubst, VariableSubst}
 import ap.terfor.arithconj.ArithConj
+import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Logic, Seqs, PlainRange}
 
 object Conjunction {
@@ -559,6 +561,75 @@ class Conjunction private (val quans : Seq[Quantifier],
   }
     
   //////////////////////////////////////////////////////////////////////////////
+  // Tests to recognise guarded quantifiers
+  // Such quantifiers can be handled very efficiently in proofs, since
+  // Skolemisation can be applied, regardless of the sign and kind of the
+  // quantifier
+  
+  /**
+   * "Division quantifiers" of the form
+   *    <code> EX ( n*_0 + t >= 0 & -n*_0 - t - m >= 0 & phi ) </code>
+   * where <code> 0 <= m < n </code>.
+   * 
+   * The result of this test is a triple
+   * <code>(n*_0 + t, -n*_0 - t - m, phi)</code>,
+   * or <code>None</code> if the formula is not of the guarded quantifier shape
+   */
+  def isDivisionFormula
+      : Option[(LinearCombination, LinearCombination, Conjunction)] = quans match {
+    case Seq(Quantifier.EX) =>
+      for ((lowerBound, upperBound, remInEqs) <- isDivisionFormulaHelp) yield {
+        val phi = Conjunction(List(),
+                              arithConj.updateInEqs(remInEqs)(order),
+                              predConj, negatedConjs, order)
+        (lowerBound, upperBound, phi)
+      }
+    case _ => None
+  }
+  
+  def isDivisionFormulaHelp
+      : Option[(LinearCombination, LinearCombination, InEqConj)] = {
+    val inEqs = arithConj.inEqs
+    val v0 = VariableTerm(0)
+    
+    var i = 0
+    while (i < inEqs.size && inEqs(i).leadingTerm == v0) {
+      val lc = inEqs(i)
+      val n = lc.leadingCoeff
+      if (n.signum > 0) {
+        val negLC = -lc
+        (inEqs findLowerBound negLC) match {
+          case Some(negDistance) => {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(Conjunction.AC, negDistance.signum < 0)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            val distance = -negDistance
+            if (distance < n) {
+              // we found the guard, now take apart the formula
+              // into the guard expressions and the body
+              val (guards, otherInEqs) = inEqs partition {
+                case `lc` => true
+                case l if (l sameNonConstantTerms negLC) => true
+                case _ => false
+              }
+              
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              Debug.assertInt(Conjunction.AC, guards.size == 2 && guards(0) == lc)
+              //-END-ASSERTION-/////////////////////////////////////////////////
+
+              return Some(lc, guards(1),
+                          inEqs.updateGeqZeroSubset(otherInEqs)(order))
+            }
+          }
+          case _ => // nothing
+        }
+      }
+    }
+    
+    None
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
     
   def negate : Conjunction =
     Conjunction(List(), ArithConj.TRUE, PredConj.TRUE,
@@ -619,7 +690,7 @@ class Conjunction private (val quans : Seq[Quantifier],
    */
   def updatePositiveEqs(newEqs : EquationConj)(implicit newOrder : TermOrder)
                        : Conjunction =
-    updateArithConj(arithConj.updatePositiveEqs(newEqs))
+    updateArithConj(arithConj updatePositiveEqs newEqs)
 
   /**
    * Update the negative equations of this conjunction (without changing anything
@@ -627,14 +698,14 @@ class Conjunction private (val quans : Seq[Quantifier],
    */
   def updateNegativeEqs(newEqs : NegEquationConj)(implicit newOrder : TermOrder)
                        : Conjunction =
-    updateArithConj(arithConj.updateNegativeEqs(newEqs))
+    updateArithConj(arithConj updateNegativeEqs newEqs)
 
   /**
    * Update the inequalities of this conjunction (without changing anything
    * else apart from the <code>TermOrder</code>) 
    */
   def updateInEqs(newEqs : InEqConj)(implicit newOrder : TermOrder) : Conjunction =
-    updateArithConj(arithConj.updateInEqs(newEqs))
+    updateArithConj(arithConj updateInEqs newEqs)
 
   /**
    * Update the inequalities of this conjunction (without changing anything

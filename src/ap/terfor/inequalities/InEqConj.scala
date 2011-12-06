@@ -361,6 +361,10 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       updateGeqZero(newGeqZero, logger)
   }
 
+  def updateGeqZeroSubset(newGeqZero : Iterable[LinearCombination])
+                         (implicit newOrder : TermOrder) : InEqConj =
+    updateGeqZeroSubset(newGeqZero, ComputationLogger.NonLogger)(newOrder)
+
   def updateGeqZero(newGeqZero : Iterable[LinearCombination])
                    (implicit newOrder : TermOrder) : InEqConj =
     updateGeqZero(newGeqZero, ComputationLogger.NonLogger)(newOrder)
