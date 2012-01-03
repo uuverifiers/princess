@@ -38,7 +38,8 @@ object CmdlMain {
     println("_  ____/_  /   _  / _  / / / /__ /  __/(__  )_(__  )")
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
-    println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic (2012-01-03)")
+    println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
+    println("(release 2012-01-03)")
     println
     println("(c) Philipp Rümmer and Angelo Brillout, 2009-2012")
     println("Free software under GNU General Public License (GPL).")
