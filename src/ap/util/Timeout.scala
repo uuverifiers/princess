@@ -44,6 +44,26 @@ object Timeout {
     checker.withValue(c)(comp)
   
   /**
+   * Run some computation for at most <code>millis</code> milliseconds. If a
+   * timeout occurs, do <code>timeoutComp</code> instead.
+   */
+  def withTimeoutMillis[A](millis : Long)(comp: => A)(timeoutComp: => A) : A = {
+    val timeBefore = System.currentTimeMillis
+    val stoppingCond = () => {
+      if (System.currentTimeMillis - timeBefore > millis)
+        raise
+    }
+
+    withChecker(stoppingCond) {
+      catchTimeout{
+        comp
+      } {
+        case _ => timeoutComp
+      }
+    }
+  }
+
+  /**
    * Apply a conversion function to the argument of a possible raised timeout.
    * The idea is that the timeout argument should describe the partial
    * (unfinished) results that had been computed before the timeout
