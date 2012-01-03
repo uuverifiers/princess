@@ -28,7 +28,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{Predicate, Atom}
-import ap.util.{Debug, Logic, Seqs, PriorityQueueWithIterators, FilterIt}
+import ap.util.{Debug, Logic, Seqs, PriorityQueueWithIterators, FilterIt, Timeout}
 
 object InEqConj {
   
@@ -38,10 +38,13 @@ object InEqConj {
    * When computing the inferences for a given set of inequalities, throttle
    * the number of inferences that are stored for each leading term as soon as
    * <code>INEQ_INFS_THRESHOLD</code> has been reached, which is then restricted
-   * to <code>THROTTLED_INF_NUM</code>
+   * to <code>THROTTLED_INF_NUM</code>. Once the hard limit
+   * <code>INF_STOP_THRESHOLD</code> is reached for a particular leading term,
+   * generation of inferences for that term is stopped altogether.
    */
   val INF_THROTTLE_THRESHOLD = 200
   val THROTTLED_INF_NUM = 10
+  val INF_STOP_THRESHOLD = 10000
   
   /**
    * Create an inequality conjunction from an arbitrary set of
@@ -54,7 +57,7 @@ object InEqConj {
     else
     try {
       val c = new FMInfsComputer (INF_THROTTLE_THRESHOLD, THROTTLED_INF_NUM,
-                                  logger, order)
+                                  INF_STOP_THRESHOLD, logger, order)
       for (lc <- lhss) c.addGeqTodo(lc)
       c.compute
       val eqs = EquationConj(c.equalityInfs.iterator, logger, order)
@@ -109,7 +112,7 @@ object InEqConj {
     Formula.conj(conjs, TRUE, (nonTrivialConjs:IndexedSeq[InEqConj]) => {
       try {
         val c = new FMInfsComputer (INF_THROTTLE_THRESHOLD, THROTTLED_INF_NUM,
-                                    logger, order)
+                                    INF_STOP_THRESHOLD, logger, order)
         for (conj <- nonTrivialConjs) {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertPre(AC, conj isSortedBy order)
@@ -297,7 +300,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       // Then we try to compute more inferences up to the given limit
       // TODO: use a more efficient elimination order
       val c = new FMInfsComputer (infLimit, InEqConj.THROTTLED_INF_NUM,
-                                  ComputationLogger.NonLogger, order)
+                                  10*infLimit, ComputationLogger.NonLogger, order)
       for (lc <- geqZero) c.addGeqTodo(lc)
       c.compute
       false
@@ -531,6 +534,7 @@ private object UNSATISFIABLE_CONJUNCTION_EXCEPTION extends Exception
 
 private class FMInfsComputer(infThrottleThreshold : Int,
                              throttledInfNum : Int,
+                             infStopThreshold : Int,
                              logger : ComputationLogger,
                              order : TermOrder) {
 
@@ -713,6 +717,12 @@ private class FMInfsComputer(infThrottleThreshold : Int,
           logger.antiSymmetry(geqLC, leqLC, order)
           equalityInfs += geqLC
         }
+        
+        if (infsLocalTodoCount > infStopThreshold)
+          return
+
+        if (infsTodoCount % 1000 == 0 & infsLocalTodoCount > 0)
+          Timeout.check
       }
     }
   
