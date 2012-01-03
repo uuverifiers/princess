@@ -378,7 +378,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     if (numDivs > 0) {
       val varLC = c match {
         case c : ConstantTerm =>
-          ConstantSubst(c, VariableTerm(0), order)(
+          ConstantSubst(c, VariableTerm._0, order)(
           VariableShiftSubst(0, 1, order)(elimInEqs(0)))
         case v@VariableTerm(ind) => {
           val shifter = Array.fill(ind + 1)(1)

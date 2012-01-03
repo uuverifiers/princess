@@ -27,7 +27,7 @@ import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, IExpression, IBinJunctor}
-import ap.util.{Debug, Seqs}
+import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
@@ -373,7 +373,11 @@ object CmdlMain {
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Current constraint:")
-                  println("" + tree.closingConstraint)
+                  Timeout.withTimeoutMillis(1000) {
+                    println("" + tree.closingConstraint)
+                  }{
+                    println("(timeout)")
+                  }
                 }
                 if (Param.PRINT_TREE(settings)) {
                   println

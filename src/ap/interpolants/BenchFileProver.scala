@@ -241,21 +241,8 @@ class BenchFileProver(filename : String,
                    iFormulas.iterator zip formulas.iterator)
             yield (name -> f))
   
-  private def withTimeout[A](comp: => A)(timeoutComp: => A) : A = {
-    val timeBefore = System.currentTimeMillis
-    val stoppingCond = () => {
-      if (System.currentTimeMillis - timeBefore > timeout)
-        Timeout.raise
-    }
-
-    Timeout.withChecker(stoppingCond) {
-      Timeout.catchTimeout{
-        comp
-      } {
-        case _ => timeoutComp
-      }
-    }
-  }
+  private def withTimeout[A](comp: => A)(timeoutComp: => A) : A = 
+    Timeout.withTimeoutMillis(timeout)(comp)(timeoutComp)
   
   protected def findCounterModelTimeout(f : Seq[Conjunction], o : TermOrder) =
   {

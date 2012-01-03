@@ -480,7 +480,7 @@ class Conjunction private (val quans : Seq[Quantifier],
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Conjunction.AC,
          res == (!arithConj.positiveEqs.isEmpty &&
-                 (arithConj.positiveEqs(0).variables contains VariableTerm(0)) && 
+                 (arithConj.positiveEqs(0).variables contains VariableTerm._0) && 
                  this == Conjunction.quantify(List(Quantifier.EX),
                                               EquationConj(arithConj.positiveEqs(0),
                                                            order),
@@ -520,7 +520,7 @@ class Conjunction private (val quans : Seq[Quantifier],
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Conjunction.AC,
          res == (!arithConj.negativeEqs.isEmpty &&
-                 (arithConj.negativeEqs(0).variables contains VariableTerm(0)) && 
+                 (arithConj.negativeEqs(0).variables contains VariableTerm._0) && 
                  this == Conjunction.quantify(List(Quantifier.ALL),
                                               NegEquationConj(arithConj.negativeEqs(0),
                                                               order),
@@ -576,24 +576,28 @@ class Conjunction private (val quans : Seq[Quantifier],
    * or <code>None</code> if the formula is not of the guarded quantifier shape
    */
   def isDivisionFormula
-      : Option[(LinearCombination, LinearCombination, Conjunction)] = quans match {
-    case Seq(Quantifier.EX) =>
+      : Option[(LinearCombination, LinearCombination, Conjunction)] =
+    if (quans.size == 1) isQuantifiedDivisionFormula else None
+  
+  def isQuantifiedDivisionFormula
+      : Option[(LinearCombination, LinearCombination, Conjunction)] =
+    if (!quans.isEmpty && quans.head == Quantifier.EX) {
       for ((lowerBound, upperBound, remInEqs) <- isDivisionFormulaHelp) yield {
         val phi = Conjunction(List(),
                               arithConj.updateInEqs(remInEqs)(order),
                               predConj, negatedConjs, order)
         (lowerBound, upperBound, phi)
       }
-    case _ => None
-  }
+    } else {
+      None
+    }
   
   def isDivisionFormulaHelp
       : Option[(LinearCombination, LinearCombination, InEqConj)] = {
     val inEqs = arithConj.inEqs
-    val v0 = VariableTerm(0)
     
     var i = 0
-    while (i < inEqs.size && inEqs(i).leadingTerm == v0) {
+    while (i < inEqs.size && inEqs(i).leadingTerm == VariableTerm._0) {
       val lc = inEqs(i)
       val n = lc.leadingCoeff
       if (n.signum > 0) {
@@ -630,7 +634,56 @@ class Conjunction private (val quans : Seq[Quantifier],
   }
   
   //////////////////////////////////////////////////////////////////////////////
+  
+  
+  /**
+   * "Exact division quantifiers" of the form
+   *    <code> EX ( n*_0 + t = 0 & phi) </code>
+   * where <code> 0 < n </code>.
+   * 
+   * The result of this test is a pair
+   * <code>(n*_0 + t, phi)</code>,
+   * or <code>None</code> if the formula is not of the guarded quantifier shape
+   */
+  def isExactDivisionFormula
+      : Option[(LinearCombination, Conjunction)] =
+    if (quans.size == 1) isQuantifiedExactDivisionFormula else None
+  
+  def isQuantifiedExactDivisionFormula
+      : Option[(LinearCombination, Conjunction)] =
+    if (!quans.isEmpty && quans.head == Quantifier.EX) {
+      for ((eq, remEqs) <- isExactDivisionFormulaHelp) yield {
+        val phi = Conjunction(List(),
+                              arithConj.updatePositiveEqs(remEqs)(order),
+                              predConj, negatedConjs, order)
+        (eq, phi)
+      }
+    } else {
+      None
+    }
+  
+  def isExactDivisionFormulaHelp : Option[(LinearCombination, EquationConj)] = {
+    val eqs = arithConj.positiveEqs
     
+    if (!eqs.isEmpty && eqs.head.leadingTerm == VariableTerm._0) {
+      val lc = eqs.head
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(Conjunction.AC, lc.leadingCoeff.signum > 0)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      val otherEqs = eqs.updateEqsSubset(eqs.tail)(order)
+      
+      Some(lc, otherEqs)
+    } else {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(Conjunction.AC, !(eqs.variables contains VariableTerm._0))
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      
+      None
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   def negate : Conjunction =
     Conjunction(List(), ArithConj.TRUE, PredConj.TRUE,
                 NegatedConjunctions(this, order), order)

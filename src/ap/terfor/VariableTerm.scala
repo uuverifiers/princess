@@ -25,6 +25,8 @@ import ap.util.Debug
 
 object VariableTerm {
   val AC = Debug.AC_VARIABLES
+  
+  val _0 = VariableTerm(0)
 }
 
 case class VariableTerm(index : Int) extends Term {
