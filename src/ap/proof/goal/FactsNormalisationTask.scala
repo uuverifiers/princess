@@ -259,7 +259,7 @@ private class GoalColumnSolver(eqs : EquationConj,
     
     // the negated divisibility judgement has to be added disjunctively
     // to the closing constraint
-    val var0 = LinearCombination(VariableTerm(0), order)
+    val var0 = LinearCombination(VariableTerm._0, order)
     val lcMod = LinearCombination.sum(leadingCoeff, var0,
                                       -leadingCoeff, symDefinition,
                                       IdealInt.ONE, lc,

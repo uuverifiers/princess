@@ -274,18 +274,18 @@ object Interpolator
               // We rely on the existing quantifier elimination, which often is more
               // efficient than just expanding to a disjunction
         
-              val v = VariableTerm(0)
-              val const2v = ConstantSubst(constTerm, v, o)
+              import VariableTerm._0
+              val const2v = ConstantSubst(constTerm, _0, o)
               
               val matrix =
-                v >= 0 & v <= k &
+                _0 >= 0 & _0 <= k &
                 const2v(totalIneqInter) &
                 (if (den > 1)
-                   (v < k ==> const2v(defaultEqInter))
+                   (_0 < k ==> const2v(defaultEqInter))
                  else
                    Conjunction.TRUE) &
                 conj(for ((inter, i) <- eqInters.iterator.zipWithIndex)
-                       yield ((v <= den * i) ==> const2v(inter)))
+                       yield ((_0 <= den * i) ==> const2v(inter)))
               
               val result = exists(matrix)
               
@@ -505,10 +505,10 @@ object Interpolator
             // We rely on the existing quantifier elimination, which often is
             // more efficient than just expanding to a disjunction
           
-            val v = VariableTerm(0)
-            exists(v >= 0 & v < roundingCases & {
-                     val I = ConstantSubst(constTerm, v, o)(childInter)
-                     val C = exSimplify(constToQuantify, newPI.linComb === v)
+            import VariableTerm._0
+            exists(_0 >= 0 & _0 < roundingCases & {
+                     val I = ConstantSubst(constTerm, _0, o)(childInter)
+                     val C = exSimplify(constToQuantify, newPI.linComb === _0)
                      I & C
                    }) | ConstantSubst(constTerm, roundingCases, o)(childInter)
         
@@ -814,7 +814,7 @@ object Interpolator
         val shifter = VariableShiftSubst.upShifter[Term](1, o)
         
         exists(
-          LinearCombination(List((gcd, VariableTerm(0)),
+          LinearCombination(List((gcd, VariableTerm._0),
                                  (IdealInt.ONE, shifter(remainingTerms))),
                             literal.order) === 0)
       } else {

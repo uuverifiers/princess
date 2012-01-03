@@ -65,7 +65,7 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
     val lc = formula.arithConj.positiveEqs(0)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(DivisibilityTask.AC,
-                    !lc.isEmpty && lc.leadingTerm == VariableTerm(0))
+                    !lc.isEmpty && lc.leadingTerm == VariableTerm._0)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val coeff : IdealInt = lc.leadingCoeff
