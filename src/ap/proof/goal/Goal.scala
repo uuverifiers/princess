@@ -148,13 +148,13 @@ object Goal {
     } else formula.quans.last match {
       case Quantifier.ALL => List(new AllQuantifierTask(formula, age))
       case Quantifier.EX =>
-	if (formula.isDivisibility)
-	  List(new DivisibilityTask(formula, age))
+	    if (DivisibilityTask isCoveredFormula formula)
+	      List(new DivisibilityTask(formula, age))
         else if (Param.POS_UNIT_RESOLUTION(settings) &&
                  (NegLitClauseTask isCoveredFormula formula))
-	  List(new NegLitClauseTask(formula, age))
-	else
-	  List(new ExQuantifierTask(formula, age))
+	      List(new NegLitClauseTask(formula, age))
+	    else
+	      List(new ExQuantifierTask(formula, age))
     }
 
 }

@@ -38,7 +38,13 @@ import scala.collection.mutable.ArrayBuffer
 object DivisibilityTask {
   
   private val AC = Debug.AC_COMPLEX_FORMULAS_TASK
-  
+
+  /**
+   * Return <code>true</code> if <code>f</code> is a formula that can be handled
+   * by this task
+   */
+  def isCoveredFormula(f : Conjunction) : Boolean = f.isGuardedQuantifierFormula
+
 }
 
 class DivisibilityTask(_formula : Conjunction, _age : Int)
@@ -113,7 +119,8 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
    * Return <code>true</code> if <code>f</code> is a formula that can be handled
    * by this task
    */
-  def isCoveredFormula(f : Conjunction) : Boolean = f.isDivisibility
+  def isCoveredFormula(f : Conjunction) : Boolean =
+    DivisibilityTask isCoveredFormula f
 
   val name : String = "DivisibilityFor"
 

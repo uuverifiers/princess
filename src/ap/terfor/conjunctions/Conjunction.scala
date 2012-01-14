@@ -470,6 +470,9 @@ class Conjunction private (val quans : Seq[Quantifier],
 
   //////////////////////////////////////////////////////////////////////////////
     
+  def isGuardedQuantifierFormula : Boolean =
+    isNonDivisibility || isDivisionFormula.isDefined || isExactDivisionFormula.isDefined
+     
   /**
    * Return whether <code>this</code> is a divisibility judgement
    * <code>EX (n*_0 + t = 0)</code>
@@ -634,7 +637,6 @@ class Conjunction private (val quans : Seq[Quantifier],
   }
   
   //////////////////////////////////////////////////////////////////////////////
-  
   
   /**
    * "Exact division quantifiers" of the form
