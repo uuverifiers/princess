@@ -22,7 +22,7 @@
 package ap.proof
 
 import ap.terfor.{Formula, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.proof.goal._
 import ap.proof.tree._
 import ap.util.{Debug, Seqs, Timeout}
@@ -84,6 +84,12 @@ object QuantifierElimProver {
       case _ => false
     }
 
+  private def reduceConstraint(c : Conjunction, order : TermOrder) =
+    if (c.isTrue || c.isFalse)
+      c
+    else
+      ReduceWithConjunction(Conjunction.TRUE, order)(c)
+  
   private def expandProof(tree : ProofTree,
                           // if the following formula can be reduced to true,
                           // proving on this branch can be stopped
@@ -114,8 +120,9 @@ object QuantifierElimProver {
         }
 
       case WeakenTree(disjunct, subtree) =>
-        Conjunction.disj(Array(expandProof(subtree, pruningFor, depth), disjunct),
-                         tree.order)
+        reduceConstraint(
+          Conjunction.disj(Array(expandProof(subtree, pruningFor, depth), disjunct),
+                           tree.order), tree.order)
 
       case QuantifiedTree(Quantifier.ALL, consts, subtree) => {
         // quantifiers can be ignored, because it is assumed that eliminated
@@ -134,7 +141,8 @@ object QuantifierElimProver {
         val resAndPruningFor =
           Conjunction.disj(Array(pruningFor, leftRes.negate), tree.order)
         val rightRes = expandProof(tree.right, resAndPruningFor, depth + 1)
-        Conjunction.conj(Array(leftRes, rightRes), tree.order)
+        reduceConstraint(Conjunction.conj(Array(leftRes, rightRes), tree.order),
+                         tree.order)
       }
       
     }
