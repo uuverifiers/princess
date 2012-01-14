@@ -64,7 +64,7 @@ object Interpolator
     implicit val o = certificate.order
     val res =
       if (elimQuantifiers)
-        PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
+        ReduceWithConjunction(Conjunction.TRUE, o)(PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers))
       else
     	ReduceWithConjunction(Conjunction.TRUE, o)(resWithQuantifiers)
 

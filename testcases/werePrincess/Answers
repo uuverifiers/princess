@@ -22,8 +22,8 @@ VALID
 Found proof (size 13), simplifying (15)
 VALID
 (| (! (>= (lit -1) (sym x) ) ) (! (>= (sym x) (lit -4) ) ) ) 
-(| (! (>= (lit -1) (sym y) ) ) (| (& (>= (sym y) (lit -1) ) (divides 2 (+ (lit -1) (sym y) ) ) ) (& (>= (sym y) (lit -1) ) (divides 2 (+ (lit 1) (sym y) ) ) ) ) ) 
-(| (! (>= (lit 12) (sym z) ) ) (| (& (>= (sym z) (lit 12) ) (divides 2 (+ (lit -14) (sym z) ) ) ) (& (>= (sym z) (lit 12) ) (divides 2 (+ (lit 2) (sym z) ) ) ) ) ) 
+(>= (sym y) (lit -1) ) 
+(>= (sym z) (lit 12) ) 
 .
 Found proof (size 27), simplifying (27)
 VALID
@@ -46,8 +46,8 @@ VALID
 (true) 
 (true) 
 (true) 
-(| (= (sym sym2) (lit 0)) (& (= (sym sym2) (sym sym1) ) (| (= (sym sym1) (lit 3) ) (| (| (| (| (& (= (sym sym1) (lit 3) ) (& (divides 4 (+ (lit -1) (* (lit -1) (sym sym1) ) ) ) (divides 2 (+ (lit 1) (sym sym1) ) ) ) ) (& (divides 2 (+ (lit -4) (* (lit -1) (sym sym1) ) ) ) (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 2) ) ) (& (= (sym sym1) (lit 4) ) (divides 4 (+ (lit 4) (sym sym1) ) ) ) ) ) ) (& (divides 2 (+ (lit -1) (* (lit -1) (sym sym1) ) ) ) (| (= (sym sym1) (lit 3) ) (| (& (= (sym sym1) (lit 3) ) (divides 4 (+ (lit 1) (sym sym1) ) ) ) (& (= (sym sym1) (lit 1) ) (divides 4 (+ (lit 3) (sym sym1) ) ) ) ) ) ) ) (& (divides 2 (+ (lit 2) (sym sym1) ) ) (| (= (sym sym1) (lit 2) ) (& (= (sym sym1) (lit 4) ) (divides 4 (* (lit -1) (sym sym1) ) ) ) ) ) ) (& (divides 2 (+ (lit 1) (sym sym1) ) ) (| (& (= (sym sym1) (lit 3) ) (divides 4 (+ (lit -1) (* (lit -1) (sym sym1) ) ) ) ) (& (= (sym sym1) (lit 1) ) (divides 4 (+ (lit 1) (* (lit -1) (sym sym1) ) ) ) ) ) ) ) ) ) ) 
-(& (= (sym sym2) (sym sym1) ) (| (= (sym sym1) (lit 3) ) (| (| (| (| (& (= (sym sym1) (lit 3) ) (& (divides 4 (+ (lit -1) (* (lit -1) (sym sym1) ) ) ) (divides 2 (+ (lit 1) (sym sym1) ) ) ) ) (& (divides 2 (+ (lit -4) (* (lit -1) (sym sym1) ) ) ) (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 2) ) ) (& (= (sym sym1) (lit 4) ) (divides 4 (+ (lit 4) (sym sym1) ) ) ) ) ) ) (& (divides 2 (+ (lit -1) (* (lit -1) (sym sym1) ) ) ) (| (= (sym sym1) (lit 3) ) (| (& (= (sym sym1) (lit 3) ) (divides 4 (+ (lit 1) (sym sym1) ) ) ) (& (= (sym sym1) (lit 1) ) (divides 4 (+ (lit 3) (sym sym1) ) ) ) ) ) ) ) (& (divides 2 (+ (lit 2) (sym sym1) ) ) (| (= (sym sym1) (lit 2) ) (& (= (sym sym1) (lit 4) ) (divides 4 (* (lit -1) (sym sym1) ) ) ) ) ) ) (& (divides 2 (+ (lit 1) (sym sym1) ) ) (| (& (= (sym sym1) (lit 3) ) (divides 4 (+ (lit -1) (* (lit -1) (sym sym1) ) ) ) ) (& (= (sym sym1) (lit 1) ) (divides 4 (+ (lit 1) (* (lit -1) (sym sym1) ) ) ) ) ) ) ) ) ) 
+(| (= (sym sym2) (lit 0)) (& (= (sym sym2) (sym sym1) ) (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 1) ) ) (| (& (divides 2 (+ (lit -4) (* (lit -1) (sym sym1) ) ) ) (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 2) ) ) ) (& (divides 2 (+ (lit 2) (sym sym1) ) ) (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 2) ) ) ) ) ) ) ) 
+(& (= (sym sym2) (sym sym1) ) (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 1) ) ) (| (& (divides 2 (+ (lit -4) (* (lit -1) (sym sym1) ) ) ) (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 2) ) ) ) (& (divides 2 (+ (lit 2) (sym sym1) ) ) (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 2) ) ) ) ) ) ) 
 (true) 
 .
 Found proof (size 52), simplifying (51)
