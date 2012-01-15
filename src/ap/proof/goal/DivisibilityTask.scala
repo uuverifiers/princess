@@ -43,7 +43,8 @@ object DivisibilityTask {
    * Return <code>true</code> if <code>f</code> is a formula that can be handled
    * by this task
    */
-  def isCoveredFormula(f : Conjunction) : Boolean = f.isGuardedQuantifierFormula
+  def isCoveredFormula(f : Conjunction) : Boolean =
+    f.isExactDivisionFormula.isDefined || f.isDivisionFormula.isDefined
 
 }
 
@@ -61,45 +62,81 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
     }
 
   /**
-   * Transform a formula <code>EX (n*_0 + t = 0)</code> in the succedent into
-   * a formula
-   * <code>!EX EX (n*_1 + t + _0 = 0 /\ _0 > 0 /\ _0 < n)</code>
-   * in the succedent
+   * Transform a formula with guarded quantifier into an equivalent formula
+   * in which quantifiers can be handled through Skolemisation
    */
   private def splitDivisibility(goal : Goal,
                                 ptf : ProofTreeFactory) : ProofTree = {
-    val lc = formula.arithConj.positiveEqs(0)
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(DivisibilityTask.AC,
-                    !lc.isEmpty && lc.leadingTerm == VariableTerm._0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    val coeff : IdealInt = lc.leadingCoeff
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(DivisibilityTask.AC, coeff.signum > 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
     implicit val order = goal.order
+    
+    val newFormula =
+      (for ((lc, phi) <- formula.isExactDivisionFormula) yield {
+         // then we translate a formula <code> EX ( n*_0 + t = 0 & phi) </code>
+         // into
+         // <code> ALL ( !(n*_0 + t = 0 > 0 /\ n*_0 + t = 0 < n) &
+         //              (n*_0 + t = 0 -> phi)) </code>
 
-    val y = LinearCombination(VariableTerm(1), order)
-    val newLC = lc + y
-    
-    val yCond =
-      InEqConj(Array(y + IdealInt.MINUS_ONE,
-                     y.scaleAndAdd(IdealInt.MINUS_ONE, coeff - IdealInt.ONE)), order)
-    val newEq = EquationConj(newLC, order)
-    
-    val newMatrix = Conjunction.conj(Array(yCond, newEq), order)
-    val newFormula = Conjunction.quantify(Array(Quantifier.EX, Quantifier.EX),
-                                          newMatrix, order).negate
-    
+         val coeff : IdealInt = lc.leadingCoeff
+
+         //-BEGIN-ASSERTION-////////////////////////////////////////////////////
+         Debug.assertInt(DivisibilityTask.AC, coeff.signum > 0)
+         //-END-ASSERTION-//////////////////////////////////////////////////////
+
+         val negGuardIneqs =
+           InEqConj(Array(lc + IdealInt.MINUS_ONE,
+                          lc.scaleAndAdd(IdealInt.MINUS_ONE, coeff - IdealInt.ONE)),
+                    order)
+         val negGuard =
+           Conjunction.negate(negGuardIneqs, order)
+      
+         val implication =
+           Conjunction.implies(EquationConj(lc, order), phi, order)
+         
+         Conjunction.quantify(List(Quantifier.ALL),
+           Conjunction.conj(Array(negGuard, implication), order), order)
+      
+       }).orElse(
+               
+       for ((lowerBound, upperBound, phi) <- formula.isDivisionFormula) yield {
+         // then we translate a formula
+         // <code> EX ( n*_0 + t >= 0 & -n*_0 - t + m >= 0 & phi ) </code>
+         // into
+         // <code> !EX (n*_0 + t - m - 1 >= 0 & -n*_0 - t + n - 1 >= 0) &
+         //        ALL (n*_0 + t >= 0 & -n*_0 - t + m >= 0 -> phi) </code>
+       
+         val coeff : IdealInt = lowerBound.leadingCoeff
+         val diff = ((-upperBound) constantDiff lowerBound).get
+       
+         //-BEGIN-ASSERTION-////////////////////////////////////////////////////
+         Debug.assertInt(DivisibilityTask.AC,
+                         coeff.signum > 0 && diff.signum > 0 && diff < coeff)
+         //-END-ASSERTION-//////////////////////////////////////////////////////
+       
+         val negGuardIneqs =
+           InEqConj(Array(upperBound.scaleAndAdd(IdealInt.MINUS_ONE,
+                                                 IdealInt.MINUS_ONE),
+                          lowerBound.scaleAndAdd(IdealInt.MINUS_ONE,
+                                                 coeff - IdealInt.ONE)), order)
+         val negGuard =
+           Conjunction.negate(negGuardIneqs, order)
+       
+         val implication =
+           Conjunction.implies(InEqConj(Array(lowerBound, upperBound), order),
+                               phi, order)
+      
+         Conjunction.quantify(List(Quantifier.ALL),
+           Conjunction.conj(Array(negGuard, implication), order), order)
+
+       }).get
+     
+    val redNewFormula = goal reduceWithFacts newFormula
+       
     val collector = goal.getInferenceCollector
-    if (collector.isLogging)
-      collector.divRight(formula.negate, newFormula.negate, order)
-    
+    // TODO: log proof steps
+      
     ptf.updateGoal(goal.formulaTasks(newFormula), collector.getCollection, goal)
   }
-    
+  
   /**
    * Determine whether this formula requires real splitting, or whether it can
    * be passed to the constraint unchanged

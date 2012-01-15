@@ -354,8 +354,7 @@ object IterativeClauseMatcher {
     // ... the expression underneath the quantifiers has to be a literal
     // or a disjunction ...
     (lastUniQuantifier == 0 ||
-     (lastUniQuantifier == 1 &&
-      (c.isQuantifiedDivisibility || c.isQuantifiedNonDivisibility)) ||
+     (lastUniQuantifier == 1 && c.isQuantifiedGuardedQuantifierFormula) ||
      ((c.size == 1 && c.predConj.isLiteral) || !negated) && {
        // ... and all bound variables occur in matched predicate literals,
        // or can be eliminated through equations

@@ -69,6 +69,7 @@ class TestRandomProving(n : String) extends APTestCase(n) {
 /*            println
             println(formula) */
 
+        println(formula)
       val tree = prover(formula, to)
       tree.closingConstraint
 

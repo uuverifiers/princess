@@ -320,14 +320,13 @@ object Conjunction {
   /**
    * Determine the quantifiers that occur in a formula. Because there are 
    * different points of view, a function can be given as parameter that
-   * determines whether (quantified) divisibility/indivisibility statements are
-   * counted as quantifiers
+   * determines whether guarded quantifiers are counted as quantifiers
    */
   def collectQuantifiers(f : Formula, divCollector : (Conjunction) => Set[Quantifier])
                                                   : Set[Quantifier] = f match {
     case f : Conjunction =>
-      if (f.isQuantifiedDivisibility || f.isQuantifiedNonDivisibility)
-        divCollector(f)
+      if (f.isQuantifiedGuardedQuantifierFormula)
+        divCollector(f) ++ collectQuantifiers(f.negatedConjs, divCollector)
       else
         Set() ++ f.quans ++ collectQuantifiers(f.negatedConjs, divCollector)
     case conjs : NegatedConjunctions => {
@@ -342,11 +341,21 @@ object Conjunction {
   }
 
   /**
-   * Default: divisibility is not counted (but we count immediately preceeding
-   * quantifiers)
+   * Default: guarded quantifiers are counted, but not divisibility statements
+   * (but we count immediately preceeding quantifiers)
    */
   def collectQuantifiers(f : Formula) : Set[Quantifier] =
-    collectQuantifiers(f, (conj) => Set() ++ conj.quans.drop(1))
+    collectQuantifiers(f,
+      (conj) => if (conj.isQuantifiedDivisibility || conj.isQuantifiedNonDivisibility)
+                  conj.quans.drop(1).toSet
+                else
+                  conj.quans.toSet)
+
+  /**
+   * Collect quantifiers, but ignore guarded quantifiers
+   */
+  def collectUnguardedQuantifiers(f : Formula) : Set[Quantifier] =
+    collectQuantifiers(f, (conj) => conj.quans.drop(1).toSet)
 
   //////////////////////////////////////////////////////////////////////////////
    
@@ -471,7 +480,14 @@ class Conjunction private (val quans : Seq[Quantifier],
   //////////////////////////////////////////////////////////////////////////////
     
   def isGuardedQuantifierFormula : Boolean =
-    isNonDivisibility || isDivisionFormula.isDefined || isExactDivisionFormula.isDefined
+    isNonDivisibility ||
+    isDivisionFormula.isDefined ||
+    isExactDivisionFormula.isDefined
+     
+  def isQuantifiedGuardedQuantifierFormula : Boolean =
+    isQuantifiedNonDivisibility ||
+    isQuantifiedDivisionFormula.isDefined ||
+    isQuantifiedExactDivisionFormula.isDefined
      
   /**
    * Return whether <code>this</code> is a divisibility judgement
@@ -571,11 +587,11 @@ class Conjunction private (val quans : Seq[Quantifier],
   
   /**
    * "Division quantifiers" of the form
-   *    <code> EX ( n*_0 + t >= 0 & -n*_0 - t - m >= 0 & phi ) </code>
-   * where <code> 0 <= m < n </code>.
+   *    <code> EX ( n*_0 + t >= 0 & -n*_0 - t + m >= 0 & phi ) </code>
+   * where <code> 0 < m < n </code>.
    * 
    * The result of this test is a triple
-   * <code>(n*_0 + t, -n*_0 - t - m, phi)</code>,
+   * <code>(n*_0 + t, -n*_0 - t + m, phi)</code>,
    * or <code>None</code> if the formula is not of the guarded quantifier shape
    */
   def isDivisionFormula
@@ -595,7 +611,7 @@ class Conjunction private (val quans : Seq[Quantifier],
       None
     }
   
-  def isDivisionFormulaHelp
+  private def isDivisionFormulaHelp
       : Option[(LinearCombination, LinearCombination, InEqConj)] = {
     val inEqs = arithConj.inEqs
     
@@ -664,7 +680,8 @@ class Conjunction private (val quans : Seq[Quantifier],
       None
     }
   
-  def isExactDivisionFormulaHelp : Option[(LinearCombination, EquationConj)] = {
+  private def isExactDivisionFormulaHelp
+      : Option[(LinearCombination, EquationConj)] = {
     val eqs = arithConj.positiveEqs
     
     if (!eqs.isEmpty && eqs.head.leadingTerm == VariableTerm._0) {

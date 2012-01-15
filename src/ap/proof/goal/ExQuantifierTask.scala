@@ -35,7 +35,7 @@ object ExQuantifierTask {
    * by this task
    */
   def isCoveredFormula(f : Conjunction) : Boolean =
-    f.quans.lastOption == Some(Quantifier.EX) && !f.isDivisibility
+    f.quans.lastOption == Some(Quantifier.EX) && !f.isGuardedQuantifierFormula
 
 }
 

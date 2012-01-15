@@ -142,7 +142,7 @@ class IntelliFileProver(reader : java.io.Reader,
       Set() ++ (for (f <- formulas.iterator; c <- f.constants.iterator) yield c)
     val quantifiers =
       Set() ++ (for (f <- formulas.iterator;
-                     q <- Conjunction.collectQuantifiers(f).iterator) yield q)
+                     q <- Conjunction.collectUnguardedQuantifiers(f).iterator) yield q)
     val isFullyMatchable =
       formulas forall (IterativeClauseMatcher isMatchableRec _)
 
