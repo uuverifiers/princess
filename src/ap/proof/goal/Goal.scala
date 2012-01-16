@@ -183,7 +183,10 @@ class Goal private (val facts : Conjunction,
                    compoundFormulas.qfClauses.forall((c) =>
                        constantFreedom.isShielded(c, bindingContext) ||
                        Seqs.disjoint(eliminatedConstants, c.constants) &&
-                       Conjunction.collectQuantifiers(c).isEmpty) &&
+                       (if (Param.GUARDED_QUANTIFIERS(settings))
+                          Conjunction.collectUnguardedQuantifiers(c)
+                        else
+                          Conjunction.collectQuantifiers(c)).isEmpty) &&
                    // there should not be any free variables (use constants
                    // instead)
                    facts.variables.isEmpty &&

@@ -81,6 +81,13 @@ object Param {
     val defau : Boolean = true
   }
   
+  // allow guarded quantifiers in constraints or interpolants, instead of just
+  // divisibility judgements
+  case object GUARDED_QUANTIFIERS extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
+  }
+  
   case object TIMEOUT extends Param {
     type Value = Int
     val defau : Int = Int.MaxValue

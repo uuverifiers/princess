@@ -136,14 +136,9 @@ object ReduceWithConjunction {
           val essentialLits = 
             eliminator eliminate ComputationLogger.NonLogger
           
-          val negConjs = if (eliminator.divJudgements.isEmpty)
-              newNegConjs
-            else
-              NegatedConjunctions(newNegConjs ++ eliminator.divJudgements, order)
-            
           val newConj =
             Conjunction(quans, essentialLits.arithConj, essentialLits.predConj,
-                        negConjs, order)
+                        newNegConjs, order)
           
           if (newConj.quans.headOption == Some(Quantifier.ALL))
             // iterate because it might be possible to eliminate further
@@ -283,7 +278,7 @@ private object FALSE_EXCEPTION extends Exception
 private class LiteralEliminator(literals : Conjunction,
                                 uniVariables : Set[Term],
                                 order : TermOrder)
-              extends ConjunctEliminator(literals, uniVariables, Set(), order) {
+              extends ConjunctEliminator(literals, uniVariables, Set(), false, order) {
   
   protected def nonUniversalElimination(f : Conjunction) =
     throw new UnsupportedOperationException
@@ -294,9 +289,7 @@ private class LiteralEliminator(literals : Conjunction,
   }
 
   protected def addDivisibility(f : Conjunction) =
-    divJudgements = f :: divJudgements
-
-  var divJudgements : List[Conjunction] = List()
+    throw new UnsupportedOperationException
 
   protected def eliminationCandidates(literals : Conjunction) : Iterator[Term] =
     uniVariables.iterator

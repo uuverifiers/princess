@@ -588,7 +588,7 @@ class Conjunction private (val quans : Seq[Quantifier],
   /**
    * "Division quantifiers" of the form
    *    <code> EX ( n*_0 + t >= 0 & -n*_0 - t + m >= 0 & phi ) </code>
-   * where <code> 0 < m < n </code>.
+   * where <code> 0 <= m < n </code>.
    * 
    * The result of this test is a triple
    * <code>(n*_0 + t, -n*_0 - t + m, phi)</code>,
@@ -624,7 +624,7 @@ class Conjunction private (val quans : Seq[Quantifier],
         (inEqs findLowerBound negLC) match {
           case Some(negDistance) => {
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(Conjunction.AC, negDistance.signum < 0)
+            Debug.assertInt(Conjunction.AC, negDistance.signum <= 0)
             //-END-ASSERTION-///////////////////////////////////////////////////
             val distance = -negDistance
             if (distance < n) {
@@ -637,16 +637,18 @@ class Conjunction private (val quans : Seq[Quantifier],
               }
               
               //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              Debug.assertInt(Conjunction.AC, guards.size == 2 && guards(0) == lc)
+              Debug.assertInt(Conjunction.AC, guards.size == 2)
               //-END-ASSERTION-/////////////////////////////////////////////////
 
-              return Some(lc, guards(1),
+              return Some(lc, if (guards(0) == lc) guards(1) else guards(0),
                           inEqs.updateGeqZeroSubset(otherInEqs)(order))
             }
           }
           case _ => // nothing
         }
       }
+      
+      i = i + 1
     }
     
     None

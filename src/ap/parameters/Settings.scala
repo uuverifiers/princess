@@ -74,6 +74,8 @@ object GlobalSettings {
           Param.MOST_GENERAL_CONSTRAINT.set(settings, value)
         case Opt("dnfConstraints", value) =>
           Param.DNF_CONSTRAINTS.set(settings, value)
+        case Opt("guardedQuantifiers", value) =>
+          Param.GUARDED_QUANTIFIERS.set(settings, value)
         case ValueOpt("timeout", IntVal(value)) =>
           Param.TIMEOUT.set(settings, value)
         case Opt("posUnitResolution", value) =>
@@ -140,6 +142,7 @@ object GlobalSettings {
          Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
+         Param.GUARDED_QUANTIFIERS,
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
@@ -160,7 +163,8 @@ object GoalSettings {
                        Param.FUNCTIONAL_PREDICATES,
                        Param.FULL_SPLITTING, Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
-                       Param.REVERSE_FUNCTIONALITY_PROPAGATION)
+                       Param.REVERSE_FUNCTIONALITY_PROPAGATION,
+                       Param.GUARDED_QUANTIFIERS)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

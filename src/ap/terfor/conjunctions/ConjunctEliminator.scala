@@ -52,6 +52,10 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                                   // be eliminated from the e-graph if they are
                                   // not referred to from anywhere else
                                   eliminableFunctionPreds : Set[Predicate],
+                                  // simplify conjunctions of inequalities by
+                                  // turning them into divisibility constraints,
+                                  // if possible
+                                  synDivisibilities : Boolean,
                                   order : TermOrder) {
   
   private var conj = oriConj
@@ -498,7 +502,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     
       case (false, false, true, false, true) => eliminableDivInEqs(c) match {
         case Some((d, otherUniSyms))
-          if (d.isZero || (!otherUniSyms && !logger.isLogging && d <= 1)) =>
+          if (d.isZero ||
+              (synDivisibilities && !otherUniSyms && !logger.isLogging && d <= 1)) =>
             elimDivInEqs(c, d.intValueSafe, logger)
         case _ => // nothing
       }

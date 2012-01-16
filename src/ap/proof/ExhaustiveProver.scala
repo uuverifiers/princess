@@ -50,7 +50,6 @@ object ExhaustiveProver {
         // if there are no clauses, matching is trivial
         !goal.compoundFormulas.lazyQuantifiedClauses.clauses.isTrue
       case task : BetaFormulaTask => !task.addToQFClauses
-      case task : DivisibilityTask => task.splittingNecessary(goal)
       case OmegaTask => OmegaTask.splittingNecessary(goal)
       case _ => true
   }

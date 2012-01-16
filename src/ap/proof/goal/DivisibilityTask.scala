@@ -54,7 +54,8 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
   val priority : Int = -5000 + age
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
-    if (!Seqs.disjoint(goal.eliminatedConstants, formula.constants)) {
+    if (!formula.predicates.isEmpty ||
+        !Seqs.disjoint(goal.eliminatedConstants, formula.constants)) {
       splitDivisibility(goal, ptf)
     } else {
       // we just add the formula as a clause to the goal
@@ -136,14 +137,6 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
       
     ptf.updateGoal(goal.formulaTasks(newFormula), collector.getCollection, goal)
   }
-  
-  /**
-   * Determine whether this formula requires real splitting, or whether it can
-   * be passed to the constraint unchanged
-   */
-  def splittingNecessary(goal : Goal) : Boolean =
-    !Seqs.disjoint(goal.eliminatedConstants, formula.constants) &&
-    formula.isProperDivisibility
   
   /*
    * Create a new <code>FormulaTask</code> by updating the value of
