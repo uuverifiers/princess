@@ -520,14 +520,16 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
 
   //////////////////////////////////////////////////////////////////////////////
   
+  private val optionToolTipLocation = new Point (0, -640)
+
   leftPanel add Box.createRigidArea(new Dimension (8, 0))
   private val optionLabel = new JLabel("Options: ") {
-    override def getToolTipLocation(e : MouseEvent) = new Point (0, -600)
+    override def getToolTipLocation(e : MouseEvent) = optionToolTipLocation
   }
   leftPanel.add(optionLabel)
   
   val optionField = new JTextField {
-    override def getToolTipLocation(e : MouseEvent) = new Point (0, -600)
+    override def getToolTipLocation(e : MouseEvent) = optionToolTipLocation
   }
   controlPanel.add(optionField, BorderLayout.CENTER)
   
