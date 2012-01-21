@@ -23,7 +23,7 @@ package ap.proof.goal
 
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.Vocabulary
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.ConstantTerm
 import ap.parameters.Param
 import ap.util.Debug
@@ -60,8 +60,6 @@ private object MatchFunctions {
     val collector = goal.getInferenceCollector
     val oldMatcher = goal.compoundFormulas quantifierClauses eager
 
-    val reducerObj : Conjunction => Conjunction = goal.reduceWithFacts.apply _
-
     // first check whether any of the clauses has to be updated
     val (removedClauses, reducedMatcher) =
       if (collector.isLogging) {
@@ -69,10 +67,18 @@ private object MatchFunctions {
         // that can be removed
 
         def clauseReducer(c : Conjunction) =
-          if (reducerObj(c).isFalse) Conjunction.FALSE else c
+          if (goal.reduceWithFacts(c).isFalse) Conjunction.FALSE else c
       
-        oldMatcher.reduceClauses(clauseReducer _, reducerObj, order)
+        // cached instances are only simplified using equational facts
+        // (otherwise, we might prevent generation of genuine instances
+        // later on)
+        
+        val instanceReducer = ReduceWithConjunction(
+          Conjunction.conj(goal.facts.arithConj.positiveEqs, order), order)
+          
+        oldMatcher.reduceClauses(clauseReducer _, instanceReducer.apply _, order)
       } else {
+        val reducerObj : Conjunction => Conjunction = goal.reduceWithFacts.apply _
         oldMatcher.reduceClauses(reducerObj, reducerObj, order)
       }
 
