@@ -247,14 +247,16 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
   private def selectCutLiteral(conj : Conjunction, goal : Goal)
                                               : (Conjunction, Conjunction) = {
     val weights = Param.SYMBOL_WEIGHTS(goal.settings)
-    if (conj.predConj.isTrue) {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(BetaFormulaTask.AC, !conj.arithConj.isTrue)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+    if (!conj.arithConj.isTrue &&
+        !(conj.predConj.positiveLits exists (_.isEmpty)) &&
+        !(conj.predConj.negativeLits exists (_.isEmpty))) {
       val (sel, rem) =
         selectCutLiteral(conj.arithConj, goal.eliminatedConstants, weights)
       (Conjunction.conj(sel, conj.order), conj.updateArithConj(rem)(conj.order))      
     } else {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(BetaFormulaTask.AC, !conj.predConj.isTrue)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       val (sel, rem) = selectHeaviestLiteral(conj.predConj, (p) => weights maxWeight p)
       (Conjunction.conj(sel, goal.order), conj.updatePredConj(rem)(conj.order))
     }
