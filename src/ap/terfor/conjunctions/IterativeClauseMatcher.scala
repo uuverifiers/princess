@@ -154,7 +154,8 @@ object IterativeClauseMatcher {
               //-END-ASSERTION-/////////////////////////////////////////////////
 
               val instance = originalClause.instantiate(instanceTerms)(order)
-              if (isNotRedundant(contextReducer(instance), allOriConstants)) {
+              if (!contextReducer(instance).isFalse &&
+                  isNotRedundant(instance, allOriConstants)) {
                 logger.groundInstantiateQuantifier(originalClause.negate,
                                                    instanceTerms, instance.negate, order)
                 instances += instance
