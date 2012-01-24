@@ -220,6 +220,8 @@ abstract class Settings[STT <: Settings[STT]]
   private lazy val hashCodeVal = Seqs.computeHashCode(this.allValues, 18732, 11)
 
   override def hashCode = hashCodeVal
+
+  override def toString : String = "Settings(" + paramMap + ")"
 }
 
 class GlobalSettings(_paramMap : Map[Param, Any])
