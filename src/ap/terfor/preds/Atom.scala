@@ -41,6 +41,9 @@ object Atom {
             order : TermOrder) : Atom =
     new Atom (pred, args.toArray[LinearCombination], order)
 
+  def unapply(a : Atom) : Option[(Predicate, Seq[LinearCombination])] =
+    Some(a.pred, a)
+  
   def createNoCopy(pred : Predicate,
                    args : Array[LinearCombination],
                    order : TermOrder) : Atom =

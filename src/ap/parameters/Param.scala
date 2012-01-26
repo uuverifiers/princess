@@ -207,6 +207,11 @@ object Param {
 	type Value = Int
 	val defau : Int = 500
   }
+  
+  case object SET_PREDICATES extends Param {
+    type Value = Option[ap.terfor.conjunctions.SetEliminator.SetPredicates]
+    val defau : Option[ap.terfor.conjunctions.SetEliminator.SetPredicates] = None
+  }
 }
 
 abstract class Param {

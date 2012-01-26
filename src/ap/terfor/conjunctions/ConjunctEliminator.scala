@@ -52,6 +52,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                                   // be eliminated from the e-graph if they are
                                   // not referred to from anywhere else
                                   eliminableFunctionPreds : Set[Predicate],
+                                  setPredicates : Option[SetEliminator.SetPredicates],
                                   order : TermOrder) {
   
   private var conj = oriConj
@@ -535,6 +536,18 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
         conj.arithConj.inEqs.updateGeqZero(exactShadow(conj.arithConj.inEqs),
                                            logger)(order)
       conj = conj.updateInEqs(newInEqs)(order)
+    }
+    
+    /**
+     * Check whether literals specific for the theory of sets can be removed
+     */
+    conj = setPredicates match {
+      case Some(preds) => {
+        val setEliminator = new SetEliminator(conj, preds, order)
+        setEliminator.eliminate
+      }
+      case None =>
+        conj
     }
     
   } while (oldconj != conj)

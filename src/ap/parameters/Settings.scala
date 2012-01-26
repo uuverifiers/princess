@@ -160,7 +160,8 @@ object GoalSettings {
                        Param.FUNCTIONAL_PREDICATES,
                        Param.FULL_SPLITTING, Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
-                       Param.REVERSE_FUNCTIONALITY_PROPAGATION)
+                       Param.REVERSE_FUNCTIONALITY_PROPAGATION,
+                       Param.SET_PREDICATES)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
