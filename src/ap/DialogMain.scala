@@ -39,7 +39,10 @@ object DialogMain {
     // since some of the actors in the dialog class use blocking file operations,
     // we have to disable the actor-fork-join stuff to prevent deadlocks
     sys.props += ("actors.enableForkJoin" -> "false")
-    new InputDialog
+    val dialog = new InputDialog
+    // we assume that given arguments are files to be loaded
+    for (s <- args)
+      dialog loadFile (new java.io.File (s))
   }
   
 }
@@ -163,28 +166,27 @@ class InputDialog extends JPanel {
   lazy val loadFileChooser = new JFileChooser
   
   addMenuItem("Load ...") {
-    try {
     loadFileChooser.showOpenDialog(frame) match {
-      case JFileChooser.APPROVE_OPTION => {
-        val file = loadFileChooser.getSelectedFile
-        val reader = new java.io.BufferedReader (new java.io.FileReader(file))
-        val options =
-          if (file.getName endsWith ".smt2") "-inputFormat=smtlib" else ""
-        newTabWithInput(file.getName, options, asString {
-          var str = reader.readLine
-          while (str != null) {
-            println(str)
-            str = reader.readLine
-          }
-        })
-      }
+      case JFileChooser.APPROVE_OPTION => loadFile(loadFileChooser.getSelectedFile)
       case _ => // nothing
     }
-    } catch {
-      case e : java.io.IOException =>
-        JOptionPane.showMessageDialog(frame, "Error loading file: \n" + e.getMessage)
-      case x => throw x
-    }
+  }
+  
+  def loadFile(file : java.io.File) : Unit = try {
+    val reader = new java.io.BufferedReader (new java.io.FileReader(file))
+    val options =
+      if (file.getName endsWith ".smt2") "-inputFormat=smtlib" else ""
+    newTabWithInput(file.getName, options, asString {
+      var str = reader.readLine
+      while (str != null) {
+        println(str)
+        str = reader.readLine
+      }
+    })
+  } catch {
+    case e : java.io.IOException =>
+      JOptionPane.showMessageDialog(frame, "Error loading file: \n" + e.getMessage)
+    case x => throw x
   }
   
   lazy val saveFileChooser = new JFileChooser {
