@@ -105,7 +105,8 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
    * reducible by this reducer
    */
   def reductionPossible(conj : PredConj) : Boolean =
-    !Seqs.disjoint(allPreds, conj.predicates)
+    !Seqs.disjoint(allPreds, conj.predicates) ||
+    !Seqs.disjoint(functions, conj.predicates)
 
   def apply(conj : PredConj) : (PredConj, ArithConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
