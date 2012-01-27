@@ -49,13 +49,15 @@ object SetEliminator {
  */
 class SetEliminator(oriConj : Conjunction,
                     predicates : SetEliminator.SetPredicates,
-                    order : TermOrder) {
+                    implicit val order : TermOrder) {
 
   import predicates._
   import TerForConvenience._
   
   private var conj = oriConj
 
+  val emptyLC = l(predicates.empty)
+  
   def eliminate : Conjunction = {
     var oldconj = conj
     do {
@@ -69,6 +71,16 @@ class SetEliminator(oriConj : Conjunction,
             println("dropping " + a)
             true
           }
+          
+        // Intersection with the empty set
+        case a@Atom(`intersection`, Seq(`emptyLC`, _, `emptyLC`)) => {
+          println("dropping " + a)
+          true
+        }
+        case a@Atom(`intersection`, Seq(_, `emptyLC`, `emptyLC`)) => {
+          println("dropping " + a)
+          true
+        }
           
         case _ => false
       }
