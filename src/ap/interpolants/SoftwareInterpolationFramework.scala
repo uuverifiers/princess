@@ -416,17 +416,25 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class FrameworkVocabulary(preludeEnv : Environment) {
-  private def lookupFun(n : String) = preludeEnv.lookupSym(n) match {
+class AbstractFrameworkVocabulary(preludeEnv : Environment) {
+  protected def lookupFun(n : String) = preludeEnv.lookupSym(n) match {
     case Environment.Function(f, _) => f
     case _ => throw new Error("Expected " + n + " to be defined as a function");
   }
   
-  private def lookupPred(n : String) = preludeEnv.lookupSym(n) match {
+  protected def lookupPred(n : String) = preludeEnv.lookupSym(n) match {
     case Environment.Predicate(p) => p
     case _ => throw new Error("Expected " + n + " to be defined as a predicate");
   }
   
+  protected def lookupConst(n : String) = preludeEnv.lookupSym(n) match {
+    case Environment.Constant(c, _) => c
+    case _ => throw new Error("Expected " + n + " to be defined as a constant");
+  }
+}
+
+class FrameworkVocabulary(preludeEnv : Environment)
+      extends AbstractFrameworkVocabulary(preludeEnv) {
   val select = lookupFun("select")
   val store = lookupFun("store")
   val pair = lookupFun("pair")

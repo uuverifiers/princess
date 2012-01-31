@@ -79,6 +79,7 @@ object Debug {
   case object AC_COMPUTATION_LOGGER extends ASSERTION_CATEGORY
   case object AC_INTERPOLATION extends ASSERTION_CATEGORY
   case object AC_INTERPOLATION_IMPLICATION_CHECKS extends ASSERTION_CATEGORY
+  case object AC_BAPA extends ASSERTION_CATEGORY
 
   private val everythingEnabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => true
