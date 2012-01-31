@@ -1,0 +1,11 @@
+#!/bin/sh
+
+ABSEXECUTABLE=`readlink -m $0`
+BASEDIR=`dirname $ABSEXECUTABLE`
+EXTLIBSDIR=$BASEDIR/extlibs
+
+export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
+export JAVA_OPTS="-Xss20000k"
+
+cd $BASEDIR
+exec scala ap.interpolants.BAPAMain "$@"

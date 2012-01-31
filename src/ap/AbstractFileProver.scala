@@ -125,19 +125,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
-    
-    val intersection = functionalPreds.find(_.name == "intersect")
-    val complementation = functionalPreds.find(_.name == "complement")
-    val union = functionalPreds.find(_.name == "union")
-    val empty = signature.nullaryFunctions.find(_.name == "empty")
-    
-    if (intersection.isDefined && complementation.isDefined &&
-        union.isDefined && empty.isDefined) {
-      val setPredicates = ap.terfor.conjunctions.SetEliminator.SetPredicates(
-        intersection.get, union.get, complementation.get, empty.get)
-      gs = Param.SET_PREDICATES.set(gs, Some(setPredicates))
-    }
-    
     gs
   }
   

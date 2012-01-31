@@ -29,7 +29,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
-import ap.proof.goal.{Goal, NegLitClauseTask, CompoundFormulas}
+import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas}
 import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate}
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
@@ -361,6 +361,7 @@ object ModelSearchProver {
       }
 
     ////////////////////////////////////////////////////////////////////////////
+        Console.err.println(goal.facts)
 
     if (!goal.facts.arithConj.positiveEqs.isTrue &&
         !goal.constantFreedom.isBottomWRT(goal.facts.arithConj.positiveEqs.constants)) {
@@ -478,9 +479,9 @@ object ModelSearchProver {
       var cont = true
       while (cont && resGoal.stepPossible) {
         cont = resGoal.tasks.max match {
-            case _ : NegLitClauseTask => true
-            case _ => false
-          }
+          case _ : NegLitClauseTask | _ : AddFactsTask => true
+          case _ => false
+        }
         if (cont)
           resGoal = (resGoal step ptf).asInstanceOf[Goal]
       }

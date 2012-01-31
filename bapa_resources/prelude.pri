@@ -38,7 +38,7 @@
   int difference(int, int);
   int singleton(int);
 
-  int emptySet;
+  int emptySet, universalSet;
 }
 
 \problem {
@@ -64,11 +64,21 @@
 ->
   size(emptySet) = 0
 ->
+  complementation(emptySet) = universalSet
+->
+  complementation(universalSet) = emptySet
+->
   \forall int x; {intersection(x, emptySet)}
                  intersection(x, emptySet) = emptySet
 ->
-  \forall int x; {intersection(x, complementation(emptySet))}
-                 intersection(x, complementation(emptySet)) = x
+  \forall int x; {intersection(emptySet, x)}
+                 intersection(emptySet, x) = emptySet
+->
+  \forall int x; {intersection(x, universalSet)}
+                 intersection(x, universalSet) = x
+->
+  \forall int x; {intersection(universalSet, x)}
+                 intersection(universalSet, x) = x
 
 ////////////////////////////////////////////////////////////////////////////////
 // Everything is negated (the definitions are premisses)

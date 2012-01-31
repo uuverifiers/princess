@@ -67,6 +67,7 @@ object BAPAFramework {
     val difference =      lookupFun("difference")
     val singleton =       lookupFun("singleton")
     val emptySet =        lookupConst("emptySet")
+    val universalSet =    lookupConst("universalSet")
   
     val subsetOf =        lookupPred("subsetOf")
     val setEq =           lookupPred("setEq")
@@ -145,8 +146,8 @@ class BAPAFramework {
     val setPredicates =
       SetEliminator.SetPredicates(predForFun(intersection),
                                   predForFun(union),
-                  predForFun(complementation),
-                  emptySet)
+                                  predForFun(complementation),
+                                  emptySet, universalSet)
     
     s = Param.SET_PREDICATES.set(s, Some(setPredicates))
     s

@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 import ap.parameters.Param
 import ap.terfor.{TermOrder, ConstantTerm, TerForConvenience}
 import ap.terfor.preds.{Predicate, Atom}
-import ap.util.Debug
+import ap.util.{Debug, Seqs}
 
 object SetEliminator {
   
@@ -38,8 +38,9 @@ object SetEliminator {
    */
   case class SetPredicates(intersection : Predicate,
                            union : Predicate,
-                           complement : Predicate,
-                           empty : ConstantTerm)
+                           complementation : Predicate,
+                           emptySet : ConstantTerm,
+                           universalSet : ConstantTerm)
 }
 
 /**
@@ -54,46 +55,73 @@ class SetEliminator(oriConj : Conjunction,
   import predicates._
   import TerForConvenience._
   
-  private var conj = oriConj
+  private val emptyLC = l(predicates.emptySet)
+  private val universalLC = l(predicates.universalSet)
 
-  val emptyLC = l(predicates.empty)
+  private var posLits : Seq[Atom] = oriConj.predConj.positiveLits
+
+  // determine the complementation mapping
+  private val complements =
+    (for (Atom(`complementation`, Seq(a, b)) <- posLits.iterator;
+          p <- Seqs.doubleIterator(a -> b, b -> a)) yield p).toMap
+  
+  private def posLitExists(a : Atom) : Boolean =
+    // TODO: this should be done using binary search
+    posLits contains a
   
   def eliminate : Conjunction = {
-    var oldconj = conj
-    do {
-      oldconj = conj
 
-      val newPosPreds = conj.predConj.positiveLits filterNot {
+    // remove some trivial literals
+    posLits = posLits filterNot {
         
-        // Idempotence: intersection(x, x, x) can be removed
-        case a@Atom(`intersection`, Seq(left, right, res))
-          if (left == right && left == res) => {
-            println("dropping " + a)
-            true
-          }
+      // Idempotence: intersection(x, x, x) can be removed
+      case Atom(`intersection`, Seq(left, right, res))
+        if (left == right && left == res) => true
           
-        // Intersection with the empty set
-        case a@Atom(`intersection`, Seq(`emptyLC`, _, `emptyLC`)) => {
-          println("dropping " + a)
-          true
-        }
-        case a@Atom(`intersection`, Seq(_, `emptyLC`, `emptyLC`)) => {
-          println("dropping " + a)
-          true
-        }
+      // Intersection with the empty set
+      case Atom(`intersection`,
+                Seq(`emptyLC`, _, `emptyLC`) |
+                Seq(_, `emptyLC`, `emptyLC`)) => true
           
+      // Intersection with the universal set
+      case Atom(`intersection`, Seq(`universalLC`, a, res))
+        if (a == res) => true
+      case Atom(`intersection`, Seq(a, `universalLC`, res))
+        if (a == res) => true
+                
+      case _ => false
+    }
+
+    // the main loop, iteratively remove literals
+    var indexToRemove = 0
+    while (indexToRemove >= 0) {
+      indexToRemove = posLits indexWhere {
+        
+        // if we have
+        //   intersection(a, intersection(b, c)) = intersection(intersection(a, b), c)
+        // remove the left-most intersection-node
+        case Atom(`intersection`, Seq(a, sub1, res))
+          if ((for (Atom(`intersection`, Seq(b, c, `sub1`)) <- posLits.iterator;
+                    Atom(`intersection`, Seq(`a`, `b`, sub2)) <- posLits.iterator;
+                    if (posLitExists(intersection(List(sub2, c, res)))))
+               yield 0).hasNext) => true
+                
         case _ => false
+
       }
+      if (indexToRemove >= 0)
+        posLits = posLits.patch(indexToRemove, List(), 1)
+    }
 
-      val newPredConj =
-        conj.predConj.updateLitsSubset(newPosPreds,
-                                       conj.predConj.negativeLits,
-                                       order)
-      conj = conj.updatePredConj(newPredConj)(order)
-      
-    } while (oldconj != conj)
-
-    conj
+    for (p <- oriConj.predConj.positiveLits)
+      if (!(posLits contains p))
+        println("dropping " + p)
+    
+    val newPredConj =
+      oriConj.predConj.updateLitsSubset(posLits.toIndexedSeq,
+                                        oriConj.predConj.negativeLits,
+                                        order)
+    oriConj.updatePredConj(newPredConj)(order)
   }
   
 }
