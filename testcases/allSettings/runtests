@@ -37,7 +37,7 @@ TESTS="cryptarithm.pri \
        vocabularyBug.pri compoundFormulaeBug.pri \
        endsWithComment.pri triggerBug.pri non-body-trigger.pri \
        ite.pri ite2.pri ite3.pri \
-       div-elimination.pri bad-divisibility.pri"
+       div-elimination.pri bad-divisibility.pri binderTypes.pri"
 
 $PRI "$@" $TESTS
 

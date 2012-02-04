@@ -198,7 +198,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         if (!decl.listfunoption_.isEmpty)
           throw new Parser2InputAbsy.TranslationException(
                                         "Constants do not have options")
-        collectDeclarations(decl.declvarconstc_, addCmd)
+        collectConstDeclarations(decl.declconstc_, addCmd)
       }
     }
 
@@ -222,18 +222,48 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   
   private def collectDeclConstantC(decl : DeclConstantC,
                                    addCmd : String => Unit) : Unit =
-    collectDeclarations(decl.asInstanceOf[DeclConstant].declvarconstc_, addCmd)
+    collectConstDeclarations(decl.asInstanceOf[DeclConstant].declconstc_, addCmd)
 
   private def collectDeclBinder(decl : DeclBinder,
                                 addCmd : String => Unit) : Unit = decl match {
-    case decl : DeclBinder1 => collectDeclarations(decl.declvarconstc_, addCmd)
-    case decl : DeclBinderM => for (decl <- decl.listdeclvarconstc_.iterator) 
-                                 collectDeclarations(decl, addCmd)
+    case decl : DeclBinder1 =>
+      collectVarDeclarations(decl.declvarc_, addCmd)
+    case decl : DeclBinderM =>
+      for (decl <- decl.listdeclvarc_.iterator) 
+                                 collectVarDeclarations(decl, addCmd)
+  }
+  
+  private def collectVarDeclarations(decl : DeclVarC,
+                                     addCmd : String => Unit) : Unit = decl match {
+    case decl : DeclVar =>
+      for (id <- decl.listident_.iterator) addCmd(id)
   }
 
-  private def collectDeclarations(decl : DeclVarConstC,
-                                  addCmd : String => Unit) : Unit = decl match {
-    case decl : DeclVarConst => { 
+  private def genVarGuards(decl : DeclBinder,
+                           totalVarNum : Int) : IFormula ={
+    val varIterator =
+      for (i <- (0 until totalVarNum).iterator) yield v(totalVarNum - i - 1)
+    
+    decl match {
+      case decl : DeclBinder1 =>
+        genVarGuards(decl.declvarc_, varIterator)
+      case decl : DeclBinderM =>
+        (for (decl <- decl.listdeclvarc_.iterator)
+           yield genVarGuards(decl, varIterator)) reduceLeft (_ &&& _)
+    }
+  }
+
+  private def genVarGuards(decl : DeclVarC,
+                           varIterator : Iterator[ITerm]) : IFormula = decl match {
+    case decl : DeclVar =>
+      (for (_ <- decl.listident_.iterator)
+         yield binderType2Guard(decl.bindertype_,
+                                varIterator.next)) reduceLeft (_ &&& _)
+  }
+
+  private def collectConstDeclarations(decl : DeclConstC,
+                                       addCmd : String => Unit) : Unit = decl match {
+    case decl : DeclConst => { 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(ApParser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
       //-END-ASSERTION-/////////////////////////////////////////////////////////
@@ -241,13 +271,31 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     }
   }
 
-  private def collectDeclarations(decl : DeclSingleVarC,
-                                  addCmd : String => Unit) : Unit = decl match {
-    case decl : DeclSingleVar => { 
+  private def binderType2Guard(t : BinderType, v : ITerm) : IFormula = t match {
+    case t : BTypeType => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(ApParser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
+      Debug.assertInt(ApParser2InputAbsy.AC, t.type_.isInstanceOf[TypeInt])
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      addCmd(decl.ident_)
+      true
+    }
+    case t : BTypeNat =>
+      IIntFormula(IIntRelation.GeqZero, v)
+    case t : BTypeInterval =>
+      (t.intervallower_ match {
+        case _ : InfLower =>     i(true)
+        case iv : NumLower =>    IIntLit(IdealInt(iv.intlit_)) <= v
+        case iv : NegNumLower => IIntLit(-IdealInt(iv.intlit_)) <= v
+       }) &&& (t.intervalupper_ match {
+        case _ : InfUpper =>     i(true)
+        case iv : NumUpper =>    v <= IIntLit(IdealInt(iv.intlit_))
+        case iv : NegNumUpper => v <= IIntLit(-IdealInt(iv.intlit_))
+       })
+  }
+  
+  private def collectSingleVarDecl(decl : DeclSingleVarC) : IFormula = decl match {
+    case decl : DeclSingleVar => {
+      env pushVar decl.ident_
+      binderType2Guard(decl.bindertype_, v(0))
     }
   }
 
@@ -306,10 +354,10 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     case t : ExprLit =>
       IIntLit(IdealInt(t.intlit_))
     case t : ExprEpsilon => {
-      collectDeclarations(t.declsinglevarc_, (id : String) => env pushVar id)
+      val guard = collectSingleVarDecl(t.declsinglevarc_)
       val cond = asFormula(translateExpression(t.expression_))
       env.popVar
-      IEpsilon(cond)
+      IEpsilon(guard &&& cond)
     }
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)
@@ -369,18 +417,22 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     con(asTerm(translateExpression(f1)), asTerm(translateExpression(f2)))
   
   private def translateQuant(f : ExprQuant) : IFormula = {
-    val quant : Quantifier = f.quant_ match {
-      case _ : QuantAll => Quantifier.ALL
-      case _ : QuantEx => Quantifier.EX
-    }
-    
     // add the bound variables to the environment and record their number
     var quantNum : Int = 0
     collectDeclBinder(f.declbinder_,
                       (id) => { quantNum = quantNum + 1; env pushVar id })
+
+    // compute guards possibly needed for the bound variables
+    val guard = genVarGuards(f.declbinder_, quantNum)
     
-    val res = translateUnForConnective(f.expression_,
-                                       quan(Array.fill(quantNum){quant}, _))
+    def body(matrix : IFormula) = f.quant_ match {
+      case _ : QuantAll =>
+        quan(Array.fill(quantNum){Quantifier.ALL}, guard ===> matrix)
+      case _ : QuantEx =>
+        quan(Array.fill(quantNum){Quantifier.EX}, guard &&& matrix)
+    }
+    
+    val res = translateUnForConnective(f.expression_, body _)
 
     // pop the variables from the environment
     for (_ <- PlainRange(quantNum)) env.popVar

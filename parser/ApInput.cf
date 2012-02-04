@@ -91,19 +91,21 @@ token IntLit digit+;
 --------------------------------------------------------------------------------
 -- Variable and constant declarations
 
-DeclSingleVar.  DeclSingleVarC  ::= Type Ident;
-
-DeclVarConst.	DeclVarConstC	::= Type [Ident];
+DeclConst.	DeclConstC	::= Type [Ident];
 separator nonempty Ident ",";
 
-DeclBinder1.	DeclBinder	::= DeclVarConstC ";";
-DeclBinderM.	DeclBinder	::= "(" [DeclVarConstC] ")";
-separator nonempty DeclVarConstC ";";
+DeclSingleVar.  DeclSingleVarC  ::= BinderType Ident;
+
+DeclVar.	DeclVarC	::= BinderType [Ident];
+
+DeclBinder1.	DeclBinder	::= DeclVarC ";";
+DeclBinderM.	DeclBinder	::= "(" [DeclVarC] ")";
+separator nonempty DeclVarC ";";
 
 --------------------------------------------------------------------------------
 -- Function declarations
 
-DeclFunConstant.DeclFunC	::= [FunOption] DeclVarConstC;
+DeclFunConstant.DeclFunC	::= [FunOption] DeclConstC;
 DeclFun.	DeclFunC	::= [FunOption] Type Ident FormalArgsC;
 terminator DeclFunC ";";
 
@@ -114,7 +116,7 @@ separator FunOption "";
 --------------------------------------------------------------------------------
 -- Declarations of existential constants
 
-DeclConstant.	DeclConstantC	::= DeclVarConstC;
+DeclConstant.	DeclConstantC	::= DeclConstC;
 terminator DeclConstantC ";";
 
 --------------------------------------------------------------------------------
@@ -130,6 +132,20 @@ ArgType.	ArgTypeC	::= Type;
 separator nonempty ArgTypeC ",";
 
 --------------------------------------------------------------------------------
--- Types (there is only one type, int)
+-- Base types (there is only one type, int)
 
 TypeInt.	Type		::= "int";
+
+--------------------------------------------------------------------------------
+-- Types that can be used in binders
+
+BTypeType.	BinderType	::= Type;
+BTypeNat.	BinderType	::= "nat";
+BTypeInterval.	BinderType	::= "int" "[" IntervalLower "," IntervalUpper "]";
+
+InfLower.       IntervalLower   ::= "-" "inf";
+NumLower.       IntervalLower   ::= IntLit;
+NegNumLower.    IntervalLower   ::= "-" IntLit;
+InfUpper.       IntervalUpper   ::= "inf";
+NumUpper.       IntervalUpper   ::= IntLit;
+NegNumUpper.    IntervalUpper   ::= "-" IntLit;
