@@ -26,6 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 import ap.parameters.Param
 import ap.terfor.{TermOrder, ConstantTerm, TerForConvenience}
 import ap.terfor.preds.{Predicate, Atom}
+import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Seqs}
 
 object SetEliminator {
@@ -93,11 +94,22 @@ class SetEliminator(oriConj : Conjunction,
   private val complements =
     (for (Atom(`complementation`, Seq(a, b)) <- posLits.iterator;
           p <- Seqs.doubleIterator(a -> b, b -> a)) yield p).toMap
+
+  private def compareLC(lc : LinearCombination) : LinearCombination =
+    (complements get lc) match {
+      case None =>
+        lc
+      case Some(otherLC) =>
+        if (order.compare(lc, otherLC) < 0) lc else otherLC
+    }
+
+  private def compare(a : LinearCombination, b : LinearCombination) : Int =
+    Seqs.lexCombineInts(order.compare(compareLC(a), compareLC(b)),
+                        order.compare(a, b))
   
-  private def posLitExists(a : Atom) : Boolean =
-    // TODO: this should be done using binary search
-    posLits contains a
-  
+  private val intersectionSet =
+    (for (Atom(`intersection`, Seq(_, _, res)) <- posLits.iterator) yield res).toSet
+          
   def eliminate : Conjunction = {
 
     // remove some trivial literals
@@ -126,13 +138,40 @@ class SetEliminator(oriConj : Conjunction,
       //   intersection(a, intersection(b, c)) = intersection(intersection(a, b), c)
       // remove the left-most intersection-node
       case (Atom(`intersection`, Seq(a, sub1, res)), supporting)
-        if ((for (Atom(`intersection`, Seq(b, c, `sub1`)) <- supporting.iterator;
+        if (((intersectionSet contains sub1) && !(intersectionSet contains a) &&
+             (supporting contains intersection(Seq(sub1, a, res))))
+             ||
+            (for (Atom(`intersection`, Seq(b, c, `sub1`)) <- supporting.iterator;
                   Atom(`intersection`, Seq(`a`, `b`, sub2)) <- supporting.iterator;
                   Atom(`intersection`, Seq(`sub2`, `c`, `res`)) <- supporting.iterator)
              yield 0).hasNext) => true
-                
+      
+      // if we have
+      //   intersection(a, b) = intersection(b, a)
+      // with a < b, then remove the left intersection node
+      case (Atom(`intersection`, Seq(a, b, res)), supporting)
+        if (!(intersectionSet contains a) && !(intersectionSet contains b) &&
+            compare(a, b) < 0 &&
+            (supporting contains intersection(Seq(b, a, res)))) => true 
+
+      // if we have
+      //   intersection(intersection(a, b), c) = intersection(intersection(a, c), b)
+      // with b < c, then remove the left intersection node
+      case (Atom(`intersection`, Seq(sub1, c, res)), supporting)
+        if (!(intersectionSet contains c) &&
+            (for (Atom(`intersection`, Seq(a, b, `sub1`)) <- supporting.iterator;
+                  if (!(intersectionSet contains b) && compare(b, c) < 0);
+                  Atom(`intersection`, Seq(`a`, `c`, sub2)) <- supporting.iterator;
+                  Atom(`intersection`, Seq(`sub2`, `b`, `res`)) <- supporting.iterator)
+             yield 0).hasNext) => true
+
       case _ => false
     }
+
+/*    println(oriConj.predConj.positiveLits)
+    println("->")
+    println(posLits)
+    println */
     
     for (p <- oriConj.predConj.positiveLits)
       if (!(posLits contains p))

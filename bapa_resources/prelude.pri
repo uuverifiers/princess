@@ -47,13 +47,19 @@
 // Axioms describing intersection and complementation
 
   \forall int x, y; {intersection(x, y)}
-                    intersection(x, y) = intersection(y, x)
+                 intersection(x, y) = intersection(y, x)
+->
+  \forall int x, y, z; {intersection(intersection(x, y), z)}
+                 intersection(intersection(x, y), z) = intersection(intersection(x, z), y)
 ->
   \forall int x, y, z; {intersection(x, intersection(y, z))}
       intersection(x, intersection(y, z)) = intersection(intersection(x, y), z)
 ->
   \forall int x; {intersection(x, x)}
                  intersection(x, x) = x
+->
+  \forall int x, y; {intersection(intersection(x, y), y)}
+                 intersection(intersection(x, y), y) = intersection(x, y)
 
 ->
   \forall int x; {complementation(complementation(x))}

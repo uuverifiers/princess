@@ -134,14 +134,21 @@ class BAPAFramework {
 
   private val satCheckSettings = {
     var s = GoalSettings.DEFAULT
-    s = Param.FUNCTIONAL_PREDICATES.set(s, backgroundPred.predicates)
-    
     // now the function encoder contains the predicates that functions
     // are translated to
     def predForFun(f : IFunction) = (functionEncoder.predTranslation.find {
       case (_, `f`) => true
       case _ => false
     }).get._1
+    
+    val funPreds = Set(predForFun(intersection),
+                       predForFun(union),
+                       predForFun(complementation),
+                       predForFun(size)/*,
+                       predForFun(singleton) */
+                       )
+    s = Param.FUNCTIONAL_PREDICATES.set(s, funPreds)
+    s = Param.GARBAGE_COLLECTED_FUNCTIONS.set(s, funPreds)
     
     val setPredicates =
       SetEliminator.SetPredicates(predForFun(intersection),
