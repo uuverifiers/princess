@@ -47,7 +47,8 @@ The set of reserved words is the set of terminals appearing in the grammar. Thos
 The reserved words used in ApInput are the following: \\
 
 \begin{tabular}{lll}
-{\reserved{false}} &{\reserved{int}} &{\reserved{true}} \\
+{\reserved{false}} &{\reserved{inf}} &{\reserved{int}} \\
+{\reserved{nat}} &{\reserved{true}} & \\
 \end{tabular}\\
 
 The symbols used in ApInput are the following: \\
@@ -195,11 +196,7 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclSingleVarC}} & {\arrow}  &{\nonterminal{Type}} {\nonterminal{Ident}}  \\
-\end{tabular}\\
-
-\begin{tabular}{lll}
-{\nonterminal{DeclVarConstC}} & {\arrow}  &{\nonterminal{Type}} {\nonterminal{ListIdent}}  \\
+{\nonterminal{DeclConstC}} & {\arrow}  &{\nonterminal{Type}} {\nonterminal{ListIdent}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -208,17 +205,25 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclBinder}} & {\arrow}  &{\nonterminal{DeclVarConstC}} {\terminal{;}}  \\
- & {\delimit}  &{\terminal{(}} {\nonterminal{ListDeclVarConstC}} {\terminal{)}}  \\
+{\nonterminal{DeclSingleVarC}} & {\arrow}  &{\nonterminal{BinderType}} {\nonterminal{Ident}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{ListDeclVarConstC}} & {\arrow}  &{\nonterminal{DeclVarConstC}}  \\
- & {\delimit}  &{\nonterminal{DeclVarConstC}} {\terminal{;}} {\nonterminal{ListDeclVarConstC}}  \\
+{\nonterminal{DeclVarC}} & {\arrow}  &{\nonterminal{BinderType}} {\nonterminal{ListIdent}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclFunC}} & {\arrow}  &{\nonterminal{ListFunOption}} {\nonterminal{DeclVarConstC}}  \\
+{\nonterminal{DeclBinder}} & {\arrow}  &{\nonterminal{DeclVarC}} {\terminal{;}}  \\
+ & {\delimit}  &{\terminal{(}} {\nonterminal{ListDeclVarC}} {\terminal{)}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{ListDeclVarC}} & {\arrow}  &{\nonterminal{DeclVarC}}  \\
+ & {\delimit}  &{\nonterminal{DeclVarC}} {\terminal{;}} {\nonterminal{ListDeclVarC}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{DeclFunC}} & {\arrow}  &{\nonterminal{ListFunOption}} {\nonterminal{DeclConstC}}  \\
  & {\delimit}  &{\nonterminal{ListFunOption}} {\nonterminal{Type}} {\nonterminal{Ident}} {\nonterminal{FormalArgsC}}  \\
 \end{tabular}\\
 
@@ -238,7 +243,7 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclConstantC}} & {\arrow}  &{\nonterminal{DeclVarConstC}}  \\
+{\nonterminal{DeclConstantC}} & {\arrow}  &{\nonterminal{DeclConstC}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -275,6 +280,24 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{Type}} & {\arrow}  &{\terminal{int}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{BinderType}} & {\arrow}  &{\nonterminal{Type}}  \\
+ & {\delimit}  &{\terminal{nat}}  \\
+ & {\delimit}  &{\terminal{int}} {\terminal{[}} {\nonterminal{IntervalLower}} {\terminal{,}} {\nonterminal{IntervalUpper}} {\terminal{]}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{IntervalLower}} & {\arrow}  &{\terminal{{$-$}}} {\terminal{inf}}  \\
+ & {\delimit}  &{\nonterminal{IntLit}}  \\
+ & {\delimit}  &{\terminal{{$-$}}} {\nonterminal{IntLit}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{IntervalUpper}} & {\arrow}  &{\terminal{inf}}  \\
+ & {\delimit}  &{\nonterminal{IntLit}}  \\
+ & {\delimit}  &{\terminal{{$-$}}} {\nonterminal{IntLit}}  \\
 \end{tabular}\\
 
 
