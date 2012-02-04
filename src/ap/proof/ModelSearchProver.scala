@@ -435,9 +435,11 @@ object ModelSearchProver {
   // Prover that can be used incrementally
   
   def emptyIncProver(settings : GoalSettings) : IncProver =
-    new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings))
+    new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings),
+                  settings)
   
-  class IncProver protected[proof] (goal : Goal) {
+  class IncProver protected[proof] (goal : Goal,
+                                    settings : GoalSettings) {
     
     def assert(f : Conjunction, newOrder : TermOrder) : IncProver =
       conclude(f.negate, newOrder)
@@ -486,11 +488,11 @@ object ModelSearchProver {
           resGoal = (resGoal step ptf).asInstanceOf[Goal]
       }
       
-      new IncProver(resGoal)
+      new IncProver(resGoal, settings)
     }
     
     def checkValidity(constructModel : Boolean) : Either[Conjunction, Certificate] =
-      findModel(goal, List(), Set(), 0, goal.settings, constructModel) match {
+      findModel(goal, List(), Set(), 0, settings, constructModel) match {
         case Left(model) => Left(model)
         case Right(Seq()) => Left(Conjunction.FALSE)
         case Right(Seq(cert)) => Right(cert)

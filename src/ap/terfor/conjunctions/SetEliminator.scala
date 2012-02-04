@@ -41,6 +41,34 @@ object SetEliminator {
                            complementation : Predicate,
                            emptySet : ConstantTerm,
                            universalSet : ConstantTerm)
+
+  /**
+   * Eliminate atoms in a well-founded way; return the sequence of remaining
+   * atoms
+   */
+  private def elimLoop(elimFrom : Seq[Atom])
+                      (elimPred : (Atom, Seq[Atom]) => Boolean) : Seq[Atom] = {
+    val (allEliminable, allRemaining) = elimFrom partition (elimPred(_, elimFrom))
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // ensure that removal is well-founded, by iteratively re-constructing
+    // the set of eliminated atoms
+    var remainingEliminable = allEliminable
+    var remaining = allRemaining
+    var changed = true
+    while (changed) {
+      val (newElim, newRemainingEliminable) =
+        remainingEliminable partition (elimPred(_, remaining))
+      changed = !newElim.isEmpty
+      remainingEliminable = newRemainingEliminable
+      remaining = remaining ++ newElim
+    }
+    
+    Debug.assertInt(SetEliminator.AC, remainingEliminable.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    allRemaining
+  }
 }
 
 /**
@@ -54,6 +82,7 @@ class SetEliminator(oriConj : Conjunction,
 
   import predicates._
   import TerForConvenience._
+  import SetEliminator._
   
   private val emptyLC = l(predicates.emptySet)
   private val universalLC = l(predicates.universalSet)
@@ -92,27 +121,19 @@ class SetEliminator(oriConj : Conjunction,
       case _ => false
     }
 
-    // the main loop, iteratively remove literals
-    var indexToRemove = 0
-    while (indexToRemove >= 0) {
-      indexToRemove = posLits indexWhere {
-        
-        // if we have
-        //   intersection(a, intersection(b, c)) = intersection(intersection(a, b), c)
-        // remove the left-most intersection-node
-        case Atom(`intersection`, Seq(a, sub1, res))
-          if ((for (Atom(`intersection`, Seq(b, c, `sub1`)) <- posLits.iterator;
-                    Atom(`intersection`, Seq(`a`, `b`, sub2)) <- posLits.iterator;
-                    if (posLitExists(intersection(List(sub2, c, res)))))
-               yield 0).hasNext) => true
+    posLits = elimLoop(posLits) {
+      // if we have
+      //   intersection(a, intersection(b, c)) = intersection(intersection(a, b), c)
+      // remove the left-most intersection-node
+      case (Atom(`intersection`, Seq(a, sub1, res)), supporting)
+        if ((for (Atom(`intersection`, Seq(b, c, `sub1`)) <- supporting.iterator;
+                  Atom(`intersection`, Seq(`a`, `b`, sub2)) <- supporting.iterator;
+                  Atom(`intersection`, Seq(`sub2`, `c`, `res`)) <- supporting.iterator)
+             yield 0).hasNext) => true
                 
-        case _ => false
-
-      }
-      if (indexToRemove >= 0)
-        posLits = posLits.patch(indexToRemove, List(), 1)
+      case _ => false
     }
-
+    
     for (p <- oriConj.predConj.positiveLits)
       if (!(posLits contains p))
         println("dropping " + p)
