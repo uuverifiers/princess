@@ -33,7 +33,7 @@ VALID
 .
 Found proof (size 48), simplifying (44)
 VALID
-(forall (forall (| (= (boundVar x1) (boundVar x0) ) (| (= (select (sym M) (boundVar x1) ) (select (sym M') (boundVar x1) ) ) (= (select (sym M) (boundVar x0) ) (select (sym M') (boundVar x0) ) ) ) ) ) ) 
+(forall (| (forall (| (= (boundVar x1) (boundVar x0) ) (= (select (sym M) (boundVar x1) ) (select (sym M') (boundVar x1) ) ) ) ) (= (select (sym M) (boundVar x0) ) (select (sym M') (boundVar x0) ) ) ) ) 
 .
 Found proof (size 54), simplifying (54)
 VALID

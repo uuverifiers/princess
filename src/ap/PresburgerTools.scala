@@ -349,8 +349,7 @@ object PresburgerTools {
    * Quantifier elimination procedure that can also handle uninterpreted
    * predicates, provided that predicates never occur in the scope of
    * quantifiers. Quantifiers above predicate occurrences are left in the
-   * formula. The formula <code>c</code> must not contain both universal
-   * and existential quantifiers, only one kind is allowed.
+   * formula.
    */
   def elimQuantifiersWithPreds(c : Conjunction) : Conjunction = {
     implicit val order = c.order
@@ -441,33 +440,58 @@ object PresburgerTools {
             
             descend(c)
             
-          } else if (Seqs.disjoint(c.predConj.variables, c.boundVariables) &&
-                     (c.negatedConjs forall
-                        ((d : Conjunction) => Seqs.disjoint(d.variables, c.boundVariables) ||
-                                              d.predicates.isEmpty))) {
-            // It is possible to miniscope and remove all predicates from underneath
-            // the quantifier
-              
-            val (withoutPreds, withPreds) = c.negatedConjs partition (_.predicates.isEmpty)
-            val newC = Conjunction(c.quans, c.arithConj, PredConj.TRUE,
-                                   c.negatedConjs.update(withoutPreds, order),
-                                   order)
-            
-            // take care of other variables in the remaining parts
-            val shifter = VariableShiftSubst.downShifter[Conjunction](c.quans.size, order)
-            reducer(elimHelp(newC) &
-                    shifter(c.predConj & c.negatedConjs.update(withPreds, order)))
-            
           } else {
-            // then we cannot eliminate the quantifiers
-            
-            descend(expandQuantifiers(c))
-            
+            val newC = miniScope(c)
+            if (c == newC) {
+              // then we cannot eliminate the quantifiers
+              descend(expandQuantifiers(c))
+            } else {
+              elimHelp(newC)
+            }
           }
-
       }
-      
+
     elimHelp(reducer(c))
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def miniScope(c : Conjunction) : Conjunction = {
+    implicit val order = c.order
+    
+    if (c.size == 1 && c.negatedConjs.size == 1 && !c.quans.isEmpty) {
+      !miniScope(quantify(for (q <- c.quans) yield q.dual, c.negatedConjs(0), order))
+    } else {
+      // first miniscope nested quantifiers
+    
+      val newNegConj =
+        c.negatedConjs.update(for (d <- c.negatedConjs) yield miniScope(d), order)
+      var newC =
+        c.updateNegatedConjs(newNegConj)
+    
+      var cont = true
+      while (cont) {
+        cont = false
+        
+        if (!newC.quans.isEmpty) {
+          val (with_0, without_0) =
+            newC.iterator partition (_.variables contains VariableTerm._0)
+          if (without_0.hasNext) {
+            val shiftSubst = VariableShiftSubst(1, -1, order)
+            
+            val with_0_conj =
+              miniScope(quantify(List(newC.quans.head), conj(with_0, order), order))
+            val without_0_conj =
+              conj(for (d <- without_0) yield shiftSubst(d), order)
+              
+            newC = quantify(newC.quans.tail, with_0_conj & without_0_conj, order)
+            cont = true
+          }
+        }
+      }
+        
+      newC
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
