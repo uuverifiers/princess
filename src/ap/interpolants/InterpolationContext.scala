@@ -48,41 +48,53 @@ object InterpolationContext {
   def apply(leftFormulas : Iterable[Conjunction],
             rightFormulas : Iterable[Conjunction],
             commonFormulas : Iterable[Conjunction],
-            order : TermOrder) : InterpolationContext =
-    new InterpolationContext (toCertFormulaSet(leftFormulas),
-                              toCertFormulaSet(rightFormulas),
+            order : TermOrder) : InterpolationContext = {
+    val leftCertFors = toCertFormulaSet(leftFormulas)
+    val rightCertFors = toCertFormulaSet(rightFormulas)
+    val leftConstants = getConstants(leftCertFors)
+    val rightConstants = getConstants(rightCertFors)
+    new InterpolationContext (leftCertFors, rightCertFors,
                               toCertFormulaSet(commonFormulas),
+                              leftConstants, rightConstants,
+                              leftConstants -- rightConstants,
+                              rightConstants -- leftConstants,
                               Map(), Map(), Set(), order)
+  }
  
   private def toCertFormulaSet(fors : Iterable[Conjunction]) =
     Set() ++ (for (f <- fors.iterator) yield CertFormula(f.negate))
-}
 
-class InterpolationContext (val leftFormulae : Set[CertFormula],
-                            val rightFormulae : Set[CertFormula],
-                            val commonFormulae : Set[CertFormula],
-                            partialInterpolants : Map[CertArithLiteral, PartialInterpolant],
-                            rewrittenPredAtoms : Map[CertPredLiteral,
-                                                     (Seq[Seq[(IdealInt, CertEquation)]],
-                                                      CertPredLiteral)],
-                            val parameters : Set[ConstantTerm],
-                            val order : TermOrder) {
   private def getConstants(fors : Iterable[CertFormula]) =
     Set() ++ (for(f <- fors.iterator; c <- f.constants.iterator) yield c)
 
   private def getPredicates(fors : Iterable[CertFormula]) =
     Set() ++ (for(f <- fors.iterator; p <- f.predicates.iterator) yield p)
-   
-  lazy val commonFormulaConstants = getConstants(commonFormulae)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class InterpolationContext private (val leftFormulae : Set[CertFormula],
+                                    val rightFormulae : Set[CertFormula],
+                                    val commonFormulae : Set[CertFormula],
+                                    val leftConstants : Set[ConstantTerm],
+                                    val rightConstants : Set[ConstantTerm],
+                                    val leftLocalConstants : Set[ConstantTerm],
+                                    val rightLocalConstants : Set[ConstantTerm],
+                                    partialInterpolants : Map[CertArithLiteral, PartialInterpolant],
+                                    rewrittenPredAtoms : Map[CertPredLiteral,
+                                                             (Seq[Seq[(IdealInt, CertEquation)]],
+                                                              CertPredLiteral)],
+                                    val parameters : Set[ConstantTerm],
+                                    val order : TermOrder) {
+
+  import InterpolationContext._
   
-  lazy val leftConstants = getConstants(leftFormulae)
-  lazy val rightConstants = getConstants(rightFormulae)
+  // not used very often
+  lazy val commonFormulaConstants = getConstants(commonFormulae)
+
   lazy val allConstants =
     leftConstants ++ rightConstants ++ commonFormulaConstants
-   
-  lazy val leftLocalConstants =  leftConstants -- rightConstants
-  lazy val rightLocalConstants =  rightConstants -- leftConstants
-   
+
   lazy val globalConstants =
     (leftConstants & rightConstants) ++ commonFormulaConstants
   
@@ -106,7 +118,9 @@ class InterpolationContext (val leftFormulae : Set[CertFormula],
     val newPartialInterpolants = partialInterpolants + (literal -> partialInter)
     
     new InterpolationContext(
-      leftFormulae, rightFormulae, commonFormulae, newPartialInterpolants,
+      leftFormulae, rightFormulae, commonFormulae,
+      leftConstants, rightConstants, leftLocalConstants, rightLocalConstants,
+      newPartialInterpolants,
       rewrittenPredAtoms, parameters, order)
   }
   
@@ -157,6 +171,8 @@ class InterpolationContext (val leftFormulae : Set[CertFormula],
                     yield (eqs1 ++ eqs2)).toList
     
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
+                             leftConstants, rightConstants,
+                             leftLocalConstants, rightLocalConstants,
                              partialInterpolants,
                              rewrittenPredAtoms + (result -> (newEqs, oriLit)),
                              parameters, order)
@@ -168,66 +184,80 @@ class InterpolationContext (val leftFormulae : Set[CertFormula],
 
   def isCommon(conj : CertFormula) : Boolean = commonFormulae contains conj
 
-  def addConstant(const : ConstantTerm) : InterpolationContext =
-    new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
-                             partialInterpolants,
-                             rewrittenPredAtoms,
-                             parameters,
-                             if(order.orderedConstants contains const) order
-                             else order.extend(const, Set()))
-  
   def addConstants(consts : Seq[ConstantTerm]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
+                             leftConstants, rightConstants,
+                             leftLocalConstants, rightLocalConstants,
                              partialInterpolants,
                              rewrittenPredAtoms,
                              parameters,
                              order extend consts)
 
   def addParameter(const : ConstantTerm) : InterpolationContext =
-    new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
-                             partialInterpolants,
-                             rewrittenPredAtoms,
-                             parameters + const,
-                             if(order.orderedConstants contains const) order
-                             else order.extend(const, Set()))
+    if (order.orderedConstants contains const)
+      this
+    else
+      new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
+                               leftConstants, rightConstants,
+                               leftLocalConstants, rightLocalConstants,
+                               partialInterpolants,
+                               rewrittenPredAtoms,
+                               parameters + const,
+                               order.extend(const, Set()))
   
   def addLeft(left : CertFormula) : InterpolationContext =
-    addLeft(Iterator single left)
+    new InterpolationContext(leftFormulae + left, rightFormulae,
+                             commonFormulae,
+                             leftConstants ++ left.constants, rightConstants,
+                             leftLocalConstants ++ (left.constants -- rightConstants),
+                             rightLocalConstants -- left.constants,
+                             partialInterpolants,
+                             rewrittenPredAtoms,
+                             parameters,
+                             order)
   
-  def addLeft(lefts : Iterable[CertFormula]) : InterpolationContext =
-    addLeft(lefts.iterator)
-  
-  def addLeft(lefts : Iterator[CertFormula]) : InterpolationContext =
+  def addLeft(lefts : Iterable[CertFormula]) : InterpolationContext = {
+    val newConstants = getConstants(lefts)
     new InterpolationContext(leftFormulae ++ lefts, rightFormulae,
                              commonFormulae,
+                             leftConstants ++ newConstants, rightConstants,
+                             leftLocalConstants ++ (newConstants -- rightConstants),
+                             rightLocalConstants -- newConstants,
                              partialInterpolants,
                              rewrittenPredAtoms,
                              parameters,
                              order)
-
+  }
+  
   def addRight(right : CertFormula) : InterpolationContext =
-    addRight(Iterator single right)
+    new InterpolationContext(leftFormulae, rightFormulae + right,
+                             commonFormulae,
+                             leftConstants, rightConstants ++ right.constants,
+                             leftLocalConstants -- right.constants,
+                             rightLocalConstants ++ (right.constants -- leftConstants),
+                             partialInterpolants,
+                             rewrittenPredAtoms,
+                             parameters,
+                             order)
   
-  def addRight(rights : Iterable[CertFormula]) : InterpolationContext =
-    addRight(rights.iterator)
-  
-  def addRight(rights : Iterator[CertFormula]) : InterpolationContext =
+  def addRight(rights : Iterable[CertFormula]) : InterpolationContext = {
+    val newConstants = getConstants(rights)
     new InterpolationContext(leftFormulae, rightFormulae ++ rights,
                              commonFormulae,
+                             leftConstants, rightConstants ++ getConstants(rights),
+                             leftLocalConstants -- newConstants,
+                             rightLocalConstants ++ (newConstants -- leftConstants),
                              partialInterpolants,
                              rewrittenPredAtoms,
                              parameters,
                              order)
-  
-  def addCommon(common : CertFormula) : InterpolationContext =
-    addCommon(Iterator single common)
+  }
   
   def addCommon(commons : Iterable[CertFormula]) : InterpolationContext =
-    addCommon(commons.iterator)
-  
-  def addCommon(commons : Iterator[CertFormula]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae,
                              commonFormulae ++ commons,
+                             leftConstants, rightConstants,
+                             leftLocalConstants, rightLocalConstants,
                              partialInterpolants,
                              rewrittenPredAtoms,
                              parameters,
@@ -235,6 +265,8 @@ class InterpolationContext (val leftFormulae : Set[CertFormula],
   
   def setOrder(newOrder : TermOrder) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
+                             leftConstants, rightConstants,
+                             leftLocalConstants, rightLocalConstants,
                              partialInterpolants, rewrittenPredAtoms,
                              parameters, newOrder)
 }

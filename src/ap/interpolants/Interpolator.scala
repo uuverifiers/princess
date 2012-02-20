@@ -134,13 +134,27 @@ object Interpolator
         implicit val o = iContext.order
         val originalForm = cert.localAssumedFormulas.head
       
-        if(iContext isFromLeft originalForm)
-          applyHelp(leftChild, iContext addLeft leftForm) |
-          applyHelp(rightChild, iContext addLeft List(rightForm, !leftForm))
-        else if(iContext isFromRight originalForm)
-          applyHelp(leftChild, iContext addRight leftForm) &
-          applyHelp(rightChild, iContext addRight List(rightForm, !leftForm))
-        else
+        if (iContext isFromLeft originalForm) {
+          
+          val firstRes = applyHelp(leftChild, iContext addLeft leftForm)
+          
+          if (firstRes.isTrue)
+            firstRes
+          else
+            (firstRes |
+             applyHelp(rightChild, iContext addLeft List(rightForm, !leftForm)))
+            
+        } else if(iContext isFromRight originalForm) {
+          
+          val firstRes = applyHelp(leftChild, iContext addRight leftForm)
+          
+          if (firstRes.isFalse)
+            firstRes
+          else
+            (firstRes &
+             applyHelp(rightChild, iContext addRight List(rightForm, !leftForm)))
+            
+        } else
           throw new Error("The formula " + originalForm + " has to come from left or right")
       }
       
@@ -162,18 +176,26 @@ object Interpolator
         val leftPartInter =  PartialInterpolant(origiPartInter.linComb-dec,
                                                 origiPartInter.den,
                                                 PartialInterpolant.Kind.InEqLeft)
-        val rightPartInter = PartialInterpolant(-origiPartInter.linComb-dec,
-                                                origiPartInter.den,
-                                                PartialInterpolant.Kind.InEqLeft)
-
         val leftRes =
           applyHelp(leftChild, iContext.addPartialInterpolant(left, leftPartInter))
-        val rightRes =
-          applyHelp(rightChild, iContext.addPartialInterpolant(right, rightPartInter))
+
+        // short-cut, in case the left sub-result is true/false
+        if (origiPartInter.kind match {
+              case PartialInterpolant.Kind.EqRight => leftRes.isTrue
+              case PartialInterpolant.Kind.NegEqRight => leftRes.isFalse
+             }) {
+          leftRes
+        } else {
+          val rightPartInter = PartialInterpolant(-origiPartInter.linComb-dec,
+                                                  origiPartInter.den,
+                                                  PartialInterpolant.Kind.InEqLeft)
+          val rightRes =
+            applyHelp(rightChild, iContext.addPartialInterpolant(right, rightPartInter))
         
-        origiPartInter.kind match {
-          case PartialInterpolant.Kind.EqRight => leftRes | rightRes
-          case PartialInterpolant.Kind.NegEqRight => leftRes & rightRes
+          origiPartInter.kind match {
+            case PartialInterpolant.Kind.EqRight => leftRes | rightRes
+            case PartialInterpolant.Kind.NegEqRight => leftRes & rightRes
+          }
         }
       }
       
@@ -202,7 +224,7 @@ object Interpolator
                               weakInterInEq.den.isOne)
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
-          val totalEqInters = for (i <- 0 until k) yield {
+          val totalEqInters = for (i <- (0 until k).iterator) yield {
             val lhs = inEq.lhs - i
             val partialInter =
               PartialInterpolant eqLeft (if (leftInequality) lhs else 0)
@@ -210,7 +232,7 @@ object Interpolator
                       newContext.addPartialInterpolant(CertEquation(lhs), partialInter))
           }
           
-          val totalInEqInter = {
+          lazy val totalInEqInter = {
             val lhs = inEq.lhs - k
             val partialInter =
               PartialInterpolant inEqLeft (if (leftInequality) lhs else 0)
@@ -218,10 +240,8 @@ object Interpolator
                       newContext.addPartialInterpolant(CertInequality(lhs), partialInter))
           }
           
-          if (leftInequality)
-            disj(totalEqInters) | totalInEqInter
-          else
-            conj(totalEqInters) & totalInEqInter
+          val allInters = totalEqInters ++ (Iterator single totalInEqInter)
+          if (leftInequality) disj(allInters) else conj(allInters)
           
         } else {
           // otherwise, we have to use the full k-Strengthen rule
@@ -416,11 +436,11 @@ object Interpolator
       {
         val newContext =
           if(iContext isFromLeft splitFormula)
-            iContext.addLeft(providedFormulae.iterator)
+            iContext.addLeft(providedFormulae)
           else if(iContext isFromRight splitFormula)
-            iContext.addRight(providedFormulae.iterator)
+            iContext.addRight(providedFormulae)
           else if(iContext isCommon splitFormula)
-            iContext.addCommon(providedFormulae.iterator)
+            iContext.addCommon(providedFormulae)
           else throw new Error("Origin of Formula " + splitFormula + " is unclear")
           
         processBranchInferences(remInferences, child, newContext) 
