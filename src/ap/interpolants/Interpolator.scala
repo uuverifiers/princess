@@ -129,8 +129,8 @@ object Interpolator
   {
     certificate match {
       
-      case cert@BetaCertificate(leftForm, rightForm, leftChild, rightChild, _) =>
-      {	  
+      case cert@BetaCertificate(leftForm, rightForm, lemma,
+                                leftChild, rightChild, _) => {
         implicit val o = iContext.order
         val originalForm = cert.localAssumedFormulas.head
       
@@ -142,7 +142,11 @@ object Interpolator
             firstRes
           else
             (firstRes |
-             applyHelp(rightChild, iContext addLeft List(rightForm, !leftForm)))
+             applyHelp(rightChild,
+                       if (lemma)
+                         iContext addLeft (cert localProvidedFormulas 1)
+                       else
+                         iContext addLeft rightForm))
             
         } else if(iContext isFromRight originalForm) {
           
@@ -152,7 +156,11 @@ object Interpolator
             firstRes
           else
             (firstRes &
-             applyHelp(rightChild, iContext addRight List(rightForm, !leftForm)))
+             applyHelp(rightChild,
+                       if (lemma)
+                         iContext addRight (cert localProvidedFormulas 1)
+                       else
+                         iContext addRight rightForm))
             
         } else
           throw new Error("The formula " + originalForm + " has to come from left or right")

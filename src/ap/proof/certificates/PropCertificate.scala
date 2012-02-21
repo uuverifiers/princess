@@ -32,8 +32,10 @@ object BetaCertificateHelper {
    * Apparently this function cannot be included in BetaCertificate ("illegal
    * cyclic reference"). Compiler bug?
    */
-  def providedFormulas(leftFormula : CertFormula, rightFormula : CertFormula) =
-    Array(Set(leftFormula), Set(rightFormula, !leftFormula))
+  def providedFormulas(leftFormula : CertFormula, rightFormula : CertFormula,
+                       lemma : Boolean) =
+    Array(Set(leftFormula),
+          if (lemma) Set(rightFormula, !leftFormula) else Set(rightFormula))
   
 }
 
@@ -55,15 +57,17 @@ object BetaCertificate {
     childrenIt.next
     childrenIt.next
     
-    (BetaCertificate(children(0) _1, children(1) _1,
+    (BetaCertificate(children(0) _1, children(1) _1, false,
                      children(0) _2, children(1) _2, order) /: childrenIt) {
        case (cert, (formula, child)) =>
-         BetaCertificate(cert.localAssumedFormulas.head, formula, cert, child, order)
+         BetaCertificate(cert.localAssumedFormulas.head, formula, false,
+                         cert, child, order)
     }
   }
 
-  def providedFormulas(leftFormula : CertFormula, rightFormula : CertFormula) =
-    BetaCertificateHelper.providedFormulas(leftFormula, rightFormula)
+  def providedFormulas(leftFormula : CertFormula, rightFormula : CertFormula,
+                       lemma : Boolean) =
+    BetaCertificateHelper.providedFormulas(leftFormula, rightFormula, lemma)
   
 }
 
@@ -72,10 +76,11 @@ object BetaCertificate {
  * rule describes the splitting of an antecedent formula
  * <code>leftFormula | rightFormula</code> into the cases
  * <code>leftFormula</code> and <code>!leftFormula, rightFormula</code>.
- * (In many cases, the formula <code>!leftFormula</code> will not be used in the
- * right branch.)
+ * (If <code>lemma</code> is not set, the second case is just
+ * <code>rightFormula</code>)
  */
 case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula,
+                           lemma : Boolean,
                            _leftChild : Certificate, _rightChild : Certificate,
                            _order : TermOrder) extends {
   
@@ -85,19 +90,22 @@ case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula
   })
   
   val localProvidedFormulas : Seq[Set[CertFormula]] =
-    BetaCertificateHelper.providedFormulas(leftFormula, rightFormula)
+    BetaCertificateHelper.providedFormulas(leftFormula, rightFormula, lemma)
   
 } with BinaryCertificate(_leftChild, _rightChild, _order) {
   
-  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+  def update(newSubCerts : Seq[Certificate]) : Certificate =
+    update(newSubCerts, lemma)
+
+  def update(newSubCerts : Seq[Certificate], newLemma : Boolean) : Certificate = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(BetaCertificate.AC, newSubCerts.size == 2)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val Seq(newLeft, newRight) = newSubCerts
-    if ((newLeft eq leftChild) && (newRight eq rightChild))
+    if ((newLeft eq leftChild) && (newRight eq rightChild) && (lemma == newLemma))
       this
     else
-      copy(_leftChild = newLeft, _rightChild = newRight)
+      copy(_leftChild = newLeft, _rightChild = newRight, lemma = newLemma)
   }
 
   override def toString : String =

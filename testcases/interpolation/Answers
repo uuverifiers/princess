@@ -309,7 +309,7 @@ Found proof (size 106), simplifying (99), interpolating ...
 No countermodel exists, formula is valid
 
 Interpolants:
-ALL ALL (! (h'(_1, _0) & ! ALL (! (! ALL (! (-1*_0 + _2 + -1 >= 0 & h'(_1, _0))) & ! ALL (! (_0 >= 0 & f(_0, _3) & ! ALL (! (-1*_0 + n >= 0 & _0 + -1*_1 >= 0 & f(_0, _2)))))))))
+ALL ALL (! (h'(_1, _0) & ! ALL (! (! ALL (! (-1*_0 + _2 + -1 >= 0 & h'(_1, _0))) & ! ALL (! (_0 >= 0 & f(_0, _3) & ! ALL (! (-1*_0 + n >= 0 & _0 + -1*_1 >= 0 & _0 >= 0 & f(_0, _2)))))))))
 EX EX (h'(_1, _0) & ! ALL (! (! ALL (! (-1*_0 + _2 + -1 >= 0 & h'(_1, _0))) & ! ALL (! (_0 >= 0 & f(_0, _3) & ! ALL (! (-1*_0 + n >= 0 & _0 + -1*_1 >= 0 & _0 >= 0 & f(_0, _2))))))))
 
 Loading quan.pri ...

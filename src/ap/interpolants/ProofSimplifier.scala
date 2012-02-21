@@ -50,7 +50,7 @@ object ProofSimplifier {
    */
   
   private def encode(cert : Certificate,
-      availableFors : Set[CertFormula]) : Certificate = cert match {
+                     availableFors : Set[CertFormula]) : Certificate = cert match {
     
     case cert@BranchInferenceCertificate(infs, child, o) => {
       val (newInfs, newChild, _) = encodeInfs(infs.toList, child, availableFors)
@@ -112,6 +112,32 @@ object ProofSimplifier {
         })
     }
     
+    case cert@BetaCertificate(leftForm, _, lemma, leftChild, rightChild, _) => {
+      // check whether we might be able to remove the generated lemma
+      
+      val newLeftChild =
+        encode(leftChild, availableFors ++ (cert localProvidedFormulas 0))
+        
+      if (uselessFormulas(cert localProvidedFormulas 0,
+                          availableFors,
+                          newLeftChild.assumedFormulas)) {
+        newLeftChild
+      } else {
+        val newRightChild =
+          encode(rightChild, availableFors ++ (cert localProvidedFormulas 1))
+    
+        if (uselessFormulas(cert localProvidedFormulas 1,
+                            availableFors,
+                            newRightChild.assumedFormulas))
+          newRightChild
+        else
+          cert.update(Seq(newLeftChild, newRightChild),
+                      lemma && !uselessFormulas(List(!leftForm),
+                                                availableFors,
+                                                newRightChild.assumedFormulas))
+      }
+    }
+
     case cert => {
       val newSubCerts =
         for ((c, fs) <- cert.subCertificates zip cert.localProvidedFormulas)

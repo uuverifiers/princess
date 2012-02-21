@@ -106,7 +106,7 @@ object BetaFormulaTask {
       val rightFormula = CertFormula(otherConjuncts.negate)
       
       def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert = BetaCertificate(leftFormula, rightFormula,
+        val betaCert = BetaCertificate(leftFormula, rightFormula, true,
                                        children(0), children(1), order)
         branchInferences.getCertificate(betaCert, order)
       }
@@ -114,7 +114,7 @@ object BetaFormulaTask {
       ptf.and(Array(secondTree, firstTree),
               PartialCertificate(pCertFunction _,
                                  BetaCertificate.providedFormulas(
-                                     leftFormula, rightFormula),
+                                     leftFormula, rightFormula, true),
                                  (branchInferences.getCertificate(_, order)),
                                  2),
               goal.vocabulary)

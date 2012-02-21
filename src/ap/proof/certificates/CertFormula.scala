@@ -21,6 +21,7 @@
 
 package ap.proof.certificates
 
+import ap.basetypes.IdealInt
 import ap.terfor.{ConstantTerm, SortedWithOrder, TermOrder, TerFor}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{Predicate, Atom}
@@ -163,10 +164,8 @@ case class CertInequality(_lhs : LinearCombination)
     lhs >= 0
   }
 
-  def unary_! : CertInequality = {
-    implicit val o = order
-    CertInequality(-lhs - 1)
-  }
+  def unary_! : CertInequality =
+    CertInequality(lhs.scaleAndAdd(IdealInt.MINUS_ONE, IdealInt.MINUS_ONE))
 
   override def toString = "(" + lhs + " >= 0)"
 }
