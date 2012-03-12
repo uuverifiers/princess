@@ -151,18 +151,24 @@ object Conjunction {
   /**
    * Compute a disjunction from an arbitrary set of formulas
    */
-  def disj(formulas : Iterator[Formula], order : TermOrder) : Conjunction =
-    conj(for (f <- formulas) yield conj(Iterator.single(f), order).negate,
+  def disjFor(formulas : Iterator[Formula], order : TermOrder) : Conjunction =
+    conj(for (f <- formulas) yield conj(f, order).negate,
          order).negate
 
-  def disj(formulas : Iterable[Formula], order : TermOrder) : Conjunction =
+  def disj(formulas : Iterator[Conjunction], order : TermOrder) : Conjunction =
+    conj(for (f <- formulas) yield f.negate, order).negate
+
+  def disjFor(formulas : Iterable[Formula], order : TermOrder) : Conjunction =
+    disjFor(formulas.iterator, order)
+
+  def disj(formulas : Iterable[Conjunction], order : TermOrder) : Conjunction =
     disj(formulas.iterator, order)
 
   /**
    * Form the implication between two formulas
    */
   def implies(for1 : Formula, for2 : Formula, order : TermOrder) : Conjunction =
-    disj(Array(negate(for1, order), for2), order)
+    disj(Array(negate(for1, order), conj(for2, order)), order)
     
   /**
    * Form the equivalence between two formulas

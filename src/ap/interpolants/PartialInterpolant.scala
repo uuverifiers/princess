@@ -109,9 +109,9 @@ class PartialInterpolant private (val linComb : LinearCombination,
   def toConjunction : ArithConj = {
     implicit val o = linComb.order
     kind match {
-      case EqLeft | NegEqRight => linComb === 0
-      case InEqLeft => linComb >= 0
-      case EqRight => linComb =/= 0
+      case EqLeft | NegEqRight => EquationConj(linComb, o)
+      case InEqLeft =>            InEqConj(linComb, o)
+      case EqRight =>             NegEquationConj(linComb, o)
     }
   }
   

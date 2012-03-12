@@ -141,7 +141,7 @@ private class InputAbsy2Internal(order : TermOrder) {
 
       val res = op match {
         case IBinJunctor.And => Conjunction.conj(subRes, order)
-        case IBinJunctor.Or =>  Conjunction.disj(subRes, order)
+        case IBinJunctor.Or =>  Conjunction.disjFor(subRes, order)
       }
       
       // ensure that no garbage remain on the stack

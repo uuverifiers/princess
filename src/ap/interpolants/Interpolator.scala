@@ -23,7 +23,7 @@
 package ap.interpolants
 
 import ap.proof.certificates._
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, LazyConjunction}
 import ap.terfor.{Formula, TermOrder, VariableTerm}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
@@ -59,7 +59,7 @@ object Interpolator
   def apply(certificate : Certificate, 
             iContext: InterpolationContext,
             elimQuantifiers : Boolean = true) : Conjunction = {
-    val resWithQuantifiers = applyHelp(certificate, iContext)
+    val resWithQuantifiers = applyHelp(certificate, iContext).toConjunction
 
     implicit val o = certificate.order
     val res =
@@ -125,7 +125,7 @@ object Interpolator
 
   private def applyHelp(
     certificate : Certificate, 
-    iContext: InterpolationContext) : Conjunction =
+    iContext: InterpolationContext) : LazyConjunction =
   {
     certificate match {
       
@@ -148,7 +148,11 @@ object Interpolator
                        else
                          iContext addLeft rightForm))
             
-        } else if(iContext isFromRight originalForm) {
+        } else {
+          
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, iContext isFromRight originalForm)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           
           val firstRes = applyHelp(leftChild, iContext addRight leftForm)
           
@@ -162,8 +166,7 @@ object Interpolator
                        else
                          iContext addRight rightForm))
             
-        } else
-          throw new Error("The formula " + originalForm + " has to come from left or right")
+        }
       }
       
       //////////////////////////////////////////////////////////////////////////
@@ -227,6 +230,8 @@ object Interpolator
           weakInterInEq.linComb.isZero
         
         if (leftInequality || rightInequality) {
+          import LazyConjunction.{conj, disj}
+  
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, (!leftInequality || !rightInequality) &&
                               weakInterInEq.den.isOne)
@@ -266,7 +271,7 @@ object Interpolator
           
             applyHelp(cert children eqCasesInt,
                       newContext.addPartialInterpolant(newIneq, newPartInter))
-          }
+          }.toConjunction
 
           if (totalIneqInter.constants contains constTerm) {
             // the more complicated case, where we also have to consider the
@@ -283,7 +288,8 @@ object Interpolator
             val defaultEqInter = if (den > 1) {
               val ctxt = newContext.addPartialInterpolant(CertEquation(1),
                                                           eqPartialInter)
-              applyHelp(CloseCertificate(Set(CertEquation(1)), proofOrder), ctxt)
+              applyHelp(CloseCertificate(Set(CertEquation(1)), proofOrder),
+                        ctxt).toConjunction
             } else {
               null
             }
@@ -291,7 +297,7 @@ object Interpolator
             val eqInters = Array.tabulate(eqCasesInt)((i : Int) => {
               val newEq = cert.localProvidedFormulas(i).head.asInstanceOf[CertEquation]
               val ctxt = newContext.addPartialInterpolant(newEq, eqPartialInter)
-              applyHelp(cert children i, ctxt)
+              applyHelp(cert children i, ctxt).toConjunction
             })
 
 //            println("Strengthening: " + k + " cases")
@@ -319,7 +325,7 @@ object Interpolator
               
 //              val res = simplifier(result, o)
               
-              result
+              LazyConjunction(result)
               
 /*            Old: special case when predicates are present
               } else {
@@ -345,7 +351,7 @@ object Interpolator
               
           } else {
           
-            totalIneqInter
+            LazyConjunction(totalIneqInter)
           }
         }
       }
@@ -365,12 +371,13 @@ object Interpolator
 
         contradFors.head match {
           case f : CertArithLiteral =>
-            extractTotalInterpolant(iContext getPartialInterpolant f, iContext)
+            LazyConjunction(
+              extractTotalInterpolant(iContext getPartialInterpolant f, iContext))
           case f : CertCompoundFormula if (f.isFalse) =>
             if (iContext isFromLeft f) {
-              Conjunction.FALSE
+              LazyConjunction.FALSE
             } else if (iContext isFromRight f) {
-              Conjunction.TRUE
+              LazyConjunction.TRUE
             } else {
               assert(false)
               null
@@ -398,7 +405,7 @@ object Interpolator
   private def processBranchInferences(
     inferences : List[BranchInference],
     child : Certificate,
-    iContext : InterpolationContext) : Conjunction = inferences match {
+    iContext : InterpolationContext) : LazyConjunction = inferences match {
     
     case List() => applyHelp(child, iContext)
     
@@ -443,13 +450,16 @@ object Interpolator
       case AlphaInference(splitFormula, providedFormulae) =>
       {
         val newContext =
-          if(iContext isFromLeft splitFormula)
-            iContext.addLeft(providedFormulae)
-          else if(iContext isFromRight splitFormula)
-            iContext.addRight(providedFormulae)
-          else if(iContext isCommon splitFormula)
-            iContext.addCommon(providedFormulae)
-          else throw new Error("Origin of Formula " + splitFormula + " is unclear")
+          if (iContext isFromLeft splitFormula) {
+            iContext addLeft providedFormulae
+          } else if (iContext isFromRight splitFormula) {
+            iContext addRight providedFormulae
+          } else {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(AC, iContext isCommon splitFormula)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            iContext addCommon providedFormulae
+          }
           
         processBranchInferences(remInferences, child, newContext) 
       }
@@ -520,8 +530,10 @@ object Interpolator
       
           val newContext = newContext2.addPartialInterpolant(result, partialIneqInter)
           
-          val childInter = processBranchInferences(remInferences, child, newContext)
+          val childInter =
+            processBranchInferences(remInferences, child, newContext).toConjunction
 
+          LazyConjunction(
           if (childInter.constants contains constTerm) {
             val constToQuantify =
               newPI.linComb.constants & newContext.leftLocalConstants
@@ -544,7 +556,7 @@ object Interpolator
         
             childInter
               
-          }
+          })
         }
       }
       
@@ -595,10 +607,10 @@ object Interpolator
         //-END-ASSERTION-///////////////////////////////////////////////////////
         
         (iContext isFromLeft leftFor, iContext isFromLeft rightFor) match {
-          case (true, true) => Conjunction.FALSE
-          case (false, false) => Conjunction.TRUE
-          case (true, false) => leftFor.toConj
-          case (false, true) => rightFor.toConj
+          case (true, true) => LazyConjunction.FALSE
+          case (false, false) => LazyConjunction.TRUE
+          case (true, false) => LazyConjunction(leftFor.toConj)
+          case (false, true) => LazyConjunction(rightFor.toConj)
         }
       }
 
@@ -634,7 +646,8 @@ object Interpolator
                          else
                            iContext addRight !result
 
-        val subInterpolant = processBranchInferences(remInferences, child, newContext)
+        val subInterpolant =
+          processBranchInferences(remInferences, child, newContext).toConjunction
 
         def computePredInterpolant(lit : CertPredLiteral) : Conjunction =
           (iContext isFromLeft lit, lInterpolation) match {
@@ -676,7 +689,7 @@ object Interpolator
               exists(constsToQuantifySeq, unquantifiedInterpolant)
           }
         
-        ReduceWithConjunction(Conjunction.TRUE, extendedOrder)(res)
+        LazyConjunction(ReduceWithConjunction(Conjunction.TRUE, extendedOrder)(res))
       }
       
       //////////////////////////////////////////////////////////////////////////
@@ -734,15 +747,18 @@ object Interpolator
         val newContext =
           if (leftQFormula) (iContext addLeft result) else (iContext addRight result)
         
-        val totalInter = processBranchInferences(remInferences, child, newContext)        
+        val totalInter =
+          processBranchInferences(remInferences, child, newContext).toConjunction        
         
         val rawRes =
           if (leftQFormula)
-            forall(extOrder.sort(termConsts&iContext.rightLocalConstants), totalInter)
+            forall(extOrder.sort(termConsts & iContext.rightLocalConstants),
+                   totalInter)
           else
-            exists(extOrder.sort(termConsts&iContext.leftLocalConstants), totalInter)
+            exists(extOrder.sort(termConsts & iContext.leftLocalConstants),
+                   totalInter)
 
-        ReduceWithConjunction(Conjunction.TRUE, extOrder)(rawRes)
+        LazyConjunction(ReduceWithConjunction(Conjunction.TRUE, extOrder)(rawRes))
       }
       
       //////////////////////////////////////////////////////////////////////////
@@ -751,33 +767,38 @@ object Interpolator
         implicit val order = iContext.order
        
         val newContext = (
-          if (iContext isFromLeft qFormula)
+          if (iContext isFromLeft qFormula) {
             iContext addLeft result
-          else if (iContext isFromRight qFormula)
+          } else {
+            //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+            Debug.assertInt(AC, iContext isFromRight qFormula)
+            //-END-ASSERTION-/////////////////////////////////////////////////////
             iContext addRight result
-          else
-            throw new Error("The formula " + qFormula + "has to come from left or right")
-          ).addConstants(consts)
+          }).addConstants(consts)
 
-        val totalInter = processBranchInferences(remInferences, child, newContext)
+        val totalInter =
+          processBranchInferences(remInferences, child, newContext).toConjunction
          
-        if(iContext isFromLeft qFormula)
-          forall(consts.filter(iContext.rightLocalConstants contains _), totalInter)
-        else if(iContext isFromRight qFormula)
-          exists(consts.filter(iContext.leftLocalConstants contains _), totalInter)
-        else throw new Error
+        LazyConjunction(
+          if (iContext isFromLeft qFormula) {
+            forall(consts.filter(iContext.rightLocalConstants contains _), totalInter)
+          } else {
+            exists(consts.filter(iContext.leftLocalConstants contains _), totalInter)
+          })
       }
       
       //////////////////////////////////////////////////////////////////////////
 
       case DivRightInference(divFormula, result, _) => {
         val newContext =
-          if (iContext isFromLeft divFormula)
+          if (iContext isFromLeft divFormula) {
             iContext addLeft result
-          else if (iContext isFromRight divFormula)
+          } else {
+            //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+            Debug.assertInt(AC, iContext isFromRight divFormula)
+            //-END-ASSERTION-/////////////////////////////////////////////////////
             iContext addRight result
-          else
-            throw new Error("The formula " + divFormula + "has to come from left or right")
+          }
         
         processBranchInferences(remInferences, child, newContext)
       }

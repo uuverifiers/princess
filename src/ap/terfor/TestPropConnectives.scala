@@ -142,9 +142,9 @@ class TestPropConnectives(n : String) extends APTestCase(n) {
       assertEquals(Conjunction.conj(Array(conj, ArithConj.TRUE), to), conj)
       assertEquals(Conjunction.conj(Array(conj, EquationConj.TRUE), to), conj)
       assertEquals(Conjunction.disj(Array(conj, Conjunction.FALSE), to), conj)
-      assertEquals(Conjunction.disj(Array(conj, NegatedConjunctions.FALSE), to), conj)
-      assertEquals(Conjunction.disj(Array(conj, ArithConj.FALSE), to), conj)
-      assertEquals(Conjunction.disj(Array(conj, EquationConj.FALSE), to), conj)
+      assertEquals(Conjunction.disjFor(Array(conj, NegatedConjunctions.FALSE), to), conj)
+      assertEquals(Conjunction.disjFor(Array(conj, ArithConj.FALSE), to), conj)
+      assertEquals(Conjunction.disjFor(Array(conj, EquationConj.FALSE), to), conj)
       
       // test idempotence
       assertEquals(Conjunction.conj(Array(conj, conj), to), conj)

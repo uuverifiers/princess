@@ -242,8 +242,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     val (constraintEqs, remainingEqs) =
       conj.arithConj.negativeEqs partition (occursIn(_ : LinearCombination, c))
       
-    nonUniversalElimination(Conjunction.disj(for (lc <- constraintEqs.iterator)
-                                             yield EquationConj(lc, order),
+    nonUniversalElimination(Conjunction.disjFor(for (lc <- constraintEqs.iterator)
+                                                yield EquationConj(lc, order),
                   order))
     conj = conj.updateNegativeEqs(NegEquationConj(remainingEqs, order))(order)
   }  
