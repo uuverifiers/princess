@@ -275,7 +275,7 @@ object SimpleClausifier {
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private object Literal {
+  protected[parser] object Literal {
     def unapply(t : IExpression) : Option[IFormula] = t match {
       case LeafFormula(t) => Some(t)
       case t@INot(sub) => {

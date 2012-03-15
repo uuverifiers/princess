@@ -99,6 +99,8 @@ object Preprocessing {
         fors4
       case Param.ClausifierOptions.Simple =>
         for (f <- fors4) yield SimpleClausifier(f).asInstanceOf[INamedPart]
+      case Param.ClausifierOptions.BooleanCompactify =>
+        for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     }
     
     (fors5, interpolantSpecs, signature updateOrder order3)
