@@ -372,7 +372,8 @@ object Interpolator
         contradFors.head match {
           case f : CertArithLiteral =>
             LazyConjunction(
-              extractTotalInterpolant(iContext getPartialInterpolant f, iContext))
+              extractTotalInterpolant(iContext getPartialInterpolant f,
+                                      iContext))(iContext.order)
           case f : CertCompoundFormula if (f.isFalse) =>
             if (iContext isFromLeft f) {
               LazyConjunction.FALSE
@@ -395,9 +396,9 @@ object Interpolator
   
   private def extractTotalInterpolant(pi : PartialInterpolant,
                                       iContext : InterpolationContext)
-                                     : Conjunction = {
+                                     : Formula = {
     val constToQuantify = pi.linComb.constants & iContext.leftLocalConstants
-    exSimplify(constToQuantify, pi.toConjunction)
+    exSimplify(constToQuantify, pi.toFormula)
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -534,29 +535,29 @@ object Interpolator
             processBranchInferences(remInferences, child, newContext).toConjunction
 
           LazyConjunction(
-          if (childInter.constants contains constTerm) {
-            val constToQuantify =
-              newPI.linComb.constants & newContext.leftLocalConstants
+            if (childInter.constants contains constTerm) {
+              val constToQuantify =
+                newPI.linComb.constants & newContext.leftLocalConstants
           
-            val roundingCases = inf.constantDiff * newPartialInterpolant.den
+              val roundingCases = inf.constantDiff * newPartialInterpolant.den
         
 //        println("Rounding: " + roundingCases + " cases")
         
-            // We rely on the existing quantifier elimination, which often is
-            // more efficient than just expanding to a disjunction
+              // We rely on the existing quantifier elimination, which often is
+              // more efficient than just expanding to a disjunction
           
-            import VariableTerm._0
-            exists(_0 >= 0 & _0 < roundingCases & {
-                     val I = ConstantSubst(constTerm, _0, o)(childInter)
-                     val C = exSimplify(constToQuantify, newPI.linComb === _0)
-                     I & C
-                   }) | ConstantSubst(constTerm, roundingCases, o)(childInter)
+              import VariableTerm._0
+              exists(_0 >= 0 & _0 < roundingCases & {
+                       val I = ConstantSubst(constTerm, _0, o)(childInter)
+                       val C = exSimplify(constToQuantify, newPI.linComb === _0)
+                       I & Conjunction.conj(C, o)
+                     }) | ConstantSubst(constTerm, roundingCases, o)(childInter)
         
-          } else {
+            } else {
         
-            childInter
+              childInter
               
-          })
+            })
         }
       }
       
@@ -594,6 +595,7 @@ object Interpolator
            // special case of nullary predicates, which can be handled much
            // more efficiently
            if (leftAtom.pred.arity == 0) => {
+        implicit val o = iContext.order
              
         val leftFor = CertPredLiteral(false, leftAtom)
         val rightFor = CertPredLiteral(true, rightAtom)
@@ -670,7 +672,7 @@ object Interpolator
           List(subInterpolant, leftPredInterpolant, rightPredInterpolant)
 
         val unquantifiedInterpolant = if (lInterpolation)
-                                        disj(allInterpolantParts)
+                                        disjFor(allInterpolantParts)
                                       else
                                         conj(allInterpolantParts)
 
@@ -814,7 +816,7 @@ object Interpolator
   private def derivePredModifier(equations : Seq[(IdealInt, CertEquation)],
                                  lInterpolation : Boolean,
                                  iContext : InterpolationContext)
-                                (implicit order : TermOrder) : Conjunction = {
+                                (implicit order : TermOrder) : Formula = {
     val piKind = if (lInterpolation)
                    PartialInterpolant.Kind.EqRight
                  else
@@ -839,18 +841,17 @@ object Interpolator
     (for (atom <- conj.negativeLits.iterator) yield CertPredLiteral(!negated, atom))
   
   private def exSimplify(constants : Set[ConstantTerm],
-                         literal : ArithConj) : Conjunction = {
-    implicit val o = literal.order
-    
+                         literal : Formula) : Formula = {
     if (Seqs.disjointSeq(literal.constants, constants)) {
       literal
-    } else {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(AC, literal.isLiteral)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+    } else literal match {
+      case posEqs : EquationConj => {
+        implicit val o = posEqs.order
+      
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(AC, posEqs.size == 1)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
 
-      val ArithConj(posEqs, negEqs, inEqs) = literal
-      if (!posEqs.isTrue) {
         val lc = posEqs(0)
         val gcd = IdealInt.gcd(for (c <- constants.iterator) yield (lc get c))
         val remainingTerms = lc filterPairs ( (c, t) => t match {
@@ -863,14 +864,18 @@ object Interpolator
         val shifter = VariableShiftSubst.upShifter[Term](1, o)
         
         exists(
-          LinearCombination(List((gcd, VariableTerm._0),
-                                 (IdealInt.ONE, shifter(remainingTerms))),
-                            literal.order) === 0)
-      } else {
-        // otherwise, the literal is an inequality or a negated equation, and
+          EquationConj(
+            LinearCombination(List((gcd, VariableTerm._0),
+                                   (IdealInt.ONE, shifter(remainingTerms))), o), o))
+      }
+      
+      case _ : NegEquationConj | _ : InEqConj => {
+        // the literal is an inequality or a negated equation, and
         // the formula as a whole is trivially valid
         Conjunction.TRUE
       }
+      
+      case _ => { assert(false); null }
     }
   }
   

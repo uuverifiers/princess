@@ -21,18 +21,18 @@
 
 package ap.terfor.conjunctions
 
-import ap.terfor.TermOrder
+import ap.terfor.{TermOrder, Formula}
 import ap.util.{Debug, Logic, Seqs}
 
 object LazyConjunction {
 
   protected[conjunctions] val AC = Debug.AC_PROP_CONNECTIVES
 
-  val TRUE  = AtomicLazyConjunction(Conjunction.TRUE)
-  val FALSE = AtomicLazyConjunction(Conjunction.FALSE)
+  val TRUE  = AtomicLazyConjunction(Conjunction.TRUE, TermOrder.EMPTY)
+  val FALSE = AtomicLazyConjunction(Conjunction.FALSE, TermOrder.EMPTY)
   
-  def apply(conj : Conjunction) : LazyConjunction =
-    AtomicLazyConjunction(conj)
+  def apply(conj : Formula)(implicit order : TermOrder) : LazyConjunction =
+    AtomicLazyConjunction(conj, order)
     
   def conj(formulas : Iterator[LazyConjunction])
           (implicit order : TermOrder) : LazyConjunction =
@@ -67,7 +67,10 @@ abstract sealed class LazyConjunction {
   
   def unary_! : LazyConjunction = this.negate
   
-  protected[conjunctions] def forceAnd : LazyConjunction = this
+  protected[conjunctions] def forceAnd : LazyConjunction =
+    this
+  protected[conjunctions] def order : TermOrder =
+    throw new UnsupportedOperationException
   
   def &(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction =
     if (that.isFalse)
@@ -90,19 +93,25 @@ abstract sealed class LazyConjunction {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-protected[conjunctions] case class AtomicLazyConjunction(conj : Conjunction)
+protected[conjunctions] case class AtomicLazyConjunction(form : Formula,
+                                                         newOrder : TermOrder)
                              extends LazyConjunction {
 
-  def toConjunction : Conjunction = conj
+  def toConjunction : Conjunction = form match {
+    case conj : Conjunction => conj
+    case _                  => Conjunction.conj(form, newOrder)
+  }
 
-  override def isTrue : Boolean = conj.isTrue
-  override def isFalse : Boolean = conj.isFalse
+  override def isTrue : Boolean = form.isTrue
+  override def isFalse : Boolean = form.isFalse
+
+  protected[conjunctions] override def order : TermOrder = newOrder
 
   override def &(that : LazyConjunction)
                 (implicit newOrder : TermOrder) : LazyConjunction =
-    if (this.isFalse || that.isFalse)
+    if (form.isFalse || that.isFalse)
       LazyConjunction.FALSE
-    else if (this.isTrue)
+    else if (form.isTrue)
       that
     else if (that.isTrue)
       this
@@ -110,9 +119,9 @@ protected[conjunctions] case class AtomicLazyConjunction(conj : Conjunction)
       AndLazyConjunction(this.forceAnd, that.forceAnd, newOrder)
 
   override def negate : LazyConjunction =
-    if (conj.isTrue)
+    if (form.isTrue)
       LazyConjunction.FALSE
-    else if (conj.isFalse)
+    else if (form.isFalse)
       LazyConjunction.TRUE
     else
       NegLazyConjunction(this)
@@ -138,7 +147,7 @@ protected[conjunctions] case class NegLazyConjunction(conj : LazyConjunction)
   override def negate : LazyConjunction = conj
 
   override protected[conjunctions] def forceAnd : LazyConjunction =
-    AtomicLazyConjunction(toConjunction)
+    AtomicLazyConjunction(toConjunction, conj.order)
 
 }
 
@@ -148,7 +157,7 @@ protected[conjunctions] case class AndLazyConjunction(
                                      left : LazyConjunction,
                                      right : LazyConjunction,
                                      newOrder : TermOrder)
-                             extends LazyConjunction with Iterable[Conjunction] {
+                             extends LazyConjunction with Iterable[Formula] {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(LazyConjunction.AC,
                    (left match {
@@ -165,24 +174,26 @@ protected[conjunctions] case class AndLazyConjunction(
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def toConjunction : Conjunction = Conjunction.conj(iterator, newOrder)
+
+  protected[conjunctions] override def order : TermOrder = newOrder
     
-  def iterator = new Iterator[Conjunction] {
+  def iterator = new Iterator[Formula] {
     private var tree : LazyConjunction = AndLazyConjunction.this
     
     def hasNext = (tree != null)
     
-    def next : Conjunction = tree match {
-      case AtomicLazyConjunction(c) => {
+    def next : Formula = tree match {
+      case AtomicLazyConjunction(f, _) => {
         tree = null
-        c
+        f
       }
-      case AndLazyConjunction(AtomicLazyConjunction(c), r, _) => {
+      case AndLazyConjunction(AtomicLazyConjunction(f, _), r, _) => {
         tree = r
-        c
+        f
       }
-      case AndLazyConjunction(l, AtomicLazyConjunction(c), _) => {
+      case AndLazyConjunction(l, AtomicLazyConjunction(f, _), _) => {
         tree = l
-        c
+        f
       }
       case AndLazyConjunction(AndLazyConjunction(l2, r2, _), r, o) => {
         tree = AndLazyConjunction(l2, AndLazyConjunction(r2, r, o), o)

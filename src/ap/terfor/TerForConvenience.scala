@@ -106,6 +106,15 @@ object TerForConvenience {
   def disj(formulas : Conjunction*)(implicit order : TermOrder) =
     Conjunction.disj(formulas, order)
   
+  def disjFor(formulas : Iterator[Formula])(implicit order : TermOrder) =
+    Conjunction.disjFor(formulas, order)
+  
+  def disjFor(formulas : Iterable[Formula])(implicit order : TermOrder) =
+    Conjunction.disjFor(formulas, order)
+  
+  def disjFor(formulas : Formula*)(implicit order : TermOrder) =
+    Conjunction.disjFor(formulas, order)
+  
   def arithConj(formulas : Iterator[Formula])(implicit order : TermOrder) =
     ArithConj.conj(formulas, order)
   

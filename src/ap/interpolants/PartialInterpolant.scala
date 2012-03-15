@@ -28,7 +28,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.TermOrder
+import ap.terfor.{TermOrder, Formula}
 import ap.proof.certificates.{CertArithLiteral, CertEquation,
                               CertNegEquation, CertInequality}
 import ap.basetypes.IdealInt
@@ -106,14 +106,12 @@ class PartialInterpolant private (val linComb : LinearCombination,
     case _ => false
   }
   
-  def toConjunction : ArithConj = {
-    implicit val o = linComb.order
+  def toFormula : Formula =
     kind match {
-      case EqLeft | NegEqRight => EquationConj(linComb, o)
-      case InEqLeft =>            InEqConj(linComb, o)
-      case EqRight =>             NegEquationConj(linComb, o)
+      case EqLeft | NegEqRight => EquationConj(linComb, linComb.order)
+      case InEqLeft =>            InEqConj(linComb, linComb.order)
+      case EqRight =>             NegEquationConj(linComb, linComb.order)
     }
-  }
   
   def /(factor : IdealInt) : PartialInterpolant =
     if (factor.isOne)
