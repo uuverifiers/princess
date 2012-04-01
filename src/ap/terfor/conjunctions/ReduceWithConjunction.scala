@@ -298,6 +298,9 @@ private class LiteralEliminator(literals : Conjunction,
 
   var divJudgements : List[Conjunction] = List()
 
+  protected def isEliminationCandidate(t : Term) : Boolean =
+    uniVariables contains t
+
   protected def eliminationCandidates(literals : Conjunction) : Iterator[Term] =
     uniVariables.iterator
   

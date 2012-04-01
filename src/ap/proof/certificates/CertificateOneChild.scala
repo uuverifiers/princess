@@ -452,7 +452,7 @@ case class ColumnReduceInference(oldSymbol : ConstantTerm, newSymbol : ConstantT
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(ColumnReduceInference.AC,
                    !definingEquation.isFalse &&
-                   (definingEquation.lhs get oldSymbol).abs.isOne &&
+                   (definingEquation.lhs get oldSymbol).isUnit &&
                    (definingEquation.lhs get newSymbol) ==
                      -(definingEquation.lhs get oldSymbol))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////

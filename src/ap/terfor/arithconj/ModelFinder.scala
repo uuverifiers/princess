@@ -70,7 +70,7 @@ class ModelFinder(ac : ArithConj, c : ConstantTerm)
     //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
     Debug.assertInt(ModelFinder.AC,
                     inEqs.size <= 2 && (instantiatedAC.constants subsetOf Set(c)) &&
-                    (inEqs.isEmpty || (inEqs(0) get c).abs.isOne))
+                    (inEqs.isEmpty || (inEqs(0) get c).isUnit))
     //-END-ASSERTION-/////////////////////////////////////////////////////////
     
     // seach for the right value (we know that one must exist ...)

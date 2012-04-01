@@ -21,7 +21,7 @@
 
 package ap.terfor.conjunctions;
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
 
 import ap.terfor._
 import ap.basetypes.IdealInt
@@ -75,6 +75,9 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   private def occursInPositiveEqs(c : Term) =
     occursIn(conj.arithConj.positiveEqs, c)
 
+  private def onlyOccursInPositiveEqs(c : Term) =
+    !occursInNegativeEqs(c) && !occursInInEqs(c) && !occursInPreds(c)
+
   private def occursInNegativeEqs(c : Term) =
     occursIn(conj.arithConj.negativeEqs, c)
 
@@ -125,7 +128,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
         occurred = true
 
         // and the coefficient must be at most one
-        if ((lc get c).abs > IdealInt.ONE) return false
+        if (!(lc get c).isUnit) return false
       }
     }
     
@@ -139,8 +142,9 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     // we do not remove the equation if c is not an eliminated constant, but
     // the equation contains other eliminated constants;
     // there are chances that we can remove the equation completely later
-    !Logic.exists(for (lc <- conj.arithConj.positiveEqs.iterator)
-                  yield (occursIn(lc, c) && containsEliminatedSymbols(lc)))
+    !(conj.arithConj.positiveEqs exists {
+      lc => occursIn(lc, c) && containsEliminatedSymbols(lc)
+    })
   }
 
   private def elimPositiveEqs(c : Term) : Unit = {
@@ -148,30 +152,101 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     val remainingEqs = new ArrayBuffer[LinearCombination]
    
     for (lc <- oriEqs)
-      if (occursIn(lc, c)) {        
-        if (universalSymbols contains c) {
-          c match {
-            case c : ConstantTerm => {
-              // then we can just ignore the equation; we describe how to compute
-              // a witness for the eliminated constant c
-              val modelFinder =
-                new ModelFinder (ArithConj.conj(EquationConj(lc, order), order), c)
-              universalElimination(c, modelFinder)
-            }
-            case _ : VariableTerm => // nothing
-          }
-        } else {
-          // the equation can directly be moved to the constraint
-          nonUniversalElimination(Conjunction.conj(NegEquationConj(lc, order),
-                                                   order))
-        }
-      } else {
+      if (occursIn(lc, c))
+        elimPositiveEquationHelp(lc, c)
+      else
         remainingEqs += lc
-      }
 
     conj = conj.updatePositiveEqs(oriEqs.updateEqsSubset(remainingEqs)(order))(order)
   }
-  
+
+  private def elimPositiveEquationHelp(lc : LinearCombination, c : Term) : Unit =
+    if (universalSymbols contains c)
+      elimPositiveUniEquationHelp(lc, c)
+    else
+      // the equation can directly be moved to the constraint
+      nonUniversalElimination(Conjunction.conj(NegEquationConj(lc, order), order))
+
+  private def elimPositiveUniEquationHelp(lc : LinearCombination,
+                                          c : Term) : Unit = c match {
+    case c : ConstantTerm => {
+      // then we can just ignore the equation; we describe how to compute
+      // a witness for the eliminated constant c
+      val modelFinder =
+        new ModelFinder (ArithConj.conj(EquationConj(lc, order), order), c)
+      universalElimination(c, modelFinder)
+    }
+    case _ : VariableTerm => // nothing
+  }
+
+  private def elimPositiveUniversalEqs : Unit = {
+    val oriEqs = conj.arithConj.positiveEqs
+    val remainingEqs = new ArrayBuffer[LinearCombination]
+    
+    // first determine all constants that can be eliminated based on occurrence
+    // in equations
+    
+    val elimCandidates, nonCandidates = new MHashSet[Term]
+    
+    {
+      val lcIt = oriEqs.iterator
+      while (lcIt.hasNext) {
+        val lc = lcIt.next
+        val N = lc.size
+      
+        var i = 0
+        while (i < N) {
+          val c = lc getTerm i
+          if (!(nonCandidates contains c)) {
+            if (elimCandidates contains c) {
+              // if c is already an element of the set, we have seen it twice,
+              // and then it cannot be eliminated
+              nonCandidates += c
+            } else if ((lc getCoeff i).isUnit &&
+                       isEliminationCandidate(c) &&
+                       (universalSymbols contains c) &&
+                       onlyOccursInPositiveEqs(c))
+              elimCandidates += c
+            else
+              nonCandidates += c
+          }
+          i = i + 1
+        }
+      }
+    
+      elimCandidates --= nonCandidates
+    }
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConjunctEliminator.AC, !elimCandidates.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    // now eliminate equations
+    {
+      val lcIt = oriEqs.iterator
+      while (lcIt.hasNext) {
+        val lc = lcIt.next
+        val N = lc.size
+      
+        var i = 0
+        var elim = false
+        while (i < N && !elim) {
+          val c = lc getTerm i
+          if (elimCandidates contains c) {
+            elimPositiveUniEquationHelp(lc, c)
+            elim = true
+          }
+          i = i + 1
+        }
+        
+        if (!elim)
+          remainingEqs += lc
+      }
+    }
+    
+    conj = conj.updatePositiveEqs(oriEqs.updateEqsSubset(remainingEqs)(order))(order)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // Eliminated constants that occur in negative equations. The result are the
   // eliminated equations
@@ -289,7 +364,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
         }
         
         // and the coefficient of the symbol in the last argument must be a unit
-        if ((a.last get c).abs != IdealInt.ONE) return false
+        if (!(a.last get c).isUnit) return false
       }
     }
   
@@ -457,6 +532,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
 
   protected def eliminationCandidates(conj : Conjunction) : Iterator[Term]
   
+  protected def isEliminationCandidate(t : Term) : Boolean
+  
   def eliminate(logger : ComputationLogger) : Conjunction = {
   var oldconj = conj
   do {
@@ -475,7 +552,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       case (false, false, false, _, _) => // nothing
       
       case (true, false, false, false, true) if (eliminablePositiveEqs(c))
-          => elimPositiveEqs(c)
+          => //elimPositiveEqs(c)
+             elimPositiveUniversalEqs
    
       case (true, false, false, false, false)
         if (eliminablePositiveEqsNonU(c) && eliminablePositiveEqs(c))

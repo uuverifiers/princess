@@ -464,6 +464,9 @@ final class IdealInt private (private val longStore : Long,
     /** Returns <code>true</code> iff this <code>IdealInt</code> is -one */
   def isMinusOne : Boolean = longStore == -1
 
+  /** Returns <code>true</code> iff this <code>IdealInt</code> is one or -one*/
+  def isUnit : Boolean = (longStore == 1 || longStore == -1)
+
   /**
    * Return whether <code>this</code> is minimal (in the
    * <code>compareAbs</code> order) modulo <code>that</code>, i.e., if
