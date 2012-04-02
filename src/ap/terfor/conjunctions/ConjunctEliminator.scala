@@ -172,8 +172,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     case c : ConstantTerm => {
       // then we can just ignore the equation; we describe how to compute
       // a witness for the eliminated constant c
-      val modelFinder =
-        new ModelFinder (ArithConj.conj(EquationConj(lc, order), order), c)
+      val modelFinder = new ModelFinder (EquationConj(lc, order), c)
       universalElimination(c, modelFinder)
     }
     case _ : VariableTerm => // nothing
@@ -216,7 +215,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     
       elimCandidates --= nonCandidates
     }
-    
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConjunctEliminator.AC, !elimCandidates.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -609,10 +608,15 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
           }
         }
 
-      val newInEqs =
-        conj.arithConj.inEqs.updateGeqZero(exactShadow(conj.arithConj.inEqs),
-                                           logger)(order)
-      conj = conj.updateInEqs(newInEqs)(order)
+      try {
+        val newInEqs =
+          conj.arithConj.inEqs.updateGeqZero(exactShadow(conj.arithConj.inEqs),
+                                             logger)(order)
+        conj = conj.updateInEqs(newInEqs)(order)
+      } catch {
+        case InEqConj.UNSATISFIABLE_INEQ_EXCEPTION =>
+          conj = Conjunction.FALSE
+      }
     }
     
   } while (oldconj != conj)

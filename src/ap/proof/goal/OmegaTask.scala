@@ -281,20 +281,25 @@ case object OmegaTask extends EagerTask {
                t <- goal.formulaTasks(Conjunction.conj(f, order).negate))
           yield t
 
-        val darkShadowGoal = ptf.updateGoal(goal.facts.updateInEqs(remainder)(order),
+        val darkShadowFacts = goal.facts.updateInEqs(remainder)(order)
+        val darkShadowGoal = ptf.updateGoal(darkShadowFacts,
                                             newTasks, newCollector.getCollection,
                                             goal)
         
-        // we add a <code>ModelFinder</code> so that a witness for the eliminated
-        // constant can be constructed
-        val eliminatedInEqs =
-          ArithConj.conj(InEqConj(lowerBounds.iterator ++ upperBounds.iterator,
-                                  order), order)
-        newGoals += ptf.eliminatedConstant(darkShadowGoal,
-                                           elimConst,
-                                           new ModelFinder (eliminatedInEqs, elimConst),
-                                           goal.vocabulary)
-
+        newGoals += (if (darkShadowFacts.isFalse) {
+            darkShadowGoal
+          } else {
+            // we add a <code>ModelFinder</code> so that a witness for the eliminated
+            // constant can be constructed
+            val eliminatedInEqs =
+              ArithConj.conj(InEqConj(lowerBounds.iterator ++ upperBounds.iterator,
+                                      order), order)
+            ptf.eliminatedConstant(darkShadowGoal,
+                                   elimConst,
+                                   new ModelFinder (eliminatedInEqs, elimConst),
+                                   goal.vocabulary)
+          })
+                                             
         if (Param.PROOF_CONSTRUCTION(goal.settings)) {
           val order = goal.order
           val branchInferences = goal.branchInferences

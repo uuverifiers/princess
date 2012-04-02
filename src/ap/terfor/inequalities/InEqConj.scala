@@ -155,7 +155,9 @@ object InEqConj {
   /**
    * Perform Fourier-Motzkin elimination on one particular symbol <code>t</code>.
    * The result is the collection of eliminated inequalities, and the collection of
-   * remaining inequalities (including inferences from the removed inequalities)
+   * remaining inequalities (including inferences from the removed inequalities).
+   * If an unsatisfiable inequality is derived, the exception
+   * <code>UNSATISFIABLE_INEQ_EXCEPTION</code> is thrown.
    */
   def exactShadow(t : Term, inEqs : Seq[LinearCombination],
                   logger : ComputationLogger,
@@ -186,7 +188,7 @@ object InEqConj {
       if (lc.isConstant) {
         if (lc.constant.signum < 0) {
           logger.cieScope.finish(lc, lc)
-          remainder += LinearCombination.MINUS_ONE
+          throw UNSATISFIABLE_INEQ_EXCEPTION
         }
       } else {
         val primLC = lc.makePrimitive
@@ -214,6 +216,7 @@ object InEqConj {
     (geqs, remainder)
   }
   
+  object UNSATISFIABLE_INEQ_EXCEPTION extends Exception
 }
 
 /**

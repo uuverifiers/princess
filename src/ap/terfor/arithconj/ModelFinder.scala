@@ -22,6 +22,7 @@
 package ap.terfor.arithconj;
 
 import ap.terfor._
+import ap.terfor.equations.EquationConj
 import ap.basetypes.IdealInt
 import ap.terfor.substitutions.{Substitution, ConstantSubst, ComposeSubsts}
 import ap.terfor.linearcombination.LinearCombination
@@ -35,33 +36,38 @@ object ModelFinder {
 
 /**
  * Class for creating models (assignments of
- * integer literals to constants) of <code>ArithConj</code>, for certain
+ * integer literals to constants) of <code>Formula</code>, for certain
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
-class ModelFinder(ac : ArithConj, c : ConstantTerm)
+class ModelFinder(form : Formula, c : ConstantTerm)
       extends ((Substitution, TermOrder) => Substitution) {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // The handled cases: either a single positive equation, or a conjunction
   // of negated equations and inequalities
   Debug.assertCtor(ModelFinder.AC,
-                   ac.positiveEqs.size == 1 && ac.size == 1 ||
-                   ac.positiveEqs.isEmpty)
+                   !form.isFalse && (form match {
+                     case eqs : EquationConj => eqs.size == 1
+                     case ac : ArithConj => ac.positiveEqs.isEmpty
+                     case _ => false
+                   }))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
    
   def apply(subst : Substitution, order : TermOrder) : Substitution = {
-    val res = if (ac.positiveEqs.isEmpty)
-                solveInNegEqs(subst, order)
-              else
-                solveEquation(subst, order)
+    val res = form match {
+      case eqs : EquationConj => solveEquation(eqs, subst, order)
+      case ac : ArithConj => solveInNegEqs(ac, subst, order)
+    }
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ModelFinder.AC, res(ac).isTrue)
+    Debug.assertPost(ModelFinder.AC, res(form).isTrue)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
 
-  private def solveInNegEqs(subst : Substitution, order : TermOrder) : Substitution = {
+  private def solveInNegEqs(ac : ArithConj,
+                            subst : Substitution,
+                            order : TermOrder) : Substitution = {
     val (instantiatedAC, extendedSubst) = insertKnownValues(subst, ac, order)
 
     val negEqs = instantiatedAC.negativeEqs
@@ -90,9 +96,10 @@ class ModelFinder(ac : ArithConj, c : ConstantTerm)
     ComposeSubsts(Array(extendedSubst, valueSubst), order)
   }
   
-  private def solveEquation(subst : Substitution, order : TermOrder) : Substitution = {
-    val (instantiatedEq, extendedSubst) =
-      insertKnownValues(subst, ac.positiveEqs, order)
+  private def solveEquation(eq : EquationConj,
+                            subst : Substitution,
+                            order : TermOrder) : Substitution = {
+    val (instantiatedEq, extendedSubst) = insertKnownValues(subst, eq, order)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////
     Debug.assertPost(ModelFinder.AC,
                      instantiatedEq.size == 1 &&
