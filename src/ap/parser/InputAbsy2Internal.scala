@@ -24,7 +24,7 @@ package ap.parser;
 import ap.basetypes.IdealInt
 import ap.terfor.{TerFor, Formula, Term, VariableTerm, OneTerm, TermOrder}
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, LazyConjunction}
 import ap.terfor.preds.Atom
 import ap.terfor.equations.EquationConj
 import ap.terfor.inequalities.InEqConj
@@ -44,10 +44,12 @@ object InputAbsy2Internal {
     new InputAbsy2Internal(order).translateLinComb(expr)
 
   def apply(expr : IFormula, order : TermOrder) : Formula =
-    new InputAbsy2Internal(order).translateFor(expr)
+    new InputAbsy2Internal(order).translateFor(expr).toFormula
 }
 
 private class InputAbsy2Internal(order : TermOrder) {
+  
+  private implicit val o = order
   
   import IExpression._
   
@@ -101,54 +103,69 @@ private class InputAbsy2Internal(order : TermOrder) {
     LinearCombination(coeff, s, order)
   }
   
-  private def translateFor(f : IFormula) : Formula = f match {
+  private def translateFor(f : IFormula) : LazyConjunction = f match {
     case IBoolLit(true) =>
-      Conjunction.TRUE
+      LazyConjunction.TRUE
     case IBoolLit(false) =>
-      Conjunction.FALSE
+      LazyConjunction.FALSE
     case INot(subF) =>
-      Conjunction.negate(translateFor(subF), order)
+      translateFor(subF).negate
     case IAtom(pred, args) =>
-      Atom(pred, for (r <- args.iterator) yield translateLinComb(r), order)
+        LazyConjunction(Atom(pred,
+                             for (r <- args.iterator) yield translateLinComb(r),
+                             order))
     case IIntFormula(IIntRelation.EqZero, t) =>
-      EquationConj(translateLinComb(t), order)
+        LazyConjunction(EquationConj(translateLinComb(t), order))
     case IIntFormula(IIntRelation.GeqZero, t) =>
-      InEqConj(translateLinComb(t), order)
+        LazyConjunction(InEqConj(translateLinComb(t), order))
     case IQuantified(quan, subF) =>
-      Conjunction.quantify(List(quan), translateFor(subF), order)
+      LazyConjunction(Conjunction.quantify(List(quan),
+                                           translateFor(subF).toConjunction,
+                                           order))
     case INamedPart(_, subF) =>
       // names are just ignored
       translateFor(subF)
-      
+
     case IBinFormula(op, f1, f2) => {
       val preInputSize = inputStack.size
 
       inputStack push f1
       inputStack push f2
 
-      val subRes = new Iterator[Formula] {
-        def hasNext = inputStack.size > preInputSize
-        def next : Formula = inputStack.pop match {
-          case IBinFormula(`op`, f1, f2) => {
-            inputStack push f1
-            inputStack push f2
-            next
-          }
-          case f : IFormula =>
-            translateFor(f)
-        }
-      }
-
-      val res = op match {
-        case IBinJunctor.And => Conjunction.conj(subRes, order)
-        case IBinJunctor.Or =>  Conjunction.disjFor(subRes, order)
+      var res : LazyConjunction = op match {
+        case IBinJunctor.And => LazyConjunction.TRUE
+        case IBinJunctor.Or =>  LazyConjunction.FALSE
       }
       
-      // ensure that no garbage remain on the stack
-      while (subRes.hasNext) subRes.next
+      while (inputStack.size > preInputSize) inputStack.pop match {
+        case IBinFormula(`op`, f1, f2) => {
+          inputStack push f1
+          inputStack push f2
+        }
+        case f : IFormula => op match {
+          case IBinJunctor.And => {
+            res = res & translateFor(f)
+            if (res.isFalse) {
+              while (inputStack.size > preInputSize) inputStack.pop
+            }
+          }
+          case IBinJunctor.Or => {
+            res = res | translateFor(f)
+            if (res.isTrue) {
+              while (inputStack.size > preInputSize) inputStack.pop
+            }
+          }
+        }
+      }
       
       res
     }
+
+/*      
+    case IBinFormula(IBinJunctor.And, f1, f2) =>
+      translateFor(f1) & translateFor(f2)
+    case IBinFormula(IBinJunctor.Or, f1, f2) =>
+      translateFor(f1) | translateFor(f2) */
   }
   
 }

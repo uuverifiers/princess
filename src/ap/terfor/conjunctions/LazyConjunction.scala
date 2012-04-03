@@ -22,6 +22,9 @@
 package ap.terfor.conjunctions
 
 import ap.terfor.{TermOrder, Formula}
+import ap.terfor.equations.{EquationConj, NegEquationConj}
+import ap.terfor.inequalities.InEqConj
+import ap.terfor.preds.PredConj
 import ap.util.{Debug, Logic, Seqs}
 
 object LazyConjunction {
@@ -58,6 +61,7 @@ object LazyConjunction {
  */
 abstract sealed class LazyConjunction {
 
+  def toFormula : Formula
   def toConjunction : Conjunction
   
   def negate : LazyConjunction = NegLazyConjunction(this)
@@ -72,13 +76,7 @@ abstract sealed class LazyConjunction {
   protected[conjunctions] def order : TermOrder =
     throw new UnsupportedOperationException
   
-  def &(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction =
-    if (that.isFalse)
-      LazyConjunction.FALSE
-    else if (that.isTrue)
-      this
-    else
-      AndLazyConjunction(this.forceAnd, that.forceAnd, newOrder)
+  def &(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction
   
   def |(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction =
     (this.negate & that.negate).negate
@@ -97,6 +95,8 @@ protected[conjunctions] case class AtomicLazyConjunction(form : Formula,
                                                          newOrder : TermOrder)
                              extends LazyConjunction {
 
+  def toFormula : Formula = form
+  
   def toConjunction : Conjunction = form match {
     case conj : Conjunction => conj
     case _                  => Conjunction.conj(form, newOrder)
@@ -109,14 +109,19 @@ protected[conjunctions] case class AtomicLazyConjunction(form : Formula,
 
   override def &(that : LazyConjunction)
                 (implicit newOrder : TermOrder) : LazyConjunction =
-    if (form.isFalse || that.isFalse)
+    if (form.isFalse)
       LazyConjunction.FALSE
     else if (form.isTrue)
       that
-    else if (that.isTrue)
-      this
-    else
-      AndLazyConjunction(this.forceAnd, that.forceAnd, newOrder)
+    else {
+      val forcedThat = that.forceAnd
+      if (forcedThat.isFalse)
+        LazyConjunction.FALSE
+      else if (forcedThat.isTrue)
+        this
+      else
+        AndLazyConjunction(this, forcedThat, newOrder)
+    }
 
   override def negate : LazyConjunction =
     if (form.isTrue)
@@ -142,12 +147,46 @@ protected[conjunctions] case class NegLazyConjunction(conj : LazyConjunction)
                    !conj.isTrue && !conj.isFalse)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
-  def toConjunction : Conjunction = conj.toConjunction.negate
+  def toFormula : Formula = conj match {
+    case AtomicLazyConjunction(eqs : EquationConj, _)
+      if (eqs.size <= 1) => eqs.negate
+    case AtomicLazyConjunction(eqs : NegEquationConj, _)
+      if (eqs.size <= 1) => eqs.negate
+    case AtomicLazyConjunction(inEqs : InEqConj, _)
+      if (inEqs.size <= 1) => inEqs.negate
+    case AtomicLazyConjunction(pred : PredConj, _)
+      if (pred.isLiteral) => pred.negate
+    case _ =>
+      conj.toConjunction.negate
+  }
+  
+  def toConjunction : Conjunction = toFormula match {
+    case c : Conjunction => c
+    case f => Conjunction.conj(f, conj.order)
+  }
 
   override def negate : LazyConjunction = conj
 
+  def &(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction = {
+    val form = toFormula
+    if (form.isFalse)
+      LazyConjunction.FALSE
+    else if (form.isTrue)
+      that
+    else {
+      val forcedThat = that.forceAnd
+      if (forcedThat.isFalse)
+        LazyConjunction.FALSE
+      else if (forcedThat.isTrue)
+        this
+      else
+        AndLazyConjunction(AtomicLazyConjunction(form, newOrder),
+                           forcedThat, newOrder)
+    }
+  }
+
   override protected[conjunctions] def forceAnd : LazyConjunction =
-    AtomicLazyConjunction(toConjunction, conj.order)
+    AtomicLazyConjunction(toFormula, conj.order)
 
 }
 
@@ -173,10 +212,22 @@ protected[conjunctions] case class AndLazyConjunction(
                    !left.isTrue && !left.isFalse && !right.isTrue && !right.isFalse)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
+  def toFormula : Formula = toConjunction
+                   
   def toConjunction : Conjunction = Conjunction.conj(iterator, newOrder)
 
   protected[conjunctions] override def order : TermOrder = newOrder
-    
+
+  def &(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction = {
+    val forcedThat = that.forceAnd
+    if (forcedThat.isFalse)
+      LazyConjunction.FALSE
+    else if (forcedThat.isTrue)
+      this
+    else
+      AndLazyConjunction(this, forcedThat, newOrder)
+  }
+
   def iterator = new Iterator[Formula] {
     private var tree : LazyConjunction = AndLazyConjunction.this
     
