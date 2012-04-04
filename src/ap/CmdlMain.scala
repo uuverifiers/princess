@@ -26,7 +26,8 @@ import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{GlobalSettings, Param}
-import ap.parser.{SMTLineariser, IExpression, IBinJunctor}
+import ap.parser.{SMTLineariser, IExpression, IBinJunctor, IInterpolantSpec,
+                  INamedPart, PartName}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -99,10 +100,27 @@ object CmdlMain {
       
       def linearise : Unit = {
         import IExpression._
-        val completeFormula =
-          connect(for (f <- prover.inputFormulas.iterator) yield removePartName(f),
-                  IBinJunctor.Or)
-        SMTLineariser(completeFormula, prover.signature, filename)
+        val formulas = prover.interpolantSpecs match {
+          case List() =>
+            for (f <- prover.inputFormulas) yield removePartName(f)
+          case IInterpolantSpec(left, right) :: _ => {
+            def formula(name : PartName) =
+              removePartName(prover.inputFormulas.find({
+                               case INamedPart(`name`, _) => true
+                               case _ => false
+                             }).getOrElse(false))
+              
+            val common = formula(PartName.NO_NAME)
+            
+            // extract the order of formula parts from the first
+            // interpolant specification; this does not quite do the right
+            // thing for the axioms of uninterpreted functions, but should
+            // work otherwise
+            for (part <- left ++ right) yield (common ||| formula(part))
+          }
+        }
+
+        SMTLineariser(formulas, prover.signature, filename)
       }
       
       if (Param.PRINT_SMT_FILE(settings) != "-") {
@@ -403,8 +421,11 @@ object CmdlMain {
               if (Param.LOGO(settings))
                 println("" + (timeAfter - timeBefore) + "ms")
             }
-              
-    //        printSMT(prover, filename, settings)
+            
+            prover match {
+              case prover : AbstractFileProver => printSMT(prover, filename, settings)
+              case _ => // nothing
+            }
             
             /* println
             println(ap.util.Timer)
