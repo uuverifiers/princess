@@ -229,7 +229,8 @@ object TPTPTParser {
 
     lazy val tff_mapping_type:PackratParser[Rank] =
       ( ( tff_unitary_type ~ ">" ~ tff_atomic_type ) ^^
-          { case argsTypes ~ ">" ~ resType => Rank((argsTypes map (TypeExistsChecked(_))), TypeExistsChecked(resType)) } ) | (
+          { case argsTypes ~ ">" ~ resType =>
+            Rank((argsTypes map (TypeExistsChecked(_))) -> TypeExistsChecked(resType)) } ) | (
               "(" ~> tff_mapping_type <~ ")" )
       
     lazy val tff_unitary_type =    ( tff_atomic_type ^^ { List(_) } ) | 
@@ -301,10 +302,10 @@ object TPTPTParser {
     lazy val tff_varlist: PackratParser[List[TypedVar]] =  rep1sep(tff_var, ",")
 
     lazy val tff_var: PackratParser[TypedVar] = 
-      ( variable ~ ":" ~ tff_atomic_type ^^ { 
+      ( variableStr ~ ":" ~ tff_atomic_type ^^ { 
 	      case x ~ ":" ~ typ => TypedVar(x, TypeExistsChecked(typ)) 
         } ) |
-      ( variable <~ guard(not(":")) ^^ { 
+      ( variableStr <~ guard(not(":")) ^^ { 
 	      // default type of variables (in quantifications) is IType
 	      x => TypedVar(x, IType) 
         } )
@@ -377,7 +378,7 @@ object TPTPTParser {
 
     // Variable list
     lazy val fof_varlist: PackratParser[List[TypedVar]] = 
-      rep1sep(variable, ",") ^^ { _ map { TypedVar(_,IType) } } // looks cryptic?
+      rep1sep(variableStr, ",") ^^ { _ map { TypedVar(_, IType) } } // looks cryptic?
 
  /**
   * Definitions common to TFF and FOF
@@ -403,20 +404,20 @@ object TPTPTParser {
     // cannot undo that.
 
     lazy val atom : PackratParser[IFormula] =
-      ( "$true" ^^ { _ => true }) |
-      ( "$false" ^^ { _ => false }) |
+      ( "$true" ^^ { _ => i(true) }) |
+      ( "$false" ^^ { _ => i(false) }) |
       // eqn with lhs a variable
-      ( variable ~ equalsSign ~ term ^^ { 
+      ( constant_or_variable ~ equalsSign ~ term ^^ { 
 	      case x ~ _ ~ t => CheckedEquation(x, t)
         } ) |
-      ( variable ~ "!=" ~ term ^^ { 
-	      case x ~ _ ~ t => Neg(CheckedEquation(x, t))
+      ( constant_or_variable ~ "!=" ~ term ^^ { 
+	      case x ~ _ ~ t => !CheckedEquation(x, t)
         } ) |
       ( bg_constant ~ equalsSign ~ term ^^ { 
 	      case c ~ _ ~ t => CheckedEquation(c, t)
         } ) |
       ( bg_constant ~ "!=" ~ term ^^ { 
-	  case c ~ _ ~ t => Neg(CheckedEquation(c, t))
+	  case c ~ _ ~ t => !CheckedEquation(c, t)
         } ) |
     // functor with or without arguments
     (( ( functor ~ "(" ~ termlist ~ ")" ^^ { 
@@ -425,27 +426,26 @@ object TPTPTParser {
 	       case functor ~ _ => (functor, List()) } ) ) ~
      // Up to here the above could be an atom or the lhs of an equation.
      // The following three cases all return a template for a (dis)equation or an atom
-     ( ( equalsSign ~ term ^^ { 
-           case _ ~ t =>
-	     (functor:String, args:List[Term]) => { 
-	       if (!(Sigma.ranks contains functor))
-		 Sigma += (functor -> Rank((args map { _ => IType }) -> IType))
+     ( ( equalsSign ~ term ^^ { case _ ~ t =>
+	     (functor:String, args:List[(ITerm, Type)]) => { 
+//	       if (!(Sigma.ranks contains functor))
+//             Sigma += (functor -> Rank((args map { _ => IType }) -> IType))
 	       CheckedEquation(CheckedFunTerm(functor, args), t)
 	     } 
          } ) |
        ( "!=" ~ term ^^ { 
            case _ ~ t =>
-	     (functor:String, args:List[Term]) => { 
-	       if (!(Sigma.ranks contains functor))
-		 Sigma += (functor -> Rank((args map { _ => IType }) -> IType))
-	       Neg(CheckedEquation(CheckedFunTerm(functor, args), t))
+	     (functor:String, args:List[(ITerm, Type)]) => { 
+//	       if (!(Sigma.ranks contains functor))
+//	         Sigma += (functor -> Rank((args map { _ => IType }) -> IType))
+	       !CheckedEquation(CheckedFunTerm(functor, args), t)
 	     } 
          } ) |
        ( guard(not(equalsSign | "!=")) ^^ { 
            case _ =>
-	     (functor:String, args:List[Term]) => { 
-	       if (!(Sigma.ranks contains functor))
-		 Sigma += (functor -> Rank((args map { _ => IType }) -> OType))
+	     (functor:String, args:List[(ITerm, Type)]) => { 
+//	       if (!(Sigma.ranks contains functor))
+//             Sigma += (functor -> Rank((args map { _ => IType }) -> OType))
 	       CheckedAtom(functor, args)
 	     } 
          } ) ) ^^ 
@@ -457,36 +457,48 @@ object TPTPTParser {
     // it is clear it must be a term (no backtracking), hence as soon
     // as a term is found the signature can be extended.
     lazy val term: PackratParser[(ITerm, Type)] =
-      nonvar_term | variable 
-    lazy val nonvar_term: PackratParser[ITerm] =
-      funterm | constant | bg_constant
+      funterm | constant_or_variable | bg_constant
+      
     lazy val variableStr: PackratParser[String] =
       regex(new Regex("[A-Z][a-zA-Z0-9_]*"))
-    lazy val variable : PackratParser[(ITerm, Type)] =
+      
+/*    lazy val variable : PackratParser[] =
       variableStr ^^ { name => {
         val t = env.loo
-      }} }
+      }} } */
       
-    lazy val funterm: PackratParser[FunTerm] = functor ~ "(" ~ termlist ~ ")" ^^ {
-      case functor ~ "(" ~ termlist ~ ")" => { 
-	if (!(Sigma.ranks contains functor))
-	  Sigma += (functor -> Rank((termlist map { _ => IType }) -> IType))
-	// todo: check well-sortedness of arguments
-	CheckedFunTerm(functor, termlist) 
+    lazy val funterm: PackratParser[(ITerm, Type)] =
+      functor ~ "(" ~ termlist ~ ")" ^^ {
+        case functor ~ "(" ~ termlist ~ ")" => {
+          (env lookupSym functor) match {
+            case Environment.Function(f, false) =>
+              (IFunApp(f, for ((t, _) <- termlist) yield t), IntType)
+            case _ =>
+              throw new SyntaxError("Unexpected symbol: " + functor)
+          }
+          
+//	      if (!(Sigma.ranks contains functor))
+//	        Sigma += (functor -> Rank((termlist map { _ => IType }) -> IType))
+	    // todo: check well-sortedness of arguments
+//	    CheckedFunTerm(functor, termlist) 
       }
     }
 
     lazy val termlist = rep1sep(term, ",")
 
     // Foreground constant or parameter
-    lazy val constant: PackratParser[FunTerm] = 
+    lazy val constant_or_variable: PackratParser[(ITerm, Type)] = 
       // a constant cannot be followed by a parenthesis, would see a FunTerm instead
       // Use atomic_word instead of functor?
-      guard(functor ~ not("(")) ~>
-      functor ^^ { functor => 
-	if (!(Sigma.ranks contains functor)) 
-	  Sigma += (functor -> Rank0(IType))
-	CheckedFunTerm(functor, List())
+      guard(functor ~ not("(")) ~> functor ^^ { functor => 
+        (env lookupSym functor) match {
+          case Environment.Constant(c, _) => (i(c), IntType)
+          case Environment.Variable(index, false) => (v(index), IntType)
+          case _ => throw new SyntaxError("Unexpected symbol: " + functor)
+        }
+        
+//	    if (!(Sigma.ranks contains functor)) 
+//	      Sigma += (functor -> Rank0(IType))
     }
 
     // Background literal constant
@@ -523,7 +535,7 @@ object TPTPTParser {
     // Parsing of comments is not optimal as they may not appear
     // inside formulas - essentially they are an atom
     lazy val comment: PackratParser[List[IFormula]] =
-    """%.*""".r ^^ (x => List(true /* Comment(x) */))
+      """%.*""".r ^^ (x => List(null /* Comment(x) */))
 
     lazy val include: PackratParser[List[IFormula]] = 
       "include" ~> "(" ~> atomic_word <~ ")" <~ "." ^^ {
@@ -537,22 +549,44 @@ object TPTPTParser {
     /**
      * CheckedXX: creates an XX, type-checked against sig and varTypes
      */
-    def CheckedEquation(s: ITerm, t: ITerm) = {
-      val typ = Sigma.typeOf(s, varTypes)
-      if (typ != OType && typ == Sigma.typeOf(t, varTypes)) 
-	Equation(s, t)
+    def CheckedEquation(s: (ITerm, Type), t: (ITerm, Type)) = {
+      val (s_term, s_type) = s
+      val (t_term, t_type) = t
+      if (s_type != OType && s_type == t_type) 
+        s_term === t_term
       else
-	throw new SyntaxError("Error: ill-sorted (dis)equation: between " + s + " and " + t)
+        throw new SyntaxError(
+           "Error: ill-sorted (dis)equation: between " + s_term + " and " + t_term)
     }
 
-    def CheckedAtom(pred: String, args: List[Term]) = 
-      // Assume that pred has been entered into sig already
+    def CheckedAtom(pred: String, args: List[(ITerm, Type)]) : IFormula = 
+      (env lookupSym pred) match {
+         case Environment.Predicate(p) =>
+           IAtom(p, for ((t, _) <- args) yield t)
+         case _ =>
+           throw new SyntaxError("Unexpected symbol: " + functor)
+       }
+      
+/*      // Assume that pred has been entered into sig already
       if (Sigma(pred).argsTypes == Sigma.typesOf(args, varTypes))
-	Atom(pred, args)
+    Atom(pred, args)
       else
-	throw new SyntaxError("Error: ill-sorted atom: " + Atom(pred, args))
+	throw new SyntaxError("Error: ill-sorted atom: " + Atom(pred, args)) */
 
-    def CheckedFunTerm(fun: String, args: List[Term]) = 
+    def CheckedFunTerm(fun: String, args: List[(ITerm, Type)]) : (ITerm, Type) =
+      (env lookupSym fun) match {
+         case Environment.Function(f, false) =>
+           (IFunApp(f, for ((t, _) <- args) yield t), IntType)
+         case Environment.Constant(c, _) => {
+           if (!args.isEmpty)
+             throw new SyntaxError("Constant does not accept arguments: " + functor)
+           (IConstant(c), IntType)
+         }
+         case _ =>
+           throw new SyntaxError("Unexpected symbol: " + functor)
+       }
+      
+/*      
       // Assume that fun has been entered into sig already
       if (args.isEmpty) {
 	// A constant. See if we have a foreground constant or parameter
@@ -566,7 +600,7 @@ object TPTPTParser {
 	// Type Checking OK 
 	FunTerm(fun, args)
       else
-	throw new SyntaxError("Error: ill-sorted term: " + FunTerm(fun, args))
+	throw new SyntaxError("Error: ill-sorted term: " + FunTerm(fun, args)) */
 
     def TypeExistsChecked(typ: Type) = 
       if (declaredTypes contains typ)
@@ -578,7 +612,8 @@ object TPTPTParser {
   def parseTPTPTFile(fileName: String) = {
     val reader = new FileReader(fileName)
     val TPTPTparser = new TPTPTParser
-    val tffs = TPTPTparser.parseAll[List[List[Formula]]](TPTPTparser.TPTP_input, reader).get.flatten.filter(!_.isComment)
+    val tffs = TPTPTparser.parseAll[List[List[IFormula]]](
+        TPTPTparser.TPTP_input, reader).get.flatten.filter(_ != null)
     (tffs, TPTPTparser.haveConjecture)
   }
 
