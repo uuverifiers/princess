@@ -51,6 +51,8 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.Princess)
         case ValueOpt("inputFormat", "smtlib") =>
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.SMTLIB)
+        case ValueOpt("inputFormat", "tptp") =>
+          Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
         case Opt("printTree", value) =>
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>

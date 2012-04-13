@@ -29,7 +29,7 @@ object Param {
   }
 
   object InputFormat extends Enumeration {
-    val Auto, Princess, SMTLIB = Value
+    val Auto, Princess, SMTLIB, TPTP = Value
   }
 
   case object INPUT_FORMAT extends Param {
