@@ -92,7 +92,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
            : (IFormula, List[IInterpolantSpec], Signature) = {
     val tffs =
       parseAll[List[List[IFormula]]](TPTP_input, reader).get.flatten.filter(_ != null)
-    (connect(tffs, IBinJunctor.And), List(), env.toSignature)
+    (connect(tffs, IBinJunctor.Or), List(), env.toSignature)
   }
 
   val fullSymbolTypes = new MHashMap[Environment.DeclaredSym, Rank]
@@ -153,17 +153,18 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     _ => ()
   }
 
-  lazy val tff_annotated_logic_formula = "tff" ~ "(" ~ (atomic_word | wholeNumber) ~ "," ~ 
-                      formula_role_other_than_type ~ "," ~ tff_logic_formula ~ ")" <~ "." ^^ {
-    case "tff" ~ "(" ~ name ~ "," ~ role ~ "," ~ f ~ ")" => 
-	role match {
-	  case "conjecture" => {
-	    haveConjecture = true
-	    f
+  lazy val tff_annotated_logic_formula =
+    "tff" ~ "(" ~ (atomic_word | wholeNumber) ~ "," ~ 
+    formula_role_other_than_type ~ "," ~ tff_logic_formula ~ ")" <~ "." ^^ {
+      case "tff" ~ "(" ~ name ~ "," ~ role ~ "," ~ f ~ ")" => 
+	  role match {
+	    case "conjecture" => {
+	      haveConjecture = true
+	      f
+	    }
+	    case _ => !f // Assume f sits on the premise side
 	  }
-	  case _ => !f // Assume f sits on the premise side
-	}
-  } 
+    } 
 
   lazy val formula_role_other_than_type = commit(
     // "type" | 
@@ -196,7 +197,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
          if (rank.argsTypes.isEmpty) {
            env.addConstant(new ConstantTerm(symbolName), Environment.Universal)
          } else {
-           val f = new IFunction(symbolName, rank.argsTypes.size, true, true)
+           val f = new IFunction(symbolName, rank.argsTypes.size, false, false)
            env.addFunction(f, false)
          }
        }
@@ -327,8 +328,6 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   /*
    * FOF formulas
    */
-
-
   lazy val fof_logic_formula =
     fof_binary_formula | fof_unitary_formula
   lazy val fof_binary_formula =
@@ -381,9 +380,9 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   lazy val fof_varlist: PackratParser[List[TypedVar]] = 
     rep1sep(variableStr, ",") ^^ { _ map { TypedVar(_, IType) } } // looks cryptic?
 
- /**
-* Definitions common to TFF and FOF
-*/
+  /**
+   * Definitions common to TFF and FOF
+   */
 
   lazy val binary_nonassoc_connective = 
 			      ( "=>" ^^ {
@@ -470,19 +469,12 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     
   lazy val funterm: PackratParser[(ITerm, Type)] =
     functor ~ "(" ~ termlist ~ ")" ^^ {
-      case functor ~ "(" ~ termlist ~ ")" => {
-        (env lookupSym functor) match {
-          case Environment.Function(f, false) =>
-            (IFunApp(f, for ((t, _) <- termlist) yield t), IntType)
-          case _ =>
-            throw new SyntaxError("Unexpected symbol: " + functor)
-        }
+      case functor ~ "(" ~ termlist ~ ")" => CheckedFunTerm(functor, termlist)
         
 //	      if (!(Sigma.ranks contains functor))
 //	        Sigma += (functor -> Rank((termlist map { _ => IType }) -> IType))
 	    // todo: check well-sortedness of arguments
 //	    CheckedFunTerm(functor, termlist) 
-    }
   }
 
   lazy val termlist = rep1sep(term, ",")
@@ -491,8 +483,8 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   lazy val constant_or_variable: PackratParser[(ITerm, Type)] = 
     // a constant cannot be followed by a parenthesis, would see a FunTerm instead
     // Use atomic_word instead of functor?
-    guard(functor ~ not("(")) ~> functor ^^ { functor => 
-      (env lookupSym functor) match {
+    guard((functor | variableStr) ~ not("(")) ~>
+      (functor | variableStr) ^^ { functor => (env lookupSym functor) match {
         case Environment.Constant(c, _) => (i(c), IntType)
         case Environment.Variable(index, false) => (v(index), IntType)
         case _ => throw new SyntaxError("Unexpected symbol: " + functor)
@@ -570,10 +562,13 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 //    case "$divides"   => binaryIntPred(pred, args)( _ <= _ )
   
     case pred => (env lookupSym pred) match {
-     case Environment.Predicate(p) =>
-       IAtom(p, for ((t, _) <- args) yield t)
-     case _ =>
-       throw new SyntaxError("Unexpected symbol: " + functor)
+      case Environment.Function(f, false) =>
+        // then a predicate has been encoded as a function
+        IIntFormula(IIntRelation.EqZero, IFunApp(f, for ((t, _) <- args) yield t))
+      case Environment.Predicate(p) =>
+        IAtom(p, for ((t, _) <- args) yield t)
+      case _ =>
+        throw new SyntaxError("Unexpected symbol: " + pred)
     }
   }
   
@@ -581,6 +576,12 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
                            (op : (ITerm, ITerm) => IFormula) : IFormula = {
     checkArgTypes(tptpOp, args, List(IntType, IntType))
     op(args(0)._1, args(1)._1)
+  }
+  
+  private def binaryIntFun(tptpOp : String, args: List[(ITerm, Type)])
+                          (op : (ITerm, ITerm) => ITerm) : (ITerm, Type) = {
+    checkArgTypes(tptpOp, args, List(IntType, IntType))
+    (op(args(0)._1, args(1)._1), IntType)
   }
   
   private def checkArgTypes(op : String,
@@ -595,18 +596,28 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     else
 	throw new SyntaxError("Error: ill-sorted atom: " + Atom(pred, args)) */
 
-  def CheckedFunTerm(fun: String, args: List[(ITerm, Type)]) : (ITerm, Type) =
-    (env lookupSym fun) match {
-       case Environment.Function(f, false) =>
-         (IFunApp(f, for ((t, _) <- args) yield t), IntType)
-       case Environment.Constant(c, _) => {
-         if (!args.isEmpty)
-           throw new SyntaxError("Constant does not accept arguments: " + functor)
-         (IConstant(c), IntType)
-       }
-       case _ =>
-         throw new SyntaxError("Unexpected symbol: " + functor)
-     }
+  def CheckedFunTerm(fun: String,
+                     args: List[(ITerm, Type)]) : (ITerm, Type) = fun match {
+    case "$sum"        => binaryIntFun(fun, args)( _ + _ )
+    case "$difference" => binaryIntFun(fun, args)( _ - _ )
+    case "$product"    => binaryIntFun(fun, args)( mult _ )
+    case "$uminus"     => {
+      checkArgTypes(fun, args, List(IntType))
+      (-args(0)._1, IntType)
+    }
+    
+    case fun => (env lookupSym fun) match {
+      case Environment.Function(f, false) =>
+        (IFunApp(f, for ((t, _) <- args) yield t), IntType)
+      case Environment.Constant(c, _) => {
+        if (!args.isEmpty)
+          throw new SyntaxError("Constant does not accept arguments: " + functor)
+        (IConstant(c), IntType)
+      }
+      case _ =>
+        throw new SyntaxError("Unexpected symbol: " + fun)
+    }
+  }
     
 /*      
     // Assume that fun has been entered into sig already
