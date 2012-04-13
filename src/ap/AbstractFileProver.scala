@@ -23,7 +23,7 @@ package ap;
 
 import ap.parameters._
 import ap.parser.{InputAbsy2Internal,
-                  ApParser2InputAbsy, SMTParser2InputAbsy,
+                  ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
                   Preprocessing,
                   FunctionEncoder, IExpression, INamedPart, IFunction,
                   IInterpolantSpec, Environment}
@@ -56,6 +56,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private def newParser(env : Environment) = Param.INPUT_FORMAT(settings) match {
     case Param.InputFormat.Princess => new ApParser2InputAbsy(env)
     case Param.InputFormat.SMTLIB =>   new SMTParser2InputAbsy(env)
+    case Param.InputFormat.TPTP =>     new TPTPTParser(env)
   }
   
   val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds) = {

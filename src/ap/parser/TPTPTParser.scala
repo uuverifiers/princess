@@ -28,30 +28,10 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.parsing.combinator.{JavaTokenParsers, PackratParsers}
 import scala.util.matching.Regex
 
-/**
- * A parser for TPTP, both FOF and TFF
- */
-class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
-                                      with JavaTokenParsers with PackratParsers {
-
-  import IExpression._
+object TPTPTParser {
   
-  def apply(reader : java.io.Reader)
-           : (IFormula, List[IInterpolantSpec], Signature) = {
-    val tffs =
-      parseAll[List[List[IFormula]]](TPTP_input, reader).get.flatten.filter(_ != null)
-    (connect(tffs, IBinJunctor.And), List(), env.toSignature)
-  }
-
   case class TypedVar(name : String, t : Type)
   type SyntaxError = Parser2InputAbsy.ParseException
-
-  val fullSymbolTypes = new MHashMap[Environment.DeclaredSym, Rank]
-  
-  /**
-   * Translate boolean-valued functions as predicates or as functions? 
-   */
-  private var booleanFunctionsAsPredicates = false
 
   case class Type(name: String) {
     override def toString = name
@@ -96,6 +76,31 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   def Rank1(r: (Type, Type)) = new Rank(List(r._1) -> r._2)
   def Rank2(r: ((Type, Type), Type)) = new Rank(List(r._1._1, r._1._2) -> r._2)
   def Rank3(r: ((Type, Type, Type), Type)) = new Rank(List(r._1._1, r._1._2, r._1._2) -> r._2)
+
+}
+
+/**
+ * A parser for TPTP, both FOF and TFF
+ */
+class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
+                                      with JavaTokenParsers with PackratParsers {
+
+  import IExpression._
+  import TPTPTParser._
+  
+  def apply(reader : java.io.Reader)
+           : (IFormula, List[IInterpolantSpec], Signature) = {
+    val tffs =
+      parseAll[List[List[IFormula]]](TPTP_input, reader).get.flatten.filter(_ != null)
+    (connect(tffs, IBinJunctor.And), List(), env.toSignature)
+  }
+
+  val fullSymbolTypes = new MHashMap[Environment.DeclaredSym, Rank]
+  
+  /**
+   * Translate boolean-valued functions as predicates or as functions? 
+   */
+  private var booleanFunctionsAsPredicates = false
 
   // Mapping of variables to types - needed, as quantified formuals are entered,
   // and the varTypes map keeps track of all governing (quantified) variables
@@ -154,9 +159,9 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 	role match {
 	  case "conjecture" => {
 	    haveConjecture = true
-	    !f
+	    f
 	  }
-	  case _ => f // Assume f sits on the premise side
+	  case _ => !f // Assume f sits on the premise side
 	}
   } 
 
@@ -556,14 +561,34 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
          "Error: ill-sorted (dis)equation: between " + s_term + " and " + t_term)
   }
 
-  def CheckedAtom(pred: String, args: List[(ITerm, Type)]) : IFormula = 
-    (env lookupSym pred) match {
-       case Environment.Predicate(p) =>
-         IAtom(p, for ((t, _) <- args) yield t)
-       case _ =>
-         throw new SyntaxError("Unexpected symbol: " + functor)
-     }
-    
+  def CheckedAtom(pred: String, args: List[(ITerm, Type)]) : IFormula = pred match {
+    case "$less"      => binaryIntPred(pred, args)( _ < _ )
+    case "$lesseq"    => binaryIntPred(pred, args)( _ <= _ )
+    case "$greater"   => binaryIntPred(pred, args)( _ > _ )
+    case "$greatereq" => binaryIntPred(pred, args)( _ >= _ )
+    case "$evaleq"    => binaryIntPred(pred, args)( _ === _ )
+//    case "$divides"   => binaryIntPred(pred, args)( _ <= _ )
+  
+    case pred => (env lookupSym pred) match {
+     case Environment.Predicate(p) =>
+       IAtom(p, for ((t, _) <- args) yield t)
+     case _ =>
+       throw new SyntaxError("Unexpected symbol: " + functor)
+    }
+  }
+  
+  private def binaryIntPred(tptpOp : String, args: List[(ITerm, Type)])
+                           (op : (ITerm, ITerm) => IFormula) : IFormula = {
+    checkArgTypes(tptpOp, args, List(IntType, IntType))
+    op(args(0)._1, args(1)._1)
+  }
+  
+  private def checkArgTypes(op : String,
+                            args: List[(ITerm, Type)],
+                            types : List[Type]) : Unit =
+    if (types != (args map (_._2)))
+      throw new SyntaxError("Incorrect arguments for " + op + ": " + (args map (_._1)))
+  
 /*      // Assume that pred has been entered into sig already
     if (Sigma(pred).argsTypes == Sigma.typesOf(args, varTypes))
   Atom(pred, args)
@@ -601,9 +626,9 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 
   def TypeExistsChecked(typ: Type) = 
     if (declaredTypes contains typ)
-	    typ
+      typ
     else
-	    throw new SyntaxError("Error: type has not been declared: " + typ)
+      throw new SyntaxError("Error: type has not been declared: " + typ)
 }
 
 
