@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# test the TPTP parser
+
+PRI=../../princess
+
+TESTS="ARI595=1.p GEG021=1.p PUZ133=2.p"
+
+$PRI "$@" $TESTS
