@@ -22,6 +22,7 @@ package ap.parser
 import ap._
 import ap.basetypes.IdealInt
 import ap.terfor.{Formula, ConstantTerm}
+import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Quantifier
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
@@ -47,11 +48,7 @@ object TPTPTParser {
   object RatType extends Type("$rat")
   object RealType extends Type("$real")
   
-  val declaredTypes = new MHashSet[Type]
-
-  {
-    declaredTypes += (TType, OType, IType, IntType, RatType, RealType)
-  }
+  val preDeclaredTypes = Set(TType, OType, IType, IntType, RatType, RealType)
 
   // Notice: no space between - and digits
   val isIntegerConstRegEx = """[+-]?[0-9]+""".r 
@@ -95,12 +92,26 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     (connect(tffs, IBinJunctor.Or), List(), env.toSignature)
   }
 
+  val declaredTypes = new MHashSet[Type]
+
+  {
+    declaredTypes ++= preDeclaredTypes
+  }
+
   val fullSymbolTypes = new MHashMap[Environment.DeclaredSym, Rank]
   
   /**
    * Translate boolean-valued functions as predicates or as functions? 
    */
   private var booleanFunctionsAsPredicates = false
+  /**
+   * Totality axioms?
+   */
+  private var totalityAxiom = true
+  /**
+   * Functionality axioms?
+   */
+  private var functionalityAxiom = true
 
   // Mapping of variables to types - needed, as quantified formuals are entered,
   // and the varTypes map keeps track of all governing (quantified) variables
@@ -144,11 +155,13 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
    * TFF types
    */
 
-  // In fact, non-null annotatations are currently not accepted
+  // In fact, non-null annotations are currently not accepted
   // Slightly rewritten version of the BNF rule in the TPTP report, to discrimate
   // between type and non-type very early, thus helping the parser.
-  lazy val tff_annotated_type_formula = "tff" ~ "(" ~ (atomic_word | wholeNumber) ~ "," ~ "type" ~ "," ~
-                      tff_typed_atom ~ ")" <~ "." ^^ { 
+  lazy val tff_annotated_type_formula =
+    "tff" ~ "(" ~
+    (atomic_word | wholeNumber) ~ "," ~ "type" ~ "," ~ tff_typed_atom ~
+    ")" <~ "." ^^ { 
     // It's there just for its side effect
     _ => ()
   }
@@ -172,34 +185,42 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     "conjecture" | "negated_conjecture" | "unknown" | atomic_word )
 
 
-
-
   // tff_typed_atom can appear only at toplevel
   lazy val tff_typed_atom:PackratParser[Unit] =
      ( ( tff_untyped_atom ~ ":" ~ tff_top_level_type ) ^^ { 
 	        // could declare a new type or a symbol of an existing type
-       case typeName ~ ":" ~ Rank((Nil, TType)) => { 
-	        println("declare type " + Type(typeName))
-         //Sigma += Type(typeName)
+       case typeName ~ ":" ~ Rank((Nil, TType)) => {
+         // TODO: we have to add guards to encode that uninterpreted domains
+         // could be finite
+	     declaredTypes += Type(typeName)
+	     ()
+	     //Sigma += Type(typeName)
          // println("declared")
          // return a dummy
          // TrueAtom
        }
        case symbolName ~ ":" ~ rank => {
-         println("declare rank " + (symbolName -> rank))
          if (rank.argsTypes contains OType)
            throw new SyntaxError("Error: type declaration for " + 
                symbolName + ": " + rank + ": argument type cannot be $oType")
-         // todo: generalize: can we do something sensible
-         // if all argtypes are foreground types?
-         // eg "car" would fall under this scheme.
          
-         if (rank.argsTypes.isEmpty) {
-           env.addConstant(new ConstantTerm(symbolName), Environment.Universal)
-         } else {
-           val f = new IFunction(symbolName, rank.argsTypes.size, false, false)
-           env.addFunction(f, false)
-         }
+         if (!rank.argsTypes.isEmpty) {
+           if (!booleanFunctionsAsPredicates || rank.resType != OType)
+             // use a real function
+             env.addFunction(new IFunction(symbolName, rank.argsTypes.size,
+                                           !totalityAxiom, !functionalityAxiom),
+                             rank.resType == OType)
+           else
+             // use a predicate
+             env.addPredicate(new Predicate(symbolName, rank.argsTypes.length))
+         } else if (rank.resType != OType)
+           // use a constant
+           env.addConstant(new ConstantTerm(symbolName), Environment.NullaryFunction)
+         else
+           // use a nullary predicate (propositional variable)
+           env.addPredicate(new Predicate(symbolName, 0))
+         
+         ()
        }
      } ) |
      ( "(" ~> tff_typed_atom <~ ")" )
@@ -235,44 +256,52 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
           Rank((argsTypes map (TypeExistsChecked(_))) -> TypeExistsChecked(resType)) } ) | (
             "(" ~> tff_mapping_type <~ ")" )
     
-  lazy val tff_unitary_type =    ( tff_atomic_type ^^ { List(_) } ) | 
-                            ( "(" ~> tff_xprod_type <~ ")" )
+  lazy val tff_unitary_type =
+    ( tff_atomic_type ^^ { List(_) } ) | ( "(" ~> tff_xprod_type <~ ")" )
   lazy val tff_xprod_type:PackratParser[List[Type]] =
-                            ( tff_atomic_type ~ "*" ~  rep1sep(tff_atomic_type, "*") ^^ {
-				  case t1 ~ "*" ~ tail => t1::tail
-				  } ) |
-                            ( "(" ~> tff_xprod_type <~ ")" )
+    ( tff_atomic_type ~ "*" ~  rep1sep(tff_atomic_type, "*") ^^ {
+      case t1 ~ "*" ~ tail => t1::tail
+     } ) |
+    ( "(" ~> tff_xprod_type <~ ")" )
 
+  //////////////////////////////////////////////////////////////////////////////
+   
   /**
    * TFF formulas
    */
 
-  lazy val tff_logic_formula =   tff_binary_formula | tff_unitary_formula
-  lazy val tff_binary_formula =  tff_binary_nonassoc | tff_binary_assoc
-  lazy val tff_binary_nonassoc = tff_unitary_formula ~ 
-			      binary_nonassoc_connective ~ 
-			      tff_unitary_formula ^^ {
-				case f1 ~ op ~ f2 => op(f1,f2)
-			      }
-  lazy val tff_binary_assoc =  tff_or_formula | tff_and_formula
+  lazy val tff_logic_formula =
+    tff_binary_formula | tff_unitary_formula
+    
+  lazy val tff_binary_formula =
+    tff_binary_nonassoc | tff_binary_assoc
+    
+  lazy val tff_binary_nonassoc =
+    tff_unitary_formula ~ binary_nonassoc_connective ~ tff_unitary_formula ^^ {
+      case f1 ~ op ~ f2 => op(f1,f2)
+    }
+  
+  lazy val tff_binary_assoc =
+    tff_or_formula | tff_and_formula
+    
   lazy val tff_or_formula =
     tff_unitary_formula ~ "|" ~ rep1sep(tff_unitary_formula, "|") ^^ {
-				  case f1 ~ "|" ~ tail => {
-				      f1::tail reduceLeft { _ | _ }
-				  }
-			      }
+      case f1 ~ "|" ~ tail => f1::tail reduceLeft { _ | _ }
+    }
+  
   lazy val tff_and_formula =     
     tff_unitary_formula ~ "&" ~ rep1sep(tff_unitary_formula, "&") ^^ {
-				  case f1 ~ "&" ~ tail => {
-				      f1::tail reduceLeft { _ & _ }
-				  }
+      case f1 ~ "&" ~ tail => {
+        f1::tail reduceLeft { _ & _ }
+      }
     }
+  
   lazy val tff_unitary_formula:PackratParser[IFormula] = 
-                tff_quantified_formula | 
-			      tff_unary_formula |
-                            atom |
-			       "(" ~> tff_logic_formula <~ ")"
-  lazy val tff_unary_formula = "~" ~> tff_unitary_formula ^^ { ! _ }
+    tff_quantified_formula | tff_unary_formula | atom |
+    "(" ~> tff_logic_formula <~ ")"
+    
+  lazy val tff_unary_formula =
+    "~" ~> tff_unitary_formula ^^ { ! _ }
   
   lazy val tff_quantified_formula:PackratParser[IFormula] = 
     (((forallSign ^^ { _ => Quantifier.ALL.asInstanceOf[Quantifier] } ) |
@@ -301,21 +330,21 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 
 
   // Variable list
-  lazy val tff_varlist: PackratParser[List[TypedVar]] =  rep1sep(tff_var, ",")
+  lazy val tff_varlist: PackratParser[List[TypedVar]] =
+    rep1sep(tff_var, ",")
 
   lazy val tff_var: PackratParser[TypedVar] = 
     ( variableStr ~ ":" ~ tff_atomic_type ^^ { 
-	      case x ~ ":" ~ typ => TypedVar(x, TypeExistsChecked(typ)) 
+        case x ~ ":" ~ typ => TypedVar(x, TypeExistsChecked(typ)) 
       } ) |
     ( variableStr <~ guard(not(":")) ^^ { 
-	      // default type of variables (in quantifications) is IType
-	      x => TypedVar(x, IType) 
+        // default type of variables (in quantifications) is IType
+        x => TypedVar(x, IType) 
       } )
 
   lazy val tff_atomic_type = 
     // user-defined type
-    defined_type |
-    ( atomic_word ^^ { Type(_) } ) 
+    defined_type | ( atomic_word ^^ { Type(_) } ) 
   // predefined type
 
   lazy val defined_type: PackratParser[Type] = 
@@ -325,31 +354,42 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     ("$int" ^^ { _ => IntType })
    // $real | $rat | $int 
 
+  //////////////////////////////////////////////////////////////////////////////
+    
   /*
    * FOF formulas
    */
   lazy val fof_logic_formula =
     fof_binary_formula | fof_unitary_formula
+    
   lazy val fof_binary_formula =
     fof_binary_nonassoc | fof_binary_assoc
+    
   lazy val fof_binary_nonassoc =
     fof_unitary_formula ~ binary_nonassoc_connective ~ fof_unitary_formula ^^ {
       case f1 ~ op ~ f2 => op(f1,f2)
     }
+  
   lazy val fof_binary_assoc =
     fof_or_formula | fof_and_formula
+    
   lazy val fof_or_formula =
     fof_unitary_formula ~ "|" ~ rep1sep(fof_unitary_formula, "|") ^^ {
       case f1 ~ "|" ~ tail => f1::tail reduceLeft { _ | _ }
     }
+  
   lazy val fof_and_formula =     
     fof_unitary_formula ~ "&" ~ rep1sep(fof_unitary_formula, "&") ^^ {
       case f1 ~ "&" ~ tail => f1::tail reduceLeft { _ & _ }
     }
+  
   lazy val fof_unitary_formula:PackratParser[IFormula] = 
       fof_quantified_formula | fof_unary_formula | atom |
       "(" ~> fof_logic_formula <~ ")"
-  lazy val fof_unary_formula = "~" ~> fof_unitary_formula ^^ { !(_) }
+      
+  lazy val fof_unary_formula =
+    "~" ~> fof_unitary_formula ^^ { !(_) }
+  
   lazy val fof_quantified_formula:PackratParser[IFormula] =
     (((forallSign ^^ { _ => Quantifier.ALL.asInstanceOf[Quantifier] } ) |
       ("?"        ^^ { _ => Quantifier.EX.asInstanceOf[Quantifier] } )) ~ 
@@ -380,19 +420,21 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   lazy val fof_varlist: PackratParser[List[TypedVar]] = 
     rep1sep(variableStr, ",") ^^ { _ map { TypedVar(_, IType) } } // looks cryptic?
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   /**
    * Definitions common to TFF and FOF
    */
 
   lazy val binary_nonassoc_connective = 
-			      ( "=>" ^^ {
-			        _ => { (x : IFormula, y : IFormula) => (x ==> y) } } ) |
-			      ( "<=" <~ guard(not(">")) ^^ {
-			        _ => { (x : IFormula, y : IFormula) => (y ==> x) } } ) |
-			      ( "<=>" ^^ {
-			        _ => { (x : IFormula, y : IFormula) => (x <=> y) } } ) |
-			      ( "<~>" ^^ {
-                  _ => { (x : IFormula, y : IFormula) => !(x <=> y) } } ) 
+    ( "=>" ^^ {
+      _ => { (x : IFormula, y : IFormula) => (x ==> y) } } ) |
+    ( "<=" <~ guard(not(">")) ^^ {
+      _ => { (x : IFormula, y : IFormula) => (y ==> x) } } ) |
+    ( "<=>" ^^ {
+      _ => { (x : IFormula, y : IFormula) => (x <=> y) } } ) |
+    ( "<~>" ^^ {
+      _ => { (x : IFormula, y : IFormula) => !(x <=> y) } } ) 
 
   // Atom
   // Difficulty is determining the type. If fun(args...) has been read 
@@ -407,10 +449,10 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     ( "$true" ^^ { _ => i(true) }) |
     ( "$false" ^^ { _ => i(false) }) |
     // eqn with lhs a variable
-    ( constant_or_variable ~ equalsSign ~ term ^^ { 
+    ( guard(variableStr ~ equalsSign) ~> (constant_or_variable ~ equalsSign ~ term) ^^ { 
 	      case x ~ _ ~ t => CheckedEquation(x, t)
       } ) |
-    ( constant_or_variable ~ "!=" ~ term ^^ { 
+    ( guard(variableStr ~ "!=") ~> (constant_or_variable ~ "!=" ~ term) ^^ { 
 	      case x ~ _ ~ t => !CheckedEquation(x, t)
       } ) |
     ( bg_constant ~ equalsSign ~ term ^^ { 
@@ -562,7 +604,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 //    case "$divides"   => binaryIntPred(pred, args)( _ <= _ )
   
     case pred => (env lookupSym pred) match {
-      case Environment.Function(f, false) =>
+      case Environment.Function(f, true) =>
         // then a predicate has been encoded as a function
         IIntFormula(IIntRelation.EqZero, IFunApp(f, for ((t, _) <- args) yield t))
       case Environment.Predicate(p) =>
