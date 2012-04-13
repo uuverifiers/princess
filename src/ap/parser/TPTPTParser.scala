@@ -1,21 +1,24 @@
-/* *********************************************************************
- * This file is part of the MELIA theorem prover
+/**
+ * This file is part of Princess, a theorem prover for Presburger
+ * arithmetic with uninterpreted predicates.
+ * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (c) NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
+ * Copyright (C) 2012      Philipp Ruemmer <ph_r@gmx.net>
+ *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
- * MELIA is free software: you can redistribute it
- * and/or modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation, either version 3 of
- * the License, or (at your option) any later version.
+ * Princess is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * MELIA is distributed in the hope that it will be
- * useful, but WITHOUT ANY WARRANTY; without even the implied warranty
- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * Princess is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with MELIA.  If not, see  <http://www.gnu.org/licenses/>. 
- * ********************************************************************* */
+ * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 package ap.parser
 
