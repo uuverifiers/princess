@@ -175,6 +175,10 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
+  private var lastFilename : String = ""
+  var positiveResult : String = "Theorem"
+  var negativeResult : String = "CounterSatisfiable"
+
   def proveProblems(settings : GlobalSettings,
                     problems : Seq[(String, () => java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
@@ -194,6 +198,7 @@ object CmdlMain {
             Console.withOut(Console.err) {
               println("Loading " + filename + " ...")
             }
+            lastFilename = (filename split "/").last stripSuffix ".p"
             val prover = if (Param.MULTI_STRATEGY(settings)) {
               val baseSettings = Param.INPUT_FORMAT.set(settings,
                                       determineInputFormat(filename, settings))
@@ -313,7 +318,7 @@ object CmdlMain {
                   println(tree)
                 }
                 
-                println("UNSAT")
+                println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.ProofWithModel(tree, model) => {
                 Console.err.println("Formula is valid, resulting " +
@@ -335,7 +340,7 @@ object CmdlMain {
                   println(tree)
                 }
                 
-                println("UNSAT")
+                println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.NoProof(tree) =>  {
                 Console.err.println("No proof found")
@@ -347,7 +352,7 @@ object CmdlMain {
                   println("false")
                 }
                 
-                println("UNKNOWN")
+                println("% SZS status GaveUp for " + lastFilename)
               }
               case Prover.CounterModel(model) =>  {
                 Console.err.println("Formula is invalid, found a countermodel:")
@@ -358,7 +363,7 @@ object CmdlMain {
                   println("false")
                 }
                 
-                println("SAT")
+                println("% SZS status " + negativeResult + " for " + lastFilename)
               }
               case Prover.NoCounterModel =>  {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -368,7 +373,7 @@ object CmdlMain {
                   println("true")
                 }
                 
-                println("UNSAT")
+                println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCert(cert) =>  {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -384,7 +389,7 @@ object CmdlMain {
                 
                 printDOTCertificate(cert, settings)
 
-                println("UNSAT")
+                println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -403,16 +408,16 @@ object CmdlMain {
 
                 printDOTCertificate(cert, settings)
                 
-                println("UNSAT")
+                println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.Model(model) =>  {
                 Console.err.println("Formula is valid, satisfying assignment for the existential constants is:")
                 Console.err.println("" + model)
-                println("UNSAT")
+                println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.NoModel =>  {
                 Console.err.println("No satisfying assignment for the existential constants exists, formula is invalid")
-                println("SAT")
+                println("% SZS status " + negativeResult + " for " + lastFilename)
               }
               case Prover.TimeoutProof(tree) =>  {
                 Console.err.println("Cancelled or timeout")
@@ -432,7 +437,7 @@ object CmdlMain {
                   println("Proof tree:")
                   println(tree)
                 }
-                println("TIMEOUT")
+                println("% SZS status Timeout for " + lastFilename)
               }
               case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
                 Console.err.println("Cancelled or timeout")
@@ -441,7 +446,7 @@ object CmdlMain {
                   println("Current constraint:")
                   println("false")
                 }
-                println("TIMEOUT")
+                println("% SZS status Timeout for " + lastFilename)
               }
             }
             
@@ -478,7 +483,7 @@ object CmdlMain {
           println("ERROR: " + e.getMessage)
 //         e.printStackTrace
         }
-        println("UNKNOWN")
+        println("% SZS status Error for " + lastFilename)
         return
       }
     }

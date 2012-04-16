@@ -105,6 +105,13 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
            : (IFormula, List[IInterpolantSpec], Signature) = {
     val tffs =
       parseAll[List[List[IFormula]]](TPTP_input, reader).get.flatten.filter(_ != null)
+    if (haveConjecture) {
+      CmdlMain.positiveResult = "Theorem"
+      CmdlMain.negativeResult = "CounterSatisfiable"
+    } else {
+      CmdlMain.positiveResult = "Unsatisfiable"
+      CmdlMain.negativeResult = "Satisfiable"
+    }
     (connect(tffs, IBinJunctor.Or), List(), env.toSignature)
   }
 
