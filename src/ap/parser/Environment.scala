@@ -96,6 +96,9 @@ class Environment {
         Variable(context.size - index - 1, context(index)._2)
     }
   
+  def isDeclaredSym(name : String) : Boolean =
+    (context exists (_._1 == name)) || (signature contains name)
+  
   def addConstant(c : ConstantTerm, kind : SymKind) : Unit = {
     addSym(c.name, Constant(c, kind))
     orderVar = kind match {

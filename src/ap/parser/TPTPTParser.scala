@@ -193,29 +193,8 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
          // return a dummy
          // TrueAtom
        }
-       case symbolName ~ ":" ~ rank => {
-         if (rank.argsTypes contains OType)
-           throw new SyntaxError("Error: type declaration for " + 
-               symbolName + ": " + rank + ": argument type cannot be $oType")
-         
-         if (!rank.argsTypes.isEmpty) {
-           if (!booleanFunctionsAsPredicates || rank.resType != OType)
-             // use a real function
-             env.addFunction(new IFunction(symbolName, rank.argsTypes.size,
-                                           !totalityAxiom, !functionalityAxiom),
-                             rank.resType == OType)
-           else
-             // use a predicate
-             env.addPredicate(new Predicate(symbolName, rank.argsTypes.length))
-         } else if (rank.resType != OType)
-           // use a constant
-           env.addConstant(new ConstantTerm(symbolName), Environment.NullaryFunction)
-         else
-           // use a nullary predicate (propositional variable)
-           env.addPredicate(new Predicate(symbolName, 0))
-         
-         ()
-       }
+       case symbolName ~ ":" ~ rank =>
+         declareSym(symbolName, rank)
      } ) |
      ( "(" ~> tff_typed_atom <~ ")" )
            
@@ -236,6 +215,28 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 				      // TrueAtom
 				    }
 				  */
+     
+  private def declareSym(symbolName : String, rank : Rank) : Unit = {
+         if (rank.argsTypes contains OType)
+           throw new SyntaxError("Error: type declaration for " + 
+               symbolName + ": " + rank + ": argument type cannot be $oType")
+         
+         if (!rank.argsTypes.isEmpty) {
+           if (!booleanFunctionsAsPredicates || rank.resType != OType)
+             // use a real function
+             env.addFunction(new IFunction(symbolName, rank.argsTypes.size,
+                                           !totalityAxiom, !functionalityAxiom),
+                             rank.resType == OType)
+           else
+             // use a predicate
+             env.addPredicate(new Predicate(symbolName, rank.argsTypes.length))
+         } else if (rank.resType != OType)
+           // use a constant
+           env.addConstant(new ConstantTerm(symbolName), Environment.NullaryFunction)
+         else
+           // use a nullary predicate (propositional variable)
+           env.addPredicate(new Predicate(symbolName, 0))
+  }
      
   private lazy val tff_untyped_atom =    atomic_word
 
@@ -511,14 +512,16 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     // a constant cannot be followed by a parenthesis, would see a FunTerm instead
     // Use atomic_word instead of functor?
     guard((functor | variableStr) ~ not("(")) ~>
-      (functor | variableStr) ^^ { functor => (env lookupSym functor) match {
-        case Environment.Constant(c, _) => (i(c), IntType)
-        case Environment.Variable(index, false) => (v(index), IntType)
-        case _ => throw new SyntaxError("Unexpected symbol: " + functor)
+      (functor | variableStr) ^^ { functor => {
+        if (!(env isDeclaredSym functor))
+          declareSym(functor, Rank0(IType))
+          
+        (env lookupSym functor) match {
+          case Environment.Constant(c, _) => (i(c), IntType)
+          case Environment.Variable(index, false) => (v(index), IntType)
+          case _ => throw new SyntaxError("Unexpected symbol: " + functor)
+        }
       }
-      
-//	    if (!(Sigma.ranks contains functor)) 
-//	      Sigma += (functor -> Rank0(IType))
   }
 
   // Background literal constant
@@ -588,14 +591,19 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     case "$evaleq"    => binaryIntPred(pred, args)( _ === _ )
 //    case "$divides"   => binaryIntPred(pred, args)( _ <= _ )
   
-    case pred => (env lookupSym pred) match {
-      case Environment.Function(f, true) =>
-        // then a predicate has been encoded as a function
-        IIntFormula(IIntRelation.EqZero, IFunApp(f, for ((t, _) <- args) yield t))
-      case Environment.Predicate(p) =>
-        IAtom(p, for ((t, _) <- args) yield t)
-      case _ =>
-        throw new SyntaxError("Unexpected symbol: " + pred)
+    case pred => {
+      if (!(env isDeclaredSym pred))
+        declareSym(pred, Rank((args map (_._2), OType)))
+      
+      (env lookupSym pred) match {
+        case Environment.Function(f, true) =>
+          // then a predicate has been encoded as a function
+          IIntFormula(IIntRelation.EqZero, IFunApp(f, for ((t, _) <- args) yield t))
+        case Environment.Predicate(p) =>
+          IAtom(p, for ((t, _) <- args) yield t)
+        case _ =>
+          throw new SyntaxError("Unexpected symbol: " + pred)
+      }
     }
   }
   
@@ -633,16 +641,21 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
       (-args(0)._1, IntType)
     }
     
-    case fun => (env lookupSym fun) match {
-      case Environment.Function(f, false) =>
-        (IFunApp(f, for ((t, _) <- args) yield t), IntType)
-      case Environment.Constant(c, _) => {
-        if (!args.isEmpty)
-          throw new SyntaxError("Constant does not accept arguments: " + functor)
-        (IConstant(c), IntType)
+    case fun => {
+      if (!(env isDeclaredSym fun))
+        declareSym(fun, Rank((args map (_._2), IType)))
+        
+      (env lookupSym fun) match {
+        case Environment.Function(f, false) =>
+          (IFunApp(f, for ((t, _) <- args) yield t), IntType)
+        case Environment.Constant(c, _) => {
+          if (!args.isEmpty)
+            throw new SyntaxError("Constant does not accept arguments: " + functor)
+          (IConstant(c), IntType)
+        }
+        case _ =>
+          throw new SyntaxError("Unexpected symbol: " + fun)
       }
-      case _ =>
-        throw new SyntaxError("Unexpected symbol: " + fun)
     }
   }
     
