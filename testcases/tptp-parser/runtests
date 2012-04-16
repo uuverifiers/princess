@@ -4,6 +4,6 @@
 
 PRI=../../princess
 
-TESTS="ARI595=1.p ARI616=1.p GEG021=1.p PUZ133=2.p"
+TESTS="ARI595=1.p ARI616=1.p GEG021=1.p PUZ001+1.p PUZ133=2.p"
 
 $PRI "$@" $TESTS
