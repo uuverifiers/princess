@@ -40,9 +40,10 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(release 2012-01-03)")
+    println("(CASC version 2012-04-16)")
     println
-    println("(c) Philipp Rümmer and Angelo Brillout, 2009-2012")
+    println("(c) Philipp Rümmer, 2009-2012")
+    println("(contributions by Angelo Brillout, Peter Baumgartner)")
     println("Free software under GNU General Public License (GPL).")
     println("Bug reports to ph_r@gmx.net")
     println
@@ -261,12 +262,22 @@ object CmdlMain {
                 s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
                 s
               }
+              val W = {
+                var s = baseSettings
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
+                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
+                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
+                s
+              }
               
               val strategies =
                 List((S, false, "-genTotalityAxioms -tightFunctionScopes"),
                      (J, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"),
                      (P, true, "-triggerStrategy=allMaximal -tightFunctionScopes"),
-                     (Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes"))
+                     (Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes"),
+                     (W, false, "-genTotalityAxioms -tightFunctionScopes -triggersInConjecture"))
 
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
@@ -288,12 +299,12 @@ object CmdlMain {
             
             prover.result match {
               case Prover.Proof(tree) => {
-                println("Formula is valid, resulting " +
+                Console.err.println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
                            "most-general "
                          else
                            "") + "constraint:")
-                println("" + tree.closingConstraint)
+                Console.err.println("" + tree.closingConstraint)
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.PRINT_TREE(settings)) {
@@ -301,14 +312,16 @@ object CmdlMain {
                   println("Proof tree:")
                   println(tree)
                 }
+                
+                println("UNSAT")
               }
               case Prover.ProofWithModel(tree, model) => {
-                println("Formula is valid, resulting " +
+                Console.err.println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
                            "most-general "
                          else
                            "") + "constraint:")
-                println("" + tree.closingConstraint)
+                Console.err.println("" + tree.closingConstraint)
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (!model.isTrue) {
@@ -321,9 +334,11 @@ object CmdlMain {
                   println("Proof tree:")
                   println(tree)
                 }
+                
+                println("UNSAT")
               }
               case Prover.NoProof(tree) =>  {
-                println("No proof found")
+                Console.err.println("No proof found")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -331,40 +346,48 @@ object CmdlMain {
                   println("Most-general constraint:")
                   println("false")
                 }
+                
+                println("UNKNOWN")
               }
               case Prover.CounterModel(model) =>  {
-                println("Formula is invalid, found a countermodel:")
-                println("" + model)
+                Console.err.println("Formula is invalid, found a countermodel:")
+                Console.err.println("" + model)
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("false")
                 }
+                
+                println("SAT")
               }
               case Prover.NoCounterModel =>  {
-                println("No countermodel exists, formula is valid")
+                Console.err.println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("true")
                 }
+                
+                println("UNSAT")
               }
               case Prover.NoCounterModelCert(cert) =>  {
-                println("No countermodel exists, formula is valid")
+                Console.err.println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("true")
                 }
-                println
-                println("Certificate: " + cert)
-                println("Assumed formulae: " + cert.assumedFormulas)
-                println("Constraint: " + cert.closingConstraint)
+                Console.err.println
+                Console.err.println("Certificate: " + cert)
+                Console.err.println("Assumed formulae: " + cert.assumedFormulas)
+                Console.err.println("Constraint: " + cert.closingConstraint)
                 
                 printDOTCertificate(cert, settings)
+
+                println("UNSAT")
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
-                println("No countermodel exists, formula is valid")
+                Console.err.println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -374,21 +397,25 @@ object CmdlMain {
 //                println("Certificate: " + cert)
 //                println("Assumed formulae: " + cert.assumedFormulas)
 //                println("Constraint: " + cert.closingConstraint)
-                println
-                println("Interpolants:")
-                for (i <- inters) println(i)
+                Console.err.println
+                Console.err.println("Interpolants:")
+                for (i <- inters) Console.err.println(i)
 
                 printDOTCertificate(cert, settings)
+                
+                println("UNSAT")
               }
               case Prover.Model(model) =>  {
-                println("Formula is valid, satisfying assignment for the existential constants is:")
-                println("" + model)
+                Console.err.println("Formula is valid, satisfying assignment for the existential constants is:")
+                Console.err.println("" + model)
+                println("UNSAT")
               }
               case Prover.NoModel =>  {
-                println("No satisfying assignment for the existential constants exists, formula is invalid")
+                Console.err.println("No satisfying assignment for the existential constants exists, formula is invalid")
+                println("SAT")
               }
               case Prover.TimeoutProof(tree) =>  {
-                println("Cancelled or timeout")
+                Console.err.println("Cancelled or timeout")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -405,14 +432,16 @@ object CmdlMain {
                   println("Proof tree:")
                   println(tree)
                 }
+                println("TIMEOUT")
               }
               case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
-                println("Cancelled or timeout")
+                Console.err.println("Cancelled or timeout")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Current constraint:")
                   println("false")
                 }
+                println("TIMEOUT")
               }
             }
             
@@ -449,6 +478,7 @@ object CmdlMain {
           println("ERROR: " + e.getMessage)
 //         e.printStackTrace
         }
+        println("UNKNOWN")
         return
       }
     }

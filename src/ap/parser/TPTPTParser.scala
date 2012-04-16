@@ -77,6 +77,19 @@ object TPTPTParser {
   private def Rank2(r: ((Type, Type), Type)) = new Rank(List(r._1._1, r._1._2) -> r._2)
   private def Rank3(r: ((Type, Type, Type), Type)) = new Rank(List(r._1._1, r._1._2, r._1._2) -> r._2)
 
+  val predefinedParts = Set(new PartName("axiom"),
+                            new PartName("hypothesis"),
+                            new PartName("definition"),
+                            new PartName("assumption"),
+                            new PartName("lemma"),
+                            new PartName("theorem"),
+                            new PartName("conjecture"),
+                            new PartName("negated_conjecture"),
+                            new PartName("unknown"))
+ 
+   val predefinedPartMap =
+     (for (p <- predefinedParts.iterator) yield (p.toString -> p)).toMap
+
 }
 
 /**
@@ -167,9 +180,9 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 	  role match {
 	    case "conjecture" => {
 	      haveConjecture = true
-	      f
+	      INamedPart(predefinedPartMap(role), f)
 	    }
-	    case _ => !f // Assume f sits on the premise side
+	    case _ => INamedPart(predefinedPartMap(role), !f) // Assume f sits on the premise side
 	  }
     } 
 

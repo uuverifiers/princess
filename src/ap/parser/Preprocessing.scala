@@ -34,6 +34,8 @@ object Preprocessing {
   
   class PreprocessingException(msg : String) extends Exception(msg)
 
+  val ConjecturePart = TPTPTParser.predefinedPartMap("conjecture")
+  
   def apply(f : IFormula,
             interpolantSpecs : List[IInterpolantSpec],
             signature : Signature,
@@ -62,7 +64,11 @@ object Preprocessing {
     for (f <- fors2)
       triggerGenerator setup f
     val fors2b =
-      for (f <- fors2) yield triggerGenerator(f)
+      for (f <- fors2) yield f match {
+        case INamedPart(ConjecturePart, g)
+          if (!Param.TRIGGERS_IN_CONJECTURE(settings)) => f
+        case _ => triggerGenerator(f)
+      }
 
     // translate functions to relations
     var order3 = signature.order

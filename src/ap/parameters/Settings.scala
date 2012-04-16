@@ -148,7 +148,8 @@ object GlobalSettings {
          Param.TIGHT_FUNCTION_SCOPES, Param.GENERATE_TOTALITY_AXIOMS,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
-         Param.TRIGGER_STRATEGY, Param.MULTI_STRATEGY)
+         Param.TRIGGER_STRATEGY, Param.MULTI_STRATEGY,
+         Param.TRIGGERS_IN_CONJECTURE)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -174,7 +175,8 @@ object PreprocessingSettings {
   val allParams = List(Param.CLAUSIFIER,
                        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS,
                        Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY,
-                       Param.GENERATE_TOTALITY_AXIOMS)
+                       Param.GENERATE_TOTALITY_AXIOMS,
+                       Param.TRIGGERS_IN_CONJECTURE)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())

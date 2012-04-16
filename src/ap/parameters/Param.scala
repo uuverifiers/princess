@@ -34,7 +34,7 @@ object Param {
 
   case object INPUT_FORMAT extends Param {
     type Value = InputFormat.Value
-    val defau : InputFormat.Value = InputFormat.Auto
+    val defau : InputFormat.Value = InputFormat.TPTP
   }
   
   case object ASSERTIONS extends Param {
@@ -121,6 +121,11 @@ object Param {
     val defau : TriggerStrategyOptions.Value = TriggerStrategyOptions.Maximal
   }
 
+  case object TRIGGERS_IN_CONJECTURE extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
+  }
+  
   case object TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS extends Param {
     type Value = Set[ap.parser.IFunction]
     val defau : Set[ap.parser.IFunction] = Set()
@@ -128,7 +133,7 @@ object Param {
   
   case object MULTI_STRATEGY extends Param {
     type Value = Boolean
-    val defau : Boolean = false
+    val defau : Boolean = true
   }
   
   case object SYMBOL_WEIGHTS extends Param {
