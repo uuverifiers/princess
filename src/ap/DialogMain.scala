@@ -175,7 +175,12 @@ class InputDialog extends JPanel {
   def loadFile(file : java.io.File) : Unit = try {
     val reader = new java.io.BufferedReader (new java.io.FileReader(file))
     val options =
-      if (file.getName endsWith ".smt2") "-inputFormat=smtlib" else ""
+      if (file.getName endsWith ".smt2")
+        "-inputFormat=smtlib"
+      else if (file.getName endsWith ".p")
+        "-inputFormat=tptp"
+      else
+        ""
     newTabWithInput(file.getName, options, asString {
       var str = reader.readLine
       while (str != null) {
