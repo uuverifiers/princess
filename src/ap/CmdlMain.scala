@@ -59,6 +59,8 @@ object CmdlMain {
     println("Options:")
     println("  [+-]logo                      Print logo and elapsed time              (default: +)")
     println("  [+-]printTree                 Output the constructed proof tree        (default: -)")
+    println("  -inputFormat=val              Specify format of problem file:          (default: auto)")
+    println("                                  auto, pri, smtlib, tptp")
     println("  -printSMT=filename            Output the problem in SMT-Lib format     (default: \"\")")
     println("  -printDOT=filename            Output the proof in GraphViz format      (default: \"\")")
     println("  [+-]assert                    Enable runtime assertions                (default: -)")

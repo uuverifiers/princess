@@ -1,4 +1,4 @@
-/**
+f/**
  * This file is part of Princess, a theorem prover for Presburger
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
@@ -137,11 +137,11 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 	role match {
 	  case "conjecture" => {
 	    haveConjecture = true
-	    !f
+        f
 	  }
 	  // "type" just returns TrueAtom - deal with that above
 	  // case "type" => xxx
-	  case _ => f // Assume f sits on the premise side
+      case _ => !f // Assume f sits on the premise side
 	}
   } 
 
