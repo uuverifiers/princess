@@ -27,7 +27,6 @@ import ap.basetypes.IdealInt
 import ap.terfor.{Formula, ConstantTerm}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Quantifier
-
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.parsing.combinator.{JavaTokenParsers, PackratParsers}
 import scala.util.matching.Regex
@@ -103,16 +102,22 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   
   def apply(reader : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature) = {
-    val tffs =
-      parseAll[List[List[IFormula]]](TPTP_input, reader).get.flatten.filter(_ != null)
-    if (haveConjecture) {
-      CmdlMain.positiveResult = "Theorem"
-      CmdlMain.negativeResult = "CounterSatisfiable"
-    } else {
-      CmdlMain.positiveResult = "Unsatisfiable"
-      CmdlMain.negativeResult = "Satisfiable"
+    parseAll[List[List[IFormula]]](TPTP_input, reader) match {
+      case Success(formulas, _) => {
+        val tffs = formulas.flatten.filter(_ != null)
+        if (haveConjecture) {
+          CmdlMain.positiveResult = "Theorem"
+          CmdlMain.negativeResult = "CounterSatisfiable"
+        } else {
+          CmdlMain.positiveResult = "Unsatisfiable"
+          CmdlMain.negativeResult = "Satisfiable"
+        }
+        (connect(tffs, IBinJunctor.Or), List(), env.toSignature)
+      }
+      case error =>
+        throw new SyntaxError(error.toString)
     }
-    (connect(tffs, IBinJunctor.Or), List(), env.toSignature)
+    
   }
 
   private val declaredTypes = new MHashSet[Type]
@@ -545,9 +550,26 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   }
 
   // Background literal constant
-  private lazy val bg_constant = regex(isIntegerConstRegEx) ^^ { 
-	  s => (i(IdealInt(s)), IntType)
-  }
+  private lazy val bg_constant =
+    (
+      (regex(isIntegerConstRegEx) <~ guard(not("."))) ^^ { 
+	    s => (i(IdealInt(s)), IntType)
+      }
+    ) | (
+      (regex(isIntegerConstRegEx) ~ "." ~ regex("""[0-9E\-]+""".r)) ^^ {
+        case int ~ _ ~ frac => {
+          val s = int + "." + frac
+          // we currently just introduce the number as a
+          // fresh constant
+          if (!(env isDeclaredSym s))
+            declareSym(s, Rank0(IntType))
+          (env lookupSym s) match {
+            case Environment.Constant(c, _) => (i(c), IntType)
+            case _ => throw new SyntaxError("Unexpected symbol: " + functor)
+          }
+        }
+      }
+    )
   
   // lexical: don't confuse = with => (the lexer is greedy)
   private lazy val equalsSign = "=" <~ guard(not(">"))
@@ -586,7 +608,12 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 	    val filename = (if (TPTPHome == null) "" else TPTPHome + "/") + fileName
 	    val reader = new java.io.BufferedReader (
                    new java.io.FileReader(new java.io.File (filename)))
-	    parseAll[List[List[IFormula]]](TPTP_input, reader).get.flatten
+        parseAll[List[List[IFormula]]](TPTP_input, reader) match {
+          case Success(formulas, _) =>
+            formulas.flatten
+          case error =>
+            throw new SyntaxError("When reading " + filename + "\n" + error)
+	    }
 	  } 
   }
 
@@ -617,10 +644,22 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
       
       (env lookupSym pred) match {
         case Environment.Function(f, true) =>
-          // then a predicate has been encoded as a function
-          IIntFormula(IIntRelation.EqZero, IFunApp(f, for ((t, _) <- args) yield t))
+          if (f.arity != args.size) {
+            // urgs, symbol has been used with different arities
+            // -> disambiguation-hack
+            CheckedAtom(pred + "-with-diff-arity", args)
+          } else {
+            // then a predicate has been encoded as a function
+            IIntFormula(IIntRelation.EqZero, IFunApp(f, for ((t, _) <- args) yield t))
+          }
         case Environment.Predicate(p) =>
-          IAtom(p, for ((t, _) <- args) yield t)
+          if (p.arity != args.size) {
+            // urgs, symbol has been used with different arities
+            // -> disambiguation-hack
+            CheckedAtom(pred + "-with-diff-arity", args)
+          } else {
+            IAtom(p, for ((t, _) <- args) yield t)
+          }
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + pred)
       }
@@ -667,7 +706,13 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
         
       (env lookupSym fun) match {
         case Environment.Function(f, false) =>
-          (IFunApp(f, for ((t, _) <- args) yield t), IntType)
+          if (f.arity != args.size) {
+            // urgs, symbol has been used with different arities
+            // -> disambiguation-hack
+            CheckedFunTerm(fun + "-with-diff-arity", args)
+          } else {
+            (IFunApp(f, for ((t, _) <- args) yield t), IntType)
+          }
         case Environment.Constant(c, _) => {
           if (!args.isEmpty)
             throw new SyntaxError("Constant does not accept arguments: " + functor)
