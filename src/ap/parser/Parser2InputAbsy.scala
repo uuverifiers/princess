@@ -151,15 +151,16 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
 
     arraysDefined = true
     
-    all(all(all(
-        ITrigger(List(store(v(0), v(1), v(2))),
-                 select(store(v(0), v(1), v(2)), v(1)) === v(2))
-    ))) &
-    all(all(all(all(
-        ITrigger(List(select(store(v(0), v(1), v(2)), v(3))),
-                 (v(1) === v(3)) |
-                 (select(store(v(0), v(1), v(2)), v(3)) === select(v(0), v(3))))
-    ))))
+    INamedPart(PartName.NO_NAME,
+      all(all(all(
+          ITrigger(List(store(v(0), v(1), v(2))),
+                   select(store(v(0), v(1), v(2)), v(1)) === v(2))
+      ))) &
+      all(all(all(all(
+          ITrigger(List(select(store(v(0), v(1), v(2)), v(3))),
+                   (v(1) === v(3)) |
+                   (select(store(v(0), v(1), v(2)), v(3)) === select(v(0), v(3))))
+      )))))
   }
   
   private var arraysDefined = false
