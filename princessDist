@@ -4,4 +4,4 @@ BASEDIR=`dirname $(readlink -e $0)`
 
 export CLASSPATH=$CLASSPATH:$BASEDIR/dist/princess-all.jar
 
-exec java -Xss20000k -Xmx1500m -noverify ap.CmdlMain "$@"
+exec java -Xss20000k -Xmx3000m -noverify ap.CmdlMain "$@"
