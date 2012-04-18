@@ -40,7 +40,7 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(CASC version 2012-04-16)")
+    println("(CASC version 2012-04-18)")
     println
     println("(c) Philipp Rümmer, 2009-2012")
     println("(contributions by Angelo Brillout, Peter Baumgartner)")
