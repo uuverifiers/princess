@@ -21,6 +21,8 @@
 
 package ap.parameters;
 
+import ap.terfor.ConstantTerm
+
 object Param {
   
   case object LOGO extends Param {
@@ -175,6 +177,11 @@ object Param {
     type Value = ap.proof.ConstraintSimplifier
     val defau : ap.proof.ConstraintSimplifier =
       ap.proof.ConstraintSimplifier.FAIR_SIMPLIFIER
+  }
+  
+  case object FINITE_DOMAIN_CONSTRAINTS extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
   }
   
   case object PROOF_CONSTRUCTION extends Param {

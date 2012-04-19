@@ -22,7 +22,7 @@
 package ap.proof;
 
 import ap._
-import ap.terfor.{Formula, TermOrder}
+import ap.terfor.{Formula, TermOrder, TerForConvenience}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.proof.goal._
 import ap.util.{Logic, Debug, Seqs, Timeout}
@@ -113,11 +113,20 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
    * <code>\forall universalConstants; \exists existentialConstants; constraint</code>
    * is valid
    */
-  def isValidConstraint(constraint : Conjunction, signature : Signature) : Boolean = {
+  def isValidConstraint(preConstraint : Conjunction, signature : Signature) : Boolean = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ExhaustiveProver.AC,
-                    Seqs.disjoint(constraint.constants, signature.nullaryFunctions))
+                    Seqs.disjoint(preConstraint.constants, signature.nullaryFunctions))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val constraint =
+      if (Param.FINITE_DOMAIN_CONSTRAINTS(settings)) {
+        import TerForConvenience._
+        implicit val o = signature.order
+        CmdlMain.domain_size > 0 ==> preConstraint
+      } else {
+        preConstraint
+      }
+      
     if (Seqs.disjoint(constraint.constants, signature.existentialConstants)) {
       PresburgerTools isValid constraint
     } else if (Seqs.disjoint(constraint.constants, signature.universalConstants)) {

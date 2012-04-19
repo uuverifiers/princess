@@ -27,7 +27,7 @@ import ap.parser.{InputAbsy2Internal,
                   Preprocessing,
                   FunctionEncoder, IExpression, INamedPart, IFunction,
                   IInterpolantSpec, Environment}
-import ap.terfor.{Formula, TermOrder}
+import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.Predicate
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
@@ -59,10 +59,21 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     case Param.InputFormat.TPTP =>     new TPTPTParser(env)
   }
   
+  import CmdlMain.domain_size
+  
   val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds) = {
     val env = new Environment
-    val (f, interpolantSpecs, signature) = newParser(env)(reader)
+    val (f, interpolantSpecs, preSignature) = newParser(env)(reader)
     reader.close
+    
+    val signature =
+      if (Param.FINITE_DOMAIN_CONSTRAINTS(settings))
+        new Signature(preSignature.universalConstants + domain_size,
+                      preSignature.existentialConstants,
+                      preSignature.nullaryFunctions,
+                      preSignature.order.extend(domain_size, Set()))
+      else
+        preSignature
     
     val preprocSettings =
        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
@@ -105,7 +116,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   val order = signature.order
   
   private val reducer =
-    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
+    ReduceWithConjunction(Conjunction.TRUE, functionalPreds,
+                          !Param.FINITE_DOMAIN_CONSTRAINTS(settings),
+                          order)
   
   private def simplify(f : Conjunction) : Conjunction =
     // if we are constructing proofs, we simplify formulae right away

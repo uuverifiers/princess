@@ -23,6 +23,7 @@ package ap.parser
 
 import ap._
 import ap.terfor.{ConstantTerm, TermOrder}
+import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{PreprocessingSettings, Param}
 
 /**
@@ -99,17 +100,65 @@ object Preprocessing {
       }
     }
     
-    // do clausification
-    val fors5 = Param.CLAUSIFIER(settings) match {
-      case Param.ClausifierOptions.None =>
+    // check whether we have to add assumptions about the domain size
+    val fors5 =
+      if (Param.FINITE_DOMAIN_CONSTRAINTS(settings)) {
+        import IExpression._
+        
+        val fors4b =
+          for (f <- fors4) yield GuardIntroducingVisitor.visit(f, 0).asInstanceOf[INamedPart]
+        
+        fors4b ++ (for (c <- signature.nullaryFunctions)
+                   yield INamedPart(PartName.NO_NAME,
+                                    !(c >= 0 & c < CmdlMain.domain_size)))
+      } else {
         fors4
+      }
+    
+    // do clausification
+    val fors6 = Param.CLAUSIFIER(settings) match {
+      case Param.ClausifierOptions.None =>
+        fors5
       case Param.ClausifierOptions.Simple =>
-        for (f <- fors4) yield SimpleClausifier(f).asInstanceOf[INamedPart]
+        for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
       case Param.ClausifierOptions.BooleanCompactify =>
-        for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
+        for (f <- fors5) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     }
     
-    (fors5, interpolantSpecs, signature updateOrder order3)
+    (fors6, interpolantSpecs, signature updateOrder order3)
   }
+  
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+private object GuardIntroducingVisitor extends CollectingVisitor[Int, IFormula] {
+
+  import IExpression._
+  
+  override def preVisit(t : IExpression, quans : Int) : PreVisitResult = t match {
+    case LeafFormula(t) =>
+      ShortCutResult(t)
+    case IQuantified(Quantifier.ALL, _) =>
+      UniSubArgs(quans + 1)
+    case _ =>
+      UniSubArgs(0)
+  }
+  
+  def postVisit(t : IExpression, quans : Int, subres : Seq[IFormula]) : IFormula =
+    (t, quans) match {
+      case (t@IQuantified(Quantifier.ALL, _), _) =>
+        t update subres
+      case (t : IFormula, quans) if (quans > 0) => {
+        // add guards for the quantified formulae
+        val guards = connect(
+          for (i <- 0 until quans) yield (v(i) >= 0 & v(i) < CmdlMain.domain_size),
+          IBinJunctor.And)
+        
+        guards ==> (t update subres)
+      }
+      case (t : IFormula, _) =>
+        t update subres
+    }
   
 }

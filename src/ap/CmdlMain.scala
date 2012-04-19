@@ -24,6 +24,7 @@ package ap;
 import ap.proof.ConstraintSimplifier
 import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser}
+import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, IExpression, IBinJunctor, IInterpolantSpec,
@@ -180,6 +181,8 @@ object CmdlMain {
   private var lastFilename : String = ""
   var positiveResult : String = "Theorem"
   var negativeResult : String = "CounterSatisfiable"
+    
+  var domain_size : ConstantTerm = new ConstantTerm("domain_size")
 
   def proveProblems(settings : GlobalSettings,
                     problems : Seq[(String, () => java.io.Reader)],
@@ -483,7 +486,7 @@ object CmdlMain {
       case e : Throwable => {
         Console.withOut(Console.err) {
           println("ERROR: " + e.getMessage)
-//         e.printStackTrace
+         e.printStackTrace
         }
         println("% SZS status Error for " + lastFilename)
         return

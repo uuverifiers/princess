@@ -163,6 +163,7 @@ class IntelliFileProver(reader : java.io.Reader,
       // try to find a countermodel
       counterModelResult
     } else if (!Param.MOST_GENERAL_CONSTRAINT(settings) &&
+               !Param.FINITE_DOMAIN_CONSTRAINTS(settings) &&
                (constants subsetOf signature.existentialConstants) &&
                (formulas forall ((f) => f.predicates.isEmpty)) &&
                (quantifiers subsetOf Set(Quantifier.EX))) {

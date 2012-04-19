@@ -149,7 +149,7 @@ object GlobalSettings {
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.MULTI_STRATEGY,
-         Param.TRIGGERS_IN_CONJECTURE)
+         Param.TRIGGERS_IN_CONJECTURE, Param.FINITE_DOMAIN_CONSTRAINTS)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -163,7 +163,8 @@ object GoalSettings {
                        Param.FUNCTIONAL_PREDICATES,
                        Param.FULL_SPLITTING, Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
-                       Param.REVERSE_FUNCTIONALITY_PROPAGATION)
+                       Param.REVERSE_FUNCTIONALITY_PROPAGATION,
+                       Param.FINITE_DOMAIN_CONSTRAINTS)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -176,7 +177,8 @@ object PreprocessingSettings {
                        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS,
                        Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY,
                        Param.GENERATE_TOTALITY_AXIOMS,
-                       Param.TRIGGERS_IN_CONJECTURE)
+                       Param.TRIGGERS_IN_CONJECTURE,
+                       Param.FINITE_DOMAIN_CONSTRAINTS)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())
