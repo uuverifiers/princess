@@ -185,7 +185,7 @@ object Param {
 
   case object FINITE_DOMAIN_CONSTRAINTS extends Param {
     type Value = FiniteDomainConstraints.Value
-    val defau : FiniteDomainConstraints.Value = FiniteDomainConstraints.DomainSize
+    val defau : FiniteDomainConstraints.Value = FiniteDomainConstraints.VocabularyEquations
   }
   
   case object PROOF_CONSTRUCTION extends Param {

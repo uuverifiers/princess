@@ -109,6 +109,9 @@ case class BindingContext private (// the groups of constants that are bound in 
     res
   }
   
+  def universallyBoundConstants : Set[ConstantTerm] =
+    (for ((Quantifier.ALL, consts) <- constantSeq; c <- consts) yield c).toSet
+  
   def containsMaximumConstantWith(consts : Iterable[ConstantTerm],
                                   p : ConstantTerm => Boolean) : Boolean = {
     var foundConstant : ConstantTerm = null

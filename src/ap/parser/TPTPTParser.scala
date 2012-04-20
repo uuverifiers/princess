@@ -132,7 +132,8 @@ class TPTPTParser(_env : Environment,
               case Environment.Predicate(_) | Environment.Function(_, true) =>
                 i(false)
             }, IBinJunctor.Or)
-          case Param.FiniteDomainConstraints.None =>
+          case Param.FiniteDomainConstraints.None |
+               Param.FiniteDomainConstraints.VocabularyEquations =>
             i(false)
         }
         
