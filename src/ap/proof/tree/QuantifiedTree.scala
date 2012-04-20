@@ -85,12 +85,13 @@ object QuantifiedTree {
       import TerForConvenience._
       implicit val o = inputOrder
     
-      val domainConstraint =
-        if (addFiniteDomainConstraints(subtree))
+      val domainConstraint = addFiniteDomainConstraints(subtree) match {
+        case Param.FiniteDomainConstraints.DomainSize =>
           conj(for (c <- quantifiedConstants.iterator)
                yield (c >= 0 & c < CmdlMain.domain_size))
-        else
+        case Param.FiniteDomainConstraints.None =>
           Conjunction.TRUE
+      }
     
       Conjunction.quantify(quan, quantifiedConstants,
                            domainConstraint & f, inputOrder) sortBy outputOrder
@@ -108,7 +109,8 @@ object QuantifiedTree {
     simplifier(quantify(f, quan, quantifiedConstants, outputOrder, inputOrder, subtree),
                outputOrder)
   
-  private def addFiniteDomainConstraints(tree : ProofTree) : Boolean = tree match {
+  private def addFiniteDomainConstraints(tree : ProofTree)
+              : Param.FiniteDomainConstraints.Value = tree match {
     case goal : Goal => Param.FINITE_DOMAIN_CONSTRAINTS(goal.settings)
     case tree => addFiniteDomainConstraints(tree.subtrees.head)
   }

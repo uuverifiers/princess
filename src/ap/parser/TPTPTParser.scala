@@ -27,6 +27,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.{Formula, ConstantTerm}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Quantifier
+import ap.parameters.Param
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.parsing.combinator.{JavaTokenParsers, PackratParsers}
 import scala.util.matching.Regex
@@ -94,8 +95,9 @@ object TPTPTParser {
 /**
  * A parser for TPTP, both FOF and TFF
  */
-class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
-                                      with JavaTokenParsers with PackratParsers {
+class TPTPTParser(_env : Environment,
+                  finiteConstraints : Param.FiniteDomainConstraints.Value)
+      extends Parser2InputAbsy(_env) with JavaTokenParsers with PackratParsers {
 
   import IExpression._
   import TPTPTParser._
@@ -112,7 +114,29 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
           CmdlMain.positiveResult = "Unsatisfiable"
           CmdlMain.negativeResult = "Satisfiable"
         }
-        (connect(tffs, IBinJunctor.Or), List(), env.toSignature)
+        
+        val problem = connect(tffs, IBinJunctor.Or)
+
+        // add axioms about the range of symbols; guards for quantifiers are
+        // introducing during Preprocessing
+        val domainAxioms = finiteConstraints match {
+          case Param.FiniteDomainConstraints.DomainSize =>
+            connect(for (s <- env.symbols) yield s match {
+              case Environment.Constant(c, Environment.NullaryFunction) =>
+                !(c >= 0 & c < CmdlMain.domain_size)
+              case Environment.Function(f, false) => {
+                val fApp = IFunApp(f, for (i <- 0 until f.arity) yield v(i))
+                val matrix = (fApp >= 0 & fApp < CmdlMain.domain_size)
+                !quan(for (i <- 0 until f.arity) yield Quantifier.ALL, matrix)
+              }
+              case Environment.Predicate(_) | Environment.Function(_, true) =>
+                i(false)
+            }, IBinJunctor.Or)
+          case Param.FiniteDomainConstraints.None =>
+            i(false)
+        }
+        
+        (problem ||| domainAxioms, List(), env.toSignature)
       }
       case error =>
         throw new SyntaxError(error.toString)
@@ -129,15 +153,15 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   /**
    * Translate boolean-valued functions as predicates or as functions? 
    */
-  private var booleanFunctionsAsPredicates = false
+  private val booleanFunctionsAsPredicates = false
   /**
    * Totality axioms?
    */
-  private var totalityAxiom = true
+  private val totalityAxiom = true
   /**
    * Functionality axioms?
    */
-  private var functionalityAxiom = true
+  private val functionalityAxiom = true
 
   private var haveConjecture = false
 

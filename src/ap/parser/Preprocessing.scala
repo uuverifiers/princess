@@ -59,13 +59,24 @@ object Preprocessing {
     // expand equivalences
     val fors2 = for (f <- fors) yield EquivExpander(f).asInstanceOf[INamedPart]
     
+    // check whether we have to add assumptions about the domain size
+    val fors3 = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
+      case Param.FiniteDomainConstraints.DomainSize => {
+        import IExpression._
+        
+        for (f <- fors2) yield GuardIntroducingVisitor.visit(Transform2NNF(f), 0).asInstanceOf[INamedPart]
+      }
+      case _ =>
+        fors2
+    }
+    
     val triggerGenerator =
       new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
                             Param.TRIGGER_STRATEGY(settings))
-    for (f <- fors2)
+    for (f <- fors3)
       triggerGenerator setup f
-    val fors2b =
-      for (f <- fors2) yield f match {
+    val fors3b =
+      for (f <- fors3) yield f match {
         case INamedPart(ConjecturePart, g)
           if (!Param.TRIGGERS_IN_CONJECTURE(settings)) => f
         case _ => triggerGenerator(f)
@@ -73,20 +84,20 @@ object Preprocessing {
 
     // translate functions to relations
     var order3 = signature.order
-    val fors3 = for (INamedPart(n, f) <- fors2b) yield INamedPart(n, {
+    val fors4 = for (INamedPart(n, f) <- fors3b) yield INamedPart(n, {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
       g
     })
     
     // add the function axioms
-    val fors4 = functionEncoder.axioms match {
-      case IBoolLit(true) => fors3
+    val fors5 = functionEncoder.axioms match {
+      case IBoolLit(true) => fors4
       case x => {
         var noNamePart : INamedPart = null
         var realNamedParts : List[INamedPart] = List()
         
-        for (p @ INamedPart(n, _) <- fors3)
+        for (p @ INamedPart(n, _) <- fors4)
           if (n == PartName.NO_NAME)
             noNamePart = p
           else
@@ -99,21 +110,6 @@ object Preprocessing {
         newNoNamePart :: realNamedParts
       }
     }
-    
-    // check whether we have to add assumptions about the domain size
-    val fors5 =
-      if (Param.FINITE_DOMAIN_CONSTRAINTS(settings)) {
-        import IExpression._
-        
-        val fors4b =
-          for (f <- fors4) yield GuardIntroducingVisitor.visit(f, 0).asInstanceOf[INamedPart]
-        
-        fors4b ++ (for (c <- signature.nullaryFunctions)
-                   yield INamedPart(PartName.NO_NAME,
-                                    !(c >= 0 & c < CmdlMain.domain_size)))
-      } else {
-        fors4
-      }
     
     // do clausification
     val fors6 = Param.CLAUSIFIER(settings) match {

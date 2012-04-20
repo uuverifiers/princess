@@ -160,4 +160,6 @@ class Environment {
   def toSignature =
     new Signature (universalConstants, existentialConstants,
                    nullaryFunctions, order)
+  
+  def symbols : Iterator[DeclaredSym] = signature.valuesIterator
 }

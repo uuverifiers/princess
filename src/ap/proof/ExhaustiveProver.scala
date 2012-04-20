@@ -118,14 +118,15 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
     Debug.assertPre(ExhaustiveProver.AC,
                     Seqs.disjoint(preConstraint.constants, signature.nullaryFunctions))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val constraint =
-      if (Param.FINITE_DOMAIN_CONSTRAINTS(settings)) {
+    val constraint = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
+      case Param.FiniteDomainConstraints.DomainSize => {
         import TerForConvenience._
         implicit val o = signature.order
         CmdlMain.domain_size > 0 ==> preConstraint
-      } else {
-        preConstraint
       }
+      case _ =>
+        preConstraint
+    }
       
     if (Seqs.disjoint(constraint.constants, signature.existentialConstants)) {
       PresburgerTools isValid constraint

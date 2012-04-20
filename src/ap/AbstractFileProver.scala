@@ -56,7 +56,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private def newParser(env : Environment) = Param.INPUT_FORMAT(settings) match {
     case Param.InputFormat.Princess => new ApParser2InputAbsy(env)
     case Param.InputFormat.SMTLIB =>   new SMTParser2InputAbsy(env)
-    case Param.InputFormat.TPTP =>     new TPTPTParser(env)
+    case Param.InputFormat.TPTP =>     new TPTPTParser(env, Param.FINITE_DOMAIN_CONSTRAINTS(settings))
   }
   
   import CmdlMain.domain_size
@@ -66,19 +66,21 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     val (f, interpolantSpecs, preSignature) = newParser(env)(reader)
     reader.close
     
-    val signature =
-      if (Param.FINITE_DOMAIN_CONSTRAINTS(settings))
+    val signature = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
+      case Param.FiniteDomainConstraints.DomainSize =>
         new Signature(preSignature.universalConstants + domain_size,
                       preSignature.existentialConstants,
                       preSignature.nullaryFunctions,
                       preSignature.order.extend(domain_size, Set()))
-      else
+      case _ =>
         preSignature
+    }
     
     val preprocSettings =
        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
            settings.toPreprocessingSettings,
-           determineTriggerGenFunctions(settings, env))
+           determineTriggerGenFunctions(settings, env),
+           env)
 
     Console.withOut(Console.err) {
       println("Preprocessing ...")
@@ -117,7 +119,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds,
-                          !Param.FINITE_DOMAIN_CONSTRAINTS(settings),
+                          Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
                           order)
   
   private def simplify(f : Conjunction) : Conjunction =

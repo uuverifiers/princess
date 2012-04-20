@@ -112,7 +112,7 @@ object ModelSearchProver {
     } else {
       val reducer = ReduceWithConjunction(Conjunction.TRUE,
                                           Param.FUNCTIONAL_PREDICATES(settings),
-                                          !Param.FINITE_DOMAIN_CONSTRAINTS(settings),
+                                          Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
                                           order)
       for (d <- inputDisjuncts) yield reducer(d)
     }

@@ -68,7 +68,7 @@ object Goal {
                           settings : GoalSettings) : Goal = {
     val reducer = ReduceWithConjunction(Conjunction.TRUE,
                                         Param.FUNCTIONAL_PREDICATES(settings),
-                                        !Param.FINITE_DOMAIN_CONSTRAINTS(settings),
+                                        Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
                                         order)
     apply(List(reducer(Conjunction.conj(f, order))),
           eliminatedConstants, Vocabulary(order), settings)
@@ -325,7 +325,7 @@ class Goal private (val facts : Conjunction,
 
   lazy val reduceWithFacts : ReduceWithConjunction =
     ReduceWithConjunction(facts, Param.FUNCTIONAL_PREDICATES(settings),
-                          !Param.FINITE_DOMAIN_CONSTRAINTS(settings),
+                          Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
                           order)
    
   //////////////////////////////////////////////////////////////////////////////

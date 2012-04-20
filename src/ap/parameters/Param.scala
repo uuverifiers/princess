@@ -178,10 +178,14 @@ object Param {
     val defau : ap.proof.ConstraintSimplifier =
       ap.proof.ConstraintSimplifier.FAIR_SIMPLIFIER
   }
-  
+
+  object FiniteDomainConstraints extends Enumeration {
+    val None, DomainSize, VocabularyEquations = Value
+  }
+
   case object FINITE_DOMAIN_CONSTRAINTS extends Param {
-    type Value = Boolean
-    val defau : Boolean = true
+    type Value = FiniteDomainConstraints.Value
+    val defau : FiniteDomainConstraints.Value = FiniteDomainConstraints.DomainSize
   }
   
   case object PROOF_CONSTRUCTION extends Param {

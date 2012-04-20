@@ -117,7 +117,7 @@ case object FactsNormalisationTask extends EagerTask {
     // update clauses
 
     val reducer = ReduceWithConjunction(facts, allFunctionalPreds,
-                                        !Param.FINITE_DOMAIN_CONSTRAINTS(goal.settings),
+                                        Param.FINITE_DOMAIN_CONSTRAINTS(goal.settings) == Param.FiniteDomainConstraints.None,
                                         order)
 
     def illegalQFClause(c : Conjunction) =
