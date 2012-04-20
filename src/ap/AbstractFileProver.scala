@@ -79,8 +79,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     val preprocSettings =
        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
            settings.toPreprocessingSettings,
-           determineTriggerGenFunctions(settings, env),
-           env)
+           determineTriggerGenFunctions(settings, env))
 
     Console.withOut(Console.err) {
       println("Preprocessing ...")
