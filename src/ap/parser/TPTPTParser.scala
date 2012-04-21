@@ -86,6 +86,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 
   import IExpression._
   import TPTPTParser._
+  import Parser2InputAbsy.warn
   
   def apply(reader : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature) = {
