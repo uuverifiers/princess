@@ -36,10 +36,6 @@ object TPTPTParser {
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
 
-  def warn(msg : String) : Unit = Console.withOut(Console.err) {
-    println("Warning: " + msg)
-  }
-
   private case class Type(name: String) {
     override def toString = name
   }
