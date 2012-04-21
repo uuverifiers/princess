@@ -190,3 +190,18 @@ Constructing countermodel ...
 
 No countermodel exists, formula is valid
 
+Loading array-interpolation.smt2 ...
+Warning: ignoring (set-logic AUFLIA)
+Warning: adding array axioms
+Warning: treating sort (Array Int Int) as Int
+Warning: treating sort (Array Int Int) as Int
+Warning: ignoring (check-sat)
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 8), simplifying (8), interpolating ...
+
+No countermodel exists, formula is valid
+
+Interpolants:
+(select(b, 1, 42))
+

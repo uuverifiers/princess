@@ -37,10 +37,6 @@ object TPTPTParser {
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
 
-  def warn(msg : String) : Unit = Console.withOut(Console.err) {
-    println("Warning: " + msg)
-  }
-
   private case class Type(name: String) {
     override def toString = name
   }
@@ -155,7 +151,7 @@ class TPTPTParser(_env : Environment)
             i(false)
         }
         
-        (problem ||| domainAxioms, List(), env.toSignature)
+        (getAxioms ===> (problem ||| domainAxioms), List(), env.toSignature)
       }
       case error =>
         throw new SyntaxError(error.toString)

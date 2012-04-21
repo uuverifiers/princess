@@ -40,6 +40,10 @@ object Parser2InputAbsy {
   class ParseException(msg : String) extends Exception(msg)
   class TranslationException(msg : String) extends Exception(msg)
   
+  def warn(msg : String) : Unit = Console.withOut(Console.err) {
+    println("Warning: " + msg)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -127,14 +131,68 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
   
   //////////////////////////////////////////////////////////////////////////////
 
+  private val axioms = new ArrayBuffer[IFormula]
+
+  protected def addAxiom(f : IFormula) = (axioms += f)
+  protected def getAxioms : IFormula = connect(axioms, IBinJunctor.And)
+  
   protected def mult(t1 : ITerm, t2 : ITerm) : ITerm =
     try { t1 * t2 }
     catch {
-      case _ : IllegalArgumentException =>
-        throw new Parser2InputAbsy.TranslationException(
-                        "Do not know how to multiply " + t1 + " with " + t2)
+      case _ : IllegalArgumentException => {
+//        throw new Parser2InputAbsy.TranslationException(
+//                        "Do not know how to multiply " + t1 + " with " + t2)
+        genNonLinearMultAxioms
+        nonLinMult(t1, t2)
+      }
     }
 
+  private var nonLinMult : IFunction = _
+    
+  protected def genNonLinearMultAxioms : Unit = if (!nonLinearMultDefined) {
+    Parser2InputAbsy.warn("introducing partial function \"nonLinMult\" to encode multiplication")
+    nonLinearMultDefined = true
+    
+    nonLinMult = new IFunction("nonLinMult", 2, true, false)
+    env addFunction nonLinMult
+    
+    /*
+        \forall int x; {nonLinMult(x, 0)} nonLinMult(x, 0) = 0
+      &
+        \forall int x; {nonLinMult(x, -1)} nonLinMult(x, -1) = -x
+      &
+        \forall int x, y, res; {nonLinMult(x, y)}
+          ((y >= 1 | y <= -2) -> nonLinMult(x, y) = res ->
+              \exists int l, n, subres; (
+                 nonLinMult(2*x, l) = subres &
+                 y = 2*l + n & (
+                   n = 0 & res = subres
+                   |
+                   n = 1 & res = subres + x
+       )))
+    */
+    
+    addAxiom(
+      all(ITrigger(List(nonLinMult(v(0), 0)),
+                   nonLinMult(v(0), 0) === 0)))
+    addAxiom(
+      all(ITrigger(List(nonLinMult(v(0), -1)),
+                   nonLinMult(v(0), -1) === -v(0))))
+    addAxiom(
+      all(all(all(
+        ITrigger(List(nonLinMult(v(0), v(1))),
+          (((v(1) >= 1 | v(1) <= -2) & nonLinMult(v(0), v(1)) === v(2)) ==>
+              ex(ex(ex(
+                 (nonLinMult(2*v(3), v(0)) === v(2)) &
+                 (v(4) === 2*v(0) + v(1)) & (
+                   (v(1) === 0 & v(5) === v(2))
+                   |
+                   (v(1) === 1 & v(5) === v(2) + v(3))
+                  ))))))))))
+  }
+    
+  private var nonLinearMultDefined = false
+  
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -142,16 +200,17 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
    * (non-extensional) theory of arrays. The argument determines whether the
    * array functions should be declared as partial or as total functions
    */
-  protected def genArrayAxioms(partial : Boolean) : IFormula = {
+  protected def genArrayAxioms(partial : Boolean) : Unit = if (!arraysDefined) {
+    Parser2InputAbsy.warn("adding array axioms")
+    arraysDefined = true
+        
     val select = new IFunction("select", 2, partial, false)
     val store = new IFunction("store", 3, partial, false)
     
     env addFunction select
     env addFunction store
 
-    arraysDefined = true
-    
-    INamedPart(PartName.NO_NAME,
+    addAxiom(
       all(all(all(
           ITrigger(List(store(v(0), v(1), v(2))),
                    select(store(v(0), v(1), v(2)), v(1)) === v(2))
@@ -164,7 +223,5 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
   }
   
   private var arraysDefined = false
-  
-  protected def arraysAlreadyDefined : Boolean = arraysDefined
-    
+
 }
