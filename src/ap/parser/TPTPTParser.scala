@@ -36,6 +36,10 @@ object TPTPTParser {
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
 
+  def warn(msg : String) : Unit = Console.withOut(Console.err) {
+    println("Warning: " + msg)
+  }
+
   private case class Type(name: String) {
     override def toString = name
   }
@@ -92,7 +96,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     parseAll[List[List[IFormula]]](TPTP_input, reader) match {
       case Success(formulas, _) => {
         val tffs = formulas.flatten.filter(_ != null)
-        (connect(tffs, IBinJunctor.Or), List(), env.toSignature)
+        (getAxioms ===> connect(tffs, IBinJunctor.Or), List(), env.toSignature)
       }
       case error =>
         throw new SyntaxError(error.toString)

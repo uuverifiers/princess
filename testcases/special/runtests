@@ -11,3 +11,4 @@ $PRI "$@" -timeout=30000 +posUnitResolution -constructProofs=always counterExamp
 $PRI "$@" -timeout=30000 -constructProofs=always omega_problem__031.smt.pri | grep -v "^Certificate" | grep -v "^Assumed"
 $PRI "$@" -generateTriggers=total -genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes ricart-agrawala7.smt2
 $PRI "$@" -timeout=15000 proofBug.pri
+$PRI "$@" -timeout=15000 multiplication3.pri

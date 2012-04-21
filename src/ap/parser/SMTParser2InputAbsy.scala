@@ -41,10 +41,6 @@ object SMTParser2InputAbsy {
   
   import Parser2InputAbsy._
   
-  def warn(msg : String) : Unit = Console.withOut(Console.err) {
-    println("Warning: " + msg)
-  }
-  
   /**
    * Parse starting at an arbitrarily specified entry point
    */
@@ -202,11 +198,11 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         val names = for(part <- namedParts) yield part.name
         val interSpecs = (for(i <- 1 until names.length)
                           yield new IInterpolantSpec(names take i, names drop i)).toList
-        (connect(namedParts, IBinJunctor.And) &&& connect(axioms, IBinJunctor.And),
+        val namedAxioms = INamedPart(PartName.NO_NAME, getAxioms)
+        (connect(namedParts, IBinJunctor.And) &&& namedAxioms,
          interSpecs)
       } else {
-        (connect(assumptions, IBinJunctor.And) &&& connect(axioms, IBinJunctor.And),
-         List())
+        (connect(assumptions, IBinJunctor.And) &&& getAxioms, List())
       }
     
     (!assumptionFormula, interpolantSpecs, env.toSignature)
@@ -255,7 +251,6 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   }
 
   val assumptions = new ArrayBuffer[IFormula]
-  val axioms      = new ArrayBuffer[IFormula]
 
   private def apply(script : Script) = for (cmd <- script.listcommand_) cmd match {
 //      case cmd : SetLogicCommand =>
@@ -370,10 +365,8 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
       }
     }
     case s : CompositeSort => {
-      if (asString(s.identifier_) == "Array" && !arraysAlreadyDefined) {
-        warn("adding array axioms")
-        axioms += genArrayAxioms(!totalityAxiom)
-      }
+      if (asString(s.identifier_) == "Array")
+        genArrayAxioms(!totalityAxiom)
       warn("treating sort " + (printer print s) + " as Int")
       Type.Integer
     }

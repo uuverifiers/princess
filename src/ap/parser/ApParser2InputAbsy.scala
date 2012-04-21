@@ -104,7 +104,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     collectDeclarations(api)
     val formula = translateProblem(api)
     val interSpecs = translateInterpolantSpecs(api)
-    (formula, interSpecs, env.toSignature)
+    (getAxioms ===> formula, interSpecs, env.toSignature)
   }
 
   //////////////////////////////////////////////////////////////////////////////
