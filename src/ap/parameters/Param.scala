@@ -64,7 +64,7 @@ object Param {
   }
   case object SIMPLIFY_CONSTRAINTS extends Param {
     type Value = ConstraintSimplifierOptions.Value
-    val defau : ConstraintSimplifierOptions.Value = ConstraintSimplifierOptions.Fair
+    val defau : ConstraintSimplifierOptions.Value = ConstraintSimplifierOptions.Lemmas
   }
   
   case object TRACE_CONSTRAINT_SIMPLIFIER extends Param {
