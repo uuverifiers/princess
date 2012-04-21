@@ -37,6 +37,10 @@ object TPTPTParser {
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
 
+  def warn(msg : String) : Unit = Console.withOut(Console.err) {
+    println("Warning: " + msg)
+  }
+
   private case class Type(name: String) {
     override def toString = name
   }
@@ -87,16 +91,19 @@ object TPTPTParser {
                             new PartName("negated_conjecture"),
                             new PartName("unknown"))
  
-   val predefinedPartMap =
-     (for (p <- predefinedParts.iterator) yield (p.toString -> p)).toMap
+  val predefinedPartMap =
+    (for (p <- predefinedParts.iterator) yield (p.toString -> p)).toMap
 
+  object TPTPType extends Enumeration {
+    val FOF, TFF, Unknown = Value
+  }
+     
 }
 
 /**
  * A parser for TPTP, both FOF and TFF
  */
-class TPTPTParser(_env : Environment,
-                  finiteConstraints : Param.FiniteDomainConstraints.Value)
+class TPTPTParser(_env : Environment)
       extends Parser2InputAbsy(_env) with JavaTokenParsers with PackratParsers {
 
   import IExpression._
@@ -117,9 +124,20 @@ class TPTPTParser(_env : Environment,
         
         val problem = connect(tffs, IBinJunctor.Or)
 
+        chosenFiniteConstraintMethod = tptpType match {
+          case TPTPType.FOF =>
+            Param.FiniteDomainConstraints.VocabularyEquations
+          case TPTPType.TFF =>
+            Param.FiniteDomainConstraints.None
+          case TPTPType.Unknown => {
+            warn("Was not able to figure out kind of TPTP input")
+            Param.FiniteDomainConstraints.None
+          }
+        }
+        
         // add axioms about the range of symbols; guards for quantifiers are
         // introducing during Preprocessing
-        val domainAxioms = finiteConstraints match {
+        val domainAxioms = chosenFiniteConstraintMethod match {
           case Param.FiniteDomainConstraints.DomainSize =>
             connect(for (s <- env.symbols) yield s match {
               case Environment.Constant(c, Environment.NullaryFunction) =>
@@ -145,6 +163,11 @@ class TPTPTParser(_env : Environment,
     
   }
 
+  private var tptpType = TPTPType.Unknown
+  
+  var chosenFiniteConstraintMethod : Param.FiniteDomainConstraints.Value =
+    Param.FiniteDomainConstraints.None
+  
   private val declaredTypes = new MHashSet[Type]
 
   {
@@ -166,6 +189,8 @@ class TPTPTParser(_env : Environment,
 
   private var haveConjecture = false
 
+  
+  
   /**
    * The grammar rules
    */
@@ -174,9 +199,13 @@ class TPTPTParser(_env : Environment,
 
   private lazy val annotated_formula = 
     // TPTP_input requires a list, because include abobe returns a list
-    ( fof_annotated_logic_formula ^^ { List(_) } ) |
+    ( fof_annotated_logic_formula ^^ {
+        f => tptpType = TPTPType.FOF; List(f)
+      } ) |
     ( tff_annotated_type_formula ^^ { _ => List() } ) |
-    ( tff_annotated_logic_formula ^^ { List(_) } ) 
+    ( tff_annotated_logic_formula ^^ {
+        f => tptpType = TPTPType.TFF; List(f)
+      } ) 
   // cnf_annotated
 
 

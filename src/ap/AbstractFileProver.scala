@@ -38,7 +38,7 @@ import ap.util.{Debug, Timeout}
 
 abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                                   timeout : Int, userDefStoppingCond : => Boolean,
-                                  settings : GlobalSettings) extends Prover {
+                                  preSettings : GlobalSettings) extends Prover {
 
   protected def println(str : => String) : Unit = (if (output) Predef.println(str))
   
@@ -53,18 +53,28 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           yield f
     }
   
-  private def newParser(env : Environment) = Param.INPUT_FORMAT(settings) match {
+  private def newParser(env : Environment) = Param.INPUT_FORMAT(preSettings) match {
     case Param.InputFormat.Princess => new ApParser2InputAbsy(env)
     case Param.InputFormat.SMTLIB =>   new SMTParser2InputAbsy(env)
-    case Param.InputFormat.TPTP =>     new TPTPTParser(env, Param.FINITE_DOMAIN_CONSTRAINTS(settings))
+    case Param.InputFormat.TPTP =>     new TPTPTParser(env)
   }
   
   import CmdlMain.domain_size
   
-  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds) = {
+  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds,
+       settings) = {
     val env = new Environment
-    val (f, interpolantSpecs, preSignature) = newParser(env)(reader)
+    val parser = newParser(env)
+    val (f, interpolantSpecs, preSignature) = parser(reader)
     reader.close
+
+    val settings = parser match {
+      case parser : TPTPTParser =>
+        Param.FINITE_DOMAIN_CONSTRAINTS.set(preSettings,
+                                            parser.chosenFiniteConstraintMethod)
+      case _ =>
+        preSettings
+    }
     
     val signature = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
       case Param.FiniteDomainConstraints.DomainSize =>
@@ -105,7 +115,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     val functionalPreds = 
       (for ((p, f) <- functionEnc.predTranslation.iterator;
             if (!f.relational)) yield p).toSet
-    (inputFormulas, interpolantS, sig, gcedFunctions, functionalPreds)
+    (inputFormulas, interpolantS, sig, gcedFunctions, functionalPreds, settings)
   }
   
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {

@@ -44,9 +44,9 @@ class IntelliFileProver(reader : java.io.Reader,
                         timeout : Int,
                         output : Boolean,
                         userDefStoppingCond : => Boolean,
-                        settings : GlobalSettings)
+                        _settings : GlobalSettings)
       extends AbstractFileProver(reader, output, timeout,
-                                 userDefStoppingCond, settings) {
+                                 userDefStoppingCond, _settings) {
 
   import Prover._
 
