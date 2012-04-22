@@ -486,7 +486,7 @@ object CmdlMain {
       case e : Throwable => {
         Console.withOut(Console.err) {
           println("ERROR: " + e.getMessage)
-         e.printStackTrace
+//         e.printStackTrace
         }
         println("% SZS status Error for " + lastFilename)
         return
