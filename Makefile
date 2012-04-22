@@ -44,6 +44,17 @@ dist: jar
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	java -jar $(PROGUARDJAR) @princess-proguard.pro
 
+jar-assertionless: scala-src-assertionless
+	cd bin && jar cf princess.jar ap
+
+dist-assertionless: jar-assertionless
+	$(shell cp bin/princess.jar dist/)
+	$(shell cp parser/parser.jar dist/)
+	$(shell cp smt-parser/smt-parser.jar dist/)
+	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
+	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
+	java -jar $(PROGUARDJAR) @princess-proguard.pro
+
 signed-dist: dist
 	$(JARSIGNERCMD) dist/princess-all.jar $(JARSIGNERALIAS)
 
