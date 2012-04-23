@@ -112,6 +112,8 @@ object GlobalSettings {
           Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.Total)
         case ValueOpt("functionGC", "all") =>
           Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.All)
+        case Opt("boolFunsAsPreds", value) =>
+          Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(settings, value)
         case Opt("tightFunctionScopes", value) =>
           Param.TIGHT_FUNCTION_SCOPES.set(settings, value)
         case Opt("genTotalityAxioms", value) =>
@@ -145,7 +147,8 @@ object GlobalSettings {
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
-         Param.TIGHT_FUNCTION_SCOPES, Param.GENERATE_TOTALITY_AXIOMS,
+         Param.TIGHT_FUNCTION_SCOPES, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
+         Param.GENERATE_TOTALITY_AXIOMS,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.MULTI_STRATEGY,

@@ -133,6 +133,11 @@ object Param {
     val defau : Set[ap.parser.IFunction] = Set()
   }
   
+  case object BOOLEAN_FUNCTIONS_AS_PREDICATES extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
   case object MULTI_STRATEGY extends Param {
     type Value = Boolean
     val defau : Boolean = true

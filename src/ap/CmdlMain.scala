@@ -88,6 +88,8 @@ object CmdlMain {
     println("                                  total: for all total functions         (default)")
     println("                                  all:   for all functions")
     println("  [+-]tightFunctionScopes       Keep function application defs. local    (default: +)")
+    println("  [+-]boolFunsAsPreds           Encode boolean functions as predicates?  (default: -)")
+    println("                                (only used for SMT-LIB and TPTP)")
     println("  [+-]genTotalityAxioms         Generate totality axioms for functions   (default: +)")
     println("  -constructProofs=val          Extract proofs")
     println("                                  never")

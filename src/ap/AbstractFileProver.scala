@@ -54,9 +54,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     }
   
   private def newParser(env : Environment) = Param.INPUT_FORMAT(preSettings) match {
-    case Param.InputFormat.Princess => new ApParser2InputAbsy(env)
-    case Param.InputFormat.SMTLIB =>   new SMTParser2InputAbsy(env)
-    case Param.InputFormat.TPTP =>     new TPTPTParser(env)
+    case Param.InputFormat.Princess =>
+      new ApParser2InputAbsy(env)
+    case Param.InputFormat.SMTLIB =>
+      new SMTParser2InputAbsy(env)
+    case Param.InputFormat.TPTP =>
+      new TPTPTParser(env, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(preSettings))
   }
   
   import CmdlMain.domain_size

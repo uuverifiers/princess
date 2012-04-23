@@ -99,7 +99,8 @@ object TPTPTParser {
 /**
  * A parser for TPTP, both FOF and TFF
  */
-class TPTPTParser(_env : Environment)
+class TPTPTParser(_env : Environment,
+                  booleanFunctionsAsPredicates : Boolean)
       extends Parser2InputAbsy(_env) with JavaTokenParsers with PackratParsers {
 
   import IExpression._
@@ -171,10 +172,6 @@ class TPTPTParser(_env : Environment)
     declaredTypes ++= preDeclaredTypes
   }
 
-  /**
-   * Translate boolean-valued functions as predicates or as functions? 
-   */
-  private val booleanFunctionsAsPredicates = false
   /**
    * Totality axioms?
    */
