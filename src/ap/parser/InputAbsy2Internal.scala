@@ -118,10 +118,19 @@ private class InputAbsy2Internal(order : TermOrder) {
         LazyConjunction(EquationConj(translateLinComb(t), order))
     case IIntFormula(IIntRelation.GeqZero, t) =>
         LazyConjunction(InEqConj(translateLinComb(t), order))
-    case IQuantified(quan, subF) =>
-      LazyConjunction(Conjunction.quantify(List(quan),
+    case IQuantified(quan, _subF) => {
+      var quans = List(quan)
+      var subF = _subF
+      while (subF.isInstanceOf[IQuantified]) {
+        val IQuantified(quan, sf) = subF
+        quans = quan :: quans
+        subF = sf
+      }
+      
+      LazyConjunction(Conjunction.quantify(quans,
                                            translateFor(subF).toConjunction,
                                            order))
+    }
     case INamedPart(_, subF) =>
       // names are just ignored
       translateFor(subF)
