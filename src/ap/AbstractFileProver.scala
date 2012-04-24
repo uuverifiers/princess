@@ -40,6 +40,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                                   timeout : Int, userDefStoppingCond : => Boolean,
                                   preSettings : GlobalSettings) extends Prover {
 
+  private val startTime = System.currentTimeMillis
+
+  private val stoppingCond = () => {
+    if ((System.currentTimeMillis - startTime > timeout) || userDefStoppingCond)
+      Timeout.raise
+  }
+
   protected def println(str : => String) : Unit = (if (output) Predef.println(str))
   
   private def determineTriggerGenFunctions(settings : GlobalSettings,
@@ -192,17 +199,10 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                               formulas)
   }
   
-  protected def findCounterModelTimeout(f : Seq[Conjunction]) = {
-    val timeBefore = System.currentTimeMillis
-    val stoppingCond = () => {
-      if ((System.currentTimeMillis - timeBefore > timeout) || userDefStoppingCond)
-        Timeout.raise
-    }
-
+  protected def findCounterModelTimeout(f : Seq[Conjunction]) =
     Timeout.withChecker(stoppingCond) {
       ModelSearchProver(f, order, goalSettings)
     }
-  }
   
   protected def findModel(f : Conjunction) : Conjunction =
     ModelSearchProver(f.negate, f.order)
@@ -218,13 +218,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       println("Proving ...")
     }
     
-    val timeBefore = System.currentTimeMillis
-    val stoppingCond = () => {
-      if ((System.currentTimeMillis - timeBefore > timeout) ||
-          userDefStoppingCond)
-        Timeout.raise
-    }
-
     Timeout.withChecker(stoppingCond) {
       val prover =
         new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)

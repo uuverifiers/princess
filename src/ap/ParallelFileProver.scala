@@ -86,8 +86,6 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   private val enabledAssertions = Debug.enabledAssertions.value
   
   private val startTime = System.currentTimeMillis
-  private def globalStoppingCond : Boolean =
-    (System.currentTimeMillis - startTime > timeout) || userDefStoppingCond
   
   private val proofActors = for (((s, complete, desc), num) <- settings.zipWithIndex) yield actor {
     
@@ -116,7 +114,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         case TIMEOUT => // nothing
       }
       
-      actorStopped || globalStoppingCond || {
+      actorStopped || userDefStoppingCond || {
         if (System.currentTimeMillis > runUntil) {
 //          Console.err.println("suspending")
           mainActor ! SubProverSuspended(num)
@@ -132,7 +130,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
             }
           }
           
-          actorStopped || globalStoppingCond
+          actorStopped || userDefStoppingCond
         } else {
           false
         }
@@ -153,12 +151,13 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Console.err.println("Options: " + desc)
 
         try {
-          if (globalStoppingCond) {
+          if ((System.currentTimeMillis - startTime > timeout) || userDefStoppingCond) {
             Console.err.println("no time to start")
             mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
           } else {
             val prover =
-              new IntelliFileProver(createReader(), Int.MaxValue,
+              new IntelliFileProver(createReader(),
+                                    timeout - (System.currentTimeMillis - startTime).toInt,
                                     true, localStoppingCond, s)
     
             if (actorStopped) {
