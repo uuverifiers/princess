@@ -128,6 +128,8 @@ object GlobalSettings {
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMaximal)
         case ValueOpt("triggerStrategy", "maximal") =>
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.Maximal)
+        case Opt("triggersInConjecture", value) =>
+          Param.TRIGGERS_IN_CONJECTURE.set(settings, value)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
         case Opt(_, _) =>
