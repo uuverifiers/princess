@@ -27,7 +27,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
-import ap.util.{Debug, FilterIt, Seqs}
+import ap.util.{Debug, FilterIt, Seqs, Timeout}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.collection.mutable.{Map => MutableMap}
@@ -54,6 +54,8 @@ object IterativeClauseMatcher {
     
     val instances = new ArrayBuffer[Conjunction]
 
+    var selectionCounter = 0
+    
     ////////////////////////////////////////////////////////////////////////////
     
     /**
@@ -70,6 +72,10 @@ object IterativeClauseMatcher {
         case List() => // nothing
           
         case SelectLiteral(pred, negative) :: progTail => {
+          selectionCounter = selectionCounter + 1
+          if (selectionCounter % 1000 == 0)
+            Timeout.check
+          
           val selLitsNum = selectedLits.size
           selectedLits += null
           
