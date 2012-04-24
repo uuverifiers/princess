@@ -85,6 +85,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   private val enabledAssertions = Debug.enabledAssertions.value
   
+  private val startTime = System.currentTimeMillis
+  
   private val proofActors = for (((s, complete, desc), num) <- settings.zipWithIndex) yield actor {
     
     Debug.enabledAssertions.value = enabledAssertions
@@ -149,15 +151,22 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Console.err.println("Options: " + desc)
 
         try {
-          val prover =
-            new IntelliFileProver(createReader(), timeout, true, localStoppingCond, s)
-    
-          if (actorStopped) {
-//            Console.err.println("killed")
-            mainActor ! SubProverKilled(num)
+          if ((System.currentTimeMillis - startTime > timeout) || userDefStoppingCond) {
+            Console.err.println("no time to start")
+            mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
           } else {
-            Console.err.println("found result")
-            mainActor ! SubProverFinished(num, prover.result)
+            val prover =
+              new IntelliFileProver(createReader(),
+                                    timeout - (System.currentTimeMillis - startTime).toInt,
+                                    true, localStoppingCond, s)
+    
+            if (actorStopped) {
+//              Console.err.println("killed")
+              mainActor ! SubProverKilled(num)
+            } else {
+              Console.err.println("found result")
+              mainActor ! SubProverFinished(num, prover.result)
+            }
           }
         } catch {
           case t : Throwable => {
@@ -189,19 +198,33 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       
       var runtime : Long = num // just make sure that the provers start in the right order
       var lastStartTime : Long = 0
+      var targetedSuspendTime : Long = 0
+      var activationCount : Int = 0
       
       def resume(nextDiff : Long) = {
-        // First let each prover run for 5s, to solve simple problems without
+        // First let each prover run for 3s, to solve simple problems without
         // any parallelism. Afterwards, use time slices of 1s.
-        val maxtime : Long = if (runtime <= 5000) 5000 else 1000
+        val maxtime : Long = if (activationCount == 0) 3000 else 1000
         val nextPeriod = nextDiff max maxtime
         lastStartTime = System.currentTimeMillis
-        proofActors(num) ! SubProverResume(lastStartTime + nextPeriod)
+        targetedSuspendTime = lastStartTime + nextPeriod
+        activationCount = activationCount + 1
+        proofActors(num) ! SubProverResume(targetedSuspendTime)
       }
       
-      def suspended = {
-        runtime = runtime + (System.currentTimeMillis - lastStartTime)
+      def suspended : Boolean = {
+        val currentTime = System.currentTimeMillis
+        runtime = runtime + (currentTime - lastStartTime)
 //        Console.err.println("Prover " + num + " runtime: " + runtime)
+        // If the prover was activated for the first time, and has
+        // overrun a lot, it was probably suspended right after parsing
+        // and preprocessing. Then it makes sense to give it some more time
+        if (activationCount == 1 && currentTime >= targetedSuspendTime + 5000) {
+          resume(currentTime - targetedSuspendTime)
+          false
+        } else {
+          true
+        }
       }
     }
     
@@ -281,9 +304,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Debug.assertInt(AC,
                         !(pendingProvers.iterator contains subProverStatus(num)))
         //-END-ASSERTION-/////////////////////////////////////////////////////////
-        subProverStatus(num).suspended
-        pendingProvers += subProverStatus(num)
-        resumeProver
+        if (subProverStatus(num).suspended) {
+          pendingProvers += subProverStatus(num)
+          resumeProver
+        }
       }
 
       case SubProverPrintln(num, line, 1) =>
