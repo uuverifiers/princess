@@ -85,6 +85,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   private val enabledAssertions = Debug.enabledAssertions.value
   
+  private val startTime = System.currentTimeMillis
+  private def globalStoppingCond : Boolean =
+    (System.currentTimeMillis - startTime > timeout) || userDefStoppingCond
+  
   private val proofActors = for (((s, complete, desc), num) <- settings.zipWithIndex) yield actor {
     
     Debug.enabledAssertions.value = enabledAssertions
@@ -112,7 +116,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         case TIMEOUT => // nothing
       }
       
-      actorStopped || userDefStoppingCond || {
+      actorStopped || globalStoppingCond || {
         if (System.currentTimeMillis > runUntil) {
 //          Console.err.println("suspending")
           mainActor ! SubProverSuspended(num)
@@ -128,7 +132,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
             }
           }
           
-          actorStopped || userDefStoppingCond
+          actorStopped || globalStoppingCond
         } else {
           false
         }
@@ -149,15 +153,21 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Console.err.println("Options: " + desc)
 
         try {
-          val prover =
-            new IntelliFileProver(createReader(), timeout, true, localStoppingCond, s)
-    
-          if (actorStopped) {
-//            Console.err.println("killed")
-            mainActor ! SubProverKilled(num)
+          if (globalStoppingCond) {
+            Console.err.println("no time to start")
+            mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
           } else {
-            Console.err.println("found result")
-            mainActor ! SubProverFinished(num, prover.result)
+            val prover =
+              new IntelliFileProver(createReader(), Int.MaxValue,
+                                    true, localStoppingCond, s)
+    
+            if (actorStopped) {
+//              Console.err.println("killed")
+              mainActor ! SubProverKilled(num)
+            } else {
+              Console.err.println("found result")
+              mainActor ! SubProverFinished(num, prover.result)
+            }
           }
         } catch {
           case t : Throwable => {
@@ -211,7 +221,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         // overrun a lot, it was probably suspended right after parsing
         // and preprocessing. Then it makes sense to give it some more time
         if (activationCount == 1 && currentTime >= targetedSuspendTime + 5000) {
-          resume(3000)
+          resume(currentTime - targetedSuspendTime)
           false
         } else {
           true
