@@ -268,22 +268,41 @@ object VariablePermVisitor extends CollectingVisitor[IVarShift, IExpression] {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// There are two implementations of the class to represent variable
+// permutations: one that is dense, and uses lists, and one that is sparse
+
 object IVarShift {
-  private val AC = Debug.AC_INPUT_ABSY
+  protected[parser] val AC = Debug.AC_INPUT_ABSY
+  
+  def apply(prefix : List[Int], defaultShift : Int) =
+    IVarShiftList(prefix, defaultShift)
+  
+  def apply(prefix :Map[Int, Int], defaultShift : Int) =
+    IVarShiftMap(List(), prefix, defaultShift)
   
   def apply(mapping : Map[IVariable, IVariable],
             defaultShift : Int) : IVarShift = {
-    val maxIndex = Seqs.max(for (IVariable(i) <- mapping.keysIterator) yield i)
-    val prefix = (for (i <- 0 to (maxIndex + 1))
-                  yield (mapping get IVariable(i)) match {
-                    case Some(IVariable(j)) => j - i
-                    case None => defaultShift
-                  }).toList
-    IVarShift(prefix, defaultShift)
+    val prefix = for ((IVariable(i), IVariable(j)) <- mapping) yield (i -> (j - i))
+    IVarShiftMap(List(), prefix, defaultShift)
   }
 }
 
-case class IVarShift(prefix : List[Int], defaultShift : Int) {
+abstract class IVarShift {
+  
+  def push(n : Int) : IVarShift
+  def pop : IVarShift
+  
+  def apply(i : Int) : Int
+  
+  def apply(v : IVariable) : IVariable = {
+    val newIndex = apply(v.index)
+    if (newIndex == v.index) v else IVariable(newIndex)
+  }
+}
+
+case class IVarShiftList(prefix : List[Int], defaultShift : Int)
+           extends IVarShift {
   
   lazy val length = prefix.length
   
@@ -293,22 +312,22 @@ case class IVarShift(prefix : List[Int], defaultShift : Int) {
                    (prefix.iterator.zipWithIndex forall {case (i, j) => i + j >= 0}))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
-  def push(n : Int) = IVarShift(n :: prefix, defaultShift)
+  def push(n : Int) = IVarShiftList(n :: prefix, defaultShift)
   
   def pop = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IVarShift.AC, !prefix.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    IVarShift(prefix.tail, defaultShift)
+    IVarShiftList(prefix.tail, defaultShift)
   }
   
-  def compose(that : IVarShift) : IVarShift = {
+  def compose(that : IVarShiftList) : IVarShift = {
     val newPrefix = new scala.collection.mutable.ArrayBuffer[Int]
     for ((o, i) <- that.prefix.iterator.zipWithIndex)
       newPrefix += (apply(i + o) - i)
     for (i <- that.length until (this.length - that.defaultShift))
       newPrefix += (apply(i + that.defaultShift) - i)
-    IVarShift(newPrefix.toList, this.defaultShift + that.defaultShift)
+    IVarShiftList(newPrefix.toList, this.defaultShift + that.defaultShift)
   }
   
   def apply(i : Int) : Int = {
@@ -317,10 +336,43 @@ case class IVarShift(prefix : List[Int], defaultShift : Int) {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     i + (if (i < length) prefix(i) else defaultShift)
   }
-  def apply(v : IVariable) : IVariable = {
-    val newIndex = apply(v.index)
-    if (newIndex == v.index) v else IVariable(newIndex)
+
+}
+
+case class IVarShiftMap(prefix : List[Int],
+                        mapping : Map[Int, Int],
+                        defaultShift : Int)
+           extends IVarShift {
+  
+  lazy val prefixLength = prefix.length
+  
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(IVarShift.AC,
+    (defaultShift >= 0 || ((0 until -defaultShift) forall (mapping contains _))) &&
+    (prefix.iterator.zipWithIndex forall {case (i, j) => i + j >= 0}) &&
+    (mapping forall {case (i, j) => i + j >= 0}))
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  def push(n : Int) =
+    IVarShiftMap(n :: prefix, mapping, defaultShift)
+  
+  def pop = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IVarShift.AC, !prefix.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    IVarShiftMap(prefix.tail, mapping, defaultShift)
   }
+  
+  def apply(i : Int) : Int = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IVarShift.AC, i >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    i + (if (i < prefixLength)
+           prefix(i)
+         else
+           mapping.getOrElse(i - prefixLength, defaultShift))
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
