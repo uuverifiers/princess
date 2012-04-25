@@ -27,10 +27,14 @@ import ap.parameters.Param
 import ap.util.{Debug, Seqs}
 
 import scala.collection.immutable.ListSet
+import scala.collection.mutable.{ArrayBuffer,
+                                 HashMap => MHashMap, HashSet => MHashSet}
 
 object TriggerGenerator {
   
   private val AC = Debug.AC_INPUT_ABSY
+  
+  private object ENOUGH_TRIGGERS extends Exception
   
 }
 
@@ -67,8 +71,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
   }
 
   // maps to determine/store the frequencies of functions and constants
-  private val consts = new scala.collection.mutable.HashMap[ConstantTerm, Int]
-  private val funs = new scala.collection.mutable.HashMap[IFunction, Int]
+  private val consts = new MHashMap[ConstantTerm, Int]
+  private val funs = new MHashMap[IFunction, Int]
 
   private implicit def iTermOrdering =
     new KBO((f) => 100000 - funs(f),
@@ -273,56 +277,78 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
       // Recursive function generate all minimal multi-triggers. The second
       // argument of the function specifies the number of expressions covering
       // each variable
-        
+      
+      var multiTriggerIterations = 0
+      
       def multiTriggersHelp(chosenTriggers : List[(ITerm, Set[Int])],
                             remainingTriggers : List[(ITerm, Set[Int])],
-                            coveredVars : Map[Int, Int]) : List[List[ITerm]] =
-        if ((0 until ctxt.a) forall (coveredVars(_) > 0))
+                            coveredVars : Map[Int, Int],
+                            resultList : ArrayBuffer[List[ITerm]]) : Unit =
+        if ((0 until ctxt.a) forall (coveredVars(_) > 0)) {
           // we have found a useable multi-trigger and can ignore the
           // remaining uni-triggers
-          List(chosenTriggers map (_._1))
-        else
+          resultList += (chosenTriggers map (_._1))
+        } else {
+          multiTriggerIterations = multiTriggerIterations + 1
+          if (multiTriggerIterations % 10000 == 0 && !resultList.isEmpty)
+            // don't go on forever ...
+            throw TriggerGenerator.ENOUGH_TRIGGERS
+          
           remainingTriggers match {
-            case (trigger, vars) :: rem =>
-              multiTriggersHelp(chosenTriggers, rem, coveredVars) ++ (
-                if (vars forall (coveredVars.getOrElse(_, 1) > 0)) {
-                  // this uni-trigger does not add any new variables and
-                  // can be ignored
-                  List()
-                } else {
-                  val newCoveredVars = (coveredVars /: vars) {
-                    case (cv, v) => (cv get v) match {
-                      case Some(num) => cv + (v -> (num + 1))
-                      case None => cv
-                    }
-                  }
+            case (trigger, vars) :: rem => {
+              if (vars forall (coveredVars.getOrElse(_, 1) > 0)) {
+                // this uni-trigger does not add any new variables and
+                // can be ignored
+              } else {
+                val newCoveredVars = addCoveredVars(coveredVars, vars.iterator)
                   
-                  if (chosenTriggers exists {
-                        case (_, vars) => vars forall (newCoveredVars.getOrElse(_, 2) > 1)
-                      })
-                    // this new expressions would make previously chosen
-                    // triggers redundant, so don't use it
-                    List()
-                  else
-                    multiTriggersHelp((trigger, vars) :: chosenTriggers, rem, newCoveredVars)
-                })
-            case _ =>
-              List()
+                if (chosenTriggers exists {
+                      case (_, vars) => vars forall (newCoveredVars.getOrElse(_, 2) > 1)
+                    }) {
+                  // this new expressions would make previously chosen
+                  // triggers redundant, so don't use it
+                } else {
+                  multiTriggersHelp((trigger, vars) :: chosenTriggers,
+                                    rem, newCoveredVars, resultList)
+                }
+              }
+              
+              multiTriggersHelp(chosenTriggers, rem, coveredVars, resultList)
+            }
+            case _ => // nothing
           }
+        }
       
-      def multiTriggers : List[List[ITerm]] =
-        multiTriggersHelp(List(), triggers.toList,
-                          (for (i <- 0 until ctxt.a) yield (i -> 0)).toMap)
+      def addCoveredVars(coveredVars : Map[Int, Int], vars : Iterator[Int]) =
+        (coveredVars /: vars) {
+           case (cv, v) => (cv get v) match {
+             case Some(num) => cv + (v -> (num + 1))
+             case None => cv
+           }
+        }
+      
+      def multiTriggers : Seq[List[ITerm]] = {
+        val resultList = new ArrayBuffer[List[ITerm]]
+        try {
+          multiTriggerIterations = 0
+          multiTriggersHelp(List(), triggers.toList,
+                            (for (i <- 0 until ctxt.a) yield (i -> 0)).toMap,
+                            resultList)
+        } catch {
+          case TriggerGenerator.ENOUGH_TRIGGERS => // nothing
+        }
+        resultList
+      }
       
       strategy match {
         case TriggerStrategy.Maximal => {
           val chosenTriggers = multiTriggers
 //          println(chosenTriggers)
-          val sortedTriggers = for (t <- chosenTriggers)
-                               yield (t sorted reverseITermOrdering)
-          if (sortedTriggers.isEmpty) {
+          if (chosenTriggers.isEmpty) {
             t
           } else {
+            val sortedTriggers = for (t <- chosenTriggers)
+                                 yield (t sorted reverseITermOrdering)
             val maxTrigger = sortedTriggers.max(Ordering Iterable iTermOrdering)
 //            println("Max: " + maxTrigger)
             ITrigger(maxTrigger, t)
@@ -330,12 +356,12 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
         }
         
         case _ => { // AllMaximal or AllMinimal
-          val chosenTriggers : List[List[ITerm]] =
+          val chosenTriggers : Seq[List[ITerm]] =
             if (triggers exists { case (_, vars) => allVars(vars) })
               // there are uni-triggers that contain all variables
           
               (for ((t, vars) <- triggers.iterator;
-                    if (allVars(vars))) yield List(t)).toList
+                    if (allVars(vars))) yield List(t)).toSeq
             else
               multiTriggers
               
