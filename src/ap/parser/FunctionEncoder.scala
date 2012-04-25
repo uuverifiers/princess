@@ -507,7 +507,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
 
       // check whether definitions for function applications have to be added
       c.a match {
-        case AddDefinitions(frame, triggers) => println(t); (c.binders, triggers) match {
+        case AddDefinitions(frame, triggers) => (c.binders, triggers) match {
           case ((Context.ALL :: _) | List(), List()) =>
             addAbstractionDefs(abstracted.asInstanceOf[IFormula], Set(),
                                frame.abstractionList, false)
