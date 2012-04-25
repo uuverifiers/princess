@@ -279,12 +279,12 @@ object IVarShift {
     IVarShiftList(prefix, defaultShift)
   
   def apply(prefix :Map[Int, Int], defaultShift : Int) =
-    IVarShiftMap(prefix, defaultShift)
+    IVarShiftMap(List(), prefix, defaultShift)
   
   def apply(mapping : Map[IVariable, IVariable],
             defaultShift : Int) : IVarShift = {
     val prefix = for ((IVariable(i), IVariable(j)) <- mapping) yield (i -> (j - i))
-    IVarShiftMap(prefix, defaultShift)
+    IVarShiftMap(List(), prefix, defaultShift)
   }
 }
 
@@ -339,26 +339,38 @@ case class IVarShiftList(prefix : List[Int], defaultShift : Int)
 
 }
 
-case class IVarShiftMap(mapping : Map[Int, Int], defaultShift : Int)
+case class IVarShiftMap(prefix : List[Int],
+                        mapping : Map[Int, Int],
+                        defaultShift : Int)
            extends IVarShift {
+  
+  lazy val prefixLength = prefix.length
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(IVarShift.AC,
     (defaultShift >= 0 || ((0 until -defaultShift) forall (mapping contains _))) &&
+    (prefix.iterator.zipWithIndex forall {case (i, j) => i + j >= 0}) &&
     (mapping forall {case (i, j) => i + j >= 0}))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def push(n : Int) =
-    IVarShiftMap((mapping map { case (k, v) => k+1 -> v }) + (0 -> n), defaultShift)
+    IVarShiftMap(n :: prefix, mapping, defaultShift)
   
-  def pop =
-    IVarShiftMap(for ((k, v) <- mapping; if (k > 0)) yield (k-1 -> v), defaultShift)
+  def pop = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IVarShift.AC, !prefix.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    IVarShiftMap(prefix.tail, mapping, defaultShift)
+  }
   
   def apply(i : Int) : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IVarShift.AC, i >= 0)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    i + mapping.getOrElse(i, defaultShift)
+    i + (if (i < prefixLength)
+           prefix(i)
+         else
+           mapping.getOrElse(i - prefixLength, defaultShift))
   }
 
 }
