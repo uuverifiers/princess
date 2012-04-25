@@ -76,6 +76,10 @@ object TPTPTParser {
   private def Rank2(r: ((Type, Type), Type)) = new Rank(List(r._1._1, r._1._2) -> r._2)
   private def Rank3(r: ((Type, Type, Type), Type)) = new Rank(List(r._1._1, r._1._2, r._1._2) -> r._2)
 
+  object TPTPType extends Enumeration {
+    val FOF, TFF, Unknown = Value
+  }
+     
 }
 
 /**
@@ -93,13 +97,24 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     parseAll[List[List[IFormula]]](TPTP_input, reader) match {
       case Success(formulas, _) => {
         val tffs = formulas.flatten.filter(_ != null)
-        (getAxioms ===> connect(tffs, IBinJunctor.Or), List(), env.toSignature)
+        
+        val stringConstants = occurringStrings.toSeq.sortWith(_._1 < _._1)
+        
+        val stringConstantAxioms =
+          connect(for (ind1 <- 0 until stringConstants.size;
+                       ind2 <- (ind1+1) until stringConstants.size)
+                  yield (stringConstants(ind1)._2 =/= stringConstants(ind2)._2),
+                  IBinJunctor.And)
+        
+        ((getAxioms &&& stringConstantAxioms) ===> connect(tffs, IBinJunctor.Or), List(), env.toSignature)
       }
       case error =>
         throw new SyntaxError(error.toString)
     }
     
   }
+
+  private var tptpType = TPTPType.Unknown
 
   private val declaredTypes = new MHashSet[Type]
 
@@ -122,11 +137,23 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 
   private var haveConjecture = false
 
+  private var containsRatReal = false
+  
+  private def containsRR = if (!containsRatReal) {
+    warn("Problem contains rationals or reals, using incomplete axiomatisation")
+    containsRatReal = true
+  }
+  
+  /**
+   * Comments are considered as whitespace and ignored right away
+   */
+  protected override val whiteSpace = """(\s|%.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
+  
   /**
    * The grammar rules
    */
   private lazy val TPTP_input: PackratParser[List[List[IFormula]]] =
-    rep(annotated_formula | comment | include)
+    rep(annotated_formula /* | comment */ | include)
 
   private lazy val annotated_formula = 
     // TPTP_input requires a list, because include abobe returns a list
@@ -137,9 +164,10 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 
 
   private lazy val fof_annotated_logic_formula =
-    "fof" ~ "(" ~ (atomic_word | wholeNumber) ~ "," ~ atomic_word ~ "," ~
-    fof_logic_formula ~ ")" <~ "." ^^ {
-    case "fof" ~ "(" ~ name ~ "," ~ role ~ "," ~ f ~ ")" => 
+    ("fof" ^^ { _ => tptpType = TPTPType.FOF }) ~ "(" ~>
+    (atomic_word | wholeNumber) ~ "," ~ atomic_word ~ "," ~
+    fof_logic_formula <~ ")" ~ "." ^^ {
+    case name ~ "," ~ role ~ "," ~ f => 
 	role match {
 	  case "conjecture" => {
 	    haveConjecture = true
@@ -159,7 +187,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   // Slightly rewritten version of the BNF rule in the TPTP report, to discrimate
   // between type and non-type very early, thus helping the parser.
   private lazy val tff_annotated_type_formula =
-    "tff" ~ "(" ~
+    ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~
     (atomic_word | wholeNumber) ~ "," ~ "type" ~ "," ~ tff_typed_atom ~
     ")" <~ "." ^^ { 
     // It's there just for its side effect
@@ -167,9 +195,10 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   }
 
   private lazy val tff_annotated_logic_formula =
-    "tff" ~ "(" ~ (atomic_word | wholeNumber) ~ "," ~ 
-    formula_role_other_than_type ~ "," ~ tff_logic_formula ~ ")" <~ "." ^^ {
-      case "tff" ~ "(" ~ name ~ "," ~ role ~ "," ~ f ~ ")" => 
+    ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~
+    (atomic_word | wholeNumber) ~ "," ~ 
+    formula_role_other_than_type ~ "," ~ tff_logic_formula <~ ")" ~ "." ^^ {
+      case name ~ "," ~ role ~ "," ~ f => 
 	  role match {
 	    case "conjecture" => {
 	      haveConjecture = true
@@ -348,8 +377,9 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     (("$oType" | "$o") ^^ { _ => OType }) |
     (("$iType" | ("$i" <~ guard(not("nt")))) ^^ { _ => IType }) |
     ("$tType" ^^ { _ => TType }) |
-    ("$int" ^^ { _ => IntType })
-   // $real | $rat | $int 
+    ("$int" ^^ { _ => IntType }) |
+    ("$rat" ^^ { _ => containsRR; RatType }) |
+    ("$real" ^^ { _ => containsRR; RealType })
 
   //////////////////////////////////////////////////////////////////////////////
     
@@ -426,7 +456,11 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     ( "<=>" ^^ {
       _ => { (x : IFormula, y : IFormula) => (x <=> y) } } ) |
     ( "<~>" ^^ {
-      _ => { (x : IFormula, y : IFormula) => !(x <=> y) } } ) 
+      _ => { (x : IFormula, y : IFormula) => !(x <=> y) } } ) |
+    ( "~|" ^^ {
+      _ => { (x : IFormula, y : IFormula) => !(x | y) } } ) |
+    ( "~&" ^^ {
+      _ => { (x : IFormula, y : IFormula) => !(x & y) } } )
 
   // Atom
   // Difficulty is determining the type. If fun(args...) has been read 
@@ -531,27 +565,55 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
   }
 
   // Background literal constant
-  private lazy val bg_constant =
+  private lazy val bg_constant: PackratParser[(ITerm, Type)] =
     (
-      (regex(isIntegerConstRegEx) <~ guard(not("."))) ^^ { 
+      (regex(isIntegerConstRegEx) <~ guard(not(regex("[./]".r)))) ^^ { 
 	    s => (i(IdealInt(s)), IntType)
       }
     ) | (
-      (regex(isIntegerConstRegEx) ~ "." ~ regex("""[0-9E\-]+""".r)) ^^ {
+      (regex(isIntegerConstRegEx) ~ "/" ~ regex(isIntegerConstRegEx)) ^^ {
+        case num ~ _ ~ denom => {
+          containsRR
+          val s = num + "/" + denom
+          // we currently just introduce the number as a
+          // fresh constant
+          if (!(env isDeclaredSym s))
+            declareSym(s, Rank0(RatType))
+          (env lookupSym s) match {
+            case Environment.Constant(c, _) => (i(c), RatType)
+            case _ => throw new SyntaxError("Unexpected symbol: " + functor)
+          }
+        }
+      }
+    ) | (
+      (regex(isIntegerConstRegEx) ~ "." ~ regex("""[0-9Ee\-]+""".r)) ^^ {
         case int ~ _ ~ frac => {
+          containsRR
           val s = int + "." + frac
           // we currently just introduce the number as a
           // fresh constant
           if (!(env isDeclaredSym s))
-            declareSym(s, Rank0(IntType))
+            declareSym(s, Rank0(RealType))
           (env lookupSym s) match {
             case Environment.Constant(c, _) => (i(c), IntType)
             case _ => throw new SyntaxError("Unexpected symbol: " + functor)
           }
         }
       }
+    ) | (
+      regex(("\"([\\040-\\041\\043-\\0133\\0135-\\0176]|\\\\\"|\\\\\\\\)*\"").r) ^^ {
+        case s =>
+          (i(occurringStrings.getOrElseUpdate(s, {
+             val c = new ConstantTerm ("stringConstant" + occurringStrings.size)
+             env.addConstant(c, Environment.NullaryFunction)
+             c
+           })), IType)
+      }
     )
   
+  private val occurringStrings =
+    new scala.collection.mutable.HashMap[String, ConstantTerm]
+    
   // lexical: don't confuse = with => (the lexer is greedy)
   private lazy val equalsSign = "=" <~ guard(not(">"))
   
@@ -580,8 +642,8 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 
   // Parsing of comments is not optimal as they may not appear
   // inside formulas - essentially they are an atom
-  private lazy val comment: PackratParser[List[IFormula]] =
-    """%.*""".r ^^ (x => List(null /* Comment(x) */))
+//  private lazy val comment: PackratParser[List[IFormula]] =
+//    """%.*""".r ^^ (x => List(null /* Comment(x) */))
 
   private lazy val include: PackratParser[List[IFormula]] = 
     "include" ~> "(" ~> atomic_word <~ ")" <~ "." ^^ { case fileName  => {
@@ -611,15 +673,17 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
          "Error: ill-sorted (dis)equation: between " + s_term + " and " + t_term)
   }
 
-  private def CheckedAtom(pred: String, args: List[(ITerm, Type)]) : IFormula = pred match {
-    case "$less"      => binaryIntPred(pred, args)( _ < _ )
-    case "$lesseq"    => binaryIntPred(pred, args)( _ <= _ )
-    case "$greater"   => binaryIntPred(pred, args)( _ > _ )
-    case "$greatereq" => binaryIntPred(pred, args)( _ >= _ )
-    case "$evaleq"    => binaryIntPred(pred, args)( _ === _ )
+  private def CheckedAtom(pred: String,
+                          args: List[(ITerm, Type)])
+                         : IFormula = (pred, args map (_._2)) match {
+    case ("$less", Seq(IntType, IntType))      => args(0)._1 < args(1)._1
+    case ("$lesseq", Seq(IntType, IntType))    => args(0)._1 <= args(1)._1
+    case ("$greater", Seq(IntType, IntType))   => args(0)._1 > args(1)._1
+    case ("$greatereq", Seq(IntType, IntType)) => args(0)._1 >= args(1)._1
+    case ("$evaleq", Seq(IntType, IntType))    => args(0)._1 === args(1)._1
 //    case "$divides"   => binaryIntPred(pred, args)( _ <= _ )
   
-    case pred => {
+    case _ => {
       if (!(env isDeclaredSym pred))
         declareSym(pred, Rank((args map (_._2), OType)))
       
@@ -672,16 +736,14 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 	throw new SyntaxError("Error: ill-sorted atom: " + Atom(pred, args)) */
 
   private def CheckedFunTerm(fun: String,
-                             args: List[(ITerm, Type)]) : (ITerm, Type) = fun match {
-    case "$sum"        => binaryIntFun(fun, args)( _ + _ )
-    case "$difference" => binaryIntFun(fun, args)( _ - _ )
-    case "$product"    => binaryIntFun(fun, args)( mult _ )
-    case "$uminus"     => {
-      checkArgTypes(fun, args, List(IntType))
-      (-args(0)._1, IntType)
-    }
-    
-    case fun => {
+                             args: List[(ITerm, Type)])
+                            : (ITerm, Type) = (fun, args map (_._2)) match {
+    case ("$sum", Seq(IntType, IntType))        => (args(0)._1 + args(1)._1, IntType)
+    case ("$difference", Seq(IntType, IntType)) => (args(0)._1 - args(1)._1, IntType)
+    case ("$product", Seq(IntType, IntType))    => (mult(args(0)._1, args(1)._1), IntType)
+    case ("$uminus", Seq(IntType))              => (-args(0)._1, IntType)
+
+    case _ => {
       if (!(env isDeclaredSym fun))
         declareSym(fun, Rank((args map (_._2), IType)))
         
