@@ -422,17 +422,15 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     private def funsToRelations(f : IFormula,
                                 abstractions : Seq[(IFunApp, Int)])
                                : (IFormula, Seq[(IFunApp, Int, IAtom)]) = {
-      val oldMaxNum = Seqs.max(for ((_, i) <- abstractions.iterator) yield i)
-    
       // all the previous bound variables have to be shifted upwards to make
-      // place for the abstraction variables
-      val shiftsAr = Array.fill(oldMaxNum + 1){abstractions.length}
+      // place for the abstraction variables;
       // the abstraction variables are mapped to the indexes
       // 0 .. (abstractions.length-1)
-      for (((_, oldNum), newNum) <- abstractions.iterator.zipWithIndex)
-        shiftsAr(oldNum) = newNum - oldNum
-
-      val shifts = IVarShift(shiftsAr.toList, abstractions.length)
+      val mapping =
+        (for (((_, oldNum), newNum) <- abstractions.iterator.zipWithIndex)
+         yield (oldNum -> (newNum - oldNum))).toMap
+      val shifts = IVarShift(mapping, abstractions.length)
+      
       (VariablePermVisitor(f, shifts),
        for (((t, oldNum), newNum) <- abstractions.zipWithIndex) yield {
          val shiftedT = VariablePermVisitor(t, shifts).asInstanceOf[IFunApp]
