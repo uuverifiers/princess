@@ -34,27 +34,36 @@ object Environment {
   case object Universal extends SymKind
   case object Existential extends SymKind
 
-  abstract sealed class DeclaredSym
-  case class Constant(c : ConstantTerm, k : SymKind) extends DeclaredSym
-  case class Variable(index : Int, encodesBool : Boolean) extends DeclaredSym
-  case class Predicate(pred : ap.terfor.preds.Predicate) extends DeclaredSym
-  case class Function(fun : IFunction, encodesBool : Boolean) extends DeclaredSym
+  abstract sealed class DeclaredSym[ConstantType,
+                                    VariableType,
+                                    PredicateType,
+                                    FunctionType]
+  case class Constant[CT,VT,PT,FT](c : ConstantTerm, k : SymKind, typ : CT)
+             extends DeclaredSym[CT,VT,PT,FT]
+  case class Variable[CT,VT,PT,FT](index : Int, typ : VT)
+             extends DeclaredSym[CT,VT,PT,FT]
+  case class Predicate[CT,VT,PT,FT](pred : ap.terfor.preds.Predicate, typ : PT)
+             extends DeclaredSym[CT,VT,PT,FT]
+  case class Function[CT,VT,PT,FT](fun : IFunction, typ : FT)
+             extends DeclaredSym[CT,VT,PT,FT]
 
   class EnvironmentException(msg : String) extends Exception(msg)
 
 }
 
-class Environment {
+class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
 
   import Environment._
   
+  type DSym = DeclaredSym[ConstantType, VariableType, PredicateType, FunctionType]
+  
   /** The declared symbols */
-  private val signature = new scala.collection.mutable.HashMap[String, DeclaredSym]
+  private val signature = new scala.collection.mutable.HashMap[String, DSym]
   
   /** The variables bound at the present point, together with a flag
    *  telling whether the variables represent integers or booleans */
   private val context =
-    new scala.collection.mutable.ArrayBuffer[(String, Boolean)]
+    new scala.collection.mutable.ArrayBuffer[(String, VariableType)]
   
   /** A <code>TermOrder</code> containing all declared constants */
   private var orderVar = TermOrder.EMPTY
@@ -66,16 +75,19 @@ class Environment {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Environment.AC,
                     signature.valuesIterator forall {
-                      case Constant(c, _) => newOrder.orderedConstants contains c
-                      case Predicate(pred) => newOrder.orderedPredicates contains pred
+                      case Constant(c, _, _) => newOrder.orderedConstants contains c
+                      case Predicate(pred, _) => newOrder.orderedPredicates contains pred
                       case _ => true
                     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     orderVar = newOrder
   }
   
-  override def clone : Environment = {
-    val res = new Environment
+  override def clone : Environment[ConstantType,
+                                   VariableType,
+                                   PredicateType,
+                                   FunctionType] = {
+    val res = new Environment[ConstantType, VariableType, PredicateType, FunctionType]
     
     res.signature ++= this.signature
     res.context ++= this.context
@@ -84,7 +96,7 @@ class Environment {
     res
   }
   
-  def lookupSym(name : String) : DeclaredSym =
+  def lookupSym(name : String) : DSym =
     (context lastIndexWhere (_._1 == name)) match {
       case -1 => (signature get name) match {
         case Some(t) =>
@@ -99,8 +111,8 @@ class Environment {
   def isDeclaredSym(name : String) : Boolean =
     (context exists (_._1 == name)) || (signature contains name)
   
-  def addConstant(c : ConstantTerm, kind : SymKind) : Unit = {
-    addSym(c.name, Constant(c, kind))
+  def addConstant(c : ConstantTerm, kind : SymKind, typ : ConstantType) : Unit = {
+    addSym(c.name, Constant(c, kind, typ))
     orderVar = kind match {
       case Universal =>
         // universal constants are minimal
@@ -115,13 +127,13 @@ class Environment {
     }
   }
  
-  def addPredicate(pred : ap.terfor.preds.Predicate) : Unit = {
-    addSym(pred.name, Predicate(pred))
+  def addPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit = {
+    addSym(pred.name, Predicate(pred, typ))
     orderVar = orderVar extend pred
   }
   
-  def addFunction(fun : IFunction, encodesBool : Boolean = false) : Unit =
-    addSym(fun.name, Function(fun, encodesBool))
+  def addFunction(fun : IFunction, typ : FunctionType) : Unit =
+    addSym(fun.name, Function(fun, typ))
   
   def nullaryFunctions : Set[ConstantTerm] = constants(NullaryFunction)
   def universalConstants : Set[ConstantTerm] = constants(Universal)
@@ -129,24 +141,18 @@ class Environment {
   def nonNullaryFunctions : Set[IFunction] =
     Set.empty ++ (for (Function(f, _) <- signature.values) yield f)
   
-  private def constants(kind : SymKind) : Set[ConstantTerm] = {
-    val predicate : DeclaredSym => Boolean = {
-      case Constant(_, `kind`) => true
-      case _ => false
-    }
-    Set.empty ++ (for (Constant(c, _) <-
-                    FilterIt(signature.valuesIterator, predicate))
+  private def constants(kind : SymKind) : Set[ConstantTerm] =
+    Set.empty ++ (for (Constant(c, `kind`, _) <- signature.valuesIterator)
                   yield c)
-  }
   
-  private def addSym(name : String, t : DeclaredSym) : Unit =
+  private def addSym(name : String, t : DSym) : Unit =
     if (signature contains name)
       throw new EnvironmentException("Symbol " + name + " is already declared")
     else
       signature += (name -> t)
   
-  def pushVar(name : String, encodesBool : Boolean = false) : Unit =
-    context += ((name, encodesBool))
+  def pushVar(name : String, typ : VariableType) : Unit =
+    context += ((name, typ))
 
   def popVar : Unit =
     if (context isEmpty)

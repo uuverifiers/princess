@@ -33,10 +33,14 @@ import scala.util.matching.Regex
 
 object TPTPTParser {
   
+  private type Env = Environment[Type, Type, Rank, Rank]
+  
+  def apply = new TPTPTParser(new Env)
+  
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
 
-  private case class Type(name: String) {
+  case class Type(name: String) {
     override def toString = name
   }
   
@@ -62,7 +66,7 @@ object TPTPTParser {
    * Rank: The signature of individual function (and predicate) symbols.
    */
 
-  private case class Rank(rank: (List[Type], Type)) {
+  case class Rank(rank: (List[Type], Type)) {
     def argsTypes = rank._1
     def resType = rank._2
     override def toString = 
@@ -76,7 +80,7 @@ object TPTPTParser {
   private def Rank2(r: ((Type, Type), Type)) = new Rank(List(r._1._1, r._1._2) -> r._2)
   private def Rank3(r: ((Type, Type, Type), Type)) = new Rank(List(r._1._1, r._1._2, r._1._2) -> r._2)
 
-  object TPTPType extends Enumeration {
+  private object TPTPType extends Enumeration {
     val FOF, TFF, Unknown = Value
   }
      
@@ -85,8 +89,12 @@ object TPTPTParser {
 /**
  * A parser for TPTP, both FOF and TFF
  */
-class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
-                                      with JavaTokenParsers with PackratParsers {
+class TPTPTParser(_env : Environment[TPTPTParser.Type,
+                                     TPTPTParser.Type,
+                                     TPTPTParser.Rank,
+                                     TPTPTParser.Rank])
+      extends Parser2InputAbsy(_env)
+      with JavaTokenParsers with PackratParsers {
 
   import IExpression._
   import TPTPTParser._
@@ -105,7 +113,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
                        ind2 <- (ind1+1) until stringConstants.size)
                   yield (stringConstants(ind1)._2 =/= stringConstants(ind2)._2),
                   IBinJunctor.And)
-        
+
         ((getAxioms &&& stringConstantAxioms) ===> connect(tffs, IBinJunctor.Or), List(), env.toSignature)
       }
       case error =>
@@ -135,15 +143,46 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
    */
   private var functionalityAxiom = true
 
+  protected def defaultFunctionType(f : IFunction) : Rank = tptpType match {
+    case TPTPType.FOF =>
+      Rank(((for (_ <- 0 until f.arity) yield IType).toList, IType))
+    case TPTPType.TFF =>
+      Rank(((for (_ <- 0 until f.arity) yield IntType).toList, IntType))
+  }
+
   private var haveConjecture = false
 
-  private var containsRatReal = false
+  //////////////////////////////////////////////////////////////////////////////
+  // Rationals
   
-  private def containsRR = if (!containsRatReal) {
-    warn("Problem contains rationals or reals, using incomplete axiomatisation")
-    containsRatReal = true
+  private var containsRat = false
+  
+  private def foundRat = if (!containsRat) {
+    warn("Problem contains rationals, using incomplete axiomatisation")
+    containsRat = true
+    
+    declareSym("rat_$less", Rank2((RatType, RatType), OType))
+    declareSym("rat_$lesseq", Rank2((RatType, RatType), OType))
+    declareSym("rat_$uminus", Rank1(RatType, RatType))
+    declareSym("rat_$sum", Rank2((RatType, RatType), RatType))
+    declareSym("rat_$difference", Rank2((RatType, RatType), RatType))
+    declareSym("rat_$product", Rank2((RatType, RatType), RatType))
   }
   
+  private val rationalOps = Set("$less", "$lesseq")
+  
+  //////////////////////////////////////////////////////////////////////////////
+  // Reals
+  
+  private var containsReal = false
+  
+  private def foundReal = if (!containsReal) {
+    warn("Problem contains reals, using incomplete axiomatisation")
+    containsReal = true
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Comments are considered as whitespace and ignored right away
    */
@@ -261,16 +300,18 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
              // use a real function
              env.addFunction(new IFunction(symbolName, rank.argsTypes.size,
                                            !totalityAxiom, !functionalityAxiom),
-                             rank.resType == OType)
+                             rank)
            else
              // use a predicate
-             env.addPredicate(new Predicate(symbolName, rank.argsTypes.length))
+             env.addPredicate(new Predicate(symbolName, rank.argsTypes.length),
+                              rank)
          } else if (rank.resType != OType)
            // use a constant
-           env.addConstant(new ConstantTerm(symbolName), Environment.NullaryFunction)
+           env.addConstant(new ConstantTerm(symbolName), Environment.NullaryFunction,
+                           rank.resType)
          else
            // use a nullary predicate (propositional variable)
-           env.addPredicate(new Predicate(symbolName, 0))
+           env.addPredicate(new Predicate(symbolName, 0), rank)
   }
      
   private lazy val tff_untyped_atom =    atomic_word
@@ -340,7 +381,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
 	     "[" ~ tff_varlist ~ "]" ^^ { 
 		        case q ~ "[" ~ vl ~ "]" => { 
 				  for (v <- vl)
-				    env pushVar v.name
+				    env.pushVar(v.name, v.t)
 				  // Return the partially instantiated Quantifier-Formula
 				  val quantify = (f:IFormula) => (f /: vl) { case (f, _) =>  IQuantified(q, f) }
 				  (quantify, vl.size)
@@ -378,8 +419,8 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     (("$iType" | ("$i" <~ guard(not("nt")))) ^^ { _ => IType }) |
     ("$tType" ^^ { _ => TType }) |
     ("$int" ^^ { _ => IntType }) |
-    ("$rat" ^^ { _ => containsRR; RatType }) |
-    ("$real" ^^ { _ => containsRR; RealType })
+    ("$rat" ^^ { _ => foundRat; RatType }) |
+    ("$real" ^^ { _ => foundReal; RealType })
 
   //////////////////////////////////////////////////////////////////////////////
     
@@ -423,7 +464,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
        "[" ~ fof_varlist ~ "]" ^^ { 
               case q ~ "[" ~ vl ~ "]" => { 
                 for (v <- vl)
-                  env pushVar v.name
+                  env.pushVar(v.name, v.t)
                 // Return the partially instantiated Quantifier-Formula
                 val quantify = (f:IFormula) => (f /: vl) { case (f, _) =>  IQuantified(q, f) }
                 (quantify, vl.size)
@@ -553,12 +594,15 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     // Use atomic_word instead of functor?
     guard((functor | variableStr) ~ not("(")) ~>
       (functor | variableStr) ^^ { functor => {
-        if (!(env isDeclaredSym functor))
+        if (!(env isDeclaredSym functor)) {
+          if (tptpType != TPTPType.FOF)
+            warn("implicit declaration of " + functor)
           declareSym(functor, Rank0(IType))
+        }
           
         (env lookupSym functor) match {
-          case Environment.Constant(c, _) => (i(c), IntType)
-          case Environment.Variable(index, false) => (v(index), IntType)
+          case Environment.Constant(c, _, t) => (i(c), t)
+          case Environment.Variable(index, t) => (v(index), t)
           case _ => throw new SyntaxError("Unexpected symbol: " + functor)
         }
       }
@@ -573,14 +617,14 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     ) | (
       (regex(isIntegerConstRegEx) ~ "/" ~ regex(isIntegerConstRegEx)) ^^ {
         case num ~ _ ~ denom => {
-          containsRR
+          foundRat
           val s = num + "/" + denom
           // we currently just introduce the number as a
           // fresh constant
           if (!(env isDeclaredSym s))
             declareSym(s, Rank0(RatType))
           (env lookupSym s) match {
-            case Environment.Constant(c, _) => (i(c), RatType)
+            case Environment.Constant(c, _, t) => (i(c), t)
             case _ => throw new SyntaxError("Unexpected symbol: " + functor)
           }
         }
@@ -588,14 +632,14 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     ) | (
       (regex(isIntegerConstRegEx) ~ "." ~ regex("""[0-9Ee\-]+""".r)) ^^ {
         case int ~ _ ~ frac => {
-          containsRR
+          foundReal
           val s = int + "." + frac
           // we currently just introduce the number as a
           // fresh constant
           if (!(env isDeclaredSym s))
             declareSym(s, Rank0(RealType))
           (env lookupSym s) match {
-            case Environment.Constant(c, _) => (i(c), IntType)
+            case Environment.Constant(c, _, t) => (i(c), t)
             case _ => throw new SyntaxError("Unexpected symbol: " + functor)
           }
         }
@@ -605,7 +649,7 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
         case s =>
           (i(occurringStrings.getOrElseUpdate(s, {
              val c = new ConstantTerm ("stringConstant" + occurringStrings.size)
-             env.addConstant(c, Environment.NullaryFunction)
+             env.addConstant(c, Environment.NullaryFunction, IType)
              c
            })), IType)
       }
@@ -682,52 +726,51 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     case ("$greatereq", Seq(IntType, IntType)) => args(0)._1 >= args(1)._1
     case ("$evaleq", Seq(IntType, IntType))    => args(0)._1 === args(1)._1
 //    case "$divides"   => binaryIntPred(pred, args)( _ <= _ )
+
+    case ("$less", argTypes@Seq(RatType, RatType)) =>
+      checkUnintAtom("rat_$less", args map (_._1), argTypes)
+    case ("$lesseq", argTypes@Seq(RatType, RatType)) =>
+      checkUnintAtom("rat_$lesseq", args map (_._1), argTypes)
+    case ("$greater", argTypes@Seq(RatType, RatType)) =>
+      checkUnintAtom("rat_$less", List(args(1)._1, args(0)._1), argTypes)
+    case ("$greatereq", argTypes@Seq(RatType, RatType)) =>
+      checkUnintAtom("rat_$lesseq", List(args(1)._1, args(0)._1), argTypes)
+
+    case (pred, argTypes) => {
+      if (!(env isDeclaredSym pred)) {
+        val rank = Rank((args map (_._2), OType))
+        if (tptpType != TPTPType.FOF)
+          warn("implicit declaration of " + pred + ": " + rank)
+        declareSym(pred, rank)
+      }
+
+      checkUnintAtom(pred, args map (_._1), argTypes)
+    }
+  }
   
-    case _ => {
-      if (!(env isDeclaredSym pred))
-        declareSym(pred, Rank((args map (_._2), OType)))
-      
+  private def checkUnintAtom(pred: String, args: Seq[ITerm], argTypes : Seq[Type])
+              : IFormula =
       (env lookupSym pred) match {
-        case Environment.Function(f, true) =>
-          if (f.arity != args.size) {
+        case Environment.Function(f, r) if (r.resType == OType) =>
+          if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            CheckedAtom(pred + "-with-diff-arity", args)
+            checkUnintAtom(pred + "-with-diff-arity", args, argTypes)
           } else {
             // then a predicate has been encoded as a function
-            IIntFormula(IIntRelation.EqZero, IFunApp(f, for ((t, _) <- args) yield t))
+            IIntFormula(IIntRelation.EqZero, IFunApp(f, args))
           }
-        case Environment.Predicate(p) =>
-          if (p.arity != args.size) {
+        case Environment.Predicate(p, r) =>
+          if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            CheckedAtom(pred + "-with-diff-arity", args)
+            checkUnintAtom(pred + "-with-diff-arity", args, argTypes)
           } else {
-            IAtom(p, for ((t, _) <- args) yield t)
+            IAtom(p, args)
           }
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + pred)
       }
-    }
-  }
-  
-  private def binaryIntPred(tptpOp : String, args: List[(ITerm, Type)])
-                           (op : (ITerm, ITerm) => IFormula) : IFormula = {
-    checkArgTypes(tptpOp, args, List(IntType, IntType))
-    op(args(0)._1, args(1)._1)
-  }
-  
-  private def binaryIntFun(tptpOp : String, args: List[(ITerm, Type)])
-                          (op : (ITerm, ITerm) => ITerm) : (ITerm, Type) = {
-    checkArgTypes(tptpOp, args, List(IntType, IntType))
-    (op(args(0)._1, args(1)._1), IntType)
-  }
-  
-  private def checkArgTypes(op : String,
-                            args: List[(ITerm, Type)],
-                            types : List[Type]) : Unit =
-    if (types != (args map (_._2)))
-      throw new SyntaxError("Incorrect arguments for " + op + ": " + (args map (_._1)))
   
 /*      // Assume that pred has been entered into sig already
     if (Sigma(pred).argsTypes == Sigma.typesOf(args, varTypes))
@@ -743,30 +786,47 @@ class TPTPTParser(_env : Environment) extends Parser2InputAbsy(_env)
     case ("$product", Seq(IntType, IntType))    => (mult(args(0)._1, args(1)._1), IntType)
     case ("$uminus", Seq(IntType))              => (-args(0)._1, IntType)
 
-    case _ => {
-      if (!(env isDeclaredSym fun))
-        declareSym(fun, Rank((args map (_._2), IType)))
+    case ("$sum", argTypes@Seq(RatType, RatType)) =>
+      checkUnintFunTerm("rat_$sum", args map (_._1), argTypes)
+    case ("$difference", argTypes@Seq(RatType, RatType)) =>
+      checkUnintFunTerm("rat_$difference", args map (_._1), argTypes)
+    case ("$product", argTypes@Seq(RatType, RatType)) =>
+      checkUnintFunTerm("rat_$product", args map (_._1), argTypes)
+    case ("$uminus", argTypes@Seq(RatType)) =>
+      checkUnintFunTerm("rat_$uminus", args map (_._1), argTypes)
+
+    case (fun, argTypes) => {
+      if (!(env isDeclaredSym fun)) {
+        val rank = Rank((args map (_._2), IType))
+        if (tptpType != TPTPType.FOF)
+          warn("implicit declaration of " + fun + ": " + rank)
+        declareSym(fun, rank)
+      }
         
+      checkUnintFunTerm(fun, args map (_._1), argTypes)
+    }
+  }
+
+  private def checkUnintFunTerm(fun: String, args: Seq[ITerm], argTypes : Seq[Type])
+                               : (ITerm, Type) =
       (env lookupSym fun) match {
-        case Environment.Function(f, false) =>
-          if (f.arity != args.size) {
+        case Environment.Function(f, r) if (r.resType != OType) =>
+          if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            CheckedFunTerm(fun + "-with-diff-arity", args)
+            checkUnintFunTerm(fun + "-with-diff-arity", args, argTypes)
           } else {
-            (IFunApp(f, for ((t, _) <- args) yield t), IntType)
+            (IFunApp(f, args), r.resType)
           }
-        case Environment.Constant(c, _) => {
+        case Environment.Constant(c, _, t) => {
           if (!args.isEmpty)
             throw new SyntaxError("Constant does not accept arguments: " + functor)
-          (IConstant(c), IntType)
+          (IConstant(c), t)
         }
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + fun)
       }
-    }
-  }
-    
+  
 /*      
     // Assume that fun has been entered into sig already
     if (args.isEmpty) {
