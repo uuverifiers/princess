@@ -819,7 +819,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         if (!(env isDeclaredSym pred)) {
           val rank = Rank((argTypes.toList, OType))
           if (tptpType != TPTPType.FOF || (pred contains "-overloaded"))
-            warn("implicit declaration of " + pred + ": " + rank)
+            warn("implicit declaration or overloading of " + pred + ": " + rank)
           declareSym(pred, rank)
         }
 
@@ -879,7 +879,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         if (!(env isDeclaredSym fun)) {
           val rank = Rank((argTypes.toList, IType))
           if (tptpType != TPTPType.FOF || (fun contains "-overloaded"))
-            warn("implicit declaration of " + fun + ": " + rank)
+            warn("implicit declaration or overloading of " + fun + ": " + rank)
           declareSym(fun, rank)
         }
         
