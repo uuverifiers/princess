@@ -748,7 +748,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     ( regex("""'.*'""".r) ^^ { _.drop(1).dropRight(1) } ) |
     regex("[a-z][a-zA-Z0-9_]*".r)
 
-  private lazy val keyword = regex("[$][a-z]+".r)
+  private lazy val keyword = regex("[$][a-z_]+".r)
 
 /* Could be specific (but why?)
   lazy val keyword = 
@@ -804,6 +804,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$greater",   Seq(IntType, IntType)) => args(0)._1 > args(1)._1
     case ("$greatereq", Seq(IntType, IntType)) => args(0)._1 >= args(1)._1
     case ("$evaleq",    Seq(IntType, IntType)) => args(0)._1 === args(1)._1
+    case ("$is_int",    Seq(IntType))          => true
 
     case (pred, argTypes) =>
       if (arithmeticOps contains pred) argTypes(0) match {
