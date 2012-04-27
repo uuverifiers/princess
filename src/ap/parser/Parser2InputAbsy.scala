@@ -87,7 +87,8 @@ object Parser2InputAbsy {
 }
 
 
-abstract class Parser2InputAbsy (protected val env : Environment) {
+abstract class Parser2InputAbsy[CT, VT, PT, FT]
+                               (val env : Environment[CT, VT, PT, FT]) {
   
   import IExpression._
   
@@ -136,6 +137,8 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
   protected def addAxiom(f : IFormula) = (axioms += f)
   protected def getAxioms : IFormula = connect(axioms, IBinJunctor.And)
   
+  protected def defaultFunctionType(f : IFunction) : FT
+  
   protected def mult(t1 : ITerm, t2 : ITerm) : ITerm =
     try { t1 * t2 }
     catch {
@@ -154,7 +157,7 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
     nonLinearMultDefined = true
     
     nonLinMult = new IFunction("nonLinMult", 2, true, false)
-    env addFunction nonLinMult
+    env.addFunction(nonLinMult, defaultFunctionType(nonLinMult))
     
     /*
         \forall int x; {nonLinMult(x, 0)} nonLinMult(x, 0) = 0
@@ -207,8 +210,8 @@ abstract class Parser2InputAbsy (protected val env : Environment) {
     val select = new IFunction("select", 2, partial, false)
     val store = new IFunction("store", 3, partial, false)
     
-    env addFunction select
-    env addFunction store
+    env.addFunction(select, defaultFunctionType(select))
+    env.addFunction(store, defaultFunctionType(store))
 
     addAxiom(
       all(all(all(

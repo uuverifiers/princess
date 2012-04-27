@@ -39,7 +39,10 @@ object ApParser2InputAbsy {
   
   import Parser2InputAbsy._
   
-  def parseExpression(input : java.io.Reader, env : Environment) : IExpression = {
+  def apply = new ApParser2InputAbsy(new Environment[Unit, Unit, Unit, Unit])
+  
+  def parseExpression(input : java.io.Reader,
+                      env : Environment[Unit, Unit, Unit, Unit]) : IExpression = {
     def entry(parser : ApInput.parser) = {
       val parseTree = parser.pEntry
       parseTree match {
@@ -56,7 +59,7 @@ object ApParser2InputAbsy {
    * Parse starting at an arbitrarily specified entry point
    */
   private def parseWithEntry[T](input : java.io.Reader,
-                                env : Environment,
+                                env : Environment[Unit, Unit, Unit, Unit],
                                 entry : (parser) => T) : T = {
     val l = new Yylex(new CRRemover2 (input))
     val p = new parser(l)
@@ -72,7 +75,8 @@ object ApParser2InputAbsy {
 
 }
 
-class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
+class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
+      extends Parser2InputAbsy(_env) {
   
   import IExpression._
   import Parser2InputAbsy._
@@ -106,6 +110,8 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     val interSpecs = translateInterpolantSpecs(api)
     (getAxioms ===> formula, interSpecs, env.toSignature)
   }
+
+  protected def defaultFunctionType(f : IFunction) : Unit = ()
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -143,17 +149,20 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
           for (decl <- block.listdeclfunc_.iterator)
             collectDeclFunC(decl,
                             (id) => env.addConstant(new ConstantTerm(id),
-                                                    Environment.NullaryFunction))
+                                                    Environment.NullaryFunction,
+                                                    ()))
         case block : ExConstants =>
           for (decl <- block.listdeclconstantc_.iterator)
             collectDeclConstantC(decl,
                                  (id) => env.addConstant(new ConstantTerm(id),
-                                                         Environment.Existential))
+                                                         Environment.Existential,
+                                                         ()))
         case block : UniConstants =>
           for (decl <- block.listdeclconstantc_.iterator)
             collectDeclConstantC(decl,
                                  (id) => env.addConstant(new ConstantTerm(id),
-                                                         Environment.Universal))
+                                                         Environment.Universal,
+                                                         ()))
         case block : PredDecls =>
           for (decl <- block.listdeclpredc_.iterator) decl match {
             case decl : DeclPred => {
@@ -162,7 +171,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
                 case _ : NoFormalArgs => 0
                 case args : WithFormalArgs => determineArity(args.formalargsc_)
               }
-              env.addPredicate(new Predicate(name, arity))
+              env.addPredicate(new Predicate(name, arity), ())
             }
           }
         case _ : Problem => /* nothing */
@@ -192,7 +201,8 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         }
         env.addFunction(new IFunction (decl.ident_,
                                        determineArity(decl.formalargsc_),
-                                       partial, relational))
+                                       partial, relational),
+                        ())
       }
       case decl : DeclFunConstant => {
         if (!decl.listfunoption_.isEmpty)
@@ -294,7 +304,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   
   private def collectSingleVarDecl(decl : DeclSingleVarC) : IFormula = decl match {
     case decl : DeclSingleVar => {
-      env pushVar decl.ident_
+      env.pushVar(decl.ident_, ())
       binderType2Guard(decl.bindertype_, v(0))
     }
   }
@@ -420,7 +430,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     // add the bound variables to the environment and record their number
     var quantNum : Int = 0
     collectDeclBinder(f.declbinder_,
-                      (id) => { quantNum = quantNum + 1; env pushVar id })
+                      (id) => { quantNum = quantNum + 1; env.pushVar(id, ()) })
 
     // compute guards possibly needed for the bound variables
     val guard = genVarGuards(f.declbinder_, quantNum)
@@ -444,7 +454,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
   
   private def translateExprIdApp(f : ExprIdApp) : IExpression =
     env.lookupSym(f.ident_) match {
-      case Environment.Predicate(pred) => {
+      case Environment.Predicate(pred, _) => {
         val args = translateOptArgs(f.optargs_)
         if (pred.arity != args.size)
           throw new Parser2InputAbsy.TranslationException(
@@ -464,7 +474,7 @@ class ApParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
         IFunApp(fun, args)
       }
       
-      case Environment.Constant(c, _) => {
+      case Environment.Constant(c, _, _) => {
         f.optargs_ match {
           case _ : Args =>
             throw new Parser2InputAbsy.TranslationException(

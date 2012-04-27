@@ -49,8 +49,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   protected def println(str : => String) : Unit = (if (output) Predef.println(str))
   
-  private def determineTriggerGenFunctions(settings : GlobalSettings,
-                                           env : Environment)
+  private def determineTriggerGenFunctions[CT,VT,PT,FT]
+                                          (settings : GlobalSettings,
+                                           env : Environment[CT,VT,PT,FT])
                                           : Set[IFunction] =
     Param.TRIGGER_GENERATION(settings) match {
       case Param.TriggerGenerationOptions.None => Set()
@@ -60,21 +61,17 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           yield f
     }
   
-  private def newParser(env : Environment) = Param.INPUT_FORMAT(preSettings) match {
-    case Param.InputFormat.Princess =>
-      new ApParser2InputAbsy(env)
-    case Param.InputFormat.SMTLIB =>
-      new SMTParser2InputAbsy(env)
-    case Param.InputFormat.TPTP =>
-      new TPTPTParser(env, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(preSettings))
+  private def newParser = Param.INPUT_FORMAT(settings) match {
+    case Param.InputFormat.Princess => ApParser2InputAbsy.apply
+    case Param.InputFormat.SMTLIB =>   SMTParser2InputAbsy.apply
+    case Param.InputFormat.TPTP =>     TPTPTParser.apply(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(preSettings))
   }
   
   import CmdlMain.domain_size
   
   val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds,
        settings) = {
-    val env = new Environment
-    val parser = newParser(env)
+    val parser = newParser
     val (f, interpolantSpecs, preSignature) = parser(reader)
     reader.close
 
@@ -99,7 +96,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     val preprocSettings =
        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
            settings.toPreprocessingSettings,
-           determineTriggerGenFunctions(settings, env))
+           determineTriggerGenFunctions(settings, parser.env))
 
     Console.withOut(Console.err) {
       println("Preprocessing ...")

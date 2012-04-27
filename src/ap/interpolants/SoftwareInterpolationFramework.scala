@@ -50,16 +50,15 @@ abstract class SoftwareInterpolationFramework {
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private val preludeEnv = new Environment
   private val functionEncoder =
     new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT),
                          false)
   
-  private val (backgroundPred, preludeOrder) = Console.withOut(Console.err) {
+  private val (backgroundPred, preludeOrder, preludeEnv) = Console.withOut(Console.err) {
     print("Reading prelude ... ")
     val reader = ResourceFiles.preludeReader
-    val (iBackgroundPredRaw, _, signature) =
-      new ApParser2InputAbsy(preludeEnv)(reader)
+    val parser = ApParser2InputAbsy.apply
+    val (iBackgroundPredRaw, _, signature) = parser(reader)
     reader.close
 
     val (iBackgroundFors, _, signature2) =
@@ -77,12 +76,12 @@ abstract class SoftwareInterpolationFramework {
     
     // we put the (possibly extended) order back into the environment, so that
     // we can continue parsing the transition relations with it
-    preludeEnv.order = order
+    parser.env.order = order
 
     val reducedRes = ReduceWithConjunction(Conjunction.TRUE, order)(conj(res))
     
     println("done")
-    (reducedRes, order)
+    (reducedRes, order, parser.env)
   }
 
   protected val preludeSignature = preludeEnv.toSignature
@@ -416,14 +415,14 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class FrameworkVocabulary(preludeEnv : Environment) {
+class FrameworkVocabulary(preludeEnv : Environment[Unit, Unit, Unit, Unit]) {
   private def lookupFun(n : String) = preludeEnv.lookupSym(n) match {
     case Environment.Function(f, _) => f
     case _ => throw new Error("Expected " + n + " to be defined as a function");
   }
   
   private def lookupPred(n : String) = preludeEnv.lookupSym(n) match {
-    case Environment.Predicate(p) => p
+    case Environment.Predicate(p, _) => p
     case _ => throw new Error("Expected " + n + " to be defined as a predicate");
   }
   

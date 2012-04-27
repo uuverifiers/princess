@@ -41,11 +41,15 @@ object SMTParser2InputAbsy {
   
   import Parser2InputAbsy._
   
+  private type Env = Environment[Unit, Boolean, Unit, Boolean]
+  
+  def apply = new SMTParser2InputAbsy (new Env)
+  
   /**
    * Parse starting at an arbitrarily specified entry point
    */
   private def parseWithEntry[T](input : java.io.Reader,
-                                env : Environment,
+                                env : Env,
                                 entry : (parser) => T) : T = {
     val l = new Yylex(new CRRemover2 (input))
     val p = new parser(l)
@@ -165,7 +169,8 @@ object SMTParser2InputAbsy {
 }
 
 
-class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
+class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
+      extends Parser2InputAbsy(_env) {
   
   import IExpression._
   import Parser2InputAbsy._
@@ -207,6 +212,8 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     
     (!assumptionFormula, interpolantSpecs, env.toSignature)
   }
+
+  protected def defaultFunctionType(f : IFunction) : Boolean = false
 
   /**
    * Translate boolean-valued functions as predicates or as functions? 
@@ -326,13 +333,13 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
                             res == Type.Bool)
           else
             // use a predicate
-            env.addPredicate(new Predicate(name, args.length))
+            env.addPredicate(new Predicate(name, args.length), ())
         } else if (res == Type.Integer)
           // use a constant
-          env.addConstant(new ConstantTerm(name), Environment.NullaryFunction)
+          env.addConstant(new ConstantTerm(name), Environment.NullaryFunction, ())
         else
           // use a nullary predicate (propositional variable)
-          env.addPredicate(new Predicate(name, 0))
+          env.addPredicate(new Predicate(name, 0), ())
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -447,7 +454,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
                "Quantification of variables of type " +
                (printer print binder.sort_) +
                " is currently not supported")
-        env pushVar asString(binder.symbol_)
+        env.pushVar(asString(binder.symbol_), false)
         quantNum = quantNum + 1
       }
     }
@@ -736,7 +743,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => (env lookupSym asString(id)) match {
-      case Environment.Predicate(pred) => {
+      case Environment.Predicate(pred, _) => {
         checkArgNumLazy(printer print sym, pred.arity, args)
         (IAtom(pred, for (a <- args) yield asTerm(translateTerm(a, 0))),
          Type.Bool)
@@ -748,7 +755,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
          if (encodesBool) Type.Bool else Type.Integer)
       }
 
-      case Environment.Constant(c, _) =>
+      case Environment.Constant(c, _, _) =>
         (c, Type.Integer)
       
       case Environment.Variable(i, encodesBool) =>
@@ -769,7 +776,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
                          fun.arity, List[SExpr]())
         IFunApp(fun, List())
       }
-      case Environment.Constant(c, _) => c
+      case Environment.Constant(c, _, _) => c
       case Environment.Variable(i, false) => v(i)
       case _ =>
         throw new Parser2InputAbsy.TranslationException(
@@ -789,7 +796,7 @@ class SMTParser2InputAbsy (_env : Environment) extends Parser2InputAbsy(_env) {
             checkArgNumSExpr(printer print funExpr.symbol_, fun.arity, args)
             IFunApp(fun, for (e <- args) yield translateTrigger(e))
           }
-          case Environment.Constant(c, _) => {
+          case Environment.Constant(c, _, _) => {
             checkArgNumSExpr(printer print funExpr.symbol_,
                              0, expr.listsexpr_.tail)
             c
