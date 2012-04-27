@@ -747,11 +747,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       }
   }
 
+  private def fofify(t : Type) = tptpType match {
+    case TPTPType.FOF => IType
+    case _ => t
+  }
+      
   // Background literal constant
   private lazy val bg_constant: PackratParser[(ITerm, Type)] =
     (
       (regex(isIntegerConstRegEx) <~ guard(not(regex("[./]".r)))) ^^ { 
-	    s => (i(IdealInt(s)), IntType)
+	    s => (i(IdealInt(s)), fofify(IntType))
       }
     ) | (
       (regex(isIntegerConstRegEx) ~ "/" ~ regex(isIntegerConstRegEx)) ^^ {
@@ -761,7 +766,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           // we currently just introduce the number as a
           // fresh constant
           if (!(env isDeclaredSym s))
-            declareSym(s, Rank0(RatType))
+            declareSym(s, Rank0(fofify(RatType)))
           (env lookupSym s) match {
             case Environment.Constant(c, _, t) => (i(c), t)
             case _ => throw new SyntaxError("Unexpected symbol: " + functor)
@@ -776,7 +781,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           // we currently just introduce the number as a
           // fresh constant
           if (!(env isDeclaredSym s))
-            declareSym(s, Rank0(RealType))
+            declareSym(s, Rank0(fofify(RealType)))
           (env lookupSym s) match {
             case Environment.Constant(c, _, t) => (i(c), t)
             case _ => throw new SyntaxError("Unexpected symbol: " + functor)
