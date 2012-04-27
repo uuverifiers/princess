@@ -152,6 +152,35 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private var haveConjecture = false
 
+  private val arithmeticOps = Set(
+    "$less",
+    "$lesseq",
+    "$greater",
+    "$greatereq",
+    "$is_int",
+    "$is_rat",
+    
+    "$uminus",
+    "$sum",
+    "$difference",
+    "$product",
+    "$quotient",
+    "$quotient_e",
+    "$quotient_t",
+    "$quotient_f",
+    "$remainder_e",
+    "$remainder_t",
+    "$remainder_f",
+    "$floor",
+    "$ceiling",
+    "$truncate",
+    "$round",
+    
+    "$to_int",
+    "$to_rat",
+    "$to_real"
+  )
+
   //////////////////////////////////////////////////////////////////////////////
   // Rationals
   
@@ -161,15 +190,33 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     warn("Problem contains rationals, using incomplete axiomatisation")
     containsRat = true
     
-    declareSym("rat_$less", Rank2((RatType, RatType), OType))
-    declareSym("rat_$lesseq", Rank2((RatType, RatType), OType))
-    declareSym("rat_$uminus", Rank1(RatType, RatType))
-    declareSym("rat_$sum", Rank2((RatType, RatType), RatType))
-    declareSym("rat_$difference", Rank2((RatType, RatType), RatType))
-    declareSym("rat_$product", Rank2((RatType, RatType), RatType))
+    declareSym("rat_$less",        Rank2((RatType, RatType), OType))
+    declareSym("rat_$lesseq",      Rank2((RatType, RatType), OType))
+    declareSym("rat_$greater",     Rank2((RatType, RatType), OType))
+    declareSym("rat_$greatereq",   Rank2((RatType, RatType), OType))
+    declareSym("rat_$is_int",      Rank1((RatType), OType))
+    declareSym("rat_$is_rat",      Rank1((RatType), OType))
+    
+    declareSym("rat_$uminus",      Rank1(RatType, RatType))
+    declareSym("rat_$sum",         Rank2((RatType, RatType), RatType))
+    declareSym("rat_$difference",  Rank2((RatType, RatType), RatType))
+    declareSym("rat_$product",     Rank2((RatType, RatType), RatType))
+    declareSym("rat_$quotient",    Rank2((RatType, RatType), RatType))
+    declareSym("rat_$quotient_e",  Rank2((RatType, RatType), RatType))
+    declareSym("rat_$quotient_t",  Rank2((RatType, RatType), RatType))
+    declareSym("rat_$quotient_f",  Rank2((RatType, RatType), RatType))
+    declareSym("rat_$remainder_e", Rank2((RatType, RatType), RatType))
+    declareSym("rat_$remainder_t", Rank2((RatType, RatType), RatType))
+    declareSym("rat_$remainder_f", Rank2((RatType, RatType), RatType))
+    declareSym("rat_$floor",       Rank1((RatType), RatType))
+    declareSym("rat_$ceiling",     Rank1((RatType), RatType))
+    declareSym("rat_$truncate",    Rank1((RatType), RatType))
+    declareSym("rat_$round",       Rank1((RatType), RatType))
+    
+    declareSym("rat_$to_int",      Rank1((RatType), IntType))
+    declareSym("rat_$to_rat",      Rank1((RatType), RatType))
+    declareSym("rat_$to_real",     Rank1((RatType), RealType))
   }
-  
-  private val rationalOps = Set("$less", "$lesseq")
   
   //////////////////////////////////////////////////////////////////////////////
   // Reals
@@ -179,6 +226,33 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private def foundReal = if (!containsReal) {
     warn("Problem contains reals, using incomplete axiomatisation")
     containsReal = true
+    
+    declareSym("real_$less",        Rank2((RealType, RealType), OType))
+    declareSym("real_$lesseq",      Rank2((RealType, RealType), OType))
+    declareSym("real_$greater",     Rank2((RealType, RealType), OType))
+    declareSym("real_$greatereq",   Rank2((RealType, RealType), OType))
+    declareSym("real_$is_int",      Rank1((RealType), OType))
+    declareSym("real_$is_rat",      Rank1((RealType), OType))
+    
+    declareSym("real_$uminus",      Rank1(RealType, RealType))
+    declareSym("real_$sum",         Rank2((RealType, RealType), RealType))
+    declareSym("real_$difference",  Rank2((RealType, RealType), RealType))
+    declareSym("real_$product",     Rank2((RealType, RealType), RealType))
+    declareSym("real_$quotient",    Rank2((RealType, RealType), RealType))
+    declareSym("real_$quotient_e",  Rank2((RealType, RealType), RealType))
+    declareSym("real_$quotient_t",  Rank2((RealType, RealType), RealType))
+    declareSym("real_$quotient_f",  Rank2((RealType, RealType), RealType))
+    declareSym("real_$remainder_e", Rank2((RealType, RealType), RealType))
+    declareSym("real_$remainder_t", Rank2((RealType, RealType), RealType))
+    declareSym("real_$remainder_f", Rank2((RealType, RealType), RealType))
+    declareSym("real_$floor",       Rank1((RealType), RealType))
+    declareSym("real_$ceiling",     Rank1((RealType), RealType))
+    declareSym("real_$truncate",    Rank1((RealType), RealType))
+    declareSym("real_$round",       Rank1((RealType), RealType))
+    
+    declareSym("real_$to_int",      Rank1((RealType), IntType))
+    declareSym("real_$to_rat",      Rank1((RealType), RatType))
+    declareSym("real_$to_real",     Rank1((RealType), RealType))
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -720,32 +794,32 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private def CheckedAtom(pred: String,
                           args: List[(ITerm, Type)])
                          : IFormula = (pred, args map (_._2)) match {
-    case ("$less", Seq(IntType, IntType))      => args(0)._1 < args(1)._1
-    case ("$lesseq", Seq(IntType, IntType))    => args(0)._1 <= args(1)._1
-    case ("$greater", Seq(IntType, IntType))   => args(0)._1 > args(1)._1
+    case ("$less",      Seq(IntType, IntType)) => args(0)._1 < args(1)._1
+    case ("$lesseq",    Seq(IntType, IntType)) => args(0)._1 <= args(1)._1
+    case ("$greater",   Seq(IntType, IntType)) => args(0)._1 > args(1)._1
     case ("$greatereq", Seq(IntType, IntType)) => args(0)._1 >= args(1)._1
-    case ("$evaleq", Seq(IntType, IntType))    => args(0)._1 === args(1)._1
-//    case "$divides"   => binaryIntPred(pred, args)( _ <= _ )
+    case ("$evaleq",    Seq(IntType, IntType)) => args(0)._1 === args(1)._1
 
-    case ("$less", argTypes@Seq(RatType, RatType)) =>
-      checkUnintAtom("rat_$less", args map (_._1), argTypes)
-    case ("$lesseq", argTypes@Seq(RatType, RatType)) =>
-      checkUnintAtom("rat_$lesseq", args map (_._1), argTypes)
-    case ("$greater", argTypes@Seq(RatType, RatType)) =>
-      checkUnintAtom("rat_$less", List(args(1)._1, args(0)._1), argTypes)
-    case ("$greatereq", argTypes@Seq(RatType, RatType)) =>
-      checkUnintAtom("rat_$lesseq", List(args(1)._1, args(0)._1), argTypes)
+    case (pred, argTypes) =>
+      if (arithmeticOps contains pred) argTypes(0) match {
+        case IntType =>
+          // should not happen
+          throw new SyntaxError("Unexpected integer operator: " + pred)
+        case RatType =>
+          checkUnintAtom("rat_" + pred, args map (_._1), argTypes)
+        case RealType =>
+          checkUnintAtom("real_" + pred, args map (_._1), argTypes)
+      } else {
+      
+        if (!(env isDeclaredSym pred)) {
+          val rank = Rank((args map (_._2), OType))
+          if (tptpType != TPTPType.FOF)
+            warn("implicit declaration of " + pred + ": " + rank)
+          declareSym(pred, rank)
+        }
 
-    case (pred, argTypes) => {
-      if (!(env isDeclaredSym pred)) {
-        val rank = Rank((args map (_._2), OType))
-        if (tptpType != TPTPType.FOF)
-          warn("implicit declaration of " + pred + ": " + rank)
-        declareSym(pred, rank)
+        checkUnintAtom(pred, args map (_._1), argTypes)
       }
-
-      checkUnintAtom(pred, args map (_._1), argTypes)
-    }
   }
   
   private def checkUnintAtom(pred: String, args: Seq[ITerm], argTypes : Seq[Type])
@@ -755,6 +829,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
+            warn("implicitly overloading symbol " + pred + ": " + argTypes)
             checkUnintAtom(pred + "-with-diff-arity", args, argTypes)
           } else {
             // then a predicate has been encoded as a function
@@ -764,6 +839,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
+            warn("implicitly overloading symbol " + pred + ": " + argTypes)
             checkUnintAtom(pred + "-with-diff-arity", args, argTypes)
           } else {
             IAtom(p, args)
@@ -781,30 +857,30 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private def CheckedFunTerm(fun: String,
                              args: List[(ITerm, Type)])
                             : (ITerm, Type) = (fun, args map (_._2)) match {
-    case ("$sum", Seq(IntType, IntType))        => (args(0)._1 + args(1)._1, IntType)
-    case ("$difference", Seq(IntType, IntType)) => (args(0)._1 - args(1)._1, IntType)
-    case ("$product", Seq(IntType, IntType))    => (mult(args(0)._1, args(1)._1), IntType)
-    case ("$uminus", Seq(IntType))              => (-args(0)._1, IntType)
+    case ("$sum",         Seq(IntType, IntType))  => (args(0)._1 + args(1)._1, IntType)
+    case ("$difference",  Seq(IntType, IntType))  => (args(0)._1 - args(1)._1, IntType)
+    case ("$product",     Seq(IntType, IntType))  => (mult(args(0)._1, args(1)._1), IntType)
+    case ("$uminus",      Seq(IntType))           => (-args(0)._1, IntType)
 
-    case ("$sum", argTypes@Seq(RatType, RatType)) =>
-      checkUnintFunTerm("rat_$sum", args map (_._1), argTypes)
-    case ("$difference", argTypes@Seq(RatType, RatType)) =>
-      checkUnintFunTerm("rat_$difference", args map (_._1), argTypes)
-    case ("$product", argTypes@Seq(RatType, RatType)) =>
-      checkUnintFunTerm("rat_$product", args map (_._1), argTypes)
-    case ("$uminus", argTypes@Seq(RatType)) =>
-      checkUnintFunTerm("rat_$uminus", args map (_._1), argTypes)
-
-    case (fun, argTypes) => {
-      if (!(env isDeclaredSym fun)) {
-        val rank = Rank((args map (_._2), IType))
-        if (tptpType != TPTPType.FOF)
-          warn("implicit declaration of " + fun + ": " + rank)
-        declareSym(fun, rank)
-      }
+    case (fun, argTypes) =>
+      if (arithmeticOps contains fun) argTypes(0) match {
+        case IntType =>
+          // should not happen
+          throw new SyntaxError("Unexpected integer operator: " + fun)
+        case RatType =>
+          checkUnintFunTerm("rat_" + fun, args map (_._1), argTypes)
+        case RealType =>
+          checkUnintFunTerm("real_" + fun, args map (_._1), argTypes)
+      } else {
+        if (!(env isDeclaredSym fun)) {
+          val rank = Rank((args map (_._2), IType))
+          if (tptpType != TPTPType.FOF)
+            warn("implicit declaration of " + fun + ": " + rank)
+          declareSym(fun, rank)
+        }
         
-      checkUnintFunTerm(fun, args map (_._1), argTypes)
-    }
+        checkUnintFunTerm(fun, args map (_._1), argTypes)
+      }
   }
 
   private def checkUnintFunTerm(fun: String, args: Seq[ITerm], argTypes : Seq[Type])
@@ -814,6 +890,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
+            warn("implicitly overloading symbol " + fun + ": " + argTypes)
             checkUnintFunTerm(fun + "-with-diff-arity", args, argTypes)
           } else {
             (IFunApp(f, args), r.resType)
