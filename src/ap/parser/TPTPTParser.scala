@@ -810,20 +810,19 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         case RealType =>
           checkUnintAtom("real_" + pred, args map (_._1), argTypes)
       } else {
-      
-        if (!(env isDeclaredSym pred)) {
-          val rank = Rank((args map (_._2), OType))
-          if (tptpType != TPTPType.FOF)
-            warn("implicit declaration of " + pred + ": " + rank)
-          declareSym(pred, rank)
-        }
-
         checkUnintAtom(pred, args map (_._1), argTypes)
       }
   }
   
   private def checkUnintAtom(pred: String, args: Seq[ITerm], argTypes : Seq[Type])
-              : IFormula =
+              : IFormula = {
+        if (!(env isDeclaredSym pred)) {
+          val rank = Rank((argTypes.toList, OType))
+          if (tptpType != TPTPType.FOF)
+            warn("implicit declaration of " + pred + ": " + rank)
+          declareSym(pred, rank)
+        }
+
       (env lookupSym pred) match {
         case Environment.Function(f, r) if (r.resType == OType) =>
           if (r.argsTypes != argTypes) {
@@ -847,6 +846,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + pred)
       }
+  }
   
 /*      // Assume that pred has been entered into sig already
     if (Sigma(pred).argsTypes == Sigma.typesOf(args, varTypes))
@@ -872,19 +872,19 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         case RealType =>
           checkUnintFunTerm("real_" + fun, args map (_._1), argTypes)
       } else {
-        if (!(env isDeclaredSym fun)) {
-          val rank = Rank((args map (_._2), IType))
-          if (tptpType != TPTPType.FOF)
-            warn("implicit declaration of " + fun + ": " + rank)
-          declareSym(fun, rank)
-        }
-        
         checkUnintFunTerm(fun, args map (_._1), argTypes)
       }
   }
 
   private def checkUnintFunTerm(fun: String, args: Seq[ITerm], argTypes : Seq[Type])
-                               : (ITerm, Type) =
+                               : (ITerm, Type) = {
+        if (!(env isDeclaredSym fun)) {
+          val rank = Rank((argTypes.toList, IType))
+          if (tptpType != TPTPType.FOF)
+            warn("implicit declaration of " + fun + ": " + rank)
+          declareSym(fun, rank)
+        }
+        
       (env lookupSym fun) match {
         case Environment.Function(f, r) if (r.resType != OType) =>
           if (r.argsTypes != argTypes) {
@@ -903,6 +903,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + fun)
       }
+  }
   
 /*      
     // Assume that fun has been entered into sig already
