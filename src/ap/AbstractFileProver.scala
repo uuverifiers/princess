@@ -61,7 +61,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           yield f
     }
   
-  private def newParser = Param.INPUT_FORMAT(settings) match {
+  private def newParser = Param.INPUT_FORMAT(preSettings) match {
     case Param.InputFormat.Princess => ApParser2InputAbsy.apply
     case Param.InputFormat.SMTLIB =>   SMTParser2InputAbsy.apply
     case Param.InputFormat.TPTP =>     TPTPTParser.apply(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(preSettings))
