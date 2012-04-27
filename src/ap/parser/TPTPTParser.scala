@@ -818,7 +818,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               : IFormula = {
         if (!(env isDeclaredSym pred)) {
           val rank = Rank((argTypes.toList, OType))
-          if (tptpType != TPTPType.FOF)
+          if (tptpType != TPTPType.FOF || (pred contains "-overloaded"))
             warn("implicit declaration of " + pred + ": " + rank)
           declareSym(pred, rank)
         }
@@ -828,8 +828,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            warn("implicitly overloading symbol " + pred + ": " + argTypes)
-            checkUnintAtom(pred + "-with-diff-arity", args, argTypes)
+            checkUnintAtom(pred + "-overloaded", args, argTypes)
           } else {
             // then a predicate has been encoded as a function
             IIntFormula(IIntRelation.EqZero, IFunApp(f, args))
@@ -838,8 +837,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            warn("implicitly overloading symbol " + pred + ": " + argTypes)
-            checkUnintAtom(pred + "-with-diff-arity", args, argTypes)
+            checkUnintAtom(pred + "-overloaded", args, argTypes)
           } else {
             IAtom(p, args)
           }
@@ -880,7 +878,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                : (ITerm, Type) = {
         if (!(env isDeclaredSym fun)) {
           val rank = Rank((argTypes.toList, IType))
-          if (tptpType != TPTPType.FOF)
+          if (tptpType != TPTPType.FOF || (fun contains "-overloaded"))
             warn("implicit declaration of " + fun + ": " + rank)
           declareSym(fun, rank)
         }
@@ -890,8 +888,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            warn("implicitly overloading symbol " + fun + ": " + argTypes)
-            checkUnintFunTerm(fun + "-with-diff-arity", args, argTypes)
+            checkUnintFunTerm(fun + "-overloaded", args, argTypes)
           } else {
             (IFunApp(f, args), r.resType)
           }
