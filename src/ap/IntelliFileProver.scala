@@ -156,8 +156,9 @@ class IntelliFileProver(reader : java.io.Reader,
     // currently, only the ModelSearchProver can construct proofs
     if (Param.PROOF_CONSTRUCTION(goalSettings) && !canUseModelSearchProver)
       throw new Exception ("Currently no proofs can be constructed for the given" +
-                           " problem, since it contains existential constants or" +
-                           " quantifiers that cannot be handled by unit resolution")
+                           " problem,\nsince it contains existential constants or" +
+                           " quantifiers that cannot be\nhandled by unit resolution.\n" +
+                           "You might want to use the option -genTotalityAxioms")
       
     if ((formulas exists (_.isTrue)) || canUseModelSearchProver) {
       // try to find a countermodel
