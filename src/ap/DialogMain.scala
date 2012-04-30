@@ -457,6 +457,27 @@ class InputDialog extends JPanel {
     println("(check-sat)")
   })
   
+  newTabWithInput("SMT-LIB interpolation example",
+                  "-inputFormat=smtlib -genTotalityAxioms", asString{
+    println(";")
+    println("; For interpolation, the option \"-genTotalityAxioms\" has to be specified,")
+    println("; since the quantified totality axioms cannot be handled otherwise.")
+    println(";")
+    println
+    println("(set-logic AUFLIA)")
+    println
+    println("(declare-fun f (Int) Int)")
+    println("(declare-fun a () Int)")
+    println("(declare-fun b () Int)")
+    println
+    println("(assert (> a (* b 2)))")
+    println("(assert (< a (+ (* b 2) 2)))")
+    println("(assert (> (f (- a 1)) (f (* 2 b))))")
+    println
+    println("(check-sat)")
+    println("(get-interpolants)")
+  })
+  
   tabbedPane setSelectedIndex 0
   
   //////////////////////////////////////////////////////////////////////////////
