@@ -70,7 +70,7 @@ object TPTPTParser {
     def argsTypes = rank._1
     def resType = rank._2
     override def toString = 
-      (if (argsTypes.isEmpty) "" else  ((argsTypes mkString " x ") + " → ")) + resType
+      (if (argsTypes.isEmpty) "" else  ((argsTypes mkString " x ") + " -> ")) + resType
   }
 
   // Convenience functions
@@ -670,7 +670,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       (functor | variableStr) ^^ { functor => {
         if (!(env isDeclaredSym functor)) {
           if (tptpType != TPTPType.FOF)
-            warn("implicit declaration of " + functor)
+            warn("implicit declaration of " + functor + ": " + IType)
           declareSym(functor, Rank0(IType))
         }
           
@@ -809,14 +809,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$is_real",   Seq(IntType))          => true
 
     case (pred, argTypes) =>
-      if (arithmeticOps contains pred) argTypes(0) match {
-        case IntType =>
-          // should not happen
-          throw new SyntaxError("Unexpected integer operator: " + pred)
-        case RatType =>
+      if (arithmeticOps contains pred) argTypes match {
+        case Seq(RatType, _*) =>
           checkUnintAtom("rat_" + pred, args map (_._1), argTypes)
-        case RealType =>
+        case Seq(RealType, _*) =>
           checkUnintAtom("real_" + pred, args map (_._1), argTypes)
+        case _ =>
+          // should not happen
+          throw new SyntaxError("Operator " + pred +
+                                " cannot be applied to " +
+                                (argTypes mkString " x "))
       } else {
         checkUnintAtom(pred, args map (_._1), argTypes)
       }
@@ -826,7 +828,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               : IFormula = {
         if (!(env isDeclaredSym pred)) {
           val rank = Rank((argTypes.toList, OType))
-          if (tptpType != TPTPType.FOF || (pred contains "-overloaded"))
+          if (tptpType != TPTPType.FOF || (pred endsWith "'"))
             warn("implicit declaration or overloading of " + pred + ": " + rank)
           declareSym(pred, rank)
         }
@@ -836,7 +838,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            checkUnintAtom(pred + "-overloaded", args, argTypes)
+            checkUnintAtom(pred + "'", args, argTypes)
           } else {
             // then a predicate has been encoded as a function
             IIntFormula(IIntRelation.EqZero, IFunApp(f, args))
@@ -845,7 +847,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            checkUnintAtom(pred + "-overloaded", args, argTypes)
+            checkUnintAtom(pred + "'", args, argTypes)
           } else {
             IAtom(p, args)
           }
@@ -886,7 +888,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                : (ITerm, Type) = {
         if (!(env isDeclaredSym fun)) {
           val rank = Rank((argTypes.toList, IType))
-          if (tptpType != TPTPType.FOF || (fun contains "-overloaded"))
+          if (tptpType != TPTPType.FOF || (fun endsWith "'"))
             warn("implicit declaration or overloading of " + fun + ": " + rank)
           declareSym(fun, rank)
         }
@@ -896,7 +898,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            checkUnintFunTerm(fun + "-overloaded", args, argTypes)
+            checkUnintFunTerm(fun + "'", args, argTypes)
           } else {
             (IFunApp(f, args), r.resType)
           }
