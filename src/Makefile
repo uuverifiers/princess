@@ -19,4 +19,5 @@ all:
 		ap/parser/*.scala \
 		ap/parameters/*.scala \
 		ap/interpolants/*.scala \
+		ap/parameterInference/*.scala \
 		ap/*.scala
