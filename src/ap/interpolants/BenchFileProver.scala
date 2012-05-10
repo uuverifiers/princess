@@ -88,7 +88,8 @@ class BenchFileProver(filename : String,
       Console.withOut (new java.io.FileOutputStream(filename + "-opensmt.smt")) {
         val lin = new SMTLineariser(filename, "QF_LIA",
                                     order sort order.orderedConstants,
-                                    order sortPreds order.orderedPredicates)
+                                    order sortPreds order.orderedPredicates,
+                                    "fun", "pred", "const")
     
         for ((f, i) <- iFormulas.iterator.zipWithIndex) {
           println(":formula " + i)
@@ -101,7 +102,8 @@ class BenchFileProver(filename : String,
       Console.withOut (new java.io.FileOutputStream(filename + "-smtinterpol.smt")) {
     	val lin = new SMTLineariser(filename, "QF_LIA",
     			                    order sort order.orderedConstants,
-    			                    order sortPreds order.orderedPredicates)
+    			                    order sortPreds order.orderedPredicates,
+                                    "fun", "pred", "const")
     
         println(":notes \"Interpolation Problem starts here\"")
     

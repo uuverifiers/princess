@@ -67,7 +67,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     case Param.InputFormat.TPTP =>     TPTPTParser.apply
   }
   
-  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds) = {
+  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionEncoder) = {
     val parser = newParser
     val (f, interpolantSpecs, signature) = parser(reader)
     reader.close
@@ -98,11 +98,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         functionEnc.predTranslation.keySet.toSet
     }
     
-    val functionalPreds = 
-      (for ((p, f) <- functionEnc.predTranslation.iterator;
-            if (!f.relational)) yield p).toSet
-    (inputFormulas, interpolantS, sig, gcedFunctions, functionalPreds)
+    (inputFormulas, interpolantS, sig, gcedFunctions, functionEnc)
   }
+  
+  private val functionalPreds = 
+    (for ((p, f) <- functionEncoder.predTranslation.iterator;
+          if (!f.relational)) yield p).toSet
   
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
     case Param.ProofConstructionOptions.Never => false

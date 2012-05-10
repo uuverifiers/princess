@@ -23,6 +23,7 @@ package ap
 
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
+import ap.parser.IFormula
 import ap.terfor.conjunctions.Conjunction
 
 object Prover {
@@ -49,7 +50,7 @@ object Prover {
   case object NoCounterModel extends CounterModelResult
   case class NoCounterModelCert(certificate : Certificate) extends CounterModelResult
   case class NoCounterModelCertInter(certificate : Certificate,
-                                     interpolants : Seq[Conjunction])
+                                     interpolants : Seq[IFormula])
              extends CounterModelResult
   case object TimeoutCounterModel extends CounterModelResult
 

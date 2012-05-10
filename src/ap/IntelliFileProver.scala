@@ -21,6 +21,7 @@
 
 package ap;
 
+import ap.parser.{Internal2InputAbsy, Simplifier}
 import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
@@ -116,10 +117,16 @@ class IntelliFileProver(reader : java.io.Reader,
             c
           }
 
+          val simplifier = new Simplifier
+          
           val interpolants = for (spec <- interpolantSpecs.view) yield {
             val iContext = InterpolationContext(namedParts, spec, order)
-            Interpolator(finalCert, iContext,
-            		     Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings))    
+            val rawInterpolant =
+              Interpolator(finalCert, iContext,
+            	   	       Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings))
+            val interpolant =
+              Internal2InputAbsy(rawInterpolant, functionEncoder.predTranslation)
+            simplifier(interpolant)
           }
           NoCounterModelCertInter(finalCert, interpolants)
         }
