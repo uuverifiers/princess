@@ -1833,7 +1833,6 @@ Preprocessing ...
 Proving ...
 
 Formula is valid, resulting constraint:
-ALL (3*_0 + 3*x4 + 4*x3 + 5 != 0)
 
 Concrete witness:
 

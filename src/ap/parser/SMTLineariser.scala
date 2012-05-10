@@ -35,9 +35,12 @@ import java.io.PrintStream
  */
 object SMTLineariser {
 
-  def apply(formula : IFormula) = {
-    val lineariser = new SMTLineariser("", "", List(), List(), "", "", "")
-    lineariser printFormula formula
+  def apply(formula : IFormula) = formula match {
+    case IBoolLit(value) => print(value)
+    case _ => {
+      val lineariser = new SMTLineariser("", "", List(), List(), "", "", "")
+      lineariser printFormula formula
+    }
   }
 
   def apply(formulas : Seq[IFormula], signature : Signature,
