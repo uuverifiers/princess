@@ -56,7 +56,7 @@ object IdealRat {
   private val IntRegex  = """([+-]?[0-9]+)""".r
   private val FracRegex = """([+-]?[0-9]+) */ *([0-9]+)""".r
   private val DecRegex  = """([+-]?[0-9]*)\.*([0-9]*)""".r
-  private val DecRegexE = """([+-]?[0-9]*)\.*([0-9]*)[eE]([0-9]+)""".r
+  private val DecRegexE = """([+-]?[0-9]*)\.*([0-9]*)[eE]([+-]?[0-9]+)""".r
   
   def apply(str : String) : IdealRat = str match {
     case IntRegex(str)              => {
@@ -192,7 +192,7 @@ final class IdealRat private (val num : IdealInt,
   /** Returns a <code>IdealRat</code> whose value is the negation of this
     * <code>IdealRat</code>
     */
-  def unary_- : IdealRat = IdealRat(-num, denom)
+  def unary_- : IdealRat = new IdealRat(-num, denom)
 
   def intValue    = (num / denom).intValue
   def longValue    = (num / denom).longValue

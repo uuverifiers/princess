@@ -23,7 +23,7 @@
 package ap.parser
 
 import ap._
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, IdealRat}
 import ap.terfor.{Formula, ConstantTerm}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Quantifier
@@ -255,6 +255,61 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     declareSym("real_$to_real",     Rank1((RealType), RealType))
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private def evalRRFun(op : String,
+                        left : IdealRat,
+                        right : IdealRat) : Option[IdealRat] = op match {
+    case "$sum"                          => Some(left + right)
+    case "$difference"                   => Some(left - right)
+    case "$product"                      => Some(left * right)
+    case "$quotient" if (!right.isZero)  => Some(left / right)
+    case _                               => None
+  }
+  
+  private def evalRRFun(op : String, arg : IdealRat) : Option[IdealRat] = op match {
+    case "$uminus"     => {
+      Some(-arg)
+    }
+    case "$floor"     => {
+      val res = IdealRat(arg.num / arg.denom)
+      Some(if (res <= arg) res else (res - IdealRat.ONE))
+    }
+    case "$ceiling"   => {
+      val res = IdealRat(arg.num / arg.denom)
+      Some(if (res >= arg) res else (res + IdealRat.ONE))
+    }
+    case "$truncate"  => Some(arg.signum match {
+      case -1 => -IdealRat((-arg.num) / arg.denom)
+      case  0 => IdealRat.ZERO
+      case  1 => IdealRat(arg.num / arg.denom)
+    })
+    case "$round"     => {
+      for (f <- evalRRFun("$floor", arg);
+           c <- evalRRFun("$ceiling", arg))
+      yield (if ((f == c) || (arg - f) < (c - arg))
+               f
+             else
+               c)
+    }
+    case _ => None
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private val ratLiterals = new MHashMap[IdealRat, (ConstantTerm, ConstantTerm)]
+  
+  private def constsFor(r : IdealRat) = ratLiterals.getOrElseUpdate(r, {
+    val ratConst = new ConstantTerm ("rat_" + r)
+    val realConst = new ConstantTerm ("real_" + r)
+    env.addConstant(ratConst,  Environment.NullaryFunction, RatType)
+    env.addConstant(realConst, Environment.NullaryFunction, RealType)
+    (ratConst, realConst)
+  })
+  
+  private def ratConstFor(r : IdealRat)  = constsFor(r)._1
+  private def realConstFor(r : IdealRat) = constsFor(r)._2
+  
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -697,30 +752,14 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       (regex(isIntegerConstRegEx) ~ "/" ~ regex(isIntegerConstRegEx)) ^^ {
         case num ~ _ ~ denom => {
           foundRat
-          val s = num + "/" + denom
-          // we currently just introduce the number as a
-          // fresh constant
-          if (!(env isDeclaredSym s))
-            declareSym(s, Rank0(fofify(RatType)))
-          (env lookupSym s) match {
-            case Environment.Constant(c, _, t) => (i(c), t)
-            case _ => throw new SyntaxError("Unexpected symbol: " + functor)
-          }
+          (i(ratConstFor(IdealRat(num + "/" + denom))), RatType)
         }
       }
     ) | (
       (regex(isIntegerConstRegEx) ~ "." ~ regex("""[0-9Ee\-]+""".r)) ^^ {
         case int ~ _ ~ frac => {
           foundReal
-          val s = int + "." + frac
-          // we currently just introduce the number as a
-          // fresh constant
-          if (!(env isDeclaredSym s))
-            declareSym(s, Rank0(fofify(RealType)))
-          (env lookupSym s) match {
-            case Environment.Constant(c, _, t) => (i(c), t)
-            case _ => throw new SyntaxError("Unexpected symbol: " + functor)
-          }
+          (i(realConstFor(IdealRat(int + "." + frac))), RealType)
         }
       }
     ) | (
