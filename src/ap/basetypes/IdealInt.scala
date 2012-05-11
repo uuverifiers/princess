@@ -388,7 +388,7 @@ final class IdealInt private (private val longStore : Long,
                               private var biStore : BigInteger) {
  
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertPost(IdealInt.AC,
+  Debug.assertCtor(IdealInt.AC,
                    usesLong || biStore.bitLength > IdealInt.longReprBits)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
