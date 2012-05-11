@@ -57,7 +57,7 @@ class IntelliFileProver(reader : java.io.Reader,
       if (validConstraint) {
         if (Seqs.disjoint(tree.closingConstraint.constants,
                           signature.universalConstants))
-          ProofWithModel(tree, findModel(tree.closingConstraint))
+          ProofWithModel(tree, toIFormula(findModel(tree.closingConstraint)))
         else
           Proof(tree)
       } else {
@@ -81,7 +81,7 @@ class IntelliFileProver(reader : java.io.Reader,
       if (model.isFalse)
         NoModel
       else
-        Model(model)
+        Model(toIFormula(model))
     } {
       case _ => TimeoutModel
     }
@@ -102,6 +102,11 @@ class IntelliFileProver(reader : java.io.Reader,
     }
   }
     
+  private def toIFormula(c : Conjunction) = {
+    val raw = Internal2InputAbsy(c, functionEncoder.predTranslation)
+    (new Simplifier)(raw)
+  }
+  
   lazy val counterModelResult : CounterModelResult =
     Timeout.catchTimeout[CounterModelResult] { 
       findCounterModelTimeout match {
@@ -109,7 +114,7 @@ class IntelliFileProver(reader : java.io.Reader,
           if (model.isFalse)
             NoCounterModel
           else
-            CounterModel(model)
+            CounterModel(toIFormula(model))
         case Right(cert) if (!interpolantSpecs.isEmpty) => {
           val finalCert = Console.withOut(Console.err) {
             val c = processCert(cert)
@@ -117,16 +122,12 @@ class IntelliFileProver(reader : java.io.Reader,
             c
           }
 
-          val simplifier = new Simplifier
-          
           val interpolants = for (spec <- interpolantSpecs.view) yield {
             val iContext = InterpolationContext(namedParts, spec, order)
             val rawInterpolant =
               Interpolator(finalCert, iContext,
             	   	       Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings))
-            val interpolant =
-              Internal2InputAbsy(rawInterpolant, functionEncoder.predTranslation)
-            simplifier(interpolant)
+            toIFormula(rawInterpolant)
           }
           NoCounterModelCertInter(finalCert, interpolants)
         }

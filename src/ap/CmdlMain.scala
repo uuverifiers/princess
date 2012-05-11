@@ -27,7 +27,7 @@ import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, PrincessLineariser, IFormula, IExpression,
-                  IBinJunctor, IInterpolantSpec, INamedPart, PartName,
+                  IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier}
 import ap.util.{Debug, Seqs, Timeout}
 
@@ -333,10 +333,13 @@ object CmdlMain {
                 printFormula(tree.closingConstraint)
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
-                if (!model.isTrue) {
-                  println
-                  println("Concrete witness:")
-                  printFormula(model)
+                model match {
+                  case IBoolLit(true) => // nothing
+                  case _ => {
+                    println
+                    println("Concrete witness:")
+                    printFormula(model)
+                  }
                 }
                 if (Param.PRINT_TREE(settings)) {
                   println

@@ -24,7 +24,6 @@ package ap
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
 import ap.parser.IFormula
-import ap.terfor.conjunctions.Conjunction
 
 object Prover {
   
@@ -32,21 +31,21 @@ object Prover {
   
   abstract sealed class ProofResult extends Result
   case class Proof(tree : ProofTree) extends ProofResult
-  case class ProofWithModel(tree : ProofTree, model : Conjunction) extends ProofResult
+  case class ProofWithModel(tree : ProofTree, model : IFormula) extends ProofResult
   case class NoProof(unsatisfiableTree : ProofTree) extends ProofResult
   case class TimeoutProof(unfinishedTree : ProofTree) extends ProofResult
 
   // "model" means that the implicitly existentially quantified constants can be
   // instantiated so that the formula evaluates to true
   abstract sealed class ModelResult extends Result
-  case class Model(model : Conjunction) extends ModelResult
+  case class Model(model : IFormula) extends ModelResult
   case object NoModel extends ModelResult
   case object TimeoutModel extends ModelResult
 
   // "countermodel" means that the implicitly universally quantified constants
   // can be instantiated so that the formula evaluates to false
   abstract sealed class CounterModelResult extends Result
-  case class CounterModel(counterModel : Conjunction) extends CounterModelResult
+  case class CounterModel(counterModel : IFormula) extends CounterModelResult
   case object NoCounterModel extends CounterModelResult
   case class NoCounterModelCert(certificate : Certificate) extends CounterModelResult
   case class NoCounterModelCertInter(certificate : Certificate,
