@@ -380,6 +380,23 @@ object IdealInt {
      post(gcd)
      (gcd, finalCofactors)
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  implicit object IdealIntIsIntegral extends Integral[IdealInt] {
+    def plus(x: IdealInt, y: IdealInt): IdealInt = x + y
+    def minus(x: IdealInt, y: IdealInt): IdealInt = x - y
+    def times(x: IdealInt, y: IdealInt): IdealInt = x * y
+    def quot(x: IdealInt, y: IdealInt): IdealInt = x / y
+    def rem(x: IdealInt, y: IdealInt): IdealInt = x % y
+    def negate(x: IdealInt): IdealInt = -x
+    def fromInt(x: Int): IdealInt = IdealInt(x)
+    def toInt(x: IdealInt): Int = x.intValueSafe
+    def toLong(x: IdealInt): Long = x.longValue
+    def toFloat(x: IdealInt): Float = x.floatValue
+    def toDouble(x: IdealInt): Double = x.doubleValue
+    def compare(x: IdealInt, y: IdealInt) : Int = x compare y
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -733,10 +750,12 @@ final class IdealInt private (private val longStore : Long,
    */
   def longValue   = if (usesLong) longStore else biStore.longValue
 
+  def floatValue  = if (usesLong) longStore.toFloat else biStore.floatValue
+  def doubleValue = if (usesLong) longStore.toDouble else biStore.doubleValue
+  
   /** Returns the decimal <code>String</code> representation of this
     * <code>IdealInt</code>.
     */
   override def toString(): String =
     if (usesLong) "" + longStore else this.biStore.toString
 }
-
