@@ -25,7 +25,7 @@ $PRI "$@" $TESTS
 
 TESTS="cryptarithm.pri cryptarithm4.pri"
 
-$PRI "$@" $TESTS 2>&1 | grep -v "^("
+$PRI "$@" $TESTS 2>&1 | grep -v "^D"
 
 # Special settings for this testcase
 

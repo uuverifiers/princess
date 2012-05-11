@@ -35,8 +35,8 @@ Preprocessing ...
 Proving ...
 
 Formula is valid, resulting most-general constraint:
-(! (! (O1 + -1*I1 = 0 & ! (-1*I1 + 7 >= 0 & ! (I1 != 0 & -1*I1 + 1 >= 0))) & ! (O1 = 0 & I1 + -1 != 0) & ! (O1 + -1*I1 != 0 & O1 != 0)))
+(O1 = I1 & (I1 >= 8 | (!(I1 = 0) & 1 >= I1))) | (O1 = 0 & !(I1 = 1)) | (!(O1 = I1) & !(O1 = 0))
 
 Concrete witness:
-(O1 + -8 = 0 & I1 + -8 = 0)
+O1 = 8 & I1 = 8
 
