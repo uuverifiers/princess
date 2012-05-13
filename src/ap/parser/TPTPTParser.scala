@@ -340,8 +340,13 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     // existence of very small/large elements
     (for ((_, const) <- constants)
      yield rrPred("$less", false, rrFun(prefix + "very_small"), const) &
-           rrPred("$less", false, const, rrFun(prefix + "very_large"))) ++
-    List(rrPred("$less", false, rrFun(prefix + "very_small"), rrFun(prefix + "very_large"))) ++
+           rrPred("$less", false, const, rrFun(prefix + "very_large")) &
+           rrPred("$greater", false, const, rrFun(prefix + "very_small")) &
+           rrPred("$greater", false, rrFun(prefix + "very_large"), const)) ++
+    List(rrPred("$less", false, rrFun(prefix + "very_small"), rrFun(prefix + "very_large")),
+         rrPred("$lesseq", false, rrFun(prefix + "very_small"), rrFun(prefix + "very_large")),
+         rrPred("$greater", true, rrFun(prefix + "very_small"), rrFun(prefix + "very_large")),
+         rrPred("$greatereq", true, rrFun(prefix + "very_small"), rrFun(prefix + "very_large"))) ++
     //
     // literals are pairwise different
     {
