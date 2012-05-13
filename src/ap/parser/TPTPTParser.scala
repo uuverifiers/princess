@@ -106,15 +106,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       case Success(formulas, _) => {
         val tffs = formulas.flatten.filter(_ != null)
         
-        val stringConstants = occurringStrings.toSeq.sortWith(_._1 < _._1)
-        
-        val stringConstantAxioms =
-          connect(for (ind1 <- 0 until stringConstants.size;
-                       ind2 <- (ind1+1) until stringConstants.size)
-                  yield (stringConstants(ind1)._2 =/= stringConstants(ind2)._2),
-                  IBinJunctor.And)
-
-        ((getAxioms &&& stringConstantAxioms) ===> connect(tffs, IBinJunctor.Or), List(), env.toSignature)
+        ((getAxioms &&& stringAxioms &&& genRRAxioms) ===> connect(tffs, IBinJunctor.Or),
+         List(), env.toSignature)
       }
       case error =>
         throw new SyntaxError(error.toString)
@@ -124,12 +117,27 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private var tptpType = TPTPType.Unknown
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   private val declaredTypes = new MHashSet[Type]
 
   {
     declaredTypes ++= preDeclaredTypes
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private val occurringStrings =
+    new scala.collection.mutable.HashMap[String, ConstantTerm]
+    
+  private def stringAxioms = {
+    val stringConstants = occurringStrings.toSeq.sortWith(_._1 < _._1)
+    connect(for (ind1 <- 0 until stringConstants.size;
+                 ind2 <- (ind1+1) until stringConstants.size)
+            yield (stringConstants(ind1)._2 =/= stringConstants(ind2)._2),
+              IBinJunctor.And)
+  }
+  
   /**
    * Translate boolean-valued functions as predicates or as functions? 
    */
@@ -216,6 +224,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     declareSym("rat_$to_int",      Rank1((RatType), IntType))
     declareSym("rat_$to_rat",      Rank1((RatType), RatType))
     declareSym("rat_$to_real",     Rank1((RatType), RealType))
+    
+    declareSym("int_$to_rat",      Rank1((IntType), RatType))
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -253,9 +263,89 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     declareSym("real_$to_int",      Rank1((RealType), IntType))
     declareSym("real_$to_rat",      Rank1((RealType), RatType))
     declareSym("real_$to_real",     Rank1((RealType), RealType))
+    
+    declareSym("int_$to_real",      Rank1((IntType), RealType))
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  
+  private def genRRAxioms = {
+    val allLits = ratLiterals.toMap
+    
+//    val res =
+    connect(
+    (if (containsRat)
+       generalRatAxioms("rat_", RatType, allLits mapValues (_._1))
+     else
+       List()) ++
+    (if (containsReal)
+       generalRatAxioms("real_", RealType, allLits mapValues (_._2))
+     else
+       List())
+    , IBinJunctor.And)
+    
+//    println(res)
+//    res
+  }
+  
+  private def generalRatAxioms(prefix : String, t : Type,
+                               constants : Map[IdealRat, ConstantTerm]) = {
+    // instances of axioms for the defined literals
+    
+    // unary predicates
+    (for (predName <- List("$is_int", "$is_rat");
+          (value, const) <- constants;
+          res <- evalRRPred(predName, value).toSeq)
+     yield checkUnintAtom(prefix + predName, List(const), List(t), !res)) ++
+    //
+    // binary predicates
+    (for (predName <- List("$less", "$lesseq", "$greater", "$greatereq");
+          (value1, const1) <- constants; (value2, const2) <- constants;
+          res <- evalRRPred(predName, value1, value2).toSeq)
+     yield checkUnintAtom(prefix + predName, List(const1, const2), List(t, t), !res)) ++
+    //
+    // unary functions
+    (for (funName <- List("$uminus", "$floor", "$ceiling", "$truncate", "$round");
+          (value, const) <- constants;
+          res <- evalRRFun(funName, value).toSeq;
+          resConst <- findRepresentations(res, t))
+     yield (CheckedFunTerm(funName, List((const, t)))._1 === resConst)) ++
+    //
+    // binary functions
+    (for (funName <- List("$sum", "$difference", "$product", "$quotient",
+                          "$quotient_e", "$quotient_t", "$quotient_f",
+                          "$remainder_e", "$remainder_t", "$remainder_f");
+          (value1, const1) <- constants; (value2, const2) <- constants;
+          res <- evalRRFun(funName, value1, value2).toSeq;
+          resConst <- findRepresentations(res, t))
+     yield (CheckedFunTerm(funName, List((const1, t), (const2, t)))._1 === resConst))
+  }
+  
+  private def findRepresentations(r : IdealRat, t : Type) : Seq[ITerm] =
+    (for ((c1, c2) <- (ratLiterals get r).toSeq)
+     yield i(t match { case RatType => c1; case RealType => c2 })) ++
+    (if (r.denom.isOne) List(CheckedFunTerm(t match { case RatType => "$to_rat"
+                                                      case RealType => "$to_real" },
+                                            List((r.num, IntType)))._1) else List())
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private def evalRRPred(op : String,
+                         left : IdealRat,
+                         right : IdealRat) : Option[Boolean] = op match {
+    case "$less"                         => Some(left < right)
+    case "$lesseq"                       => Some(left <= right)
+    case "$greater"                      => Some(left > right)
+    case "$greatereq"                    => Some(left >= right)
+    case _                               => None
+  }
+  
+  private def evalRRPred(op : String,
+                         arg : IdealRat) : Option[Boolean] = op match {
+    case "$is_int"                       => Some(arg.denom.isOne)
+    case "$is_rat"                       => Some(true)
+    case _                               => None
+  }
   
   private def evalRRFun(op : String,
                         left : IdealRat,
@@ -773,9 +863,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       }
     )
   
-  private val occurringStrings =
-    new scala.collection.mutable.HashMap[String, ConstantTerm]
-    
   // lexical: don't confuse = with => (the lexer is greedy)
   private lazy val equalsSign = "=" <~ guard(not(">"))
   
@@ -863,7 +950,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       }
   }
   
-  private def checkUnintAtom(pred: String, args: Seq[ITerm], argTypes : Seq[Type])
+  private def checkUnintAtom(pred: String,
+                             args: Seq[ITerm], argTypes : Seq[Type],
+                             negated : Boolean = false)
               : IFormula = {
         if (!(env isDeclaredSym pred)) {
           val rank = Rank((argTypes.toList, OType))
@@ -877,18 +966,24 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            checkUnintAtom(pred + "'", args, argTypes)
+            checkUnintAtom(pred + "'", args, argTypes, negated)
           } else {
             // then a predicate has been encoded as a function
-            IIntFormula(IIntRelation.EqZero, IFunApp(f, args))
+            if (negated)
+              IIntFormula(IIntRelation.EqZero, IPlus(IFunApp(f, args), -1))
+            else
+              IIntFormula(IIntRelation.EqZero, IFunApp(f, args))
           }
         case Environment.Predicate(p, r) =>
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
-            checkUnintAtom(pred + "'", args, argTypes)
+            checkUnintAtom(pred + "'", args, argTypes, negated)
           } else {
-            IAtom(p, args)
+            if (negated)
+              !IAtom(p, args)
+            else
+              IAtom(p, args)
           }
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + pred)
@@ -908,6 +1003,15 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$difference",  Seq(IntType, IntType))  => (args(0)._1 - args(1)._1, IntType)
     case ("$product",     Seq(IntType, IntType))  => (mult(args(0)._1, args(1)._1), IntType)
     case ("$uminus",      Seq(IntType))           => (-args(0)._1, IntType)
+    case ("$to_int",      Seq(IntType))           => args(0)
+    case ("$to_rat",      Seq(IntType))           => {
+      foundRat
+      checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
+    }
+    case ("$to_real",     Seq(IntType))           => {
+      foundReal
+      checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
+    }
 
     case (fun, argTypes) =>
       if (arithmeticOps contains fun) argTypes(0) match {
