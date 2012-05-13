@@ -105,7 +105,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     parseAll[List[List[IFormula]]](TPTP_input, reader) match {
       case Success(formulas, _) => {
         val tffs = formulas.flatten.filter(_ != null)
-        
+
         ((getAxioms &&& stringAxioms &&& genRRAxioms) ===> connect(tffs, IBinJunctor.Or),
          List(), env.toSignature)
       }
@@ -198,6 +198,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     warn("Problem contains rationals, using incomplete axiomatisation")
     containsRat = true
     
+    val oldPartial = totalityAxiom
+    totalityAxiom = false
+    
     declareSym("rat_$less",        Rank2((RatType, RatType), OType))
     declareSym("rat_$lesseq",      Rank2((RatType, RatType), OType))
     declareSym("rat_$greater",     Rank2((RatType, RatType), OType))
@@ -226,6 +229,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     declareSym("rat_$to_real",     Rank1((RatType), RealType))
     
     declareSym("int_$to_rat",      Rank1((IntType), RatType))
+    
+    totalityAxiom = oldPartial 
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -236,7 +241,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private def foundReal = if (!containsReal) {
     warn("Problem contains reals, using incomplete axiomatisation")
     containsReal = true
-    
+
+    val oldPartial = totalityAxiom
+    totalityAxiom = false
+
     declareSym("real_$less",        Rank2((RealType, RealType), OType))
     declareSym("real_$lesseq",      Rank2((RealType, RealType), OType))
     declareSym("real_$greater",     Rank2((RealType, RealType), OType))
@@ -265,6 +273,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     declareSym("real_$to_real",     Rank1((RealType), RealType))
     
     declareSym("int_$to_real",      Rank1((IntType), RealType))
+    
+    totalityAxiom = oldPartial 
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -292,24 +302,29 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                constants : Map[IdealRat, ConstantTerm]) = {
     // instances of axioms for the defined literals
     
+    implicit val s = t
+    
+    val verySmall = declareSym(prefix + "very_small", Rank0(t))
+    val veryLarge = declareSym(prefix + "very_large", Rank0(t))
+    
     // unary predicates
     (for (predName <- List("$is_int", "$is_rat");
           (value, const) <- constants;
           res <- evalRRPred(predName, value).toSeq)
-     yield checkUnintAtom(prefix + predName, List(const), List(t), !res)) ++
+     yield rrPred(predName, !res, const)) ++
     //
     // binary predicates
     (for (predName <- List("$less", "$lesseq", "$greater", "$greatereq");
           (value1, const1) <- constants; (value2, const2) <- constants;
           res <- evalRRPred(predName, value1, value2).toSeq)
-     yield checkUnintAtom(prefix + predName, List(const1, const2), List(t, t), !res)) ++
+     yield rrPred(predName, !res, const1, const2)) ++
     //
     // unary functions
     (for (funName <- List("$uminus", "$floor", "$ceiling", "$truncate", "$round");
           (value, const) <- constants;
           res <- evalRRFun(funName, value).toSeq;
           resConst <- findRepresentations(res, t))
-     yield (CheckedFunTerm(funName, List((const, t)))._1 === resConst)) ++
+     yield (rrFun(funName, const) === resConst)) ++
     //
     // binary functions
     (for (funName <- List("$sum", "$difference", "$product", "$quotient",
@@ -318,8 +333,50 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           (value1, const1) <- constants; (value2, const2) <- constants;
           res <- evalRRFun(funName, value1, value2).toSeq;
           resConst <- findRepresentations(res, t))
-     yield (CheckedFunTerm(funName, List((const1, t), (const2, t)))._1 === resConst))
+     yield (rrFun(funName, const1, const2) === resConst)) ++
+    //
+    // existence of very small/large elements
+    (for ((_, const) <- constants)
+     yield rrPred("$less", false, rrFun(prefix + "very_small"), const) &
+           rrPred("$less", false, const, rrFun(prefix + "very_large"))) ++
+    List(rrPred("$less", false, rrFun(prefix + "very_small"), rrFun(prefix + "very_large"))) ++
+    //
+    // literals are pairwise different
+    {
+      val allConsts =
+        (List(rrFun(prefix + "very_small"), rrFun(prefix + "very_large")) ++
+         (for (c <- constants.values) yield i(c))).toSeq
+      for (i <- 0 until allConsts.size;
+           j <- (i+1) until allConsts.size) yield (allConsts(i) =/= allConsts(j))
+    } ++
+    //
+    // quantified axioms
+    List(all(all(rrPred("$less", false, v(0), v(1)) <=>
+                 rrPred("$greater", false, v(1), v(0)))),
+         all(all(rrPred("$lesseq", false, v(0), v(1)) <=>
+                 rrPred("$greatereq", false, v(1), v(0)))),
+         all(all((rrPred("$less", false, v(0), v(1))) | (v(0) === v(1)) <=>
+                 rrPred("$lesseq", false, v(0), v(1)))),
+//         all(all(rrPred("$less", false, v(0), v(1)) ==> (v(0) =/= v(1)))),
+         all(all(all((rrPred("$less", false, v(0), v(1)) &
+                      rrPred("$lesseq", false, v(1), v(2))) ==>
+                     rrPred("$less", false, v(0), v(2))))),
+         all(all(all((rrPred("$lesseq", false, v(0), v(1)) &
+                      rrPred("$less", false, v(1), v(2))) ==>
+                     rrPred("$less", false, v(0), v(2))))),
+         all(all(all((rrPred("$lesseq", false, v(0), v(1)) &
+                      rrPred("$lesseq", false, v(1), v(2))) ==>
+                     rrPred("$lesseq", false, v(0), v(2)))))
+         )
   }
+
+  private def rrPred(op : String, negated : Boolean, args : ITerm*)
+                    (implicit t : Type) : IFormula =
+    checkUnintAtom((t match { case RatType => "rat_"; case RealType => "real_" }) + op,
+                   args.toList, for (_ <- args.toList) yield t, negated)
+
+  private def rrFun(op : String, args : ITerm*)(implicit t : Type) : ITerm =
+    CheckedFunTerm(op, (for (a <- args) yield (a, t)).toList)._1
   
   private def findRepresentations(r : IdealRat, t : Type) : Seq[ITerm] =
     (for ((c1, c2) <- (ratLiterals get r).toSeq)
