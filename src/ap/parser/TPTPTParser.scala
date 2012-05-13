@@ -106,6 +106,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       case Success(formulas, _) => {
         val tffs = formulas.flatten.filter(_ != null)
 
+//        println(tffs)
+        
         ((getAxioms &&& stringAxioms &&& genRRAxioms) ===> connect(tffs, IBinJunctor.Or),
          List(), env.toSignature)
       }
@@ -198,8 +200,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     warn("Problem contains rationals, using incomplete axiomatisation")
     containsRat = true
     
-    val oldPartial = totalityAxiom
-    totalityAxiom = false
+//    val oldPartial = totalityAxiom
+//    totalityAxiom = false
     
     declareSym("rat_$less",        Rank2((RatType, RatType), OType))
     declareSym("rat_$lesseq",      Rank2((RatType, RatType), OType))
@@ -230,7 +232,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
     declareSym("int_$to_rat",      Rank1((IntType), RatType))
     
-    totalityAxiom = oldPartial 
+//    totalityAxiom = oldPartial 
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -242,8 +244,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     warn("Problem contains reals, using incomplete axiomatisation")
     containsReal = true
 
-    val oldPartial = totalityAxiom
-    totalityAxiom = false
+//    val oldPartial = totalityAxiom
+//    totalityAxiom = false
 
     declareSym("real_$less",        Rank2((RealType, RealType), OType))
     declareSym("real_$lesseq",      Rank2((RealType, RealType), OType))
@@ -274,7 +276,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
     declareSym("int_$to_real",      Rank1((IntType), RealType))
     
-    totalityAxiom = oldPartial 
+//    totalityAxiom = oldPartial 
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -282,7 +284,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private def genRRAxioms = {
     val allLits = ratLiterals.toMap
     
-//    val res =
+    val res =
     connect(
     (if (containsRat)
        generalRatAxioms("rat_", RatType, allLits mapValues (_._1))
@@ -295,7 +297,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     , IBinJunctor.And)
     
 //    println(res)
-//    res
+    res
   }
   
   private def generalRatAxioms(prefix : String, t : Type,
