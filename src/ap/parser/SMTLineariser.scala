@@ -34,7 +34,15 @@ import java.io.PrintStream
  * Class for printing <code>IFormula</code>s in the SMT-LIB 2 format
  */
 object SMTLineariser {
-  
+
+  def apply(formula : IFormula) = formula match {
+    case IBoolLit(value) => print(value)
+    case _ => {
+      val lineariser = new SMTLineariser("", "", List(), List(), "", "", "")
+      lineariser printFormula formula
+    }
+  }
+
   def apply(formulas : Seq[IFormula], signature : Signature,
             benchmarkName : String) = {
     val order = signature.order
@@ -66,8 +74,10 @@ object SMTLineariser {
     val lineariser = new SMTLineariser(benchmarkName,
                                        "AUFLIA",
     		                           constsToDeclare.toList,
-    		                           order.orderedPredicates.toList)
-    
+    		                           order.orderedPredicates.toList,
+    		                           "fun", "pred", "const")
+   
+    lineariser.open
     for (f <- finalFormulas)
       lineariser.printFormula("assert", f)
     lineariser.close
@@ -80,41 +90,51 @@ object SMTLineariser {
 class SMTLineariser(benchmarkName : String,
                     logic : String,
                     constsToDeclare : Seq[ConstantTerm],
-                    predsToDeclare : Seq[Predicate]) {
+                    predsToDeclare : Seq[Predicate],
+                    funPrefix : String, predPrefix : String, constPrefix : String) {
 
   private val noGoodChar = """[^a-zA-Z0-9]""".r
   
   private def toIdentifier(str : String) = noGoodChar.replaceAllIn(str, "_")
   
-  private def pred2Identifier(pred : Predicate) = "pred" + toIdentifier(pred.name)
-  private def const2Identifier(const : ConstantTerm) = "const" + toIdentifier(const.name)
+  private def fun2Identifier(fun : IFunction) =
+    funPrefix + toIdentifier(fun.name)
+  private def pred2Identifier(pred : Predicate) =
+    predPrefix + toIdentifier(pred.name)
+  private def const2Identifier(const : ConstantTerm) =
+    constPrefix + toIdentifier(const.name)
   
   //////////////////////////////////////////////////////////////////////////////
 
-  println("(set-logic " + logic + ")")
-  println("(set-info :source |")
-  println("    Benchmark: " + benchmarkName)
-  println("    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)")
-  println("|)")
+  def open {
+    println("(set-logic " + logic + ")")
+    println("(set-info :source |")
+    println("    Benchmark: " + benchmarkName)
+    println("    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)")
+    println("|)")
   
-  println("(set-info :status unknown)")
+    println("(set-info :status unknown)")
 
-  // declare the required predicates
-  for (pred <- predsToDeclare) {
-    print("(declare-fun " + pred2Identifier(pred) + " (")
-    print((for (_ <- 1 to pred.arity) yield "Int") mkString " ")
-    println(") Bool)")
-  }
+    // declare the required predicates
+    for (pred <- predsToDeclare) {
+      print("(declare-fun " + pred2Identifier(pred) + " (")
+      print((for (_ <- 1 to pred.arity) yield "Int") mkString " ")
+      println(") Bool)")
+    }
     
-  // declare universal constants
-  for (const <- constsToDeclare)
-    println("(declare-fun " + const2Identifier(const) + " () Int)")
+    // declare universal constants
+    for (const <- constsToDeclare)
+      println("(declare-fun " + const2Identifier(const) + " () Int)")
+  }
   
   def printFormula(clauseName : String, formula : IFormula) {
     print("(" + clauseName + " ")
-    AbsyPrinter.visit(formula, PrintContext(List()))
+    printFormula(formula)
     println(")")
   }
+  
+  def printFormula(formula : IFormula) =
+    AbsyPrinter.visit(formula, PrintContext(List()))
   
   def close {
     println("(check-sat)")
@@ -158,6 +178,10 @@ class SMTLineariser(benchmarkName : String,
       case IVariable(index) => {
         print(ctxt.vars(index) + " ")
         ShortCutResult()
+      }
+      case IFunApp(fun, args) => {
+        print((if (args.isEmpty) "" else "(") + fun2Identifier(fun) + " ")
+        KeepArg
       }
 
       // Formulae
@@ -206,10 +230,10 @@ class SMTLineariser(benchmarkName : String,
     
     def postVisit(t : IExpression,
                   arg : PrintContext, subres : Seq[Unit]) : Unit = t match {
-      case IPlus(_, _) | ITimes(_, _) |
-           IAtom(_, Seq(_, _*)) | IBinFormula(_, _, _) | IIntFormula(_, _) | INot(_) |
+      case IPlus(_, _) | ITimes(_, _) | IAtom(_, Seq(_, _*)) | IFunApp(_, Seq(_, _*)) |
+           IBinFormula(_, _, _) | IIntFormula(_, _) | INot(_) |
            IQuantified(_, _) => print(") ")
-      case IAtom(_, _) => // nothing
+      case IAtom(_, _) | IFunApp(_, _) => // nothing
     }
   
   }

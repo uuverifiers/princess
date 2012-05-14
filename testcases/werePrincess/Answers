@@ -21,14 +21,14 @@ VALID
 .
 Found proof (size 13), simplifying (15)
 VALID
-(| (! (>= (lit -1) (sym x) ) ) (! (>= (sym x) (lit -4) ) ) ) 
+(| (>= (sym x) (lit 0)) (>= (lit -5) (sym x) ) ) 
 (>= (sym y) (lit -1) ) 
 (>= (sym z) (lit 12) ) 
 .
 Found proof (size 27), simplifying (27)
 VALID
-(! (>= (lit 0) (select (sym ar) (sym x) ) ) ) 
-(! (>= (lit 0) (select (sym ar) (sym y) ) ) ) 
+(>= (select (sym ar) (sym x) ) (lit 1) ) 
+(>= (select (sym ar) (sym y) ) (lit 1) ) 
 (>= (sym z) (lit 2) ) 
 .
 Found proof (size 48), simplifying (44)

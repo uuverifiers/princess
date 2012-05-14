@@ -25,10 +25,11 @@ import ap.proof.ConstraintSimplifier
 import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.ConstantTerm
-import ap.terfor.conjunctions.Quantifier
+import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
-import ap.parser.{SMTLineariser, IExpression, IBinJunctor, IInterpolantSpec,
-                  INamedPart, PartName}
+import ap.parser.{SMTLineariser, PrincessLineariser, IFormula, IExpression,
+                  IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
+                  Internal2InputAbsy, Simplifier}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -173,6 +174,23 @@ object CmdlMain {
       case f => f
   }
   
+  private def printFormula(f : IFormula)
+                          (implicit format : Param.InputFormat.Value) : Unit =
+    format match {
+      case Param.InputFormat.SMTLIB => {
+        SMTLineariser(f)
+        println
+      }
+      case _ => {
+        PrincessLineariser printExpression f
+        println
+      }
+    }
+  
+  private def printFormula(c : Conjunction)
+                          (implicit format : Param.InputFormat.Value) : Unit =
+    printFormula((new Simplifier)(Internal2InputAbsy(c)))
+  
   private def existentialConstantNum(p : ProofTree) : Int = p match {
     case QuantifiedTree(Quantifier.EX, consts, subtree) =>
       existentialConstantNum(subtree) + consts.size
@@ -205,10 +223,13 @@ object CmdlMain {
             Console.withOut(Console.err) {
               println("Loading " + filename + " ...")
             }
+
             lastFilename = (filename split "/").last stripSuffix ".p"
+            
+            implicit val format = determineInputFormat(filename, settings)
+            val baseSettings = Param.INPUT_FORMAT.set(settings, format)
+            
             val prover = if (Param.MULTI_STRATEGY(settings)) {
-              val baseSettings = Param.INPUT_FORMAT.set(settings,
-                                      determineInputFormat(filename, settings))
                                       
               /*
               val s1 = {
@@ -301,8 +322,7 @@ object CmdlMain {
                                     Param.TIMEOUT(settings),
                                     true,
                                     userDefStoppingCond,
-                                    Param.INPUT_FORMAT.set(settings,
-                                      determineInputFormat(filename, settings)))
+                                    baseSettings)
             }
 
             Console.withOut(Console.err) {
@@ -316,7 +336,9 @@ object CmdlMain {
                            "most-general "
                          else
                            "") + "constraint:")
-                Console.err.println("" + tree.closingConstraint)
+                Console.withOut(Console.err) {
+                  printFormula(tree.closingConstraint)
+                }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.PRINT_TREE(settings)) {
@@ -333,13 +355,18 @@ object CmdlMain {
                            "most-general "
                          else
                            "") + "constraint:")
-                Console.err.println("" + tree.closingConstraint)
+                Console.withOut(Console.err) {
+                  printFormula(tree.closingConstraint)
+                }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
-                if (!model.isTrue) {
-                  println
-                  println("Concrete witness:")
-                  println("" + model)
+                model match {
+                  case IBoolLit(true) => // nothing
+                  case _ => {
+                    println
+                    println("Concrete witness:")
+                    printFormula(model)
+                  }
                 }
                 if (Param.PRINT_TREE(settings)) {
                   println
@@ -362,8 +389,10 @@ object CmdlMain {
                 println("% SZS status GaveUp for " + lastFilename)
               }
               case Prover.CounterModel(model) =>  {
-                Console.err.println("Formula is invalid, found a countermodel:")
-                Console.err.println("" + model)
+                Console.withOut(Console.err) {
+                  println("Formula is invalid, found a countermodel:")
+                  printFormula(model)
+                }
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -389,10 +418,13 @@ object CmdlMain {
                   println("Most-general constraint:")
                   println("true")
                 }
-                Console.err.println
-                Console.err.println("Certificate: " + cert)
-                Console.err.println("Assumed formulae: " + cert.assumedFormulas)
-                Console.err.println("Constraint: " + cert.closingConstraint)
+                Console.withOut(Console.err) {
+                  println
+                  println("Certificate: " + cert)
+                  println("Assumed formulae: " + cert.assumedFormulas)
+                  print("Constraint: ")
+                  printFormula(cert.closingConstraint)
+                }
                 
                 printDOTCertificate(cert, settings)
 
@@ -409,17 +441,21 @@ object CmdlMain {
 //                println("Certificate: " + cert)
 //                println("Assumed formulae: " + cert.assumedFormulas)
 //                println("Constraint: " + cert.closingConstraint)
-                Console.err.println
-                Console.err.println("Interpolants:")
-                for (i <- inters) Console.err.println(i)
+                Console.withOut(Console.err) {
+                  println
+                  println("Interpolants:")
+                  for (i <- inters) printFormula(i)
+                }
 
                 printDOTCertificate(cert, settings)
                 
                 println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.Model(model) =>  {
-                Console.err.println("Formula is valid, satisfying assignment for the existential constants is:")
-                Console.err.println("" + model)
+                Console.withOut(Console.err) {
+                  println("Formula is valid, satisfying assignment for the existential constants is:")
+                  printFormula(model)
+                }
                 println("% SZS status " + positiveResult + " for " + lastFilename)
               }
               case Prover.NoModel =>  {
@@ -434,7 +470,7 @@ object CmdlMain {
                   println
                   println("Current constraint:")
                   Timeout.withTimeoutMillis(1000) {
-                    println("" + tree.closingConstraint)
+                    printFormula(tree.closingConstraint)
                   }{
                     println("(timeout)")
                   }

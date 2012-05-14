@@ -45,6 +45,7 @@ class Simplifier {
     case INot(IBinFormula(Eqv, f1, f2)) => (!f1) <=> f2
     case INot(IQuantified(q, f))        => IQuantified(q.dual, !f)
     case INot(IBoolLit(v))              => !v
+    case INot(IIntFormula(IIntRelation.GeqZero, t)) => t < 0
     case _                              => expr
   }
   
@@ -278,8 +279,6 @@ class Simplifier {
     case IBinFormula(Or, IBoolLit(false), f) => f
     case IBinFormula(Or, f, IBoolLit(false)) => f
     
-    case INot(IBoolLit(value)) => !value
-
     // Simplification of linear combinations
     case ITimes(IdealInt.ONE, t) => t
     case ITimes(IdealInt.ZERO, t) => 0

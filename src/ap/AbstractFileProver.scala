@@ -69,7 +69,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   import CmdlMain.domain_size
   
-  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionalPreds,
+  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionEncoder,
        settings) = {
     val parser = newParser
     val (f, interpolantSpecs, preSignature) = parser(reader)
@@ -119,11 +119,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         functionEnc.predTranslation.keySet.toSet
     }
     
-    val functionalPreds = 
-      (for ((p, f) <- functionEnc.predTranslation.iterator;
-            if (!f.relational)) yield p).toSet
-    (inputFormulas, interpolantS, sig, gcedFunctions, functionalPreds, settings)
+    (inputFormulas, interpolantS, sig, gcedFunctions, functionEnc, settings)
   }
+  
+  private val functionalPreds = 
+    (for ((p, f) <- functionEncoder.predTranslation.iterator;
+          if (!f.relational)) yield p).toSet
   
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
     case Param.ProofConstructionOptions.Never => false

@@ -24,6 +24,7 @@ package ap.proof;
 import ap._
 import ap.basetypes.IdealInt
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
+import ap.terfor.arithconj.ArithConj
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
@@ -292,7 +293,15 @@ object ModelSearchProver {
                             literals : PredConj,
                             constsToIgnore : Set[ConstantTerm],
                             order : TermOrder) : Conjunction = {
-    val modelWithPreds = Conjunction.conj(Array(arithModel, literals), order)
+    // assign constants not defined in the arithmetic model to zero
+    val addEqs = EquationConj(for (c <- literals.constants -- arithModel.constants)
+                                yield LinearCombination(c, order),
+                              order)
+
+    val modelWithPreds =
+      Conjunction.conj(Array(arithModel, addEqs, literals), order)
+
+    // quantify constants that we don't need
     val quantifiedModel = Conjunction.quantify(Quantifier.EX,
                                                order sort constsToIgnore,
                                                modelWithPreds, order)
