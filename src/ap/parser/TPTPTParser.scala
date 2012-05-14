@@ -366,7 +366,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     //
     // quantified axioms
     //
-    List(// binary relations 
+    List(//
+         // binary relations
+         //
          all(all(rrPred("$less", false, v(0), v(1)) <=>
                  rrPred("$greater", false, v(1), v(0)))),
          all(all(rrPred("$lesseq", false, v(0), v(1)) <=>
@@ -391,11 +393,14 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                      rrFun("$sum", rrFun("$sum", v(0), v(1)), v(2))))),
          all(rrFun("$sum", v(0), constants(IdealRat.ZERO)) === v(0)),
          all(rrFun("$sum", v(0), rrFun("$uminus", v(0))) === constants(IdealRat.ZERO)),
+         all(all(rrFun("$sum", v(0), rrFun("$uminus", v(1))) ===
+                 rrFun("$difference", v(0), v(1)))),
          //
-         // lemma about negation
+         // lemmas about negation
          //
          all((v(0) === rrFun("$uminus", v(0))) ==>
-             (v(0) === constants(IdealRat.ZERO)))
+             (v(0) === constants(IdealRat.ZERO))),
+         all(rrFun("$uminus", rrFun("$uminus", v(0))) === v(0))
          )
   }
 
