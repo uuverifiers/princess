@@ -1125,9 +1125,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
            yield (i(realConstFor(resValue)), RealType)) getOrElse (
              checkUnintFunTerm("real_" + fun, args map (_._1), argTypes))
         
-        case Seq((_, RatType), _*) =>
+        case Seq((_, RatType)) | Seq((_, RatType), (_, RatType)) =>
           checkUnintFunTerm("rat_" + fun, args map (_._1), argTypes)
-        case Seq((_, RealType), _*) =>
+        case Seq((_, RealType)) | Seq((_, RealType), (_, RealType)) =>
           checkUnintFunTerm("real_" + fun, args map (_._1), argTypes)
           
         case _ =>
