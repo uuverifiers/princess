@@ -234,6 +234,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
     declareSym("int_$to_rat",      Rank1((IntType), RatType))
     
+    ratConstFor(IdealRat.ZERO)
+    
 //    totalityAxiom = oldPartial 
   }
   
@@ -277,7 +279,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     declareSym("real_$to_real",     Rank1((RealType), RealType))
     
     declareSym("int_$to_real",      Rank1((IntType), RealType))
-    
+
+    ratConstFor(IdealRat.ZERO)
+
 //    totalityAxiom = oldPartial 
   }
 
@@ -361,7 +365,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     } ++
     //
     // quantified axioms
-    List(all(all(rrPred("$less", false, v(0), v(1)) <=>
+    //
+    List(// binary relations 
+         all(all(rrPred("$less", false, v(0), v(1)) <=>
                  rrPred("$greater", false, v(1), v(0)))),
          all(all(rrPred("$lesseq", false, v(0), v(1)) <=>
                  rrPred("$greatereq", false, v(1), v(0)))),
@@ -376,7 +382,20 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                      rrPred("$less", false, v(0), v(2))))),
          all(all(all((rrPred("$lesseq", false, v(0), v(1)) &
                       rrPred("$lesseq", false, v(1), v(2))) ==>
-                     rrPred("$lesseq", false, v(0), v(2)))))
+                     rrPred("$lesseq", false, v(0), v(2))))),
+         //
+         // R/Q with + forms an abelian group
+         //
+         all(all(rrFun("$sum", v(0), v(1)) === rrFun("$sum", v(1), v(0)))),
+         all(all(all(rrFun("$sum", v(0), rrFun("$sum", v(1), v(2))) ===
+                     rrFun("$sum", rrFun("$sum", v(0), v(1)), v(2))))),
+         all(rrFun("$sum", v(0), constants(IdealRat.ZERO)) === v(0)),
+         all(rrFun("$sum", v(0), rrFun("$uminus", v(0))) === constants(IdealRat.ZERO)),
+         //
+         // lemma about negation
+         //
+         all((v(0) === rrFun("$uminus", v(0))) ==>
+             (v(0) === constants(IdealRat.ZERO)))
          )
   }
 
