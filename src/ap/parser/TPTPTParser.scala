@@ -162,14 +162,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private var haveConjecture = false
 
-  private val arithmeticOps = Set(
+  private val arithmeticPreds = Set(
     "$less",
     "$lesseq",
     "$greater",
     "$greatereq",
     "$is_int",
-    "$is_rat",
-    
+    "$is_rat"
+  )
+
+  private val arithmeticOps = arithmeticPreds ++ Set(
     "$uminus",
     "$sum",
     "$difference",
@@ -190,7 +192,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     "$to_rat",
     "$to_real"
   )
-
+  
   //////////////////////////////////////////////////////////////////////////////
   // Rationals
   
@@ -306,8 +308,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
     implicit val s = t
     
-    val verySmall = declareSym(prefix + "very_small", Rank0(t))
-    val veryLarge = declareSym(prefix + "very_large", Rank0(t))
+    val verySmall = new ConstantTerm(prefix + "very_small")
+    val veryLarge = new ConstantTerm(prefix + "very_large")
+    env.addConstant(verySmall,  Environment.NullaryFunction, t)
+    env.addConstant(veryLarge,  Environment.NullaryFunction, t)
     
     // unary predicates
     (for (predName <- List("$is_int", "$is_rat");
@@ -339,20 +343,19 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     //
     // existence of very small/large elements
     (for ((_, const) <- constants)
-     yield rrPred("$less", false, rrFun(prefix + "very_small"), const) &
-           rrPred("$less", false, const, rrFun(prefix + "very_large")) &
-           rrPred("$greater", false, const, rrFun(prefix + "very_small")) &
-           rrPred("$greater", false, rrFun(prefix + "very_large"), const)) ++
-    List(rrPred("$less", false, rrFun(prefix + "very_small"), rrFun(prefix + "very_large")),
-         rrPred("$lesseq", false, rrFun(prefix + "very_small"), rrFun(prefix + "very_large")),
-         rrPred("$greater", true, rrFun(prefix + "very_small"), rrFun(prefix + "very_large")),
-         rrPred("$greatereq", true, rrFun(prefix + "very_small"), rrFun(prefix + "very_large"))) ++
+     yield rrPred("$less", false, verySmall, const) &
+           rrPred("$less", false, const, veryLarge) &
+           rrPred("$greater", false, const, verySmall) &
+           rrPred("$greater", false, veryLarge, const)) ++
+    List(rrPred("$less", false, verySmall, veryLarge),
+         rrPred("$lesseq", false, verySmall, veryLarge),
+         rrPred("$greater", true, verySmall, veryLarge),
+         rrPred("$greatereq", true, verySmall, veryLarge)) ++
     //
     // literals are pairwise different
     {
       val allConsts =
-        (List(rrFun(prefix + "very_small"), rrFun(prefix + "very_large")) ++
-         (for (c <- constants.values) yield i(c))).toSeq
+        (List(i(verySmall), i(veryLarge)) ++ (for (c <- constants.values) yield i(c))).toSeq
       for (i <- 0 until allConsts.size;
            j <- (i+1) until allConsts.size) yield (allConsts(i) =/= allConsts(j))
     } ++
@@ -383,14 +386,15 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                    args.toList, for (_ <- args.toList) yield t, negated)
 
   private def rrFun(op : String, args : ITerm*)(implicit t : Type) : ITerm =
-    CheckedFunTerm(op, (for (a <- args) yield (a, t)).toList)._1
+    checkUnintFunTerm((t match { case RatType => "rat_"; case RealType => "real_" }) + op,
+                      args.toList, for (_ <- args.toList) yield t)._1
   
   private def findRepresentations(r : IdealRat, t : Type) : Seq[ITerm] =
     (for ((c1, c2) <- (ratLiterals get r).toSeq)
-     yield i(t match { case RatType => c1; case RealType => c2 })) ++
+     yield i(t match { case RatType => c1; case RealType => c2 })) /* ++
     (if (r.denom.isOne) List(CheckedFunTerm(t match { case RatType => "$to_rat"
                                                       case RealType => "$to_real" },
-                                            List((r.num, IntType)))._1) else List())
+                                            List((r.num, IntType)))._1) else List()) */
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -452,17 +456,27 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   //////////////////////////////////////////////////////////////////////////////
   
   private val ratLiterals = new MHashMap[IdealRat, (ConstantTerm, ConstantTerm)]
+  private val ratLitValue = new MHashMap[ConstantTerm, IdealRat]
   
   private def constsFor(r : IdealRat) = ratLiterals.getOrElseUpdate(r, {
     val ratConst = new ConstantTerm ("rat_" + r)
     val realConst = new ConstantTerm ("real_" + r)
     env.addConstant(ratConst,  Environment.NullaryFunction, RatType)
     env.addConstant(realConst, Environment.NullaryFunction, RealType)
+    ratLitValue += (ratConst -> r)
+    ratLitValue += (realConst -> r)
     (ratConst, realConst)
   })
   
   private def ratConstFor(r : IdealRat)  = constsFor(r)._1
   private def realConstFor(r : IdealRat) = constsFor(r)._2
+  
+  private object RRValue {
+    def unapply(t : ITerm) : Option[IdealRat] = t match {
+      case IConstant(c) => ratLitValue get c
+      case _            => None
+    }
+  }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1070,22 +1084,55 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$to_int",      Seq(IntType))           => args(0)
     case ("$to_rat",      Seq(IntType))           => {
       foundRat
-      checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
+      args(0) match {
+        case Const(value) =>
+          (ratConstFor(IdealRat(value)), RatType)
+        case _ =>
+         checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
+      }
     }
     case ("$to_real",     Seq(IntType))           => {
       foundReal
-      checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
+      args(0) match {
+        case Const(value) =>
+          (realConstFor(IdealRat(value)), RealType)
+        case _ =>
+         checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
+      }
     }
 
     case (fun, argTypes) =>
-      if (arithmeticOps contains fun) argTypes(0) match {
-        case IntType =>
-          // should not happen
-          throw new SyntaxError("Unexpected integer operator: " + fun)
-        case RatType =>
+      if (arithmeticOps contains fun) args match {
+        case Seq((RRValue(argValue), RatType))
+          if (!(arithmeticPreds contains fun)) => 
+          (for (resValue <- evalRRFun(fun, argValue))
+           yield (i(ratConstFor(resValue)), RatType)) getOrElse (
+             checkUnintFunTerm("rat_" + fun, args map (_._1), argTypes))
+        case Seq((RRValue(argValue), RealType))
+          if (!(arithmeticPreds contains fun)) => 
+          (for (resValue <- evalRRFun(fun, argValue))
+           yield (i(realConstFor(resValue)), RealType)) getOrElse (
+             checkUnintFunTerm("real_" + fun, args map (_._1), argTypes))
+        
+        case Seq((RRValue(argValue1), RatType), (RRValue(argValue2), RatType))
+          if (!(arithmeticPreds contains fun)) => 
+          (for (resValue <- evalRRFun(fun, argValue1, argValue2))
+           yield (i(ratConstFor(resValue)), RatType)) getOrElse (
+             checkUnintFunTerm("rat_" + fun, args map (_._1), argTypes))
+        case Seq((RRValue(argValue1), RealType), (RRValue(argValue2), RealType))
+          if (!(arithmeticPreds contains fun)) => 
+          (for (resValue <- evalRRFun(fun, argValue1, argValue2))
+           yield (i(realConstFor(resValue)), RealType)) getOrElse (
+             checkUnintFunTerm("real_" + fun, args map (_._1), argTypes))
+        
+        case Seq((_, RatType), _*) =>
           checkUnintFunTerm("rat_" + fun, args map (_._1), argTypes)
-        case RealType =>
+        case Seq((_, RealType), _*) =>
           checkUnintFunTerm("real_" + fun, args map (_._1), argTypes)
+          
+        case _ =>
+          // should not happen
+          throw new SyntaxError("Unexpected operator: " + fun)
       } else {
         checkUnintFunTerm(fun, args map (_._1), argTypes)
       }
