@@ -160,6 +160,8 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
     else
       context reduceToSize (context.size - 1)
   
+  def declaredVariableNum = context.size
+  
   def lookupPartName(name : String) : PartName =
     partNames.getOrElseUpdate(name, new PartName (name))
   

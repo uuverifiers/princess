@@ -81,7 +81,7 @@ object TPTPTParser {
   private def Rank3(r: ((Type, Type, Type), Type)) = new Rank(List(r._1._1, r._1._2, r._1._2) -> r._2)
 
   private object TPTPType extends Enumeration {
-    val FOF, TFF, Unknown = Value
+    val FOF, TFF, CNF, Unknown = Value
   }
      
 }
@@ -154,7 +154,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private var functionalityAxiom = true
 
   protected def defaultFunctionType(f : IFunction) : Rank = tptpType match {
-    case TPTPType.FOF =>
+    case TPTPType.FOF | TPTPType.CNF =>
       Rank(((for (_ <- 0 until f.arity) yield IType).toList, IType))
     case TPTPType.TFF =>
       Rank(((for (_ <- 0 until f.arity) yield IntType).toList, IntType))
@@ -518,6 +518,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private lazy val annotated_formula = 
     // TPTP_input requires a list, because include abobe returns a list
     ( fof_annotated_logic_formula ^^ { List(_) } ) |
+    ( cnf_annotated_logic_formula ^^ { List(_) } ) |
     ( tff_annotated_type_formula ^^ { _ => List() } ) |
     ( tff_annotated_logic_formula ^^ { List(_) } ) 
   // cnf_annotated
@@ -533,10 +534,30 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 	    haveConjecture = true
         f
 	  }
-	  // "type" just returns TrueAtom - deal with that above
-	  // case "type" => xxx
       case _ => !f // Assume f sits on the premise side
 	}
+  } 
+
+  private lazy val cnf_annotated_logic_formula =
+    ("cnf" ^^ { _ => tptpType = TPTPType.CNF }) ~ "(" ~>
+    (atomic_word | wholeNumber) ~ "," ~ atomic_word ~ "," ~
+    fof_logic_formula <~ ")" ~ "." ^^ {
+    case name ~ "," ~ role ~ "," ~ f => 
+    role match {
+      case "conjecture" => {
+        assert(false)
+        null
+      }
+      case _ => { // Assume f sits on the premise side
+        // we have to add quantifiers for all variables in the problem
+        var res = f
+        while (env.declaredVariableNum > 0) {
+          res = all(res)
+          env.popVar
+        }
+        !res
+      }
+    }
   } 
 
   /**
@@ -913,21 +934,48 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private lazy val constant_or_variable: PackratParser[(ITerm, Type)] = 
     // a constant cannot be followed by a parenthesis, would see a FunTerm instead
     // Use atomic_word instead of functor?
-    guard((functor | variableStr) ~ not("(")) ~>
-      (functor | variableStr) ^^ { functor => {
+    guard((functor | variableStr) ~ not("(")) ~> (
+      (functor ^^ { functor => {
         if (!(env isDeclaredSym functor)) {
-          if (tptpType != TPTPType.FOF)
-            warn("implicit declaration of " + functor + ": " + IType)
+          tptpType match {
+            case TPTPType.TFF =>
+              warn("implicit declaration of " + functor + ": " + IType)
+            case _ =>
+              // nothing
+          }
           declareSym(functor, Rank0(IType))
         }
           
         (env lookupSym functor) match {
           case Environment.Constant(c, _, t) => (i(c), t)
-          case Environment.Variable(index, t) => (v(index), t)
           case _ => throw new SyntaxError("Unexpected symbol: " + functor)
         }
-      }
-  }
+        
+      }}) | (
+          
+       variableStr ^^ { varStr => {
+        if (!(env isDeclaredSym varStr)) {
+          tptpType match {
+            case TPTPType.TFF =>
+              throw new SyntaxError("implicit declaration of " + varStr)
+            case _ =>
+              // nothing
+          }
+          env.pushVar(varStr, IType)
+        }
+         
+       (env lookupSym varStr) match {
+         case Environment.Variable(index, t)
+           if (tptpType == TPTPType.CNF) =>
+             (v(env.declaredVariableNum - index - 1), t)
+         case Environment.Variable(index, t) =>
+           (v(index), t)
+         case _ =>
+           throw new SyntaxError("Unexpected symbol: " + varStr)
+       }
+       }}
+      )
+    )
 
   private def fofify(t : Type) = tptpType match {
     case TPTPType.FOF => IType
@@ -1058,7 +1106,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               : IFormula = {
         if (!(env isDeclaredSym pred)) {
           val rank = Rank((argTypes.toList, OType))
-          if (tptpType != TPTPType.FOF || (pred endsWith "'"))
+          if (tptpType == TPTPType.TFF || (pred endsWith "'"))
             warn("implicit declaration or overloading of " + pred + ": " + rank)
           declareSym(pred, rank)
         }
@@ -1166,7 +1214,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                : (ITerm, Type) = {
         if (!(env isDeclaredSym fun)) {
           val rank = Rank((argTypes.toList, IType))
-          if (tptpType != TPTPType.FOF || (fun endsWith "'"))
+          if (tptpType == TPTPType.TFF || (fun endsWith "'"))
             warn("implicit declaration or overloading of " + fun + ": " + rank)
           declareSym(fun, rank)
         }
