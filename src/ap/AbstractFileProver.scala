@@ -112,7 +112,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   }
     
   val order = signature.order
-  
+
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
   
@@ -192,7 +192,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Timeout.withChecker(stoppingCond) {
       val prover =
         new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-      val tree = prover(closedFor, signature)
+      val tree = prover(reducer(closedFor), signature)
       val validConstraint = prover.isValidConstraint(tree.closingConstraint, signature)
       (tree, validConstraint)
     }
