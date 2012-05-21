@@ -22,7 +22,8 @@
 package ap.proof;
 
 import ap.terfor.{Formula, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, Quantifier, SubsumptionRemover}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, SubsumptionRemover,
+                               ReduceWithConjunction}
 import ap.proof.goal.Goal
 import ap.proof.tree.TestProofTree
 import ap.parameters.{GoalSettings, Param}
@@ -104,11 +105,12 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
 
   private val cache = new LRUCache[Conjunction, Conjunction] (1000)
   
-  def apply(f : Conjunction, order : TermOrder) : Conjunction = {
+  def apply(rawF : Conjunction, order : TermOrder) : Conjunction = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ConstraintSimplifier.AC, order isSortingOf f)
+    Debug.assertPre(ConstraintSimplifier.AC, order isSortingOf rawF)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    cache(f) {
+    cache(rawF) {
+      val f = ReduceWithConjunction(Conjunction.TRUE, order)(rawF)
       collectQuantifiers(f) match {
       case ALL => simplify(f, order)
       case EX => negSimplify(f, order)
