@@ -71,7 +71,8 @@ object QuantifierElimProver {
                     (order isSortingOf inputFor))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val settings = if (completeCNF) completeCNFSettings else nonCompleteCNFSettings
-    val goal = Goal.reduceAndCreateGoal(inputFor, order, settings)
+    val goal = Goal(List(Conjunction.conj(inputFor, order)), Set(),
+                    Vocabulary(order), settings)
     expandProof(goal, Conjunction.FALSE, 0)
   }
 

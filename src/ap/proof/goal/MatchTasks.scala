@@ -106,7 +106,7 @@ private object MatchFunctions {
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     } else {
       val newTasks =
-        (for (c <- removedClauses; t <- goal formulaTasks c) yield t) ++
+        (goal formulaTasks Conjunction.negate(removedClauses, order)) ++
         (if (eager)
            List()
          else

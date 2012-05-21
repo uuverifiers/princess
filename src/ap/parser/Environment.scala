@@ -160,6 +160,9 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
     else
       context reduceToSize (context.size - 1)
   
+  def existsVar(pred : VariableType => Boolean) =
+    context exists { case (_, t) => pred(t) }
+  
   def declaredVariableNum = context.size
   
   def lookupPartName(name : String) : PartName =

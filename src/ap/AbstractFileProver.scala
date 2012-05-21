@@ -116,13 +116,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
   
-  private def simplify(f : Conjunction) : Conjunction =
-    // if we are constructing proofs, we simplify formulae right away
-    if (constructProofs) reducer(f) else f
-
   val formulas =
     for (f <- inputFormulas) yield
-      simplify(
+      reducer(
         Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
                          order))
 

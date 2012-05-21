@@ -139,11 +139,13 @@ object PresburgerTools {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  def isSatisfiable(formula : Conjunction) : Boolean = {
+  def isSatisfiable(rawFormula : Conjunction) : Boolean = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, isPresburger(formula))
+    Debug.assertPre(AC, isPresburger(rawFormula))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    val formula = ReduceWithConjunction(Conjunction.TRUE, rawFormula.order)(rawFormula)
+    
     if (formula.isTrue)
       true
     else if (formula.isFalse)
@@ -157,11 +159,13 @@ object PresburgerTools {
                        formula.order).closingConstraint.isTrue
   }
 
-  def isValid(formula : Conjunction) : Boolean = {
+  def isValid(rawFormula : Conjunction) : Boolean = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, isPresburger(formula))
+    Debug.assertPre(AC, isPresburger(rawFormula))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    val formula = ReduceWithConjunction(Conjunction.TRUE, rawFormula.order)(rawFormula)
+    
     if (formula.isTrue)
       true
     else if (formula.isFalse)
@@ -175,11 +179,13 @@ object PresburgerTools {
                        formula.order).closingConstraint.isTrue
   }
 
-  def hasCountermodel(formula : Conjunction) : Option[Conjunction] = {
+  def hasCountermodel(rawFormula : Conjunction) : Option[Conjunction] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, isPresburger(formula))
+    Debug.assertPre(AC, isPresburger(rawFormula))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    val formula = ReduceWithConjunction(Conjunction.TRUE, rawFormula.order)(rawFormula)
+    
     if (formula.isTrue) {
       None
     } else if (formula.isFalse) {
@@ -510,7 +516,7 @@ object PresburgerTools {
   def eliminatePredicates(c : Conjunction, axioms : Conjunction,
                           order : TermOrder) : Conjunction = {
     implicit val o = order
-    val fors = !c | !axioms
+    val fors = ReduceWithConjunction(Conjunction.TRUE, order)(!c | !axioms)
     expansionProver(fors, order).closingConstraint.negate
   }
 }
