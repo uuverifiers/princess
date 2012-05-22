@@ -67,8 +67,8 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
         (formula negatedConjs 0).negatedConjs partition (isEagerClause(_))
       else
         (IterativeClauseMatcher isMatchable formula) match {
-          case IterativeClauseMatcher.Matchable.Complete     => (List(formula), List())
-          case IterativeClauseMatcher.Matchable.ProducesLits => (List(), List(formula))
+          case IterativeClauseMatcher.Matchable.Complete     => (Seq(formula), Seq())
+          case IterativeClauseMatcher.Matchable.ProducesLits => (Seq(), Seq(formula))
         }
 
     val collector = goal.getInferenceCollector

@@ -26,7 +26,7 @@ import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
                   Preprocessing,
                   FunctionEncoder, IExpression, INamedPart, IFunction,
-                  IInterpolantSpec, Environment}
+                  IInterpolantSpec, IBinJunctor, Environment}
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.Predicate
@@ -117,11 +117,19 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
   
   val formulas =
-    for (f <- inputFormulas) yield
-      reducer(
-        Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
-                         order))
-
+    if (constructProofs)
+      // keep the different formula parts separate
+      for (f <- inputFormulas) yield
+        reducer(
+          Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
+                           order))
+    else
+      // merge everything into one formula
+      List(reducer(Conjunction.conj(InputAbsy2Internal(
+          IExpression.connect(for (f <- inputFormulas.iterator)
+                                yield (IExpression removePartName f),
+                              IBinJunctor.Or), order), order)))
+      
   //////////////////////////////////////////////////////////////////////////////
   
   protected val goalSettings = {
@@ -192,7 +200,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Timeout.withChecker(stoppingCond) {
       val prover =
         new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-      val tree = prover(reducer(closedFor), signature)
+      val tree = prover(closedFor, signature)
       val validConstraint = prover.isValidConstraint(tree.closingConstraint, signature)
       (tree, validConstraint)
     }
