@@ -94,7 +94,8 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
                     (order isSortingOf inputFor) &&
                     Seqs.disjoint(inputFor.constants, signature.nullaryFunctions))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val goal = Goal.reduceAndCreateGoal(inputFor, order, settings)
+    val goal = Goal(List(Conjunction.conj(inputFor, order)), Set(),
+                    Vocabulary(order), settings)
     Timeout.unfinished {
       
       (if (depthFirst)

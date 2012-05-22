@@ -91,7 +91,8 @@ object Interpolator
   private def isValid(f : Conjunction) : Boolean = {
     implicit val o = f.order
     val closedF = forall(o sort f.constants, f)
-    assertionProver(closedF, f.order).closingConstraint.isTrue
+    assertionProver(ReduceWithConjunction(Conjunction.TRUE, f.order)(closedF), f.order)
+                   .closingConstraint.isTrue
   }
  
   private def certConj(fors : Iterable[CertFormula])

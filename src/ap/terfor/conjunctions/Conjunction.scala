@@ -782,8 +782,14 @@ class Conjunction private (val quans : Seq[Quantifier],
    * conjunction
    */
   def isNegatedConjunction : Boolean =
-    (quans.isEmpty && arithConj.isTrue && predConj.isTrue && negatedConjs.size == 1)
+    (isPurelyNegated && negatedConjs.size == 1)
 
+  /**
+   * Return whether this conjunction only contains negated sub-conjunctions
+   */
+  def isPurelyNegated : Boolean =
+    (quans.isEmpty && arithConj.isTrue && predConj.isTrue)
+    
   //////////////////////////////////////////////////////////////////////////////
 
   def implies(that : Conjunction) : Boolean =

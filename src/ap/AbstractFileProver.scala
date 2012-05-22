@@ -26,7 +26,7 @@ import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
                   Preprocessing,
                   FunctionEncoder, IExpression, INamedPart, IFunction,
-                  IInterpolantSpec, Environment}
+                  IInterpolantSpec, IBinJunctor, Environment}
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.Predicate
@@ -133,22 +133,26 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   }
     
   val order = signature.order
-  
+
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds,
                           Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
                           order)
   
-  private def simplify(f : Conjunction) : Conjunction =
-    // if we are constructing proofs, we simplify formulae right away
-    if (constructProofs) reducer(f) else f
-
   val formulas =
-    for (f <- inputFormulas) yield
-      simplify(
-        Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
-                         order))
-
+    if (constructProofs)
+      // keep the different formula parts separate
+      for (f <- inputFormulas) yield
+        reducer(
+          Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
+                           order))
+    else
+      // merge everything into one formula
+      List(reducer(Conjunction.conj(InputAbsy2Internal(
+          IExpression.connect(for (f <- inputFormulas.iterator)
+                                yield (IExpression removePartName f),
+                              IBinJunctor.Or), order), order)))
+      
   //////////////////////////////////////////////////////////////////////////////
   
   protected val goalSettings = {

@@ -135,9 +135,23 @@ object Goal {
       Debug.assertInt(Goal.AC, disj.quans.isEmpty)
       //-END-ASSERTION-///////////////////////////////////////////////////////
 
-      (for (f <- disj.negatedConjs;
-            g <- formulaTasks(f, age, eliminatedConstants, vocabulary, settings))
-       yield g) ++
+      {
+        var negLitClauses = List[Conjunction]()
+        val otherTasks = new ArrayBuffer[FormulaTask]
+        val unitResolution = Param.POS_UNIT_RESOLUTION(settings)
+        
+        for (f <- disj.negatedConjs)
+          if (unitResolution && (NegLitClauseTask isCoveredFormula f))
+            negLitClauses = f :: negLitClauses
+          else
+            otherTasks ++= formulaTasks(f, age, eliminatedConstants, vocabulary, settings)
+        
+        if (!negLitClauses.isEmpty)
+          otherTasks +=
+            new NegLitClauseTask(Conjunction.disj(negLitClauses, formula.order), age)
+        
+        otherTasks
+      } ++
       (if (disj.arithConj.isTrue && disj.predConj.isTrue) {
          List()
        } else {
@@ -148,14 +162,14 @@ object Goal {
       List(BetaFormulaTask(formula, age, eliminatedConstants, vocabulary, settings))
     } else formula.quans.last match {
       case Quantifier.ALL => List(new AllQuantifierTask(formula, age))
-      case Quantifier.EX =>
-	if (formula.isDivisibility)
-	  List(new DivisibilityTask(formula, age))
+      case Quantifier.EX => List(
+        if (formula.isDivisibility)
+          new DivisibilityTask(formula, age)
         else if (Param.POS_UNIT_RESOLUTION(settings) &&
                  (NegLitClauseTask isCoveredFormula formula))
-	  List(new NegLitClauseTask(formula, age))
-	else
-	  List(new ExQuantifierTask(formula, age))
+          new NegLitClauseTask(formula, age)
+        else
+          new ExQuantifierTask(formula, age))
     }
 
 }

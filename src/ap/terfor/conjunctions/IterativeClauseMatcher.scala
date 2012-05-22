@@ -582,7 +582,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
   def reduceClauses(clauseReducer : (Conjunction) => Conjunction,
                     instanceReducer : (Conjunction) => Conjunction,
                     order : TermOrder)
-                   : (Seq[Conjunction], IterativeClauseMatcher) = {
+                   : (NegatedConjunctions, IterativeClauseMatcher) = {
     val reducedClauses =
       clauses.update(for (c <- clauses) yield reduceIfNecessary(c, clauseReducer),
                      order)

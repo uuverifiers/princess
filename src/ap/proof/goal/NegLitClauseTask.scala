@@ -27,6 +27,7 @@ import ap.terfor.preds.PredConj
 import ap.parameters.Param
 import ap.util.{Debug, Logic, Seqs}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
+import ap.proof.certificates.BranchInferenceCollector
 
 object NegLitClauseTask {
   
@@ -37,12 +38,15 @@ object NegLitClauseTask {
    * by this task
    */
   def isCoveredFormula(f : Conjunction) : Boolean =
-    !f.quans.isEmpty &&
-    (f.quans forall (Quantifier.EX ==)) &&
-    ((IterativeClauseMatcher isMatchable f) != IterativeClauseMatcher.Matchable.No)
+    (!f.quans.isEmpty &&
+     (f.quans forall (Quantifier.EX ==)) &&
+     ((IterativeClauseMatcher isMatchable f) != IterativeClauseMatcher.Matchable.No)
     // TODO: find a proper condition when nested quantifiers can be allowed here
-   // f.negatedConjs.isEmpty
-
+    // f.negatedConjs.isEmpty
+     ) || (
+     f.isNegatedConjunction &&
+     (f negatedConjs 0).isPurelyNegated &&
+     ((f negatedConjs 0).negatedConjs forall (isCoveredFormula(_))))
 }
 
 class NegLitClauseTask(_formula : Conjunction, _age : Int)
@@ -58,21 +62,44 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
    * Perform the actual task (whatever needs to be done with <code>formula</code>)
    */
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
+    val (eagerClauses, lazyClauses) =
+      if (formula.isNegatedConjunction)
+        (formula negatedConjs 0).negatedConjs partition (isEagerClause(_))
+      else
+        (IterativeClauseMatcher isMatchable formula) match {
+          case IterativeClauseMatcher.Matchable.Complete     => (Seq(formula), Seq())
+          case IterativeClauseMatcher.Matchable.ProducesLits => (Seq(), Seq(formula))
+        }
+
+    val collector = goal.getInferenceCollector
+
+    val oldCF = goal.compoundFormulas
+    val (newCF1, tasks1) = updateMatcher(oldCF, goal, collector, true, eagerClauses)
+    val (newCF2, tasks2) = updateMatcher(newCF1, goal, collector, false, lazyClauses)
+    
+    ptf.updateGoal(newCF2, tasks1 ++ tasks2, collector.getCollection, goal)
+  }
+  
+  private def isEagerClause(f : Conjunction) =
+    (IterativeClauseMatcher isMatchable f) == IterativeClauseMatcher.Matchable.Complete
+
+  private def updateMatcher(cf : CompoundFormulas,
+                            goal : Goal,
+                            collector : BranchInferenceCollector,
+                            eager : Boolean,
+                            addClauses : Iterable[Conjunction])
+                           : (CompoundFormulas, Iterable[FormulaTask]) =
+    if (addClauses.isEmpty) {
+      (cf, List())
+    } else {
     val order = goal.order
     val voc = goal.vocabulary
     
-    val eager = 
-      (IterativeClauseMatcher isMatchable formula) match {
-        case IterativeClauseMatcher.Matchable.Complete => true
-        case IterativeClauseMatcher.Matchable.ProducesLits => false
-      }
-    
-    val oldMatcher = goal.compoundFormulas.quantifierClauses(eager)
+    val oldMatcher = cf.quantifierClauses(eager)
     val newClauses =
-      NegatedConjunctions(oldMatcher.clauses.elements ++ Iterator.single(formula),
+      NegatedConjunctions(oldMatcher.clauses.iterator ++ addClauses.iterator,
                           order)
     
-    val collector = goal.getInferenceCollector
     val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
     val (instances, newMatcher) =
       oldMatcher.updateClauses(newClauses,
@@ -82,7 +109,7 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
                                reverseProp,
                                collector, order)
     
-    val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
+    val newCF = cf.updateQuantifierClauses(eager, newMatcher)
     
     val newTasks =
       if (collector.isLogging)
@@ -92,10 +119,10 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
       else
         for (t <- goal.formulaTasks(Conjunction.disj(instances, order)))
           yield t
-
-    ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
+          
+    (newCF, newTasks)
   }
-
+  
   /**
    * Create a new <code>FormulaTask</code> by updating the value of
    * <code>formula</code>

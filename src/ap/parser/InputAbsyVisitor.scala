@@ -607,3 +607,19 @@ object LineariseVisitor {
     parts.result
   }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+object SizeVisitor {
+  def apply(e : IExpression) : Int = {
+    var size = 0
+    
+    val visitor = new CollectingVisitor[Unit, Unit] {
+      def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit =
+        size = size + 1
+    }
+    
+    visitor.visitWithoutResult(e, {})
+    size
+  }
+}

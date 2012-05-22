@@ -103,20 +103,8 @@ object ModelSearchProver {
    * if it was not possible to find one (this implies that <code>inputFor</code>
    * is valid).
    */
-  private def applyHelp(inputDisjuncts : Seq[Conjunction], order : TermOrder,
+  private def applyHelp(disjuncts : Seq[Conjunction], order : TermOrder,
                         settings : GoalSettings) : Either[Conjunction, Certificate] = {
-    val disjuncts = if (Param.PROOF_CONSTRUCTION(settings)) {
-      // when generating proofs and extracting interpolants, up-front
-      // simplification cannot be applied at this point, because
-      // otherwise the proof would not correspond to the input formulae
-      inputDisjuncts
-    } else {
-      val reducer = ReduceWithConjunction(Conjunction.TRUE,
-                                          Param.FUNCTIONAL_PREDICATES(settings),
-                                          Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
-                                          order)
-      for (d <- inputDisjuncts) yield reducer(d)
-    }
     val elimConstants = order.orderedConstants
     val vocabulary =
       Vocabulary(order,

@@ -41,7 +41,11 @@ object SMTParser2InputAbsy {
   
   import Parser2InputAbsy._
   
-  private type Env = Environment[Unit, Boolean, Unit, Boolean]
+  sealed abstract class VariableType
+  case class BoundVariable(encodesBool : Boolean)                 extends VariableType
+  case class SubstExpression(e : IExpression, t : Type.Value)     extends VariableType
+  
+  private type Env = Environment[Unit, VariableType, Unit, Boolean]
   
   def apply = new SMTParser2InputAbsy (new Env)
   
@@ -169,7 +173,8 @@ object SMTParser2InputAbsy {
 }
 
 
-class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
+class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.VariableType,
+                                              Unit, Boolean])
       extends Parser2InputAbsy(_env) {
   
   import IExpression._
@@ -454,7 +459,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
                "Quantification of variables of type " +
                (printer print binder.sort_) +
                " is currently not supported")
-        env.pushVar(asString(binder.symbol_), false)
+        env.pushVar(asString(binder.symbol_), BoundVariable(false))
         quantNum = quantNum + 1
       }
     }
@@ -506,6 +511,14 @@ class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
   
   //////////////////////////////////////////////////////////////////////////////
 
+  private var letVarCounter = 0
+  
+  private def letVarName(base : String) = {
+    val res = base + "_" + letVarCounter
+    letVarCounter = letVarCounter + 1
+    res
+  }
+  
   /**
    * If t is an integer term, let expression in positive position:
    *   (let ((v t)) s)
@@ -527,51 +540,120 @@ class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
       val (boundTerm, boundType) = translateTerm(binding.term_, 0)
       (asString(binding.symbol_), boundType, boundTerm)
     }
-      
-    for ((v, t, _) <- bindings) env.pushVar(v, t == Type.Bool)
 
-    val wholeBody@(body, bodyType) = translateTerm(t.term_, polarity)
+    if (env existsVar (_.isInstanceOf[BoundVariable])) {
+      // we are underneath a real quantifier, so have to introduce quantifiers
+      // for this let expression, or directly substitute
       
-    for (_ <- bindings) env.popVar
+      for ((v, t, _) <- bindings) env.pushVar(v, BoundVariable(t == Type.Bool))
 
-    //////////////////////////////////////////////////////////////////////////
+      val wholeBody@(body, bodyType) = translateTerm(t.term_, polarity)
       
-    if (inlineLetExpressions) {
-      // then we directly inline the bound formulae and terms
+      for (_ <- bindings) env.popVar
+
+      //////////////////////////////////////////////////////////////////////////
+      
+      if (inlineLetExpressions) {
+        // then we directly inline the bound formulae and terms
         
-      val subst = for ((_, t, s) <- bindings.toList.reverse) yield t match {
-        case Type.Integer => asTerm((s, t))
-        case Type.Bool    => asTerm((s, t))
+        val subst = for ((_, t, s) <- bindings.toList.reverse) yield t match {
+          case Type.Integer => asTerm((s, t))
+          case Type.Bool    => asTerm((s, t))
+        }
+        
+        (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
+      } else {
+        val definingEqs =
+          connect(for (((_, t, s), num) <- bindings.iterator.zipWithIndex) yield {
+            val shiftedS = VariableShiftVisitor(s, 0, bindings.size)
+            val bv = v(bindings.length - num - 1)
+            t match {        
+              case Type.Integer =>
+                asTerm((shiftedS, t)) === bv
+              case Type.Bool    =>
+                IFormulaITE(asFormula((shiftedS, t)),
+                            IIntFormula(IIntRelation.EqZero, bv),
+                            IIntFormula(IIntRelation.EqZero, bv + i(-1)))
+            }}, IBinJunctor.And)
+      
+        bodyType match {
+          case Type.Bool =>
+            (if (polarity > 0)
+              quan(Array.fill(bindings.length){Quantifier.ALL},
+                   definingEqs ==> asFormula(wholeBody))
+             else
+               quan(Array.fill(bindings.length){Quantifier.EX},
+                    definingEqs &&& asFormula(wholeBody)),
+             Type.Bool)
+        }
       }
-        
-      (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
+      
     } else {
-      val definingEqs =
-      connect(for (((_, t, s), num) <- bindings.iterator.zipWithIndex) yield {
-        val shiftedS = VariableShiftVisitor(s, 0, bindings.size)
-        val bv = v(bindings.length - num - 1)
-        t match {        
-          case Type.Integer =>
-            asTerm((shiftedS, t)) === bv
-          case Type.Bool    =>
-            IFormulaITE(asFormula((shiftedS, t)),
-                        IIntFormula(IIntRelation.EqZero, bv),
-                        IIntFormula(IIntRelation.EqZero, bv + i(-1)))
-        }}, IBinJunctor.And)
+      // we introduce a boolean or integer variables to encode this let expression
+
+      for ((name, t, s) <- bindings)
+        if (SizeVisitor(s) <= 20) {
+          env.pushVar(name, SubstExpression(s, t))
+        } else t match {
+          case Type.Bool => {
+            val f = new IFunction(letVarName(name), 1, true, false)
+            env.addFunction(f, false)
+            env.pushVar(name, SubstExpression(all((v(0) === 0) ==> (f(v(0)) === 0)),
+                                              Type.Bool))
+            assumptions += all(ITrigger(List(f(v(0))),
+                                (v(0) === 0) ==>
+                                (((f(v(0)) === 0) & asFormula((s, t))) |
+                                 ((f(v(0)) === 1) & !asFormula((s, t))))))
+//            assumptions += all(ITrigger(List(f(v(0))),
+//                               ((v(0) === 0) ==> ((f(v(0)) === 0) | (f(v(0)) === 1)))))
+          }
+          case Type.Integer => {
+            val c = new ConstantTerm(letVarName(name))
+            env.addConstant(c, Environment.NullaryFunction, ())
+            env.pushVar(name, SubstExpression(c, Type.Integer))
+            assumptions += (c === asTerm((s, t)))
+          }
+        }
       
-    bodyType match {
-      case Type.Bool =>
-        (if (polarity > 0)
-          quan(Array.fill(bindings.length){Quantifier.ALL},
-               definingEqs ==> asFormula(wholeBody))
-         else
-           quan(Array.fill(bindings.length){Quantifier.EX},
-                definingEqs &&& asFormula(wholeBody)),
-         Type.Bool)
-      }
+      /*
+      val definingEqs = connect(
+        for ((v, t, s) <- bindings.iterator) yield
+             if (SizeVisitor(s) <= 20) {
+               env.pushVar(v, SubstExpression(s, t))
+               i(true)
+             } else t match {
+               case Type.Bool => {
+                 val p = new Predicate(letVarName(v), 0)
+                 env.addPredicate(p, ())
+                 env.pushVar(v, SubstExpression(p(), Type.Bool))
+                 asFormula((s, t)) <=> p()
+               }
+               case Type.Integer => {
+                 val c = new ConstantTerm(letVarName(v))
+                 env.addConstant(c, Environment.NullaryFunction, ())
+                 env.pushVar(v, SubstExpression(c, Type.Integer))
+                 asTerm((s, t)) === c
+               }
+             }, IBinJunctor.And)
+      */
+      
+      val wholeBody = translateTerm(t.term_, polarity)
+      
+/*      val definingEqs =
+        connect(for ((v, t, s) <- bindings.reverseIterator) yield {
+          (env lookupSym v) match {
+            case Environment.Variable(_, IntConstant(c)) =>
+              asTerm((s, t)) === c
+            case Environment.Variable(_, BooleanConstant(p)) =>
+              asFormula((s, t)) <=> p()
+          }}, IBinJunctor.And) */
+      
+      for (_ <- bindings) env.popVar
+
+      wholeBody
     }
   }
-
+  
   //////////////////////////////////////////////////////////////////////////////
   
   private def symApp(sym : SymbolRef, args : Seq[Term], polarity : Int)
@@ -758,8 +840,11 @@ class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
       case Environment.Constant(c, _, _) =>
         (c, Type.Integer)
       
-      case Environment.Variable(i, encodesBool) =>
+      case Environment.Variable(i, BoundVariable(encodesBool)) =>
         (v(i), if (encodesBool) Type.Bool else Type.Integer)
+        
+      case Environment.Variable(i, SubstExpression(e, t)) =>
+        (e, t)
     }
         
   }
@@ -777,7 +862,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
         IFunApp(fun, List())
       }
       case Environment.Constant(c, _, _) => c
-      case Environment.Variable(i, false) => v(i)
+      case Environment.Variable(i, BoundVariable(false)) => v(i)
       case _ =>
         throw new Parser2InputAbsy.TranslationException(
           "Unexpected symbol in a trigger: " +
@@ -801,7 +886,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, Boolean, Unit, Boolean])
                              0, expr.listsexpr_.tail)
             c
           }
-          case Environment.Variable(i, false) => {
+          case Environment.Variable(i, BoundVariable(false)) => {
             checkArgNumSExpr(printer print funExpr.symbol_,
                              0, expr.listsexpr_.tail)
             v(i)
