@@ -45,7 +45,7 @@ object QuantifiedTree {
       QuantifiedTree(subtree.subtree,
                      quan,
                      quantifiedConstants ++ subtree.quantifiedConstants,
-                     Conjunction.conj(Array(guard, subtree.guard), vocabulary.order),
+                     Conjunction.conj(Array(guard, subtree.guard), subtree.subtreeOrder),
                      vocabulary, subtree.subtreeOrder,
                      simplifier)
     case subtree : AndTree if (quan == Quantifier.ALL) =>
