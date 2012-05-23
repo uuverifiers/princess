@@ -190,7 +190,7 @@ object PresburgerTools {
       None
     } else if (formula.isFalse) {
       Some(Conjunction.TRUE)
-    } else if (IterativeClauseMatcher isMatchableRec formula) {
+    } else if (IterativeClauseMatcher.isMatchableRec(formula, Map())) {
       val model = ModelSearchProver(formula, formula.order)
       if (model.isFalse) None else Some(model)
     } else {

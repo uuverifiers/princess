@@ -22,6 +22,8 @@
 package ap.parameters;
 
 import ap.terfor.ConstantTerm
+import ap.terfor.preds.Predicate
+import ap.terfor.conjunctions.IterativeClauseMatcher
 
 object Param {
   
@@ -185,12 +187,29 @@ object Param {
   }
 
   object FiniteDomainConstraints extends Enumeration {
-    val None, DomainSize, VocabularyEquations = Value
+    val None, DomainSize, VocabularyEquations, TypeGuards = Value
   }
 
   case object FINITE_DOMAIN_CONSTRAINTS extends Param {
     type Value = FiniteDomainConstraints.Value
     val defau : FiniteDomainConstraints.Value = FiniteDomainConstraints.None
+    
+    def assumeInfiniteDomain[A <: Settings[A]](settings : Settings[A]) : Boolean =
+      settings(this).asInstanceOf[Value] match {
+        case FiniteDomainConstraints.None |
+             FiniteDomainConstraints.TypeGuards => true
+        case _ => false
+      }
+  }
+  
+  case object DOMAIN_PREDICATES extends Param {
+    type Value = Set[Predicate]
+    val defau : Set[Predicate] = Set()
+  }
+
+  case object PREDICATE_MATCH_CONFIG extends Param {
+    type Value = IterativeClauseMatcher.PredicateMatchConfig
+    val defau : IterativeClauseMatcher.PredicateMatchConfig = Map()
   }
   
   case object PROOF_CONSTRUCTION extends Param {

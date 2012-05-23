@@ -23,8 +23,8 @@ package ap.proof.goal;
 
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                Quantifier, IterativeClauseMatcher}
-import ap.terfor.preds.PredConj
-import ap.parameters.Param
+import ap.terfor.preds.{PredConj, Predicate}
+import ap.parameters.{Param, GoalSettings}
 import ap.util.{Debug, Logic, Seqs}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.BranchInferenceCollector
@@ -37,19 +37,35 @@ object NegLitClauseTask {
    * Return <code>true</code> if <code>f</code> is a formula that can be handled
    * by this task
    */
-  def isCoveredFormula(f : Conjunction) : Boolean =
+  def isCoveredFormula(f : Conjunction,
+                       config : IterativeClauseMatcher.PredicateMatchConfig,
+                       domainPredicates : Set[Predicate]) : Boolean =
     (!f.quans.isEmpty &&
      (f.quans forall (Quantifier.EX ==)) &&
-     ((IterativeClauseMatcher isMatchable f) != IterativeClauseMatcher.Matchable.No)
+     ((IterativeClauseMatcher.isMatchable(f, config, domainPredicates)) !=
+         IterativeClauseMatcher.Matchable.No)
     // TODO: find a proper condition when nested quantifiers can be allowed here
     // f.negatedConjs.isEmpty
      ) || (
      f.isNegatedConjunction &&
      (f negatedConjs 0).isPurelyNegated &&
-     ((f negatedConjs 0).negatedConjs forall (isCoveredFormula(_))))
+     ((f negatedConjs 0).negatedConjs forall (isCoveredFormula(_, config, domainPredicates))))
+
+   def isCoveredFormula(f : Conjunction, settings : GoalSettings) : Boolean =
+     isCoveredFormula(f,
+                      Param.PREDICATE_MATCH_CONFIG(settings),
+                      Param.DOMAIN_PREDICATES(settings))
+
+   def apply(_formula : Conjunction, _age : Int,
+             settings : GoalSettings) =
+     new NegLitClauseTask(_formula, _age,
+                          Param.PREDICATE_MATCH_CONFIG(settings),
+                          Param.DOMAIN_PREDICATES(settings))
 }
 
-class NegLitClauseTask(_formula : Conjunction, _age : Int)
+class NegLitClauseTask(_formula : Conjunction, _age : Int,
+                       predicateMatchConfig : IterativeClauseMatcher.PredicateMatchConfig,
+                       domainPredicates : Set[Predicate])
                        extends FormulaTask(_formula, _age) {
 
   val priority : Int = -10000 + age
@@ -66,7 +82,7 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
       if (formula.isNegatedConjunction)
         (formula negatedConjs 0).negatedConjs partition (isEagerClause(_))
       else
-        (IterativeClauseMatcher isMatchable formula) match {
+        isMatchable(formula) match {
           case IterativeClauseMatcher.Matchable.Complete     => (Seq(formula), Seq())
           case IterativeClauseMatcher.Matchable.ProducesLits => (Seq(), Seq(formula))
         }
@@ -81,8 +97,11 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
   }
   
   private def isEagerClause(f : Conjunction) =
-    (IterativeClauseMatcher isMatchable f) == IterativeClauseMatcher.Matchable.Complete
+    isMatchable(f) == IterativeClauseMatcher.Matchable.Complete
 
+  private def isMatchable(f : Conjunction) =
+    IterativeClauseMatcher.isMatchable(f, predicateMatchConfig, domainPredicates)
+    
   private def updateMatcher(cf : CompoundFormulas,
                             goal : Goal,
                             collector : BranchInferenceCollector,
@@ -128,14 +147,14 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int)
    * <code>formula</code>
    */
   protected def updateFormula(f : Conjunction, goal : Goal) : FormulaTask =
-    new NegLitClauseTask(f, age)
+    new NegLitClauseTask(f, age, predicateMatchConfig, domainPredicates)
 
   /**
    * Return <code>true</code> if <code>f</code> is a formula that can be handled
    * by this task
    */
   def isCoveredFormula(f : Conjunction) : Boolean =
-    NegLitClauseTask isCoveredFormula f
+    NegLitClauseTask.isCoveredFormula(f, predicateMatchConfig, domainPredicates)
 
   val name : String = "NegLitClause"
 

@@ -52,7 +52,8 @@ abstract class SoftwareInterpolationFramework {
   
   private val functionEncoder =
     new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(PreprocessingSettings.DEFAULT),
-                         false)
+                         false,
+                         Map())
   
   private val (backgroundPred, preludeOrder, preludeEnv) = Console.withOut(Console.err) {
     print("Reading prelude ... ")

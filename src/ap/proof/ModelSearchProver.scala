@@ -404,7 +404,7 @@ object ModelSearchProver {
       val order = goal.order
       val newFacts = goal.facts.updatePredConj(PredConj.TRUE)(order)
       val newGoal =
-    	nonRemovingPTF.updateGoal(Conjunction.TRUE, CompoundFormulas.EMPTY,
+    	nonRemovingPTF.updateGoal(Conjunction.TRUE, CompoundFormulas.EMPTY(Map()),
     			                  goal formulaTasks newFacts.negate, goal)
 
       findModel(newGoal, witnesses, Set(), depth, settings, constructModel) match {

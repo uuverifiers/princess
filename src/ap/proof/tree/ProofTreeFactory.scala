@@ -40,6 +40,7 @@ abstract class ProofTreeFactory {
   def quantify(subtree : ProofTree,
                quan : Quantifier,
                quantifiedConstants : Seq[ConstantTerm],
+               guard : Conjunction,
                vocabulary : Vocabulary,
                subtreeOrder : TermOrder) : ProofTree
   

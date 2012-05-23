@@ -37,6 +37,7 @@ object QuantifiedTree {
   def apply(subtree : ProofTree,
             quan : Quantifier,
             quantifiedConstants : Seq[ConstantTerm],
+            guard : Conjunction,
             vocabulary : Vocabulary,
             subtreeOrder : TermOrder,
             simplifier : ConstraintSimplifier) : ProofTree = subtree match {
@@ -44,30 +45,33 @@ object QuantifiedTree {
       QuantifiedTree(subtree.subtree,
                      quan,
                      quantifiedConstants ++ subtree.quantifiedConstants,
+                     Conjunction.conj(Array(guard, subtree.guard), vocabulary.order),
                      vocabulary, subtree.subtreeOrder,
                      simplifier)
     case subtree : AndTree if (quan == Quantifier.ALL) =>
       AndTree(for (t <- subtree.subtrees)
-              yield QuantifiedTree(t, quan, quantifiedConstants, vocabulary,
-                                   subtreeOrder, simplifier),
+              yield QuantifiedTree(t, quan, quantifiedConstants, Conjunction.TRUE,
+                                   vocabulary, subtreeOrder, simplifier),
               vocabulary, subtree.partialCertificate, simplifier)
     case subtree : WeakenTree if (quan == Quantifier.EX) =>
       WeakenTree(QuantifiedTree(subtree.subtree,
-                                quan, quantifiedConstants,
+                                quan, quantifiedConstants, guard,
                                 vocabulary, subtreeOrder, simplifier),
                  quantifySimplify(subtree.disjunct, quan, quantifiedConstants,
+                                  guard,
                                   vocabulary.order, subtreeOrder, simplifier,
                                   vocabulary.bindingContext, subtree),
                  vocabulary)
     case subtree : WeakenTree if (Seqs.disjointSeq(subtree.disjunct.constants,
                                                    quantifiedConstants)) =>
       WeakenTree(QuantifiedTree(subtree.subtree,
-                                quan, quantifiedConstants,
+                                quan, quantifiedConstants, guard,
                                 vocabulary, subtreeOrder, simplifier),
                  vocabulary.order sort subtree.disjunct,
                  vocabulary)
     case _ => 
-      new QuantifiedTree(subtree, quan, quantifiedConstants, vocabulary, subtreeOrder,
+      new QuantifiedTree(subtree, quan, quantifiedConstants, guard,
+                         vocabulary, subtreeOrder,
                          simplifier)
   }
  
@@ -79,6 +83,7 @@ object QuantifiedTree {
   
   private def quantify(f : Conjunction,
                        quan : Quantifier, quantifiedConstants : Seq[ConstantTerm],
+                       guard : Conjunction,
                        outputOrder : TermOrder, inputOrder : TermOrder,
                        context : BindingContext,
                        subtree : ProofTree) : Conjunction = quan match {
@@ -94,12 +99,15 @@ object QuantifiedTree {
           conj(for (c <- quantifiedConstants.iterator)
                yield disjFor(for (d <- context.universallyBoundConstants)
                              yield (c === d)))
-        case Param.FiniteDomainConstraints.None =>
+        case Param.FiniteDomainConstraints.None |
+             Param.FiniteDomainConstraints.TypeGuards =>
           Conjunction.TRUE
       }
     
       Conjunction.quantify(quan, quantifiedConstants,
-                           domainConstraint & f, inputOrder) sortBy outputOrder
+                           Conjunction.conj(Array(domainConstraint, f, guard),
+                                            inputOrder),
+                           inputOrder) sortBy outputOrder
     }
     
     case Quantifier.ALL =>
@@ -108,12 +116,13 @@ object QuantifiedTree {
   
   private def quantifySimplify(f : Conjunction,
                                quan : Quantifier, quantifiedConstants : Seq[ConstantTerm],
+                               guard : Conjunction,
                                outputOrder : TermOrder, inputOrder : TermOrder,
                                simplifier : ConstraintSimplifier,
                        context : BindingContext,
                                subtree : ProofTree) : Conjunction =  
-    simplifier(quantify(f, quan, quantifiedConstants, outputOrder, inputOrder,
-                        context, subtree),
+    simplifier(quantify(f, quan, quantifiedConstants, guard,
+                        outputOrder, inputOrder, context, subtree),
                outputOrder)
   
   private def addFiniteDomainConstraints(tree : ProofTree)
@@ -131,6 +140,7 @@ object QuantifiedTree {
 class QuantifiedTree private (val subtree : ProofTree,
                               val quan : Quantifier,
                               val quantifiedConstants : Seq[ConstantTerm],
+                              val guard : Conjunction,
                               val vocabulary : Vocabulary,
                               protected val subtreeOrder : TermOrder,
                               simplifier : ConstraintSimplifier)
@@ -147,13 +157,16 @@ class QuantifiedTree private (val subtree : ProofTree,
                      case subtree : WeakenTree if (this.quan == Quantifier.ALL) =>
                        !Seqs.disjointSeq(subtree.disjunct.constants, quantifiedConstants)
                      case _ => true
-                    }))
+                    }) &&
+                    (this.quan != Quantifier.ALL || guard.isTrue) &&
+                    (guard isSortedBy subtreeOrder))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   lazy val closingConstraint : Conjunction =
     simplifier(QuantifiedTree.quantify(subtree.closingConstraint,
                                        quan,
-                                       quantifiedConstants, order, subtreeOrder,
+                                       quantifiedConstants, guard,
+                                       order, subtreeOrder,
                                        vocabulary.bindingContext, subtree), order)
   
   lazy val closingConstantFreedom : ConstantFreedom =
@@ -181,7 +194,7 @@ class QuantifiedTree private (val subtree : ProofTree,
     if (subtree == newSubtree && constantFreedom == newConstantFreedom)
       this
     else
-      QuantifiedTree(newSubtree, quan, quantifiedConstants,
+      QuantifiedTree(newSubtree, quan, quantifiedConstants, guard,
                      vocabulary updateConstantFreedom newConstantFreedom,
                      subtreeOrder, simplifier)
 

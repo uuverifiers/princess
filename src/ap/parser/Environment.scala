@@ -70,6 +70,10 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
   
   private val partNames = new scala.collection.mutable.HashMap[String, PartName]
   
+  /** Predicates considered as domain predicates */
+  private val domainPredicates =
+    new scala.collection.mutable.HashSet[ap.terfor.preds.Predicate]
+  
   def order = orderVar
   def order_=(newOrder : TermOrder) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -92,6 +96,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
     res.signature ++= this.signature
     res.context ++= this.context
     res.orderVar = this.orderVar
+    res.domainPredicates ++= this.domainPredicates
     
     res
   }
@@ -132,6 +137,11 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
     orderVar = orderVar extend pred
   }
   
+  def addDomainPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit = {
+    addPredicate(pred, typ)
+    domainPredicates += pred
+  }
+  
   def addFunction(fun : IFunction, typ : FunctionType) : Unit =
     addSym(fun.name, Function(fun, typ))
   
@@ -170,7 +180,15 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
   
   def toSignature =
     new Signature (universalConstants, existentialConstants,
-                   nullaryFunctions, order)
-  
+                   nullaryFunctions, order, domainPredicates.toSet,
+                   (for (Function(f, _) <- symbols)
+                      yield (f -> Signature.TopFunctionType)).toMap)
+
+  def toSignature(funTypeConverter : FunctionType => Signature.FunctionType) =
+    new Signature (universalConstants, existentialConstants,
+                   nullaryFunctions, order, domainPredicates.toSet,
+                   (for (Function(f, t) <- symbols)
+                      yield (f -> funTypeConverter(t))).toMap)
+
   def symbols : Iterator[DSym] = signature.valuesIterator
 }

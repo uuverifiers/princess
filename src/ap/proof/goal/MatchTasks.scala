@@ -75,7 +75,7 @@ private object MatchFunctions {
         
         val instanceReducer = ReduceWithConjunction(
           Conjunction.conj(goal.facts.arithConj.positiveEqs, order),
-          Param.FINITE_DOMAIN_CONSTRAINTS(goal.settings) == Param.FiniteDomainConstraints.None,
+          Param.FINITE_DOMAIN_CONSTRAINTS.assumeInfiniteDomain(goal.settings),
           order)
           
         oldMatcher.reduceClauses(clauseReducer _, instanceReducer.apply _, order)

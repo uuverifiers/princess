@@ -28,7 +28,8 @@ import ap.parser.{InputAbsy2Internal,
                   FunctionEncoder, IExpression, INamedPart, IFunction,
                   IInterpolantSpec, IBinJunctor, Environment}
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
-import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
+                               IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
@@ -88,23 +89,29 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         new Signature(preSignature.universalConstants + domain_size,
                       preSignature.existentialConstants,
                       preSignature.nullaryFunctions,
-                      preSignature.order.extend(domain_size, Set()))
+                      preSignature.order.extend(domain_size, Set()),
+                      preSignature.domainPredicates,
+                      preSignature.functionTypes)
       case _ =>
         preSignature
     }
     
-    val preprocSettings =
-       Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
-           settings.toPreprocessingSettings,
-           determineTriggerGenFunctions(settings, parser.env))
-
+    val preprocSettings = {
+      var ps = settings.toPreprocessingSettings
+      ps = Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(ps,
+             determineTriggerGenFunctions(settings, parser.env))
+      ps = Param.DOMAIN_PREDICATES.set(ps, signature.domainPredicates)
+      ps
+    }
+    
     Console.withOut(Console.err) {
       println("Preprocessing ...")
     }
     
     val functionEnc =
       new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                           Param.GENERATE_TOTALITY_AXIOMS(settings))
+                           Param.GENERATE_TOTALITY_AXIOMS(settings),
+                           signature.functionTypes)
     
     val (inputFormulas, interpolantS, sig) =
       Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)
@@ -121,7 +128,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
     (inputFormulas, interpolantS, sig, gcedFunctions, functionEnc, settings)
   }
-  
+
   private val functionalPreds = 
     (for ((p, f) <- functionEncoder.predTranslation.iterator;
           if (!f.relational)) yield p).toSet
@@ -136,7 +143,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds,
-                          Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
+                          Param.FINITE_DOMAIN_CONSTRAINTS.assumeInfiniteDomain(settings),
                           order)
   
   val formulas =
@@ -162,9 +169,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
+    gs = Param.DOMAIN_PREDICATES.set(gs, signature.domainPredicates)
+    gs = Param.PREDICATE_MATCH_CONFIG.set(gs,
+        (for (p <- signature.domainPredicates.iterator)
+         yield (p -> IterativeClauseMatcher.PredicateMatchStatus.None)).toMap)
     gs
   }
-  
+
   private def determineSimplifier(settings : GlobalSettings) : ConstraintSimplifier =
     Param.SIMPLIFY_CONSTRAINTS(settings) match {
       case Param.ConstraintSimplifierOptions.None =>

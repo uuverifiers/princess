@@ -156,9 +156,11 @@ class ParallelFileProver(createReader : () => java.io.Reader,
             mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
           } else {
             val prover =
-              new IntelliFileProver(createReader(),
-                                    timeout - (System.currentTimeMillis - startTime).toInt,
-                                    true, localStoppingCond, s)
+              Timeout.withChecker({case x => ()}) {
+                new IntelliFileProver(createReader(),
+                                      timeout - (System.currentTimeMillis - startTime).toInt,
+                                      true, localStoppingCond, s)
+              }
     
             if (actorStopped) {
 //              Console.err.println("killed")
@@ -291,7 +293,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case r @ SubProverException(num, t) => {
         subProverStatus(num).result = r
         runningProverNum = runningProverNum - 1
-        addResult(Right(t))
+        Console.out.println("Prover " + num + " died")
+        t.printStackTrace
+        resumeProver
+        //addResult(Right(t))
       }
       
       case r @ SubProverKilled(num) => {

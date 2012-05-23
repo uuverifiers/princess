@@ -21,7 +21,24 @@
 
 package ap
 
+import ap.parser.{ITerm, IFormula, IExpression, IFunction}
 import ap.terfor.{ConstantTerm, TermOrder}
+import ap.terfor.preds.Predicate
+
+object Signature {
+  
+  abstract class FunctionType {
+    def argumentTypeGuard(args : Seq[ITerm]) : IFormula
+    def resultTypeGuard  (res : ITerm)       : IFormula
+  }
+  
+  object TopFunctionType extends FunctionType {
+    import IExpression._
+    def argumentTypeGuard(args : Seq[ITerm]) : IFormula = i(true)
+    def resultTypeGuard  (res : ITerm)       : IFormula = i(true)
+  }
+  
+}
 
 /**
  * Helper class for storing the sets of declared constants (of various kinds)
@@ -30,8 +47,10 @@ import ap.terfor.{ConstantTerm, TermOrder}
 class Signature(val universalConstants : Set[ConstantTerm],
                 val existentialConstants : Set[ConstantTerm],
                 val nullaryFunctions : Set[ConstantTerm],
-                val order : TermOrder) {
+                val order : TermOrder,
+                val domainPredicates : Set[Predicate],
+                val functionTypes : Map[IFunction, Signature.FunctionType]) {
   def updateOrder(newOrder : TermOrder) =
     new Signature(universalConstants, existentialConstants,
-                  nullaryFunctions, newOrder)
+                  nullaryFunctions, newOrder, domainPredicates, functionTypes)
 }

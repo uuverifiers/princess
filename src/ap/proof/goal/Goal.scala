@@ -68,7 +68,7 @@ object Goal {
                           settings : GoalSettings) : Goal = {
     val reducer = ReduceWithConjunction(Conjunction.TRUE,
                                         Param.FUNCTIONAL_PREDICATES(settings),
-                                        Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
+                                        Param.FINITE_DOMAIN_CONSTRAINTS.assumeInfiniteDomain(settings),
                                         order)
     apply(List(reducer(Conjunction.conj(f, order))),
           eliminatedConstants, Vocabulary(order), settings)
@@ -91,7 +91,7 @@ object Goal {
       BranchInferenceCollection.EMPTY
 
     apply(Conjunction.TRUE,
-          CompoundFormulas.EMPTY,
+          CompoundFormulas.EMPTY(Param.PREDICATE_MATCH_CONFIG(settings)),
           TaskManager.EMPTY ++ tasks,
           0,
           eliminatedConstants,
@@ -104,7 +104,7 @@ object Goal {
   def TRUE(vocabulary : Vocabulary,
            branchInferences : BranchInferenceCollection) : Goal =
     new Goal (Conjunction.FALSE,
-              CompoundFormulas.EMPTY,
+              CompoundFormulas.EMPTY(Map()),
               TaskManager.EMPTY, 0,
               Set.empty, vocabulary,
               new IdentitySubst (vocabulary.order),
@@ -141,14 +141,16 @@ object Goal {
         val unitResolution = Param.POS_UNIT_RESOLUTION(settings)
         
         for (f <- disj.negatedConjs)
-          if (unitResolution && (NegLitClauseTask isCoveredFormula f))
+          if (unitResolution &&
+              NegLitClauseTask.isCoveredFormula(f, settings))
             negLitClauses = f :: negLitClauses
           else
             otherTasks ++= formulaTasks(f, age, eliminatedConstants, vocabulary, settings)
         
         if (!negLitClauses.isEmpty)
           otherTasks +=
-            new NegLitClauseTask(Conjunction.disj(negLitClauses, formula.order), age)
+            NegLitClauseTask(Conjunction.disj(negLitClauses, formula.order), age,
+                             settings)
         
         otherTasks
       } ++
@@ -166,8 +168,8 @@ object Goal {
         if (formula.isDivisibility)
           new DivisibilityTask(formula, age)
         else if (Param.POS_UNIT_RESOLUTION(settings) &&
-                 (NegLitClauseTask isCoveredFormula formula))
-          new NegLitClauseTask(formula, age)
+                 NegLitClauseTask.isCoveredFormula(formula, settings))
+          NegLitClauseTask(formula, age, settings)
         else
           new ExQuantifierTask(formula, age))
     }
@@ -225,7 +227,10 @@ class Goal private (val facts : Conjunction,
                    (compoundFormulas isSortedBy order) &&
                    (definedSyms isSortedBy order) &&
                    (order constantsAreMaximal eliminatedConstants) &&
-                   (order constantsAreMaximal eliminatedConstants))
+                   (order constantsAreMaximal eliminatedConstants) &&
+                   // domain predicates should only occur positively
+                   (facts.predConj.negativeLits forall { a =>
+                     !(Param.DOMAIN_PREDICATES(settings) contains a.pred)}))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   private def elimConstants(tfs : Seq[LinearCombination]) : Seq[LinearCombination] = {
@@ -339,7 +344,7 @@ class Goal private (val facts : Conjunction,
 
   lazy val reduceWithFacts : ReduceWithConjunction =
     ReduceWithConjunction(facts, Param.FUNCTIONAL_PREDICATES(settings),
-                          Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None,
+                          Param.FINITE_DOMAIN_CONSTRAINTS.assumeInfiniteDomain(settings),
                           order)
    
   //////////////////////////////////////////////////////////////////////////////

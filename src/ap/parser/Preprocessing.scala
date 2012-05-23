@@ -44,7 +44,8 @@ object Preprocessing {
             : (List[INamedPart], List[IInterpolantSpec], Signature) =
     apply(f, interpolantSpecs, signature, settings,
           new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                               Param.GENERATE_TOTALITY_AXIOMS(settings)))
+                               Param.GENERATE_TOTALITY_AXIOMS(settings),
+                               signature.functionTypes))
 
   def apply(f : IFormula,
             interpolantSpecs : List[IInterpolantSpec],
@@ -120,7 +121,7 @@ object Preprocessing {
       case Param.ClausifierOptions.BooleanCompactify =>
         for (f <- fors5) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     }
-    
+
     (fors6, interpolantSpecs, signature updateOrder order3)
   }
   

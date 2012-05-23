@@ -231,10 +231,12 @@ object IterativeClauseMatcher {
 
   private def constructMatcher(startPred : Predicate, negStartLit : Boolean,
                                clauses : Seq[Conjunction],
-                               includeAxiomMatcher : Boolean) : List[MatchStatement] = {
+                               includeAxiomMatcher : Boolean)
+                              (implicit config : PredicateMatchConfig) : List[MatchStatement] = {
     val matchers = new ArrayBuffer[List[MatchStatement]]
     
-    if (isPositivelyMatched(startPred) != negStartLit)
+    if ((negStartLit && isNegativelyMatched(startPred)) ||
+        (!negStartLit && isPositivelyMatched(startPred)))
       for (clause <- clauses) {
         val startLits = if (negStartLit)
                           clause.predConj.negativeLitsWithPred(startPred)
@@ -257,7 +259,9 @@ object IterativeClauseMatcher {
    * literal
    */
   private def constructMatcher(startLit : Atom, negStartLit : Boolean,
-                               clause : Conjunction) : List[MatchStatement] = {
+                               clause : Conjunction)
+                              (implicit config : PredicateMatchConfig)
+                              : List[MatchStatement] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
                     ((if (negStartLit)
@@ -289,7 +293,7 @@ object IterativeClauseMatcher {
     genAliasChecks(startLit, 0)
     
     for ((a, litNr) <- nonStartMatchedLits.iterator.zipWithIndex) {
-      res += SelectLiteral(a.pred, !isPositivelyMatched(a))
+      res += SelectLiteral(a.pred, isNegativelyMatched(a.pred))
       genAliasChecks(a, litNr + 1)
     }
     
@@ -304,11 +308,13 @@ object IterativeClauseMatcher {
    * Given a conjunction of atoms, determine which atoms are to be matched on
    * facts. The 2nd component of the result are the remaining literals.
    */
-  private def determineMatchedLits(conj : PredConj) : (Seq[Atom], PredConj) = {
+  private def determineMatchedLits(conj : PredConj)
+                                  (implicit config : PredicateMatchConfig)
+                                   : (Seq[Atom], PredConj) = {
     val (posMatched, posRemaining) =
-      conj.positiveLits partition (isPositivelyMatched(_))
+      conj.positiveLits partition { a => isPositivelyMatched(a.pred) }
     val (negMatched, negRemaining) =
-      conj.negativeLits partition (!isPositivelyMatched(_))
+      conj.negativeLits partition { a => isNegativelyMatched(a.pred) }
 
     (posMatched ++ negMatched,
      conj.updateLitsSubset(posRemaining, negRemaining, conj.order))
@@ -321,18 +327,33 @@ object IterativeClauseMatcher {
    * TODO: generalise this so that for some predicates the positive occurrences,
    * for some predicates the negative occurrences are resolved
    */
-  private def isPositivelyMatched(a : Atom) : Boolean = true
-  private def isPositivelyMatched(pred : Predicate) : Boolean = true
+  private def isPositivelyMatched(pred : Predicate)
+                                 (implicit config : PredicateMatchConfig) : Boolean =
+    config.getOrElse(pred, PredicateMatchStatus.Positive) == PredicateMatchStatus.Positive
 
+  private def isNegativelyMatched(pred : Predicate)
+                                 (implicit config : PredicateMatchConfig) : Boolean =
+    config.getOrElse(pred, PredicateMatchStatus.Positive) == PredicateMatchStatus.Negative
+
+  object PredicateMatchStatus extends Enumeration {
+    val Positive, Negative, None = Value
+  }
+  
+  type PredicateMatchConfig = Map[Predicate, PredicateMatchStatus.Value]
+  
   object Matchable extends Enumeration {
     val No, ProducesLits, Complete = Value
   }
   
-  def isMatchable(c : Conjunction) : Matchable.Value = {
+  def isMatchable(c : Conjunction,
+                  config : PredicateMatchConfig,
+                  domainPredicates : Set[Predicate]) : Matchable.Value = {
+    implicit val _config = config
     val (matchLits, remainingLits) = determineMatchedLits(c.predConj)
     if (matchLits.isEmpty)
       Matchable.No
-    else if (remainingLits.isTrue && c.negatedConjs.predicates.isEmpty)
+    else if ((remainingLits.predicates subsetOf domainPredicates) &&
+             (c.negatedConjs.predicates subsetOf domainPredicates))
       Matchable.Complete
     else
       Matchable.ProducesLits
@@ -347,10 +368,14 @@ object IterativeClauseMatcher {
    * a more efficient way of proof construction (<code>ModelSearchProver</code>)
    * can be used
    */
-  def isMatchableRec(c : Conjunction) : Boolean =
-    isMatchableRecHelp(c, false)
+  def isMatchableRec(c : Conjunction,
+                     config : PredicateMatchConfig) : Boolean =
+    isMatchableRecHelp(c, false, config)
   
-  private def isMatchableRecHelp(c : Conjunction, negated : Boolean) : Boolean = {
+  private def isMatchableRecHelp(c : Conjunction, negated : Boolean,
+                                 config : PredicateMatchConfig) : Boolean = {
+    implicit val _config = config
+    
     val lastUniQuantifier = (c.quans lastIndexOf Quantifier(negated)) match {
       case -1 => 0
       case x => x + 1
@@ -400,7 +425,7 @@ object IterativeClauseMatcher {
           yield lc.leadingTerm.asInstanceOf[VariableTerm].index).toSet
        (0 until lastUniQuantifier) forall (matchedVariables contains _)
      }) &&
-    (c.negatedConjs forall (isMatchableRecHelp(_, !negated)))
+    (c.negatedConjs forall (isMatchableRecHelp(_, !negated, config)))
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -425,15 +450,16 @@ object IterativeClauseMatcher {
     // TODO: more efficient implementation
     List(Choice(programs))
 
-  def empty(matchAxioms : Boolean) =
+  def empty(matchAxioms : Boolean, config : PredicateMatchConfig) =
     IterativeClauseMatcher (PredConj.TRUE, NegatedConjunctions.TRUE,
                             matchAxioms,
-                            Set(Conjunction.FALSE))
+                            Set(Conjunction.FALSE))(config)
 
   private def apply(currentFacts : PredConj,
                     currentClauses : NegatedConjunctions,
                     matchAxioms : Boolean,
-                    generatedInstances : Set[Conjunction]) =
+                    generatedInstances : Set[Conjunction])
+                   (implicit config : PredicateMatchConfig) =
     new IterativeClauseMatcher(currentFacts, currentClauses, matchAxioms,
                                new HashMap[(Predicate, Boolean), List[MatchStatement]],
                                generatedInstances)
@@ -451,6 +477,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                       // generated by this match. This is used
                                       // to prevent redundant instantiation
                                       generatedInstances : Set[Conjunction])
+                                     (implicit config : IterativeClauseMatcher.PredicateMatchConfig)
       extends Sorted[IterativeClauseMatcher] {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////

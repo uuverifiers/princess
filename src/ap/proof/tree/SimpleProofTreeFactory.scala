@@ -40,9 +40,10 @@ class SimpleProofTreeFactory(removeTask : Boolean,
   def quantify(subtree : ProofTree,
                quan : Quantifier,
                quantifiedConstants : Seq[ConstantTerm],
+               guard : Conjunction,
                vocabulary : Vocabulary,
                subtreeOrder : TermOrder) : ProofTree =
-    QuantifiedTree(subtree, quan, quantifiedConstants,
+    QuantifiedTree(subtree, quan, quantifiedConstants, guard,
                    vocabulary, subtreeOrder, simplifier)
   
   def weaken(subtree : ProofTree,

@@ -212,7 +212,8 @@ object NICheckerMain {
 class SigTracker(var sig : Signature) {
   def addConst(c : ConstantTerm) : Unit =
 	sig = new Signature(sig.universalConstants, sig.existentialConstants,
-			            sig.nullaryFunctions + c, sig.order.extend(c, Set()))
+			            sig.nullaryFunctions + c, sig.order.extend(c, Set()),
+			            sig.domainPredicates, sig.functionTypes)
   def cloneConst(c : ConstantTerm, suffix : String) : ConstantTerm = {
     val newC = new ConstantTerm (c.name + suffix)
     addConst(newC)
@@ -220,7 +221,8 @@ class SigTracker(var sig : Signature) {
   }
   def addPred(p : Predicate) : Unit =
 	sig = new Signature(sig.universalConstants, sig.existentialConstants,
-			            sig.nullaryFunctions, sig.order extend p)
+			            sig.nullaryFunctions, sig.order extend p,
+			            sig.domainPredicates, sig.functionTypes)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

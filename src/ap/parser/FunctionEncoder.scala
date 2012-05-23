@@ -23,6 +23,7 @@ package ap.parser
 
 import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
 
+import ap.Signature
 import ap.terfor.TermOrder
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Quantifier
@@ -199,11 +200,11 @@ object FunctionEncoder {
    * this order will be preserved by the function
    */
   private def findRelevantAbstractions
-    (p : IFormula, abstractions : Seq[(IFunApp, Int, IAtom)])
-    : Seq[(IFunApp, Int, IAtom)] = {
+    (p : IFormula, abstractions : Seq[(IFunApp, Int, IFormula)])
+    : Seq[(IFunApp, Int, IFormula)] = {
  
     val vars = new scala.collection.mutable.HashSet[IVariable]
-    val defs = ArrayBuilder.make[(IFunApp, Int, IAtom)]
+    val defs = ArrayBuilder.make[(IFunApp, Int, IFormula)]
     
     vars ++= SymbolCollector variables p
     
@@ -237,7 +238,8 @@ object FunctionEncoder {
  * the axioms that have been introduced for the relational encoding.
  */
 class FunctionEncoder (tightFunctionScopes : Boolean,
-                       genTotalityAxioms : Boolean) {
+                       genTotalityAxioms : Boolean,
+                       functionTypes : Map[IFunction, Signature.FunctionType]) {
   
   import FunctionEncoder._
   import IExpression._
@@ -279,10 +281,12 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   val predTranslation =
     new scala.collection.mutable.HashMap[Predicate, IFunction]
   
-  private def totality(pred : Predicate) : IFormula = {
+  private def totality(f : IFunction, pred : Predicate) : IFormula = {
     val args = (for (i <- 1 until pred.arity) yield v(i)) ++ List(v(0))
     val atom = IAtom(pred, args)
-    quan(List.fill(pred.arity - 1){Quantifier.ALL}, ex(atom))
+    quan(List.fill(pred.arity - 1){Quantifier.ALL},
+         genArgGuard(f, for (i <- 0 until f.arity) yield v(i)) ===>
+           ex(atom &&& genResGuard(f, v(0))))
   }
   
   private def functionality(pred : Predicate) : IFormula = {
@@ -293,6 +297,18 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     quan(List.fill(pred.arity + 1){Quantifier.ALL}, matrix)
   }
 
+  private def genArgGuard(f : IFunction, args : Seq[ITerm]) =
+    (functionTypes get f) match {
+      case Some(typ) => typ argumentTypeGuard args
+      case None => i(true)
+    }
+  
+  private def genResGuard(f : IFunction, resTerm : ITerm) =
+    (functionTypes get f) match {
+      case Some(typ) => typ resultTypeGuard resTerm
+      case None => i(true)
+    }
+  
   //////////////////////////////////////////////////////////////////////////////
   
   private class EncoderVisitor(var nextAbstractionNum : Int, var order : TermOrder)
@@ -305,7 +321,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         if (!fun.relational)
           axiomsVar = axiomsVar &&& functionality(pred)
         if (!fun.partial && genTotalityAxioms)
-          axiomsVar = axiomsVar &&& totality(pred)
+          axiomsVar = axiomsVar &&& totality(fun, pred)
         predTranslation += (pred -> fun)
         pred
       })
@@ -350,7 +366,8 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
       
         def addNegAbstractions(subFor : IFormula) = {
           // reserve variables for the universal quantifiers
-          val (shiftedF, negAbstractionRels) = funsToRelations(subFor, negAbstractions)
+          val (shiftedF, negAbstractionRels) =
+            funsToRelations(subFor, negAbstractions, true)
       
           // add the negative definitions and universal quantifiers
           IExpression.quan(Array.fill(negAbstractions.length){Quantifier.ALL},
@@ -365,7 +382,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
       
         // reserve variables for the existential quantifiers
         val (shiftedUnmatched, posAbstractionRels) =
-          funsToRelations(unmatched, posAbstractions)
+          funsToRelations(unmatched, posAbstractions, false)
 
         // add the positive definitions and existential quantifiers
         IExpression.quan(Array.fill(posAbstractions.length){Quantifier.EX},
@@ -379,7 +396,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
      * to the sub-formulae as far as possible.
      */
     private def distributeUniDefinitions
-       (f : IFormula, abstractions : Seq[(IFunApp, Int, IAtom)]) : IFormula =
+       (f : IFormula, abstractions : Seq[(IFunApp, Int, IFormula)]) : IFormula =
       if (abstractions.isEmpty)
         f
       else f match {
@@ -393,7 +410,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
               abstractions.toSet
             case IBinJunctor.And =>
               // distribute all definitions
-              Set[(IFunApp, Int, IAtom)]()
+              Set[(IFunApp, Int, IFormula)]()
             case IBinJunctor.Or =>
               // we include those definitions on the top level that occur in
               // an atom
@@ -420,8 +437,9 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
      * representing the function applications
      */
     private def funsToRelations(f : IFormula,
-                                abstractions : Seq[(IFunApp, Int)])
-                               : (IFormula, Seq[(IFunApp, Int, IAtom)]) = {
+                                abstractions : Seq[(IFunApp, Int)],
+                                guards : Boolean)
+                               : (IFormula, Seq[(IFunApp, Int, IFormula)]) = {
       // all the previous bound variables have to be shifted upwards to make
       // place for the abstraction variables;
       // the abstraction variables are mapped to the indexes
@@ -436,13 +454,14 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
          val shiftedT = VariablePermVisitor(t, shifts).asInstanceOf[IFunApp]
          val definedVar = v(newNum)
          val defAtom = IAtom(toRelation(t.fun), shiftedT.args ++ List(definedVar))
-         (shiftedT, newNum, defAtom)
+         val resGuard = if (guards) genResGuard(t.fun, definedVar) else i(true)
+         (shiftedT, newNum, defAtom &&& resGuard)
        })
     }
     
     private def addDefPredicates(f : IFormula,
                                  universal : Boolean,
-                                 abstractions : Iterator[(IFunApp, Int, IAtom)]) =
+                                 abstractions : Iterator[(IFunApp, Int, IFormula)]) =
       (f /: abstractions) {
         case (f, (_, _, defAtom)) =>
           if (universal) defAtom ==> f else defAtom & f 
