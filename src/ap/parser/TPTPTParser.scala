@@ -405,7 +405,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
          // lemmas about multiplication
          //
          all(all(rrFun("$product", v(0), v(1)) === rrFun("$product", v(1), v(0)))),
-         all(all((v(1) === 0) |
+         all(all((v(1) === constants(IdealRat.ZERO)) |
                  (rrFun("$quotient", rrFun("$product", v(0), v(1)), v(1)) === v(0))))
          )
   }
