@@ -400,7 +400,13 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
          //
          all((v(0) === rrFun("$uminus", v(0))) ==>
              (v(0) === constants(IdealRat.ZERO))),
-         all(rrFun("$uminus", rrFun("$uminus", v(0))) === v(0))
+         all(rrFun("$uminus", rrFun("$uminus", v(0))) === v(0)),
+         //
+         // lemmas about multiplication
+         //
+         all(all(rrFun("$product", v(0), v(1)) === rrFun("$product", v(1), v(0)))),
+         all(all((v(1) === 0) |
+                 (rrFun("$quotient", rrFun("$product", v(0), v(1)), v(1)) === v(0))))
          )
   }
 
