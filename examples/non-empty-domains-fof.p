@@ -1,0 +1,1 @@
+fof(prop,conjecture,(? [X] : $true)).

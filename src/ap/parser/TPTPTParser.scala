@@ -152,6 +152,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           }
         }
         
+        ////////////////////////////////////////////////////////////////////////
+        
         // add axioms about the range of symbols; guards for quantifiers are
         // introducing during Preprocessing
         val domainAxioms = chosenFiniteConstraintMethod match {
@@ -174,6 +176,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
             i(false)
         }
 
+        ////////////////////////////////////////////////////////////////////////
+        
         val stringConstants = occurringStrings.toSeq.sortWith(_._1 < _._1)
         
         val stringConstantAxioms =
@@ -209,9 +213,23 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               Signature.TopFunctionType
           }
         
+        val domainPredAxioms = chosenFiniteConstraintMethod match {
+          case Param.FiniteDomainConstraints.TypeGuards =>
+            connect(for ((t, Some(domPred)) <- declaredTypes.iterator)
+                    yield {
+                      // add a constant to make sure that the type is inhabited
+                      val constName = "constant_in_" + t.name
+                      declareSym(constName, Rank0(t))
+                      domPred(checkUnintFunTerm(constName, List(), List())._1)
+                    }, IBinJunctor.And)
+          case _ =>
+            i(true)
+        }
+        
         ////////////////////////////////////////////////////////////////////////
                   
-        ((getAxioms &&& stringConstantAxioms &&& genRRAxioms) ===> (problem ||| domainAxioms),
+        ((getAxioms &&& stringConstantAxioms &&& genRRAxioms &&& domainPredAxioms) ===>
+          (problem ||| domainAxioms),
          List(),
          env toSignature (constructFunctionType _))
       }
@@ -240,10 +258,14 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     declareType(IType)
   }
 
-  private def declareType(t : Type) = {
-    val domPred = new Predicate("in_" + t.name, 1)
-    declaredTypes += (t -> Some(domPred))
-    env.addDomainPredicate(domPred, Rank1((t), OType))
+  private def declareType(t : Type) = tptpType match {
+    case TPTPType.TFF => {
+      val domPred = new Predicate("in_" + t.name, 1)
+      declaredTypes += (t -> Some(domPred))
+      env.addDomainPredicate(domPred, Rank1((t), OType))
+    }
+    case _ =>
+      declaredTypes += (t -> None)
   }
   
   //////////////////////////////////////////////////////////////////////////////
