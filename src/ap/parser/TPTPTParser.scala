@@ -28,10 +28,11 @@ import ap.terfor.{Formula, ConstantTerm}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.Param
+import ap.util.{Debug, Seqs}
+
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 import scala.util.parsing.combinator.{JavaTokenParsers, PackratParsers}
 import scala.util.matching.Regex
-import ap.util.Debug
 
 object TPTPTParser {
 
@@ -61,6 +62,8 @@ object TPTPTParser {
   
   private val preDeclaredTypes = Set(TType, OType, IType, IntType, RatType, RealType)
 
+  private val arithTypes = Set(IntType, RatType, RealType)
+  
   // Notice: no space between - and digits
   private val isIntegerConstRegEx = """[+-]?[0-9]+""".r 
   
@@ -1242,20 +1245,22 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$is_real",   Seq(RatType))          => true
     case ("$is_real",   Seq(RealType))         => true
 
-    case (pred, argTypes) =>
-      if (arithmeticOps contains pred) argTypes match {
-        case Seq(RatType, _*) =>
-          checkUnintAtom("rat_" + pred, args map (_._1), argTypes)
-        case Seq(RealType, _*) =>
-          checkUnintAtom("real_" + pred, args map (_._1), argTypes)
-        case _ =>
-          // should not happen
-          throw new SyntaxError("Operator " + pred +
-                                " cannot be applied to " +
-                                (argTypes mkString " x "))
-      } else {
-        checkUnintAtom(pred, args map (_._1), argTypes)
+    case (pred, argTypes)
+      if ((arithmeticOps contains pred) && !Seqs.disjointSeq(arithTypes, argTypes)) =>
+        argTypes match {
+          case Seq(RatType, _*) =>
+            checkUnintAtom("rat_" + pred, args map (_._1), argTypes)
+          case Seq(RealType, _*) =>
+            checkUnintAtom("real_" + pred, args map (_._1), argTypes)
+          case _ =>
+            // should not happen
+            throw new SyntaxError("Operator " + pred +
+                                  " cannot be applied to " +
+                                  (argTypes mkString " x "))
       }
+
+    case (pred, argTypes) =>
+      checkUnintAtom(pred, args map (_._1), argTypes)
   }
   
   private def checkUnintAtom(pred: String,
@@ -1331,8 +1336,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       }
     }
 
-    case (fun, argTypes) =>
-      if (arithmeticOps contains fun) args match {
+    case (fun, argTypes)
+      if ((arithmeticOps contains fun) && !Seqs.disjointSeq(arithTypes, argTypes)) =>
+        args match {
         case Seq((RRValue(argValue), RatType))
           if (!(arithmeticPreds contains fun)) => 
           (for (resValue <- evalRRFun(fun, argValue))
@@ -1363,9 +1369,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         case _ =>
           // should not happen
           throw new SyntaxError("Unexpected operator: " + fun)
-      } else {
-        checkUnintFunTerm(fun, args map (_._1), argTypes)
       }
+
+    case (fun, argTypes) =>
+      checkUnintFunTerm(fun, args map (_._1), argTypes)
   }
 
   private def checkUnintFunTerm(fun: String, args: Seq[ITerm], argTypes : Seq[Type])
