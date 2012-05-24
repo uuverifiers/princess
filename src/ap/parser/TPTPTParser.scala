@@ -373,7 +373,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                  rrPred("$greater", false, v(1), v(0)))),
          all(all(rrPred("$lesseq", false, v(0), v(1)) <=>
                  rrPred("$greatereq", false, v(1), v(0)))),
-         all(all((rrPred("$less", false, v(0), v(1))) | (v(0) === v(1)) <=>
+         all(all((rrPred("$less", false, v(0), v(1)) | (v(0) === v(1))) <=>
                  rrPred("$lesseq", false, v(0), v(1)))),
 //         all(all(rrPred("$less", false, v(0), v(1)) ==> (v(0) =/= v(1)))),
          all(all(all((rrPred("$less", false, v(0), v(1)) &
@@ -1089,6 +1089,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$is_int",    Seq(IntType))          => true
     case ("$is_rat",    Seq(IntType))          => true
     case ("$is_real",   Seq(IntType))          => true
+    case ("$is_rat",    Seq(RatType))          => true
+    case ("$is_real",   Seq(RatType))          => true
+    case ("$is_real",   Seq(RealType))         => true
 
     case (pred, argTypes) =>
       if (arithmeticOps contains pred) argTypes match {
