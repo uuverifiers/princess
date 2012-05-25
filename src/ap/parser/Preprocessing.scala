@@ -117,7 +117,7 @@ object Preprocessing {
       case Param.ClausifierOptions.None =>
         fors5
       case Param.ClausifierOptions.Simple =>
-        for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
+        for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
       case Param.ClausifierOptions.BooleanCompactify =>
         for (f <- fors5) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     }

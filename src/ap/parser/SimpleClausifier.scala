@@ -29,8 +29,32 @@ import IExpression._
 import Quantifier._
 
 object SimpleClausifier {
-
+  
   private val AC = Debug.AC_INPUT_ABSY
+   
+  protected[parser] object Literal {
+    def unapply(t : IExpression) : Option[IFormula] = t match {
+      case LeafFormula(t) => Some(t)
+      case t@INot(sub) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        // we assume that the formula is in negation normal form
+        Debug.assertPre(AC, LeafFormula.unapply(sub) != None)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        Some(t)
+      }
+      case _ => None
+    }
+  }
+  
+  private val MultNumLimit = 5000000
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+  
+class SimpleClausifier {
+
+  import SimpleClausifier._
   
   def apply(f : IFormula) : IFormula = {
     val f1 = Transform2NNF(f)
@@ -41,6 +65,17 @@ object SimpleClausifier {
     f5
   }
 
+  private var multNum = 0
+  
+  private def incMultNum = {
+    multNum = multNum + 1
+    if (multNum > MultNumLimit)
+      throw new ClausifierNonterminationException
+  }
+  
+  private class ClausifierNonterminationException
+                extends Exception("Clausification timed out")
+  
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -189,10 +224,14 @@ object SimpleClausifier {
     
     override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
       t match {
-        case IBinFormula(And, IBinFormula(Or, f1, f2), f3) =>
+        case IBinFormula(And, IBinFormula(Or, f1, f2), f3) => {
+          incMultNum
           TryAgain((f1 & f3) | (f2 & f3), 0)
-        case IBinFormula(And, f3, IBinFormula(Or, f1, f2)) =>
+        }
+        case IBinFormula(And, f3, IBinFormula(Or, f1, f2)) => {
+          incMultNum
           TryAgain((f3 & f1) | (f3 & f2), 0)
+        }
         case IBinFormula(Or, _, _) =>
           KeepArg
         case t : IFormula =>
@@ -271,22 +310,6 @@ object SimpleClausifier {
     
     def postVisit(t : IExpression, arg : Unit, subres : Seq[IFormula]) : IFormula =
       t.asInstanceOf[IFormula] update subres
-  }
-  
-  //////////////////////////////////////////////////////////////////////////////
-  
-  protected[parser] object Literal {
-    def unapply(t : IExpression) : Option[IFormula] = t match {
-      case LeafFormula(t) => Some(t)
-      case t@INot(sub) => {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        // we assume that the formula is in negation normal form
-        Debug.assertPre(AC, LeafFormula.unapply(sub) != None)
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        Some(t)
-      }
-      case _ => None
-    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
