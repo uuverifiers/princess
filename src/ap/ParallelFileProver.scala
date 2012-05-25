@@ -251,11 +251,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   //////////////////////////////////////////////////////////////////////////////
 
-  def inconclusiveResult(num : Int, res : Prover.Result) =
-    !settings(num).complete && (res match {
-      case Prover.NoProof(_) | Prover.NoModel | Prover.CounterModel(_) => true
-      case _ => false
-    })
+  def inconclusiveResult(num : Int, res : Prover.Result) = res match {
+    // we currently ignore the NoProof result, since the way in which
+    // finite domain guards are introduced destroys completeness in some
+    // rare cases
+    case Prover.NoProof(_) => true
+    case Prover.NoModel | Prover.CounterModel(_)
+      if (!settings(num).complete) => true
+    case _ => false
+  }
   
   //////////////////////////////////////////////////////////////////////////////
   
