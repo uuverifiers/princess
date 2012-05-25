@@ -252,7 +252,7 @@ object CmdlMain {
                      (s2, false, "-genTotalityAxioms -tightFunctionScopes"),
                      (s3, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"))
               */
-                                      
+                
               val S = {
                 var s = baseSettings
                 s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
@@ -296,7 +296,8 @@ object CmdlMain {
                                      Param.TIMEOUT(settings),
                                      true,
                                      userDefStoppingCond,
-                                     strategies)
+                                     strategies,
+                                     2)
             } else {
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),
