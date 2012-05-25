@@ -219,7 +219,8 @@ object CmdlMain {
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
             
             val prover = if (Param.MULTI_STRATEGY(settings)) {
-                                      
+              import ParallelFileProver._
+              
               /*
               val s1 = {
                 var s = baseSettings
@@ -286,10 +287,10 @@ object CmdlMain {
               }
               
               val strategies =
-                List((S, false, "-genTotalityAxioms -tightFunctionScopes"),
-                     (J, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"),
-                     (P, true, "-triggerStrategy=allMaximal -tightFunctionScopes"),
-                     (Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes"))
+                List(Configuration(S, false, "-genTotalityAxioms -tightFunctionScopes", Long.MaxValue),
+                     Configuration(J, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation", Long.MaxValue),
+                     Configuration(P, true, "-triggerStrategy=allMaximal -tightFunctionScopes", Long.MaxValue),
+                     Configuration(Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes", Long.MaxValue))
 
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),

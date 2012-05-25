@@ -59,6 +59,21 @@ object ParallelFileProver {
                extends SubProverMessage(_num)
   private case class SubProverPrintln(_num : Int, line : String, stream : Int)
                extends SubProverMessage(_num)
+
+  //////////////////////////////////////////////////////////////////////////////
+  // What should be done after a prover has suspended itself
+  
+  private abstract sealed class ProverSuspensionDecision
+  private case object SuspensionIgnored extends ProverSuspensionDecision
+  private case object SuspensionTimeout extends ProverSuspensionDecision
+  private case object SuspensionGranted extends ProverSuspensionDecision
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  case class Configuration(settings : GlobalSettings,
+                           complete : Boolean,
+                           name : String,
+                           timeout : Long)
 }
 
 /**
@@ -74,7 +89,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
                          timeout : Int,
                          output : Boolean,
                          userDefStoppingCond : => Boolean,
-                         settings : List[(GlobalSettings, Boolean, String)]) extends Prover {
+                         settings : Seq[ParallelFileProver.Configuration]) extends Prover {
 
   import ParallelFileProver._
   
@@ -87,7 +102,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   private val startTime = System.currentTimeMillis
   
-  private val proofActors = for (((s, complete, desc), num) <- settings.zipWithIndex) yield actor {
+  private val proofActors =
+  for ((Configuration(s, complete, desc, _), num) <- settings.zipWithIndex) yield actor {
     
     Debug.enabledAssertions.value = enabledAssertions
     
@@ -116,7 +132,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       
       actorStopped || userDefStoppingCond || {
         if (System.currentTimeMillis > runUntil) {
-//          Console.err.println("suspending")
+          Console.err.println("suspending")
           mainActor ! SubProverSuspended(num)
           
           var suspended = true
@@ -126,7 +142,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
             case SubProverResume(u) => {
               runUntil = u
               suspended = false
-//              Console.err.println("resuming")
+              Console.err.println("resuming")
             }
           }
           
@@ -142,7 +158,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       
     receive {
       case SubProverStop => {
-//        Console.err.println("killed right away")
+        Console.err.println("killed right away")
         mainActor ! SubProverKilled(num)
       }
 
@@ -156,12 +172,14 @@ class ParallelFileProver(createReader : () => java.io.Reader,
             mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
           } else {
             val prover =
-              new IntelliFileProver(createReader(),
-                                    timeout - (System.currentTimeMillis - startTime).toInt,
-                                    true, localStoppingCond, s)
+              Timeout.withChecker({case x => ()}) {
+                new IntelliFileProver(createReader(),
+                                      timeout - (System.currentTimeMillis - startTime).toInt,
+                                      true, localStoppingCond, s)
+              }
     
             if (actorStopped) {
-//              Console.err.println("killed")
+              Console.err.println("killed")
               mainActor ! SubProverKilled(num)
             } else {
               Console.err.println("found result")
@@ -170,7 +188,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
           }
         } catch {
           case t : Throwable => {
-//            Console.err.println("exception")
+            Console.err.println("exception")
             mainActor ! SubProverException(num, t)
           }
         }
@@ -181,7 +199,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   //////////////////////////////////////////////////////////////////////////////
 
   def inconclusiveResult(num : Int, res : Prover.Result) =
-    !settings(num)._2 && (res match {
+    !settings(num).complete && (res match {
       case Prover.NoProof(_) | Prover.NoModel | Prover.CounterModel(_) => true
       case _ => false
     })
@@ -194,7 +212,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     
     class SubProverStatus(val num : Int) {
       var result : SubProverResult = null
+      
       def unfinished = (result == null)
+      def localTimeout = settings(num).timeout
       
       var runtime : Long = num // just make sure that the provers start in the right order
       var lastStartTime : Long = 0
@@ -212,7 +232,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         proofActors(num) ! SubProverResume(targetedSuspendTime)
       }
       
-      def suspended : Boolean = {
+      /**
+       * Record that the prover has signalled suspension.
+       */
+      def suspended : ProverSuspensionDecision = {
         val currentTime = System.currentTimeMillis
         runtime = runtime + (currentTime - lastStartTime)
 //        Console.err.println("Prover " + num + " runtime: " + runtime)
@@ -221,9 +244,12 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         // and preprocessing. Then it makes sense to give it some more time
         if (activationCount == 1 && currentTime >= targetedSuspendTime + 5000) {
           resume(currentTime - targetedSuspendTime)
-          false
+          SuspensionIgnored
+        } else if (runtime > localTimeout) {
+          proofActors(num) ! SubProverStop
+          SuspensionTimeout
         } else {
-          true
+          SuspensionGranted
         }
       }
     }
@@ -291,7 +317,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case r @ SubProverException(num, t) => {
         subProverStatus(num).result = r
         runningProverNum = runningProverNum - 1
-        addResult(Right(t))
+        Console.out.println("Prover " + num + " died")
+        t.printStackTrace
+        resumeProver
+        //addResult(Right(t))
       }
       
       case r @ SubProverKilled(num) => {
@@ -304,9 +333,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Debug.assertInt(AC,
                         !(pendingProvers.iterator contains subProverStatus(num)))
         //-END-ASSERTION-/////////////////////////////////////////////////////////
-        if (subProverStatus(num).suspended) {
-          pendingProvers += subProverStatus(num)
-          resumeProver
+        subProverStatus(num).suspended match {
+          case SuspensionIgnored => // nothing
+          case SuspensionGranted => {
+            pendingProvers += subProverStatus(num)
+            resumeProver
+          }
+          case SuspensionTimeout => {
+            resumeProver
+          }
         }
       }
 
