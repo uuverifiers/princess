@@ -202,7 +202,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   
   private var containsRat = false
   
-  private def foundRat = if (!containsRat) {
+  private def foundRat = if (!containsRat && tptpType == TPTPType.TFF) {
     warn("Problem contains rationals, using incomplete axiomatisation")
     containsRat = true
     
@@ -248,7 +248,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   
   private var containsReal = false
   
-  private def foundReal = if (!containsReal) {
+  private def foundReal = if (!containsReal && tptpType == TPTPType.TFF) {
     warn("Problem contains reals, using incomplete axiomatisation")
     containsReal = true
 
@@ -1002,14 +1002,14 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       (regex(isIntegerConstRegEx) ~ "/" ~ regex(isIntegerConstRegEx)) ^^ {
         case num ~ _ ~ denom => {
           foundRat
-          (i(ratConstFor(IdealRat(num + "/" + denom))), RatType)
+          (i(ratConstFor(IdealRat(num + "/" + denom))), fofify(RatType))
         }
       }
     ) | (
       (regex(isIntegerConstRegEx) ~ "." ~ regex("""[0-9Ee\-]+""".r)) ^^ {
         case int ~ _ ~ frac => {
           foundReal
-          (i(realConstFor(IdealRat(int + "." + frac))), RealType)
+          (i(realConstFor(IdealRat(int + "." + frac))), fofify(RealType))
         }
       }
     ) | (
