@@ -31,6 +31,8 @@ import ap.parser.{SMTLineariser, PrincessLineariser, IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier}
 import ap.util.{Debug, Seqs, Timeout}
+import ap.parameterInference.{ElementaryAttributes,MyClassifier}
+
 
 object CmdlMain {
 
@@ -204,7 +206,7 @@ object CmdlMain {
     
   var domain_size : ConstantTerm = new ConstantTerm("domain_size")
 
-  def proveProblems(settings : GlobalSettings,
+  def proveProblems(settings : GlobalSettings, 
                     problems : Seq[(String, () => java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
     if (problems.isEmpty) {
@@ -322,7 +324,7 @@ object CmdlMain {
                                      2)
               */
               
-              val S01 = { //-clausifier=simple +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
+              /*val S01 = { //-clausifier=simple +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
                 var s = baseSettings
                 s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.Simple)
                 s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
@@ -453,7 +455,7 @@ object CmdlMain {
                 s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
                 s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMinimal)
                 s
-              }
+              }*/
 
               /*              New best: List(
                *               TryStrategyCommand(1010002.log,5000),
@@ -469,8 +471,28 @@ object CmdlMain {
                                TryStrategyCommand(1001001.log,17000),
                                TryStrategyCommand(1011002.log,113000)) */
 
-
-              val strategies =
+              val a = new ElementaryAttributes(null)
+              var myReader= reader
+               Console.withOut(Console.err) {
+              //println("Calculating attributes...")
+              }
+              
+              val instance=ElementaryAttributes.calculateAttributes(lastFilename,myReader)
+              Console.withOut(Console.err) {
+                println("Classifying ...")
+              }
+              val cls= new MyClassifier()
+              val res = cls.classify(instance)
+              
+              var strategies =List[Configuration]()
+              for (i <- 0 until 10)
+              { 
+            	  //println(res(i)._1)
+                  strategies= strategies ++ List(Configuration(cls.strategyToOptions(res(i)._1, baseSettings), false,
+                      cls.strategyName(res(i)._1),30000))                
+              }
+              
+            /*
                 List(Configuration(S01, false, "-clausifier=simple +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal", 5000),
                      Configuration(S02, true,  "-clausifier=simple +tightFunctionScopes +genTotalityAxioms +triggersInConjecture +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal", 5000),
                      Configuration(S03, false, "-clausifier=simple +tightFunctionScopes -genTotalityAxioms -triggersInConjecture +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal", 10000),
@@ -483,7 +505,7 @@ object CmdlMain {
                      Configuration(S10, false, "-clausifier=none +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal", 150000),
                      Configuration(S11, false, "-clausifier=none -tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal", 10000),
                      Configuration(S12, false, "-clausifier=none +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal", 150000))
-              
+              */
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
                                      true,
