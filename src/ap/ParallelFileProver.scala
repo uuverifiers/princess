@@ -207,7 +207,18 @@ object ParallelFileProver {
                   Console.err.println("stopped")
                   mainActor ! SubProverKilled(num, prover.result)
                 } else {
-                  Console.err.println("found result")
+                  Console.err.println(prover.result match {
+                    case _ : Prover.Proof |
+                         _ : Prover.ProofWithModel |
+                         _ : Prover.Model |
+                             Prover.NoCounterModel |
+                         _ : Prover.NoCounterModelCert | 
+                         _ : Prover.NoCounterModelCertInter => "proved"
+                    case _ : Prover.NoProof |
+                             Prover.NoModel |
+                         _ : Prover.CounterModel => "gave up"
+                    case _ => "terminated"
+                  })
                   mainActor ! SubProverFinished(num, prover.result)
                 }
               }
