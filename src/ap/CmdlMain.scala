@@ -322,6 +322,20 @@ object CmdlMain {
                                      2)
               */
               
+              /*              New best: List(
+               *               TryStrategyCommand(1010002.log,5000),
+                               TryStrategyCommand(1110110.log,4000),
+                               TryStrategyCommand(0010101.log,16000),
+                               TryStrategyCommand(0000000.log,49000),
+                               TryStrategyCommand(0011001.log,35000),
+                               TryStrategyCommand(0111100.log,5000),
+                               TryStrategyCommand(0010012.log,98000),
+                               TryStrategyCommand(1101000.log,82000),
+                               TryStrategyCommand(1001102.log,22000),
+                               TryStrategyCommand(0011011.log,83000),
+                               TryStrategyCommand(1001001.log,17000),
+                               TryStrategyCommand(1011002.log,113000))
+
               val S01 = { //-clausifier=simple +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
                 var s = baseSettings
                 s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.Simple)
@@ -455,21 +469,6 @@ object CmdlMain {
                 s
               }
 
-              /*              New best: List(
-               *               TryStrategyCommand(1010002.log,5000),
-                               TryStrategyCommand(1110110.log,4000),
-                               TryStrategyCommand(0010101.log,16000),
-                               TryStrategyCommand(0000000.log,49000),
-                               TryStrategyCommand(0011001.log,35000),
-                               TryStrategyCommand(0111100.log,5000),
-                               TryStrategyCommand(0010012.log,98000),
-                               TryStrategyCommand(1101000.log,82000),
-                               TryStrategyCommand(1001102.log,22000),
-                               TryStrategyCommand(0011011.log,83000),
-                               TryStrategyCommand(1001001.log,17000),
-                               TryStrategyCommand(1011002.log,113000)) */
-
-
               val strategies =
                 List(Configuration(S01, false, "-clausifier=simple +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal", 5000),
                      Configuration(S02, true,  "-clausifier=simple +tightFunctionScopes +genTotalityAxioms +triggersInConjecture +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal", 5000),
@@ -483,6 +482,48 @@ object CmdlMain {
                      Configuration(S10, false, "-clausifier=none +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal", 150000),
                      Configuration(S11, false, "-clausifier=none -tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal", 10000),
                      Configuration(S12, false, "-clausifier=none +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal", 150000))
+              */
+              
+              val rawStrategies =
+                List(("1010001",5000),
+                     ("1010002",5000),
+                     ("1110010",2000),
+                     ("0001001",14000),
+                     ("1001002",40000),
+                     ("1101102",7000),
+                     ("1011101",15000),
+                     ("1010101",7000),
+                     ("0010012",40000),
+                     ("1011011",Int.MaxValue),
+                     ("1111102",Int.MaxValue),
+                     ("1000000",20000),
+                     ("0100100",Int.MaxValue))
+                     
+              def toSetting(str : String) = {
+                var s = baseSettings
+                s = Param.TRIGGERS_IN_CONJECTURE.set(s, str(0) == '1')
+                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) == '1')
+                s = Param.TIGHT_FUNCTION_SCOPES.set(s, str(2) == '1')
+                s = Param.CLAUSIFIER.set(s,
+                      if (str(3) == '0')
+                        Param.ClausifierOptions.Simple
+                      else
+                        Param.ClausifierOptions.None)
+                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, str(4) == '1')
+                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, str(5) == '1')
+                s = Param.TRIGGER_STRATEGY.set(s, str(6) match {
+                      case '0' => Param.TriggerStrategyOptions.AllMaximal
+                      case '1' => Param.TriggerStrategyOptions.Maximal
+                      case '2' => Param.TriggerStrategyOptions.AllMinimal
+                    })
+                s
+              }
+              
+              val strategies = for ((str, to) <- rawStrategies) yield {
+                val s = toSetting(str)
+                Configuration(toSetting(str), Param.GENERATE_TOTALITY_AXIOMS(s),
+                              str, to)
+              }
               
               new ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
