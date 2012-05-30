@@ -13,7 +13,7 @@ import ap.parameters.{GlobalSettings,Param}
 
 class MyClassifier() {
   
-  val clsPath=new java.io.File("/home/aleks/models/")
+  val clsPath=new java.io.File("models/")
   
   //Currently doesn't store models, but for multiple instances it could be faster to store them for a while
   def classify(Attributes : Array[Double]):Array[(java.lang.String,Double)]={
