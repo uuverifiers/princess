@@ -146,12 +146,15 @@ object ElementaryAttributes {
     			() => new java.io.BufferedReader(
     			new java.io.FileReader(
     			new java.io.File(name))))
-
-
-
-    	val cls= new MyClassifier()
+    
+    for (i <- 0 until a.attributeNames.size)
+      {
+    	print(instance(i)+", ")
+      }
+    println()
+    	/*val cls= new MyClassifier()
     	for ( res <- cls.classify(instance))
-    		println(res._1+": "+res._2)
+    		println(res._1+": "+res._2)*/
     }
   }
 
@@ -590,8 +593,8 @@ class CNFSizeEstimate(instance: IExpression)
       || (Exp match { case _: IBoolLit => true; case _ => false })
       || (Exp match { case _: ITerm => true; case _ => false }))
       (1, 1, 1, 1)
-    else if ((subres.size == 1)) //covers INot, INamedPart, etc.
-      subres(0)
+    else if ((subres.size == 1) || (Exp match {case _:ITrigger => true; case _ => false})) //covers INot, INamedPart, etc.
+      subres(subres.size-1)
     else {
       Exp match {
         case IBinFormula(IBinJunctor.And, _, _) => (subres(0)._1 * subres(1)._1, subres(0)._1 * subres(1)._2 + subres(0)._2 * subres(1)._1,
