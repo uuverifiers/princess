@@ -36,13 +36,17 @@ all: scala-src
 jar: scala-src
 	cd bin && jar cf princess.jar ap
 
-dist: jar
+model-jar:
+	jar cf dist/models.jar models/*.model models/*.arff models/models.list
+
+dist: jar model-jar
 	$(shell cp bin/princess.jar dist/)
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
-	$(shell cp $(EXTLIBSDIR)/weka.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
+	$(shell cp $(EXTLIBSDIR)/weka.jar dist/)
+	$(shell cp models/models.jar dist/)
 	java -jar $(PROGUARDJAR) @princess-proguard.pro
 
 jar-assertionless: scala-src-assertionless

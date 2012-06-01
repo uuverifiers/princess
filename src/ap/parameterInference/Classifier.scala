@@ -3,74 +3,21 @@ package ap.parameterInference
 import java.io.File
 import java.io.ObjectInputStream
 import java.io.FileInputStream
+
 import weka.classifiers.bayes.NaiveBayes
 import weka.core.Instance
 import weka.core.converters.ConverterUtils.DataSource
 import weka.filters.unsupervised.attribute.Remove
 import weka.filters.Filter
+
+import scala.collection.mutable.ArrayBuffer
+
 import ap.parameters.{GlobalSettings,Param}
 //import scala.util.Sorting
 
-class MyClassifier() {
-  
-  val clsPath=new java.io.File("models/")
-  
-  //Currently doesn't store models, but for multiple instances it could be faster to store them for a while
-  def classify(Attributes : Array[Double]):Array[(java.lang.String,Double)]={
-    
-  val files=clsPath.listFiles().filter(x => x.getPath().endsWith(".model"))
-  
-  val res=Array.fill(files.size)("",0.0)
-  var j=0
-  var k=0
-  var cls = new NaiveBayes();
-  for (clsPath <- files) {
-    
-    try {
-    val ois= new ObjectInputStream(new FileInputStream(clsPath.getAbsolutePath));
-    cls = ois.readObject().asInstanceOf[NaiveBayes];
-    ois.close();
-    } catch { case e : Throwable => println("Error")}
-    
-    val instance=new Instance(Attributes.size+2);
-    for ( i <- 0 until Attributes.size){
-      instance.setValue(i,Attributes(i))
-    }
-    
-    val instSet = (new DataSource("/home/aleks/models/emptyDataSet.arff")).getDataSet
-    if (instSet.classIndex() == -1)
-		instSet.setClassIndex(instSet.numAttributes() - 1);
-   
-    instance.setDataset(instSet)
-    instSet.add(instance)
-   
-    val options = weka.core.Utils.splitOptions("-R 1-21,38,44,66-67,70,76-82");
+object MyClassifier {
 
-    
-	val remove = new Remove();                         // new instance of filter
-	remove.setOptions(options);                           // set options
-	remove.setInputFormat(instSet); 
-	
-	val newData = Filter.useFilter(instSet, remove);
-	
-	val inst = newData.firstInstance
-	inst.setClassMissing()
-	
-    val pair=cls.distributionForInstance(inst)
-    val name=clsPath.getName
-    res(j)=(name.substring(0,name.indexOf('.')),pair(1)-pair(0))
-    j+=1
-  } 
- 
-  scala.util.Sorting.stableSort(res,(x,y)=>x._2>y._2)
-    
-    
-    //Array[(String,Double)](("",0.0))
-  }
-  
-  
-  def strategyToOptions(strategy : String, base:GlobalSettings):GlobalSettings={
-    
+    def strategyToOptions(strategy : String, base:GlobalSettings):GlobalSettings={
     
    /* if (strategy.length!=7 || strategy.toList.filter(x => (x=='0') || (x =='1') || (x=='2') )!="")
       null
@@ -108,6 +55,7 @@ class MyClassifier() {
        s
    // }
   }
+    
     def strategyName(strategy : String):String={
     
     /*if (strategy.length!=7 || strategy.toList.filter(x => (x=='0') || (x =='1') || (x=='2') )!="")
@@ -115,8 +63,8 @@ class MyClassifier() {
     else{*/
        var s = ""
        if (strategy.charAt(0)=='0')
-       s = s + " -triggersInConjencture"
-       else { s = s + " +triggersInConjencture" }
+       s = s + " -triggersInConjecture"
+       else { s = s + " +triggersInConjecture" }
        
        if (strategy.charAt(1)=='0')
        s = s + " -genTotalityAxioms"
@@ -136,7 +84,7 @@ class MyClassifier() {
 
        if(strategy.charAt(5)=='0')
        s = s + " -boolFunsAsPreds"
-       else { s = s + "+boolFunsAsPreds" }
+       else { s = s + " +boolFunsAsPreds" }
        
        if(strategy.charAt(6)=='0')
        s = s + " -triggerStrategy=AllMaximal"
@@ -146,6 +94,80 @@ class MyClassifier() {
        s
     }
    // }
+
+  //////////////////////////////////////////////////////////////////////////////
+    
+  object ResourceFiles {
+
+    private val modelsListFile = "/models/models.list"
+    private val emptyDataSetFile = "/models/emptyDataSet.arff"
+    
+    private def allModels = {
+      val reader = toReader(resourceAsStream(modelsListFile))
+      val res = new ArrayBuffer[String]
+      
+      var name = reader.readLine
+      while (name != null) {
+        res += name
+        name = reader.readLine
+      }
+      
+      res.toSeq
+    }
+    
+    def modelInputStreams =
+      for (file <- allModels.iterator) yield
+        ((file split '/').last, resourceAsStream(file))
+    
+    def emptyDataSetStream =
+      resourceAsStream(emptyDataSetFile)
+    
+    private def toReader(stream : java.io.InputStream) =
+      new java.io.BufferedReader (new java.io.InputStreamReader(stream))
+
+    private def resourceAsStream(filename : String) =
+      ResourceFiles.getClass.getResourceAsStream(filename)
+//      new java.io.FileInputStream(filename)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   
+  def classify(Attributes : Seq[Double]) : Seq[String] =
+    (for ((name, modelStream) <- ResourceFiles.modelInputStreams) yield {
+      val cls = try {
+        val ois = new ObjectInputStream(modelStream)
+        val cls = ois.readObject().asInstanceOf[NaiveBayes]
+        ois.close()
+        cls
+      } catch {
+        case e : Throwable =>
+          throw new Exception("could not read Bayesian model: " + e.getMessage)
+      }
+      
+      val instance = new Instance(Attributes.size + 2)
+      for ((a, i) <- Attributes.iterator.zipWithIndex)
+        instance.setValue(i, a)
+      
+      val instSet = new DataSource(ResourceFiles.emptyDataSetStream).getDataSet
+      if (instSet.classIndex == -1)
+        instSet.setClassIndex(instSet.numAttributes - 1)
+
+      instance.setDataset(instSet)
+      instSet.add(instance)
+   
+      val options = weka.core.Utils.splitOptions("-R 1-21,38,44,66-67,70,76-82")
+      
+      val remove = new Remove                         // new instance of filter
+      remove setOptions options                       // set options
+      remove setInputFormat instSet 
+    
+      val newData = Filter.useFilter(instSet, remove)
+    
+      val inst = newData.firstInstance
+      inst.setClassMissing
+      
+      val pair = cls distributionForInstance inst
+      ((name split '.').head, pair(1) - pair(0))
+    }).toSeq.sortWith(_._2 > _._2).map(_._1)
   
 }
