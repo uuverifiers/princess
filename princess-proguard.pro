@@ -11,8 +11,10 @@
 -injars dist/java-cup-11a.jar
 -injars dist/parser.jar
 -injars dist/smt-parser.jar
+-injars dist/models.jar
 -injars dist/scala-library.jar(!META-INF/**)
 -libraryjars /usr/share/java/ant.jar
+#-libraryjars dist/weka.jar
 -outjars dist/princess-all.jar
 
 -libraryjars <java.home>/lib/rt.jar

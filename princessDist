@@ -2,6 +2,6 @@
 
 BASEDIR=`dirname $(readlink -e $0)`
 
-export CLASSPATH=$CLASSPATH:$BASEDIR/dist/princess-all.jar
+export CLASSPATH=$CLASSPATH:$BASEDIR/dist/princess-all.jar:$BASEDIR/dist/weka.jar
 
 exec java -Xss20000k -Xmx2000m -noverify ap.CmdlMain "$@"

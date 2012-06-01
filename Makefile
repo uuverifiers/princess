@@ -31,7 +31,7 @@ PROGUARDJAR:=/home/philipp/tmp/proguard4.6/lib/proguard.jar
 export SCALAC SCALAC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH JAVA_OPTS
 
 
-all: scala-src
+all: model-jar scala-src
 
 jar: scala-src
 	cd bin && jar cf princess.jar ap
@@ -46,7 +46,6 @@ dist: jar model-jar
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/weka.jar dist/)
-	$(shell cp models/models.jar dist/)
 	java -jar $(PROGUARDJAR) @princess-proguard.pro
 
 jar-assertionless: scala-src-assertionless
@@ -57,8 +56,8 @@ dist-assertionless: jar-assertionless
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
-	$(shell cp $(EXTLIBSDIR)/weka.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
+	$(shell cp $(EXTLIBSDIR)/weka.jar dist/)
 	java -jar $(PROGUARDJAR) @princess-proguard.pro
 
 signed-dist: dist

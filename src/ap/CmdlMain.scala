@@ -239,7 +239,6 @@ object CmdlMain {
               Console.err.println("Classifying ...")
               
               val strategyOrder = MyClassifier classify instance
-              println(strategyOrder)
               
               val strategies = (for (name <- strategyOrder.iterator) yield {
                 val settings = MyClassifier.strategyToOptions(name, baseSettings)
