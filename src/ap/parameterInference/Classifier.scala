@@ -102,22 +102,36 @@ object MyClassifier {
     private val modelsListFile = "/models/models.list"
     private val emptyDataSetFile = "/models/emptyDataSet.arff"
     
-    private def allModels = {
+    /*private def allModels = {
       val reader = toReader(resourceAsStream(modelsListFile))
       val res = new ArrayBuffer[String]
       
       var name = reader.readLine
       while (name != null) {
-        res += name
+        res += (name split ' ').first
         name = reader.readLine
       }
       
       res.toSeq
     }
-    
+    */
+     private def allModels = {
+      val reader = toReader(resourceAsStream(modelsListFile))
+      val res = new ArrayBuffer[(String,Int)]
+      
+      var name = reader.readLine
+      var tmp =  Array[String](null)
+      while (name != null) {
+        tmp = (name split ' ')
+        res += ((tmp.first,augmentString(tmp.last).toInt))
+        name = reader.readLine
+      }
+      
+      res.toSeq
+    }
     def modelInputStreams =
-      for (file <- allModels.iterator) yield
-        ((file split '/').last, resourceAsStream(file))
+      for ((file,timeout) <- allModels.iterator) yield
+        ((file split '/').last,timeout, resourceAsStream(file))
     
     def emptyDataSetStream =
       resourceAsStream(emptyDataSetFile)
@@ -131,10 +145,15 @@ object MyClassifier {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  
-  def classify(Attributes : Seq[Double]) : Seq[String] =
-    (for ((name, modelStream) <- ResourceFiles.modelInputStreams) yield {
+  /*def getTimeouts():Seq[(String,Int)] = {
+     ResourceFiles.allTimeouts()
+  }*/
+  def classify(Attributes : Seq[Double]) : Seq[(String, Int)] ={
+    
+    //val timeouts= ResourceFiles.allTimeouts
+    (for ((name, timeout, modelStream) <- ResourceFiles.modelInputStreams) yield {
       val cls = try {
+        //stem.out.println("Reading model: "+name+" "+timeout)
         val ois = new ObjectInputStream(modelStream)
         val cls = ois.readObject().asInstanceOf[NaiveBayes]
         ois.close()
@@ -167,7 +186,8 @@ object MyClassifier {
       inst.setClassMissing
       
       val pair = cls distributionForInstance inst
-      ((name split '.').head, pair(1) - pair(0))
-    }).toSeq.sortWith(_._2 > _._2).map(_._1)
-  
+      //val to = timeouts.filter(x => x._1==name).head._2
+      ((name split '.').head, timeout, pair(1) - pair(0))
+    }).toSeq.sortWith(_._3 > _._3).map(x => (x._1,x._2))
+  }
 }

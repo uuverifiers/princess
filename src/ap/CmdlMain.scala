@@ -219,6 +219,7 @@ object CmdlMain {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
 
     try {
+    	  val numParallelProvers=3 //TODO: Move in some global options?
           for ((filename, reader) <- problems) try {
             val timeBefore = System.currentTimeMillis
             
@@ -239,13 +240,20 @@ object CmdlMain {
               Console.err.println("Classifying ...")
               
               val strategyOrder = MyClassifier classify instance
-              
-              val strategies = (for (name <- strategyOrder.iterator) yield {
+         
+              var i=0
+              val strategies = (for ((name,timeout) <- strategyOrder.iterator) yield {
                 val settings = MyClassifier.strategyToOptions(name, baseSettings)
                 val desc = MyClassifier strategyName name
+                i+=1
+                if (i <= numParallelProvers)
                 Configuration(settings,
                               Param.GENERATE_TOTALITY_AXIOMS(settings),
-                              desc, 30000)
+                              desc, timeout + 5000)
+                else
+                  Configuration(settings,
+                              Param.GENERATE_TOTALITY_AXIOMS(settings),
+                              desc, timeout)
               }).toList
               
              /*
@@ -296,7 +304,7 @@ object CmdlMain {
                                      true,
                                      userDefStoppingCond,
                                      strategies,
-                                     3)
+                                     numParallelProvers)
 
             } else {
               new IntelliFileProver(reader(),

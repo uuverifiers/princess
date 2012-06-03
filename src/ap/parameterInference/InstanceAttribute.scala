@@ -147,10 +147,12 @@ object ElementaryAttributes {
     			new java.io.FileReader(
     			new java.io.File(name))))
     
+    print( ((name split "/").last stripSuffix ".p") + ", ")
     for (i <- 0 until a.attributeNames.size)
-      {
-    	print(instance(i)+", ")
-      }
+    //for (inst <- instance)
+    {
+    	println(i+": "+instance(i))
+    }
     println()
     	/*val cls= new MyClassifier()
     	for ( res <- cls.classify(instance))
