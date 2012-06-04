@@ -22,7 +22,7 @@
 package ap.parser
 
 import ap.terfor.conjunctions.Quantifier
-import ap.util.{Debug, Seqs, PlainRange}
+import ap.util.{Debug, Seqs, PlainRange, Timeout}
 
 import IBinJunctor._
 import IExpression._
@@ -46,8 +46,6 @@ object SimpleClausifier {
     }
   }
   
-  private val MultNumLimit = 5000000
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,16 +63,13 @@ class SimpleClausifier {
     f5
   }
 
-  private var multNum = 0
+  private var opNum = 0
   
-  private def incMultNum = {
-    multNum = multNum + 1
-    if (multNum > MultNumLimit)
-      throw new ClausifierNonterminationException
+  private def incOpNum = {
+    opNum = opNum + 1
+    if (opNum % 1000 == 0)
+      Timeout.check
   }
-  
-  private class ClausifierNonterminationException
-                extends Exception("Clausification timed out")
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -186,7 +181,8 @@ class SimpleClausifier {
     def apply(f : IFormula, quanToPullUp : Quantifier) : IFormula =
       this.visit(f, quanToPullUp)
     
-    override def preVisit(t : IExpression, quanToPullUp : Quantifier) : PreVisitResult =
+    override def preVisit(t : IExpression, quanToPullUp : Quantifier) : PreVisitResult = {
+      incOpNum
       t match {
         case IBinFormula(j,
                          IQuantified(`quanToPullUp`, f1),
@@ -207,6 +203,7 @@ class SimpleClausifier {
         case t : IFormula =>
           ShortCutResult(t)
       }
+    }
   
     def postVisit(t : IExpression, quanToPullUp : Quantifier,
                   subres : Seq[IFormula]) : IFormula =
@@ -225,11 +222,11 @@ class SimpleClausifier {
     override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
       t match {
         case IBinFormula(And, IBinFormula(Or, f1, f2), f3) => {
-          incMultNum
+          incOpNum
           TryAgain((f1 & f3) | (f2 & f3), 0)
         }
         case IBinFormula(And, f3, IBinFormula(Or, f1, f2)) => {
-          incMultNum
+          incOpNum
           TryAgain((f3 & f1) | (f3 & f2), 0)
         }
         case IBinFormula(Or, _, _) =>

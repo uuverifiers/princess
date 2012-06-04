@@ -90,6 +90,11 @@ object Param {
     val defau : Int = Int.MaxValue
   }
 
+  case object CLAUSIFIER_TIMEOUT extends Param {
+    type Value = Int
+    val defau : Int = Int.MaxValue
+  }
+
   // resolve negative predicate literals in clauses with positive facts
   case object POS_UNIT_RESOLUTION extends Param {
     type Value = Boolean

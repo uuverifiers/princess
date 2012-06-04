@@ -520,9 +520,8 @@ object CmdlMain {
               }
               
               val strategies = for ((str, to) <- rawStrategies) yield {
-                val s = toSetting(str)
-                Configuration(toSetting(str), Param.GENERATE_TOTALITY_AXIOMS(s),
-                              str, to)
+                val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str), to)
+                Configuration(s, Param.GENERATE_TOTALITY_AXIOMS(s), str, to)
               }
               
               new ParallelFileProver(reader,

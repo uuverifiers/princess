@@ -25,6 +25,7 @@ import ap._
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{PreprocessingSettings, Param}
+import ap.util.Timeout
 
 /**
  * Preprocess an InputAbsy formula in order to make it suitable for
@@ -117,7 +118,10 @@ object Preprocessing {
       case Param.ClausifierOptions.None =>
         fors5
       case Param.ClausifierOptions.Simple =>
-        for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
+        println(Param.CLAUSIFIER_TIMEOUT(settings))
+        Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
+          for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
+        )(throw new Exception("Clausification timed out"))
       case Param.ClausifierOptions.BooleanCompactify =>
         for (f <- fors5) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     }
