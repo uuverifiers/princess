@@ -67,7 +67,7 @@ class SimpleClausifier {
   
   private def incOpNum = {
     opNum = opNum + 1
-    if (opNum % 1000 == 0)
+    if (opNum % 100 == 0)
       Timeout.check
   }
   

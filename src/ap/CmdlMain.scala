@@ -204,6 +204,51 @@ object CmdlMain {
     
   var domain_size : ConstantTerm = new ConstantTerm("domain_size")
 
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def toSetting(str : String, baseSettings : GlobalSettings) = {
+    var s = baseSettings
+    s = Param.TRIGGERS_IN_CONJECTURE.set(s, str(0) == '1')
+    s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) == '1')
+    s = Param.TIGHT_FUNCTION_SCOPES.set(s, str(2) == '1')
+    s = Param.CLAUSIFIER.set(s,
+        if (str(3) == '0')
+          Param.ClausifierOptions.Simple
+        else
+          Param.ClausifierOptions.None)
+    s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, str(4) == '1')
+    s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, str(5) == '1')
+    s = Param.TRIGGER_STRATEGY.set(s, str(6) match {
+      case '0' => Param.TriggerStrategyOptions.AllMaximal
+      case '1' => Param.TriggerStrategyOptions.Maximal
+      case '2' => Param.TriggerStrategyOptions.AllMinimal
+    })
+    s
+  }
+              
+  def toOptionList(strategy : String) : String = {
+    var s = ""
+    s = s + " " + (if (strategy.charAt(0)=='0') "-" else "+") + "triggersInConjecture"
+    s = s + " " + (if (strategy.charAt(1)=='0') "-" else "+") + "genTotalityAxioms"
+    s = s + " " + (if (strategy.charAt(2)=='0') "-" else "+") + "tightFunctionScopes"
+    s = s + " -clausifier=" + (if (strategy.charAt(3)=='0') "simple" else "none")
+    s = s + " " + (if (strategy.charAt(4)=='0') "-" else "+") + "reverseFunctionalityPropagation"
+    s = s + " " + (if (strategy.charAt(5)=='0') "-" else "+") + "boolFunsAsPreds"
+    
+    s = s + " -triggerStrategy=" + (
+       if(strategy.charAt(6)=='0')
+         "allMaximal"
+       else if(strategy.charAt(6)=='1')
+         "maximal"
+       else
+         "minimal"
+    )
+    
+    s
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def proveProblems(settings : GlobalSettings,
                     problems : Seq[(String, () => java.io.Reader)],
                     userDefStoppingCond : => Boolean) : Unit = {
@@ -322,168 +367,21 @@ object CmdlMain {
                                      2)
               */
               
-              /*              New best: List(
-               *               TryStrategyCommand(1010002.log,5000),
-                               TryStrategyCommand(1110110.log,4000),
-                               TryStrategyCommand(0010101.log,16000),
-                               TryStrategyCommand(0000000.log,49000),
-                               TryStrategyCommand(0011001.log,35000),
-                               TryStrategyCommand(0111100.log,5000),
-                               TryStrategyCommand(0010012.log,98000),
-                               TryStrategyCommand(1101000.log,82000),
-                               TryStrategyCommand(1001102.log,22000),
-                               TryStrategyCommand(0011011.log,83000),
-                               TryStrategyCommand(1001001.log,17000),
-                               TryStrategyCommand(1011002.log,113000))
-
-              val S01 = { //-clausifier=simple +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.Simple)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, true)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMinimal)
-                s
-              }
-              val S02 = { //-clausifier=simple +tightFunctionScopes +genTotalityAxioms +triggersInConjecture +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.Simple)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, true)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s
-              }
-              val S03 = { //-clausifier=simple +tightFunctionScopes -genTotalityAxioms -triggersInConjecture +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.Simple)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s
-              }
-              val S04 = { //-clausifier=simple -tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.Simple)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s
-              }
-              val S05 = { //-clausifier=none +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.None)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s
-              }
-              val S06 = { //-clausifier=none +tightFunctionScopes +genTotalityAxioms -triggersInConjecture +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.None)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s
-              }
-              val S07 = { //-clausifier=simple +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.Simple)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMinimal)
-                s
-              }
-              val S08 = { //-clausifier=none -tightFunctionScopes +genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.None)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, true)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s
-              }
-              val S09 = { //-clausifier=none -tightFunctionScopes -genTotalityAxioms +triggersInConjecture +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.None)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, true)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMinimal)
-                s
-              }
-              val S10 = { //-clausifier=none +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.None)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s
-              }
-              val S11 = { //-clausifier=none -tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.None)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, true)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s
-              }
-              val S12 = { //-clausifier=none +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
-                var s = baseSettings
-                s = Param.CLAUSIFIER.set(s, Param.ClausifierOptions.None)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, true)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMinimal)
-                s
-              }
-
-              val strategies =
-                List(Configuration(S01, false, "-clausifier=simple +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal", 5000),
-                     Configuration(S02, true,  "-clausifier=simple +tightFunctionScopes +genTotalityAxioms +triggersInConjecture +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal", 5000),
-                     Configuration(S03, false, "-clausifier=simple +tightFunctionScopes -genTotalityAxioms -triggersInConjecture +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal", 10000),
-                     Configuration(S04, false, "-clausifier=simple -tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal", 20000),
-                     Configuration(S05, false, "-clausifier=none +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal", 20000),
-                     Configuration(S06, true,  "-clausifier=none +tightFunctionScopes +genTotalityAxioms -triggersInConjecture +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal", 5000),
-                     Configuration(S07, false, "-clausifier=simple +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimal", 50000),
-                     Configuration(S08, true,  "-clausifier=none -tightFunctionScopes +genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal", 150000),
-                     Configuration(S09, false, "-clausifier=none -tightFunctionScopes -genTotalityAxioms +triggersInConjecture +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal", 10000),
-                     Configuration(S10, false, "-clausifier=none +tightFunctionScopes -genTotalityAxioms -triggersInConjecture -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal", 150000),
-                     Configuration(S11, false, "-clausifier=none -tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal", 10000),
-                     Configuration(S12, false, "-clausifier=none +tightFunctionScopes -genTotalityAxioms +triggersInConjecture -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal", 150000))
-              */
+              val rawStrategies =
+                List(("1010002", 5000),
+                     ("1110110", 5000),
+                     ("0010101", 10000),
+                     ("0000000", 20000),
+                     ("0011001", 20000),
+                     ("0111100", 5000),
+                     ("0010012", 50000),
+                     ("1101000", Int.MaxValue),
+                     ("1001102", 10000),
+                     ("0011011", Int.MaxValue),
+                     ("1001001", 10000),
+                     ("1011002", Int.MaxValue))
               
+              /*
               val rawStrategies =
                 List(("1010001",5000),
                      ("1010002",5000),
@@ -498,30 +396,13 @@ object CmdlMain {
                      ("1111102",Int.MaxValue),
                      ("1000000",20000),
                      ("0100100",Int.MaxValue))
-                     
-              def toSetting(str : String) = {
-                var s = baseSettings
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, str(0) == '1')
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) == '1')
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, str(2) == '1')
-                s = Param.CLAUSIFIER.set(s,
-                      if (str(3) == '0')
-                        Param.ClausifierOptions.Simple
-                      else
-                        Param.ClausifierOptions.None)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, str(4) == '1')
-                s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, str(5) == '1')
-                s = Param.TRIGGER_STRATEGY.set(s, str(6) match {
-                      case '0' => Param.TriggerStrategyOptions.AllMaximal
-                      case '1' => Param.TriggerStrategyOptions.Maximal
-                      case '2' => Param.TriggerStrategyOptions.AllMinimal
-                    })
-                s
-              }
+                */
               
               val strategies = for ((str, to) <- rawStrategies) yield {
-                val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str), to)
-                Configuration(s, Param.GENERATE_TOTALITY_AXIOMS(s), str, to)
+                val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
+                                                     to min 50000)
+                val options = toOptionList(str)
+                Configuration(s, Param.GENERATE_TOTALITY_AXIOMS(s), options, to)
               }
               
               new ParallelFileProver(reader,
