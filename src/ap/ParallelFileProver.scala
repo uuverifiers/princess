@@ -284,7 +284,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       for ((s, num) <- settings.iterator.zipWithIndex)
       yield new SubProverManager(
         num,
-        timeout.toLong - (for (p <- spawnedProvers.iterator) yield p.localTimeout).sum,
+        timeout.toLong - (
+          for (p <- spawnedProvers.iterator) yield (
+            if (p.unfinished) p.localTimeout else p.runtime)).sum,
         createReader, s,
         Actor.self, userDefStoppingCond)
     
