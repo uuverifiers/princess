@@ -118,7 +118,6 @@ object Preprocessing {
       case Param.ClausifierOptions.None =>
         fors5
       case Param.ClausifierOptions.Simple =>
-        println(Param.CLAUSIFIER_TIMEOUT(settings))
         Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
           for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
         )(throw new Exception("Clausification timed out"))
