@@ -241,22 +241,17 @@ object CmdlMain {
               
               val strategyOrder = MyClassifier classify instance
          
-              var i=0            
               val timeoutTotal = strategyOrder.map(_._2).sum
-              val strategies = (for ((name,timeout) <- strategyOrder.iterator) yield {
+              val strategies = (for (((name,timeout), i) <- strategyOrder.iterator.zipWithIndex) yield {
                 val settings = MyClassifier.strategyToOptions(name, baseSettings)
                 val desc = MyClassifier strategyName name
-                i+=1
+
                 val adjustedTimeout=2*timeout*Param.TIMEOUT(settings)/timeoutTotal
-                if (i <= numParallelProvers)
                 Configuration(settings,
                               Param.GENERATE_TOTALITY_AXIOMS(settings),
                               desc,
-                              scala.Math.min(20000,adjustedTimeout) + 5000)
-                else
-                  Configuration(settings,
-                              Param.GENERATE_TOTALITY_AXIOMS(settings),
-                              desc, scala.Math.min(20000,adjustedTimeout))
+                              (20000 max adjustedTimeout) + (
+                                  if (i < numParallelProvers) 5000 else 0))
               }).toList
               
              /*
