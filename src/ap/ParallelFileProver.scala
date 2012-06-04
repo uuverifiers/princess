@@ -87,7 +87,7 @@ object ParallelFileProver {
       
       def unfinished = (result == null)
       val localTimeout = config timeout remainingSystemRuntime
-      
+
       var runtime : Long = num // just make sure that the provers start in the right order
       var runtimeOffset : Long = 0
       var lastStartTime : Long = 0
