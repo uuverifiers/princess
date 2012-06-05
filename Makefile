@@ -51,7 +51,7 @@ dist: jar model-jar
 jar-assertionless: scala-src-assertionless
 	cd bin && jar cf princess.jar ap
 
-dist-assertionless: jar-assertionless
+dist-assertionless: jar-assertionless model-jar
 	$(shell cp bin/princess.jar dist/)
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
