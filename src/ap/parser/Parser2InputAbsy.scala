@@ -203,28 +203,52 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
    * (non-extensional) theory of arrays. The argument determines whether the
    * array functions should be declared as partial or as total functions
    */
-  protected def genArrayAxioms(partial : Boolean) : Unit = if (!arraysDefined) {
-    Parser2InputAbsy.warn("adding array axioms")
-    arraysDefined = true
-        
-    val select = new IFunction("select", 2, partial, false)
-    val store = new IFunction("store", 3, partial, false)
-    
-    env.addFunction(select, defaultFunctionType(select))
-    env.addFunction(store, defaultFunctionType(store))
+  protected def genArrayAxioms(partial : Boolean,
+                               arity : Int) : Unit =
+    if (!(definedArrayArities contains arity)) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////
+      Debug.assertPre(Parser2InputAbsy.AC, arity > 0)
+      //-END-ASSERTION-/////////////////////////////////////////////////
 
-    addAxiom(
-      all(all(all(
-          ITrigger(List(store(v(0), v(1), v(2))),
-                   select(store(v(0), v(1), v(2)), v(1)) === v(2))
-      ))) &
-      all(all(all(all(
-          ITrigger(List(select(store(v(0), v(1), v(2)), v(3))),
-                   (v(1) === v(3)) |
-                   (select(store(v(0), v(1), v(2)), v(3)) === select(v(0), v(3))))
-      )))))
+      definedArrayArities += arity
+       
+      val (prefix, suffix) =
+        if (arity == 1) {
+          Parser2InputAbsy.warn("adding array axioms")
+          ("", "")
+        } else {
+          Parser2InputAbsy.warn("adding array axioms for arity " + arity)
+          ("_", "_" + arity)
+        }
+      
+      val select = new IFunction(prefix + "select" + suffix, arity + 1, partial, false)
+      val store = new IFunction(prefix + "store" + suffix, arity + 2, partial, false)
+    
+      env.addFunction(select, defaultFunctionType(select))
+      env.addFunction(store, defaultFunctionType(store))
+
+      val storeExp =
+        IFunApp(store, for (i <- 0 until (arity + 2)) yield v(i))
+      val selectExp =
+        IFunApp(select, List(v(0)) ++ (for (i <- 0 until arity) yield v(i + arity + 2)))
+      val selectStoreExp =
+        IFunApp(select, List(storeExp) ++ (for (i <- 0 until arity) yield v(i + arity + 2)))
+      
+      addAxiom(
+        quan(Array.fill(arity + 2){Quantifier.ALL},
+          ITrigger(List(storeExp),
+                   IFunApp(select,
+                           List(storeExp) ++ (for (i <- 1 to arity) yield v(i))) ===
+                   v(arity + 1))
+        ) &
+        quan(Array.fill(2*arity + 2){Quantifier.ALL},
+          ITrigger(List(selectStoreExp),
+                   connect(for (i <- 1 to arity) yield (v(i) === v(i + arity + 1)),
+                           IBinJunctor.And) |
+                   (selectStoreExp === selectExp))
+      ))
   }
-  
-  private var arraysDefined = false
+
+  private var definedArrayArities = Set[Int]()
 
 }
