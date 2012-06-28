@@ -1,8 +1,6 @@
 
 (set-logic AUFLIA)
 
-(set-option :inline-define-fun false)
-
 (declare-fun c () Int)
 (define-fun f ((x Int)) Int (+ x c))
 

@@ -1,7 +1,7 @@
 
 (set-logic AUFLIA)
 
-(declare-fun f (Bool) Int)
+(declare-fun f (Int) Int)
 
 (assert (forall ((x Int)) (let ((y x)) (>= (f y) 0))))
 

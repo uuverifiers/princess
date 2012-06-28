@@ -33,7 +33,7 @@ import ap.basetypes.IdealInt
 import smtlib._
 import smtlib.Absyn._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 object SMTParser2InputAbsy {
 
@@ -214,7 +214,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       } else {
         (connect(assumptions, IBinJunctor.And) &&& getAxioms, List())
       }
-    
+
     (!assumptionFormula, interpolantSpecs, env.toSignature)
   }
 
@@ -228,6 +228,10 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
    * Inline all let-expressions?
    */
   private var inlineLetExpressions = true
+  /**
+   * Inline functions introduced using define-fun?
+   */
+  private var inlineDefinedFuns = true
   /**
    * Totality axioms?
    */
@@ -264,6 +268,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
 
   val assumptions = new ArrayBuffer[IFormula]
 
+  val functionDefs = new MHashMap[IFunction, (IExpression, Type.Value)]
+  
   private def apply(script : Script) = for (cmd <- script.listcommand_) cmd match {
 //      case cmd : SetLogicCommand =>
 //      case cmd : SetInfoCommand =>
@@ -296,6 +302,13 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
               inlineLetExpressions = value
             case _ =>
                noBooleanParam(":inline-let")
+          }
+          
+          case ":inline-define-fun" => annot.attrparam_ match {
+            case BooleanParameter(value) =>
+              inlineDefinedFuns = value
+            case _ =>
+               noBooleanParam(":inline-define-fun")
           }
           
           case ":totality-axiom" => annot.attrparam_ match {
@@ -367,12 +380,15 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
         // use a real function
         val f = new IFunction(name, argNum, true, true)
         env.addFunction(f, resType == Type.Bool)
-        
-        // set up the defining equation and formula
-        val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
-        val matrix = ITrigger(List(lhs), lhs === asTerm(body))
-
-        addAxiom(quan(Array.fill(argNum){Quantifier.ALL}, matrix))
+  
+        if (inlineDefinedFuns) {
+          functionDefs += (f -> body) 
+        } else {
+          // set up a defining equation and formula
+          val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
+          val matrix = ITrigger(List(lhs), lhs === asTerm(body))
+          addAxiom(quan(Array.fill(argNum){Quantifier.ALL}, matrix))
+        }
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -884,8 +900,17 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       
       case Environment.Function(fun, encodesBool) => {
         checkArgNumLazy(printer print sym, fun.arity, args)
-        (IFunApp(fun, for (a <- args) yield asTerm(translateTerm(a, 0))),
-         if (encodesBool) Type.Bool else Type.Integer)
+        (functionDefs get fun) match {
+          case Some((body, t)) => {
+            var translatedArgs = List[ITerm]()
+            for (a <- args)
+              translatedArgs = asTerm(translateTerm(a, 0)) :: translatedArgs
+            (VariableSubstVisitor(body, (translatedArgs, 0)), t)
+          }
+          case None =>
+            (IFunApp(fun, for (a <- args) yield asTerm(translateTerm(a, 0))),
+             if (encodesBool) Type.Bool else Type.Integer)
+        }
       }
 
       case Environment.Constant(c, _, _) =>

@@ -332,6 +332,9 @@ class InputDialog extends JPanel {
      println(";; Inline let-expressions, or encode them using quantifiers?")
      println(";; (set-option :inline-let false) ; default: true")
      println
+     println(";; Inline define-fun functions, or encode them using axioms?")
+     println(";; (set-option :inline-define-fun false) ; default: true")
+     println
      println(";; Introduce totality axiom for functions?")
      println(";; (set-option :totality-axiom false) ; default: true")
      println
