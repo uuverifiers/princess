@@ -45,6 +45,8 @@ object GlobalSettings {
       settings = arg match {
         case Opt("logo", value) =>
           Param.LOGO.set(settings, value)
+        case Opt("quiet", value) =>
+          Param.QUIET.set(settings, value)
         case ValueOpt("inputFormat", "auto") =>
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.Auto)
         case ValueOpt("inputFormat", "pri") =>
@@ -53,6 +55,8 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.SMTLIB)
         case ValueOpt("inputFormat", "tptp") =>
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
+        case Opt("stdin", value) =>
+          Param.STDIN.set(settings, value)
         case Opt("printTree", value) =>
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>
@@ -137,7 +141,7 @@ object GlobalSettings {
   }
   
   val allParams =
-    List(Param.LOGO, Param.INPUT_FORMAT,
+    List(Param.LOGO, Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
          Param.ASSERTIONS, Param.PRINT_TREE, Param.PRINT_SMT_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,

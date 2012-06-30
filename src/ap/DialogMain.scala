@@ -333,13 +333,16 @@ class InputDialog extends JPanel {
      println(";; (set-option :inline-let false) ; default: true")
      println
      println(";; Inline define-fun functions, or encode them using axioms?")
-     println(";; (set-option :inline-define-fun false) ; default: true")
+     println(";; (set-option :inline-definitions false) ; default: true")
      println
      println(";; Introduce totality axiom for functions?")
      println(";; (set-option :totality-axiom false) ; default: true")
      println
      println(";; Introduce functionality axiom for functions?")
      println(";; (set-option :functionality-axiom false) ; default: true")
+     println
+     println(";; Prepare for generating interpolants?")
+     println(";; (set-option :produce-interpolants true) ; default: false")
      println
      println(";; Declare functions and constants")
      println(";; (declare-fun f (Int) Int)")
@@ -468,6 +471,8 @@ class InputDialog extends JPanel {
     println(";")
     println
     println("(set-logic AUFLIA)")
+    println
+    println("(set-option :produce-interpolants true)")
     println
     println("(declare-fun f (Int) Int)")
     println("(declare-fun a () Int)")
@@ -709,7 +714,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
 
   private def startProver : Unit = {
     val input = inputField.getText
-    val reader = () => new java.io.StringReader(input)
+    val reader = () => new java.io.BufferedReader (new java.io.StringReader(input))
     
     val settings = try {
       val initS =
@@ -740,8 +745,13 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     currentProver = actor {
       proverStopRequested = false
       
-      Console.withOut(proverOutputStream) { Console.withErr(proverOutputStream) {
-        CmdlMain.proveProblems(settings, List(("", reader)), proverStopRequested)
+      Console.withOut(proverOutputStream) {
+        Console.withErr(if (Param.QUIET(settings))
+                          CmdlMain.NullStream
+                        else
+                          proverOutputStream) {
+          CmdlMain.proveProblems(settings, "", reader, proverStopRequested)(
+                                 Param.INPUT_FORMAT(settings))
       }}
       
       proverOutputStream.close

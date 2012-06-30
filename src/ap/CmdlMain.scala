@@ -28,7 +28,7 @@ import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, PrincessLineariser, IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
-                  Internal2InputAbsy, Simplifier}
+                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -60,9 +60,11 @@ object CmdlMain {
   def printOptions = {
     println("Options:")
     println("  [+-]logo                      Print logo and elapsed time              (default: +)")
+    println("  [+-]quiet                     Suppress all output to stderr            (default: -)")
     println("  [+-]printTree                 Output the constructed proof tree        (default: -)")
     println("  -inputFormat=val              Specify format of problem file:          (default: auto)")
     println("                                  auto, pri, smtlib, tptp")
+    println("  [+-]stdin                     Read SMT-LIB 2 problems from stdin       (default: -)")
     println("  -printSMT=filename            Output the problem in SMT-Lib format     (default: \"\")")
     println("  -printDOT=filename            Output the proof in GraphViz format      (default: \"\")")
     println("  [+-]assert                    Enable runtime assertions                (default: -)")
@@ -195,27 +197,15 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
-  def proveProblems(settings : GlobalSettings,
-                    problems : Seq[(String, () => java.io.Reader)],
-                    userDefStoppingCond : => Boolean) : Unit = {
-    if (problems.isEmpty) {
-      Console.withOut(Console.err) {
-        println("No inputs given, exiting")
-      }
-      return
-    }
-    
+  def proveProblem(settings : GlobalSettings,
+                   name : String,
+                   reader : () => java.io.Reader,
+                   userDefStoppingCond : => Boolean)
+                  (implicit format : Param.InputFormat.Value) : Option[Prover.Result] = {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
 
     try {
-          for ((filename, reader) <- problems) try {
             val timeBefore = System.currentTimeMillis
-            
-            Console.withOut(Console.err) {
-              println("Loading " + filename + " ...")
-            }
-            
-            implicit val format = determineInputFormat(filename, settings)
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
             
             val prover = if (Param.MULTI_STRATEGY(settings)) {
@@ -309,8 +299,152 @@ object CmdlMain {
             Console.withOut(Console.err) {
               println
             }
+
+            printResult(prover.result, settings)
             
-            prover.result match {
+            val timeAfter = System.currentTimeMillis
+            
+            Console.withOut(Console.err) {
+              println
+              if (Param.LOGO(settings))
+                println("" + (timeAfter - timeBefore) + "ms")
+            }
+            
+            prover match {
+              case prover : AbstractFileProver => printSMT(prover, name, settings)
+              case _ => // nothing
+            }
+            
+            /* println
+            println(ap.util.Timer)
+            ap.util.Timer.reset */
+            
+            Some(prover.result)
+          } catch {
+      case _ : StackOverflowError => Console.withOut(Console.err) {
+        if (format == Param.InputFormat.SMTLIB)
+          println("unknown")
+        println("Stack overflow, giving up")
+        // let's hope that everything is still in a valid state
+        None
+      }
+      case _ : OutOfMemoryError => Console.withOut(Console.err) {
+        if (format == Param.InputFormat.SMTLIB)
+          println("unknown")
+        println("Out of memory, giving up")
+        System.gc
+        // let's hope that everything is still in a valid state
+        None
+      }
+      case e : Throwable => {
+        if (format == Param.InputFormat.SMTLIB)
+          println("error")
+        Console.err.println("ERROR: " + e.getMessage)
+//         e.printStackTrace
+        None
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def proveMultiSMT(settings : GlobalSettings,
+                    input : java.io.BufferedReader,
+                    userDefStoppingCond : => Boolean) = {
+    implicit val format = Param.InputFormat.SMTLIB
+    val interface = new IncrementalSMTLIBInterface {
+      protected def solve(input : String) : Option[Prover.Result] = {
+        Console.err.println("Checking satisfiability ...")
+        proveProblem(settings,
+                     "SMT-LIB 2 input",
+                     () => new java.io.StringReader(input),
+                     userDefStoppingCond)
+      }
+    }
+    interface.readInputs(input, settings)
+  }
+  
+  def proveProblems(settings : GlobalSettings,
+                    name : String,
+                    input : () => java.io.BufferedReader,
+                    userDefStoppingCond : => Boolean)
+                   (implicit format : Param.InputFormat.Value) = {
+    Console.err.println("Loading " + name + " ...")
+    format match {
+      case Param.InputFormat.SMTLIB =>
+        proveMultiSMT(settings, input(), userDefStoppingCond)
+      case _ => {
+        proveProblem(settings, name, input, userDefStoppingCond)
+      }
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def printResult(res : Prover.Result,
+                  settings : GlobalSettings)
+                 (implicit format : Param.InputFormat.Value) = format match {
+    case Param.InputFormat.SMTLIB => res match {
+              case Prover.Proof(tree) => {
+                println("unsat")
+                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
+              }
+              case Prover.ProofWithModel(tree, model) => {
+                println("unsat")
+                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
+              }
+              case Prover.NoProof(_) =>  {
+                println("unknown")
+              }
+              case Prover.CounterModel(model) =>  {
+                println("sat")
+                Console.withOut(Console.err) {
+                  println
+                  println("Model:")
+                  printFormula(model)
+                }
+              }
+              case Prover.NoCounterModel =>  {
+                println("unsat")
+              }
+              case Prover.NoCounterModelCert(cert) =>  {
+                println("unsat")
+                printDOTCertificate(cert, settings)
+              }
+              case Prover.NoCounterModelCertInter(cert, inters) => {
+                println("unsat")
+                printDOTCertificate(cert, settings)
+              }
+              case Prover.Model(model) =>  {
+                println("unsat")
+              }
+              case Prover.NoModel =>  {
+                println("sat")
+              }
+              case Prover.TimeoutProof(tree) =>  {
+                println("unknown")
+                Console.err.println("Cancelled or timeout")
+                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
+              }
+              case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
+                println("unknown")
+                Console.err.println("Cancelled or timeout")
+              }
+    }
+      
+    case _ => res match {
               case Prover.Proof(tree) => {
                 println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
@@ -442,46 +576,11 @@ object CmdlMain {
                   println("false")
                 }
               }
-            }
-            
-            val timeAfter = System.currentTimeMillis
-            
-            Console.withOut(Console.err) {
-              println
-              if (Param.LOGO(settings))
-                println("" + (timeAfter - timeBefore) + "ms")
-            }
-            
-            prover match {
-              case prover : AbstractFileProver => printSMT(prover, filename, settings)
-              case _ => // nothing
-            }
-            
-            /* println
-            println(ap.util.Timer)
-            ap.util.Timer.reset */
-          } catch {
-            case _ : StackOverflowError => Console.withOut(Console.err) {
-              println("Stack overflow, giving up")
-              // let's hope that everything is still in a valid state
-            }
-            case _ : OutOfMemoryError => Console.withOut(Console.err) {
-              println("Out of memory, giving up")
-              System.gc
-              // let's hope that everything is still in a valid state
-            }
-          }
-    } catch {
-      case e : Throwable => {
-        Console.withOut(Console.err) {
-          println("ERROR: " + e.getMessage)
-//         e.printStackTrace
-        }
-        return
-      }
     }
   }
-
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
   def main(args: Array[String]) : Unit = {
     val (settings, inputs) =
       try { // switch on proof construction by default in the iPrincess version
@@ -499,16 +598,36 @@ object CmdlMain {
       }
     }
 
+    if (Param.QUIET(settings))
+      Console setErr NullStream
+          
     if (Param.LOGO(settings)) Console.withOut(Console.err) {
       printGreeting
       println
     }
-    
-    proveProblems(settings,
-                  for (name <- inputs.view)
-                  yield (name,
-                         () => new java.io.BufferedReader (
-                               new java.io.FileReader(new java.io.File (name)))),
-                  false)
+
+    if (inputs.isEmpty && !Param.STDIN(settings)) {
+      Console.err.println("No inputs given, exiting")
+      return
+    }
+
+    for (filename <- inputs) {
+      implicit val format = determineInputFormat(filename, settings)
+      proveProblems(settings,
+                    filename,
+                    () => new java.io.BufferedReader (
+                            new java.io.FileReader(new java.io.File (filename))),
+                    false)
+    }
+
+    if (Param.STDIN(settings)) {
+      Console.err.println("Reading SMT-LIB 2 input from stdin ...")
+      proveMultiSMT(settings, Console.in, false)
+    }
   }
+  
+  object NullStream extends java.io.OutputStream {
+    def write(b : Int) = {}
+  }
+
 }

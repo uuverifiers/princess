@@ -15,6 +15,7 @@ TESTS="bignum_quant.smt2 \
        patternBug.smt2 correct-eq.smt2 \
        array-interpolation.smt2 \
        define-fun.smt2 define-fun2.smt2 define-fun3.smt2 \
-       define-fun-interpolation.smt2"
+       define-fun-interpolation.smt2 \
+       multiple-check-sat.smt2"
 
 $PRI "$@" $TESTS

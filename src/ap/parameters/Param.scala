@@ -28,6 +28,11 @@ object Param {
     val defau : Boolean = true
   }
 
+  case object QUIET extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   object InputFormat extends Enumeration {
     val Auto, Princess, SMTLIB, TPTP = Value
   }
@@ -35,6 +40,11 @@ object Param {
   case object INPUT_FORMAT extends Param {
     type Value = InputFormat.Value
     val defau : InputFormat.Value = InputFormat.Auto
+  }
+  
+  case object STDIN extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
   
   case object ASSERTIONS extends Param {

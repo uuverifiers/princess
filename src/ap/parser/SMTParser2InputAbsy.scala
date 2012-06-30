@@ -304,11 +304,11 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
                noBooleanParam(":inline-let")
           }
           
-          case ":inline-define-fun" => annot.attrparam_ match {
+          case ":inline-definitions" => annot.attrparam_ match {
             case BooleanParameter(value) =>
               inlineDefinedFuns = value
             case _ =>
-               noBooleanParam(":inline-define-fun")
+               noBooleanParam(":inline-definitions")
           }
           
           case ":totality-axiom" => annot.attrparam_ match {
@@ -323,6 +323,13 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
               functionalityAxiom = value
             case _ =>
                noBooleanParam(":functionality-axiom")
+          }
+          
+          case ":produce-interpolants" => annot.attrparam_ match {
+            case BooleanParameter(value) =>
+              genInterpolants = value
+            case _ =>
+               noBooleanParam(":produce-interpolants")
           }
           
           case opt =>

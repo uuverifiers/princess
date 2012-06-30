@@ -36,17 +36,18 @@ No countermodel exists, formula is valid
 
 Constraint: true
 Loading ricart-agrawala7.smt2 ...
+Checking satisfiability ...
 Warning: ignoring (set-logic AUFLIA)
 Warning: ignoring (set-info :source | An Optimal Algorithm for Mutual Exclusion in Computer Networks. Glenn Ricart and Ashok K. Agrawala. Communications of the ACM Vol.: 24 Number: 1. This is a benchmark of the haRVey theorem prover. It was translated to SMT-LIB by Leonardo  de Moura |)
 Warning: ignoring (set-info :smt-lib-version 2.0)
 Warning: ignoring (set-info :category "industrial")
 Warning: ignoring (set-info :status unsat)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
 Preprocessing ...
 Constructing countermodel ...
 
-Formula is invalid, found a countermodel:
+sat
+
+Model:
 (and (and (and (= 0 (+ (- 1) time ) ) (= 0 q ) ) (= 0 (+ (- 1) p ) ) ) (and (and (and (and (and (and (and (and (and (and (and (and (and (and (= 0 (+ (- 1) (s2 1 ) ) ) (= 0 (+ (- 1) (s3 1 ) ) ) ) (= 0 (+ (- 1) (ro 1 0 ) ) ) ) (= 0 (+ (- 1) (rd 0 1 ) ) ) ) (= 0 (s4 1 ) ) ) (= 0 (sn 1 ) ) ) (= 0 (+ 1 (sn 0 ) ) ) ) (= 0 (+ (- 1) (s6 1 ) ) ) ) (= 0 (s6 0 ) ) ) (= 0 (rcs2 1 ) ) ) (= 0 (rcs2 0 ) ) ) (= 0 (+ (- 1) (x 1 0 ) ) ) ) (= 0 (+ (- 1) (x 0 1 ) ) ) ) (= 0 (+ (- 1) (s0 1 ) ) ) ) (= 0 (+ (- 1) (s5 1 ) ) ) ) ) 
 
 Loading proofBug.pri ...
