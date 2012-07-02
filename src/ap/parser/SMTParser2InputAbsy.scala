@@ -650,7 +650,9 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       // we introduce a boolean or integer variables to encode this let expression
 
       for ((name, t, s) <- bindings)
-        if (SizeVisitor(s) <= 20) {
+        // directly substitute small expressions, unless the user
+        // has chosen otherwise
+        if (inlineLetExpressions && SizeVisitor(s) <= 1000) {
           env.pushVar(name, SubstExpression(s, t))
         } else addAxiom(t match {
           case Type.Bool => {

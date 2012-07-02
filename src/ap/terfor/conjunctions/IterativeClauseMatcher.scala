@@ -577,29 +577,34 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                     instanceReducer : (Conjunction) => Conjunction,
                     order : TermOrder)
                    : (NegatedConjunctions, IterativeClauseMatcher) = {
-    val reducedClauses =
-      clauses.update(for (c <- clauses) yield reduceIfNecessary(c, clauseReducer),
-                     order)
-
-    val (keptClauses, reductions) = reducedClauses diff clauses
+    
+    val keptClauses, reductions = new ArrayBuffer[Conjunction]
+    for (c <- clauses) {
+      val redC = reduceIfNecessary(c, clauseReducer)
+      if (redC == c)
+        keptClauses += c
+      else
+        reductions += redC
+    }
     
     // we also reduce the set of generated instances, because future
     // instantiations will be made modulo the new reducer
     val reducedInstances =
       for (i <- generatedInstances) yield reduceIfNecessary(i, instanceReducer)
     
-    (reductions,
+    (NegatedConjunctions(reductions, order),
      if (keptClauses.size == clauses.size && generatedInstances == reducedInstances)
        // nothing has changed
        this
      else
        // reset the matchers
-       IterativeClauseMatcher(currentFacts, keptClauses, matchAxioms, reducedInstances))
+       IterativeClauseMatcher(currentFacts, clauses.update(keptClauses, order),
+                              matchAxioms, reducedInstances))
   }
 
   private def reduceIfNecessary(conj : Conjunction,
                                 reducer : (Conjunction) => Conjunction) : Conjunction =
-    if (conj.constants.isEmpty && conj.groundAtoms.isEmpty) {
+    if (conj.constants.isEmpty && conj.predicates.isEmpty) {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // The assumption is that clauses without constants or ground atoms
       // are already fully reduced
