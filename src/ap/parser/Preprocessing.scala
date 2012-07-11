@@ -92,18 +92,20 @@ object Preprocessing {
         newNoNamePart :: realNamedParts
       }
     }
+
+    // do some direct simplifications
+    val fors5 = 
+      for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     
     // do clausification
-    val fors5 = Param.CLAUSIFIER(settings) match {
+    val fors6 = Param.CLAUSIFIER(settings) match {
       case Param.ClausifierOptions.None =>
-        fors4
+        fors5
       case Param.ClausifierOptions.Simple =>
-        for (f <- fors4) yield SimpleClausifier(f).asInstanceOf[INamedPart]
-      case Param.ClausifierOptions.BooleanCompactify =>
-        for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
+        for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
     
-    (fors5, interpolantSpecs, signature updateOrder order3)
+    (fors6, interpolantSpecs, signature updateOrder order3)
   }
   
 }

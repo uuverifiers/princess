@@ -103,7 +103,7 @@ object Param {
   }
   
   object ClausifierOptions extends Enumeration {
-    val None, Simple, BooleanCompactify = Value
+    val None, Simple = Value
   }
   case object CLAUSIFIER extends Param {
     type Value = ClausifierOptions.Value
