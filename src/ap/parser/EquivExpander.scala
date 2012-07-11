@@ -95,7 +95,8 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
   private def expandITE(cond : IFormula,
                         left : IFormula, right : IFormula,
                         c : Context[Unit]) = 
-    if ((c.binders contains Context.EX) ^ (c.polarity < 0))
+    if (// (c.binders contains Context.EX) ^ 
+        (c.polarity < 0))
       TryAgain((cond & left) | (!cond & right), c)
     else
       TryAgain((cond ==> left) & (!cond ==> right), c)
