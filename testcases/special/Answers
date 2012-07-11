@@ -71,3 +71,13 @@ Proving ...
 Formula is valid, resulting constraint:
 true
 
+Loading soldiers.pri ...
+Preprocessing ...
+Proving ...
+
+Formula is valid, resulting most-general constraint:
+10 >= MinNum
+
+Concrete witness:
+MinNum = 10
+
