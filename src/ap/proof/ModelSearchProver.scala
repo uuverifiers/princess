@@ -75,7 +75,8 @@ object ModelSearchProver {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     cache(inputFor) {
       applyHelp(List(Conjunction.conj(inputFor, order)),
-                order, GoalSettings.DEFAULT).left.get
+                order, GoalSettings.DEFAULT,
+                (_) => true).left.get
     }
   }
 
@@ -94,7 +95,8 @@ object ModelSearchProver {
                       inputFor.variables.isEmpty && (order isSortingOf inputFor)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     applyHelp(inputDisjuncts, order,
-              Param.CONSTRAINT_SIMPLIFIER.set(settings, simplifier))
+              Param.CONSTRAINT_SIMPLIFIER.set(settings, simplifier),
+              (_) => true)
   }
    
   /**
@@ -104,7 +106,9 @@ object ModelSearchProver {
    * is valid).
    */
   private def applyHelp(disjuncts : Seq[Conjunction], order : TermOrder,
-                        settings : GoalSettings) : Either[Conjunction, Certificate] = {
+                        settings : GoalSettings,
+                        modelSelector : Conjunction => Boolean)
+                       : Either[Conjunction, Certificate] = {
     val elimConstants = order.orderedConstants
     val vocabulary =
       Vocabulary(order,
@@ -113,16 +117,21 @@ object ModelSearchProver {
     val goal = Goal(disjuncts, elimConstants, vocabulary, settings)
 
     //    val model = findModelFair(goal, 500)
-    findModel(goal, List(), Set(), 0, settings, true) match {
-      case Left(model) =>
+    findModel(goal, List(), Set(), 0, settings, true, modelSelector) match {
+      case SatResult =>
+        Left(Conjunction.TRUE)
+      case ModelResult(model) =>
         Left(model)
-      case Right(certificates) => {
-        if (Param.PROOF_CONSTRUCTION(settings)) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(ModelSearchProver.AC,
-                          certificates.size == 1 && certificates(0) != null)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          val Seq(cert) = certificates
+      case UnsatResult => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(ModelSearchProver.AC, !Param.PROOF_CONSTRUCTION(settings))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        Left(Conjunction.FALSE)
+      }
+      case UnsatCertResult(cert) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(ModelSearchProver.AC, Param.PROOF_CONSTRUCTION(settings))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
 
           /*
            * Some code to identify dangling formulae (assumed formulae that were
@@ -143,22 +152,26 @@ object ModelSearchProver {
           traceBF(cert)
           */
           
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(ModelSearchProver.AC,
-                          cert.assumedFormulas subsetOf
-                            (Set() ++ (for (d <- disjuncts.iterator)
-                                         yield CertFormula(d.negate))))
-          //-END-ASSERTION-/////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(ModelSearchProver.AC,
+                        cert.assumedFormulas subsetOf
+                          (Set() ++ (for (d <- disjuncts.iterator)
+                                       yield CertFormula(d.negate))))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
           
-          Right(cert)
-        } else {
-          Left(Conjunction.FALSE)
-        }
+        Right(cert)
       }
     }
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  
+  private sealed abstract class FindModelResult
+  private case object SatResult                             extends FindModelResult
+  private case class  ModelResult(model : Conjunction)      extends FindModelResult
+  private case class  ModelResultCont(_model : Conjunction) extends ModelResult(_model)
+  private case object UnsatResult                           extends FindModelResult
+  private case class  UnsatCertResult(cert : Certificate)   extends FindModelResult
   
   /**
    * Construct either a countermodel or a proof for a conjecture. In case no
@@ -175,8 +188,9 @@ object ModelSearchProver {
                         depth : Int,
                         settings : GoalSettings,
                         // construct a complete model?
-                        constructModel : Boolean)
-                       : Either[Conjunction, Seq[Certificate]] = {
+                        constructModel : Boolean,
+                        modelSelector : Conjunction => Boolean)
+                       : FindModelResult = {
     Timeout.check
     
     tree match {
@@ -184,10 +198,10 @@ object ModelSearchProver {
         if (goal.facts.isFalse) {
 
 //          println("backtracking " + depth)
-          Right(if (Param.PROOF_CONSTRUCTION(settings))
-                  List(goal.getCertificate)
-                else
-                  List())
+          if (Param.PROOF_CONSTRUCTION(settings))
+            UnsatCertResult(goal.getCertificate)
+          else
+            UnsatResult
 
         } else {
 
@@ -203,16 +217,21 @@ object ModelSearchProver {
           
           if (uGoal.stepPossible)
             findModel(uGoal step ptf, witnesses, constsToIgnore, depth,
-                      settings, constructModel)
+                      settings, constructModel, modelSelector)
           else
             handleSatGoal(uGoal, witnesses, constsToIgnore, depth,
-                          settings, constructModel)
+                          settings, constructModel) match {
+              case ModelResult(model) if (!modelSelector(model)) =>
+                ModelResultCont(model)
+              case r =>
+                r
+            }
           
         }
         
       case tree : WitnessTree =>
         findModel(tree.subtree, tree.witness :: witnesses, constsToIgnore,
-                  depth, settings, constructModel)
+                  depth, settings, constructModel, modelSelector)
 
       case tree : ProofTreeOneChild => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -227,49 +246,52 @@ object ModelSearchProver {
           case _ => constsToIgnore
         }
         findModel(tree.subtree, witnesses, newConstsToIgnore, depth,
-                  settings, constructModel)
+                  settings, constructModel, modelSelector)
       }
      
       case tree@AndTree(left, right, partialCert) => {
         // we use a local recursive function at this point to implement pruning 
 
         var pCert = partialCert
+
+        def combineResults(leftTree : ProofTree,
+                           rightTree : ProofTree) = handleAnds(leftTree) match {
+          case UnsatResult => handleAnds(rightTree)
+          case lr : ModelResultCont => handleAnds(rightTree) match {
+            case r : ModelResult => r
+            case _ => lr
+          }
+          case lr => lr
+        }
         
-        def handleAnds(tree : ProofTree)
-                      : Option[Either[Conjunction, Certificate]] = tree match {
+        def handleAnds(tree : ProofTree) : FindModelResult = tree match {
           case tree@AndTree(left, right, null) =>
-            handleAnds(left) orElse handleAnds(right)
+            combineResults(left, right)
           case tree =>
             findModel(tree, witnesses, constsToIgnore, depth + 1,
-                      settings, constructModel) match {
-              case Left(model) => Some(Left(model))
-              case Right(Seq(subCert)) => (pCert bindFirst subCert) match {
+                      settings, constructModel, modelSelector) match {
+              case UnsatCertResult(subCert) => (pCert bindFirst subCert) match {
                 case Left(newPCert) => {
                   pCert = newPCert
-                  None
+                  UnsatResult
                 }
                 case Right(totalCert) => {
-                  Some(Right(totalCert))
+                  UnsatCertResult(totalCert)
                 }
               }
-              case _ =>
-                None
+              case r =>
+                r
             }
         }
         
-        (handleAnds(left) orElse handleAnds(right)) match {
-          case Some(Left(model)) => {
-            Left(model)
-          }
-          case Some(Right(cert)) => {
-            Right(List(cert))
-          }
-          case None              => {
+        combineResults(left, right) match {
+          case UnsatResult => {
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
             Debug.assertInt(ModelSearchProver.AC, pCert == null)
             //-END-ASSERTION-///////////////////////////////////////////////////////
-            Right(List())
+            UnsatResult
           }
+          case r => r
         }
       }
     }
@@ -314,7 +336,7 @@ object ModelSearchProver {
                             settings : GoalSettings,
                             // construct a complete model?
                             constructModel : Boolean)
-                           : Either[Conjunction, Seq[Certificate]] = {
+                           : FindModelResult = {
  
     // used in case we have to reset the constant freeness stored in the
     // goal
@@ -322,7 +344,7 @@ object ModelSearchProver {
     def extractModel =
       if (!constructModel) {
         // we don't care about the precise model
-        Left(Conjunction.TRUE)
+        SatResult
       } else if (goal.constantFreedom.isBottom) {
         // we have indeed found a model
         
@@ -339,20 +361,20 @@ object ModelSearchProver {
                                                order),
                        order)
         
-        Left(assembleModel(Conjunction.conj(arithModel, order),
-                           goal.facts.predConj, constsToIgnore, order))
+        ModelResult(assembleModel(Conjunction.conj(arithModel, order),
+                                  goal.facts.predConj, constsToIgnore, order))
       } else {
         // TODO: the proof generation could be switched off from this point on
         
     	val res = findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
                             witnesses, constsToIgnore, depth,
-                            settings, constructModel)
+                            settings, constructModel, (_) => true)
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         // We should be able to derive a counterexample
         Debug.assertPost(ModelSearchProver.AC, res match {
-                           case Left(model) => !model.isFalse
-                           case Right(_) => false
+                           case ModelResult(model) => !model.isFalse
+                           case _ => false
                          })
         //-END-ASSERTION-///////////////////////////////////////////////////////
         res
@@ -378,7 +400,8 @@ object ModelSearchProver {
           goal.bindingContext)
 
       findModel(goal updateConstantFreedom lowerConstantFreedom,
-   	            witnesses, constsToIgnore, depth, settings, constructModel)
+   	            witnesses, constsToIgnore, depth, settings,
+   	            constructModel, (m) => true)
 
     } else if (goal.facts.arithConj.isTrue) {
       
@@ -407,14 +430,18 @@ object ModelSearchProver {
     	nonRemovingPTF.updateGoal(Conjunction.TRUE, CompoundFormulas.EMPTY,
     			                  goal formulaTasks newFacts.negate, goal)
 
-      findModel(newGoal, witnesses, Set(), depth, settings, constructModel) match {
-        case Left(_) if (!constructModel) =>
-          Left(Conjunction.TRUE)
+      findModel(newGoal, witnesses, Set(), depth, settings,
+                constructModel, (_) => true) match {
+        case SatResult =>
+          SatResult
         
-        case Left(model) if (goal.constantFreedom.isBottom) =>
-          Left(assembleModel(model, goal.facts.predConj, constsToIgnore, goal.order))
+        case ModelResult(_) if (!constructModel) =>
+          SatResult
+        
+        case ModelResult(model) if (goal.constantFreedom.isBottom) =>
+          ModelResult(assembleModel(model, goal.facts.predConj, constsToIgnore, goal.order))
 
-        case Left(_) =>
+        case ModelResult(_) =>
           // The goal is satisfiable, and we can extract a counterexample.
           // However, due to the free-constant optimisation, 
           // we might have to perform further splitting, etc. to construct a
@@ -422,7 +449,7 @@ object ModelSearchProver {
 
           extractModel
 
-        case res@Right(_) => res
+        case res => res
       }
 
     }
@@ -487,10 +514,12 @@ object ModelSearchProver {
     }
     
     def checkValidity(constructModel : Boolean) : Either[Conjunction, Certificate] =
-      findModel(goal, List(), Set(), 0, goal.settings, constructModel) match {
-        case Left(model) => Left(model)
-        case Right(Seq()) => Left(Conjunction.FALSE)
-        case Right(Seq(cert)) => Right(cert)
+      findModel(goal, List(), Set(), 0, goal.settings,
+                constructModel, (_) => true) match {
+        case SatResult             => Left(Conjunction.TRUE)
+        case ModelResult(model)    => Left(model)
+        case UnsatResult           => Left(Conjunction.FALSE)
+        case UnsatCertResult(cert) => Right(cert)
       }
     
   }
