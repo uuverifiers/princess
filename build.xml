@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="princess" default="default" basedir=".">
+    <description>
+        Princess
+    </description>
+
+    <!-- The settings can be overridden in local.properties. -->
+    <property environment="env" />
+    <property name="scala.home" value="${env.SCALA_HOME}" />
+    <property name="java.home" value="${env.JAVA_HOME}" />
+    <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar" />
+    <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
+    <property name="scalac.default.params" value="-deprecation -unchecked" />
+
+    <property name="bin" location="bin" />
+    <property name="src" location="src" />
+    <property name="dist" location="dist" />
+
+    <!-- required to use the tasks scalac, fsc and scaladoc -->
+    <taskdef resource="scala/tools/ant/antlib.xml">
+        <classpath>
+            <pathelement location="${scala-compiler.jar}"  />
+            <pathelement location="${scala-library.jar}"  />
+        </classpath>
+    </taskdef>
+
+    <!-- ================================= 
+          target: default              
+         ================================= -->
+    <target name="default" depends="compile">
+    </target>
+
+    <!-- - - - - - - - - - - - - - - - - -
+          target: compile
+         - - - - - - - - - - - - - - - - - -->
+	<target name="compile">
+		<path id="compile.classpath">
+			<pathelement location="${scala-library.jar}" />
+			<pathelement location="parser/parser.jar" />
+			<pathelement location="smt-parser/smt-parser.jar" />
+			<pathelement location="extlibs/java-cup-11a.jar" />
+                        <pathelement location="${bin}" />
+		</path>
+
+                <mkdir dir="${bin}" />
+
+		<scalac srcdir="${src}"
+			    destdir="${bin}"
+                            force="changed"
+                            addparams="${scalac.default.params}"
+			    classpathref="compile.classpath">
+			<include name="**/*.scala" />
+		</scalac>
+		
+		<jar destfile="${dist}/princess.jar" basedir="${bin}/ap" />
+	</target>
+
+    <target name="clean" description="cleans up">
+        <delete dir="${bin}" includeemptydirs="yes" quiet="yes" failonerror="no" />
+        <delete file="${dist}/princess.jar" quiet="yes" failonerror="no" />
+    </target>
+</project>

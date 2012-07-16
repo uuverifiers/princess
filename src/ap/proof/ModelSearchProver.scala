@@ -122,6 +122,8 @@ object ModelSearchProver {
         Left(Conjunction.TRUE)
       case ModelResult(model) =>
         Left(model)
+      case ModelResultCont(model) =>
+        Left(model)
       case UnsatResult => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(ModelSearchProver.AC, !Param.PROOF_CONSTRUCTION(settings))
@@ -169,7 +171,7 @@ object ModelSearchProver {
   private sealed abstract class FindModelResult
   private case object SatResult                             extends FindModelResult
   private case class  ModelResult(model : Conjunction)      extends FindModelResult
-  private case class  ModelResultCont(_model : Conjunction) extends ModelResult(_model)
+  private case class  ModelResultCont(model : Conjunction)  extends FindModelResult
   private case object UnsatResult                           extends FindModelResult
   private case class  UnsatCertResult(cert : Certificate)   extends FindModelResult
   
@@ -259,6 +261,7 @@ object ModelSearchProver {
           case UnsatResult => handleAnds(rightTree)
           case lr : ModelResultCont => handleAnds(rightTree) match {
             case r : ModelResult => r
+            case r : ModelResultCont => r
             case _ => lr
           }
           case lr => lr
@@ -374,6 +377,7 @@ object ModelSearchProver {
         // We should be able to derive a counterexample
         Debug.assertPost(ModelSearchProver.AC, res match {
                            case ModelResult(model) => !model.isFalse
+                           case ModelResultCont(model) => !model.isFalse
                            case _ => false
                          })
         //-END-ASSERTION-///////////////////////////////////////////////////////
@@ -435,11 +439,12 @@ object ModelSearchProver {
         case SatResult =>
           SatResult
         
-        case ModelResult(_) if (!constructModel) =>
+        case _ : ModelResult if (!constructModel) =>
           SatResult
         
         case ModelResult(model) if (goal.constantFreedom.isBottom) =>
-          ModelResult(assembleModel(model, goal.facts.predConj, constsToIgnore, goal.order))
+          ModelResult(assembleModel(model, goal.facts.predConj,
+                                    constsToIgnore, goal.order))
 
         case ModelResult(_) =>
           // The goal is satisfiable, and we can extract a counterexample.
@@ -518,6 +523,7 @@ object ModelSearchProver {
                 constructModel, (_) => true) match {
         case SatResult             => Left(Conjunction.TRUE)
         case ModelResult(model)    => Left(model)
+        case ModelResultCont(model)=> Left(model)
         case UnsatResult           => Left(Conjunction.FALSE)
         case UnsatCertResult(cert) => Right(cert)
       }
