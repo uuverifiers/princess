@@ -202,9 +202,11 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   
   private var containsRat = false
   
-  private def foundRat = if (!containsRat && tptpType == TPTPType.TFF) {
-    warn("Problem contains rationals, using incomplete axiomatisation")
+  private def foundRat = if (!containsRat) {
     containsRat = true
+    
+    if (tptpType == TPTPType.TFF) {
+    warn("Problem contains rationals, using incomplete axiomatisation")
     
 //    val oldPartial = totalityAxiom
 //    totalityAxiom = false
@@ -241,16 +243,18 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     ratConstFor(IdealRat.ZERO)
     
 //    totalityAxiom = oldPartial 
-  }
+  }}
   
   //////////////////////////////////////////////////////////////////////////////
   // Reals
   
   private var containsReal = false
   
-  private def foundReal = if (!containsReal && tptpType == TPTPType.TFF) {
-    warn("Problem contains reals, using incomplete axiomatisation")
+  private def foundReal = if (!containsReal) {
     containsReal = true
+    
+    if (tptpType == TPTPType.TFF) {
+    warn("Problem contains reals, using incomplete axiomatisation")
 
 //    val oldPartial = totalityAxiom
 //    totalityAxiom = false
@@ -287,27 +291,46 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     ratConstFor(IdealRat.ZERO)
 
 //    totalityAxiom = oldPartial 
-  }
+  }}
 
   //////////////////////////////////////////////////////////////////////////////
   
   private def genRRAxioms = {
     val allLits = ratLiterals.toMap
     
-    val res =
-    connect(
-    (if (containsRat)
-       generalRatAxioms("rat_", RatType, allLits mapValues (_._1))
-     else
-       List()) ++
-    (if (containsReal)
-       generalRatAxioms("real_", RealType, allLits mapValues (_._2))
-     else
-       List())
-    , IBinJunctor.And)
+    val res = tptpType match {
+      case TPTPType.TFF => connect(
+        // add full axioms
+        (if (containsRat)
+           generalRatAxioms("rat_", RatType, allLits mapValues (_._1))
+         else
+           List()) ++
+        (if (containsReal)
+           generalRatAxioms("real_", RealType, allLits mapValues (_._2))
+         else
+           List())
+        , IBinJunctor.And)
+      case _ => connect(
+        // only add information that numerals have distinct values
+        (if (containsRat)
+           distinctRatConstants(allLits.valuesIterator map (_._1))
+         else
+           List()) ++
+        (if (containsReal)
+           distinctRatConstants(allLits.valuesIterator map (_._2))
+         else
+           List())
+        , IBinJunctor.And)
+    }
     
 //    println(res)
     res
+  }
+  
+  private def distinctRatConstants(constants : Iterator[ConstantTerm]) = {
+    val allConsts = (for (c <- constants) yield i(c)).toSeq
+    for (i <- 0 until allConsts.size;
+         j <- (i+1) until allConsts.size) yield (allConsts(i) =/= allConsts(j))
   }
   
   private def generalRatAxioms(prefix : String, t : Type,
@@ -879,6 +902,13 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       } ) |
     ( bg_constant ~ "!=" ~ term ^^ { 
 	  case c ~ _ ~ t => !CheckedEquation(c, t)
+      } ) |
+    ( "$distinct" ~ "(" ~> termlist <~ ")" ^^ {
+      case termlist =>
+        connect(for (ind1 <- 0 until termlist.size;
+                     ind2 <- (ind1+1) until termlist.size)
+                yield !CheckedEquation(termlist(ind1), termlist(ind2)),
+                IBinJunctor.And)
       } ) |
   // functor with or without arguments
   (( ( functor ~ "(" ~ termlist ~ ")" ^^ { 
