@@ -47,7 +47,8 @@ object SMTParser2InputAbsy {
   
   private type Env = Environment[Unit, VariableType, Unit, Boolean]
   
-  def apply = new SMTParser2InputAbsy (new Env)
+  def apply(defaultBoolFunsAsPreds : Boolean) =
+    new SMTParser2InputAbsy (new Env, defaultBoolFunsAsPreds)
   
   /**
    * Parse starting at an arbitrarily specified entry point
@@ -174,7 +175,8 @@ object SMTParser2InputAbsy {
 
 
 class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.VariableType,
-                                              Unit, Boolean])
+                                              Unit, Boolean],
+                           defaultBoolFunsAsPreds : Boolean)
       extends Parser2InputAbsy(_env) {
   
   import IExpression._
@@ -223,7 +225,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   /**
    * Translate boolean-valued functions as predicates or as functions? 
    */
-  private var booleanFunctionsAsPredicates = false
+  private var booleanFunctionsAsPredicates = defaultBoolFunsAsPreds
   /**
    * Inline all let-expressions?
    */

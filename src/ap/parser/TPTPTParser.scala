@@ -37,7 +37,8 @@ object TPTPTParser {
   
   private type Env = Environment[Type, Type, Rank, Rank]
   
-  def apply = new TPTPTParser(new Env)
+  def apply(booleanFunctionsAsPredicates : Boolean) =
+    new TPTPTParser(new Env, booleanFunctionsAsPredicates)
   
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
@@ -96,7 +97,8 @@ object TPTPTParser {
 class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                      TPTPTParser.Type,
                                      TPTPTParser.Rank,
-                                     TPTPTParser.Rank])
+                                     TPTPTParser.Rank],
+                  booleanFunctionsAsPredicates : Boolean)
       extends Parser2InputAbsy(_env)
       with JavaTokenParsers with PackratParsers {
 
@@ -144,10 +146,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               IBinJunctor.And)
   }
   
-  /**
-   * Translate boolean-valued functions as predicates or as functions? 
-   */
-  private var booleanFunctionsAsPredicates = false
   /**
    * Totality axioms?
    */
