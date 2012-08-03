@@ -23,6 +23,7 @@
 package ap.parser
 
 import ap._
+import ap.parameters.{ParserSettings, Param}
 import ap.basetypes.{IdealInt, IdealRat}
 import ap.terfor.{Formula, ConstantTerm}
 import ap.terfor.preds.Predicate
@@ -37,8 +38,8 @@ object TPTPTParser {
   
   private type Env = Environment[Type, Type, Rank, Rank]
   
-  def apply(booleanFunctionsAsPredicates : Boolean) =
-    new TPTPTParser(new Env, booleanFunctionsAsPredicates)
+  def apply(settings : ParserSettings) =
+    new TPTPTParser(new Env, settings)
   
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
@@ -98,7 +99,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                      TPTPTParser.Type,
                                      TPTPTParser.Rank,
                                      TPTPTParser.Rank],
-                  booleanFunctionsAsPredicates : Boolean)
+                  settings : ParserSettings)
       extends Parser2InputAbsy(_env)
       with JavaTokenParsers with PackratParsers {
 
@@ -106,6 +107,13 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   import TPTPTParser._
   import Parser2InputAbsy.warn
   
+  private val booleanFunctionsAsPredicates =
+    Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
+  private val triggersInConjecture =
+    Param.TRIGGERS_IN_CONJECTURE(settings)
+    
+  //////////////////////////////////////////////////////////////////////////////
+    
   def apply(reader : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature) = {
     parseAll[List[List[IFormula]]](TPTP_input, reader) match {
@@ -557,8 +565,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private lazy val fof_annotated_logic_formula =
     ("fof" ^^ { _ => tptpType = TPTPType.FOF }) ~ "(" ~>
-    (atomic_word | wholeNumber) ~ "," ~ atomic_word ~ "," ~
-    fof_logic_formula <~ ")" ~ "." ^^ {
+    (atomic_word | wholeNumber) ~ "," ~
+    formula_role_other_than_type ~ "," ~ fof_logic_formula <~ ")" ~ "." ^^ {
     case name ~ "," ~ role ~ "," ~ f => 
 	role match {
 	  case "conjecture" => {
@@ -571,7 +579,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private lazy val cnf_annotated_logic_formula =
     ("cnf" ^^ { _ => tptpType = TPTPType.CNF }) ~ "(" ~>
-    (atomic_word | wholeNumber) ~ "," ~ atomic_word ~ "," ~
+    (atomic_word | wholeNumber) ~ "," ~
+    formula_role_other_than_type ~ "," ~
     fof_logic_formula <~ ")" ~ "." ^^ {
     case name ~ "," ~ role ~ "," ~ f => 
     role match {
@@ -581,7 +590,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       }
       case _ => { // Assume f sits on the premise side
         // we have to add quantifiers for all variables in the problem
-        var res = f
+        var res =
+          if (env.declaredVariableNum > 0) possiblyEmptyTrigger(f) else f
         while (env.declaredVariableNum > 0) {
           res = all(res)
           env.popVar
@@ -606,6 +616,17 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     _ => ()
   }
 
+  private var inConjecture = false
+  
+  private def possiblyEmptyTrigger(f : IFormula) =
+    if (inConjecture && !triggersInConjecture)
+      // create an empty trigger, to prevent
+      // the trigger heuristic from choosing
+      // triggers
+      ITrigger(List(), f)
+    else
+      f
+      
   private lazy val tff_annotated_logic_formula =
     ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~
     (atomic_word | wholeNumber) ~ "," ~ 
@@ -623,7 +644,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private lazy val formula_role_other_than_type = commit(
     // "type" | 
     "axiom" | "hypothesis" | "definition" | "assumption" | "lemma" | "theorem" | 
-    "conjecture" | "negated_conjecture" | "unknown" | atomic_word )
+    "conjecture" | "negated_conjecture" | "unknown" | atomic_word ) ^^ {
+      case role@("conjecture" | "negated_conjecture") => {
+        inConjecture = true
+        role
+      }
+      case role => {
+        inConjecture = false
+        role
+      }
+    }
 
 
   // tff_typed_atom can appear only at toplevel
@@ -764,7 +794,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 		        case (quantTemplate, varNum) ~ ":" ~ f => {
                   for (_ <- 0 until varNum)
                     env.popVar
-		          quantTemplate(f)
+		          quantTemplate(possiblyEmptyTrigger(f))
 		        }
 		      }
 
@@ -847,7 +877,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               case (quantTemplate, varNum) ~ ":" ~ f => {
                 for (_ <- 0 until varNum)
                   env.popVar
-                quantTemplate(f)
+                quantTemplate(possiblyEmptyTrigger(f))
               }
             }
 

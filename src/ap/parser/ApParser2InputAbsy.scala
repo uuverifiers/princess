@@ -22,6 +22,7 @@
 package ap.parser;
 
 import ap._
+import ap.parameters.ParserSettings
 import ap.terfor.{ConstantTerm, OneTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
@@ -39,7 +40,8 @@ object ApParser2InputAbsy {
   
   import Parser2InputAbsy._
   
-  def apply = new ApParser2InputAbsy(new Environment[Unit, Unit, Unit, Unit])
+  def apply(settings : ParserSettings) =
+    new ApParser2InputAbsy(new Environment[Unit, Unit, Unit, Unit])
   
   def parseExpression(input : java.io.Reader,
                       env : Environment[Unit, Unit, Unit, Unit]) : IExpression = {

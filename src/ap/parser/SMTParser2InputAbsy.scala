@@ -22,6 +22,7 @@
 package ap.parser;
 
 import ap._
+import ap.parameters.{ParserSettings, Param}
 import ap.terfor.{ConstantTerm, OneTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
@@ -47,8 +48,8 @@ object SMTParser2InputAbsy {
   
   private type Env = Environment[Unit, VariableType, Unit, Boolean]
   
-  def apply(defaultBoolFunsAsPreds : Boolean) =
-    new SMTParser2InputAbsy (new Env, defaultBoolFunsAsPreds)
+  def apply(settings : ParserSettings) =
+    new SMTParser2InputAbsy (new Env, settings)
   
   /**
    * Parse starting at an arbitrarily specified entry point
@@ -176,7 +177,7 @@ object SMTParser2InputAbsy {
 
 class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.VariableType,
                                               Unit, Boolean],
-                           defaultBoolFunsAsPreds : Boolean)
+                           settings : ParserSettings)
       extends Parser2InputAbsy(_env) {
   
   import IExpression._
@@ -225,7 +226,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   /**
    * Translate boolean-valued functions as predicates or as functions? 
    */
-  private var booleanFunctionsAsPredicates = defaultBoolFunsAsPreds
+  private var booleanFunctionsAsPredicates =
+    Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
   /**
    * Inline all let-expressions?
    */
