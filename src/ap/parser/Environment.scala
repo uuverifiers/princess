@@ -51,7 +51,8 @@ object Environment {
 
 }
 
-class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
+class Environment[ConstantType, VariableType, PredicateType, FunctionType]
+      extends Cloneable {
 
   import Environment._
   

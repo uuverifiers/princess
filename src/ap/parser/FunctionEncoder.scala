@@ -237,7 +237,7 @@ object FunctionEncoder {
  * the axioms that have been introduced for the relational encoding.
  */
 class FunctionEncoder (tightFunctionScopes : Boolean,
-                       genTotalityAxioms : Boolean) {
+                       genTotalityAxioms : Boolean) extends Cloneable {
   
   import FunctionEncoder._
   import IExpression._
