@@ -242,6 +242,16 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   import FunctionEncoder._
   import IExpression._
   
+  override def clone : FunctionEncoder = {
+    val res = new FunctionEncoder(tightFunctionScopes, genTotalityAxioms)
+    
+    res.axiomsVar = this.axiomsVar
+    res.relations ++= this.relations
+    res.predTranslation ++= this.predTranslation
+    
+    res
+  }
+  
   def apply(f : IFormula, order : TermOrder) : (IFormula, TermOrder) = {
     val nnfF = Transform2NNF(f)
 
