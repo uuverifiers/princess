@@ -84,6 +84,35 @@ object Parser2InputAbsy {
     def close : Unit = input.close
   
   }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /**
+   * Generate axioms for the (non-extensional) theory of arrays
+   */
+  def arrayAxioms(arity : Int, select : IFunction, store : IFunction) : IFormula = {
+    import IExpression._
+  
+    val storeExp =
+      IFunApp(store, for (i <- 0 until (arity + 2)) yield v(i))
+    val selectExp =
+      IFunApp(select, List(v(0)) ++ (for (i <- 0 until arity) yield v(i + arity + 2)))
+    val selectStoreExp =
+      IFunApp(select, List(storeExp) ++ (for (i <- 0 until arity) yield v(i + arity + 2)))
+      
+    quan(Array.fill(arity + 2){Quantifier.ALL},
+      ITrigger(List(storeExp),
+               IFunApp(select,
+                       List(storeExp) ++ (for (i <- 1 to arity) yield v(i))) ===
+               v(arity + 1))
+    ) &
+    quan(Array.fill(2*arity + 2){Quantifier.ALL},
+      ITrigger(List(selectStoreExp),
+               connect(for (i <- 1 to arity) yield (v(i) === v(i + arity + 1)),
+                       IBinJunctor.And) |
+               (selectStoreExp === selectExp))
+    )
+  }
 }
 
 
@@ -227,26 +256,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
       env.addFunction(select, defaultFunctionType(select))
       env.addFunction(store, defaultFunctionType(store))
 
-      val storeExp =
-        IFunApp(store, for (i <- 0 until (arity + 2)) yield v(i))
-      val selectExp =
-        IFunApp(select, List(v(0)) ++ (for (i <- 0 until arity) yield v(i + arity + 2)))
-      val selectStoreExp =
-        IFunApp(select, List(storeExp) ++ (for (i <- 0 until arity) yield v(i + arity + 2)))
-      
-      addAxiom(
-        quan(Array.fill(arity + 2){Quantifier.ALL},
-          ITrigger(List(storeExp),
-                   IFunApp(select,
-                           List(storeExp) ++ (for (i <- 1 to arity) yield v(i))) ===
-                   v(arity + 1))
-        ) &
-        quan(Array.fill(2*arity + 2){Quantifier.ALL},
-          ITrigger(List(selectStoreExp),
-                   connect(for (i <- 1 to arity) yield (v(i) === v(i + arity + 1)),
-                           IBinJunctor.And) |
-                   (selectStoreExp === selectExp))
-      ))
+      addAxiom(Parser2InputAbsy.arrayAxioms(arity, select, store))
   }
 
   private var definedArrayArities = Set[Int]()
