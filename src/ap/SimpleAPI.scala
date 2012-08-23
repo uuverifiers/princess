@@ -82,6 +82,7 @@ class SimpleAPI private {
     functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false)
     currentProver = ModelSearchProver emptyIncProver goalSettings
+    assertions = List()
     currentModel = null
   }
     
@@ -105,6 +106,16 @@ class SimpleAPI private {
     p()
   }
   
+  def createFunction(name : String, arity : Int) : IFunction = {
+    val f = new IFunction(name, arity, true, false)
+    // make sure that the function encoder knows about the function
+    val (_, newOrder) =
+      functionEnc.apply(IFunApp(f, List.fill(arity)(0)) === 0, currentOrder)
+    currentOrder = newOrder
+    recreateProver
+    f
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
 
   def !!(assertion : IFormula) : Unit = addAssertion(assertion)
@@ -119,12 +130,14 @@ class SimpleAPI private {
     currentOrder = newSig.order
 
     val completeFor =
-      List(ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-          Conjunction.conj(InputAbsy2Internal(
-            IExpression.connect(for (f <- fors.iterator)
-                                  yield (IExpression removePartName f),
-                                IBinJunctor.Or), currentOrder), currentOrder)))
+      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+        Conjunction.conj(InputAbsy2Internal(
+          IExpression.connect(for (f <- fors.iterator)
+                                yield (IExpression removePartName f),
+                              IBinJunctor.Or), currentOrder), currentOrder))
     
+    assertions = completeFor :: assertions
+                              
     currentProver = currentProver.conclude(completeFor, currentOrder)
   }
   
@@ -154,7 +167,7 @@ class SimpleAPI private {
           lastStatus = ProverStatus.Unsat
         case SatResult(m) => {
           currentModel = m
-   //       println(m)
+          println(m)
           lastStatus = ProverStatus.Sat
         }
         case StoppedResult =>
@@ -178,16 +191,17 @@ class SimpleAPI private {
   //////////////////////////////////////////////////////////////////////////////
   
   def push : Unit =
-    storedStates push (currentProver, currentOrder, functionEnc.clone)
+    storedStates push (currentProver, currentOrder, functionEnc.clone, assertions)
   
   def pop : Unit = {
     ////////////////////////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
     ////////////////////////////////////////////////////////////////////////////
-    val (oldProver, oldOrder, oldFunctionEnc) = storedStates.pop
+    val (oldProver, oldOrder, oldFunctionEnc, oldAssertions) = storedStates.pop
     currentProver = oldProver
     currentOrder = oldOrder
     functionEnc = oldFunctionEnc
+    assertions = oldAssertions
   }
   
   def scope[A](comp: => A) = {
@@ -202,20 +216,36 @@ class SimpleAPI private {
   //////////////////////////////////////////////////////////////////////////////
 
   private val preprocSettings = PreprocessingSettings.DEFAULT
-  private val goalSettings = GoalSettings.DEFAULT
+  private def goalSettings = {
+    var gs = GoalSettings.DEFAULT
+//    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
+//    gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
+//    gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
+    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs,
+        (for ((p, f) <- functionEnc.predTranslation.iterator; if (!f.partial))
+         yield p).toSet)
+    gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
+    gs
+  }
 
   private var currentOrder : TermOrder = _
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
   private var currentModel : Conjunction = _
-
+  private var assertions : List[Conjunction] = List()
+  
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
                                              TermOrder,
-                                             FunctionEncoder)]
-  
-  private def functionalPreds = functionEnc.predTranslation.keySet.toSet
+                                             FunctionEncoder,
+                                             List[Conjunction])]
   
   reset
+  
+  private def recreateProver =
+    currentProver =
+      (ModelSearchProver emptyIncProver goalSettings).conclude(assertions, currentOrder)
+  
+  private def functionalPreds = functionEnc.predTranslation.keySet.toSet
   
   //////////////////////////////////////////////////////////////////////////////
   //

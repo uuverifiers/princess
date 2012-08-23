@@ -67,7 +67,18 @@ object SimpleAPITest extends App {
     !! (z === 20)
     println(??)
 
-    !! (ex(a => a >= 0 & z + a === 0))
+    scope {
+      !! (ex(a => a >= 0 & z + a === 0))
+      println(??)
+    }
+    
+    val f = createFunction("f", 1)
+    !! (f(x) === f(z) + 1)
+    println(??)
+    
+    val a, b = createConstant
+    !! (f(a) === 0 & f(b) === 1)
+    !! (a === b)
     println(??)
   }
 
