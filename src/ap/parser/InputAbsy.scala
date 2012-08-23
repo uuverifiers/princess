@@ -80,6 +80,17 @@ object IExpression {
   def all(f : IFormula) = IQuantified(Quantifier.ALL, f)
   def eps(f : IFormula) = IEpsilon(f)
 
+  def ex(f : ITerm => IFormula) = quan(Quantifier.EX, f)
+  def all(f : ITerm => IFormula) = quan(Quantifier.ALL, f)
+  
+  def quan(q : Quantifier, f : ITerm => IFormula) : IFormula = {
+    // first substitute a fresh constant, and later replace it with a
+    // bound variable (just applying <code>f</code> to a bound variable
+    // would not work in case of nested quantifiers)
+    val x = new ConstantTerm ("x")
+    quan(q, List(x), f(x))
+  }
+  
   def quan(quans : Seq[Quantifier], f : IFormula) : IFormula =
     (f /: quans)((f, q) => IQuantified(q, f))
 

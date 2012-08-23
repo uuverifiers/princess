@@ -66,6 +66,9 @@ object SimpleAPITest extends App {
     
     !! (z === 20)
     println(??)
+
+    !! (ex(a => a >= 0 & z + a === 0))
+    println(??)
   }
 
   println("-- Asynchronous interface")
