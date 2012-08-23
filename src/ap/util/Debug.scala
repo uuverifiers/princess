@@ -42,6 +42,7 @@ object Debug {
    * belongs to */
   abstract class ASSERTION_CATEGORY
   case object AC_MAIN extends ASSERTION_CATEGORY
+  case object AC_SIMPLE_API extends ASSERTION_CATEGORY
   case object AC_BASE_TYPE extends ASSERTION_CATEGORY
   case object AC_SEQ_UTILS extends ASSERTION_CATEGORY
   case object AC_MAP_UTILS extends ASSERTION_CATEGORY
