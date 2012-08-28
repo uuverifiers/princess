@@ -24,7 +24,7 @@ package ap
 import ap.parser._
 
 object SimpleAPITest extends App {
-  val p = SimpleAPI.spawn
+  val p = SimpleAPI.spawnWithAssertions
   
   import IExpression._
   import SimpleAPI.ProverStatus
@@ -70,6 +70,8 @@ object SimpleAPITest extends App {
     println(???) // Sat
 
     scope {
+      println("---- Nesting scopes")
+  
       !! (ex(a => a >= 0 & z + a === 0))
       println(???) // Unsat
     }
@@ -84,6 +86,48 @@ object SimpleAPITest extends App {
     println(???) // Unsat
   }
 
+  println("-- Validity mode")
+
+  p.scope {
+    val x = p.createConstant
+    
+    p !! (x > 5)
+    println(p.???) // Sat
+    println("x = " + p.eval(x))     // x = 6
+    println("2*x = " + p.eval(2*x)) // 2*x = 12
+    
+    p ?? (x > 0)   // prover switches to "validity" mode, and from now on
+                   // answers Valid/Invalid instead of Unsat/Sat
+    println(p.???) // Valid
+  }
+
+  println("-- Theory of arrays")
+  
+  p.scope {
+    import p._
+
+    val a, b = createConstant
+    
+    !! (a === store(store(store(b, 2, 2), 1, 1), 0, 0))
+    
+    println(???) // Sat
+    
+    scope {
+      !! (a === store(b, 0, 1))
+      println(???) // Unsat
+    }
+    
+    scope {
+      ?? (select(a, 2) > select(a, 1))
+      println(???) // Valid
+    }
+    
+    scope {
+      !! (all(x => (select(a, x) === x + 1)))
+      println(???) // Unsat
+    }
+  }
+  
   println("-- Asynchronous interface")
   
   println(p checkSat false)  // non-blocking, Running

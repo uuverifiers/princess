@@ -24,6 +24,8 @@ package ap
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
 import ap.terfor.{TermOrder, ConstantTerm}
+import ap.terfor.TerForConvenience
+//import ap.terfor.linearcombination.LinearCombination
 import ap.proof.ModelSearchProver
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
@@ -39,10 +41,11 @@ object SimpleAPI {
   
   private val AC = Debug.AC_SIMPLE_API
 
-  def spawn : SimpleAPI = new SimpleAPI
+  def spawn : SimpleAPI = new SimpleAPI (false)
+  def spawnWithAssertions : SimpleAPI = new SimpleAPI (true)
   
   object ProverStatus extends Enumeration {
-    val Sat, Unsat, Unknown, Running, Error = Value
+    val Sat, Unsat, Invalid, Valid, Unknown, Running, Error = Value
   }
   
   private abstract class ProverCommand
@@ -64,7 +67,7 @@ object SimpleAPI {
  * functionality in one place, and provides an imperative API similar to the
  * SMT-LIB command language.
  */
-class SimpleAPI private {
+class SimpleAPI private (enableAssert : Boolean) {
 
   import SimpleAPI._
   
@@ -78,14 +81,17 @@ class SimpleAPI private {
     
     storedStates.clear
     
+    preprocSettings = PreprocessingSettings.DEFAULT
     currentOrder = TermOrder.EMPTY
     functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false)
     currentProver = ModelSearchProver emptyIncProver goalSettings
     assertions = List()
     currentModel = null
+    lastStatus = ProverStatus.Sat
+    validityMode = false
   }
-    
+
   //////////////////////////////////////////////////////////////////////////////
   //
   // Working with the vocabulary
@@ -118,40 +124,52 @@ class SimpleAPI private {
   
   //////////////////////////////////////////////////////////////////////////////
 
+  def selectFun(arity : Int) : IFunction = getArrayFuns(arity)._1
+  
+  def storeFun(arity : Int) : IFunction = getArrayFuns(arity)._2
+  
+  def select(args : ITerm*) : ITerm = IFunApp(selectFun(args.size - 1), args)
+
+  def store(args : ITerm*) : ITerm = IFunApp(storeFun(args.size - 2), args)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Add an assertion to the prover: assume that the given formula is true
+   */
   def !!(assertion : IFormula) : Unit = addAssertion(assertion)
 
+  def addAssertion(assertion : IFormula) : Unit =
+    addFormula(!assertion)
+  
+  /**
+   * Add a conclusion to the prover: assume that the given formula is false.
+   * Adding conclusions will switch the prover to "validity" mode; from this
+   * point on, the prover answers with the status <code>Valid/Invalid</code>
+   * instead of <code>Unsat/Sat</code>.
+   */
   def ??(conc : IFormula) : Unit = addConclusion(conc)
 
-  def addAssertion(assertion : IFormula) : Unit = addConclusion(!assertion)
-  
   def addConclusion(conc : IFormula) : Unit = {
-    lastStatus = ProverStatus.Unknown
-    
-    val sig =
-      new Signature(Set(), Set(), currentOrder.orderedConstants, currentOrder)
-    
-    val (fors, _, newSig) =
-      Preprocessing(conc, List(), sig, preprocSettings, functionEnc)
-    functionEnc.clearAxioms
-    currentOrder = newSig.order
-
-    val completeFor =
-      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-        Conjunction.conj(InputAbsy2Internal(
-          IExpression.connect(for (f <- fors.iterator)
-                                yield (IExpression removePartName f),
-                              IBinJunctor.Or), currentOrder), currentOrder))
-    
-    assertions = completeFor :: assertions
-                              
-    currentProver = currentProver.conclude(completeFor, currentOrder)
+    validityMode = true
+    addFormula(conc)
   }
   
+  /**
+   * Determine the status of the formulae asserted up to this point. This
+   * call is blocking, but will not run the prover repeatedly if nothing
+   * has changed since the last check.
+   */
   def ??? = getStatus(true) match {
     case ProverStatus.Unknown => checkSat(true)
     case res => res
   }
   
+  /**
+   * Check satisfiability of the currently asserted formulae. Will block until
+   * completion if <code>block</code> argument is true, otherwise return
+   * immediately.
+   */
   def checkSat(block : Boolean) : ProverStatus.Value = {
     ////////////////////////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
@@ -167,17 +185,22 @@ class SimpleAPI private {
       ProverStatus.Running
   }
 
+  /**
+   * Query result of the last <code>checkSat</code> or <code>nextModel</code>
+   * call. Will block until a result is available if <code>block</code>
+   * argument is true, otherwise return immediately.
+   */
   def getStatus(block : Boolean) : ProverStatus.Value =
     if (lastStatus != ProverStatus.Running || (!block && !proverRes.isSet)) {
       lastStatus
     } else {
       proverRes.get match {
         case UnsatResult =>
-          lastStatus = ProverStatus.Unsat
+          lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
         case SatResult(m) => {
           currentModel = m
           println(m)
-          lastStatus = ProverStatus.Sat
+          lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
         }
         case StoppedResult =>
           lastStatus = ProverStatus.Unknown
@@ -188,6 +211,10 @@ class SimpleAPI private {
       lastStatus
     }
   
+  /**
+   * Stop a running prover. If the prover had already terminated, give same
+   * result as <code>getResult</code>, otherwise <code>Unknown</code>.
+   */
   def stop : ProverStatus.Value = getStatus(false) match {
     case ProverStatus.Running => {
       proofActor ! StopCommand
@@ -199,23 +226,40 @@ class SimpleAPI private {
 
   //////////////////////////////////////////////////////////////////////////////
   
-  def push : Unit =
-    storedStates push (currentProver, currentOrder, functionEnc.clone,
-                       assertions, lastStatus)
-  
-  def pop : Unit = {
-    ////////////////////////////////////////////////////////////////////////////
-    Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
-    ////////////////////////////////////////////////////////////////////////////
-    val (oldProver, oldOrder, oldFunctionEnc, oldAssertions, oldStatus) =
-      storedStates.pop
-    currentProver = oldProver
-    currentOrder = oldOrder
-    functionEnc = oldFunctionEnc
-    assertions = oldAssertions
-    lastStatus = oldStatus
+  def eval(t : ITerm) : ITerm = {
+    import TerForConvenience._
+    implicit val o = currentOrder
+    
+    scope {
+      val c = createConstant
+      val reduced = ReduceWithConjunction(currentModel, currentOrder)(toInternal(c === t))
+      if (reduced.isLiteral &&
+          reduced.arithConj.positiveEqs.size == 1 &&
+          reduced.constants.size == 1)
+        -reduced.arithConj.positiveEqs.head.constant
+      else
+        null
+    }
+    
+    /*
+    t match {
+      case 
+      case IConstant(c) => {
+        currentModel.arithConj.positiveEqs.get
+        
+        val redTerm = ReduceWithConjunction(currentModel, currentOrder)(l(c))
+        
+        null
+      }
+    }*/
   }
   
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /**
+   * Execute a computation within a local scope. After leaving the scope,
+   * assertions and declarations done in the meantime will disappear.
+   */
   def scope[A](comp: => A) = {
     push
     try {
@@ -225,9 +269,64 @@ class SimpleAPI private {
     }
   }
   
+  /**
+   * Add a new frame to the assertion stack.
+   */
+  def push : Unit =
+    storedStates push (preprocSettings,
+                       currentProver, currentOrder, functionEnc.clone,
+                       arrayFuns, assertions, validityMode,
+                       lastStatus, currentModel)
+  
+  /**
+   * Pop the top-most frame from the assertion stack.
+   */
+  def pop : Unit = {
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
+    ////////////////////////////////////////////////////////////////////////////
+    val (oldPreprocSettings, oldProver, oldOrder, oldFunctionEnc, oldArrayFuns,
+         oldAssertions, oldValidityMode, oldStatus, oldModel) =
+      storedStates.pop
+    preprocSettings = oldPreprocSettings
+    currentProver = oldProver
+    currentOrder = oldOrder
+    functionEnc = oldFunctionEnc
+    arrayFuns = oldArrayFuns
+    assertions = oldAssertions
+    validityMode = oldValidityMode
+    lastStatus = oldStatus
+    currentModel = oldModel
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
 
-  private val preprocSettings = PreprocessingSettings.DEFAULT
+  private def addFormula(f : IFormula) : Unit = {
+    currentModel = null
+    lastStatus = ProverStatus.Unknown
+
+    val completeFor = toInternal(f)
+    
+    assertions = completeFor :: assertions
+    currentProver = currentProver.conclude(completeFor, currentOrder)
+  }
+
+  private def toInternal(f : IFormula) : Conjunction = {
+    val sig =
+      new Signature(Set(), Set(), currentOrder.orderedConstants, currentOrder)
+    val (fors, _, newSig) =
+      Preprocessing(f, List(), sig, preprocSettings, functionEnc)
+    functionEnc.clearAxioms
+    currentOrder = newSig.order
+
+    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+      Conjunction.conj(InputAbsy2Internal(
+        IExpression.connect(for (f <- fors.iterator)
+                              yield (IExpression removePartName f),
+                            IBinJunctor.Or), currentOrder), currentOrder))
+  }
+  
+  private var preprocSettings : PreprocessingSettings = _
   private def goalSettings = {
     var gs = GoalSettings.DEFAULT
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
@@ -246,17 +345,26 @@ class SimpleAPI private {
   private var currentModel : Conjunction = _
   private var assertions : List[Conjunction] = List()
   
-  private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
+  private val storedStates = new ArrayStack[(PreprocessingSettings,
+                                             ModelSearchProver.IncProver,
                                              TermOrder,
                                              FunctionEncoder,
+                                             Map[Int, (IFunction, IFunction)],
                                              List[Conjunction],
-                                             ProverStatus.Value)]
+                                             Boolean,
+                                             ProverStatus.Value,
+                                             Conjunction)]
   
-  reset
-  
-  private def recreateProver =
+  private def recreateProver = {
+    preprocSettings = {
+      var ps = PreprocessingSettings.DEFAULT
+      ps = Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
+             ps, functionEnc.predTranslation.values.toSet)
+      ps
+    }
     currentProver =
       (ModelSearchProver emptyIncProver goalSettings).conclude(assertions, currentOrder)
+  }
   
   private def functionalPreds = functionEnc.predTranslation.keySet.toSet
   
@@ -265,9 +373,12 @@ class SimpleAPI private {
   // Prover actor, for the hard work
   
   private val proverRes = new SyncVar[ProverResult]
-  private var lastStatus = ProverStatus.Sat
+  private var lastStatus : ProverStatus.Value = _
+  private var validityMode : Boolean = _
   
   private val proofActor = actor {
+    Debug enableAllAssertions enableAssert
+    
     var cont = true
     
     Timeout.withChecker(() => receiveWithin(0) {
@@ -300,11 +411,22 @@ class SimpleAPI private {
       
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private var arrayFuns : Map[Int, (IFunction, IFunction)] = Map()
+  
+  private def getArrayFuns(arity : Int) : (IFunction, IFunction) =
+    arrayFuns.getOrElse(arity, {
+      val select = createFunction("select" + arity, arity + 1)
+      val store = createFunction("store" + arity, arity + 2)
+      arrayFuns += (arity -> (select, store))
+      addFormula(!Parser2InputAbsy.arrayAxioms(arity, select, store))
+      (select, store)
+    })
   
   //////////////////////////////////////////////////////////////////////////////
-  //
-  // Theory of arrays
-  
-  private val selectFuns, storeFuns = new MHashMap[Int, IFunction]
+
+  reset
 
 }
