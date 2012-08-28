@@ -35,22 +35,24 @@ object SimpleAPITest extends App {
   val d = p.createConstant("d")
   val r = p.createBooleanVariable("r")
   val s = p.createBooleanVariable("s")
+
+  println(p???) // no assertions, Sat
   
   println("-- Adding some assertions (uses methods from IExpression._)")
   
   p !! (r & (c === d + 15))
   p !! (d >= 100)
   p !! (r ==> s)
-  println(p??)
+  println(p???) // still Sat
 
   println("-- Scoping (locally add assertions, declare symbols, etc)")
   
   p.scope {
     p !! (s ==> c <= -100)
-    println(p??)
+    println(p???) // Unsat
   }
   
-  println(p??)
+  println(p???) // Sat again
 
   println("-- Shorter notation via importing")
 
@@ -62,48 +64,48 @@ object SimpleAPITest extends App {
     !! (x >= 0)
     !! (y >= x + 1)
     !! (z >= y * 2)
-    println(??)
+    println(???) // Sat
     
     !! (z === 20)
-    println(??)
+    println(???) // Sat
 
     scope {
       !! (ex(a => a >= 0 & z + a === 0))
-      println(??)
+      println(???) // Unsat
     }
     
     val f = createFunction("f", 1)
     !! (f(x) === f(z) + 1)
-    println(??)
+    println(???) // Sat
     
     val a, b = createConstant
     !! (f(a) === 0 & f(b) === 1)
     !! (a === b)
-    println(??)
+    println(???) // Unsat
   }
 
   println("-- Asynchronous interface")
   
-  println(p checkSat false)  // non-blocking
-  println(p getStatus false) // non-blocking
-  println(p getStatus true)  // blocking, equivalent to println(??)
+  println(p checkSat false)  // non-blocking, Running
+  println(p getStatus false) // non-blocking, Running
+  println(p getStatus true)  // blocking, equivalent to println(??), Sat
   
   println("-- Asynchronous interface, busy waiting")
   
-  println(p checkSat false)
+  println(p checkSat false) // Running
   while ((p getStatus false) == ProverStatus.Running) {}
-  println(p getStatus false)
+  println(p getStatus false) // Sat
   
   println("-- Stopping computations")
   
-  println(p checkSat false)  // non-blocking
-  println(p getStatus false) // non-blocking
-  println(p.stop)            // blocks until prover has actually stopped
-  println(p getStatus false) // non-blocking
+  println(p checkSat false)  // non-blocking, Running
+  println(p getStatus false) // non-blocking, Running
+  println(p.stop)            // blocks until prover has actually stopped, Unknown
+  println(p getStatus false) // non-blocking, Unknown
   
   println("-- Stopping computation after a while")
   
-  println(p checkSat false)  // non-blocking
+  println(p checkSat false)  // non-blocking, Running
   
   {
     println("Wait for 30ms ...")
@@ -111,7 +113,7 @@ object SimpleAPITest extends App {
     while (System.currentTimeMillis < m + 30) {}
   }
   
-  println(p.stop)            // blocks until prover has actually stopped
+  println(p.stop)            // blocks until prover has actually stopped, Sat
 
   
   p.shutDown

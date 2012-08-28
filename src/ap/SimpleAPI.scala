@@ -120,12 +120,18 @@ class SimpleAPI private {
 
   def !!(assertion : IFormula) : Unit = addAssertion(assertion)
 
-  def addAssertion(assertion : IFormula) : Unit = {
+  def ??(conc : IFormula) : Unit = addConclusion(conc)
+
+  def addAssertion(assertion : IFormula) : Unit = addConclusion(!assertion)
+  
+  def addConclusion(conc : IFormula) : Unit = {
+    lastStatus = ProverStatus.Unknown
+    
     val sig =
       new Signature(Set(), Set(), currentOrder.orderedConstants, currentOrder)
     
     val (fors, _, newSig) =
-      Preprocessing(!assertion, List(), sig, preprocSettings, functionEnc)
+      Preprocessing(conc, List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
     currentOrder = newSig.order
 
@@ -141,7 +147,10 @@ class SimpleAPI private {
     currentProver = currentProver.conclude(completeFor, currentOrder)
   }
   
-  def ?? = checkSat(true)
+  def ??? = getStatus(true) match {
+    case ProverStatus.Unknown => checkSat(true)
+    case res => res
+  }
   
   def checkSat(block : Boolean) : ProverStatus.Value = {
     ////////////////////////////////////////////////////////////////////////////
@@ -191,17 +200,20 @@ class SimpleAPI private {
   //////////////////////////////////////////////////////////////////////////////
   
   def push : Unit =
-    storedStates push (currentProver, currentOrder, functionEnc.clone, assertions)
+    storedStates push (currentProver, currentOrder, functionEnc.clone,
+                       assertions, lastStatus)
   
   def pop : Unit = {
     ////////////////////////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
     ////////////////////////////////////////////////////////////////////////////
-    val (oldProver, oldOrder, oldFunctionEnc, oldAssertions) = storedStates.pop
+    val (oldProver, oldOrder, oldFunctionEnc, oldAssertions, oldStatus) =
+      storedStates.pop
     currentProver = oldProver
     currentOrder = oldOrder
     functionEnc = oldFunctionEnc
     assertions = oldAssertions
+    lastStatus = oldStatus
   }
   
   def scope[A](comp: => A) = {
@@ -237,7 +249,8 @@ class SimpleAPI private {
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
                                              TermOrder,
                                              FunctionEncoder,
-                                             List[Conjunction])]
+                                             List[Conjunction],
+                                             ProverStatus.Value)]
   
   reset
   
@@ -252,7 +265,7 @@ class SimpleAPI private {
   // Prover actor, for the hard work
   
   private val proverRes = new SyncVar[ProverResult]
-  private var lastStatus = ProverStatus.Unknown
+  private var lastStatus = ProverStatus.Sat
   
   private val proofActor = actor {
     var cont = true
