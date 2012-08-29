@@ -24,6 +24,7 @@ package ap
 import ap.parser._
 
 object SimpleAPITest extends App {
+  ap.util.Debug.enableAllAssertions(true)
   val p = SimpleAPI.spawnWithAssertions
   
   import IExpression._
@@ -45,6 +46,9 @@ object SimpleAPITest extends App {
   p !! (r ==> s)
   println(p???) // still Sat
 
+  println("r = " + p.eval(r))
+  println("r & !s = " + p.eval(r & !s))
+  
   println("-- Scoping (locally add assertions, declare symbols, etc)")
   
   p.scope {
@@ -111,6 +115,8 @@ object SimpleAPITest extends App {
     !! (a === store(store(store(b, 2, 2), 1, 1), 0, 0))
     
     println(???) // Sat
+    println("select(a, 1) = " + eval(select(a, 1)))   // select(a, 1) = 1
+    println("select(a, 10) = " + eval(select(a, 10))) // select(a, 10) = 0
     
     scope {
       !! (a === store(b, 0, 1))

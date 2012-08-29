@@ -21,13 +21,15 @@
 
 package ap
 
+import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
 import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.TerForConvenience
-//import ap.terfor.linearcombination.LinearCombination
 import ap.proof.ModelSearchProver
-import ap.terfor.preds.Predicate
+import ap.terfor.equations.ReduceWithEqs
+import ap.terfor.preds.{Predicate, Atom}
+import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.util.{Debug, Timeout}
 
@@ -226,32 +228,88 @@ class SimpleAPI private (enableAssert : Boolean) {
 
   //////////////////////////////////////////////////////////////////////////////
   
-  def eval(t : ITerm) : ITerm = {
-    import TerForConvenience._
-    implicit val o = currentOrder
+  def eval(t : ITerm) : IdealInt = evalPartial(t) getOrElse {
+    // then we have to extend the model
     
-    scope {
-      val c = createConstant
-      val reduced = ReduceWithConjunction(currentModel, currentOrder)(toInternal(c === t))
-      if (reduced.isLiteral &&
-          reduced.arithConj.positiveEqs.size == 1 &&
-          reduced.constants.size == 1)
-        -reduced.arithConj.positiveEqs.head.constant
-      else
-        null
+    import TerForConvenience._
+    val originalOrder = currentOrder
+    
+    val (extendedModel, result) = scope {
+      val ct = createConstant
+      currentProver = currentProver.conclude(currentModel, currentOrder)
+      addFormula(ct =/= t)
+      checkSat(true) match {
+        case ProverStatus.Sat | ProverStatus.Invalid => {
+          // remove the temporary constant from the model
+          
+          val result = evalPartial(ct).get
+          val IConstant(c) = ct
+          val reducedModel = ConstantSubst(c, result, currentOrder)(currentModel)
+          
+          (reducedModel, result)
+        }
+      }
     }
     
-    /*
+    currentModel = extendedModel
+    
+    result
+  }
+  
+  def evalPartial(t : ITerm) : Option[IdealInt] = {
+    import TerForConvenience._
+    
     t match {
-      case 
       case IConstant(c) => {
-        currentModel.arithConj.positiveEqs.get
+        // faster check, find an equation that determines the value of c
         
-        val redTerm = ReduceWithConjunction(currentModel, currentOrder)(l(c))
+        implicit val o = currentOrder
         
-        null
+        val eqs = currentModel.arithConj.positiveEqs
+        if (eqs.constants contains c) {
+          val reduced = ReduceWithEqs(eqs, currentOrder)(l(c))
+          //////////////////////////////////////////////////////////////////////
+          Debug.assertInt(AC, reduced.constants.isEmpty)
+          //////////////////////////////////////////////////////////////////////
+          Some(reduced.constant)
+        } else
+          None
       }
-    }*/
+      
+      case t => {
+        // more complex check by reducing the expression via the model
+        
+        val c = new ConstantTerm ("c")
+        val extendedOrder = currentOrder.extend(c, Set())
+        
+        val reduced = ReduceWithConjunction(currentModel, functionalPreds,
+                                            extendedOrder)(
+                                            toInternal(t === c, extendedOrder))
+        if (reduced.isLiteral &&
+            reduced.arithConj.positiveEqs.size == 1 &&
+            reduced.constants.size == 1)
+          Some(-reduced.arithConj.positiveEqs.head.constant)
+        else
+          None
+      }
+    }
+  }
+
+  def eval(f : IFormula) : Boolean = evalPartial(f) getOrElse {
+    false
+  }
+
+  def evalPartial(f : IFormula) : Option[Boolean] = {
+    val reduced =
+      ReduceWithConjunction(currentModel, functionalPreds, currentOrder)(
+                              toInternal(f, currentOrder))
+    
+    if (reduced.isTrue)
+      Some(true)
+    else if (reduced.isFalse)
+      Some(false)
+    else
+      None
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -305,25 +363,25 @@ class SimpleAPI private (enableAssert : Boolean) {
     currentModel = null
     lastStatus = ProverStatus.Unknown
 
-    val completeFor = toInternal(f)
+    val completeFor = toInternal(f, currentOrder)
     
     assertions = completeFor :: assertions
     currentProver = currentProver.conclude(completeFor, currentOrder)
   }
 
-  private def toInternal(f : IFormula) : Conjunction = {
-    val sig =
-      new Signature(Set(), Set(), currentOrder.orderedConstants, currentOrder)
-    val (fors, _, newSig) =
-      Preprocessing(f, List(), sig, preprocSettings, functionEnc)
+  private def toInternal(f : IFormula, order : TermOrder) : Conjunction = {
+    val sig = new Signature(Set(), Set(), order.orderedConstants, order)
+    val (fors, _, newSig) = Preprocessing(f, List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
-    currentOrder = newSig.order
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertPre(AC, order == newSig.order)
+    ////////////////////////////////////////////////////////////////////////////
 
-    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
       Conjunction.conj(InputAbsy2Internal(
         IExpression.connect(for (f <- fors.iterator)
                               yield (IExpression removePartName f),
-                            IBinJunctor.Or), currentOrder), currentOrder))
+                            IBinJunctor.Or), order), order))
   }
   
   private var preprocSettings : PreprocessingSettings = _
