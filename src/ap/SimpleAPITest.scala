@@ -24,18 +24,16 @@ package ap
 import ap.parser._
 
 object SimpleAPITest extends App {
-  ap.util.Debug.enableAllAssertions(true)
-  val p = SimpleAPI.spawnWithAssertions
+  ap.util.Debug.enableAllAssertions(false)
+  val p = SimpleAPI.spawn // WithAssertions
   
   import IExpression._
   import SimpleAPI.ProverStatus
 
   println("-- Declaration of symbols")
   
-  val c = p.createConstant("c")
-  val d = p.createConstant("d")
-  val r = p.createBooleanVariable("r")
-  val s = p.createBooleanVariable("s")
+  val c, d = p.createConstant
+  val r, s, v = p.createBooleanVariable
 
   println(p???) // no assertions, Sat
   
@@ -46,8 +44,12 @@ object SimpleAPITest extends App {
   p !! (r ==> s)
   println(p???) // still Sat
 
-  println("r = " + p.eval(r))
-  println("r & !s = " + p.eval(r & !s))
+  println("-- Querying the model")
+  
+  println("r = " + p.eval(r))             // r = true
+  println("r & !s = " + p.eval(r & !s))   // r & !s = false
+  println("v = " + p.eval(v))             // v = true (arbitrary, value of v
+                                          //          is not fixed by assertions)
   
   println("-- Scoping (locally add assertions, declare symbols, etc)")
   
@@ -60,9 +62,9 @@ object SimpleAPITest extends App {
 
   println("-- Shorter notation via importing")
 
-  p.scope {
-    import p._
+  import p._
     
+  scope {
     val x, y, z = createConstant
     
     !! (x >= 0)
@@ -74,15 +76,20 @@ object SimpleAPITest extends App {
     println(???) // Sat
 
     scope {
-      println("---- Nesting scopes")
+      println("---- Nesting scopes and use of quantifiers")
   
       !! (ex(a => a >= 0 & z + a === 0))
       println(???) // Unsat
     }
     
+    println("---- Declaring functions")
+
     val f = createFunction("f", 1)
     !! (f(x) === f(z) + 1)
     println(???) // Sat
+    
+    println("f(x) + f(z) = " + eval(f(x) + f(z)))       // f(x) + f(z) = -1
+    println("(f(x) === f(z)) = " + eval(f(x) === f(z))) // (f(x) === f(z)) = false
     
     val a, b = createConstant
     !! (f(a) === 0 & f(b) === 1)
@@ -92,24 +99,22 @@ object SimpleAPITest extends App {
 
   println("-- Validity mode")
 
-  p.scope {
-    val x = p.createConstant
+  scope {
+    val x = createConstant
     
-    p !! (x > 5)
-    println(p.???) // Sat
-    println("x = " + p.eval(x))     // x = 6
-    println("2*x = " + p.eval(2*x)) // 2*x = 12
+    !! (x > 5)
+    println(???) // Sat
+    println("x = " + eval(x))     // x = 6
+    println("2*x = " + eval(2*x)) // 2*x = 12
     
-    p ?? (x > 0)   // prover switches to "validity" mode, and from now on
+    ?? (x > 0)   // prover switches to "validity" mode, and from now on
                    // answers Valid/Invalid instead of Unsat/Sat
-    println(p.???) // Valid
+    println(???) // Valid
   }
 
   println("-- Theory of arrays")
   
-  p.scope {
-    import p._
-
+  scope {
     val a, b = createConstant
     
     !! (a === store(store(store(b, 2, 2), 1, 1), 0, 0))
@@ -165,6 +170,18 @@ object SimpleAPITest extends App {
   
   println(p.stop)            // blocks until prover has actually stopped, Sat
 
+  
+  reset
+  
+  scope {
+    val vars = (for (_ <- 0 to 1000) yield createConstant).toArray
+    
+    for (i <- 0 until 1000)
+      !! (vars(i+1) === vars(i) + 1)
+    
+    println(???)
+    println(eval(vars(1000)))
+  }
   
   p.shutDown
 }

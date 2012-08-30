@@ -117,7 +117,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     orderVar = kind match {
       case Universal =>
         // universal constants are minimal
-        orderVar.extend(c, Set.empty)
+        orderVar.extend(c)
       case NullaryFunction =>
         // nullary functions are maximal
         orderVar.extend(c, universalConstants ++ existentialConstants)

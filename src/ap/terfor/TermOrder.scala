@@ -354,6 +354,9 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     res
   }
 
+  def extend(newConst : ConstantTerm) : TermOrder =
+    new TermOrder(constantSeq ++ List(newConst), predicateSeq)
+
   def extend(newConsts : Seq[ConstantTerm]) : TermOrder =
     new TermOrder(constantSeq ++ newConsts, predicateSeq)
 

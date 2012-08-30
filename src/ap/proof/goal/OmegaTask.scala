@@ -749,7 +749,7 @@ case object OmegaTask extends EagerTask {
                         upper : Boolean) : Option[IdealInt] = {
     val x = new ConstantTerm ("x")
     val y = new ConstantTerm ("y")
-    val order = TermOrder.EMPTY.extend(x, Set()).extend(y, Set()).extend(c, Set())
+    val order = TermOrder.EMPTY.extend(List(x, y, c))
     
     val one = if (upper) IdealInt.MINUS_ONE else IdealInt.ONE
     val minus_one = -one

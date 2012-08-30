@@ -38,8 +38,8 @@ class TestGenConjunctions {
    protected val consts = for (i <- Array.range(0, 10)) yield new ConstantTerm("c" + i)
    protected val vars = for (i <- Array.range(0, 20)) yield new VariableTerm(i)
    protected val constsVarsOne = consts ++ vars ++ List(OneTerm)
-   val to = (TermOrder.EMPTY /: consts)((o, c) => o.extend(c, Set.empty))
-   val toRev = (consts :\ TermOrder.EMPTY)((c, o) => o.extend(c, Set.empty))
+   val to = (TermOrder.EMPTY /: consts)((o, c) => o.extend(c))
+   val toRev = (consts :\ TermOrder.EMPTY)((c, o) => o.extend(c))
    
    protected def randomInput(len : Int) = for (i <- PlainRange(0, len))
                                         yield (IdealInt(Debug.random(-20, 20)),

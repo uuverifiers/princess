@@ -28,7 +28,7 @@ import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.TerForConvenience
 import ap.proof.ModelSearchProver
 import ap.terfor.equations.ReduceWithEqs
-import ap.terfor.preds.{Predicate, Atom}
+import ap.terfor.preds.{Predicate, Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.util.{Debug, Timeout}
@@ -100,7 +100,7 @@ class SimpleAPI private (enableAssert : Boolean) {
   
   def createConstant(name : String) : ITerm = {
     val c = new ConstantTerm(name)
-    currentOrder = currentOrder.extend(c, Set())
+    currentOrder = currentOrder.extend(c)
     c
   }
   
@@ -113,7 +113,10 @@ class SimpleAPI private (enableAssert : Boolean) {
     currentOrder = currentOrder extend p
     p()
   }
-  
+
+  def createBooleanVariable : IFormula =
+    createBooleanVariable("p" + currentOrder.orderedPredicates.size)
+
   def createFunction(name : String, arity : Int) : IFunction = {
     val f = new IFunction(name, arity, true, false)
     // make sure that the function encoder knows about the function
@@ -139,7 +142,8 @@ class SimpleAPI private (enableAssert : Boolean) {
   /**
    * Add an assertion to the prover: assume that the given formula is true
    */
-  def !!(assertion : IFormula) : Unit = addAssertion(assertion)
+  def !!(assertion : IFormula) : Unit =
+    addAssertion(assertion)
 
   def addAssertion(assertion : IFormula) : Unit =
     addFormula(!assertion)
@@ -150,7 +154,8 @@ class SimpleAPI private (enableAssert : Boolean) {
    * point on, the prover answers with the status <code>Valid/Invalid</code>
    * instead of <code>Unsat/Sat</code>.
    */
-  def ??(conc : IFormula) : Unit = addConclusion(conc)
+  def ??(conc : IFormula) : Unit =
+    addConclusion(conc)
 
   def addConclusion(conc : IFormula) : Unit = {
     validityMode = true
@@ -201,7 +206,7 @@ class SimpleAPI private (enableAssert : Boolean) {
           lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
         case SatResult(m) => {
           currentModel = m
-          println(m)
+//          println(m)
           lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
         }
         case StoppedResult =>
@@ -232,28 +237,26 @@ class SimpleAPI private (enableAssert : Boolean) {
     // then we have to extend the model
     
     import TerForConvenience._
-    val originalOrder = currentOrder
     
-    val (extendedModel, result) = scope {
-      val ct = createConstant
-      currentProver = currentProver.conclude(currentModel, currentOrder)
-      addFormula(ct =/= t)
-      checkSat(true) match {
-        case ProverStatus.Sat | ProverStatus.Invalid => {
-          // remove the temporary constant from the model
-          
-          val result = evalPartial(ct).get
-          val IConstant(c) = ct
-          val reducedModel = ConstantSubst(c, result, currentOrder)(currentModel)
-          
-          (reducedModel, result)
-        }
+    val c = new ConstantTerm("c")
+    implicit val extendedOrder = currentOrder.extend(c)
+    val extendedProver =
+      currentProver.conclude(currentModel, extendedOrder)
+                   .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder),
+                             extendedOrder)
+    
+    (extendedProver checkValidity true) match {
+      case Left(m) if (!m.isFalse) => {
+        val reduced = ReduceWithEqs(m.arithConj.positiveEqs, extendedOrder)(l(c))
+        //////////////////////////////////////////////////////////////////////
+        Debug.assertInt(AC, reduced.constants.isEmpty)
+        //////////////////////////////////////////////////////////////////////
+        val result = reduced.constant
+        currentModel = ConstantSubst(c, result, extendedOrder)(m)
+        
+        result
       }
     }
-    
-    currentModel = extendedModel
-    
-    result
   }
   
   def evalPartial(t : ITerm) : Option[IdealInt] = {
@@ -280,7 +283,7 @@ class SimpleAPI private (enableAssert : Boolean) {
         // more complex check by reducing the expression via the model
         
         val c = new ConstantTerm ("c")
-        val extendedOrder = currentOrder.extend(c, Set())
+        val extendedOrder = currentOrder.extend(c)
         
         val reduced = ReduceWithConjunction(currentModel, functionalPreds,
                                             extendedOrder)(
@@ -296,7 +299,31 @@ class SimpleAPI private (enableAssert : Boolean) {
   }
 
   def eval(f : IFormula) : Boolean = evalPartial(f) getOrElse {
-    false
+    // then we have to extend the model
+
+    import TerForConvenience._
+    
+    val p = new Predicate("p", 0)
+    implicit val extendedOrder = currentOrder.extend(p)
+    val extendedProver =
+      currentProver.conclude(currentModel, extendedOrder)
+                   .conclude(toInternal(IAtom(p, Seq()) <=> f, extendedOrder),
+                             extendedOrder)
+    
+    (extendedProver checkValidity true) match {
+      case Left(m) if (!m.isFalse) => {
+        val (reduced, _) = ReduceWithPredLits(m.predConj, Set(), extendedOrder)(p)
+        //////////////////////////////////////////////////////////////////////
+        Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
+        //////////////////////////////////////////////////////////////////////
+        val result = reduced.isTrue
+        val pf : Conjunction = p
+        
+        currentModel = ReduceWithConjunction(if (result) pf else !pf, extendedOrder)(m)
+        
+        result
+      }
+    }
   }
 
   def evalPartial(f : IFormula) : Option[Boolean] = {

@@ -40,8 +40,8 @@ class TestInequalities(n : String) extends APTestCase(n) {
 
   private val consts = for (i <- Array.range(0, 10)) yield new ConstantTerm("c" + i)
   private val constsAndOne = consts ++ List(OneTerm)
-  private val to = (TermOrder.EMPTY /: consts)((o, c) => o.extend(c, Set.empty))
-  private val toRev = (consts :\ TermOrder.EMPTY)((c, o) => o.extend(c, Set.empty))
+  private val to = (TermOrder.EMPTY /: consts)((o, c) => o.extend(c))
+  private val toRev = (consts :\ TermOrder.EMPTY)((c, o) => o.extend(c))
   
   private def randomInput(len : Int) = for (i <- PlainRange(0, len))
                                        yield (IdealInt(Debug.random(-20, 20)),

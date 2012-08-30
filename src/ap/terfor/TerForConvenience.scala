@@ -80,6 +80,12 @@ object TerForConvenience {
   implicit def pred2RichPred(pred : Predicate)(implicit order : TermOrder) =
     new RichPredicate(pred, order)
 
+  implicit def pred2Conj(p : Predicate)(implicit order : TermOrder) =
+    Conjunction.conj(pred2PredConj(p), order)
+
+  implicit def pred2PredConj(p : Predicate)(implicit order : TermOrder) =
+    atom2PredConj(Atom(p, Seq(), order))
+
   implicit def atom2Conj(atom : Atom) =
     Conjunction.conj(atom2PredConj(atom), atom.order)
 
