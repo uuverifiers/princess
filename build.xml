@@ -53,7 +53,7 @@
 			<include name="**/*.scala" />
 		</scalac>
 		
-		<jar destfile="${dist}/princess.jar" basedir="${bin}/ap" />
+		<jar destfile="${dist}/princess.jar" basedir="${bin}/" />
 	</target>
 
     <target name="clean" description="cleans up">
