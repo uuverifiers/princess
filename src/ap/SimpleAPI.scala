@@ -88,7 +88,8 @@ class SimpleAPI private (enableAssert : Boolean) {
     functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false)
     currentProver = ModelSearchProver emptyIncProver goalSettings
-    assertions = List()
+    formulaeInProver = List()
+    formulaeTodo = false
     currentModel = null
     lastStatus = ProverStatus.Sat
     validityMode = false
@@ -100,22 +101,39 @@ class SimpleAPI private (enableAssert : Boolean) {
   
   def createConstant(name : String) : ITerm = {
     val c = new ConstantTerm(name)
-    currentOrder = currentOrder.extend(c)
+    currentOrder = currentOrder extend c
     c
   }
-  
+
   def createConstant : ITerm =
     createConstant("c" + currentOrder.orderedConstants.size)
   
+  def createConstants(num : Int) : IndexedSeq[ITerm] = {
+    val startInd = currentOrder.orderedConstants.size
+    val cs = (for (i <- 0 until num)
+              yield new ConstantTerm ("c" + (startInd + i))).toIndexedSeq
+    currentOrder = currentOrder extend cs
+    for (c <- cs) yield IConstant(c)
+  }
+
   def createBooleanVariable(name : String) : IFormula = {
     import IExpression._
     val p = new Predicate(name, 0)
-    currentOrder = currentOrder extend p
+    currentOrder = currentOrder extendPred p
     p()
   }
 
   def createBooleanVariable : IFormula =
     createBooleanVariable("p" + currentOrder.orderedPredicates.size)
+
+  def createBooleanVariables(num : Int) : IndexedSeq[IFormula] = {
+    import IExpression._
+    val startInd = currentOrder.orderedPredicates.size
+    val ps = (for (i <- 0 until num)
+              yield new Predicate ("p" + (startInd + i), 0)).toIndexedSeq
+    currentOrder = currentOrder extendPred ps
+    for (p <- ps) yield p()
+  }
 
   def createFunction(name : String, arity : Int) : IFunction = {
     val f = new IFunction(name, arity, true, false)
@@ -184,6 +202,9 @@ class SimpleAPI private (enableAssert : Boolean) {
     
     lastStatus = ProverStatus.Running
     proverRes.unset
+    
+    flushTodo
+    
     proofActor ! CheckSatCommand(currentProver)
     
     if (block)
@@ -304,7 +325,7 @@ class SimpleAPI private (enableAssert : Boolean) {
     import TerForConvenience._
     
     val p = new Predicate("p", 0)
-    implicit val extendedOrder = currentOrder.extend(p)
+    implicit val extendedOrder = currentOrder extendPred p
     val extendedProver =
       currentProver.conclude(currentModel, extendedOrder)
                    .conclude(toInternal(IAtom(p, Seq()) <=> f, extendedOrder),
@@ -357,11 +378,15 @@ class SimpleAPI private (enableAssert : Boolean) {
   /**
    * Add a new frame to the assertion stack.
    */
-  def push : Unit =
+  def push : Unit = {
+    // process pending formulae, to avoid processing them again after a pop
+    flushTodo
+    
     storedStates push (preprocSettings,
                        currentProver, currentOrder, functionEnc.clone,
-                       arrayFuns, assertions, validityMode,
+                       arrayFuns, formulaeInProver, validityMode,
                        lastStatus, currentModel)
+  }
   
   /**
    * Pop the top-most frame from the assertion stack.
@@ -371,14 +396,15 @@ class SimpleAPI private (enableAssert : Boolean) {
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
     ////////////////////////////////////////////////////////////////////////////
     val (oldPreprocSettings, oldProver, oldOrder, oldFunctionEnc, oldArrayFuns,
-         oldAssertions, oldValidityMode, oldStatus, oldModel) =
+         oldFormulaeInProver, oldValidityMode, oldStatus, oldModel) =
       storedStates.pop
     preprocSettings = oldPreprocSettings
     currentProver = oldProver
     currentOrder = oldOrder
     functionEnc = oldFunctionEnc
     arrayFuns = oldArrayFuns
-    assertions = oldAssertions
+    formulaeInProver = oldFormulaeInProver
+    formulaeTodo = false
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
@@ -386,14 +412,20 @@ class SimpleAPI private (enableAssert : Boolean) {
   
   //////////////////////////////////////////////////////////////////////////////
 
+  private def flushTodo : Unit = formulaeTodo match {
+    case IBoolLit(false) => // nothing
+    case f => {
+      val completeFor = toInternal(f, currentOrder)
+      formulaeInProver = completeFor :: formulaeInProver
+      currentProver = currentProver.conclude(completeFor, currentOrder)
+      formulaeTodo = false
+    }
+  }
+  
   private def addFormula(f : IFormula) : Unit = {
     currentModel = null
     lastStatus = ProverStatus.Unknown
-
-    val completeFor = toInternal(f, currentOrder)
-    
-    assertions = completeFor :: assertions
-    currentProver = currentProver.conclude(completeFor, currentOrder)
+    formulaeTodo = formulaeTodo | f
   }
 
   private def toInternal(f : IFormula, order : TermOrder) : Conjunction = {
@@ -428,7 +460,8 @@ class SimpleAPI private (enableAssert : Boolean) {
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
   private var currentModel : Conjunction = _
-  private var assertions : List[Conjunction] = List()
+  private var formulaeInProver : List[Conjunction] = List()
+  private var formulaeTodo : IFormula = false
   
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,
@@ -447,8 +480,8 @@ class SimpleAPI private (enableAssert : Boolean) {
              ps, functionEnc.predTranslation.values.toSet)
       ps
     }
-    currentProver =
-      (ModelSearchProver emptyIncProver goalSettings).conclude(assertions, currentOrder)
+    currentProver = (ModelSearchProver emptyIncProver goalSettings)
+                        .conclude(formulaeInProver, currentOrder)
   }
   
   private def functionalPreds = functionEnc.predTranslation.keySet.toSet

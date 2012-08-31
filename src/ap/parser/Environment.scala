@@ -130,7 +130,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
  
   def addPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit = {
     addSym(pred.name, Predicate(pred, typ))
-    orderVar = orderVar extend pred
+    orderVar = orderVar extendPred pred
   }
   
   def addFunction(fun : IFunction, typ : FunctionType) : Unit =

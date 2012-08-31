@@ -73,12 +73,9 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
   }
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  private def noDuplicates[A](seq : Seq[A]) : Boolean =
-    Logic.forall(0, seq.size, (i:Int) =>
-    Logic.forall(i+1, seq.size, (j:Int) =>
-                 seq(i) != seq(j)))
   Debug.assertCtor(TermOrder.AC,
-                   noDuplicates(constantSeq) && noDuplicates(predicateSeq))
+                   constantSeq.toSet.size == constantSeq.size &&
+                   predicateSeq.toSet.size == predicateSeq.size)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   /**
@@ -414,8 +411,11 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * Extend this ordering by inserting a further predicate <code>newPred</code>.
    * This predicate is inserted so that it gets as big as possible
    */
-  def extend(newPred : Predicate) : TermOrder =
+  def extendPred(newPred : Predicate) : TermOrder =
     new TermOrder(constantSeq, predicateSeq ++ List(newPred))
+
+  def extendPred(newPreds : Seq[Predicate]) : TermOrder =
+    new TermOrder(constantSeq, predicateSeq ++ newPreds)
 
   /**
    * Generate a new <code>TermOrder</code> that coincides with this one, except

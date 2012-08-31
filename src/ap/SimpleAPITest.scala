@@ -177,15 +177,18 @@ object SimpleAPITest extends App {
   println("-- Generating a larger amount of constraints")
 
   scope {
-    val vars = (for (_ <- 0 to 1000) yield createConstant).toArray
+    val vars = createConstants(1001)
     
     for (i <- 0 until 1000)
       !! (vars(i+1) === vars(i) + 1)
-  
-//    !! (connect(for (i <- 0 until 1000) yield (vars(i+1) === vars(i) + 1), IBinJunctor.And))
     
-    println(???)
-    println(eval(vars(1000)))
+    println(???)                                          // Sat
+    println("" + vars(1000) + " = " + eval(vars(1000)))   // c1000 = 1000
+    
+    scope {
+      ?? (vars(0) >= 0 ==> vars(1000) >= 0)
+      println(???)                                        // Valid
+    }
   }
   
   p.shutDown

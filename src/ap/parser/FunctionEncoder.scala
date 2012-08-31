@@ -311,7 +311,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     private def toRelation(fun : IFunction) : Predicate = 
       relations.getOrElseUpdate(fun, {
         val pred = new Predicate(fun.name, fun.arity + 1)
-        order = order extend pred
+        order = order extendPred pred
         if (!fun.relational)
           axiomsVar = axiomsVar &&& functionality(pred)
         if (!fun.partial && genTotalityAxioms)

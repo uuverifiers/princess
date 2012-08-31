@@ -220,7 +220,7 @@ class SigTracker(var sig : Signature) {
   }
   def addPred(p : Predicate) : Unit =
 	sig = new Signature(sig.universalConstants, sig.existentialConstants,
-			            sig.nullaryFunctions, sig.order extend p)
+			            sig.nullaryFunctions, sig.order extendPred p)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
