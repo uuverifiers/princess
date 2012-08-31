@@ -518,9 +518,11 @@ object ModelSearchProver {
       new IncProver(resGoal)
     }
     
-    def checkValidity(constructModel : Boolean) : Either[Conjunction, Certificate] =
+    def checkValidity(constructModel : Boolean,
+                      modelSelector : Conjunction => Boolean = (_) => true)
+                     : Either[Conjunction, Certificate] =
       findModel(goal, List(), Set(), 0, goal.settings,
-                constructModel, (_) => true) match {
+                constructModel, modelSelector) match {
         case SatResult             => Left(Conjunction.TRUE)
         case ModelResult(model)    => Left(model)
         case ModelResultCont(model)=> Left(model)

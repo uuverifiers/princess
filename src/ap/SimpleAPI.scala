@@ -54,6 +54,7 @@ object SimpleAPI {
 
   private case class CheckSatCommand(prover : ModelSearchProver.IncProver)
           extends ProverCommand
+  private case object NextModelCommand extends ProverCommand
   private case object ShutdownCommand extends ProverCommand
   private case object StopCommand extends ProverCommand
 
@@ -206,11 +207,23 @@ class SimpleAPI private (enableAssert : Boolean) {
     flushTodo
     
     proofActor ! CheckSatCommand(currentProver)
+    getStatus(block)
+  }
+  
+  /**
+   * After a <code>Sat</code> result, continue searching for the next model.
+   * In most ways, this method behaves exactly like <code>checkSat</code>.
+   */
+  def nextModel(block : Boolean) : ProverStatus.Value = {
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertPre(AC, getStatus(false) == ProverStatus.Sat)
+    ////////////////////////////////////////////////////////////////////////////
     
-    if (block)
-      getStatus(true)
-    else
-      ProverStatus.Running
+    lastStatus = ProverStatus.Running
+    proverRes.unset
+    
+    proofActor ! NextModelCommand
+    getStatus(block)
   }
 
   /**
@@ -218,7 +231,7 @@ class SimpleAPI private (enableAssert : Boolean) {
    * call. Will block until a result is available if <code>block</code>
    * argument is true, otherwise return immediately.
    */
-  def getStatus(block : Boolean) : ProverStatus.Value =
+  def getStatus(block : Boolean) : ProverStatus.Value = {
     if (lastStatus != ProverStatus.Running || (!block && !proverRes.isSet)) {
       lastStatus
     } else {
@@ -238,7 +251,7 @@ class SimpleAPI private (enableAssert : Boolean) {
 
       lastStatus
     }
-  
+  }
   /**
    * Stop a running prover. If the prover had already terminated, give same
    * result as <code>getResult</code>, otherwise <code>Unknown</code>.
@@ -328,7 +341,7 @@ class SimpleAPI private (enableAssert : Boolean) {
     implicit val extendedOrder = currentOrder extendPred p
     val extendedProver =
       currentProver.conclude(currentModel, extendedOrder)
-                   .conclude(toInternal(IAtom(p, Seq()) <=> f, extendedOrder),
+                   .conclude(toInternal(IAtom(p, Seq()) </> f, extendedOrder),
                              extendedOrder)
     
     (extendedProver checkValidity true) match {
@@ -498,6 +511,46 @@ class SimpleAPI private (enableAssert : Boolean) {
     Debug enableAllAssertions enableAssert
     
     var cont = true
+    var nextCommand : ProverCommand = null
+    
+    val commandParser : PartialFunction[Any, Unit] = {
+      case CheckSatCommand(p) =>
+          
+        Timeout.catchTimeout {
+          p.checkValidity(true, (model : Conjunction) => {
+            ////////////////////////////////////////////////////////////////////
+            Debug.assertPre(AC, !model.isFalse)
+            ////////////////////////////////////////////////////////////////////
+            proverRes set SatResult(model)
+                
+            // wait for a command on what to do next
+            receive {
+              case NextModelCommand => {
+                false
+              }
+              case c : ProverCommand => {
+                // get out of here
+                nextCommand = c
+                true
+              }
+            }
+          })
+        } { case _ => null } match {
+
+          case null =>
+            proverRes set StoppedResult
+          case Left(m) if (nextCommand == null) =>
+            proverRes set UnsatResult
+          case Left(_) =>
+            // nothing
+              
+        }
+            
+      case StopCommand =>
+        proverRes set StoppedResult
+      case ShutdownCommand =>
+        cont = false
+    }
     
     Timeout.withChecker(() => receiveWithin(0) {
       case StopCommand =>
@@ -510,20 +563,13 @@ class SimpleAPI private (enableAssert : Boolean) {
     }) {
             
       while (cont) {
-        receive {
-          case CheckSatCommand(p) =>
-          
-            Timeout.catchTimeout {
-              p checkValidity true
-            } { case _ => null } match {
-              
-              case null => proverRes set StoppedResult
-              case Left(m) if (!m.isFalse) => proverRes set SatResult(m)
-              case _ => proverRes set UnsatResult
-              
-            }
-          case ShutdownCommand =>
-            cont = false
+        // wait for a command on what to do next
+        if (nextCommand != null) {
+          val c = nextCommand
+          nextCommand = null
+          commandParser(c)
+        } else {
+          receive(commandParser)
         }
       }
       

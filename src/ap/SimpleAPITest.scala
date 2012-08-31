@@ -24,34 +24,39 @@ package ap
 import ap.parser._
 
 object SimpleAPITest extends App {
-  ap.util.Debug.enableAllAssertions(false)
-  val p = SimpleAPI.spawn // WithAssertions
+  ap.util.Debug.enableAllAssertions(true)
+  val p = SimpleAPI.spawnWithAssertions
   
   import IExpression._
   import SimpleAPI.ProverStatus
 
-  println("-- Declaration of symbols")
+  def part(str : String) = {
+    println
+    println("-- " + str)
+  }
+  
+  part("Declaration of symbols")
   
   val c, d = p.createConstant
   val r, s, v = p.createBooleanVariable
 
   println(p???) // no assertions, Sat
   
-  println("-- Adding some assertions (uses methods from IExpression._)")
+  part("Adding some assertions (uses methods from IExpression._)")
   
   p !! (r & (c === d + 15))
   p !! (d >= 100)
   p !! (r ==> s)
   println(p???) // still Sat
 
-  println("-- Querying the model")
+  part("Querying the model")
   
   println("r = " + p.eval(r))             // r = true
   println("r & !s = " + p.eval(r & !s))   // r & !s = false
   println("v = " + p.eval(v))             // v = true (arbitrary, value of v
                                           //          is not fixed by assertions)
   
-  println("-- Scoping (locally add assertions, declare symbols, etc)")
+  part("Scoping (locally add assertions, declare symbols, etc)")
   
   p.scope {
     p !! (s ==> c <= -100)
@@ -60,7 +65,7 @@ object SimpleAPITest extends App {
   
   println(p???) // Sat again
 
-  println("-- Shorter notation via importing")
+  part("Shorter notation via importing")
 
   import p._
     
@@ -76,13 +81,13 @@ object SimpleAPITest extends App {
     println(???) // Sat
 
     scope {
-      println("---- Nesting scopes and use of quantifiers")
+      part("Nesting scopes and use of quantifiers")
   
       !! (ex(a => a >= 0 & z + a === 0))
       println(???) // Unsat
     }
     
-    println("---- Declaring functions")
+    part("Declaring functions")
 
     val f = createFunction("f", 1)
     !! (f(x) === f(z) + 1)
@@ -97,7 +102,29 @@ object SimpleAPITest extends App {
     println(???) // Unsat
   }
 
-  println("-- Validity mode")
+  part("Generating different models for the same formula")
+
+  scope {
+    val p1, p2, p3 = createBooleanVariable
+    !! (p1 | !p2 | p3)
+    !! (p2 | c <= -100)
+    
+    def dn[A](value : Option[A]) : String = value match {
+      case Some(v) => v.toString
+      case None => "-"
+    }
+
+    println("  p1  \t  p2  \t  p3")
+    println("------------------------")
+    while (??? == ProverStatus.Sat) {
+      println("  " + dn(evalPartial(p1)) + "\t  "
+                   + dn(evalPartial(p2)) + "\t  "
+                   + dn(evalPartial(p3)))
+      nextModel(false)
+    }
+  }
+  
+  part("Validity mode")
 
   scope {
     val x = createConstant
@@ -112,7 +139,7 @@ object SimpleAPITest extends App {
     println(???) // Valid
   }
 
-  println("-- Theory of arrays")
+  part("Theory of arrays")
   
   scope {
     val a, b = createConstant
@@ -139,26 +166,27 @@ object SimpleAPITest extends App {
     }
   }
   
-  println("-- Asynchronous interface")
+  part("Asynchronous interface")
   
   println(p checkSat false)  // non-blocking, Running
   println(p getStatus false) // non-blocking, Running
   println(p getStatus true)  // blocking, equivalent to println(??), Sat
   
-  println("-- Asynchronous interface, busy waiting")
+  part("Asynchronous interface, busy waiting")
   
   println(p checkSat false) // Running
   while ((p getStatus false) == ProverStatus.Running) {}
   println(p getStatus false) // Sat
   
-  println("-- Stopping computations")
+  part("Stopping computations")
   
   println(p checkSat false)  // non-blocking, Running
-  println(p getStatus false) // non-blocking, Running
+  println(p getStatus false) // non-blocking, usually still Running
   println(p.stop)            // blocks until prover has actually stopped, Unknown
-  println(p getStatus false) // non-blocking, Unknown
+  println(p getStatus false) // non-blocking, usually Unknown (unless prover
+                             // was already finished when calling "stop")
   
-  println("-- Stopping computation after a while")
+  part("Stopping computation after a while")
   
   println(p checkSat false)  // non-blocking, Running
   
@@ -174,19 +202,19 @@ object SimpleAPITest extends App {
   
   reset
 
-  println("-- Generating a larger amount of constraints")
+  part("Generating a larger amount of constraints")
 
   scope {
-    val vars = createConstants(1001)
+    val vars = createConstants(101)
     
-    for (i <- 0 until 1000)
+    for (i <- 0 until 100)
       !! (vars(i+1) === vars(i) + 1)
     
-    println(???)                                          // Sat
-    println("" + vars(1000) + " = " + eval(vars(1000)))   // c1000 = 1000
+    println(???)                                        // Sat
+    println("" + vars(100) + " = " + eval(vars(100)))   // c100 = 100
     
     scope {
-      ?? (vars(0) >= 0 ==> vars(1000) >= 0)
+      ?? (vars(0) >= 0 ==> vars(100) >= 0)
       println(???)                                        // Valid
     }
   }
