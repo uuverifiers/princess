@@ -108,7 +108,7 @@ object SimpleAPITest extends App {
     println("2*x = " + eval(2*x)) // 2*x = 12
     
     ?? (x > 0)   // prover switches to "validity" mode, and from now on
-                   // answers Valid/Invalid instead of Unsat/Sat
+                 // answers Valid/Invalid instead of Unsat/Sat
     println(???) // Valid
   }
 
