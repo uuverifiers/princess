@@ -1,0 +1,74 @@
+
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from IExpression._)
+Sat
+
+-- Querying the model
+r = true
+r & !s = false
+v = true
+
+-- Scoping (locally add assertions, declare symbols, etc)
+Unsat
+Sat
+
+-- Shorter notation via importing
+Sat
+Sat
+
+-- Nesting scopes and use of quantifiers
+Unsat
+
+-- Declaring functions
+Sat
+f(x) + f(z) = -1
+(f(x) === f(z)) = false
+Unsat
+
+-- Generating different models for the same formula
+  p1  	  p2  	  p3
+------------------------
+  -	  true	  true
+  true	  true	  false
+
+-- Validity mode
+Sat
+x = 6
+2*x = 12
+Valid
+
+-- Theory of arrays
+Sat
+select(a, 1) = 1
+select(a, 10) = 0
+Unsat
+Valid
+Unsat
+
+-- Non-trivial quantifiers
+Invalid
+Valid
+
+-- Asynchronous interface
+Running
+Running
+Sat
+
+-- Asynchronous interface, busy waiting
+Running
+Sat
+
+-- Stopping computations
+expected result
+
+-- Stopping computation after a while
+Running
+Wait for 30ms ...
+Sat
+
+-- Generating a larger amount of constraints
+Sat
+c100 = 100
+Valid

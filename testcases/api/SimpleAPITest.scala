@@ -19,8 +19,7 @@
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ap
-
+import ap._
 import ap.parser._
 
 object SimpleAPITest extends App {
@@ -189,13 +188,17 @@ object SimpleAPITest extends App {
   
   part("Stopping computations")
   
-  !! (true)
-  println(p checkSat false)  // non-blocking, Running
-  println(p getStatus false) // non-blocking, usually still Running
-  println(p.stop)            // blocks until prover has actually stopped, Unknown
-  println(p getStatus false) // non-blocking, usually Unknown (unless prover
-                             // was already finished when calling "stop")
-  
+  p checkSat false                // non-blocking, Running
+  p getStatus false               // non-blocking, usually still Running
+  p.stop                          // blocks until prover has actually stopped, Unknown
+  (p getStatus false) match {     // non-blocking, usually Unknown (unless prover
+    case ProverStatus.Unknown |   // was already finished when calling "stop")
+         ProverStatus.Sat =>
+      println("expected result")
+    case _ =>
+      println("oops")
+  }  
+
   part("Stopping computation after a while")
   
   println(p checkSat false)  // non-blocking, Running

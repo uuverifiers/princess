@@ -1,0 +1,5 @@
+#!/bin/sh
+
+scalac -cp ../../bin SimpleAPITest.scala
+scala -cp ../../bin SimpleAPITest
+

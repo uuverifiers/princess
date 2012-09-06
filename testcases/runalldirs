@@ -1,5 +1,7 @@
 #!/bin/sh
 
+./rundir api ""
+
 ./rundir smtlib-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution
 ./rundir tptp-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution
 
