@@ -1,5 +1,7 @@
 #!/bin/sh
 
+unset CLASSPATH
+
 scalac -cp ../../bin SimpleAPITest.scala
 scala -cp ../../bin SimpleAPITest
 
