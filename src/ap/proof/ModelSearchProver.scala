@@ -464,9 +464,11 @@ object ModelSearchProver {
   // Prover that can be used incrementally
   
   def emptyIncProver(settings : GoalSettings) : IncProver =
-    new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings))
+    new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings),
+                  settings)
   
-  class IncProver protected[proof] (goal : Goal) {
+  class IncProver protected[proof] (goal : Goal,
+                                    settings : GoalSettings) {
     
     def assert(f : Conjunction, newOrder : TermOrder) : IncProver =
       conclude(f.negate, newOrder)
@@ -503,7 +505,7 @@ object ModelSearchProver {
         }
       
       var resGoal = newOrderGoal addTasksFor fors
-      
+
       // apply the most simple tasks right away
       var cont = true
       while (cont && resGoal.stepPossible) {
@@ -515,13 +517,13 @@ object ModelSearchProver {
           resGoal = (resGoal step ptf).asInstanceOf[Goal]
       }
       
-      new IncProver(resGoal)
+      new IncProver(resGoal, settings)
     }
     
     def checkValidity(constructModel : Boolean,
                       modelSelector : Conjunction => Boolean = (_) => true)
                      : Either[Conjunction, Certificate] =
-      findModel(goal, List(), Set(), 0, goal.settings,
+      findModel(goal, List(), Set(), 0, settings,
                 constructModel, modelSelector) match {
         case SatResult             => Left(Conjunction.TRUE)
         case ModelResult(model)    => Left(model)
