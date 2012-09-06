@@ -31,9 +31,9 @@ import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parameters.{ParserSettings, PreprocessingSettings,
                       GoalSettings, Param}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.TerForConvenience._
-import ap.terfor.{TermOrder, ConstantTerm}
+import ap.terfor.TermOrder
 import ap.proof.ModelSearchProver
 import ap.util.{Debug, Seqs}
 

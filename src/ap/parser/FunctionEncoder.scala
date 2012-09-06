@@ -24,8 +24,8 @@ package ap.parser
 import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
 
 import ap.terfor.TermOrder
-import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.Quantifier
+//import ap.terfor.preds.Predicate
+//import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
 
 object FunctionEncoder {

@@ -25,9 +25,7 @@ package ap.parser
 import ap._
 import ap.parameters.{ParserSettings, Param}
 import ap.basetypes.{IdealInt, IdealRat}
-import ap.terfor.{Formula, ConstantTerm}
-import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.Quantifier
+import ap.terfor.Formula
 import ap.util.Seqs
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}

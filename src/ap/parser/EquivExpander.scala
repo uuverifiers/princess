@@ -21,9 +21,6 @@
 
 package ap.parser
 
-import ap.terfor.ConstantTerm
-import ap.terfor.conjunctions.Quantifier
-
 /**
  * Class to turn <-> into conjunction and disjunctions, eliminate
  * if-then-else expressions and epsilon terms

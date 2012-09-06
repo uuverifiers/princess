@@ -23,11 +23,11 @@ package ap.parser;
 
 import ap._
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
-import ap.terfor.preds.{Predicate, Atom}
+import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 

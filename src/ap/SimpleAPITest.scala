@@ -166,6 +166,15 @@ object SimpleAPITest extends App {
     }
   }
   
+  part("Non-trivial quantifiers")
+  
+  scope {
+    ?? (ex(x => 0 <= x & x < 10 & (2*x === c | x === d)))
+    println(???)   // Invalid
+    !! (c === 4 & false)
+    println(???)   // Valid
+  }
+  
   part("Asynchronous interface")
   
   println(p checkSat false)  // non-blocking, Running
@@ -180,6 +189,7 @@ object SimpleAPITest extends App {
   
   part("Stopping computations")
   
+  !! (true)
   println(p checkSat false)  // non-blocking, Running
   println(p getStatus false) // non-blocking, usually still Running
   println(p.stop)            // blocks until prover has actually stopped, Unknown

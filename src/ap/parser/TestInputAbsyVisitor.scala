@@ -21,9 +21,7 @@
 
 package ap.parser;
 
-import ap.terfor.{ConstantTerm, TermOrder}
-import ap.terfor.conjunctions.Quantifier
-import ap.terfor.preds.Predicate
+import ap.terfor.TermOrder
 import ap.util.{Debug, Logic, APTestCase, PlainRange, Seqs}
 
 class TestInputAbsyVisitor(n : String) extends APTestCase(n) {

@@ -56,17 +56,17 @@ object SMTLineariser {
         val formula = IExpression.connect(formulas, IBinJunctor.Or)
         // add the nullary functions
         val withFunctions =
-          IExpression.quan(Quantifier.ALL, signature.nullaryFunctions, formula)
+          IExpression.quanConsts(Quantifier.ALL, signature.nullaryFunctions, formula)
         // ... and the existentially quantified constants
         val withExConstants =
-          IExpression.quan(Quantifier.EX,
-                           signature.existentialConstants,
-                           withFunctions)
+          IExpression.quanConsts(Quantifier.EX,
+                                 signature.existentialConstants,
+                                 withFunctions)
         // add the universally quantified constants
         val withUniConstants =
-          IExpression.quan(Quantifier.ALL,
-                           signature.universalConstants,
-                           withFunctions)
+          IExpression.quanConsts(Quantifier.ALL,
+                                 signature.universalConstants,
+                                 withFunctions)
         
         (List(!withUniConstants), Set())
       }

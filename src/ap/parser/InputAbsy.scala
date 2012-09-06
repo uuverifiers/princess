@@ -60,6 +60,13 @@ abstract class IExpression {
 
 object IExpression {
   protected[parser] val AC = Debug.AC_INPUT_ABSY
+
+  // Import of some central types from the <code>terfor</code> package 
+  
+  type ConstantTerm = ap.terfor.ConstantTerm
+  type Quantifier = ap.terfor.conjunctions.Quantifier
+  val Quantifier = ap.terfor.conjunctions.Quantifier
+  type Predicate = ap.terfor.preds.Predicate
   
   implicit def i(value : Int) : ITerm = IIntLit(value)
   implicit def i(value : IdealInt) : ITerm = IIntLit(value)
@@ -67,12 +74,12 @@ object IExpression {
   def v(index : Int) : IVariable = IVariable(index)
 
   implicit def i(value : Boolean) : IFormula = IBoolLit(value)
-  implicit def toPredApplier(pred : Predicate) : ((ITerm*) => IFormula) =
-    new Function1[Seq[ITerm], IFormula] {
+  implicit def toPredApplier(pred : Predicate) : ((ITerm*) => IAtom) =
+    new Function1[Seq[ITerm], IAtom] {
       def apply(args : Seq[ITerm]) = IAtom(pred, args)
     }
-  implicit def toFunApplier(fun : IFunction) : ((ITerm*) => ITerm) =
-    new Function1[Seq[ITerm], ITerm] {
+  implicit def toFunApplier(fun : IFunction) : ((ITerm*) => IFunApp) =
+    new Function1[Seq[ITerm], IFunApp] {
       def apply(args : Seq[ITerm]) = IFunApp(fun, args)
     }
 
@@ -88,19 +95,31 @@ object IExpression {
     // bound variable (just applying <code>f</code> to a bound variable
     // would not work in case of nested quantifiers)
     val x = new ConstantTerm ("x")
-    quan(q, List(x), f(x))
+    quanConsts(q, List(x), f(x))
   }
   
   def quan(quans : Seq[Quantifier], f : IFormula) : IFormula =
     (f /: quans)((f, q) => IQuantified(q, f))
 
-  def quan(quan : Quantifier,
-           consts : Iterable[ConstantTerm],
-           f : IFormula) : IFormula = {
+  def quanConsts(quan : Quantifier,
+                 consts : Iterable[ConstantTerm],
+                 f : IFormula) : IFormula = {
     val fWithShiftedVars = VariableShiftVisitor(f, 0, consts.size)
-    val subst = Map() ++ (for ((c, i) <- consts.iterator.zipWithIndex) yield (c, v(i)))
+    val subst = (for ((c, i) <- consts.iterator.zipWithIndex)
+                 yield (c, v(i))).toMap
     val fWithSubstitutedConsts = ConstantSubstVisitor(fWithShiftedVars, subst)
     (consts :\ fWithSubstitutedConsts) ((c, f) => IQuantified(quan, f))
+  }
+  
+  def quanConsts(quantifiedConstants : Seq[(Quantifier, ConstantTerm)],
+                 f : IFormula) : IFormula = {
+    val fWithShiftedVars = VariableShiftVisitor(f, 0, quantifiedConstants.size)
+    val subst = (for (((_, c), i) <- quantifiedConstants.iterator.zipWithIndex)
+                 yield (c, v(quantifiedConstants.size - i - 1))).toMap
+    val fWithSubstitutedConsts = ConstantSubstVisitor(fWithShiftedVars, subst)
+    (quantifiedConstants :\ fWithSubstitutedConsts) {
+      case ((q, _), f) => IQuantified(q, f)
+    }
   }
   
   def eqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
@@ -117,6 +136,11 @@ object IExpression {
       case IBinJunctor.Or => false
     }
 
+  def and(fors : Iterator[IFormula]) = connect(fors, IBinJunctor.And)
+  def and(fors : Iterable[IFormula]) = connect(fors, IBinJunctor.And)
+  def or(fors : Iterator[IFormula]) = connect(fors, IBinJunctor.Or)
+  def or(fors : Iterable[IFormula]) = connect(fors, IBinJunctor.Or)
+  
   def sum(terms : Iterable[ITerm]) : ITerm = sum(terms.iterator)
 
   def sum(terms : Iterator[ITerm]) : ITerm =

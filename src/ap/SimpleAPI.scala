@@ -24,17 +24,17 @@ package ap
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
-import ap.terfor.{TermOrder, ConstantTerm}
+import ap.terfor.TermOrder
 import ap.terfor.TerForConvenience
-import ap.proof.ModelSearchProver
+import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.terfor.equations.ReduceWithEqs
-import ap.terfor.preds.{Predicate, Atom, PredConj, ReduceWithPredLits}
+import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
+                               IterativeClauseMatcher, Quantifier}
 import ap.util.{Debug, Timeout}
 
-import scala.collection.mutable.{HashMap => MHashMap, SynchronizedQueue,
-                                 ArrayStack}
+import scala.collection.mutable.{HashMap => MHashMap, ArrayStack}
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 import scala.concurrent.SyncVar
@@ -54,12 +54,16 @@ object SimpleAPI {
 
   private case class CheckSatCommand(prover : ModelSearchProver.IncProver)
           extends ProverCommand
+  private case class CheckValidityCommand(formula : Conjunction,
+                                          goalSettings : GoalSettings)
+          extends ProverCommand
   private case object NextModelCommand extends ProverCommand
   private case object ShutdownCommand extends ProverCommand
   private case object StopCommand extends ProverCommand
 
   private abstract class ProverResult
   private case object UnsatResult extends ProverResult
+  private case object InvalidResult extends ProverResult
   private case class SatResult(model : Conjunction) extends ProverResult
   private case object StoppedResult extends ProverResult
 
@@ -101,6 +105,7 @@ class SimpleAPI private (enableAssert : Boolean) {
   // Working with the vocabulary
   
   def createConstant(name : String) : ITerm = {
+    import IExpression._
     val c = new ConstantTerm(name)
     currentOrder = currentOrder extend c
     c
@@ -110,6 +115,7 @@ class SimpleAPI private (enableAssert : Boolean) {
     createConstant("c" + currentOrder.orderedConstants.size)
   
   def createConstants(num : Int) : IndexedSeq[ITerm] = {
+    import IExpression._
     val startInd = currentOrder.orderedConstants.size
     val cs = (for (i <- 0 until num)
               yield new ConstantTerm ("c" + (startInd + i))).toIndexedSeq
@@ -144,6 +150,13 @@ class SimpleAPI private (enableAssert : Boolean) {
     currentOrder = newOrder
     recreateProver
     f
+  }
+  
+  def createRelation(name : String, arity : Int) = {
+    import IExpression._
+    val r = new Predicate(name, arity)
+    currentOrder = currentOrder extendPred r
+    r
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -206,7 +219,19 @@ class SimpleAPI private (enableAssert : Boolean) {
     
     flushTodo
     
-    proofActor ! CheckSatCommand(currentProver)
+    if (currentProver == null) {
+      val completeFor = formulaeInProver match {
+        case List(f) => f
+        case formulae => 
+          ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+            Conjunction.disj(formulae, currentOrder))
+      }
+
+      proofActor ! CheckValidityCommand(completeFor, goalSettings)
+    } else {
+      // use a ModelCheckProver
+      proofActor ! CheckSatCommand(currentProver)
+    }
     getStatus(block)
   }
   
@@ -243,6 +268,8 @@ class SimpleAPI private (enableAssert : Boolean) {
 //          println(m)
           lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
         }
+        case InvalidResult =>
+          lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
         case StoppedResult =>
           lastStatus = ProverStatus.Unknown
         case _ =>
@@ -272,7 +299,7 @@ class SimpleAPI private (enableAssert : Boolean) {
     
     import TerForConvenience._
     
-    val c = new ConstantTerm("c")
+    val c = new IExpression.ConstantTerm("c")
     implicit val extendedOrder = currentOrder.extend(c)
     val extendedProver =
       currentProver.conclude(currentModel, extendedOrder)
@@ -316,7 +343,7 @@ class SimpleAPI private (enableAssert : Boolean) {
       case t => {
         // more complex check by reducing the expression via the model
         
-        val c = new ConstantTerm ("c")
+        val c = new IExpression.ConstantTerm ("c")
         val extendedOrder = currentOrder.extend(c)
         
         val reduced = ReduceWithConjunction(currentModel, functionalPreds,
@@ -337,7 +364,7 @@ class SimpleAPI private (enableAssert : Boolean) {
 
     import TerForConvenience._
     
-    val p = new Predicate("p", 0)
+    val p = new IExpression.Predicate("p", 0)
     implicit val extendedOrder = currentOrder extendPred p
     val extendedProver =
       currentProver.conclude(currentModel, extendedOrder)
@@ -430,7 +457,13 @@ class SimpleAPI private (enableAssert : Boolean) {
     case f => {
       val completeFor = toInternal(f, currentOrder)
       formulaeInProver = completeFor :: formulaeInProver
-      currentProver = currentProver.conclude(completeFor, currentOrder)
+
+      if (currentProver != null) {
+        if (IterativeClauseMatcher isMatchableRec completeFor)
+          currentProver = currentProver.conclude(completeFor, currentOrder)
+        else
+          currentProver = null
+      }
       formulaeTodo = false
     }
   }
@@ -545,7 +578,30 @@ class SimpleAPI private (enableAssert : Boolean) {
             // nothing
               
         }
+
+      case CheckValidityCommand(formula, goalSettings) =>
+        
+        Timeout.catchTimeout {
+          
+          // explicitly quantify all universal variables
+          val closedFor = Conjunction.quantify(Quantifier.ALL,
+                                               formula.order sort formula.constants,
+                                               formula, formula.order)
+
+          (new ExhaustiveProver (true, goalSettings))(closedFor, formula.order)
+          
+        } { case _ => null } match {
+          
+          case null =>
+            proverRes set StoppedResult
+          case tree =>
+            if (tree.closingConstraint.isTrue)
+              proverRes set UnsatResult
+            else
+              proverRes set InvalidResult
             
+        }
+        
       case StopCommand =>
         proverRes set StoppedResult
       case ShutdownCommand =>
