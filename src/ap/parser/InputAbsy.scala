@@ -210,6 +210,64 @@ object IExpression {
     }
   }
 
+  // Classes to talk about sequences of terms in a more succinct way
+  
+  implicit def iterm2RichITerm(lc : ITerm) = new RichITerm(lc)
+  
+  implicit def itermSeq2RichITermSeq(lcs : Seq[ITerm]) = new RichITermSeq(lcs)
+
+  class RichITerm(term : ITerm) {
+    // various component-wise operations
+    def +++(that : Seq[ITerm]) : Seq[ITerm] = for (t <- that) yield (term + t)
+    def ---(that : Seq[ITerm]) : Seq[ITerm] = for (t <- that) yield (term - t)
+  
+    // component-wise disequation on vectors
+    def =/=(that : Seq[ITerm]) = and(for (t <- that.iterator) yield (term =/= t))
+  }
+
+  /**
+   * Various functions to work with vectors of terms
+   */
+  class RichITermSeq(terms : Seq[ITerm]) {
+    // various component-wise operations
+    def +++(that : Seq[ITerm]) : Seq[ITerm] =
+      (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 + t2)).toList
+    def +++(that : ITerm) : Seq[ITerm] =
+      for (t <- terms) yield (t + that)
+    def ---(that : Seq[ITerm]) : Seq[ITerm] =
+      (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 - t2)).toList
+    def ---(that : ITerm) : Seq[ITerm] =
+      for (t <- terms) yield (t - that)
+    def ***(that : Seq[ITerm]) : Seq[ITerm] =
+      (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 * t2)).toList
+    def ***(that : ITerm) : Seq[ITerm] =
+      for (t <- terms) yield (t * that)
+  
+    // the dot-product
+    def *:*(that : Seq[ITerm]) : ITerm =
+      sum(for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 * t2))
+
+    def unary_- : Seq[ITerm] = for (t <- terms) yield -t
+    def ===(that : Seq[ITerm]) = and((this --- that) map (eqZero(_)))
+    def ===(that : ITerm) = and((this --- that) map (eqZero(_)))
+    def >=(that : Seq[ITerm]) = and((this --- that) map (geqZero(_)))
+    def >=(that : ITerm) = and((this --- that) map (geqZero(_)))
+    def >(that : Seq[ITerm]) = and((this --- that --- 1) map (geqZero(_)))
+    def >(that : ITerm) = and((this --- that --- 1) map (geqZero(_)))
+    def <=(that : Seq[ITerm]) = and((that --- terms) map (geqZero(_)))
+    def <=(that : ITerm) = and((that --- terms) map (geqZero(_)))
+    def <(that : Seq[ITerm]) = and((that --- terms --- 1) map (geqZero(_)))
+    def <(that : ITerm) = and((that --- terms --- 1) map (geqZero(_)))
+
+    // component-wise disequation on vectors
+    def =/=(that : Seq[ITerm]) =
+      and(for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 =/= t2))
+    def =/=(that : ITerm) =
+      and(for (t <- terms.iterator) yield (t =/= that))
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
   protected[parser] def toTermSeq(newExprs : Seq[IExpression],
                                   oldExprs : Seq[ITerm]) : Option[Seq[ITerm]] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
