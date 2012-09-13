@@ -122,6 +122,13 @@ object IExpression {
     }
   }
   
+  def subst(t : ITerm, replacement : List[ITerm], shift : Int) =
+    VariableSubstVisitor(t, (replacement, shift))
+  def subst(t : IFormula, replacement : List[ITerm], shift : Int) =
+    VariableSubstVisitor(t, (replacement, shift))
+  def subst(t : IExpression, replacement : List[ITerm], shift : Int) =
+    VariableSubstVisitor(t, (replacement, shift))
+
   def eqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
   def geqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
   
