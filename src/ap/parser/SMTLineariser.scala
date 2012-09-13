@@ -184,6 +184,11 @@ class SMTLineariser(benchmarkName : String,
         KeepArg
       }
 
+      case _ : ITermITE | _ : IFormulaITE => {
+        print("(ite ")
+        KeepArg
+      }
+
       // Formulae
       case IAtom(pred, args) => {
         print((if (args.isEmpty) "" else "(") + pred2Identifier(pred) + " ")
@@ -226,14 +231,29 @@ class SMTLineariser(benchmarkName : String,
         print(" ((" + varName + " Int)) ")
         UniSubArgs(ctxt pushVar varName)
       }
+      case ITrigger(trigs, body) => {
+        // we have to handle this case recursively, since the
+        // order of the parameters has to be changed
+        
+        print("(! ")
+        visit(body, ctxt)
+        print(" :pattern (")
+        for (t <- trigs)
+          visit(t, ctxt)
+        print(")) ")
+        
+        ShortCutResult()
+      }
     }
     
     def postVisit(t : IExpression,
                   arg : PrintContext, subres : Seq[Unit]) : Unit = t match {
       case IPlus(_, _) | ITimes(_, _) | IAtom(_, Seq(_, _*)) | IFunApp(_, Seq(_, _*)) |
            IBinFormula(_, _, _) | IIntFormula(_, _) | INot(_) |
-           IQuantified(_, _) => print(") ")
-      case IAtom(_, _) | IFunApp(_, _) => // nothing
+           IQuantified(_, _) | ITermITE(_, _, _) | IFormulaITE(_, _, _) =>
+        print(") ")
+      case IAtom(_, _) | IFunApp(_, _) =>
+        // nothing
     }
   
   }
