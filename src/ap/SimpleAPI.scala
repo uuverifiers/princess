@@ -43,8 +43,13 @@ object SimpleAPI {
   
   private val AC = Debug.AC_SIMPLE_API
 
-  def spawn : SimpleAPI = new SimpleAPI (false)
-  def spawnWithAssertions : SimpleAPI = new SimpleAPI (true)
+  def apply(enableAssert : Boolean = false,
+            dumpSMT : Boolean = false) : SimpleAPI =
+    new SimpleAPI (enableAssert, dumpSMT)
+
+  def spawn : SimpleAPI = apply()
+  def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
+  def spawnWithLog : SimpleAPI = apply(dumpSMT = true)
   
   object ProverStatus extends Enumeration {
     val Sat, Unsat, Invalid, Valid, Unknown, Running, Error = Value
@@ -67,6 +72,12 @@ object SimpleAPI {
   private case class SatResult(model : Conjunction) extends ProverResult
   private case object StoppedResult extends ProverResult
 
+  private val badStringChar = """[^a-zA-Z_0-9']""".r
+  
+  private def sanitise(s : String) : String =
+    badStringChar.replaceAllIn(s, (m : scala.util.matching.Regex.Match) =>
+                                       ('a' + (m.toString()(0) % 26)).toChar.toString)
+
 }
 
 /**
@@ -74,12 +85,28 @@ object SimpleAPI {
  * functionality in one place, and provides an imperative API similar to the
  * SMT-LIB command language.
  */
-class SimpleAPI private (enableAssert : Boolean) {
+class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
 
   import SimpleAPI._
   
-  def shutDown : Unit =
+  private val dumpSMTStream = if (dumpSMT) {
+    val dumpSMTFile = java.io.File.createTempFile("smt-queries-", ".smt2")
+    new java.io.FileOutputStream(dumpSMTFile)
+  } else {
+    null
+  }
+  
+  private def doDumpSMT(comp : => Unit) =
+    if (dumpSMT) Console.withOut(dumpSMTStream) {
+      comp
+    }
+  
+  def shutDown : Unit = {
     proofActor ! ShutdownCommand
+    doDumpSMT {
+      println("(exit)")
+    }
+  }
   
   def reset = {
     ////////////////////////////////////////////////////////////////////////////
@@ -98,16 +125,26 @@ class SimpleAPI private (enableAssert : Boolean) {
     currentModel = null
     lastStatus = ProverStatus.Sat
     validityMode = false
+    
+    doDumpSMT {
+      println("(reset)")
+      println("(set-logic AUFLIA)")
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
   //
   // Working with the vocabulary
   
-  def createConstant(name : String) : ITerm = {
+  def createConstant(rawName : String) : ITerm = {
     import IExpression._
+    
+    val name = sanitise(rawName)
     val c = new ConstantTerm(name)
     currentOrder = currentOrder extend c
+    doDumpSMT {
+      println("(declare-fun " + name + " () Int)")
+    }
     c
   }
 
@@ -118,15 +155,25 @@ class SimpleAPI private (enableAssert : Boolean) {
     import IExpression._
     val startInd = currentOrder.orderedConstants.size
     val cs = (for (i <- 0 until num)
-              yield new ConstantTerm ("c" + (startInd + i))).toIndexedSeq
+              yield {
+                doDumpSMT {
+                  println("(declare-fun " + ("c" + (startInd + i)) + " () Int)")
+                }
+                new ConstantTerm ("c" + (startInd + i))
+              }).toIndexedSeq
     currentOrder = currentOrder extend cs
     for (c <- cs) yield IConstant(c)
   }
 
-  def createBooleanVariable(name : String) : IFormula = {
+  def createBooleanVariable(rawName : String) : IFormula = {
     import IExpression._
+    
+    val name = sanitise(rawName)
     val p = new Predicate(name, 0)
     currentOrder = currentOrder extendPred p
+    doDumpSMT {
+      println("(declare-fun " + name + " () Bool)")
+    }
     p()
   }
 
@@ -137,25 +184,41 @@ class SimpleAPI private (enableAssert : Boolean) {
     import IExpression._
     val startInd = currentOrder.orderedPredicates.size
     val ps = (for (i <- 0 until num)
-              yield new Predicate ("p" + (startInd + i), 0)).toIndexedSeq
+              yield {
+                doDumpSMT {
+                  println("(declare-fun " + ("p" + (startInd + i)) + " () Bool)")
+                }
+                new Predicate ("p" + (startInd + i), 0)
+              }).toIndexedSeq
     currentOrder = currentOrder extendPred ps
     for (p <- ps) yield p()
   }
 
-  def createFunction(name : String, arity : Int) : IFunction = {
+  def createFunction(rawName : String, arity : Int) : IFunction = {
+    val name = sanitise(rawName)
     val f = new IFunction(name, arity, true, false)
     // make sure that the function encoder knows about the function
     val (_, newOrder) =
       functionEnc.apply(IFunApp(f, List.fill(arity)(0)) === 0, currentOrder)
+    doDumpSMT {
+      println("(declare-fun " + name + " (" +
+          (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
+    }
     currentOrder = newOrder
     recreateProver
     f
   }
   
-  def createRelation(name : String, arity : Int) = {
+  def createRelation(rawName : String, arity : Int) = {
     import IExpression._
+    
+    val name = sanitise(rawName)
     val r = new Predicate(name, arity)
     currentOrder = currentOrder extendPred r
+    doDumpSMT {
+      println("(declare-fun " + name + " (" +
+          (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Bool)")
+    }
     r
   }
   
@@ -213,7 +276,11 @@ class SimpleAPI private (enableAssert : Boolean) {
     ////////////////////////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
     ////////////////////////////////////////////////////////////////////////////
-    
+
+    doDumpSMT {
+      println("(check-sat)")
+    }
+
     lastStatus = ProverStatus.Running
     proverRes.unset
     
@@ -243,7 +310,11 @@ class SimpleAPI private (enableAssert : Boolean) {
     ////////////////////////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) == ProverStatus.Sat)
     ////////////////////////////////////////////////////////////////////////////
-    
+
+    doDumpSMT {
+      println("; (next-model)")
+    }
+
     lastStatus = ProverStatus.Running
     proverRes.unset
     
@@ -323,6 +394,10 @@ class SimpleAPI private (enableAssert : Boolean) {
   def evalPartial(t : ITerm) : Option[IdealInt] = {
     import TerForConvenience._
     
+    doDumpSMT {
+      println("; (get-value ...)")
+    }
+    
     t match {
       case IConstant(c) => {
         // faster check, find an equation that determines the value of c
@@ -388,16 +463,40 @@ class SimpleAPI private (enableAssert : Boolean) {
   }
 
   def evalPartial(f : IFormula) : Option[Boolean] = {
-    val reduced =
-      ReduceWithConjunction(currentModel, functionalPreds, currentOrder)(
-                              toInternal(f, currentOrder))
+    import TerForConvenience._
     
-    if (reduced.isTrue)
-      Some(true)
-    else if (reduced.isFalse)
-      Some(false)
-    else
-      None
+    doDumpSMT {
+      print("(get-value (")
+      SMTLineariser(f)
+      println("))")
+    }
+    
+    f match {
+      case IAtom(p, args) if (args forall (_.isInstanceOf[IIntLit])) => {
+        val a = Atom(p, for (IIntLit(value) <- args) yield l(value), currentOrder)
+        
+        if (currentModel.predConj.positiveLitsAsSet contains a)
+          Some(true)
+        else if (currentModel.predConj.negativeLitsAsSet contains a)
+          Some(false)
+        else
+          None
+      }
+      case _ => {
+        // more complex check by reducing the expression via the model
+        
+        val reduced =
+          ReduceWithConjunction(currentModel, functionalPreds, currentOrder)(
+                                  toInternal(f, currentOrder))
+    
+        if (reduced.isTrue)
+          Some(true)
+        else if (reduced.isFalse)
+          Some(false)
+        else
+          None
+      }
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -426,6 +525,10 @@ class SimpleAPI private (enableAssert : Boolean) {
                        currentProver, currentOrder, functionEnc.clone,
                        arrayFuns, formulaeInProver, validityMode,
                        lastStatus, currentModel)
+    
+    doDumpSMT {
+      println("(push 1)")
+    }
   }
   
   /**
@@ -448,6 +551,10 @@ class SimpleAPI private (enableAssert : Boolean) {
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
+    
+    doDumpSMT {
+      println("(pop 1)")
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -471,6 +578,11 @@ class SimpleAPI private (enableAssert : Boolean) {
   private def addFormula(f : IFormula) : Unit = {
     currentModel = null
     lastStatus = ProverStatus.Unknown
+    doDumpSMT {
+      print("(assert (not ")
+      SMTLineariser(f)
+      println("))")
+    }
     formulaeTodo = formulaeTodo | f
   }
 

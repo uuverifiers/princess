@@ -34,6 +34,7 @@ object IncrementalSMTLIBInterface {
   private val Pop       = """ *\( *pop +([0-9]+) *\) *""".r
   private val CheckSat  = """ *\( *check-sat *\) *""".r
   private val Exit      = """ *\( *exit *\) *""".r
+  private val Reset     = """ *\( *reset *\) *""".r
   private val GetValue  = """ *\( *get-value (.*)\) *""".r
   private val GetInts   = """ *\( *get-interpolants *\) *""".r
 
@@ -65,6 +66,10 @@ abstract class IncrementalSMTLIBInterface {
           lastResult = solve(runningInput.toString)
         case Exit() =>
           return
+        case Reset() => {
+          runningInput setLength 0
+          backtrackingStack.clear
+        }
 
         case GetValue(termsStr) => lastResult match {
           case Some(Prover.CounterModel(model)) =>
