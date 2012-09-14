@@ -88,7 +88,9 @@ object SimpleAPI {
 class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
 
   import SimpleAPI._
-  
+
+  Debug enableAllAssertions enableAssert
+
   private val dumpSMTStream = if (dumpSMT) {
     val dumpSMTFile = java.io.File.createTempFile("smt-queries-", ".smt2")
     new java.io.FileOutputStream(dumpSMTFile)
