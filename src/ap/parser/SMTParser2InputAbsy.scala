@@ -889,11 +889,25 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     ////////////////////////////////////////////////////////////////////////////
     // Array operations
     
-    case PlainSymbol("select") if (args.size != 2) =>
+    case PlainSymbol("select") if (args.size == 2) => {
+      genArrayAxioms(!totalityAxiom, 1)
+      unintFunApp("select", sym, args, polarity)
+    }
+
+    case PlainSymbol("store") if (args.size == 3) => {
+      genArrayAxioms(!totalityAxiom, 1)
+      unintFunApp("store", sym, args, polarity)
+    }
+
+    case PlainSymbol("select") if (args.size != 2) => {
+      genArrayAxioms(!totalityAxiom, args.size - 1)
       unintFunApp("_select_" + (args.size - 1), sym, args, polarity)
+    }
     
-    case PlainSymbol("store") if (args.size != 3) =>
+    case PlainSymbol("store") if (args.size != 3) => {
+      genArrayAxioms(!totalityAxiom, args.size - 2)
       unintFunApp("_store_" + (args.size - 2), sym, args, polarity)
+    }
       
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment

@@ -1,0 +1,6 @@
+(set-logic AUFLIA)
+(declare-fun a () Int)
+(declare-fun b () Int)
+(assert (= (store a 0 1) b))
+(assert (= (select b 0) 2))
+(check-sat)
