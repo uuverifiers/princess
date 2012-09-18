@@ -122,7 +122,24 @@ object SimpleAPITest extends App {
       nextModel(false)
     }
   }
+
+  part("Incremental solving")
   
+  scope {
+    val p1, p2, p3 = createBooleanVariable
+    !! (p1 | !p2 | p3)
+    !! (p2 | c <= -100)
+    
+    println("  p1  \t  p2  \t  p3")
+    println("------------------------")
+    while (??? == ProverStatus.Sat) {
+      println("  " + eval(p1) + "\t  "
+                   + eval(p2) + "\t  "
+                   + eval(p3))
+      !! (or(for (p <- List(p1, p2, p3)) yield (p </> eval(p))))
+    }
+  }
+
   part("Validity mode")
 
   scope {
@@ -176,18 +193,21 @@ object SimpleAPITest extends App {
   
   part("Asynchronous interface")
   
+  !! (true)
   println(p checkSat false)  // non-blocking, Running
   println(p getStatus false) // non-blocking, Running
   println(p getStatus true)  // blocking, equivalent to println(??), Sat
   
   part("Asynchronous interface, busy waiting")
   
+  !! (true)
   println(p checkSat false) // Running
   while ((p getStatus false) == ProverStatus.Running) {}
   println(p getStatus false) // Sat
   
   part("Stopping computations")
   
+  !! (true)
   p checkSat false                // non-blocking, Running
   p getStatus false               // non-blocking, usually still Running
   p.stop                          // blocks until prover has actually stopped, Unknown
@@ -201,6 +221,7 @@ object SimpleAPITest extends App {
 
   part("Stopping computation after a while")
   
+  !! (true)
   println(p checkSat false)  // non-blocking, Running
   
   {

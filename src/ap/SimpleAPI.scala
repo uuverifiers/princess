@@ -63,6 +63,8 @@ object SimpleAPI {
                                           goalSettings : GoalSettings)
           extends ProverCommand
   private case object NextModelCommand extends ProverCommand
+  private case class  AddFormulaCommand(formula : Conjunction) extends ProverCommand
+  private case object RecheckCommand extends ProverCommand
   private case object ShutdownCommand extends ProverCommand
   private case object StopCommand extends ProverCommand
 
@@ -124,6 +126,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     currentProver = ModelSearchProver emptyIncProver goalSettings
     formulaeInProver = List()
     formulaeTodo = false
+    proverIsWaiting = false
     currentModel = null
     lastStatus = ProverStatus.Sat
     validityMode = false
@@ -275,33 +278,44 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * immediately.
    */
   def checkSat(block : Boolean) : ProverStatus.Value = {
-    ////////////////////////////////////////////////////////////////////////////
-    Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
-    ////////////////////////////////////////////////////////////////////////////
-
     doDumpSMT {
       println("(check-sat)")
     }
 
-    lastStatus = ProverStatus.Running
-    proverRes.unset
+    getStatus(false) match {
+      case ProverStatus.Unknown => {
+        lastStatus = ProverStatus.Running
+        proverRes.unset
     
-    flushTodo
+        flushTodo
     
-    if (currentProver == null) {
-      val completeFor = formulaeInProver match {
-        case List(f) => f
-        case formulae => 
-          ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-            Conjunction.disj(formulae, currentOrder))
-      }
+        if (proverIsWaiting) {
+          proverIsWaiting = false
+          proofActor ! RecheckCommand
+        } else if (currentProver == null) {
+          val completeFor = formulaeInProver match {
+            case List(f) => f
+            case formulae => 
+              ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+                  Conjunction.disj(formulae, currentOrder))
+          }
 
-      proofActor ! CheckValidityCommand(completeFor, goalSettings)
-    } else {
-      // use a ModelCheckProver
-      proofActor ! CheckSatCommand(currentProver)
+          proofActor ! CheckValidityCommand(completeFor, goalSettings)
+        } else {
+          // use a ModelCheckProver
+          proofActor ! CheckSatCommand(currentProver)
+        }
+      
+        getStatus(block)
+      }
+      
+      case ProverStatus.Running => {
+        assert(false)
+        ProverStatus.Error
+      }
+        
+      case s => s
     }
-    getStatus(block)
   }
   
   /**
@@ -340,6 +354,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
           currentModel = m
 //          println(m)
           lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+          proverIsWaiting = true
         }
         case InvalidResult =>
           lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
@@ -352,6 +367,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       lastStatus
     }
   }
+  
   /**
    * Stop a running prover. If the prover had already terminated, give same
    * result as <code>getResult</code>, otherwise <code>Unknown</code>.
@@ -396,6 +412,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   def evalPartial(t : ITerm) : Option[IdealInt] = {
     import TerForConvenience._
     
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertPre(AC, getStatus(false) == ProverStatus.Sat)
+    ////////////////////////////////////////////////////////////////////////////
+
     doDumpSMT {
       println("; (get-value ...)")
     }
@@ -466,6 +486,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
 
   def evalPartial(f : IFormula) : Option[Boolean] = {
     import TerForConvenience._
+    
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertPre(AC, getStatus(false) == ProverStatus.Sat)
+    ////////////////////////////////////////////////////////////////////////////
     
     doDumpSMT {
       print("(get-value (")
@@ -550,6 +574,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     arrayFuns = oldArrayFuns
     formulaeInProver = oldFormulaeInProver
     formulaeTodo = false
+    proverIsWaiting = false
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
@@ -567,6 +592,14 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       val completeFor = toInternal(f, currentOrder)
       formulaeInProver = completeFor :: formulaeInProver
 
+      if (proverIsWaiting) {
+        if (completeFor.constants.isEmpty)
+          // then we should be able to add this formula to the running prover
+          proofActor ! AddFormulaCommand(completeFor)
+        else
+          proverIsWaiting = false
+      }
+      
       if (currentProver != null) {
         if (IterativeClauseMatcher isMatchableRec completeFor)
           currentProver = currentProver.conclude(completeFor, currentOrder)
@@ -622,6 +655,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   private var currentModel : Conjunction = _
   private var formulaeInProver : List[Conjunction] = List()
   private var formulaeTodo : IFormula = false
+  private var proverIsWaiting : Boolean = false
   
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,
@@ -664,24 +698,36 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       case CheckSatCommand(p) =>
           
         Timeout.catchTimeout {
-          p.checkValidity(true, (model : Conjunction) => {
-            ////////////////////////////////////////////////////////////////////
-            Debug.assertPre(AC, !model.isFalse)
-            ////////////////////////////////////////////////////////////////////
-            proverRes set SatResult(model)
+          p.checkValidityDir {
+            case (_, false) => ModelSearchProver.DeriveFullModelDir
+            case (model, true) => {
+              //////////////////////////////////////////////////////////////////
+              Debug.assertPre(AC, !model.isFalse)
+              //////////////////////////////////////////////////////////////////
+              proverRes set SatResult(model)
                 
-            // wait for a command on what to do next
-            receive {
-              case NextModelCommand => {
-                false
+              // wait for a command on what to do next
+              var res : ModelSearchProver.SearchDirection = null
+              var forsToAdd = List[Conjunction]()
+              
+              while (res == null) receive {
+                case NextModelCommand =>
+                  res = ModelSearchProver.NextModelDir
+                case RecheckCommand =>
+                  res = ModelSearchProver.AddFormulaDir(
+                           Conjunction.conj(forsToAdd, model.order))
+                case AddFormulaCommand(formula) =>
+                  forsToAdd = formula :: forsToAdd
+                case c : ProverCommand => {
+                  // get out of here
+                  nextCommand = c
+                  res = ModelSearchProver.ReturnSatDir
+                }
               }
-              case c : ProverCommand => {
-                // get out of here
-                nextCommand = c
-                true
-              }
+              
+              res
             }
-          })
+          }
         } { case _ => null } match {
 
           case null =>
