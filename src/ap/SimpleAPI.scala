@@ -415,7 +415,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Add subsequent formulae to partition <code>num</code>
+   * Add subsequent formulae to partition <code>num</code>.
+   *  Index <code>-1</code> represents
+   * formulae belonging to all partitions (e.g., theory axioms).
    */
   def setPartitionNumber(num : Int) : Unit = if (currentPartitionNum != num) {
     flushTodo
