@@ -372,7 +372,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
           lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
         case UnsatCertResult(cert) => {
           currentCertificate = ProofSimplifier(cert)
-          println(cert)
+//          println(cert)
           lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
         }
         case SatResult(m) => {
@@ -438,6 +438,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
                         currentCertificate != null)
     ////////////////////////////////////////////////////////////////////////////
   
+    doDumpSMT {
+      println("; (get-interpolants)")
+    }
+
     val simp = interpolantSimplifier
                         
     for (i <- 1 to (partitions.size - 1)) yield {

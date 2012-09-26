@@ -278,6 +278,23 @@ object SimpleAPITest extends App {
     println(getInterpolants(Seq(Set(0), Set(1), Set(2))))
     println(getInterpolants(Seq(Set(0, 2), Set(1))))
   }
+
+  part("Interpolation with arrays")
+
+  scope {
+    setConstructProofs(true)
+    val a = createConstant("a")
+    val b = createConstant("b")
+
+    setPartitionNumber(0)
+    !! (store(a, 0, 1) === b)
+
+    setPartitionNumber(1)
+    !! (select(b, 0) === 2)
+
+    println(???)  // Unsat
+    println(getInterpolants(Seq(Set(0), Set(1))))
+  }
   
   //////////////////////////////////////////////////////////////////////////////
   

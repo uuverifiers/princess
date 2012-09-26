@@ -75,6 +75,20 @@ Sat
 Wait for 30ms ...
 Sat
 
+-- Interpolation
+Unsat
+Vector((c >= 0), ((-1 + d) >= 0))
+Vector(((-1 + (d + -1 * c)) >= 0), ((-1 + d) >= 0))
+
+-- Interpolation with functions
+Unsat
+Vector((!((-3 + c) = 0) | ((-5 + f(3)) >= 0)), ((-5 + f(3)) >= 0))
+Vector(!((-3 + c) = 0))
+
+-- Interpolation with arrays
+Unsat
+Vector(!((-2 + select1(b, 0)) = 0))
+
 -- Generating a larger amount of constraints
 Sat
 c100 = 100
