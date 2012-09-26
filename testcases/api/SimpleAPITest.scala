@@ -190,7 +190,7 @@ object SimpleAPITest extends App {
     !! (c === 4 & false)
     println(???)   // Valid
   }
-  
+
   part("Asynchronous interface")
   
   !! (true)
@@ -232,6 +232,53 @@ object SimpleAPITest extends App {
   
   println(p.stop)            // blocks until prover has actually stopped, Sat
 
+  //////////////////////////////////////////////////////////////////////////////
+  
+  reset
+
+  part("Interpolation")
+  
+  scope {
+    setConstructProofs(true)
+    val c = createConstant("c")
+    val d = createConstant("d")
+    val e = createConstant("e")
+
+    setPartitionNumber(0)
+    !! (0 <= c)
+
+    setPartitionNumber(1)
+    !! (c < d)
+
+    setPartitionNumber(2)
+    !! (0 > e & e > d)
+
+    println(???)  // Unsat
+    println(getInterpolants(Seq(Set(0), Set(1), Set(2))))
+    println(getInterpolants(Seq(Set(1), Set(0), Set(2))))
+  }
+
+  part("Interpolation with functions")
+
+  scope {
+    setConstructProofs(true)
+    val f = createFunction("f", 1)
+    val c = createConstant("c")
+
+    setPartitionNumber(0)
+    !! (f(c) === 5)
+
+    setPartitionNumber(1)
+    !! (c === 3)
+
+    setPartitionNumber(2)
+    !! (f(3) < 0)
+
+    println(???)  // Unsat
+    println(getInterpolants(Seq(Set(0), Set(1), Set(2))))
+    println(getInterpolants(Seq(Set(0, 2), Set(1))))
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
   
   reset

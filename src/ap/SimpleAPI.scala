@@ -27,6 +27,9 @@ import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
 import ap.terfor.TermOrder
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
+import ap.proof.certificates.Certificate
+import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
+                        InterpolantSimplifier}
 import ap.terfor.equations.ReduceWithEqs
 import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
@@ -75,6 +78,7 @@ object SimpleAPI {
 
   private abstract class ProverResult
   private case object UnsatResult extends ProverResult
+  private case class  UnsatCertResult(cert : Certificate) extends ProverResult
   private case object InvalidResult extends ProverResult
   private case class SatResult(model : Conjunction) extends ProverResult
   private case class SatPartialResult(model : Conjunction) extends ProverResult
@@ -86,6 +90,7 @@ object SimpleAPI {
     badStringChar.replaceAllIn(s, (m : scala.util.matching.Regex.Match) =>
                                        ('a' + (m.toString()(0) % 26)).toChar.toString)
 
+  private val FormulaPart = new PartName ("formula")
 }
 
 /**
@@ -133,9 +138,12 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = null
+    currentCertificate = null
     lastStatus = ProverStatus.Sat
     validityMode = false
     proofActorStatus = ProofActorStatus.Init
+    currentPartitionNum = -1
+    constructProofs = false
     
     doDumpSMT {
       println("(reset)")
@@ -299,10 +307,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
           case ProofActorStatus.Init =>
             if (currentProver == null) {
               val completeFor = formulaeInProver match {
-                case List(f) => f
+                case List((_, f)) => f
                 case formulae => 
                   ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-                    Conjunction.disj(formulae, currentOrder))
+                    Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
+                                     currentOrder))
               }
 
               proofActor ! CheckValidityCommand(completeFor, goalSettings)
@@ -361,6 +370,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       proverRes.get match {
         case UnsatResult =>
           lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+        case UnsatCertResult(cert) => {
+          currentCertificate = ProofSimplifier(cert)
+          println(cert)
+          lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+        }
         case SatResult(m) => {
           currentModel = m
 //          println(m)
@@ -400,6 +414,59 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Add subsequent formulae to partition <code>num</code>
+   */
+  def setPartitionNumber(num : Int) : Unit = if (currentPartitionNum != num) {
+    flushTodo
+    currentPartitionNum = num
+  }
+  
+  /**
+   * Construct proofs in subsequent <code>checkSat</code> calls. Proofs are
+   * needed for extract interpolants.
+   */
+  def setConstructProofs(b : Boolean) : Unit = if (constructProofs != b) {
+    constructProofs = b
+    recreateProver
+  }
+
+  def getInterpolants(partitions : Seq[Set[Int]]) : Seq[IFormula] = {
+    ////////////////////////////////////////////////////////////////////////////
+    Debug.assertPre(AC, (Set(ProverStatus.Unsat,
+                             ProverStatus.Valid) contains getStatus(false)) &&
+                        currentCertificate != null)
+    ////////////////////////////////////////////////////////////////////////////
+  
+    val simp = interpolantSimplifier
+                        
+    for (i <- 1 to (partitions.size - 1)) yield {
+      val leftNums = (partitions take i).flatten.toSet
+      
+      val commonFors = for ((n, f) <- formulaeInProver;
+                            if (n < 0)) yield f
+      val leftFors =   for ((n, f) <- formulaeInProver;
+                            if (n >= 0 && (leftNums contains n))) yield f
+      val rightFors =  for ((n, f) <- formulaeInProver;
+                            if (n >= 0 && !(leftNums contains n))) yield f
+
+      val iContext =
+        InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
+      val internalInt = Interpolator(currentCertificate, iContext)
+
+      val interpolant = Internal2InputAbsy(internalInt, functionEnc.predTranslation)
+
+      simp(interpolant)
+    }
+  }
+  
+  private def interpolantSimplifier = (arrayFuns get 1) match {
+    case None => new Simplifier
+    case Some((sel, sto)) => new InterpolantSimplifier(sel, sto)
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   private def ensureFullModel =
     while (proofActorStatus == ProofActorStatus.AtPartialModel) {
       // let's get a complete model first
@@ -418,7 +485,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     implicit val extendedOrder = currentOrder.extend(c)
     val extendedProver =
       currentProver.conclude(currentModel, extendedOrder)
-                   .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder),
+                   .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder)._1,
                              extendedOrder)
     
     (extendedProver checkValidity true) match {
@@ -473,7 +540,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         
         val reduced = ReduceWithConjunction(currentModel, functionalPreds,
                                             extendedOrder)(
-                                            toInternal(t === c, extendedOrder))
+                                            toInternal(t === c, extendedOrder)._1)
         if (reduced.isLiteral &&
             reduced.arithConj.positiveEqs.size == 1 &&
             reduced.constants.size == 1)
@@ -505,7 +572,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         implicit val extendedOrder = currentOrder extendPred p
         val extendedProver =
           currentProver.conclude(currentModel, extendedOrder)
-                       .conclude(toInternal(IAtom(p, Seq()) </> f, extendedOrder),
+                       .conclude(toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1,
                                  extendedOrder)
     
         (extendedProver checkValidity true) match {
@@ -560,7 +627,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         
         val reduced =
           ReduceWithConjunction(currentModel, functionalPreds, currentOrder)(
-                                  toInternal(f, currentOrder))
+                                  toInternal(f, currentOrder)._1)
     
         if (reduced.isTrue)
           Some(true)
@@ -596,8 +663,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     
     storedStates push (preprocSettings,
                        currentProver, currentOrder, functionEnc.clone,
-                       arrayFuns, formulaeInProver, validityMode,
-                       lastStatus, currentModel)
+                       arrayFuns, formulaeInProver,
+                       currentPartitionNum, constructProofs,
+                       validityMode, lastStatus,
+                       currentModel, currentCertificate)
     
     doDumpSMT {
       println("(push 1)")
@@ -612,7 +681,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
     ////////////////////////////////////////////////////////////////////////////
     val (oldPreprocSettings, oldProver, oldOrder, oldFunctionEnc, oldArrayFuns,
-         oldFormulaeInProver, oldValidityMode, oldStatus, oldModel) =
+         oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
+         oldValidityMode, oldStatus, oldModel, oldCert) =
       storedStates.pop
     preprocSettings = oldPreprocSettings
     currentProver = oldProver
@@ -620,10 +690,13 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     functionEnc = oldFunctionEnc
     arrayFuns = oldArrayFuns
     formulaeInProver = oldFormulaeInProver
+    currentPartitionNum = oldPartitionNum
+    constructProofs = oldConstructProofs
     formulaeTodo = false
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
+    currentCertificate = oldCert
     proofActorStatus = ProofActorStatus.Init
     
     doDumpSMT {
@@ -636,23 +709,26 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   private def flushTodo : Unit = formulaeTodo match {
     case IBoolLit(false) => // nothing
     case f => {
-      val completeFor = toInternal(f, currentOrder)
-      formulaeInProver = completeFor :: formulaeInProver
+      val (completeFor, axioms) = toInternal(f, currentOrder)
+      formulaeInProver =
+        (-1, axioms) :: (currentPartitionNum, completeFor) :: formulaeInProver
 
       proofActorStatus match {
         case ProofActorStatus.Init =>
           // nothing
         case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
-          if (completeFor.constants.isEmpty)
+          if (completeFor.constants.isEmpty) {
             // then we should be able to add this formula to the running prover
             proofActor ! AddFormulaCommand(completeFor)
-          else
+          } else {
             proofActorStatus = ProofActorStatus.Init
+          }
       }
       
       if (currentProver != null) {
         if (IterativeClauseMatcher isMatchableRec completeFor)
-          currentProver = currentProver.conclude(completeFor, currentOrder)
+          currentProver =
+            currentProver.conclude(List(completeFor, axioms), currentOrder)
         else
           currentProver = null
       }
@@ -662,6 +738,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   
   private def addFormula(f : IFormula) : Unit = {
     currentModel = null
+    currentCertificate = null
     lastStatus = ProverStatus.Unknown
     doDumpSMT {
       print("(assert (not ")
@@ -671,19 +748,29 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     formulaeTodo = formulaeTodo | f
   }
 
-  private def toInternal(f : IFormula, order : TermOrder) : Conjunction = {
+  private def toInternal(f : IFormula,
+                         order : TermOrder) : (Conjunction, Conjunction) = {
     val sig = new Signature(Set(), Set(), order.orderedConstants, order)
-    val (fors, _, newSig) = Preprocessing(f, List(), sig, preprocSettings, functionEnc)
+    val (fors, _, newSig) =
+      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
     ////////////////////////////////////////////////////////////////////////////
     Debug.assertPre(AC, order == newSig.order)
     ////////////////////////////////////////////////////////////////////////////
 
-    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
-      Conjunction.conj(InputAbsy2Internal(
-        IExpression.connect(for (f <- fors.iterator)
-                              yield (IExpression removePartName f),
-                            IBinJunctor.Or), order), order))
+    val formula = 
+      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
+        Conjunction.conj(InputAbsy2Internal(
+          IExpression.connect(for (INamedPart(FormulaPart, f) <- fors.iterator)
+                                yield f,
+                              IBinJunctor.Or), order), order))
+    val axioms = 
+      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
+        Conjunction.conj(InputAbsy2Internal(
+          IExpression.connect(for (INamedPart(PartName.NO_NAME, f) <- fors.iterator)
+                                yield f,
+                              IBinJunctor.Or), order), order))
+    (formula, axioms)
   }
   
   private var preprocSettings : PreprocessingSettings = _
@@ -691,7 +778,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     var gs = GoalSettings.DEFAULT
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
 //    gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
-//    gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
+    gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs,
         (for ((p, f) <- functionEnc.predTranslation.iterator; if (!f.partial))
          yield p).toSet)
@@ -703,7 +790,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
   private var currentModel : Conjunction = _
-  private var formulaeInProver : List[Conjunction] = List()
+  private var currentCertificate : Certificate = _
+  private var formulaeInProver : List[(Int, Conjunction)] = List()
+  private var currentPartitionNum : Int = -1
+  private var constructProofs : Boolean = false
   private var formulaeTodo : IFormula = false
   
   private val storedStates = new ArrayStack[(PreprocessingSettings,
@@ -711,20 +801,21 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
                                              TermOrder,
                                              FunctionEncoder,
                                              Map[Int, (IFunction, IFunction)],
-                                             List[Conjunction],
+                                             List[(Int, Conjunction)],
+                                             Int,
+                                             Boolean,
                                              Boolean,
                                              ProverStatus.Value,
-                                             Conjunction)]
+                                             Conjunction,
+                                             Certificate)]
   
   private def recreateProver = {
-    preprocSettings = {
-      var ps = PreprocessingSettings.DEFAULT
-      ps = Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
-             ps, functionEnc.predTranslation.values.toSet)
-      ps
-    }
-    currentProver = (ModelSearchProver emptyIncProver goalSettings)
-                        .conclude(formulaeInProver, currentOrder)
+    preprocSettings =
+      Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
+             preprocSettings, functionEnc.predTranslation.values.toSet)
+    if (currentProver != null)
+      currentProver = (ModelSearchProver emptyIncProver goalSettings)
+                          .conclude(formulaeInProver.unzip._2, currentOrder)
   }
   
   private def functionalPreds = functionEnc.predTranslation.keySet.toSet
@@ -796,6 +887,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
             proverRes set UnsatResult
           case Left(_) =>
             // nothing
+          case Right(cert) =>
+            proverRes set UnsatCertResult(cert)
               
         }
 
@@ -861,7 +954,12 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       val select = createFunction("select" + arity, arity + 1)
       val store = createFunction("store" + arity, arity + 2)
       arrayFuns += (arity -> (select, store))
+      
+      val oldPartitionNum = currentPartitionNum
+      setPartitionNumber(-1)
       addFormula(!Parser2InputAbsy.arrayAxioms(arity, select, store))
+      setPartitionNumber(oldPartitionNum)
+      
       (select, store)
     })
   
