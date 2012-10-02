@@ -304,13 +304,12 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val res = if (reductionPossible(conj))
-                EquationConj(conj.iterator, this, order)
+                conj.updateEqs(EquationConj(conj.iterator, this, order))(order)
               else
                 conj
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ReduceWithEqs.AC,
-                     isCompletelyReduced(res) && (conj != res || (conj eq res)))
+    Debug.assertPost(ReduceWithEqs.AC, isCompletelyReduced(res))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
