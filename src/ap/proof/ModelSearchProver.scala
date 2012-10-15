@@ -615,7 +615,7 @@ object ModelSearchProver {
       
       // check whether we have to update the <code>TermOrder</code> of the goal
       val newOrderGoal =
-        if (newOrder == goal.order) {
+        if (newOrder eq goal.order) {
           goal
         } else {
           val newConsts = newOrder.orderedConstants -- goal.order.orderedConstants

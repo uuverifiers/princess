@@ -25,7 +25,7 @@ import ap.terfor.{Term, Formula, ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, ConjunctEliminator}
 import ap.terfor.substitutions.Substitution
 import ap.parameters.Param
-import ap.util.{Debug, FilterIt}
+import ap.util.{Debug, FilterIt, LazyMappedSet}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 
 /**
@@ -92,8 +92,13 @@ case object EliminateFactsTask extends EagerTask {
 private class Eliminator(oriFacts : Conjunction,
                          goal : Goal, ptf : ProofTreeFactory)
               extends ConjunctEliminator(oriFacts,
-                                         for (c <- goal.eliminatedConstants)
-                                           yield c.asInstanceOf[Term],
+                                         new LazyMappedSet[ConstantTerm, Term](
+                                           goal.eliminatedConstants,
+                                           _.asInstanceOf[Term],
+                                           { case c : ConstantTerm => c }
+                                         ),
+//                                         for (c <- goal.eliminatedConstants)
+//                                           yield c.asInstanceOf[Term],
                                          Param.GARBAGE_COLLECTED_FUNCTIONS(goal.settings),
                                          goal.order) {
   
