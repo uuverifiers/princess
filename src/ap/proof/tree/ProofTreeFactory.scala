@@ -69,6 +69,15 @@ abstract class ProofTreeFactory {
                  branchInferences : BranchInferenceCollection,
                  goal : Goal) : ProofTree
 
+  def updateGoal(updatedFacts : Conjunction,
+                 updatedCompoundFormulas : CompoundFormulas,
+                 updatedElimConstants : Set[ConstantTerm],
+                 updatedVocabulary : Vocabulary,
+                 updatedDefinedSyms : Substitution,
+                 updatedTasks : TaskManager,
+                 branchInferences : BranchInferenceCollection,
+                 goal : Goal) : ProofTree
+
   def updateGoal(updatedElimConstants : Set[ConstantTerm],
                  updatedVocabulary : Vocabulary,
                  newTasks : Iterable[PrioritisedTask],
@@ -95,6 +104,14 @@ abstract class ProofTreeFactory {
 
   def updateGoal(updatedFacts : Conjunction,
                  newTasks : Iterable[PrioritisedTask],
+                 branchInferences : BranchInferenceCollection,
+                 goal : Goal) : ProofTree =
+    updateGoal(updatedFacts, goal.compoundFormulas, goal.eliminatedConstants,
+               goal.vocabulary, goal.definedSyms, newTasks,
+               branchInferences, goal)
+
+  def updateGoal(updatedFacts : Conjunction,
+                 newTasks : TaskManager,
                  branchInferences : BranchInferenceCollection,
                  goal : Goal) : ProofTree =
     updateGoal(updatedFacts, goal.compoundFormulas, goal.eliminatedConstants,
@@ -182,9 +199,9 @@ abstract class ProofTreeFactory {
                goal.vocabulary, goal.definedSyms, List(),
                goal.branchInferences, goal)
 
-  /**
-   * Possibly exchange the whole task manager or update arbitrary tasks
-   */
-  def updateGoal(tasks : TaskManager, goal : Goal) : ProofTree
+  def updateGoal(tasks : TaskManager, goal : Goal) : ProofTree =
+    updateGoal(goal.facts, goal.compoundFormulas, goal.eliminatedConstants,
+               goal.vocabulary, goal.definedSyms, tasks,
+               goal.branchInferences, goal)
 
 }

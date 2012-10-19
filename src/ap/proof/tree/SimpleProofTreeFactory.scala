@@ -88,10 +88,18 @@ class SimpleProofTreeFactory(removeTask : Boolean,
                   updatedVocabulary, updatedDefinedSyms,
                   updatedTasks, goal.age + 1, updatedInferences, goal.settings)
   }
-  
-  def updateGoal(tasks : TaskManager, goal : Goal) : ProofTree =
-    createNewGoal(goal.facts, goal.compoundFormulas,
-                  goal.eliminatedConstants, goal.vocabulary, goal.definedSyms,
-                  tasks, goal.age + 1, goal.branchInferences, goal.settings)
+
+  def updateGoal(updatedFacts : Conjunction,
+                 updatedCompoundFormulas : CompoundFormulas,
+                 updatedElimConstants : Set[ConstantTerm],
+                 updatedVocabulary : Vocabulary,
+                 updatedDefinedSyms : Substitution,
+                 updatedTaskManager : TaskManager,
+                 updatedInferences : BranchInferenceCollection,
+                 goal : Goal) : ProofTree =
+    createNewGoal(updatedFacts, updatedCompoundFormulas, updatedElimConstants,
+                  updatedVocabulary, updatedDefinedSyms,
+                  updatedTaskManager, goal.age + 1, updatedInferences,
+                  goal.settings)
 
 }

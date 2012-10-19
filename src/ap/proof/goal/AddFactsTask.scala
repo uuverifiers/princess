@@ -29,6 +29,8 @@ import ap.util.{Debug, Seqs, Logic}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.parameters.Param
 
+import scala.collection.mutable.ArrayBuffer
+
 object AddFactsTask {
   
   private val AC = Debug.AC_COMPLEX_FORMULAS_TASK
@@ -43,6 +45,35 @@ object AddFactsTask {
      (f.isNegatedConjunction && f.negatedConjs(0).negatedConjs.isEmpty)) && 
     f.quans.isEmpty
 
+  private def extractFacts(t : Task) : Conjunction = t match {
+    case t : AddFactsTask => {
+      val formula = t.formula
+      if (formula.isTrue) {
+        Conjunction.FALSE
+      } else if (formula.isLiteral) {
+        Conjunction.negate(formula, formula.order)
+      } else {
+        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+        Debug.assertInt(AddFactsTask.AC, formula.isNegatedConjunction)
+        //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+        val disj = formula.negatedConjs(0)
+        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+        // possibly existing quantifiers should have been pulled out and
+        // should not occur at this point
+        Debug.assertInt(AddFactsTask.AC,
+                        disj.quans.isEmpty && disj.negatedConjs.isEmpty)
+        //-END-ASSERTION-/////////////////////////////////////////////////////////
+            
+        // the literals of the negated conjunction can be added as facts to
+        // the goal
+        disj
+      }
+    }
+  }
+  
+  private object TRUE_EXCEPTION extends Exception
+  
 }
 
 class AddFactsTask(_formula : Conjunction, _age : Int)
@@ -57,51 +88,58 @@ class AddFactsTask(_formula : Conjunction, _age : Int)
   /**
    * Perform the actual task (whatever needs to be done with <code>formula</code>)
    */
-  def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
-    if (formula.isTrue) {
-      // then the goal can be closed immediately
-      ptf.updateGoal(Conjunction.FALSE, goal)
-    } else if (formula.isLiteral) {
-      addFacts(Conjunction.negate(formula, goal.order), goal, ptf)
-    } else {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AddFactsTask.AC, formula.isNegatedConjunction)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+  def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
 
-      val disj = formula.negatedConjs(0)
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      // possibly existing quantifiers should have been pulled out and
-      // should not occur at this point
-      Debug.assertInt(AddFactsTask.AC,
-                      disj.quans.isEmpty && disj.negatedConjs.isEmpty)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-            
-      // the literals of the negated conjunction can be added as facts to
-      // the goal
-      addFacts(disj, goal, ptf)
-    }
-
-  private def addFacts(newFacts : Conjunction,
-                       goal : Goal,
-                       ptf : ProofTreeFactory) : ProofTree = {
+    // dequeue all <code>AddFactsTask</code>s that are currently waiting
+    val (newTaskManager, addTasks) =
+      goal.tasks dequeueWhile (_.isInstanceOf[AddFactsTask])
+    
+    val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
     val order = goal.order
-    val (updatedFacts, updatedInferences) = {
-      val collector = goal.getInferenceCollector
-      val allFacts =
-        if (Param.PROOF_CONSTRUCTION(goal.settings))
+    
+    val allFacts = new ArrayBuffer[Formula]
+    allFacts += goal.facts
+    
+    var hasPreds = false
+    
+    def addNewFacts(facts : Conjunction) =
+      if (facts.isFalse) {
+        throw AddFactsTask.TRUE_EXCEPTION
+      } else {
+        if (!facts.predConj.isTrue)
+          hasPreds = true
+          
+        if (proofs) {
           // when constructing proofs, we decompose conjunctions of inequalities
           // so that all computations concerning the new inequalities can be
           // recorded
-          Array(goal.facts, newFacts.updateInEqs(InEqConj.TRUE)(order)).iterator ++
-            (for (lc <- newFacts.arithConj.inEqs.iterator) yield InEqConj(lc, order))
-        else
-          Array(goal.facts, newFacts).iterator
-      val updatedFacts = Conjunction(List(), allFacts, collector, order)
-      (updatedFacts, collector.getCollection)
+          allFacts += facts.updateInEqs(InEqConj.TRUE)(order)
+          for (lc <- facts.arithConj.inEqs)
+            allFacts += InEqConj(lc, order)
+        } else {
+          allFacts += facts
+        }
+      }
+    
+    try {
+      
+      addNewFacts(AddFactsTask extractFacts this)
+    
+      for (t <- addTasks) {
+        if (!(this eq t))
+          addNewFacts(AddFactsTask extractFacts t)
+      }
+    
+      val collector = goal.getInferenceCollector
+      val updatedFacts = Conjunction(List(), allFacts.iterator, collector, order)
+      
+      val newTasks = if (hasPreds) (LazyMatchTask addTask goal) else List()
+      ptf.updateGoal(updatedFacts, newTaskManager ++ newTasks,
+                     collector.getCollection, goal)
+      
+    } catch {
+      case AddFactsTask.TRUE_EXCEPTION => ptf.updateGoal(Conjunction.FALSE, goal)
     }
-    val newTasks =
-      if (newFacts.predConj.isTrue) List() else (LazyMatchTask addTask goal)
-    ptf.updateGoal(updatedFacts, newTasks, updatedInferences, goal)
   }
   
   /**
