@@ -421,7 +421,7 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * Restrict this ordering to the given symbols
    */
   def restrict(consts : Set[ConstantTerm]) =
-    new TermOrder(constantSeq filter (consts contains _), predicateSeq)
+    new TermOrder(this sort consts, predicateSeq)
   
   /**
    * Generate a new <code>TermOrder</code> that coincides with this one, except
