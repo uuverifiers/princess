@@ -222,8 +222,14 @@ object SimpleAPITest extends App {
   part("Stopping computation after a while")
   
   !! (true)
-  println(p checkSat false)  // non-blocking, Running
-  
+  (p checkSat false) match {   // non-blocking, Running or Sat
+    case ProverStatus.Running |
+         ProverStatus.Sat =>
+      println("expected result")
+    case _ =>
+      println("oops")
+  }
+
   {
     println("Wait for 30ms ...")
     val m = System.currentTimeMillis
