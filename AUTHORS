@@ -1,2 +1,15 @@
+Main author:
+
 Philipp Ruemmer <ph_r@gmx.net>
 http://www.philipp.ruemmer.org
+
+
+Parts of the Craig interpolation code are by:
+
+Angelo Brillout <angelo.brillout@gmail.com>
+
+
+Parts of the TPTP parser are by:
+
+Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
+http://users.cecs.anu.edu.au/~baumgart/
