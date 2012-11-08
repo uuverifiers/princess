@@ -26,6 +26,7 @@ import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer}
+import scala.collection.{Map => CMap}
 
 
 object CollectingVisitor {
@@ -381,38 +382,35 @@ case class IVarShiftMap(prefix : List[Int],
  * Substitute some of the constants in an expression with arbitrary terms
  */
 object ConstantSubstVisitor
-       extends CollectingVisitor[Map[ConstantTerm, ITerm], IExpression] {
+       extends CollectingVisitor[(CMap[ConstantTerm, ITerm], Int), IExpression] {
   import IExpression.i
          
-  def apply(t : IExpression, subst : Map[ConstantTerm, ITerm]) : IExpression =
-    ConstantSubstVisitor.visit(t, subst)
-  def apply(t : ITerm, subst : Map[ConstantTerm, ITerm]) : ITerm =
+  def apply(t : IExpression, subst : CMap[ConstantTerm, ITerm]) : IExpression =
+    ConstantSubstVisitor.visit(t, (subst, 0))
+  def apply(t : ITerm, subst : CMap[ConstantTerm, ITerm]) : ITerm =
     apply(t.asInstanceOf[IExpression], subst).asInstanceOf[ITerm]
-  def apply(t : IFormula, subst : Map[ConstantTerm, ITerm]) : IFormula =
+  def apply(t : IFormula, subst : CMap[ConstantTerm, ITerm]) : IFormula =
     apply(t.asInstanceOf[IExpression], subst).asInstanceOf[IFormula]
 
-  def rename(t : ITerm, subst : Map[ConstantTerm, ConstantTerm]) : ITerm =
-    apply(t.asInstanceOf[IExpression],
-          subst transform ((_, c) => i(c))).asInstanceOf[ITerm]
-  def rename(t : IFormula, subst : Map[ConstantTerm, ConstantTerm]) : IFormula =
-    apply(t.asInstanceOf[IExpression],
-          subst transform ((_, c) => i(c))).asInstanceOf[IFormula]
+  def rename(t : ITerm, subst : CMap[ConstantTerm, ConstantTerm]) : ITerm =
+    apply(t.asInstanceOf[IExpression], subst mapValues (i(_))).asInstanceOf[ITerm]
+  def rename(t : IFormula, subst : CMap[ConstantTerm, ConstantTerm]) : IFormula =
+    apply(t.asInstanceOf[IExpression], subst mapValues (i(_))).asInstanceOf[IFormula]
 
   override def preVisit(t : IExpression,
-                        subst : Map[ConstantTerm, ITerm]) : PreVisitResult =
+                        subst : (CMap[ConstantTerm, ITerm], Int)) : PreVisitResult =
     t match {
-      case IConstant(c) =>
-        ShortCutResult(subst.getOrElse(c, c))
-      case _ : IQuantified | _ : IEpsilon => {
-        val newSubst =
-          subst transform ((_, value) => VariableShiftVisitor(value, 0, 1))
-        UniSubArgs(newSubst)
-      }
+      case IConstant(c) => ShortCutResult((subst._1 get c) match {
+        case Some(replacement) => VariableShiftVisitor(replacement, 0, subst._2)
+        case None => t
+      })
+      case _ : IQuantified | _ : IEpsilon =>
+        UniSubArgs((subst._1, subst._2 + 1))
       case _ => KeepArg
     }
 
   def postVisit(t : IExpression,
-                subst : Map[ConstantTerm, ITerm],
+                subst : (CMap[ConstantTerm, ITerm], Int),
                 subres : Seq[IExpression]) : IExpression = t update subres
 }
 
