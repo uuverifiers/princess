@@ -21,11 +21,11 @@
 
 package ap.terfor;
 
-import ap.util.{CountIt, Logic, Seqs, Debug, FilterIt}
 import ap.basetypes.IdealInt
 import linearcombination.LinearCombination
 import arithconj.ArithConj
 import preds.{Predicate, Atom}
+import ap.util.{CountIt, Logic, Seqs, Debug, FilterIt, FastImmutableMap}
 
 import scala.util.Sorting
 import scala.collection.mutable.ArrayBuffer
@@ -37,8 +37,10 @@ import scala.collection.mutable.ArrayBuffer
  * operations.
  *
  * <code>constantSeq</code> is the list of constants that are totally ordered by
- * this <code>TermOrder</code>, starting with the smallest constant. In
+ * this <code>TermOrder</code>, starting with the biggest constant. In
  * addition, variable terms are by default ordered as bigger as all constants.
+ * We use the <code>List</code> datatype for the constant order, so that new
+ * large constants can efficiently be added.
  */
 object TermOrder {
 
@@ -46,36 +48,78 @@ object TermOrder {
 
   /** The term order that cannot sort anything apart from
    * <code>Constant.ONE</code> and variables */
-  val EMPTY = new TermOrder(List(), List())
+  val EMPTY = new TermOrder(List(), List(),
+                            FastImmutableMap.empty,
+                            FastImmutableMap.empty,
+                            FastImmutableMap.empty)
   
+  /**
+   * Weight objects that are used to abstract from the concrete terms. There are
+   * three types of weights: for variables, and for constants, and for the
+   * literal 1. Variables are heavier that constants are heavier than literals.
+   */
+  protected[terfor] abstract class Weight extends Ordered[Weight] {
+    def compare(that : Weight) = (this.toCoeffWeight compare that.toCoeffWeight)
+  
+    protected def toCoeffWeight : CoeffWeight
+  }   
+   
+  protected[terfor] abstract class NonCoeffWeight extends Weight {
+    protected def patternType : Int
+    protected def value : Int
+  
+    def compare(that : NonCoeffWeight) = 
+      Seqs.lexCombineInts(this.patternType compare that.patternType,
+                          this.value compare that.value)
+
+    protected def toCoeffWeight : CoeffWeight = CoeffWeight(IdealInt.ONE, this)
+  }
+
+  protected[terfor] case object OneWeight extends NonCoeffWeight {
+    protected def patternType : Int = 0
+    protected def value : Int = 0  
+  }
+
+  protected[terfor] case class ConstantWeight(value : Int) extends NonCoeffWeight {
+    protected def patternType : Int = 1
+  }
+
+  protected[terfor] case class VariableWeight(value : Int) extends NonCoeffWeight {
+    protected def patternType : Int = 2
+  }
+
+  protected[terfor] case class CoeffWeight(coefficient : IdealInt, baseWeight : NonCoeffWeight)
+                                                               extends Weight {
+    def compare(that : CoeffWeight) : Int =
+      Seqs.lexCombineInts(this.baseWeight compare that.baseWeight,
+                          this.coefficient compareAbs that.coefficient)
+
+    protected def toCoeffWeight : CoeffWeight = this
+  }
 }
    
-class TermOrder private (private val constantSeq : Seq[ConstantTerm],
-                         private val predicateSeq : Seq[Predicate]) {
+class TermOrder private (
+  private val constantSeq : List[ConstantTerm],
+  private val predicateSeq : List[Predicate],
+  private val constantWeight : FastImmutableMap[ConstantTerm, TermOrder.NonCoeffWeight],
+  private val constantNum : FastImmutableMap[ConstantTerm, Int],
+  private val predicateWeight : FastImmutableMap[Predicate, Int]) {
 
-  private val constantWeight : scala.collection.Map[ConstantTerm, NonCoeffWeight] = {
-    val res = new scala.collection.mutable.HashMap[ConstantTerm, NonCoeffWeight]
-    res ++= (constantSeq.iterator zip
-             (for (i <- new CountIt) yield ConstantWeight(i)))
-    res
-  }
-  
-  private val constantNum : scala.collection.Map[ConstantTerm, Int] = {
-    val res = new scala.collection.mutable.HashMap[ConstantTerm, Int]
-    res ++= constantSeq.iterator.zipWithIndex
-    res
-  }
-  
-  private val predicateWeight : scala.collection.Map[Predicate, Int] = {
-    val res = new scala.collection.mutable.HashMap[Predicate, Int]
-    res ++= predicateSeq.iterator.zipWithIndex
-    res
-  }
-  
+  import TermOrder._
+
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(TermOrder.AC,
                    constantSeq.toSet.size == constantSeq.size &&
-                   predicateSeq.toSet.size == predicateSeq.size)
+                   predicateSeq.toSet.size == predicateSeq.size &&
+                   (constantSeq.iterator.zipWithIndex forall {
+                     case (c, i) =>
+                       constantWeight(c) == ConstantWeight(constantSeq.size - i - 1) &&
+                       constantNum(c) == constantSeq.size - i - 1
+                   }) &&
+                   (predicateSeq.iterator.zipWithIndex forall {
+                     case (p, i) =>
+                       predicateWeight(p) == predicateSeq.size - i - 1
+                   }))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   /**
@@ -319,31 +363,43 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
                     !(biggerConstants contains newConst))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val newConstantSeq = new Array[ConstantTerm](constantSeq.size + 1)
-    var pos : Int = 0
-    var inserted : Boolean = false
+    val insertionPos = constantSeq lastIndexWhere biggerConstants
     
-    for (const <- constantSeq) {
-      if (!inserted && (biggerConstants contains const)) {
-        newConstantSeq(pos) = newConst
-        pos = pos + 1
-        inserted = true
+    val res =
+      if (insertionPos < 0) {
+        // just use standard extension
+        extend(newConst)
+      } else {
+        val storedBigConsts = new Array[ConstantTerm](insertionPos + 1)
+        var newConstantSeq = constantSeq
+        for (i <- 0 to insertionPos) {
+          storedBigConsts(i) = newConstantSeq.head
+          newConstantSeq = newConstantSeq.tail
+        }
+        
+        newConstantSeq = newConst :: newConstantSeq
+        newConstantSeq = (storedBigConsts :\ newConstantSeq) (_ :: _)
+        
+        val o = newConstantSeq.size
+        new TermOrder(newConstantSeq, predicateSeq,
+                      constantWeight ++ (
+                        for ((c, i) <-
+                             newConstantSeq.iterator.zipWithIndex take (insertionPos + 2))
+                        yield (c -> ConstantWeight(o - i - 1))),
+                      constantNum ++ (
+                        for ((c, i) <-
+                             newConstantSeq.iterator.zipWithIndex take (insertionPos + 2))
+                        yield (c -> (o - i - 1))),
+                      predicateWeight)
       }
-      newConstantSeq(pos) = const
-      pos = pos + 1
-    }
     
-    if (!inserted) newConstantSeq(pos) = newConst
-    
-    val res = new TermOrder (newConstantSeq, predicateSeq)
-
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(TermOrder.AC,
                      res.constantSeq.size == constantSeq.size + 1 &&
                      (this isSubOrderOf res) &&
                      Logic.exists(0, res.constantSeq.size,
                        (i:Int) => res.constantSeq(i) == newConst &&
-                          Logic.forall(0, i,
+                          Logic.forall(i+1, res.constantSeq.size,
                                        (j:Int) => !(biggerConstants contains
                                                     res.constantSeq(j)))))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -351,11 +407,26 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
     res
   }
 
-  def extend(newConst : ConstantTerm) : TermOrder =
-    new TermOrder(constantSeq ++ List(newConst), predicateSeq)
+  def extend(newConst : ConstantTerm) : TermOrder = {
+    val o = constantSeq.size
+    new TermOrder(newConst :: constantSeq, predicateSeq,
+                  constantWeight + (newConst -> ConstantWeight(o)),
+                  constantNum + (newConst -> o),
+                  predicateWeight)
+  }
 
-  def extend(newConsts : Seq[ConstantTerm]) : TermOrder =
-    new TermOrder(constantSeq ++ newConsts, predicateSeq)
+  def extend(newConsts : Seq[ConstantTerm]) : TermOrder = {
+    val o = constantSeq.size
+    new TermOrder((constantSeq /: newConsts) { case (l, c) => c :: l },
+                  predicateSeq,
+                  constantWeight ++ (
+                    for ((c, i) <- newConsts.iterator.zipWithIndex) yield (
+                      c -> ConstantWeight(o + i))),
+                  constantNum ++ (
+                    for ((c, i) <- newConsts.iterator.zipWithIndex) yield (
+                      c -> (o + i))),
+                  predicateWeight)
+  }
 
   /**
    * Change this ordering by making the constant <code>const</code> as big as
@@ -370,36 +441,90 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
                     !(biggerConstants contains movedConst))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val newConstantSeq = new Array[ConstantTerm](constantSeq.size)
-    var pos : Int = 0
-    var inserted : Boolean = false
+    val oldPos = constantSeq.size - constantNum(movedConst) - 1
+    val newPos = (constantSeq lastIndexWhere biggerConstants) + 1
     
-    for (const <- constantSeq) {
-      if (!inserted && (biggerConstants contains const)) {
-        newConstantSeq(pos) = movedConst
-        pos = pos + 1
-        inserted = true
+    val res =
+      if (oldPos == newPos) {
+        // nothing to do
+        this
+      } else {
+        
+        if (newPos < oldPos) {
+          val storedBigConsts = new Array[ConstantTerm](newPos)
+          val storedBetweenConsts = new Array[ConstantTerm](oldPos - newPos)
+          var newConstantSeq = constantSeq
+        
+          for (i <- 0 until newPos) {
+            storedBigConsts(i) = newConstantSeq.head
+            newConstantSeq = newConstantSeq.tail
+          }
+          for (i <- 0 until (oldPos - newPos)) {
+            storedBetweenConsts(i) = newConstantSeq.head
+            newConstantSeq = newConstantSeq.tail
+          }
+
+          // drop the moved element
+          newConstantSeq = newConstantSeq.tail
+        
+          newConstantSeq = (storedBetweenConsts :\ newConstantSeq) (_ :: _)
+          newConstantSeq = movedConst :: newConstantSeq
+          newConstantSeq = (storedBigConsts :\ newConstantSeq) (_ :: _)
+
+          val o = newConstantSeq.size
+          new TermOrder(newConstantSeq, predicateSeq,
+                        constantWeight ++ (
+                          for ((c, i) <-
+                               newConstantSeq.iterator.zipWithIndex.slice(newPos, oldPos + 1))
+                          yield (c -> ConstantWeight(o - i - 1))),
+                        constantNum ++ (
+                          for ((c, i) <-
+                               newConstantSeq.iterator.zipWithIndex.slice(newPos, oldPos + 1))
+                          yield (c -> (o - i - 1))),
+                        predicateWeight)
+        } else {
+          
+          val storedBigConsts = new Array[ConstantTerm](oldPos)
+          val storedBetweenConsts = new Array[ConstantTerm](newPos - oldPos - 1)
+          var newConstantSeq = constantSeq
+        
+          for (i <- 0 until oldPos) {
+            storedBigConsts(i) = newConstantSeq.head
+            newConstantSeq = newConstantSeq.tail
+          }
+
+          // drop the moved element
+          newConstantSeq = newConstantSeq.tail
+        
+          for (i <- 0 until (newPos - oldPos - 1)) {
+            storedBetweenConsts(i) = newConstantSeq.head
+            newConstantSeq = newConstantSeq.tail
+          }
+
+          newConstantSeq = movedConst :: newConstantSeq
+          newConstantSeq = (storedBetweenConsts :\ newConstantSeq) (_ :: _)
+          newConstantSeq = (storedBigConsts :\ newConstantSeq) (_ :: _)
+
+          val o = newConstantSeq.size
+          new TermOrder(newConstantSeq, predicateSeq,
+                        constantWeight ++ (
+                          for ((c, i) <-
+                               newConstantSeq.iterator.zipWithIndex.slice(oldPos, newPos))
+                          yield (c -> ConstantWeight(o - i - 1))),
+                        constantNum ++ (
+                          for ((c, i) <-
+                               newConstantSeq.iterator.zipWithIndex.slice(oldPos, newPos))
+                          yield (c -> (o - i - 1))),
+                        predicateWeight)
+        }
+        
       }
-      if (const != movedConst) {
-        newConstantSeq(pos) = const
-        pos = pos + 1
-      }
-    }
-    
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(TermOrder.AC,
-                    pos == constantSeq.size + (if (inserted) 0 else -1))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    if (!inserted) newConstantSeq(pos) = movedConst
-    
-    val res = new TermOrder (newConstantSeq, predicateSeq)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(TermOrder.AC,
                      Logic.exists(0, res.constantSeq.size,
                        (i:Int) => res.constantSeq(i) == movedConst &&
-                          Logic.forall(0, i,
+                          Logic.forall(i+1, res.constantSeq.size,
                                        (j:Int) => !(biggerConstants contains
                                                     res.constantSeq(j)))))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -412,46 +537,73 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * This predicate is inserted so that it gets as big as possible
    */
   def extendPred(newPred : Predicate) : TermOrder =
-    new TermOrder(constantSeq, predicateSeq ++ List(newPred))
+    new TermOrder(constantSeq, newPred :: predicateSeq,
+                  constantWeight, constantNum,
+                  predicateWeight + (newPred -> predicateSeq.size))
 
-  def extendPred(newPreds : Seq[Predicate]) : TermOrder =
-    new TermOrder(constantSeq, predicateSeq ++ newPreds)
+  def extendPred(newPreds : Seq[Predicate]) : TermOrder = {
+    val o = predicateSeq.size
+    new TermOrder(constantSeq,
+                  (predicateSeq /: newPreds) { case (l, p) => p :: l },
+                  constantWeight, constantNum,
+                  predicateWeight ++ (
+                    for ((p, i) <- newPreds.iterator.zipWithIndex) yield (
+                      p -> (o + i))))
+  }
 
   /**
    * Restrict this ordering to the given symbols
    */
-  def restrict(consts : Set[ConstantTerm]) =
-    new TermOrder(this sort consts, predicateSeq)
+  def restrict(consts : Set[ConstantTerm]) = {
+    val newConstantSeq = constantSeq filter consts
+    val o = newConstantSeq.size
+    if (o == constantSeq.size)
+      this
+    else
+      new TermOrder(newConstantSeq, predicateSeq,
+                    FastImmutableMap(
+                      (for ((c, i) <- newConstantSeq.iterator.zipWithIndex)
+                       yield (c -> ConstantWeight(o - i - 1))).toMap),
+                    FastImmutableMap(
+                      (for ((c, i) <- newConstantSeq.iterator.zipWithIndex)
+                       yield (c -> (o - i - 1))).toMap),
+                    predicateWeight)
+  }
   
   /**
    * Generate a new <code>TermOrder</code> that coincides with this one, except
    * that all predicates have been removed
    */
   def resetPredicates : TermOrder =
-    if (predicateSeq.isEmpty) this else new TermOrder(constantSeq, List())
+    if (predicateSeq.isEmpty)
+      this
+    else
+      new TermOrder(constantSeq, List(),
+                    constantWeight, constantNum, FastImmutableMap.empty)
   
   /**
    * Determine whether this term order does not consider any constants as bigger
    * than the given constants 
    */
   def constantsAreMaximal(consts: Set[ConstantTerm]) : Boolean = {
-
+      
     def post(b : Boolean) = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(TermOrder.AC,
-                       b != (Logic.exists(0, constantSeq.size, (i) =>
-                             Logic.exists(i+1, constantSeq.size, (j) =>
-                               (consts contains constantSeq(i)) &&
-                               !(consts contains constantSeq(j))))))
+                       b != (Logic.exists(0, constantSeq.size - 1, (i) =>
+                               !(consts contains constantSeq(i)) &&
+                               (consts contains constantSeq(i+1)))))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       b
     }
     
-    var elem : Boolean = false
+    var foundNonElem : Boolean = false
     for (c <- constantSeq) {
-      val nextElem = consts contains c
-      if (elem && !nextElem) return post(false)
-      elem = nextElem
+      val elem = consts contains c
+      if (elem && foundNonElem)
+        return post(false)
+      if (!elem)
+        foundNonElem = true
     }
     post(true)
   }
@@ -460,13 +612,13 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
    * Return the set of all constants that are sorted by this
    * <code>TermOrder</code>
    */
-  lazy val orderedConstants : Set[ConstantTerm] = Set() ++ constantSeq
+  lazy val orderedConstants : Set[ConstantTerm] = constantWeight.keySet
    
   /**
    * Return the set of all predicates that are sorted by this
    * <code>TermOrder</code>
    */
-  lazy val orderedPredicates : Set[Predicate] = Set() ++ predicateSeq
+  lazy val orderedPredicates : Set[Predicate] = predicateWeight.keySet
    
   override def equals(that : Any) : Boolean = that match {
    case that : TermOrder => (this.constantSeq sameElements that.constantSeq) &&
@@ -486,46 +638,3 @@ class TermOrder private (private val constantSeq : Seq[ConstantTerm],
 }
 
  
-/**
- * Weight objects that are used to abstract from the concrete terms. There are
- * three types of weights: for variables, and for constants, and for the
- * literal 1. Variables are heavier that constants are heavier than literals.
- */
-private abstract class Weight extends Ordered[Weight] {
-  def compare(that : Weight) = (this.toCoeffWeight compare that.toCoeffWeight)
-  
-  protected def toCoeffWeight : CoeffWeight
-}   
-   
-private abstract class NonCoeffWeight extends Weight {
-  protected def patternType : Int
-  protected def value : Int
-  
-  def compare(that : NonCoeffWeight) = 
-    Seqs.lexCombineInts(this.patternType compare that.patternType,
-                        this.value compare that.value)
-
-  protected def toCoeffWeight : CoeffWeight = CoeffWeight(IdealInt.ONE, this)
-}
-
-private case object OneWeight extends NonCoeffWeight {
-  protected def patternType : Int = 0
-  protected def value : Int = 0  
-}
-
-private case class ConstantWeight(value : Int) extends NonCoeffWeight {
-  protected def patternType : Int = 1
-}
-
-private case class VariableWeight(value : Int) extends NonCoeffWeight {
-  protected def patternType : Int = 2
-}
-
-private case class CoeffWeight(coefficient : IdealInt, baseWeight : NonCoeffWeight)
-                                                               extends Weight {
-  def compare(that : CoeffWeight) : Int =
-    Seqs.lexCombineInts(this.baseWeight compare that.baseWeight,
-                        this.coefficient compareAbs that.coefficient)
-
-  protected def toCoeffWeight : CoeffWeight = this
-}
