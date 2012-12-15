@@ -93,3 +93,8 @@ Vector(!((-2 + select1(b, 0)) = 0))
 Sat
 c100 = 100
 Valid
+
+-- Generating a larger amount of constraints (2)
+Sat
+x500 = 124750
+Valid

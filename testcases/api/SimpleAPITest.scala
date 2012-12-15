@@ -310,7 +310,7 @@ object SimpleAPITest extends App {
 
   scope {
     val vars = createConstants(101)
-    
+
     for (i <- 0 until 100)
       !! (vars(i+1) === vars(i) + 1)
     
@@ -319,7 +319,24 @@ object SimpleAPITest extends App {
     
     scope {
       ?? (vars(0) >= 0 ==> vars(100) >= 0)
-      println(???)                                        // Valid
+      println(???)                                      // Valid
+    }
+  }
+  
+  part("Generating a larger amount of constraints (2)")
+
+  scope {
+    val vars = (for (i <- 0 to 500) yield createConstant("x" + i)).toArray
+  
+    for (i <- 0 until 500)
+      !! (vars(i+1) === vars(i) + i)
+    
+    println(???)                                        // Sat
+    println("" + vars(500) + " = " + eval(vars(500)))   // x500 = 124750
+    
+    scope {
+      ?? (vars(0) >= 0 ==> vars(500) >= 0)
+      println(???)                                      // Valid
     }
   }
   
