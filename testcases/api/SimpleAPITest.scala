@@ -191,6 +191,38 @@ object SimpleAPITest extends App {
     println(???)   // Valid
   }
 
+  part("Quantifiers, functions, and triggers")
+
+  scope {
+    val f = createFunction("f", 1)
+    !! (all(x => f(x) >= x))   // f(x) will automatically be selected as a trigger
+
+    val a, b = createConstant
+    !! (a === 5 & f(a + b) === 3)
+
+    println(???) // Sat
+    println("b = " + eval(b))     // b = -2
+
+    scope {
+      !!(b > 10)
+      println(???) // Unsat
+    }
+
+    !! (all(x => trig(f(x) <= x + 3, f(x))))   // specify trigger manually
+    println(???) // Sat
+
+    /*
+        b = -2
+        b = -3
+        b = -4
+        b = -5
+     */
+    while (??? == ProverStatus.Sat) {
+      println("b = " + eval(b))
+      !! (b =/= eval(b))
+    }
+  }
+
   part("Asynchronous interface")
   
   !! (true)

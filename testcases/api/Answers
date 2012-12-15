@@ -58,6 +58,16 @@ Unsat
 Invalid
 Valid
 
+-- Quantifiers, functions, and triggers
+Sat
+b = -2
+Unsat
+Sat
+b = -2
+b = -3
+b = -4
+b = -5
+
 -- Asynchronous interface
 Running
 Running
@@ -98,3 +108,11 @@ Valid
 Sat
 x500 = 124750
 Valid
+
+-- Declaration of symbols
+Sat
+
+-- Adding some assertions (uses methods from TerForConvenience._)
+Sat
+Unsat
+Sat

@@ -5,3 +5,5 @@ unset CLASSPATH
 scalac -cp ../../bin SimpleAPITest.scala
 scala -cp ../../bin SimpleAPITest
 
+scalac -cp ../../bin SimpleAPITest2.scala
+scala -cp ../../bin SimpleAPITest2

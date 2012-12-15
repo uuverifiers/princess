@@ -24,7 +24,7 @@ package ap
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
-import ap.terfor.TermOrder
+import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.certificates.Certificate
@@ -155,7 +155,20 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   //
   // Working with the vocabulary
   
+  /**
+   * Create a new symbolic constant.
+   */
   def createConstant(rawName : String) : ITerm = {
+    import IExpression._
+    createConstantRaw(rawName)
+  }
+
+  /**
+   * Create a new symbolic constant, without directly turning it into an
+   * <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def createConstantRaw(rawName : String) : IExpression.ConstantTerm = {
     import IExpression._
     
     val name = sanitise(rawName)
@@ -167,9 +180,15 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     c
   }
 
+  /**
+   * Create a new symbolic constant with predefined name.
+   */
   def createConstant : ITerm =
     createConstant("c" + currentOrder.orderedConstants.size)
   
+  /**
+   * Create <code>num</code> new symbolic constant with predefined name.
+   */
   def createConstants(num : Int) : IndexedSeq[ITerm] = {
     import IExpression._
     val startInd = currentOrder.orderedConstants.size
@@ -184,6 +203,31 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     for (c <- cs) yield IConstant(c)
   }
 
+  /**
+   * Add an externally defined constant to the environment of this prover.
+   */
+  def addConstant(c : IExpression.ConstantTerm) : Unit = {
+    currentOrder = currentOrder extend c
+    doDumpSMT {
+      println("(declare-fun " + c.name + " () Int)")
+    }
+  } 
+
+  /**
+   * Add a sequence of externally defined constant to the environment of
+   * this prover.
+   */
+  def addConstants(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
+    currentOrder = currentOrder extend cs.toSeq
+    doDumpSMT {
+      for (c <- cs)
+        println("(declare-fun " + c.name + " () Int)")
+    }
+  }
+
+  /**
+   * Create a new Boolean variable (nullary predicate).
+   */
   def createBooleanVariable(rawName : String) : IFormula = {
     import IExpression._
     
@@ -196,9 +240,16 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     p()
   }
 
+  /**
+   * Create a new Boolean variable (nullary predicate) with predefined name.
+   */
   def createBooleanVariable : IFormula =
     createBooleanVariable("p" + currentOrder.orderedPredicates.size)
 
+  /**
+   * Create <code>num</code> new Boolean variable (nullary predicate) with
+   * predefined name.
+   */
   def createBooleanVariables(num : Int) : IndexedSeq[IFormula] = {
     import IExpression._
     val startInd = currentOrder.orderedPredicates.size
@@ -213,6 +264,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     for (p <- ps) yield p()
   }
 
+  /**
+   * Create a new uninterpreted function with fixed arity.
+   */
   def createFunction(rawName : String, arity : Int) : IFunction = {
     val name = sanitise(rawName)
     val f = new IFunction(name, arity, true, false)
@@ -228,6 +282,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     f
   }
   
+  /**
+   * Create a new uninterpreted predicate with fixed arity.
+   */
   def createRelation(rawName : String, arity : Int) = {
     import IExpression._
     
@@ -241,14 +298,32 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     r
   }
   
+  /**
+   * Export the current <code>TermOrder</code> of the prover. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def order = currentOrder
+  
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * <code>select</code> function of the theory of arrays.
+   */
   def selectFun(arity : Int) : IFunction = getArrayFuns(arity)._1
   
+  /**
+   * <code>store</code> function of the theory of arrays.
+   */
   def storeFun(arity : Int) : IFunction = getArrayFuns(arity)._2
   
+  /**
+   * Generate a <code>select</code> expression in the theory of arrays.
+   */
   def select(args : ITerm*) : ITerm = IFunApp(selectFun(args.size - 1), args)
 
+  /**
+   * Generate a <code>store</code> expression in the theory of arrays.
+   */
   def store(args : ITerm*) : ITerm = IFunApp(storeFun(args.size - 2), args)
 
   //////////////////////////////////////////////////////////////////////////////
@@ -259,9 +334,18 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   def !!(assertion : IFormula) : Unit =
     addAssertion(assertion)
 
+  /**
+   * Add an assertion to the prover: assume that the given formula is true
+   */
   def addAssertion(assertion : IFormula) : Unit =
     addFormula(!assertion)
   
+  /**
+   * Add an assertion to the prover: assume that the given formula is true
+   */
+  def addAssertion(assertion : Formula) : Unit =
+    addFormula(Conjunction.negate(assertion, currentOrder))
+    
   /**
    * Add a conclusion to the prover: assume that the given formula is false.
    * Adding conclusions will switch the prover to "validity" mode; from this
@@ -271,7 +355,24 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   def ??(conc : IFormula) : Unit =
     addConclusion(conc)
 
+  /**
+   * Add a conclusion to the prover: assume that the given formula is false.
+   * Adding conclusions will switch the prover to "validity" mode; from this
+   * point on, the prover answers with the status <code>Valid/Invalid</code>
+   * instead of <code>Unsat/Sat</code>.
+   */
   def addConclusion(conc : IFormula) : Unit = {
+    validityMode = true
+    addFormula(conc)
+  }
+  
+  /**
+   * Add a conclusion to the prover: assume that the given formula is false.
+   * Adding conclusions will switch the prover to "validity" mode; from this
+   * point on, the prover answers with the status <code>Valid/Invalid</code>
+   * instead of <code>Unsat/Sat</code>.
+   */
+  def addConclusion(conc : Formula) : Unit = {
     validityMode = true
     addFormula(conc)
   }
@@ -714,8 +815,15 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
 
   private def flushTodo : Unit = formulaeTodo match {
     case IBoolLit(false) => // nothing
-    case f => {
-      val (completeFor, axioms) = toInternal(f, currentOrder)
+    case _ => {
+      val (completeFor, axioms) = toInternal(formulaeTodo, currentOrder)
+      formulaeTodo = false
+      addToProver(completeFor, axioms)
+    }
+  }
+
+  private def addToProver(completeFor : Conjunction,
+                          axioms : Conjunction) : Unit = {
       formulaeInProver =
         (-1, axioms) :: (currentPartitionNum, completeFor) :: formulaeInProver
 
@@ -723,7 +831,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         case ProofActorStatus.Init =>
           // nothing
         case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
-          if (completeFor.constants.isEmpty) {
+          if (completeFor.constants.isEmpty && axioms.isFalse) {
             // then we should be able to add this formula to the running prover
             proofActor ! AddFormulaCommand(completeFor)
           } else {
@@ -738,20 +846,30 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         else
           currentProver = null
       }
-      formulaeTodo = false
-    }
   }
   
-  private def addFormula(f : IFormula) : Unit = {
+  private def resetModel = {
     currentModel = null
     currentCertificate = null
     lastStatus = ProverStatus.Unknown
+  }
+  
+  private def addFormula(f : IFormula) : Unit = {
+    resetModel
     doDumpSMT {
       print("(assert (not ")
       SMTLineariser(f)
       println("))")
     }
     formulaeTodo = formulaeTodo | f
+  }
+
+  private def addFormula(f : Formula) : Unit = {
+    resetModel
+    doDumpSMT {
+      print("; adding internal formula: " + f)
+    }
+    addToProver(Conjunction.conj(f, currentOrder), Conjunction.FALSE)
   }
 
   private def toInternal(f : IFormula,

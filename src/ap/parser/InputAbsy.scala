@@ -35,9 +35,19 @@ import ap.util.{Debug, Seqs}
  * handle them.
  */
 abstract class IExpression {
-  // by default, there are no subexpressions
+  /**
+   * Return the <code>i</code>th sub-expression.
+   */
   def apply(i : Int) : IExpression = throw new IndexOutOfBoundsException
+
+  /**
+   * Number of sub-expressions.
+   */
   def length : Int = 0
+  
+  /**
+   * Iterator over the sub-expressions of this expression.
+   */
   def iterator : Iterator[IExpression] =
     for (i <- (0 until length).iterator) yield apply(i)
   
@@ -51,6 +61,9 @@ abstract class IExpression {
     this
   }
 
+  /**
+   * The sub-expressions of this expression.
+   */
   def subExpressions = new IndexedSeq[IExpression] {
     def apply(i : Int) : IExpression = IExpression.this.apply(i)
     def length : Int = IExpression.this.length
@@ -61,35 +74,80 @@ abstract class IExpression {
 object IExpression {
   protected[parser] val AC = Debug.AC_INPUT_ABSY
 
-  // Import of some central types from the <code>terfor</code> package 
-  
+  /** Imported type from the <code>terfor</code> package */
   type ConstantTerm = ap.terfor.ConstantTerm
+  /** Imported type from the <code>terfor</code> package */
   type Quantifier = ap.terfor.conjunctions.Quantifier
+  /** Imported companion object from the <code>terfor</code> package */
   val Quantifier = ap.terfor.conjunctions.Quantifier
+  /** Imported type from the <code>terfor</code> package */
   type Predicate = ap.terfor.preds.Predicate
   
+  /** Implicit conversion from integers to terms */
   implicit def i(value : Int) : ITerm = IIntLit(value)
+  /** Implicit conversion from integers to terms */
   implicit def i(value : IdealInt) : ITerm = IIntLit(value)
+  /** Implicit conversion from constants to terms */
   implicit def i(c : ConstantTerm) : ITerm = IConstant(c)
+
+  /**
+   * Generate the variable with de Bruijn index <code>index</code>
+   */
   def v(index : Int) : IVariable = IVariable(index)
 
+  /** Implicit conversion from Booleans to formulas */
   implicit def i(value : Boolean) : IFormula = IBoolLit(value)
+
+  /**
+   * Implicit conversion, to enable the application of a predicate
+   * to a sequence of terms, like in <code>p(s, t)</code>.
+   */
   implicit def toPredApplier(pred : Predicate) : ((ITerm*) => IAtom) =
     new Function1[Seq[ITerm], IAtom] {
       def apply(args : Seq[ITerm]) = IAtom(pred, args)
     }
+  
+  /**
+   * Implicit conversion, to enable the application of a function
+   * to a sequence of terms, like in <code>f(s, t)</code>.
+   */
   implicit def toFunApplier(fun : IFunction) : ((ITerm*) => IFunApp) =
     new Function1[Seq[ITerm], IFunApp] {
       def apply(args : Seq[ITerm]) = IFunApp(fun, args)
     }
 
+  /**
+   * Add an existential quantifier for the variable with de Bruijn index 0.
+   */
   def ex(f : IFormula) = IQuantified(Quantifier.EX, f)
+  
+  /**
+   * Add an existential quantifier for the variable with de Bruijn index 0.
+   */
   def all(f : IFormula) = IQuantified(Quantifier.ALL, f)
+  
+  /**
+   * Generate an epsilon-expression.
+   */
   def eps(f : IFormula) = IEpsilon(f)
 
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as <code>ex(a => phi(a))</code>.
+   */
   def ex(f : ITerm => IFormula) = quan(Quantifier.EX, f)
+  
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as <code>all(a => phi(a))</code>.
+   */
   def all(f : ITerm => IFormula) = quan(Quantifier.ALL, f)
   
+  /**
+   * Higher-order syntax for quantifiers. This makes it possible
+   * to write a quantifier like in
+   * <code>quan(Quantifier.ALL, a => phi(a))</code>.
+   */
   def quan(q : Quantifier, f : ITerm => IFormula) : IFormula = {
     // first substitute a fresh constant, and later replace it with a
     // bound variable (just applying <code>f</code> to a bound variable
@@ -98,9 +156,27 @@ object IExpression {
     quanConsts(q, List(x), f(x))
   }
   
+  /**
+   * Trigger/patterns that are used to define in which way a quantified 
+   * formula is supposed to be instantiated. Triggers are only allowed to occur
+   * immediately after (inside) a quantifier. This class can both represent
+   * uni-triggers (for <code>patterns.size == 1</code> and multi-triggers.
+   * Intended use is, for instance, <code>all(x => trig(f(x) >= 0, f(x)))</code>.
+   */
+  def trig(f : IFormula, patterns : ITerm*) = ITrigger(patterns, f)
+  
+  /**
+   * Add quantifiers for the variables with de Bruijn index
+   * <code>0, ..., quans.size - 1</code>. The first quantifier in
+   * <code>quans</code> will be the innermost quantifier and corresponds
+   * to index 0. 
+   */
   def quan(quans : Seq[Quantifier], f : IFormula) : IFormula =
     (f /: quans)((f, q) => IQuantified(q, f))
 
+  /**
+   * Replace <code>consts</code> with bound variables, and quantify them.
+   */
   def quanConsts(quan : Quantifier,
                  consts : Iterable[ConstantTerm],
                  f : IFormula) : IFormula = {
@@ -111,6 +187,10 @@ object IExpression {
     (consts :\ fWithSubstitutedConsts) ((c, f) => IQuantified(quan, f))
   }
   
+  /**
+   * Replace the constants in <code>quantifiedConstants</code>
+   * with bound variables, and quantify them.
+   */
   def quanConsts(quantifiedConstants : Seq[(Quantifier, ConstantTerm)],
                  f : IFormula) : IFormula = {
     val fWithShiftedVars = VariableShiftVisitor(f, 0, quantifiedConstants.size)
@@ -122,14 +202,38 @@ object IExpression {
     }
   }
   
+  /**
+   * Substitute terms for the variables with de Bruijn index
+   * <code>0, ..., replacement.size - 1</code>, and increment all other
+   * variables by <code>shift</code>. 
+   */
   def subst(t : ITerm, replacement : List[ITerm], shift : Int) =
     VariableSubstVisitor(t, (replacement, shift))
+    
+  /**
+   * Substitute terms for the variables with de Bruijn index
+   * <code>0, ..., replacement.size - 1</code>, and increment all other
+   * variables by <code>shift</code>. 
+   */
   def subst(t : IFormula, replacement : List[ITerm], shift : Int) =
     VariableSubstVisitor(t, (replacement, shift))
+
+  /**
+   * Substitute terms for the variables with de Bruijn index
+   * <code>0, ..., replacement.size - 1</code>, and increment all other
+   * variables by <code>shift</code>. 
+   */
   def subst(t : IExpression, replacement : List[ITerm], shift : Int) =
     VariableSubstVisitor(t, (replacement, shift))
 
+  /**
+   * Generate the equation <code>t = 0</code>.
+   */
   def eqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
+  
+  /**
+   * Generate the inequality <code>t >= 0</code>.
+   */
   def geqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
   
   def connect(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
@@ -143,17 +247,35 @@ object IExpression {
       case IBinJunctor.Or => false
     }
 
+  /**
+   * Generate the conjunction of the given formulas.
+   */
   def and(fors : Iterator[IFormula]) = connect(fors, IBinJunctor.And)
+  /**
+   * Generate the conjunction of the given formulas.
+   */
   def and(fors : Iterable[IFormula]) = connect(fors, IBinJunctor.And)
+  /**
+   * Generate the disjunction of the given formulas.
+   */
   def or(fors : Iterator[IFormula]) = connect(fors, IBinJunctor.Or)
+  /**
+   * Generate the disjunction of the given formulas.
+   */
   def or(fors : Iterable[IFormula]) = connect(fors, IBinJunctor.Or)
   
+  /**
+   * Generate the sum of the given terms.
+   */
   def sum(terms : Iterable[ITerm]) : ITerm = sum(terms.iterator)
 
+  /**
+   * Generate the sum of the given terms.
+   */
   def sum(terms : Iterator[ITerm]) : ITerm =
     if (terms.hasNext) terms reduceLeft (IPlus(_, _)) else i(0)
   
-  // extract the value of constant terms
+  /** Extract the value of constant terms. */
   object Const {
     def unapply(t : ITerm) : Option[IdealInt] = t match {
       case IIntLit(v) => Some(v)
@@ -164,7 +286,7 @@ object IExpression {
     }
   }
 
-  // extract the value and sign of constant terms
+  /** Extract the value and sign of constant terms. */
   object SignConst {
     def unapply(t : ITerm) : Option[(IdealInt, Int)] = t match {
       case Const(v) => Some((v, v.signum))
@@ -172,7 +294,7 @@ object IExpression {
     }
   }
   
-  // identify formulae that do not have direct subformulae
+  /** Identify formulae that do not have direct subformulae. */
   object LeafFormula {
     def unapply(t : IExpression) : Option[IFormula] = t match {
       case t : IBoolLit => Some(t)
@@ -302,29 +424,50 @@ object IExpression {
 
 //////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Abstract class representing terms in input-syntax.
+ */
 abstract class ITerm extends IExpression {
+  /** Sum of two terms. */
   def +(that : ITerm) : ITerm = IPlus(this, that)
+  /** Product of term with an integer. */
   def *(coeff : IdealInt) : ITerm = ITimes(coeff, this)
+  /**
+   * Product of two terms (only defined if at least one of the terms is
+   * constant).
+   */
   def *(that : ITerm) : ITerm = (this, that) match {
     case (IExpression.Const(c), t) => t * c
     case (t, IExpression.Const(c)) => t * c
     case _ => throw new IllegalArgumentException
   }
+  /** Negation of a term. */
   def unary_- : ITerm = ITimes(IdealInt.MINUS_ONE, this)
+  /** Difference between two terms. */
   def -(that : ITerm) : ITerm = IPlus(this, -that)
+  /** Equation between two terms. */
   def ===(that : ITerm) : IFormula =
     IIntFormula(IIntRelation.EqZero, this - that)
+  /** Dis-equation between two terms. */
   def =/=(that : ITerm) : IFormula =
     !(this === that)
+  /** Inequality between two terms. */
   def >=(that : ITerm) : IFormula =
     IIntFormula(IIntRelation.GeqZero, this - that)
+  /** Inequality between two terms. */
   def <=(that : ITerm) : IFormula =
     IIntFormula(IIntRelation.GeqZero, that - this)
+  /** Inequality between two terms. */
   def >(that : ITerm) : IFormula =
     IIntFormula(IIntRelation.GeqZero, this - that + IIntLit(IdealInt.MINUS_ONE))
+  /** Inequality between two terms. */
   def <(that : ITerm) : IFormula =
     IIntFormula(IIntRelation.GeqZero, that - this + IIntLit(IdealInt.MINUS_ONE))
 
+  /**
+   * Sum of two terms. The resulting expression is simplified immediately
+   * if one of the terms disappears.
+   */
   def +++(that : ITerm) : ITerm = (this, that) match {
     case (IExpression.Const(IdealInt.ZERO), t) => t
     case (t, IExpression.Const(IdealInt.ZERO)) => t
@@ -332,6 +475,10 @@ abstract class ITerm extends IExpression {
     case _ => this + that
   }
 
+  /**
+   * Product of two terms. The resulting expression is simplified immediately
+   * if one of the terms is constant.
+   */
   def ***(coeff : IdealInt) : ITerm = (coeff, this) match {
     case (IdealInt.ZERO, _) => IIntLit(0)
     case (IdealInt.ONE, t) => t
@@ -340,6 +487,9 @@ abstract class ITerm extends IExpression {
     case _ => this * coeff
   }
 
+  /**
+   * Replace the subexpressions of this node with new expressions
+   */
   override def update(newSubExprs : Seq[IExpression]) : ITerm = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IExpression.AC, newSubExprs.isEmpty)
@@ -348,14 +498,23 @@ abstract class ITerm extends IExpression {
   }
 }
 
+/**
+ * Integer literals.
+ */
 case class IIntLit(value : IdealInt) extends ITerm {
   override def toString = value.toString
 }
 
+/**
+ * Symbolic constants.
+ */
 case class IConstant(c : ConstantTerm) extends ITerm {
   override def toString = c.toString
 }
 
+/**
+ * Bound variables, represented using their de Bruijn index.
+ */
 case class IVariable(index : Int) extends ITerm {
   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
   Debug.assertCtor(IExpression.AC, index >= 0)
@@ -363,6 +522,9 @@ case class IVariable(index : Int) extends ITerm {
   override def toString = "_" + index
 }
 
+/**
+ * Product between a term and an integer coefficient.
+ */
 case class ITimes(coeff : IdealInt, subterm : ITerm) extends ITerm {
   override def apply(i : Int) : ITerm = i match {
     case 0 => subterm
@@ -381,6 +543,9 @@ case class ITimes(coeff : IdealInt, subterm : ITerm) extends ITerm {
   override def toString = "" + coeff + " * " + subterm
 }
 
+/**
+ * Sum of two terms.
+ */
 case class IPlus(t1 : ITerm, t2 : ITerm) extends ITerm {
   override def apply(i : Int) : ITerm = i match {
     case 0 => t1
@@ -402,7 +567,9 @@ case class IPlus(t1 : ITerm, t2 : ITerm) extends ITerm {
 }
 
 /**
- * The AST on this level can also express uninterpreted functions
+ * An uninterpreted function with fixed arity. The function can optionally
+ * be <code>partial</code> (no totality axiom) or <code>relational</code>
+ * (no functionality axiom).
  */
 class IFunction(val name : String, val arity : Int,
                 val partial : Boolean, val relational : Boolean) {
@@ -413,6 +580,9 @@ class IFunction(val name : String, val arity : Int,
 
 }
 
+/**
+ * Application of an uninterpreted function to a list of terms.
+ */
 case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
   Debug.assertCtor(IExpression.AC, fun.arity == args.length)
@@ -443,6 +613,9 @@ case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
        "")
 }
 
+/**
+ * If-then-else term.
+ */
 case class ITermITE(cond : IFormula, left : ITerm, right : ITerm) extends ITerm {
   override def apply(i : Int) : IExpression = i match {
     case 0 => cond
@@ -470,6 +643,11 @@ case class ITermITE(cond : IFormula, left : ITerm, right : ITerm) extends ITerm 
     "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
 }
 
+/**
+ * Epsilon term, which is defined to evaluate to an arbitrary value
+ * satisfying the formula <code>cond</code>. <code>cond</code> is expected
+ * to contain a bound variable with de Bruijn index 0.
+ */
 case class IEpsilon(cond : IFormula) extends ITerm {
   override def apply(i : Int) : IExpression = i match {
     case 0 => cond
@@ -492,16 +670,26 @@ case class IEpsilon(cond : IFormula) extends ITerm {
 
 //////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Abstract class representing formulae in input-syntax.
+ */
 abstract class IFormula extends IExpression {
+  /** Conjunction of two formulas. */
   def &(that : IFormula) : IFormula = IBinFormula(IBinJunctor.And, this, that)
+  /** Disjunction of two formulas. */
   def |(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Or, this, that)
+  /** Equivalence of two formulas. */
   def <=>(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Eqv, this, that)
+  /** Exclusive-or of two formulas. */
   def </>(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Eqv, !this, that)
+  /** Implication between two formulas. */
   def ==>(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Or, !this, that)
+  /** Negation of a formula. */
   def unary_! : IFormula = INot(this)  
 
-  // binary operators that directly simplify expressions involving true/false
-  
+  /**
+   * Conjunction operator that directly simplify expressions involving true/false.
+   */
   def &&&(that : IFormula) : IFormula = (this, that) match {
     case (f@IBoolLit(false), _) => f
     case (_, f@IBoolLit(false)) => f
@@ -510,6 +698,9 @@ abstract class IFormula extends IExpression {
     case _ => this & that
   }
     
+  /**
+   * Disjunction operator that directly simplify expressions involving true/false.
+   */
   def |||(that : IFormula) : IFormula = (this, that) match {
     case (f@IBoolLit(true), _) => f
     case (_, f@IBoolLit(true)) => f
@@ -518,6 +709,9 @@ abstract class IFormula extends IExpression {
     case _ => this | that
   }
   
+  /**
+   * Implication operator that directly simplify expressions involving true/false.
+   */
   def ===>(that : IFormula) : IFormula = (this, that) match {
     case (IBoolLit(false), _) => true
     case (_, f@IBoolLit(true)) => f
@@ -526,6 +720,9 @@ abstract class IFormula extends IExpression {
     case _ => this ==> that
   }
   
+  /**
+   * Replace the subexpressions of this node with new expressions
+   */
   override def update(newSubExprs : Seq[IExpression]) : IFormula = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IExpression.AC, newSubExprs.isEmpty)
@@ -534,10 +731,16 @@ abstract class IFormula extends IExpression {
   }
 }
 
+/**
+ * Boolean literal.
+ */
 case class IBoolLit(value : Boolean) extends IFormula {
   override def toString = value.toString
 }
 
+/**
+ * Negation of a formula.
+ */
 case class INot(subformula : IFormula) extends IFormula {
   override def apply(i : Int) : IFormula = i match {
     case 0 => subformula
@@ -556,10 +759,16 @@ case class INot(subformula : IFormula) extends IFormula {
   override def toString = "!" + subformula
 }
 
+/**
+ * Binary Boolean connectives.
+ */
 object IBinJunctor extends Enumeration {
   val And, Or, Eqv = Value
 }
 
+/**
+ * Boolean combination of two formulae.
+ */
 case class IBinFormula(j : IBinJunctor.Value,
                        f1 : IFormula, f2 : IFormula) extends IFormula {
   override def apply(i : Int) : IFormula = i match {
@@ -592,6 +801,9 @@ case class IBinFormula(j : IBinJunctor.Value,
   }
 }
 
+/**
+ * Application of an uninterpreted predicate to a list of terms.
+ */
 case class IAtom(pred : Predicate, args : Seq[ITerm]) extends IFormula {
   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
   Debug.assertCtor(IExpression.AC, pred.arity == args.length)
@@ -622,10 +834,16 @@ case class IAtom(pred : Predicate, args : Seq[ITerm]) extends IFormula {
        "")
 }
 
+/**
+ * Integer relation operators.
+ */
 object IIntRelation extends Enumeration {
   val EqZero, GeqZero = Value
 }
 
+/**
+ * Equation or inequality.
+ */
 case class IIntFormula(rel : IIntRelation.Value, t : ITerm) extends IFormula {
   override def apply(i : Int) : ITerm = i match {
     case 0 => t
@@ -651,6 +869,10 @@ case class IIntFormula(rel : IIntRelation.Value, t : ITerm) extends IFormula {
   }
 }
 
+/**
+ * Application of a quantifier to a formula containing a free variable
+ * with de Bruijn index 0.
+ */
 case class IQuantified(quan : Quantifier, subformula : IFormula) extends IFormula {
   override def apply(i : Int) : IFormula = i match {
     case 0 => subformula
@@ -669,6 +891,9 @@ case class IQuantified(quan : Quantifier, subformula : IFormula) extends IFormul
   override def toString = "" + quan + " " + subformula
 }
 
+/**
+ * If-then-else formula.
+ */
 case class IFormulaITE(cond : IFormula,
                        left : IFormula, right : IFormula) extends IFormula {
   override def apply(i : Int) : IExpression = i match {
@@ -697,6 +922,12 @@ case class IFormulaITE(cond : IFormula,
     "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
 }
 
+/**
+ * Trigger/patterns that are used to define in which way a quantified 
+ * formula is supposed to be instantiated. Triggers are only allowed to occur
+ * immediately after (inside) a quantifier. This class can both represent
+ * uni-triggers (for <code>patterns.size == 1</code> and multi-triggers.
+ */
 case class ITrigger(patterns : Seq[ITerm], subformula : IFormula) extends IFormula {
   override def apply(i : Int) : IExpression = 
     if (i == patterns.length) subformula else patterns(i)
@@ -722,13 +953,22 @@ case class ITrigger(patterns : Seq[ITerm], subformula : IFormula) extends IFormu
   override def toString = "{" + patterns.mkString(", ") + " } " + subformula
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 object PartName {
-   // the distinguished name used for unnamed formula parts
+  /** The distinguished name used for unnamed formula parts. */
   val NO_NAME = new PartName ("NoName")
 }
 
+/**
+ * Formula label, used to give names to different partitions used for
+ * interpolation.
+ */
 class PartName(override val toString : String)
 
+/**
+ * A labelled formula with name <code>name</code>.
+ */
 case class INamedPart(name : PartName, subformula : IFormula) extends IFormula {
   override def apply(i : Int) : IFormula = i match {
     case 0 => subformula
@@ -747,4 +987,8 @@ case class INamedPart(name : PartName, subformula : IFormula) extends IFormula {
   override def toString = "\\part[" + name + "] " + subformula 
 }
 
+/**
+ * Specification of an interpolation problem, consisting of two lists
+ * of formula names.
+ */
 case class IInterpolantSpec(left : List[PartName], right : List[PartName])
