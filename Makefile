@@ -3,10 +3,13 @@
 BASEDIR:=$(shell pwd)
 EXTLIBSDIR:=$(BASEDIR)/extlibs
 
-SCALAC:=scalac
-SCALAC_OPTIONS:=-deprecation -unchecked -d $(BASEDIR)/bin -classpath $(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
+CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
 
-CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
+SCALAC:=scalac
+SCALAC_OPTIONS:=-deprecation -unchecked -d $(BASEDIR)/bin -classpath $(CLASSPATH)
+
+SCALADOC:=scaladoc
+SCALADOC_OPTIONS:=-doc-title Princess -d $(BASEDIR)/doc -classpath $(CLASSPATH)
 
 JLEX_PATH:=/usr/share/java/JLex.jar
 
@@ -28,10 +31,12 @@ JARSIGNERALIAS:=phr
 PROGUARDJAR:=/home/philipp/tmp/proguard4.6/lib/proguard.jar
 
 
-export SCALAC SCALAC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH JAVA_OPTS
+export SCALAC SCALAC_OPTIONS SCALADOC SCALADOC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH JAVA_OPTS
 
 
 all: scala-src
+
+doc: scala-src-doc
 
 jar: scala-src
 	cd bin && jar cf princess.jar ap
@@ -60,6 +65,7 @@ signed-dist: dist
 
 clean:
 	rm -rf bin
+	rm -rf doc
 	rm -rf dist/*.jar
 	cd parser && $(MAKE) clean
 	cd smt-parser && $(MAKE) clean
@@ -67,6 +73,10 @@ clean:
 scala-src:
 	$(shell [ -d bin ] || mkdir bin)
 	cd src && $(MAKE)
+
+scala-src-doc:
+	$(shell [ -d doc ] || mkdir doc)
+	cd src && $(MAKE) doc
 
 gen-src-assertionless:
 	rm -rf src_assertionless
