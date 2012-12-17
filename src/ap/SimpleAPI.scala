@@ -35,7 +35,7 @@ import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier}
-import ap.util.{Debug, Timeout}
+import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack}
 import scala.actors.Actor._
@@ -67,7 +67,8 @@ object SimpleAPI {
   private case class CheckSatCommand(prover : ModelSearchProver.IncProver)
           extends ProverCommand
   private case class CheckValidityCommand(formula : Conjunction,
-                                          goalSettings : GoalSettings)
+                                          goalSettings : GoalSettings,
+                                          mostGeneralConstraint : Boolean)
           extends ProverCommand
   private case object NextModelCommand extends ProverCommand
   private case class  AddFormulaCommand(formula : Conjunction) extends ProverCommand
@@ -78,6 +79,9 @@ object SimpleAPI {
 
   private abstract class ProverResult
   private case object UnsatResult extends ProverResult
+  private case class  FoundConstraintResult(constraint : Conjunction,
+                                            model : Conjunction)
+                                           extends ProverResult
   private case class  UnsatCertResult(cert : Certificate) extends ProverResult
   private case object InvalidResult extends ProverResult
   private case class SatResult(model : Conjunction) extends ProverResult
@@ -124,26 +128,29 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   }
   
   def reset = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     storedStates.clear
     
     preprocSettings = PreprocessingSettings.DEFAULT
     currentOrder = TermOrder.EMPTY
+    existentialConstants = Set()
     functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false)
     currentProver = ModelSearchProver emptyIncProver goalSettings
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = null
+    currentConstraint = null
     currentCertificate = null
     lastStatus = ProverStatus.Sat
     validityMode = false
     proofActorStatus = ProofActorStatus.Init
     currentPartitionNum = -1
     constructProofs = false
+    mostGeneralConstraints = false
     
     doDumpSMT {
       println("(reset)")
@@ -163,6 +170,16 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     createConstantRaw(rawName)
   }
 
+  /**
+   * Create a new symbolic constant that is implicitly existentially quantified.
+   */
+  def createExistentialConstant(rawName : String) : ITerm = {
+    import IExpression._
+    val c = createConstantRaw(rawName)
+    existentialConstants = existentialConstants + c
+    c
+  }
+  
   /**
    * Create a new symbolic constant, without directly turning it into an
    * <code>ITerm</code>. This method is
@@ -187,17 +204,37 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     createConstant("c" + currentOrder.orderedConstants.size)
   
   /**
+   * Create a new symbolic constant with predefined name that is implicitly
+   * existentially quantified.
+   */
+  def createExistentialConstant : ITerm =
+    createExistentialConstant("X" + currentOrder.orderedConstants.size)
+  
+  /**
    * Create <code>num</code> new symbolic constant with predefined name.
    */
-  def createConstants(num : Int) : IndexedSeq[ITerm] = {
+  def createConstants(num : Int) : IndexedSeq[ITerm] = createConstants("c", num)
+
+ /**
+   * Create <code>num</code> new symbolic constant with predefined name that is
+   * implicitly existentially quantified.
+   */
+  def createExistentialConstants(num : Int) : IndexedSeq[ITerm] = {
+    val res = createConstants("X", num)
+    existentialConstants = existentialConstants ++ (
+        for (IConstant(c) <- res.iterator) yield c)
+    res
+  }
+
+  private def createConstants(prefix : String, num : Int) : IndexedSeq[ITerm] = {
     import IExpression._
     val startInd = currentOrder.orderedConstants.size
     val cs = (for (i <- 0 until num)
               yield {
                 doDumpSMT {
-                  println("(declare-fun " + ("c" + (startInd + i)) + " () Int)")
+                  println("(declare-fun " + (prefix + (startInd + i)) + " () Int)")
                 }
-                new ConstantTerm ("c" + (startInd + i))
+                new ConstantTerm (prefix + (startInd + i))
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
     for (c <- cs) yield IConstant(c)
@@ -303,6 +340,12 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * only useful when working with formulae in the internal prover format.
    */
   def order = currentOrder
+  
+  /**
+   * Pretty-print a formula or term.
+   */
+  def pp(f : IExpression) : String =
+    DialogUtil asString { PrincessLineariser printExpression f }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -415,7 +458,14 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
                                      currentOrder))
               }
 
-              proofActor ! CheckValidityCommand(completeFor, goalSettings)
+              // explicitly quantify all universal variables
+              val uniConstants = completeFor.constants -- existentialConstants
+              val closedFor = Conjunction.quantify(Quantifier.ALL,
+                                                   currentOrder sort uniConstants,
+                                                   completeFor, currentOrder)
+
+              proofActor ! CheckValidityCommand(closedFor, goalSettings,
+                                                mostGeneralConstraints)
             } else {
               // use a ModelCheckProver
               proofActor ! CheckSatCommand(currentProver)
@@ -444,9 +494,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * In most ways, this method behaves exactly like <code>checkSat</code>.
    */
   def nextModel(block : Boolean) : ProverStatus.Value = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) == ProverStatus.Sat)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     doDumpSMT {
       println("; (next-model)")
@@ -469,27 +519,41 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       lastStatus
     } else {
       proverRes.get match {
-        case UnsatResult =>
-          lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+        case UnsatResult => {
+          currentModel = Conjunction.TRUE
+          currentConstraint = Conjunction.TRUE
+          lastStatus =
+            if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+        }
         case UnsatCertResult(cert) => {
+          currentModel = Conjunction.TRUE
+          currentConstraint = Conjunction.TRUE
           currentCertificate = ProofSimplifier(cert)
-//          println(cert)
-          lastStatus = if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+          lastStatus =
+            if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+        }
+        case FoundConstraintResult(constraint, m) => {
+          currentModel = m
+          currentConstraint = constraint
+          lastStatus =
+            if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
         }
         case SatResult(m) => {
           currentModel = m
-//          println(m)
-          lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+          lastStatus =
+            if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
           proofActorStatus = ProofActorStatus.AtFullModel
         }
         case SatPartialResult(m) => {
           currentModel = m
-//          println(m)
-          lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+          lastStatus =
+            if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
           proofActorStatus = ProofActorStatus.AtPartialModel
         }
         case InvalidResult =>
-          lastStatus = if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+          // no model is available in this case
+          lastStatus =
+            if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
         case StoppedResult =>
           lastStatus = ProverStatus.Unknown
         case _ =>
@@ -534,12 +598,16 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     recreateProver
   }
 
+  /**
+   * Compute an inductive sequence of interpolants, for the given
+   * partitioning of the input problem.
+   */
   def getInterpolants(partitions : Seq[Set[Int]]) : Seq[IFormula] = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, (Set(ProverStatus.Unsat,
                              ProverStatus.Valid) contains getStatus(false)) &&
                         currentCertificate != null)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
   
     doDumpSMT {
       println("; (get-interpolants)")
@@ -573,6 +641,33 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   }
   
   //////////////////////////////////////////////////////////////////////////////
+  
+  /**
+   * In subsequent <code>checkSat</code> calls for problems with existential
+   * constants, infer the most general constraint on existential constants
+   * satisfying the problem. NB: If this option is used wrongly, it might
+   * lead to non-termination of the prover.
+   */
+  def setMostGeneralConstraints(b : Boolean) : Unit =
+    mostGeneralConstraints = b
+  
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants, return a (satisfiable)
+   * constraint over the existential constants that describes satisfying
+   * assignments of the existential constants.
+   */
+  def getConstraint : IFormula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatus(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    (new Simplifier)(Internal2InputAbsy(currentConstraint, Map()))
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
 
   private def ensureFullModel =
     while (proofActorStatus == ProofActorStatus.AtPartialModel) {
@@ -583,24 +678,54 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       getStatus(true)
     }
   
+  /**
+   * Evaluate the given term in the current model. This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * which case the term is evaluated in the computed model, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * queried term <code>t</code> may only consist of existential constants.
+   * </li>
+   * </ul>
+   */
   def eval(t : ITerm) : IdealInt = evalPartial(t) getOrElse {
     // then we have to extend the model
     
     import TerForConvenience._
     
     val c = new IExpression.ConstantTerm("c")
-    implicit val extendedOrder = currentOrder.extend(c)
+    implicit val extendedOrder = currentOrder extend c
+    val baseProver = getStatus(false) match {
+      case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) =>
+        // then we work with a countermodel of the constraints
+        currentProver
+      
+      case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) =>
+        // the we work with a model of the existential constants 
+        ModelSearchProver emptyIncProver goalSettings
+      
+      case _ => {
+        assert(false)
+        null
+      }
+    }
+
     val extendedProver =
-      currentProver.conclude(currentModel, extendedOrder)
-                   .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder)._1,
-                             extendedOrder)
+      baseProver.assert(currentModel, extendedOrder)
+                .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder)._1,
+                          extendedOrder)
     
     (extendedProver checkValidity true) match {
       case Left(m) if (!m.isFalse) => {
         val reduced = ReduceWithEqs(m.arithConj.positiveEqs, extendedOrder)(l(c))
-        //////////////////////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, reduced.constants.isEmpty)
-        //////////////////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         val result = reduced.constant
         currentModel = ConstantSubst(c, result, extendedOrder)(m)
         
@@ -609,18 +734,52 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     }
   }
   
+  /**
+   * Evaluate the given term in the current model, returning <code>None</code>
+   * in case the model does not completely determine the value of the term.
+   * This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * which case the term is evaluated in the computed model, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * queried term <code>t</code> may only consist of existential constants.
+   * </li>
+   * </ul>
+   */
   def evalPartial(t : ITerm) : Option[IdealInt] = {
     import TerForConvenience._
 
-    ////////////////////////////////////////////////////////////////////////////
-    Debug.assertPre(AC, getStatus(false) == ProverStatus.Sat)
-    ////////////////////////////////////////////////////////////////////////////
-
-    doDumpSMT {
-      println("; (get-value ...)")
-    }
+    val existential = getStatus(false) match {
+      case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) => {
+        // then we work with a countermodel of the constraints
+        doDumpSMT {
+          println("; (get-value ...)")
+        }
     
-    ensureFullModel
+        ensureFullModel
+        
+        false
+      }
+      
+      case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) => {
+        // the we work with a model of the existential constants 
+        doDumpSMT {
+          println("; (get-value for existential constants ...)")
+        }
+        
+        true
+      }
+      
+      case _ => {
+        assert(false)
+        false
+      }
+    }
     
     t match {
       case IConstant(c) => {
@@ -631,9 +790,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         val eqs = currentModel.arithConj.positiveEqs
         if (eqs.constants contains c) {
           val reduced = ReduceWithEqs(eqs, currentOrder)(l(c))
-          //////////////////////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, reduced.constants.isEmpty)
-          //////////////////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           Some(reduced.constant)
         } else
           None
@@ -643,11 +802,21 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         // more complex check by reducing the expression via the model
         
         val c = new IExpression.ConstantTerm ("c")
-        val extendedOrder = currentOrder.extend(c)
+        val extendedOrder = currentOrder extend c
         
-        val reduced = ReduceWithConjunction(currentModel, functionalPreds,
-                                            extendedOrder)(
-                                            toInternal(t === c, extendedOrder)._1)
+        val reduced =
+          ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+                                toInternal(t === c, extendedOrder)._1)
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(AC, !existential || (
+          // in the existential case, the queried term should only contain
+          // existential constants
+          (reduced.constants subsetOf (existentialConstants + c)) &&
+          reduced.predicates.isEmpty
+          ))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+          
         if (reduced.isLiteral &&
             reduced.arithConj.positiveEqs.size == 1 &&
             reduced.constants.size == 1)
@@ -658,6 +827,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     }
   }
 
+  /**
+   * Evaluate the given formula in the current model.
+   * This method can only be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>.
+   */
   def eval(f : IFormula) : Boolean = evalPartial(f) getOrElse {
     // then we have to extend the model
 
@@ -685,9 +859,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         (extendedProver checkValidity true) match {
           case Left(m) if (!m.isFalse) => {
             val (reduced, _) = ReduceWithPredLits(m.predConj, Set(), extendedOrder)(p)
-            ////////////////////////////////////////////////////////////////////
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
-            ////////////////////////////////////////////////////////////////////
+            //-END-ASSERTION-///////////////////////////////////////////////////
             val result = reduced.isTrue
             val pf : Conjunction = p
         
@@ -701,12 +875,19 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
 
   }
 
+  /**
+   * Evaluate the given formula in the current model, returning <code>None</code>
+   * in case the model does not completely determine the value of the formula.
+   * This method can only be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>.
+   */
   def evalPartial(f : IFormula) : Option[Boolean] = {
     import TerForConvenience._
     
-    ////////////////////////////////////////////////////////////////////////////
-    Debug.assertPre(AC, getStatus(false) == ProverStatus.Sat)
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Sat,
+                            ProverStatus.Invalid) contains getStatus(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     doDumpSMT {
       print("(get-value (")
@@ -769,11 +950,13 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     flushTodo
     
     storedStates push (preprocSettings,
-                       currentProver, currentOrder, functionEnc.clone,
+                       currentProver, currentOrder, existentialConstants,
+                       functionEnc.clone,
                        arrayFuns, formulaeInProver,
-                       currentPartitionNum, constructProofs,
+                       currentPartitionNum,
+                       constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
-                       currentModel, currentCertificate)
+                       currentModel, currentConstraint, currentCertificate)
     
     doDumpSMT {
       println("(push 1)")
@@ -784,25 +967,29 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * Pop the top-most frame from the assertion stack.
    */
   def pop : Unit = {
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
-    ////////////////////////////////////////////////////////////////////////////
-    val (oldPreprocSettings, oldProver, oldOrder, oldFunctionEnc, oldArrayFuns,
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val (oldPreprocSettings, oldProver, oldOrder, oldExConstants,
+         oldFunctionEnc, oldArrayFuns,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
-         oldValidityMode, oldStatus, oldModel, oldCert) =
+         oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert) =
       storedStates.pop
     preprocSettings = oldPreprocSettings
     currentProver = oldProver
     currentOrder = oldOrder
+    existentialConstants = oldExConstants
     functionEnc = oldFunctionEnc
     arrayFuns = oldArrayFuns
     formulaeInProver = oldFormulaeInProver
     currentPartitionNum = oldPartitionNum
     constructProofs = oldConstructProofs
+    mostGeneralConstraints = oldMGCs
     formulaeTodo = false
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
+    currentConstraint = oldConstraint
     currentCertificate = oldCert
     proofActorStatus = ProofActorStatus.Init
     
@@ -840,7 +1027,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       }
       
       if (currentProver != null) {
-        if (IterativeClauseMatcher isMatchableRec completeFor)
+        if ((IterativeClauseMatcher isMatchableRec completeFor) &&
+            Seqs.disjoint(completeFor.constants, existentialConstants))
           currentProver =
             currentProver.conclude(List(completeFor, axioms), currentOrder)
         else
@@ -850,6 +1038,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   
   private def resetModel = {
     currentModel = null
+    currentConstraint = null
     currentCertificate = null
     lastStatus = ProverStatus.Unknown
   }
@@ -874,13 +1063,16 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
 
   private def toInternal(f : IFormula,
                          order : TermOrder) : (Conjunction, Conjunction) = {
-    val sig = new Signature(Set(), Set(), order.orderedConstants, order)
+    val sig = new Signature(Set(),
+                            existentialConstants,
+                            order.orderedConstants -- existentialConstants,
+                            order)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
-    ////////////////////////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, order == newSig.order)
-    ////////////////////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val formula = 
       ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
@@ -897,7 +1089,6 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     (formula, axioms)
   }
   
-  private var preprocSettings : PreprocessingSettings = _
   private def goalSettings = {
     var gs = GoalSettings.DEFAULT
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
@@ -910,26 +1101,33 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     gs
   }
 
+  private var preprocSettings : PreprocessingSettings = _
   private var currentOrder : TermOrder = _
+  private var existentialConstants : Set[IExpression.ConstantTerm] = _
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
   private var currentModel : Conjunction = _
+  private var currentConstraint : Conjunction = _
   private var currentCertificate : Certificate = _
   private var formulaeInProver : List[(Int, Conjunction)] = List()
   private var currentPartitionNum : Int = -1
   private var constructProofs : Boolean = false
+  private var mostGeneralConstraints : Boolean = false
   private var formulaeTodo : IFormula = false
   
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,
                                              TermOrder,
+                                             Set[IExpression.ConstantTerm],
                                              FunctionEncoder,
                                              Map[Int, (IFunction, IFunction)],
                                              List[(Int, Conjunction)],
                                              Int,
                                              Boolean,
                                              Boolean,
+                                             Boolean,
                                              ProverStatus.Value,
+                                             Conjunction,
                                              Conjunction,
                                              Certificate)]
   
@@ -995,9 +1193,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
             }
             
             case (model, true) => {
-              //////////////////////////////////////////////////////////////////
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
               Debug.assertPre(AC, !model.isFalse)
-              //////////////////////////////////////////////////////////////////
+              //-END-ASSERTION-/////////////////////////////////////////////////
               
               proverRes set SatResult(model)
               directorWaitForNextCmd(model)
@@ -1016,26 +1214,25 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
               
         }
 
-      case CheckValidityCommand(formula, goalSettings) =>
+      case CheckValidityCommand(formula, goalSettings, mgc) =>
         
         Timeout.catchTimeout {
           
-          // explicitly quantify all universal variables
-          val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                               formula.order sort formula.constants,
-                                               formula, formula.order)
-
-          (new ExhaustiveProver (true, goalSettings))(closedFor, formula.order)
+          (new ExhaustiveProver (!mgc, goalSettings))(formula, formula.order)
           
         } { case _ => null } match {
           
           case null =>
             proverRes set StoppedResult
-          case tree =>
-            if (tree.closingConstraint.isTrue)
-              proverRes set UnsatResult
-            else
+          case tree => {
+            val constraint = tree.closingConstraint
+            if (constraint.isFalse) {
               proverRes set InvalidResult
+            } else {
+              val solution = ModelSearchProver(constraint.negate, constraint.order)
+              proverRes set FoundConstraintResult(constraint, solution)
+            }
+          }
             
         }
         

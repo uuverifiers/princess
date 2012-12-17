@@ -68,6 +68,22 @@ b = -3
 b = -4
 b = -5
 
+-- Existential constants
+Valid
+X = 1
+X + Y = 1
+Y = 0
+Valid
+X = 10
+
+-- Quantifier elimination
+Valid
+Equivalent qf constraint: X >= 4
+Valid
+Equivalent qf constraint: X = 42 | X = 3
+Valid
+Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
+
 -- Asynchronous interface
 Running
 Running
@@ -87,17 +103,17 @@ Sat
 
 -- Interpolation
 Unsat
-Vector((c >= 0), ((-1 + d) >= 0))
-Vector(((-1 + (d + -1 * c)) >= 0), ((-1 + d) >= 0))
+Vector(c >= 0, d >= 1)
+Vector(d - c >= 1, d >= 1)
 
 -- Interpolation with functions
 Unsat
-Vector((!((-3 + c) = 0) | ((-5 + f(3)) >= 0)), ((-5 + f(3)) >= 0))
-Vector(!((-3 + c) = 0))
+Vector(!(c = 3) | f(3) >= 5, f(3) >= 5)
+Vector(!(c = 3))
 
 -- Interpolation with arrays
 Unsat
-Vector(!((-2 + select1(b, 0)) = 0))
+Vector(!(select1(b, 0) = 2))
 
 -- Generating a larger amount of constraints
 Sat

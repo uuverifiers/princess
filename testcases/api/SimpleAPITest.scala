@@ -223,6 +223,69 @@ object SimpleAPITest extends App {
     }
   }
 
+  part("Existential constants")
+
+  scope {
+    val X, Y = createExistentialConstant
+    val f = createFunction("f", 1)
+
+    !! (f(1) === 10)
+    !! (f(10) === 100)
+    !! (f(100) === 1)
+
+    scope {
+      ?? (f(f(f(X))) === X)
+      println(???)                      // Valid
+
+      println("X = " + eval(X))         // X = 1
+      println("X + Y = " + eval(X + Y)) // X + Y = 1, extend the model to include Y
+      println("Y = " + eval(Y))         // Y = 0
+    }
+
+    scope {
+      ?? (f(f(f(X))) === X & X > 1)
+      println(???)                      // Valid
+
+      println("X = " + eval(X))         // X = 10
+    }
+  }
+
+  part("Quantifier elimination")
+
+  scope {
+    setMostGeneralConstraints(true)
+
+    val X = createExistentialConstant("X")
+    val Y = createExistentialConstant("Y")
+    
+    scope {
+      ?? (ex(x => 5 < x & x < 2*X))
+
+      println(???)                             // Valid
+      println("Equivalent qf constraint: " +   // X >= 4
+              pp(getConstraint))
+    }
+
+    scope {
+      val f = createFunction("f", 1)
+
+      !! (f(3) >= 10)
+      !! (f(42) === 42)
+
+      ?? (f(X) >= X)
+      println(???)                             // Valid
+      println("Equivalent qf constraint: " +   // X = 42 | X = 3
+              pp(getConstraint))
+
+      !! (f(100) === Y)
+      println(???)                             // Valid
+      println("Equivalent qf constraint: " +   // X = 42 | X = 3 | (X = 100 & Y >= 100)
+              pp(getConstraint))
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   part("Asynchronous interface")
   
   !! (true)
@@ -292,8 +355,8 @@ object SimpleAPITest extends App {
     !! (0 > e & e > d)
 
     println(???)  // Unsat
-    println(getInterpolants(Seq(Set(0), Set(1), Set(2))))
-    println(getInterpolants(Seq(Set(1), Set(0), Set(2))))
+    println(getInterpolants(Seq(Set(0), Set(1), Set(2))) map (pp(_)))
+    println(getInterpolants(Seq(Set(1), Set(0), Set(2))) map (pp(_)))
   }
 
   part("Interpolation with functions")
@@ -313,8 +376,8 @@ object SimpleAPITest extends App {
     !! (f(3) < 0)
 
     println(???)  // Unsat
-    println(getInterpolants(Seq(Set(0), Set(1), Set(2))))
-    println(getInterpolants(Seq(Set(0, 2), Set(1))))
+    println(getInterpolants(Seq(Set(0), Set(1), Set(2))) map (pp(_)))
+    println(getInterpolants(Seq(Set(0, 2), Set(1))) map (pp(_)))
   }
 
   part("Interpolation with arrays")
@@ -331,7 +394,7 @@ object SimpleAPITest extends App {
     !! (select(b, 0) === 2)
 
     println(???)  // Unsat
-    println(getInterpolants(Seq(Set(0), Set(1))))
+    println(getInterpolants(Seq(Set(0), Set(1))) map (pp(_)))
   }
   
   //////////////////////////////////////////////////////////////////////////////
