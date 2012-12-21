@@ -846,47 +846,69 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * This method can only be called after receiving the result
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>.
    */
-  def eval(f : IFormula) : Boolean = evalPartial(f) getOrElse {
-    // then we have to extend the model
+  def eval(f : IFormula) : Boolean = evalPartialHelp(f) match {
 
-    import TerForConvenience._
+    case Left(res) => res
 
-    f match {
-      case IAtom(p, Seq())
-        if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
-        // then we will just extend the partial model with a default value
-        
-        val a = Atom(p, List(), currentOrder)
-        implicit val order = currentOrder
-        currentModel = currentModel & a
-        
-        true
-      }
-      case f => {
-        val p = new IExpression.Predicate("p", 0)
-        implicit val extendedOrder = currentOrder extendPred p
-        val extendedProver =
-          currentProver.assert(currentModel, extendedOrder)
-                       .conclude(toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1,
-                                 extendedOrder)
+    case Right(reducedF) => {
+      // then we have to extend the model
 
-        (extendedProver checkValidity true) match {
-          case Left(m) if (!m.isFalse) => {
-            val (reduced, _) = ReduceWithPredLits(m.predConj, Set(), extendedOrder)(p)
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
-            //-END-ASSERTION-///////////////////////////////////////////////////
-            val result = reduced.isTrue
-            val pf : Conjunction = p
+      import TerForConvenience._
+
+      f match {
+        case IAtom(p, Seq())
+          if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
+          // then we will just extend the partial model with a default value
         
-            currentModel = ReduceWithConjunction(if (result) pf else !pf, extendedOrder)(m)
+          val a = Atom(p, List(), currentOrder)
+          implicit val order = currentOrder
+          currentModel = currentModel & a
         
-            result
+          true
+        }
+        case f if (currentOrder.orderedPredicates.isEmpty) => {
+          // then we can just set default values for all irreducible constants
+
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, Seqs.disjoint(reducedF.constants,
+                                            currentModel.constants))
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          implicit val order = currentOrder
+          currentModel = currentModel & (reducedF.constants.toSeq === 0)
+          val reduced = ReduceWithConjunction(currentModel, currentOrder)(reducedF)
+
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          reduced.isTrue
+        }
+        case f => {
+          val p = new IExpression.Predicate("p", 0)
+          implicit val extendedOrder = currentOrder extendPred p
+          val extendedProver =
+            currentProver.assert(currentModel, extendedOrder)
+                         .conclude(toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1,
+                                   extendedOrder)
+
+          (extendedProver checkValidity true) match {
+            case Left(m) if (!m.isFalse) => {
+              val (reduced, _) = ReduceWithPredLits(m.predConj, Set(), extendedOrder)(p)
+              //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+              Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
+              //-END-ASSERTION-///////////////////////////////////////////////////
+              val result = reduced.isTrue
+              val pf : Conjunction = p
+        
+              currentModel = ReduceWithConjunction(if (result) pf else !pf, extendedOrder)(m)
+        
+              result
+            }
           }
         }
       }
     }
-
   }
 
   /**
@@ -895,7 +917,13 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * This method can only be called after receiving the result
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>.
    */
-  def evalPartial(f : IFormula) : Option[Boolean] = {
+  def evalPartial(f : IFormula) : Option[Boolean] =
+    evalPartialHelp(f) match {
+      case Left(res) => Some(res)
+      case Right(_) => None
+    }
+  
+  private def evalPartialHelp(f : IFormula) : Either[Boolean,Conjunction] = {
     import TerForConvenience._
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -917,26 +945,26 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         val a = Atom(p, for (IIntLit(value) <- args) yield l(value), currentOrder)
         
         if (currentModel.predConj.positiveLitsAsSet contains a)
-          Some(true)
+          Left(true)
         else if (currentModel.predConj.negativeLitsAsSet contains a)
-          Some(false)
+          Left(false)
         else
-          None
+          Right(a)
       }
       case _ => {
         // more complex check by reducing the expression via the model
         ensureFullModel
-        
+
         val reduced =
           ReduceWithConjunction(currentModel, functionalPreds, currentOrder)(
                                   toInternal(f, currentOrder)._1)
-    
+
         if (reduced.isTrue)
-          Some(true)
+          Left(true)
         else if (reduced.isFalse)
-          Some(false)
+          Left(false)
         else
-          None
+          Right(reduced)
       }
     }
   }
