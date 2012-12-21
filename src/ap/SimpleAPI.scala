@@ -171,15 +171,19 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   }
 
   /**
-   * Create a new symbolic constant that is implicitly existentially quantified.
+   * Create a new symbolic constant with predefined name.
    */
-  def createExistentialConstant(rawName : String) : ITerm = {
-    import IExpression._
-    val c = createConstantRaw(rawName)
-    existentialConstants = existentialConstants + c
-    c
-  }
+  def createConstant : ITerm =
+    createConstant("c" + currentOrder.orderedConstants.size)
   
+  /**
+   * Create <code>num</code> new symbolic constant with predefined name.
+   */
+  def createConstants(num : Int) : IndexedSeq[ITerm] = {
+    val start = currentOrder.orderedConstants.size
+    for (c <- createConstantsRaw("c", start until (start + num))) yield IConstant(c)
+  }
+
   /**
    * Create a new symbolic constant, without directly turning it into an
    * <code>ITerm</code>. This method is
@@ -198,10 +202,33 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   }
 
   /**
-   * Create a new symbolic constant with predefined name.
+   * Create a sequence of new symbolic constants, without directly turning them into an
+   * <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
    */
-  def createConstant : ITerm =
-    createConstant("c" + currentOrder.orderedConstants.size)
+  def createConstantsRaw(prefix : String, nums : Range)
+                        : IndexedSeq[IExpression.ConstantTerm] = {
+    import IExpression._
+    val cs = (for (i <- nums)
+              yield {
+                doDumpSMT {
+                  println("(declare-fun " + (prefix + i) + " () Int)")
+                }
+                new ConstantTerm (prefix + i)
+              }).toIndexedSeq
+    currentOrder = currentOrder extend cs
+    cs
+  }
+
+  /**
+   * Create a new symbolic constant that is implicitly existentially quantified.
+   */
+  def createExistentialConstant(rawName : String) : ITerm = {
+    import IExpression._
+    val c = createConstantRaw(rawName)
+    existentialConstants = existentialConstants + c
+    c
+  }
   
   /**
    * Create a new symbolic constant with predefined name that is implicitly
@@ -210,35 +237,18 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   def createExistentialConstant : ITerm =
     createExistentialConstant("X" + currentOrder.orderedConstants.size)
   
-  /**
-   * Create <code>num</code> new symbolic constant with predefined name.
-   */
-  def createConstants(num : Int) : IndexedSeq[ITerm] = createConstants("c", num)
-
  /**
    * Create <code>num</code> new symbolic constant with predefined name that is
    * implicitly existentially quantified.
    */
   def createExistentialConstants(num : Int) : IndexedSeq[ITerm] = {
-    val res = createConstants("X", num)
-    existentialConstants = existentialConstants ++ (
-        for (IConstant(c) <- res.iterator) yield c)
-    res
-  }
-
-  private def createConstants(prefix : String, num : Int) : IndexedSeq[ITerm] = {
-    import IExpression._
-    val startInd = currentOrder.orderedConstants.size
-    val cs = (for (i <- 0 until num)
-              yield {
-                doDumpSMT {
-                  println("(declare-fun " + (prefix + (startInd + i)) + " () Int)")
-                }
-                new ConstantTerm (prefix + (startInd + i))
-              }).toIndexedSeq
-    currentOrder = currentOrder extend cs
+    val start = currentOrder.orderedConstants.size
+    val cs = createConstantsRaw("X", start until (start + num))
+    existentialConstants = existentialConstants ++ cs
     for (c <- cs) yield IConstant(c)
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Add an externally defined constant to the environment of this prover.
@@ -785,6 +795,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       case IConstant(c) => {
         // faster check, find an equation that determines the value of c
         
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(AC, !existential || (existentialConstants contains c))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+          
         implicit val o = currentOrder
         
         val eqs = currentModel.arithConj.positiveEqs
