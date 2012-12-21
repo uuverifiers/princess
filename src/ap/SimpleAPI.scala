@@ -866,10 +866,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         val p = new IExpression.Predicate("p", 0)
         implicit val extendedOrder = currentOrder extendPred p
         val extendedProver =
-          currentProver.conclude(currentModel, extendedOrder)
+          currentProver.assert(currentModel, extendedOrder)
                        .conclude(toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1,
                                  extendedOrder)
-    
+
         (extendedProver checkValidity true) match {
           case Left(m) if (!m.isFalse) => {
             val (reduced, _) = ReduceWithPredLits(m.predConj, Set(), extendedOrder)(p)
