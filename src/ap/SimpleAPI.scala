@@ -741,43 +741,75 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * </li>
    * </ul>
    */
-  def eval(t : ITerm) : IdealInt = evalPartial(t) getOrElse {
-    // then we have to extend the model
+  def eval(t : ITerm) : IdealInt = t match {
+    case IConstant(c) => eval(c)
     
-    import TerForConvenience._
-    
-    val c = new IExpression.ConstantTerm("c")
-    implicit val extendedOrder = currentOrder extend c
-    val baseProver = getStatus(false) match {
-      case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) =>
-        // then we work with a countermodel of the constraints
-        currentProver
+    case t if (currentOrder.orderedPredicates forall (_.arity == 0)) => {
+      // we first try to reduce the expression, and then assume that all
+      // unassigned constants have the value 0
       
-      case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) =>
-        // the we work with a model of the existential constants 
-        ModelSearchProver emptyIncProver goalSettings
+      val (reduced, c, extendedOrder) = reduceTerm(t)
+          
+      val unassignedConsts = reduced.constants - c
+      val finalReduced =
+        if (unassignedConsts.isEmpty) {
+          reduced
+        } else {
+          import TerForConvenience._
+          implicit val o = extendedOrder
+          // TODO: we need to do the same for Boolean variables?
+          ReduceWithConjunction(unassignedConsts.toSeq === 0, extendedOrder)(
+                                reduced)
+        }
       
-      case _ => {
-        assert(false)
-        null
-      }
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC,
+                      finalReduced.isLiteral &&
+                      finalReduced.arithConj.positiveEqs.size == 1 &&
+                      finalReduced.constants.size == 1)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      
+      -finalReduced.arithConj.positiveEqs.head.constant
     }
-
-    val extendedProver =
-      baseProver.assert(currentModel, extendedOrder)
-                .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder)._1,
-                          extendedOrder)
     
-    (extendedProver checkValidity true) match {
-      case Left(m) if (!m.isFalse) => {
-        val reduced = ReduceWithEqs(m.arithConj.positiveEqs, extendedOrder)(l(c))
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(AC, reduced.constants.isEmpty)
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        val result = reduced.constant
-        currentModel = ConstantSubst(c, result, extendedOrder)(m)
+    case t => evalPartial(t) getOrElse {
+      // full check; we have to extend the model
+    
+      import TerForConvenience._
+    
+      val c = new IExpression.ConstantTerm("c")
+      implicit val extendedOrder = currentOrder extend c
+      val baseProver = getStatus(false) match {
+        case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) =>
+          // then we work with a countermodel of the constraints
+          currentProver
+      
+        case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) =>
+          // the we work with a model of the existential constants 
+          ModelSearchProver emptyIncProver goalSettings
+      
+        case _ => {
+          assert(false)
+          null
+        }
+      }
+
+      val extendedProver =
+        baseProver.assert(currentModel, extendedOrder)
+                  .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder)._1,
+                            extendedOrder)
+    
+      (extendedProver checkValidity true) match {
+        case Left(m) if (!m.isFalse) => {
+          val reduced = ReduceWithEqs(m.arithConj.positiveEqs, extendedOrder)(l(c))
+          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+          Debug.assertInt(AC, reduced.constants.isEmpty)
+          //-END-ASSERTION-///////////////////////////////////////////////////////
+          val result = reduced.constant
+          currentModel = ConstantSubst(c, result, extendedOrder)(m)
         
-        result
+          result
+        }
       }
     }
   }
@@ -799,59 +831,33 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * </li>
    * </ul>
    */
-  def evalPartial(t : ITerm) : Option[IdealInt] = {
-    import TerForConvenience._
-
-    val existential = getStatus(false) match {
-      case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) => {
-        // then we work with a countermodel of the constraints
-        doDumpSMT {
-          println("; (get-value ...)")
-        }
-    
-        ensureFullModel
-        
-        false
-      }
-      
-      case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) => {
-        // the we work with a model of the existential constants 
-        doDumpSMT {
-          println("; (get-value for existential constants ...)")
-        }
-        
-        true
-      }
-      
-      case _ => {
-        assert(false)
-        false
-      }
-    }
-    
-    t match {
-      case IConstant(c) => {
+  def evalPartial(t : ITerm) : Option[IdealInt] = t match {
+      case IConstant(c) =>
         // faster check, find an equation that determines the value of c
-        
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertPre(AC, !existential || (existentialConstants contains c))
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-          
-        implicit val o = currentOrder
-        
-        val eqs = currentModel.arithConj.positiveEqs
-        if (eqs.constants contains c) {
-          val reduced = ReduceWithEqs(eqs, currentOrder)(l(c))
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, reduced.constants.isEmpty)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          Some(reduced.constant)
-        } else
-          None
-      }
+        evalPartial(c)
       
       case t => {
         // more complex check by reducing the expression via the model
+
+        val (reduced, _, _) = reduceTerm(t)
+          
+        if (reduced.isLiteral &&
+            reduced.arithConj.positiveEqs.size == 1 &&
+            reduced.constants.size == 1)
+          Some(-reduced.arithConj.positiveEqs.head.constant)
+        else
+          None
+      }
+    }
+
+  /**
+   * Reduce the expression <code>t === c</code>, for some fresh constant
+   * <code>c</code>.
+   */
+  private def reduceTerm(t : ITerm)
+                        : (Conjunction, IExpression.ConstantTerm, TermOrder) = {
+        import TerForConvenience._
+        val existential = setupTermEval
         
         val c = new IExpression.ConstantTerm ("c")
         val extendedOrder = currentOrder extend c
@@ -868,17 +874,95 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
           reduced.predicates.isEmpty
           ))
         //-END-ASSERTION-///////////////////////////////////////////////////////
-          
-        if (reduced.isLiteral &&
-            reduced.arithConj.positiveEqs.size == 1 &&
-            reduced.constants.size == 1)
-          Some(-reduced.arithConj.positiveEqs.head.constant)
-        else
-          None
+
+        (reduced, c, extendedOrder)
+  }
+  
+  private def setupTermEval = getStatus(false) match {
+    case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) => {
+      // then we work with a countermodel of the constraints
+      doDumpSMT {
+        println("; (get-value ...)")
       }
+    
+      ensureFullModel
+      false
+    }
+      
+    case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) => {
+      // the we work with a model of the existential constants 
+      doDumpSMT {
+        println("; (get-value for existential constants ...)")
+      }
+        
+      true
+    }
+      
+    case _ => {
+      assert(false)
+      false
     }
   }
+  
+  /**
+   * Evaluate the given symbol in the current model, returning <code>None</code>
+   * in case the model does not completely determine the value of the symbol.
+   * This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * which case the term is evaluated in the computed model, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * queried term <code>t</code> may only consist of existential constants.
+   * </li>
+   * </ul>
+   */
+  def eval(c : IExpression.ConstantTerm) : IdealInt = evalPartial(c) getOrElse {
+    // then we have to extend the model
+    
+    if (!(currentOrder.orderedPredicates forall (_.arity == 0))) {
+      // we assume 0 as default value, but have to store this value
+      import TerForConvenience._
+      implicit val o = currentOrder
+      currentModel = currentModel & (c === 0)
+    }
+      
+    IdealInt.ZERO
+  }
+  
+  /**
+   * Evaluate the given symbol in the current model, returning <code>None</code>
+   * in case the model does not completely determine the value of the symbol.
+   * This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * which case the term is evaluated in the computed model, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * queried term <code>t</code> may only consist of existential constants.
+   * </li>
+   * </ul>
+   */
+  def evalPartial(c : IExpression.ConstantTerm) : Option[IdealInt] = {
+    val existential = setupTermEval
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, !existential || (existentialConstants contains c))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    // find an equation that determines the value of c
+        
+    for (lc <- currentModel.arithConj.positiveEqs.toMap get c) yield -lc.constant
+  }
+  
   /**
    * Evaluate the given formula in the current model.
    * This method can only be called after receiving the result
@@ -894,6 +978,31 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
       import TerForConvenience._
 
       f match {
+        case f if (currentOrder.orderedPredicates forall (_.arity == 0)) => {
+          // then we can just set default values for all irreducible constants
+          // and Boolean variables
+
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, Seqs.disjoint(reducedF.constants,
+                                            currentModel.constants))
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          implicit val order =
+            currentOrder
+          val implicitAssumptions =
+            (reducedF.constants.toSeq === 0) &
+            conj(for (p <- reducedF.predicates.iterator)
+                 yield Atom(p, List(), currentOrder))
+          val reduced =
+            ReduceWithConjunction(implicitAssumptions, currentOrder)(reducedF)
+
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          reduced.isTrue
+        }
+        
         case IAtom(p, Seq())
           if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
           // then we will just extend the partial model with a default value
@@ -904,24 +1013,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         
           true
         }
-        case f if (currentOrder.orderedPredicates.isEmpty) => {
-          // then we can just set default values for all irreducible constants
-
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, Seqs.disjoint(reducedF.constants,
-                                            currentModel.constants))
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-
-          implicit val order = currentOrder
-          currentModel = currentModel & (reducedF.constants.toSeq === 0)
-          val reduced = ReduceWithConjunction(currentModel, currentOrder)(reducedF)
-
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-
-          reduced.isTrue
-        }
+          
         case f => {
           val p = new IExpression.Predicate("p", 0)
           implicit val extendedOrder = currentOrder extendPred p
