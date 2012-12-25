@@ -46,6 +46,10 @@ object SimpleAPI {
   
   private val AC = Debug.AC_SIMPLE_API
 
+  /**
+   * Create a new prover. Note that the prover has to be shut down explicitly
+   * by calling the method <code>SimpleAPI.shutDown</code> after use.
+   */
   def apply(enableAssert : Boolean = false,
             dumpSMT : Boolean = false) : SimpleAPI =
     new SimpleAPI (enableAssert, dumpSMT)
@@ -53,6 +57,35 @@ object SimpleAPI {
   def spawn : SimpleAPI = apply()
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
   def spawnWithLog : SimpleAPI = apply(dumpSMT = true)
+  
+  /**
+   * Run the given function with a fresh prover, and shut down the prover
+   * afterwards.
+   */
+  def withProver[A](f : SimpleAPI => A) : A = {
+    val p = apply()
+    try {
+      f(p)
+    } finally {
+      p.shutDown
+    }
+  }
+  
+  /**
+   * Run the given function with a fresh prover, and shut down the prover
+   * afterwards.
+   */
+  def withProver[A](enableAssert : Boolean = false,
+                    dumpSMT : Boolean = false)(f : SimpleAPI => A) : A = {
+    val p = apply(enableAssert, dumpSMT)
+    try {
+      f(p)
+    } finally {
+      p.shutDown
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
   
   object ProverStatus extends Enumeration {
     val Sat, Unsat, Invalid, Valid, Unknown, Running, Error = Value
@@ -350,6 +383,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * only useful when working with formulae in the internal prover format.
    */
   def order = currentOrder
+  
+  /**
+   * Convert a formula in input syntax to the internal prover format.
+   */
+  def asConjunction(f : IFormula) : Conjunction = toInternal(f, currentOrder)._1
   
   /**
    * Pretty-print a formula or term.
@@ -975,7 +1013,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * Execute a computation within a local scope. After leaving the scope,
    * assertions and declarations done in the meantime will disappear.
    */
-  def scope[A](comp: => A) = {
+  def scope[A](comp: => A) : A = {
     push
     try {
       comp
