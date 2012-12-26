@@ -31,6 +31,10 @@ import ap.util.Debug
 object ModelFinder {
   
   private val AC = Debug.AC_MODEL_FINDER
+
+  def apply(form : Formula, c : ConstantTerm) = new ModelFinder(form, List(c))
+
+  def apply(form : Formula, cs : Seq[ConstantTerm]) = new ModelFinder(form, cs)
   
 }
 
@@ -39,16 +43,16 @@ object ModelFinder {
  * integer literals to constants) of <code>Formula</code>, for certain
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
-class ModelFinder(form : Formula, c : ConstantTerm)
+class ModelFinder private (form : Formula, cs : Seq[ConstantTerm])
       extends ((Substitution, TermOrder) => Substitution) {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  // The handled cases: either a single positive equation, or a conjunction
+  // The handled cases: either a set of positive equations, or a conjunction
   // of negated equations and inequalities
   Debug.assertCtor(ModelFinder.AC,
                    !form.isFalse && (form match {
-                     case eqs : EquationConj => eqs.size == 1
-                     case ac : ArithConj => ac.positiveEqs.isEmpty
+                     case eqs : EquationConj => true
+                     case ac : ArithConj => ac.positiveEqs.isEmpty && cs.size == 1
                      case _ => false
                    }))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -70,6 +74,7 @@ class ModelFinder(form : Formula, c : ConstantTerm)
                             order : TermOrder) : Substitution = {
     val (instantiatedAC, extendedSubst) = insertKnownValues(subst, ac, order)
 
+    val c = cs.head
     val negEqs = instantiatedAC.negativeEqs
     val inEqs = instantiatedAC.inEqs
       
@@ -100,15 +105,18 @@ class ModelFinder(form : Formula, c : ConstantTerm)
                             subst : Substitution,
                             order : TermOrder) : Substitution = {
     val (instantiatedEq, extendedSubst) = insertKnownValues(subst, eq, order)
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(ModelFinder.AC,
-                     instantiatedEq.size == 1 &&
-                     instantiatedEq.constants == Set(c) &&
-                     (instantiatedEq(0) get c).isOne)
-    //-END-ASSERTION-///////////////////////////////////////////////////
-    val value = -instantiatedEq(0).constant
-    val valueSubst = ConstantSubst(c, LinearCombination(value), order)
-    ComposeSubsts(Array(extendedSubst, valueSubst), order)
+                     instantiatedEq.constants == cs.toSet &&
+                     (instantiatedEq forall { lc => lc.constants.size == 1 &&
+                                                    lc.leadingCoeff.isOne }))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val valueSubst =
+      ConstantSubst((for (lc <- instantiatedEq.iterator)
+                     yield (lc.leadingTerm.asInstanceOf[ConstantTerm],
+                              LinearCombination(-lc.constant))).toMap,
+                    order)
+    ComposeSubsts(extendedSubst, valueSubst, order)
   }
 
   private def insertKnownValues[A <: TerFor]
@@ -116,11 +124,11 @@ class ModelFinder(form : Formula, c : ConstantTerm)
                                 eliminatedFor : A,
                                 order : TermOrder) : (A, Substitution) = {
     val instantiatedFor = values(eliminatedFor)
-    //it might be that the formulas contains further constants apart
-    //from c, we eliminate them by replacing them with 0
+    // it might be that the formulas contains further constants apart
+    // from cs, we eliminate them by replacing them with 0
     val furtherConstsZero =
-      ConstantSubst(Map() ++ (for (d <- (instantiatedFor.constants - c).iterator)
-                              yield (d -> LinearCombination.ZERO)), order)
+      ConstantSubst((for (d <- (instantiatedFor.constants -- cs).iterator)
+                     yield (d, LinearCombination.ZERO)).toMap, order)
 
     (furtherConstsZero(instantiatedFor).asInstanceOf[A],
      ComposeSubsts(values, furtherConstsZero, order))

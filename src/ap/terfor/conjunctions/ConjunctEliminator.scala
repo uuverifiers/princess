@@ -105,8 +105,14 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
    * all eliminated formulas, given any partial assignment of values to other
    * symbols (this is the justification why the formulas can be eliminated).
    */
-  protected def universalElimination(eliminatedSymbol : ConstantTerm,
-                                     witness : (Substitution, TermOrder) => Substitution)
+  protected def universalElimination(
+                  eliminatedSymbols : Seq[ConstantTerm],
+                  witness : (Substitution, TermOrder) => Substitution) : Unit
+
+  private def universalElimination(
+                  eliminatedSymbol : ConstantTerm,
+                  witness : (Substitution, TermOrder) => Substitution) : Unit =
+    universalElimination(List(eliminatedSymbol), witness)
 
   /**
    * Called when a new divisibility judgement (not containing any
@@ -172,7 +178,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     case c : ConstantTerm => {
       // then we can just ignore the equation; we describe how to compute
       // a witness for the eliminated constant c
-      val modelFinder = new ModelFinder (EquationConj(lc, order), c)
+      val modelFinder = ModelFinder (EquationConj(lc, order), c)
       universalElimination(c, modelFinder)
     }
     case _ : VariableTerm => // nothing
@@ -180,7 +186,6 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
 
   private def elimPositiveUniversalEqs : Unit = {
     val oriEqs = conj.arithConj.positiveEqs
-    val remainingEqs = new ArrayBuffer[LinearCombination]
     
     // first determine all constants that can be eliminated based on occurrence
     // in equations
@@ -221,6 +226,10 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     // now eliminate equations
+    
+    val remainingEqs, eliminatedEqs = new ArrayBuffer[LinearCombination]
+    val eliminatedConsts = new ArrayBuffer[ConstantTerm]
+    
     {
       val lcIt = oriEqs.iterator
       while (lcIt.hasNext) {
@@ -232,8 +241,16 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
         while (i < N && !elim) {
           val c = lc getTerm i
           if (elimCandidates contains c) {
-            elimPositiveUniEquationHelp(lc, c)
             elim = true
+            c match {
+              case c : ConstantTerm => {
+                // only eliminated constants are recorded
+                eliminatedEqs += lc
+                eliminatedConsts += c
+              }
+              case _ =>
+                // nothing
+            }
           }
           i = i + 1
         }
@@ -242,6 +259,11 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
           remainingEqs += lc
       }
     }
+    
+    val roEliminatedConsts = eliminatedConsts.readOnly
+    universalElimination(roEliminatedConsts,
+                         ModelFinder(oriEqs.updateEqsSubset(eliminatedEqs)(order),
+                                     roEliminatedConsts))
     
     conj = conj.updatePositiveEqs(oriEqs.updateEqsSubset(remainingEqs)(order))(order)
   }
@@ -469,7 +491,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     val eliminatedFor = ArithConj.conj(elimInEqs, order)
     c match {
       case c : ConstantTerm =>
-        universalElimination(c, new ModelFinder (eliminatedFor, c))
+        universalElimination(c, ModelFinder (eliminatedFor, c))
       case _ : VariableTerm => // nothing
     }
   }
@@ -568,7 +590,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                                            order)
         c match {
           case c : ConstantTerm =>
-            universalElimination(c, new ModelFinder (eliminatedFor, c))
+            universalElimination(c, ModelFinder (eliminatedFor, c))
           case _ : VariableTerm => // nothing
         }
       }
@@ -600,7 +622,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
             c match {
               case c : ConstantTerm => {
                 val eliminatedFor = ArithConj.conj(InEqConj(eliminated, order), order)
-                universalElimination(c, new ModelFinder (eliminatedFor, c))
+                universalElimination(c, ModelFinder (eliminatedFor, c))
               }
               case _ : VariableTerm => // nothing
             }

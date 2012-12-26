@@ -52,7 +52,7 @@ class SimpleProofTreeFactory(removeTask : Boolean,
                
   // not supposed to do anything when constructing proofs
   def eliminatedConstant(subtree : ProofTree,
-                         c : ConstantTerm,
+                         cs : Seq[ConstantTerm],
                          witness : (Substitution, TermOrder) => Substitution,
                          vocabulary : Vocabulary) : ProofTree =
      subtree

@@ -288,7 +288,8 @@ private class LiteralEliminator(literals : Conjunction,
   protected def nonUniversalElimination(f : Conjunction) =
     throw new UnsupportedOperationException
   
-  protected def universalElimination(eliminatedConstant : ConstantTerm,
+  protected def universalElimination(
+                  eliminatedConstants : Seq[ConstantTerm],
                   witness : (Substitution, TermOrder) => Substitution) : Unit = {
     // nothing ... we do not need any witness information at this point
   }

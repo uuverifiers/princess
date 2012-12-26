@@ -54,7 +54,7 @@ abstract class ProofTreeFactory {
    * for <code>c</code> must be computable.
    */
   def eliminatedConstant(subtree : ProofTree,
-                         c : ConstantTerm,
+                         cs : Seq[ConstantTerm],
                          witness : (Substitution, TermOrder) => Substitution,
                          vocabulary : Vocabulary) : ProofTree
              

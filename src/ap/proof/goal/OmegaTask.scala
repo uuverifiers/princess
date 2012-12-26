@@ -295,8 +295,8 @@ case object OmegaTask extends EagerTask {
               ArithConj.conj(InEqConj(lowerBounds.iterator ++ upperBounds.iterator,
                                       order), order)
             ptf.eliminatedConstant(darkShadowGoal,
-                                   elimConst,
-                                   new ModelFinder (eliminatedInEqs, elimConst),
+                                   List(elimConst),
+                                   ModelFinder (eliminatedInEqs, elimConst),
                                    goal.vocabulary)
           })
                                              

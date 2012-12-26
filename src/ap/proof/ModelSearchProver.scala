@@ -52,10 +52,10 @@ object ModelSearchProver {
   // construct a complete model
   private val ptf = new SimpleProofTreeFactory(true, simplifier) {
     override def eliminatedConstant(subtree : ProofTree,
-                                    c : ConstantTerm,
+                                    cs : Seq[ConstantTerm],
                                     witness : (Substitution, TermOrder) => Substitution,
                                     vocabulary : Vocabulary) : ProofTree =
-      new WitnessTree (subtree, c, witness, vocabulary)
+      new WitnessTree (subtree, cs, witness, vocabulary)
   }
 
   private val nonRemovingPTF = new SimpleProofTreeFactory(false, simplifier)
@@ -392,7 +392,7 @@ object ModelSearchProver {
           // we have already found a model
         
           val order = goal.order
-        
+
           val constantValues : Substitution =
             (new IdentitySubst(order).asInstanceOf[Substitution] /: witnesses)(
                                                             (s, w) => w(s, order))
@@ -667,14 +667,14 @@ object ModelSearchProver {
 
  
 private case class WitnessTree(val subtree : ProofTree,
-                               val eliminatedConstant : ConstantTerm,
+                               val eliminatedConstants : Seq[ConstantTerm],
                                val witness : (Substitution, TermOrder) => Substitution,
                                val vocabulary : Vocabulary)
                    extends { protected val subtreeOrder = vocabulary.order }
                            with ProofTreeOneChild {
 
   def update(newSubtree : ProofTree, newConstantFreedom : ConstantFreedom) : ProofTree =
-    new WitnessTree(subtree, eliminatedConstant, witness,
+    new WitnessTree(subtree, eliminatedConstants, witness,
                     vocabulary updateConstantFreedom newConstantFreedom)
 
   lazy val closingConstraint : Conjunction =

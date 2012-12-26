@@ -110,10 +110,11 @@ private class Eliminator(oriFacts : Conjunction,
     postProcessor = postProcessor compose
       ((pt:ProofTree) => ptf.weaken(pt, goal definedSyms f, goal.vocabulary))
   
-  protected def universalElimination(eliminatedConstant : ConstantTerm,
-                                     witness : (Substitution, TermOrder) => Substitution) =
+  protected def universalElimination(
+                  eliminatedConstants : Seq[ConstantTerm],
+                  witness : (Substitution, TermOrder) => Substitution) =
     postProcessor = postProcessor compose
-      ((pt:ProofTree) => ptf.eliminatedConstant(pt, eliminatedConstant,
+      ((pt:ProofTree) => ptf.eliminatedConstant(pt, eliminatedConstants,
                                                 witness, goal.vocabulary))
 
   protected def addDivisibility(f : Conjunction) =
