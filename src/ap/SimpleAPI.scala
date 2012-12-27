@@ -34,7 +34,8 @@ import ap.terfor.equations.ReduceWithEqs
 import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
-                               IterativeClauseMatcher, Quantifier}
+                               IterativeClauseMatcher, Quantifier,
+                               LazyConjunction}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack}
@@ -387,7 +388,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   /**
    * Convert a formula in input syntax to the internal prover format.
    */
-  def asConjunction(f : IFormula) : Conjunction = toInternal(f, currentOrder)._1
+  def asConjunction(f : IFormula) : Conjunction =
+    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+      toInternal(f, currentOrder)._1)
   
   /**
    * Pretty-print a formula or term.
@@ -435,7 +438,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * Add an assertion to the prover: assume that the given formula is true
    */
   def addAssertion(assertion : Formula) : Unit =
-    addFormula(Conjunction.negate(assertion, currentOrder))
+    addFormula(!LazyConjunction(assertion)(currentOrder))
     
   /**
    * Add a conclusion to the prover: assume that the given formula is false.
@@ -465,7 +468,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    */
   def addConclusion(conc : Formula) : Unit = {
     validityMode = true
-    addFormula(conc)
+    addFormula(LazyConjunction(conc)(currentOrder))
   }
   
   /**
@@ -794,10 +797,12 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         }
       }
 
+      val cAssertion =
+        ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+          toInternal(IExpression.i(c) =/= t, extendedOrder)._1)
       val extendedProver =
         baseProver.assert(currentModel, extendedOrder)
-                  .conclude(toInternal(IExpression.i(c) =/= t, extendedOrder)._1,
-                            extendedOrder)
+                  .conclude(cAssertion, extendedOrder)
     
       (extendedProver checkValidity true) match {
         case Left(m) if (!m.isFalse) => {
@@ -1017,10 +1022,12 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
         case f => {
           val p = new IExpression.Predicate("p", 0)
           implicit val extendedOrder = currentOrder extendPred p
+          val pAssertion =
+            ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+              toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1)
           val extendedProver =
             currentProver.assert(currentModel, extendedOrder)
-                         .conclude(toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1,
-                                   extendedOrder)
+                         .conclude(pAssertion, extendedOrder)
 
           (extendedProver checkValidity true) match {
             case Left(m) if (!m.isFalse) => {
@@ -1158,6 +1165,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     constructProofs = oldConstructProofs
     mostGeneralConstraints = oldMGCs
     formulaeTodo = false
+    rawFormulaeTodo = LazyConjunction.FALSE
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
@@ -1172,11 +1180,19 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private def flushTodo : Unit = formulaeTodo match {
-    case IBoolLit(false) => // nothing
-    case _ => {
-      val (completeFor, axioms) = toInternal(formulaeTodo, currentOrder)
-      formulaeTodo = false
+  private def flushTodo : Unit = {
+    val (transTodo, axioms) = formulaeTodo match {
+      case IBoolLit(false) => (Conjunction.FALSE, Conjunction.FALSE)
+      case _ => toInternal(formulaeTodo, currentOrder)
+    }
+    formulaeTodo = false
+    
+    if (!transTodo.isFalse || !axioms.isFalse || !rawFormulaeTodo.isFalse) {
+      implicit val o = currentOrder
+      val completeFor =
+        ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+          (rawFormulaeTodo | LazyConjunction(transTodo)).toConjunction)
+      rawFormulaeTodo = LazyConjunction.FALSE
       addToProver(completeFor, axioms)
     }
   }
@@ -1218,19 +1234,29 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   private def addFormula(f : IFormula) : Unit = {
     resetModel
     doDumpSMT {
-      print("(assert (not ")
-      SMTLineariser(f)
-      println("))")
+      f match {
+        case INot(g) => {
+          print("(assert ")
+          SMTLineariser(g)
+          println(")")
+        }
+        case f => {
+          print("(assert (not ")
+          SMTLineariser(f)
+          println("))")
+        }
+      }
     }
     formulaeTodo = formulaeTodo | f
   }
 
-  private def addFormula(f : Formula) : Unit = {
+  private def addFormula(f : LazyConjunction) : Unit = {
     resetModel
     doDumpSMT {
       print("; adding internal formula: " + f)
     }
-    addToProver(Conjunction.conj(f, currentOrder), Conjunction.FALSE)
+    implicit val o = currentOrder
+    rawFormulaeTodo = rawFormulaeTodo | f
   }
 
   private def toInternal(f : IFormula,
@@ -1247,17 +1273,17 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val formula = 
-      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
+//      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
         Conjunction.conj(InputAbsy2Internal(
           IExpression.connect(for (INamedPart(FormulaPart, f) <- fors.iterator)
                                 yield f,
-                              IBinJunctor.Or), order), order))
+                              IBinJunctor.Or), order), order)//)
     val axioms = 
-      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
+//      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
         Conjunction.conj(InputAbsy2Internal(
           IExpression.connect(for (INamedPart(PartName.NO_NAME, f) <- fors.iterator)
                                 yield f,
-                              IBinJunctor.Or), order), order))
+                              IBinJunctor.Or), order), order)//)
     (formula, axioms)
   }
   
@@ -1286,6 +1312,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
   private var constructProofs : Boolean = false
   private var mostGeneralConstraints : Boolean = false
   private var formulaeTodo : IFormula = false
+  private var rawFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
   
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,
@@ -1341,7 +1368,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
           res = ModelSearchProver.NextModelDir
         case RecheckCommand =>
           res = ModelSearchProver.AddFormulaDir(
-                 Conjunction.conj(forsToAdd, model.order))
+                 Conjunction.disj(forsToAdd, model.order))
         case AddFormulaCommand(formula) =>
           forsToAdd = formula :: forsToAdd
         case c : ProverCommand => {
