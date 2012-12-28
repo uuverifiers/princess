@@ -22,7 +22,7 @@
 package ap.terfor.conjunctions;
 
 import ap.terfor._
-import ap.terfor.arithconj.{ArithConj, ReduceWithAC}
+import ap.terfor.arithconj.{ArithConj, ReduceWithAC, ModelElement}
 import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{PredConj, ReduceWithPredLits, Predicate}
 import ap.terfor.substitutions.Substitution
@@ -288,9 +288,7 @@ private class LiteralEliminator(literals : Conjunction,
   protected def nonUniversalElimination(f : Conjunction) =
     throw new UnsupportedOperationException
   
-  protected def universalElimination(
-                  eliminatedConstants : Seq[ConstantTerm],
-                  witness : (Substitution, TermOrder) => Substitution) : Unit = {
+  protected def universalElimination(m : ModelElement) : Unit = {
     // nothing ... we do not need any witness information at this point
   }
 

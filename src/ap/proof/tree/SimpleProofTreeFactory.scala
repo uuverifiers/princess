@@ -26,6 +26,7 @@ import ap.proof.goal.{PrioritisedTask, Goal, TaskManager, CompoundFormulas}
 import ap.proof.certificates.{BranchInferenceCollection, PartialCertificate}
 import ap.terfor.{Formula, ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions, Quantifier}
+import ap.terfor.arithconj.ModelElement
 import ap.terfor.substitutions.Substitution
 import ap.parameters.GoalSettings
 
@@ -52,8 +53,7 @@ class SimpleProofTreeFactory(removeTask : Boolean,
                
   // not supposed to do anything when constructing proofs
   def eliminatedConstant(subtree : ProofTree,
-                         cs : Seq[ConstantTerm],
-                         witness : (Substitution, TermOrder) => Substitution,
+                         m : ModelElement,
                          vocabulary : Vocabulary) : ProofTree =
      subtree
     

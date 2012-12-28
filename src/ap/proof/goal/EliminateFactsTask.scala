@@ -21,6 +21,7 @@
 
 package ap.proof.goal;
 
+import ap.terfor.arithconj.ModelElement
 import ap.terfor.{Term, Formula, ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, ConjunctEliminator}
 import ap.terfor.substitutions.Substitution
@@ -110,12 +111,9 @@ private class Eliminator(oriFacts : Conjunction,
     postProcessor = postProcessor compose
       ((pt:ProofTree) => ptf.weaken(pt, goal definedSyms f, goal.vocabulary))
   
-  protected def universalElimination(
-                  eliminatedConstants : Seq[ConstantTerm],
-                  witness : (Substitution, TermOrder) => Substitution) =
+  protected def universalElimination(m : ModelElement) =
     postProcessor = postProcessor compose
-      ((pt:ProofTree) => ptf.eliminatedConstant(pt, eliminatedConstants,
-                                                witness, goal.vocabulary))
+      ((pt:ProofTree) => ptf.eliminatedConstant(pt, m, goal.vocabulary))
 
   protected def addDivisibility(f : Conjunction) =
     divJudgements = f :: divJudgements

@@ -24,7 +24,7 @@ package ap.proof;
 import ap._
 import ap.basetypes.IdealInt
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
-import ap.terfor.arithconj.ArithConj
+import ap.terfor.arithconj.{ArithConj, ModelElement}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
@@ -32,10 +32,11 @@ import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas}
 import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate}
-import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
+import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
 
+import scala.collection.mutable.ArrayBuilder
 
 /**
  * A prover that tries to construct a countermodel of a ground formula. This
@@ -52,10 +53,9 @@ object ModelSearchProver {
   // construct a complete model
   private val ptf = new SimpleProofTreeFactory(true, simplifier) {
     override def eliminatedConstant(subtree : ProofTree,
-                                    cs : Seq[ConstantTerm],
-                                    witness : (Substitution, TermOrder) => Substitution,
+                                    m : ModelElement,
                                     vocabulary : Vocabulary) : ProofTree =
-      new WitnessTree (subtree, cs, witness, vocabulary)
+      new WitnessTree (subtree, m, vocabulary)
   }
 
   private val nonRemovingPTF = new SimpleProofTreeFactory(false, simplifier)
@@ -202,7 +202,7 @@ object ModelSearchProver {
                         extraFormulae : Seq[Conjunction],
                         // functions to reconstruct witnesses for eliminated
                         // constants
-                        witnesses : List[(Substitution, TermOrder) => Substitution],
+                        witnesses : List[ModelElement],
                         // explicitly quantified constants that do not have to
                         // be included in models
                         constsToIgnore : Set[ConstantTerm],
@@ -255,7 +255,7 @@ object ModelSearchProver {
         
       case tree : WitnessTree =>
         findModel(tree.subtree, extraFormulae,
-                  tree.witness :: witnesses, constsToIgnore,
+                  tree.modelElement :: witnesses, constsToIgnore,
                   depth, settings, searchDirector)
 
       case tree : ProofTreeOneChild => {
@@ -349,7 +349,6 @@ object ModelSearchProver {
                                                order sort constsToIgnore,
                                                modelWithPreds, order)
     val simpModel = ReduceWithConjunction(Conjunction.TRUE, order)(quantifiedModel)
-    
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(ModelSearchProver.AC, !simpModel.isFalse)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -361,7 +360,7 @@ object ModelSearchProver {
   private def handleSatGoal(goal : Goal,
                             // functions to reconstruct witnesses for eliminated
                             // constants
-                            witnesses : List[(Substitution, TermOrder) => Substitution],
+                            witnesses : List[ModelElement],
                             // explicitly quantified constants that do not have to
                             // be included in models
                             constsToIgnore : Set[ConstantTerm],
@@ -393,17 +392,7 @@ object ModelSearchProver {
         
           val order = goal.order
 
-          val constantValues : Substitution =
-            (new IdentitySubst(order).asInstanceOf[Substitution] /: witnesses)(
-                                                            (s, w) => w(s, order))
-    
-          val arithModel =
-            EquationConj(for (c <- order.orderedConstants.iterator)
-                         yield LinearCombination(Array((IdealInt.ONE, c),
-                                                       (IdealInt.MINUS_ONE, constantValues(c))),
-                                                 order),
-                         order)
-        
+          val arithModel = ModelElement.constructModel(witnesses, order)
           assembleModel(Conjunction.conj(arithModel, order),
                         goal.facts.predConj, constsToIgnore, order)
         } else {
@@ -618,7 +607,19 @@ object ModelSearchProver {
         if (newOrder eq goal.order) {
           goal
         } else {
-          val newConsts = newOrder.orderedConstants -- goal.order.orderedConstants
+          val oldConsts = goal.order.orderedConstants
+          val newConsts = {
+            val builder = ArrayBuilder.make[ConstantTerm]
+            val it = newOrder.orderedConstants.iterator
+            while (it.hasNext) {
+              val c = it.next
+              if (!(oldConsts contains c))
+                builder += c
+            }
+            builder.result
+          }
+            //newOrder.orderedConstants -- goal.order.orderedConstants
+            
           val newVocabulary =
             Vocabulary(newOrder,
                        goal.bindingContext.addAndContract(newConsts, Quantifier.ALL),
@@ -667,14 +668,13 @@ object ModelSearchProver {
 
  
 private case class WitnessTree(val subtree : ProofTree,
-                               val eliminatedConstants : Seq[ConstantTerm],
-                               val witness : (Substitution, TermOrder) => Substitution,
+                               val modelElement : ModelElement,
                                val vocabulary : Vocabulary)
                    extends { protected val subtreeOrder = vocabulary.order }
                            with ProofTreeOneChild {
 
   def update(newSubtree : ProofTree, newConstantFreedom : ConstantFreedom) : ProofTree =
-    new WitnessTree(subtree, eliminatedConstants, witness,
+    new WitnessTree(subtree, modelElement,
                     vocabulary updateConstantFreedom newConstantFreedom)
 
   lazy val closingConstraint : Conjunction =

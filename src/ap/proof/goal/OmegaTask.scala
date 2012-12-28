@@ -28,7 +28,7 @@ import ap.terfor.{Term, TermOrder, ConstantTerm, OneTerm}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions, Quantifier}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
-import ap.terfor.arithconj.{ArithConj, ModelFinder}
+import ap.terfor.arithconj.{ArithConj, InNegEqModelElement}
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Seqs, PlainRange, FilterIt, IdealRange}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
@@ -295,8 +295,7 @@ case object OmegaTask extends EagerTask {
               ArithConj.conj(InEqConj(lowerBounds.iterator ++ upperBounds.iterator,
                                       order), order)
             ptf.eliminatedConstant(darkShadowGoal,
-                                   List(elimConst),
-                                   ModelFinder (eliminatedInEqs, elimConst),
+                                   InNegEqModelElement(eliminatedInEqs, elimConst),
                                    goal.vocabulary)
           })
                                              

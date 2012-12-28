@@ -26,60 +26,144 @@ import ap.terfor.equations.EquationConj
 import ap.basetypes.IdealInt
 import ap.terfor.substitutions.{Substitution, ConstantSubst, ComposeSubsts}
 import ap.terfor.linearcombination.LinearCombination
-import ap.util.Debug
+import ap.util.{Debug, LazyMappedMap}
 
-object ModelFinder {
+import scala.collection.mutable.{HashMap => MHashMap}
+
+object ModelElement {
   
-  private val AC = Debug.AC_MODEL_FINDER
-
-  def apply(form : Formula, c : ConstantTerm) = new ModelFinder(form, List(c))
-
-  def apply(form : Formula, cs : Seq[ConstantTerm]) = new ModelFinder(form, cs)
+  protected[arithconj] val AC = Debug.AC_MODEL_FINDER
+  
+  /**
+   * Construct a model from a set of model elements, starting with the first
+   * element.
+   */
+  def constructModel(modelElements : Seq[ModelElement],
+                     order : TermOrder,
+                     initialModel : Map[ConstantTerm, IdealInt] = Map())
+                    : EquationConj = {
+    val model = new MHashMap[ConstantTerm, IdealInt]
+    model ++= initialModel
+    for (m <- modelElements) m.extendModel(model, order)
+    EquationConj(for ((c, value) <- model.iterator)
+                   yield LinearCombination(IdealInt.ONE, c, -value, order),
+                 order)
+  }
   
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Class for creating models (assignments of
  * integer literals to constants) of <code>Formula</code>, for certain
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
-class ModelFinder private (form : Formula, cs : Seq[ConstantTerm])
-      extends ((Substitution, TermOrder) => Substitution) {
+abstract sealed class ModelElement(val cs : scala.collection.Set[ConstantTerm]) {
+  /**
+   * Extend the given model, in such a way that the conditions of this model
+   * element are satisfied.
+   */
+  def extendModel(model : MHashMap[ConstantTerm, IdealInt],
+                  order : TermOrder) : Unit
+}
 
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  // The handled cases: either a set of positive equations, or a conjunction
-  // of negated equations and inequalities
-  Debug.assertCtor(ModelFinder.AC,
-                   !form.isFalse && (form match {
-                     case eqs : EquationConj => true
-                     case ac : ArithConj => ac.positiveEqs.isEmpty && cs.size == 1
-                     case _ => false
-                   }))
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////
-   
-  def apply(subst : Substitution, order : TermOrder) : Substitution = {
-    val res = form match {
-      case eqs : EquationConj => solveEquation(eqs, subst, order)
-      case ac : ArithConj => solveInNegEqs(ac, subst, order)
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class for creating models (assignments of
+ * integer literals to constants) of <code>Formula</code>, for certain
+ * special cases. This class is used in <code>EliminateFactsTask</code>
+ */
+case class EqModelElement(eqs : EquationConj,
+                          _cs : scala.collection.Set[ConstantTerm])
+           extends ModelElement(_cs) {
+  
+  def extendModel(model : MHashMap[ConstantTerm, IdealInt],
+                  order : TermOrder) : Unit =
+    for (lc <- eqs) {
+      var constant = IdealInt.ZERO
+      var assignedConstant : ConstantTerm = null
+      var assignedCoeff : IdealInt = null
+      
+      val N = lc.size
+      var i = 0
+      while (i < N) {
+        (lc getTerm i) match {
+          case c : ConstantTerm =>
+            (model get c) match {
+              case Some(value) =>
+                constant = constant + (value * (lc getCoeff i))
+              case None =>
+                if (cs contains c) {
+                  //-BEGIN-ASSERTION-///////////////////////////////////////////
+                  Debug.assertInt(ModelElement.AC,
+                                  assignedConstant == null &&
+                                  (lc getCoeff i).isUnit)
+                  //-END-ASSERTION-/////////////////////////////////////////////
+                  assignedConstant = c
+                  assignedCoeff = lc getCoeff i
+                } else {
+                  // then we assign this constant to zero
+                  model.put(c, IdealInt.ZERO)
+                }
+            }
+          case OneTerm =>
+            constant = constant + (lc getCoeff i)
+        }
+        
+        i = i + 1
+      }
+      
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(ModelElement.AC, assignedConstant != null)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      
+      model.put(assignedConstant,
+                if (assignedCoeff.isOne) -constant else constant)
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class for creating models (assignments of
+ * integer literals to constants) of <code>Formula</code>, for certain
+ * special cases. This class is used in <code>EliminateFactsTask</code>
+ */
+case class InNegEqModelElement(ac : ArithConj, c : ConstantTerm)
+           extends ModelElement(Set(c)) {
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  // The handled case: a conjunction of negated equations and inequalities
+  Debug.assertCtor(ModelElement.AC, ac.positiveEqs.isEmpty && cs.size == 1)
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+  
+  def extendModel(model : MHashMap[ConstantTerm, IdealInt],
+                  order : TermOrder) : Unit = {
+    val replacement =
+      new LazyMappedMap[ConstantTerm, IdealInt, ConstantTerm, Term](
+                        model,
+                        (x:ConstantTerm) => x,
+                        { case x:ConstantTerm => x },
+                        x => LinearCombination(x))
+
+    val instantiatedACRaw = ConstantSubst(replacement, order)(ac)
+    // it might be that the formula contains further constants apart
+    // from cs, we eliminate them by replacing them with 0
+    val furtherConstsZero =
+      ConstantSubst((for (d <- (instantiatedACRaw.constants - c).iterator)
+                     yield {
+                       model.put(d, IdealInt.ZERO)
+                       (d, LinearCombination.ZERO)
+                     }).toMap, order)
     
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ModelFinder.AC, res(form).isTrue)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    res
-  }
+    val instantiatedAC = furtherConstsZero(instantiatedACRaw)
 
-  private def solveInNegEqs(ac : ArithConj,
-                            subst : Substitution,
-                            order : TermOrder) : Substitution = {
-    val (instantiatedAC, extendedSubst) = insertKnownValues(subst, ac, order)
-
-    val c = cs.head
     val negEqs = instantiatedAC.negativeEqs
     val inEqs = instantiatedAC.inEqs
       
     //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-    Debug.assertInt(ModelFinder.AC,
+    Debug.assertInt(ModelElement.AC,
                     inEqs.size <= 2 && (instantiatedAC.constants subsetOf Set(c)) &&
                     (inEqs.isEmpty || (inEqs(0) get c).isUnit))
     //-END-ASSERTION-/////////////////////////////////////////////////////////
@@ -89,49 +173,12 @@ class ModelFinder private (form : Formula, cs : Seq[ConstantTerm])
       if (inEqs.isEmpty) IdealInt.ZERO else (-inEqs(0).constant * (inEqs(0) get c))
     val step = if (inEqs.isEmpty) IdealInt.ONE else (inEqs(0) get c)
     
-    val valueSubst = {
-      var res : Substitution = null
-      do {
-        res = ConstantSubst(c, LinearCombination(value), order)
-        value = value + step
-      } while (res(negEqs).isFalse)
-      res
-    }
-
-    ComposeSubsts(Array(extendedSubst, valueSubst), order)
-  }
-  
-  private def solveEquation(eq : EquationConj,
-                            subst : Substitution,
-                            order : TermOrder) : Substitution = {
-    val (instantiatedEq, extendedSubst) = insertKnownValues(subst, eq, order)
+    while (ConstantSubst(c, LinearCombination(value), order)(negEqs).isFalse)
+      value = value + step
+    
+    model.put(c, value)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ModelFinder.AC,
-                     instantiatedEq.constants == cs.toSet &&
-                     (instantiatedEq forall { lc => lc.constants.size == 1 &&
-                                                    lc.leadingCoeff.isOne }))
+    Debug.assertPost(ModelElement.AC, ConstantSubst(replacement, order)(ac).isTrue)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val valueSubst =
-      ConstantSubst((for (lc <- instantiatedEq.iterator)
-                     yield (lc.leadingTerm.asInstanceOf[ConstantTerm],
-                              LinearCombination(-lc.constant))).toMap,
-                    order)
-    ComposeSubsts(extendedSubst, valueSubst, order)
   }
-
-  private def insertKnownValues[A <: TerFor]
-                               (values : Substitution,
-                                eliminatedFor : A,
-                                order : TermOrder) : (A, Substitution) = {
-    val instantiatedFor = values(eliminatedFor)
-    // it might be that the formulas contains further constants apart
-    // from cs, we eliminate them by replacing them with 0
-    val furtherConstsZero =
-      ConstantSubst((for (d <- (instantiatedFor.constants -- cs).iterator)
-                     yield (d, LinearCombination.ZERO)).toMap, order)
-
-    (furtherConstsZero(instantiatedFor).asInstanceOf[A],
-     ComposeSubsts(values, furtherConstsZero, order))
-  }
-
 }
