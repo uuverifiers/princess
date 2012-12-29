@@ -143,10 +143,15 @@ class TermOrder private (
   /**
    * Sort the given constants in ascending order
    */
-  def sort(constants : Iterable[ConstantTerm]) : Seq[ConstantTerm] = {
+  def sort(constants : Iterable[ConstantTerm]) : Seq[ConstantTerm] =
+    sort(constants.iterator)
+  
+  /**
+   * Sort the given constants in ascending order
+   */
+  def sort(constants : Iterator[ConstantTerm]) : Seq[ConstantTerm] = {
     val res = new ArrayBuffer[ConstantTerm]
     res ++= constants
-
     def comesBefore(a : ConstantTerm, b : ConstantTerm) : Boolean =
       this.compareTerms(a, b) < 0
     Sorting.stableSort(res, comesBefore _)
@@ -408,7 +413,7 @@ class TermOrder private (
   }
 
   def extend(newConst : ConstantTerm) : TermOrder = {
-    val o = constantSeq.size
+    val o = constantNum.size
     new TermOrder(newConst :: constantSeq, predicateSeq,
                   constantWeight + (newConst -> ConstantWeight(o)),
                   constantNum + (newConst -> o),
@@ -416,7 +421,7 @@ class TermOrder private (
   }
 
   def extend(newConsts : Seq[ConstantTerm]) : TermOrder = {
-    val o = constantSeq.size
+    val o = constantNum.size
     new TermOrder((constantSeq /: newConsts) { case (l, c) => c :: l },
                   predicateSeq,
                   constantWeight ++ (
@@ -441,7 +446,7 @@ class TermOrder private (
                     !(biggerConstants contains movedConst))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val oldPos = constantSeq.size - constantNum(movedConst) - 1
+    val oldPos = constantNum.size - constantNum(movedConst) - 1
     val newPos = (constantSeq lastIndexWhere biggerConstants) + 1
     
     val res =
@@ -539,10 +544,14 @@ class TermOrder private (
   def extendPred(newPred : Predicate) : TermOrder =
     new TermOrder(constantSeq, newPred :: predicateSeq,
                   constantWeight, constantNum,
-                  predicateWeight + (newPred -> predicateSeq.size))
+                  predicateWeight + (newPred -> predicateWeight.size))
 
+  /**
+   * Extend this ordering by inserting further predicate <code>newPreds</code>.
+   * The predicates are inserted so that they get as big as possible
+   */
   def extendPred(newPreds : Seq[Predicate]) : TermOrder = {
-    val o = predicateSeq.size
+    val o = predicateWeight.size
     new TermOrder(constantSeq,
                   (predicateSeq /: newPreds) { case (l, p) => p :: l },
                   constantWeight, constantNum,
@@ -555,9 +564,21 @@ class TermOrder private (
    * Restrict this ordering to the given symbols
    */
   def restrict(consts : Set[ConstantTerm]) = {
-    val newConstantSeq = constantSeq filter consts
+    val newConstantSeq =
+      if (consts.size < constantNum.size / 2) {
+        // for few remaining constants, it is best to create and
+        // sort a new sequence
+        val sortedConsts =
+          sort(for (c <- consts.iterator;
+                    if (constantNum contains c)) yield c)
+        (List[ConstantTerm]() /: sortedConsts) { case (l, c) => c :: l }
+      } else {
+        // for many remaining constants, just filter the old sequence
+        constantSeq filter consts
+      }
+
     val o = newConstantSeq.size
-    if (o == constantSeq.size)
+    if (o == constantNum.size)
       this
     else
       new TermOrder(newConstantSeq, predicateSeq,

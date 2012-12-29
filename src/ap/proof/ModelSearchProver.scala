@@ -337,9 +337,12 @@ object ModelSearchProver {
                             constsToIgnore : Set[ConstantTerm],
                             order : TermOrder) : Conjunction = {
     // assign constants not defined in the arithmetic model to zero
-    val addEqs = EquationConj(for (c <- literals.constants -- arithModel.constants)
-                                yield LinearCombination(c, order),
-                              order)
+    val defConsts = arithModel.constants
+    val addEqs =
+      EquationConj(for (c <- literals.constants.iterator;
+                        if (!(defConsts contains c)))
+                   yield LinearCombination(c, order),
+                   order)
 
     val modelWithPreds =
       Conjunction.conj(Array(arithModel, addEqs, literals), order)
