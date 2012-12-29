@@ -841,6 +841,10 @@ abstract sealed class LinearCombination (val order : TermOrder)
 
   def constants : Set[ConstantTerm]
     
+  def variablesIterator : Iterator[VariableTerm]
+
+  def constantsIterator : Iterator[ConstantTerm]
+    
   //////////////////////////////////////////////////////////////////////////////
 
   override def toString = {
@@ -1069,11 +1073,15 @@ final class ArrayLinearCombination private[linearcombination]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (t <- this.termIterator; v <- t.variables.iterator) yield v)
+  lazy val variables : Set[VariableTerm] = variablesIterator.toSet
 
-  lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (t <- this.termIterator; c <- t.constants.iterator) yield c)
+  lazy val constants : Set[ConstantTerm] = constantsIterator.toSet
+
+  def variablesIterator : Iterator[VariableTerm] =
+    for (t <- this.termIterator; v <- t.variables.iterator) yield v
+
+  def constantsIterator : Iterator[ConstantTerm] =
+    for (t <- this.termIterator; c <- t.constants.iterator) yield c
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -1203,6 +1211,9 @@ final class LinearCombination0 private[linearcombination]
 
   def variables : Set[VariableTerm] = Set.empty
   def constants : Set[ConstantTerm] = Set.empty
+
+  def variablesIterator : Iterator[VariableTerm] = Iterator.empty
+  def constantsIterator : Iterator[ConstantTerm] = Iterator.empty
 
   //////////////////////////////////////////////////////////////////////////////
     
@@ -1409,6 +1420,9 @@ final class LinearCombination1 private[linearcombination]
 
   def variables : Set[VariableTerm] = term0.variables
   def constants : Set[ConstantTerm] = term0.constants
+
+  def variablesIterator : Iterator[VariableTerm] = term0.variables.iterator
+  def constantsIterator : Iterator[ConstantTerm] = term0.constants.iterator
 
   //////////////////////////////////////////////////////////////////////////////
     
@@ -1642,8 +1656,30 @@ final class LinearCombination2 private[linearcombination]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def variables : Set[VariableTerm] = term0.variables ++ term1.variables
-  def constants : Set[ConstantTerm] = term0.constants ++ term1.constants
+  lazy val variables : Set[VariableTerm] = variablesIterator.toSet
+  lazy val constants : Set[ConstantTerm] = constantsIterator.toSet
+
+  def variablesIterator : Iterator[VariableTerm] = term1 match {
+    case v : VariableTerm =>
+      Seqs.doubleIterator(term0.asInstanceOf[VariableTerm], v)
+    case _ => term0 match {
+      case v : VariableTerm =>
+        Iterator single v
+      case _ =>
+        Iterator.empty
+    }
+  }
+
+  def constantsIterator : Iterator[ConstantTerm] = term0 match {
+    case c : ConstantTerm =>
+      Seqs.doubleIterator(c, term1.asInstanceOf[ConstantTerm])
+    case _ => term1 match {
+      case c : ConstantTerm =>
+        Iterator single c
+      case _ =>
+        Iterator.empty
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
     

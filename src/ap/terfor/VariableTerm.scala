@@ -35,7 +35,7 @@ case class VariableTerm(index : Int) extends Term {
   Debug.assertCtor(VariableTerm.AC, index >= 0)
   //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-  lazy val variables : Set[VariableTerm] = Set(this)
+  def variables : Set[VariableTerm] = Set(this)
 
   val constants : Set[ConstantTerm] = Set.empty
 

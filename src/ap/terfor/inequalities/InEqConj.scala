@@ -464,10 +464,12 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (lc <- geqZero.iterator; v <- lc.variables.iterator) yield v)
+//    (for (lc <- geqZero.iterator; v <- lc.variables.iterator) yield v).toSet
+    (for (lc <- geqZero.iterator; v <- lc.variablesIterator) yield v).toSet
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (lc <- geqZero.iterator; c <- lc.constants.iterator) yield c)
+//    (for (lc <- geqZero.iterator; c <- lc.constants.iterator) yield c).toSet
+    (for (lc <- geqZero.iterator; c <- lc.constantsIterator) yield c).toSet
 
   def predicates : Set[Predicate] = Set.empty
 
