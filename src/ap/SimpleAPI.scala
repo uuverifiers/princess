@@ -566,10 +566,24 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
    * argument is true, otherwise return immediately.
    */
   def getStatus(block : Boolean) : ProverStatus.Value = {
-    if (lastStatus != ProverStatus.Running || (!block && !proverRes.isSet)) {
-      lastStatus
-    } else {
-      proverRes.get match {
+    if (lastStatus == ProverStatus.Running && (block || proverRes.isSet))
+      evalProverResult(proverRes.get)
+    lastStatus
+  }
+  
+  /**
+   * Query result of the last <code>checkSat</code> or <code>nextModel</code>
+   * call. Will block until a result is available, or until <code>timeout</code>
+   * milli-seconds elapse.
+   */
+  def getStatus(timeout : Long) : ProverStatus.Value = {
+    if (lastStatus == ProverStatus.Running)
+      for (r <- proverRes.get(timeout))
+        evalProverResult(r)
+    lastStatus
+  }
+  
+  private def evalProverResult(pr : ProverResult) : Unit = pr match {
         case UnsatResult => {
           currentModel = Conjunction.TRUE
           currentConstraint = Conjunction.TRUE
@@ -609,10 +623,6 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
           lastStatus = ProverStatus.Unknown
         case _ =>
           lastStatus = ProverStatus.Error
-      }
-
-      lastStatus
-    }
   }
   
   /**

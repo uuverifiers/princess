@@ -293,6 +293,14 @@ object SimpleAPITest extends App {
   println(p getStatus false) // non-blocking, Running
   println(p getStatus true)  // blocking, equivalent to println(??), Sat
   
+  part("Asynchronous interface, timeouts")
+  
+  !! (true)
+  println(p checkSat false)  // non-blocking, Running
+  println(p getStatus false) // non-blocking, Running
+  println(p getStatus 30)    // blocking for up to 30ms, Sat
+  p getStatus true
+  
   part("Asynchronous interface, busy waiting")
   
   !! (true)

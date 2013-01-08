@@ -46,6 +46,8 @@ object TaskManager {
   val EMPTY : TaskManager =
     new TaskManager (EMPTY_HEAP, EagerTaskManager.INITIAL)
   
+  private object TRUE_EXCEPTION extends Exception
+   
 }
 
 /**
@@ -61,6 +63,8 @@ class TaskManager private (// the regular tasks that have a priority
                            // regular tasks.
                            eagerTasks : EagerTaskManager) {
 
+  import TaskManager.TRUE_EXCEPTION
+  
   def +(t : PrioritisedTask) = new TaskManager (prioTasks + t, eagerTasks)
 
   def ++ (elems: Iterable[PrioritisedTask]): TaskManager =
@@ -192,8 +196,6 @@ class TaskManager private (// the regular tasks that have a priority
     
     new TaskManager (newPrioTasks, eagerTasks)
   }
-   
-  private object TRUE_EXCEPTION extends Exception
    
   //////////////////////////////////////////////////////////////////////////////
 

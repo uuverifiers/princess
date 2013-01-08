@@ -412,7 +412,7 @@ case class Node[T, HC <: HeapCollector[T, HC]]
    * additionally all objects from <code>h</code>
    */
   protected[basetypes] def insertHeap(h : LeftistHeap[T, HC]) : LeftistHeap[T, HC] = h match {
-    case _ : EmptyHeap[T, HC] => this
+    case _ : EmptyHeap[_, _] => this
     case Node(hdata, hleft, hright, _) =>
       if (ord.lteq(data, hdata))
         LeftistHeap.node(data, left, right.insertHeap(h), empty)
