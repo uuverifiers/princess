@@ -105,8 +105,10 @@ object SMTParser2InputAbsy {
   }
   
   private def asString(s : Symbol) : String = s match {
-    case s : NormalSymbol => sanitise(s.normalsymbolt_)
-    case s : QuotedSymbol => sanitise(s.quotedsymbolt_)
+    case s : NormalSymbol =>
+      sanitise(s.normalsymbolt_)
+    case s : QuotedSymbol =>
+      sanitise(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
   }
   
   private object PlainSymbol {
