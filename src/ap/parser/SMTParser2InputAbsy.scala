@@ -272,9 +272,11 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     }
   }
 
-  val assumptions = new ArrayBuffer[IFormula]
+  private val assumptions = new ArrayBuffer[IFormula]
 
-  val functionDefs = new MHashMap[IFunction, (IExpression, Type.Value)]
+  private val functionDefs = new MHashMap[IFunction, (IExpression, Type.Value)]
+
+  private var declareConstWarning = false
   
   private def apply(script : Script) = for (cmd <- script.listcommand_) cmd match {
 //      case cmd : SetLogicCommand =>
@@ -365,6 +367,24 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
             // use a predicate
             env.addPredicate(new Predicate(name, args.length), ())
         } else if (res == Type.Integer)
+          // use a constant
+          env.addConstant(new ConstantTerm(name), Environment.NullaryFunction, ())
+        else
+          // use a nullary predicate (propositional variable)
+          env.addPredicate(new Predicate(name, 0), ())
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : ConstDeclCommand => {
+        if (!declareConstWarning) {
+          warn("accepting command declare-const, which is not SMT-LIB 2")
+          declareConstWarning = true
+        }
+
+        val name = asString(cmd.symbol_)
+        val res = translateSort(cmd.sort_)
+        if (res == Type.Integer)
           // use a constant
           env.addConstant(new ConstantTerm(name), Environment.NullaryFunction, ())
         else
@@ -721,6 +741,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   }
   
   //////////////////////////////////////////////////////////////////////////////
+
+  private var tildeWarning = false
   
   private def symApp(sym : SymbolRef, args : Seq[Term], polarity : Int)
                     : (IExpression, Type.Value) = sym match {
@@ -849,6 +871,14 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
 
     case PlainSymbol("-") if (args.length == 1) =>
       (-asTerm(translateTerm(args.head, 0), Type.Integer), Type.Integer)
+
+    case PlainSymbol("~") if (args.length == 1) => {
+      if (!tildeWarning) {
+        warn("interpreting \"~\" as unary minus, like in SMT-LIB 1")
+        tildeWarning = true
+      }
+      (-asTerm(translateTerm(args.head, 0), Type.Integer), Type.Integer)
+    }
 
     case PlainSymbol("-") => {
       (asTerm(translateTerm(args.head, 0), Type.Integer) -

@@ -37,6 +37,7 @@ SortDeclCommand. 	Command	        ::= "(" "declare-sort" Symbol Numeral ")";
 SortDefCommand. 	Command	        ::= "(" "define-sort" Symbol Sort ")";
 FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
                                                 "(" MESorts ")" Sort ")";
+ConstDeclCommand.	Command	        ::= "(" "declare-const" Symbol Sort ")";
 FunctionDefCommand.	Command	        ::= "(" "define-fun" Symbol
                                                 "(" [SortedVariableC] ")"
                                                 Sort Term ")";

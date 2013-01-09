@@ -17,6 +17,6 @@ TESTS="bignum_quant.smt2 \
        define-fun.smt2 define-fun2.smt2 define-fun3.smt2 \
        define-fun-interpolation.smt2 \
        multiple-check-sat.smt2 seconds.smt2 \
-       quotes.smt2"
+       quotes.smt2 extensions.smt2"
 
 $PRI "$@" $TESTS
