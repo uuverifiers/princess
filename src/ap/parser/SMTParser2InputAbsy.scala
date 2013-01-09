@@ -531,7 +531,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
                "Quantification of variables of type " +
                (printer print binder.sort_) +
                " is currently not supported")
-        env.pushVar(asString(binder.symbol_), BoundVariable(false))
+        env.pushVar(asString(binder.symbol_), BoundVariable(sort == Type.Bool))
         quantNum = quantNum + 1
       }
     }
