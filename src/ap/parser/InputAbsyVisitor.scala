@@ -488,6 +488,61 @@ class SymbolCollector extends CollectingVisitor[Int, Unit] {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Check whether an expression contains some <code>IVariable</code>,
+ * <code>IConstant</code>, <code>IAtom</code>, or <code>IFunApp</code>.
+ */
+object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] {
+  
+  def freeFrom(t : IExpression, syms : Set[IVariable]) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case v : IVariable => syms contains v
+       case _ => false
+     })
+  
+  def apply(t : IExpression, pred : IExpression => Boolean) : Boolean = try {
+    visitWithoutResult(t, Context(pred))
+    false
+  } catch {
+    case FOUND_EXCEPTION => true
+  }
+  
+  def apply(t : IExpression, searchExpr : IExpression) : Boolean = try {
+    visitWithoutResult(t, Context(_ == searchExpr))
+    false
+  } catch {
+    case FOUND_EXCEPTION => true
+  }
+  
+  private object FOUND_EXCEPTION extends Exception
+  
+  override def preVisit(t : IExpression,
+                        context : Context[IExpression => Boolean]) : PreVisitResult = {
+    t match {
+      case v : IVariable =>
+        if (context.binders.isEmpty) {
+          if (context.a(v))
+            throw FOUND_EXCEPTION
+        } else {
+          val newIndex = v.index - context.binders.size
+          if (newIndex >= 0 && context.a(IVariable(newIndex)))
+            throw FOUND_EXCEPTION
+        }
+      case _ : IConstant | _ : IAtom | _ : IFunApp =>
+        if (context.a(t))
+          throw FOUND_EXCEPTION
+      case _ => // nothing
+    }
+    super.preVisit(t, context)
+  }
+
+  def postVisit(t : IExpression,
+                context : Context[IExpression => Boolean],
+                subres : Seq[Unit]) : Unit = ()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 object Context {
   abstract sealed class Binder {
     def toQuantifier : Quantifier = throw new UnsupportedOperationException

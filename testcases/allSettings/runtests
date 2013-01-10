@@ -31,13 +31,14 @@ TESTS="cryptarithm.pri \
        constraintFreedomBug.pri unitResolutionBug.pri \
        functionBug.pri \
        liaStar0.pri liaStar1.pri liaStar2.pri \
-       relationalFun.pri relationalFun3.pri \
+       relationalFun.pri relationalFun3.pri relationalFun4.pri \
        uniExConstants0.pri uniExConstants2.pri \
        interpolant0.pri interpolant1.pri \
        vocabularyBug.pri compoundFormulaeBug.pri \
        endsWithComment.pri triggerBug.pri non-body-trigger.pri \
        ite.pri ite2.pri ite3.pri \
-       div-elimination.pri bad-divisibility.pri binderTypes.pri"
+       div-elimination.pri bad-divisibility.pri binderTypes.pri \
+       nestedITE.pri"
 
 $PRI "$@" $TESTS
 

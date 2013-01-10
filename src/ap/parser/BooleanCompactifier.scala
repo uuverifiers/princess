@@ -54,50 +54,7 @@ object BooleanCompactifier {
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression =
       t match {
-        case t@ITimes(coeff, _) => subres(0) match {
-          case IIntLit(value) => IIntLit(coeff * value)
-          case ITimes(coeff2, s) => ITimes(coeff * coeff2, s)
-          case _ => t update subres
-        }
-        
-        case t@IPlus(_, _) => subres match {
-          case Seq(IIntLit(value1), IIntLit(value2)) => IIntLit(value1 + value2)
-          case _ => t update subres
-        }
-        
-        case t@IIntFormula(IIntRelation.EqZero, _) => subres match {
-          case Seq(IIntLit(value)) => IBoolLit(value.isZero)
-          case _ => t update subres
-        }
-        
-        case t@IIntFormula(IIntRelation.GeqZero, _) => subres match {
-          case Seq(IIntLit(value)) => IBoolLit(value.signum >= 0)
-          case _ => t update subres
-        }
-      
-        case t@INot(_) => subres match {
-          case Seq(IBoolLit(value)) => IBoolLit(!value)
-          case _ => t update subres
-        }
-          
         case t@IBinFormula(j, _, _) => subres match {
-          case Seq(s1@IBoolLit(false), s2) => j match {
-            case And => s1
-            case Or => s2
-          }
-          case Seq(s2, s1@IBoolLit(false)) => j match {
-            case And => s1
-            case Or => s2
-          }
-          case Seq(s1@IBoolLit(true), s2) => j match {
-            case And => s2
-            case Or => s1
-          }
-          case Seq(s2, s1@IBoolLit(true)) => j match {
-            case And => s2
-            case Or => s1
-          }
-          
           case Seq(IBinFormula(`j`, _, _), _) | Seq(_, IBinFormula(`j`, _, _)) =>
             // look at some larger formula containing this one
             t update subres
@@ -128,7 +85,7 @@ object BooleanCompactifier {
                           IBinFormula(j, newLeft, newRight))
             }
           }
-            
+
           case Seq(s1, s2) =>
             if (s1 == s2) s1 else (t update subres)
         }

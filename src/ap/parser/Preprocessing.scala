@@ -52,9 +52,10 @@ object Preprocessing {
 
     // turn the formula into a list of its named parts
     val fors = PartExtractor(f)
-    
-    // expand equivalences
-    val fors2 = for (f <- fors) yield EquivExpander(f).asInstanceOf[INamedPart]
+
+    // partial evaluation, expand equivalences
+    val fors2 = for (f <- fors)
+                yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
     
     val triggerGenerator =
       new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),

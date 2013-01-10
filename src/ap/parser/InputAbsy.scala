@@ -318,10 +318,8 @@ object IExpression {
     def unapply(t : ITerm) : Option[(IdealInt, ITerm)] ={
       val (coeff, remainder) = decompose(t, 1)
       symbol match {
-        case symbol : IVariable
-          if ((SymbolCollector variables remainder) contains symbol) => None
-        case IConstant(c)
-          if ((SymbolCollector constants remainder) contains c) => None
+        case _ : IVariable | _ : IConstant
+          if (ContainsSymbol(remainder, symbol)) => None
         case _ => Some(coeff, remainder)
       }
     }
@@ -419,6 +417,100 @@ object IExpression {
   def removePartName(t : IFormula) : IFormula = t match {
     case INamedPart(_, subFor) => subFor
     case _ => t
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  def updateAndSimplify(e : IExpression,
+                        newSubExpr : Seq[IExpression]) : IExpression = e match {
+    case e : IFormula => updateAndSimplify(e, newSubExpr)
+    case e : ITerm =>    updateAndSimplify(e, newSubExpr)
+  }
+  
+  def updateAndSimplify(t : IFormula,
+                        newSubExpr : Seq[IExpression]) : IFormula = t match {
+        case t@IIntFormula(IIntRelation.EqZero, _) => newSubExpr match {
+          case Seq(IIntLit(value)) => IBoolLit(value.isZero)
+          case _ => t update newSubExpr
+        }
+        
+        case t@IIntFormula(IIntRelation.GeqZero, _) => newSubExpr match {
+          case Seq(IIntLit(value)) => IBoolLit(value.signum >= 0)
+          case _ => t update newSubExpr
+        }
+        
+        case t@INot(_) => newSubExpr match {
+          case Seq(IBoolLit(value)) => IBoolLit(!value)
+          case Seq(INot(f)) => f
+          case _ => t update newSubExpr
+        }
+
+        case t@IBinFormula(IBinJunctor.And, _, _) => newSubExpr match {
+          case Seq(s@IBoolLit(false), _)         => s
+          case Seq(_, s@IBoolLit(false))         => s
+          case Seq(IBoolLit(true), s : IFormula) => s
+          case Seq(s : IFormula, IBoolLit(true)) => s
+          case _ => t update newSubExpr
+        }
+        
+        case t@IBinFormula(IBinJunctor.Or, _, _) => newSubExpr match {
+          case Seq(IBoolLit(false), s : IFormula) => s
+          case Seq(s : IFormula, IBoolLit(false)) => s
+          case Seq(s@IBoolLit(true), _)           => s
+          case Seq(_, s@IBoolLit(true))           => s
+          case _ => t update newSubExpr
+        }
+        
+        case t@IBinFormula(IBinJunctor.Eqv, _, _) => newSubExpr match {
+          case Seq(IBoolLit(false), s : IFormula) => ~s
+          case Seq(s : IFormula, IBoolLit(false)) => ~s
+          case Seq(IBoolLit(true), s : IFormula)  => s
+          case Seq(s : IFormula, IBoolLit(true))  => s
+          case _ => t update newSubExpr
+        }
+        
+        case t : IFormulaITE => newSubExpr match {
+          case Seq(IBoolLit(true), left : IFormula, _) => left
+          case Seq(IBoolLit(false), _, right : IFormula) => right
+          case Seq(_, s@IBoolLit(a), IBoolLit(b)) if (a == b) => s
+          case _ => t update newSubExpr
+        }
+        
+        case _ : IQuantified | _ : ITrigger => newSubExpr match {
+          case Seq(b : IBoolLit) => b
+          case _ => t update newSubExpr
+        }
+
+        case t =>
+          t update newSubExpr
+  }
+  
+  def updateAndSimplify(e : ITerm,
+                        newSubExpr : Seq[IExpression]) : ITerm = e match {
+        case t@ITimes(coeff, _) => newSubExpr(0) match {
+          case IIntLit(value) => IIntLit(coeff * value)
+          case ITimes(coeff2, s) => ITimes(coeff * coeff2, s)
+          case _ => t update newSubExpr
+        }
+        
+        case t@IPlus(_, _) => newSubExpr match {
+          case Seq(IIntLit(value1), IIntLit(value2)) => IIntLit(value1 + value2)
+          case _ => t update newSubExpr
+        }
+    
+        case t : ITermITE => newSubExpr match {
+          case Seq(IBoolLit(true), left : ITerm, _) => left
+          case Seq(IBoolLit(false), _, right : ITerm) => right
+          case Seq(_, left : ITerm, right : ITerm)
+            if ((left.isInstanceOf[IIntLit] ||
+                 left.isInstanceOf[IConstant] ||
+                 left.isInstanceOf[IVariable]) &&
+                left == right) => left
+          case _ => t update newSubExpr
+        }
+        
+        case t =>
+          t update newSubExpr
   }
 }
 
@@ -686,6 +778,13 @@ abstract class IFormula extends IExpression {
   def ==>(that : IFormula) : IFormula = IBinFormula(IBinJunctor.Or, !this, that)
   /** Negation of a formula. */
   def unary_! : IFormula = INot(this)  
+
+  /** Negation of a formula, with direct simplification. */
+  def unary_~ : IFormula = this match {
+    case INot(f) => f
+    case IBoolLit(value) => IBoolLit(!value)
+    case _ => !this
+  }
 
   /**
    * Conjunction operator that directly simplify expressions involving true/false.

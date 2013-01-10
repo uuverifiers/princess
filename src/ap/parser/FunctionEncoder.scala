@@ -46,7 +46,7 @@ object FunctionEncoder {
   //////////////////////////////////////////////////////////////////////////////
  
   private def withMinimalScope(t : IFormula, f : (IFormula) => IFormula,
-                               criticalVars : Iterable[IVariable]) : IFormula =
+                               criticalVars : Set[IVariable]) : IFormula =
     t match {
       case IBinFormula(op, _, _) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -55,8 +55,7 @@ object FunctionEncoder {
         //-END-ASSERTION-///////////////////////////////////////////////////////
         val parts = LineariseVisitor(t, op)
         val (outside, inside) =
-          parts partition (x => Seqs.disjointSeq(SymbolCollector variables x,
-                                                 criticalVars))
+          parts partition (x => ContainsSymbol.freeFrom(x, criticalVars))
         val outsideFor = connect(outside, op)
         val insideFor = if (inside.size == 1)
           withMinimalScope(inside(0), f, criticalVars)
@@ -173,7 +172,7 @@ object FunctionEncoder {
 
     var curFrame = topFrame
     var tVars =
-      Set() ++ (for (v <- (SymbolCollector variables t).iterator) yield v.index)
+      (for (v <- (SymbolCollector variables t).iterator) yield v.index).toSet
     
     // We insert the definition of the new bound variable at the outermost
     // possible point, which is determined by the variables occurring in
@@ -369,7 +368,8 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         
         val unmatched = if (minimiseScope)
           withMinimalScope(f, addNegAbstractions _,
-                           for ((_, n) <- negAbstractions) yield IVariable(n))
+                           (for ((_, n) <- negAbstractions.iterator)
+                              yield IVariable(n)).toSet)
         else
           addNegAbstractions(f)
       

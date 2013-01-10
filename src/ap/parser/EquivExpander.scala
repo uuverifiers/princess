@@ -81,9 +81,9 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
       
       case IBinFormula(IBinJunctor.Eqv, f1, f2) =>
         if ((c.binders contains Context.EX) ^ (c.polarity < 0))
-          TryAgain((f1 & f2) | (!f1 & !f2), c)
+          TryAgain((f1 &&& f2) ||| (~f1 &&& ~f2), c)
         else
-          TryAgain((f1 ==> f2) & (f2 ==> f1), c)
+          TryAgain((f1 ===> f2) &&& (f2 ===> f1), c)
           
       case _ =>
         super.preVisit(t, c)
@@ -94,13 +94,13 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
                         c : Context[Unit]) = 
     if (// (c.binders contains Context.EX) ^ 
         (c.polarity < 0))
-      TryAgain((cond & left) | (!cond & right), c)
+      TryAgain((cond &&& left) ||| (~cond &&& right), c)
     else
-      TryAgain((cond ==> left) & (!cond ==> right), c)
+      TryAgain((cond ===> left) &&& (~cond ===> right), c)
   
   def postVisit(t : IExpression, c : Context[Unit],
                 subres : Seq[IExpression]) : IExpression =
-    t update subres
+    updateAndSimplify(t, subres)
 
 }
 
@@ -179,7 +179,7 @@ private class ITESearcher
       val (leftSubres, rightSubres) =
         (for ((n, old) <- subres zip t.subExpressions)
            yield (n getOrElse (old, old))).unzip
-      Some(t update leftSubres, t update rightSubres)
+      Some((updateAndSimplify(t, leftSubres), updateAndSimplify(t, rightSubres)))
     }
 
 }
