@@ -339,9 +339,17 @@ object IExpression {
 
   // Classes to talk about sequences of terms in a more succinct way
   
-  implicit def iterm2RichITerm(lc : ITerm) = new RichITerm(lc)
+  implicit def iterm2RichITerm(lc : ITerm) : RichITerm =
+    new RichITerm(lc)
   
-  implicit def itermSeq2RichITermSeq(lcs : Seq[ITerm]) = new RichITermSeq(lcs)
+  implicit def itermSeq2RichITermSeq(lcs : Seq[ITerm]) : RichITermSeq =
+    new RichITermSeq(lcs)
+
+  implicit def constantSeq2RichITermSeq(lcs : Seq[ConstantTerm]) : RichITermSeq =
+    new RichITermSeq(lcs map (IConstant(_)))
+
+  implicit def constantSeq2ITermSeq(lcs : Seq[ConstantTerm]) : Seq[ITerm] =
+    lcs map (IConstant(_))
 
   class RichITerm(term : ITerm) {
     // various component-wise operations
