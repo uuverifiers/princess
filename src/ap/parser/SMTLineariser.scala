@@ -38,13 +38,18 @@ object SMTLineariser {
   def apply(formula : IFormula) = formula match {
     case IBoolLit(value) => print(value)
     case _ => {
-      val lineariser = new SMTLineariser("", "", List(), List(), "", "", "")
+      val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "")
       lineariser printFormula formula
     }
   }
 
   def apply(formulas : Seq[IFormula], signature : Signature,
-            benchmarkName : String) = {
+            benchmarkName : String) : Unit =
+    apply(formulas, signature, "AUFLIA", "unknown", benchmarkName)
+
+  def apply(formulas : Seq[IFormula], signature : Signature,
+            logic : String, status : String,
+            benchmarkName : String) : Unit = {
     val order = signature.order
     
     val (finalFormulas, constsToDeclare) : (Seq[IFormula], Set[ConstantTerm]) =
@@ -72,10 +77,10 @@ object SMTLineariser {
       }
     
     val lineariser = new SMTLineariser(benchmarkName,
-                                       "AUFLIA",
-    		                           constsToDeclare.toList,
-    		                           order.orderedPredicates.toList,
-    		                           "fun", "pred", "const")
+                                       logic, status,
+                                       constsToDeclare.toList,
+                                       order.orderedPredicates.toList,
+                                       "fun", "pred", "const")
    
     lineariser.open
     for (f <- finalFormulas)
@@ -89,6 +94,7 @@ object SMTLineariser {
  */
 class SMTLineariser(benchmarkName : String,
                     logic : String,
+                    status : String,
                     constsToDeclare : Seq[ConstantTerm],
                     predsToDeclare : Seq[Predicate],
                     funPrefix : String, predPrefix : String, constPrefix : String) {
@@ -113,7 +119,7 @@ class SMTLineariser(benchmarkName : String,
     println("    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)")
     println("|)")
   
-    println("(set-info :status unknown)")
+    println("(set-info :status " + status + ")")
 
     // declare the required predicates
     for (pred <- predsToDeclare) {
