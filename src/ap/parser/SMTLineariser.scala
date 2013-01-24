@@ -55,7 +55,7 @@ object SMTLineariser {
     val (finalFormulas, constsToDeclare) : (Seq[IFormula], Set[ConstantTerm]) =
       if (Seqs.disjoint(order.orderedConstants, signature.existentialConstants)) {
         // if all constants are universal, we do not have to add explicit quantifiers
-        (for (f <- formulas) yield !f,
+        (for (f <- formulas) yield ~f,
          signature.universalConstants ++ signature.nullaryFunctions)
       } else {
         val formula = IExpression.connect(formulas, IBinJunctor.Or)
@@ -73,7 +73,7 @@ object SMTLineariser {
                                  signature.universalConstants,
                                  withFunctions)
         
-        (List(!withUniConstants), Set())
+        (List(~withUniConstants), Set())
       }
     
     val lineariser = new SMTLineariser(benchmarkName,
