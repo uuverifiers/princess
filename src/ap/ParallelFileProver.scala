@@ -286,7 +286,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     // all provers that have been spawned so far
     val spawnedProvers = new ArrayBuffer[SubProverManager]
     
-    var completeResult : Either[Prover.Result, Throwable] = null
+    var completeResult : Prover.Result = null
+    var exceptionResult : Throwable = null
 //    var incompleteResult : Prover.Result = null
     
     var runningProverNum = 0
@@ -345,11 +346,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         pendingProvers.dequeue resume 1000
     }
     
-    def addCompleteResult(res : Either[Prover.Result, Throwable]) =
+    def addCompleteResult(res : Prover.Result) =
       if (completeResult == null) {
         completeResult = res
         stopAllProvers
       }
+    
+    def addExceptionResult(res : Throwable) =
+      if (exceptionResult == null)
+        exceptionResult = res
     
     def stopAllProvers =
       for (manager <- spawnedProvers)
@@ -370,19 +375,19 @@ class ParallelFileProver(createReader : () => java.io.Reader,
           spawnNewProverIfPossible
           resumeProver
         } else {
-          addCompleteResult(Left(res))
+          addCompleteResult(res)
         }
       }
       
       case r @ SubProverException(num, t) => {
         retireProver(num, r)
 //        t.printStackTrace
+        addExceptionResult(t)
         spawnNewProverIfPossible
         if (System.currentTimeMillis < startTime + timeout)
           resumeProver
         else
           stopAllProvers
-        //addResult(Right(t))
       }
       
       case r @ SubProverKilled(num, res) => {
@@ -419,13 +424,13 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Console.err.println("Prover " + num + ": " + line)
     }
     
-    completeResult match {
-      case null =>
+    (completeResult, exceptionResult) match {
+      case (null, null) =>
         // no conclusive result could be derived, return something inconclusive
 //        incompleteResult
         Prover.TimeoutCounterModel
-      case Left(res) => res
-      case Right(t) => throw t
+      case (null, t) => throw t
+      case (res, _) => res
     }
   }
 }
