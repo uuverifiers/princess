@@ -1,0 +1,58 @@
+Index: src/ap/parser/TPTPTParser.scala
+===================================================================
+--- src/ap/parser/TPTPTParser.scala	(revision 699)
++++ src/ap/parser/TPTPTParser.scala	(working copy)
+@@ -945,6 +945,18 @@
+     ("$rat" ^^ { _ => foundRat; RatType }) |
+     ("$real" ^^ { _ => foundReal; RealType })
+ 
++  private lazy val tff_ite_t : PackratParser[(ITerm, Type)] =
++    ("$ite_t" ~ "(" ~> tff_logic_formula ~ "," ~ term ~ "," ~ term <~ ")" ^^ {
++       case cond ~ "," ~ s ~ "," ~ t => {
++         val (s_term, s_type) = s
++         val (t_term, t_type) = t
++         if (s_type != t_type)
++           throw new SyntaxError(
++              "Error: ill-sorted $ite_t: between " + s_term + " and " + t_term)
++         (ITermITE(cond, s_term, t_term), s_type)
++       }
++     })
++    
+   //////////////////////////////////////////////////////////////////////////////
+     
+   /*
+@@ -1058,11 +1070,21 @@
+                 yield !CheckedEquation(termlist(ind1), termlist(ind2)),
+                 IBinJunctor.And)
+       } ) |
++   // we assume that $ite_f and $ite_t can only occur in TFF (not in FOF)
++    ( "$ite_f" ~ "(" ~> tff_logic_formula ~ "," ~
++                        tff_logic_formula ~ "," ~ tff_logic_formula <~ ")" ^^ {
++        case cond ~ "," ~ s ~ "," ~ t => IFormulaITE(cond, s, t)
++      } ) |
++    ( tff_ite_t ~ (equalsSign | "!=") ~ term ^^ {
++        case s ~ "=" ~ t => CheckedEquation(s, t)
++        case s ~ "!=" ~ t => !CheckedEquation(s, t)
++      } ) |
+   // functor with or without arguments
+-  (( ( functor ~ "(" ~ termlist ~ ")" ^^ { 
+- 	       case functor ~ "(" ~ termlist ~ ")" => (functor, termlist) } ) |
+-     ( functor ~ guard(not("(")) ^^ { 
+-	       case functor ~ _ => (functor, List()) } ) ) ~
++  (( guard(not("$ite_t")) ~> (
++       ( functor ~ "(" ~ termlist ~ ")" ^^ { 
++   	         case functor ~ "(" ~ termlist ~ ")" => (functor, termlist) } ) |
++       ( functor ~ guard(not("(")) ^^ { 
++  	         case functor ~ _ => (functor, List()) } ) )) ~
+    // Up to here the above could be an atom or the lhs of an equation.
+    // The following three cases all return a template for a (dis)equation or an atom
+    ( ( equalsSign ~ term ^^ { case _ ~ t =>
+@@ -1096,7 +1118,7 @@
+   // it is clear it must be a term (no backtracking), hence as soon
+   // as a term is found the signature can be extended.
+   private lazy val term: PackratParser[(ITerm, Type)] =
+-    funterm | constant_or_variable | bg_constant
++    tff_ite_t | ( guard(not("$ite_t")) ~> (funterm | constant_or_variable | bg_constant))
+     
+   private lazy val variableStr: PackratParser[String] =
+     regex(new Regex("[A-Z][a-zA-Z0-9_]*"))
