@@ -9,3 +9,6 @@ TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
        SYO561_1.p SYO563+1.p SYO563+2.p"
 
 $PRI "$@" $TESTS
+
+# will exit with an exception
+$PRI "$@" SYN000_2.p

@@ -11,9 +11,9 @@ Prover 2: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScope
 Prover 2: Warning: introducing partial function "nonLinMult" to encode multiplication
 Prover 2: Preprocessing ...
 Prover 2: Proving ...
-Prover 1: proved
-Prover 2: stopped
+Prover 2: proved
 Prover 0: stopped
+Prover 1: stopped
 
 Formula is valid, resulting constraint:
 true
@@ -133,3 +133,82 @@ Prover 0: proved
 No countermodel exists, formula is valid
 % SZS status Theorem for SYO563+2
 
+Loading SYN000_2.p ...
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 0: 
+Prover 0:         ? [X: $i] : p(X)
+Prover 0: 
+Prover 0:         ^
+Prover 1: Options:  +triggersInConjecture +genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 1: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 1: 
+Prover 1:         ? [X: $i] : p(X)
+Prover 1: 
+Prover 1:         ^
+Prover 2: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
+Prover 2: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 2: 
+Prover 2:         ? [X: $i] : p(X)
+Prover 2: 
+Prover 2:         ^
+Prover 3: Options:  -triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 3: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 3: 
+Prover 3:         ? [X: $i] : p(X)
+Prover 3: 
+Prover 3:         ^
+Prover 4: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
+Prover 4: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 4: 
+Prover 4:         ? [X: $i] : p(X)
+Prover 4: 
+Prover 4:         ^
+Prover 5: Options:  -triggersInConjecture +genTotalityAxioms +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 5: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 5: 
+Prover 5:         ? [X: $i] : p(X)
+Prover 5: 
+Prover 5:         ^
+Prover 6: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=minimal
+Prover 6: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 6: 
+Prover 6:         ? [X: $i] : p(X)
+Prover 6: 
+Prover 6:         ^
+Prover 7: Options:  +triggersInConjecture +genTotalityAxioms -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 7: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 7: 
+Prover 7:         ? [X: $i] : p(X)
+Prover 7: 
+Prover 7:         ^
+Prover 8: Options:  +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 8: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 8: 
+Prover 8:         ? [X: $i] : p(X)
+Prover 8: 
+Prover 8:         ^
+Prover 9: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal
+Prover 9: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 9: 
+Prover 9:         ? [X: $i] : p(X)
+Prover 9: 
+Prover 9:         ^
+Prover 10: Options:  +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
+Prover 10: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 10: 
+Prover 10:         ? [X: $i] : p(X)
+Prover 10: 
+Prover 10:         ^
+Prover 11: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 11: Exception: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+Prover 11: 
+Prover 11:         ? [X: $i] : p(X)
+Prover 11: 
+Prover 11:         ^
+ERROR: [59.9] failure: string matching regex `"([\040-\041\043-\0133\0135-\0176]|\\"|\\\\)*"' expected but `?' found
+
+        ? [X: $i] : p(X)
+
+        ^
+% SZS status Error for SYN000_2
