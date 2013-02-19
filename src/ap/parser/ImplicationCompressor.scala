@@ -24,8 +24,9 @@ package ap.parser
 import ap._
 import IExpression.Predicate
 
-import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
-                                  ArrayBuffer}
+import scala.collection.mutable.{HashMap => MHashMap,
+                                 LinkedHashMap, LinkedHashSet,
+                                 ArrayBuffer}
 
 /**
  * Class to compress chains of implications, for faster constraint
@@ -37,11 +38,14 @@ object ImplicationCompressor {
 
   def apply(f : IFormula) : IFormula = {
 
-    val implications = new LinkedHashMap[SignedPredicate, List[SignedPredicate]]
-
-    def addImp(p : SignedPredicate, q : SignedPredicate) =
-      if (p != q)
-        implications.put(p, q :: implications.getOrElse(p, List()))
+    val implications = new MHashMap[SignedPredicate, List[SignedPredicate]]
+    val allPreds = new LinkedHashSet[SignedPredicate]
+    
+    def addImp(p : SignedPredicate, q : SignedPredicate) = if (p != q) {
+      allPreds += p
+      allPreds += q
+      implications.put(p, q :: implications.getOrElse(p, List()))
+    }
     
     // Extract an implication graph from the input formulae
     // Recognised patterns include:
@@ -69,6 +73,55 @@ object ImplicationCompressor {
 
     println(implications)
     
+    // Compute strongly connected components, Tarjan's algorithm
+    
+    val root = new MHashMap[SignedPredicate, SignedPredicate]
+    
+    {
+      var index = 0
+      val stack = new LinkedHashSet[SignedPredicate]
+      val predIndex = new MHashMap[SignedPredicate, Int]
+      val predLowIndex = new MHashMap[SignedPredicate, Int]
+      
+      def connect(p : SignedPredicate) : Unit = {
+        predIndex.put(p, index)
+        predLowIndex.put(p, index)
+        index = index + 1
+        stack += p
+        
+        for (q <- implications.getOrElse(p, List())) {
+          if (!(predIndex contains q)) {
+            connect(q)
+            predLowIndex.put(p, predLowIndex(p) min predLowIndex(q))
+          } else if (stack contains q) {
+            predLowIndex.put(p, predLowIndex(p) min predIndex(q))
+          }
+        }
+        
+        if (predIndex(p) == predLowIndex(p)) {
+          // found a component
+          println("component: " + (stack dropWhile (_ != p)))
+    
+          var cont = true
+          while (cont) {
+            val q = stack.last
+            stack remove q
+            root.put(q, p)
+            if (q == p)
+              cont = false
+          }
+        }
+      }
+      
+      for (p <- allPreds)
+        if (!(predIndex contains p))
+          connect(p)
+    }
+
+    println(root)
+    
+    // Compute the implication dag on strongly connected components
+
     null
   }
 
