@@ -613,11 +613,20 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
             c match {
               case c : ConstantTerm => {
                 val eliminatedFor = ArithConj.conj(InEqConj(eliminated, order), order)
-                universalElimination(InNegEqModelElement(eliminatedFor, c))
+                if (eliminatedFor.isFalse) {
+                  // In this case, the full set of inequalities is unsat,
+                  // but this was not detected earlier due to incompleteness
+                  // of the checks in InEqConj. It is enough to keep the
+                  // eliminated constants
+                  eliminated
+                } else {
+                  universalElimination(InNegEqModelElement(eliminatedFor, c))
+                  exactShadow(remaining)
+                }
               }
-              case _ : VariableTerm => // nothing
+              case _ : VariableTerm =>
+                exactShadow(remaining)
             }
-            exactShadow(remaining)
           }
         }
 

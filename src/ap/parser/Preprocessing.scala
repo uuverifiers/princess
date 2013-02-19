@@ -57,20 +57,21 @@ object Preprocessing {
     val fors2 = for (f <- fors)
                 yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
-//    for (f <- fors2)
-//      ImplicationCompressor(IExpression removePartName f)
+    // compress chains of implications
+    val fors2b = for (INamedPart(n, f) <- fors2)
+                 yield INamedPart(n, ImplicationCompressor(f))
     
     val triggerGenerator =
       new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
                             Param.TRIGGER_STRATEGY(settings))
-    for (f <- fors2)
+    for (f <- fors2b)
       triggerGenerator setup f
-    val fors2b =
-      for (f <- fors2) yield triggerGenerator(f)
+    val fors2c =
+      for (f <- fors2b) yield triggerGenerator(f)
 
     // translate functions to relations
     var order3 = signature.order
-    val fors3 = for (INamedPart(n, f) <- fors2b) yield INamedPart(n, {
+    val fors3 = for (INamedPart(n, f) <- fors2c) yield INamedPart(n, {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
       g
