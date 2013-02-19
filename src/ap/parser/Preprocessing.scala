@@ -56,7 +56,7 @@ object Preprocessing {
     // partial evaluation, expand equivalences
     val fors2 = for (f <- fors)
                 yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
-    
+
 //    for (f <- fors2)
 //      ImplicationCompressor(IExpression removePartName f)
     
