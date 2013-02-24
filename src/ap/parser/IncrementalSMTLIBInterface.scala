@@ -35,7 +35,7 @@ object IncrementalSMTLIBInterface {
   private val CheckSat  = """ *\( *check-sat *\) *""".r
   private val Exit      = """ *\( *exit *\) *""".r
   private val Reset     = """ *\( *reset *\) *""".r
-  private val GetValue  = """ *\( *get-value (.*)\) *""".r
+  private val GetValue  = """ *\( *get-value +\((.*)\) *\) *""".r
   private val GetInts   = """ *\( *get-interpolants *\) *""".r
 
 }
