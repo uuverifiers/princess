@@ -47,17 +47,22 @@ object SimpleAPI {
   
   private val AC = Debug.AC_SIMPLE_API
 
+  private val SMTDumpBasename = "smt-queries-"
+  
   /**
    * Create a new prover. Note that the prover has to be shut down explicitly
    * by calling the method <code>SimpleAPI.shutDown</code> after use.
    */
   def apply(enableAssert : Boolean = false,
-            dumpSMT : Boolean = false) : SimpleAPI =
-    new SimpleAPI (enableAssert, dumpSMT)
+            dumpSMT : Boolean = false,
+            smtDumpBasename : String = SMTDumpBasename) : SimpleAPI =
+    new SimpleAPI (enableAssert, if (dumpSMT) Some(smtDumpBasename) else None)
 
   def spawn : SimpleAPI = apply()
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
   def spawnWithLog : SimpleAPI = apply(dumpSMT = true)
+  def spawnWithLog(basename : String) : SimpleAPI =
+    apply(dumpSMT = true, smtDumpBasename = basename)
   
   /**
    * Run the given function with a fresh prover, and shut down the prover
@@ -77,8 +82,10 @@ object SimpleAPI {
    * afterwards.
    */
   def withProver[A](enableAssert : Boolean = false,
-                    dumpSMT : Boolean = false)(f : SimpleAPI => A) : A = {
-    val p = apply(enableAssert, dumpSMT)
+                    dumpSMT : Boolean = false,
+                    smtDumpBasename : String = SMTDumpBasename)
+                   (f : SimpleAPI => A) : A = {
+    val p = apply(enableAssert, dumpSMT, smtDumpBasename)
     try {
       f(p)
     } finally {
@@ -136,21 +143,22 @@ object SimpleAPI {
  * functionality in one place, and provides an imperative API similar to the
  * SMT-LIB command language.
  */
-class SimpleAPI private (enableAssert : Boolean, dumpSMT : Boolean) {
+class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
 
   import SimpleAPI._
 
   Debug enableAllAssertions enableAssert
 
-  private val dumpSMTStream = if (dumpSMT) {
-    val dumpSMTFile = java.io.File.createTempFile("smt-queries-", ".smt2")
-    new java.io.FileOutputStream(dumpSMTFile)
-  } else {
-    null
+  private val dumpSMTStream = dumpSMT match {
+    case Some(basename) => {
+      val dumpSMTFile = java.io.File.createTempFile(basename, ".smt2")
+      new java.io.FileOutputStream(dumpSMTFile)
+    }
+    case None => null
   }
   
   private def doDumpSMT(comp : => Unit) =
-    if (dumpSMT) Console.withOut(dumpSMTStream) {
+    if (dumpSMT != None) Console.withOut(dumpSMTStream) {
       comp
     }
   
