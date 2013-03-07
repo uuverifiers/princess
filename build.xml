@@ -10,6 +10,8 @@
     <property name="scala.home" value="${env.SCALA_HOME}" />
     <property name="java.home" value="${env.JAVA_HOME}" />
     <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar" />
+    <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect.jar"/>
+    <property name="scala-actors.jar" value="${scala.home}/lib/scala-actors.jar"/>
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scalac.default.params" value="-deprecation -unchecked" />
 
@@ -22,6 +24,7 @@
         <classpath>
             <pathelement location="${scala-compiler.jar}"  />
             <pathelement location="${scala-library.jar}"  />
+            <pathelement location="${scala-reflect.jar}"  />
         </classpath>
     </taskdef>
 
@@ -37,6 +40,8 @@
 	<target name="compile">
 		<path id="compile.classpath">
 			<pathelement location="${scala-library.jar}" />
+                        <pathelement location="${scala-reflect.jar}"  />
+                        <pathelement location="${scala-actors.jar}"  />
 			<pathelement location="parser/parser.jar" />
 			<pathelement location="smt-parser/smt-parser.jar" />
 			<pathelement location="extlibs/java-cup-11a.jar" />
