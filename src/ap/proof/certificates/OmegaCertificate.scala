@@ -62,14 +62,14 @@ case class OmegaCertificate(elimConst : ConstantTerm,
   val strengthenCases : Seq[IdealInt] = {
     val m = IdealInt.max(for (ineq <- boundsB.iterator)
                          yield (ineq.lhs get elimConst).abs)
-    for (ineq <- boundsA; val coeff = (ineq.lhs get elimConst).abs)
+    for (ineq <- boundsA; coeff = (ineq.lhs get elimConst).abs)
       yield (((m - IdealInt.ONE) * coeff - m) / m + 1)
   }
 
   val darkShadow : Seq[CertInequality] = {
     implicit val o = order
     (for ((geq, cases) <- boundsA.iterator zip strengthenCases.iterator;
-          val geqCoeff = (geq.lhs get elimConst).abs;
+          geqCoeff = (geq.lhs get elimConst).abs;
           leq <- boundsB.iterator) yield {
        val leqCoeff = (leq.lhs get elimConst).abs
        CertInequality((geq.lhs scale leqCoeff) + (leq.lhs scale geqCoeff) - cases * leqCoeff)

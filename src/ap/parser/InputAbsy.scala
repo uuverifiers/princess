@@ -102,19 +102,17 @@ object IExpression {
    * Implicit conversion, to enable the application of a predicate
    * to a sequence of terms, like in <code>p(s, t)</code>.
    */
-  implicit def toPredApplier(pred : Predicate) : ((ITerm*) => IAtom) =
-    new Function1[Seq[ITerm], IAtom] {
-      def apply(args : Seq[ITerm]) = IAtom(pred, args)
-    }
+  implicit def toPredApplier(pred : Predicate) = new AnyRef {
+    def apply(args : ITerm*) = IAtom(pred, args)
+  }
   
   /**
    * Implicit conversion, to enable the application of a function
    * to a sequence of terms, like in <code>f(s, t)</code>.
    */
-  implicit def toFunApplier(fun : IFunction) : ((ITerm*) => IFunApp) =
-    new Function1[Seq[ITerm], IFunApp] {
-      def apply(args : Seq[ITerm]) = IFunApp(fun, args)
-    }
+  implicit def toFunApplier(fun : IFunction) = new AnyRef {
+    def apply(args : ITerm*) = IFunApp(fun, args)
+  }
 
   /**
    * Add an existential quantifier for the variable with de Bruijn index 0.

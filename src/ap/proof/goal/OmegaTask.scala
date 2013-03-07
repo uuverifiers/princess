@@ -344,8 +344,8 @@ case object OmegaTask extends EagerTask {
                          order : TermOrder) : Seq[LinearCombination] =
     (for ((geq, cases) <- lowerBounds.iterator zip
                           strengthenCases(elimConst, lowerBounds, upperBounds);
-          val geqCoeff = (geq get elimConst).abs;
-          val casesSucc = -(cases + IdealInt.ONE);
+          geqCoeff = (geq get elimConst).abs;
+          casesSucc = -(cases + IdealInt.ONE);
           leq <- upperBounds.iterator) yield {
        val leqCoeff = (leq get elimConst).abs
        val correction = casesSucc * leqCoeff // always negative
@@ -374,7 +374,7 @@ case object OmegaTask extends EagerTask {
                              : Iterator[IdealInt] = {
     val m =
       IdealInt.max(for (lc <- upperBounds.iterator) yield (lc get elimConst).abs)
-    for (lc <- lowerBounds.iterator; val coeff = (lc get elimConst).abs)
+    for (lc <- lowerBounds.iterator; coeff = (lc get elimConst).abs)
       yield (((m - IdealInt.ONE) * coeff - m) / m)
   }
   

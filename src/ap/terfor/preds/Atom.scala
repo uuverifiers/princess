@@ -88,7 +88,7 @@ class Atom private (val pred : Predicate,
       
   def apply(i : Int) : LinearCombination = args(i)
   
-  override def elements = args.iterator
+  def elements = args.iterator
 
   def updateArgs(newArgs : Iterable[LinearCombination])
                 (implicit order : TermOrder) : Atom =

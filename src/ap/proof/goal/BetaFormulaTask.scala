@@ -334,6 +334,8 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
       case (_, _, _, _, false, _)     => selectInEq
       case (_, _, false, _, _, _)     => selectNegativeEq
       
+      case _ => { assert(false); null }
+
     }
   }
 

@@ -39,8 +39,7 @@ object ExhaustiveProver {
       case WrappedFormulaTask(_ : BetaFormulaTask, simpTasks) =>
         simpTasks exists {
           case _ : BetaFormulaTask |
-               _ : ExQuantifierTask |
-               _ : LazyMatchTask => true
+               _ : ExQuantifierTask => true
           case _ => false
         } 
       case FactsNormalisationTask | EliminateFactsTask | UpdateTasksTask |

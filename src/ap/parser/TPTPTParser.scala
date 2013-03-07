@@ -1227,7 +1227,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$to_int",      Seq(IntType))           => args(0)
     case ("$to_rat",      Seq(IntType))           => {
       foundRat
-      args(0) match {
+      args(0)._1 match {
         case Const(value) =>
           (ratConstFor(IdealRat(value)), RatType)
         case _ =>
@@ -1236,7 +1236,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     }
     case ("$to_real",     Seq(IntType))           => {
       foundReal
-      args(0) match {
+      args(0)._1 match {
         case Const(value) =>
           (realConstFor(IdealRat(value)), RealType)
         case _ =>

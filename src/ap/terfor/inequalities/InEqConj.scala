@@ -202,10 +202,10 @@ object InEqConj {
     // Determine whether the geqs or the leqs have to be multiplied with the
     // coefficients from the other list
     if (geqs exists ((lc) => (lc get t) > IdealInt.ONE)) {
-      for (geq <- geqs; val tCoeff = geq get t; leq <- leqs)
+      for (geq <- geqs; tCoeff = geq get t; leq <- leqs)
         addRemainingLC(IdealInt.ONE, geq, tCoeff, leq)
     } else {
-      for (leq <- leqs; val tCoeff = (leq get t).abs; geq <- geqs)
+      for (leq <- leqs; tCoeff = (leq get t).abs; geq <- geqs)
         addRemainingLC(tCoeff, geq, IdealInt.ONE, leq)
     }
 

@@ -2,8 +2,10 @@
 
 unset CLASSPATH
 
-scalac -cp ../../bin SimpleAPITest.scala
-scala -cp ../../bin SimpleAPITest
+rm *.class
 
-scalac -cp ../../bin SimpleAPITest2.scala
-scala -cp ../../bin SimpleAPITest2
+scalac -language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin SimpleAPITest.scala
+scala -cp ../../bin:. SimpleAPITest
+
+scalac -language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin SimpleAPITest2.scala
+scala -cp ../../bin:. SimpleAPITest2

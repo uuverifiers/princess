@@ -70,7 +70,7 @@ class TestRandomProving(n : String) extends APTestCase(n) {
             println(formula) */
 
       val tree = prover(formula, to)
-      tree.closingConstraint
+      val _ = tree.closingConstraint
 
 /*      println
     println("After many steps:")

@@ -23,6 +23,7 @@ package ap.util;
 
 import scala.util.Sorting
 import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
+import scala.reflect.ClassTag
 
 object Seqs {
 
@@ -231,7 +232,7 @@ object Seqs {
    * <code>FoundBadElement</code> is returned, otherwise a sorted array with the
    * elements that were kept is created and returned.
    */
-  def filterAndSort[A : ClassManifest]
+  def filterAndSort[A : ClassTag]
                    (it : Iterator[A],
                     skipEl : A => Boolean, badEl : A => Boolean,
                     trafo : A => A,
@@ -320,7 +321,7 @@ object Seqs {
     
   //////////////////////////////////////////////////////////////////////////////
 
-  def toArray[A : ClassManifest](els : Iterator[A]) : Array[A] = {
+  def toArray[A : ClassTag](els : Iterator[A]) : Array[A] = {
     val buf = ArrayBuilder.make[A]
     buf ++= els
     buf.result

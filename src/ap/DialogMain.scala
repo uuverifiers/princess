@@ -191,7 +191,7 @@ class InputDialog extends JPanel {
   } catch {
     case e : java.io.IOException =>
       JOptionPane.showMessageDialog(frame, "Error loading file: \n" + e.getMessage)
-    case x => throw x
+    case x : Throwable => throw x
   }
   
   lazy val saveFileChooser = new JFileChooser {
@@ -229,7 +229,7 @@ class InputDialog extends JPanel {
     } catch {
       case e : java.io.IOException =>
         JOptionPane.showMessageDialog(frame, "Error saving file: \n" + e.getMessage)
-      case x => throw x
+      case x : Throwable => throw x
     }
   }
   

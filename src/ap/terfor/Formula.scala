@@ -23,6 +23,8 @@ package ap.terfor;
 
 import ap.terfor.preds.Atom
 
+import scala.reflect.ClassTag
+
 object Formula {
   
   /**
@@ -44,7 +46,7 @@ object Formula {
     nonTrivialFors.result
   }
   
-  def conj[A <: Formula : ClassManifest]
+  def conj[A <: Formula : ClassTag]
           (fors : Iterator[A],
            trueFor : A, comb : (IndexedSeq[A]) => A) : A = {
     val nonTrivialFors = filterForConj(fors)

@@ -478,13 +478,13 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     
     case t : AnnotationTerm => {
       val triggers = for (annot <- t.listannotation_;
-                          val a = annot.asInstanceOf[AttrAnnotation];
+                          a = annot.asInstanceOf[AttrAnnotation];
                           if (a.annotattribute_ == ":pattern")) yield {
         a.attrparam_ match {
           case p : SomeAttrParam => p.sexpr_ match {
             case e : ParenSExpr => 
               for (expr <- e.listsexpr_.toList;
-                   val transTriggers = {
+                   transTriggers = {
                      try { List(translateTrigger(expr)) }
                      catch { case _ : TranslationException |
                                   _ : Environment.EnvironmentException => {
@@ -553,7 +553,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     // we might need guards 0 <= x <= 1 for quantifiers ranging over booleans
     val guard = connect(
         for (binderC <- t.listsortedvariablec_.iterator;
-             val binder = binderC.asInstanceOf[SortedVariable];
+             binder = binderC.asInstanceOf[SortedVariable];
              if (translateSort(binder.sort_) == Type.Bool)) yield {
           (env lookupSym asString(binder.symbol_)) match {
             case Environment.Variable(ind, _) => (v(ind) >= 0) & (v(ind) <= 1)
@@ -838,7 +838,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
          case _ => false
        } else {
          connect(for (firstIndex <- 1 until transArgs.length;
-                      val firstTerm = asTerm(transArgs(firstIndex), Type.Integer);
+                      firstTerm = asTerm(transArgs(firstIndex), Type.Integer);
                       secondIndex <- 0 until firstIndex) yield {
            firstTerm =/= asTerm(transArgs(secondIndex), Type.Integer)
          }, IBinJunctor.And)
@@ -1047,8 +1047,15 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   
   private def flatten(op : String, args : Seq[Term]) : Seq[Term] =
     for (a <- args;
-         b <- collectSubExpressions(a, {
-                case PlainSymbol(`op`) => true
+         b <- collectSubExpressions(a, (t:Term) => t match {
+                case t : NullaryTerm => t.symbolref_ match {
+                  case PlainSymbol(`op`) => true
+                  case _ => false
+                }
+                case t : FunctionTerm => t.symbolref_ match {
+                  case PlainSymbol(`op`) => true
+                  case _ => false
+                }
                 case _ => false
               }, SMTConnective))
     yield b

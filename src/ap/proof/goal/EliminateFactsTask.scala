@@ -90,13 +90,19 @@ case object EliminateFactsTask extends EagerTask {
 }
 
 
+private object Eliminator {
+  val constantTermFilter : PartialFunction[Term, ConstantTerm] = {
+    case c : ConstantTerm => c
+  }
+}
+
 private class Eliminator(oriFacts : Conjunction,
                          goal : Goal, ptf : ProofTreeFactory)
               extends ConjunctEliminator(oriFacts,
                                          new LazyMappedSet[ConstantTerm, Term](
                                            goal.eliminatedConstants,
                                            _.asInstanceOf[Term],
-                                           { case c : ConstantTerm => c }
+                                           Eliminator.constantTermFilter
                                          ),
 //                                         for (c <- goal.eliminatedConstants)
 //                                           yield c.asInstanceOf[Term],

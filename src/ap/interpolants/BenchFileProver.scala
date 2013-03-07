@@ -284,7 +284,7 @@ class BenchFileProver(filename : String,
     {
       case List() => {
         val allFormulas = for (f <- iFormulas;
-                               val nnf = Transform2NNF(IExpression removePartName f);
+                               nnf = Transform2NNF(IExpression removePartName f);
                                g <- LineariseVisitor(nnf, IBinJunctor.Or))
                           yield g
         

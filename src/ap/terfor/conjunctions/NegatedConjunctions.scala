@@ -142,7 +142,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
    
   def apply(i : Int) : Conjunction = conjs(i)
    
-  override def elements = conjs.iterator
+  def elements = conjs.iterator
 
   //////////////////////////////////////////////////////////////////////////////
 
