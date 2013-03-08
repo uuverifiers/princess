@@ -6,7 +6,8 @@ EXTLIBSDIR:=$(BASEDIR)/extlibs
 CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar
 
 SCALAC:=scalac
-SCALAC_OPTIONS:=-deprecation -unchecked -Dscalac.patmat.analysisBudget=off \
+SCALAC_OPTIONS:=-optimise -Yinline-warnings \
+                -deprecation -unchecked -Dscalac.patmat.analysisBudget=off \
                 -feature -language:implicitConversions,postfixOps,reflectiveCalls \
                 -d $(BASEDIR)/bin -classpath $(CLASSPATH)
 
