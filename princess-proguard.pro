@@ -12,10 +12,13 @@
 -injars dist/parser.jar
 -injars dist/smt-parser.jar
 -injars dist/scala-library.jar(!META-INF/**)
+-injars dist/scala-actors.jar(!META-INF/**)
 -libraryjars /usr/share/java/ant.jar
 -outjars dist/princess-all.jar
 
 -libraryjars <java.home>/lib/rt.jar
+
+#-dontobfuscate
 
 # Ignore some compiler artefacts.
 
@@ -61,11 +64,17 @@
 }
 
 -keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool {
+    long ctl;
     long eventCount;
     int  workerCounts;
     int  runControl;
+    int  runState;
     scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode syncStack;
     scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode spareStack;
+}
+
+-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool$WorkQueue {
+    int  runState;
 }
 
 -keepclassmembernames class scala.concurrent.forkjoin.ForkJoinWorkerThread {
@@ -76,6 +85,11 @@
 
 -keepclassmembernames class scala.concurrent.forkjoin.ForkJoinTask {
     int status;
+    int runState;
+}
+
+-keepclassmembernames class scala.actors.threadpool.ThreadPoolExecutor {
+    int runState;
 }
 
 -keepclassmembernames class scala.concurrent.forkjoin.LinkedTransferQueue {

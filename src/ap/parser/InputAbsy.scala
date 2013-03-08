@@ -102,7 +102,9 @@ object IExpression {
    * Implicit conversion, to enable the application of a predicate
    * to a sequence of terms, like in <code>p(s, t)</code>.
    */
-  implicit def toPredApplier(pred : Predicate) = new AnyRef {
+  implicit def toPredApplier(pred : Predicate) = new PredApplier(pred)
+
+  class PredApplier(pred : Predicate) {
     def apply(args : ITerm*) = IAtom(pred, args)
   }
   
@@ -110,7 +112,9 @@ object IExpression {
    * Implicit conversion, to enable the application of a function
    * to a sequence of terms, like in <code>f(s, t)</code>.
    */
-  implicit def toFunApplier(fun : IFunction) = new AnyRef {
+  implicit def toFunApplier(fun : IFunction) = new FunApplier(fun)
+
+  class FunApplier(fun : IFunction) {
     def apply(args : ITerm*) = IFunApp(fun, args)
   }
 

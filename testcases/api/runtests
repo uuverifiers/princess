@@ -2,7 +2,7 @@
 
 unset CLASSPATH
 
-rm *.class
+rm -f *.class
 
 scalac -language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin SimpleAPITest.scala
 scala -cp ../../bin:. SimpleAPITest
