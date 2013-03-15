@@ -44,7 +44,7 @@ object TaskManager {
     LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY)
     
   val EMPTY : TaskManager =
-    new TaskManager (EMPTY_HEAP, EagerTaskManager.INITIAL)
+    new TaskManager (EMPTY_HEAP, (new EagerTaskAutomaton(None)).INITIAL)
   
   private object TRUE_EXCEPTION extends Exception
    

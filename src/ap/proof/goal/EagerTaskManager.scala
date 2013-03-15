@@ -21,15 +21,46 @@
 
 package ap.proof.goal;
 
+import ap.proof.theoryPlugins.{Plugin, AxiomGenTask}
 
-object EagerTaskManager {
 
-  import WrappedFormulaTask.{unwrapReal, MaybeWrapped}
+/**
+ * A class for tracking the application of tasks and recommending the
+ * intermediate application of <code>EagerTask</code>s. This class is
+ * implemented as a finite automaton to give recommendations based on the
+ * history of task applications
+ */
+abstract class EagerTaskManager {
+
+  /**
+   * Tell the manager that a certain task was applied
+   */
+  def afterTask(task : Task) : EagerTaskManager
+
+  /**
+   * Obtain a recommendation from the manager, given the next
+   * <code>PrioritisedTask</code> in the queue. If the queue is empty,
+   * <code>None</code> should be given as argument
+   */
+  def recommend(nextPrioritisedTask : Option[PrioritisedTask]) : Option[EagerTask]
   
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object EagerTaskAutomaton {
+
   private def unwrapRealOption(npt : Option[PrioritisedTask]) = npt match {
     case Some(WrappedFormulaTask(realTask, _)) => Some(realTask)
     case _ => npt
   }
+  
+}
+
+class EagerTaskAutomaton(plugin : Option[Plugin]) {
+
+  import WrappedFormulaTask.{unwrapReal, MaybeWrapped}
+  import EagerTaskAutomaton.unwrapRealOption
   
   /**
    * Abstract superclass for the task managers that are currently used (to
@@ -213,28 +244,6 @@ object EagerTaskManager {
   /**
    * In the beginning, there are no facts, which are thus reduced
    */
-  def INITIAL : EagerTaskManager = Final
-}
+  val INITIAL : EagerTaskManager = Final
 
-
-/**
- * A class for tracking the application of tasks and recommending the
- * intermediate application of <code>EagerTask</code>s. This class is
- * implemented as a finite automaton to give recommendations based on the
- * history of task applications
- */
-abstract class EagerTaskManager {
-
-  /**
-   * Tell the manager that a certain task was applied
-   */
-  def afterTask(task : Task) : EagerTaskManager
-
-  /**
-   * Obtain a recommendation from the manager, given the next
-   * <code>PrioritisedTask</code> in the queue. If the queue is empty,
-   * <code>None</code> should be given as argument
-   */
-  def recommend(nextPrioritisedTask : Option[PrioritisedTask]) : Option[EagerTask]
-  
 }

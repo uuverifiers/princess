@@ -16,6 +16,7 @@ all:
 		ap/proof/tree/*.scala \
 		ap/proof/goal/*.scala \
 		ap/proof/certificates/*.scala \
+		ap/proof/theoryPlugins/*.scala \
 		ap/parser/*.scala \
 		ap/parameters/*.scala \
 		ap/interpolants/*.scala \
@@ -37,6 +38,7 @@ doc:
 		ap/proof/tree/*.scala \
 		ap/proof/goal/*.scala \
 		ap/proof/certificates/*.scala \
+		ap/proof/theoryPlugins/*.scala \
 		ap/parser/*.scala \
 		ap/parameters/*.scala \
 		ap/interpolants/*.scala \
