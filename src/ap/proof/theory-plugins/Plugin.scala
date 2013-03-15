@@ -1,0 +1,105 @@
+/**
+ * This file is part of Princess, a theorem prover for Presburger
+ * arithmetic with uninterpreted predicates.
+ * <http://www.philipp.ruemmer.org/princess.shtml>
+ *
+ * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ *
+ * Princess is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Princess is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package ap.proof.theory-plugins;
+
+import ap.proof.goal.{Task, EagerTask, Goal, AddFactsTask}
+import ap.proof.tree.{ProofTree, ProofTreeFactory}
+import ap.terfor.Formula
+import ap.terfor.conjunction.Conjunction
+import ap.util.Debug
+
+
+object Plugin {
+
+}
+
+/**
+ * Interface for theory plugins that can be added to the
+ * <code>EagerTaskManager</code>. At the moment, such plugins
+ * can mainly observe which formulae are asserted on a branch,
+ * and then generate/instantiate further axioms to add
+ * theory knowledge.
+ *
+ * Plugin objects have to be immutable.
+ */
+trait Plugin {
+
+  /**
+   * Tell the plugin that a certain task was applied
+   */
+  def afterTask(task : Task) : Plugin
+
+  /**
+   * Obtain a recommendation from the plugin, given the next
+   * <code>PrioritisedTask</code> to be applied. If the queue is empty,
+   * <code>None</code> should be given as argument
+   */
+  def recommend(nextTask : Option[Task], goal : Goal) : Option[EagerTask]
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object AxiomGenPlugin {
+
+  /**
+   * Task for adding new axioms to a goal (by generating appropriate
+   * <code>PrioritisedTask</code>s.
+   */
+  class AxiomGenTask(axioms : Conjunction) extends EagerTask {
+    def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
+      ptf.updateGoal(goal formulaTasks axioms, goal)
+  }
+
+}
+
+abstract class AxiomGenPlugin extends Plugin {
+/*
+  /**
+   * New facts that were asserted in this goal
+   */
+  def addedFacts(facts : Seq[Conjunction]) : Plugin = this
+
+  /**
+   * Tell the plugin that a certain task was applied
+   */
+  def afterTask(task : Task) : Plugin = task match {
+    case task : AddFactsTask => {
+      // We have to collect all facts that are added in
+      // this round
+
+      val (_, addTasks) =
+        goal.tasks dequeueWhile (_.isInstanceOf[AddFactsTask])
+      
+      addedFacts(for (t <- addTasks) yield (AddFactsTask extractFacts t))
+    }
+    case _ => this
+  }
+
+  /**
+   * Obtain a recommendation from the plugin, given the next
+   * <code>PrioritisedTask</code> to be applied. If the queue is empty,
+   * <code>None</code> should be given as argument
+   */
+  def recommend(nextTask : Option[Task], goal : Goal) : Option[EagerTask]
+*/
+}

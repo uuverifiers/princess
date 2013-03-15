@@ -45,7 +45,7 @@ object AddFactsTask {
      (f.isNegatedConjunction && f.negatedConjs(0).negatedConjs.isEmpty)) && 
     f.quans.isEmpty
 
-  private def extractFacts(t : Task) : Conjunction = t match {
+  def extractFacts(t : Task) : Conjunction = t match {
     case t : AddFactsTask => {
       val formula = t.formula
       if (formula.isTrue) {
