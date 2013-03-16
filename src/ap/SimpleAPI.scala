@@ -36,6 +36,7 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction}
+import ap.proof.theoryPlugins.Plugin
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack}
@@ -193,7 +194,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     currentPartitionNum = -1
     constructProofs = false
     mostGeneralConstraints = false
-    
+    theoryPlugin = None    
+
     doDumpSMT {
       println("(reset)")
       println("(set-logic AUFLIA)")
@@ -710,6 +712,21 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
   }
   
   //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Install a theory plugin in the prover.
+   * This is highly experimental functionality.
+   */
+  def setupTheoryPlugin(plugin : Plugin) : Unit = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // Multiple theory plugins are currently unsupported
+    Debug.assertPre(AC, theoryPlugin == None)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    theoryPlugin = Some(plugin)
+    recreateProver
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   
   /**
    * In subsequent <code>checkSat</code> calls for problems with existential
@@ -1153,7 +1170,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
-                       currentModel, currentConstraint, currentCertificate)
+                       currentModel, currentConstraint, currentCertificate,
+                       theoryPlugin)
     
     doDumpSMT {
       println("(push 1)")
@@ -1170,7 +1188,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     val (oldPreprocSettings, oldProver, oldOrder, oldExConstants,
          oldFunctionEnc, oldArrayFuns,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
-         oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert) =
+         oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert,
+         oldTheoryPlugin) =
       storedStates.pop
     preprocSettings = oldPreprocSettings
     currentProver = oldProver
@@ -1190,7 +1209,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     currentConstraint = oldConstraint
     currentCertificate = oldCert
     proofActorStatus = ProofActorStatus.Init
-    
+    theoryPlugin = oldTheoryPlugin    
+
     doDumpSMT {
       println("(pop 1)")
     }
@@ -1314,6 +1334,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
         (for ((p, f) <- functionEnc.predTranslation.iterator; if (!f.partial))
          yield p).toSet)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
+    gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
     gs
   }
 
@@ -1331,7 +1352,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
   private var mostGeneralConstraints : Boolean = false
   private var formulaeTodo : IFormula = false
   private var rawFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
-  
+  private var theoryPlugin : Option[Plugin] = None
+
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,
                                              TermOrder,
@@ -1346,7 +1368,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
                                              ProverStatus.Value,
                                              Conjunction,
                                              Conjunction,
-                                             Certificate)]
+                                             Certificate,
+                                             Option[Plugin])]
   
   private def recreateProver = {
     preprocSettings =

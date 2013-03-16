@@ -4,8 +4,13 @@ unset CLASSPATH
 
 rm -f *.class
 
-scalac -language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin SimpleAPITest.scala
+OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin"
+
+scalac $OPTIONS SimpleAPITest.scala
 scala -cp ../../bin:. SimpleAPITest
 
-scalac -language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin SimpleAPITest2.scala
+scalac $OPTIONS SimpleAPITest2.scala
 scala -cp ../../bin:. SimpleAPITest2
+
+scalac $OPTIONS SimpleAPITest3.scala
+scala -cp ../../bin:. SimpleAPITest3

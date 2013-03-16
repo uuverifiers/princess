@@ -89,9 +89,14 @@ object Goal {
     else
       BranchInferenceCollection.EMPTY
 
+    val emptyTaskManager = Param.THEORY_PLUGIN(settings) match {
+      case Some(plugin) => TaskManager EMPTY plugin
+      case None         => TaskManager.EMPTY
+    }
+
     apply(Conjunction.TRUE,
           CompoundFormulas.EMPTY,
-          TaskManager.EMPTY ++ tasks,
+          emptyTaskManager ++ tasks,
           0,
           eliminatedConstants,
           vocabulary,

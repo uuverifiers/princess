@@ -214,8 +214,8 @@ object Param {
   }
   
   case object ELIMINATE_INTERPOLANT_QUANTIFIERS extends Param {
-	type Value = Boolean
-	val defau : Boolean = true
+    type Value = Boolean
+    val defau : Boolean = true
   }
 
   case object REVERSE_FUNCTIONALITY_PROPAGATION extends Param {
@@ -224,8 +224,13 @@ object Param {
   }
 
   case object MATCHING_BASE_PRIORITY extends Param {
-	type Value = Int
-	val defau : Int = 500
+    type Value = Int
+    val defau : Int = 500
+  }
+
+  case object THEORY_PLUGIN extends Param {
+    type Value = Option[ap.proof.theoryPlugins.Plugin]
+    val defau : Option[ap.proof.theoryPlugins.Plugin] = None
   }
 }
 

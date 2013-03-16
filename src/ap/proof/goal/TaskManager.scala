@@ -24,6 +24,7 @@ package ap.proof.goal;
 import ap.util.Debug
 import ap.basetypes.{LeftistHeap, HeapCollector}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.proof.theoryPlugins.Plugin
 
 object TaskManager {
   
@@ -43,6 +44,9 @@ object TaskManager {
   private val EMPTY_HEAP : TaskHeap =
     LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY)
     
+  def EMPTY(plugin : Plugin) : TaskManager =
+    new TaskManager (EMPTY_HEAP, (new EagerTaskAutomaton(Some(plugin))).INITIAL)
+  
   val EMPTY : TaskManager =
     new TaskManager (EMPTY_HEAP, (new EagerTaskAutomaton(None)).INITIAL)
   

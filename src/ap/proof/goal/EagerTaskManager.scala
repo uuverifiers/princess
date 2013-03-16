@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -92,6 +92,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
                  extends DefaultEagerTaskManager(Some(FactsNormalisationTask),
                                                  false) {
     def afterTask(task : Task) = unwrapReal(task) match {
+      case FactsNormalisationTask
+            if (plugin.isDefined) => NormalisedFactsInvokePlugin
       case FactsNormalisationTask => NormalisedFacts
       case _ =>                      NonNormalisedFacts
     }
@@ -106,8 +108,32 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
   }
 
   /**
+   * It is known that <code>FactsNormalisationTask</code> has been applied, and the
+   * facts of the current goal are normalised; the theory plugin should be applied
+   * next
+   */
+  private object NormalisedFactsInvokePlugin
+                 extends DefaultEagerTaskManager(
+                           for (p <- plugin) yield (new AxiomGenTask(p)),
+                           true) {
+    def afterTask(task : Task) = unwrapReal(task) match {
+      case _ : AddFactsTask =>   NonNormalisedFacts
+      case _ : AxiomGenTask =>   NormalisedFacts
+      case _ =>                  NormalisedFactsInvokePlugin
+    }
+    protected def recommendationNecessary(t : Task) = t match {
+      case _ : BetaFormulaTask |
+           _ : ExQuantifierTask |
+           _ : DivisibilityTask |
+           _ : LazyMatchTask => true
+      case _ => false
+    }
+  }
+
+  /**
    * It is known that <code>FactsNormalisationTask</code> has been applied, the
-   * facts of the current goal are normalised
+   * facts of the current goal are normalised, and (if present) the theory
+   * plugin has been called
    */
   private object NormalisedFacts
                  extends DefaultEagerTaskManager(Some(UpdateTasksTask),

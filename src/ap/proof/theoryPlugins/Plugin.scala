@@ -27,10 +27,6 @@ import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
 
-object Plugin {
-
-}
-
 /**
  * Interface for theory plugins that can be added to the
  * <code>EagerTaskManager</code>. At the moment, such plugins
@@ -54,10 +50,14 @@ trait Plugin {
 class AxiomGenTask(plugin : Plugin) extends EagerTask {
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
     (plugin generateAxioms goal) match {
-      case Some((localAxioms, globalAxioms)) =>
-        ptf.updateGoal((goal formulaTasks !localAxioms) ++
-                       (goal formulaTasks !globalAxioms), goal)
+      case Some((localAxioms, globalAxioms)) => {
+        val allAxioms = Conjunction.conj(List(localAxioms, globalAxioms),
+                                         goal.order).negate
+        ptf.updateGoal(goal formulaTasks (goal reduceWithFacts allAxioms), goal)
+      }
       case None =>
         ptf.updateGoal(goal)
     }
+
+  override def toString = "AxiomGenTask(" + plugin + ")"
 }
