@@ -185,7 +185,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     currentProver = ModelSearchProver emptyIncProver goalSettings
     formulaeInProver = List()
     formulaeTodo = false
-    currentModel = null
+    currentModel = Conjunction.TRUE
     currentConstraint = null
     currentCertificate = null
     lastStatus = ProverStatus.Sat
@@ -716,6 +716,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
   /**
    * Install a theory plugin in the prover.
    * This is highly experimental functionality.
+   *
+   * (In particular, <code>eval</code> and <code>evalPartial</code> might
+   * sometimes produce strange results in combination with plugins)
    */
   def setupTheoryPlugin(plugin : Plugin) : Unit = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
