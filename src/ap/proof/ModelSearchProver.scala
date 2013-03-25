@@ -30,7 +30,8 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
-import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas}
+import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas,
+                      TaskManager}
 import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
@@ -482,15 +483,28 @@ object ModelSearchProver {
       // First continue proving only on the arithmetic facts
 
       val order = goal.order
+
       val newFacts = goal.facts.updatePredConj(PredConj.TRUE)(order)
-      val newGoal =
-    	nonRemovingPTF.updateGoal(Conjunction.TRUE, CompoundFormulas.EMPTY,
-    			                  goal formulaTasks newFacts.negate, goal)
+
+      // for the time being, just disable possible theory plugins at this point
+      val newSettings = Param.THEORY_PLUGIN.set(settings, None)
+
+      val newGoal = Goal(Conjunction.TRUE, CompoundFormulas.EMPTY,
+                         TaskManager.EMPTY ++ (goal formulaTasks newFacts.negate),
+                         goal.age,
+                         goal.eliminatedConstants,
+                         goal.vocabulary,
+                         goal.definedSyms,
+                         goal.branchInferences,
+                         newSettings)
+
+//    	nonRemovingPTF.updateGoal(Conjunction.TRUE, CompoundFormulas.EMPTY,
+//    			                  goal formulaTasks newFacts.negate, goal)
 
       var doExtractModel = false
       var outerResult : FindModelResult = null
 
-      findModel(newGoal, List(), witnesses, Set(), depth, settings, {
+      findModel(newGoal, List(), witnesses, Set(), depth, newSettings, {
         
         case (_, false) =>
           // now we can actually be sure that we have found a genuine model,
