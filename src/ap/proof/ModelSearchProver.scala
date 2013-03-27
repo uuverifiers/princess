@@ -209,8 +209,10 @@ object ModelSearchProver {
                         constsToIgnore : Set[ConstantTerm],
                         depth : Int,
                         settings : GoalSettings,
-                        // construct a complete model?
-                  //      constructModel : Boolean,
+                        // given a model, and a flag telling whether the model
+                        // is partial (only the facts of the current goal) or has
+                        // been completed using all information available, decide
+                        // how to continue search
                         searchDirector : (Conjunction, Boolean) => SearchDirection)
                        : FindModelResult = {
     Timeout.check
@@ -230,7 +232,9 @@ object ModelSearchProver {
           // there are some further formulae to be added to be goal before
           // we continue with the proof
           
-          findModel(goal addTasksFor extraFormulae, List(), witnesses,
+          findModel(goal addTasksFor (
+                      for (f <- extraFormulae) yield (goal reduceWithFacts f)),
+                    List(), witnesses,
                     constsToIgnore, depth, settings, searchDirector)
           
         } else {

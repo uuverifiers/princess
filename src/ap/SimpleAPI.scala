@@ -819,7 +819,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
       import TerForConvenience._
     
       val c = new IExpression.ConstantTerm("c")
-      implicit val extendedOrder = currentOrder extend c
+      implicit val extendedOrder = currentModel.order extend c
       val baseProver = getStatus(false) match {
         case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) =>
           // then we work with a countermodel of the constraints
@@ -903,7 +903,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
         val existential = setupTermEval
         
         val c = new IExpression.ConstantTerm ("c")
-        val extendedOrder = currentOrder extend c
+        val extendedOrder = currentModel.order extend c
         
         val reduced =
           ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
@@ -970,7 +970,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     if (!(currentOrder.orderedPredicates forall (_.arity == 0))) {
       // we assume 0 as default value, but have to store this value
       import TerForConvenience._
-      implicit val o = currentOrder
+      implicit val o = currentModel.order
       currentModel = currentModel & (c === 0)
     }
       
@@ -1050,8 +1050,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
           if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
           // then we will just extend the partial model with a default value
         
-          val a = Atom(p, List(), currentOrder)
-          implicit val order = currentOrder
+          implicit val order = currentModel.order
+          val a = Atom(p, List(), order)
           currentModel = currentModel & a
         
           true
@@ -1059,7 +1059,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
           
         case f => {
           val p = new IExpression.Predicate("p", 0)
-          implicit val extendedOrder = currentOrder extendPred p
+          implicit val extendedOrder = currentModel.order extendPred p
           val pAssertion =
             ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
               toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1)
@@ -1131,7 +1131,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
         ensureFullModel
 
         val reduced =
-          ReduceWithConjunction(currentModel, functionalPreds, currentOrder)(
+          ReduceWithConjunction(currentModel, functionalPreds, currentModel.order)(
                                   toInternal(f, currentOrder)._1)
 
         if (reduced.isTrue)
