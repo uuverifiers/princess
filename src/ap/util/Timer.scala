@@ -57,10 +57,14 @@ object Timer {
     callCounters += (op -> (callCounters(op) + 1))
     runningOps push op
     
-    val res = comp
+    val res =
+      try {
+        comp
+      } finally {
+        addTime
+        runningOps.pop
+      }
     
-    addTime
-    runningOps.pop
     res
   }
   
