@@ -239,6 +239,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     val name = sanitise(rawName)
     val c = new ConstantTerm(name)
     currentOrder = currentOrder extend c
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " () Int)")
     }
@@ -261,6 +262,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
                 new ConstantTerm (prefix + i)
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
+    restartProofActor
     cs
   }
 
@@ -299,6 +301,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
    */
   def addConstant(c : IExpression.ConstantTerm) : Unit = {
     currentOrder = currentOrder extend c
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + c.name + " () Int)")
     }
@@ -310,6 +313,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
    */
   def addConstants(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
     currentOrder = currentOrder extend cs.toSeq
+    restartProofActor
     doDumpSMT {
       for (c <- cs)
         println("(declare-fun " + c.name + " () Int)")
@@ -325,6 +329,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     val name = sanitise(rawName)
     val p = new Predicate(name, 0)
     currentOrder = currentOrder extendPred p
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " () Bool)")
     }
@@ -352,6 +357,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
                 new Predicate ("p" + (startInd + i), 0)
               }).toIndexedSeq
     currentOrder = currentOrder extendPred ps
+    restartProofActor
     for (p <- ps) yield p()
   }
 
@@ -382,6 +388,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     val name = sanitise(rawName)
     val r = new Predicate(name, arity)
     currentOrder = currentOrder extendPred r
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " (" +
           (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Bool)")
@@ -533,7 +540,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
             }
             
           case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel => {
-            proofActorStatus = ProofActorStatus.Init
+            restartProofActor
             proofActor ! RecheckCommand
           }
         }
@@ -725,6 +732,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     // Multiple theory plugins are currently unsupported
     Debug.assertPre(AC, theoryPlugin == None)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    doDumpSMT {
+      println("; (setup-theory-plugin)")
+    }
     theoryPlugin = Some(plugin)
     recreateProver
   }
@@ -1251,7 +1262,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
             // then we should be able to add this formula to the running prover
             proofActor ! AddFormulaCommand(completeFor)
           } else {
-            proofActorStatus = ProofActorStatus.Init
+            restartProofActor
           }
       }
       
@@ -1381,8 +1392,12 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     if (currentProver != null)
       currentProver = (ModelSearchProver emptyIncProver goalSettings)
                           .conclude(formulaeInProver.unzip._2, currentOrder)
+    restartProofActor
   }
   
+  private def restartProofActor =
+    (proofActorStatus = ProofActorStatus.Init)
+
   private def functionalPreds = functionEnc.predTranslation.keySet.toSet
   
   //////////////////////////////////////////////////////////////////////////////
