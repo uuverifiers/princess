@@ -184,7 +184,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     currentProver = ModelSearchProver emptyIncProver goalSettings
     formulaeInProver = List()
     formulaeTodo = false
-    currentModel = null
+    currentModel = Conjunction.TRUE
     currentConstraint = null
     currentCertificate = null
     lastStatus = ProverStatus.Sat
@@ -237,6 +237,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     val name = sanitise(rawName)
     val c = new ConstantTerm(name)
     currentOrder = currentOrder extend c
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " () Int)")
     }
@@ -259,6 +260,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
                 new ConstantTerm (prefix + i)
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
+    restartProofActor
     cs
   }
 
@@ -297,6 +299,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
    */
   def addConstant(c : IExpression.ConstantTerm) : Unit = {
     currentOrder = currentOrder extend c
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + c.name + " () Int)")
     }
@@ -308,6 +311,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
    */
   def addConstants(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
     currentOrder = currentOrder extend cs.toSeq
+    restartProofActor
     doDumpSMT {
       for (c <- cs)
         println("(declare-fun " + c.name + " () Int)")
@@ -323,6 +327,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     val name = sanitise(rawName)
     val p = new Predicate(name, 0)
     currentOrder = currentOrder extendPred p
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " () Bool)")
     }
@@ -350,6 +355,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
                 new Predicate ("p" + (startInd + i), 0)
               }).toIndexedSeq
     currentOrder = currentOrder extendPred ps
+    restartProofActor
     for (p <- ps) yield p()
   }
 
@@ -380,6 +386,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     val name = sanitise(rawName)
     val r = new Predicate(name, arity)
     currentOrder = currentOrder extendPred r
+    restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " (" +
           (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Bool)")
@@ -531,7 +538,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
             }
             
           case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel => {
-            proofActorStatus = ProofActorStatus.Init
+            restartProofActor
             proofActor ! RecheckCommand
           }
         }
@@ -799,7 +806,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
       import TerForConvenience._
     
       val c = new IExpression.ConstantTerm("c")
-      implicit val extendedOrder = currentOrder extend c
+      implicit val extendedOrder = currentModel.order extend c
       val baseProver = getStatus(false) match {
         case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) =>
           // then we work with a countermodel of the constraints
@@ -883,7 +890,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
         val existential = setupTermEval
         
         val c = new IExpression.ConstantTerm ("c")
-        val extendedOrder = currentOrder extend c
+        val extendedOrder = currentModel.order extend c
         
         val reduced =
           ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
@@ -950,7 +957,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     if (!(currentOrder.orderedPredicates forall (_.arity == 0))) {
       // we assume 0 as default value, but have to store this value
       import TerForConvenience._
-      implicit val o = currentOrder
+      implicit val o = currentModel.order
       currentModel = currentModel & (c === 0)
     }
       
@@ -1030,8 +1037,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
           if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
           // then we will just extend the partial model with a default value
         
-          val a = Atom(p, List(), currentOrder)
-          implicit val order = currentOrder
+          implicit val order = currentModel.order
+          val a = Atom(p, List(), order)
           currentModel = currentModel & a
         
           true
@@ -1039,7 +1046,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
           
         case f => {
           val p = new IExpression.Predicate("p", 0)
-          implicit val extendedOrder = currentOrder extendPred p
+          implicit val extendedOrder = currentModel.order extendPred p
           val pAssertion =
             ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
               toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1)
@@ -1111,7 +1118,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
         ensureFullModel
 
         val reduced =
-          ReduceWithConjunction(currentModel, functionalPreds, currentOrder)(
+          ReduceWithConjunction(currentModel, functionalPreds, currentModel.order)(
                                   toInternal(f, currentOrder)._1)
 
         if (reduced.isTrue)
@@ -1228,7 +1235,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
             // then we should be able to add this formula to the running prover
             proofActor ! AddFormulaCommand(completeFor)
           } else {
-            proofActorStatus = ProofActorStatus.Init
+            restartProofActor
           }
       }
       
@@ -1355,8 +1362,12 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     if (currentProver != null)
       currentProver = (ModelSearchProver emptyIncProver goalSettings)
                           .conclude(formulaeInProver.unzip._2, currentOrder)
+    restartProofActor
   }
   
+  private def restartProofActor =
+    (proofActorStatus = ProofActorStatus.Init)
+
   private def functionalPreds = functionEnc.predTranslation.keySet.toSet
   
   //////////////////////////////////////////////////////////////////////////////
