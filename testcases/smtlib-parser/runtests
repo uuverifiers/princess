@@ -21,3 +21,5 @@ TESTS="bignum_quant.smt2 \
        simple-joogie.smt2"
 
 $PRI "$@" $TESTS
+
+$PRI "$@" +boolFunsAsPreds changing_truth_value_unsafe_garbage.c.smt2

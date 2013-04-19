@@ -160,7 +160,7 @@ object SMTParser2InputAbsy {
           if (index < subst.size && subst(index).isInstanceOf[IFormula]) =>
           ShortCutResult(subst(index))
           
-        case IQuantified(_, _) => {
+        case IQuantified(_, _) | IEpsilon(_) => {
           val (subst, shift) = substShift
           val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
           UniSubArgs((IVariable(0) :: newSubst, shift))
