@@ -41,31 +41,28 @@ all: scala-src
 
 doc: scala-src-doc
 
-jar: scala-src
-	cd bin && jar cf princess.jar ap
-
-dist: jar
+copy-jars-to-dist:
 	$(shell cp bin/princess.jar dist/)
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-actors.jar dist/)
-	java -jar $(PROGUARDJAR) @princess-proguard.pro
+
+jar: scala-src
+	cd bin && jar cf princess.jar ap
 
 jar-assertionless: scala-src-assertionless
 	cd bin && jar cf princess.jar ap
 
-dist-assertionless: jar-assertionless
-	$(shell cp bin/princess.jar dist/)
-	$(shell cp parser/parser.jar dist/)
-	$(shell cp smt-parser/smt-parser.jar dist/)
-	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
-	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
-	$(shell cp $(SCALALIBDIR)/scala-actors.jar dist/)
+dist: jar copy-jars-to-dist
 	java -jar $(PROGUARDJAR) @princess-proguard.pro
 
-signed-dist: dist
+dist-assertionless: jar-assertionless copy-jars-to-dist
+	java -jar $(PROGUARDJAR) @princess-proguard.pro
+
+signed-dist: jar copy-jars-to-dist
+	java -jar $(PROGUARDJAR) -dontusemixedcaseclassnames @princess-proguard.pro
 	$(JARSIGNERCMD) dist/princess-all.jar $(JARSIGNERALIAS)
 
 clean:
