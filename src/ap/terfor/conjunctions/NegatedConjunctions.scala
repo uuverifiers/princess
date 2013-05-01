@@ -146,12 +146,19 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def update(newConjs : Iterable[Conjunction], newOrder : TermOrder) : NegatedConjunctions =
-    // TODO: write a method updateSubset
+  def update(newConjs : Iterable[Conjunction],
+             newOrder : TermOrder) : NegatedConjunctions =
     if (this sameElements newConjs)
       this
     else
       NegatedConjunctions(newConjs, newOrder)
+  
+  def updateSubset(newConjs : Iterable[Conjunction],
+                   newOrder : TermOrder) : NegatedConjunctions =
+    if (this.size == newConjs.size)
+      this
+    else
+      new NegatedConjunctions(newConjs.toArray, newOrder)
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -198,7 +205,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
     }
 
     val (unchanged, changed) = Seqs.diff(this, oldConj)
-    (this.update(unchanged, order), this.update(changed, order))
+    (this.updateSubset(unchanged, order), this.updateSubset(changed, order))
   }
   
   //////////////////////////////////////////////////////////////////////////////
