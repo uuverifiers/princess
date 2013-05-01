@@ -560,7 +560,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
          new IterativeClauseMatcher(keptLits, clauses, matchAxioms, matchers,
                                     generatedInstances))
     } else {
-      val keptClauses = clauses.update(keptClausesSeq, clauses.order)
+      val keptClauses = clauses.updateSubset(keptClausesSeq, clauses.order)
       (removedClauses,
        new IterativeClauseMatcher(keptLits, keptClauses, matchAxioms, matchers,
                                   generatedInstances))
@@ -598,7 +598,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
        this
      else
        // reset the matchers
-       IterativeClauseMatcher(currentFacts, clauses.update(keptClauses, order),
+       IterativeClauseMatcher(currentFacts, clauses.updateSubset(keptClauses, order),
                               matchAxioms, reducedInstances))
   }
 

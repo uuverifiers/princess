@@ -102,7 +102,7 @@ object PresburgerTools {
         case Seq() => returnAll
         case Seq(disjunction) => {
           val divisibilitiesNegConj =
-            formula.negatedConjs.update(divisibilities, order)
+            formula.negatedConjs.updateSubset(divisibilities, order)
           val newConjuncts =
             conj(Array(conjuncts,
                        formula.updateNegatedConjs(divisibilitiesNegConj)(order)),
