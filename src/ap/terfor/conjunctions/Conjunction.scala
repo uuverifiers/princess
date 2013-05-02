@@ -802,7 +802,9 @@ class Conjunction private (val quans : Seq[Quantifier],
   //////////////////////////////////////////////////////////////////////////////
 
   override def equals(that : Any) : Boolean = that match {
-    case that : Conjunction => (this.quans sameElements that.quans) &&
+    case that : Conjunction => (this eq that) ||
+                               this.hashCodeVal == that.hashCodeVal &&
+                               (this.quans sameElements that.quans) &&
                                this.arithConj == that.arithConj &&
                                this.predConj == that.predConj &&
                                this.negatedConjs == that.negatedConjs

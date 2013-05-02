@@ -25,7 +25,7 @@ import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{Atom, Predicate, PredConj}
-import ap.util.{Debug, Logic, Seqs}
+import ap.util.{Debug, Logic, Seqs, Timeout}
 
 object NegatedConjunctions {
   
@@ -39,16 +39,24 @@ object NegatedConjunctions {
     apply(conjs.iterator, order)
 
   def apply(conjs : Iterator[Conjunction], order : TermOrder)
-                                                : NegatedConjunctions =
+                                                : NegatedConjunctions = {
+    var compareCnt = 0
+    def compareConjs(c1 : Conjunction, c2 : Conjunction) = {
+      compareCnt = compareCnt + 1
+      if (compareCnt % 100 == 0)
+        Timeout.check
+      compare(c1, c2, order) > 0
+    }
+
     Seqs.filterAndSort[Conjunction](conjs, c => c.isFalse, c => c.isTrue,
-                                    c => c,
-                                    (c1, c2) => compare(c1, c2, order) > 0) match {
-    case Seqs.FilteredSorted(sortedConjs) => {
-      val contractedConjs = Seqs.removeDuplicates(sortedConjs).toArray
-      new NegatedConjunctions (contractedConjs, order)      
+                                    c => c, compareConjs _) match {
+      case Seqs.FilteredSorted(sortedConjs) => {
+        val contractedConjs = Seqs.removeDuplicates(sortedConjs).toArray
+        new NegatedConjunctions (contractedConjs, order)      
+      }
+      case Seqs.FoundBadElement(_) => FALSE
     }
-    case Seqs.FoundBadElement(_) => FALSE
-    }
+  }
 
   /**
    * Rudimentary sorting of the contained conjunctions to achieve a somewhat
