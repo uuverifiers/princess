@@ -21,9 +21,7 @@
 
 package ap.parser;
 
-import ap.terfor.{ConstantTerm, TermOrder}
-import ap.terfor.conjunctions.Quantifier
-import ap.terfor.preds.Predicate
+import ap.terfor.TermOrder
 import ap.util.{Debug, Logic, APTestCase, PlainRange, Seqs}
 
 class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
@@ -92,7 +90,7 @@ class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
     val d = new ConstantTerm("d")
     val p = new Predicate("p", 2)
 
-    val to = (TermOrder.EMPTY /: List(c, d))((o, c) => o.extend(c, Set.empty)) extend p
+    val to = (TermOrder.EMPTY /: List(c, d))((o, c) => o.extend(c)) extendPred p
     
     InputAbsy2Internal(p(4, c), to)
     InputAbsy2Internal(ex(p(v(0), d)), to)

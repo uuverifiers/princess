@@ -29,7 +29,7 @@ import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, PrincessLineariser, IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
-                  Internal2InputAbsy, Simplifier}
+                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -42,9 +42,9 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(CASC version 2012-06-04)")
+    println("(CASC version 2013-05-13)")
     println
-    println("(c) Philipp Rümmer, 2009-2012")
+    println("(c) Philipp Rümmer, 2009-2013")
     println("(contributions by Angelo Brillout, Peter Baumgartner, Aleksandar Zeljic)")
     println("Free software under GNU General Public License (GPL).")
     println("Bug reports to ph_r@gmx.net")
@@ -60,44 +60,46 @@ object CmdlMain {
   
   def printOptions = {
     println("Options:")
-    println("  [+-]logo                      Print logo and elapsed time              (default: +)")
-    println("  [+-]printTree                 Output the constructed proof tree        (default: -)")
-    println("  -inputFormat=val              Specify format of problem file:          (default: auto)")
-    println("                                  auto, pri, smtlib, tptp")
-    println("  -printSMT=filename            Output the problem in SMT-Lib format     (default: \"\")")
-    println("  -printDOT=filename            Output the proof in GraphViz format      (default: \"\")")
-    println("  [+-]assert                    Enable runtime assertions                (default: -)")
-    println("  -timeout=val                  Set a timeout in milliseconds            (default: infty)")
-    println("  [+-]multiStrategy             Use a portfolio of different strategies  (default: -)")
-    println("  -simplifyConstraints=val      How to simplify constraints:")
-    println("                                  none:   not at all")
-    println("                                  fair:   by fair construction of a proof (default)")
-    println("                                  lemmas: by depth-first proof construction using lemmas")
-    println("  [+-]traceConstraintSimplifier Show the constraint simplifications done (default: -)")
-    println("  [+-]mostGeneralConstraint     Derive the most general constraint for this problem")
-    println("                                (quantifier elimination for PA formulae) (default: -)")
-    println("  [+-]dnfConstraints            Turn ground constraints into DNF         (default: +)")
-    println("  -clausifier=val               Choose the clausifier (none, simple)     (default: none)")
-    println("  [+-]posUnitResolution         Resolution of clauses with literals in   (default: +)")
-    println("                                the antecedent")
-    println("  -generateTriggers=val         Automatically generate triggers for quantified formulae")
-    println("                                  none:  not at all")
-    println("                                  total: for all total functions         (default)")
-    println("                                  all:   for all functions")
-    println("  -functionGC=val               Garbage-collect function terms")
-    println("                                  none:  not at all")
-    println("                                  total: for all total functions         (default)")
-    println("                                  all:   for all functions")
-    println("  [+-]tightFunctionScopes       Keep function application defs. local    (default: +)")
-    println("  [+-]boolFunsAsPreds           Encode boolean functions as predicates?  (default: -)")
-    println("                                (only used for SMT-LIB and TPTP)")
-    println("  [+-]genTotalityAxioms         Generate totality axioms for functions   (default: +)")
-    println("  -constructProofs=val          Extract proofs")
-    println("                                  never")
-    println("                                  ifInterpolating: if \\interpolant is present (default)")
-    println("                                  always")
-    println("  [+-]simplifyProofs            Simplify extracted proofs                (default: +)")
-    println("  [+-]elimInterpolantQuants     Eliminate quantifiers from interpolants  (default: +)")
+    println(" [+-]logo                  Print logo and elapsed time              (default: +)")
+    println(" [+-]quiet                 Suppress all output to stderr            (default: -)")
+    println(" [+-]printTree             Output the constructed proof tree        (default: -)")
+    println(" -inputFormat=val          Specify format of problem file:       (default: auto)")
+    println("                             auto, pri, smtlib, tptp")
+    println(" [+-]stdin                 Read SMT-LIB 2 problems from stdin       (default: -)")
+    println(" -printSMT=filename        Output the problem in SMT-Lib format    (default: \"\")")
+    println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
+    println(" [+-]assert                Enable runtime assertions                (default: -)")
+    println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
+    println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: -)")
+    println(" -simplifyConstraints=val  How to simplify constraints:")
+    println("                             none:   not at all")
+    println("                             fair:   fair construction of a proof (default)")
+    println("                             lemmas: depth-first proof construction using lemmas")
+    println(" [+-]traceConstraintSimplifier  Show constraint simplifications     (default: -)")
+    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
+    println("                           (quantifier elimination for PA formulae) (default: -)")
+    println(" [+-]dnfConstraints        Turn ground constraints into DNF         (default: +)")
+    println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
+    println(" [+-]posUnitResolution     Resolution of clauses with literals in   (default: +)")
+    println("                           the antecedent")
+    println(" -generateTriggers=val     Automatically choose triggers for quant. formulae")
+    println("                             none:  not at all")
+    println("                             total: for all total functions         (default)")
+    println("                             all:   for all functions")
+    println(" -functionGC=val           Garbage-collect function terms")
+    println("                             none:  not at all")
+    println("                             total: for all total functions         (default)")
+    println("                             all:   for all functions")
+    println(" [+-]tightFunctionScopes   Keep function application defs. local    (default: +)")
+    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
+    println(" [+-]boolFunsAsPreds       In smtlib and tptp, encode               (default: -)")
+    println("                           boolean functions as predicates")
+    println(" -constructProofs=val      Extract proofs")
+    println("                             never")
+    println("                             ifInterpolating: if \\interpolant occurs (default)")
+    println("                             always")
+    println(" [+-]simplifyProofs        Simplify extracted proofs                (default: +)")
+    println(" [+-]elimInterpolantQuants Eliminate quantifiers from interpolants  (default: +)")
   }
   
   private def printSMT(prover : AbstractFileProver,
@@ -249,123 +251,22 @@ object CmdlMain {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def proveProblems(settings : GlobalSettings,
-                    problems : Seq[(String, () => java.io.Reader)],
-                    userDefStoppingCond : => Boolean) : Unit = {
-    if (problems.isEmpty) {
-      Console.withOut(Console.err) {
-        println("No inputs given, exiting")
-      }
-      return
-    }
-    
+  def proveProblem(settings : GlobalSettings,
+                   name : String,
+                   reader : () => java.io.Reader,
+                   userDefStoppingCond : => Boolean)
+                  (implicit format : Param.InputFormat.Value) : Option[Prover.Result] = {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
 
     try {
-          for ((filename, reader) <- problems) try {
             val timeBefore = System.currentTimeMillis
-            
-            Console.withOut(Console.err) {
-              println("Loading " + filename + " ...")
-            }
 
-            lastFilename = (filename split "/").last stripSuffix ".p"
+            lastFilename = (name split "/").last stripSuffix ".p"
             
-            implicit val format = determineInputFormat(filename, settings)
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
             
             val prover = if (Param.MULTI_STRATEGY(settings)) {
               import ParallelFileProver._
-              
-              /*
-              val s1 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val s2 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val s3 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s
-              }
-              
-              val strategies =
-                List((s1, true, "+reverseFunctionalityPropagation -tightFunctionScopes"),
-                     (s2, false, "-genTotalityAxioms -tightFunctionScopes"),
-                     (s3, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"))
-              */
-                
-              /*
-              val S = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val J = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s
-              }
-              val P = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val Y = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val W = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s = Param.TRIGGERS_IN_CONJECTURE.set(s, false)
-                s
-              }
-              
-              val strategies =
-                List(Configuration(S, false, "-genTotalityAxioms -tightFunctionScopes", Long.MaxValue),
-                     Configuration(J, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation", Long.MaxValue),
-                     Configuration(P, true, "-triggerStrategy=allMaximal -tightFunctionScopes", Long.MaxValue),
-                     Configuration(Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes", Long.MaxValue),
-                     Configuration(W, false, "-genTotalityAxioms -tightFunctionScopes -triggersInConjecture", Long.MaxValue))
-
-              new ParallelFileProver(reader,
-                                     Param.TIMEOUT(settings),
-                                     true,
-                                     userDefStoppingCond,
-                                     strategies,
-                                     2)
-              */
               
               val rawStrategies =
                 List(("1010002", 8000),
@@ -423,8 +324,156 @@ object CmdlMain {
             Console.withOut(Console.err) {
               println
             }
+
+            printResult(prover.result, settings)
             
-            prover.result match {
+            val timeAfter = System.currentTimeMillis
+            
+            Console.withOut(Console.err) {
+              println
+              if (Param.LOGO(settings))
+                println("" + (timeAfter - timeBefore) + "ms")
+            }
+            
+            prover match {
+              case prover : AbstractFileProver => printSMT(prover, name, settings)
+              case _ => // nothing
+            }
+            
+            /* println
+            println(ap.util.Timer)
+            ap.util.Timer.reset */
+            
+            Some(prover.result)
+          } catch {
+      case _ : StackOverflowError => Console.withOut(Console.err) {
+        if (format == Param.InputFormat.SMTLIB)
+          println("unknown")
+        println("Stack overflow, giving up")
+        // let's hope that everything is still in a valid state
+        None
+      }
+      case _ : OutOfMemoryError => Console.withOut(Console.err) {
+        if (format == Param.InputFormat.SMTLIB)
+          println("unknown")
+        println("Out of memory, giving up")
+        System.gc
+        // let's hope that everything is still in a valid state
+        None
+      }
+      case e : Throwable => {
+        format match {
+          case Param.InputFormat.SMTLIB =>
+            println("error")
+          case Param.InputFormat.TPTP =>
+            println("% SZS status Error for " + lastFilename)
+        }
+        Console.err.println("ERROR: " + e.getMessage)
+//         e.printStackTrace
+        None
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def proveMultiSMT(settings : GlobalSettings,
+                    input : java.io.BufferedReader,
+                    userDefStoppingCond : => Boolean) = {
+    implicit val format = Param.InputFormat.SMTLIB
+    val interface = new IncrementalSMTLIBInterface {
+      protected def solve(input : String) : Option[Prover.Result] = {
+        Console.err.println("Checking satisfiability ...")
+        proveProblem(settings,
+                     "SMT-LIB 2 input",
+                     () => new java.io.StringReader(input),
+                     userDefStoppingCond)
+      }
+    }
+    interface.readInputs(input, settings)
+  }
+  
+  def proveProblems(settings : GlobalSettings,
+                    name : String,
+                    input : () => java.io.BufferedReader,
+                    userDefStoppingCond : => Boolean)
+                   (implicit format : Param.InputFormat.Value) = {
+    Console.err.println("Loading " + name + " ...")
+    format match {
+      case Param.InputFormat.SMTLIB =>
+        proveMultiSMT(settings, input(), userDefStoppingCond)
+      case _ => {
+        proveProblem(settings, name, input, userDefStoppingCond)
+      }
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def printResult(res : Prover.Result,
+                  settings : GlobalSettings)
+                 (implicit format : Param.InputFormat.Value) = format match {
+    case Param.InputFormat.SMTLIB => res match {
+              case Prover.Proof(tree) => {
+                println("unsat")
+                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
+              }
+              case Prover.ProofWithModel(tree, model) => {
+                println("unsat")
+                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
+              }
+              case Prover.NoProof(_) =>  {
+                println("unknown")
+              }
+              case Prover.CounterModel(model) =>  {
+                println("sat")
+                Console.withOut(Console.err) {
+                  println
+                  println("Model:")
+                  printFormula(model)
+                }
+              }
+              case Prover.NoCounterModel =>  {
+                println("unsat")
+              }
+              case Prover.NoCounterModelCert(cert) =>  {
+                println("unsat")
+                printDOTCertificate(cert, settings)
+              }
+              case Prover.NoCounterModelCertInter(cert, inters) => {
+                println("unsat")
+                printDOTCertificate(cert, settings)
+              }
+              case Prover.Model(model) =>  {
+                println("unsat")
+              }
+              case Prover.NoModel =>  {
+                println("sat")
+              }
+              case Prover.TimeoutProof(tree) =>  {
+                println("unknown")
+                Console.err.println("Cancelled or timeout")
+                if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
+              }
+              case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
+                println("unknown")
+                Console.err.println("Cancelled or timeout")
+              }
+    }
+
+    case Param.InputFormat.TPTP => res match {
               case Prover.Proof(tree) => {
                 Console.err.println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
@@ -587,46 +636,10 @@ object CmdlMain {
                 println("% SZS status Timeout for " + lastFilename)
               }
             }
-            
-            val timeAfter = System.currentTimeMillis
-            
-            Console.withOut(Console.err) {
-              println
-              if (Param.LOGO(settings))
-                println("" + (timeAfter - timeBefore) + "ms")
-            }
-            
-            prover match {
-              case prover : AbstractFileProver => printSMT(prover, filename, settings)
-              case _ => // nothing
-            }
-            
-            /* println
-            println(ap.util.Timer)
-            ap.util.Timer.reset */
-          } catch {
-            case _ : StackOverflowError => Console.withOut(Console.err) {
-              println("Stack overflow, giving up")
-              // let's hope that everything is still in a valid state
-            }
-            case _ : OutOfMemoryError => Console.withOut(Console.err) {
-              println("Out of memory, giving up")
-              System.gc
-              // let's hope that everything is still in a valid state
-            }
-          }
-    } catch {
-      case e : Throwable => {
-        Console.withOut(Console.err) {
-          println("ERROR: " + e.getMessage)
-//         e.printStackTrace
-        }
-        println("% SZS status Error for " + lastFilename)
-        return
-      }
-    }
   }
-
+  
+  //////////////////////////////////////////////////////////////////////////////
+  
   def main(args: Array[String]) : Unit = {
     val (settings, inputs) =
       try { // switch on proof construction by default in the iPrincess version
@@ -644,16 +657,36 @@ object CmdlMain {
       }
     }
 
+    if (Param.QUIET(settings))
+      Console setErr NullStream
+          
     if (Param.LOGO(settings)) Console.withOut(Console.err) {
       printGreeting
       println
     }
-    
-    proveProblems(settings,
-                  for (name <- inputs.view)
-                  yield (name,
-                         () => new java.io.BufferedReader (
-                               new java.io.FileReader(new java.io.File (name)))),
-                  false)
+
+    if (inputs.isEmpty && !Param.STDIN(settings)) {
+      Console.err.println("No inputs given, exiting")
+      return
+    }
+
+    for (filename <- inputs) {
+      implicit val format = determineInputFormat(filename, settings)
+      proveProblems(settings,
+                    filename,
+                    () => new java.io.BufferedReader (
+                            new java.io.FileReader(new java.io.File (filename))),
+                    false)
+    }
+
+    if (Param.STDIN(settings)) {
+      Console.err.println("Reading SMT-LIB 2 input from stdin ...")
+      proveMultiSMT(settings, Console.in, false)
+    }
   }
+  
+  object NullStream extends java.io.OutputStream {
+    def write(b : Int) = {}
+  }
+
 }

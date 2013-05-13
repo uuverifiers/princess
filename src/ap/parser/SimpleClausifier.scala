@@ -261,21 +261,21 @@ class SimpleClausifier {
           TryAgain(ex(f1) | ex(f2), true)
         
         case IQuantified(ALL, IBinFormula(Or, f1, f2))
-          if (!(SymbolCollector.variables(f1) contains IVariable(0))) =>
+          if (!ContainsSymbol(f1, IVariable(0))) =>
             TryAgain(VariableShiftVisitor(f1, 1, -1) | all(f2), true)
         case IQuantified(ALL, IBinFormula(Or, f1, f2))
-          if (!(SymbolCollector.variables(f2) contains IVariable(0))) =>
+          if (!ContainsSymbol(f2, IVariable(0))) =>
             TryAgain(all(f1) | VariableShiftVisitor(f2, 1, -1), true)
         
         case IQuantified(EX, IBinFormula(And, f1, f2))
-          if (!(SymbolCollector.variables(f1) contains IVariable(0))) =>
+          if (!ContainsSymbol(f1, IVariable(0))) =>
             TryAgain(VariableShiftVisitor(f1, 1, -1) & ex(f2), true)
         case IQuantified(EX, IBinFormula(And, f1, f2))
-          if (!(SymbolCollector.variables(f2) contains IVariable(0))) =>
+          if (!ContainsSymbol(f2, IVariable(0))) =>
             TryAgain(ex(f1) & VariableShiftVisitor(f2, 1, -1), true)
       
         case IQuantified(_, t)
-          if (!(SymbolCollector.variables(t) contains IVariable(0))) =>
+          if (!ContainsSymbol(t, IVariable(0))) =>
             ShortCutResult(VariableShiftVisitor(t, 1, -1))
           
         case t : IFormula =>
@@ -299,7 +299,7 @@ class SimpleClausifier {
         case IQuantified(EX, IBinFormula(Or, f1, f2)) =>
           TryAgain(ex(f1) | ex(f2), 0)
         case t@IQuantified(_, sub) =>
-          if (SymbolCollector.variables(sub) contains IVariable(0))
+          if (ContainsSymbol(sub, IVariable(0)))
             ShortCutResult(t)
           else
             ShortCutResult(VariableShiftVisitor(sub, 1, -1))

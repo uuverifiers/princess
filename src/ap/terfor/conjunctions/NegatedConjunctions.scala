@@ -25,7 +25,7 @@ import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{Atom, Predicate, PredConj}
-import ap.util.{Debug, Logic, Seqs}
+import ap.util.{Debug, Logic, Seqs, Timeout}
 
 object NegatedConjunctions {
   
@@ -39,16 +39,24 @@ object NegatedConjunctions {
     apply(conjs.iterator, order)
 
   def apply(conjs : Iterator[Conjunction], order : TermOrder)
-                                                : NegatedConjunctions =
+                                                : NegatedConjunctions = {
+    var compareCnt = 0
+    def compareConjs(c1 : Conjunction, c2 : Conjunction) = {
+      compareCnt = compareCnt + 1
+      if (compareCnt % 100 == 0)
+        Timeout.check
+      compare(c1, c2, order) > 0
+    }
+
     Seqs.filterAndSort[Conjunction](conjs, c => c.isFalse, c => c.isTrue,
-                                    c => c,
-                                    (c1, c2) => compare(c1, c2, order) > 0) match {
-    case Seqs.FilteredSorted(sortedConjs) => {
-      val contractedConjs = Seqs.removeDuplicates(sortedConjs).toArray
-      new NegatedConjunctions (contractedConjs, order)      
+                                    c => c, compareConjs _) match {
+      case Seqs.FilteredSorted(sortedConjs) => {
+        val contractedConjs = Seqs.removeDuplicates(sortedConjs).toArray
+        new NegatedConjunctions (contractedConjs, order)      
+      }
+      case Seqs.FoundBadElement(_) => FALSE
     }
-    case Seqs.FoundBadElement(_) => FALSE
-    }
+  }
 
   /**
    * Rudimentary sorting of the contained conjunctions to achieve a somewhat
@@ -142,16 +150,23 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
    
   def apply(i : Int) : Conjunction = conjs(i)
    
-  override def elements = conjs.iterator
+  def elements = conjs.iterator
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def update(newConjs : Iterable[Conjunction], newOrder : TermOrder) : NegatedConjunctions =
-    // TODO: write a method updateSubset
+  def update(newConjs : Iterable[Conjunction],
+             newOrder : TermOrder) : NegatedConjunctions =
     if (this sameElements newConjs)
       this
     else
       NegatedConjunctions(newConjs, newOrder)
+  
+  def updateSubset(newConjs : Iterable[Conjunction],
+                   newOrder : TermOrder) : NegatedConjunctions =
+    if (this.size == newConjs.size)
+      this
+    else
+      new NegatedConjunctions(newConjs.toArray, newOrder)
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -198,7 +213,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
     }
 
     val (unchanged, changed) = Seqs.diff(this, oldConj)
-    (this.update(unchanged, order), this.update(changed, order))
+    (this.updateSubset(unchanged, order), this.updateSubset(changed, order))
   }
   
   //////////////////////////////////////////////////////////////////////////////

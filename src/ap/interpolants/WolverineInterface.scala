@@ -30,7 +30,7 @@ import scala.collection.mutable.ArrayBuffer
 import ap._
 import ap.basetypes.IdealInt
 import ap.parser._
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.Conjunction
 import ap.terfor.TerForConvenience._
 import ap.util.{Debug, Seqs}
 

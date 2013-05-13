@@ -21,11 +21,12 @@
 
 package ap.proof.goal;
 
+import ap.terfor.arithconj.ModelElement
 import ap.terfor.{Term, Formula, ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, ConjunctEliminator}
 import ap.terfor.substitutions.Substitution
 import ap.parameters.Param
-import ap.util.{Debug, FilterIt}
+import ap.util.{Debug, FilterIt, LazyMappedSet}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 
 /**
@@ -89,11 +90,22 @@ case object EliminateFactsTask extends EagerTask {
 }
 
 
+private object Eliminator {
+  val constantTermFilter : PartialFunction[Term, ConstantTerm] = {
+    case c : ConstantTerm => c
+  }
+}
+
 private class Eliminator(oriFacts : Conjunction,
                          goal : Goal, ptf : ProofTreeFactory)
               extends ConjunctEliminator(oriFacts,
-                                         for (c <- goal.eliminatedConstants)
-                                           yield c.asInstanceOf[Term],
+                                         new LazyMappedSet[ConstantTerm, Term](
+                                           goal.eliminatedConstants,
+                                           _.asInstanceOf[Term],
+                                           Eliminator.constantTermFilter
+                                         ),
+//                                         for (c <- goal.eliminatedConstants)
+//                                           yield c.asInstanceOf[Term],
                                          Param.GARBAGE_COLLECTED_FUNCTIONS(goal.settings),
                                          true,
                                          goal.order) {
@@ -106,11 +118,9 @@ private class Eliminator(oriFacts : Conjunction,
     postProcessor = postProcessor compose
       ((pt:ProofTree) => ptf.weaken(pt, goal definedSyms f, goal.vocabulary))
   
-  protected def universalElimination(eliminatedConstant : ConstantTerm,
-                                     witness : (Substitution, TermOrder) => Substitution) =
+  protected def universalElimination(m : ModelElement) =
     postProcessor = postProcessor compose
-      ((pt:ProofTree) => ptf.eliminatedConstant(pt, eliminatedConstant,
-                                                witness, goal.vocabulary))
+      ((pt:ProofTree) => ptf.eliminatedConstant(pt, m, goal.vocabulary))
 
   protected def addDivisibility(f : Conjunction) =
     divJudgements = f :: divJudgements

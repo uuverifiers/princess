@@ -32,6 +32,11 @@ object Param {
     val defau : Boolean = true
   }
 
+  case object QUIET extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   object InputFormat extends Enumeration {
     val Auto, Princess, SMTLIB, TPTP = Value
   }
@@ -39,6 +44,11 @@ object Param {
   case object INPUT_FORMAT extends Param {
     type Value = InputFormat.Value
     val defau : InputFormat.Value = InputFormat.TPTP
+  }
+  
+  case object STDIN extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
   
   case object ASSERTIONS extends Param {
@@ -102,7 +112,7 @@ object Param {
   }
   
   object ClausifierOptions extends Enumeration {
-    val None, Simple, BooleanCompactify = Value
+    val None, Simple = Value
   }
   case object CLAUSIFIER extends Param {
     type Value = ClausifierOptions.Value
@@ -239,8 +249,8 @@ object Param {
   }
   
   case object ELIMINATE_INTERPOLANT_QUANTIFIERS extends Param {
-	type Value = Boolean
-	val defau : Boolean = true
+    type Value = Boolean
+    val defau : Boolean = true
   }
 
   case object REVERSE_FUNCTIONALITY_PROPAGATION extends Param {
@@ -249,8 +259,13 @@ object Param {
   }
 
   case object MATCHING_BASE_PRIORITY extends Param {
-	type Value = Int
-	val defau : Int = 500
+    type Value = Int
+    val defau : Int = 500
+  }
+
+  case object THEORY_PLUGIN extends Param {
+    type Value = Option[ap.proof.theoryPlugins.Plugin]
+    val defau : Option[ap.proof.theoryPlugins.Plugin] = None
   }
 }
 

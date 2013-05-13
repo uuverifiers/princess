@@ -21,8 +21,6 @@
 
 package ap.parser
 
-import ap.terfor.conjunctions.Quantifier
-import ap.terfor.ConstantTerm
 import ap.parameters.Param
 import ap.util.{Debug, Seqs}
 

@@ -25,6 +25,7 @@ import ap.proof._
 import ap.proof.goal.{PrioritisedTask, Goal, TaskManager, CompoundFormulas}
 import ap.proof.certificates.{BranchInferenceCollection, PartialCertificate}
 import ap.terfor.{Formula, ConstantTerm, TermOrder}
+import ap.terfor.arithconj.ModelElement
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions, Quantifier}
 import ap.terfor.substitutions.Substitution
 
@@ -50,13 +51,11 @@ abstract class ProofTreeFactory {
 
   /**
    * A callback to tell that a constant has been eliminated. Upon elimination,
-   * it must be possible to provide a witness, i.e., given a substitution that
-   * describes concrete values for all the remaining variables, a solution
-   * for <code>c</code> must be computable.
+   * it must be possible to provide a witness, i.e., a solution
+   * for the eliminated symbols must be computable.
    */
   def eliminatedConstant(subtree : ProofTree,
-                         c : ConstantTerm,
-                         witness : (Substitution, TermOrder) => Substitution,
+                         m : ModelElement,
                          vocabulary : Vocabulary) : ProofTree
              
   //////////////////////////////////////////////////////////////////////////////
@@ -67,6 +66,15 @@ abstract class ProofTreeFactory {
                  updatedVocabulary : Vocabulary,
                  updatedDefinedSyms : Substitution,
                  newTasks : Iterable[PrioritisedTask],
+                 branchInferences : BranchInferenceCollection,
+                 goal : Goal) : ProofTree
+
+  def updateGoal(updatedFacts : Conjunction,
+                 updatedCompoundFormulas : CompoundFormulas,
+                 updatedElimConstants : Set[ConstantTerm],
+                 updatedVocabulary : Vocabulary,
+                 updatedDefinedSyms : Substitution,
+                 updatedTasks : TaskManager,
                  branchInferences : BranchInferenceCollection,
                  goal : Goal) : ProofTree
 
@@ -96,6 +104,14 @@ abstract class ProofTreeFactory {
 
   def updateGoal(updatedFacts : Conjunction,
                  newTasks : Iterable[PrioritisedTask],
+                 branchInferences : BranchInferenceCollection,
+                 goal : Goal) : ProofTree =
+    updateGoal(updatedFacts, goal.compoundFormulas, goal.eliminatedConstants,
+               goal.vocabulary, goal.definedSyms, newTasks,
+               branchInferences, goal)
+
+  def updateGoal(updatedFacts : Conjunction,
+                 newTasks : TaskManager,
                  branchInferences : BranchInferenceCollection,
                  goal : Goal) : ProofTree =
     updateGoal(updatedFacts, goal.compoundFormulas, goal.eliminatedConstants,
@@ -183,9 +199,9 @@ abstract class ProofTreeFactory {
                goal.vocabulary, goal.definedSyms, List(),
                goal.branchInferences, goal)
 
-  /**
-   * Possibly exchange the whole task manager or update arbitrary tasks
-   */
-  def updateGoal(tasks : TaskManager, goal : Goal) : ProofTree
+  def updateGoal(tasks : TaskManager, goal : Goal) : ProofTree =
+    updateGoal(goal.facts, goal.compoundFormulas, goal.eliminatedConstants,
+               goal.vocabulary, goal.definedSyms, tasks,
+               goal.branchInferences, goal)
 
 }

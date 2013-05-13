@@ -106,11 +106,13 @@ abstract class EquationSet protected (protected val lhss : Array[LinearCombinati
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (lc <- this.iterator; v <- lc.variables.iterator) yield v)
+//    (for (lc <- this.iterator; v <- lc.variables.iterator) yield v).toSet
+    (for (lc <- this.iterator; v <- lc.variablesIterator) yield v).toSet
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (lc <- this.iterator; c <- lc.constants.iterator) yield c)
-      
+//    (for (lc <- this.iterator; c <- lc.constants.iterator) yield c).toSet
+    (for (lc <- this.iterator; c <- lc.constantsIterator) yield c).toSet
+
   def predicates : Set[Predicate] = Set.empty
 
   def groundAtoms : Set[Atom] = Set.empty

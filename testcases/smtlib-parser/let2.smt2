@@ -1,7 +1,7 @@
 
 (set-logic AUFLIA)
 
-(declare-fun f (Bool) Int)
+(declare-fun f (Int) Int)
 
 (set-option :inline-let false)
 

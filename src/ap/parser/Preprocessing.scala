@@ -23,7 +23,6 @@ package ap.parser
 
 import ap._
 import ap.terfor.{ConstantTerm, TermOrder}
-import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.util.Timeout
 
@@ -57,19 +56,24 @@ object Preprocessing {
 
     // turn the formula into a list of its named parts
     val fors = PartExtractor(f)
-    
-    // expand equivalences
-    val fors2 = for (f <- fors) yield EquivExpander(f).asInstanceOf[INamedPart]
+
+    // partial evaluation, expand equivalences
+    val fors2 = for (f <- fors)
+                yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
+
+    // compress chains of implications
+    val fors2b = for (INamedPart(n, f) <- fors2)
+                 yield INamedPart(n, ImplicationCompressor(f))
     
     // check whether we have to add assumptions about the domain size
     val fors3 = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
       case Param.FiniteDomainConstraints.DomainSize => {
         import IExpression._
         
-        for (f <- fors2) yield GuardIntroducingVisitor.visit(Transform2NNF(f), 0).asInstanceOf[INamedPart]
+        for (f <- fors2b) yield GuardIntroducingVisitor.visit(Transform2NNF(f), 0).asInstanceOf[INamedPart]
       }
       case _ =>
-        fors2
+        fors2b
     }
     
     val triggerGenerator =
@@ -112,19 +116,21 @@ object Preprocessing {
         newNoNamePart :: realNamedParts
       }
     }
+
+    // do some direct simplifications
+    val fors5b = 
+      for (f <- fors5) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     
     // do clausification
     val fors6 = Param.CLAUSIFIER(settings) match {
       case Param.ClausifierOptions.None =>
-        fors5
+        fors5b
       case Param.ClausifierOptions.Simple =>
         Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
-          for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
+          for (f <- fors5b) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
         )(throw new Exception("Clausification timed out"))
-      case Param.ClausifierOptions.BooleanCompactify =>
-        for (f <- fors5) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     }
-
+    
     (fors6, interpolantSpecs, signature updateOrder order3)
   }
   

@@ -19,7 +19,8 @@ TESTS="columnRed.pri cryptarithm.pri \
        wrongInterpolant3.pri omegaBug.pri splitEq.pri \
        incorrectPredInterpolant.pri certificateBug.pri \
        missingOmegaSupport.pri bignum_lia1.pri \
-       linear-combination-bug.pri div-right-bug.pri"
+       linear-combination-bug.pri div-right-bug.pri \
+       tree.pri"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 

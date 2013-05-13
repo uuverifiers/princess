@@ -111,7 +111,9 @@ object PrincessLineariser {
     case IBinFormula(IBinJunctor.Eqv, _, _)             => 0
     case IBinFormula(IBinJunctor.Or, _, _)              => 0
     case IBinFormula(IBinJunctor.And, _, _)             => 0
-    case _ : INot | _ : IQuantified | _ : INamedPart    => 3
+    case _ : ITermITE | _ : IFormulaITE                 => 1
+    case _ : INot | _ : IQuantified | _ : INamedPart |
+         _ : ITrigger                                   => 3
     case _ : IIntFormula                                => 4
     case _ : IPlus                                      => 5
     case _ : ITimes                                     => 6
@@ -190,6 +192,13 @@ object PrincessLineariser {
           print(fun.name)
           print("(")
           allButLast(ctxt setPrecLevel 0, ", ", ")", fun.arity)
+        }
+        
+        case _ : ITermITE | _ : IFormulaITE => {
+          print("\\if (")
+          SubArgs(List(ctxt setParentOp ") \\ then (",
+                       ctxt setParentOp ") \\ else (",
+                       ctxt setParentOp ")"))
         }
 
         // Formulae
@@ -283,6 +292,12 @@ object PrincessLineariser {
           if (name != PartName.NO_NAME)
             print("\\part[" + name + "] ")
           noParentOp(ctxt)
+        }
+        case ITrigger(trigs, _) => {
+          print("{")
+          SubArgs((for (_ <- 0 until (trigs.size - 1))
+                     yield (ctxt setParentOp ", ")) ++
+                  List(ctxt setParentOp "} ", ctxt setParentOp ""))
         }
       }
     }

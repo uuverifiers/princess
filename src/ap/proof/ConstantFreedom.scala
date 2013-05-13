@@ -211,7 +211,7 @@ class ConstantFreedom private (private val constantStatus :
       val newArithConj = arithConj updateNegativeEqs newNegativeEqs
 
       val newNegatedConjs =
-        negConj.negatedConjs.update(
+        negConj.negatedConjs.updateSubset(
           negConj.negatedConjs filterNot (isShielded(_, bc)), order)
       
       Conjunction(List(), newArithConj, negConj.predConj, newNegatedConjs,

@@ -102,7 +102,7 @@ object PresburgerTools {
         case Seq() => returnAll
         case Seq(disjunction) => {
           val divisibilitiesNegConj =
-            formula.negatedConjs.update(divisibilities, order)
+            formula.negatedConjs.updateSubset(divisibilities, order)
           val newConjuncts =
             conj(Array(conjuncts,
                        formula.updateNegatedConjs(divisibilitiesNegConj)(order)),
@@ -265,7 +265,7 @@ object PresburgerTools {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val bound = new ConstantTerm ("bound")
-    implicit val order = constraint.order.extend(bound, Set())
+    implicit val order = constraint.order.extend(bound)
     
     val inEqLC = objective - LinearCombination(bound, order)
     val boundInEq = InEqConj(inEqLC, order)
@@ -313,7 +313,7 @@ object PresburgerTools {
     
     val lowerBound = new ConstantTerm ("lowerBound")
     val upperBound = new ConstantTerm ("upperBound")
-    implicit val order = constraint.order.extend(lowerBound, Set()).extend(upperBound, Set())
+    implicit val order = constraint.order.extend(List(lowerBound, upperBound))
     
     val lowerInEqLC = objective - LinearCombination(lowerBound, order)
     val upperInEqLC = LinearCombination(upperBound, order) - objective

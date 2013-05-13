@@ -1,0 +1,19 @@
+#!/bin/sh
+
+unset CLASSPATH
+
+rm -f *.class
+
+OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin"
+
+scalac $OPTIONS SimpleAPITest.scala
+scala -cp ../../bin:. SimpleAPITest
+
+scalac $OPTIONS SimpleAPITest2.scala
+scala -cp ../../bin:. SimpleAPITest2
+
+scalac $OPTIONS SimpleAPITest3.scala
+scala -cp ../../bin:. SimpleAPITest3
+
+scalac $OPTIONS SimpleAPITest4.scala
+scala -cp ../../bin:. SimpleAPITest4

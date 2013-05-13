@@ -24,6 +24,7 @@ package ap.proof.goal;
 import ap.util.Debug
 import ap.basetypes.{LeftistHeap, HeapCollector}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.proof.theoryPlugins.Plugin
 
 object TaskManager {
   
@@ -43,9 +44,14 @@ object TaskManager {
   private val EMPTY_HEAP : TaskHeap =
     LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY)
     
-  val EMPTY : TaskManager =
-    new TaskManager (EMPTY_HEAP, EagerTaskManager.INITIAL)
+  def EMPTY(plugin : Plugin) : TaskManager =
+    new TaskManager (EMPTY_HEAP, (new EagerTaskAutomaton(Some(plugin))).INITIAL)
   
+  val EMPTY : TaskManager =
+    new TaskManager (EMPTY_HEAP, (new EagerTaskAutomaton(None)).INITIAL)
+  
+  private object TRUE_EXCEPTION extends Exception
+   
 }
 
 /**
@@ -61,6 +67,8 @@ class TaskManager private (// the regular tasks that have a priority
                            // regular tasks.
                            eagerTasks : EagerTaskManager) {
 
+  import TaskManager.TRUE_EXCEPTION
+  
   def +(t : PrioritisedTask) = new TaskManager (prioTasks + t, eagerTasks)
 
   def ++ (elems: Iterable[PrioritisedTask]): TaskManager =
@@ -100,6 +108,48 @@ class TaskManager private (// the regular tasks that have a priority
    */
   def max: Task = nextEagerTask getOrElse prioTasks.findMin
 
+  /**
+   * Dequeue as long as the given predicate is satisfied
+   */
+  def dequeueWhile(pred : Task => Boolean) : (TaskManager, Seq[Task]) = {
+    val buffer = Vector.newBuilder[Task]
+    
+    var newPrioTasks = prioTasks
+    var newEagerTasks = eagerTasks
+    var prioOption = newPrioTasks.findMinOption
+    
+    var cont = true
+    while (cont) {
+      (newEagerTasks recommend prioOption) match {
+        case None =>
+          // for some reason, pattern matching does not work at this point
+          // (compiler bug?)
+          if (prioOption.isDefined && pred(prioOption.get)) {
+            val task = prioOption.get
+            buffer += task
+            newPrioTasks = newPrioTasks.deleteMin
+            prioOption = newPrioTasks.findMinOption
+            newEagerTasks = newEagerTasks afterTask task
+          } else {
+            cont = false
+          }
+        case Some(task) =>
+          if (pred(task)) {
+            buffer += task
+            newEagerTasks = newEagerTasks afterTask task
+          } else {
+            cont = false
+          }
+      }
+    }
+    
+    val res = buffer.result
+    if (res.isEmpty)
+      (this, res)
+    else
+      (new TaskManager(newPrioTasks, newEagerTasks), res)
+  }
+  
   /**
    * Compute information about the prioritised tasks (eager tasks are not
    * considered at this point)
@@ -150,8 +200,6 @@ class TaskManager private (// the regular tasks that have a priority
     
     new TaskManager (newPrioTasks, eagerTasks)
   }
-   
-  private object TRUE_EXCEPTION extends Exception
    
   //////////////////////////////////////////////////////////////////////////////
 

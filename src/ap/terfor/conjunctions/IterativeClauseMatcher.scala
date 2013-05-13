@@ -547,6 +547,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                   newGeneratedInstances))
     }
 
+/*
   def updateClauses(newClauses : NegatedConjunctions,
                     mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
                     contextReducer : ReduceWithConjunction,
@@ -562,6 +563,37 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       val (oldClauses, addedClauses) = newClauses diff clauses
       val tempMatcher =
         IterativeClauseMatcher(PredConj.TRUE, addedClauses, false, generatedInstances)
+    
+      val (instances, _) =
+        tempMatcher.updateFacts(currentFacts,
+                                mayAlias, contextReducer, isIrrelevantMatch,
+                                allowConditionalInstances, logger, order)
+    
+      (instances,
+       IterativeClauseMatcher(currentFacts, newClauses, matchAxioms,
+                              generatedInstances ++ instances))
+    }
+*/
+
+  def addClauses(addedClauses : Iterable[Conjunction],
+                 mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
+                 contextReducer : ReduceWithConjunction,
+                 // predicate to distinguish the relevant matches
+                 // (e.g., to filter out shielded formulae)
+                 isIrrelevantMatch : (Conjunction, Set[ConstantTerm]) => Boolean,
+                 allowConditionalInstances : Boolean,
+                 logger : ComputationLogger,
+                 order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =
+    if (addedClauses.isEmpty) {
+      (List(), this)
+    } else {
+      val newClauses =
+        NegatedConjunctions(clauses.iterator ++ addedClauses.iterator, order)
+
+      val tempMatcher =
+        IterativeClauseMatcher(PredConj.TRUE,
+                               NegatedConjunctions(addedClauses, order),
+                               false, generatedInstances)
     
       val (instances, _) =
         tempMatcher.updateFacts(currentFacts,
@@ -593,7 +625,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
          new IterativeClauseMatcher(keptLits, clauses, matchAxioms, matchers,
                                     generatedInstances))
     } else {
-      val keptClauses = clauses.update(keptClausesSeq, clauses.order)
+      val keptClauses = clauses.updateSubset(keptClausesSeq, clauses.order)
       (removedClauses,
        new IterativeClauseMatcher(keptLits, keptClauses, matchAxioms, matchers,
                                   generatedInstances))
@@ -610,29 +642,34 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                     instanceReducer : (Conjunction) => Conjunction,
                     order : TermOrder)
                    : (NegatedConjunctions, IterativeClauseMatcher) = {
-    val reducedClauses =
-      clauses.update(for (c <- clauses) yield reduceIfNecessary(c, clauseReducer),
-                     order)
-
-    val (keptClauses, reductions) = reducedClauses diff clauses
+    
+    val keptClauses, reductions = new ArrayBuffer[Conjunction]
+    for (c <- clauses) {
+      val redC = reduceIfNecessary(c, clauseReducer)
+      if (redC == c)
+        keptClauses += c
+      else
+        reductions += redC
+    }
     
     // we also reduce the set of generated instances, because future
     // instantiations will be made modulo the new reducer
     val reducedInstances =
       for (i <- generatedInstances) yield reduceIfNecessary(i, instanceReducer)
     
-    (reductions,
+    (NegatedConjunctions(reductions, order),
      if (keptClauses.size == clauses.size && generatedInstances == reducedInstances)
        // nothing has changed
        this
      else
        // reset the matchers
-       IterativeClauseMatcher(currentFacts, keptClauses, matchAxioms, reducedInstances))
+       IterativeClauseMatcher(currentFacts, clauses.updateSubset(keptClauses, order),
+                              matchAxioms, reducedInstances))
   }
 
   private def reduceIfNecessary(conj : Conjunction,
                                 reducer : (Conjunction) => Conjunction) : Conjunction =
-    if (conj.constants.isEmpty && conj.groundAtoms.isEmpty) {
+    if (conj.constants.isEmpty && conj.predicates.isEmpty) {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // The assumption is that clauses without constants or ground atoms
       // are already fully reduced

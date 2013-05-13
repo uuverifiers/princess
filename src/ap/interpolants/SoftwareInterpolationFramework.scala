@@ -29,10 +29,11 @@ import scala.collection.mutable.{ArrayStack => MStack,
 import ap._
 import ap.basetypes.IdealInt
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
+import ap.parameters.{ParserSettings, PreprocessingSettings,
+                      GoalSettings, Param}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.TerForConvenience._
-import ap.terfor.{TermOrder, ConstantTerm}
+import ap.terfor.TermOrder
 import ap.proof.ModelSearchProver
 import ap.util.{Debug, Seqs}
 
@@ -58,7 +59,7 @@ abstract class SoftwareInterpolationFramework {
   private val (backgroundPred, preludeOrder, preludeEnv) = Console.withOut(Console.err) {
     print("Reading prelude ... ")
     val reader = ResourceFiles.preludeReader
-    val parser = ApParser2InputAbsy.apply
+    val parser = ApParser2InputAbsy(ParserSettings.DEFAULT)
     val (iBackgroundPredRaw, _, signature) = parser(reader)
     reader.close
 

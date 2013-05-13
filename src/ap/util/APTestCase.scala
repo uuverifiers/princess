@@ -21,24 +21,59 @@
 
 package ap.util;
 
-import scala.testing.SUnit
-import SUnit._
+import scala.collection.mutable.ArrayBuffer
 
-abstract class APTestCase(n : String) extends TestCase(n) {
+object APTestCase {
+
+  class TestException(msg : String) extends Exception(msg)
+
+  class TestResult {
+    val exceptions = new ArrayBuffer[Throwable]
+  }
+
+}
+
+abstract class APTestCase(n : String) {
   
-  override def run(r: TestResult) {
+  import APTestCase._
+
+  def runTest : Unit
+
+  def setUp : Unit = {}
+  def tearDown : Unit = {}
+
+  def run(r: TestResult) {
     // ensure that tests are deterministic
     Debug.initRandomGen(29473878)
 
-    // who is really supposed to invoke these methods?
     setUp
 
-    super.run(r)
+    try {
+      runTest
+    } catch {
+      case t : Throwable => r.exceptions += t
+    }
 
-    // who is really supposed to invoke these methods?
     tearDown
 
     print(".")
   }
   
+  def assertEquals(a : Any, b : Any) : Unit =
+    if (!(a == b))
+      throw new TestException("Expected " + a + " to be equal to " + b)
+
+  def assertEquals(msg : String, a : Any, b : Any) : Unit =
+    if (!(a == b))
+      throw new TestException("Expected " + a +
+                              " to be equal to " + b + ": " + msg)
+
+  def assertTrue(b : Boolean) : Unit =
+    if (!b)
+      throw new TestException("Expected condition to be true")
+
+  def assertTrue(msg : String, b : Boolean) : Unit =
+    if (!b)
+      throw new TestException("Expected condition to be true: " + msg)
+
 }

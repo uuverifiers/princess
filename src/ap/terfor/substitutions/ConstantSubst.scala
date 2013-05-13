@@ -34,8 +34,11 @@ object ConstantSubst {
     new ConstantSubst(Map((c, replacement)), order)
   
   def apply(replacements : scala.collection.Map[ConstantTerm, Term],
-            order : TermOrder) : ConstantSubst =
-    new ConstantSubst(replacements, order)
+            order : TermOrder) : Substitution =
+    if (replacements.isEmpty)
+      new IdentitySubst (order)
+    else
+      new ConstantSubst(replacements, order)
   
 }
 
@@ -80,7 +83,7 @@ class ConstantSubst private
     newReplacements ++= this.replacements
     
     for ((c, t) <- that.replacements)
-      newReplacements += (c -> this(t))
+      newReplacements.put(c, this(t))
     
     new ConstantSubst(newReplacements, order)
   }

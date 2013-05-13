@@ -38,44 +38,49 @@ object SMTLineariser {
   def apply(formula : IFormula) = formula match {
     case IBoolLit(value) => print(value)
     case _ => {
-      val lineariser = new SMTLineariser("", "", List(), List(), "", "", "")
+      val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "")
       lineariser printFormula formula
     }
   }
 
   def apply(formulas : Seq[IFormula], signature : Signature,
-            benchmarkName : String) = {
+            benchmarkName : String) : Unit =
+    apply(formulas, signature, "AUFLIA", "unknown", benchmarkName)
+
+  def apply(formulas : Seq[IFormula], signature : Signature,
+            logic : String, status : String,
+            benchmarkName : String) : Unit = {
     val order = signature.order
     
     val (finalFormulas, constsToDeclare) : (Seq[IFormula], Set[ConstantTerm]) =
       if (Seqs.disjoint(order.orderedConstants, signature.existentialConstants)) {
         // if all constants are universal, we do not have to add explicit quantifiers
-        (for (f <- formulas) yield !f,
+        (for (f <- formulas) yield ~f,
          signature.universalConstants ++ signature.nullaryFunctions)
       } else {
         val formula = IExpression.connect(formulas, IBinJunctor.Or)
         // add the nullary functions
         val withFunctions =
-          IExpression.quan(Quantifier.ALL, signature.nullaryFunctions, formula)
+          IExpression.quanConsts(Quantifier.ALL, signature.nullaryFunctions, formula)
         // ... and the existentially quantified constants
         val withExConstants =
-          IExpression.quan(Quantifier.EX,
-                           signature.existentialConstants,
-                           withFunctions)
+          IExpression.quanConsts(Quantifier.EX,
+                                 signature.existentialConstants,
+                                 withFunctions)
         // add the universally quantified constants
         val withUniConstants =
-          IExpression.quan(Quantifier.ALL,
-                           signature.universalConstants,
-                           withFunctions)
+          IExpression.quanConsts(Quantifier.ALL,
+                                 signature.universalConstants,
+                                 withFunctions)
         
-        (List(!withUniConstants), Set())
+        (List(~withUniConstants), Set())
       }
     
     val lineariser = new SMTLineariser(benchmarkName,
-                                       "AUFLIA",
-    		                           constsToDeclare.toList,
-    		                           order.orderedPredicates.toList,
-    		                           "fun", "pred", "const")
+                                       logic, status,
+                                       constsToDeclare.toList,
+                                       order.orderedPredicates.toList,
+                                       "fun", "pred", "const")
    
     lineariser.open
     for (f <- finalFormulas)
@@ -89,6 +94,7 @@ object SMTLineariser {
  */
 class SMTLineariser(benchmarkName : String,
                     logic : String,
+                    status : String,
                     constsToDeclare : Seq[ConstantTerm],
                     predsToDeclare : Seq[Predicate],
                     funPrefix : String, predPrefix : String, constPrefix : String) {
@@ -113,7 +119,7 @@ class SMTLineariser(benchmarkName : String,
     println("    Output by Princess (http://www.philipp.ruemmer.org/princess.shtml)")
     println("|)")
   
-    println("(set-info :status unknown)")
+    println("(set-info :status " + status + ")")
 
     // declare the required predicates
     for (pred <- predsToDeclare) {
@@ -184,6 +190,11 @@ class SMTLineariser(benchmarkName : String,
         KeepArg
       }
 
+      case _ : ITermITE | _ : IFormulaITE => {
+        print("(ite ")
+        KeepArg
+      }
+
       // Formulae
       case IAtom(pred, args) => {
         print((if (args.isEmpty) "" else "(") + pred2Identifier(pred) + " ")
@@ -226,14 +237,29 @@ class SMTLineariser(benchmarkName : String,
         print(" ((" + varName + " Int)) ")
         UniSubArgs(ctxt pushVar varName)
       }
+      case ITrigger(trigs, body) => {
+        // we have to handle this case recursively, since the
+        // order of the parameters has to be changed
+        
+        print("(! ")
+        visit(body, ctxt)
+        print(" :pattern (")
+        for (t <- trigs)
+          visit(t, ctxt)
+        print(")) ")
+        
+        ShortCutResult()
+      }
     }
     
     def postVisit(t : IExpression,
                   arg : PrintContext, subres : Seq[Unit]) : Unit = t match {
       case IPlus(_, _) | ITimes(_, _) | IAtom(_, Seq(_, _*)) | IFunApp(_, Seq(_, _*)) |
            IBinFormula(_, _, _) | IIntFormula(_, _) | INot(_) |
-           IQuantified(_, _) => print(") ")
-      case IAtom(_, _) | IFunApp(_, _) => // nothing
+           IQuantified(_, _) | ITermITE(_, _, _) | IFormulaITE(_, _, _) =>
+        print(") ")
+      case IAtom(_, _) | IFunApp(_, _) =>
+        // nothing
     }
   
   }

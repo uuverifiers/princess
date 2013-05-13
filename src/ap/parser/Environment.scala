@@ -51,7 +51,8 @@ object Environment {
 
 }
 
-class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
+class Environment[ConstantType, VariableType, PredicateType, FunctionType]
+      extends Cloneable {
 
   import Environment._
   
@@ -121,7 +122,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
     orderVar = kind match {
       case Universal =>
         // universal constants are minimal
-        orderVar.extend(c, Set.empty)
+        orderVar.extend(c)
       case NullaryFunction =>
         // nullary functions are maximal
         orderVar.extend(c, universalConstants ++ existentialConstants)
@@ -134,7 +135,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType] {
  
   def addPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit = {
     addSym(pred.name, Predicate(pred, typ))
-    orderVar = orderVar extend pred
+    orderVar = orderVar extendPred pred
   }
   
   def addDomainPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit = {

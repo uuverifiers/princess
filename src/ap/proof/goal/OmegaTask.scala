@@ -28,7 +28,7 @@ import ap.terfor.{Term, TermOrder, ConstantTerm, OneTerm}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions, Quantifier}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
-import ap.terfor.arithconj.{ArithConj, ModelFinder}
+import ap.terfor.arithconj.{ArithConj, InNegEqModelElement}
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Seqs, PlainRange, FilterIt, IdealRange}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
@@ -295,8 +295,7 @@ case object OmegaTask extends EagerTask {
               ArithConj.conj(InEqConj(lowerBounds.iterator ++ upperBounds.iterator,
                                       order), order)
             ptf.eliminatedConstant(darkShadowGoal,
-                                   elimConst,
-                                   new ModelFinder (eliminatedInEqs, elimConst),
+                                   InNegEqModelElement(eliminatedInEqs, elimConst),
                                    goal.vocabulary)
           })
                                              
@@ -345,8 +344,8 @@ case object OmegaTask extends EagerTask {
                          order : TermOrder) : Seq[LinearCombination] =
     (for ((geq, cases) <- lowerBounds.iterator zip
                           strengthenCases(elimConst, lowerBounds, upperBounds);
-          val geqCoeff = (geq get elimConst).abs;
-          val casesSucc = -(cases + IdealInt.ONE);
+          geqCoeff = (geq get elimConst).abs;
+          casesSucc = -(cases + IdealInt.ONE);
           leq <- upperBounds.iterator) yield {
        val leqCoeff = (leq get elimConst).abs
        val correction = casesSucc * leqCoeff // always negative
@@ -375,7 +374,7 @@ case object OmegaTask extends EagerTask {
                              : Iterator[IdealInt] = {
     val m =
       IdealInt.max(for (lc <- upperBounds.iterator) yield (lc get elimConst).abs)
-    for (lc <- lowerBounds.iterator; val coeff = (lc get elimConst).abs)
+    for (lc <- lowerBounds.iterator; coeff = (lc get elimConst).abs)
       yield (((m - IdealInt.ONE) * coeff - m) / m)
   }
   
@@ -749,7 +748,7 @@ case object OmegaTask extends EagerTask {
                         upper : Boolean) : Option[IdealInt] = {
     val x = new ConstantTerm ("x")
     val y = new ConstantTerm ("y")
-    val order = TermOrder.EMPTY.extend(x, Set()).extend(y, Set()).extend(c, Set())
+    val order = TermOrder.EMPTY.extend(List(x, y, c))
     
     val one = if (upper) IdealInt.MINUS_ONE else IdealInt.ONE
     val minus_one = -one

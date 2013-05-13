@@ -28,7 +28,6 @@ import IBinJunctor._
 import IIntRelation._
 import IExpression._
 import Quantifier._
-import SymbolCollector.variables
 
 /**
  * Class to simplify input formulas using various rewritings
@@ -59,9 +58,9 @@ class Simplifier {
     case IQuantified(EX, IBinFormula(Or, f1, f2)) => ex(f1) | ex(f2)
 
     case IQuantified(ALL, f@IBinFormula(Or, f1, f2)) => {
-      if (!(variables(f1) contains IVariable(0)))
+      if (!ContainsSymbol(f1, IVariable(0)))
         VariableShiftVisitor(f1, 1, -1) | all(f2)
-      else if (!(variables(f2) contains IVariable(0)))
+      else if (!ContainsSymbol(f2, IVariable(0)))
         all(f1) | VariableShiftVisitor(f2, 1, -1)
       else f match {
         case AndSplitter(f1, f2) => all(f1) & all(f2)
@@ -70,9 +69,9 @@ class Simplifier {
     }
                                         
     case IQuantified(EX, f@IBinFormula(And, f1, f2)) => {
-      if (!(variables(f1) contains IVariable(0)))
+      if (!ContainsSymbol(f1, IVariable(0)))
         VariableShiftVisitor(f1, 1, -1) & ex(f2)
-      else if (!(variables(f2) contains IVariable(0)))
+      else if (!ContainsSymbol(f2, IVariable(0)))
         ex(f1) & VariableShiftVisitor(f2, 1, -1)
       else f match {
         case OrSplitter(f1, f2) => ex(f1) | ex(f2)
@@ -81,7 +80,7 @@ class Simplifier {
     }
       
     case IQuantified(_, t)
-      if (!(variables(t) contains IVariable(0))) =>
+      if (!ContainsSymbol(t, IVariable(0))) =>
         VariableShiftVisitor(t, 1, -1)
 
     case _ => expr
@@ -210,7 +209,10 @@ class Simplifier {
     }
   
   private def allIndexesLargerThan(t : IExpression, limit : Int) : Boolean =
-    variables(t) forall ((v) => v.index > limit)
+    !ContainsSymbol(t, (x:IExpression) => x match {
+      case IVariable(index) => index <= limit
+      case _ => false
+    })
   
   /**
    * Pull up universal or existential quantifiers as far as possible. This can

@@ -106,27 +106,24 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int,
                             goal : Goal,
                             collector : BranchInferenceCollector,
                             eager : Boolean,
-                            addClauses : Iterable[Conjunction])
+                            addedClauses : Iterable[Conjunction])
                            : (CompoundFormulas, Iterable[FormulaTask]) =
-    if (addClauses.isEmpty) {
+    if (addedClauses.isEmpty) {
       (cf, List())
     } else {
     val order = goal.order
     val voc = goal.vocabulary
     
     val oldMatcher = cf.quantifierClauses(eager)
-    val newClauses =
-      NegatedConjunctions(oldMatcher.clauses.iterator ++ addClauses.iterator,
-                          order)
     
     val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
     val (instances, newMatcher) =
-      oldMatcher.updateClauses(newClauses,
-                               goal.mayAlias,
-                               goal.reduceWithFacts,
-                               (MatchFunctions.isIrrelevantInstance(_, voc, _, reverseProp)),
-                               reverseProp,
-                               collector, order)
+      oldMatcher.addClauses(addedClauses,
+                            goal.mayAlias,
+                            goal.reduceWithFacts,
+                            (MatchFunctions.isIrrelevantInstance(_, voc, _, reverseProp)),
+                            reverseProp,
+                            collector, order)
     
     val newCF = cf.updateQuantifierClauses(eager, newMatcher)
     

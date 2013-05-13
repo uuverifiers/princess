@@ -1,5 +1,6 @@
 (set-logic AUFLIA)
 
+(set-option :produce-interpolants true)
 (set-option :totality-axiom false)  ; it would work better to use the
                                     ; option -genTotalityAxioms
                                     ; (then the trigger below would not

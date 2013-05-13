@@ -25,8 +25,8 @@ import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
 
 import ap.Signature
 import ap.terfor.TermOrder
-import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.Quantifier
+//import ap.terfor.preds.Predicate
+//import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
 
 object FunctionEncoder {
@@ -47,7 +47,7 @@ object FunctionEncoder {
   //////////////////////////////////////////////////////////////////////////////
  
   private def withMinimalScope(t : IFormula, f : (IFormula) => IFormula,
-                               criticalVars : Iterable[IVariable]) : IFormula =
+                               criticalVars : Set[IVariable]) : IFormula =
     t match {
       case IBinFormula(op, _, _) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -56,8 +56,7 @@ object FunctionEncoder {
         //-END-ASSERTION-///////////////////////////////////////////////////////
         val parts = LineariseVisitor(t, op)
         val (outside, inside) =
-          parts partition (x => Seqs.disjointSeq(SymbolCollector variables x,
-                                                 criticalVars))
+          parts partition (x => ContainsSymbol.freeFrom(x, criticalVars))
         val outsideFor = connect(outside, op)
         val insideFor = if (inside.size == 1)
           withMinimalScope(inside(0), f, criticalVars)
@@ -174,7 +173,7 @@ object FunctionEncoder {
 
     var curFrame = topFrame
     var tVars =
-      Set() ++ (for (v <- (SymbolCollector variables t).iterator) yield v.index)
+      (for (v <- (SymbolCollector variables t).iterator) yield v.index).toSet
     
     // We insert the definition of the new bound variable at the outermost
     // possible point, which is determined by the variables occurring in
@@ -239,10 +238,20 @@ object FunctionEncoder {
  */
 class FunctionEncoder (tightFunctionScopes : Boolean,
                        genTotalityAxioms : Boolean,
-                       functionTypes : Map[IFunction, Signature.FunctionType]) {
+                       functionTypes : Map[IFunction, Signature.FunctionType]) extends Cloneable {
   
   import FunctionEncoder._
   import IExpression._
+  
+  override def clone : FunctionEncoder = {
+    val res = new FunctionEncoder(tightFunctionScopes, genTotalityAxioms, functionTypes)
+    
+    res.axiomsVar = this.axiomsVar
+    res.relations ++= this.relations
+    res.predTranslation ++= this.predTranslation
+    
+    res
+  }
   
   def apply(f : IFormula, order : TermOrder) : (IFormula, TermOrder) = {
     val nnfF = Transform2NNF(f)
@@ -317,7 +326,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     private def toRelation(fun : IFunction) : Predicate = 
       relations.getOrElseUpdate(fun, {
         val pred = new Predicate(fun.name, fun.arity + 1)
-        order = order extend pred
+        order = order extendPred pred
         if (!fun.relational)
           axiomsVar = axiomsVar &&& functionality(pred)
         if (!fun.partial && genTotalityAxioms)
@@ -376,7 +385,8 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         
         val unmatched = if (minimiseScope)
           withMinimalScope(f, addNegAbstractions _,
-                           for ((_, n) <- negAbstractions) yield IVariable(n))
+                           (for ((_, n) <- negAbstractions.iterator)
+                              yield IVariable(n)).toSet)
         else
           addNegAbstractions(f)
       

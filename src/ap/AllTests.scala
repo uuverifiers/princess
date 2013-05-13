@@ -21,10 +21,19 @@
 
 package ap;
 
-import scala.testing.SUnit
-import SUnit._
+import ap.util.APTestCase
 
-object AllTests extends TestSuite with App {
+import scala.collection.mutable.ArrayBuffer
+
+object AllTests extends App {
+
+  val tests = new ArrayBuffer[APTestCase]  
+
+  def addTest(t : APTestCase) = (tests += t)
+
+  def run(r : APTestCase.TestResult) : Unit =
+    for (t <- tests)
+      t.run(r)
 
   addTest(new ap.basetypes.TestIdealInt ("testDiv"))
   addTest(new ap.basetypes.TestIdealInt ("testReduceAbs"))
@@ -78,7 +87,7 @@ object AllTests extends TestSuite with App {
 
   val timeBefore = System.currentTimeMillis
   
-  val r = new TestResult()
+  val r = new APTestCase.TestResult()
   run(r)
   
   val timeAfter = System.currentTimeMillis
@@ -87,9 +96,8 @@ object AllTests extends TestSuite with App {
   println("Time needed: " + (timeAfter - timeBefore) + "ms")
   println
   
-  for(tf <- r.failures()) { 
-    Console.println( tf.toString()) 
-    Console.println( tf.trace )
+  for(tf <- r.exceptions) { 
+    tf.printStackTrace
   }
   
 }

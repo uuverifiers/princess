@@ -45,6 +45,8 @@ object GlobalSettings {
       settings = arg match {
         case Opt("logo", value) =>
           Param.LOGO.set(settings, value)
+        case Opt("quiet", value) =>
+          Param.QUIET.set(settings, value)
         case ValueOpt("inputFormat", "auto") =>
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.Auto)
         case ValueOpt("inputFormat", "pri") =>
@@ -53,6 +55,8 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.SMTLIB)
         case ValueOpt("inputFormat", "tptp") =>
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
+        case Opt("stdin", value) =>
+          Param.STDIN.set(settings, value)
         case Opt("printTree", value) =>
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>
@@ -141,7 +145,7 @@ object GlobalSettings {
   }
   
   val allParams =
-    List(Param.LOGO, Param.INPUT_FORMAT,
+    List(Param.LOGO, Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
          Param.ASSERTIONS, Param.PRINT_TREE, Param.PRINT_SMT_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
@@ -153,9 +157,8 @@ object GlobalSettings {
          Param.GENERATE_TOTALITY_AXIOMS,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
-         Param.TRIGGER_STRATEGY, Param.MULTI_STRATEGY,
-         Param.TRIGGERS_IN_CONJECTURE, Param.FINITE_DOMAIN_CONSTRAINTS,
-         Param.CLAUSIFIER_TIMEOUT)
+         Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
+         Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -171,10 +174,21 @@ object GoalSettings {
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.FINITE_DOMAIN_CONSTRAINTS, Param.DOMAIN_PREDICATES,
-                       Param.PREDICATE_MATCH_CONFIG)
+                       Param.PREDICATE_MATCH_CONFIG,
+                       Param.THEORY_PLUGIN)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
+  
+}
+
+object ParserSettings {
+
+  val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
+                       Param.TRIGGERS_IN_CONJECTURE)
+
+  val DEFAULT =
+    new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())
   
 }
 
@@ -245,27 +259,26 @@ class GlobalSettings(_paramMap : Map[Param, Any])
   protected def setParams(paramMap : Map[Param, Any]) =
     new GlobalSettings(paramMap)
     
-  def toGoalSettings : GoalSettings = {
-    var res = GoalSettings.DEFAULT
+  private def subSettings[A <: Settings[A]]
+                         (params : Seq[Param], init : A) : A = {
+    var res = init
     
     for ((p, v) <- paramMap) {
-      if (GoalSettings.allParams contains p)
+      if (params contains p)
         res = res + (p, v)
     }
     
     res
   }
+  
+  def toGoalSettings : GoalSettings =
+    subSettings(GoalSettings.allParams, GoalSettings.DEFAULT)
     
-  def toPreprocessingSettings : PreprocessingSettings = {
-    var res = PreprocessingSettings.DEFAULT
+  def toParserSettings : ParserSettings =
+    subSettings(ParserSettings.allParams, ParserSettings.DEFAULT)
     
-    for ((p, v) <- paramMap) {
-      if (PreprocessingSettings.allParams contains p)
-        res = res + (p, v)
-    }
-    
-    res
-  }
+  def toPreprocessingSettings : PreprocessingSettings =
+    subSettings(PreprocessingSettings.allParams, PreprocessingSettings.DEFAULT)
 }
 
 class GoalSettings(_paramMap : Map[Param, Any])
@@ -274,6 +287,14 @@ class GoalSettings(_paramMap : Map[Param, Any])
   
   protected def setParams(paramMap : Map[Param, Any]) =
     new GoalSettings(paramMap)
+}
+
+class ParserSettings(_paramMap : Map[Param, Any])
+      extends Settings[ParserSettings](_paramMap) {
+  protected val allParams = ParserSettings.allParams
+  
+  protected def setParams(paramMap : Map[Param, Any]) =
+    new ParserSettings(paramMap)
 }
 
 class PreprocessingSettings(_paramMap : Map[Param, Any])

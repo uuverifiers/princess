@@ -21,9 +21,9 @@
 
 package ap.parser
 
-import ap.terfor.{Term, Formula, OneTerm, ConstantTerm, VariableTerm}
+import ap.terfor.{Term, Formula, OneTerm, VariableTerm}
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.preds.{Predicate, PredConj, Atom}
+import ap.terfor.preds.{PredConj, Atom}
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.conjunctions.Conjunction
@@ -39,6 +39,8 @@ import scala.collection.{Map => MMap}
 object Internal2InputAbsy {
   private val AC = Debug.AC_INPUT_ABSY
   
+  import IExpression._
+  
   def apply(f : Formula, predTranslation : MMap[Predicate, IFunction]) : IFormula =
     new Internal2InputAbsy(predTranslation).convert(f)
 
@@ -51,7 +53,7 @@ object Internal2InputAbsy {
 
 }
 
-class Internal2InputAbsy(predTranslation : MMap[Predicate, IFunction]) {
+class Internal2InputAbsy(predTranslation : MMap[IExpression.Predicate, IFunction]) {
   
   import IExpression._
   

@@ -21,7 +21,7 @@
 
 package ap.terfor.inequalities;
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet}
 
 import ap.terfor._
 import ap.basetypes.IdealInt
@@ -174,46 +174,43 @@ object InEqConj {
 
     val geqs = new ArrayBuffer[LinearCombination]
     val leqs = new ArrayBuffer[LinearCombination]
-    val remainder = new ArrayBuffer[LinearCombination]
+    val remainder = new LinkedHashSet[LinearCombination]
     
     for (lc <- inEqs) {
       (lc get t).signum match {
-        case 0 => remainder += lc
+        case 0 => remainder add lc
         case 1 => geqs += lc
         case -1 => leqs += lc
       }
     }
     
-    def addRemainingLC(lc : LinearCombination) : Unit =
+    def addRemainingLC(coeff1 : IdealInt, lc1 : LinearCombination,
+                       coeff2 : IdealInt, lc2 : LinearCombination) : Unit = {
+      val lc = LinearCombination.sum(coeff1, lc1, coeff2, lc2, order)
       if (lc.isConstant) {
         if (lc.constant.signum < 0) {
-          logger.cieScope.finish(lc, lc)
+          logger.combineInequalities(coeff1, lc1, coeff2, lc2, lc, lc, order)
           throw UNSATISFIABLE_INEQ_EXCEPTION
         }
       } else {
         val primLC = lc.makePrimitive
-        logger.cieScope.finish(lc, primLC)
-        remainder += primLC
+        if (remainder add primLC)
+          logger.combineInequalities(coeff1, lc1, coeff2, lc2, lc, primLC, order)
       }
+    }
 
     // Determine whether the geqs or the leqs have to be multiplied with the
     // coefficients from the other list
     if (geqs exists ((lc) => (lc get t) > IdealInt.ONE)) {
-      for (geq <- geqs; val tCoeff = geq get t; leq <- leqs)
-        logger.cieScope.start((IdealInt.ONE, geq, tCoeff, leq, order)) {
-          addRemainingLC(LinearCombination.sum(IdealInt.ONE, geq,
-                                               tCoeff, leq, order))
-        }
+      for (geq <- geqs; tCoeff = geq get t; leq <- leqs)
+        addRemainingLC(IdealInt.ONE, geq, tCoeff, leq)
     } else {
-      for (leq <- leqs; val tCoeff = (leq get t).abs; geq <- geqs)
-        logger.cieScope.start((tCoeff, geq, IdealInt.ONE, leq, order)) {
-          addRemainingLC(LinearCombination.sum(tCoeff, geq,
-                                               IdealInt.ONE, leq, order))
-        }
+      for (leq <- leqs; tCoeff = (leq get t).abs; geq <- geqs)
+        addRemainingLC(tCoeff, geq, IdealInt.ONE, leq)
     }
 
     geqs ++= leqs
-    (geqs, remainder)
+    (geqs, remainder.toSeq)
   }
   
   object UNSATISFIABLE_INEQ_EXCEPTION extends Exception
@@ -467,10 +464,12 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =
-    Set.empty ++ (for (lc <- geqZero.iterator; v <- lc.variables.iterator) yield v)
+//    (for (lc <- geqZero.iterator; v <- lc.variables.iterator) yield v).toSet
+    (for (lc <- geqZero.iterator; v <- lc.variablesIterator) yield v).toSet
 
   lazy val constants : Set[ConstantTerm] =
-    Set.empty ++ (for (lc <- geqZero.iterator; c <- lc.constants.iterator) yield c)
+//    (for (lc <- geqZero.iterator; c <- lc.constants.iterator) yield c).toSet
+    (for (lc <- geqZero.iterator; c <- lc.constantsIterator) yield c).toSet
 
   def predicates : Set[Predicate] = Set.empty
 

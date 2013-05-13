@@ -45,63 +45,54 @@ object BooleanCompactifier {
   //////////////////////////////////////////////////////////////////////////////
 
   private object CollectLiterals
-                 extends CollectingVisitor[Unit, IFormula] {
+                 extends CollectingVisitor[Unit, IExpression] {
     import SimpleClausifier.Literal
     import IBinJunctor._
     
-    def apply(f : IFormula) : IFormula = this.visit(f, {})
+    def apply(f : IFormula) : IFormula = this.visit(f, {}).asInstanceOf[IFormula]
     
-    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression =
       t match {
-        case Literal(t) =>
-          // do not look into atoms
-          ShortCutResult(t)
-        case _ =>
-          KeepArg
-      }
-  
-    def postVisit(t : IExpression, arg : Unit, subres : Seq[IFormula]) : IFormula =
-      t match {
-        case t@IBinFormula(j, _, _)
-          if (isBinFor(j, subres(0)) || isBinFor(j, subres(1))) =>
-          // look at some larger formula containing this one
-          t update subres
-
-        case t@IBinFormula(j, _, _) => {
-          val oppJ = j match {
-            case And => Or
-            case Or => And
-          }
-          
-          val leftFors  = LineariseVisitor(subres(0), oppJ)
-          val rightFors = LineariseVisitor(subres(1), oppJ)
-          val rightForsSet = rightFors.toSet
-          
-          val commonFors = leftFors filter (rightForsSet contains _)
-
-          if (commonFors.isEmpty) {
+        case t@IBinFormula(j, _, _) => subres match {
+          case Seq(IBinFormula(`j`, _, _), _) | Seq(_, IBinFormula(`j`, _, _)) =>
+            // look at some larger formula containing this one
             t update subres
-          } else {
-            val commonForsSet = commonFors.toSet
             
-            val newLeft =
-              connect(leftFors.iterator filterNot (commonForsSet contains _), oppJ)
-            val newRight =
-              connect(rightFors.iterator filterNot (commonForsSet contains _), oppJ)
+          case Seq(_ : IBinFormula, _) | Seq(_, _ : IBinFormula) => {
+            val oppJ = j match {
+              case And => Or
+              case Or => And
+            }
+          
+            val leftFors  = LineariseVisitor(subres(0).asInstanceOf[IFormula], oppJ)
+            val rightFors = LineariseVisitor(subres(1).asInstanceOf[IFormula], oppJ)
+            val rightForsSet = rightFors.toSet
+          
+            val commonFors = leftFors filter (rightForsSet contains _)
+
+            if (commonFors.isEmpty) {
+              t update subres
+            } else {
+              val commonForsSet = commonFors.toSet
             
-            IBinFormula(oppJ, connect(commonFors, oppJ),
-                        IBinFormula(j, newLeft, newRight))
+              val newLeft =
+                connect(leftFors.iterator filterNot (commonForsSet contains _), oppJ)
+              val newRight =
+                connect(rightFors.iterator filterNot (commonForsSet contains _), oppJ)
+            
+              IBinFormula(oppJ, connect(commonFors, oppJ),
+                          IBinFormula(j, newLeft, newRight))
+            }
           }
+
+          case Seq(s1, s2) =>
+            if (s1 == s2) s1 else (t update subres)
         }
-        
-        case t : IFormula =>
+      
+        case t =>
           t update subres
       }
-    
-    private def isBinFor(j : IBinJunctor.Value, f : IFormula) = f match {
-      case IBinFormula(`j`, _, _) => true
-      case _ => false
-    }
   }
   
   

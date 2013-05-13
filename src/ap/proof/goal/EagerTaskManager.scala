@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,15 +21,46 @@
 
 package ap.proof.goal;
 
+import ap.proof.theoryPlugins.{Plugin, AxiomGenTask}
 
-object EagerTaskManager {
 
-  import WrappedFormulaTask.{unwrapReal, MaybeWrapped}
+/**
+ * A class for tracking the application of tasks and recommending the
+ * intermediate application of <code>EagerTask</code>s. This class is
+ * implemented as a finite automaton to give recommendations based on the
+ * history of task applications
+ */
+abstract class EagerTaskManager {
+
+  /**
+   * Tell the manager that a certain task was applied
+   */
+  def afterTask(task : Task) : EagerTaskManager
+
+  /**
+   * Obtain a recommendation from the manager, given the next
+   * <code>PrioritisedTask</code> in the queue. If the queue is empty,
+   * <code>None</code> should be given as argument
+   */
+  def recommend(nextPrioritisedTask : Option[PrioritisedTask]) : Option[EagerTask]
   
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object EagerTaskAutomaton {
+
   private def unwrapRealOption(npt : Option[PrioritisedTask]) = npt match {
     case Some(WrappedFormulaTask(realTask, _)) => Some(realTask)
     case _ => npt
   }
+  
+}
+
+class EagerTaskAutomaton(plugin : Option[Plugin]) {
+
+  import WrappedFormulaTask.{unwrapReal, MaybeWrapped}
+  import EagerTaskAutomaton.unwrapRealOption
   
   /**
    * Abstract superclass for the task managers that are currently used (to
@@ -61,6 +92,8 @@ object EagerTaskManager {
                  extends DefaultEagerTaskManager(Some(FactsNormalisationTask),
                                                  false) {
     def afterTask(task : Task) = unwrapReal(task) match {
+      case FactsNormalisationTask
+            if (plugin.isDefined) => NormalisedFactsInvokePlugin
       case FactsNormalisationTask => NormalisedFacts
       case _ =>                      NonNormalisedFacts
     }
@@ -75,8 +108,32 @@ object EagerTaskManager {
   }
 
   /**
+   * It is known that <code>FactsNormalisationTask</code> has been applied, and the
+   * facts of the current goal are normalised; the theory plugin should be applied
+   * next
+   */
+  private object NormalisedFactsInvokePlugin
+                 extends DefaultEagerTaskManager(
+                           for (p <- plugin) yield (new AxiomGenTask(p)),
+                           true) {
+    def afterTask(task : Task) = unwrapReal(task) match {
+      case _ : AddFactsTask =>   NonNormalisedFacts
+      case _ : AxiomGenTask =>   NormalisedFacts
+      case _ =>                  NormalisedFactsInvokePlugin
+    }
+    protected def recommendationNecessary(t : Task) = t match {
+      case _ : BetaFormulaTask |
+           _ : ExQuantifierTask |
+           _ : DivisibilityTask |
+           _ : LazyMatchTask => true
+      case _ => false
+    }
+  }
+
+  /**
    * It is known that <code>FactsNormalisationTask</code> has been applied, the
-   * facts of the current goal are normalised
+   * facts of the current goal are normalised, and (if present) the theory
+   * plugin has been called
    */
   private object NormalisedFacts
                  extends DefaultEagerTaskManager(Some(UpdateTasksTask),
@@ -213,28 +270,6 @@ object EagerTaskManager {
   /**
    * In the beginning, there are no facts, which are thus reduced
    */
-  def INITIAL : EagerTaskManager = Final
-}
+  val INITIAL : EagerTaskManager = Final
 
-
-/**
- * A class for tracking the application of tasks and recommending the
- * intermediate application of <code>EagerTask</code>s. This class is
- * implemented as a finite automaton to give recommendations based on the
- * history of task applications
- */
-abstract class EagerTaskManager {
-
-  /**
-   * Tell the manager that a certain task was applied
-   */
-  def afterTask(task : Task) : EagerTaskManager
-
-  /**
-   * Obtain a recommendation from the manager, given the next
-   * <code>PrioritisedTask</code> in the queue. If the queue is empty,
-   * <code>None</code> should be given as argument
-   */
-  def recommend(nextPrioritisedTask : Option[PrioritisedTask]) : Option[EagerTask]
-  
 }

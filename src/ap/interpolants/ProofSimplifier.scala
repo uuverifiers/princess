@@ -74,12 +74,12 @@ object ProofSimplifier {
       
           val ineqResolutions =
             (for ((geq, cases) <- boundsA.iterator zip cert.strengthenCases.iterator;
-                  val geqCoeff = (geq.lhs get elimConst).abs;
-                  val strengthenedGeq = CertInequality(geq.lhs - cases);
+                  geqCoeff = (geq.lhs get elimConst).abs;
+                  strengthenedGeq = CertInequality(geq.lhs - cases);
                   leq <- boundsB.iterator;
-                  val leqCoeff = (leq.lhs get elimConst).abs;
-                  val newInEq = CertInequality((strengthenedGeq.lhs scale leqCoeff) +
-                                               (leq.lhs scale geqCoeff));
+                  leqCoeff = (leq.lhs get elimConst).abs;
+                  newInEq = CertInequality((strengthenedGeq.lhs scale leqCoeff) +
+                                           (leq.lhs scale geqCoeff));
                   if (!(availableFors contains newInEq) &&
                       (inEqCaseAssumedFors contains newInEq))) yield
                CombineInequalitiesInference(leqCoeff, strengthenedGeq,

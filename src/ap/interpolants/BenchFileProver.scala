@@ -86,7 +86,7 @@ class BenchFileProver(filename : String,
       println("Dumping interpolation problems in SMT-LIB format ...")
   
       Console.withOut (new java.io.FileOutputStream(filename + "-opensmt.smt")) {
-        val lin = new SMTLineariser(filename, "QF_LIA",
+        val lin = new SMTLineariser(filename, "QF_LIA", "unknown",
                                     order sort order.orderedConstants,
                                     order sortPreds order.orderedPredicates,
                                     "fun", "pred", "const")
@@ -100,7 +100,7 @@ class BenchFileProver(filename : String,
       }
   
       Console.withOut (new java.io.FileOutputStream(filename + "-smtinterpol.smt")) {
-    	val lin = new SMTLineariser(filename, "QF_LIA",
+    	val lin = new SMTLineariser(filename, "QF_LIA", "unknown",
     			                    order sort order.orderedConstants,
     			                    order sortPreds order.orderedPredicates,
                                     "fun", "pred", "const")
@@ -284,7 +284,7 @@ class BenchFileProver(filename : String,
     {
       case List() => {
         val allFormulas = for (f <- iFormulas;
-                               val nnf = Transform2NNF(IExpression removePartName f);
+                               nnf = Transform2NNF(IExpression removePartName f);
                                g <- LineariseVisitor(nnf, IBinJunctor.Or))
                           yield g
         

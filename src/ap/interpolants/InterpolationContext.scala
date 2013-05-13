@@ -197,7 +197,7 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                                partialInterpolants,
                                rewrittenPredAtoms,
                                parameters + const,
-                               order.extend(const, Set()))
+                               order.extend(const))
   
   def addLeft(left : CertFormula) : InterpolationContext =
     new InterpolationContext(leftFormulae + left, rightFormulae,
