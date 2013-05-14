@@ -35,8 +35,6 @@ object Preprocessing {
   
   class PreprocessingException(msg : String) extends Exception(msg)
 
-  val ConjecturePart = TPTPTParser.predefinedPartMap("conjecture")
-  
   def apply(f : IFormula,
             interpolantSpecs : List[IInterpolantSpec],
             signature : Signature,
@@ -66,7 +64,7 @@ object Preprocessing {
                  yield INamedPart(n, ImplicationCompressor(f))
     
     // check whether we have to add assumptions about the domain size
-    val fors3 = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
+    val fors2c = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
       case Param.FiniteDomainConstraints.DomainSize => {
         import IExpression._
         
@@ -79,31 +77,27 @@ object Preprocessing {
     val triggerGenerator =
       new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
                             Param.TRIGGER_STRATEGY(settings))
-    for (f <- fors3)
+    for (f <- fors2c)
       triggerGenerator setup f
-    val fors3b =
-      for (f <- fors3) yield f match {
-        case INamedPart(ConjecturePart, g)
-          if (!Param.TRIGGERS_IN_CONJECTURE(settings)) => f
-        case _ => triggerGenerator(f)
-      }
+    val fors2d =
+      for (f <- fors2c) yield triggerGenerator(f)
 
     // translate functions to relations
     var order3 = signature.order
-    val fors4 = for (INamedPart(n, f) <- fors3b) yield INamedPart(n, {
+    val fors3 = for (INamedPart(n, f) <- fors2d) yield INamedPart(n, {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
       g
     })
     
     // add the function axioms
-    val fors5 = functionEncoder.axioms match {
-      case IBoolLit(true) => fors4
+    val fors4 = functionEncoder.axioms match {
+      case IBoolLit(true) => fors3
       case x => {
         var noNamePart : INamedPart = null
         var realNamedParts : List[INamedPart] = List()
         
-        for (p @ INamedPart(n, _) <- fors4)
+        for (p @ INamedPart(n, _) <- fors3)
           if (n == PartName.NO_NAME)
             noNamePart = p
           else
@@ -118,16 +112,16 @@ object Preprocessing {
     }
 
     // do some direct simplifications
-    val fors5b = 
-      for (f <- fors5) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
+    val fors5 = 
+      for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     
     // do clausification
     val fors6 = Param.CLAUSIFIER(settings) match {
       case Param.ClausifierOptions.None =>
-        fors5b
+        fors5
       case Param.ClausifierOptions.Simple =>
         Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
-          for (f <- fors5b) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
+          for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
         )(throw new Exception("Clausification timed out"))
     }
     

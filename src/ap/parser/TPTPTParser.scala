@@ -87,23 +87,10 @@ object TPTPTParser {
   private def Rank2(r: ((Type, Type), Type)) = new Rank(List(r._1._1, r._1._2) -> r._2)
   private def Rank3(r: ((Type, Type, Type), Type)) = new Rank(List(r._1._1, r._1._2, r._1._2) -> r._2)
 
-  val predefinedParts = Set(new PartName("axiom"),
-                            new PartName("hypothesis"),
-                            new PartName("definition"),
-                            new PartName("assumption"),
-                            new PartName("lemma"),
-                            new PartName("theorem"),
-                            new PartName("conjecture"),
-                            new PartName("negated_conjecture"),
-                            new PartName("unknown"))
- 
-  val predefinedPartMap =
-    (for (p <- predefinedParts.iterator) yield (p.toString -> p)).toMap
-
   private object TPTPType extends Enumeration {
     val FOF, TFF, CNF, Unknown = Value
   }
-
+     
 }
 
 /**
@@ -770,9 +757,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 	  role match {
 	    case "conjecture" => {
 	      haveConjecture = true
-	      INamedPart(predefinedPartMap(role), f)
+	      f
 	    }
-	    case _ => INamedPart(predefinedPartMap(role), !f) // Assume f sits on the premise side
+	    case _ => !f // Assume f sits on the premise side
 	  }
     } 
 
@@ -933,7 +920,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                           f
 				      }
 				    }
-				    (withGuards /: vl) { case (f, _) =>  IQuantified(q, f) }
+				    (possiblyEmptyTrigger(withGuards) /: vl) { case (f, _) =>  IQuantified(q, f) }
                   }
 				  (quantify, vl.size)
 				}
@@ -942,7 +929,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 		        case (quantTemplate, varNum) ~ ":" ~ f => {
                   for (_ <- 0 until varNum)
                     env.popVar
-		          quantTemplate(possiblyEmptyTrigger(f))
+		          quantTemplate(f)
 		        }
 		      }
 
