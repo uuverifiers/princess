@@ -158,7 +158,8 @@ object GlobalSettings {
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
-         Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT)
+         Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
+         Param.FINITE_DOMAIN_CONSTRAINTS)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
