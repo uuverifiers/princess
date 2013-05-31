@@ -55,8 +55,11 @@ object SimpleAPI {
    */
   def apply(enableAssert : Boolean = false,
             dumpSMT : Boolean = false,
-            smtDumpBasename : String = SMTDumpBasename) : SimpleAPI =
-    new SimpleAPI (enableAssert, if (dumpSMT) Some(smtDumpBasename) else None)
+            smtDumpBasename : String = SMTDumpBasename,
+            tightFunctionScopes : Boolean = true) : SimpleAPI =
+    new SimpleAPI (enableAssert,
+                   if (dumpSMT) Some(smtDumpBasename) else None,
+                   tightFunctionScopes)
 
   def spawn : SimpleAPI = apply()
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
@@ -83,9 +86,10 @@ object SimpleAPI {
    */
   def withProver[A](enableAssert : Boolean = false,
                     dumpSMT : Boolean = false,
-                    smtDumpBasename : String = SMTDumpBasename)
+                    smtDumpBasename : String = SMTDumpBasename,
+                    tightFunctionScopes : Boolean = true)
                    (f : SimpleAPI => A) : A = {
-    val p = apply(enableAssert, dumpSMT, smtDumpBasename)
+    val p = apply(enableAssert, dumpSMT, smtDumpBasename, tightFunctionScopes)
     try {
       f(p)
     } finally {
@@ -143,7 +147,8 @@ object SimpleAPI {
  * functionality in one place, and provides an imperative API similar to the
  * SMT-LIB command language.
  */
-class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
+class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
+                         tightFunctionScopes : Boolean) {
 
   import SimpleAPI._
 
@@ -169,6 +174,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     }
   }
   
+  private val basicPreprocSettings =
+    Param.TIGHT_FUNCTION_SCOPES.set(PreprocessingSettings.DEFAULT,
+                                    tightFunctionScopes)
+
   def reset = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
@@ -176,7 +185,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     
     storedStates.clear
     
-    preprocSettings = PreprocessingSettings.DEFAULT
+    preprocSettings = basicPreprocSettings
     currentOrder = TermOrder.EMPTY
     existentialConstants = Set()
     functionEnc =
