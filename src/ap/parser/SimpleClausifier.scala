@@ -185,14 +185,14 @@ object SimpleClausifier {
    * (i.e., one level of multiplying out)
    */
   private object Conj2DNF extends CollectingVisitor[Unit, IFormula] {
-    def apply(f : IFormula) : IFormula = this.visit(f, 0)
+    def apply(f : IFormula) : IFormula = this.visit(f, ())
     
     override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
       t match {
         case IBinFormula(And, IBinFormula(Or, f1, f2), f3) =>
-          TryAgain((f1 & f3) | (f2 & f3), 0)
+          TryAgain((f1 & f3) | (f2 & f3), ())
         case IBinFormula(And, f3, IBinFormula(Or, f1, f2)) =>
-          TryAgain((f3 & f1) | (f3 & f2), 0)
+          TryAgain((f3 & f1) | (f3 & f2), ())
         case IBinFormula(Or, _, _) =>
           KeepArg
         case t : IFormula =>
@@ -254,14 +254,14 @@ object SimpleClausifier {
   //////////////////////////////////////////////////////////////////////////////
   
   private object DistributeEx extends CollectingVisitor[Unit, IFormula] {
-    def apply(f : IFormula) : IFormula = this.visit(f, 0)
+    def apply(f : IFormula) : IFormula = this.visit(f, ())
   
     override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
       t match {
         case IBinFormula(Or, _, _) =>
           KeepArg
         case IQuantified(EX, IBinFormula(Or, f1, f2)) =>
-          TryAgain(ex(f1) | ex(f2), 0)
+          TryAgain(ex(f1) | ex(f2), ())
         case t@IQuantified(_, sub) =>
           if (ContainsSymbol(sub, IVariable(0)))
             ShortCutResult(t)

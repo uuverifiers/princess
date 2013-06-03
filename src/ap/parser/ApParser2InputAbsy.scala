@@ -498,9 +498,9 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
     }
   
   private def translateTrigger(trigger : ExprTrigger) :IFormula = {
-    val patterns = translateArgs(trigger.listargc_)
+    val patterns = translateExprArgs(trigger.listargc_)
     val body = asFormula(translateExpression(trigger.expression_))
-    ITrigger(patterns, body)
+    ITrigger(ITrigger.extractTerms(patterns), body)
   }
   
   private def translateOptArgs(args : OptArgs) : Seq[ITerm] = args match {
@@ -511,6 +511,11 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
   private def translateArgs(args : ListArgC) =
     for (arg <- args) yield arg match {
       case arg : Arg => asTerm(translateExpression(arg.expression_))
+    }
+
+  private def translateExprArgs(args : ListArgC) =
+    for (arg <- args) yield arg match {
+      case arg : Arg => translateExpression(arg.expression_)
     }
 
 }

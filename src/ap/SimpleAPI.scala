@@ -505,9 +505,23 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
     recreateProver
     f
   }
+
+  /**
+   * Create a new uninterpreted Boolean-valued function with fixed arity.
+   * Booleans values are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.<br>
+   * In contrast to predicates (generated using <code>createRelation</code>),
+   * Boolean functions can be used within triggers.
+   */
+  def createBooleanFunction(rawName : String,
+                            arity : Int) : IExpression.BooleanFunApplier =
+    new IExpression.BooleanFunApplier(createFunction(rawName, arity))
   
   /**
-   * Create a new uninterpreted predicate with fixed arity.
+   * Create a new uninterpreted predicate with fixed arity.<br>
+   * Predicates are more low-level than Boolean functions, and
+   * cannot be used within triggers.
    */
   def createRelation(rawName : String, arity : Int) = {
     import IExpression._

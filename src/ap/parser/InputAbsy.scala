@@ -27,6 +27,8 @@ import ap.terfor.conjunctions.Quantifier
 import ap.terfor.preds.Predicate
 import ap.util.{Debug, Seqs}
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Abstract syntax for prover input. The language represented by the following
  * constructors is more general than the logic that the prover actually can
@@ -104,6 +106,9 @@ object IExpression {
    */
   implicit def toPredApplier(pred : Predicate) = new PredApplier(pred)
 
+  /**
+   * Class implementing prefix-notation for predicates
+   */
   class PredApplier(pred : Predicate) {
     def apply(args : ITerm*) = IAtom(pred, args)
   }
@@ -114,8 +119,21 @@ object IExpression {
    */
   implicit def toFunApplier(fun : IFunction) = new FunApplier(fun)
 
+  /**
+   * Class implementing prefix-notation for functions
+   */
   class FunApplier(fun : IFunction) {
     def apply(args : ITerm*) = IFunApp(fun, args)
+  }
+
+  /**
+   * Class implementing prefix-notation for functions that are
+   * considered Boolean-valued. Booleans are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.
+   */
+  class BooleanFunApplier(val fun : IFunction) {
+    def apply(args : ITerm*) = geqZero(IFunApp(fun, args))
   }
 
   /**
@@ -165,7 +183,8 @@ object IExpression {
    * uni-triggers (for <code>patterns.size == 1</code> and multi-triggers.
    * Intended use is, for instance, <code>all(x => trig(f(x) >= 0, f(x)))</code>.
    */
-  def trig(f : IFormula, patterns : ITerm*) = ITrigger(patterns, f)
+  def trig(f : IFormula, patterns : IExpression*) =
+    ITrigger(ITrigger.extractTerms(patterns), f)
   
   /**
    * Add quantifiers for the variables with de Bruijn index
@@ -1029,6 +1048,41 @@ case class IFormulaITE(cond : IFormula,
 
   override def toString =
     "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
+}
+
+object ITrigger {
+  /**
+   * Extract terms from a set of arbitrary expressions that can
+   * be used as triggers.
+   */
+  def extractTerms(rawPatterns : Seq[IExpression]) : Seq[ITerm] = {
+    val patterns = new ArrayBuffer[ITerm]
+    val extractor = new CollectingVisitor[Unit, Boolean] {
+      override def preVisit(t : IExpression,
+                            arg : Unit) : PreVisitResult = t match {
+        case _ : IQuantified | _ : IEpsilon => ShortCutResult(false)
+        case _ => KeepArg
+      }
+      def postVisit(t : IExpression, arg : Unit,
+                    subres : Seq[Boolean]) : Boolean = t match {
+        case _ : IConstant | _ : IVariable | _ : IIntLit =>
+          true
+        case _ : IFunApp | _ : ITimes | _ : IPlus
+            if (!(subres contains false)) =>
+          true
+        case _ => {
+          for ((s : ITerm, true) <- t.iterator zip subres.iterator)
+            patterns += s
+          false
+        }
+      }
+    }
+
+    for (p <- rawPatterns)
+      if (extractor.visit(p, ()))
+        patterns += p.asInstanceOf[ITerm]
+    patterns.readOnly
+  }
 }
 
 /**
