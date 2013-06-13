@@ -39,7 +39,8 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.proof.theoryPlugins.Plugin
 import ap.util.{Debug, Timeout, Seqs}
 
-import scala.collection.mutable.{HashMap => MHashMap, ArrayStack}
+import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
+                                 LinkedHashMap}
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 import scala.concurrent.SyncVar
@@ -56,8 +57,11 @@ object SimpleAPI {
    */
   def apply(enableAssert : Boolean = false,
             dumpSMT : Boolean = false,
-            smtDumpBasename : String = SMTDumpBasename) : SimpleAPI =
-    new SimpleAPI (enableAssert, if (dumpSMT) Some(smtDumpBasename) else None)
+            smtDumpBasename : String = SMTDumpBasename,
+            tightFunctionScopes : Boolean = true) : SimpleAPI =
+    new SimpleAPI (enableAssert,
+                   if (dumpSMT) Some(smtDumpBasename) else None,
+                   tightFunctionScopes)
 
   def spawn : SimpleAPI = apply()
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
@@ -84,9 +88,10 @@ object SimpleAPI {
    */
   def withProver[A](enableAssert : Boolean = false,
                     dumpSMT : Boolean = false,
-                    smtDumpBasename : String = SMTDumpBasename)
+                    smtDumpBasename : String = SMTDumpBasename,
+                    tightFunctionScopes : Boolean = true)
                    (f : SimpleAPI => A) : A = {
-    val p = apply(enableAssert, dumpSMT, smtDumpBasename)
+    val p = apply(enableAssert, dumpSMT, smtDumpBasename, tightFunctionScopes)
     try {
       f(p)
     } finally {
@@ -99,7 +104,123 @@ object SimpleAPI {
   object ProverStatus extends Enumeration {
     val Sat, Unsat, Invalid, Valid, Unknown, Running, Error = Value
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  class PartialModel(
+         val interpretation : scala.collection.Map[ModelLocation, ModelValue]) {
+
+    import IExpression._
+
+    def definedLocations = interpretation.keySet
+
+    def evalExpression(e : IExpression) : Option[ModelValue] =
+      Evaluator.visit(e, ())
+    def eval(t : ITerm) : Option[IdealInt] =
+      for (IntValue(v) <- evalExpression(t)) yield v
+    def eval(f : IFormula) : Option[Boolean] =
+      for (BoolValue(b) <- evalExpression(f)) yield b
+
+    override def toString =
+      "{" +
+      (for ((l, v) <- interpretation.iterator)
+       yield ("" + l + " -> " + v)).mkString(", ") +
+      "}"
+
+    private object Evaluator
+            extends CollectingVisitor[Unit, Option[ModelValue]] {
+      def postVisit(t : IExpression, arg : Unit,
+                    subres : Seq[Option[ModelValue]]) = t match {
+        ////////////////////////////////////////////////////////////////////////
+        // Terms
+        case IIntLit(v) =>
+          Some(IntValue(v))
+        case IConstant(c) =>
+          interpretation get ConstantLoc(c)
+        case ITimes(coeff, _) =>
+          for (IntValue(v) <- subres(0)) yield IntValue(v * coeff)
+        case _ : IPlus =>
+          for (IntValue(v1) <- subres(0); IntValue(v2) <- subres(1))
+          yield IntValue(v1 + v2)
+        case IFunApp(f, _) => {
+          val actualArgs = for (Some(IntValue(v)) <- subres) yield v
+          if (actualArgs.size == f.arity)
+            interpretation get IntFunctionLoc(f, actualArgs)
+          else
+            None
+        }
+        case _ : ITermITE =>
+          for (BoolValue(b) <- subres(0);
+               r <- subres(if (b) 1 else 2)) yield r
+        ////////////////////////////////////////////////////////////////////////
+        // Formulas
+        case IBoolLit(b) =>
+          Some(BoolValue(b))
+        case _ : INot =>
+          for (BoolValue(b) <- subres(0)) yield BoolValue(!b)
+        case IBinFormula(IBinJunctor.And, _, _) => subres match {
+          case Seq(v@Some(BoolValue(false)), _) => v
+          case Seq(_, v@Some(BoolValue(false))) => v
+          case Seq(Some(BoolValue(true)), v)    => v
+          case Seq(v, Some(BoolValue(true)))    => v
+          case _                                => None
+        }
+        case IBinFormula(IBinJunctor.Or, _, _) => subres match {
+          case Seq(v@Some(BoolValue(true)), _)  => v
+          case Seq(_, v@Some(BoolValue(true)))  => v
+          case Seq(Some(BoolValue(false)), v)   => v
+          case Seq(v, Some(BoolValue(false)))   => v
+          case _                                => None
+        }
+        case IBinFormula(IBinJunctor.Eqv, _, _) =>
+          for (BoolValue(v1) <- subres(0); BoolValue(v2) <- subres(1))
+          yield BoolValue(v1 == v2)
+        case IAtom(p, _) => {
+          val actualArgs = for (Some(IntValue(v)) <- subres) yield v
+          if (actualArgs.size == p.arity)
+            interpretation get PredicateLoc(p, actualArgs)
+          else
+            None
+        }
+        case IIntFormula(IIntRelation.EqZero, _) =>
+          for (IntValue(v) <- subres(0)) yield BoolValue(v.isZero)
+        case IIntFormula(IIntRelation.GeqZero, _) =>
+          for (IntValue(v) <- subres(0)) yield BoolValue(v.signum >= 0)
+        case _ : IFormulaITE =>
+          for (BoolValue(b) <- subres(0);
+               r <- subres(if (b) 1 else 2)) yield r
+        case _ : INamedPart =>
+          subres(0)
+      }
+    }
+  }
+
+  abstract sealed class ModelLocation
+  case class ConstantLoc(c : IExpression.ConstantTerm)
+                                     extends ModelLocation {
+    override def toString = c.toString
+  }
+  case class IntFunctionLoc(f : IFunction, args : Seq[IdealInt])
+                                     extends ModelLocation {
+    override def toString =
+      f.name + (if (args.isEmpty) "" else "(" + (args mkString ", ") + ")")
+  }
+  case class PredicateLoc(p : IExpression.Predicate, args : Seq[IdealInt])
+                                     extends ModelLocation {
+    override def toString =
+      p.name + (if (args.isEmpty) "" else "(" + (args mkString ", ") + ")")
+  }
   
+  abstract sealed class ModelValue
+  case class IntValue(v : IdealInt)  extends ModelValue {
+    override def toString = v.toString
+  }
+  case class BoolValue(v : Boolean)  extends ModelValue {
+    override def toString = v.toString
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private object ProofActorStatus extends Enumeration {
     val Init, AtPartialModel, AtFullModel = Value
   }
@@ -144,7 +265,8 @@ object SimpleAPI {
  * functionality in one place, and provides an imperative API similar to the
  * SMT-LIB command language.
  */
-class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
+class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
+                         tightFunctionScopes : Boolean) {
 
   import SimpleAPI._
 
@@ -172,6 +294,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     }
   }
   
+  private val basicPreprocSettings =
+    Param.TIGHT_FUNCTION_SCOPES.set(PreprocessingSettings.DEFAULT,
+                                    tightFunctionScopes)
+
   def reset = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
@@ -179,7 +305,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     
     storedStates.clear
     
-    preprocSettings = PreprocessingSettings.DEFAULT
+    preprocSettings = basicPreprocSettings
     currentOrder = TermOrder.EMPTY
     existentialConstants = Set()
     functionEnc =
@@ -188,6 +314,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = Conjunction.TRUE
+    lastPartialModel = null
     currentConstraint = null
     currentCertificate = null
     lastStatus = ProverStatus.Sat
@@ -380,9 +507,23 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     recreateProver
     f
   }
+
+  /**
+   * Create a new uninterpreted Boolean-valued function with fixed arity.
+   * Booleans values are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.<br>
+   * In contrast to predicates (generated using <code>createRelation</code>),
+   * Boolean functions can be used within triggers.
+   */
+  def createBooleanFunction(rawName : String,
+                            arity : Int) : IExpression.BooleanFunApplier =
+    new IExpression.BooleanFunApplier(createFunction(rawName, arity))
   
   /**
-   * Create a new uninterpreted predicate with fixed arity.
+   * Create a new uninterpreted predicate with fixed arity.<br>
+   * Predicates are more low-level than Boolean functions, and
+   * cannot be used within triggers.
    */
   def createRelation(rawName : String, arity : Int) = {
     import IExpression._
@@ -779,6 +920,84 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
       proofActor ! DeriveFullModelCommand
       getStatus(true)
     }
+
+  /**
+   * Produce a partial model, i.e., a (usually) partial interpretation
+   * of constants, functions, and predicates. This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * model only assigns existential constants.
+   * </li>
+   * </ul>
+   */
+  def partialModel : PartialModel = if (lastPartialModel != null) {
+    lastPartialModel
+  } else {
+    import IExpression._
+
+    setupTermEval
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC,
+                    currentModel.arithConj.negativeEqs.isTrue &&
+                    currentModel.arithConj.inEqs.isTrue &&
+                    currentModel.negatedConjs.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val interpretation = new LinkedHashMap[ModelLocation, ModelValue]
+
+    for (l <- currentModel.arithConj.positiveEqs) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+      Debug.assertInt(SimpleAPI.AC,
+                      l.constants.size == 1 && l.variables.isEmpty &&
+                      l.leadingCoeff.isOne)
+      //-END-ASSERTION-/////////////////////////////////////////////////////
+      interpretation.put(ConstantLoc(l.leadingTerm.asInstanceOf[ConstantTerm]),
+                         IntValue(-l.constant))
+    }
+
+    for (a <- currentModel.predConj.positiveLits) {
+      val argValues =
+        (for (l <- a.iterator) yield {
+           //-BEGIN-ASSERTION-//////////////////////////////////////////////
+           Debug.assertInt(SimpleAPI.AC,
+                           l.constants.isEmpty && l.variables.isEmpty)
+           //-END-ASSERTION-////////////////////////////////////////////////
+           l.constant
+         }).toIndexedSeq
+      (functionEnc.predTranslation get a.pred) match {
+        case Some(f) =>
+          interpretation.put(IntFunctionLoc(f, argValues.init),
+                             IntValue(argValues.last))
+        case None =>
+          interpretation.put(PredicateLoc(a.pred, argValues),
+                             BoolValue(true))
+      }
+    }
+
+    for (a <- currentModel.predConj.negativeLits)
+      if (!(functionEnc.predTranslation contains a.pred)) {
+        val argValues =
+          (for (l <- a.iterator) yield {
+             //-BEGIN-ASSERTION-//////////////////////////////////////////////
+             Debug.assertInt(SimpleAPI.AC,
+                             l.constants.isEmpty && l.variables.isEmpty)
+             //-END-ASSERTION-////////////////////////////////////////////////
+             l.constant
+           }).toIndexedSeq
+        interpretation.put(PredicateLoc(a.pred, argValues),
+                           BoolValue(false))
+      }
+
+    lastPartialModel = new PartialModel (interpretation)
+    lastPartialModel
+  }
   
   /**
    * Evaluate the given term in the current model. This method can be
@@ -863,9 +1082,14 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
           //-END-ASSERTION-///////////////////////////////////////////////////////
           val result = reduced.constant
           currentModel = ConstantSubst(c, result, extendedOrder)(m)
+          lastPartialModel = null
         
           result
         }
+        case _ =>
+          throw new Exception ("Model extension failed.\n" +
+                               "This is probably caused by badly chosen triggers,\n" +
+                               "preventing complete application of axioms.")
       }
     }
   }
@@ -985,6 +1209,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
       import TerForConvenience._
       implicit val o = currentModel.order
       currentModel = currentModel & (c === 0)
+      lastPartialModel = null
     }
       
     IdealInt.ZERO
@@ -1066,6 +1291,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
           implicit val order = currentModel.order
           val a = Atom(p, List(), order)
           currentModel = currentModel & a
+          lastPartialModel = null
         
           true
         }
@@ -1090,9 +1316,14 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
               val pf : Conjunction = p
         
               currentModel = ReduceWithConjunction(if (result) pf else !pf, extendedOrder)(m)
-        
+              lastPartialModel = null        
+
               result
             }
+            case _ =>
+              throw new Exception ("Model extension failed.\n" +
+                                   "This is probably caused by badly chosen triggers,\n" +
+                                   "preventing complete application of axioms.")
           }
         }
       }
@@ -1222,6 +1453,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
+    lastPartialModel = null
     currentConstraint = oldConstraint
     currentCertificate = oldCert
     proofActorStatus = ProofActorStatus.Init
@@ -1280,6 +1512,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
   
   private def resetModel = {
     currentModel = null
+    lastPartialModel = null
     currentConstraint = null
     currentCertificate = null
     lastStatus = ProverStatus.Unknown
@@ -1360,6 +1593,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String]) {
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
   private var currentModel : Conjunction = _
+  private var lastPartialModel : PartialModel = null
   private var currentConstraint : Conjunction = _
   private var currentCertificate : Certificate = _
   private var formulaeInProver : List[(Int, Conjunction)] = List()

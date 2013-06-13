@@ -509,7 +509,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
         translateTerm(t.term_, polarity)
       else
         ((asFormula(translateTerm(t.term_, polarity)) /: triggers) {
-           case (res, trigger) => ITrigger(trigger, res)
+           case (res, trigger) => ITrigger(ITrigger.extractTerms(trigger), res)
          }, Type.Bool)
     }
     
@@ -984,7 +984,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private def translateTrigger(expr : SExpr) : ITerm = expr match {
+  private def translateTrigger(expr : SExpr) : IExpression = expr match {
     
     case expr : ConstantSExpr => translateSpecConstant(expr.specconstant_)
     
@@ -993,6 +993,11 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
         checkArgNumSExpr(printer print expr.symbol_,
                          fun.arity, List[SExpr]())
         IFunApp(fun, List())
+      }
+      case Environment.Predicate(pred, _) => {
+        checkArgNumSExpr(printer print expr.symbol_,
+                         pred.arity, List[SExpr]())
+        IAtom(pred, List())
       }
       case Environment.Constant(c, _, _) => c
       case Environment.Variable(i, BoundVariable(false)) => v(i)
@@ -1012,7 +1017,20 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
           case Environment.Function(fun, _) => {
             val args = expr.listsexpr_.tail.toList
             checkArgNumSExpr(printer print funExpr.symbol_, fun.arity, args)
-            IFunApp(fun, for (e <- args) yield translateTrigger(e))
+            val translatedArgs = for (e <- args) yield translateTrigger(e) match {
+              case ta : ITerm => ta
+              case ta : IFormula => ITermITE(ta, i(0), i(1))
+            }
+            IFunApp(fun, translatedArgs)
+          }
+          case Environment.Predicate(pred, _) => {
+            val args = expr.listsexpr_.tail.toList
+            checkArgNumSExpr(printer print funExpr.symbol_, pred.arity, args)
+            val translatedArgs = for (e <- args) yield translateTrigger(e) match {
+              case ta : ITerm => ta
+              case ta : IFormula => ITermITE(ta, i(0), i(1))
+            }
+            IAtom(pred, translatedArgs)
           }
           case Environment.Constant(c, _, _) => {
             checkArgNumSExpr(printer print funExpr.symbol_,

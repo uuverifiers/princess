@@ -894,8 +894,45 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       }
     }
   
+  private lazy val tff_ite_f_formula =
+    "$ite_f" ~ "(" ~> tff_logic_formula ~ "," ~
+                      tff_logic_formula ~ "," ~ tff_logic_formula <~ ")" ^^ {
+    case cond ~ _ ~ left ~ _ ~ right => IFormulaITE(cond, left, right)
+  }
+
+  private lazy val tff_let_formula =
+    ("$let_tf" ~ "(" ~> term ~ "=" ~ term ~ "," ~ tff_logic_formula <~ ")" ^^ {
+      case lhs ~ _ ~ rhs ~ _ ~ body => {
+        val (lhs_t, lhs_type) = lhs
+        val (rhs_t, rhs_type) = rhs
+        if (!lhs_t.isInstanceOf[IConstant])
+          throw new SyntaxError(
+             "Error: currently $let_tf only supports constants, not " + lhs_t)
+        val IConstant(c) = lhs_t
+        if (lhs_type == OType && lhs_type != rhs_type)
+          throw new SyntaxError(
+             "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t)
+        ConstantSubstVisitor(body, Map(c -> rhs_t))
+      }
+    }) |
+    ("$let_ff" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
+                       "," ~ tff_logic_formula <~ ")" ^^ {
+      case lhs ~ _ ~ rhs ~ _ ~ body => {
+        lhs match {
+          case IAtom(p, Seq()) => // nothing
+          case _ =>
+            throw new SyntaxError(
+               "Error: currently $let_ff only supports Boolean variables, not " + lhs)
+        }
+        val IAtom(p, _) = lhs
+        PredicateSubstVisitor(body, Map(p -> rhs))
+      }
+    })
+
   private lazy val tff_unitary_formula:PackratParser[IFormula] = 
-    tff_quantified_formula | tff_unary_formula | atom |
+    tff_quantified_formula | tff_unary_formula |
+    tff_ite_f_formula | tff_let_formula |
+    (guard(not("$ite_f" | "$let_tf" | "$let_ff")) ~> atom) |
     "(" ~> tff_logic_formula <~ ")"
     
   private lazy val tff_unary_formula =
@@ -1073,10 +1110,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                 yield !CheckedEquation(termlist(ind1), termlist(ind2)),
                 IBinJunctor.And)
       } ) |
+  // $ite_t terms
+    ( (tff_ite_t_term | tff_let_term) ~ ( equalsSign | "!=" ) ~ term ^^ {
+        case lhs ~ "=" ~ rhs => CheckedEquation(lhs, rhs)
+        case lhs ~ "!=" ~ rhs => !CheckedEquation(lhs, rhs)
+      }) |
   // functor with or without arguments
-  (( ( functor ~ "(" ~ termlist ~ ")" ^^ { 
- 	       case functor ~ "(" ~ termlist ~ ")" => (functor, termlist) } ) |
-     ( functor ~ guard(not("(")) ^^ { 
+  ( guard(not("$ite_t" | "$let_tt" | "$let_ft")) ~>
+     ( ( functor ~ "(" ~ termlist ~ ")" ^^ { 
+   	       case functor ~ "(" ~ termlist ~ ")" => (functor, termlist) } ) |
+       ( functor ~ guard(not("(")) ^^ { 
 	       case functor ~ _ => (functor, List()) } ) ) ~
    // Up to here the above could be an atom or the lhs of an equation.
    // The following three cases all return a template for a (dis)equation or an atom
@@ -1111,8 +1154,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   // it is clear it must be a term (no backtracking), hence as soon
   // as a term is found the signature can be extended.
   private lazy val term: PackratParser[(ITerm, Type)] =
-    funterm | constant_or_variable | bg_constant
-    
+    tff_ite_t_term | tff_let_term |
+    (guard(not("$ite_t" | "$let_tf" | "$let_ff")) ~> (
+       funterm | constant_or_variable | bg_constant))
+
   private lazy val variableStr: PackratParser[String] =
     regex(new Regex("[A-Z][a-zA-Z0-9_]*"))
     
@@ -1179,6 +1224,55 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
        }}
       )
     )
+
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Terms specific to TFF
+
+  private lazy val tff_ite_t_term =
+    "$ite_t" ~ "(" ~> tff_logic_formula ~ "," ~
+                      term ~ "," ~ term <~ ")" ^^ {
+    case cond ~ _ ~ l ~ _ ~ r => {
+      val (left, leftT) = l
+      val (right, rightT) = r
+      if (leftT != OType && leftT == rightT)
+        (ITermITE(cond, left, right), leftT)
+      else
+        throw new SyntaxError(
+           "Error: ill-sorted $ite_t: between " + left + " and " + right)
+    }
+  }
+
+  private lazy val tff_let_term =
+    ("$let_tt" ~ "(" ~> term ~ "=" ~ term ~ "," ~ term <~ ")" ^^ {
+      case lhs ~ _ ~ rhs ~ _ ~ body => {
+        val (lhs_t, lhs_type) = lhs
+        val (rhs_t, rhs_type) = rhs
+        if (!lhs_t.isInstanceOf[IConstant])
+          throw new SyntaxError(
+             "Error: currently $let_tf only supports constants, not " + lhs_t)
+        val IConstant(c) = lhs_t
+        if (lhs_type == OType && lhs_type != rhs_type)
+          throw new SyntaxError(
+             "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t)
+        (ConstantSubstVisitor(body._1, Map(c -> rhs_t)), body._2)
+      }
+    }) |
+    ("$let_ft" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
+                       "," ~ term <~ ")" ^^ {
+      case lhs ~ _ ~ rhs ~ _ ~ body => {
+        lhs match {
+          case IAtom(p, Seq()) => // nothing
+          case _ =>
+            throw new SyntaxError(
+               "Error: currently $let_ff only supports Boolean variables, not " + lhs)
+        }
+        val IAtom(p, _) = lhs
+        (PredicateSubstVisitor(body._1, Map(p -> rhs)), body._2)
+      }
+    })
+
+  //////////////////////////////////////////////////////////////////////////////
 
   private def fofify(t : Type) = tptpType match {
     case TPTPType.FOF | TPTPType.CNF => IType

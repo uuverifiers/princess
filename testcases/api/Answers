@@ -4,6 +4,7 @@ Sat
 
 -- Adding some assertions (uses methods from IExpression._)
 Sat
+Partial model: {c1 -> 100, c0 -> 115, p1 -> true, p0 -> true}
 
 -- Querying the model
 r = true
@@ -25,6 +26,10 @@ Unsat
 Sat
 f(x) + f(z) = -1
 (f(x) === f(z)) = false
+Partial model: {c4 -> 20, c3 -> 10, c2 -> 9, c1 -> 100, c0 -> 115, f(20) -> -1, f(9) -> 0, p1 -> true, p0 -> true}
+In model: f(x) + f(z) = Some(-1)
+          f(17) = None
+          (f(x) >= -5) = Some(true)
 Unsat
 
 -- Generating different models for the same formula
@@ -68,6 +73,11 @@ b = -3
 b = -4
 b = -5
 
+-- Boolean functions and triggers
+Sat
+Partial model: {c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> 0, r(1, 5) -> 0, p1 -> true, p0 -> true}
+Valid
+
 -- Existential constants
 Valid
 X = 1
@@ -75,6 +85,7 @@ X + Y = 1
 Y = 0
 Valid
 X = 10
+Model: {X2 -> 10}
 
 -- Quantifier elimination
 Valid

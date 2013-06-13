@@ -35,7 +35,7 @@ object PredicateReplace
   def apply(f : IExpression, map : Map[IAtom, ConstantTerm]) : IExpression =
   {
     val replacer = new PredicateReplace(map)
-    replacer.visit(f, 0)
+    replacer.visit(f, ())
   }
 }
 
@@ -56,7 +56,7 @@ class PredicateReplace(map : Map[IAtom, ConstantTerm])
 object PredicateCollector {
   def apply(t : IExpression) : scala.collection.Set[IAtom] = {
     val c = new PredicateCollector
-    c.visit(t, 0)
+    c.visit(t, ())
     c.predicates
   }
 }

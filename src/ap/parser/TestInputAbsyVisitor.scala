@@ -60,11 +60,11 @@ class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
     val phi = p(4, c)
     val psi = ex(p(v(0), 13))
   
-    assertEquals(DepthCountingVisitor.visit(phi, 0), 1)
-    assertEquals(DepthCountingVisitor.visit(psi, 0), 2)
-    assertEquals(DepthCountingVisitor.visit(psi & psi, 0), 3)
-    assertEquals(DepthCountingVisitor.visit(!psi, 0), 3)
-    assertEquals(DepthCountingVisitor.visit(psi | phi, 0), 3)
+    assertEquals(DepthCountingVisitor.visit(phi, ()), 1)
+    assertEquals(DepthCountingVisitor.visit(psi, ()), 2)
+    assertEquals(DepthCountingVisitor.visit(psi & psi, ()), 3)
+    assertEquals(DepthCountingVisitor.visit(!psi, ()), 3)
+    assertEquals(DepthCountingVisitor.visit(psi | phi, ()), 3)
   }
 
   def testSubstVisitor = {
@@ -77,11 +77,11 @@ class TestInputAbsyVisitor(n : String) extends APTestCase(n) {
     val psi = ex(p(v(0), d))
     val rho = (v(1) === i(15) + c) & p(c, v(1) * 5)
   
-    assert (new SimpleSubstVisitor(cAsIExpr, cAsIExpr).visit(phi, 0) eq phi);
-    assertEquals(new SimpleSubstVisitor(c, d).visit(phi, 0), p(4, d));
-    assertEquals(new SimpleSubstVisitor(d, c).visit(psi, 0), ex(p(v(0), c)));
-    assertEquals(new SimpleSubstVisitor(d, v(0)).visit(psi, 0), ex(p(v(0), v(0))));
-    assertEquals(new SimpleSubstVisitor(v(1), c).visit(rho, 0),
+    assert (new SimpleSubstVisitor(cAsIExpr, cAsIExpr).visit(phi, ()) eq phi);
+    assertEquals(new SimpleSubstVisitor(c, d).visit(phi, ()), p(4, d));
+    assertEquals(new SimpleSubstVisitor(d, c).visit(psi, ()), ex(p(v(0), c)));
+    assertEquals(new SimpleSubstVisitor(d, v(0)).visit(psi, ()), ex(p(v(0), v(0))));
+    assertEquals(new SimpleSubstVisitor(v(1), c).visit(rho, ()),
                  (c === i(15) + c) & p(c, c*5));
   }
   

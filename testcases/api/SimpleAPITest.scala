@@ -47,6 +47,7 @@ object SimpleAPITest extends App {
   p !! (d >= 100)
   p !! (r ==> s)
   println(p???) // still Sat
+  println("Partial model: " + p.partialModel)
 
   part("Querying the model")
   
@@ -94,6 +95,11 @@ object SimpleAPITest extends App {
     
     println("f(x) + f(z) = " + eval(f(x) + f(z)))       // f(x) + f(z) = -1
     println("(f(x) === f(z)) = " + eval(f(x) === f(z))) // (f(x) === f(z)) = false
+
+    println("Partial model: " + partialModel)
+    println("In model: " + "f(x) + f(z) = " + partialModel.eval(f(x) + f(z))) // = Some(-1)
+    println("          " + "f(17) = " + partialModel.eval(f(17)))             // = None
+    println("          " + "(f(x) >= -5) = " + partialModel.eval(f(x) >= -5)) // = Some(true)
     
     val a, b = createConstant
     !! (f(a) === 0 & f(b) === 1)
@@ -223,6 +229,30 @@ object SimpleAPITest extends App {
     }
   }
 
+  part("Boolean functions and triggers")
+
+  scope {
+    val r = createBooleanFunction("r", 2)
+    val a = createConstant
+
+    // Boolean functions can be used in triggers, in contrast to
+    // predicates/relations
+    !! (all(x => all(y => trig(r(x, y) ==> r(y, x), r(x, y)))))
+    !! (r(1, a))
+
+    scope {
+      !! (a === 5)
+      println(???) // Sat
+      println("Partial model: " + partialModel)
+    }
+
+    scope {
+      !! (!r(3, 1))
+      ?? (a =/= 3)
+      println(???) // Valid
+    }
+  }
+
   part("Existential constants")
 
   scope {
@@ -247,6 +277,8 @@ object SimpleAPITest extends App {
       println(???)                      // Valid
 
       println("X = " + eval(X))         // X = 10
+
+      println("Model: " + partialModel)
     }
   }
 
