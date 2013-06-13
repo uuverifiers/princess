@@ -21,7 +21,7 @@
 
 package ap.parser;
 
-import ap.terfor.ConstantTerm
+import IExpression.{ConstantTerm, Predicate}
 import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
@@ -411,6 +411,37 @@ object ConstantSubstVisitor
 
   def postVisit(t : IExpression,
                 subst : (CMap[ConstantTerm, ITerm], Int),
+                subres : Seq[IExpression]) : IExpression = t update subres
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Substitute some predicates in an expression with arbitrary formulae
+ */
+object PredicateSubstVisitor
+       extends CollectingVisitor[(CMap[Predicate, IFormula], Int), IExpression] {
+  def apply(t : IExpression, subst : CMap[Predicate, IFormula]) : IExpression =
+    PredicateSubstVisitor.visit(t, (subst, 0))
+  def apply(t : ITerm, subst : CMap[Predicate, IFormula]) : ITerm =
+    apply(t.asInstanceOf[IExpression], subst).asInstanceOf[ITerm]
+  def apply(t : IFormula, subst : CMap[Predicate, IFormula]) : IFormula =
+    apply(t.asInstanceOf[IExpression], subst).asInstanceOf[IFormula]
+
+  override def preVisit(t : IExpression,
+                        subst : (CMap[Predicate, IFormula], Int)) : PreVisitResult =
+    t match {
+      case IAtom(p, _) => (subst._1 get p) match {
+        case Some(replacement) => ShortCutResult(VariableShiftVisitor(replacement, 0, subst._2))
+        case None => KeepArg
+      }
+      case _ : IQuantified | _ : IEpsilon =>
+        UniSubArgs((subst._1, subst._2 + 1))
+      case _ => KeepArg
+    }
+
+  def postVisit(t : IExpression,
+                subst : (CMap[Predicate, IFormula], Int),
                 subres : Seq[IExpression]) : IExpression = t update subres
 }
 
