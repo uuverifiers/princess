@@ -1318,6 +1318,58 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$difference",  Seq(IntType, IntType))  => (args(0)._1 - args(1)._1, IntType)
     case ("$product",     Seq(IntType, IntType))  => (mult(args(0)._1, args(1)._1), IntType)
     case ("$uminus",      Seq(IntType))           => (-args(0)._1, IntType)
+    case ("$quotient_e",  Seq(IntType, IntType))  => {
+      // Euclidian division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps((mult(v(0), denom) <= num) &
+           ((num < mult(v(0), denom) + denom) | (num < mult(v(0), denom) - denom))),
+       IntType)
+    }
+    case ("$remainder_e",  Seq(IntType, IntType))  => {
+      // Euclidian remainder
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps((v(0) >= 0) & ((v(0) < denom) | (v(0) < -denom)) &
+           ex(VariableShiftVisitor(num, 0, 1) ===
+              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
+       IntType)
+    }
+
+    case ("$quotient_t",  Seq(IntType, IntType))  => {
+      // Truncation division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      val rem = num - mult(v(0), denom)
+      (eps(((rem < denom) | (rem < -denom)) & ((-rem < denom) | (-rem < -denom)) &
+           ((rem > 0) ==> (num > 0)) & ((rem < 0) ==> (num < 0))),
+       IntType)
+    }
+    case ("$remainder_t",  Seq(IntType, IntType))  => {
+      // Truncation division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps(((v(0) < denom) | (v(0) < -denom)) & ((-v(0) < denom) | (-v(0) < -denom)) &
+           ((v(0) > 0) ==> (num > 0)) & ((v(0) < 0) ==> (num < 0)) &
+           ex(VariableShiftVisitor(num, 0, 1) ===
+              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
+       IntType)
+    }
+
+    case ("$quotient_f",  Seq(IntType, IntType))  => {
+      // Floor division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      val rem = num - mult(v(0), denom)
+      (eps(((rem < denom) | (rem < -denom)) & ((-rem < denom) | (-rem < -denom)) &
+           ((rem > 0) ==> (denom > 0)) & ((rem < 0) ==> (denom < 0))),
+       IntType)
+    }
+    case ("$remainder_f",  Seq(IntType, IntType))  => {
+      // Floor division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps(((v(0) < denom) | (v(0) < -denom)) & ((-v(0) < denom) | (-v(0) < -denom)) &
+           ((v(0) > 0) ==> (denom > 0)) & ((v(0) < 0) ==> (denom < 0)) &
+           ex(VariableShiftVisitor(num, 0, 1) ===
+              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
+       IntType)
+    }
+
     case ("$to_int",      Seq(IntType))           => args(0)
     case ("$to_rat",      Seq(IntType))           => {
       foundRat
