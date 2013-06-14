@@ -900,19 +900,24 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case cond ~ _ ~ left ~ _ ~ right => IFormulaITE(cond, left, right)
   }
 
-  private lazy val tff_let_formula =
-    ("$let_tf" ~ "(" ~> term ~ "=" ~ term ~ "," ~ tff_logic_formula <~ ")" ^^ {
-      case lhs ~ _ ~ rhs ~ _ ~ body => {
-        val (lhs_t, lhs_type) = lhs
-        val (rhs_t, rhs_type) = rhs
-        if (!lhs_t.isInstanceOf[IConstant])
-          throw new SyntaxError(
-             "Error: currently $let_tf only supports constants, not " + lhs_t)
-        val IConstant(c) = lhs_t
-        if (lhs_type == OType && lhs_type != rhs_type)
-          throw new SyntaxError(
-             "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t)
-        ConstantSubstVisitor(body, Map(c -> rhs_t))
+  private lazy val tff_let_formula :PackratParser[IFormula] =
+    ((("$let_tf" ~ "(" ~> term ~ "=" ~ term ^^ {
+       case lhs ~ _ ~ rhs => {
+         val (lhs_t, lhs_type) = lhs
+         val (rhs_t, rhs_type) = rhs
+         if (!lhs_t.isInstanceOf[IConstant])
+           throw new SyntaxError(
+              "Error: currently $let_tf only supports constants, not " + lhs_t)
+         val IConstant(c) = lhs_t
+         if (lhs_type == OType || lhs_type != rhs_type)
+           throw new SyntaxError(
+              "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + "." +
+              " Possibly the type of " + lhs_t + " has to be declared.")
+         (c, rhs_t)
+       }
+     }) ~ "," ~ tff_logic_formula <~ ")") ^^ {
+      case definition ~ _ ~ body => {
+        ConstantSubstVisitor(body, Map(definition))
       }
     }) |
     ("$let_ff" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
@@ -1244,18 +1249,23 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   }
 
   private lazy val tff_let_term =
-    ("$let_tt" ~ "(" ~> term ~ "=" ~ term ~ "," ~ term <~ ")" ^^ {
-      case lhs ~ _ ~ rhs ~ _ ~ body => {
-        val (lhs_t, lhs_type) = lhs
-        val (rhs_t, rhs_type) = rhs
-        if (!lhs_t.isInstanceOf[IConstant])
-          throw new SyntaxError(
-             "Error: currently $let_tf only supports constants, not " + lhs_t)
-        val IConstant(c) = lhs_t
-        if (lhs_type == OType && lhs_type != rhs_type)
-          throw new SyntaxError(
-             "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t)
-        (ConstantSubstVisitor(body._1, Map(c -> rhs_t)), body._2)
+    ((("$let_tt" ~ "(" ~> term ~ "=" ~ term ^^ {
+       case lhs ~ _ ~ rhs => {
+         val (lhs_t, lhs_type) = lhs
+         val (rhs_t, rhs_type) = rhs
+         if (!lhs_t.isInstanceOf[IConstant])
+           throw new SyntaxError(
+              "Error: currently $let_tt only supports constants, not " + lhs_t)
+         val IConstant(c) = lhs_t
+         if (lhs_type == OType || lhs_type != rhs_type)
+           throw new SyntaxError(
+              "Error: ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + "." +
+              " Possibly the type of " + lhs_t + " has to be declared.")
+         (c, rhs_t)
+       }
+     }) ~ "," ~ term <~ ")") ^^ {
+      case definition ~ _ ~ body => {
+        (ConstantSubstVisitor(body._1, Map(definition)), body._2)
       }
     }) |
     ("$let_ft" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
@@ -1455,6 +1465,58 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$difference",  Seq(IntType, IntType))  => (args(0)._1 - args(1)._1, IntType)
     case ("$product",     Seq(IntType, IntType))  => (mult(args(0)._1, args(1)._1), IntType)
     case ("$uminus",      Seq(IntType))           => (-args(0)._1, IntType)
+    case ("$quotient_e",  Seq(IntType, IntType))  => {
+      // Euclidian division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps((mult(v(0), denom) <= num) &
+           ((num < mult(v(0), denom) + denom) | (num < mult(v(0), denom) - denom))),
+       IntType)
+    }
+    case ("$remainder_e",  Seq(IntType, IntType))  => {
+      // Euclidian remainder
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps((v(0) >= 0) & ((v(0) < denom) | (v(0) < -denom)) &
+           ex(VariableShiftVisitor(num, 0, 1) ===
+              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
+       IntType)
+    }
+
+    case ("$quotient_t",  Seq(IntType, IntType))  => {
+      // Truncation division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      val rem = num - mult(v(0), denom)
+      (eps(((rem < denom) | (rem < -denom)) & ((-rem < denom) | (-rem < -denom)) &
+           ((rem > 0) ==> (num > 0)) & ((rem < 0) ==> (num < 0))),
+       IntType)
+    }
+    case ("$remainder_t",  Seq(IntType, IntType))  => {
+      // Truncation division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps(((v(0) < denom) | (v(0) < -denom)) & ((-v(0) < denom) | (-v(0) < -denom)) &
+           ((v(0) > 0) ==> (num > 0)) & ((v(0) < 0) ==> (num < 0)) &
+           ex(VariableShiftVisitor(num, 0, 1) ===
+              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
+       IntType)
+    }
+
+    case ("$quotient_f",  Seq(IntType, IntType))  => {
+      // Floor division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      val rem = num - mult(v(0), denom)
+      (eps(((rem < denom) | (rem < -denom)) & ((-rem < denom) | (-rem < -denom)) &
+           ((rem > 0) ==> (denom > 0)) & ((rem < 0) ==> (denom < 0))),
+       IntType)
+    }
+    case ("$remainder_f",  Seq(IntType, IntType))  => {
+      // Floor division
+      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
+      (eps(((v(0) < denom) | (v(0) < -denom)) & ((-v(0) < denom) | (-v(0) < -denom)) &
+           ((v(0) > 0) ==> (denom > 0)) & ((v(0) < 0) ==> (denom < 0)) &
+           ex(VariableShiftVisitor(num, 0, 1) ===
+              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
+       IntType)
+    }
+
     case ("$to_int",      Seq(IntType))           => args(0)
     case ("$to_rat",      Seq(IntType))           => {
       foundRat
