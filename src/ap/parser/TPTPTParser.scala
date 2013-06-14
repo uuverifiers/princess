@@ -114,12 +114,19 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
   def apply(reader : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature) = {
+    warn("You are using the normal version of Princess to solve TPTP problems.\n" +
+         "         Note that this version assumes a non-standard semantics\n" +
+         "         of uninterpreted sorts, defining all domains to be infinite.\n" +
+         "         For full support of TPTP please download the dedicated\n" +
+         "         CASC/TPTP of Princess from\n" +
+         "         http://www.philipp.ruemmer.org/princess.shtml#tptp")
+
     parseAll[List[List[IFormula]]](TPTP_input, reader) match {
       case Success(formulas, _) => {
         val tffs = formulas.flatten.filter(_ != null)
 
 //        println(tffs)
-        
+
         ((getAxioms &&& stringAxioms &&& genRRAxioms) ===> connect(tffs, IBinJunctor.Or),
          List(), env.toSignature)
       }
