@@ -131,7 +131,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
             CmdlMain.negativeResult = "Satisfiable"
           }
         }
-        
+
         if (tptpType == TPTPType.TFF && (containsRat || containsReal))
           CmdlMain.negativeResult = "GaveUp"
         
