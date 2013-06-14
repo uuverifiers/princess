@@ -775,19 +775,24 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case cond ~ _ ~ left ~ _ ~ right => IFormulaITE(cond, left, right)
   }
 
-  private lazy val tff_let_formula =
-    ("$let_tf" ~ "(" ~> term ~ "=" ~ term ~ "," ~ tff_logic_formula <~ ")" ^^ {
-      case lhs ~ _ ~ rhs ~ _ ~ body => {
-        val (lhs_t, lhs_type) = lhs
-        val (rhs_t, rhs_type) = rhs
-        if (!lhs_t.isInstanceOf[IConstant])
-          throw new SyntaxError(
-             "Error: currently $let_tf only supports constants, not " + lhs_t)
-        val IConstant(c) = lhs_t
-        if (lhs_type == OType && lhs_type != rhs_type)
-          throw new SyntaxError(
-             "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t)
-        ConstantSubstVisitor(body, Map(c -> rhs_t))
+  private lazy val tff_let_formula :PackratParser[IFormula] =
+    ((("$let_tf" ~ "(" ~> term ~ "=" ~ term ^^ {
+       case lhs ~ _ ~ rhs => {
+         val (lhs_t, lhs_type) = lhs
+         val (rhs_t, rhs_type) = rhs
+         if (!lhs_t.isInstanceOf[IConstant])
+           throw new SyntaxError(
+              "Error: currently $let_tf only supports constants, not " + lhs_t)
+         val IConstant(c) = lhs_t
+         if (lhs_type == OType || lhs_type != rhs_type)
+           throw new SyntaxError(
+              "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + "." +
+              " Possibly the type of " + lhs_t + " has to be declared.")
+         (c, rhs_t)
+       }
+     }) ~ "," ~ tff_logic_formula <~ ")") ^^ {
+      case definition ~ _ ~ body => {
+        ConstantSubstVisitor(body, Map(definition))
       }
     }) |
     ("$let_ff" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
@@ -1107,18 +1112,23 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   }
 
   private lazy val tff_let_term =
-    ("$let_tt" ~ "(" ~> term ~ "=" ~ term ~ "," ~ term <~ ")" ^^ {
-      case lhs ~ _ ~ rhs ~ _ ~ body => {
-        val (lhs_t, lhs_type) = lhs
-        val (rhs_t, rhs_type) = rhs
-        if (!lhs_t.isInstanceOf[IConstant])
-          throw new SyntaxError(
-             "Error: currently $let_tf only supports constants, not " + lhs_t)
-        val IConstant(c) = lhs_t
-        if (lhs_type == OType && lhs_type != rhs_type)
-          throw new SyntaxError(
-             "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t)
-        (ConstantSubstVisitor(body._1, Map(c -> rhs_t)), body._2)
+    ((("$let_tt" ~ "(" ~> term ~ "=" ~ term ^^ {
+       case lhs ~ _ ~ rhs => {
+         val (lhs_t, lhs_type) = lhs
+         val (rhs_t, rhs_type) = rhs
+         if (!lhs_t.isInstanceOf[IConstant])
+           throw new SyntaxError(
+              "Error: currently $let_tt only supports constants, not " + lhs_t)
+         val IConstant(c) = lhs_t
+         if (lhs_type == OType || lhs_type != rhs_type)
+           throw new SyntaxError(
+              "Error: ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + "." +
+              " Possibly the type of " + lhs_t + " has to be declared.")
+         (c, rhs_t)
+       }
+     }) ~ "," ~ term <~ ")") ^^ {
+      case definition ~ _ ~ body => {
+        (ConstantSubstVisitor(body._1, Map(definition)), body._2)
       }
     }) |
     ("$let_ft" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
