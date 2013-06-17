@@ -243,7 +243,7 @@ object CmdlMain {
        else if(strategy.charAt(6)=='1')
          "maximal"
        else
-         "minimal"
+         "allMinimal"
     )
     
     s
