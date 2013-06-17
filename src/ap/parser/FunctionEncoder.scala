@@ -57,12 +57,18 @@ object FunctionEncoder {
         val parts = LineariseVisitor(t, op)
         val (outside, inside) =
           parts partition (x => ContainsSymbol.freeFrom(x, criticalVars))
-        val outsideFor = connect(outside, op)
-        val insideFor = if (inside.size == 1)
-          withMinimalScope(inside(0), f, criticalVars)
-        else
-          f(connect(inside, op))
-        IBinFormula(op, outsideFor, insideFor)
+        if (outside.isEmpty) {
+          f(t)
+        } else if (inside.isEmpty) {
+          t
+        } else {
+          val outsideFor = connect(outside, op)
+          val insideFor = if (inside.size == 1)
+            withMinimalScope(inside(0), f, criticalVars)
+          else
+            f(connect(inside, op))
+          IBinFormula(op, outsideFor, insideFor)
+        }
       }
       case _ => f(t)
     }
