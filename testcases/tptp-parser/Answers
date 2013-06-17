@@ -1,4 +1,10 @@
 Loading ARI120=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Warning: introducing partial function "nonLinMult" to encode multiplication
 Preprocessing ...
 Proving ...
@@ -7,12 +13,24 @@ Formula is valid, resulting constraint:
 true
 
 Loading ARI496=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Constructing countermodel ...
 
 No countermodel exists, formula is valid
 
 Loading ARI595=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Proving ...
 
@@ -20,6 +38,12 @@ Formula is valid, resulting constraint:
 true
 
 Loading ARI616=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Proving ...
 
@@ -27,6 +51,12 @@ Formula is valid, resulting constraint:
 true
 
 Loading ARI620=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Proving ...
 
@@ -34,6 +64,12 @@ Formula is valid, resulting constraint:
 true
 
 Loading GEG021=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Proving ...
 
@@ -41,6 +77,12 @@ Formula is valid, resulting constraint:
 true
 
 Loading PUZ001+1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Proving ...
 
@@ -48,6 +90,12 @@ Formula is valid, resulting constraint:
 true
 
 Loading PUZ133=2.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Proving ...
 
@@ -55,6 +103,12 @@ Formula is valid, resulting constraint:
 true
 
 Loading SYN050-1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Proving ...
 
@@ -62,24 +116,48 @@ Formula is valid, resulting constraint:
 true
 
 Loading SYO561_1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Constructing countermodel ...
 
 No countermodel exists, formula is valid
 
 Loading SYO563+1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Constructing countermodel ...
 
 No countermodel exists, formula is valid
 
 Loading SYO563+2.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Constructing countermodel ...
 
 No countermodel exists, formula is valid
 
 Loading let-tests.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Warning: introducing partial function "nonLinMult" to encode multiplication
 Preprocessing ...
 Constructing countermodel ...
