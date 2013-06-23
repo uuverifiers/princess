@@ -50,6 +50,7 @@ object SimpleAPI {
   private val AC = Debug.AC_SIMPLE_API
 
   private val SMTDumpBasename = "smt-queries-"
+  private val ScalaDumpBasename = "princess-queries-"
   
   /**
    * Create a new prover. Note that the prover has to be shut down explicitly
@@ -58,9 +59,12 @@ object SimpleAPI {
   def apply(enableAssert : Boolean = false,
             dumpSMT : Boolean = false,
             smtDumpBasename : String = SMTDumpBasename,
+            dumpScala : Boolean = false,
+            scalaDumpBasename : String = ScalaDumpBasename,
             tightFunctionScopes : Boolean = true) : SimpleAPI =
     new SimpleAPI (enableAssert,
                    if (dumpSMT) Some(smtDumpBasename) else None,
+                   if (dumpScala) Some(scalaDumpBasename) else None,
                    tightFunctionScopes)
 
   def spawn : SimpleAPI = apply()
@@ -89,9 +93,14 @@ object SimpleAPI {
   def withProver[A](enableAssert : Boolean = false,
                     dumpSMT : Boolean = false,
                     smtDumpBasename : String = SMTDumpBasename,
+                    dumpScala : Boolean = false,
+                    scalaDumpBasename : String = ScalaDumpBasename,
                     tightFunctionScopes : Boolean = true)
                    (f : SimpleAPI => A) : A = {
-    val p = apply(enableAssert, dumpSMT, smtDumpBasename, tightFunctionScopes)
+    val p = apply(enableAssert,
+                  dumpSMT, smtDumpBasename,
+                  dumpScala, scalaDumpBasename,
+                  tightFunctionScopes)
     try {
       f(p)
     } finally {
@@ -265,7 +274,9 @@ object SimpleAPI {
  * functionality in one place, and provides an imperative API similar to the
  * SMT-LIB command language.
  */
-class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
+class SimpleAPI private (enableAssert : Boolean,
+                         dumpSMT : Option[String],
+                         dumpScala : Option[String],
                          tightFunctionScopes : Boolean) {
 
   import SimpleAPI._
@@ -285,11 +296,30 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
       comp
     }
   
+  private val dumpScalaStream = dumpScala match {
+    case Some(basename) => {
+      val dumpScalaFile = java.io.File.createTempFile(basename, ".scala")
+      new java.io.FileOutputStream(dumpScalaFile)
+    }
+    case None => null
+  }
+  
+  private def doDumpScala(comp : => Unit) =
+    if (dumpScala != None) Console.withOut(dumpScalaStream) {
+      comp
+    }
+  
   def shutDown : Unit = {
     proofActor ! ShutdownCommand
     doDumpSMT {
       println("(exit)")
     }
+  }
+
+  doDumpScala {
+    println("val p = SimpleAPI.spawn")
+    println("import p._")
+    println
   }
   
   private val basicPreprocSettings =
@@ -300,6 +330,16 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatus(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    doDumpSMT {
+      println("(reset)")
+      println("(set-logic AUFLIA)")
+    }
+    doDumpScala {
+      for (_ <- 0 until storedStates.size)
+        println("} // scope")
+      println("reset")
+    }
     
     storedStates.clear
     
@@ -322,11 +362,6 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
     constructProofs = false
     mostGeneralConstraints = false
     theoryPlugin = None    
-
-    doDumpSMT {
-      println("(reset)")
-      println("(set-logic AUFLIA)")
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -360,7 +395,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
    * <code>ITerm</code>. This method is
    * only useful when working with formulae in the internal prover format.
    */
-  def createConstantRaw(rawName : String) : IExpression.ConstantTerm = {
+  def createConstantRaw(rawName : String) : IExpression.ConstantTerm =
+    createConstantRaw(rawName, "createConstant")
+
+  private def createConstantRaw(rawName : String,
+                                scalaCmd : String) : IExpression.ConstantTerm = {
     import IExpression._
     
     val name = sanitise(rawName)
@@ -369,6 +408,9 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
     restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " () Int)")
+    }
+    doDumpScala {
+      println("val " + name + " = " + scalaCmd + "(\"" + rawName + "\")")
     }
     c
   }
@@ -379,12 +421,20 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
    * only useful when working with formulae in the internal prover format.
    */
   def createConstantsRaw(prefix : String, nums : Range)
+                        : IndexedSeq[IExpression.ConstantTerm] =
+    createConstantsRaw(prefix, nums, "createConstant")
+
+  def createConstantsRaw(prefix : String, nums : Range, scalaCmd : String)
                         : IndexedSeq[IExpression.ConstantTerm] = {
     import IExpression._
     val cs = (for (i <- nums)
               yield {
                 doDumpSMT {
                   println("(declare-fun " + (prefix + i) + " () Int)")
+                }
+                doDumpScala {
+                  println("val " + prefix + i +
+                          " = " + scalaCmd + "(\"" + prefix + i + "\")")
                 }
                 new ConstantTerm (prefix + i)
               }).toIndexedSeq
@@ -398,7 +448,7 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
    */
   def createExistentialConstant(rawName : String) : ITerm = {
     import IExpression._
-    val c = createConstantRaw(rawName)
+    val c = createConstantRaw(rawName, "createExistentialConstant")
     existentialConstants = existentialConstants + c
     c
   }
@@ -416,7 +466,8 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
    */
   def createExistentialConstants(num : Int) : IndexedSeq[ITerm] = {
     val start = currentOrder.orderedConstants.size
-    val cs = createConstantsRaw("X", start until (start + num))
+    val cs = createConstantsRaw("X", start until (start + num),
+                                "createExistentialConstant")
     existentialConstants = existentialConstants ++ cs
     for (c <- cs) yield IConstant(c)
   }
@@ -432,7 +483,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
     doDumpSMT {
       println("(declare-fun " + c.name + " () Int)")
     }
-  } 
+    doDumpScala {
+      println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
+              "// addConstant(" + c.name + ")")
+    }
+  }
 
   /**
    * Add a sequence of externally defined constant to the environment of
@@ -444,6 +499,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
     doDumpSMT {
       for (c <- cs)
         println("(declare-fun " + c.name + " () Int)")
+    }
+    doDumpScala {
+      for (c <- cs)
+        println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
+                "// addConstant(" + c.name + ")")
     }
   }
 
@@ -459,6 +519,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
     restartProofActor
     doDumpSMT {
       println("(declare-fun " + name + " () Bool)")
+    }
+    doDumpScala {
+      println("val " + name + " = " +
+              "createBooleanVariable(\"" + rawName + "\")")
     }
     p()
   }
@@ -481,6 +545,11 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
                 doDumpSMT {
                   println("(declare-fun " + ("p" + (startInd + i)) + " () Bool)")
                 }
+                doDumpScala {
+                  println("val " + ("p" + (startInd + i)) +
+                          " = " + "createBooleanVariable(\"" +
+                          ("p" + (startInd + i)) + "\")")
+                }
                 new Predicate ("p" + (startInd + i), 0)
               }).toIndexedSeq
     currentOrder = currentOrder extendPred ps
@@ -501,6 +570,10 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
       println("(declare-fun " + name + " (" +
           (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
     }
+    doDumpScala {
+      println("val " + name + " = " +
+              "createFunction(\"" + rawName + "\", " + arity + ")")
+    }
     currentOrder = newOrder
     recreateProver
     f
@@ -516,7 +589,13 @@ class SimpleAPI private (enableAssert : Boolean, dumpSMT : Option[String],
    */
   def createBooleanFunction(rawName : String,
                             arity : Int) : IExpression.BooleanFunApplier =
-    new IExpression.BooleanFunApplier(createFunction(rawName, arity))
+    new IExpression.BooleanFunApplier({
+      doDumpScala {
+        println("// createBooleanFunction" +
+                "(\"" + rawName + "\", " + arity + ")")
+      }
+      createFunction(rawName, arity)
+    })
   
   /**
    * Create a new uninterpreted predicate with fixed arity.<br>
