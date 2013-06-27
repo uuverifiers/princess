@@ -314,17 +314,30 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpSMT {
       println("(exit)")
     }
+    doDumpScala {
+      closeAllScopes
+      println("} // withProver")
+    }
   }
 
   doDumpScala {
-    println("val p = SimpleAPI.spawn")
+    println("import ap._")
+    println("import ap.parser._")
+    println
+    println("SimpleAPI.withProver { p =>")
     println("import p._")
+    println("import IExpression._")
     println
   }
   
   private val basicPreprocSettings =
     Param.TIGHT_FUNCTION_SCOPES.set(PreprocessingSettings.DEFAULT,
                                     tightFunctionScopes)
+
+  private def closeAllScopes = {
+    for (_ <- 0 until storedStates.size)
+      println("} // pop scope")
+  }
 
   def reset = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -336,8 +349,7 @@ class SimpleAPI private (enableAssert : Boolean,
       println("(set-logic AUFLIA)")
     }
     doDumpScala {
-      for (_ <- 0 until storedStates.size)
-        println("} // scope")
+      closeAllScopes
       println("reset")
     }
     
@@ -668,8 +680,14 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Add an assertion to the prover: assume that the given formula is true
    */
-  def addAssertion(assertion : IFormula) : Unit =
+  def addAssertion(assertion : IFormula) : Unit = {
+    doDumpScala {
+      print("!! (")
+      PrettyScalaLineariser.printExpression(assertion)
+      println(")")
+    }
     addFormula(!assertion)
+  }
   
   /**
    * Add an assertion to the prover: assume that the given formula is true
@@ -693,6 +711,11 @@ class SimpleAPI private (enableAssert : Boolean,
    * instead of <code>Unsat/Sat</code>.
    */
   def addConclusion(conc : IFormula) : Unit = {
+    doDumpScala {
+      print("?? (")
+      PrettyScalaLineariser.printExpression(conc)
+      println(")")
+    }
     validityMode = true
     addFormula(conc)
   }
@@ -1500,6 +1523,9 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpSMT {
       println("(push 1)")
     }
+    doDumpScala {
+      println("scope {")
+    }
   }
   
   /**
@@ -1538,6 +1564,9 @@ class SimpleAPI private (enableAssert : Boolean,
 
     doDumpSMT {
       println("(pop 1)")
+    }
+    doDumpScala {
+      println("} // pop scope")
     }
   }
   
