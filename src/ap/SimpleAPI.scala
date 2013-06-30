@@ -68,10 +68,18 @@ object SimpleAPI {
                    tightFunctionScopes)
 
   def spawn : SimpleAPI = apply()
+
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
+
   def spawnWithLog : SimpleAPI = apply(dumpSMT = true)
+
   def spawnWithLog(basename : String) : SimpleAPI =
     apply(dumpSMT = true, smtDumpBasename = basename)
+
+  def spawnWithScalaLog : SimpleAPI = apply(dumpScala = true)
+
+  def spawnWithScalaLog(basename : String) : SimpleAPI =
+    apply(dumpScala = true, scalaDumpBasename = basename)
   
   /**
    * Run the given function with a fresh prover, and shut down the prover

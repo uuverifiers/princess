@@ -145,11 +145,18 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
           allButLast(ctxt, ", ", ")", fun.arity)
         }
         
-        case _ : ITermITE | _ : IFormulaITE => {
-          print("\\if (")
-          SubArgs(List(ctxt setParentOp ") \\ then (",
-                       ctxt setParentOp ") \\ else (",
+        case _ : ITermITE => {
+          print("ITermITE(")
+          SubArgs(List(ctxt setParentOp ", ",
+                       ctxt setParentOp ", ",
                        ctxt setParentOp ")"))
+        }
+
+        case IEpsilon(_) => {
+          val varName = "v" + ctxt.vars.size
+          print("eps(")
+          print(varName + " => ")
+          UniSubArgs(ctxt pushVar varName setParentOp ")")
         }
 
         // Formulae
@@ -232,10 +239,14 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
           UniSubArgs(ctxt setParentOp (" " + relation(rel) + " 0)"))
         }
       
-        case INot(subF) => {
+        case INot(INot(subF)) => {
+          TryAgain(subF, ctxt)
+        }
+        case INot(_) => {
           print("!")
           noParentOp(ctxt)
         }
+
         case IQuantified(quan, _) => {
           val varName = "v" + ctxt.vars.size
           print(quan match {
@@ -245,6 +256,14 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
           print(varName + " => ")
           UniSubArgs(ctxt pushVar varName setParentOp ")")
         }
+
+        case _ : IFormulaITE => {
+          print("ITermITE(")
+          SubArgs(List(ctxt setParentOp ", ",
+                       ctxt setParentOp ", ",
+                       ctxt setParentOp ")"))
+        }
+
         case INamedPart(name, _) => {
           print("INamedPart(")
           name match {
@@ -254,6 +273,7 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
           print(", ")
           UniSubArgs(ctxt setParentOp ")")
         }
+
         case ITrigger(trigs, _) => {
           print("ITrigger(List(")
           SubArgs((for (_ <- 0 until (trigs.size - 1))

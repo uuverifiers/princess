@@ -171,11 +171,24 @@ object IExpression {
   def quan(q : Quantifier, f : ITerm => IFormula) : IFormula = {
     // first substitute a fresh constant, and later replace it with a
     // bound variable (just applying <code>f</code> to a bound variable
-    // would not work in case of nested quantifiers)
+    // would not work in case of nested binders)
     val x = new ConstantTerm ("x")
     quanConsts(q, List(x), f(x))
   }
   
+  /**
+   * Higher-order syntax for epsilon-expressions. This makes it possible
+   * to write things like <code>eps(a => phi(a))</code>.
+   */
+  def eps(f : ITerm => IFormula) = {
+    // first substitute a fresh constant, and later replace it with a
+    // bound variable (just applying <code>f</code> to a bound variable
+    // would not work in case of nested binders)
+    val x = new ConstantTerm ("x")
+    val fWithShiftedVars = VariableShiftVisitor(f(x), 0, 1)
+    IEpsilon(ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0))))
+  }
+
   /**
    * Trigger/patterns that are used to define in which way a quantified 
    * formula is supposed to be instantiated. Triggers are only allowed to occur
