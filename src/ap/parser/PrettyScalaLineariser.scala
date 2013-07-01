@@ -40,13 +40,16 @@ object PrettyScalaLineariser {
 class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
 
   def apply(e : IExpression) =
-    AbsyPrinter.visit(e, PrintContext(List(), ""))
+    AbsyPrinter.visit(e, PrintContext(List(), "", true))
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private case class PrintContext(vars : List[String], parentOp : String) {
-    def pushVar(name : String)          = PrintContext(name :: vars, parentOp)
-    def setParentOp(op : String)        = PrintContext(vars, op)
+  private case class PrintContext(vars : List[String], parentOp : String,
+                                  requireWrapping : Boolean) {
+    def pushVar(name : String)   = PrintContext(name :: vars, parentOp, requireWrapping)
+    def setOpNoWrap(op : String) = PrintContext(vars, op, false)
+    def setOpWrap(op : String)   = PrintContext(vars, op, true)
+    def setWrapping(b : Boolean) = PrintContext(vars, parentOp, b)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -55,12 +58,12 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
     
     private def allButLast(ctxt : PrintContext, op : String, lastOp : String,
                            arity : Int) = {
-      val newCtxt = ctxt setParentOp op
+      val newCtxt = ctxt setOpNoWrap op
       SubArgs((for (_ <- 1 until arity) yield newCtxt) ++
-                List(ctxt setParentOp lastOp))
+                List(ctxt setOpNoWrap lastOp))
     }
     
-    private def noParentOp(ctxt : PrintContext) = UniSubArgs(ctxt setParentOp "")
+    private def noOp(ctxt : PrintContext) = UniSubArgs(ctxt setOpNoWrap "")
     
     private def shortCut(ctxt : PrintContext) = {
       print(ctxt.parentOp)
@@ -77,10 +80,24 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
     }
 
     private def atomicTerm(t : ITerm,
-                           ctxt : PrintContext) : String = t match {
+                           ctxt : PrintContext) : String =
+      if (ctxt.requireWrapping)
+        atomicTermWrap(t, ctxt)
+      else
+        atomicTermNoWrap(t, ctxt)
+
+    private def atomicTermWrap(t : ITerm,
+                                 ctxt : PrintContext) : String = t match {
       case IConstant(c)     => c.name
       case IVariable(index) => ctxt vars index
       case IIntLit(value)   => "i(" + int2String(value) + ")"
+    }
+
+    private def atomicTermNoWrap(t : ITerm,
+                                 ctxt : PrintContext) : String = t match {
+      case IConstant(c)     => c.name
+      case IVariable(index) => ctxt vars index
+      case IIntLit(value)   => int2String(value)
     }
 
     private def int2String(value : IdealInt) : String = {
@@ -107,36 +124,40 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
         // Terms
         case AtomicTerm(t) => {
           print(atomicTerm(t, ctxt))
-          noParentOp(ctxt)
+          noOp(ctxt)
         }
 
         case IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" - " + atomicTerm(t, ctxt) + ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (
+                       " - " + atomicTermNoWrap(t, ctxt) + ")" + ctxt.parentOp))
         }
         case IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" - " + atomicTerm(t, ctxt) + ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (
+                       " - " + atomicTermNoWrap(t, ctxt) + ")" + ctxt.parentOp))
         }
         case IPlus(s, ITimes(coeff, AtomicTerm(t))) if (coeff.signum < 0) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" - " + atomicTerm(t, ctxt) + "*" + int2String(coeff.abs) +
-                                        ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (
+                       " - (" + atomicTermWrap(t, ctxt) + "*" + int2String(coeff.abs) +
+                       "))" + ctxt.parentOp))
         }
         case IPlus(ITimes(coeff, AtomicTerm(t)), s) if (coeff.signum < 0) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" - " + atomicTerm(t, ctxt) + "*" + int2String(coeff.abs) +
-                                        ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (
+                       " - (" + atomicTermWrap(t, ctxt) + "*" + int2String(coeff.abs) +
+                       "))" + ctxt.parentOp))
         }
 
         case IPlus(_, _) => {
           print("(")
-          allButLast(ctxt, " + ", ")", 2)
+          SubArgs(List(ctxt setOpWrap " + ", ctxt setOpNoWrap ")"))
         }
 
         case ITimes(coeff, _) => {
           print("(")
-          UniSubArgs(ctxt setParentOp (" * " + int2String(coeff) + ")"))
+          UniSubArgs(ctxt setOpWrap (" * " + int2String(coeff) + ")"))
         }
       
         case IFunApp(fun, _) => {
@@ -147,16 +168,14 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
         
         case _ : ITermITE => {
           print("ITermITE(")
-          SubArgs(List(ctxt setParentOp ", ",
-                       ctxt setParentOp ", ",
-                       ctxt setParentOp ")"))
+          allButLast(ctxt, ", ", ")", 3)
         }
 
         case IEpsilon(_) => {
           val varName = "v" + ctxt.vars.size
           print("eps(")
           print(varName + " => ")
-          UniSubArgs(ctxt pushVar varName setParentOp ")")
+          UniSubArgs(ctxt pushVar varName setOpNoWrap ")")
         }
 
         // Formulae
@@ -166,7 +185,7 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
             print("(")
             allButLast(ctxt, ", ", ")", pred.arity)
           } else {
-            noParentOp(ctxt)
+            noOp(ctxt)
           }
         }
         
@@ -177,66 +196,69 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
             case IBinJunctor.Or => " | "
             case IBinJunctor.Eqv => " <=> "
           }
-          allButLast(ctxt, op, ")", 2)
+          SubArgs(List(ctxt setOpWrap op, ctxt setOpNoWrap ")"))
         }
         
         case IBoolLit(value) => {
-          print("i(" + value + ")")
-          noParentOp(ctxt)
+          if (ctxt.requireWrapping)
+            print("i(" + value + ")")
+          else
+            print(value)
+          noOp(ctxt)
         }
       
         case IIntFormula(rel, ITimes(IdealInt.MINUS_ONE, t)) => {
           print("(")
-          TryAgain(t, ctxt setParentOp (" " + negRelation(rel) + " 0)" + ctxt.parentOp))
+          TryAgain(t, ctxt setOpWrap (" " + negRelation(rel) + " 0)" + ctxt.parentOp))
         }
 
         case IIntFormula(rel, IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)))) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " +
-                                        atomicTerm(t, ctxt) + ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (" " + relation(rel) + " " +
+                                        atomicTermNoWrap(t, ctxt) + ")" + ctxt.parentOp))
         }
         case IIntFormula(rel, IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s)) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " +
-                                        atomicTerm(t, ctxt) + ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (" " + relation(rel) + " " +
+                                        atomicTermNoWrap(t, ctxt) + ")" + ctxt.parentOp))
         }
 
         case IIntFormula(rel, IPlus(AtomicTerm(t), ITimes(IdealInt.MINUS_ONE, s))) => {
-          print("(" + atomicTerm(t, ctxt) + " " + relation(rel) + " ")
-          TryAgain(s, ctxt setParentOp (")" + ctxt.parentOp))
+          print("(" + atomicTermWrap(t, ctxt) + " " + relation(rel) + " ")
+          TryAgain(s, ctxt setOpNoWrap (")" + ctxt.parentOp))
         }
         case IIntFormula(rel, IPlus(ITimes(IdealInt.MINUS_ONE, s), AtomicTerm(t))) => {
-          print("(" + atomicTerm(t, ctxt) + " " + relation(rel) + " ")
-          TryAgain(s, ctxt setParentOp (")" + ctxt.parentOp))
+          print("(" + atomicTermWrap(t, ctxt) + " " + relation(rel) + " ")
+          TryAgain(s, ctxt setOpNoWrap (")" + ctxt.parentOp))
         }
 
         case IIntFormula(rel, IPlus(ITimes(coeff, AtomicTerm(t)), s)) if (coeff.signum < 0) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " +
-                                        atomicTerm(t, ctxt) + "*" + int2String(coeff.abs) +
-                                        ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (" " + relation(rel) + " " +
+                                      atomicTermWrap(t, ctxt) + "*" + int2String(coeff.abs) +
+                                      ")" + ctxt.parentOp))
         }
         case IIntFormula(rel, IPlus(s, ITimes(coeff, AtomicTerm(t)))) if (coeff.signum < 0) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " +
-                                        atomicTerm(t, ctxt) + "*" + int2String(coeff.abs) +
-                                        ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (" " + relation(rel) + " " +
+                                      atomicTermWrap(t, ctxt) + "*" + int2String(coeff.abs) +
+                                      ")" + ctxt.parentOp))
         }
 
         case IIntFormula(rel, IPlus(IIntLit(value), s)) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " + int2String(-value) +
-                                        ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (" " + relation(rel) + " " + int2String(-value) +
+                                      ")" + ctxt.parentOp))
         }
         case IIntFormula(rel, IPlus(s, IIntLit(value))) => {
           print("(")
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " + int2String(-value) +
-                                        ")" + ctxt.parentOp))
+          TryAgain(s, ctxt setOpWrap (" " + relation(rel) + " " + int2String(-value) +
+                                      ")" + ctxt.parentOp))
         }
 
         case IIntFormula(rel, _) => {
           print("(")
-          UniSubArgs(ctxt setParentOp (" " + relation(rel) + " 0)"))
+          UniSubArgs(ctxt setOpWrap (" " + relation(rel) + " 0)"))
         }
       
         case INot(INot(subF)) => {
@@ -244,7 +266,7 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
         }
         case INot(_) => {
           print("!")
-          noParentOp(ctxt)
+          UniSubArgs(ctxt setOpWrap "")
         }
 
         case IQuantified(quan, _) => {
@@ -254,14 +276,14 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
             case Quantifier.EX => "ex("
           })
           print(varName + " => ")
-          UniSubArgs(ctxt pushVar varName setParentOp ")")
+          UniSubArgs(ctxt pushVar varName setOpNoWrap ")")
         }
 
         case _ : IFormulaITE => {
           print("ITermITE(")
-          SubArgs(List(ctxt setParentOp ", ",
-                       ctxt setParentOp ", ",
-                       ctxt setParentOp ")"))
+          SubArgs(List(ctxt setOpNoWrap ", ",
+                       ctxt setOpNoWrap ", ",
+                       ctxt setOpNoWrap ")"))
         }
 
         case INamedPart(name, _) => {
@@ -271,14 +293,14 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
             case _ => print(name)
           }
           print(", ")
-          UniSubArgs(ctxt setParentOp ")")
+          UniSubArgs(ctxt setOpNoWrap ")")
         }
 
         case ITrigger(trigs, _) => {
           print("ITrigger(List(")
           SubArgs((for (_ <- 0 until (trigs.size - 1))
-                     yield (ctxt setParentOp ", ")) ++
-                  List(ctxt setParentOp "), ", ctxt setParentOp ")"))
+                     yield (ctxt setOpNoWrap ", ")) ++
+                  List(ctxt setOpNoWrap "), ", ctxt setOpNoWrap ")"))
         }
       }
     }
