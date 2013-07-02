@@ -275,26 +275,32 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
               : LinearCombination = {
     val curLC = apply(lc, terms)
     
-    if (curLC.isZero) {
-      LinearCombination.ZERO
-    } else if (curLC.leadingCoeff.signum < 0) {
-      // when the leading coefficient of the <code>LinearCombination</code> is
-      // made positive, it might be possible to apply further reductions
-      val negTerms = if (terms == null)
-                       null
-                     else
-                       new ArrayBuffer[(IdealInt, LinearCombination)]
+    val res =
+      if (curLC.isZero) {
+        LinearCombination.ZERO
+      } else if (curLC.leadingCoeff.signum < 0) {
+        // when the leading coefficient of the <code>LinearCombination</code> is
+        // made positive, it might be possible to apply further reductions
+        val negTerms = if (terms == null)
+                         null
+                       else
+                         new ArrayBuffer[(IdealInt, LinearCombination)]
+  
+        val blender = new LCBlender (order)
+        blender += (IdealInt.MINUS_ONE, curLC)
+        runBlender(blender, negTerms)
+        
+        if (terms != null)
+          terms ++= (for ((c, t) <- negTerms.iterator) yield (-c, t))
+        blender.result
+      } else {
+        curLC
+      }
 
-      val blender = new LCBlender (order)
-      blender += (IdealInt.MINUS_ONE, curLC)
-      runBlender(blender, negTerms)
-      
-      if (terms != null)
-        terms ++= (for ((c, t) <- negTerms.iterator) yield (-c, t))
-      blender.result
-    } else {
-      curLC
-    }
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithEqs.AC, (res eq lc) || (res != lc))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
   
   private lazy val keySet = equations.keySet
@@ -351,22 +357,34 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     Debug.assertPre(ReduceWithEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    val terms = createTermBuffer(logger)
-    val res = if (reductionPossible(conj))
-                conj.updateEqs(for (lc <- conj) yield {
-                                 val newLC = reduceAndMakePositive(lc, terms)
-                                 if (terms != null && !terms.isEmpty) {
-                                   if (!newLC.isNonZero)
-                                     logger.reduceNegEquation(terms, lc, order)
-                                   terms.clear
-                                 }
-                                 newLC
-                               })(order)
-              else
-                conj
-    
+    val res =
+      if (conj.isTrue || conj.isFalse || this.isEmpty ||
+          !reductionPossible(conj)) {
+        conj
+      } else {
+        var changed = false
+        val terms = createTermBuffer(logger)
+        val reducedLCs = for (lc <- conj) yield {
+                           val newLC = reduceAndMakePositive(lc, terms)
+                           if (!(newLC eq lc))
+                             changed = true
+                           if (terms != null && !terms.isEmpty) {
+                             if (!newLC.isNonZero)
+                               logger.reduceNegEquation(terms, lc, order)
+                             terms.clear
+                           }
+                           newLC
+                         }
+        if (changed)
+          NegEquationConj(reducedLCs, order)
+        else
+          conj
+      }
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ReduceWithEqs.AC, isCompletelyReduced(res))
+    Debug.assertPost(ReduceWithEqs.AC,
+                     isCompletelyReduced(res) &&
+                     ((res eq conj) || (res != conj)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
