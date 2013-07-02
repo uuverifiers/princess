@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.util.{Debug, Logic, Seqs, FilterIt, LRUCache}
+
+import scala.collection.mutable.ArrayBuffer
 
 object ReduceWithInEqs {
   
@@ -145,10 +147,16 @@ class ReduceWithInEqsImpl protected[inequalities]
 
     // the only possible inference is that the conjunction of equations is
     // unsatisfiable
-    if (Logic.exists(for (lc <- conj.iterator) yield isNonZero(lc)))
-      EquationConj.FALSE
-    else
-      conj
+    val res =
+      if (conj exists (isNonZero(_)))
+        EquationConj.FALSE
+      else
+        conj
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithInEqs.AC, (res eq conj) || res != conj)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
 
   /**
@@ -173,7 +181,13 @@ class ReduceWithInEqsImpl protected[inequalities]
     Debug.assertPre(ReduceWithInEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    conj.updateEqsSubset(conj filter ((lc:LinearCombination) => !isNonZero(lc)))(order)
+    val res =
+      conj.updateEqsSubset(conj filter ((lc:LinearCombination) => !isNonZero(lc)))(order)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithInEqs.AC, (res eq conj) || res != conj)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
 
   def apply(conj : InEqConj) : InEqConj = {
@@ -181,40 +195,59 @@ class ReduceWithInEqsImpl protected[inequalities]
     Debug.assertPre(ReduceWithInEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    try {
-      conj.updateGeqZero(for (lc <- conj.iterator; newLC <- refine(lc))
-                           yield newLC)(order)
-    } catch {
-      case CONTRADICTION_EXCEPTION => InEqConj.FALSE
-    }
+    val res =
+      if (conj.isTrue || conj.isFalse) {
+        conj
+      } else try {
+        val newLCs = new ArrayBuffer[LinearCombination]
+        var changed = false
+
+        val lcIt = conj.iterator
+        while (lcIt.hasNext) {
+          val lc = lcIt.next
+          val negLC = -lc
+
+          lowerBound(negLC) match {
+            case Some(d) if (d.signum > 0) => 
+              // contradiction
+              throw CONTRADICTION_EXCEPTION
+            case x => // we also need to check lower bounds
+                      (lowerBound(lc), x) match {
+                        case (Some(d), _) if (d.signum >= 0) => {
+                          // the inequality is subsumed by a known inequality,
+                          // can be removed
+                          changed = true
+                        }
+                        case (_, Some(IdealInt.ZERO)) => {
+                          // we can infer an equation from an inequality
+                          // by inserting an upper bound as well
+                          newLCs += lc
+                          if (!(conj.equalityInfs contains lc.makePositive)) {
+                            newLCs += negLC
+                            changed = true
+                          }
+                        }
+                        case _ => {
+                          // we have to keep the inequality
+                          newLCs += lc
+                        }
+                      }
+          }
+        }
+
+        if (changed)
+          InEqConj(newLCs, order)
+        else
+          conj
+      } catch {
+        case CONTRADICTION_EXCEPTION => InEqConj.FALSE
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithInEqs.AC, (res eq conj) || res != conj)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
-
-  /**
-   * Refine a single geq-zero-inequality using the assumed inequalities. If a
-   * contradiction is detected, the exception
-   * <code>CONTRADICTION_EXCEPTION</code> is raised. 
-   */
-  private def refine(lc : LinearCombination) : Iterator[LinearCombination] =
-    lowerBound(-lc) match {
-    case Some(d) if (d.signum > 0) => 
-      // contradiction
-      throw CONTRADICTION_EXCEPTION
-    case x => // we also need to check lower bounds
-              (lowerBound(lc), x) match {
-              case (Some(d), _) if (d.signum >= 0) =>
-                // the inequality is subsumed by a known inequality,
-                // can be removed
-                Iterator.empty
-              case (_, Some(IdealInt.ZERO)) =>
-                // we can infer an equation from an inequality by inserting an
-                // upper bound as well
-                Array(lc, -lc).iterator
-              case _ =>
-                // we have to keep the inequality
-                Iterator.single(lc)              
-              }
-    }
-
 }
 
 private object CONTRADICTION_EXCEPTION extends Exception
