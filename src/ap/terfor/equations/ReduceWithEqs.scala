@@ -104,35 +104,42 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
   //////////////////////////////////////////////////////////////////////////////
   
   def apply(lc : LinearCombination, terms : Buffer[(IdealInt, LinearCombination)])
-           : LinearCombination = lc match {
-    case _ : LinearCombination0 =>
-      lc
-      
-    case lc : LinearCombination1 => (equations get lc.leadingTerm) match {
-      case None =>
+           : LinearCombination = {
+    val res = lc match {
+      case _ : LinearCombination0 =>
         lc
-      case Some(eq) if (eq.leadingCoeff.isOne) =>
-        reduceWithEq(lc, lc.leadingCoeff, eq, terms)
-      case _ =>
-        generalApply(lc, terms)
-    }
-    
-    case lc : LinearCombination2 => (equations get lc.leadingTerm) match {
-      case None => (equations get (lc getTerm 1)) match {
+        
+      case lc : LinearCombination1 => (equations get lc.leadingTerm) match {
         case None =>
           lc
         case Some(eq) if (eq.leadingCoeff.isOne) =>
-          reduceWithEq(lc, lc getCoeff 1, eq, terms)
+          reduceWithEq(lc, lc.leadingCoeff, eq, terms)
         case _ =>
           generalApply(lc, terms)
       }
-      case Some(eq) if (eq.leadingCoeff.isOne) =>
-        reduceWithEq(lc, lc.leadingCoeff, eq, terms)
-      case _ =>
-        generalApply(lc, terms)
+      
+      case lc : LinearCombination2 => (equations get lc.leadingTerm) match {
+        case None => (equations get (lc getTerm 1)) match {
+          case None =>
+            lc
+          case Some(eq) if (eq.leadingCoeff.isOne) =>
+            reduceWithEq(lc, lc getCoeff 1, eq, terms)
+          case _ =>
+            generalApply(lc, terms)
+        }
+        case Some(eq) if (eq.leadingCoeff.isOne) =>
+          reduceWithEq(lc, lc.leadingCoeff, eq, terms)
+        case _ =>
+          generalApply(lc, terms)
+      }
+      
+      case _ => generalApply(lc, terms)
     }
-    
-    case _ => generalApply(lc, terms)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithEqs.AC, (res eq lc) || res != lc)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
 
   private def reduceWithEq(lc : LinearCombination, lcCoeff : IdealInt,
@@ -396,23 +403,35 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     Debug.assertPre(ReduceWithEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    val terms = createTermBuffer(logger)
-    val res = if (reductionPossible(conj))
-                conj.updateGeqZero(for (lc <- conj) yield {
-                                     val newLC = apply(lc, terms)
-                                     if (terms != null && !terms.isEmpty) {
-                                       if (!(newLC.isConstant &&
-                                             newLC.constant.signum >= 0))
-                                         logger.reduceInequality(terms, lc, order)
-                                       terms.clear
-                                     }
-                                     newLC
-                                   }, logger)(order)
-              else
-                conj
+    val res =
+      if (conj.isTrue || conj.isFalse || this.isEmpty ||
+          !reductionPossible(conj)) {
+        conj
+      } else {
+        var changed = false
+        val terms = createTermBuffer(logger)
+        val reducedLCs = for (lc <- conj) yield {
+                           val newLC = apply(lc, terms)
+                           if (!(newLC eq lc))
+                             changed = true
+                           if (terms != null && !terms.isEmpty) {
+                             if (!(newLC.isConstant &&
+                                   newLC.constant.signum >= 0))
+                               logger.reduceInequality(terms, lc, order)
+                             terms.clear
+                           }
+                           newLC
+                         }
+        if (changed)
+          InEqConj(reducedLCs.iterator, logger, order)
+        else
+          conj
+      }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ReduceWithEqs.AC, isCompletelyReduced(res))
+    Debug.assertPost(ReduceWithEqs.AC,
+                     isCompletelyReduced(res) &&
+                     ((res eq conj) || (res != conj)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
