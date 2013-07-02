@@ -310,10 +310,12 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     Debug.assertPre(ReduceWithEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val res = if (reductionPossible(conj))
-                conj.pseudoReduce(this, order)
-              else
+    val res = if (conj.isTrue || conj.isFalse || this.isEmpty ||
+                  !reductionPossible(conj))
                 conj
+              else
+                conj.pseudoReduce(this, order)
+
 /*
     val res = if (reductionPossible(conj))
                 conj.updateEqs(EquationConj(conj.iterator, this, order))(order)

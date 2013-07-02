@@ -212,9 +212,7 @@ class EquationConj private (_lhss : Array[LinearCombination],
 
   def pseudoReduce(reducer : ReduceWithEqs,
                    newOrder : TermOrder) : EquationConj =
-    if (this.isTrue || this.isFalse || reducer.isEmpty) {
-      this
-    } else if (this.size == 1) {
+    if (this.size == 1) {
       val reducedLC = reducer pseudoReduce this.head
       if (reducedLC eq this.head)
         this
