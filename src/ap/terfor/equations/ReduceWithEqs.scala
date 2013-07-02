@@ -465,7 +465,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         }
         
         if (changed) {
-          val newAtom = a.updateArgs(newArgs)(order)
+          val newAtom = Atom(a.pred, newArgs, order)
           logger.reducePredFormula(argModifiers, a, !positive, newAtom, order)
           newAtom
         } else {
@@ -473,11 +473,25 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         }
         
       } else {
-        a.updateArgs(for (lc <- a) yield apply(lc))(order)
+
+        var changed = false
+        val newArgs = for (lc <- a) yield {
+          val newArg = apply(lc)
+          if (!(newArg eq lc))
+            changed = true
+          newArg
+        }
+
+        if (changed)
+          Atom(a.pred, newArgs, order)
+        else
+          a
+
       }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ReduceWithEqs.AC, isCompletelyReduced(res))
+    Debug.assertPost(ReduceWithEqs.AC,
+                     isCompletelyReduced(res) && ((res eq a) || (res != a)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
@@ -488,14 +502,37 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    if (reductionPossible(conj)) {
-      conj.updateLits(for (a <- conj.positiveLits) yield apply(a, true, logger),
-                      for (a <- conj.negativeLits) yield apply(a, false, logger),
-                      logger
-                     )(order)
-    } else {
-      conj
-    }
+
+    val res =
+      if (conj.isTrue || conj.isFalse || this.isEmpty ||
+          !reductionPossible(conj)) {
+        conj
+      } else {
+
+        var changed = false
+        val newPosLits = for (a <- conj.positiveLits) yield {
+          val newA = apply(a, true, logger)
+          if (!(newA eq a))
+            changed = true
+          newA
+        }
+        val newNegLits = for (a <- conj.negativeLits) yield {
+          val newA = apply(a, false, logger)
+          if (!(newA eq a))
+            changed = true
+          newA
+        }
+
+        if (changed)
+          PredConj(newPosLits.iterator, newNegLits.iterator, logger, order)
+        else
+          conj
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithEqs.AC, ((res eq conj) || (res != conj)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
 
   //////////////////////////////////////////////////////////////////////////////
