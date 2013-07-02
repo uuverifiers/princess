@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -242,19 +242,26 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
 
       curLC = blender.result
     }
-    
-    if (curLC.isZero) {
-      LinearCombination.ZERO
-    } else if (curLC.leadingCoeff.signum < 0) {
-      // when the leading coefficient of the <code>LinearCombination</code> is
-      // made positive, it might be possible to apply further reductions
-      val blender = new LCBlender (order)
-      blender += (IdealInt.MINUS_ONE, curLC)
-      runBlender(blender)
-      blender.result
-    } else {
-      curLC
-    }
+
+    val res =    
+      if (curLC.isZero) {
+        LinearCombination.ZERO
+      } else if (curLC.leadingCoeff.signum < 0) {
+        // when the leading coefficient of the <code>LinearCombination</code> is
+        // made positive, it might be possible to apply further reductions
+        val blender = new LCBlender (order)
+        blender += (IdealInt.MINUS_ONE, curLC)
+        runBlender(blender)
+        blender.result
+      } else {
+        curLC
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithEqs.AC, (res eq lc) || res != lc)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+  
+    res
   }
 
   /**
@@ -304,12 +311,20 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val res = if (reductionPossible(conj))
+                conj.pseudoReduce(this, order)
+              else
+                conj
+/*
+    val res = if (reductionPossible(conj))
                 conj.updateEqs(EquationConj(conj.iterator, this, order))(order)
               else
                 conj
+ */
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ReduceWithEqs.AC, isCompletelyReduced(res))
+    Debug.assertPost(ReduceWithEqs.AC,
+                     isCompletelyReduced(res) &&
+                     ((res eq conj) || (res != conj)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }

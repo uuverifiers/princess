@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -207,6 +207,34 @@ class EquationConj private (_lhss : Array[LinearCombination],
     else
       new EquationConj (newEqs.toArray, newOrder)
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def pseudoReduce(reducer : ReduceWithEqs,
+                   newOrder : TermOrder) : EquationConj =
+    if (this.isTrue || this.isFalse || reducer.isEmpty) {
+      this
+    } else if (this.size == 1) {
+      val reducedLC = reducer pseudoReduce this.head
+      if (reducedLC eq this.head)
+        this
+      else
+        EquationConj(reducedLC, newOrder)
+    } else {
+      var changed = false
+      val updatedLCs =
+        (for (lc <- iterator) yield {
+           val reducedLC = reducer pseudoReduce lc
+           if (!(reducedLC eq lc))
+             changed = true
+           reducedLC
+         }).toArray
+
+      if (changed)
+        EquationConj(updatedLCs.iterator, reducer, newOrder)
+      else
+        this
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
