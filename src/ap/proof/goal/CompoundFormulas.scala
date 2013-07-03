@@ -52,7 +52,10 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def updateQFClauses(newQFClauses : NegatedConjunctions) =
-    CompoundFormulas(newQFClauses, eagerQuantifiedClauses, lazyQuantifiedClauses)
+    if (qfClauses eq newQFClauses)
+      this
+    else
+      CompoundFormulas(newQFClauses, eagerQuantifiedClauses, lazyQuantifiedClauses)
   
   def quantifierClauses(eager : Boolean) =
     if (eager) eagerQuantifiedClauses else lazyQuantifiedClauses
@@ -133,12 +136,15 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
                    order :           TermOrder)
                   : (Seq[PrioritisedTask], CompoundFormulas) = {
     val (otherStuff, realClauses) = qfClauseMapping(this.qfClauses)
-    val newClauses = this.qfClauses.update(realClauses, order)
+    val newClauses =
+      if (Seqs.identicalSeqs(realClauses, this.qfClauses))
+        this.qfClauses
+      else
+        NegatedConjunctions(realClauses, order)
 
     val newTasks = for (c <- otherStuff; t <- taskifier(c)) yield t
 
-    (newTasks,
-     CompoundFormulas(newClauses, eagerQuantifiedClauses, lazyQuantifiedClauses))
+    (newTasks, updateQFClauses(newClauses))
   }
 
   /**

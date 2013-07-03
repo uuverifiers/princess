@@ -1,5 +1,5 @@
 Loading ARI120=1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Warning: introducing partial function "nonLinMult" to encode multiplication
 Prover 0: Preprocessing ...
 Prover 0: Proving ...
@@ -15,7 +15,7 @@ true
 % SZS status Theorem for ARI120=1
 
 Loading ARI496=1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: proved
@@ -24,7 +24,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for ARI496=1
 
 Loading ARI595=1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Proving ...
 Prover 0: gave up
@@ -38,7 +38,7 @@ true
 % SZS status Theorem for ARI595=1
 
 Loading ARI616=1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: proved
@@ -47,7 +47,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for ARI616=1
 
 Loading ARI620=1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: gave up
@@ -60,7 +60,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for ARI620=1
 
 Loading GEG021=1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: proved
@@ -69,7 +69,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for GEG021=1
 
 Loading PUZ001+1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Proving ...
 Prover 0: proved
@@ -79,7 +79,7 @@ true
 % SZS status Theorem for PUZ001+1
 
 Loading PUZ133=2.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: proved
@@ -88,7 +88,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for PUZ133=2
 
 Loading SYN050-1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: gave up
@@ -102,7 +102,7 @@ true
 % SZS status Unsatisfiable for SYN050-1
 
 Loading SYO561_1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: proved
@@ -111,7 +111,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for SYO561_1
 
 Loading SYO563+1.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: proved
@@ -120,7 +120,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for SYO563+1
 
 Loading SYO563+2.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
 Prover 0: proved
@@ -129,7 +129,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for SYO563+2
 
 Loading let-tests.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Warning: introducing partial function "nonLinMult" to encode multiplication
 Prover 0: Preprocessing ...
 Prover 0: Constructing countermodel ...
@@ -139,7 +139,7 @@ No countermodel exists, formula is valid
 % SZS status Theorem for let-tests
 
 Loading SYN000_2.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 0: 
 Prover 0:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
@@ -175,7 +175,7 @@ Prover 5:
 Prover 5:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 5: 
 Prover 5:         ^
-Prover 6: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=minimal
+Prover 6: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 6: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 6: 
 Prover 6:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
@@ -187,7 +187,7 @@ Prover 7:
 Prover 7:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 7: 
 Prover 7:         ^
-Prover 8: Options:  +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 8: Options:  +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 8: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 8: 
 Prover 8:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
@@ -205,7 +205,7 @@ Prover 10:
 Prover 10:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 10: 
 Prover 10:         ^
-Prover 11: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=minimal
+Prover 11: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 11: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 11: 
 Prover 11:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)

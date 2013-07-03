@@ -164,9 +164,15 @@ case object FactsNormalisationTask extends EagerTask {
     ////////////////////////////////////////////////////////////////////////////
     // create a new goal
 
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(FactsNormalisationTask.AC,
+                    ((facts eq goal.facts) || (facts != goal.facts)) &&
+                    ((newCompoundFormulas eq goal.compoundFormulas) ||
+                     (newCompoundFormulas != goal.compoundFormulas)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     if (newTasks.isEmpty &&
-        facts == goal.facts &&
-        newCompoundFormulas == goal.compoundFormulas) {
+        (facts eq goal.facts) && (newCompoundFormulas eq goal.compoundFormulas)) {
       // nothing has changed and the application of this task was unnecessary
       ptf.updateGoal(goal)
     } else {

@@ -83,18 +83,16 @@ object ReduceWithConjunction {
           initialReducer.reduce(conj.arithConj, logger)
     
       reducer.reduce(conj.predConj, logger) match {
-          
+
         case Left((newPredConj, reducer2)) => {
-          val newNegConjs =
-            conj.negatedConjs.update(for (c <- conj.negatedConjs)
-                                       yield reduceConj(c, reducer2, assumeInfiniteDomain),
-                                     reducer2.order)
-       
-          val res = constructConj(conj.quans,
+          val newNegConjs = reduceNegatedConjs(conj.negatedConjs, reducer2, assumeInfiniteDomain)
+          val res = constructConj(conj, conj.quans,
                                   newArithConj, newPredConj, newNegConjs,
                                   assumeInfiniteDomain, reducer2.order)    
-          if ((conj.quans sameElements res.quans) &&
-              newArithConj == res.arithConj && newPredConj == res.predConj) {
+
+          if ((conj.quans == res.quans) &&
+              (newArithConj eq res.arithConj) &&
+              (newPredConj eq res.predConj)) {
             res
           } else {
             // it might be necessary to repeat reduction, because new facts became
@@ -124,7 +122,45 @@ object ReduceWithConjunction {
                          assumeInfiniteDomain : Boolean) : Conjunction =
     reduceConj(conj, initialReducer, assumeInfiniteDomain, ComputationLogger.NonLogger)
 
-  private def constructConj(quans : Seq[Quantifier],
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def reduceNegatedConjs(conjs : NegatedConjunctions,
+                                 reducer : ReduceWithConjunction,
+                                 assumeInfiniteDomain : Boolean)
+                                : NegatedConjunctions = {
+            var changed = false
+            val newConjs = for (c <- conjs) yield {
+              val reduced = reduceConj(c, reducer, assumeInfiniteDomain)
+              if (!(reduced eq c))
+                changed = true
+              reduced
+            }
+
+            if (changed)
+              NegatedConjunctions(newConjs, reducer.order)
+            else
+              conjs
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def createConj(oldConj : Conjunction,
+                         quans : Seq[Quantifier],
+                         newArithConj : ArithConj,
+                         newPredConj : PredConj,
+                         newNegConjs : NegatedConjunctions,
+                         order : TermOrder) : Conjunction =
+    if (oldConj != null &&
+        oldConj.quans == quans &&
+        (oldConj.arithConj eq newArithConj) &&
+        (oldConj.predConj eq newPredConj) &&
+        (oldConj.negatedConjs eq newNegConjs))
+      oldConj
+    else
+      Conjunction(quans, newArithConj, newPredConj, newNegConjs, order)
+
+  private def constructConj(oldConj : Conjunction,
+                            quans : Seq[Quantifier],
                             newArithConj : ArithConj,
                             newPredConj : PredConj,
                             newNegConjs : NegatedConjunctions,
@@ -143,10 +179,10 @@ object ReduceWithConjunction {
         }
     
         if (eliminableVars.isEmpty) {
-          Conjunction(quans, newArithConj, newPredConj, newNegConjs, order)
+          createConj(oldConj, quans, newArithConj, newPredConj, newNegConjs, order)
         } else {
           val literals =
-            Conjunction.conj(Array(newArithConj, newPredConj), order)
+            Conjunction(List(), newArithConj, newPredConj, NegatedConjunctions.TRUE, order)
           val eliminator =
             new LiteralEliminator(literals, eliminableVars, assumeInfiniteDomain, order)
           val essentialLits = 
@@ -156,15 +192,17 @@ object ReduceWithConjunction {
               newNegConjs
             else
               NegatedConjunctions(newNegConjs ++ eliminator.divJudgements, order)
-            
+
           val newConj =
-            Conjunction(quans, essentialLits.arithConj, essentialLits.predConj,
-                        negConjs, order)
+            createConj(oldConj,
+                       quans, essentialLits.arithConj, essentialLits.predConj,
+                       negConjs, order)
           
           if (newConj.quans.headOption == Some(Quantifier.ALL))
             // iterate because it might be possible to eliminate further
             // quantifiers now
-            constructConj(newConj.quans, newConj.arithConj, newConj.predConj,
+            constructConj(oldConj,
+                          newConj.quans, newConj.arithConj, newConj.predConj,
                           newConj.negatedConjs, assumeInfiniteDomain, order)
           else
             newConj
@@ -172,21 +210,42 @@ object ReduceWithConjunction {
       }
       
       case Some(Quantifier.ALL)
-        if (newArithConj.isLiteral && newPredConj.isTrue && newNegConjs.isTrue) =>
-        constructConj(for (q <- quans) yield q.dual,
-                      newArithConj.negate, PredConj.TRUE, NegatedConjunctions.TRUE,
-                      assumeInfiniteDomain, order).negate
+        if (newArithConj.isLiteral && newPredConj.isTrue && newNegConjs.isTrue) => {
+
+          // TODO: in which cases can this really work?
+
+          val res =
+            constructConj(null,
+                          for (q <- quans) yield q.dual,
+                          newArithConj.negate, PredConj.TRUE, NegatedConjunctions.TRUE,
+                          assumeInfiniteDomain, order).negate
+          if (oldConj != null && res == oldConj)
+            oldConj
+          else
+            res
+      }
       
       case Some(Quantifier.ALL)
         if (newArithConj.isTrue && newPredConj.isTrue && newNegConjs.size == 1) => {
+
+          // TODO: in which cases can this really work?
+
           val subConj = newNegConjs(0)
-          constructConj(subConj.quans ++ (for (q <- quans) yield q.dual),
-                        subConj.arithConj, subConj.predConj, subConj.negatedConjs,
-                        assumeInfiniteDomain, order).negate
+
+          val res =
+            constructConj(null,
+                          subConj.quans ++ (for (q <- quans) yield q.dual),
+                          subConj.arithConj, subConj.predConj, subConj.negatedConjs,
+                          assumeInfiniteDomain, order).negate
+
+          if (oldConj != null && res == oldConj)
+            oldConj
+          else
+            res
       }
       
       case _ =>
-        Conjunction(quans, newArithConj, newPredConj, newNegConjs, order)
+        createConj(oldConj, quans, newArithConj, newPredConj, newNegConjs, order)
     }
   
 }
@@ -233,7 +292,8 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithConjunction.AC,
-                         ReduceWithConjunction.reduceConj(res, this, assumeInfiniteDomain) == res)
+                         (ReduceWithConjunction.reduceConj(res, this, assumeInfiniteDomain) eq res) &&
+                         ((res eq conj) || (res != conj)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
@@ -243,14 +303,14 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     Debug.assertPre(ReduceWithConjunction.AC, conjs isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val res = conjs.update(for (c <- conjs)
-                           yield (ReduceWithConjunction.reduceConj(c, this, assumeInfiniteDomain)),
-                           order)
+    val res = ReduceWithConjunction.reduceNegatedConjs(conjs, this, assumeInfiniteDomain)
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithConjunction.AC,
-                         Logic.forall(for (c <- res.iterator) yield (this(c) == c)))
+                         Logic.forall(for (c <- res.iterator) yield (this(c) == c)) &&
+                         ((res eq conjs) || (res != conjs)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }

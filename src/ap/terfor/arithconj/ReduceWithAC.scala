@@ -48,7 +48,7 @@ object ReduceWithAC {
   //////////////////////////////////////////////////////////////////////////////
   // Some of the "static" methods of the <code>ReduceWithAC</code>-class
   // These are methods juggling with different reducer-objects
-      
+
   /**
    * Reduce a conjunction of arithmetic stuff and return the reduced conjunction,
    * together with a new <code>ReduceWithAC</code> object to which the reduced
@@ -70,15 +70,22 @@ object ReduceWithAC {
     // reduce negated equations, assuming the reduced inequalities
     val newNegEqs = reducer.reduce(ac.negativeEqs, logger)
 
-    val newAC = ArithConj(newPosEqs, newNegEqs, newInEqs, reducer.order)
-    if ((newInEqs.equalityInfs.isEmpty ||
-           newInEqs.equalityInfs == ac.inEqs.equalityInfs) &&
-        newNegEqs == ac.negativeEqs)
-      (newAC, reducer addEquations newNegEqs)
-    else
-      // if the new inequalities still imply equations, we have to reduce once
-      // more. note, that we again start with the reducer <code>initialReducer</code> 
-      reduceAC(newAC, initialReducer, logger)
+    if ((newPosEqs eq ac.positiveEqs) &&
+        (newNegEqs eq ac.negativeEqs) &&
+        (newInEqs eq ac.inEqs)) {
+      // then nothing has changed, and we can give back the old object
+      (ac, reducer addEquations newNegEqs)
+    } else {
+      val newAC = ArithConj(newPosEqs, newNegEqs, newInEqs, reducer.order)
+      if ((newInEqs.equalityInfs.isEmpty /* ||
+             newInEqs.equalityInfs == ac.inEqs.equalityInfs */) &&
+          (newNegEqs eq ac.negativeEqs))
+        (newAC, reducer addEquations newNegEqs)
+      else
+        // if the new inequalities still imply equations, we have to reduce once
+        // more. note that we again start with the reducer <code>initialReducer</code> 
+        reduceAC(newAC, initialReducer, logger)
+    }
   }
 
 }
@@ -218,12 +225,19 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
    * has been added.
    */
   def reduceAndAdd(conj : ArithConj,
-                   logger : ComputationLogger) : (ArithConj, ReduceWithAC) =
-    if (conj.isTrue || conj.isFalse)
-      (conj, this)
-    else
-      try { ReduceWithAC.reduceAC(conj, this, logger) }
-      catch { case _ : FALSE_EXCEPTION => (ArithConj.FALSE, this) }
+                   logger : ComputationLogger) : (ArithConj, ReduceWithAC) = {
+    val res =
+      if (conj.isTrue || conj.isFalse)
+        (conj, this)
+      else
+        try { ReduceWithAC.reduceAC(conj, this, logger) }
+        catch { case _ : FALSE_EXCEPTION => (ArithConj.FALSE, this) }
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithAC.AC, (res._1 eq conj) || (res._1 != conj))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
+  }
 
   def apply(conj : ArithConj) : ArithConj =  {
     val res = (reduceAndAdd(conj, ComputationLogger.NonLogger) _1)
@@ -231,7 +245,7 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithAC.AC,
-                         (reduceAndAdd(res, ComputationLogger.NonLogger) _1) == res)
+                         (reduceAndAdd(res, ComputationLogger.NonLogger) _1) eq res)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
