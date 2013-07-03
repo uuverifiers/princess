@@ -108,7 +108,23 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     !Seqs.disjoint(allPreds, conj.predicates) ||
     !Seqs.disjoint(functions, conj.predicates)
 
+  /**
+   * Reduce a conjunction of predicate literals using known predicate
+   * literals. This function knows about functional predicates, and
+   * is able to apply the functionality axiom to replace predicate literals
+   * with equations.
+   */
   def apply(conj : PredConj) : (PredConj, ArithConj) = {
+    val res = applyHelp(conj)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithPredLits.AC,
+                     ((res._1 eq conj) && res._2.isTrue) || (res._1 != conj))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
+  }
+
+  private def applyHelp(conj : PredConj) : (PredConj, ArithConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithPredLits.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -176,6 +192,7 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     val ac = ArithConj(EquationConj(posEqs.result, order),
                        NegEquationConj(negEqs.result, order),
                        InEqConj.TRUE, order)
+
     if (ac.isFalse)
       (PredConj.FALSE(conj), ArithConj.TRUE)
     else

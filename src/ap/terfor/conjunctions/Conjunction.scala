@@ -728,7 +728,7 @@ class Conjunction private (val quans : Seq[Quantifier],
    * else apart from the <code>TermOrder</code>) 
    */
   def updateArithConj(ac : ArithConj)(implicit newOrder : TermOrder) : Conjunction =
-    if (arithConj == ac)
+    if (arithConj eq ac)
       this
     else
       Conjunction(quans, ac, predConj, negatedConjs, newOrder)
@@ -738,7 +738,7 @@ class Conjunction private (val quans : Seq[Quantifier],
    * else apart from the <code>TermOrder</code>) 
    */
   def updatePredConj(pc : PredConj)(implicit newOrder : TermOrder) : Conjunction =
-    if (predConj == pc)
+    if (predConj eq pc)
       this
     else
       Conjunction(quans, arithConj, pc, negatedConjs, newOrder)
@@ -772,7 +772,7 @@ class Conjunction private (val quans : Seq[Quantifier],
    */
   def updateNegatedConjs(newNegConjs : NegatedConjunctions)(implicit newOrder : TermOrder)
                         : Conjunction =
-    if (newNegConjs == this.negatedConjs)
+    if (newNegConjs eq this.negatedConjs)
       this
     else
       Conjunction(quans, arithConj, predConj, newNegConjs, newOrder)
