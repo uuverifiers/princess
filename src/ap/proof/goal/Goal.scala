@@ -395,17 +395,22 @@ class Goal private (val facts : Conjunction,
   /**
    * Generate tasks for the given formulas and add them to the goal
    */
-  def addTasksFor(fors : Iterable[Conjunction]) : Goal = {
-    val newTasks = for (f <- fors; t <- formulaTasks(f)) yield t
+  def addTasksFor(fors : Iterable[Conjunction]) : Goal =
+    if (facts.isFalse) {
+      // new tasks are useless in this case; we have to be careful
+      // not to delete the stored inferences
+      this
+    } else {
+      val newTasks = for (f <- fors; t <- formulaTasks(f)) yield t
     
-    val collector = getInferenceCollector
-    if (collector.isLogging)
-      for (f <- fors) collector newFormula f.negate
+      val collector = getInferenceCollector
+      if (collector.isLogging)
+        for (f <- fors) collector newFormula f.negate
 
-    Goal(facts, compoundFormulas, tasks ++ newTasks, age,
-         eliminatedConstants, vocabulary, definedSyms, collector.getCollection,
-         settings)
-  }
+      Goal(facts, compoundFormulas, tasks ++ newTasks, age,
+           eliminatedConstants, vocabulary, definedSyms, collector.getCollection,
+           settings)
+    }
   
   def getInferenceCollector : BranchInferenceCollector =
     if (Param.PROOF_CONSTRUCTION(settings))
