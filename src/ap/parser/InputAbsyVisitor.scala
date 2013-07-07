@@ -486,20 +486,40 @@ object VariableSubstVisitor
 
 object SymbolCollector {
   def variables(t : IExpression) : scala.collection.Set[IVariable] = {
-    val c = new SymbolCollector
+    val variables = new scala.collection.mutable.HashSet[IVariable]
+    val c = new SymbolCollector (variables, null, null)
     c.visitWithoutResult(t, 0)
-    c.variables
+    variables
   }
   def constants(t : IExpression) : scala.collection.Set[ConstantTerm] = {
-    val c = new SymbolCollector
+    val constants = new scala.collection.mutable.HashSet[ConstantTerm]
+    val c = new SymbolCollector(null, constants, null)
     c.visitWithoutResult(t, 0)
-    c.constants
+    constants
+  }
+  def nullaryPredicates(t : IExpression) : scala.collection.Set[Predicate] = {
+    val predicates = new scala.collection.mutable.HashSet[Predicate]
+    val c = new SymbolCollector(null, null, predicates)
+    c.visitWithoutResult(t, 0)
+    predicates
+  }
+  def varsConstsPreds(t : IExpression)
+      : (scala.collection.Set[IVariable],
+         scala.collection.Set[ConstantTerm],
+         scala.collection.Set[Predicate]) = {
+    val variables = new scala.collection.mutable.HashSet[IVariable]
+    val constants = new scala.collection.mutable.HashSet[ConstantTerm]
+    val predicates = new scala.collection.mutable.HashSet[Predicate]
+    val c = new SymbolCollector(variables, constants, predicates)
+    c.visitWithoutResult(t, 0)
+    (variables, constants, predicates)
   }
 }
 
-class SymbolCollector extends CollectingVisitor[Int, Unit] {
-  val variables = new scala.collection.mutable.HashSet[IVariable]
-  val constants = new scala.collection.mutable.HashSet[ConstantTerm]
+class SymbolCollector(variables : scala.collection.mutable.Set[IVariable],
+                      constants : scala.collection.mutable.Set[ConstantTerm],
+                      nullaryPredicates : scala.collection.mutable.Set[Predicate])
+      extends CollectingVisitor[Int, Unit] {
 
   override def preVisit(t : IExpression, boundVars : Int) : PreVisitResult =
     t match {
@@ -509,10 +529,12 @@ class SymbolCollector extends CollectingVisitor[Int, Unit] {
 
   def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
     t match {
-      case IVariable(i) if (i >= boundVars) =>
+      case IVariable(i) if (variables != null && i >= boundVars) =>
         variables += IVariable(i - boundVars)
-      case IConstant(c) =>
+      case IConstant(c) if (constants != null) =>
         constants += c
+      case IAtom(p, Seq()) if (nullaryPredicates != null) =>
+        nullaryPredicates += p
       case _ => // nothing
     }
 }
