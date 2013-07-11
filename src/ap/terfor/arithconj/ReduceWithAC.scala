@@ -118,7 +118,7 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
       new ReduceWithAC(positiveEqs addEquations ac.positiveEqs.toMap,
                        negativeEqs addEquations ac.negativeEqs.toSet,
                        inEqs addInEqs ac.inEqs,
-                       order)    
+                       order)
   }
   
   private def addEquations(eqs : EquationConj) : ReduceWithAC = {
@@ -249,6 +249,38 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
+
+  /**
+   * Just reduce the components of the conjunction individually,
+   * do not do any internal propagation.
+   */
+  def plainReduce(conj : ArithConj) : ArithConj = try {
+    val (newEqs, newInEqs) =
+      if (conj.inEqs.equalityInfs.isTrue) {
+        (reduce(conj.positiveEqs),
+         reduce(conj.inEqs, ComputationLogger.NonLogger))
+      } else {
+        // we have to move implied equations to the equations component,
+        // to avoid infinite loops in
+        // <code>ReduceWithConjunction.plainReduce</code>
+        val newEqs =
+          reduce(conj.positiveEqs, conj.inEqs.equalityInfs,
+                 ComputationLogger.NonLogger)
+        val newInEqs = (this addEquations newEqs).reduce(
+                 conj.inEqs, ComputationLogger.NonLogger)
+        (newEqs, newInEqs)
+      }
+
+    val newNegEqs = reduce(conj.negativeEqs, ComputationLogger.NonLogger)
+
+    if ((newEqs    eq conj.positiveEqs) &&
+        (newNegEqs eq conj.negativeEqs) &&
+        (newInEqs  eq conj.inEqs))
+      conj
+    else
+      ArithConj(newEqs, newNegEqs, newInEqs, order)
+  }
+  catch { case _ : FALSE_EXCEPTION => ArithConj.FALSE }
 
   def apply(conj : EquationConj) : EquationConj =
     try { this reduce conj }

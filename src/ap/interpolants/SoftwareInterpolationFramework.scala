@@ -132,11 +132,13 @@ abstract class SoftwareInterpolationFramework {
     val (iProblemParts, _, sig2) =
       Preprocessing(f, List(), sig, preprocSettings, functionEncoder)
     functionEncoder.clearAxioms
+
     implicit val order = sig2.order
+    val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
     
     val namedParts =
       Map() ++ (for (INamedPart(name, f) <- iProblemParts)
-                yield (name -> conj(InputAbsy2Internal(f, order))))
+                yield (name -> reducer(conj(InputAbsy2Internal(f, order)))))
 
     (namedParts, sig2)
   }

@@ -28,7 +28,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.arithconj.ArithConj
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.substitutions.ConstantSubst
 import ap.util.Debug
@@ -266,7 +266,8 @@ case class GroundInstInference(quantifiedFormula : CertCompoundFormula,
                      (quans.size == instanceTerms.size ||
                       quans(quans.size - instanceTerms.size - 1) != quans.last)
                    } &&
-                   result.toConj == quantifiedFormula.f.instantiate(instanceTerms)(order))
+                   result.toConj == ReduceWithConjunction(Conjunction.TRUE, order)(
+                                      quantifiedFormula.f.instantiate(instanceTerms)(order)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
@@ -691,8 +692,11 @@ case class DivRightInference(divisibility : CertCompoundFormula,
                       val divTerm = divisibility.f.arithConj.negativeEqs(0)
                       val divCoeff = divTerm.leadingCoeff
                       
-                      result.f == exists(exists(
-                        (divTerm + v(1) === 0) & (v(1) > 0) & (v(1) < divCoeff)))
+                      if (divCoeff == IdealInt(2))
+                        result.f == exists(divTerm + 1 === 0)
+                      else
+                        result.f == exists(exists(
+                          (divTerm + v(1) === 0) & (v(1) > 0) & (v(1) < divCoeff)))
                     })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
              

@@ -154,7 +154,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   //////////////////////////////////////////////////////////////////////////////
 
-  lazy val namedParts =
+  protected lazy val namedParts =
     Map() ++ (for ((INamedPart(name, _), f) <-
                    inputFormulas.iterator zip formulas.iterator)
               yield (name -> f))
@@ -178,7 +178,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                               formulas)
   }
   
-  protected def findCounterModelTimeout(f : Seq[Conjunction]) =
+  private def findCounterModelTimeout(f : Seq[Conjunction]) =
     Timeout.withChecker(stoppingCond) {
       ModelSearchProver(f, order, goalSettings)
     }
@@ -189,9 +189,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected def constructProofTree : (ProofTree, Boolean) = {
     // explicitly quantify all universal variables
     
-    val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                         order sort signature.nullaryFunctions,
-                                         Conjunction.disj(formulas, order), order)
+    val closedFor =
+      reducer(
+        Conjunction.quantify(Quantifier.ALL,
+                             order sort signature.nullaryFunctions,
+                             Conjunction.disj(formulas, order), order))
     
     Console.withOut(Console.err) {
       println("Proving ...")

@@ -807,16 +807,17 @@ class SimpleAPI private (enableAssert : Boolean,
               val completeFor = formulaeInProver match {
                 case List((_, f)) => f
                 case formulae => 
-                  ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-                    Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
-                                     currentOrder))
+                  Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
+                                   currentOrder)
               }
 
               // explicitly quantify all universal variables
               val uniConstants = completeFor.constants -- existentialConstants
-              val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                                   currentOrder sort uniConstants,
-                                                   completeFor, currentOrder)
+              val closedFor =
+                ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+                  Conjunction.quantify(Quantifier.ALL,
+                                       currentOrder sort uniConstants,
+                                       completeFor, currentOrder))
 
               proofActor ! CheckValidityCommand(closedFor, goalSettings,
                                                 mostGeneralConstraints)

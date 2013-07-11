@@ -54,6 +54,8 @@ object IterativeClauseMatcher {
     
     val instances = new ArrayBuffer[Conjunction]
 
+    val simpleReducer = ReduceWithConjunction(Conjunction.TRUE, order)
+
     ////////////////////////////////////////////////////////////////////////////
     
     /**
@@ -153,7 +155,7 @@ object IterativeClauseMatcher {
                               instanceTerms forall (_.variables.isEmpty))
               //-END-ASSERTION-/////////////////////////////////////////////////
 
-              val instance = originalClause.instantiate(instanceTerms)(order)
+              val instance = simpleReducer(originalClause.instantiate(instanceTerms)(order))
               if (!contextReducer(instance).isFalse &&
                   isNotRedundant(instance, allOriConstants)) {
                 logger.groundInstantiateQuantifier(originalClause.negate,
@@ -188,7 +190,7 @@ object IterativeClauseMatcher {
               val (leftNr, rightNr) =
                 if (negatedStartLit) (litNrB, litNrA) else (litNrA, litNrB)
               
-              val instance = Conjunction.conj(eqs, order)
+              val instance = simpleReducer(Conjunction.conj(eqs, order))
               if (isNotRedundant(contextReducer(instance), originatingConstants)) {
                 logger.unifyPredicates(selectedLits(leftNr), selectedLits(rightNr),
                                        eqs, order)

@@ -78,7 +78,7 @@ private object MatchFunctions {
           
         oldMatcher.reduceClauses(clauseReducer _, instanceReducer.apply _, order)
       } else {
-        val reducerObj : Conjunction => Conjunction = goal.reduceWithFacts.apply _
+        val reducerObj : Conjunction => Conjunction = goal.reduceWithFacts.resimplify _
         oldMatcher.reduceClauses(reducerObj, reducerObj, order)
       }
 
@@ -96,12 +96,12 @@ private object MatchFunctions {
 
       val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
       val newTasks =
-        if (collector.isLogging)
+//      if (collector.isLogging)
           // if we are producing proofs, we have to treat the instances
           // separately (to log all performed simplifications)
           for (f <- instances; t <- goal.formulaTasks(f)) yield t
-        else
-          for (t <- goal.formulaTasks(Conjunction.disj(instances, order))) yield t
+//      else
+//        for (t <- goal.formulaTasks(Conjunction.disj(instances, order))) yield t
 
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     } else {

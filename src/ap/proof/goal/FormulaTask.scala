@@ -21,7 +21,7 @@
 
 package ap.proof.goal;
 
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.util.Debug
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
@@ -63,33 +63,35 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
    * Update the task with possibly new information from the goal
    */
   def updateTask(goal : Goal, factCollector : Conjunction => Unit)
-                                                   : Seq[FormulaTask] = {
-    val reducedFormula = goal reduceWithFacts formula
-    if (reducedFormula eq formula) {
-      List(this)
-    } else {
-      if (Param.PROOF_CONSTRUCTION(goal.settings)) {
-        // we cannot really update the task in this case, but we still store
-        // the reduced formula to obtain more precise task priorities
-        
+                                                   : Seq[FormulaTask] =
+    if (Param.PROOF_CONSTRUCTION(goal.settings)) {
+      // we cannot really update the task in this case, but we still store
+      // the reduced formula to obtain more precise task priorities
+
+      val reducedFormula = goal.reduceWithFacts.plainReduce(formula)
+      if (reducedFormula eq formula)
+        List(this)
+      else
         constructWrappedTask(reducedFormula, goal)
-        
+
+    } else {
+
+      val reducedFormula = goal.reduceWithFacts.resimplify(formula)
+      if (reducedFormula eq formula) {
+        List(this)
       } else {
-        
         if (isCoveredFormula(reducedFormula)) {
           List(this.updateFormula(reducedFormula, goal))
         } else {
-          if (AddFactsTask isCoveredFormula reducedFormula) {
+/*          if (AddFactsTask isCoveredFormula reducedFormula) {
             factCollector(reducedFormula)
             List()
-          } else {
+          } else { */
             goal formulaTasks reducedFormula
-          }
+//          }
         }
-        
       }
-    }     
-  }
+    }
   
   protected[goal] def constructWrappedTask(reducedFormula : Conjunction,
                                            goal : Goal) : Seq[FormulaTask] = {

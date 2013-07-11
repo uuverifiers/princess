@@ -23,7 +23,8 @@ package ap.proof.goal;
 
 import ap.terfor.arithconj.ModelElement
 import ap.terfor.{Term, Formula, ConstantTerm, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, ConjunctEliminator}
+import ap.terfor.conjunctions.{Conjunction, ConjunctEliminator,
+                               ReduceWithConjunction}
 import ap.terfor.substitutions.Substitution
 import ap.parameters.Param
 import ap.util.{Debug, FilterIt, LazyMappedSet}
@@ -78,7 +79,8 @@ case object EliminateFactsTask extends EagerTask {
           List()
         } else {
           goal formulaTasks
-            Conjunction.conj(newFacts.arithConj.inEqs, goal.order).negate
+            ReduceWithConjunction(Conjunction.TRUE, goal.order)(
+              Conjunction.conj(newFacts.arithConj.inEqs, goal.order).negate)
         }
       val divTasks =
         for (f <- eliminator.divJudgements; t <- goal formulaTasks f) yield t

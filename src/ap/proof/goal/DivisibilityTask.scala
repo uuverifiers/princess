@@ -75,18 +75,24 @@ class DivisibilityTask(_formula : Conjunction, _age : Int)
 
     implicit val order = goal.order
 
-    val y = LinearCombination(VariableTerm(1), order)
-    val newLC = lc + y
+    val newFormula =
+      if (coeff == IdealInt(2)) {
+        (formula updatePositiveEqs EquationConj(lc + LinearCombination.ONE, order)
+         ).negate
+      } else {
+        val y = LinearCombination(VariableTerm(1), order)
+        val newLC = lc + y
     
-    val yCond =
-      InEqConj(Array(y + IdealInt.MINUS_ONE,
-                     y.scaleAndAdd(IdealInt.MINUS_ONE, coeff - IdealInt.ONE)), order)
-    val newEq = EquationConj(newLC, order)
+        val yCond =
+          InEqConj(Array(y + IdealInt.MINUS_ONE,
+                         y.scaleAndAdd(IdealInt.MINUS_ONE, coeff - IdealInt.ONE)), order)
+        val newEq = EquationConj(newLC, order)
     
-    val newMatrix = Conjunction.conj(Array(yCond, newEq), order)
-    val newFormula = Conjunction.quantify(Array(Quantifier.EX, Quantifier.EX),
-                                          newMatrix, order).negate
-    
+        val newMatrix = Conjunction.conj(Array(yCond, newEq), order)
+        Conjunction.quantify(Array(Quantifier.EX, Quantifier.EX),
+                             newMatrix, order).negate
+      }
+
     val collector = goal.getInferenceCollector
     if (collector.isLogging)
       collector.divRight(formula.negate, newFormula.negate, order)

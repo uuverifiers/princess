@@ -24,7 +24,8 @@ package ap.proof;
 import ap.parameters.{Param, GoalSettings}
 import ap.util.{Debug, Logic, APTestCase, PlainRange}
 import ap.terfor.TestGenConjunctions
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier,
+                               ReduceWithConjunction}
 import ap.proof.goal.Goal
 import ap.proof.tree.TestProofTree
 
@@ -69,7 +70,7 @@ class TestRandomProving(n : String) extends APTestCase(n) {
 /*            println
             println(formula) */
 
-      val tree = prover(formula, to)
+      val tree = prover(ReduceWithConjunction(Conjunction.TRUE, to)(formula), to)
       val _ = tree.closingConstraint
 
 /*      println

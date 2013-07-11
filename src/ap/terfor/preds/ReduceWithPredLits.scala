@@ -101,6 +101,14 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
   }
 
   /**
+   * A reducer corresponding to this one, but without assuming
+   * any facts known a priori.
+   */
+  lazy val withoutFacts =
+    new ReduceWithPredLits(List(LitFacts(PredConj.TRUE)),
+                           Set(), functions, order)
+
+  /**
    * Determine whether a formula that contains the given predicates might be
    * reducible by this reducer
    */
@@ -288,5 +296,5 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
   private def sameFunctionApp(a : Atom, b : Atom) =
     a.pred == b.pred &&
     ((0 until (a.length - 1)) forall { case i => a(i) == b(i) })
-  
+
 }

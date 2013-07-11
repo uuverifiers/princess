@@ -26,7 +26,8 @@ import ap.proof.goal.{Goal, TaskManager, FactsNormalisationTask, CompoundFormula
 import ap.proof.tree._
 import ap.proof.certificates.BranchInferenceCollection
 import ap.terfor._
-import ap.terfor.conjunctions.{Conjunction, Quantifier, NegatedConjunctions}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, NegatedConjunctions,
+                               ReduceWithConjunction}
 import ap.terfor.substitutions.{ConstantSubst, IdentitySubst}
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
@@ -180,7 +181,8 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
 
 //        println(goal)
     
-          val tree = prover(formula, to)
+          val tree = prover(ReduceWithConjunction(Conjunction.TRUE, to)(
+                              Conjunction.conj(formula, to)), to)
 //          println("After many steps:")
 //          println(tree)
       

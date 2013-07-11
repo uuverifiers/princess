@@ -174,24 +174,25 @@ class TaskManager private (// the regular tasks that have a priority
  
     val newPrioTasks : TaskManager.TaskHeap = 
       try {
-        val facts = new scala.collection.mutable.ArrayBuffer[Conjunction]
+//        val facts = new scala.collection.mutable.ArrayBuffer[Conjunction]
         
         def factCollector(f : Conjunction) : Unit =
-          if (f.isTrue) throw TRUE_EXCEPTION else (facts += f)
-        var foundFactsTask : Boolean = false
+//          if (f.isTrue) throw TRUE_EXCEPTION else (facts += f)
+          throw new UnsupportedOperationException
+        var stopUpdatingFlag : Boolean = false
         
         def updateTask(prioTask : PrioritisedTask) : Iterator[PrioritisedTask] = {
           val res = prioTask.updateTask(goal, factCollector _)
           if (res exists stopUpdating)
-            foundFactsTask = true
+            stopUpdatingFlag = true
           res.iterator
         }
         
-        val tasks = prioTasks.flatMap(updateTask _, (h) => foundFactsTask)
-        if (facts.isEmpty)
+        val tasks = prioTasks.flatMap(updateTask _, (h) => stopUpdatingFlag)
+//        if (facts.isEmpty)
           tasks
-        else
-          tasks ++ (goal formulaTasks Conjunction.disj(facts, goal.order))
+//        else
+//          tasks ++ (goal formulaTasks Conjunction.disj(facts, goal.order))
       } catch {
         case TRUE_EXCEPTION =>
           TaskManager.EMPTY_HEAP ++ (goal formulaTasks Conjunction.TRUE)

@@ -23,7 +23,8 @@ package ap.proof;
 
 import ap._
 import ap.terfor.{Formula, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier,
+                               ReduceWithConjunction}
 import ap.proof.goal._
 import ap.util.{Logic, Debug, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
@@ -82,16 +83,20 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
    
   //////////////////////////////////////////////////////////////////////////////
 
-  def apply(inputFor : Formula, order : TermOrder) : ProofTree =
+  def apply(inputFor : Conjunction, order : TermOrder) : ProofTree =
     apply(inputFor, new Signature (Set(), inputFor.constants, Set(), order))
 
-  def apply(inputFor : Formula, signature : Signature) : ProofTree = {
+  def apply(inputFor : Conjunction, signature : Signature) : ProofTree = {
     val order = signature.order
+if (!(ReduceWithConjunction(Conjunction.TRUE, order)(inputFor) eq inputFor))
+println(inputFor)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ExhaustiveProver.AC,
                     inputFor.variables.isEmpty &&
                     (order isSortingOf inputFor) &&
-                    Seqs.disjoint(inputFor.constants, signature.nullaryFunctions))
+                    Seqs.disjoint(inputFor.constants, signature.nullaryFunctions) &&
+                    // we assume that the input problem has already been simplified
+                    (ReduceWithConjunction(Conjunction.TRUE, order)(inputFor) eq inputFor))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val goal = Goal(List(Conjunction.conj(inputFor, order)), Set(),
                     Vocabulary(order), settings)

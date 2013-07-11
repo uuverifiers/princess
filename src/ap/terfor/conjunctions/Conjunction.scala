@@ -270,11 +270,13 @@ object Conjunction {
                            predConj : PredConj,
                            negatedConjs : NegatedConjunctions,
                            order : TermOrder) : Conjunction = {
-    if (arithConj.isFalse || predConj.isFalse || negatedConjs.isFalse)
+    if (arithConj.isFalse || predConj.isFalse || negatedConjs.isFalse) {
       FALSE
-    else if (arithConj.isTrue && predConj.isTrue && negatedConjs.isTrue)
+    } else if (arithConj.isTrue && predConj.isTrue && negatedConjs.isTrue) {
       TRUE
-    else {
+    } else if (quans.isEmpty) {
+      new Conjunction (List(), arithConj, predConj, negatedConjs, order)
+    } else {
       val occurringVars = new scala.collection.mutable.HashSet[VariableTerm]
       occurringVars ++= arithConj.variables
       occurringVars ++= predConj.variables
