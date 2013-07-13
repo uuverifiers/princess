@@ -45,13 +45,15 @@ object ReduceWithEqs {
 
   def apply(eqs : scala.collection.Map[Term, LinearCombination], order : TermOrder)
                                                   : ReduceWithEqs =
-    new ReduceWithEqs (eqs, order)
+    new ReduceWithEqs (eqs,
+                       eqs exists { case (_, lc) => !lc.variables.isEmpty },
+                       order)
 
   def apply(eqs : EquationConj, order : TermOrder) : ReduceWithEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, eqs isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    ReduceWithEqs(eqs.toMap, order)
+    new ReduceWithEqs(eqs.toMap, !eqs.variables.isEmpty, order)
   }
 }
 
@@ -61,6 +63,7 @@ object ReduceWithEqs {
  * (constants or variables) to linear combinations
  */
 class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombination],
+                             containsVariables : Boolean,
                              order : TermOrder) {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
@@ -82,7 +85,11 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     if (furtherEqs.isEmpty)
       this
     else
-      ReduceWithEqs(UnionMap(equations, furtherEqs), order)
+      new ReduceWithEqs(UnionMap(equations, furtherEqs),
+                        containsVariables || (
+                          furtherEqs exists {
+                            case (_, lc) => !lc.variables.isEmpty }),
+                        order)
   }
 
   /**
@@ -92,12 +99,17 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
    * <code>ReduceWithEqs</code> is not applied too often (TODO: caching)
    */
   def passQuantifiers(num : Int) : ReduceWithEqs =
-    ReduceWithEqs(new LazyMappedMap(
-                        equations,
-                        VariableShiftSubst.upShifter[Term](num, order),
-                        VariableShiftSubst.downShifter[Term](num, order),
-                        VariableShiftSubst.upShifter[LinearCombination](num, order)),
-                  order)
+    if (containsVariables && num > 0)
+      new ReduceWithEqs(
+            new LazyMappedMap(
+                 equations,
+                 VariableShiftSubst.upShifter[Term](num, order),
+                 VariableShiftSubst.downShifter[Term](num, order),
+                 VariableShiftSubst.upShifter[LinearCombination](num, order)),
+            true,
+            order)
+    else
+      this
 
   def apply(lc : LinearCombination) : LinearCombination = apply(lc, null)
 
@@ -323,7 +335,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     Debug.assertPre(ReduceWithEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val res = if (conj.isTrue || conj.isFalse || this.isEmpty ||
+    val res = if (this.isEmpty || conj.isTrue || conj.isFalse ||
                   !reductionPossible(conj))
                 conj
               else

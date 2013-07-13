@@ -67,7 +67,10 @@ private object MatchFunctions {
         // that can be removed
 
         def clauseReducer(c : Conjunction) =
-          if (goal.reduceWithFacts(c).isFalse) Conjunction.FALSE else c
+          if (goal.reduceWithFacts.tentativeReduce(c).isFalse)
+            Conjunction.FALSE
+          else
+            c
       
         // cached instances are only simplified using equational facts
         // (otherwise, we might prevent generation of genuine instances
@@ -76,9 +79,12 @@ private object MatchFunctions {
         val instanceReducer = ReduceWithConjunction(
           Conjunction.conj(goal.facts.arithConj.positiveEqs, order), order)
           
-        oldMatcher.reduceClauses(clauseReducer _, instanceReducer.apply _, order)
+        oldMatcher.reduceClauses(clauseReducer _,
+                                 instanceReducer.tentativeReduce _,
+                                 order)
       } else {
-        val reducerObj : Conjunction => Conjunction = goal.reduceWithFacts.apply _
+        val reducerObj : Conjunction => Conjunction =
+          goal.reduceWithFacts.tentativeReduce _
         oldMatcher.reduceClauses(reducerObj, reducerObj, order)
       }
 

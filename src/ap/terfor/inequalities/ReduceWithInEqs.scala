@@ -41,7 +41,9 @@ object ReduceWithInEqs {
     if (inEqs.isTrue)
       new ReduceWithEmptyInEqs(order)
     else
-      new ReduceWithInEqsImpl(inEqs.findLowerBound _, order)
+      new ReduceWithInEqsImpl(inEqs.findLowerBound _,
+                              !inEqs.variables.isEmpty,
+                              order)
   }
   
 }
@@ -92,7 +94,8 @@ class ReduceWithEmptyInEqs protected[inequalities]
     if (furtherInEqs.isTrue)
       this
     else
-      new ReduceWithInEqsImpl(furtherInEqs.findLowerBound _, order)
+      new ReduceWithInEqsImpl(furtherInEqs.findLowerBound _,
+                              !furtherInEqs.variables.isEmpty,order)
   }
   
   def passQuantifiers(num : Int) : ReduceWithInEqs = this
@@ -109,6 +112,7 @@ class ReduceWithEmptyInEqs protected[inequalities]
  */
 class ReduceWithInEqsImpl protected[inequalities]
                           (lowerBound : (LinearCombination) => Option[IdealInt],
+                           containsVariables : Boolean,
                            order : TermOrder)
       extends ReduceWithInEqs {
 
@@ -127,17 +131,22 @@ class ReduceWithInEqsImpl protected[inequalities]
                                 case (_, x@Some(_)) => x
                                 case _ => None
                               }),
+                              containsVariables || !furtherInEqs.variables.isEmpty,
                               order)
   }
   
-  def passQuantifiers(num : Int) : ReduceWithInEqs = {
-    val downShifter = VariableShiftSubst.downShifter[LinearCombination](num, order)
-    new ReduceWithInEqsImpl((lc:LinearCombination) => (if (downShifter isDefinedAt lc)
-                                                         lowerBound(downShifter(lc))
-                                                       else
-                                                         None),
-                            order)
-  }
+  def passQuantifiers(num : Int) : ReduceWithInEqs =
+    if (containsVariables && num > 0) {
+      val downShifter = VariableShiftSubst.downShifter[LinearCombination](num, order)
+      new ReduceWithInEqsImpl((lc:LinearCombination) => (if (downShifter isDefinedAt lc)
+                                                           lowerBound(downShifter(lc))
+                                                         else
+                                                           None),
+                              true,
+                              order)
+    } else {
+      this
+    }
 
   
   def apply(conj : EquationConj) : EquationConj = {
