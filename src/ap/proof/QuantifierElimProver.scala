@@ -110,7 +110,8 @@ object QuantifierElimProver {
                           // pruning criterion
                           (goal definedSyms pruningFor) == pruningFor)
           //-END-ASSERTION-/////////////////////////////////////////////////////
-          val newPruningFor = goal definedSyms (goal reduceWithFacts pruningFor)
+          val newPruningFor = goal definedSyms (
+                 goal.reduceWithFacts.tentativeReduce(pruningFor))
           if (newPruningFor.isTrue) {
 //            println("pruning")
             Conjunction.TRUE

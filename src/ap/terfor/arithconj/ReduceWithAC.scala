@@ -48,7 +48,7 @@ object ReduceWithAC {
   //////////////////////////////////////////////////////////////////////////////
   // Some of the "static" methods of the <code>ReduceWithAC</code>-class
   // These are methods juggling with different reducer-objects
-      
+
   /**
    * Reduce a conjunction of arithmetic stuff and return the reduced conjunction,
    * together with a new <code>ReduceWithAC</code> object to which the reduced
@@ -70,15 +70,22 @@ object ReduceWithAC {
     // reduce negated equations, assuming the reduced inequalities
     val newNegEqs = reducer.reduce(ac.negativeEqs, logger)
 
-    val newAC = ArithConj(newPosEqs, newNegEqs, newInEqs, reducer.order)
-    if ((newInEqs.equalityInfs.isEmpty ||
-           newInEqs.equalityInfs == ac.inEqs.equalityInfs) &&
-        newNegEqs == ac.negativeEqs)
-      (newAC, reducer addEquations newNegEqs)
-    else
-      // if the new inequalities still imply equations, we have to reduce once
-      // more. note, that we again start with the reducer <code>initialReducer</code> 
-      reduceAC(newAC, initialReducer, logger)
+    if ((newPosEqs eq ac.positiveEqs) &&
+        (newNegEqs eq ac.negativeEqs) &&
+        (newInEqs eq ac.inEqs)) {
+      // then nothing has changed, and we can give back the old object
+      (ac, reducer addEquations newNegEqs)
+    } else {
+      val newAC = ArithConj(newPosEqs, newNegEqs, newInEqs, reducer.order)
+      if ((newInEqs.equalityInfs.isEmpty /* ||
+             newInEqs.equalityInfs == ac.inEqs.equalityInfs */) &&
+          (newNegEqs eq ac.negativeEqs))
+        (newAC, reducer addEquations newNegEqs)
+      else
+        // if the new inequalities still imply equations, we have to reduce once
+        // more. note that we again start with the reducer <code>initialReducer</code> 
+        reduceAC(newAC, initialReducer, logger)
+    }
   }
 
 }
@@ -92,13 +99,18 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithAC.AC, num >= 0)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    if (num == 0)
+    if (num == 0) {
       this
-    else
-      new ReduceWithAC(positiveEqs passQuantifiers num,
-                       negativeEqs passQuantifiers num,
-                       inEqs passQuantifiers num,
-                       order)
+    } else {
+      val new1 = positiveEqs passQuantifiers num
+      val new2 = negativeEqs passQuantifiers num
+      val new3 = inEqs passQuantifiers num
+
+      if ((new1 eq positiveEqs) && (new2 eq negativeEqs) && (new3 eq inEqs))
+        this
+      else
+        new ReduceWithAC(new1, new2, new3, order)
+    }
   }
 
   def addArithConj(ac : ArithConj) : ReduceWithAC = {
@@ -175,9 +187,13 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithAC.AC, eqs isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val redEqs = inEqs(negativeEqs(positiveEqs(eqs)))
-    if (redEqs.isFalse) throw FALSE_EXCEPTION_STD
-    redEqs
+    if (eqs.isTrue) {
+      eqs
+    } else {
+      val redEqs = inEqs(negativeEqs(positiveEqs(eqs)))
+      if (redEqs.isFalse) throw FALSE_EXCEPTION_STD
+      redEqs
+    }
   }
 
   private def reduce(eqs : NegEquationConj,
@@ -185,9 +201,13 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithAC.AC, eqs isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val redEqs = inEqs(negativeEqs(positiveEqs(eqs, logger)))
-    if (redEqs.isFalse) throw FALSE_EXCEPTION_STD
-    redEqs
+    if (eqs.isTrue) {
+      eqs
+    } else {
+      val redEqs = inEqs(negativeEqs(positiveEqs(eqs, logger)))
+      if (redEqs.isFalse) throw FALSE_EXCEPTION_STD
+      redEqs
+    }
   }
 
   private def reduce(ies : InEqConj,
@@ -195,9 +215,13 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithAC.AC, ies isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val redInEqs = inEqs(negativeEqs(positiveEqs(ies, logger), logger))
-    if (redInEqs.isFalse) throw FALSE_EXCEPTION_STD
-    redInEqs
+    if (ies.isTrue) {
+      ies
+    } else {
+      val redInEqs = inEqs(negativeEqs(positiveEqs(ies, logger), logger))
+      if (redInEqs.isFalse) throw FALSE_EXCEPTION_STD
+      redInEqs
+    }
   }
 
   private def reduce(conj : PredConj, logger : ComputationLogger) : PredConj = {
@@ -218,12 +242,19 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
    * has been added.
    */
   def reduceAndAdd(conj : ArithConj,
-                   logger : ComputationLogger) : (ArithConj, ReduceWithAC) =
-    if (conj.isTrue || conj.isFalse)
-      (conj, this)
-    else
-      try { ReduceWithAC.reduceAC(conj, this, logger) }
-      catch { case _ : FALSE_EXCEPTION => (ArithConj.FALSE, this) }
+                   logger : ComputationLogger) : (ArithConj, ReduceWithAC) = {
+    val res =
+      if (conj.isTrue || conj.isFalse)
+        (conj, this)
+      else
+        try { ReduceWithAC.reduceAC(conj, this, logger) }
+        catch { case _ : FALSE_EXCEPTION => (ArithConj.FALSE, this) }
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithAC.AC, (res._1 eq conj) || (res._1 != conj))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
+  }
 
   def apply(conj : ArithConj) : ArithConj =  {
     val res = (reduceAndAdd(conj, ComputationLogger.NonLogger) _1)
@@ -231,10 +262,42 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithAC.AC,
-                         (reduceAndAdd(res, ComputationLogger.NonLogger) _1) == res)
+                         (reduceAndAdd(res, ComputationLogger.NonLogger) _1) eq res)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
+
+  /**
+   * Just reduce the components of the conjunction individually,
+   * do not do any internal propagation.
+   */
+  def plainReduce(conj : ArithConj) : ArithConj = try {
+    val (newEqs, newInEqs) =
+      if (conj.inEqs.equalityInfs.isTrue) {
+        (reduce(conj.positiveEqs),
+         reduce(conj.inEqs, ComputationLogger.NonLogger))
+      } else {
+        // we have to move implied equations to the equations component,
+        // to avoid infinite loops in
+        // <code>ReduceWithConjunction.plainReduce</code>
+        val newEqs =
+          reduce(conj.positiveEqs, conj.inEqs.equalityInfs,
+                 ComputationLogger.NonLogger)
+        val newInEqs = (this addEquations newEqs).reduce(
+                 conj.inEqs, ComputationLogger.NonLogger)
+        (newEqs, newInEqs)
+      }
+
+    val newNegEqs = reduce(conj.negativeEqs, ComputationLogger.NonLogger)
+
+    if ((newEqs    eq conj.positiveEqs) &&
+        (newNegEqs eq conj.negativeEqs) &&
+        (newInEqs  eq conj.inEqs))
+      conj
+    else
+      ArithConj(newEqs, newNegEqs, newInEqs, order)
+  }
+  catch { case _ : FALSE_EXCEPTION => ArithConj.FALSE }
 
   def apply(conj : EquationConj) : EquationConj =
     try { this reduce conj }

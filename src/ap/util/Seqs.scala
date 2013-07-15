@@ -505,6 +505,20 @@ object Seqs {
     true    
   }
 
+  /**
+   * Determine whether the two given sequences/iterables contain
+   * reference-identical objects.
+   */
+  def identicalSeqs[A <: AnyRef](a : Iterable[A], b : Iterable[A]) : Boolean = {
+    val aIt = a.iterator
+    val bIt = b.iterator
+    while (aIt.hasNext) {
+      if (!bIt.hasNext || !(aIt.next eq bIt.next))
+        return false
+    }
+    !bIt.hasNext
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**

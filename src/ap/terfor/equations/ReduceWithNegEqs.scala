@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,18 +34,20 @@ object ReduceWithNegEqs {
 
   def apply(eqs : scala.collection.Set[LinearCombination],
             order : TermOrder) : ReduceWithNegEqs =
-    new ReduceWithNegEqs(eqs, order)
-  
+    new ReduceWithNegEqs(eqs,
+                         eqs exists { lc => !lc.variables.isEmpty },
+                         order)
   
   def apply(eqs : NegEquationConj, order : TermOrder) : ReduceWithNegEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, eqs isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    ReduceWithNegEqs(eqs.toSet, order)
+    new ReduceWithNegEqs(eqs.toSet, !eqs.variables.isEmpty, order)
   }
 }
 
 class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombination],
+                                containsVariables : Boolean,
                                 order : TermOrder) {
 
   def addEquations(furtherEqs : scala.collection.Set[LinearCombination])
@@ -53,7 +55,10 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
     if (furtherEqs.isEmpty)
       this
     else
-      ReduceWithNegEqs(UnionSet(equations, furtherEqs), order)
+      new ReduceWithNegEqs(UnionSet(equations, furtherEqs),
+                           containsVariables || (
+                             furtherEqs exists { lc => !lc.variables.isEmpty }),
+                           order)
 
   /**
    * Create a <code>ReduceWithEqs</code> that can be used underneath
@@ -62,11 +67,16 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
    * <code>ReduceWithEqs</code> is not applied too often (TODO: caching)
    */
   def passQuantifiers(num : Int) : ReduceWithNegEqs =
-    ReduceWithNegEqs(new LazyMappedSet(
-                       equations,
-                       VariableShiftSubst.upShifter[LinearCombination](num, order),
-                       VariableShiftSubst.downShifter[LinearCombination](num, order)),
-                     order)
+    if (containsVariables && num > 0)
+      new ReduceWithNegEqs(
+            new LazyMappedSet(
+                 equations,
+                 VariableShiftSubst.upShifter[LinearCombination](num, order),
+                 VariableShiftSubst.downShifter[LinearCombination](num, order)),
+            true,
+            order)
+    else
+      this
  
                      
   def apply(conj : EquationConj) : EquationConj = {
@@ -74,10 +84,16 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
     Debug.assertPre(ReduceWithNegEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
      
-    if (Seqs.disjoint(equations, conj.toSet))
-      conj
-    else
-      EquationConj.FALSE
+    val res =
+      if (Seqs.disjoint(equations, conj.toSet))
+        conj
+      else
+        EquationConj.FALSE
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithNegEqs.AC, (res eq conj) || res != conj)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
 
   def apply(conj : NegEquationConj) : NegEquationConj = {
@@ -85,11 +101,17 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
     Debug.assertPre(ReduceWithNegEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    if (equations.isEmpty)
-      conj
-    else
-      conj.updateEqsSubset(conj filter ((lc:LinearCombination) =>
-                                             !(equations contains lc)))(order)
+    val res =
+      if (equations.isEmpty)
+        conj
+      else
+        conj.updateEqsSubset(conj filter ((lc:LinearCombination) =>
+                                               !(equations contains lc)))(order)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithNegEqs.AC, (res eq conj) || res != conj)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
 
   def apply(conj : InEqConj) : InEqConj =
@@ -100,19 +122,33 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
     Debug.assertPre(ReduceWithNegEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
      
-    if (equations.isEmpty)
-      conj
-    else
-      conj.updateGeqZero(for (lc <- conj) yield {
+    val res =
+      if (equations.isEmpty) {
+        conj
+      } else {
+        var changed = false
+        val reducedLCs = for (lc <- conj) yield {
                            var strengthenedLC = lc
                            while (equations contains strengthenedLC.makePositive) {
                              val oriLC = strengthenedLC
                              strengthenedLC = strengthenedLC + IdealInt.MINUS_ONE
                              logger.directStrengthen(oriLC, oriLC.makePositive,
                                                      strengthenedLC, order)
+                             changed = true
                            }
                            strengthenedLC
-                         },  logger)(order)
+                         }
+
+        if (changed)
+          InEqConj(reducedLCs.iterator, logger, order)
+        else
+          conj
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithNegEqs.AC, (res eq conj) || res != conj)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
   }
 
 }

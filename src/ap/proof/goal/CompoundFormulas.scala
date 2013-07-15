@@ -51,16 +51,26 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def updateQFClauses(newQFClauses : NegatedConjunctions) =
-    CompoundFormulas(newQFClauses, eagerQuantifiedClauses, lazyQuantifiedClauses)
+    if (qfClauses eq newQFClauses)
+      this
+    else
+      CompoundFormulas(newQFClauses, eagerQuantifiedClauses, lazyQuantifiedClauses)
   
   def quantifierClauses(eager : Boolean) =
     if (eager) eagerQuantifiedClauses else lazyQuantifiedClauses
   
   def updateQuantifierClauses(eager : Boolean, newClauses : IterativeClauseMatcher) =
-    if (eager)
-      CompoundFormulas(qfClauses, newClauses, lazyQuantifiedClauses)
-    else
-      CompoundFormulas(qfClauses, eagerQuantifiedClauses, newClauses)
+    if (eager) {
+      if (eagerQuantifiedClauses eq newClauses)
+        this
+      else
+        CompoundFormulas(qfClauses, newClauses, lazyQuantifiedClauses)
+    } else {
+      if (lazyQuantifiedClauses eq newClauses)
+        this
+      else
+        CompoundFormulas(qfClauses, eagerQuantifiedClauses, newClauses)
+    }
   
   def isEmpty =
     qfClauses.isEmpty &&
@@ -132,12 +142,15 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
                    order :           TermOrder)
                   : (Seq[PrioritisedTask], CompoundFormulas) = {
     val (otherStuff, realClauses) = qfClauseMapping(this.qfClauses)
-    val newClauses = this.qfClauses.update(realClauses, order)
+    val newClauses =
+      if (Seqs.identicalSeqs(realClauses, this.qfClauses))
+        this.qfClauses
+      else
+        NegatedConjunctions(realClauses, order)
 
     val newTasks = for (c <- otherStuff; t <- taskifier(c)) yield t
 
-    (newTasks,
-     CompoundFormulas(newClauses, eagerQuantifiedClauses, lazyQuantifiedClauses))
+    (newTasks, updateQFClauses(newClauses))
   }
 
   /**
@@ -147,12 +160,13 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
    * @param matcherMapping  map the matchers to a set of formulas that is
    *                        supposed to be turned into tasks, and a new matcher
    */
-  def map(qfClauseMapping : (NegatedConjunctions) =>
-                              (Seq[Conjunction], Seq[Conjunction]),
-          matcherMapping :  (IterativeClauseMatcher) =>
-                              (Seq[Conjunction], IterativeClauseMatcher),
-          taskifier :       (Conjunction) => Seq[FormulaTask],
-          order :           TermOrder) : (Seq[PrioritisedTask], CompoundFormulas) = {
+  private def map(qfClauseMapping : (NegatedConjunctions) =>
+                                    (Seq[Conjunction], Seq[Conjunction]),
+                  matcherMapping :  (IterativeClauseMatcher) =>
+                                    (Seq[Conjunction], IterativeClauseMatcher),
+                  taskifier :       (Conjunction) => Seq[FormulaTask],
+                  order :           TermOrder)
+                 : (Seq[PrioritisedTask], CompoundFormulas) = {
     // map qf-clauses
 
     val (otherStuff, realClauses) = qfClauseMapping(this.qfClauses)
@@ -167,12 +181,19 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
     val (removedLazyClauses, newLazyClauses) =
       matcherMapping(lazyQuantifiedClauses)
 
-    val eagerClausesTasks = for (c <- removedEagerClauses; t <- taskifier(c)) yield t
-    val lazyClausesTasks = for (c <- removedLazyClauses; t <- taskifier(c)) yield t
+    val eagerClausesTasks =
+      for (c <- removedEagerClauses; t <- taskifier(c)) yield t
+    val lazyClausesTasks =
+      for (c <- removedLazyClauses; t <- taskifier(c)) yield t
     
     (newTasks ++ eagerClausesTasks ++ lazyClausesTasks,
-     CompoundFormulas(newClauses, newEagerClauses, newLazyClauses))
-  } 
+     if ((newClauses eq this.qfClauses) &&
+         (newEagerClauses eq eagerQuantifiedClauses) &&
+         (newLazyClauses eq lazyQuantifiedClauses))
+       this
+     else
+       CompoundFormulas(newClauses, newEagerClauses, newLazyClauses))
+  }
   
   //////////////////////////////////////////////////////////////////////////////
 

@@ -56,7 +56,8 @@ object ReduceWithPredLits {
     Debug.assertPre(AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     new ReduceWithPredLits(List(LitFacts(conj)),
-                            conj.predicates, functions, order)
+                           conj.predicates, functions,
+                           !conj.variables.isEmpty, order)
   }
 
 }
@@ -70,6 +71,7 @@ object ReduceWithPredLits {
 class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackElement],
                                   allPreds : scala.collection.Set[Predicate],
                                   functions : Set[Predicate],
+                                  containsVariables : Boolean,
                                   order : TermOrder) {
   
   import ReduceWithPredLits._
@@ -85,7 +87,9 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     else
       new ReduceWithPredLits(LitFacts(furtherLits) :: facts,
                              UnionSet(allPreds, furtherLits.predicates),
-                             functions, order)
+                             functions,
+                             containsVariables || !furtherLits.variables.isEmpty,
+                             order)
 
   /**
    * Create a <code>ReduceWithPredLits</code> that can be used underneath
@@ -93,12 +97,23 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
    * the fly, which should give a good performance when the resulting
    * <code>ReduceWithEqs</code> is not applied too often (TODO: caching)
    */
-  def passQuantifiers(num : Int) : ReduceWithPredLits = {
-    val upShifter = VariableShiftSubst.upShifter[Term](num, order)
-    val downShifter = VariableShiftSubst.downShifter[LinearCombination](num, order)
-    new ReduceWithPredLits(PassBinders(upShifter, downShifter) :: facts,
-                            allPreds, functions, order)
-  }
+  def passQuantifiers(num : Int) : ReduceWithPredLits =
+    if (containsVariables && num > 0) {
+      val upShifter = VariableShiftSubst.upShifter[Term](num, order)
+      val downShifter = VariableShiftSubst.downShifter[LinearCombination](num, order)
+      new ReduceWithPredLits(PassBinders(upShifter, downShifter) :: facts,
+                             allPreds, functions, true, order)
+    } else {
+      this
+    }
+
+  /**
+   * A reducer corresponding to this one, but without assuming
+   * any facts known a priori.
+   */
+  lazy val withoutFacts =
+    new ReduceWithPredLits(List(LitFacts(PredConj.TRUE)),
+                           Set(), functions, false, order)
 
   /**
    * Determine whether a formula that contains the given predicates might be
@@ -108,7 +123,23 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     !Seqs.disjoint(allPreds, conj.predicates) ||
     !Seqs.disjoint(functions, conj.predicates)
 
+  /**
+   * Reduce a conjunction of predicate literals using known predicate
+   * literals. This function knows about functional predicates, and
+   * is able to apply the functionality axiom to replace predicate literals
+   * with equations.
+   */
   def apply(conj : PredConj) : (PredConj, ArithConj) = {
+    val res = applyHelp(conj)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithPredLits.AC,
+                     ((res._1 eq conj) && res._2.isTrue) || (res._1 != conj))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
+  }
+
+  private def applyHelp(conj : PredConj) : (PredConj, ArithConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithPredLits.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -176,6 +207,7 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     val ac = ArithConj(EquationConj(posEqs.result, order),
                        NegEquationConj(negEqs.result, order),
                        InEqConj.TRUE, order)
+
     if (ac.isFalse)
       (PredConj.FALSE(conj), ArithConj.TRUE)
     else

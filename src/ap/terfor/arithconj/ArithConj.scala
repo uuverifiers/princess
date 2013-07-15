@@ -177,7 +177,7 @@ class ArithConj private (val positiveEqs : EquationConj,
    */
   def updatePositiveEqs(newEqs : EquationConj)(implicit newOrder : TermOrder)
                        : ArithConj =
-    if (this.positiveEqs == newEqs)
+    if (this.positiveEqs eq newEqs)
       this
     else
       ArithConj(newEqs, this.negativeEqs, this.inEqs, newOrder)
@@ -188,7 +188,7 @@ class ArithConj private (val positiveEqs : EquationConj,
    */
   def updateNegativeEqs(newEqs : NegEquationConj)(implicit newOrder : TermOrder)
                        : ArithConj =
-    if (this.negativeEqs == newEqs)
+    if (this.negativeEqs eq newEqs)
       this
     else
       ArithConj(this.positiveEqs, newEqs, this.inEqs, newOrder)
@@ -198,7 +198,7 @@ class ArithConj private (val positiveEqs : EquationConj,
    * else apart from the <code>TermOrder</code>) 
    */
   def updateInEqs(newInEqs : InEqConj)(implicit newOrder : TermOrder) : ArithConj =
-    if (this.inEqs == newInEqs)
+    if (this.inEqs eq newInEqs)
       this
     else
       ArithConj(this.positiveEqs, this.negativeEqs, newInEqs, newOrder)
