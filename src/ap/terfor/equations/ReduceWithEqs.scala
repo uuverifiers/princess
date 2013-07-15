@@ -45,15 +45,13 @@ object ReduceWithEqs {
 
   def apply(eqs : scala.collection.Map[Term, LinearCombination], order : TermOrder)
                                                   : ReduceWithEqs =
-    new ReduceWithEqs (eqs,
-                       eqs exists { case (_, lc) => !lc.variables.isEmpty },
-                       order)
+    new ReduceWithEqs (eqs, order)
 
   def apply(eqs : EquationConj, order : TermOrder) : ReduceWithEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, eqs isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    new ReduceWithEqs(eqs.toMap, !eqs.variables.isEmpty, order)
+    new ReduceWithEqs(eqs.toMap, order)
   }
 }
 
@@ -63,7 +61,6 @@ object ReduceWithEqs {
  * (constants or variables) to linear combinations
  */
 class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombination],
-                             containsVariables : Boolean,
                              order : TermOrder) {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
@@ -75,6 +72,9 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
 
   def isEmpty : Boolean = equations.isEmpty
   
+  private lazy val containsVariables =
+    equations exists { case (_, lc) => !lc.variables.isEmpty }
+
   def addEquations(furtherEqs : scala.collection.Map[Term, LinearCombination])
                                      : ReduceWithEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -85,11 +85,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     if (furtherEqs.isEmpty)
       this
     else
-      new ReduceWithEqs(UnionMap(equations, furtherEqs),
-                        containsVariables || (
-                          furtherEqs exists {
-                            case (_, lc) => !lc.variables.isEmpty }),
-                        order)
+      new ReduceWithEqs(UnionMap(equations, furtherEqs), order)
   }
 
   /**
@@ -106,7 +102,6 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
                  VariableShiftSubst.upShifter[Term](num, order),
                  VariableShiftSubst.downShifter[Term](num, order),
                  VariableShiftSubst.upShifter[LinearCombination](num, order)),
-            true,
             order)
     else
       this
