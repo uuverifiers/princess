@@ -27,7 +27,7 @@
 
 ./rundir special "" -logo +assert -generateTriggers=none
 
-./rundir lira "" -logo -assert -timeout=120000 -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -generateTriggers=none
+./rundir lira "" -logo +assert -timeout=120000 -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -generateTriggers=none
 
 ./rundir unprovable "1" -logo +assert -timeout=30000 -clausifier=none -posUnitResolution -generateTriggers=none
 ./rundir unprovable "2" -logo +assert -timeout=30000 -clausifier=simple -posUnitResolution -generateTriggers=none
