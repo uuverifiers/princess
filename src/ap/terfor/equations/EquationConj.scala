@@ -502,7 +502,8 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     // is used as input for <code>ReduceWithEqs</code>
     
     val lhsMap = new scala.collection.mutable.HashMap[Term, LinearCombination]
-    
+    var reducer : ReduceWithEqs = null
+
     // When logging computations, we have to extract the precise terms added
     // by the reducer
     val reducerTerms =
@@ -510,18 +511,32 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     
     while (eqIndex >= 0) {
       val nextToReduce = nonRedLhss(eqIndex)
-      val reduced = modEquations.addEquations(lhsMap)(nextToReduce, reducerTerms)
+      val reduced =
+        if (reducer == null)
+          // no reduction in the first iteration
+          nextToReduce
+        else 
+          reducer(nextToReduce, reducerTerms)
+
       val primAndReduced =
         if (logger.isLogging && reducerTerms.size > 0) {
-          reducerTerms += (IdealInt.ONE -> nextToReduce)
+          reducerTerms += ((IdealInt.ONE, nextToReduce))
           logger.ceScope.start((reducerTerms, order)) { addReduced(reduced) }
         } else {
           addReduced(reduced)
         }
-      lhsMap += (primAndReduced.leadingTerm -> primAndReduced)
+
+      if (eqIndex >= 0) {
+        // HACK: we use the fact that it is possible to change the
+        // equation map even after creating the reducer; this avoids
+        // having to create a new reducer object in each iteration
+        lhsMap.put(primAndReduced.leadingTerm, primAndReduced)
+        if (reducer == null)
+          reducer = modEquations addEquations lhsMap
       
-      if (reducerTerms != null)
-        reducerTerms.clear
+        if (reducerTerms != null)
+          reducerTerms.clear
+      }
     }
   }
 
