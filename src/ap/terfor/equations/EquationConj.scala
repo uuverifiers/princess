@@ -290,13 +290,8 @@ private class RowSolver(lhss : Iterator[LinearCombination],
    * order
    */
   private implicit val orderTodo = new Ordering[LinearCombination] {
-    def compare(thisLC : LinearCombination, thatLC : LinearCombination) = {
-      val r = order.compare(thisLC.leadingTerm, thatLC.leadingTerm)
-      if (r == 0)
-        thatLC.leadingCoeff compare thisLC.leadingCoeff
-      else
-        r
-    }
+    def compare(thisLC : LinearCombination, thatLC : LinearCombination) =
+      order.compare(thisLC.leadingTerm, thatLC.leadingTerm)
   }
 
   /**
@@ -433,66 +428,23 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     }
   }
 
-  private def canoniseUnit(unitLC : LinearCombination) : Unit = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(EquationConj.AC, unitLC.leadingCoeff.isOne)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    addNonReduced(unitLC)
-
-    val leadingTerm = unitLC.leadingTerm
-    while (!nonCanonLhss.isEmpty &&
-           nonCanonLhss.head.leadingTerm == leadingTerm) {
-      val nextLC = nonCanonLhss.dequeue
-
-      val coeff = -nextLC.leadingCoeff
-      val rem =
-        LinearCombination.sum(IdealInt.ONE, nextLC, coeff, unitLC, order)
-
-      if (!rem.isZero) {
-        if (logger.isLogging) {
-          logger.ceScope.start(
-              (Array((IdealInt.ONE, nextLC), (coeff, unitLC)), order)) {
-            addNonCanon(rem)
-          }
-        } else {
-          addNonCanon(rem)
-        }
-      }
-    }
-  }
-
   //////////////////////////////////////////////////////////////////////////////
     
   {
     // the main loop for canonising
     
-    var currentLhss : ArrayBuffer[LinearCombination] = null
-
+    val currentLhss = new ArrayBuffer[LinearCombination]
     while (!nonCanonLhss.isEmpty) {
       val firstLhs = nonCanonLhss.dequeue
-
-      if (firstLhs.leadingCoeff.isOne) {
-
-        canoniseUnit(firstLhs)
-
-      } else {
-
-        if (currentLhss == null)
-          currentLhss = new ArrayBuffer[LinearCombination]
-        else
-          currentLhss.clear
-
-        val leadingTerm = firstLhs.leadingTerm
-        currentLhss += firstLhs
+      val leadingTerm = firstLhs.leadingTerm
+      currentLhss += firstLhs
     
-        while (!nonCanonLhss.isEmpty &&
-               nonCanonLhss.head.leadingTerm == leadingTerm)
-          currentLhss += nonCanonLhss.dequeue
+      while (!nonCanonLhss.isEmpty &&
+             nonCanonLhss.head.leadingTerm == leadingTerm)
+        currentLhss += nonCanonLhss.dequeue
 
-        canonise(currentLhss)
-
-      }
+      canonise(currentLhss)
+      currentLhss.clear
     }
   }
 
