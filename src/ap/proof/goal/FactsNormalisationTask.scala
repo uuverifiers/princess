@@ -128,6 +128,7 @@ case object FactsNormalisationTask extends EagerTask {
 
     val (newTasks, newCompoundFormulas) =
       if (collector.isLogging) {
+
         // if we are producing proofs, we mostly check for subsumed clauses
         // that can be removed
 
@@ -136,7 +137,7 @@ case object FactsNormalisationTask extends EagerTask {
           val otherStuff, realClauses = ArrayBuilder.make[Conjunction]
 
           for (c <- conjs) {
-            val reducedC = reducer(c)
+            val reducedC = reducer tentativeReduce c
             if (!reducedC.isFalse)
               (if (reducedC.isTrue || reducedC.isLiteral || illegalQFClause(c))
                  otherStuff
@@ -152,13 +153,27 @@ case object FactsNormalisationTask extends EagerTask {
           Goal.formulaTasks(_, goal.age, eliminatedConstants,
                             updatedVocabulary, goal.settings),
           order)
+
       } else {
-        val reducerObj : Conjunction => Conjunction = reducer.apply _
+
+        def qfClauseMapping(conjs : NegatedConjunctions)
+                           : (Seq[Conjunction], Seq[Conjunction]) = {
+          val otherStuff, realClauses = ArrayBuilder.make[Conjunction]
+
+          for (c <- conjs) {
+            val redC = reducer tentativeReduce c
+            (if (illegalQFClause(redC)) otherStuff else realClauses) += redC
+          }
+          
+          (otherStuff.result, realClauses.result)
+        }
+
         goal.compoundFormulas.mapQFClauses(
-          (c:NegatedConjunctions) => reducer(c) partition (illegalQFClause _),
+          qfClauseMapping _,
           Goal.formulaTasks(_, goal.age, eliminatedConstants,
                             updatedVocabulary, goal.settings),
           order)
+
       }
 
     ////////////////////////////////////////////////////////////////////////////

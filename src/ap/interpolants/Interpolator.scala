@@ -777,7 +777,7 @@ object Interpolator
             Debug.assertInt(AC, iContext isFromRight qFormula)
             //-END-ASSERTION-/////////////////////////////////////////////////////
             iContext addRight result
-          }).addConstants(consts)
+          }).addConstants(consts.reverse)
 
         val totalInter =
           processBranchInferences(remInferences, child, newContext).toConjunction

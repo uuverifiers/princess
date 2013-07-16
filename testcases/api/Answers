@@ -152,3 +152,5 @@ Invalid
 Valid
 Sat
 Sat
+0: Unsat
+1: Vector(rootjthen_fwd, false)

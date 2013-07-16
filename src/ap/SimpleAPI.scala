@@ -116,6 +116,12 @@ object SimpleAPI {
     }
   }
   
+  /**
+   * Pretty-print a formula or term.
+   */
+  def pp(f : IExpression) : String =
+    DialogUtil asString { PrincessLineariser printExpression f }
+  
   //////////////////////////////////////////////////////////////////////////////
   
   object ProverStatus extends Enumeration {
@@ -671,8 +677,7 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Pretty-print a formula or term.
    */
-  def pp(f : IExpression) : String =
-    DialogUtil asString { PrincessLineariser printExpression f }
+  def pp(f : IExpression) : String = SimpleAPI.pp(f)
   
   //////////////////////////////////////////////////////////////////////////////
 

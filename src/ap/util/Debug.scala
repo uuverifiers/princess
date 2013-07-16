@@ -109,6 +109,9 @@ object Debug {
   def assertPre(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_PRE, ac, assertion)
 
+  def assertPreFast(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
+    assertTrue(AT_METHOD_PRE, ac, withoutAssertions(assertion))
+
   /** Postconditions of methods */
   def assertPost(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_POST, ac, assertion)

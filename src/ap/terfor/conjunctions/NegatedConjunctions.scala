@@ -156,7 +156,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
 
   def update(newConjs : Iterable[Conjunction],
              newOrder : TermOrder) : NegatedConjunctions =
-    if (this sameElements newConjs)
+    if (Seqs.identicalSeqs(this, newConjs))
       this
     else
       NegatedConjunctions(newConjs, newOrder)
