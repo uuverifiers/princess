@@ -69,12 +69,21 @@
     int  workerCounts;
     int  runControl;
     int  runState;
+    long stealCount;
+    int plock;
+    int indexSeed;
     scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode syncStack;
     scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode spareStack;
 }
 
+
+-keepclassmembernames class scala.actors.threadpool.SynchronousQueue {
+    scala.actors.threadpool.locks.ReentrantLock qlock;
+}
+
 -keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool$WorkQueue {
     int  runState;
+    int  qlock;
 }
 
 -keepclassmembernames class scala.concurrent.forkjoin.ForkJoinWorkerThread {
