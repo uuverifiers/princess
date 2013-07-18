@@ -423,7 +423,7 @@ class FrameworkVocabulary(preludeEnv : Environment[Unit, Unit, Unit, Unit]) {
   }
   
   private def lookupPred(n : String) = preludeEnv.lookupSym(n) match {
-    case Environment.Predicate(p, _) => p
+    case Environment.Predicate(p, _, _) => p
     case _ => throw new Error("Expected " + n + " to be defined as a predicate");
   }
   

@@ -173,7 +173,34 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
                 case _ : NoFormalArgs => 0
                 case args : WithFormalArgs => determineArity(args.formalargsc_)
               }
-              env.addPredicate(new Predicate(name, arity), ())
+
+              val wrappedOpts = asScalaBuffer(decl.listpredoption_)
+              val (negMatchOpts, otherOpts1) =
+                wrappedOpts partition (_.isInstanceOf[NegMatch])
+              val (noMatchOpts, otherOpts2) =
+                otherOpts1 partition (_.isInstanceOf[NoMatch])
+        
+              val negMatch = !negMatchOpts.isEmpty
+              val noMatch = !noMatchOpts.isEmpty
+        
+              if (!otherOpts2.isEmpty) {
+                val strs = for (o <- otherOpts2) yield predOption2String(o)
+                throw new Parser2InputAbsy.TranslationException(
+                       "Illegal options for predicate: " + (strs mkString " "))
+              }
+
+              if (negMatch && noMatch)
+                throw new Parser2InputAbsy.TranslationException(
+                       "Illegal options for predicate: both \\negMatch and \\noMatch")
+
+              env.addPredicate(new Predicate(name, arity),
+                               if (negMatch)
+                                 Signature.PredicateMatchStatus.Negative
+                               else if (noMatch)
+                                 Signature.PredicateMatchStatus.None
+                               else
+                                 Signature.PredicateMatchStatus.Positive,
+                               ())
             }
           }
         case _ : Problem => /* nothing */
@@ -230,6 +257,11 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
   private def funOption2String(option : FunOption) : String = option match {
     case _ : Partial => "\\partial"
     case _ : Relational => "\\relational"
+  }
+  
+  private def predOption2String(option : PredOption) : String = option match {
+    case _ : NegMatch => "\\negMatch"
+    case _ : NoMatch => "\\noMatch"
   }
   
   private def collectDeclConstantC(decl : DeclConstantC,
@@ -456,7 +488,7 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
   
   private def translateExprIdApp(f : ExprIdApp) : IExpression =
     env.lookupSym(f.ident_) match {
-      case Environment.Predicate(pred, _) => {
+      case Environment.Predicate(pred, _, _) => {
         val args = translateOptArgs(f.optargs_)
         if (pred.arity != args.size)
           throw new Parser2InputAbsy.TranslationException(

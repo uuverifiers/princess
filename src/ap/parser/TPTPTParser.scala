@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012      Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2013 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -1306,7 +1306,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
             else
               IIntFormula(IIntRelation.EqZero, IFunApp(f, args))
           }
-        case Environment.Predicate(p, r) =>
+        case Environment.Predicate(p, _, r) =>
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack

@@ -21,7 +21,7 @@
 
 package ap.parameters;
 
-import ap.terfor.conjunctions.IterativeClauseMatcher
+import ap.Signature.PredicateMatchConfig
 
 object Param {
   
@@ -195,8 +195,8 @@ object Param {
   }
   
   case object PREDICATE_MATCH_CONFIG extends Param {
-    type Value = IterativeClauseMatcher.PredicateMatchConfig
-    val defau : IterativeClauseMatcher.PredicateMatchConfig = Map()
+    type Value = PredicateMatchConfig
+    val defau : PredicateMatchConfig = Map()
   }
   
   case object PROOF_CONSTRUCTION extends Param {

@@ -42,7 +42,9 @@ object Environment {
              extends DeclaredSym[CT,VT,PT,FT]
   case class Variable[CT,VT,PT,FT](index : Int, typ : VT)
              extends DeclaredSym[CT,VT,PT,FT]
-  case class Predicate[CT,VT,PT,FT](pred : ap.terfor.preds.Predicate, typ : PT)
+  case class Predicate[CT,VT,PT,FT](pred : ap.terfor.preds.Predicate,
+                                    matchStatus : Signature.PredicateMatchStatus.Value,
+                                    typ : PT)
              extends DeclaredSym[CT,VT,PT,FT]
   case class Function[CT,VT,PT,FT](fun : IFunction, typ : FT)
              extends DeclaredSym[CT,VT,PT,FT]
@@ -77,7 +79,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     Debug.assertPre(Environment.AC,
                     signature.valuesIterator forall {
                       case Constant(c, _, _) => newOrder.orderedConstants contains c
-                      case Predicate(pred, _) => newOrder.orderedPredicates contains pred
+                      case Predicate(pred, _, _) => newOrder.orderedPredicates contains pred
                       case _ => true
                     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -128,10 +130,15 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     }
   }
  
-  def addPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit = {
-    addSym(pred.name, Predicate(pred, typ))
+  def addPredicate(pred : ap.terfor.preds.Predicate,
+                   matchStatus : Signature.PredicateMatchStatus.Value,
+                   typ : PredicateType) : Unit = {
+    addSym(pred.name, Predicate(pred, matchStatus, typ))
     orderVar = orderVar extendPred pred
   }
+  
+  def addPredicate(pred : ap.terfor.preds.Predicate, typ : PredicateType) : Unit =
+    addPredicate(pred, Signature.PredicateMatchStatus.Positive, typ)
   
   def addFunction(fun : IFunction, typ : FunctionType) : Unit =
     addSym(fun.name, Function(fun, typ))
@@ -169,7 +176,10 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
   def lookupPartName(name : String) : PartName =
     partNames.getOrElseUpdate(name, new PartName (name))
   
+  def predicateMatchConfig : Signature.PredicateMatchConfig =
+    Map.empty ++ (for (Predicate(p, s, _) <- signature.values) yield (p, s))
+
   def toSignature =
-    new Signature (universalConstants, existentialConstants,
-                   nullaryFunctions, order)
+    Signature (universalConstants, existentialConstants,
+               nullaryFunctions, predicateMatchConfig, order)
 }

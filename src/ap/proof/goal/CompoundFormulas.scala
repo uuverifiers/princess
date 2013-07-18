@@ -21,6 +21,7 @@
 
 package ap.proof.goal
 
+import ap.Signature.PredicateMatchConfig
 import ap.proof._
 import ap.terfor.{TermOrder, Sorted, Formula, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
@@ -31,7 +32,7 @@ object CompoundFormulas {
   
   private val AC = Debug.AC_GOAL
   
-  def EMPTY(config : IterativeClauseMatcher.PredicateMatchConfig) =
+  def EMPTY(config : PredicateMatchConfig) =
     new CompoundFormulas(NegatedConjunctions.TRUE,
                          IterativeClauseMatcher.empty(true, config),
                          IterativeClauseMatcher.empty(false, config))

@@ -1815,10 +1815,10 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def toInternal(f : IFormula,
                          order : TermOrder) : (Conjunction, Conjunction) = {
-    val sig = new Signature(Set(),
-                            existentialConstants,
-                            order.orderedConstants -- existentialConstants,
-                            order)
+    val sig = Signature(Set(),
+                        existentialConstants,
+                        order.orderedConstants -- existentialConstants,
+                        order)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
