@@ -31,9 +31,10 @@ object CompoundFormulas {
   
   private val AC = Debug.AC_GOAL
   
-  val EMPTY = new CompoundFormulas(NegatedConjunctions.TRUE,
-                                   IterativeClauseMatcher.empty(true),
-                                   IterativeClauseMatcher.empty(false))
+  def EMPTY(config : IterativeClauseMatcher.PredicateMatchConfig) =
+    new CompoundFormulas(NegatedConjunctions.TRUE,
+                         IterativeClauseMatcher.empty(true, config),
+                         IterativeClauseMatcher.empty(false, config))
   
 }
 

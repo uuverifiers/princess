@@ -1767,7 +1767,8 @@ class SimpleAPI private (enableAssert : Boolean,
       }
       
       if (currentProver != null) {
-        if ((IterativeClauseMatcher isMatchableRec completeFor) &&
+        if ((IterativeClauseMatcher.isMatchableRec(completeFor,
+               Param.PREDICATE_MATCH_CONFIG(goalSettings))) &&
             Seqs.disjoint(completeFor.constants, existentialConstants))
           currentProver =
             currentProver.conclude(List(completeFor, axioms), currentOrder)

@@ -83,7 +83,7 @@ class TestEquationSystems(n : String) extends APTestCase(n) {
       val facts = Conjunction.conj(Array(ac), to)
       for (elimNum <- PlainRange(0, consts.size + 1)) {
         val eliminatedConsts = Set.empty ++ consts.drop(consts.size - elimNum)
-        val goal = Goal(facts, CompoundFormulas.EMPTY,
+        val goal = Goal(facts, CompoundFormulas.EMPTY(Map()),
                         TaskManager.EMPTY, 0, eliminatedConsts, Vocabulary(to),
                         new IdentitySubst (to), BranchInferenceCollection.EMPTY,
                         settings)

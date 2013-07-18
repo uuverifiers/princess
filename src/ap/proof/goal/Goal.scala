@@ -95,7 +95,7 @@ object Goal {
     }
 
     apply(Conjunction.TRUE,
-          CompoundFormulas.EMPTY,
+          CompoundFormulas.EMPTY(Param.PREDICATE_MATCH_CONFIG(settings)),
           emptyTaskManager ++ tasks,
           0,
           eliminatedConstants,
@@ -108,7 +108,7 @@ object Goal {
   def TRUE(vocabulary : Vocabulary,
            branchInferences : BranchInferenceCollection) : Goal =
     new Goal (Conjunction.FALSE,
-              CompoundFormulas.EMPTY,
+              CompoundFormulas.EMPTY(Map()),
               TaskManager.EMPTY, 0,
               Set.empty, vocabulary,
               new IdentitySubst (vocabulary.order),
@@ -145,14 +145,16 @@ object Goal {
         val unitResolution = Param.POS_UNIT_RESOLUTION(settings)
         
         for (f <- disj.negatedConjs)
-          if (unitResolution && (NegLitClauseTask isCoveredFormula f))
+          if (unitResolution &&
+              NegLitClauseTask.isCoveredFormula(f, settings))
             negLitClauses = f :: negLitClauses
           else
             otherTasks ++= formulaTasks(f, age, eliminatedConstants, vocabulary, settings)
         
         if (!negLitClauses.isEmpty)
           otherTasks +=
-            new NegLitClauseTask(Conjunction.disj(negLitClauses, formula.order), age)
+            NegLitClauseTask(Conjunction.disj(negLitClauses, formula.order), age,
+                             settings)
         
         otherTasks
       } ++
@@ -170,8 +172,8 @@ object Goal {
         if (formula.isDivisibility)
           new DivisibilityTask(formula, age)
         else if (Param.POS_UNIT_RESOLUTION(settings) &&
-                 (NegLitClauseTask isCoveredFormula formula))
-          new NegLitClauseTask(formula, age)
+                 NegLitClauseTask.isCoveredFormula(formula, settings))
+          NegLitClauseTask(formula, age, settings)
         else
           new ExQuantifierTask(formula, age))
     }

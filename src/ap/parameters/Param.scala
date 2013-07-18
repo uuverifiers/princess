@@ -21,6 +21,8 @@
 
 package ap.parameters;
 
+import ap.terfor.conjunctions.IterativeClauseMatcher
+
 object Param {
   
   case object LOGO extends Param {
@@ -190,6 +192,11 @@ object Param {
     type Value = ap.proof.ConstraintSimplifier
     val defau : ap.proof.ConstraintSimplifier =
       ap.proof.ConstraintSimplifier.FAIR_SIMPLIFIER
+  }
+  
+  case object PREDICATE_MATCH_CONFIG extends Param {
+    type Value = IterativeClauseMatcher.PredicateMatchConfig
+    val defau : IterativeClauseMatcher.PredicateMatchConfig = Map()
   }
   
   case object PROOF_CONSTRUCTION extends Param {

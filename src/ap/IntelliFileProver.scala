@@ -151,8 +151,9 @@ class IntelliFileProver(reader : java.io.Reader,
     val quantifiers =
       Set() ++ (for (f <- formulas.iterator;
                      q <- Conjunction.collectQuantifiers(f).iterator) yield q)
+    val predicateMatchConfig = Param.PREDICATE_MATCH_CONFIG(goalSettings)
     val isFullyMatchable =
-      formulas forall (IterativeClauseMatcher isMatchableRec _)
+      formulas forall (IterativeClauseMatcher isMatchableRec(_, predicateMatchConfig))
 
     val canUseModelSearchProver =
       Seqs.disjoint(constants, signature.existentialConstants) &&

@@ -493,7 +493,7 @@ object ModelSearchProver {
       // for the time being, just disable possible theory plugins at this point
       val newSettings = Param.THEORY_PLUGIN.set(settings, None)
 
-      val newGoal = Goal(Conjunction.TRUE, CompoundFormulas.EMPTY,
+      val newGoal = Goal(Conjunction.TRUE, CompoundFormulas.EMPTY(Map()),
                          TaskManager.EMPTY ++ (goal formulaTasks newFacts.negate),
                          goal.age,
                          goal.eliminatedConstants,
