@@ -309,8 +309,8 @@ Found proof (size 109), simplifying (91), interpolating ...
 No countermodel exists, formula is valid
 
 Interpolants:
-\forall int v0; \forall int v1; (-1 * h'(f(v0)) + h'(f(v1)) >= 0 | -1 >= v0 | v1 - n >= 1 | v0 - v1 >= 1 | -1 >= v1)
-\exists int v0; \exists int v1; (h'(v1) = v0 & \exists int v2; (v2 - v0 >= 1 & \exists int v3; (h'(v3) = v2 & \exists int v4; (v4 >= 0 & f(v4) = v3 & \exists int v5; (n >= v5 & v5 >= v4 & v5 >= 0 & f(v5) = v1)))))
+\forall int v0; \forall int v1; (-1 * h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
+\exists int v0; \exists int v1; (h'(v1) = v0 & \exists int v2; (v2 - v0 >= 1 & \exists int v3; (h'(v3) = v2 & \exists int v4; (n >= v4 & f(v4) = v1 & \exists int v5; (v4 >= v5 & v5 >= 0 & f(v5) = v3)))))
 
 Loading quan.pri ...
 Preprocessing ...
