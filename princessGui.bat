@@ -12,4 +12,4 @@ rem Set Java classpath
 
 set CLASSPATH=%CLASSPATH%;%BASE%\dist\princess-all.jar
 
-java ap.DialogMain %1 %2 %3 %4 %5 %6 %7 %8 %9
+java -Xss20000k ap.DialogMain %1 %2 %3 %4 %5 %6 %7 %8 %9
