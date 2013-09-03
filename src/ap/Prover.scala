@@ -33,6 +33,7 @@ object Prover {
   case class Proof(tree : ProofTree) extends ProofResult
   case class ProofWithModel(tree : ProofTree, model : IFormula) extends ProofResult
   case class NoProof(unsatisfiableTree : ProofTree) extends ProofResult
+  case class Invalid(unsatisfiableTree : ProofTree) extends ProofResult
   case class TimeoutProof(unfinishedTree : ProofTree) extends ProofResult
 
   // "model" means that the implicitly existentially quantified constants can be
@@ -62,5 +63,5 @@ object Prover {
 trait Prover {
 
   val result : Prover.Result
-  
+
 }

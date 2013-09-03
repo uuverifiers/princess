@@ -31,7 +31,7 @@ import scala.actors.{Actor, TIMEOUT}
 import javax.swing._
 import java.awt.{BorderLayout, FlowLayout, Dimension, Font, Color, Point}
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter,
-                       MouseEvent, KeyEvent}
+                       MouseEvent, KeyEvent, MouseWheelEvent}
 
 object DialogMain {
   
@@ -101,6 +101,24 @@ object DialogUtil {
         c = stream.read
       }
     }
+
+  class MouseWheelZoomer(field : JTextArea) extends MouseAdapter {
+    var currentSize : Double = field.getFont.getSize
+    override def mouseWheelMoved(e : MouseWheelEvent) =
+      if (e.isControlDown) {
+        currentSize =
+          if (currentSize <= 15)
+            ((currentSize - e.getWheelRotation) max 5).toInt
+          else
+            currentSize * (20.0 - e.getWheelRotation) / 20.0
+
+        val oldFont = field.getFont
+        val newFont = new Font (oldFont.getName, oldFont.getStyle, currentSize.toInt)
+        field setFont newFont
+      } else {
+        e.getComponent.getParent.dispatchEvent(e)
+      }
+  }
 
 }
 
@@ -172,7 +190,30 @@ class InputDialog extends JPanel {
     }
   }
   
-  def loadFile(file : java.io.File) : Unit = try {
+  addMenuItem("Load in this tab ...") {
+    loadFileChooser.showOpenDialog(frame) match {
+      case JFileChooser.APPROVE_OPTION => {
+        val tab = getEnabledPanel
+        tab.stopProver
+
+        val file = loadFileChooser.getSelectedFile
+        for ((options, input) <- readFile(file)) {
+          tab.inputField setText input
+          tab.inputField setCaretPosition 0
+          tab.optionField setText options
+          tabbedPane.setTitleAt(tabbedPane.getSelectedIndex, file.getName)
+        }
+      }
+      case _ => // nothing
+    }
+  }
+  
+  def loadFile(file : java.io.File) : Unit =
+    for ((options, input) <- readFile(file)) {
+      newTabWithInput(file.getName, options, input)
+    }
+
+  def readFile(file : java.io.File) : Option[(String, String)] = try {
     val reader = new java.io.BufferedReader (new java.io.FileReader(file))
     val options =
       if (file.getName endsWith ".smt2")
@@ -181,16 +222,19 @@ class InputDialog extends JPanel {
         "-inputFormat=tptp"
       else
         ""
-    newTabWithInput(file.getName, options, asString {
+    val input = asString {
       var str = reader.readLine
       while (str != null) {
         println(str)
         str = reader.readLine
       }
-    })
+    }
+    Some((options, input))
   } catch {
-    case e : java.io.IOException =>
+    case e : java.io.IOException => {
       JOptionPane.showMessageDialog(frame, "Error loading file: \n" + e.getMessage)
+      None
+    }
     case x : Throwable => throw x
   }
   
@@ -359,7 +403,7 @@ class InputDialog extends JPanel {
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
   
-  newTabWithInput("Arithmetic example", "", asString {
+  newTabWithInput("Arithmetic", "", asString {
     println("/**")
     println(" * Example:")
     println(" * Problem in Presburger arithmetic with uninterpreted predicates")
@@ -388,7 +432,7 @@ class InputDialog extends JPanel {
     println("}")
   })
 
-  newTabWithInput("Arithmetic interpolation example", "", asString {
+  newTabWithInput("Arithmetic interpolation", "", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in Presburger arithmetic")
@@ -414,7 +458,7 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond, stmt1, stmt2; assert}")
   })
 
-  newTabWithInput("Array interpolation example", "", asString {
+  newTabWithInput("Array interpolation", "", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in the theory of arrays")
@@ -449,7 +493,7 @@ class InputDialog extends JPanel {
     println("\\interpolant {p0, p1; p2, p3}")
   })
   
-  newTabWithInput("SMT-LIB example", "-inputFormat=smtlib", asString{
+  newTabWithInput("SMT-LIB", "-inputFormat=smtlib", asString{
     println("(set-logic AUFLIA)")
     println("(declare-fun a () Int)")
     println("(declare-fun p (Int) Bool)")
@@ -463,7 +507,7 @@ class InputDialog extends JPanel {
     println("(check-sat)")
   })
   
-  newTabWithInput("SMT-LIB interpolation example",
+  newTabWithInput("SMT-LIB interpolation",
                   "-inputFormat=smtlib -genTotalityAxioms", asString{
     println(";")
     println("; For interpolation, the option \"-genTotalityAxioms\" has to be specified,")
@@ -486,7 +530,7 @@ class InputDialog extends JPanel {
     println("(get-interpolants)")
   })
   
-  newTabWithInput("TPTP example", "-inputFormat=tptp", asString{
+  newTabWithInput("TPTP", "-inputFormat=tptp", asString{
     println("%------------------------------------------------------------------------------")
     println("% File     : GEG021=1 : TPTP v5.1.0. Released v5.1.0.")
     println("% Domain   : Arithmetic")
@@ -597,7 +641,10 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
       if (e.getButton == MouseEvent.BUTTON3 && e.getClickCount == 1)
         menu.show(e.getComponent, e.getX, e.getY)
   })
-  
+
+  inputField addMouseWheelListener (new MouseWheelZoomer (inputField))
+  outputField addMouseWheelListener (new MouseWheelZoomer (outputField))
+
   private val scrolledInputField = vScrolled(inputField)
   private val scrolledOutputField = vScrolled(outputField)
 

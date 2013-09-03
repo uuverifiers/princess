@@ -41,7 +41,7 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(release 2013-04-21)")
+    println("(release 2013-09-03)")
     println
     println("(c) Philipp Rümmer, 2009-2013")
     println("(contributions by Angelo Brillout, Peter Baumgartner)")
@@ -406,6 +406,9 @@ object CmdlMain {
               case Prover.NoProof(_) =>  {
                 println("unknown")
               }
+              case Prover.Invalid(_) =>  {
+                println("sat")
+              }
               case Prover.CounterModel(model) =>  {
                 println("sat")
                 Console.withOut(Console.err) {
@@ -448,12 +451,17 @@ object CmdlMain {
       
     case _ => res match {
               case Prover.Proof(tree) => {
-                println("Formula is valid, resulting " +
-                        (if (Param.MOST_GENERAL_CONSTRAINT(settings))
-                           "most-general "
-                         else
-                           "") + "constraint:")
-                printFormula(tree.closingConstraint)
+                println("VALID")
+                if (!tree.closingConstraint.isTrue ||
+                    Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  println
+                  println("Under the " +
+                          (if (Param.MOST_GENERAL_CONSTRAINT(settings))
+                             "most-general "
+                           else
+                             "") + "constraint:")
+                  printFormula(tree.closingConstraint)
+                }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.PRINT_TREE(settings)) {
@@ -463,16 +471,25 @@ object CmdlMain {
                 }
               }
               case Prover.ProofWithModel(tree, model) => {
-                println("Formula is valid, resulting " +
-                        (if (Param.MOST_GENERAL_CONSTRAINT(settings))
-                           "most-general "
-                         else
-                           "") + "constraint:")
-                printFormula(tree.closingConstraint)
+                println("VALID")
+                if (!tree.closingConstraint.isTrue ||
+                    Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  println
+                  println("Under the " +
+                          (if (Param.MOST_GENERAL_CONSTRAINT(settings))
+                             "most-general "
+                           else
+                             "") + "constraint:")
+                  printFormula(tree.closingConstraint)
+                }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 model match {
                   case IBoolLit(true) => // nothing
+                  case _ if ({
+                               val c = tree.closingConstraint
+                               c.arithConj.positiveEqs.size == c.size
+                              }) => // nothing
                   case _ => {
                     println
                     println("Concrete witness:")
@@ -485,8 +502,18 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case Prover.NoProof(tree) =>  {
-                println("No proof found")
+              case Prover.NoProof(tree) => {
+                println("GAVE UP")
+//                Console.err.println("Number of existential constants: " +
+//                                    existentialConstantNum(tree))
+                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  println
+                  println("Most-general constraint:")
+                  println("false")
+                }
+              }
+              case Prover.Invalid(tree) => {
+                println("INVALID")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -496,8 +523,15 @@ object CmdlMain {
                 }
               }
               case Prover.CounterModel(model) =>  {
-                println("Formula is invalid, found a countermodel:")
-                printFormula(model)
+                println("INVALID")
+                model match {
+                  case IBoolLit(true) => // nothing
+                  case _ => {
+                    println
+                    println("Countermodel:")
+                    printFormula(model)
+                  }
+                }
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -505,7 +539,7 @@ object CmdlMain {
                 }
               }
               case Prover.NoCounterModel =>  {
-                println("No countermodel exists, formula is valid")
+                println("VALID")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -513,7 +547,7 @@ object CmdlMain {
                 }
               }
               case Prover.NoCounterModelCert(cert) =>  {
-                println("No countermodel exists, formula is valid")
+                println("VALID")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -528,7 +562,7 @@ object CmdlMain {
                 printDOTCertificate(cert, settings)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
-                println("No countermodel exists, formula is valid")
+                println("VALID")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -545,14 +579,16 @@ object CmdlMain {
                 printDOTCertificate(cert, settings)
               }
               case Prover.Model(model) =>  {
-                println("Formula is valid, satisfying assignment for the existential constants is:")
+                println("VALID")
+                println
+                println("Under the assignment:")
                 printFormula(model)
               }
               case Prover.NoModel =>  {
-                println("No satisfying assignment for the existential constants exists, formula is invalid")
+                println("INVALID")
               }
               case Prover.TimeoutProof(tree) =>  {
-                println("Cancelled or timeout")
+                println("CANCELLED/TIMEOUT")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -571,7 +607,7 @@ object CmdlMain {
                 }
               }
               case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
-                println("Cancelled or timeout")
+                println("CANCELLED/TIMEOUT")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Current constraint:")

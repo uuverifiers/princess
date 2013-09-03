@@ -253,7 +253,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
   def inconclusiveResult(num : Int, res : Prover.Result) =
     !settings(num).complete && (res match {
-      case Prover.NoProof(_) | Prover.NoModel | Prover.CounterModel(_) => true
+      case Prover.NoProof(_) | Prover.Invalid(_) |
+           Prover.NoModel | Prover.CounterModel(_) => true
       case _ => false
     })
   
