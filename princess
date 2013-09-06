@@ -4,6 +4,6 @@ BASEDIR=`dirname $(readlink -e $0)`
 EXTLIBSDIR=$BASEDIR/extlibs
 
 export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
-export JAVA_OPTS="-Xss20000k"
+export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
 exec scala ap.CmdlMain "$@"
