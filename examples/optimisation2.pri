@@ -1,3 +1,7 @@
+/**
+ Can be solved quickly with the option "-clausifier=simple"
+ */
+
 \predicates {
 	p(int, int);
 }
