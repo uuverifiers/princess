@@ -175,8 +175,7 @@ object GoalSettings {
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.FINITE_DOMAIN_CONSTRAINTS, Param.DOMAIN_PREDICATES,
-                       Param.PREDICATE_MATCH_CONFIG,
-                       Param.THEORY_PLUGIN)
+                       Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

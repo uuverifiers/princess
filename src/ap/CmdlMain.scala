@@ -42,7 +42,7 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(CASC version 2013-06-14)")
+    println("(CASC version 2013-09-19)")
     println
     println("(c) Philipp Rümmer, 2009-2013")
     println("(contributions by Angelo Brillout, Peter Baumgartner, Aleksandar Zeljic)")
@@ -433,6 +433,9 @@ object CmdlMain {
               case Prover.NoProof(_) =>  {
                 println("unknown")
               }
+              case Prover.Invalid(_) =>  {
+                println("sat")
+              }
               case Prover.CounterModel(model) =>  {
                 println("sat")
                 Console.withOut(Console.err) {
@@ -506,6 +509,10 @@ object CmdlMain {
 //                                    existentialConstantNum(tree))
                 model match {
                   case IBoolLit(true) => // nothing
+                  case _ if ({
+                               val c = tree.closingConstraint
+                               c.arithConj.positiveEqs.size == c.size
+                              }) => // nothing
                   case _ => {
                     println
                     println("Concrete witness:")
@@ -531,6 +538,17 @@ object CmdlMain {
                 }
                 
                 println("% SZS status GaveUp for " + lastFilename)
+              }
+              case Prover.Invalid(tree) => {
+                Console.err.println("No proof found")
+//                Console.err.println("Number of existential constants: " +
+//                                    existentialConstantNum(tree))
+                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  println
+                  println("Most-general constraint:")
+                  println("false")
+                }
+                println("% SZS status " + negativeResult + " for " + lastFilename)
               }
               case Prover.CounterModel(model) =>  {
                 Console.withOut(Console.err) {

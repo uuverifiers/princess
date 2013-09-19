@@ -951,7 +951,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
                           sym : SymbolRef, args : Seq[Term], polarity : Int)
                          : (IExpression, Type.Value) =
     (env lookupSym id) match {
-      case Environment.Predicate(pred, _) => {
+      case Environment.Predicate(pred, _, _) => {
         checkArgNumLazy(printer print sym, pred.arity, args)
         (IAtom(pred, for (a <- args) yield asTerm(translateTerm(a, 0))),
          Type.Bool)
@@ -994,7 +994,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
                          fun.arity, List[SExpr]())
         IFunApp(fun, List())
       }
-      case Environment.Predicate(pred, _) => {
+      case Environment.Predicate(pred, _, _) => {
         checkArgNumSExpr(printer print expr.symbol_,
                          pred.arity, List[SExpr]())
         IAtom(pred, List())
@@ -1023,7 +1023,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
             }
             IFunApp(fun, translatedArgs)
           }
-          case Environment.Predicate(pred, _) => {
+          case Environment.Predicate(pred, _, _) => {
             val args = expr.listsexpr_.tail.toList
             checkArgNumSExpr(printer print funExpr.symbol_, pred.arity, args)
             val translatedArgs = for (e <- args) yield translateTrigger(e) match {

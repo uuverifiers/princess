@@ -86,12 +86,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
     val signature = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
       case Param.FiniteDomainConstraints.DomainSize =>
-        new Signature(preSignature.universalConstants + domain_size,
-                      preSignature.existentialConstants,
-                      preSignature.nullaryFunctions,
-                      preSignature.order.extend(domain_size, Set()),
-                      preSignature.domainPredicates,
-                      preSignature.functionTypes)
+        Signature(preSignature.universalConstants + domain_size,
+                  preSignature.existentialConstants,
+                  preSignature.nullaryFunctions,
+                  preSignature.predicateMatchConfig,
+                  preSignature.order.extend(domain_size, Set()),
+                  preSignature.domainPredicates,
+                  preSignature.functionTypes)
       case _ =>
         preSignature
     }
@@ -170,9 +171,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.DOMAIN_PREDICATES.set(gs, signature.domainPredicates)
-    gs = Param.PREDICATE_MATCH_CONFIG.set(gs,
-        (for (p <- signature.domainPredicates.iterator)
-         yield (p -> IterativeClauseMatcher.PredicateMatchStatus.None)).toMap)
+    gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs
   }
 

@@ -1,3 +1,8 @@
+/**
+ Remove the flag "\partial" in the function declarations
+ to speed up this example
+ */
+
 \functions {
   \partial int f(int, int);
   \partial int g(int);

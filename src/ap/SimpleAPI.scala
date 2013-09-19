@@ -1769,7 +1769,8 @@ class SimpleAPI private (enableAssert : Boolean,
       }
       
 /*      if (currentProver != null) {
-        if ((IterativeClauseMatcher isMatchableRec completeFor) &&
+        if ((IterativeClauseMatcher.isMatchableRec(completeFor,
+               Param.PREDICATE_MATCH_CONFIG(goalSettings))) &&
             Seqs.disjoint(completeFor.constants, existentialConstants))
           currentProver =
             currentProver.conclude(List(completeFor, axioms), currentOrder)
@@ -1816,10 +1817,10 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def toInternal(f : IFormula,
                          order : TermOrder) : (Conjunction, Conjunction) = {
-    val sig = new Signature(Set(),
-                            existentialConstants,
-                            order.orderedConstants -- existentialConstants,
-                            order, null, null)
+    val sig = Signature(Set(),
+                        existentialConstants,
+                        order.orderedConstants -- existentialConstants,
+                        order, null, null)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms

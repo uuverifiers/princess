@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@ import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.preds.Predicate
 
 object Signature {
-  
   abstract class FunctionType {
     def argumentTypeGuard(args : Seq[ITerm]) : IFormula
     def resultTypeGuard  (res : ITerm)       : IFormula
@@ -38,6 +37,32 @@ object Signature {
     def resultTypeGuard  (res : ITerm)       : IFormula = i(true)
   }
   
+  object PredicateMatchStatus extends Enumeration {
+    val Positive, Negative, None = Value
+  }
+  
+  type PredicateMatchConfig = Map[Predicate, PredicateMatchStatus.Value]
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  def apply(universalConstants : Set[ConstantTerm],
+            existentialConstants : Set[ConstantTerm],
+            nullaryFunctions : Set[ConstantTerm],
+            order : TermOrder,
+            domainPredicates : Set[Predicate],
+            functionTypes : Map[IFunction, Signature.FunctionType]) =
+    new Signature(universalConstants, existentialConstants, nullaryFunctions,
+                  Map(), order, domainPredicates, functionTypes)
+
+  def apply(universalConstants : Set[ConstantTerm],
+            existentialConstants : Set[ConstantTerm],
+            nullaryFunctions : Set[ConstantTerm],
+            predicateMatchConfig : PredicateMatchConfig,
+            order : TermOrder,
+            domainPredicates : Set[Predicate],
+            functionTypes : Map[IFunction, Signature.FunctionType]) =
+    new Signature(universalConstants, existentialConstants, nullaryFunctions,
+                  predicateMatchConfig, order, domainPredicates, functionTypes)
 }
 
 /**
@@ -47,10 +72,12 @@ object Signature {
 class Signature(val universalConstants : Set[ConstantTerm],
                 val existentialConstants : Set[ConstantTerm],
                 val nullaryFunctions : Set[ConstantTerm],
+                val predicateMatchConfig : Signature.PredicateMatchConfig,
                 val order : TermOrder,
                 val domainPredicates : Set[Predicate],
                 val functionTypes : Map[IFunction, Signature.FunctionType]) {
   def updateOrder(newOrder : TermOrder) =
     new Signature(universalConstants, existentialConstants,
-                  nullaryFunctions, newOrder, domainPredicates, functionTypes)
+                  nullaryFunctions, predicateMatchConfig, newOrder,
+                  domainPredicates, functionTypes)
 }

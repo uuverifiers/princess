@@ -138,6 +138,20 @@ Prover 0: proved
 No countermodel exists, formula is valid
 % SZS status Theorem for let-tests
 
+Loading quotes.p ...
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
+Prover 0: Preprocessing ...
+Prover 0: Constructing countermodel ...
+Prover 0: gave up
+Prover 1: Options:  +triggersInConjecture +genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 1: Preprocessing ...
+Prover 1: Constructing countermodel ...
+Prover 1: gave up
+
+Formula is invalid, found a countermodel:
+constant_in_Pair[Int,Int] = 0 & constant_in_Color = 0 & blue:\\'Color' = 0 & green:\\'Color' = 0 & red:Color = 1 & in_Color(1) & in_Color(0) & in_Pair[Int,Int](0)
+% SZS status Satisfiable for quotes
+
 Loading SYN000_2.p ...
 Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Exception: [70.9] failure: `<=>' expected but `,' found

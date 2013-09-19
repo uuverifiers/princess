@@ -28,10 +28,12 @@ import scala.collection.mutable.ArrayBuffer
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
 
+import java.io.File
 import javax.swing._
 import java.awt.{BorderLayout, FlowLayout, Dimension, Font, Color, Point}
 import java.awt.event.{ActionEvent, ActionListener, MouseAdapter,
-                       MouseEvent, KeyEvent}
+                       MouseEvent, KeyEvent, MouseWheelEvent}
+import javax.swing.event.{DocumentListener, DocumentEvent}
 
 object DialogMain {
   
@@ -42,7 +44,7 @@ object DialogMain {
     val dialog = new InputDialog
     // we assume that given arguments are files to be loaded
     for (s <- args)
-      dialog loadFile (new java.io.File (s))
+      dialog loadFile (new File (s))
   }
   
 }
@@ -102,6 +104,24 @@ object DialogUtil {
       }
     }
 
+  class MouseWheelZoomer(field : JTextArea) extends MouseAdapter {
+    var currentSize : Double = field.getFont.getSize
+    override def mouseWheelMoved(e : MouseWheelEvent) =
+      if (e.isControlDown) {
+        currentSize =
+          if (currentSize <= 15)
+            ((currentSize - e.getWheelRotation) max 5).toInt
+          else
+            currentSize * (20.0 - e.getWheelRotation) / 20.0
+
+        val oldFont = field.getFont
+        val newFont = new Font (oldFont.getName, oldFont.getStyle, currentSize.toInt)
+        field setFont newFont
+      } else {
+        e.getComponent.getParent.dispatchEvent(e)
+      }
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -136,14 +156,15 @@ class InputDialog extends JPanel {
   
   addMenuItem("Duplicate tab") {
     val i = tabbedPane.getSelectedIndex
+    val currentTab = getEnabledPanel
     val oldTitle = tabbedPane getTitleAt i
 
     val tab = newPanel
     createdTabs = createdTabs + 1
     tabbedPane.addTab(oldTitle + " (b)", tab)
 
-    tab.inputField setText getEnabledPanel.inputField.getText
-    tab.optionField setText getEnabledPanel.optionField.getText
+    tab.setInput(currentTab.inputField.getText, currentTab.file)
+    tab.optionField setText currentTab.optionField.getText
 
     tab.inputField setCaretPosition 0
     tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
@@ -151,11 +172,13 @@ class InputDialog extends JPanel {
   
   addMenuItem("Close tab") {
     val tabToClose = getEnabledPanel
-    tabToClose.stopProver
-    if (tabbedPane.getTabCount == 1)
-      // make sure that there is at least one tab left
-      defaultNewTab
-    tabbedPane remove tabToClose
+    if (tabToClose discardModifications "Close") {
+      tabToClose.stopProver
+      if (tabbedPane.getTabCount == 1)
+        // make sure that there is at least one tab left
+        defaultNewTab
+      tabbedPane remove tabToClose
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -172,7 +195,31 @@ class InputDialog extends JPanel {
     }
   }
   
-  def loadFile(file : java.io.File) : Unit = try {
+  addMenuItem("Load in this tab ...") {
+    if (getEnabledPanel discardModifications "Load") {
+      loadFileChooser.showOpenDialog(frame) match {
+        case JFileChooser.APPROVE_OPTION => {
+          val tab = getEnabledPanel
+          tab.stopProver
+
+          val file = loadFileChooser.getSelectedFile
+          for ((options, input) <- readFile(file)) {
+            tab.setInput(input, Some(file))
+            tab.optionField setText options
+            tabbedPane.setTitleAt(tabbedPane.getSelectedIndex, file.getName)
+          }
+        }
+        case _ => // nothing
+      }
+    }
+  }
+  
+  def loadFile(file : File) : Unit =
+    for ((options, input) <- readFile(file)) {
+      newTabWithInput(file.getName, Some(file), options, input)
+    }
+
+  def readFile(file : File) : Option[(String, String)] = try {
     val reader = new java.io.BufferedReader (new java.io.FileReader(file))
     val options =
       if (file.getName endsWith ".smt2")
@@ -181,16 +228,19 @@ class InputDialog extends JPanel {
         "-inputFormat=tptp"
       else
         ""
-    newTabWithInput(file.getName, options, asString {
+    val input = asString {
       var str = reader.readLine
       while (str != null) {
         println(str)
         str = reader.readLine
       }
-    })
+    }
+    Some((options, input))
   } catch {
-    case e : java.io.IOException =>
+    case e : java.io.IOException => {
       JOptionPane.showMessageDialog(frame, "Error loading file: \n" + e.getMessage)
+      None
+    }
     case x : Throwable => throw x
   }
   
@@ -219,10 +269,12 @@ class InputDialog extends JPanel {
       case JFileChooser.APPROVE_OPTION => {
         val file = saveFileChooser.getSelectedFile
         val i = tabbedPane.getSelectedIndex
+        val currentTab = getEnabledPanel
         tabbedPane.setTitleAt(i, file.getName)
         val out = new java.io.FileOutputStream(file)
-        Console.withOut(out) { Console.print(getEnabledPanel.inputField.getText) }
+        Console.withOut(out) { Console.print(currentTab.inputField.getText) }
         out.close
+        currentTab setFile Some(file)
       }
       case _ => // nothing
     }
@@ -260,30 +312,43 @@ class InputDialog extends JPanel {
   
   private def newPanel : PrincessPanel =
     new PrincessPanel(menu) {
-      def setRunning = {
-        val i = tabbedPane indexOfComponent this
-        tabbedPane.setBackgroundAt(i, Color.red)
-        tabbedPane.setToolTipTextAt(i, "Solving ...")
-      }
-      def setFinished = {
-        val i = tabbedPane indexOfComponent this
-        tabbedPane.setBackgroundAt(i, null)
-        tabbedPane.setToolTipTextAt(i, null)
-      }
+      def setRunning =
+        (tabbedPane indexOfComponent this) match {
+          case -1 => // nothing
+          case i => {
+            tabbedPane.setBackgroundAt(i, Color.red)
+            tabbedPane.setToolTipTextAt(i, "Solving ...")
+          }
+        }
+      def setFinished =
+        (tabbedPane indexOfComponent this) match {
+          case -1 => // nothing
+          case i => {
+            tabbedPane.setBackgroundAt(i, null)
+            tabbedPane.setToolTipTextAt(i, null)
+          }
+        }
+      def reload(f : File) : Unit =
+        if (discardModifications("Reload")) {
+          stopProver
+
+          for ((_, input) <- readFile(f))
+            setInput(input, Some(f))
+        }
     }
   
-  private def newTabWithInput(name : String, options : String, problem : String) = {
+  private def newTabWithInput(name : String, file : Option[File],
+                              options : String, problem : String) = {
     val tab = newPanel
     createdTabs = createdTabs + 1
     tabbedPane.addTab(name, tab)
-    tab.inputField setText problem
-    tab.inputField setCaretPosition 0
+    tab.setInput(problem, file)
     tab.optionField setText options
     tabbedPane setSelectedIndex (tabbedPane.getTabCount - 1)
   }
   
   private def defaultNewTab =
-    newTabWithInput("Problem " + (createdTabs + 1), "", asString {
+    newTabWithInput("Problem " + (createdTabs + 1), None, "", asString {
       println("\\universalConstants {")
       println("  /* Declare universally quantified constants of the problem */")
       println("  ")
@@ -319,7 +384,7 @@ class InputDialog extends JPanel {
     })
 
   private def defaultSMTNewTab =
-    newTabWithInput("Problem " + (createdTabs + 1), "-inputFormat=smtlib", asString {
+    newTabWithInput("Problem " + (createdTabs + 1), None, "-inputFormat=smtlib", asString {
      println("(set-logic AUFLIA)")
      println
      println(";; Set some options")
@@ -359,7 +424,7 @@ class InputDialog extends JPanel {
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
   
-  newTabWithInput("Arithmetic example", "", asString {
+  newTabWithInput("Arithmetic", None, "", asString {
     println("/**")
     println(" * Example:")
     println(" * Problem in Presburger arithmetic with uninterpreted predicates")
@@ -388,7 +453,7 @@ class InputDialog extends JPanel {
     println("}")
   })
 
-  newTabWithInput("Arithmetic interpolation example", "", asString {
+  newTabWithInput("Arithmetic interpolation", None, "", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in Presburger arithmetic")
@@ -414,7 +479,7 @@ class InputDialog extends JPanel {
     println("\\interpolant {cond, stmt1, stmt2; assert}")
   })
 
-  newTabWithInput("Array interpolation example", "", asString {
+  newTabWithInput("Array interpolation", None, "", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in the theory of arrays")
@@ -449,7 +514,7 @@ class InputDialog extends JPanel {
     println("\\interpolant {p0, p1; p2, p3}")
   })
   
-  newTabWithInput("SMT-LIB example", "-inputFormat=smtlib", asString{
+  newTabWithInput("SMT-LIB", None, "-inputFormat=smtlib", asString{
     println("(set-logic AUFLIA)")
     println("(declare-fun a () Int)")
     println("(declare-fun p (Int) Bool)")
@@ -463,7 +528,7 @@ class InputDialog extends JPanel {
     println("(check-sat)")
   })
   
-  newTabWithInput("SMT-LIB interpolation example",
+  newTabWithInput("SMT-LIB interpolation", None,
                   "-inputFormat=smtlib -genTotalityAxioms", asString{
     println(";")
     println("; For interpolation, the option \"-genTotalityAxioms\" has to be specified,")
@@ -486,7 +551,7 @@ class InputDialog extends JPanel {
     println("(get-interpolants)")
   })
   
-  newTabWithInput("TPTP example", "-inputFormat=tptp", asString{
+  newTabWithInput("TPTP", None, "-inputFormat=tptp", asString{
     println("%------------------------------------------------------------------------------")
     println("% File     : GEG021=1 : TPTP v5.1.0. Released v5.1.0.")
     println("% Domain   : Arithmetic")
@@ -581,7 +646,9 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
 
   def setRunning : Unit
   def setFinished : Unit
-  
+
+  def reload(f : File) : Unit
+
   //////////////////////////////////////////////////////////////////////////////
   
   setLayout(new BorderLayout)
@@ -597,7 +664,10 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
       if (e.getButton == MouseEvent.BUTTON3 && e.getClickCount == 1)
         menu.show(e.getComponent, e.getX, e.getY)
   })
-  
+
+  inputField addMouseWheelListener (new MouseWheelZoomer (inputField))
+  outputField addMouseWheelListener (new MouseWheelZoomer (outputField))
+
   private val scrolledInputField = vScrolled(inputField)
   private val scrolledOutputField = vScrolled(outputField)
 
@@ -608,12 +678,37 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
                                          scrolledOutputField, scrolledInputField)
 
   add(splitPane, BorderLayout.CENTER)
-    
+
   outputField setText asString {
     CmdlMain.printGreeting
 //    println
 //    CmdlMain.printOptions
   }
+
+  var file : Option[File] = None
+
+  var hasChanged : Boolean = false
+
+  def setInput(newInput : String, newFile : Option[File]) = {
+    inputField setText newInput
+    inputField setCaretPosition 0
+    setFile(newFile)
+  }
+
+  def setFile(newFile : Option[File]) = {
+    file = newFile
+    hasChanged = false
+    reloadButton setEnabled file.isDefined
+  }
+
+  inputField.getDocument addDocumentListener (new DocumentListener {
+    private def somethingChanged = {
+      hasChanged = true
+    }
+    def insertUpdate(e : DocumentEvent) = somethingChanged
+    def removeUpdate(e : DocumentEvent) = somethingChanged
+    def changedUpdate(e : DocumentEvent) = somethingChanged
+  })
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -631,6 +726,30 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
   addActionListener(menuButton) {
     menu.show(menuButton, menuButton.getX, menuButton.getY)
   }
+
+  private val reloadButton = new JButton("Reload")
+  reloadButton setEnabled false
+  leftPanel.add(reloadButton)
+  
+  addActionListener(reloadButton) {
+    reload(file.get)
+  }
+
+  def discardModifications(verb : String) =
+    if (hasChanged)
+      JOptionPane.showConfirmDialog(this,
+                                    "Tab contents have been modified.\n" +
+                                    verb + " anyway?",
+                                    "Discard modifications?",
+                                    JOptionPane.YES_NO_OPTION,
+                                    JOptionPane.WARNING_MESSAGE) match {
+        case JOptionPane.YES_OPTION =>
+          true
+        case _ =>
+          false
+    } else {
+      true
+    }
 
   //////////////////////////////////////////////////////////////////////////////
   

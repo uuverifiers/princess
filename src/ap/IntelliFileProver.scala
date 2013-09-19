@@ -60,6 +60,8 @@ class IntelliFileProver(reader : java.io.Reader,
           ProofWithModel(tree, toIFormula(findModel(tree.closingConstraint)))
         else
           Proof(tree)
+      } else if (signature.order.orderedPredicates.isEmpty) {
+        Invalid(tree)
       } else {
         NoProof(tree)
       }
@@ -73,6 +75,7 @@ class IntelliFileProver(reader : java.io.Reader,
     case Proof(t) => t
     case ProofWithModel(t, _) => t
     case NoProof(t) => t
+    case Invalid(t) => t
   } 
 
   lazy val modelResult : ModelResult =

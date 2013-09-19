@@ -4,4 +4,4 @@ BASEDIR=`dirname $(readlink -e $0)`
 
 export CLASSPATH=$CLASSPATH:$BASEDIR/dist/princess-all.jar
 
-exec java ap.DialogMain "$@"
+exec java -Xss20000k -Xmx1500m ap.DialogMain "$@"

@@ -25,9 +25,10 @@ import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                Quantifier, IterativeClauseMatcher}
 import ap.terfor.preds.{PredConj, Predicate}
 import ap.parameters.{Param, GoalSettings}
-import ap.util.{Debug, Logic, Seqs}
+import ap.Signature.PredicateMatchConfig
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.BranchInferenceCollector
+import ap.util.{Debug, Logic, Seqs}
 
 object NegLitClauseTask {
   
@@ -37,8 +38,7 @@ object NegLitClauseTask {
    * Return <code>true</code> if <code>f</code> is a formula that can be handled
    * by this task
    */
-  def isCoveredFormula(f : Conjunction,
-                       config : IterativeClauseMatcher.PredicateMatchConfig,
+  def isCoveredFormula(f : Conjunction, config : PredicateMatchConfig,
                        domainPredicates : Set[Predicate]) : Boolean =
     (!f.quans.isEmpty &&
      (f.quans forall (Quantifier.EX ==)) &&
@@ -64,7 +64,7 @@ object NegLitClauseTask {
 }
 
 class NegLitClauseTask(_formula : Conjunction, _age : Int,
-                       predicateMatchConfig : IterativeClauseMatcher.PredicateMatchConfig,
+                       predicateMatchConfig : PredicateMatchConfig,
                        domainPredicates : Set[Predicate])
                        extends FormulaTask(_formula, _age) {
 

@@ -252,7 +252,7 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclPredC}} & {\arrow}  &{\nonterminal{Ident}} {\nonterminal{OptFormalArgs}}  \\
+{\nonterminal{DeclPredC}} & {\arrow}  &{\nonterminal{ListPredOption}} {\nonterminal{Ident}} {\nonterminal{OptFormalArgs}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -276,6 +276,16 @@ All other symbols are terminals.\\
 \begin{tabular}{lll}
 {\nonterminal{ListArgTypeC}} & {\arrow}  &{\nonterminal{ArgTypeC}}  \\
  & {\delimit}  &{\nonterminal{ArgTypeC}} {\terminal{,}} {\nonterminal{ListArgTypeC}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{PredOption}} & {\arrow}  &{\terminal{$\backslash$negMatch}}  \\
+ & {\delimit}  &{\terminal{$\backslash$noMatch}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{ListPredOption}} & {\arrow}  &{\emptyP} \\
+ & {\delimit}  &{\nonterminal{PredOption}} {\nonterminal{ListPredOption}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}

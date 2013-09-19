@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012      Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2013 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -91,6 +91,8 @@ object TPTPTParser {
     val FOF, TFF, CNF, Unknown = Value
   }
      
+  private val singleQuotedQuote = """\\(['\\])""".r
+
 }
 
 /**
@@ -163,7 +165,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                 val matrix = (fApp >= 0 & fApp < CmdlMain.domain_size)
                 !quan(for (i <- 0 until f.arity) yield Quantifier.ALL, matrix)
               }
-              case Environment.Predicate(_, _) | Environment.Function(_, _) =>
+              case Environment.Predicate(_, _, _) | Environment.Function(_, _) =>
                 i(false)
             }, IBinJunctor.Or)
           case Param.FiniteDomainConstraints.None |
@@ -1328,7 +1330,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private lazy val functor = keyword | atomic_word
 
   private lazy val atomic_word: PackratParser[String] = 
-    ( regex("""'.*'""".r) ^^ { _.drop(1).dropRight(1) } ) |
+    ( regex("""'([^'\\]|(\\['\\]))*'""".r) ^^ {
+        x => singleQuotedQuote.replaceAllIn(x.drop(1).dropRight(1),
+                                            m => m group 0) } ) |
     regex("[a-z][a-zA-Z0-9_]*".r)
 
   private lazy val keyword = regex("[$][a-z_]+".r)
@@ -1436,7 +1440,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
             else
               IIntFormula(IIntRelation.EqZero, IFunApp(f, args))
           }
-        case Environment.Predicate(p, r) =>
+        case Environment.Predicate(p, _, r) =>
           if (r.argsTypes != argTypes) {
             // urgs, symbol has been used with different arities
             // -> disambiguation-hack
