@@ -156,3 +156,18 @@ Constructing countermodel ...
 
 VALID
 
+Loading quotes.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
+Preprocessing ...
+Constructing countermodel ...
+
+INVALID
+
+Countermodel:
+green:\\'Color' = 0 & red:Color = 1
+

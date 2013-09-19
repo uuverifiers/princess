@@ -88,6 +88,8 @@ object TPTPTParser {
     val FOF, TFF, CNF, Unknown = Value
   }
      
+  private val singleQuotedQuote = """\\(['\\])""".r
+
 }
 
 /**
@@ -1198,7 +1200,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private lazy val functor = keyword | atomic_word
 
   private lazy val atomic_word: PackratParser[String] = 
-    ( regex("""'.*'""".r) ^^ { _.drop(1).dropRight(1) } ) |
+    ( regex("""'([^'\\]|(\\['\\]))*'""".r) ^^ {
+        x => singleQuotedQuote.replaceAllIn(x.drop(1).dropRight(1),
+                                            m => m group 0) } ) |
     regex("[a-z][a-zA-Z0-9_]*".r)
 
   private lazy val keyword = regex("[$][a-z_]+".r)
