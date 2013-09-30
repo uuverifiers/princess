@@ -4,7 +4,7 @@ unset CLASSPATH
 
 rm -f *.class
 
-OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp ../../bin"
+OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin"
 
 scalac $OPTIONS SimpleAPITest.scala
 scala -cp ../../bin:. SimpleAPITest
@@ -19,3 +19,5 @@ scalac $OPTIONS SimpleAPITest4.scala
 scala -cp ../../bin:. SimpleAPITest4
 
 scala $OPTIONS interpolation-bug.scala
+
+scala $OPTIONS scope-bug.scala

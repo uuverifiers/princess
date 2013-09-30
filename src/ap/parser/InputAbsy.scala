@@ -152,6 +152,18 @@ object IExpression {
   def eps(f : IFormula) = IEpsilon(f)
 
   /**
+   * Generate a conditional term.
+   */
+  def ite(cond : IFormula, left : ITerm, right : ITerm) =
+    ITermITE(cond, left, right)
+
+  /**
+   * Generate a conditional formula.
+   */
+  def ite(cond : IFormula, left : IFormula, right : IFormula) =
+    IFormulaITE(cond, left, right)
+
+  /**
    * Higher-order syntax for existential quantifiers. This makes it possible
    * to write a quantifier as <code>ex(a => phi(a))</code>.
    */
@@ -398,21 +410,26 @@ object IExpression {
    * Various functions to work with vectors of terms
    */
   class RichITermSeq(terms : Seq[ITerm]) {
-    // various component-wise operations
+    /** Component-wise addition */
     def +++(that : Seq[ITerm]) : Seq[ITerm] =
       (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 + t2)).toList
+    /** Component-wise addition */
     def +++(that : ITerm) : Seq[ITerm] =
       for (t <- terms) yield (t + that)
+    /** Component-wise subtraction */
     def ---(that : Seq[ITerm]) : Seq[ITerm] =
       (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 - t2)).toList
+    /** Component-wise subtraction */
     def ---(that : ITerm) : Seq[ITerm] =
       for (t <- terms) yield (t - that)
+    /** Component-wise multiplication */
     def ***(that : Seq[ITerm]) : Seq[ITerm] =
       (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 * t2)).toList
+    /** Component-wise multiplication */
     def ***(that : ITerm) : Seq[ITerm] =
       for (t <- terms) yield (t * that)
   
-    // the dot-product
+    /** The dot-product of two vectors */
     def *:*(that : Seq[ITerm]) : ITerm =
       sum(for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 * t2))
 
