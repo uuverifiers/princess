@@ -774,18 +774,15 @@ class SimpleAPI private (enableAssert : Boolean,
    * has changed since the last check.
    */
   def ??? = {
+    doDumpSMT {
+      println("(check-sat)")
+    }
     doDumpScala {
-      println("// ???")
+      println("println(\"" + getScalaNum + ": \" + ???)")
     }
     getStatusHelp(true) match {
-      case ProverStatus.Unknown =>
-        checkSat(true)
-      case res => {
-        doDumpScala {
-          print("println(\"" + getScalaNum + ": \" + getStatus(true))")
-        }
-        res
-      }
+      case ProverStatus.Unknown => checkSatHelp(true)
+      case res => res
     }
   }
   
@@ -805,6 +802,10 @@ class SimpleAPI private (enableAssert : Boolean,
       println
     }
 
+    checkSatHelp(block)
+  }
+  
+  private def checkSatHelp(block : Boolean) : ProverStatus.Value =
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
         lastStatus = ProverStatus.Running
@@ -852,8 +853,7 @@ class SimpleAPI private (enableAssert : Boolean,
         
       case s => s
     }
-  }
-  
+
   /**
    * After a <code>Sat</code> result, continue searching for the next model.
    * In most ways, this method behaves exactly like <code>checkSat</code>.
@@ -1131,7 +1131,7 @@ class SimpleAPI private (enableAssert : Boolean,
       } else {
         // then we have to completely re-run the prover
         lastStatus = ProverStatus.Unknown
-        checkSat(true)
+        checkSatHelp(true)
       }
 
   /**
