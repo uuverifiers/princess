@@ -119,12 +119,24 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
   def apply(reader : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature) = {
-    parseAll[List[List[IFormula]]](TPTP_input, reader) match {
+    parseAll[List[List[(Boolean, IFormula)]]](TPTP_input, reader) match {
       case Success(formulas, _) => {
-        val tffs = formulas.flatten.filter(_ != null)
+        val axiomFors =
+          (for (fors <- formulas.iterator;
+                (false, f) <- fors.iterator) yield f).toList
+        val conjectureFors =
+          (for (fors <- formulas.iterator;
+                (true, f) <- fors.iterator) yield f).toList
+
+        val conjecture : IFormula =
+          or(conjectureFors)
+/*          if (conjectureFors.isEmpty)
+            false
+          else
+            and(conjectureFors) */
 
         tptpType match {
-          case TPTPType.FOF | TPTPType.TFF if (haveConjecture) => {
+          case TPTPType.FOF | TPTPType.TFF if (!conjectureFors.isEmpty) => {
             CmdlMain.positiveResult = "Theorem"
             CmdlMain.negativeResult = "CounterSatisfiable"
           }
@@ -137,7 +149,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         if (tptpType == TPTPType.TFF && (containsRat || containsReal))
           CmdlMain.negativeResult = "GaveUp"
         
-        val problem = connect(tffs, IBinJunctor.Or)
+        val problem = or(axiomFors) ||| or(conjectureFors)
 
         chosenFiniteConstraintMethod = tptpType match {
           case TPTPType.FOF | TPTPType.CNF =>
@@ -294,8 +306,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case TPTPType.TFF =>
       Rank(((for (_ <- 0 until f.arity) yield IntType).toList, IntType))
   }
-
-  private var haveConjecture = false
 
   private val arithmeticPreds = Set(
     "$less",
@@ -676,7 +686,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   /**
    * The grammar rules
    */
-  private lazy val TPTP_input: PackratParser[List[List[IFormula]]] =
+  private lazy val TPTP_input: PackratParser[List[List[(Boolean, IFormula)]]] =
     rep(annotated_formula /* | comment */ | include)
 
   private lazy val annotated_formula = 
@@ -685,7 +695,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     ( cnf_annotated_logic_formula ^^ { List(_) } ) |
     ( tff_annotated_type_formula ^^ {
         case IBoolLit(false) => List()
-        case x =>              List(x)
+        case x =>              List((false, x))
       } ) |
     ( tff_annotated_logic_formula ^^ { List(_) } ) 
   // cnf_annotated
@@ -697,11 +707,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     formula_role_other_than_type ~ "," ~ fof_logic_formula <~ ")" ~ "." ^^ {
     case name ~ "," ~ role ~ "," ~ f => 
 	role match {
-	  case "conjecture" => {
-	    haveConjecture = true
-        f
-	  }
-      case _ => !f // Assume f sits on the premise side
+	  case "conjecture" =>
+            (true, f)
+          case _ =>
+            (false, !f) // Assume f sits on the premise side
 	}
   } 
 
@@ -724,7 +733,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           res = all(res)
           env.popVar
         }
-        !res
+        (false, !res)
       }
     }
   } 
@@ -757,11 +766,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     formula_role_other_than_type ~ "," ~ tff_logic_formula <~ ")" ~ "." ^^ {
       case name ~ "," ~ role ~ "," ~ f => 
 	  role match {
-	    case "conjecture" => {
-	      haveConjecture = true
-	      f
-	    }
-	    case _ => !f // Assume f sits on the premise side
+            case "conjecture" =>
+              (true, f)
+            case _ =>
+              (false, !f) // Assume f sits on the premise side
 	  }
     } 
 
@@ -1355,13 +1363,13 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 //  private lazy val comment: PackratParser[List[IFormula]] =
 //    """%.*""".r ^^ (x => List(null /* Comment(x) */))
 
-  private lazy val include: PackratParser[List[IFormula]] = 
+  private lazy val include: PackratParser[List[(Boolean, IFormula)]] = 
     "include" ~> "(" ~> atomic_word <~ ")" <~ "." ^^ { case fileName  => {
 	    val TPTPHome = System.getenv("TPTP")
 	    val filename = (if (TPTPHome == null) "" else TPTPHome + "/") + fileName
 	    val reader = new java.io.BufferedReader (
                    new java.io.FileReader(new java.io.File (filename)))
-        parseAll[List[List[IFormula]]](TPTP_input, reader) match {
+        parseAll[List[List[(Boolean, IFormula)]]](TPTP_input, reader) match {
           case Success(formulas, _) =>
             formulas.flatten
           case error =>

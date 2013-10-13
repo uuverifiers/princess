@@ -776,11 +776,14 @@ class SimpleAPI private (enableAssert : Boolean,
    * has changed since the last check.
    */
   def ??? = {
+    doDumpSMT {
+      println("(check-sat)")
+    }
     doDumpScala {
-      println("// ???")
+      println("println(\"" + getScalaNum + ": \" + ???)")
     }
     getStatusHelp(true) match {
-      case ProverStatus.Unknown => checkSat(true)
+      case ProverStatus.Unknown => checkSatHelp(true)
       case res => res
     }
   }
@@ -801,6 +804,10 @@ class SimpleAPI private (enableAssert : Boolean,
       println
     }
 
+    checkSatHelp(block)
+  }
+  
+  private def checkSatHelp(block : Boolean) : ProverStatus.Value =
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
         lastStatus = ProverStatus.Running
@@ -848,8 +855,7 @@ class SimpleAPI private (enableAssert : Boolean,
         
       case s => s
     }
-  }
-  
+
   /**
    * After a <code>Sat</code> result, continue searching for the next model.
    * In most ways, this method behaves exactly like <code>checkSat</code>.
@@ -1117,13 +1123,18 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   private def ensureFullModel =
-    while (proofActorStatus == ProofActorStatus.AtPartialModel) {
-      // let's get a complete model first
-      lastStatus = ProverStatus.Running
-      proverRes.unset
-      proofActor ! DeriveFullModelCommand
-      getStatusHelp(true)
-    }
+    while (proofActorStatus != ProofActorStatus.AtFullModel)
+      if (proofActorStatus == ProofActorStatus.AtPartialModel) {
+        // let's get a complete model
+        lastStatus = ProverStatus.Running
+        proverRes.unset
+        proofActor ! DeriveFullModelCommand
+        getStatusHelp(true)
+      } else {
+        // then we have to completely re-run the prover
+        lastStatus = ProverStatus.Unknown
+        checkSatHelp(true)
+      }
 
   /**
    * Produce a partial model, i.e., a (usually) partial interpretation

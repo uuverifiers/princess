@@ -154,3 +154,16 @@ Sat
 Sat
 0: Unsat
 1: Vector(rootjthen_fwd, false)
+0: Sat
+1: Sat
+2: Sat
+3: Sat
+4: 1
+5: 3
+6: 2
+7: Sat
+8: Unsat
+10b: Sat
+11: 1
+12: 3
+13: -5
