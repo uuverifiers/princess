@@ -11,5 +11,7 @@ TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
 
 $PRI "$@" $TESTS
 
+$PRI "$@" SWV032+1.p -assert
+
 # will exit with an exception
 $PRI "$@" SYN000_2.p

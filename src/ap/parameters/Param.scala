@@ -222,6 +222,11 @@ object Param {
     val defau : Set[Predicate] = Set()
   }
 
+  case object CONJECTURE_TO_PROVE extends Param {
+    type Value = Option[Int]
+    val defau : Option[Int] = None
+  }
+
   case object PREDICATE_MATCH_CONFIG extends Param {
     type Value = PredicateMatchConfig
     val defau : PredicateMatchConfig = Map()

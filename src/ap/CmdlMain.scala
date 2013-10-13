@@ -206,6 +206,8 @@ object CmdlMain {
     
   var domain_size : ConstantTerm = new ConstantTerm("domain_size")
 
+  var conjectureNum : Int = -1
+
   //////////////////////////////////////////////////////////////////////////////
   
   def toSetting(str : String, baseSettings : GlobalSettings) = {
@@ -262,70 +264,92 @@ object CmdlMain {
             val timeBefore = System.currentTimeMillis
 
             lastFilename = (name split "/").last stripSuffix ".p"
+            conjectureNum = -1
             
-            val baseSettings = Param.INPUT_FORMAT.set(settings, format)
-            
-            val prover = if (Param.MULTI_STRATEGY(settings)) {
-              import ParallelFileProver._
+            var conjNum = 0
+            var result : Prover.Result = null
+
+            while (result == null) {
+              val baseSettings =
+                Param.INPUT_FORMAT.set(
+                Param.CONJECTURE_TO_PROVE.set(settings, Some(conjNum)), format)
               
-              val rawStrategies =
-                List(("1010002", 8000),
-                     ("1110110", 8000),
-                     ("0010101", 13000),
-                     ("0000000", 20000),
-                     ("0011001", 20000),
-                     ("0111100", 5000),
-                     ("0010012", 50000),
-                     ("1101000", Int.MaxValue),
-                     ("1001102", 10000),
-                     ("0011011", Int.MaxValue),
-                     ("1001001", 10000),
-                     ("1011002", Int.MaxValue))
-              
-              /*
-              val rawStrategies =
-                List(("1010001",5000),
-                     ("1010002",5000),
-                     ("1110010",2000),
-                     ("0001001",14000),
-                     ("1001002",40000),
-                     ("1101102",7000),
-                     ("1011101",15000),
-                     ("1010101",7000),
-                     ("0010012",40000),
-                     ("1011011",Int.MaxValue),
-                     ("1111102",Int.MaxValue),
-                     ("1000000",20000),
-                     ("0100100",Int.MaxValue))
-                */
-              
-              val strategies = for ((str, to) <- rawStrategies) yield {
-                val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
-                                                     to min 50000)
-                val options = toOptionList(str)
-                Configuration(s, Param.GENERATE_TOTALITY_AXIOMS(s), options, to)
+              val prover = if (Param.MULTI_STRATEGY(settings)) {
+                import ParallelFileProver._
+                
+                val rawStrategies =
+                  List(("1010002", 15000),
+                       ("1110110", 15000),
+                       ("0010101", 13000),
+                       ("0000000", 20000),
+                       ("0011001", 20000),
+                       ("0111100", 5000),
+                       ("0010012", 50000),
+                       ("1101000", Int.MaxValue),
+                       ("1001102", 10000),
+                       ("0011011", Int.MaxValue),
+                       ("1001001", 10000),
+                       ("1011002", Int.MaxValue))
+                
+                /*
+                val rawStrategies =
+                  List(("1010001",5000),
+                       ("1010002",5000),
+                       ("1110010",2000),
+                       ("0001001",14000),
+                       ("1001002",40000),
+                       ("1101102",7000),
+                       ("1011101",15000),
+                       ("1010101",7000),
+                       ("0010012",40000),
+                       ("1011011",Int.MaxValue),
+                       ("1111102",Int.MaxValue),
+                       ("1000000",20000),
+                       ("0100100",Int.MaxValue))
+                  */
+                
+                val strategies = for ((str, to) <- rawStrategies) yield {
+                  val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
+                                                       to min 50000)
+                  val options = toOptionList(str)
+                  Configuration(s, Param.GENERATE_TOTALITY_AXIOMS(s), options, to)
+                }
+                
+                new ParallelFileProver(reader,
+                                       Param.TIMEOUT(settings),
+                                       true,
+                                       userDefStoppingCond,
+                                       strategies,
+                                       3)
+  
+              } else {
+                new IntelliFileProver(reader(),
+                                      Param.TIMEOUT(settings),
+                                      true,
+                                      userDefStoppingCond,
+                                      baseSettings)
               }
-              
-              new ParallelFileProver(reader,
-                                     Param.TIMEOUT(settings),
-                                     true,
-                                     userDefStoppingCond,
-                                     strategies,
-                                     3)
-
-            } else {
-              new IntelliFileProver(reader(),
-                                    Param.TIMEOUT(settings),
-                                    true,
-                                    userDefStoppingCond,
-                                    baseSettings)
+  
+              Console.withOut(Console.err) {
+                println
+              }
+  
+              prover.result match {
+                case _ : Prover.Proof |
+                     _ : Prover.ProofWithModel |
+                     Prover.NoCounterModel |
+                     _ : Prover.NoCounterModelCert |
+                     _ : Prover.NoCounterModelCertInter |
+                     _ : Prover.Model if (conjNum < conjectureNum - 1) => {
+                  conjNum = conjNum + 1
+                  Console.err.println("" + (conjectureNum - conjNum) + " conjectures left")
+                }
+                case _ =>
+                  result = prover.result
+              }
             }
 
-            Console.withOut(Console.err) {
-              println
-            }
-
-            printResult(prover.result, settings)
+            printResult(result, settings)
             
             val timeAfter = System.currentTimeMillis
             
@@ -335,16 +359,11 @@ object CmdlMain {
                 println("" + (timeAfter - timeBefore) + "ms")
             }
             
-            prover match {
-              case prover : AbstractFileProver => printSMT(prover, name, settings)
-              case _ => // nothing
-            }
-            
             /* println
             println(ap.util.Timer)
             ap.util.Timer.reset */
             
-            Some(prover.result)
+            Some(result)
           } catch {
       case _ : StackOverflowError => Console.withOut(Console.err) {
         if (format == Param.InputFormat.SMTLIB)

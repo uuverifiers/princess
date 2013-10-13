@@ -159,7 +159,7 @@ object GlobalSettings {
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
-         Param.FINITE_DOMAIN_CONSTRAINTS)
+         Param.FINITE_DOMAIN_CONSTRAINTS, Param.CONJECTURE_TO_PROVE)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -185,7 +185,8 @@ object GoalSettings {
 object ParserSettings {
 
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
-                       Param.TRIGGERS_IN_CONJECTURE)
+                       Param.TRIGGERS_IN_CONJECTURE,
+                       Param.CONJECTURE_TO_PROVE)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

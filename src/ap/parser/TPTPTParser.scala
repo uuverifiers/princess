@@ -35,6 +35,8 @@ import scala.util.matching.Regex
 
 object TPTPTParser {
 
+  import IExpression.Quantifier
+
   private val AC = Debug.AC_PARSER
 
   private type Env = Environment[Type, Type, Rank, Rank]
@@ -93,6 +95,40 @@ object TPTPTParser {
      
   private val singleQuotedQuote = """\\(['\\])""".r
 
+  // Split a conjecture into conjuncts that can be proven independently
+
+  private def splitConjecture(f : IFormula) : Seq[IFormula] = {
+    def splitHelp(f : IFormula) : (Int, Iterator[IFormula]) = f match {
+      case IBinFormula(IBinJunctor.Or, f1, f2) => {
+        val (n1, fors1) = splitHelp(f1)
+        val (n2, fors2) = splitHelp(f2)
+        if (n2 > n1)
+          (n2, for (g <- fors2) yield IBinFormula(IBinJunctor.Or, f1, g))
+        else
+          (n1, for (g <- fors1) yield IBinFormula(IBinJunctor.Or, g, f2))
+      }
+      case f@IBinFormula(IBinJunctor.And, _, _) => {
+        val fors = LineariseVisitor(f, IBinJunctor.And)
+        (fors.size, fors.iterator)
+      }
+      case IBinFormula(IBinJunctor.Eqv, f1, f2) => {
+        (2, Seqs.doubleIterator(f1 ==> f2, f2 ==> f1))
+      }
+      case IQuantified(Quantifier.ALL, f1) => {
+        val (n1, fors1) = splitHelp(f1)
+        (n1, for (g <- fors1) yield IQuantified(Quantifier.ALL, g))
+      }
+      case ITrigger(patterns, f1) => {
+        val (n1, fors1) = splitHelp(f1)
+        (n1, for (g <- fors1) yield ITrigger(patterns, g))
+      }
+      case f =>
+        (1, Iterator single f)
+    }
+
+    splitHelp(Transform2NNF(f))._2.toList
+  }
+
 }
 
 /**
@@ -128,13 +164,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           (for (fors <- formulas.iterator;
                 (true, f) <- fors.iterator) yield f).toList
 
-        val conjecture : IFormula =
-          or(conjectureFors)
-/*          if (conjectureFors.isEmpty)
-            false
-          else
-            and(conjectureFors) */
-
         tptpType match {
           case TPTPType.FOF | TPTPType.TFF if (!conjectureFors.isEmpty) => {
             CmdlMain.positiveResult = "Theorem"
@@ -148,8 +177,18 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
         if (tptpType == TPTPType.TFF && (containsRat || containsReal))
           CmdlMain.negativeResult = "GaveUp"
-        
-        val problem = or(axiomFors) ||| or(conjectureFors)
+
+        val conjecture = Param.CONJECTURE_TO_PROVE(settings) match {
+          case None =>
+            or(conjectureFors)
+          case Some(num) => {
+            val conjectureConjuncts = splitConjecture(or(conjectureFors))
+            CmdlMain.conjectureNum = conjectureConjuncts.size
+            conjectureConjuncts(num)
+          }
+        }
+
+        val problem = or(axiomFors) ||| conjecture
 
         chosenFiniteConstraintMethod = tptpType match {
           case TPTPType.FOF | TPTPType.CNF =>
