@@ -266,6 +266,20 @@ object CmdlMain {
             lastFilename = (name split "/").last stripSuffix ".p"
             conjectureNum = -1
             
+            var rawStrategies =
+              List(("1010002", 15000),
+                   ("1110110", 15000),
+                   ("0010101", 13000),
+                   ("0000000", 20000),
+                   ("0011001", 20000),
+                   ("0111100", 5000),
+                   ("0010012", 50000),
+                   ("1101000", Int.MaxValue),
+                   ("1001102", 10000),
+                   ("0011011", Int.MaxValue),
+                   ("1001001", 10000),
+                   ("1011002", Int.MaxValue))
+                
             var conjNum = 0
             var result : Prover.Result = null
 
@@ -276,37 +290,6 @@ object CmdlMain {
               
               val prover = if (Param.MULTI_STRATEGY(settings)) {
                 import ParallelFileProver._
-                
-                val rawStrategies =
-                  List(("1010002", 15000),
-                       ("1110110", 15000),
-                       ("0010101", 13000),
-                       ("0000000", 20000),
-                       ("0011001", 20000),
-                       ("0111100", 5000),
-                       ("0010012", 50000),
-                       ("1101000", Int.MaxValue),
-                       ("1001102", 10000),
-                       ("0011011", Int.MaxValue),
-                       ("1001001", 10000),
-                       ("1011002", Int.MaxValue))
-                
-                /*
-                val rawStrategies =
-                  List(("1010001",5000),
-                       ("1010002",5000),
-                       ("1110010",2000),
-                       ("0001001",14000),
-                       ("1001002",40000),
-                       ("1101102",7000),
-                       ("1011101",15000),
-                       ("1010101",7000),
-                       ("0010012",40000),
-                       ("1011011",Int.MaxValue),
-                       ("1111102",Int.MaxValue),
-                       ("1000000",20000),
-                       ("0100100",Int.MaxValue))
-                  */
                 
                 val strategies = for ((str, to) <- rawStrategies) yield {
                   val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
@@ -343,6 +326,17 @@ object CmdlMain {
                      _ : Prover.Model if (conjNum < conjectureNum - 1) => {
                   conjNum = conjNum + 1
                   Console.err.println("" + (conjectureNum - conjNum) + " conjectures left")
+
+                  prover match {
+                    case prover : ParallelFileProver =>
+                      // reorder strategies, to start with the one that
+                      // worked last time
+                      rawStrategies =
+                        rawStrategies(prover.successfulProver) ::
+                        (rawStrategies take prover.successfulProver) :::
+                        (rawStrategies drop (prover.successfulProver + 1))
+                    case _ => // nothing
+                  }
                 }
                 case _ =>
                   result = prover.result

@@ -274,7 +274,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  val result : Prover.Result = {
+  val (result, successfulProver) = {
     
     val subProverManagers =
       (for ((s, num) <- settings.iterator.zipWithIndex)
@@ -287,6 +287,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     val spawnedProvers = new ArrayBuffer[SubProverManager]
     
     var completeResult : Prover.Result = null
+    var successfulProver : Int = -1
     var exceptionResult : Throwable = null
 //    var incompleteResult : Prover.Result = null
     
@@ -346,9 +347,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         pendingProvers.dequeue resume 1000
     }
     
-    def addCompleteResult(res : Prover.Result) =
+    def addCompleteResult(res : Prover.Result, proverNum : Int) =
       if (completeResult == null) {
         completeResult = res
+        successfulProver = proverNum
         stopAllProvers
       }
     
@@ -375,7 +377,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
           spawnNewProverIfPossible
           resumeProver
         } else {
-          addCompleteResult(res)
+          addCompleteResult(res, num)
         }
       }
       
@@ -428,9 +430,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case (null, null) =>
         // no conclusive result could be derived, return something inconclusive
 //        incompleteResult
-        Prover.TimeoutCounterModel
+        (Prover.TimeoutCounterModel, -1)
       case (null, t) => throw t
-      case (res, _) => res
+      case (res, _) => (res, successfulProver)
     }
   }
 }
