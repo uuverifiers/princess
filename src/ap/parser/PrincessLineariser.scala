@@ -184,7 +184,7 @@ object PrincessLineariser {
         }
 
         case ITimes(coeff, _) => {
-          print(coeff + " * ")
+          print(coeff + "*")
           noParentOp(ctxt)
         }
       
