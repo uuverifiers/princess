@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,14 @@
 
 package ap.parser
 
-import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet,
+                                 LinkedHashSet}
 
 import ap.terfor.TermOrder
 //import ap.terfor.preds.Predicate
 //import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
+import ap.theories.{Theory, TheoryRegistry}
 
 object FunctionEncoder {
   
@@ -253,6 +255,8 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     res.axiomsVar = this.axiomsVar
     res.relations ++= this.relations
     res.predTranslation ++= this.predTranslation
+    res.symbolsSeen ++= this.symbolsSeen
+    res.theoriesSeen ++= this.theoriesSeen
     
     res
   }
@@ -309,6 +313,14 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  private val symbolsSeen = new MHashSet[AnyRef]
+  
+  private val theoriesSeen = new LinkedHashSet[Theory]
+
+  def theories = theoriesSeen.toSeq
+
+  //////////////////////////////////////////////////////////////////////////////
   
   private class EncoderVisitor(var nextAbstractionNum : Int, var order : TermOrder)
                 extends ContextAwareVisitor[EncodingContext, IExpression] {
@@ -325,6 +337,22 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         pred
       })
   
+    private def addTheory(t : Theory) : Unit =
+      if (theoriesSeen add t) {
+        order = order extendPred t.predicates
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(FunctionEncoder.AC, (order isSortingOf t.axioms) &&
+                                            (order isSortingOf t.totalityAxioms))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        for (pair@(f, p) <- t.functionPredicateMapping) {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(FunctionEncoder.AC, p.arity == f.arity + 1)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          relations += pair
+          predTranslation += (p -> f)
+        }
+      }
+
     /**
      * Replace a function invocation with a bound variable and insert the
      * definition of this variable into <code>frame</code>. If this particular
@@ -496,6 +524,18 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         case _ => 
           throw new Preprocessing.PreprocessingException(
                                          "Triggers in illegal position: " + t)
+      }
+      case IFunApp(f, _) if (!(symbolsSeen contains f)) => {
+        symbolsSeen += f
+        for (t <- TheoryRegistry lookupSymbol f)
+          addTheory(t)
+        super.preVisit(t, toNormal(c))      
+      }
+      case IAtom(p, _) if (!(symbolsSeen contains p)) => {
+        symbolsSeen += p
+        for (t <- TheoryRegistry lookupSymbol p)
+          addTheory(t)
+        super.preVisit(t, toNormal(c))      
       }
       case _ =>
         super.preVisit(t, toNormal(c))      

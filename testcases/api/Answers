@@ -167,3 +167,9 @@ Sat
 11: 1
 12: 3
 13: -5
+Valid
+Unsat
+Sat
+{c -> 0, b -> 0, a -> 0, mul(0, 0) -> 0}
+Unsat
+Unsat

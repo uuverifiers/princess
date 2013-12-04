@@ -36,6 +36,7 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction}
+import ap.theories.Theory
 import ap.proof.theoryPlugins.Plugin
 import ap.util.{Debug, Timeout, Seqs}
 
@@ -381,6 +382,7 @@ class SimpleAPI private (enableAssert : Boolean,
     preprocSettings = basicPreprocSettings
     currentOrder = TermOrder.EMPTY
     existentialConstants = Set()
+    functionalPreds = Set()
     functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false)
     currentProver = ModelSearchProver emptyIncProver goalSettings
@@ -396,7 +398,8 @@ class SimpleAPI private (enableAssert : Boolean,
     currentPartitionNum = -1
     constructProofs = false
     mostGeneralConstraints = false
-    theoryPlugin = None    
+    theoryPlugin = None
+    theories = List()
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -609,6 +612,7 @@ class SimpleAPI private (enableAssert : Boolean,
     // make sure that the function encoder knows about the function
     val (_, newOrder) =
       functionEnc.apply(IFunApp(f, List.fill(arity)(0)) === 0, currentOrder)
+    functionalPreds = functionalPreds ++ functionEnc.predTranslation.keysIterator
     doDumpSMT {
       println("(declare-fun " + name + " (" +
           (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
@@ -670,7 +674,7 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def asConjunction(f : IFormula) : Conjunction =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-      toInternal(f, currentOrder)._1)
+      toInternalNoAxioms(f, currentOrder))
   
   /**
    * Pretty-print a formula or term.
@@ -1298,7 +1302,7 @@ class SimpleAPI private (enableAssert : Boolean,
   
         val cAssertion =
           ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
-            toInternal(IExpression.i(c) =/= t, extendedOrder)._1)
+            toInternalNoAxioms(IExpression.i(c) =/= t, extendedOrder))
         val extendedProver =
           baseProver.assert(currentModel, extendedOrder)
                     .conclude(cAssertion, extendedOrder)
@@ -1383,7 +1387,7 @@ class SimpleAPI private (enableAssert : Boolean,
         
         val reduced =
           ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
-                                toInternal(t === c, extendedOrder)._1)
+                                toInternalNoAxioms(t === c, extendedOrder))
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPre(AC, !existential || (
@@ -1562,7 +1566,7 @@ class SimpleAPI private (enableAssert : Boolean,
             implicit val extendedOrder = currentModel.order extendPred p
             val pAssertion =
               ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
-                toInternal(IAtom(p, Seq()) </> f, extendedOrder)._1)
+                toInternalNoAxioms(IAtom(p, Seq()) </> f, extendedOrder))
             val extendedProver =
               currentProver.assert(currentModel, extendedOrder)
                            .conclude(pAssertion, extendedOrder)
@@ -1645,7 +1649,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
         val reduced =
           ReduceWithConjunction(currentModel, functionalPreds, currentModel.order)(
-                                  toInternal(f, currentOrder)._1)
+                                  toInternalNoAxioms(f, currentOrder))
 
         if (reduced.isTrue)
           Left(true)
@@ -1681,13 +1685,13 @@ class SimpleAPI private (enableAssert : Boolean,
     
     storedStates push (preprocSettings,
                        currentProver, currentOrder, existentialConstants,
-                       functionEnc.clone,
+                       functionalPreds, functionEnc.clone,
                        arrayFuns, formulaeInProver,
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
                        currentModel, currentConstraint, currentCertificate,
-                       theoryPlugin)
+                       theoryPlugin, theories)
     
     doDumpSMT {
       println("(push 1)")
@@ -1714,15 +1718,16 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (oldPreprocSettings, oldProver, oldOrder, oldExConstants,
-         oldFunctionEnc, oldArrayFuns,
+         oldFunctionalPreds, oldFunctionEnc, oldArrayFuns,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
          oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert,
-         oldTheoryPlugin) =
+         oldTheoryPlugin, oldTheories) =
       storedStates.pop
     preprocSettings = oldPreprocSettings
     currentProver = oldProver
     currentOrder = oldOrder
     existentialConstants = oldExConstants
+    functionalPreds = oldFunctionalPreds
     functionEnc = oldFunctionEnc
     arrayFuns = oldArrayFuns
     formulaeInProver = oldFormulaeInProver
@@ -1738,18 +1743,21 @@ class SimpleAPI private (enableAssert : Boolean,
     currentConstraint = oldConstraint
     currentCertificate = oldCert
     proofActorStatus = ProofActorStatus.Init
-    theoryPlugin = oldTheoryPlugin    
+    theoryPlugin = oldTheoryPlugin
+    theories = oldTheories 
   }
   
   //////////////////////////////////////////////////////////////////////////////
 
   private def flushTodo : Unit = {
+    // TODO: also recognise theory symbols in internal input
+
     val (transTodo, axioms) = formulaeTodo match {
       case IBoolLit(false) => (Conjunction.FALSE, Conjunction.FALSE)
-      case _ => toInternal(formulaeTodo, currentOrder)
+      case _ => toInternal(formulaeTodo)
     }
     formulaeTodo = false
-    
+
     if (!transTodo.isFalse || !axioms.isFalse || !rawFormulaeTodo.isFalse) {
       implicit val o = currentOrder
       val completeFor =
@@ -1824,31 +1832,87 @@ class SimpleAPI private (enableAssert : Boolean,
     rawFormulaeTodo = rawFormulaeTodo | f
   }
 
-  private def toInternal(f : IFormula,
-                         order : TermOrder) : (Conjunction, Conjunction) = {
+  private def toInternalNoAxioms(f : IFormula,
+                                 order : TermOrder) : Conjunction = {
     val sig = Signature(Set(),
                         existentialConstants,
                         order.orderedConstants -- existentialConstants,
-                        order)
+                        Map(), // TODO: also handle predicate_match_config
+                        order,
+                        theories)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, order == newSig.order)
+    Debug.assertInt(AC, order == newSig.order &&
+                        !(fors exists { case INamedPart(PartName.NO_NAME, _) => true
+                                        case _ => false }))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val formula = 
-//      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
-        Conjunction.conj(InputAbsy2Internal(
-          IExpression.connect(for (INamedPart(FormulaPart, f) <- fors.iterator)
-                                yield f,
-                              IBinJunctor.Or), order), order)//)
+      Conjunction.conj(InputAbsy2Internal(
+        IExpression.or(for (INamedPart(FormulaPart, f) <- fors.iterator)
+                       yield f), order), order)
+    formula
+  }
+
+  private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
+    val sig = Signature(Set(),
+                        existentialConstants,
+                        currentOrder.orderedConstants -- existentialConstants,
+                        Map(), // TODO: also handle predicate_match_config
+                        currentOrder,
+                        theories)
+    val (fors, _, newSig) =
+      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
+    functionEnc.clearAxioms
+
+    val theoryAxioms =
+      if (theories.size != newSig.theories.size) {
+        // TODO: also handle predicate_match_config
+
+        currentOrder = newSig.order
+        val newTheories = newSig.theories drop theories.size
+        theories = newSig.theories
+
+        functionalPreds = functionalPreds ++ (
+          for (t <- newTheories.iterator;
+               p <- t.functionalPredicates.iterator) yield p
+        )
+
+        val plugins =
+          (for (t <- newTheories.iterator; p <- t.plugin.iterator) yield p).toSeq
+
+        if (!plugins.isEmpty) {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          // Multiple theory plugins are currently unsupported
+          Debug.assertPre(AC, theoryPlugin == None && plugins.size == 1)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          theoryPlugin = Some(plugins.head)
+        }
+
+        recreateProver
+
+        for (t <- newTheories) yield Conjunction.negate(t.axioms, currentOrder)
+      } else {
+        List()
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(AC, currentOrder == newSig.order &&
+                  (functionEnc.predTranslation.keySet subsetOf functionalPreds))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val formula = 
+      Conjunction.conj(InputAbsy2Internal(
+        IExpression.or(for (INamedPart(FormulaPart, f) <- fors.iterator)
+                       yield f), currentOrder), currentOrder)
     val axioms = 
-//      ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)(
-        Conjunction.conj(InputAbsy2Internal(
-          IExpression.connect(for (INamedPart(PartName.NO_NAME, f) <- fors.iterator)
-                                yield f,
-                              IBinJunctor.Or), order), order)//)
+      Conjunction.disjFor(
+        List(InputAbsy2Internal(
+               IExpression.or(for (INamedPart(PartName.NO_NAME, f) <- fors.iterator)
+                              yield f), currentOrder)) ++ theoryAxioms, currentOrder)
     (formula, axioms)
   }
   
@@ -1868,6 +1932,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var preprocSettings : PreprocessingSettings = _
   private var currentOrder : TermOrder = _
   private var existentialConstants : Set[IExpression.ConstantTerm] = _
+  private var functionalPreds : Set[IExpression.Predicate] = _
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
   private var currentModel : Conjunction = _
@@ -1881,11 +1946,13 @@ class SimpleAPI private (enableAssert : Boolean,
   private var formulaeTodo : IFormula = false
   private var rawFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
   private var theoryPlugin : Option[Plugin] = None
+  private var theories : Seq[Theory] = List()
 
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,
                                              TermOrder,
                                              Set[IExpression.ConstantTerm],
+                                             Set[IExpression.Predicate],
                                              FunctionEncoder,
                                              Map[Int, (IFunction, IFunction)],
                                              List[(Int, Conjunction)],
@@ -1897,10 +1964,12 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Conjunction,
                                              Conjunction,
                                              Certificate,
-                                             Option[Plugin])]
+                                             Option[Plugin],
+                                             Seq[Theory])]
   
   private def recreateProver = {
     preprocSettings =
+      // TODO: correct setting even if Theories are used?
       Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
              preprocSettings, functionEnc.predTranslation.values.toSet)
     if (currentProver != null)
@@ -1911,8 +1980,6 @@ class SimpleAPI private (enableAssert : Boolean,
   
   private def restartProofActor =
     (proofActorStatus = ProofActorStatus.Init)
-
-  private def functionalPreds = functionEnc.predTranslation.keySet.toSet
   
   //////////////////////////////////////////////////////////////////////////////
   //

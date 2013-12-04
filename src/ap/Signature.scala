@@ -23,6 +23,7 @@ package ap
 
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.preds.Predicate
+import ap.theories.Theory
 
 object Signature {
   object PredicateMatchStatus extends Enumeration {
@@ -38,7 +39,7 @@ object Signature {
             nullaryFunctions : Set[ConstantTerm],
             order : TermOrder) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  Map(), order)
+                  Map(), order, List())
 
   def apply(universalConstants : Set[ConstantTerm],
             existentialConstants : Set[ConstantTerm],
@@ -46,7 +47,16 @@ object Signature {
             predicateMatchConfig : PredicateMatchConfig,
             order : TermOrder) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  predicateMatchConfig, order)
+                  predicateMatchConfig, order, List())
+
+  def apply(universalConstants : Set[ConstantTerm],
+            existentialConstants : Set[ConstantTerm],
+            nullaryFunctions : Set[ConstantTerm],
+            predicateMatchConfig : PredicateMatchConfig,
+            order : TermOrder,
+            theories : Seq[Theory]) =
+    new Signature(universalConstants, existentialConstants, nullaryFunctions,
+                  predicateMatchConfig, order, theories)
 }
 
 /**
@@ -57,8 +67,9 @@ class Signature private (val universalConstants : Set[ConstantTerm],
                          val existentialConstants : Set[ConstantTerm],
                          val nullaryFunctions : Set[ConstantTerm],
                          val predicateMatchConfig : Signature.PredicateMatchConfig,
-                         val order : TermOrder) {
+                         val order : TermOrder,
+                         val theories : Seq[Theory]) {
   def updateOrder(newOrder : TermOrder) =
     new Signature(universalConstants, existentialConstants,
-                  nullaryFunctions, predicateMatchConfig, newOrder)
+                  nullaryFunctions, predicateMatchConfig, newOrder, theories)
 }

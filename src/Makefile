@@ -20,6 +20,7 @@ all:
 		ap/parser/*.scala \
 		ap/parameters/*.scala \
 		ap/interpolants/*.scala \
+		ap/theories/*.scala \
 		ap/*.scala
 
 doc:
@@ -42,4 +43,5 @@ doc:
 		ap/parser/*.scala \
 		ap/parameters/*.scala \
 		ap/interpolants/*.scala \
+		ap/theories/*.scala \
 		ap/*.scala

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -71,11 +71,14 @@ object Preprocessing {
 
     // translate functions to relations
     var order3 = signature.order
+    val preTheoryNum = functionEncoder.theories.size
     val fors3 = for (INamedPart(n, f) <- fors2c) yield INamedPart(n, {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
       g
     })
+
+    val newTheories3 = functionEncoder.theories drop preTheoryNum
     
     // add the function axioms
     val fors4 = functionEncoder.axioms match {
@@ -110,7 +113,17 @@ object Preprocessing {
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
     
-    (fors6, interpolantSpecs, signature updateOrder order3)
+    val newSignature =
+      Signature(signature.universalConstants,
+                signature.existentialConstants,
+                signature.nullaryFunctions,
+                signature.predicateMatchConfig ++ (
+                  for (t <- newTheories3.iterator;
+                       p <- t.predicateMatchConfig.iterator) yield p),
+                order3,
+                signature.theories ++ newTheories3)
+
+    (fors6, interpolantSpecs, newSignature)
   }
   
 }
