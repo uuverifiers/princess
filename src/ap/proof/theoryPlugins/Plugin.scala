@@ -27,6 +27,12 @@ import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
 
+object Plugin {
+  abstract sealed class Action
+  case class AddFormula(formula : Conjunction) extends Action
+  case class RemoveFacts(facts : Conjunction)  extends Action
+}
+
 /**
  * Interface for theory plugins that can be added to the
  * <code>EagerTaskManager</code>. At the moment, such plugins
@@ -43,21 +49,55 @@ trait Plugin {
    */
   def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)]
 
+  /**
+   * Apply this plugin to the given goal. The default procedure
+   * is to call <code>generateAxioms</code>, and possibly add further
+   * facts or axioms to the goal.
+   */
+  def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+    generateAxioms(goal) match {
+      case Some((localAxioms, globalAxioms)) => {
+        val allAxioms = Conjunction.conj(List(localAxioms, globalAxioms),
+                                         goal.order).negate
+        List(Plugin.AddFormula(allAxioms))
+      }
+      case None =>
+        List()
+    }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 class AxiomGenTask(plugin : Plugin) extends EagerTask {
-  def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
-    (plugin generateAxioms goal) match {
-      case Some((localAxioms, globalAxioms)) => {
-        val allAxioms = Conjunction.conj(List(localAxioms, globalAxioms),
-                                         goal.order).negate
-        ptf.updateGoal(goal formulaTasks (goal reduceWithFacts allAxioms), goal)
-      }
-      case None =>
+  import Plugin._
+
+  def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
+    val actions = plugin handleGoal goal
+
+    val factsToRemove =
+      Conjunction.conj(for (RemoveFacts(f) <- actions.iterator) yield f,
+                       goal.order)
+    val factsToAdd =
+      goal.reduceWithFacts(
+        Conjunction.disj(for (AddFormula(f) <- actions.iterator) yield f,
+                         goal.order))
+
+    if (factsToRemove.isTrue) {
+      if (factsToAdd.isFalse)
         ptf.updateGoal(goal)
+      else
+        ptf.updateGoal(goal formulaTasks factsToAdd, goal)
+    } else {
+      val remainingFacts = goal.facts -- factsToRemove
+      if (factsToAdd.isFalse)
+        ptf.updateGoal(remainingFacts, goal)
+      else
+        ptf.updateGoal(remainingFacts,
+                       goal formulaTasks factsToAdd,
+                       goal)
     }
+  }
 
   override def toString = "AxiomGenTask(" + plugin + ")"
 }

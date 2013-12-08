@@ -193,7 +193,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
     
     protected def recommendationNecessary(t : Task) = t match {
       case _ : BetaFormulaTask |
-           _ : ExQuantifierTask => true
+           _ : ExQuantifierTask |
+           _ : LazyMatchTask => true
       case _ => false
     }
   }

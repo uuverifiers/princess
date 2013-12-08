@@ -64,8 +64,7 @@ object MulTheory extends Theory {
       // detect _mul facts in the goal
 
       val termDefs = new MHashMap[Term, MHashSet[TermMultiset]]
-      for (a <- goal.facts.predConj.positiveLits)
-        if (a.pred == _mul)
+      for (a <- goal.facts.predConj.positiveLitsWithPred(_mul))
           termDefs.getOrElseUpdate(a(2), new MHashSet[TermMultiset]) +=
             join(Map(a(0) -> 1), Map(a(1) -> 1))
 

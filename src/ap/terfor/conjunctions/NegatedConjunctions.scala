@@ -218,6 +218,14 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
   
   //////////////////////////////////////////////////////////////////////////////
 
+  def --(that : NegatedConjunctions) : NegatedConjunctions =
+    if (that.isTrue)
+      this
+    else
+      (this diff that)._2
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def containsLiteral : Boolean =
     Logic.exists(for (conj <- this.iterator) yield conj.isLiteral)
 

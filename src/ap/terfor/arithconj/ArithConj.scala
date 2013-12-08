@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -210,6 +210,21 @@ class ArithConj private (val positiveEqs : EquationConj,
     (this.negativeEqs implies that.negativeEqs) &&
     (this.inEqs implies that.inEqs)
         
+  //////////////////////////////////////////////////////////////////////////////
+
+  def --(that : ArithConj) : ArithConj = {
+    val newPE = this.positiveEqs -- that.positiveEqs
+    val newNE = this.negativeEqs -- that.negativeEqs
+    val newIE = this.inEqs -- that.inEqs
+
+    if ((newPE eq this.positiveEqs) &&
+        (newNE eq this.negativeEqs) &&
+        (newIE eq this.inEqs))
+      this
+    else
+      ArithConj(newPE, newNE, newIE, order)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   lazy val variables : Set[VariableTerm] =

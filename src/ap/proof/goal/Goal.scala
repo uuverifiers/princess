@@ -230,7 +230,6 @@ class Goal private (val facts : Conjunction,
                    (facts isSortedBy order) &&
                    (compoundFormulas isSortedBy order) &&
                    (definedSyms isSortedBy order) &&
-                   (order constantsAreMaximal eliminatedConstants) &&
                    (order constantsAreMaximal eliminatedConstants))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 

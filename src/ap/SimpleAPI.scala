@@ -1283,46 +1283,86 @@ class SimpleAPI private (enableAssert : Boolean,
       
         import TerForConvenience._
       
-        val c = new IExpression.ConstantTerm("c")
-        implicit val extendedOrder = currentModel.order extend c
-        val baseProver = getStatusHelp(false) match {
-          case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) =>
+        getStatusHelp(false) match {
+          
+          //////////////////////////////////////////////////////////////////////
+
+          case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) => {
             // then we work with a countermodel of the constraints
-            currentProver
+
+            val p = new IExpression.Predicate("p", 1)
+            implicit val extendedOrder = currentModel.order extendPred p
+
+            val pAssertion =
+              ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+                toInternalNoAxioms(!IAtom(p, List(t)), extendedOrder))
+            val extendedProver =
+              currentProver.assert(currentModel, extendedOrder)
+                           .conclude(pAssertion, extendedOrder)
+
+            (extendedProver checkValidity true) match {
+              case Left(m) if (!m.isFalse) => {
+                val pAtoms = m.predConj.positiveLitsWithPred(p)
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+                Debug.assertInt(AC, pAtoms.size == 1 &&
+                                    pAtoms.head.constants.isEmpty)
+                //-END-ASSERTION-///////////////////////////////////////////////////////
+
+                val pAtom = pAtoms.head
+                val result = pAtom(0).constant
+                currentModel = ReduceWithConjunction(conj(pAtom), extendedOrder)(m)
+                lastPartialModel = null
+              
+                result
+              }
+              case _ =>
+                throw new Exception ("Model extension failed.\n" +
+                                     "This is probably caused by badly chosen triggers,\n" +
+                                     "preventing complete application of axioms.")
+            }
+          }
         
-          case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) =>
-            // the we work with a model of the existential constants 
-            ModelSearchProver emptyIncProver goalSettings
+          //////////////////////////////////////////////////////////////////////
+
+          case ProverStatus.Unsat | ProverStatus.Valid if (currentModel != null) => {
+            // then we work with a model of the existential constants 
+
+            val c = new IExpression.ConstantTerm("c")
+            implicit val extendedOrder = currentModel.order extend c
+
+            val cAssertion =
+              ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+                toInternalNoAxioms(IExpression.i(c) =/= t, extendedOrder))
+            val extendedProver =
+              (ModelSearchProver emptyIncProver goalSettings
+                       ).assert(currentModel, extendedOrder)
+                        .conclude(cAssertion, extendedOrder)
+
+            (extendedProver checkValidity true) match {
+              case Left(m) if (!m.isFalse) => {
+                val reduced = ReduceWithEqs(m.arithConj.positiveEqs, extendedOrder)(l(c))
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+                Debug.assertInt(AC, reduced.constants.isEmpty)
+                //-END-ASSERTION-///////////////////////////////////////////////////////
+                val result = reduced.constant
+                currentModel = ConstantSubst(c, result, extendedOrder)(m)
+                lastPartialModel = null
+              
+                result
+              }
+              case _ =>
+                throw new Exception ("Model extension failed.\n" +
+                                     "This is probably caused by badly chosen triggers,\n" +
+                                     "preventing complete application of axioms.")
+            }
+          }
         
+          //////////////////////////////////////////////////////////////////////
+
           case _ => {
             assert(false)
             null
           }
-        }
-  
-        val cAssertion =
-          ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
-            toInternalNoAxioms(IExpression.i(c) =/= t, extendedOrder))
-        val extendedProver =
-          baseProver.assert(currentModel, extendedOrder)
-                    .conclude(cAssertion, extendedOrder)
-      
-        (extendedProver checkValidity true) match {
-          case Left(m) if (!m.isFalse) => {
-            val reduced = ReduceWithEqs(m.arithConj.positiveEqs, extendedOrder)(l(c))
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-            Debug.assertInt(AC, reduced.constants.isEmpty)
-            //-END-ASSERTION-///////////////////////////////////////////////////////
-            val result = reduced.constant
-            currentModel = ConstantSubst(c, result, extendedOrder)(m)
-            lastPartialModel = null
-          
-            result
-          }
-          case _ =>
-            throw new Exception ("Model extension failed.\n" +
-                                 "This is probably caused by badly chosen triggers,\n" +
-                                 "preventing complete application of axioms.")
         }
       }
     }
@@ -1921,9 +1961,9 @@ class SimpleAPI private (enableAssert : Boolean,
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
 //    gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
-    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs,
-        (for ((p, f) <- functionEnc.predTranslation.iterator; if (!f.partial))
-         yield p).toSet)
+    // currently done for all predicates encoding functions; should this be
+    // restricted?
+    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
     gs

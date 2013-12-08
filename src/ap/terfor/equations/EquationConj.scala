@@ -210,6 +210,14 @@ class EquationConj private (_lhss : Array[LinearCombination],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def --(that : EquationConj) : EquationConj =
+    if (that.isTrue)
+      this
+    else
+      updateEqsSubset(Seqs.diff(this, that)(order.lcOrdering)._2)(order)
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def pseudoReduce(reducer : ReduceWithEqs,
                    newOrder : TermOrder) : EquationConj =
     if (this.size == 1) {
