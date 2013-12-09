@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ object AllQuantifierTask {
 class AllQuantifierTask(_formula : Conjunction, _age : Int)
       extends QuantifierTask(_formula, _age) {
 
-  val priority : Int = -5000 + age
+  val priority : Int = -19999 + age
 
   protected val constantNameBase : String = "all_"
     
