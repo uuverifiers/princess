@@ -23,8 +23,8 @@ package ap.proof.goal
 
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.Vocabulary
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
-import ap.terfor.ConstantTerm
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction, Quantifier}
+import ap.terfor.{ConstantTerm, VariableTerm, TermOrder}
 import ap.parameters.Param
 import ap.util.Debug
 
@@ -107,7 +107,8 @@ private object MatchFunctions {
           // separately (to log all performed simplifications)
           for (f <- instances; t <- goal.formulaTasks(f)) yield t
         else
-          for (t <- goal.formulaTasks(Conjunction.disj(instances, order))) yield t
+          for (t <- goal.formulaTasks(
+                 goal reduceWithFacts disjPullOutAll(instances, order))) yield t
 
       ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
     } else {
@@ -122,6 +123,25 @@ private object MatchFunctions {
     }
   }
   
+  private def disjPullOutAll(formulas : Iterable[Conjunction],
+                             order : TermOrder) : Conjunction = {
+    var nextVar = 0
+    val body = Conjunction.disj(
+      for (c <- formulas.iterator) yield {
+        if (c.quans.lastOption == Some(Quantifier.ALL)) {
+          val allNum = c.quans.size - c.quans.lastIndexOf(Quantifier.EX) - 1
+          val newC = c.instantiate(for (i <- nextVar until (nextVar + allNum))
+                                   yield VariableTerm(i))(order)
+          nextVar = nextVar + allNum
+          newC
+        } else {
+          c
+        }
+      }, order)
+    Conjunction.quantify(for (_ <- 0 until nextVar) yield Quantifier.ALL,
+                         body, order)
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

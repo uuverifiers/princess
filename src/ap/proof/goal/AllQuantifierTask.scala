@@ -43,7 +43,7 @@ object AllQuantifierTask {
 class AllQuantifierTask(_formula : Conjunction, _age : Int)
       extends QuantifierTask(_formula, _age) {
 
-  val priority : Int = -19999 + age
+  val priority : Int = -5000 + age
 
   protected val constantNameBase : String = "all_"
     
