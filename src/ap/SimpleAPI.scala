@@ -36,7 +36,7 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction}
-import ap.theories.Theory
+import ap.theories.{Theory, TheoryCollector}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.{Debug, Timeout, Seqs}
 
@@ -399,7 +399,7 @@ class SimpleAPI private (enableAssert : Boolean,
     constructProofs = false
     mostGeneralConstraints = false
     theoryPlugin = None
-    theories = List()
+    theories = new TheoryCollector
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1731,7 +1731,7 @@ class SimpleAPI private (enableAssert : Boolean,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
                        currentModel, currentConstraint, currentCertificate,
-                       theoryPlugin, theories)
+                       theoryPlugin, theories.clone)
     
     doDumpSMT {
       println("(push 1)")
@@ -1879,7 +1879,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         order.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         order,
-                        theories)
+                        theories.theories)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
@@ -1898,46 +1898,48 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
+    // check whether theories are involved that we don't know yet
+    theories(f)
+
+    val theoryAxioms =
+      for (t <- theories.newTheories) yield {
+        currentOrder = currentOrder extendPred t.predicates
+        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+        Debug.assertInt(AC, (currentOrder isSortingOf t.axioms) &&
+                            (currentOrder isSortingOf t.totalityAxioms))
+        //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+        functionEnc addTheory t
+
+        // TODO: also handle predicate_match_config
+
+        functionalPreds = functionalPreds ++ t.functionalPredicates
+
+        for (plugin <- t.plugin) {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          // Multiple theory plugins are currently unsupported
+          Debug.assertInt(AC, theoryPlugin == None)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          theoryPlugin = Some(plugin)
+        }
+
+        Conjunction.negate(t.axioms, currentOrder)
+      }
+
+    if (!theories.newTheories.isEmpty) {
+      theories.reset
+      recreateProver
+    }
+
     val sig = Signature(Set(),
                         existentialConstants,
                         currentOrder.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         currentOrder,
-                        theories)
+                        theories.theories)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
-
-    val theoryAxioms =
-      if (theories.size != newSig.theories.size) {
-        // TODO: also handle predicate_match_config
-
-        currentOrder = newSig.order
-        val newTheories = newSig.theories drop theories.size
-        theories = newSig.theories
-
-        functionalPreds = functionalPreds ++ (
-          for (t <- newTheories.iterator;
-               p <- t.functionalPredicates.iterator) yield p
-        )
-
-        val plugins =
-          (for (t <- newTheories.iterator; p <- t.plugin.iterator) yield p).toSeq
-
-        if (!plugins.isEmpty) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          // Multiple theory plugins are currently unsupported
-          Debug.assertPre(AC, theoryPlugin == None && plugins.size == 1)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          theoryPlugin = Some(plugins.head)
-        }
-
-        recreateProver
-
-        for (t <- newTheories) yield Conjunction.negate(t.axioms, currentOrder)
-      } else {
-        List()
-      }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, currentOrder == newSig.order &&
@@ -1986,7 +1988,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var formulaeTodo : IFormula = false
   private var rawFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
   private var theoryPlugin : Option[Plugin] = None
-  private var theories : Seq[Theory] = List()
+  private var theories : TheoryCollector = _
 
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,
@@ -2005,7 +2007,7 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Conjunction,
                                              Certificate,
                                              Option[Plugin],
-                                             Seq[Theory])]
+                                             TheoryCollector)]
   
   private def recreateProver = {
     preprocSettings =

@@ -38,10 +38,14 @@ object Preprocessing {
             interpolantSpecs : List[IInterpolantSpec],
             signature : Signature,
             settings : PreprocessingSettings)
-            : (List[INamedPart], List[IInterpolantSpec], Signature) =
-    apply(f, interpolantSpecs, signature, settings,
-          new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                               Param.GENERATE_TOTALITY_AXIOMS(settings)))
+            : (List[INamedPart], List[IInterpolantSpec], Signature) = {
+    val funcEnc =
+      new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
+                           Param.GENERATE_TOTALITY_AXIOMS(settings))
+    for (t <- signature.theories)
+      funcEnc addTheory t
+    apply(f, interpolantSpecs, signature, settings, funcEnc)
+  }
 
   def apply(f : IFormula,
             interpolantSpecs : List[IInterpolantSpec],
@@ -71,14 +75,11 @@ object Preprocessing {
 
     // translate functions to relations
     var order3 = signature.order
-    val preTheoryNum = functionEncoder.theories.size
     val fors3 = for (INamedPart(n, f) <- fors2c) yield INamedPart(n, {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
       g
     })
-
-    val newTheories3 = functionEncoder.theories drop preTheoryNum
     
     // add the function axioms
     val fors4 = functionEncoder.axioms match {
@@ -113,17 +114,7 @@ object Preprocessing {
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
     
-    val newSignature =
-      Signature(signature.universalConstants,
-                signature.existentialConstants,
-                signature.nullaryFunctions,
-                signature.predicateMatchConfig ++ (
-                  for (t <- newTheories3.iterator;
-                       p <- t.predicateMatchConfig.iterator) yield p),
-                order3,
-                signature.theories ++ newTheories3)
-
-    (fors6, interpolantSpecs, newSignature)
+    (fors6, interpolantSpecs, signature updateOrder order3)
   }
   
 }

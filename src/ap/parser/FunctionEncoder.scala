@@ -21,14 +21,13 @@
 
 package ap.parser
 
-import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet,
-                                 LinkedHashSet}
+import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
 
 import ap.terfor.TermOrder
 //import ap.terfor.preds.Predicate
 //import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
-import ap.theories.{Theory, TheoryRegistry}
+import ap.theories.Theory
 
 object FunctionEncoder {
   
@@ -255,8 +254,6 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     res.axiomsVar = this.axiomsVar
     res.relations ++= this.relations
     res.predTranslation ++= this.predTranslation
-    res.symbolsSeen ++= this.symbolsSeen
-    res.theoriesSeen ++= this.theoriesSeen
     
     res
   }
@@ -314,11 +311,14 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val symbolsSeen = new MHashSet[AnyRef]
-  
-  private val theoriesSeen = new LinkedHashSet[Theory]
-
-  def theories = theoriesSeen.toSeq
+  def addTheory(t : Theory) : Unit =
+    for (pair@(f, p) <- t.functionPredicateMapping) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(FunctionEncoder.AC, p.arity == f.arity + 1)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      relations += pair
+      predTranslation += (p -> f)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -337,22 +337,6 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         pred
       })
   
-    private def addTheory(t : Theory) : Unit =
-      if (theoriesSeen add t) {
-        order = order extendPred t.predicates
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(FunctionEncoder.AC, (order isSortingOf t.axioms) &&
-                                            (order isSortingOf t.totalityAxioms))
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        for (pair@(f, p) <- t.functionPredicateMapping) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(FunctionEncoder.AC, p.arity == f.arity + 1)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          relations += pair
-          predTranslation += (p -> f)
-        }
-      }
-
     /**
      * Replace a function invocation with a bound variable and insert the
      * definition of this variable into <code>frame</code>. If this particular
@@ -524,18 +508,6 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         case _ => 
           throw new Preprocessing.PreprocessingException(
                                          "Triggers in illegal position: " + t)
-      }
-      case IFunApp(f, _) if (!(symbolsSeen contains f)) => {
-        symbolsSeen += f
-        for (t <- TheoryRegistry lookupSymbol f)
-          addTheory(t)
-        super.preVisit(t, toNormal(c))      
-      }
-      case IAtom(p, _) if (!(symbolsSeen contains p)) => {
-        symbolsSeen += p
-        for (t <- TheoryRegistry lookupSymbol p)
-          addTheory(t)
-        super.preVisit(t, toNormal(c))      
       }
       case _ =>
         super.preVisit(t, toNormal(c))      
