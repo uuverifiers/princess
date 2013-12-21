@@ -28,6 +28,8 @@ import ap.terfor.{ConstantTerm, VariableTerm, TermOrder}
 import ap.parameters.Param
 import ap.util.Debug
 
+import scala.collection.mutable.ArrayBuffer
+
 private object MatchFunctions {
   
   def isIrrelevantInstance(instance : Conjunction,
@@ -100,17 +102,29 @@ private object MatchFunctions {
                                    reverseProp,
                                    collector, order)
 
+      // check whether some of the instances are useless and blocked
+      // for the time being
+      val blockedTasks = new ArrayBuffer[BlockedFormulaTask]
+
+      val normalInstances =
+        for (f <- instances;
+             if (BlockedFormulaTask.isBlocked(f, goal) match {
+                   case Some(t) => { blockedTasks += t; false }
+                   case None => true
+                 }))
+        yield f
+
       val newCF = goal.compoundFormulas.updateQuantifierClauses(eager, newMatcher)
       val newTasks =
         if (collector.isLogging)
           // if we are producing proofs, we have to treat the instances
           // separately (to log all performed simplifications)
-          for (f <- instances; t <- goal.formulaTasks(f)) yield t
+          for (f <- normalInstances; t <- goal.formulaTasks(f)) yield t
         else
           for (t <- goal.formulaTasks(
-                 goal reduceWithFacts disjPullOutAll(instances, order))) yield t
+                 goal reduceWithFacts disjPullOutAll(normalInstances, order))) yield t
 
-      ptf.updateGoal(newCF, newTasks, collector.getCollection, goal)
+      ptf.updateGoal(newCF, newTasks ++ blockedTasks, collector.getCollection, goal)
     } else {
       val newTasks =
         (goal formulaTasks Conjunction.negate(removedClauses, order)) ++

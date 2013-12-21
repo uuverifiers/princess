@@ -102,7 +102,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
            _ : LazyMatchTask |
-           _ : BoundStrengthenTask => true
+           _ : BoundStrengthenTask |
+           _ : BlockedFormulaTask => true
       case _ => false
     }
   }
@@ -125,7 +126,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
-           _ : LazyMatchTask => true
+           _ : LazyMatchTask |
+           _ : BlockedFormulaTask => true
       case _ => false
     }
   }
@@ -147,7 +149,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
-           _ : LazyMatchTask => true
+           _ : LazyMatchTask |
+           _ : BlockedFormulaTask => true
       case _ => false
     }
   }
@@ -169,7 +172,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
     protected def recommendationNecessary(t : Task) = t match {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
-           _ : LazyMatchTask => true
+           _ : LazyMatchTask |
+           _ : BlockedFormulaTask => true
       case _ => false
     }
   }
@@ -194,7 +198,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
     protected def recommendationNecessary(t : Task) = t match {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
-           _ : LazyMatchTask => true
+           _ : LazyMatchTask |
+           _ : BlockedFormulaTask => true
       case _ => false
     }
   }
@@ -220,7 +225,8 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
     }
     protected def recommendationNecessary(t : Task) = t match {
       case _ : ExQuantifierTask |
-           _ : DivisibilityTask => true
+           _ : DivisibilityTask |
+           _ : BlockedFormulaTask => true
       case _ => false
     }
   }
@@ -245,7 +251,10 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
       // <code>EliminateFactsTask</code> again
       case _ =>                                           ProbablyReducedFacts
     }
-    protected def recommendationNecessary(t : Task) = false
+    protected def recommendationNecessary(t : Task) = t match {
+      case _ : BlockedFormulaTask => true
+      case _ => false
+    }
   }
 
   /**
@@ -257,7 +266,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
   private object Final extends EagerTaskManager {
     def afterTask(task : Task) = unwrapReal(task) match {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
-      case OmegaTask =>                                   Final
+      case OmegaTask | _ : BlockedFormulaTask =>          Final
       case _ : AddFactsTask =>                            NonNormalisedFacts
       case _ : UpdateConstantFreedomTask =>               NormalisedFacts
       // all other tasks could result in the disappearance of constants in
