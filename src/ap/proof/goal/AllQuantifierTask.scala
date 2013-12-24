@@ -25,6 +25,7 @@ import ap.terfor.{Formula, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.substitutions.VariableSubst
 import ap.util.{Debug, PlainRange}
+import ap.proof.Vocabulary
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 
 object AllQuantifierTask {
@@ -47,15 +48,34 @@ class AllQuantifierTask(_formula : Conjunction, _age : Int)
 
   protected val constantNameBase : String = "all_"
     
-  protected def newEliminatedConstants(goal : Goal,
-                                       newConstants : Iterable[ConstantTerm])
-                : Set[ConstantTerm] = goal.eliminatedConstants ++ newConstants
-
   /**
    * Perform the actual task (whatever needs to be done with <code>formula</code>)
    */
-  def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
-    instantiateWithConstants(false, goal, ptf)
+  def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
+    val (instantiatedConj, constants, newOrder, newBindingContext) =
+      instantiateWithConstants(goal)
+
+    val newVocabulary =
+      Vocabulary(newOrder, newBindingContext,
+                 goal.constantFreedom addTopStatus constants)
+    val newElimConstants = goal.eliminatedConstants ++ constants
+
+    val instantiatedConjTask =
+      Goal.formulaTasks(instantiatedConj, goal.age,
+                        newElimConstants, newVocabulary, goal.settings)
+
+    val collector = goal.getInferenceCollector
+    if (collector.isLogging)
+      collector.instantiateQuantifier(formula.negate, constants,
+                                      instantiatedConj.negate, newOrder)
+
+    ptf.quantify(ptf.updateGoal(newElimConstants,
+                                newVocabulary,
+                                instantiatedConjTask,
+                                collector.getCollection,
+                                goal),
+                 Quantifier.ALL, constants, goal.vocabulary, newOrder)
+  }
   
   /**
    * Create a new <code>FormulaTask</code> by updating the value of

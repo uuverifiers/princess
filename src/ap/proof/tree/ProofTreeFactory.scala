@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,6 +47,10 @@ abstract class ProofTreeFactory {
   def weaken(subtree : ProofTree,
              disjunct : Conjunction,
              vocabulary : Vocabulary) : ProofTree
+
+  def strengthen(subtree : ProofTree,
+                 conjunct : Conjunction,
+                 vocabulary : Vocabulary) : ProofTree
 
   /**
    * A callback to tell that a constant has been eliminated. Upon elimination,

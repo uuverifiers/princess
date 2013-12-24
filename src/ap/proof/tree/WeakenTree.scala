@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,6 +64,7 @@ class WeakenTree private (val subtree : ProofTree,
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(WeakenTree.AC,
                    (order isSortingOf disjunct) &&
+                   !disjunct.isFalse &&
                    !subtree.isInstanceOf[WeakenTree])
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
@@ -72,7 +73,7 @@ class WeakenTree private (val subtree : ProofTree,
   
   lazy val closingConstraint : Conjunction =
     Conjunction.disj(Array(subtree.closingConstraint, unshieldedDisjunct),
-                     subtreeOrder)
+                     order)
     
   lazy val closingConstantFreedom : ConstantFreedom =
     subtree.closingConstantFreedom.findNonFreeness(unshieldedDisjunct, bindingContext)

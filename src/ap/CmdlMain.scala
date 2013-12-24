@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -72,8 +72,8 @@ object CmdlMain {
     println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: -)")
     println(" -simplifyConstraints=val  How to simplify constraints:")
     println("                             none:   not at all")
-    println("                             fair:   fair construction of a proof (default)")
-    println("                             lemmas: depth-first proof construction using lemmas")
+    println("                             fair:   fair construction of a proof")
+    println("                             lemmas: proof construction with lemmas (default)")
     println(" [+-]traceConstraintSimplifier  Show constraint simplifications     (default: -)")
     println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
     println("                           (quantifier elimination for PA formulae) (default: -)")
