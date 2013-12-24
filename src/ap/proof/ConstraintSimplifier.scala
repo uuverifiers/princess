@@ -112,7 +112,7 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
     cache(rawF) {
       val f = ReduceWithConjunction(Conjunction.TRUE, order)(rawF)
       collectQuantifiers(f) match {
-      case ALL | EX if (!f.quans.isEmpty) => simplifyMiniScope(f, order)
+//      case ALL | EX if (!f.quans.isEmpty) => simplifyMiniScope(f, order)
       case ALL   => simplify(f, order)
       case EX    => negSimplify(f, order)
       case EMPTY =>
