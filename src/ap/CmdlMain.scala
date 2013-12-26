@@ -342,7 +342,7 @@ object CmdlMain {
         if (format == Param.InputFormat.SMTLIB)
           println("error")
         Console.err.println("ERROR: " + e.getMessage)
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }

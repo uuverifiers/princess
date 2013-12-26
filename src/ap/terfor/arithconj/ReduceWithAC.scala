@@ -45,6 +45,12 @@ object ReduceWithAC {
                      order)
   }
 
+  def apply(inEqs : ReduceWithInEqs, order : TermOrder) : ReduceWithAC =
+    new ReduceWithAC(ReduceWithEqs(EquationConj.TRUE, order), 
+                     ReduceWithNegEqs(NegEquationConj.TRUE, order),
+                     inEqs,
+                     order)
+
   //////////////////////////////////////////////////////////////////////////////
   // Some of the "static" methods of the <code>ReduceWithAC</code>-class
   // These are methods juggling with different reducer-objects
@@ -218,9 +224,18 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     if (ies.isTrue) {
       ies
     } else {
-      val redInEqs = inEqs(negativeEqs(positiveEqs(ies, logger), logger))
-      if (redInEqs.isFalse) throw FALSE_EXCEPTION_STD
-      redInEqs
+      val preInEqs = negativeEqs(positiveEqs(ies, logger), logger)
+      if (preInEqs.equalityInfs.isEmpty) {
+        val redInEqs = inEqs reduceNoEqualityInfs preInEqs
+        if (redInEqs.isFalse) throw FALSE_EXCEPTION_STD
+        redInEqs
+      } else {
+        // if the inequalities imply equations, we first have
+        // to include those in the equations of the overall
+        // ArithConj
+        if (preInEqs.isFalse) throw FALSE_EXCEPTION_STD
+        preInEqs
+      }
     }
   }
 
