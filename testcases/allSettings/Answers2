@@ -386,7 +386,7 @@ Proving ...
 VALID
 
 Under the constraint:
-(60 >= x1 & x1 >= 40 & x0 >= 80 & \exists int v0; 2*v0 + x1 = 0 & \exists int v0; 2*v0 + x0 = 0) | (45 >= x1 & x1 >= 35 & x0 >= 60 & \exists int v0; 2*v0 + x1 = -15) | (45 >= x1 & x1 >= 31 & x0 >= 60) | (44 >= x1 & x1 >= 31 & x0 >= 60) | (40 >= x1 & x1 >= 32 & x0 >= 60 & \exists int v0; 2*v0 + x1 = 10)
+(60 >= x1 & x1 >= 40 & x0 >= 80 & \exists int v0; 2*v0 + x1 = 0 & \exists int v0; 2*v0 + x0 = 0) | (45 >= x1 & x1 >= 31 & x0 >= 60)
 
 Concrete witness:
 x1 = 40 & x0 = 80
@@ -410,7 +410,7 @@ Proving ...
 VALID
 
 Under the constraint:
-(60 >= x1 & x1 >= 40 & x0 >= 80 & \exists int v0; 2*v0 + x1 = 0 & \exists int v0; 2*v0 + x0 = 0) | (45 >= x1 & x1 >= 35 & x0 >= 60 & \exists int v0; 2*v0 + x1 = -15) | (45 >= x1 & x1 >= 31 & x0 >= 60) | (44 >= x1 & x1 >= 31 & x0 >= 60) | (40 >= x1 & x1 >= 32 & x0 >= 60 & \exists int v0; 2*v0 + x1 = 10)
+(60 >= x1 & x1 >= 40 & x0 >= 80 & \exists int v0; 2*v0 + x1 = 0 & \exists int v0; 2*v0 + x0 = 0) | (45 >= x1 & x1 >= 35 & x0 >= 60 & \exists int v0; 2*v0 + x1 = -15) | (44 >= x1 & x1 >= 31 & x0 >= 60)
 
 Concrete witness:
 x1 = 40 & x0 = 80
