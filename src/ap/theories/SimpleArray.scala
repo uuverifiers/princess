@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -76,5 +76,7 @@ class SimpleArray private (arity : Int) extends Theory {
   val plugin = None
 
   TheoryRegistry register this
+
+  override def toString = "SimpleArray(" + arity + ")"
 
 }

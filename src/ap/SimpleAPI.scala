@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -399,7 +399,7 @@ class SimpleAPI private (enableAssert : Boolean,
     constructProofs = false
     mostGeneralConstraints = false
     theoryPlugin = None
-    theories = new TheoryCollector
+    theoryCollector = new TheoryCollector
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -438,6 +438,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def createConstantRaw(rawName : String,
                                 scalaCmd : String) : IExpression.ConstantTerm = {
+    flushTodo
+
     import IExpression._
     
     val name = sanitise(rawName)
@@ -464,6 +466,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
   def createConstantsRaw(prefix : String, nums : Range, scalaCmd : String)
                         : IndexedSeq[IExpression.ConstantTerm] = {
+    flushTodo
+
     import IExpression._
     val cs = (for (i <- nums)
               yield {
@@ -516,6 +520,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * Add an externally defined constant to the environment of this prover.
    */
   def addConstant(c : IExpression.ConstantTerm) : Unit = {
+    flushTodo
+
     currentOrder = currentOrder extend c
     restartProofActor
     doDumpSMT {
@@ -532,6 +538,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * this prover.
    */
   def addConstants(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
+    flushTodo
+
     currentOrder = currentOrder extend cs.toSeq
     restartProofActor
     doDumpSMT {
@@ -549,6 +557,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * Create a new Boolean variable (nullary predicate).
    */
   def createBooleanVariable(rawName : String) : IFormula = {
+    flushTodo
+
     import IExpression._
     
     val name = sanitise(rawName)
@@ -576,6 +586,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * predefined name.
    */
   def createBooleanVariables(num : Int) : IndexedSeq[IFormula] = {
+    flushTodo
+
     import IExpression._
     val startInd = currentOrder.orderedPredicates.size
     val ps = (for (i <- 0 until num)
@@ -607,6 +619,8 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def createFunctionHelp(rawName : String, arity : Int) : IFunction = {
+    flushTodo
+
     val name = sanitise(rawName)
     val f = new IFunction(name, arity, true, false)
     // make sure that the function encoder knows about the function
@@ -646,6 +660,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * cannot be used within triggers.
    */
   def createRelation(rawName : String, arity : Int) = {
+    flushTodo
+
     import IExpression._
     
     val name = sanitise(rawName)
@@ -667,14 +683,29 @@ class SimpleAPI private (enableAssert : Boolean,
    * Export the current <code>TermOrder</code> of the prover. This method is
    * only useful when working with formulae in the internal prover format.
    */
-  def order = currentOrder
+  def order = {
+    // flush, to make sure that all theories required by earlier formulas
+    // are loaded
+    flushTodo
+    currentOrder
+  }
   
+  /**
+   * The theories currectly loaded in this prover.
+   */
+  def theories : Seq[Theory] = {
+    flushTodo
+    theoryCollector.theories
+  }
+
   /**
    * Convert a formula in input syntax to the internal prover format.
    */
-  def asConjunction(f : IFormula) : Conjunction =
+  def asConjunction(f : IFormula) : Conjunction = {
+    flushTodo
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
       toInternalNoAxioms(f, currentOrder))
+  }
   
   /**
    * Pretty-print a formula or term.
@@ -1079,6 +1110,52 @@ class SimpleAPI private (enableAssert : Boolean,
 
     theoryPlugin = Some(plugin)
     recreateProver
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Add a new theory to the prover. Normally, calling this function is not
+   * necessary, since theories in asserted formulae will be detected
+   * automatically.
+   */
+  def addTheory(newTheory : Theory) : Unit =
+    addTheories(List(newTheory))
+
+  /**
+   * Add new theories to the prover. Normally, calling this function is not
+   * necessary, since theories in asserted formulae will be detected
+   * automatically.
+   */
+  def addTheories(newTheories : Seq[Theory]) : Unit = {
+    doDumpSMT {
+      println("; (add-theories " + (newTheories mkString " ") + ")")
+    }
+    doDumpScala {
+      println("// addTheories(List(" + (newTheories mkString ", ") + "))")
+    }
+    for (t <- newTheories)
+      theoryCollector addTheory t
+    addTheoryAxioms
+  }
+  
+  private def addTheoryAxioms = {
+    val theoryAxioms = checkNewTheories
+    if (!theoryAxioms.isEmpty) {
+      val oldPartitionNum = currentPartitionNum
+      setPartitionNumberHelp(-1)
+      for (f <- theoryAxioms)
+        addFormula(LazyConjunction(f)(currentOrder))
+      setPartitionNumberHelp(oldPartitionNum)
+    }
+  }
+
+  /**
+   * Add all theories to the prover that occur in the given order.
+   */
+  def addTheoriesFor(order : TermOrder) : Unit = {
+    theoryCollector(order)
+    addTheoryAxioms
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1731,7 +1808,7 @@ class SimpleAPI private (enableAssert : Boolean,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
                        currentModel, currentConstraint, currentCertificate,
-                       theoryPlugin, theories.clone)
+                       theoryPlugin, theoryCollector.clone)
     
     doDumpSMT {
       println("(push 1)")
@@ -1784,14 +1861,12 @@ class SimpleAPI private (enableAssert : Boolean,
     currentCertificate = oldCert
     proofActorStatus = ProofActorStatus.Init
     theoryPlugin = oldTheoryPlugin
-    theories = oldTheories 
+    theoryCollector = oldTheories 
   }
   
   //////////////////////////////////////////////////////////////////////////////
 
   private def flushTodo : Unit = {
-    // TODO: also recognise theory symbols in internal input
-
     val (transTodo, axioms) = formulaeTodo match {
       case IBoolLit(false) => (Conjunction.FALSE, Conjunction.FALSE)
       case _ => toInternal(formulaeTodo)
@@ -1801,10 +1876,33 @@ class SimpleAPI private (enableAssert : Boolean,
     if (!transTodo.isFalse || !axioms.isFalse || !rawFormulaeTodo.isFalse) {
       implicit val o = currentOrder
       val completeFor =
-        ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-          (rawFormulaeTodo | LazyConjunction(transTodo)).toConjunction)
+        (rawFormulaeTodo | LazyConjunction(transTodo)).toConjunction
+
+      val additionalAxioms =
+        if (rawFormulaeTodo.isFalse) {
+          Conjunction.FALSE
+        } else {
+          // check whether further theories have to be loaded for the asserted
+          // raw formulae
+          // TODO: this should be done in a more intelligent way, to try and
+          // make the TermOrders match up in more cases
+
+          theoryCollector(completeFor.order)
+          val theoryAxioms = checkNewTheories
+  
+          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+          Debug.assertInt(AC, currentOrder isSortingOf completeFor)
+          //-END-ASSERTION-///////////////////////////////////////////////////////
+
+          !Conjunction.conj(theoryAxioms, currentOrder)
+        }
+
       rawFormulaeTodo = LazyConjunction.FALSE
-      addToProver(completeFor, axioms)
+      val reducedFor =
+        ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+                              completeFor)
+      addToProver(reducedFor,
+                  Conjunction.disj(Array(axioms, additionalAxioms), currentOrder))
     }
   }
 
@@ -1879,7 +1977,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         order.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         order,
-                        theories.theories)
+                        theoryCollector.theories)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
@@ -1899,44 +1997,15 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
     // check whether theories are involved that we don't know yet
-    theories(f)
-
-    val theoryAxioms =
-      for (t <- theories.newTheories) yield {
-        currentOrder = currentOrder extendPred t.predicates
-        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-        Debug.assertInt(AC, (currentOrder isSortingOf t.axioms) &&
-                            (currentOrder isSortingOf t.totalityAxioms))
-        //-END-ASSERTION-/////////////////////////////////////////////////////////
-
-        functionEnc addTheory t
-
-        // TODO: also handle predicate_match_config
-
-        functionalPreds = functionalPreds ++ t.functionalPredicates
-
-        for (plugin <- t.plugin) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          // Multiple theory plugins are currently unsupported
-          Debug.assertInt(AC, theoryPlugin == None)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          theoryPlugin = Some(plugin)
-        }
-
-        Conjunction.negate(t.axioms, currentOrder)
-      }
-
-    if (!theories.newTheories.isEmpty) {
-      theories.reset
-      recreateProver
-    }
+    theoryCollector(f)
+    val theoryAxioms = checkNewTheories
 
     val sig = Signature(Set(),
                         existentialConstants,
                         currentOrder.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         currentOrder,
-                        theories.theories)
+                        theoryCollector.theories)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
@@ -1958,6 +2027,41 @@ class SimpleAPI private (enableAssert : Boolean,
     (formula, axioms)
   }
   
+  private def checkNewTheories : Seq[Conjunction] =
+    if (theoryCollector.newTheories.isEmpty) {
+      List()
+    } else {
+      val theoryAxioms =
+        for (t <- theoryCollector.newTheories) yield {
+          currentOrder = t extend currentOrder
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+          Debug.assertInt(AC, (currentOrder isSortingOf t.axioms) &&
+                              (currentOrder isSortingOf t.totalityAxioms))
+          //-END-ASSERTION-/////////////////////////////////////////////////////////
+  
+          functionEnc addTheory t
+  
+          // TODO: also handle predicate_match_config
+  
+          functionalPreds = functionalPreds ++ t.functionalPredicates
+  
+          for (plugin <- t.plugin) {
+            //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+            // Multiple theory plugins are currently unsupported
+            Debug.assertInt(AC, theoryPlugin == None)
+            //-END-ASSERTION-/////////////////////////////////////////////////////
+            theoryPlugin = Some(plugin)
+          }
+  
+          Conjunction.negate(t.axioms, currentOrder)
+        }
+
+      theoryCollector.reset
+      recreateProver
+
+      theoryAxioms
+    }
+
   private def goalSettings = {
     var gs = GoalSettings.DEFAULT
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
@@ -1988,7 +2092,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var formulaeTodo : IFormula = false
   private var rawFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
   private var theoryPlugin : Option[Plugin] = None
-  private var theories : TheoryCollector = _
+  private var theoryCollector : TheoryCollector = _
 
   private val storedStates = new ArrayStack[(PreprocessingSettings,
                                              ModelSearchProver.IncProver,

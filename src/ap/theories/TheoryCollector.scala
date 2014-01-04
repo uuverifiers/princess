@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 package ap.theories
 
 import ap.parser._
+import ap.terfor.TermOrder
 
 import scala.collection.mutable.{HashSet => MHashSet}
 
@@ -56,29 +57,40 @@ class TheoryCollector extends CollectingVisitor[Unit, Unit]
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def addTheory(t : Theory) =
+    if (theoriesSeen add t) {
+      theoriesList = t :: theoriesList
+      theoriesDiff = t :: theoriesDiff
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def apply(expr : IExpression) : Unit =
     this.visitWithoutResult(expr, {})
 
   def postVisit(t : IExpression, arg : Unit,
                 subres : Seq[Unit]) : Unit = t match {
-    case IFunApp(f, _) if (!(symbolsSeen contains f)) => {
-      symbolsSeen += f
-      for (t <- TheoryRegistry lookupSymbol f)
-        if (theoriesSeen add t) {
-          theoriesList = t :: theoriesList
-          theoriesDiff = t :: theoriesDiff
-        }
-    }
-    case IAtom(p, _) if (!(symbolsSeen contains p)) => {
-      symbolsSeen += p
-      for (t <- TheoryRegistry lookupSymbol p)
-        if (theoriesSeen add t) {
-          theoriesList = t :: theoriesList
-          theoriesDiff = t :: theoriesDiff
-        }
-    }
+    case IFunApp(f, _) => apply(f)
+    case IAtom(p, _)   => apply(p)
     case _ => // nothing
   }
   
+  def apply(f : IFunction) : Unit =
+    if (!(symbolsSeen contains f)) {
+      symbolsSeen += f
+      for (t <- TheoryRegistry lookupSymbol f)
+        addTheory(t)
+    }
+    
+  def apply(p : IExpression.Predicate) : Unit =
+    if (!(symbolsSeen contains p)) {
+      symbolsSeen += p
+      for (t <- TheoryRegistry lookupSymbol p)
+        addTheory(t)
+    }
+
+  def apply(order : TermOrder) : Unit =
+    for (p <- order sortPreds order.orderedPredicates)
+      apply(p)
 
 }
