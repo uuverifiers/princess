@@ -118,6 +118,6 @@ trait Theory {
   /**
    * Optionally, a plug-in implementing reasoning in this theory
    */
-  val plugin : Option[Plugin]
+  def plugin : Option[Plugin]
 
 }
