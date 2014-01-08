@@ -309,6 +309,17 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     quan(List.fill(pred.arity + 1){Quantifier.ALL}, matrix)
   }
 
+  def addFunction(fun : IFunction) : Predicate = 
+    relations.getOrElseUpdate(fun, {
+      val pred = new Predicate(fun.name, fun.arity + 1)
+      if (!fun.relational)
+        axiomsVar = axiomsVar &&& functionality(pred)
+      if (!fun.partial && genTotalityAxioms)
+        axiomsVar = axiomsVar &&& totality(pred)
+      predTranslation += (pred -> fun)
+      pred
+    })
+
   //////////////////////////////////////////////////////////////////////////////
 
   def addTheory(t : Theory) : Unit =
@@ -325,15 +336,10 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   private class EncoderVisitor(var nextAbstractionNum : Int, var order : TermOrder)
                 extends ContextAwareVisitor[EncodingContext, IExpression] {
   
-    private def toRelation(fun : IFunction) : Predicate = 
-      relations.getOrElseUpdate(fun, {
-        val pred = new Predicate(fun.name, fun.arity + 1)
+    private def toRelation(fun : IFunction) : Predicate =
+      relations.getOrElse(fun, {
+        val pred = addFunction(fun)
         order = order extendPred pred
-        if (!fun.relational)
-          axiomsVar = axiomsVar &&& functionality(pred)
-        if (!fun.partial && genTotalityAxioms)
-          axiomsVar = axiomsVar &&& totality(pred)
-        predTranslation += (pred -> fun)
         pred
       })
   

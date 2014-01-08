@@ -40,14 +40,16 @@ object ReduceWithConjunction {
             functionalPreds : Set[Predicate],
             order : TermOrder) : ReduceWithConjunction = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, (conj isSortedBy order) &&
-                    // conjunctions with quantifiers are not supported right now
-                    conj.quans.isEmpty)
+    Debug.assertPre(AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    new ReduceWithConjunction(ReduceWithAC(conj.arithConj, order),
-                              ReduceWithPredLits(conj.predConj, functionalPreds, order),
-                              order)
+
+    if (conj.quans.isEmpty)
+      new ReduceWithConjunction(ReduceWithAC(conj.arithConj, order),
+                                ReduceWithPredLits(conj.predConj, functionalPreds, order),
+                                order)
+    else
+      // formulas with quantifiers are not supported right now
+      apply(Conjunction.TRUE, functionalPreds, order)
   }
   
   /**

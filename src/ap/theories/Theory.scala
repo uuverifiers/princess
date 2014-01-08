@@ -35,11 +35,21 @@ object Theory {
                  order : TermOrder)
               : (Formula,
                  TermOrder,
+                 Map[IFunction, IExpression.Predicate]) =
+    toInternal(axioms,
+               genTotalityAxioms,
+               order,
+               new FunctionEncoder(true, false))
+
+  def toInternal(axioms : IFormula,
+                 genTotalityAxioms : Boolean,
+                 order : TermOrder,
+                 functionEnc : FunctionEncoder)
+              : (Formula,
+                 TermOrder,
                  Map[IFunction, IExpression.Predicate]) = {
     val sig = Signature(Set(), Set(), order.orderedConstants, order)
     val preprocSettings = PreprocessingSettings.DEFAULT
-    val functionEnc = 
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(PartName.NO_NAME, ~axioms),
                     List(), sig, preprocSettings, functionEnc)

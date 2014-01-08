@@ -1789,7 +1789,13 @@ class SimpleAPI private (enableAssert : Boolean,
     try {
       comp
     } finally {
-      pop
+      if (getStatusHelp(false) == ProverStatus.Running) {
+        // then something really bad happened, and we are in an inconsistent
+        // state
+        proofActor ! ShutdownCommand
+      } else {
+        pop
+      }
     }
   }
   
