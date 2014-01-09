@@ -339,7 +339,7 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     doDumpScala {
       closeAllScopes
-      println("} // withProver")
+      println("}} // withProver")
     }
   }
 
@@ -350,6 +350,7 @@ class SimpleAPI private (enableAssert : Boolean,
     println("SimpleAPI.withProver { p =>")
     println("import p._")
     println("import IExpression._")
+    println("{")
     println
   }
   
@@ -371,6 +372,8 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       closeAllScopes
       println("reset")
+      println("}")
+      println("{")
     }
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
