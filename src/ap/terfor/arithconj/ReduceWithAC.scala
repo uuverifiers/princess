@@ -83,8 +83,13 @@ object ReduceWithAC {
       (ac, reducer addEquations newNegEqs)
     } else {
       val newAC = ArithConj(newPosEqs, newNegEqs, newInEqs, reducer.order)
-      if ((newInEqs.equalityInfs.isEmpty /* ||
-             newInEqs.equalityInfs == ac.inEqs.equalityInfs */) &&
+      if ((newInEqs.equalityInfs.isEmpty ||
+             // due to bounded generated of inequality inferences,
+             // it can happen that still equations are implied,
+             // and further iterations will change nothing.
+             // to prevent infinite looping at this point,
+             // see whether anything changed
+             newInEqs.equalityInfs == ac.inEqs.equalityInfs) &&
           (newNegEqs eq ac.negativeEqs))
         (newAC, reducer addEquations newNegEqs)
       else
