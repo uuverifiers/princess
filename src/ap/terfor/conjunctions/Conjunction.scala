@@ -192,10 +192,12 @@ object Conjunction {
    */
   def quantify(quan : Quantifier, constants : Seq[ConstantTerm],
                f : Formula, order : TermOrder) : Conjunction = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    // This is only well-defined if the formula does not contain free variables
-    Debug.assertPre(AC, f.variables.isEmpty)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val shiftedF =
+      if (f.variables.isEmpty)
+        f
+      else
+        // need to shift up already existing variables
+        VariableShiftSubst(0, constants.size, order)(f)
     
     val constantSubst = ConstantSubst(Map() ++
                                       (for ((c, i) <- constants.iterator.zipWithIndex)
@@ -204,7 +206,7 @@ object Conjunction {
     val quans : Seq[Quantifier] =
       (for (_ <- PlainRange(constants.size)) yield quan)    
     
-    quantify(quans, constantSubst(f), order)
+    quantify(quans, constantSubst(shiftedF), order)
   }
     
   /**
