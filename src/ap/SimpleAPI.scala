@@ -129,6 +129,8 @@ object SimpleAPI {
     val Sat, Unsat, Invalid, Valid, Unknown, Running, Error = Value
   }
 
+  object TimeoutException extends Exception("Timeout during ap.SimpleAPI call")
+
   //////////////////////////////////////////////////////////////////////////////
 
   class PartialModel(
@@ -403,6 +405,32 @@ class SimpleAPI private (enableAssert : Boolean,
     mostGeneralConstraints = false
     theoryPlugin = None
     theoryCollector = new TheoryCollector
+  }
+
+  private var currentDeadline : Option[Long] = None
+
+  /**
+   * Run a block of commands for at most <code>millis</code> milli-seconds.
+   * After this, calls to <code>???</code>, <code>checkSat(true)</code>,
+   * <code>nextModel(true)</code>, <code>getStatus(true)</code> will throw a
+   * <code>TimeoutException</code>.
+   */
+  def withTimeout[A](millis : Long)(comp : => A) = {
+    val oldDeadline = currentDeadline
+    currentDeadline = Some(System.currentTimeMillis + millis)
+    try {
+      comp
+    } finally {
+      currentDeadline = oldDeadline
+    }
+  }
+
+  private def checkTimeout = currentDeadline match {
+    case Some(deadline) =>
+      if (System.currentTimeMillis > deadline)
+        throw TimeoutException
+    case None =>
+      // nothing
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -818,6 +846,7 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       println("println(\"" + getScalaNum + ": \" + ???)")
     }
+    checkTimeout
     getStatusHelp(true) match {
       case ProverStatus.Unknown => checkSatHelp(true)
       case res => res
@@ -839,6 +868,9 @@ class SimpleAPI private (enableAssert : Boolean,
         print(" // checkSat(" + block + ")")
       println
     }
+
+    if (block)
+      checkTimeout
 
     checkSatHelp(block)
   }
@@ -880,8 +912,8 @@ class SimpleAPI private (enableAssert : Boolean,
             proofActor ! RecheckCommand
           }
         }
-        
-        getStatusHelp(block)
+    
+        getStatusWithDeadline(block)    
       }
       
       case ProverStatus.Running => {
@@ -911,12 +943,29 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(AC, getStatusHelp(false) == ProverStatus.Sat)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    if (block)
+      checkTimeout
+
     lastStatus = ProverStatus.Running
     proverRes.unset
     
     proofActor ! NextModelCommand
-    getStatusHelp(block)
+    getStatusWithDeadline(block)
   }
+
+  private def getStatusWithDeadline(block : Boolean) : ProverStatus.Value =
+    currentDeadline match {
+      case Some(deadline) if (block) =>
+        getStatusHelp(deadline - System.currentTimeMillis) match {
+          case ProverStatus.Running => {
+            stop
+            throw TimeoutException
+          }
+          case s => s
+        }
+      case _ =>
+        getStatusHelp(block)
+    }
 
   /**
    * Query result of the last <code>checkSat</code> or <code>nextModel</code>
@@ -927,7 +976,9 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       println("// getStatus(" + block + ")")
     }
-    getStatusHelp(block)
+    if (block)
+      checkTimeout
+    getStatusWithDeadline(block)
   }
 
   private def getStatusHelp(block : Boolean) : ProverStatus.Value = {
@@ -945,12 +996,16 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       println("// getStatus(" + timeout + ")")
     }
+    getStatusHelp(timeout)
+  }
+  
+  private def getStatusHelp(timeout : Long) : ProverStatus.Value = {
     if (lastStatus == ProverStatus.Running)
       for (r <- proverRes.get(timeout))
         evalProverResult(r)
     lastStatus
   }
-  
+
   private def evalProverResult(pr : ProverResult) : Unit = pr match {
         case UnsatResult => {
           currentModel = Conjunction.TRUE
