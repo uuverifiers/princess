@@ -1360,6 +1360,22 @@ class SimpleAPI private (enableAssert : Boolean,
     }
   }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Pre-compute decoding data needed (and implicitly read) by theories.
+   */
+  def decoderContext : Theory.DecoderContext = {
+    setupTermEval
+    val data =
+      (for (t <- theories.iterator;
+            d <- (t generateDecoderData currentModel).iterator)
+       yield (t, d)).toMap
+    new Theory.DecoderContext(data)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Evaluate the given term in the current model. This method can be
    * called in two situations:

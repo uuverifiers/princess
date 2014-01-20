@@ -21,6 +21,7 @@
 
 package ap.theories
 
+import ap.basetypes.IdealInt
 import ap.Signature
 import ap.parser._
 import ap.terfor.{Formula, TermOrder}
@@ -68,7 +69,19 @@ object Theory {
     (formula, newOrder, functionTranslation)
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  trait Decoder[A] {
+    def apply(d : IdealInt)(implicit ctxt : DecoderContext) : A
+  }
+
+  trait TheoryDecoderData
+
+  class DecoderContext(val decoderData : Map[Theory, TheoryDecoderData])
+
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Trait for representing signature and axioms of theories, e.g.,
@@ -129,5 +142,15 @@ trait Theory {
    * Optionally, a plug-in implementing reasoning in this theory
    */
   def plugin : Option[Plugin]
+
+  /**
+   * If this theory defines any <code>Theory.Decoder</code>, which
+   * can translate model data into some theory-specific representation,
+   * this function can be overridden to pre-compute required data
+   * from a model.
+   */
+  def generateDecoderData(model : Conjunction)
+                         : Option[Theory.TheoryDecoderData] =
+    None
 
 }
