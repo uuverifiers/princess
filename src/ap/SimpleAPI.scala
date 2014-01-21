@@ -394,6 +394,7 @@ class SimpleAPI private (enableAssert : Boolean,
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = Conjunction.TRUE
+    decoderDataCache.clear
     lastPartialModel = null
     currentConstraint = null
     currentCertificate = null
@@ -1363,16 +1364,17 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Pre-compute decoding data needed (and implicitly read) by theories.
+   * Decoding data needed (and implicitly read) by theories.
    */
-  def decoderContext : Theory.DecoderContext = {
-    setupTermEval
-    val data =
-      (for (t <- theories.iterator;
-            d <- (t generateDecoderData currentModel).iterator)
-       yield (t, d)).toMap
-    new Theory.DecoderContext(data)
+  val decoderContext = new Theory.DecoderContext {
+    def getDataFor(t : Theory) : Theory.TheoryDecoderData =
+      decoderDataCache.getOrElseUpdate(t, {
+        setupTermEval
+        (t generateDecoderData currentModel).get
+      })
   }
+
+  private val decoderDataCache = new MHashMap[Theory, Theory.TheoryDecoderData]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1936,6 +1938,7 @@ class SimpleAPI private (enableAssert : Boolean,
     validityMode = oldValidityMode
     lastStatus = oldStatus
     currentModel = oldModel
+    decoderDataCache.clear
     lastPartialModel = null
     currentConstraint = oldConstraint
     currentCertificate = oldCert
@@ -2020,6 +2023,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentConstraint = null
     currentCertificate = null
     lastStatus = ProverStatus.Unknown
+    decoderDataCache.clear
   }
   
   private def addFormula(f : IFormula) : Unit = {

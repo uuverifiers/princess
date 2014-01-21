@@ -21,10 +21,12 @@
 
 package ap.theories
 
+import ap.basetypes.IdealInt
 import ap.Signature
 import ap.parser._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Atom
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
@@ -74,6 +76,29 @@ class SimpleArray private (arity : Int) extends Theory {
     List((select, predicates(0)), (store, predicates(1)))
 
   val plugin = None
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  case class DecoderData(selectAtoms : Seq[Atom])
+       extends Theory.TheoryDecoderData
+
+  val asMap = new Theory.Decoder[Map[Seq[IdealInt], IdealInt]] {
+    def apply(d : IdealInt)
+             (implicit ctxt : Theory.DecoderContext)
+             : Map[Seq[IdealInt], IdealInt] =
+      (ctxt getDataFor SimpleArray.this) match {
+        case DecoderData(atoms) =>
+          (for (a <- atoms.iterator; if (a(0).constant == d))
+           yield (for (lc <- a.slice(1, a.size - 1)) yield lc.constant,
+                  a.last.constant)).toMap
+      }
+  }
+
+  override def generateDecoderData(model : Conjunction)
+                                  : Option[Theory.TheoryDecoderData] =
+    Some(DecoderData(model.predConj positiveLitsWithPred predicates(0)))
+
+  //////////////////////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
 

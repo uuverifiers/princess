@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,10 +29,25 @@ SimpleAPI.withProver(enableAssert = true) { p =>
 
   val ar = SimpleArray(2)
   val a, b, c = createConstant
+  implicit val _ = decoderContext
 
-  !! (b === ar.store(a, 0, 1, 2))
-  !! (c === ar.store(b, 1, 2, 3))
-  ?? (ar.select(c, 0, 1) > 0)
+  scope {
+    !! (b === ar.store(a, 0, 1, 2))
+    !! (c === ar.store(b, 1, 2, 3))
 
-  println(???)
+    scope {
+      !! (ar.select(c, 0, 2) > 0)
+      println(???) // Sat
+      println(ar.asMap(eval(c)).toList sortBy (_._2))
+
+      !! (ar.select(b, 0, 2) < 0)
+      println(???) // Unsat
+    }
+
+    scope {
+      ?? (ar.select(c, 0, 1) > 0)
+      println(???) // Valid
+    }
+  }
+
 }

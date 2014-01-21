@@ -77,7 +77,9 @@ object Theory {
 
   trait TheoryDecoderData
 
-  class DecoderContext(val decoderData : Map[Theory, TheoryDecoderData])
+  trait DecoderContext {
+    def getDataFor(t : Theory) : TheoryDecoderData
+  }
 
 }
 
