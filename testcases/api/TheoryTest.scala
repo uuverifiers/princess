@@ -36,6 +36,9 @@ SimpleAPI.withProver(enableAssert = true) { p =>
     !! (c === ar.store(b, 1, 2, 3))
 
     scope {
+      println(???) // Sat
+      println(ar.asMap(eval(c)).toList sortBy (_._2))
+
       !! (ar.select(c, 0, 2) > 0)
       println(???) // Sat
       println(ar.asMap(eval(c)).toList sortBy (_._2))

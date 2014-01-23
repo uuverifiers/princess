@@ -171,6 +171,8 @@ Valid
 12: 3
 13: -5
 Sat
+List((Vector(0, 1),2), (Vector(1, 2),3))
+Sat
 List((Vector(0, 2),1), (Vector(0, 1),2), (Vector(1, 2),3))
 Unsat
 Valid

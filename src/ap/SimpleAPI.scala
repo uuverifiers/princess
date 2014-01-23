@@ -901,7 +901,8 @@ class SimpleAPI private (enableAssert : Boolean,
                                                    currentOrder sort uniConstants,
                                                    completeFor, currentOrder)
 
-              proofActor ! CheckValidityCommand(closedFor, goalSettings,
+              proofActor ! CheckValidityCommand(closedFor,
+                                                exhaustiveProverGoalSettings,
                                                 mostGeneralConstraints)
             } else {
               // use a ModelCheckProver
@@ -2153,9 +2154,17 @@ class SimpleAPI private (enableAssert : Boolean,
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
     // currently done for all predicates encoding functions; should this be
     // restricted?
-    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
+//    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
+    gs
+  }
+
+  private def exhaustiveProverGoalSettings = {
+    var gs = goalSettings
+    // currently done for all predicates encoding functions; should this be
+    // restricted?
+    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
     gs
   }
 
