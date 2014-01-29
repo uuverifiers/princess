@@ -113,7 +113,7 @@ object PrincessLineariser {
     case IBinFormula(IBinJunctor.And, _, _)             => 0
     case _ : ITermITE | _ : IFormulaITE                 => 1
     case _ : INot | _ : IQuantified | _ : INamedPart |
-         _ : ITrigger                                   => 3
+         _ : ITrigger | _ : IEpsilon                    => 3
     case _ : IIntFormula                                => 4
     case _ : IPlus                                      => 5
     case _ : ITimes                                     => 6
@@ -191,7 +191,12 @@ object PrincessLineariser {
         case IFunApp(fun, _) => {
           print(fun.name)
           print("(")
-          allButLast(ctxt setPrecLevel 0, ", ", ")", fun.arity)
+          if (fun.arity == 0) {
+            print(")")
+            KeepArg
+          } else {
+            allButLast(ctxt setPrecLevel 0, ", ", ")", fun.arity)
+          }
         }
         
         case _ : ITermITE | _ : IFormulaITE => {
@@ -286,6 +291,11 @@ object PrincessLineariser {
             case Quantifier.EX => "\\exists"
           })
           print(" int " + varName + "; ")
+          noParentOp(ctxt pushVar varName)
+        }
+        case IEpsilon(_) => {
+          val varName = "v" + ctxt.vars.size
+          print("\\eps int " + varName + "; ")
           noParentOp(ctxt pushVar varName)
         }
         case INamedPart(name, _) => {
