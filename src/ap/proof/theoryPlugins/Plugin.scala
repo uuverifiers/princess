@@ -26,11 +26,16 @@ import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
+import scala.collection.mutable.{Stack, ArrayBuffer}
+
 
 object Plugin {
+  protected[theoryPlugins] val AC = Debug.AC_PLUGIN
+
   abstract sealed class Action
-  case class AddFormula(formula : Conjunction) extends Action
-  case class RemoveFacts(facts : Conjunction)  extends Action
+  case class AddFormula (formula : Conjunction)    extends Action
+  case class RemoveFacts(facts : Conjunction)      extends Action
+  case class SplitGoal  (cases : Seq[Seq[Action]]) extends Action
 }
 
 /**
@@ -81,6 +86,46 @@ class AxiomGenTask(plugin : Plugin) extends EagerTask {
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
     val actions = plugin handleGoal goal
+
+    if (actions.isEmpty) {
+      ptf.updateGoal(goal)
+    } else actions.last match {
+
+      case _ : SplitGoal => {
+        val actionStack    = new Stack[Seq[Action]]
+        val resultingTrees = new ArrayBuffer[ProofTree]
+
+        actionStack push actions
+
+        while (!actionStack.isEmpty) {
+          val actions = actionStack.pop
+          if (actions.isEmpty) {
+            resultingTrees += ptf.updateGoal(goal)
+          } else actions.last match {
+            case SplitGoal(subActions) => {
+              val otherActions = actions.init
+              for (b <- subActions.reverseIterator)
+                actionStack push (otherActions ++ b)
+            }
+            case _ => {
+              resultingTrees += applyActions(actions, goal, ptf)
+            }
+          }
+        }
+
+        ptf.and(resultingTrees, goal.vocabulary)
+      }
+
+      case _ =>
+        applyActions(actions, goal, ptf)
+    }
+  }
+
+  private def applyActions(actions : Seq[Action],
+                           goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(Plugin.AC, !(actions exists (_.isInstanceOf[SplitGoal])))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val factsToRemove =
       Conjunction.conj(for (RemoveFacts(f) <- actions.iterator) yield f,
