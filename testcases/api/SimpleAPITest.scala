@@ -318,6 +318,21 @@ object SimpleAPITest extends App {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  part("Simplification, projection")
+
+  scope {
+    val x = createConstant("x")
+    val y = createConstant("y")
+    println("Project 5 < x & x < 2*y existentially to " + y + ": " +
+            pp(projectEx(5 < x & x < 2*y, List(y))))
+    println("Project x > y | x < 0 universally to " + x + ": " +
+            pp(projectAll(x > y | x < 0, List(x))))
+    println("Simplify ex(x => 5 < x & x < 2*y) to: " +
+            pp(simplify(ex(x => 5 < x & x < 2*y))))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   part("Asynchronous interface")
   
   !! (true)

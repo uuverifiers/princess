@@ -95,6 +95,11 @@ Equivalent qf constraint: X = 42 | X = 3
 Valid
 Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
 
+-- Simplification, projection
+Project 5 < x & x < 2*y existentially to y: !(3 >= y)
+Project x > y | x < 0 universally to x: -1 >= x
+Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
+
 -- Asynchronous interface
 Running
 Running

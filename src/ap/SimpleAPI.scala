@@ -534,7 +534,7 @@ class SimpleAPI private (enableAssert : Boolean,
   def createExistentialConstant : ITerm =
     createExistentialConstant("X" + currentOrder.orderedConstants.size)
   
- /**
+  /**
    * Create <code>num</code> new symbolic constant with predefined name that is
    * implicitly existentially quantified.
    */
@@ -544,6 +544,114 @@ class SimpleAPI private (enableAssert : Boolean,
                                 "createExistentialConstant")
     existentialConstants = existentialConstants ++ cs
     for (c <- cs) yield IConstant(c)
+  }
+
+  /**
+   * Make a given constant implicitly existentially quantified.
+   */
+  def makeExistential(constant : ITerm) : Unit = {
+    doDumpSMT {
+      println("; (make-existential " + constant + ")")
+    }
+    doDumpScala {
+      println("makeExistential(" + constant + ")")
+    }
+    constant match {
+      case IConstant(c) => existentialConstants = existentialConstants + c
+      case _            => assert(false)
+    }
+  }
+
+  /**
+   * Make given constants implicitly existentially quantified.
+   */
+  def makeExistential(constants : Iterable[ITerm]) : Unit =
+    for (c <- constants) makeExistential(c)
+
+  /**
+   * Make given constants implicitly existentially quantified.
+   */
+  def makeExistential(constants : Iterator[ITerm]) : Unit =
+    for (c <- constants) makeExistential(c)
+
+  /**
+   * Make given constants implicitly existentially quantified.
+   */
+  def makeExistentialRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+    doDumpSMT {
+      println("; (make-existential-raw " + (constants mkString ", ") + ")")
+    }
+    doDumpScala {
+      println("makeExistentialRaw(List(" + (constants mkString ", ") + "))")
+    }
+    existentialConstants = existentialConstants ++ constants
+  }
+
+  /**
+   * Make given constants implicitly existentially quantified.
+   */
+  def makeExistentialRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+    doDumpSMT {
+      println("; (make-existential-raw ...)")
+    }
+    doDumpScala {
+      println("// makeExistentialRaw(...)")
+    }
+    existentialConstants = existentialConstants ++ constants
+  }
+
+  /**
+   * Make a given constant implicitly universally quantified.
+   */
+  def makeUniversal(constant : ITerm) : Unit = {
+    doDumpSMT {
+      println("; (make-universal " + constant + ")")
+    }
+    doDumpScala {
+      println("makeUniversal(" + constant + ")")
+    }
+    constant match {
+      case IConstant(c) => existentialConstants = existentialConstants - c
+      case _            => assert(false)
+    }
+  }
+
+  /**
+   * Make given constants implicitly universally quantified.
+   */
+  def makeUniversal(constants : Iterable[ITerm]) : Unit =
+    for (c <- constants) makeUniversal(c)
+
+  /**
+   * Make given constants implicitly universally quantified.
+   */
+  def makeUniversal(constants : Iterator[ITerm]) : Unit =
+    for (c <- constants) makeUniversal(c)
+
+  /**
+   * Make given constants implicitly universally quantified.
+   */
+  def makeUniversalRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+    doDumpSMT {
+      println("; (make-universal-raw " + (constants mkString ", ") + ")")
+    }
+    doDumpScala {
+      println("makeUniversalRaw(List(" + (constants mkString ", ") + "))")
+    }
+    existentialConstants = existentialConstants -- constants
+  }
+
+  /**
+   * Make given constants implicitly universally quantified.
+   */
+  def makeUniversalRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+    doDumpSMT {
+      println("; (make-universal-raw ...)")
+    }
+    doDumpScala {
+      println("// makeUniversalRaw(...)")
+    }
+    existentialConstants = existentialConstants -- constants
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1258,6 +1366,46 @@ class SimpleAPI private (enableAssert : Boolean,
     
     (new Simplifier)(Internal2InputAbsy(currentConstraint, Map()))
   }
+
+  /**
+   * Project a formula to a given set of constants; all other constants
+   * are removed by quantifying them universally.
+   * Note that this will also return all formulas that have previously
+   * been asserted in this prover.
+   */
+  def projectAll(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = scope {
+    makeExistential(toConsts)
+    setMostGeneralConstraints(true)
+    ?? (f)
+    ??? match {
+      case ProverStatus.Valid   => getConstraint
+      case ProverStatus.Invalid => IBoolLit(false)
+    }
+  }
+  
+  /**
+   * Project a formula to a given set of constants; all other constants
+   * are removed by quantifying them existentially.
+   * Note that this will also return all formulas that have previously
+   * been asserted in this prover.
+   */
+  def projectEx(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = scope {
+    makeExistential(toConsts)
+    setMostGeneralConstraints(true)
+    ?? (~f)
+    ??? match {
+      case ProverStatus.Valid   => ~getConstraint
+      case ProverStatus.Invalid => IBoolLit(true)
+    }
+  }
+  
+  /**
+   * Simplify a formula by eliminating quantifiers.
+   * Note that this will also return all formulas that have previously
+   * been asserted in this prover.
+   */
+  def simplify(f : IFormula) : IFormula =
+    projectAll(f, for (c <- SymbolCollector constants f) yield IConstant(c))
   
   //////////////////////////////////////////////////////////////////////////////
 
