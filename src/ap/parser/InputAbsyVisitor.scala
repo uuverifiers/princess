@@ -25,7 +25,8 @@ import IExpression.{ConstantTerm, Predicate}
 import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
-import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer}
+import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
+                                 LinkedHashSet, HashSet => MHashSet}
 import scala.collection.{Map => CMap}
 
 
@@ -486,19 +487,25 @@ object VariableSubstVisitor
 
 object SymbolCollector {
   def variables(t : IExpression) : scala.collection.Set[IVariable] = {
-    val variables = new scala.collection.mutable.HashSet[IVariable]
+    val variables = new MHashSet[IVariable]
     val c = new SymbolCollector (variables, null, null)
     c.visitWithoutResult(t, 0)
     variables
   }
   def constants(t : IExpression) : scala.collection.Set[ConstantTerm] = {
-    val constants = new scala.collection.mutable.HashSet[ConstantTerm]
+    val constants = new MHashSet[ConstantTerm]
     val c = new SymbolCollector(null, constants, null)
     c.visitWithoutResult(t, 0)
     constants
   }
+  def constantsSorted(t : IExpression) : Seq[ConstantTerm] = {
+    val constants = new LinkedHashSet[ConstantTerm]
+    val c = new SymbolCollector(null, constants, null)
+    c.visitWithoutResult(t, 0)
+    constants.toSeq
+  }
   def nullaryPredicates(t : IExpression) : scala.collection.Set[Predicate] = {
-    val predicates = new scala.collection.mutable.HashSet[Predicate]
+    val predicates = new MHashSet[Predicate]
     val c = new SymbolCollector(null, null, predicates)
     c.visitWithoutResult(t, 0)
     predicates
@@ -507,9 +514,9 @@ object SymbolCollector {
       : (scala.collection.Set[IVariable],
          scala.collection.Set[ConstantTerm],
          scala.collection.Set[Predicate]) = {
-    val variables = new scala.collection.mutable.HashSet[IVariable]
-    val constants = new scala.collection.mutable.HashSet[ConstantTerm]
-    val predicates = new scala.collection.mutable.HashSet[Predicate]
+    val variables = new MHashSet[IVariable]
+    val constants = new MHashSet[ConstantTerm]
+    val predicates = new MHashSet[Predicate]
     val c = new SymbolCollector(variables, constants, predicates)
     c.visitWithoutResult(t, 0)
     (variables, constants, predicates)
