@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ABSEXECUTABLE=`readlink -m $0`
+ABSEXECUTABLE=`readlink $0`
 BASEDIR=`dirname $ABSEXECUTABLE`
 
 export CLASSPATH=$CLASSPATH:$BASEDIR/dist/princess-all.jar
