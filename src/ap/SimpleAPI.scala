@@ -247,6 +247,28 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  object FunctionalityMode extends Enumeration {
+    /**
+     * Full reasoning about functionality of a function.
+     * An explicit axiom of the form <code>f(x, y) & f(x, z) -> y = z</code>
+     * is introduced.
+     */
+    val Full = Value
+    /**
+     * Congruence reasoning for function applications with
+     * identical arguments, but no unification in case function arguments
+     * do not exactly match up.
+     */
+    val NoUnification = Value
+    /**
+     * No functionality reasoning for a function; the function
+     * behaves like an arbitrary relation.
+     */
+    val None = Value
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private object ProofActorStatus extends Enumeration {
     val Init, AtPartialModel, AtFullModel = Value
   }
@@ -750,23 +772,37 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Create a new uninterpreted function with fixed arity.
    */
-  def createFunction(rawName : String, arity : Int) : IFunction = {
+  def createFunction(rawName : String, arity : Int,
+                     functionalityMode : FunctionalityMode.Value =
+                       FunctionalityMode.Full) : IFunction = {
     doDumpScala {
       println("val " + sanitise(rawName) + " = " +
-              "createFunction(\"" + rawName + "\", " + arity + ")")
+              "createFunction(\"" + rawName + "\", " + arity +
+                   printFunctionalityMode(functionalityMode) + ")")
     }
-    createFunctionHelp(rawName, arity)
+    createFunctionHelp(rawName, arity, functionalityMode)
   }
 
-  private def createFunctionHelp(rawName : String, arity : Int) : IFunction = {
+  private def printFunctionalityMode(m : FunctionalityMode.Value) =
+    m match {
+      case FunctionalityMode.Full => ""
+      case m => ", functionalityMode = FunctionalityMode." + m
+    }
+
+  private def createFunctionHelp(rawName : String, arity : Int,
+                                 functionalityMode : FunctionalityMode.Value =
+                                   FunctionalityMode.Full)
+                                : IFunction = {
     flushTodo
 
     val name = sanitise(rawName)
-    val f = new IFunction(name, arity, true, false)
+    val f = new IFunction(name, arity, true,
+                          functionalityMode != FunctionalityMode.Full)
     // make sure that the function encoder knows about the function
     val (_, newOrder) =
       functionEnc.apply(IFunApp(f, List.fill(arity)(0)) === 0, currentOrder)
-    functionalPreds = functionalPreds ++ functionEnc.predTranslation.keysIterator
+    if (functionalityMode != FunctionalityMode.None)
+      functionalPreds = functionalPreds + functionEnc.relations(f)
     doDumpSMT {
       println("(declare-fun " + name + " (" +
           (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
@@ -785,13 +821,17 @@ class SimpleAPI private (enableAssert : Boolean,
    * Boolean functions can be used within triggers.
    */
   def createBooleanFunction(rawName : String,
-                            arity : Int) : IExpression.BooleanFunApplier =
+                            arity : Int,
+                            functionalityMode : FunctionalityMode.Value =
+                              FunctionalityMode.Full)
+                           : IExpression.BooleanFunApplier =
     new IExpression.BooleanFunApplier({
       doDumpScala {
         println("// createBooleanFunction" +
-                "(\"" + rawName + "\", " + arity + ")")
+                "(\"" + rawName + "\", " + arity +
+                printFunctionalityMode(functionalityMode) + ")")
       }
-      createFunction(rawName, arity)
+      createFunction(rawName, arity, functionalityMode)
     })
   
   /**

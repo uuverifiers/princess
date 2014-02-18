@@ -289,7 +289,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   // map with all predicates that are used to encode functions
-  private val relations =
+  protected[ap] val relations =
     new scala.collection.mutable.HashMap[IFunction, Predicate]
   
   val predTranslation =

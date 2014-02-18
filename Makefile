@@ -29,7 +29,7 @@ SCALABASEDIR:=/usr/local/scala
 SCALALIBDIR:=$(SCALABASEDIR)/lib
 
 JARSIGNERCMD:=jarsigner -keystore ../myKeys -storepass ../myPass -keypass ../myPass
-JARSIGNERALIAS:=phr
+JARSIGNERALIAS:=mykey
 
 PROGUARDJAR:=/home/philipp/tmp/proguard/lib/proguard.jar
 
@@ -50,7 +50,7 @@ copy-jars-to-dist:
 	$(shell cp $(SCALALIBDIR)/scala-actors.jar dist/)
 
 jar: scala-src
-	cd bin && jar cf princess.jar ap
+	cd bin && jar cmf ../dist/normal-manifest.txt princess.jar ap
 
 jar-assertionless: scala-src-assertionless
 	cd bin && jar cf princess.jar ap
