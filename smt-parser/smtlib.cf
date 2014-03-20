@@ -46,6 +46,7 @@ PopCommand.             Command         ::= "(" "pop" Numeral ")";
 AssertCommand.          Command	        ::= "(" "assert" Term ")";
 CheckSatCommand.        Command	        ::= "(" "check-sat" ")";
 GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" ")";
+GetModelCommand.        Command	        ::= "(" "get-model" ")";
 ExitCommand.            Command	        ::= "(" "exit" ")";
 
 separator Command "";
