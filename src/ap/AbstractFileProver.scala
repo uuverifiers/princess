@@ -67,7 +67,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     case Param.InputFormat.TPTP => TPTPTParser(settings.toParserSettings)
   }
   
-  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionEncoder) = {
+  val (inputFormulas, originalInputFormula,
+       interpolantSpecs, signature, gcedFunctions, functionEncoder) = {
     val parser = newParser
     val (f, interpolantSpecs, signature) = parser(reader)
     reader.close
@@ -98,7 +99,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         functionEnc.predTranslation.keySet.toSet
     }
     
-    (inputFormulas, interpolantS, sig, gcedFunctions, functionEnc)
+    val oriFormula =
+      // only store unprocessed input formula if we plan to print it later
+      if (Param.PRINT_SMT_FILE(settings) != "" ||
+          Param.PRINT_TPTP_FILE(settings) != "")  f else null
+
+    (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc)
   }
   
   private val functionalPreds = 

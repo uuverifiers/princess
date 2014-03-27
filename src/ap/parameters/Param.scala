@@ -64,6 +64,11 @@ object Param {
     val defau : String = ""
   }
   
+  case object PRINT_TPTP_FILE extends Param {
+    type Value = String
+    val defau : String = ""
+  }
+  
   case object PRINT_DOT_CERTIFICATE_FILE extends Param {
     type Value = String
     val defau : String = ""

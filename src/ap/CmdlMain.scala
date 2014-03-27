@@ -26,7 +26,8 @@ import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
-import ap.parser.{SMTLineariser, PrincessLineariser, IFormula, IExpression,
+import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
+                  IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface}
 import ap.util.{Debug, Seqs, Timeout}
@@ -65,7 +66,8 @@ object CmdlMain {
     println(" -inputFormat=val          Specify format of problem file:       (default: auto)")
     println("                             auto, pri, smtlib, tptp")
     println(" [+-]stdin                 Read SMT-LIB 2 problems from stdin       (default: -)")
-    println(" -printSMT=filename        Output the problem in SMT-Lib format    (default: \"\")")
+    println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
+    println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
     println(" [+-]assert                Enable runtime assertions                (default: -)")
     println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
@@ -100,6 +102,8 @@ object CmdlMain {
     println(" [+-]simplifyProofs        Simplify extracted proofs                (default: +)")
     println(" [+-]elimInterpolantQuants Eliminate quantifiers from interpolants  (default: +)")
   }
+
+  //////////////////////////////////////////////////////////////////////////////
   
   private def printSMT(prover : AbstractFileProver,
                        filename : String, settings : GlobalSettings) =
@@ -142,6 +146,29 @@ object CmdlMain {
       }
     }
   
+  private def printTPTP(prover : AbstractFileProver,
+                        filename : String, settings : GlobalSettings) =
+    if (Param.PRINT_TPTP_FILE(settings) != "") {
+      println
+      
+      def linearise : Unit = {
+        import IExpression._
+        TPTPLineariser(prover.originalInputFormula, filename)
+      }
+      
+      if (Param.PRINT_TPTP_FILE(settings) != "-") {
+        println("Saving in TPTP format to " +
+                Param.PRINT_TPTP_FILE(settings) + " ...")
+        val out = new java.io.FileOutputStream(Param.PRINT_TPTP_FILE(settings))
+        Console.withOut(out) { linearise }
+        out.close
+      } else {
+        linearise
+      }
+    }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   private def printDOTCertificate(cert : Certificate, settings : GlobalSettings) =
     if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "") {
       println
@@ -313,7 +340,10 @@ object CmdlMain {
             }
             
             prover match {
-              case prover : AbstractFileProver => printSMT(prover, name, settings)
+              case prover : AbstractFileProver => {
+                printSMT(prover, name, settings)
+                printTPTP(prover, name, settings)
+              }
               case _ => // nothing
             }
             
