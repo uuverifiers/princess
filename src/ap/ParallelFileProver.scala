@@ -147,6 +147,9 @@ object ParallelFileProver {
           var actorStopped : Boolean = false
           var runUntil : Long = 0
     
+          var runtime : Long = 0
+          var startTime : Long = 0
+
           def localStoppingCond : Boolean = actorStopped || {
             receiveWithin(0) {
               case SubProverStop => actorStopped = true
@@ -159,6 +162,8 @@ object ParallelFileProver {
 //              Console.err.println("suspending")
               mainActor ! SubProverSuspended(num)
           
+              runtime = runtime + System.currentTimeMillis - startTime
+
               var suspended = true
               while (!actorStopped && suspended) receive {
                 case SubProverStop =>
@@ -167,6 +172,7 @@ object ParallelFileProver {
                   runUntil = u
                   suspended = false
 //                  Console.err.println("resuming")
+                  startTime = System.currentTimeMillis
                 }
               }
           
@@ -195,6 +201,8 @@ object ParallelFileProver {
 //                Console.err.println("no time to start")
                 mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
               } else {
+                startTime = System.currentTimeMillis
+
                 val prover =
                   Timeout.withChecker({case x => ()}) {
                     new IntelliFileProver(createReader(),
@@ -207,13 +215,16 @@ object ParallelFileProver {
                   Console.err.println("stopped")
                   mainActor ! SubProverKilled(num, prover.result)
                 } else {
+                  runtime = runtime + System.currentTimeMillis - startTime
+
                   Console.err.println(prover.result match {
                     case _ : Prover.Proof |
                          _ : Prover.ProofWithModel |
                          _ : Prover.Model |
                              Prover.NoCounterModel |
                          _ : Prover.NoCounterModelCert | 
-                         _ : Prover.NoCounterModelCertInter => "proved"
+                         _ : Prover.NoCounterModelCertInter =>
+                      "proved (" + runtime + "ms)"
                     case _ : Prover.NoProof |
                              Prover.NoModel |
                          _ : Prover.CounterModel => "gave up"
