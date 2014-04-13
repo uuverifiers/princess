@@ -333,11 +333,11 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   /**
    * Totality axioms?
    */
-  private val totalityAxiom = true
+  private var totalityAxiom = true
   /**
    * Functionality axioms?
    */
-  private val functionalityAxiom = true
+  private var functionalityAxiom = true
 
   protected def defaultFunctionType(f : IFunction) : Rank = tptpType match {
     case TPTPType.FOF | TPTPType.CNF =>
@@ -785,8 +785,35 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   // Slightly rewritten version of the BNF rule in the TPTP report, to discrimate
   // between type and non-type very early, thus helping the parser.
   private lazy val tff_annotated_type_formula =
-    ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~
-    (atomic_word | wholeNumber) ~ "," ~ "type" ~ "," ~> tff_typed_atom <~ ")" ~ "."
+    (("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~
+     (atomic_word | wholeNumber) ~ "," ~ "type" ~ "," ~> tff_typed_atom ~
+       opt("," ~> formula_source ~ opt("," ~> formula_useful_info)) <~ ")" ~ ".") ^^ {
+       case declarator ~ None           => declarator()
+       case declarator ~ Some(_ ~ None) => declarator()
+
+       case declarator ~ Some(_ ~ Some(infos)) => {
+         val oldTotality = totalityAxiom
+         val oldFunctionality = functionalityAxiom
+
+         if (infos contains "partial")
+           totalityAxiom = false
+         if (infos contains "relational")
+           functionalityAxiom = false
+
+         val res = declarator()
+
+         totalityAxiom = oldTotality
+         functionalityAxiom = oldFunctionality
+
+         res
+       }
+    }
+
+  private lazy val formula_source : PackratParser[Unit] =
+    ( "unknown" | "source_unknown" ) ^^ { case _ => () }
+
+  private lazy val formula_useful_info : PackratParser[Seq[String]] =
+    "[" ~> rep1sep(atomic_word, ",") <~ "]"
 
   private var inConjecture = false
   
@@ -828,19 +855,19 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
 
   // tff_typed_atom can appear only at toplevel
-  private lazy val tff_typed_atom:PackratParser[IFormula] =
+  private lazy val tff_typed_atom:PackratParser[() => IFormula] =
      ( ( tff_untyped_atom ~ ":" ~ tff_top_level_type ) ^^ { 
        // could declare a new type or a symbol of an existing type
-       case typeName ~ ":" ~ Rank((Nil, TType)) => {
+       case typeName ~ ":" ~ Rank((Nil, TType)) => { () =>
          declareType(Type(typeName))
-	     i(false)
+         i(false)
        }
        case symbolName ~ ":" ~ (rank@Rank((Nil, t)))
-         if (declaredTypes(t).isDefined) => {
+         if (declaredTypes(t).isDefined) => { () =>
            declareSym(symbolName, rank)
            !(declaredTypes(t).get)(checkUnintFunTerm(symbolName, List(), List())._1)
          }
-       case symbolName ~ ":" ~ rank => {
+       case symbolName ~ ":" ~ rank => { () =>
          declareSym(symbolName, rank)
          i(false)
        }
@@ -848,23 +875,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
      ( "(" ~> tff_typed_atom <~ ")" )
            
          
-         /*
-         if (rank.argsTypes.isEmpty && 
-					  // Prop variables are better handled
-					  // by the foreground
-					  rank.resType != OType &&
-					  (Sigma.BGTypes contains rank.resType) &&
-					  Flags.paramsOpSet.value == "BG")
-					// only in this case we have a BG operator
-					Sigma = Sigma addBG (symbolName -> rank)
-				      else
-					Sigma += (symbolName -> rank)
-				      // return a dummy
-				      // println("declared")
-				      // TrueAtom
-				    }
-				  */
-     
   private def declareSym(symbolName : String, rank : Rank) : Unit = {
          if (rank.argsTypes contains OType)
            throw new SyntaxError("Error: type declaration for " + 
