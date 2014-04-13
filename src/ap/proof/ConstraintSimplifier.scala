@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -112,8 +112,9 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
     cache(rawF) {
       val f = ReduceWithConjunction(Conjunction.TRUE, order)(rawF)
       collectQuantifiers(f) match {
-      case ALL => simplify(f, order)
-      case EX => negSimplify(f, order)
+//      case ALL | EX if (!f.quans.isEmpty) => simplifyMiniScope(f, order)
+      case ALL   => simplify(f, order)
+      case EX    => negSimplify(f, order)
       case EMPTY =>
         if (ground2DNF && f.size > 1)
           negSimplify(f, order)
@@ -126,10 +127,10 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
   private def simplify(f : Conjunction, order : TermOrder) : Conjunction =
     Timeout.unfinishedValue(None) {
       println("Simplify: " + f + " (positive)")
-      val res = if (lemmas) {
+      val res = if (lemmas) Console.withOut(ap.CmdlMain.NullStream) {
         QuantifierElimProver(f, false, order)
       } else {
-        val tree = posProver(f, order)
+        val tree = Console.withOut(ap.CmdlMain.NullStream) { posProver(f, order) }
         TestProofTree.assertNormalisedTree(tree)
         tree.closingConstraint
       }
@@ -140,10 +141,10 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
   private def negSimplify(f : Conjunction, order : TermOrder) : Conjunction =
     Timeout.unfinishedValue(None) {
       println("Simplify: " + f + " (negative)")
-      val res = if (lemmas) {
+      val res = if (lemmas) Console.withOut(ap.CmdlMain.NullStream) {
         QuantifierElimProver(f.negate, ground2DNF, order).negate
       } else {
-        val tree = negProver(f.negate, order)
+        val tree = Console.withOut(ap.CmdlMain.NullStream) { negProver(f.negate, order) }
         TestProofTree.assertNormalisedTree(tree)
         tree.closingConstraint.negate
       }
@@ -159,5 +160,31 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
               Set()
             else
               Set(conj.quans(0))))
+
+  private def simplifyMiniScope(f : Conjunction, order : TermOrder) : Conjunction = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ConstraintSimplifier.AC, !f.quans.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val (withoutQ, withQ) =
+      f.iterator partition {
+                  x => x.variables.isEmpty && collectQuantifiers(x).isEmpty }
+    val withQList = withQ.toList
+
+    val subres =
+      if (withQList.size == 1 && withQList.head.isNegatedConjunction) {
+          simplifyMiniScope(Conjunction.quantify(for (q <- f.quans) yield q.dual,
+                                   withQList.head.negatedConjs(0), order), order).negate
+      } else {
+        val withFor =
+          Conjunction.quantify(f.quans, Conjunction.conj(withQList, order), order)
+        f.quans.last match {
+          case Quantifier.ALL => simplify(withFor, order)
+          case Quantifier.EX  => negSimplify(withFor, order)
+        }
+      }
+
+    Conjunction.conj((Iterator single subres) ++ withoutQ, order)
+  }
   
 }

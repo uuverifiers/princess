@@ -25,7 +25,8 @@ import IExpression.{ConstantTerm, Predicate}
 import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
-import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer}
+import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
+                                 LinkedHashSet, HashSet => MHashSet}
 import scala.collection.{Map => CMap}
 
 
@@ -486,19 +487,25 @@ object VariableSubstVisitor
 
 object SymbolCollector {
   def variables(t : IExpression) : scala.collection.Set[IVariable] = {
-    val variables = new scala.collection.mutable.HashSet[IVariable]
+    val variables = new MHashSet[IVariable]
     val c = new SymbolCollector (variables, null, null)
     c.visitWithoutResult(t, 0)
     variables
   }
   def constants(t : IExpression) : scala.collection.Set[ConstantTerm] = {
-    val constants = new scala.collection.mutable.HashSet[ConstantTerm]
+    val constants = new MHashSet[ConstantTerm]
     val c = new SymbolCollector(null, constants, null)
     c.visitWithoutResult(t, 0)
     constants
   }
+  def constantsSorted(t : IExpression) : Seq[ConstantTerm] = {
+    val constants = new LinkedHashSet[ConstantTerm]
+    val c = new SymbolCollector(null, constants, null)
+    c.visitWithoutResult(t, 0)
+    constants.toSeq
+  }
   def nullaryPredicates(t : IExpression) : scala.collection.Set[Predicate] = {
-    val predicates = new scala.collection.mutable.HashSet[Predicate]
+    val predicates = new MHashSet[Predicate]
     val c = new SymbolCollector(null, null, predicates)
     c.visitWithoutResult(t, 0)
     predicates
@@ -507,9 +514,9 @@ object SymbolCollector {
       : (scala.collection.Set[IVariable],
          scala.collection.Set[ConstantTerm],
          scala.collection.Set[Predicate]) = {
-    val variables = new scala.collection.mutable.HashSet[IVariable]
-    val constants = new scala.collection.mutable.HashSet[ConstantTerm]
-    val predicates = new scala.collection.mutable.HashSet[Predicate]
+    val variables = new MHashSet[IVariable]
+    val constants = new MHashSet[ConstantTerm]
+    val predicates = new MHashSet[Predicate]
     val c = new SymbolCollector(variables, constants, predicates)
     c.visitWithoutResult(t, 0)
     (variables, constants, predicates)
@@ -716,6 +723,99 @@ object LineariseVisitor {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object QuantifierCountVisitor {
+  def apply(f : IFormula) : Int = {
+    val v = new QuantifierCountVisitor
+    v.visitWithoutResult(f, {})
+    v.count
+  }
+}
+
+/**
+ * Count the number of quantifiers in a formula
+ */
+class QuantifierCountVisitor extends CollectingVisitor[Unit, Unit] {
+  private var count = 0
+
+  def postVisit(t : IExpression, arg : Unit,
+                subres : Seq[Unit]) : Unit = t match {
+    case t : IQuantified => count = count + 1
+    case _ => // nothing
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object Transform2Prenex {
+  private val AC = Debug.AC_INPUT_ABSY
+
+  def apply(f : IFormula) : IFormula = {
+    val quantifierNum = QuantifierCountVisitor(f)
+    if (quantifierNum == 0) {
+      f
+    } else {
+      val v = new Transform2Prenex(quantifierNum)
+      val quantifierFree =
+        v.visit(f, Context(List[IVariable]())).asInstanceOf[IFormula]
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC, quantifierNum == v.quantifiersToAdd.size)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      IExpression.quan(v.quantifiersToAdd, quantifierFree)
+    }
+  }
+}
+
+/**
+ * Turn a formula into prenex form.
+ */
+class Transform2Prenex private (finalQuantifierNum : Int)
+      extends ContextAwareVisitor[List[IVariable], IExpression] {
+
+  private val quantifiersToAdd = new ArrayBuffer[Quantifier]
+
+  override def preVisit(t : IExpression,
+                        context : Context[List[IVariable]])
+                       : PreVisitResult = t match {
+    case IQuantified(q, _) => {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(Transform2Prenex.AC, context.polarity != 0)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      val newVars = IVariable(finalQuantifierNum - quantifiersToAdd.size - 1) :: context.a
+      quantifiersToAdd += (if (context.polarity > 0) q else q.dual)
+      super.preVisit(t, context(newVars))
+    }
+    case _ : IEpsilon => {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      // case that we don't expect here
+      Debug.assertInt(Transform2Prenex.AC, false)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      null
+    }
+    case _ => super.preVisit(t, context)
+  }
+
+  def postVisit(t : IExpression, context : Context[List[IVariable]],
+                subres : Seq[IExpression]) : IExpression = t match {
+    case v@IVariable(ind)  => {
+      val newVar =
+        if (ind >= context.a.size)
+          IVariable(ind - context.a.size + finalQuantifierNum)
+        else
+          context.a(ind)
+      if (newVar == v) v else newVar
+    }
+    case _ : IQuantified =>
+      subres(0)
+    case _               =>
+      t update subres
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Compute the number of operators in an expression.
+ */
 object SizeVisitor {
   def apply(e : IExpression) : Int = {
     var size = 0

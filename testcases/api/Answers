@@ -95,6 +95,11 @@ Equivalent qf constraint: X = 42 | X = 3
 Valid
 Equivalent qf constraint: X = 42 | X = 3 | (X = 100 & Y >= 100)
 
+-- Simplification, projection
+Project 5 < x & x < 2*y existentially to y: !(3 >= y)
+Project x > y | x < 0 universally to x: -1 >= x
+Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
+
 -- Asynchronous interface
 Running
 Running
@@ -152,6 +157,9 @@ Invalid
 Valid
 Sat
 Sat
+Starting ...
+T/O
+Valid
 0: Unsat
 1: Vector(rootjthen_fwd, false)
 0: Sat
@@ -167,3 +175,15 @@ Sat
 11: 1
 12: 3
 13: -5
+Sat
+List((Vector(0, 1),2), (Vector(1, 2),3))
+Sat
+List((Vector(0, 2),1), (Vector(0, 1),2), (Vector(1, 2),3))
+Unsat
+Valid
+Unsat
+Sat
+{c -> 0, b -> 0, a -> 0, mul(0, 0) -> 0}
+Unsat
+Unsat
+Unsat

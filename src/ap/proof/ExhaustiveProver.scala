@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -202,9 +202,11 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
   }
 
   private def isGoalLike(tree : ProofTree) : Boolean = tree match {
-    case _ : Goal                                   => true
-    case QuantifiedTree(Quantifier.ALL, _, subtree) => isGoalLike(subtree)
-    case _                                          => false
+    case _ : Goal                                                       => true
+    case StrengthenTree(_, _ : Goal)                                    => true
+    case QuantifiedTree(Quantifier.ALL, _, _ : Goal)                    => true
+    case QuantifiedTree(Quantifier.ALL, _, StrengthenTree(_, _ : Goal)) => true
+    case _                                                              => false
   }
 
   /**

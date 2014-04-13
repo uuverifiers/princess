@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -231,7 +231,6 @@ class Goal private (val facts : Conjunction,
                    (facts isSortedBy order) &&
                    (compoundFormulas isSortedBy order) &&
                    (definedSyms isSortedBy order) &&
-                   (order constantsAreMaximal eliminatedConstants) &&
                    (order constantsAreMaximal eliminatedConstants) &&
                    // domain predicates should only occur positively
                    (facts.predConj.negativeLits forall { a =>

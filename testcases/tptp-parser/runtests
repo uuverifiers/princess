@@ -9,9 +9,9 @@ TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
        SYO561_1.p SYO563+1.p SYO563+2.p let-tests.p \
        quotes.p multiple-conjectures.p"
 
-$PRI "$@" $TESTS
+$PRI "$@" $TESTS 2>&1 | grep -v '^Prover'
 
-$PRI "$@" SWV032+1.p -assert
+$PRI "$@" SWV032+1.p -assert 2>&1 | grep -v '^Prover'
 
 # will exit with an exception
 $PRI "$@" SYN000_2.p

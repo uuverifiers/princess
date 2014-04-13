@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -395,7 +395,42 @@ object ModelSearchProver {
         null
       }
       case DeriveFullModelDir => {
-        val model = if (goal.constantFreedom.isBottom) {
+        // Check whether the theory plugin can give us a model
+        val theoryModel =
+          for (plugin <- Param.THEORY_PLUGIN(settings);
+               m <- plugin generateModel goal) yield m
+
+        val model = if (theoryModel.isDefined) {
+          // replace the facts with the model, and continue
+          // proving to take care of other possible predicates
+          // in the goal
+
+          val newSettings =
+            Param.GARBAGE_COLLECTED_FUNCTIONS.set(
+              Param.THEORY_PLUGIN.set(settings, None),
+              Set())
+          val newGoal = Goal(Conjunction.TRUE, CompoundFormulas.EMPTY(Map()),
+                             TaskManager.EMPTY ++ (
+                               goal formulaTasks theoryModel.get.negate),
+                             goal.age,
+                             goal.eliminatedConstants,
+                             goal.vocabulary,
+                             goal.definedSyms,
+                             goal.branchInferences,
+                             newSettings)
+          val res = findModel(newGoal,
+                              List(), witnesses, constsToIgnore, depth,
+                              newSettings, FullModelDirector)
+
+          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+          // We should be able to derive a counterexample
+          Debug.assertPost(ModelSearchProver.AC, res match {
+                             case ModelResult(model) => !model.isFalse
+                             case _ => false
+                           })
+          //-END-ASSERTION-///////////////////////////////////////////////////////
+          res.asInstanceOf[ModelResult].model
+        } else if (goal.constantFreedom.isBottom) {
           // we have already found a model
         
           val order = goal.order

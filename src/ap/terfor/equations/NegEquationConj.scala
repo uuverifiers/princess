@@ -144,6 +144,14 @@ class NegEquationConj private (_lhss : Array[LinearCombination],
          
   //////////////////////////////////////////////////////////////////////////////
 
+  def --(that : NegEquationConj) : NegEquationConj =
+    if (that.isTrue)
+      this
+    else
+      updateEqsSubset(Seqs.diff(this, that)(order.lcOrdering)._2)(order)
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def isTrue : Boolean = this.isEmpty
 
   /**

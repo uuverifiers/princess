@@ -163,7 +163,8 @@ class TestInequalities(n : String) extends APTestCase(n) {
       val reducer = ReduceWithInEqs(inEqConj, to)
       
       // reducing inequalities with itself produces a trivial conjunction
-      assert(inEqConj.isFalse || reducer(inEqConj) == InEqConj.TRUE)
+      assert(inEqConj.isFalse || !inEqConj.equalityInfs.isEmpty ||
+             reducer(inEqConj) == InEqConj.TRUE)
       
       val reduced = reducer(toBeReduced)
       
@@ -174,13 +175,13 @@ class TestInequalities(n : String) extends APTestCase(n) {
       
       {
         val allAssumptions = InEqConj.conj(Array(inEqConj, toBeReduced), to)
-        assert(allAssumptions.isFalse ||
+        assert(allAssumptions.isFalse || !allAssumptions.equalityInfs.isEmpty ||
                ReduceWithInEqs(allAssumptions, to)(reduced).isTrue)
       }
 
       {
         val allAssumptions = InEqConj.conj(Array(inEqConj, reduced), to)
-        assert(allAssumptions.isFalse ||
+        assert(allAssumptions.isFalse || !allAssumptions.equalityInfs.isEmpty ||
                ReduceWithInEqs(allAssumptions, to)(toBeReduced).isTrue)
       }
     }

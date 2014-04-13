@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,10 +41,9 @@ class SimpleProofTreeFactory(removeTask : Boolean,
   def quantify(subtree : ProofTree,
                quan : Quantifier,
                quantifiedConstants : Seq[ConstantTerm],
-               guard : Conjunction,
                vocabulary : Vocabulary,
                subtreeOrder : TermOrder) : ProofTree =
-    QuantifiedTree(subtree, quan, quantifiedConstants, guard,
+    QuantifiedTree(subtree, quan, quantifiedConstants,
                    vocabulary, subtreeOrder, simplifier)
   
   def weaken(subtree : ProofTree,
@@ -52,6 +51,11 @@ class SimpleProofTreeFactory(removeTask : Boolean,
              vocabulary : Vocabulary) : ProofTree =
     WeakenTree(subtree, disjunct, vocabulary)
                
+  def strengthen(subtree : ProofTree,
+                 conjunct : Conjunction,
+                 vocabulary : Vocabulary) : ProofTree =
+    StrengthenTree(subtree, conjunct, vocabulary, simplifier)
+
   // not supposed to do anything when constructing proofs
   def eliminatedConstant(subtree : ProofTree,
                          m : ModelElement,

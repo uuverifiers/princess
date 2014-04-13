@@ -1,6 +1,14 @@
 #!/bin/sh
 
-BASEDIR=`dirname $(readlink -e $0)`
+if [ $(uname) = "Linux" ]; then
+    pathCmd="readlink -f"
+elif [ $(uname) = "Darwin" ]; then
+    pathCmd="stat -f %N"
+else
+    pathCmd="realpath"
+fi
+
+BASEDIR=`dirname $($pathCmd $0)`
 
 export CLASSPATH=$CLASSPATH:$BASEDIR/dist/princess-all.jar
 

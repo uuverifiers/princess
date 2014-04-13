@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,6 +62,11 @@ object Param {
   }
 
   case object PRINT_SMT_FILE extends Param {
+    type Value = String
+    val defau : String = ""
+  }
+  
+  case object PRINT_TPTP_FILE extends Param {
     type Value = String
     val defau : String = ""
   }

@@ -382,6 +382,14 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def --(that : InEqConj) : InEqConj =
+    if (that.isTrue)
+      this
+    else
+      updateGeqZeroSubset(Seqs.diff(this, that)(order.lcOrdering)._2)(order)
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Eliminate all inequalities with the leading term <code>t</code>
    * using Fourier-Motzkin. This is only possible if <code>t</code> does not

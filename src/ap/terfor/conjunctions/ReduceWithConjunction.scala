@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,15 +52,17 @@ object ReduceWithConjunction {
             assumeInfiniteDomain : Boolean,
             order : TermOrder) : ReduceWithConjunction = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, (conj isSortedBy order) &&
-                    // conjunctions with quantifiers are not supported right now
-                    conj.quans.isEmpty)
+    Debug.assertPre(AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    new ReduceWithConjunction(ReduceWithAC(conj.arithConj, order),
-                              ReduceWithPredLits(conj.predConj, functionalPreds, order),
-                              assumeInfiniteDomain,
-                              order)
+
+    if (conj.quans.isEmpty)
+      new ReduceWithConjunction(ReduceWithAC(conj.arithConj, order),
+                                ReduceWithPredLits(conj.predConj, functionalPreds, order),
+                                assumeInfiniteDomain,
+                                order)
+    else
+      // formulas with quantifiers are not supported right now
+      apply(Conjunction.TRUE, functionalPreds, order)
   }
   
   /**

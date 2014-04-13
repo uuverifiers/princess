@@ -61,6 +61,8 @@ object GlobalSettings {
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>
           Param.PRINT_SMT_FILE.set(settings, value)
+        case ValueOpt("printTPTP", value) =>
+          Param.PRINT_TPTP_FILE.set(settings, value)
         case ValueOpt("printDOT", value) =>
           Param.PRINT_DOT_CERTIFICATE_FILE.set(settings, value)
         case Opt("assert", value) =>
@@ -146,7 +148,8 @@ object GlobalSettings {
   
   val allParams =
     List(Param.LOGO, Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
-         Param.ASSERTIONS, Param.PRINT_TREE, Param.PRINT_SMT_FILE,
+         Param.ASSERTIONS, Param.PRINT_TREE,
+         Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,

@@ -1,0 +1,3 @@
+Permissions: sandbox
+Codebase: www.philipp.ruemmer.org
+Application-Name: Princess

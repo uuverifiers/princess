@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,13 +26,13 @@ import ap.proof.{ConstraintSimplifier, ModelSearchProver, ExhaustiveProver}
 import ap.terfor.{Formula, ConstantTerm, VariableTerm, TermOrder}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
-                               IterativeClauseMatcher}
+                               IterativeClauseMatcher, NegatedConjunctions}
 import ap.terfor.preds.PredConj
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst, ConstantSubst}
 import ap.terfor.TerForConvenience._
 import ap.parameters.{GoalSettings, Param}
-import ap.util.{Debug, Seqs, IdealRange}
+import ap.util.{Debug, Seqs, IdealRange, Combinatorics}
 
 /**
  * A collection of tools for analysing and transforming formulae in Presburger
@@ -69,18 +69,61 @@ object PresburgerTools {
    * a formula <code> a & b | a & c </code> might only be normalised to
    * <code> a & (b | c) </code>
    */
-  def toDNF(formula : Conjunction) : Conjunction = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, isQFPresburger(formula))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    ConstraintSimplifier.LEMMA_SIMPLIFIER(formula, formula.order)
-  }
+  def toDNF(formula : Conjunction) : Conjunction =
+    if (isQFPresburger(formula))
+      ConstraintSimplifier.LEMMA_SIMPLIFIER(formula, formula.order)
+    else
+      Conjunction.disj(toDNFGeneral(formula), formula.order)
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def toDNFGeneral(f : Conjunction) : Seq[Conjunction] =
+    if (f.isDivisibility || f.isNonDivisibility || f.isLiteral) {
+      List(f)
+    } else {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, f.quans.isEmpty)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      val order = f.order
+
+      val subDNFs =
+        (for (c <- f.negatedConjs) yield (toCNFGeneral(c) map (_.negate))).toList
+
+      (for (combination <- Combinatorics.cartesianProduct(subDNFs))
+       yield Conjunction.conj(combination.iterator ++
+                              Seqs.doubleIterator(f.arithConj, f.predConj), order)).toSeq
+    }
+
+  private def toCNFGeneral(f : Conjunction) : Seq[Conjunction] =
+    if (f.isDivisibility || f.isNonDivisibility || f.isLiteral) {
+      List(f)
+    } else {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, f.quans.isEmpty)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      val order = f.order
+
+      (
+        (for (a <- f.arithConj.iterator) yield Conjunction.conj(a, order)) ++
+        (for (a <- f.predConj.iterator)  yield Conjunction.conj(a, order)) ++
+        (for (c <- f.negatedConjs.iterator;
+              disjunct <- toDNFGeneral(c).iterator) yield disjunct.negate)
+      ).toSeq
+    }
   
   //////////////////////////////////////////////////////////////////////////////
   
+  /**
+   * Enumerate the disjuncts of a formula that already is in DNF.
+   */
   def enumDisjuncts(disjunction : Conjunction) : Iterator[Conjunction] =
     enumDisjunctsPos(disjunction, Conjunction.TRUE)
   
+  /**
+   * Enumerate the disjuncts of a formula (which might not be in DNF).
+   */
   def nonDNFEnumDisjuncts(formula : Conjunction) : Iterator[Conjunction] =
     enumDisjuncts(toDNF(formula))
   
@@ -519,4 +562,62 @@ object PresburgerTools {
     val fors = ReduceWithConjunction(Conjunction.TRUE, order)(!c | !axioms)
     expansionProver(fors, order).closingConstraint.negate
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Convert a given formula to prenex form.
+   * TODO: do something special for divisibilities?
+   */
+  def toPrenex(c : Conjunction) : Conjunction = {
+    val subConj = (for (subC <- c.negatedConjs) yield toPrenex(subC)).toArray
+    
+    var currentQuan = c.quans.headOption.getOrElse(Quantifier.ALL)
+    var allQuans = c.quans.toList
+    
+    while (subConj exists (!_.quans.isEmpty)) {
+      currentQuan = currentQuan.dual
+      
+      val quanNums = for (d <- subConj)
+        yield ((d.quans lastIndexOf currentQuan.dual) match {
+          case -1 => d.quans.size
+          case x => d.quans.size - x - 1
+        })
+            
+      currentQuan match {
+        case Quantifier.ALL => {
+          val quanNum = quanNums.sum
+          
+          var innerOffset = 0
+          for (i <- 0 until subConj.size) {
+            val subst = VariableShiftSubst(Array.fill(quanNums(i)){innerOffset},
+                                           quanNum - quanNums(i), c.order)
+            subConj(i) = subst(subConj(i) unquantify quanNums(i))
+            innerOffset = innerOffset + quanNums(i)
+          }
+          
+          for (_ <- 0 until quanNum) allQuans = Quantifier.EX :: allQuans
+        }
+        case Quantifier.EX => {
+          val quanNum = quanNums.max
+          
+          for (i <- 0 until subConj.size) {
+            val subst = VariableShiftSubst(0, quanNum - quanNums(i), c.order)
+            subConj(i) = subst(subConj(i)) unquantify quanNums(i)
+          }
+          
+          for (_ <- 0 until quanNum) allQuans = Quantifier.ALL :: allQuans
+        }
+      }
+    }
+
+    val nShifter = VariableShiftSubst(0, allQuans.size - c.quans.size, c.order)
+    
+    Conjunction(allQuans,
+                nShifter(c.arithConj),
+                nShifter(c.predConj),
+                NegatedConjunctions(subConj, c.order),
+                c.order)
+  }
+
 }

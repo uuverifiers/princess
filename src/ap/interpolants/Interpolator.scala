@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *                    Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -571,22 +571,33 @@ object Interpolator
         val largerConsts =
           for (c <- proofOrder.orderedConstants;
                if (proofOrder.compare(c, newSymb) > 0)) yield c
+
+        val extendedOrder = iContext.order.extend(newSymb, largerConsts)
+
+        val (newContext) =
+          if (eq.constants forall (iContext.leftConstants + newSymb)) {
+            iContext.setOrder(extendedOrder).addLeft(eq)
+          } else if (eq.constants forall (iContext.rightConstants + newSymb)) {
+            iContext.setOrder(extendedOrder).addRight(eq)
+          } else {
+
+            implicit val _ = extendedOrder
         
-        implicit val extendedOrder = iContext.order.extend(newSymb, largerConsts)
-        
-        val leftLinComb = eq.lhs filterPairs ( (c, t) => t match {
-          case c : ConstantTerm => iContext.leftConstants contains c
-          case _ => false
-        } )
+            val leftLinComb = eq.lhs filterPairs ( (c, t) => t match {
+              case c : ConstantTerm => iContext.leftConstants contains c
+              case _ => false
+            } )
           
-        val newInterLHS = leftLinComb - newSymb
+           val newInterLHS = leftLinComb - newSymb
+           val partialInter = PartialInterpolant.eqLeft(newInterLHS)
         
-        val partialInter = PartialInterpolant.eqLeft(newInterLHS)
-        
-        val newContext = iContext.setOrder(extendedOrder)
-                                 .addLeft(CertEquation(newInterLHS))
-                                 .addPartialInterpolant(eq, partialInter)
-        
+           iContext.setOrder(extendedOrder)
+                   .addLeft(CertEquation(newInterLHS))
+                   .addPartialInterpolant(eq, partialInter)
+
+   //         throw new Error("Column reduce is not supported for mixed terms")
+          }
+
         processBranchInferences(remInferences, child, newContext)
       }
     
@@ -781,7 +792,7 @@ object Interpolator
 
         val totalInter =
           processBranchInferences(remInferences, child, newContext).toConjunction
-         
+
         LazyConjunction(
           if (iContext isFromLeft qFormula) {
             forall(consts.filter(iContext.rightLocalConstants contains _), totalInter)

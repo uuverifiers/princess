@@ -70,7 +70,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   import CmdlMain.domain_size
   
-  val (inputFormulas, interpolantSpecs, signature, gcedFunctions, functionEncoder,
+  val (inputFormulas, originalInputFormula,
+       interpolantSpecs, signature, gcedFunctions, functionEncoder,
        settings) = {
     val parser = newParser
     val (f, interpolantSpecs, preSignature) = parser(reader)
@@ -127,7 +128,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         functionEnc.predTranslation.keySet.toSet
     }
     
-    (inputFormulas, interpolantS, sig, gcedFunctions, functionEnc, settings)
+    val oriFormula =
+      // only store unprocessed input formula if we plan to print it later
+      if (Param.PRINT_SMT_FILE(settings) != "" ||
+          Param.PRINT_TPTP_FILE(settings) != "")  f else null
+
+    (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc, settings)
   }
 
   private val functionalPreds = 

@@ -413,6 +413,9 @@ class TermOrder private (
   }
 
   def extend(newConst : ConstantTerm) : TermOrder = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(TermOrder.AC, !(constantWeight contains newConst))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val o = constantNum.size
     new TermOrder(newConst :: constantSeq, predicateSeq,
                   constantWeight + (newConst -> ConstantWeight(o)),
@@ -421,6 +424,10 @@ class TermOrder private (
   }
 
   def extend(newConsts : Seq[ConstantTerm]) : TermOrder = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(TermOrder.AC,
+                    newConsts forall { c => !(constantWeight contains c) })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val o = constantNum.size
     new TermOrder((constantSeq /: newConsts) { case (l, c) => c :: l },
                   predicateSeq,

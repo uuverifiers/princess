@@ -443,8 +443,8 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val res =
-      if (a.isEmpty) {
-        // no arguments
+      if (a.isEmpty || (a.constants.isEmpty && a.variables.isEmpty)) {
+        // no arguments that could be reduced
         a
         
       } else if (logger.isLogging) {

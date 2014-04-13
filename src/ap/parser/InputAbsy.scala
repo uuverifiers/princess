@@ -320,6 +320,31 @@ object IExpression {
    */
   def sum(terms : Iterator[ITerm]) : ITerm =
     if (terms.hasNext) terms reduceLeft (IPlus(_, _)) else i(0)
+
+  /**
+   * Generate a formula expressing that the given terms are
+   * pairwise distinct
+   */
+  def distinct(terms : Iterator[ITerm]) : IFormula = {
+    var termList = terms.toList
+    var res : IFormula = true
+
+    while (!termList.isEmpty) {
+      val t1 = termList.head
+      termList = termList.tail
+      for (t2 <- termList.iterator)
+        res = res &&& (t1 =/= t2)
+    }
+
+    res
+  }
+
+  /**
+   * Generate a formula expressing that the given terms are
+   * pairwise distinct
+   */
+  def distinct(terms : Iterable[ITerm]) : IFormula =
+    distinct(terms.iterator)
   
   /** Extract the value of constant terms. */
   object Const {

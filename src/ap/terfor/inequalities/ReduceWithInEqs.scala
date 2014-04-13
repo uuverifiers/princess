@@ -23,6 +23,7 @@ package ap.terfor.inequalities;
 
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.arithconj.{ArithConj, ReduceWithAC}
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
 import ap.terfor.substitutions.VariableShiftSubst
@@ -78,6 +79,12 @@ abstract class ReduceWithInEqs {
    * are inferred.
    */
   def apply(conj : InEqConj) : InEqConj
+
+  /**
+   * Reduce a conjunction of inequalities without implied equations.
+   * (i.e., <code>conj.equalityInfs.isEmpty</code>)
+   */
+  def reduceNoEqualityInfs(conj : InEqConj) : InEqConj
 }
 
 /**
@@ -105,6 +112,8 @@ class ReduceWithEmptyInEqs protected[inequalities]
   def apply(conj : NegEquationConj) : NegEquationConj = conj
 
   def apply(conj : InEqConj) : InEqConj = conj
+
+  def reduceNoEqualityInfs(conj : InEqConj) : InEqConj = conj
 }
 
 /**
@@ -203,6 +212,51 @@ class ReduceWithInEqsImpl protected[inequalities]
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithInEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val res =
+      if (conj.equalityInfs.isEmpty) {
+        reduceNoEqualityInfs(conj)
+      } else {
+        val reducer = ReduceWithAC(this, order)
+        val ac = ArithConj(EquationConj.TRUE,
+                           NegEquationConj.TRUE,
+                           conj,
+                           order)
+        val acRes = reducer(ac)
+
+        if (acRes eq ac) {
+          conj
+        } else {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(ReduceWithInEqs.AC,
+                          acRes.negativeEqs.isEmpty &&
+                          acRes.inEqs.equalityInfs.isEmpty)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          val res =
+            InEqConj(acRes.inEqs.iterator ++
+                     (for (lc <- acRes.positiveEqs.iterator;
+                           a <- Seqs.doubleIterator(lc, -lc))
+                      yield a), order)
+
+          if (res == conj)
+            conj
+          else
+            res
+        }
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithInEqs.AC, (res eq conj) || res != conj)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    res
+  }
+
+  def reduceNoEqualityInfs(conj : InEqConj) : InEqConj = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ReduceWithInEqs.AC,
+                    (conj isSortedBy order) && conj.equalityInfs.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val res =
       if (conj.isTrue || conj.isFalse) {
@@ -231,10 +285,8 @@ class ReduceWithInEqsImpl protected[inequalities]
                           // we can infer an equation from an inequality
                           // by inserting an upper bound as well
                           newLCs += lc
-                          if (!(conj.equalityInfs contains lc.makePositive)) {
-                            newLCs += negLC
-                            changed = true
-                          }
+                          newLCs += negLC
+                          changed = true
                         }
                         case _ => {
                           // we have to keep the inequality

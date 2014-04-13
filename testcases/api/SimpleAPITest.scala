@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -314,6 +314,21 @@ object SimpleAPITest extends App {
       println("Equivalent qf constraint: " +   // X = 42 | X = 3 | (X = 100 & Y >= 100)
               pp(getConstraint))
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  part("Simplification, projection")
+
+  scope {
+    val x = createConstant("x")
+    val y = createConstant("y")
+    println("Project 5 < x & x < 2*y existentially to " + y + ": " +
+            pp(projectEx(5 < x & x < 2*y, List(y))))
+    println("Project x > y | x < 0 universally to " + x + ": " +
+            pp(projectAll(x > y | x < 0, List(x))))
+    println("Simplify ex(x => 5 < x & x < 2*y) to: " +
+            pp(simplify(ex(x => 5 < x & x < 2*y))))
   }
 
   //////////////////////////////////////////////////////////////////////////////

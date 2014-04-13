@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,11 +39,15 @@ object Preprocessing {
             interpolantSpecs : List[IInterpolantSpec],
             signature : Signature,
             settings : PreprocessingSettings)
-            : (List[INamedPart], List[IInterpolantSpec], Signature) =
-    apply(f, interpolantSpecs, signature, settings,
-          new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                               Param.GENERATE_TOTALITY_AXIOMS(settings),
-                               signature.functionTypes))
+            : (List[INamedPart], List[IInterpolantSpec], Signature) = {
+    val funcEnc =
+      new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
+                           Param.GENERATE_TOTALITY_AXIOMS(settings),
+                           signature.functionTypes)
+    for (t <- signature.theories)
+      funcEnc addTheory t
+    apply(f, interpolantSpecs, signature, settings, funcEnc)
+  }
 
   def apply(f : IFormula,
             interpolantSpecs : List[IInterpolantSpec],

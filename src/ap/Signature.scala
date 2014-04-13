@@ -24,6 +24,7 @@ package ap
 import ap.parser.{ITerm, IFormula, IExpression, IFunction}
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.preds.Predicate
+import ap.theories.Theory
 
 object Signature {
   abstract class FunctionType {
@@ -48,11 +49,18 @@ object Signature {
   def apply(universalConstants : Set[ConstantTerm],
             existentialConstants : Set[ConstantTerm],
             nullaryFunctions : Set[ConstantTerm],
+            order : TermOrder) =
+    new Signature(universalConstants, existentialConstants, nullaryFunctions,
+                  Map(), order, List(), Set(), Map())
+
+  def apply(universalConstants : Set[ConstantTerm],
+            existentialConstants : Set[ConstantTerm],
+            nullaryFunctions : Set[ConstantTerm],
             order : TermOrder,
             domainPredicates : Set[Predicate],
             functionTypes : Map[IFunction, Signature.FunctionType]) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  Map(), order, domainPredicates, functionTypes)
+                  Map(), order, List(), domainPredicates, functionTypes)
 
   def apply(universalConstants : Set[ConstantTerm],
             existentialConstants : Set[ConstantTerm],
@@ -62,7 +70,18 @@ object Signature {
             domainPredicates : Set[Predicate],
             functionTypes : Map[IFunction, Signature.FunctionType]) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  predicateMatchConfig, order, domainPredicates, functionTypes)
+                  predicateMatchConfig, order, List(), domainPredicates, functionTypes)
+
+  def apply(universalConstants : Set[ConstantTerm],
+            existentialConstants : Set[ConstantTerm],
+            nullaryFunctions : Set[ConstantTerm],
+            predicateMatchConfig : PredicateMatchConfig,
+            order : TermOrder,
+            theories : Seq[Theory],
+            domainPredicates : Set[Predicate],
+            functionTypes : Map[IFunction, Signature.FunctionType]) =
+    new Signature(universalConstants, existentialConstants, nullaryFunctions,
+                  predicateMatchConfig, order, theories, domainPredicates, functionTypes)
 }
 
 /**
@@ -74,10 +93,11 @@ class Signature(val universalConstants : Set[ConstantTerm],
                 val nullaryFunctions : Set[ConstantTerm],
                 val predicateMatchConfig : Signature.PredicateMatchConfig,
                 val order : TermOrder,
+                val theories : Seq[Theory],
                 val domainPredicates : Set[Predicate],
                 val functionTypes : Map[IFunction, Signature.FunctionType]) {
   def updateOrder(newOrder : TermOrder) =
     new Signature(universalConstants, existentialConstants,
-                  nullaryFunctions, predicateMatchConfig, newOrder,
+                  nullaryFunctions, predicateMatchConfig, newOrder, theories,
                   domainPredicates, functionTypes)
 }

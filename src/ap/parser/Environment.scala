@@ -191,16 +191,16 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     Map.empty ++ (for (Predicate(p, s, _) <- signature.values) yield (p, s))
 
   def toSignature =
-    new Signature (universalConstants, existentialConstants,
-                   nullaryFunctions, predicateMatchConfig, order, domainPredicates.toSet,
-                   (for (Function(f, _) <- symbols)
-                      yield (f -> Signature.TopFunctionType)).toMap)
+    Signature (universalConstants, existentialConstants,
+               nullaryFunctions, predicateMatchConfig, order, domainPredicates.toSet,
+               (for (Function(f, _) <- symbols)
+                  yield (f -> Signature.TopFunctionType)).toMap)
 
   def toSignature(funTypeConverter : FunctionType => Signature.FunctionType) =
-    new Signature (universalConstants, existentialConstants,
-                   nullaryFunctions, predicateMatchConfig, order, domainPredicates.toSet,
-                   (for (Function(f, t) <- symbols)
-                      yield (f -> funTypeConverter(t))).toMap)
+    Signature (universalConstants, existentialConstants,
+               nullaryFunctions, predicateMatchConfig, order, domainPredicates.toSet,
+               (for (Function(f, t) <- symbols)
+                  yield (f -> funTypeConverter(t))).toMap)
 
   def symbols : Iterator[DSym] = signature.valuesIterator
 }

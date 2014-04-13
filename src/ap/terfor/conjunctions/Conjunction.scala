@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -192,10 +192,12 @@ object Conjunction {
    */
   def quantify(quan : Quantifier, constants : Seq[ConstantTerm],
                f : Formula, order : TermOrder) : Conjunction = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    // This is only well-defined if the formula does not contain free variables
-    Debug.assertPre(AC, f.variables.isEmpty)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val shiftedF =
+      if (f.variables.isEmpty)
+        f
+      else
+        // need to shift up already existing variables
+        VariableShiftSubst(0, constants.size, order)(f)
     
     val constantSubst = ConstantSubst(Map() ++
                                       (for ((c, i) <- constants.iterator.zipWithIndex)
@@ -204,7 +206,7 @@ object Conjunction {
     val quans : Seq[Quantifier] =
       (for (_ <- PlainRange(constants.size)) yield quan)    
     
-    quantify(quans, constantSubst(f), order)
+    quantify(quans, constantSubst(shiftedF), order)
   }
     
   /**
@@ -551,7 +553,8 @@ class Conjunction private (val quans : Seq[Quantifier],
     res
   }
     
-  // Test whether the matrix of the conjunction could belong to a negated divisibility
+  // Test whether the matrix of the conjunction could belong to a
+  // negated divisibility
   private def isNonDivisibilityHelp : Boolean =
     (arithConj.negativeEqs.size == 1) &&
     (arithConj.size == 1) &&
@@ -801,6 +804,25 @@ class Conjunction private (val quans : Seq[Quantifier],
     (this.predConj implies that.predConj) &&
     (this.negatedConjs implies that.negatedConjs)
    
+  //////////////////////////////////////////////////////////////////////////////
+
+  def --(that : Conjunction) : Conjunction = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(Conjunction.AC, that.quans.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val newAC = this.arithConj -- that.arithConj
+    val newPC = this.predConj -- that.predConj
+    val newNegConjs = this.negatedConjs -- that.negatedConjs
+
+    if ((newAC eq this.arithConj) &&
+        (newPC eq this.predConj) &&
+        (newNegConjs eq this.negatedConjs))
+      this
+    else
+      Conjunction(List(), newAC, newPC, newNegConjs, order)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   override def equals(that : Any) : Boolean = that match {

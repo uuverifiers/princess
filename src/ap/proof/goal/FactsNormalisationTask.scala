@@ -325,7 +325,6 @@ private class GoalColumnSolver(eqs : EquationConj,
       postProcessor = postProcessor compose
                       ((p:ProofTree) =>
                        ptf.quantify(p, Quantifier.ALL, List(smallConst),
-                                    Conjunction.TRUE,
                                     oldVocabulary, extendedOrder))
       (smallConst, symDefinition, extendedOrder)
     } else {

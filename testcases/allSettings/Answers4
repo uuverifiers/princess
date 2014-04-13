@@ -386,7 +386,7 @@ Proving ...
 VALID
 
 Under the constraint:
-(60 >= x1 & x1 >= 40 & x0 >= 80 & \exists int v0; 4 * v0 = x1 & \exists int v0; 4 * v0 = x0) | (45 >= x1 & x1 >= 33 & x0 >= 60 & \exists int v0; 3 * v0 = x1 & \exists int v0; 3 * v0 = x0)
+(60 >= x1 & x1 >= 40 & x0 >= 80 & \exists int v0; 4*v0 = x1 & \exists int v0; 4*v0 = x0) | (45 >= x1 & x1 >= 33 & x0 >= 60 & \exists int v0; 3*v0 = x1 & \exists int v0; 3*v0 = x0)
 
 Concrete witness:
 x1 = 60 & x0 = 80

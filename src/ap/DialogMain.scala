@@ -424,97 +424,7 @@ class InputDialog extends JPanel {
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
   
-  newTabWithInput("Arithmetic", None, "", asString {
-    println("/**")
-    println(" * Example:")
-    println(" * Problem in Presburger arithmetic with uninterpreted predicates")
-    println(" */")
-    println
-    println("\\existentialConstants {")
-    println("  /* Declare existentially quantified constants of the problem */")
-    println
-    println("  int A;")
-    println("}")
-    println
-    println("\\predicates {")
-    println("  /* Declare predicates occurring in the problem */  ")
-    println
-    println("  divides(int, int);")
-    println("}")
-    println
-    println("\\problem {")
-    println("  /* Problem to be proven. The implicit quantification is:")
-    println("   *    \\exists <existentialConstants>; \\forall <predicates>; ... */")
-    println
-    println("     \\forall int x; divides(x, x)")
-    println("  -> \\forall int x, y; (divides(x, y) -> divides(x, y+x) & divides(x, y-x))")
-    println("  ->")
-    println("     divides(A, 42) & divides(A, 49) & A > 1")
-    println("}")
-  })
-
-  newTabWithInput("Arithmetic interpolation", None, "", asString {
-    println("/**")
-    println(" * Example:")
-    println(" * Craig interpolation problem in Presburger arithmetic")
-    println(" */")
-    println
-    println("\\functions {")
-    println("   int x, a, b, c;")
-    println("}")
-    println
-    println("\\problem {")
-    println("  /* Problem to be proven and interpolated */")
-    println
-    println("  \\part[cond]          (a-2*x = 0 & -a <= 0) &")
-    println("  \\part[stmt1]         (2*b - a <=0 & -2*b + a -1 <=0) &")
-    println("  \\part[stmt2]         c-3*b-1=0")
-    println("                       ->")
-    println("  \\part[assert]        c > a")
-    println("}")
-    println
-    println("/* Interpolation specification */")
-    println("\\interpolant {cond; stmt1, stmt2, assert}")
-    println("\\interpolant {cond, stmt1; stmt2, assert}")
-    println("\\interpolant {cond, stmt1, stmt2; assert}")
-  })
-
-  newTabWithInput("Array interpolation", None, "", asString {
-    println("/**")
-    println(" * Example:")
-    println(" * Craig interpolation problem in the theory of arrays")
-    println(" */")
-    println
-    println("\\functions {")
-    println("  int x, y, z, ar;")
-    println("  \\partial int select(int, int);")
-    println("  \\partial int store(int, int, int);")
-    println("}")
-    println
-    println("\\problem {")
-    println("// Array axioms")
-    println("  \\forall int ar, ind, val; {select(store(ar, ind, val), ind)}")
-    println("    select(store(ar, ind, val), ind) = val")
-    println("->")
-    println("  \\forall int ar, ind1, ind2, val; {select(store(ar, ind1, val), ind2)}")
-    println("    (ind1 != ind2 -> select(store(ar, ind1, val), ind2) = select(ar, ind2))")
-    println("->")
-    println
-    println("  \\part[p0] (store(0, x, 1) = ar)")
-    println("->")
-    println("  \\part[p1] (select(ar, y) >= select(ar, x))")
-    println("->")
-    println("  \\part[p2] (z = select(ar, y)+1)")
-    println("->")
-    println("  \\part[p3] (z < 0)")
-    println("->")
-    println("  false")
-    println("}")
-    println
-    println("\\interpolant {p0, p1; p2, p3}")
-  })
-  
-  newTabWithInput("SMT-LIB", None, "-inputFormat=smtlib", asString{
+  newTabWithInput("SMT-LIB input", None, "-inputFormat=smtlib", asString{
     println("(set-logic AUFLIA)")
     println("(declare-fun a () Int)")
     println("(declare-fun p (Int) Bool)")
@@ -528,30 +438,7 @@ class InputDialog extends JPanel {
     println("(check-sat)")
   })
   
-  newTabWithInput("SMT-LIB interpolation", None,
-                  "-inputFormat=smtlib -genTotalityAxioms", asString{
-    println(";")
-    println("; For interpolation, the option \"-genTotalityAxioms\" has to be specified,")
-    println("; since the quantified totality axioms cannot be handled otherwise.")
-    println(";")
-    println
-    println("(set-logic AUFLIA)")
-    println
-    println("(set-option :produce-interpolants true)")
-    println
-    println("(declare-fun f (Int) Int)")
-    println("(declare-fun a () Int)")
-    println("(declare-fun b () Int)")
-    println
-    println("(assert (> a (* b 2)))")
-    println("(assert (< a (+ (* b 2) 2)))")
-    println("(assert (> (f (- a 1)) (f (* 2 b))))")
-    println
-    println("(check-sat)")
-    println("(get-interpolants)")
-  })
-  
-  newTabWithInput("TPTP", None, "-inputFormat=tptp", asString{
+  newTabWithInput("TPTP input", None, "-inputFormat=tptp", asString{
     println("%------------------------------------------------------------------------------")
     println("% File     : GEG021=1 : TPTP v5.1.0. Released v5.1.0.")
     println("% Domain   : Arithmetic")
@@ -627,6 +514,147 @@ class InputDialog extends JPanel {
     println("   => $lesseq(d(cologne,berlin),500) )).")
     println("")
     println("%------------------------------------------------------------------------------")
+  })
+  
+  newTabWithInput("Princess own format", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Problem in Presburger arithmetic with uninterpreted predicates")
+    println(" */")
+    println
+    println("\\existentialConstants {")
+    println("  /* Declare existentially quantified constants of the problem */")
+    println
+    println("  int A;")
+    println("}")
+    println
+    println("\\predicates {")
+    println("  /* Declare predicates occurring in the problem */  ")
+    println
+    println("  divides(int, int);")
+    println("}")
+    println
+    println("\\problem {")
+    println("  /* Problem to be proven. The implicit quantification is:")
+    println("   *    \\exists <existentialConstants>; \\forall <predicates>; ... */")
+    println
+    println("     \\forall int x; divides(x, x)")
+    println("  -> \\forall int x, y; (divides(x, y) -> divides(x, y+x) & divides(x, y-x))")
+    println("  ->")
+    println("     divides(A, 42) & divides(A, 49) & A > 1")
+    println("}")
+  })
+
+  newTabWithInput("Arithmetic Interpolation", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Craig interpolation problem in Presburger arithmetic")
+    println(" */")
+    println
+    println("\\functions {")
+    println("   int x, a, b, c;")
+    println("}")
+    println
+    println("\\problem {")
+    println("  /* Problem to be proven and interpolated */")
+    println
+    println("  \\part[cond]          (a-2*x = 0 & -a <= 0) &")
+    println("  \\part[stmt1]         (2*b - a <=0 & -2*b + a -1 <=0) &")
+    println("  \\part[stmt2]         c-3*b-1=0")
+    println("                       ->")
+    println("  \\part[assert]        c > a")
+    println("}")
+    println
+    println("/* Interpolation specification */")
+    println("\\interpolant {cond; stmt1, stmt2, assert}")
+    println("\\interpolant {cond, stmt1; stmt2, assert}")
+    println("\\interpolant {cond, stmt1, stmt2; assert}")
+  })
+
+  newTabWithInput("Quantifier elimination", None, "+mostGeneralConstraint", asString {
+    println("/**")
+    println(" * Quantifier elimination example:")
+    println(" *")
+    println(" * \"There a bound B such that every integer x >= B")
+    println(" *  can be expressed as a non-negative linear combination")
+    println(" *  of 7 and 8.\"")
+    println(" *")
+    println(" * The best such bound can be computed using")
+    println(" * quantifier elimination. For this, variables are")
+    println(" * declared within \\existentialConstants, and the option")
+    println(" * +mostGeneralConstraint is used.")
+    println(" */")
+    println("")
+    println("\\existentialConstants {")
+    println("  int B;")
+    println("}")
+    println("")
+    println("\\problem {")
+    println("  \\forall int x; (x >= B ->")
+    println("     \\exists int y, z; (y >= 0 & z >= 0 & x = 7*y + 8*z))")
+    println("/**")
+    println(" * Quantifier elimination determines that this formula is")
+    println(" * equivalent to   B >= 42")
+    println(" */")
+    println("}")
+  })
+
+  newTabWithInput("Array interpolation", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Craig interpolation problem in the theory of arrays")
+    println(" */")
+    println
+    println("\\functions {")
+    println("  int x, y, z, ar;")
+    println("  \\partial int select(int, int);")
+    println("  \\partial int store(int, int, int);")
+    println("}")
+    println
+    println("\\problem {")
+    println("// Array axioms")
+    println("  \\forall int ar, ind, val; {select(store(ar, ind, val), ind)}")
+    println("    select(store(ar, ind, val), ind) = val")
+    println("->")
+    println("  \\forall int ar, ind1, ind2, val; {select(store(ar, ind1, val), ind2)}")
+    println("    (ind1 != ind2 -> select(store(ar, ind1, val), ind2) = select(ar, ind2))")
+    println("->")
+    println
+    println("  \\part[p0] (store(0, x, 1) = ar)")
+    println("->")
+    println("  \\part[p1] (select(ar, y) >= select(ar, x))")
+    println("->")
+    println("  \\part[p2] (z = select(ar, y)+1)")
+    println("->")
+    println("  \\part[p3] (z < 0)")
+    println("->")
+    println("  false")
+    println("}")
+    println
+    println("\\interpolant {p0, p1; p2, p3}")
+  })
+  
+  newTabWithInput("SMT-LIB interpolation", None,
+                  "-inputFormat=smtlib -genTotalityAxioms", asString{
+    println(";")
+    println("; For interpolation, the option \"-genTotalityAxioms\" has to be specified,")
+    println("; since the quantified totality axioms cannot be handled otherwise.")
+    println(";")
+    println
+    println("(set-logic AUFLIA)")
+    println
+    println("(set-option :produce-interpolants true)")
+    println
+    println("(declare-fun f (Int) Int)")
+    println("(declare-fun a () Int)")
+    println("(declare-fun b () Int)")
+    println
+    println("(assert (> a (* b 2)))")
+    println("(assert (< a (+ (* b 2) 2)))")
+    println("(assert (> (f (- a 1)) (f (* 2 b))))")
+    println
+    println("(check-sat)")
+    println("(get-interpolants)")
   })
   
   tabbedPane setSelectedIndex 0

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ import ap.terfor.TermOrder
 //import ap.terfor.preds.Predicate
 //import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
+import ap.theories.Theory
 
 object FunctionEncoder {
   
@@ -290,7 +291,7 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   // map with all predicates that are used to encode functions
-  private val relations =
+  protected[ap] val relations =
     new scala.collection.mutable.HashMap[IFunction, Predicate]
   
   val predTranslation =
@@ -324,20 +325,37 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
       case None => i(true)
     }
   
+  def addFunction(fun : IFunction) : Predicate = 
+    relations.getOrElseUpdate(fun, {
+      val pred = new Predicate(fun.name, fun.arity + 1)
+      if (!fun.relational)
+        axiomsVar = axiomsVar &&& functionality(pred)
+      if (!fun.partial && genTotalityAxioms)
+        axiomsVar = axiomsVar &&& totality(fun, pred)
+      predTranslation += (pred -> fun)
+      pred
+    })
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def addTheory(t : Theory) : Unit =
+    for (pair@(f, p) <- t.functionPredicateMapping) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(FunctionEncoder.AC, p.arity == f.arity + 1)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      relations += pair
+      predTranslation += (p -> f)
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   
   private class EncoderVisitor(var nextAbstractionNum : Int, var order : TermOrder)
                 extends ContextAwareVisitor[EncodingContext, IExpression] {
   
-    private def toRelation(fun : IFunction) : Predicate = 
-      relations.getOrElseUpdate(fun, {
-        val pred = new Predicate(fun.name, fun.arity + 1)
+    private def toRelation(fun : IFunction) : Predicate =
+      relations.getOrElse(fun, {
+        val pred = addFunction(fun)
         order = order extendPred pred
-        if (!fun.relational)
-          axiomsVar = axiomsVar &&& functionality(pred)
-        if (!fun.partial && genTotalityAxioms)
-          axiomsVar = axiomsVar &&& totality(fun, pred)
-        predTranslation += (pred -> fun)
         pred
       })
   
