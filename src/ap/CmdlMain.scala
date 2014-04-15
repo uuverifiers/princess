@@ -94,6 +94,10 @@ object CmdlMain {
     println("                             all:   for all functions               (default)")
     println(" [+-]tightFunctionScopes   Keep function application defs. local    (default: +)")
     println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
+    println(" -genTotalityAxioms=val    Generation of totality axioms for functions")
+    println("                             none:  no totality axioms at all")
+    println("                             ctors: axioms only for constructors")
+    println("                             all:   axioms for all functions        (default)")
     println(" [+-]boolFunsAsPreds       In smtlib and tptp, encode               (default: -)")
     println("                           boolean functions as predicates")
     println(" -constructProofs=val      Extract proofs")
@@ -240,7 +244,11 @@ object CmdlMain {
   def toSetting(str : String, baseSettings : GlobalSettings) = {
     var s = baseSettings
     s = Param.TRIGGERS_IN_CONJECTURE.set(s, str(0) == '1')
-    s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) == '1')
+    s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) match {
+          case '0' => Param.TotalityAxiomOptions.None
+          case '1' => Param.TotalityAxiomOptions.Ctors
+          case '2' => Param.TotalityAxiomOptions.All
+        })
     s = Param.TIGHT_FUNCTION_SCOPES.set(s, str(2) == '1')
     s = Param.CLAUSIFIER.set(s,
         if (str(3) == '0')
@@ -260,7 +268,11 @@ object CmdlMain {
   def toOptionList(strategy : String) : String = {
     var s = ""
     s = s + " " + (if (strategy.charAt(0)=='0') "-" else "+") + "triggersInConjecture"
-    s = s + " " + (if (strategy.charAt(1)=='0') "-" else "+") + "genTotalityAxioms"
+    s = s + " -genTotalityAxioms=" + (strategy.charAt(1) match {
+                                        case '0' => "none"
+                                        case '1' => "ctors"
+                                        case '2' => "all"
+                                      })
     s = s + " " + (if (strategy.charAt(2)=='0') "-" else "+") + "tightFunctionScopes"
     s = s + " -clausifier=" + (if (strategy.charAt(3)=='0') "simple" else "none")
     s = s + " " + (if (strategy.charAt(4)=='0') "-" else "+") + "reverseFunctionalityPropagation"
@@ -295,13 +307,13 @@ object CmdlMain {
             
             var rawStrategies =
               List(("1010002", 15000),
-                   ("1110110", 15000),
+                   ("1210110", 15000),
                    ("0010101", 13000),
                    ("0000000", 20000),
                    ("0011001", 20000),
-                   ("0111100", 5000),
+                   ("0211100", 5000),
                    ("0010012", 50000),
-                   ("1101000", Int.MaxValue),
+                   ("1201000", Int.MaxValue),
                    ("1001102", 10000),
                    ("0011011", Int.MaxValue),
                    ("1001001", 10000),
@@ -322,7 +334,9 @@ object CmdlMain {
                   val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
                                                        to min 50000)
                   val options = toOptionList(str)
-                  Configuration(s, Param.GENERATE_TOTALITY_AXIOMS(s), options, to)
+                  Configuration(s,
+                    Param.GENERATE_TOTALITY_AXIOMS(s) == Param.TotalityAxiomOptions.All,
+                    options, to)
                 }
                 
                 new ParallelFileProver(reader,

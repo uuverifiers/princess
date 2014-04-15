@@ -122,8 +122,12 @@ object GlobalSettings {
           Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(settings, value)
         case Opt("tightFunctionScopes", value) =>
           Param.TIGHT_FUNCTION_SCOPES.set(settings, value)
-        case Opt("genTotalityAxioms", value) =>
-          Param.GENERATE_TOTALITY_AXIOMS.set(settings, value)
+        case ValueOpt("genTotalityAxioms", "none") =>
+          Param.GENERATE_TOTALITY_AXIOMS.set(settings, Param.TotalityAxiomOptions.None)
+        case ValueOpt("genTotalityAxioms", "ctors") =>
+          Param.GENERATE_TOTALITY_AXIOMS.set(settings, Param.TotalityAxiomOptions.Ctors)
+        case ValueOpt("genTotalityAxioms", "all") =>
+          Param.GENERATE_TOTALITY_AXIOMS.set(settings, Param.TotalityAxiomOptions.All)
         case ValueOpt("matchingBasePriority", IntVal(value)) =>
           Param.MATCHING_BASE_PRIORITY.set(settings, value)
         case Opt("reverseFunctionalityPropagation", value) =>
@@ -189,7 +193,8 @@ object ParserSettings {
 
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
                        Param.TRIGGERS_IN_CONJECTURE,
-                       Param.CONJECTURE_TO_PROVE)
+                       Param.CONJECTURE_TO_PROVE,
+                       Param.MAKE_QUERIES_PARTIAL)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

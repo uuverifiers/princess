@@ -42,7 +42,8 @@ object Preprocessing {
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
     val funcEnc =
       new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                           Param.GENERATE_TOTALITY_AXIOMS(settings),
+                           Param.GENERATE_TOTALITY_AXIOMS(settings) !=
+                             Param.TotalityAxiomOptions.None,
                            signature.functionTypes)
     for (t <- signature.theories)
       funcEnc addTheory t

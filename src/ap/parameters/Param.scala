@@ -132,9 +132,12 @@ object Param {
     val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.All
   }
 
+  object TotalityAxiomOptions extends Enumeration {
+    val All, None, Ctors = Value
+  }
   case object GENERATE_TOTALITY_AXIOMS extends Param {
-    type Value = Boolean
-    val defau : Boolean = true
+    type Value = TotalityAxiomOptions.Value
+    val defau : TotalityAxiomOptions.Value = TotalityAxiomOptions.All
   }
 
   object TriggerStrategyOptions extends Enumeration {
@@ -160,6 +163,13 @@ object Param {
     val defau : Boolean = false
   }
   
+  // Use heuristics to distinguish between constructor and query
+  // function symbols, and make the latter ones partial
+  case object MAKE_QUERIES_PARTIAL extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   case object MULTI_STRATEGY extends Param {
     type Value = Boolean
     val defau : Boolean = true

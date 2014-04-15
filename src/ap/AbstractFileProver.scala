@@ -65,7 +65,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private def newParser = Param.INPUT_FORMAT(preSettings) match {
     case Param.InputFormat.Princess => ApParser2InputAbsy(preSettings.toParserSettings)
     case Param.InputFormat.SMTLIB => SMTParser2InputAbsy(preSettings.toParserSettings)
-    case Param.InputFormat.TPTP => TPTPTParser(preSettings.toParserSettings)
+    case Param.InputFormat.TPTP => {
+      val settings = Param.MAKE_QUERIES_PARTIAL.set(
+                       preSettings.toParserSettings,
+                       Param.GENERATE_TOTALITY_AXIOMS(preSettings) ==
+                         Param.TotalityAxiomOptions.Ctors)
+      TPTPTParser(settings)
+    }
   }
   
   import CmdlMain.domain_size
@@ -112,7 +118,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
     val functionEnc =
       new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                           Param.GENERATE_TOTALITY_AXIOMS(settings),
+                           Param.GENERATE_TOTALITY_AXIOMS(settings) !=
+                             Param.TotalityAxiomOptions.None,
                            signature.functionTypes)
     
     val (inputFormulas, interpolantS, sig) =
