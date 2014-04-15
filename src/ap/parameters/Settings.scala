@@ -186,7 +186,8 @@ object GoalSettings {
 object ParserSettings {
 
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
-                       Param.TRIGGERS_IN_CONJECTURE)
+                       Param.TRIGGERS_IN_CONJECTURE,
+                       Param.MAKE_QUERIES_PARTIAL)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

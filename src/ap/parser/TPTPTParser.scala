@@ -57,9 +57,9 @@ object TPTPTParser {
   private object RealType extends Type("$real")
   
   private val preDeclaredTypes = Set(TType, OType, IType, IntType, RatType, RealType)
-
   private val arithTypes = Set(IntType, RatType, RealType)
-  
+  private val interpretedTypes = arithTypes + OType
+
   // Notice: no space between - and digits
   private val isIntegerConstRegEx = """[+-]?[0-9]+""".r 
   
@@ -111,7 +111,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
   private val triggersInConjecture =
     Param.TRIGGERS_IN_CONJECTURE(settings)
-    
+  private val partialQueries =    
+    Param.MAKE_QUERIES_PARTIAL(settings)
+
   //////////////////////////////////////////////////////////////////////////////
     
   def apply(reader : java.io.Reader)
@@ -722,15 +724,23 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                symbolName + ": " + rank + ": argument type cannot be $oType")
          
          if (!rank.argsTypes.isEmpty) {
-           if (!booleanFunctionsAsPredicates || rank.resType != OType)
+           if (!booleanFunctionsAsPredicates || rank.resType != OType) {
              // use a real function
+
+             val partial =
+               !totalityAxiom ||
+               (partialQueries &&
+                ((interpretedTypes contains rank.resType) ||
+                 !(rank.argsTypes exists interpretedTypes)))
+
              env.addFunction(new IFunction(symbolName, rank.argsTypes.size,
-                                           !totalityAxiom, !functionalityAxiom),
+                                           partial, !functionalityAxiom),
                              rank)
-           else
+           } else {
              // use a predicate
              env.addPredicate(new Predicate(symbolName, rank.argsTypes.length),
                               rank)
+           }
          } else if (rank.resType != OType)
            // use a constant
            env.addConstant(new ConstantTerm(symbolName), Environment.NullaryFunction,
