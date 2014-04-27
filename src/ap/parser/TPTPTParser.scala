@@ -143,9 +143,11 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
 //        println(formulas)
 
-        ((getAxioms &&& stringAxioms &&& genRRAxioms) ===>
-           (or(axiomFors) ||| conjecture),
-         List(), env.toSignature)
+        val completeFor =
+          (getAxioms &&& stringAxioms &&& genRRAxioms) ===>
+            (or(axiomFors) ||| conjecture)
+
+        (completeFor, List(), genSignature(completeFor))
       }
       case error =>
         throw new SyntaxError(error.toString)

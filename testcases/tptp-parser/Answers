@@ -5,7 +5,7 @@ Warning: You are using the normal version of Princess to solve TPTP problems.
          For full support of TPTP please download the dedicated
          CASC/TPTP of Princess from
          http://www.philipp.ruemmer.org/princess.shtml#tptp
-Warning: introducing partial function "nonLinMult" to encode multiplication
+Warning: using theory to encode multiplication: BitShiftMultiplication
 Preprocessing ...
 Proving ...
 
@@ -150,7 +150,7 @@ Warning: You are using the normal version of Princess to solve TPTP problems.
          For full support of TPTP please download the dedicated
          CASC/TPTP of Princess from
          http://www.philipp.ruemmer.org/princess.shtml#tptp
-Warning: introducing partial function "nonLinMult" to encode multiplication
+Warning: using theory to encode multiplication: BitShiftMultiplication
 Preprocessing ...
 Constructing countermodel ...
 

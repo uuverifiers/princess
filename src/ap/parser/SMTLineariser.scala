@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@ package ap.parser
 
 import ap._
 import ap.basetypes.IdealInt
+import ap.theories.BitShiftMultiplication
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -103,8 +104,10 @@ class SMTLineariser(benchmarkName : String,
   
   private def toIdentifier(str : String) = noGoodChar.replaceAllIn(str, "_")
   
-  private def fun2Identifier(fun : IFunction) =
-    funPrefix + toIdentifier(fun.name)
+  private def fun2Identifier(fun : IFunction) = fun match {
+    case BitShiftMultiplication.mul => "*"
+    case fun => funPrefix + toIdentifier(fun.name)
+  }
   private def pred2Identifier(pred : Predicate) =
     predPrefix + toIdentifier(pred.name)
   private def const2Identifier(const : ConstantTerm) =

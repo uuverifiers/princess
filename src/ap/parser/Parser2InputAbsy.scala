@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 package ap.parser;
 
 import ap._
+import ap.theories.TheoryCollector
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -132,6 +133,24 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
   def apply(input : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature)
 
+  protected def genSignature(completeFor : IExpression) : Signature = {
+    var prel = env.toSignature
+    val coll = new TheoryCollector
+    coll(completeFor)
+    if (coll.theories.isEmpty) {
+      prel
+    } else {
+      Signature(prel.universalConstants,
+                prel.existentialConstants,
+                prel.nullaryFunctions,
+                prel.predicateMatchConfig ++ (
+                  for (t <- coll.theories.iterator;
+                       p <- t.predicateMatchConfig.iterator) yield p),
+                (prel.order /: coll.theories) { case (o, t) => t extend o },
+                coll.theories)
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   protected abstract class ASTConnective {
@@ -174,55 +193,18 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
       case _ : IllegalArgumentException => {
 //        throw new Parser2InputAbsy.TranslationException(
 //                        "Do not know how to multiply " + t1 + " with " + t2)
-        genNonLinearMultAxioms
-        nonLinMult(t1, t2)
+//        genNonLinearMultAxioms
+//        nonLinMult(t1, t2)
+        val theory = ap.theories.BitShiftMultiplication
+        if (!nonLinearMultDefined) {
+          Parser2InputAbsy.warn(
+            "using theory to encode multiplication: " + theory)
+          nonLinearMultDefined = true
+        }
+        theory.mul(t1, t2)
       }
     }
 
-  private var nonLinMult : IFunction = _
-    
-  protected def genNonLinearMultAxioms : Unit = if (!nonLinearMultDefined) {
-    Parser2InputAbsy.warn("introducing partial function \"nonLinMult\" to encode multiplication")
-    nonLinearMultDefined = true
-    
-    nonLinMult = new IFunction("nonLinMult", 2, true, false)
-    env.addFunction(nonLinMult, defaultFunctionType(nonLinMult))
-    
-    /*
-        \forall int x; {nonLinMult(x, 0)} nonLinMult(x, 0) = 0
-      &
-        \forall int x; {nonLinMult(x, -1)} nonLinMult(x, -1) = -x
-      &
-        \forall int x, y, res; {nonLinMult(x, y)}
-          ((y >= 1 | y <= -2) -> nonLinMult(x, y) = res ->
-              \exists int l, n, subres; (
-                 nonLinMult(2*x, l) = subres &
-                 y = 2*l + n & (
-                   n = 0 & res = subres
-                   |
-                   n = 1 & res = subres + x
-       )))
-    */
-    
-    addAxiom(
-      all(ITrigger(List(nonLinMult(v(0), 0)),
-                   nonLinMult(v(0), 0) === 0)))
-    addAxiom(
-      all(ITrigger(List(nonLinMult(v(0), -1)),
-                   nonLinMult(v(0), -1) === -v(0))))
-    addAxiom(
-      all(all(all(
-        ITrigger(List(nonLinMult(v(0), v(1))),
-          (((v(1) >= 1 | v(1) <= -2) & nonLinMult(v(0), v(1)) === v(2)) ==>
-              ex(ex(ex(
-                 (nonLinMult(2*v(3), v(0)) === v(2)) &
-                 (v(4) === 2*v(0) + v(1)) & (
-                   (v(1) === 0 & v(5) === v(2))
-                   |
-                   (v(1) === 1 & v(5) === v(2) + v(3))
-                  ))))))))))
-  }
-    
   private var nonLinearMultDefined = false
   
   //////////////////////////////////////////////////////////////////////////////

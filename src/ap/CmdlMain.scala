@@ -533,7 +533,7 @@ object CmdlMain {
                 }
               }
               case Prover.NoProof(tree) => {
-                println("GAVE UP")
+                println("UNKNOWN")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {

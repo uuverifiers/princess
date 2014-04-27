@@ -110,7 +110,9 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
     collectDeclarations(api)
     val formula = translateProblem(api)
     val interSpecs = translateInterpolantSpecs(api)
-    (getAxioms ===> formula, interSpecs, env.toSignature)
+
+    val completeFor = getAxioms ===> formula
+    (completeFor, interSpecs, genSignature(completeFor))
   }
 
   protected def defaultFunctionType(f : IFunction) : Unit = ()

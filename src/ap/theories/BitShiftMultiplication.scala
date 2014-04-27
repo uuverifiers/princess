@@ -39,21 +39,21 @@ object BitShiftMultiplication extends Theory {
 
   private val partial = false
   
-  val mult = new IFunction("mult", 2, partial, false)
+  val mul = new IFunction("mul", 2, partial, false)
   
-  val functions = List(mult)
+  val functions = List(mul)
 
   val (predicates, axioms, totalityAxioms) = {
 
     /*
-        \forall int x; {mult(x, 0)} mult(x, 0) = 0
+        \forall int x; {mul(x, 0)} mul(x, 0) = 0
       &
-        \forall int x; {mult(x, -1)} mult(x, -1) = -x
+        \forall int x; {mul(x, -1)} mul(x, -1) = -x
       &
-        \forall int x, y, res; {mult(x, y)}
-          ((y >= 1 | y <= -2) -> mult(x, y) = res ->
+        \forall int x, y, res; {mul(x, y)}
+          ((y >= 1 | y <= -2) -> mul(x, y) = res ->
               \exists int l, n, subres; (
-                 mult(2*x, l) = subres &
+                 mul(2*x, l) = subres &
                  y = 2*l + n & (
                    n = 0 & res = subres
                    |
@@ -62,15 +62,15 @@ object BitShiftMultiplication extends Theory {
     */
     
     val (axioms, _, functionTranslation) =
-      Theory.toInternal(all(ITrigger(List(mult(v(0), 0)),
-                                     mult(v(0), 0) === 0)) &
-                        all(ITrigger(List(mult(v(0), -1)),
-                                     mult(v(0), -1) === -v(0))) &
+      Theory.toInternal(all(ITrigger(List(mul(v(0), 0)),
+                                     mul(v(0), 0) === 0)) &
+                        all(ITrigger(List(mul(v(0), -1)),
+                                     mul(v(0), -1) === -v(0))) &
                         all(all(all(
-                          ITrigger(List(mult(v(0), v(1))),
-                            (((v(1) >= 1 | v(1) <= -2) & mult(v(0), v(1)) === v(2)) ==>
+                          ITrigger(List(mul(v(0), v(1))),
+                            (((v(1) >= 1 | v(1) <= -2) & mul(v(0), v(1)) === v(2)) ==>
                               ex(ex(ex(
-                                 (mult(2*v(3), v(0)) === v(2)) &
+                                 (mul(2*v(3), v(0)) === v(2)) &
                                  (v(4) === 2*v(0) + v(1)) & (
                                    (v(1) === 0 & v(5) === v(2))
                                    |
@@ -78,7 +78,7 @@ object BitShiftMultiplication extends Theory {
                                   ))))))))),
                         false,
                         TermOrder.EMPTY)
-    (List(functionTranslation(mult)),
+    (List(functionTranslation(mul)),
      axioms,
      Conjunction.TRUE)
   }
@@ -88,7 +88,7 @@ object BitShiftMultiplication extends Theory {
 
   val functionalPredicates = predicates.toSet
 
-  val functionPredicateMapping = List((mult, predicates(0)))
+  val functionPredicateMapping = List((mul, predicates(0)))
 
   val plugin = None
 
