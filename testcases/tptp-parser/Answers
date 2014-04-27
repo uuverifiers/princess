@@ -107,73 +107,73 @@ true
 % SZS status Theorem for SWV032+1
 
 Loading SYN000_2.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 0: 
 Prover 0:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 0: 
 Prover 0:         ^
-Prover 1: Options:  +triggersInConjecture +genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 1: Options:  +triggersInConjecture -genTotalityAxioms=all +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal
 Prover 1: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 1: 
 Prover 1:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 1: 
 Prover 1:         ^
-Prover 2: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
+Prover 2: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
 Prover 2: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 2: 
 Prover 2:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 2: 
 Prover 2:         ^
-Prover 3: Options:  -triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 3: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
 Prover 3: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 3: 
 Prover 3:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 3: 
 Prover 3:         ^
-Prover 4: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
+Prover 4: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
 Prover 4: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 4: 
 Prover 4:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 4: 
 Prover 4:         ^
-Prover 5: Options:  -triggersInConjecture +genTotalityAxioms +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 5: Options:  -triggersInConjecture -genTotalityAxioms=all +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
 Prover 5: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 5: 
 Prover 5:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 5: 
 Prover 5:         ^
-Prover 6: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimal
+Prover 6: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 6: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 6: 
 Prover 6:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 6: 
 Prover 6:         ^
-Prover 7: Options:  +triggersInConjecture +genTotalityAxioms -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 7: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal
 Prover 7: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 7: 
 Prover 7:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 7: 
 Prover 7:         ^
-Prover 8: Options:  +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
+Prover 8: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 8: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 8: 
 Prover 8:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 8: 
 Prover 8:         ^
-Prover 9: Options:  -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal
+Prover 9: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal
 Prover 9: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 9: 
 Prover 9:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 9: 
 Prover 9:         ^
-Prover 10: Options:  +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
+Prover 10: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal
 Prover 10: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 10: 
 Prover 10:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 10: 
 Prover 10:         ^
-Prover 11: Options:  +triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
+Prover 11: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 11: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 11: 
 Prover 11:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)

@@ -23,6 +23,7 @@ package ap.parser
 
 import ap._
 import ap.basetypes.IdealInt
+import ap.theories.BitShiftMultiplication
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -64,7 +65,8 @@ class TPTPLineariser(benchmarkName : String) {
         println("    " + name + ": $int)).")
         KeepArg
       }
-      case IFunApp(f, _) if (!(seenSymbols contains f) && f.name != "nonLinMult") => {
+      case IFunApp(f, _) if (!(seenSymbols contains f) &&
+                             f != BitShiftMultiplication.mul) => {
         seenSymbols += f
         val name = "" + f
         println("tff(" + name + "_type, type, (")
@@ -269,9 +271,11 @@ class TPTPLineariser(benchmarkName : String) {
         }
       
         case IFunApp(fun, _) => {
-          fun.name match {
-            case "nonLinMult" => print("$product")
-            case name         => print(name)
+          fun match {
+            case BitShiftMultiplication.mul =>
+              print("$product")
+            case f =>
+              print(f.name)
           }
           print("(")
           if (fun.arity == 0) {

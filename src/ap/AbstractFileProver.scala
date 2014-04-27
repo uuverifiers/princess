@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@ import ap.parameters._
 import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
                   Preprocessing,
-                  FunctionEncoder, IExpression, INamedPart, IFunction,
-                  IInterpolantSpec, IBinJunctor, Environment}
+                  FunctionEncoder, IExpression, INamedPart, PartName,
+                  IFunction, IInterpolantSpec, IBinJunctor, Environment}
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
@@ -36,6 +36,12 @@ import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.Certificate
 import ap.util.{Debug, Timeout}
+
+object AbstractFileProver {
+  
+  private val AC = Debug.AC_MAIN
+  
+}
 
 abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                                   timeout : Int, userDefStoppingCond : => Boolean,
@@ -52,11 +58,17 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   private def determineTriggerGenFunctions[CT,VT,PT,FT]
                                           (settings : GlobalSettings,
-                                           env : Environment[CT,VT,PT,FT])
+                                           env : Environment[CT,VT,PT,FT],
+                                           signature : Signature)
                                           : Set[IFunction] =
     Param.TRIGGER_GENERATION(settings) match {
       case Param.TriggerGenerationOptions.None => Set()
-      case Param.TriggerGenerationOptions.All => env.nonNullaryFunctions
+      case Param.TriggerGenerationOptions.All =>
+        env.nonNullaryFunctions -- (
+          // remove interpreted functions
+          for (t <- signature.theories.iterator;
+               f <- t.functions.iterator;
+               if (f.partial || f.relational)) yield f)
       case Param.TriggerGenerationOptions.Total =>
         for (f <- env.nonNullaryFunctions; if (!f.partial && !f.relational))
           yield f
@@ -107,7 +119,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     val preprocSettings = {
       var ps = settings.toPreprocessingSettings
       ps = Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(ps,
-             determineTriggerGenFunctions(settings, parser.env))
+             determineTriggerGenFunctions(settings, parser.env, signature))
       ps = Param.DOMAIN_PREDICATES.set(ps, signature.domainPredicates)
       ps
     }
@@ -121,7 +133,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                            Param.GENERATE_TOTALITY_AXIOMS(settings) !=
                              Param.TotalityAxiomOptions.None,
                            signature.functionTypes)
-    
+    for (t <- signature.theories)
+      functionEnc addTheory t
+
     val (inputFormulas, interpolantS, sig) =
       Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)
     
@@ -147,6 +161,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     (for ((p, f) <- functionEncoder.predTranslation.iterator;
           if (!f.relational)) yield p).toSet
   
+  private val plugins = for (t <- signature.theories; p <- t.plugin.toSeq) yield p
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertInt(AbstractFileProver.AC, plugins.size <= 1)
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
     case Param.ProofConstructionOptions.Never => false
     case Param.ProofConstructionOptions.Always => true
@@ -155,25 +174,48 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
   val order = signature.order
 
+  private val theoryAxioms =
+    Conjunction.conj(for (t <- signature.theories) yield t.axioms, order).negate
+
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds,
                           Param.FINITE_DOMAIN_CONSTRAINTS.assumeInfiniteDomain(settings),
                           order)
+
+  private val allPartNames =
+    (List(PartName.NO_NAME) ++
+     (for (INamedPart(n, _) <- inputFormulas) yield n)).distinct
   
-  val formulas =
-    if (constructProofs)
+  val (namedParts, formulas) =
+    if (constructProofs) {
       // keep the different formula parts separate
-      for (f <- inputFormulas) yield
-        reducer(
-          Conjunction.conj(InputAbsy2Internal(IExpression removePartName f, order),
-                           order))
-    else
+      val rawNamedParts =
+        Map(PartName.NO_NAME -> Conjunction.FALSE) ++
+        (for (INamedPart(n, f) <- inputFormulas.iterator)
+         yield (n -> Conjunction.conj(InputAbsy2Internal(f, order), order)))
+      val reducedNamedParts =
+        for ((n, c) <- rawNamedParts) yield n match {
+          case PartName.NO_NAME =>
+            (PartName.NO_NAME ->
+             reducer(Conjunction.disj(List(theoryAxioms, c), order)))
+          case n =>
+            (n -> reducer(c))
+        }
+
+      (reducedNamedParts,
+       for (n <- allPartNames) yield reducedNamedParts(n))
+    } else {
       // merge everything into one formula
-      List(reducer(Conjunction.conj(InputAbsy2Internal(
-          IExpression.connect(for (f <- inputFormulas.iterator)
-                                yield (IExpression removePartName f),
-                              IBinJunctor.Or), order), order)))
-      
+      val f =
+        reducer(Conjunction.disjFor(
+               List(theoryAxioms,
+                    InputAbsy2Internal(
+                      IExpression.or(
+                         for (f <- inputFormulas.iterator)
+                         yield (IExpression removePartName f)), order)), order))
+      (Map(PartName.NO_NAME -> f), List(f))
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   
   protected val goalSettings = {
@@ -185,6 +227,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.DOMAIN_PREDICATES.set(gs, signature.domainPredicates)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
+    gs = Param.THEORY_PLUGIN.set(gs, plugins.headOption)
     gs
   }
 
@@ -200,13 +243,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   //////////////////////////////////////////////////////////////////////////////
 
-  lazy val namedParts =
-    Map() ++ (for ((INamedPart(name, _), f) <-
-                   inputFormulas.iterator zip formulas.iterator)
-              yield (name -> f))
-  
-  //////////////////////////////////////////////////////////////////////////////
-  
   protected def findModelTimeout : Either[Conjunction, Certificate] = {
     Console.withOut(Console.err) {
       println("Constructing satisfying assignment for the existential constants ...")

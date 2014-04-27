@@ -591,8 +591,8 @@ object CmdlMain {
                 
                 println("% SZS status " + positiveResult + " for " + lastFilename)
               }
-              case Prover.NoProof(tree) =>  {
-                Console.err.println("No proof found")
+              case Prover.NoProof(tree) => {
+                Console.err.println("UNKNOWN")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {

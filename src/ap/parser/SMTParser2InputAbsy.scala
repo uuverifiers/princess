@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -220,7 +220,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
         (connect(assumptions, IBinJunctor.And) &&& getAxioms, List())
       }
 
-    (!assumptionFormula, interpolantSpecs, env.toSignature)
+    val completeFor = !assumptionFormula
+    (completeFor, interpolantSpecs, genSignature(completeFor))
   }
 
   protected def defaultFunctionType(f : IFunction) : Boolean = false
@@ -897,8 +898,11 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       checkArgNum("div", 2, args)
       val Seq(num, denom) =
         for (a <- args) yield VariableShiftVisitor(asTerm(translateTerm(a, 0)), 0, 1)
-      (eps((v(0) * denom <= num) &
-           ((num < v(0) * denom + denom) | (num < v(0) * denom - denom))),
+      val v0Denom = mult(v(0), denom)
+      (eps((v0Denom <= num) & (denom match {
+             case Const(denomVal) => v0Denom > num - denomVal.abs
+             case denom => (num < v0Denom + denom) | (num < v0Denom - denom)
+           })),
        Type.Integer)
     }
        
@@ -906,9 +910,12 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       checkArgNum("mod", 2, args)
       val Seq(num, denom) =
         for (a <- args) yield VariableShiftVisitor(asTerm(translateTerm(a, 0)), 0, 1)
-      (eps((v(0) >= 0) & ((v(0) < denom) | (v(0) < -denom)) &
+      (eps((v(0) >= 0) & (denom match {
+             case Const(denomVal) => v(0) < denomVal.abs
+             case denom => (v(0) < denom) | (v(0) < -denom)
+           }) &
            ex(VariableShiftVisitor(num, 0, 1) ===
-              v(0) * VariableShiftVisitor(denom, 0, 1) + v(1))),
+              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
        Type.Integer)
     }
 
