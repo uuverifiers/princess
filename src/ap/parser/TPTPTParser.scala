@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2014 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -984,15 +984,20 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
            throw new SyntaxError(
               "Error: currently $let_tf only supports constants, not " + lhs_t)
          val IConstant(c) = lhs_t
-         if (lhs_type == OType || lhs_type != rhs_type)
-           throw new SyntaxError(
-              "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + "." +
-              " Possibly the type of " + lhs_t + " has to be declared.")
+         if (lhs_type == OType || lhs_type != rhs_type) {
+//           throw new SyntaxError(
+//              "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + "." +
+//              " Possibly the type of " + lhs_t + " has to be declared.")
+           warn("ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + ".")
+         }
+         env.pushVar(c.name, rhs_type)
          (c, rhs_t)
        }
      }) ~ "," ~ tff_logic_formula <~ ")") ^^ {
       case definition ~ _ ~ body => {
-        ConstantSubstVisitor(body, Map(definition))
+        env.popVar
+        VariableSubstVisitor(body, (List(definition._2), -1))
+//        ConstantSubstVisitor(body, Map(definition))
       }
     }) |
     ("$let_ff" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
@@ -1276,6 +1281,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           
         (env lookupSym functor) match {
           case Environment.Constant(c, _, t) => (i(c), t)
+          case Environment.Variable(ind, t) => (v(ind), t)
           case _ => throw new SyntaxError("Unexpected symbol: " + functor)
         }
         
@@ -1332,15 +1338,20 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
            throw new SyntaxError(
               "Error: currently $let_tt only supports constants, not " + lhs_t)
          val IConstant(c) = lhs_t
-         if (lhs_type == OType || lhs_type != rhs_type)
-           throw new SyntaxError(
-              "Error: ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + "." +
-              " Possibly the type of " + lhs_t + " has to be declared.")
+         if (lhs_type == OType || lhs_type != rhs_type) {
+//           throw new SyntaxError(
+//              "Error: ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + "." +
+//              " Possibly the type of " + lhs_t + " has to be declared.")
+           warn("ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + ".")
+         }
+         env.pushVar(c.name, rhs_type)
          (c, rhs_t)
        }
      }) ~ "," ~ term <~ ")") ^^ {
       case definition ~ _ ~ body => {
-        (ConstantSubstVisitor(body._1, Map(definition)), body._2)
+        env.popVar
+        (VariableSubstVisitor(body._1, (List(definition._2), -1)), body._2)
+//        (ConstantSubstVisitor(body._1, Map(definition)), body._2)
       }
     }) |
     ("$let_ft" ~ "(" ~> tff_unitary_formula ~ "<=>" ~ tff_logic_formula ~
@@ -1675,6 +1686,11 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           if (!args.isEmpty)
             throw new SyntaxError("Constant does not accept arguments: " + functor)
           (IConstant(c), t)
+        }
+        case Environment.Variable(ind, t) => {
+          if (!args.isEmpty)
+            throw new SyntaxError("Variable does not accept arguments: " + functor)
+          (IVariable(ind), t)
         }
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + fun)
