@@ -1512,6 +1512,11 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
             throw new SyntaxError("Constant does not accept arguments: " + functor)
           (IConstant(c), t)
         }
+        case Environment.Variable(ind, t) => {
+          if (!args.isEmpty)
+            throw new SyntaxError("Variable does not accept arguments: " + functor)
+          (IVariable(ind), t)
+        }
         case _ =>
           throw new SyntaxError("Unexpected symbol: " + fun)
       }
