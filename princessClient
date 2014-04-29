@@ -1,0 +1,47 @@
+#!/bin/sh
+
+portfile="/tmp/.princess_`whoami`"
+
+startDaemon() {
+    BASEDIR=`dirname $(readlink -e $0)`
+    EXTLIBSDIR=$BASEDIR/extlibs
+
+    export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
+    export JAVA_OPTS="-Xss20000k -Xmx1500m"
+
+    rm -f "$portfile"
+    touch "$portfile"
+    chmod go-rwx "$portfile"
+
+    scala ap.ServerMain "$@" >"$portfile" &
+
+    sleep 1
+    while [ `wc -l "$portfile" | gawk '{ printf $1 }'` -lt 2 ]; do
+        sleep 1
+    done
+}
+
+if [ ! -f "$portfile" ]; then
+    startDaemon
+fi
+
+success=1
+until [ $success -eq 0 ]; do
+
+    port=`head -n1 "$portfile"`
+
+    (
+        tail -n1 "$portfile"
+        for var; do
+            echo "$var"
+        done
+        echo "PROVE_AND_EXIT"
+    ) | nc localhost $port
+
+    success=$?
+
+    if [ $success -ne 0 ]; then
+        startDaemon
+    fi
+
+done
