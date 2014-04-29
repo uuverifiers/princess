@@ -24,6 +24,8 @@ package ap;
 import ap.util.CmdlParser
 
 import scala.collection.mutable.ArrayBuffer
+import scala.actors.Actor._
+import scala.actors.{Actor, TIMEOUT}
 
 import java.net._
 
@@ -60,35 +62,38 @@ object ServerMain {
 
     while (true) {
       val clientSocket = socket.accept
-      val inputReader =
-        new java.io.BufferedReader(
-        new java.io.InputStreamReader(clientSocket.getInputStream))
 
-      val receivedTicket = inputReader.readLine
-      if (ticket == receivedTicket) {
-        val arguments = new ArrayBuffer[String]
-        arguments += "+quiet"
-
-        var str = inputReader.readLine
-        var done = false
-        while (!done && str != null) {
-          str.trim match {
-            case "PROVE_AND_EXIT" => {
-              Console.withOut(clientSocket.getOutputStream) {
-                CmdlMain.main(arguments.toArray)
+      actor {
+        val inputReader =
+          new java.io.BufferedReader(
+          new java.io.InputStreamReader(clientSocket.getInputStream))
+  
+        val receivedTicket = inputReader.readLine
+        if (ticket == receivedTicket) {
+          val arguments = new ArrayBuffer[String]
+          arguments += "+quiet"
+  
+          var str = inputReader.readLine
+          var done = false
+          while (!done && str != null) {
+            str.trim match {
+              case "PROVE_AND_EXIT" => {
+                Console.withOut(clientSocket.getOutputStream) {
+                  CmdlMain.main(arguments.toArray)
+                }
+                done = true
               }
-              done = true
+              case str =>
+                arguments += str
             }
-            case str =>
-              arguments += str
+  
+            if (!done)
+              str = inputReader.readLine
           }
-
-          if (!done)
-            str = inputReader.readLine
         }
+  
+        inputReader.close
       }
-
-      inputReader.close
     }
 
     } catch {
