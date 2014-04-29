@@ -231,7 +231,6 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
-  private var lastFilename : String = ""
   var positiveResult : String = "Theorem"
   var negativeResult : String = "CounterSatisfiable"
     
@@ -298,6 +297,8 @@ object CmdlMain {
                    userDefStoppingCond : => Boolean)
                   (implicit format : Param.InputFormat.Value) : Option[Prover.Result] = {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
+
+    var lastFilename : String = ""
 
     try {
             val timeBefore = System.currentTimeMillis
@@ -384,7 +385,7 @@ object CmdlMain {
               }
             }
 
-            printResult(result, settings)
+            printResult(result, settings, lastFilename)
             
             val timeAfter = System.currentTimeMillis
             
@@ -475,7 +476,8 @@ object CmdlMain {
   //////////////////////////////////////////////////////////////////////////////
   
   def printResult(res : Prover.Result,
-                  settings : GlobalSettings)
+                  settings : GlobalSettings,
+                  lastFilename : String)
                  (implicit format : Param.InputFormat.Value) = format match {
     case Param.InputFormat.SMTLIB => res match {
               case Prover.Proof(tree) => {
