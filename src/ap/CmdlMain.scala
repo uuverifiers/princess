@@ -649,7 +649,10 @@ object CmdlMain {
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def main(args: Array[String]) : Unit = {
+  def main(args: Array[String]) : Unit = doMain(args, false)
+  
+  def doMain(args: Array[String],
+             userDefStoppingCond : => Boolean) : Unit = {
     val (settings, inputs) =
       try { // switch on proof construction by default in the iPrincess version
             GlobalSettings.fromArguments(args, GlobalSettings.DEFAULT)
@@ -685,15 +688,15 @@ object CmdlMain {
                     filename,
                     () => new java.io.BufferedReader (
                             new java.io.FileReader(new java.io.File (filename))),
-                    false)
+                    userDefStoppingCond)
     }
 
     if (Param.STDIN(settings)) {
       Console.err.println("Reading SMT-LIB 2 input from stdin ...")
-      proveMultiSMT(settings, Console.in, false)
+      proveMultiSMT(settings, Console.in, userDefStoppingCond)
     }
   }
-  
+
   object NullStream extends java.io.OutputStream {
     def write(b : Int) = {}
   }
