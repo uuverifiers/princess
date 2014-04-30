@@ -63,12 +63,12 @@ until [ $success -eq 0 ]; do
 
         # ping the daemon every second, to show that we are still
         # alive
-        (
+        {
             while true; do
                 sleep 1
                 echo "PING"
             done
-        ) &
+        } &
     ) | nc localhost $port
 
     success=$?
