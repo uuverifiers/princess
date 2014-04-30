@@ -231,13 +231,6 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
-  var positiveResult : String = "Theorem"
-  var negativeResult : String = "CounterSatisfiable"
-    
-  var domain_size : ConstantTerm = new ConstantTerm("domain_size")
-
-  var conjectureNum : Int = -1
-
   //////////////////////////////////////////////////////////////////////////////
   
   def toSetting(str : String, baseSettings : GlobalSettings) = {
@@ -291,6 +284,8 @@ object CmdlMain {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  val domain_size : ConstantTerm = new ConstantTerm("domain_size")
+
   def proveProblem(settings : GlobalSettings,
                    name : String,
                    reader : () => java.io.Reader,
@@ -299,12 +294,15 @@ object CmdlMain {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
 
     var lastFilename : String = ""
+    val fileProperties = new Param.FileProperties
+
+    val settings2 = Param.FILE_PROPERTIES.set(settings, fileProperties)
 
     try {
             val timeBefore = System.currentTimeMillis
 
             lastFilename = (name split "/").last stripSuffix ".p"
-            conjectureNum = -1
+            fileProperties.conjectureNum = -1
             
             var rawStrategies =
               List(("1010002", 15000),
@@ -326,7 +324,8 @@ object CmdlMain {
             while (result == null) {
               val baseSettings =
                 Param.INPUT_FORMAT.set(
-                Param.CONJECTURE_TO_PROVE.set(settings, Some(conjNum)), format)
+                Param.CONJECTURE_TO_PROVE.set(settings2, Some(conjNum)),
+                                              format)
               
               val prover = if (Param.MULTI_STRATEGY(settings)) {
                 import ParallelFileProver._
@@ -365,9 +364,10 @@ object CmdlMain {
                      Prover.NoCounterModel |
                      _ : Prover.NoCounterModelCert |
                      _ : Prover.NoCounterModelCertInter |
-                     _ : Prover.Model if (conjNum < conjectureNum - 1) => {
+                     _ : Prover.Model if (conjNum < fileProperties.conjectureNum - 1) => {
                   conjNum = conjNum + 1
-                  Console.err.println("" + (conjectureNum - conjNum) + " conjectures left")
+                  Console.err.println("" + (fileProperties.conjectureNum - conjNum) +
+                                      " conjectures left")
 
                   prover match {
                     case prover : ParallelFileProver =>
@@ -385,7 +385,7 @@ object CmdlMain {
               }
             }
 
-            printResult(result, settings, lastFilename)
+            printResult(result, settings2, lastFilename)
             
             val timeAfter = System.currentTimeMillis
             
@@ -542,7 +542,9 @@ object CmdlMain {
               }
     }
 
-    case Param.InputFormat.TPTP => res match {
+    case Param.InputFormat.TPTP => {
+            val fileProperties = Param.FILE_PROPERTIES(settings)
+            res match {
               case Prover.Proof(tree) => {
                 Console.err.println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
@@ -560,7 +562,7 @@ object CmdlMain {
                   println(tree)
                 }
                 
-                println("% SZS status " + positiveResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.ProofWithModel(tree, model) => {
                 Console.err.println("Formula is valid, resulting " +
@@ -591,7 +593,7 @@ object CmdlMain {
                   println(tree)
                 }
                 
-                println("% SZS status " + positiveResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoProof(tree) => {
                 Console.err.println("UNKNOWN")
@@ -614,7 +616,7 @@ object CmdlMain {
                   println("Most-general constraint:")
                   println("false")
                 }
-                println("% SZS status " + negativeResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.CounterModel(model) =>  {
                 Console.withOut(Console.err) {
@@ -627,7 +629,7 @@ object CmdlMain {
                   println("false")
                 }
                 
-                println("% SZS status " + negativeResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.NoCounterModel =>  {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -637,7 +639,7 @@ object CmdlMain {
                   println("true")
                 }
                 
-                println("% SZS status " + positiveResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCert(cert) =>  {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -656,7 +658,7 @@ object CmdlMain {
                 
                 printDOTCertificate(cert, settings)
 
-                println("% SZS status " + positiveResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -677,18 +679,18 @@ object CmdlMain {
 
                 printDOTCertificate(cert, settings)
                 
-                println("% SZS status " + positiveResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.Model(model) =>  {
                 Console.withOut(Console.err) {
                   println("Formula is valid, satisfying assignment for the existential constants is:")
                   printFormula(model)
                 }
-                println("% SZS status " + positiveResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoModel =>  {
                 Console.err.println("No satisfying assignment for the existential constants exists, formula is invalid")
-                println("% SZS status " + negativeResult + " for " + lastFilename)
+                println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.TimeoutProof(tree) =>  {
                 Console.err.println("Cancelled or timeout")
@@ -720,11 +722,15 @@ object CmdlMain {
                 println("% SZS status Timeout for " + lastFilename)
               }
             }
+          }
   }
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def main(args: Array[String]) : Unit = {
+  def main(args: Array[String]) : Unit = doMain(args, false)
+  
+  def doMain(args: Array[String],
+             userDefStoppingCond : => Boolean) : Unit = {
     val (settings, inputs) =
       try { // switch on proof construction by default in the iPrincess version
             GlobalSettings.fromArguments(args, GlobalSettings.DEFAULT)
@@ -760,15 +766,15 @@ object CmdlMain {
                     filename,
                     () => new java.io.BufferedReader (
                             new java.io.FileReader(new java.io.File (filename))),
-                    false)
+                    userDefStoppingCond)
     }
 
     if (Param.STDIN(settings)) {
       Console.err.println("Reading SMT-LIB 2 input from stdin ...")
-      proveMultiSMT(settings, Console.in, false)
+      proveMultiSMT(settings, Console.in, userDefStoppingCond)
     }
   }
-  
+
   object NullStream extends java.io.OutputStream {
     def write(b : Int) = {}
   }

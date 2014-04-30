@@ -33,6 +33,10 @@ object ServerMain {
 
   def main(args : Array[String]) : Unit = {
 
+    // since some of the actors in the class use blocking file operations,
+    // we have to disable the actor-fork-join stuff to prevent deadlocks
+    sys.props += ("actors.enableForkJoin" -> "false")
+
     val predefPort = args match {
       case Array(CmdlParser.IntVal(v)) => Some(v)
       case _ => None
@@ -71,7 +75,7 @@ object ServerMain {
         val receivedTicket = inputReader.readLine
         if (ticket == receivedTicket) {
           val arguments = new ArrayBuffer[String]
-          arguments += "+quiet"
+//          arguments += "+quiet"
   
           var str = inputReader.readLine
           var done = false
@@ -79,7 +83,22 @@ object ServerMain {
             str.trim match {
               case "PROVE_AND_EXIT" => {
                 Console.withOut(clientSocket.getOutputStream) {
-                  CmdlMain.main(arguments.toArray)
+                  var checkNum = 0
+                  var lastPing = System.currentTimeMillis
+                  var cancel = false
+
+                  CmdlMain.doMain(arguments.toArray, {
+                    checkNum = checkNum + 1
+                    cancel || (checkNum % 50 == 0 && {
+                      val currentTime = System.currentTimeMillis
+                      while (inputReader.ready) {
+                        inputReader.read
+                        lastPing = currentTime
+                      }
+                      cancel = currentTime - lastPing > 3000
+                      cancel
+                    })
+                  })
                 }
                 done = true
               }

@@ -237,6 +237,18 @@ object Param {
     val defau : Set[Predicate] = Set()
   }
 
+  class FileProperties {
+    var positiveResult : String = "Theorem"
+    var negativeResult : String = "CounterSatisfiable"
+    
+    var conjectureNum : Int = -1
+  }
+
+  case object FILE_PROPERTIES extends Param {
+    type Value = FileProperties
+    val defau : FileProperties = null
+  }
+
   case object CONJECTURE_TO_PROVE extends Param {
     type Value = Option[Int]
     val defau : Option[Int] = None

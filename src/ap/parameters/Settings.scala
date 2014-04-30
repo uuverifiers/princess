@@ -166,7 +166,8 @@ object GlobalSettings {
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
-         Param.FINITE_DOMAIN_CONSTRAINTS, Param.CONJECTURE_TO_PROVE)
+         Param.FINITE_DOMAIN_CONSTRAINTS, Param.CONJECTURE_TO_PROVE,
+         Param.FILE_PROPERTIES)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -194,7 +195,8 @@ object ParserSettings {
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
                        Param.TRIGGERS_IN_CONJECTURE,
                        Param.CONJECTURE_TO_PROVE,
-                       Param.MAKE_QUERIES_PARTIAL)
+                       Param.MAKE_QUERIES_PARTIAL,
+                       Param.FILE_PROPERTIES)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

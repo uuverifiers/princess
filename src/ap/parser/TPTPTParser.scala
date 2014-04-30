@@ -153,6 +153,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private val partialQueries =    
     Param.MAKE_QUERIES_PARTIAL(settings)
 
+  private val fileProperties =
+    Param.FILE_PROPERTIES(settings)
+
   //////////////////////////////////////////////////////////////////////////////
     
   def apply(reader : java.io.Reader)
@@ -168,24 +171,24 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
         tptpType match {
           case TPTPType.FOF | TPTPType.TFF if (!conjectureFors.isEmpty) => {
-            CmdlMain.positiveResult = "Theorem"
-            CmdlMain.negativeResult = "CounterSatisfiable"
+            fileProperties.positiveResult = "Theorem"
+            fileProperties.negativeResult = "CounterSatisfiable"
           }
           case _ => { 
-            CmdlMain.positiveResult = "Unsatisfiable"
-            CmdlMain.negativeResult = "Satisfiable"
+            fileProperties.positiveResult = "Unsatisfiable"
+            fileProperties.negativeResult = "Satisfiable"
           }
         }
 
         if (tptpType == TPTPType.TFF && (containsRat || containsReal))
-          CmdlMain.negativeResult = "GaveUp"
+          fileProperties.negativeResult = "GaveUp"
 
         val conjecture = Param.CONJECTURE_TO_PROVE(settings) match {
           case None =>
             or(conjectureFors)
           case Some(num) => {
             val conjectureConjuncts = splitConjecture(or(conjectureFors))
-            CmdlMain.conjectureNum = conjectureConjuncts.size
+            fileProperties.conjectureNum = conjectureConjuncts.size
             conjectureConjuncts(num)
           }
         }
