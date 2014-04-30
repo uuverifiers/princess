@@ -6,7 +6,7 @@ me=`whoami`
 portfile="$dotfilebase"_"$me"
 
 startDaemon() {
-    lockfile="$dotfilebase_lock_$me"
+    lockfile="$dotfilebase"_lock_"$me"
 
     while [ -f "$lockfile" ] && \
           [ $(( `date +%s` - `date -r "$lockfile" +%s` )) -le 10 ]; do
@@ -63,12 +63,12 @@ until [ $success -eq 0 ]; do
 
         # ping the daemon every second, to show that we are still
         # alive
-        (
+        {
             while true; do
                 sleep 1
                 echo "PING"
             done
-        ) &
+        } &
     ) | nc localhost $port
 
     success=$?
