@@ -249,6 +249,11 @@ object Param {
     val defau : FileProperties = null
   }
 
+  case object SPLIT_CONJECTURES extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   case object CONJECTURE_TO_PROVE extends Param {
     type Value = Option[Int]
     val defau : Option[Int] = None

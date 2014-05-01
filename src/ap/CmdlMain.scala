@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -296,7 +296,9 @@ object CmdlMain {
     var lastFilename : String = ""
     val fileProperties = new Param.FileProperties
 
-    val settings2 = Param.FILE_PROPERTIES.set(settings, fileProperties)
+    val settings2 = Param.INPUT_FORMAT.set(
+                    Param.FILE_PROPERTIES.set(settings,
+                                           fileProperties), format)
 
     try {
             val timeBefore = System.currentTimeMillis
@@ -323,9 +325,11 @@ object CmdlMain {
 
             while (result == null) {
               val baseSettings =
-                Param.INPUT_FORMAT.set(
-                Param.CONJECTURE_TO_PROVE.set(settings2, Some(conjNum)),
-                                              format)
+                Param.CONJECTURE_TO_PROVE.set(settings2,
+                             if (Param.SPLIT_CONJECTURES(settings2))
+                               Some(conjNum)
+                             else
+                               None)
               
               val prover = if (Param.MULTI_STRATEGY(settings)) {
                 import ParallelFileProver._

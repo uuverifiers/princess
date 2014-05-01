@@ -75,7 +75,7 @@ object ServerMain {
         val receivedTicket = inputReader.readLine
         if (ticket == receivedTicket) {
           val arguments = new ArrayBuffer[String]
-//          arguments += "+quiet"
+          arguments += "+quiet"
   
           var str = inputReader.readLine
           var done = false

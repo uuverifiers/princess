@@ -140,6 +140,8 @@ object GlobalSettings {
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.Maximal)
         case Opt("triggersInConjecture", value) =>
           Param.TRIGGERS_IN_CONJECTURE.set(settings, value)
+        case Opt("splitConjectures", value) =>
+          Param.SPLIT_CONJECTURES.set(settings, value)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
         case Opt(_, _) =>
@@ -167,7 +169,7 @@ object GlobalSettings {
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
          Param.FINITE_DOMAIN_CONSTRAINTS, Param.CONJECTURE_TO_PROVE,
-         Param.FILE_PROPERTIES)
+         Param.SPLIT_CONJECTURES, Param.FILE_PROPERTIES)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
