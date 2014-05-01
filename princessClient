@@ -45,6 +45,8 @@ if [ ! -f "$portfile" ]; then
     startDaemon
 fi
 
+mainProcess=$$
+
 success=1
 until [ $success -eq 0 ]; do
 
@@ -64,9 +66,10 @@ until [ $success -eq 0 ]; do
         # ping the daemon every second, to show that we are still
         # alive
         {
-            while true; do
-                sleep 1
+            sleep 1
+            while ps -p $mainProcess >/dev/null; do
                 echo "PING"
+                sleep 1
             done
         } &
     ) | nc localhost $port
