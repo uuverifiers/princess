@@ -237,6 +237,15 @@ object Param {
     val defau : Set[Predicate] = Set()
   }
 
+  object MulProcedure extends Enumeration {
+    val BitShift, Native = Value
+  }
+
+  case object MUL_PROCEDURE extends Param {
+    type Value = MulProcedure.Value
+    val defau : MulProcedure.Value = MulProcedure.BitShift
+  }
+
   class FileProperties {
     var positiveResult : String = "Theorem"
     var negativeResult : String = "CounterSatisfiable"

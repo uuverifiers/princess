@@ -38,7 +38,7 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
   * Currently the theory only does AC-congruence reasoning for multiplication.
   */
 
-object GroebnerMultiplication extends Theory {
+object GroebnerMultiplication extends MulTheory {
 
   val mul = new IFunction("mul", 2, true, false)
   val functions = List(mul)

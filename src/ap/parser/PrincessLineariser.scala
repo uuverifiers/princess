@@ -23,7 +23,7 @@ package ap.parser
 
 import ap.Signature
 import ap.basetypes.IdealInt
-import ap.theories.BitShiftMultiplication
+import ap.theories.{GroebnerMultiplication, BitShiftMultiplication}
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -183,7 +183,7 @@ object PrincessLineariser {
         case IPlus(_, _) => {
           allButLast(ctxt, " + ", "", 2)
         }
-        case IFunApp(BitShiftMultiplication.mul, _) => {
+        case IFunApp(BitShiftMultiplication.mul | GroebnerMultiplication.mul, _) => {
           allButLast(ctxt, " * ", "", 2)
         }
 

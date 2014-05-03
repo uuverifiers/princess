@@ -100,6 +100,11 @@ object CmdlMain {
     println("                             all:   axioms for all functions        (default)")
     println(" [+-]boolFunsAsPreds       In smtlib and tptp, encode               (default: -)")
     println("                           boolean functions as predicates")
+    println(" [+-]triggersInConjecture  Generate triggers in conjectures         (default: +)")
+    println(" [+-]splitConjectures      Split conjunctions in conjectures        (default: -)")
+    println(" -mulProcedure=val         Handling of nonlinear integer formulae")
+    println("                             bitShift: axioms encoding shift-and-add (default)")
+    println("                             native:   built-in methods (Groebner, etc.)")
     println(" -constructProofs=val      Extract proofs")
     println("                             never")
     println("                             ifInterpolating: if \\interpolant occurs (default)")
@@ -438,7 +443,7 @@ object CmdlMain {
             println("% SZS status Error for " + lastFilename)
         }
         Console.err.println("ERROR: " + e.getMessage)
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }

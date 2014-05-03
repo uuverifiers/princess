@@ -30,10 +30,14 @@ import ap.terfor.preds.Atom
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
+trait MulTheory extends Theory {
+  val mul : IFunction
+}
+
 /**
  * Multiplication by means of axioms describing shift-and-add
  */
-object BitShiftMultiplication extends Theory {
+object BitShiftMultiplication extends MulTheory {
 
   import IExpression._
 

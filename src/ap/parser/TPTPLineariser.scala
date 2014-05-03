@@ -23,7 +23,7 @@ package ap.parser
 
 import ap._
 import ap.basetypes.IdealInt
-import ap.theories.BitShiftMultiplication
+import ap.theories.{GroebnerMultiplication, BitShiftMultiplication}
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -66,6 +66,7 @@ class TPTPLineariser(benchmarkName : String) {
         KeepArg
       }
       case IFunApp(f, _) if (!(seenSymbols contains f) &&
+                             f != GroebnerMultiplication.mul &&
                              f != BitShiftMultiplication.mul) => {
         seenSymbols += f
         val name = "" + f
@@ -272,7 +273,7 @@ class TPTPLineariser(benchmarkName : String) {
       
         case IFunApp(fun, _) => {
           fun match {
-            case BitShiftMultiplication.mul =>
+            case GroebnerMultiplication.mul | BitShiftMultiplication.mul =>
               print("$product")
             case f =>
               print(f.name)

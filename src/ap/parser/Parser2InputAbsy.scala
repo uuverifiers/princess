@@ -23,6 +23,7 @@ package ap.parser;
 
 import ap._
 import ap.theories.TheoryCollector
+import ap.parameters.{ParserSettings, Param}
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -118,10 +119,14 @@ object Parser2InputAbsy {
 
 
 abstract class Parser2InputAbsy[CT, VT, PT, FT]
-                               (val env : Environment[CT, VT, PT, FT]) {
+                               (val env : Environment[CT, VT, PT, FT],
+                                settings : ParserSettings) {
   
   import IExpression._
   
+  def this(env : Environment[CT, VT, PT, FT]) =
+    this(env, ParserSettings.DEFAULT)
+
   type GrammarExpression
   
   /**
@@ -219,7 +224,11 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
 //                        "Do not know how to multiply " + t1 + " with " + t2)
 //        genNonLinearMultAxioms
 //        nonLinMult(t1, t2)
-        val theory = ap.theories.BitShiftMultiplication
+        val theory =
+          Param.MUL_PROCEDURE(settings) match {
+            case Param.MulProcedure.BitShift => ap.theories.BitShiftMultiplication
+            case Param.MulProcedure.Native   => ap.theories.GroebnerMultiplication
+          }
         if (!nonLinearMultDefined) {
           Parser2InputAbsy.warn(
             "using theory to encode multiplication: " + theory)

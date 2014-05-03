@@ -320,8 +320,6 @@ class SimpleAPI private (enableAssert : Boolean,
 
   import SimpleAPI._
 
-  assert(false) // not going to work in the CASC version
-
   Debug enableAllAssertions enableAssert
 
   private val dumpSMTStream = dumpSMT match {
@@ -413,7 +411,7 @@ class SimpleAPI private (enableAssert : Boolean,
     existentialConstants = Set()
     functionalPreds = Set()
     functionEnc =
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false, null)
+      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false, Map())
     currentProver = ModelSearchProver emptyIncProver goalSettings
     formulaeInProver = List()
     formulaeTodo = false
@@ -2197,7 +2195,7 @@ class SimpleAPI private (enableAssert : Boolean,
           }
       }
       
-/*      if (currentProver != null) {
+      if (currentProver != null) {
         if ((IterativeClauseMatcher.isMatchableRec(completeFor,
                Param.PREDICATE_MATCH_CONFIG(goalSettings))) &&
             Seqs.disjoint(completeFor.constants, existentialConstants))
@@ -2205,7 +2203,7 @@ class SimpleAPI private (enableAssert : Boolean,
             currentProver.conclude(List(completeFor, axioms), currentOrder)
         else
           currentProver = null
-      } */
+      }
   }
   
   private def resetModel = {
@@ -2252,7 +2250,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         order.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         order,
-                        theoryCollector.theories, null, null)
+                        theoryCollector.theories, Set(), Map())
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms

@@ -142,6 +142,10 @@ object GlobalSettings {
           Param.TRIGGERS_IN_CONJECTURE.set(settings, value)
         case Opt("splitConjectures", value) =>
           Param.SPLIT_CONJECTURES.set(settings, value)
+        case ValueOpt("mulProcedure", "bitShift") =>
+          Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.BitShift)
+        case ValueOpt("mulProcedure", "native") =>
+          Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.Native)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
         case Opt(_, _) =>
@@ -169,7 +173,8 @@ object GlobalSettings {
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
          Param.FINITE_DOMAIN_CONSTRAINTS, Param.CONJECTURE_TO_PROVE,
-         Param.SPLIT_CONJECTURES, Param.FILE_PROPERTIES)
+         Param.SPLIT_CONJECTURES, Param.FILE_PROPERTIES,
+         Param.MUL_PROCEDURE)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -198,7 +203,8 @@ object ParserSettings {
                        Param.TRIGGERS_IN_CONJECTURE,
                        Param.CONJECTURE_TO_PROVE,
                        Param.MAKE_QUERIES_PARTIAL,
-                       Param.FILE_PROPERTIES)
+                       Param.FILE_PROPERTIES,
+                       Param.MUL_PROCEDURE)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())
