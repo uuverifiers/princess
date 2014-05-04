@@ -351,13 +351,6 @@ object GroebnerMultiplication extends MulTheory {
         array
       }
 
-      val linearEq = simplified.toList
-
-      val map = makeMap(linearEq)
-      val m = makeMatrix(linearEq)
-
-      val gaussian = new Gaussian(m)
-
       def rowToPolynomial(map : List[Monomial], row : Array[IdealInt])(implicit ordering : monomialOrdering) =
       {
         var retPoly = new Polynomial(List())
@@ -369,6 +362,14 @@ object GroebnerMultiplication extends MulTheory {
         retPoly
       }
 
+      val linearEq = simplified.toList
+
+      if (!linearEq.isEmpty)
+      {
+        val map = makeMap(linearEq)
+        val m = makeMatrix(linearEq)
+        val gaussian = new Gaussian(m)
+
       val linearConj =
         conj(for (r <- gaussian.getRows();
           val poly = rowToPolynomial(map, r);
@@ -376,11 +377,13 @@ object GroebnerMultiplication extends MulTheory {
         yield
           polynomialToAtom(poly))
 
-
-      if (linearConj.isTrue)
-        None
+        if (linearConj.isTrue)
+          None
+        else
+          Some((linearConj, Conjunction.TRUE))
+      }
       else
-        Some((linearConj, Conjunction.TRUE))
+        None
     }
   })
 
