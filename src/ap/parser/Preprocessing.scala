@@ -64,8 +64,12 @@ object Preprocessing {
     val fors2 = for (f <- fors)
                 yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
+    // simple mini-scoping for existential quantifiers
+    val miniscoper = new SimpleMiniscoper(signature)
+    val fors2a = for (f <- fors2) yield miniscoper(f)
+
     // compress chains of implications
-    val fors2b = for (INamedPart(n, f) <- fors2)
+    val fors2b = for (INamedPart(n, f) <- fors2a)
                  yield INamedPart(n, ImplicationCompressor(f))
     
     // check whether we have to add assumptions about the domain size

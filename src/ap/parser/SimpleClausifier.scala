@@ -90,7 +90,7 @@ class SimpleClausifier {
           UniSubArgs(true)
         case _ : ITrigger =>
           throw new Preprocessing.PreprocessingException(
-            "Did not expect any triggers to be left at this point");
+            "Did not expect any triggers to be left at this point")
         case _ =>
           KeepArg
       }
