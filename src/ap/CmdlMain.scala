@@ -369,10 +369,13 @@ object CmdlMain {
         None
       }
       case e : Throwable => {
-        if (format == Param.InputFormat.SMTLIB)
+        if (format == Param.InputFormat.SMTLIB) {
           println("error")
-        Console.err.println("ERROR: " + e.getMessage)
-         e.printStackTrace
+	  Console.err.println(e.getMessage)
+	} else {
+          println("ERROR: " + e.getMessage)
+        }
+//         e.printStackTrace
         None
       }
     }
@@ -682,13 +685,18 @@ object CmdlMain {
       return
     }
 
-    for (filename <- inputs) {
+    for (filename <- inputs) try {
       implicit val format = determineInputFormat(filename, settings)
       proveProblems(settings,
                     filename,
                     () => new java.io.BufferedReader (
                             new java.io.FileReader(new java.io.File (filename))),
                     userDefStoppingCond)
+    } catch {
+      case e : Throwable => {
+        println("ERROR: " + e.getMessage)
+//        e.printStackTrace
+      }
     }
 
     if (Param.STDIN(settings)) {
