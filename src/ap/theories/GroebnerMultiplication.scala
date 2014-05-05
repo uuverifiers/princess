@@ -387,5 +387,7 @@ object GroebnerMultiplication extends MulTheory {
     }
   })
 
+  override def toString = "GroebnerMultiplication"
+
   TheoryRegistry register this
 }
