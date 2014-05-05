@@ -5,6 +5,16 @@ dotfilebase="/tmp/.princess_casc"
 me=`whoami`
 portfile="$dotfilebase"_"$me"
 
+if [ $(uname) = "Linux" ]; then
+    pathCmd="readlink -f"
+elif [ $(uname) = "Darwin" ]; then
+    pathCmd="stat -f %N"
+else
+    pathCmd="realpath"
+fi
+
+################################################################################
+
 startDaemon() {
     lockfile="$dotfilebase"_lock_"$me"
 
@@ -41,6 +51,8 @@ startDaemon() {
     fi
 }
 
+################################################################################
+
 if [ ! -f "$portfile" ]; then
     startDaemon
 fi
@@ -58,7 +70,14 @@ until [ $success -eq 0 ]; do
 
         # command line arguments
         for var; do
-            echo "$var"
+	    case "$var" in
+		-*|+*)
+		    echo "$var"
+		    ;;
+		*)
+		    echo `$pathCmd "$var"`
+		    ;;
+	    esac
         done
 
         echo "PROVE_AND_EXIT"

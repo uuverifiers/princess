@@ -437,13 +437,19 @@ object CmdlMain {
       }
       case e : Throwable => {
         format match {
-          case Param.InputFormat.SMTLIB =>
+          case Param.InputFormat.SMTLIB => {
             println("error")
-          case Param.InputFormat.TPTP =>
+            Console.err.println(e.getMessage) 
+          }
+          case Param.InputFormat.TPTP => {
             println("% SZS status Error for " + lastFilename)
+            Console.err.println(e.getMessage) 
+          }
+          case _ => {
+            println("ERROR: " + e.getMessage)
+          }
         }
-        Console.err.println("ERROR: " + e.getMessage)
-         e.printStackTrace
+//         e.printStackTrace
         None
       }
     }
@@ -769,13 +775,18 @@ object CmdlMain {
       return
     }
 
-    for (filename <- inputs) {
+    for (filename <- inputs) try {
       implicit val format = determineInputFormat(filename, settings)
       proveProblems(settings,
                     filename,
                     () => new java.io.BufferedReader (
                             new java.io.FileReader(new java.io.File (filename))),
                     userDefStoppingCond)
+    } catch {
+      case e : Throwable => {
+        println("ERROR: " + e.getMessage)
+//        e.printStackTrace
+      }
     }
 
     if (Param.STDIN(settings)) {

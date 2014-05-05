@@ -31,6 +31,15 @@ import java.net._
 
 object ServerMain {
 
+  private val InactivityTimeout = 15 * 60 * 1000 // shutdown after 15min inactivity
+  private val TicketLength = 40
+  private val MaxThreadNum = 16
+  private val MaxWaitNum   = 32
+
+  private object ThreadToken
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def main(args : Array[String]) : Unit = {
 
     // since some of the actors in the class use blocking file operations,
@@ -43,11 +52,11 @@ object ServerMain {
     }
 
     val socket =
-      new ServerSocket(predefPort getOrElse 0, 1,
+      new ServerSocket(predefPort getOrElse 0, MaxWaitNum,
                        InetAddress getByName "localhost")
     val port = socket.getLocalPort
 
-    socket.setSoTimeout(15 * 60 * 1000) // timeout of 15min
+    socket.setSoTimeout(InactivityTimeout)
 
     Console.withOut(Console.err) {
       CmdlMain.printGreeting
@@ -57,14 +66,26 @@ object ServerMain {
 
     val r = new scala.util.Random
     val ticket =
-      (for (_ <- 0 until 40) yield r.nextPrintableChar) mkString ""
+      (for (_ <- 0 until TicketLength) yield r.nextPrintableChar) mkString ""
 
     println(port)
     println(ticket)
 
-    try {
+    val serverActor = self
+    for (_ <- 0 until MaxThreadNum)
+      serverActor ! ThreadToken
 
-    while (true) {
+    ////////////////////////////////////////////////////////////////////////////
+    // The main loop
+
+    var serverRunning = true
+    while (serverRunning) try {
+
+      // Get a token to serve another request
+      receive {
+        case ThreadToken => // nothing
+      }
+
       val clientSocket = socket.accept
 
       actor {
@@ -82,6 +103,7 @@ object ServerMain {
           while (!done && str != null) {
             str.trim match {
               case "PROVE_AND_EXIT" => {
+                done = true
                 Console.withOut(clientSocket.getOutputStream) {
                   var checkNum = 0
                   var lastPing = System.currentTimeMillis
@@ -100,7 +122,6 @@ object ServerMain {
                     })
                   })
                 }
-                done = true
               }
               case str =>
                 arguments += str
@@ -112,12 +133,35 @@ object ServerMain {
         }
   
         inputReader.close
+
+        // Put back the token
+	serverActor ! ThreadToken
       }
-    }
 
     } catch {
-      case _ : SocketTimeoutException =>
-        Console.err.println("Shutting down Princess daemon after 15min inactivity")
+      case _ : SocketTimeoutException => {
+        // check whether any thread is still active
+
+        var joinedThreads = 0
+        var timeout = false
+        while (!timeout && joinedThreads < MaxThreadNum)
+          receiveWithin(0) {
+            case ThreadToken => {
+              joinedThreads = joinedThreads + 1
+            }
+            case TIMEOUT => {
+              // there are still some threads running
+              timeout = true
+              for (_ <- 0 until joinedThreads)
+                serverActor ! ThreadToken
+            }
+          }
+
+        if (!timeout) {
+          Console.err.println("Shutting down inactive Princess daemon")
+          serverRunning = false
+        }
+      }
     }
 
   }
