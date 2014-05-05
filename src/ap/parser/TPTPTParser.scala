@@ -268,18 +268,54 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           }
         
         val domainPredAxioms = chosenFiniteConstraintMethod match {
-          case Param.FiniteDomainConstraints.TypeGuards =>
-            connect(for ((t, Some(domPred)) <- declaredTypes.iterator)
+          case Param.FiniteDomainConstraints.TypeGuards => {
+            // check whether there are any types without declared
+            // constants
+            val inhabitedTypes =
+              (for (Environment.Constant(_, Environment.NullaryFunction, t)
+                     <- env.symbols) yield t).toSet
+
+            connect(for ((t, Some(domPred)) <- declaredTypes.iterator;
+                         if (!(inhabitedTypes contains t)))
                     yield {
                       // add a constant to make sure that the type is inhabited
                       val constName = "constant_in_" + t.name
                       declareSym(constName, Rank0(t))
                       domPred(checkUnintFunTerm(constName, List(), List())._1)
                     }, IBinJunctor.And)
+          }
           case _ =>
             i(true)
         }
         
+        val finiteDomainSorts = chosenFiniteConstraintMethod match {
+          case Param.FiniteDomainConstraints.TypeGuards => {
+            val finiteSorts = new MHashSet[Predicate]
+            val disjuncts = LineariseVisitor(Transform2NNF(problem), IBinJunctor.Or)
+            val V0Sum = SymbolSum(v(0))
+
+            for (IQuantified(Quantifier.EX, f) <- disjuncts.iterator)
+              (LineariseVisitor(f, IBinJunctor.And) partition (_.isInstanceOf[IAtom])) match {
+                case (Seq(IAtom(p, Seq(IVariable(0)))), cases)
+                  if (cases forall {
+                        case INot(IIntFormula(IIntRelation.EqZero,
+                                              V0Sum(coeff, rest)))
+                          if (coeff.isUnit) => true
+                        case _ => false
+                      }) =>
+                  finiteSorts += p
+                case _ =>
+                  // nothing
+              }
+
+            finiteSorts.toSet
+          }
+          case _ => Set()
+        }
+
+        if (!finiteDomainSorts.isEmpty)
+          warn("Finite sorts: " + (finiteDomainSorts mkString ", "))
+
         ////////////////////////////////////////////////////////////////////////
                   
         val completeFor =
@@ -287,9 +323,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
              domainPredAxioms) ===>
           (problem ||| domainAxioms)
 
-        (completeFor,
-         List(),
-         genSignature(completeFor, constructFunctionType _))
+        val signature =
+          genSignature(completeFor, constructFunctionType _)
+
+        val finalPredMatchConfig =
+          signature.predicateMatchConfig ++ ( 
+            for (p <- finiteDomainSorts.iterator)
+            yield (p -> Signature.PredicateMatchStatus.Positive))
+
+        (completeFor, List(),
+         signature updatePredicateMatchConfig finalPredMatchConfig)
 
 //        (completeFor, List(), genSignature(completeFor))
       }

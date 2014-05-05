@@ -100,4 +100,9 @@ class Signature(val universalConstants : Set[ConstantTerm],
     new Signature(universalConstants, existentialConstants,
                   nullaryFunctions, predicateMatchConfig, newOrder, theories,
                   domainPredicates, functionTypes)
+  def updatePredicateMatchConfig(
+                  newPredicateMatchConfig : Signature.PredicateMatchConfig) =
+    new Signature(universalConstants, existentialConstants,
+                  nullaryFunctions, newPredicateMatchConfig, order, theories,
+                  domainPredicates, functionTypes)
 }

@@ -64,15 +64,13 @@ No countermodel exists, formula is valid
 
 Loading let-tests.p ...
 
-1 conjectures left
-
 No countermodel exists, formula is valid
 % SZS status Theorem for let-tests
 
 Loading quotes.p ...
 
 Formula is invalid, found a countermodel:
-constant_in_Pair[Int,Int] = 0 & constant_in_Color = 0 & blue:\\'Color' = 0 & green:\\'Color' = 0 & red:Color = 1 & in_Color(1) & in_Color(0) & in_Pair[Int,Int](0)
+constant_in_Pair[Int,Int] = 0 & blue:\\'Color' = 0 & green:\\'Color' = 0 & red:Color = 1 & in_Color(1) & in_Color(0) & in_Pair[Int,Int](0)
 % SZS status Satisfiable for quotes
 
 Loading multiple-conjectures.p ...
@@ -180,7 +178,7 @@ Prover 11:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 11: 
 Prover 11:         ^
 % SZS status Error for SYN000_2
-ERROR: [70.9] failure: `<=>' expected but `,' found
+[70.9] failure: `<=>' expected but `,' found
 
         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 
