@@ -979,27 +979,27 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   }
 
   private lazy val tff_let_formula :PackratParser[IFormula] =
-    ((("$let_tf" ~ "(" ~> term ~ "=" ~ term ^^ {
-       case lhs ~ _ ~ rhs => {
-         val (lhs_t, lhs_type) = lhs
+    ((("$let_tf" ~ "(" ~> functor /* term */ ~ "=" ~ term ^^ {
+       case lhs_name ~ _ ~ rhs => {
+//         val (lhs_t, lhs_type) = lhs
          val (rhs_t, rhs_type) = rhs
-         if (!lhs_t.isInstanceOf[IConstant])
-           throw new SyntaxError(
-              "Error: currently $let_tf only supports constants, not " + lhs_t)
-         val IConstant(c) = lhs_t
-         if (lhs_type == OType || lhs_type != rhs_type) {
+//         if (!lhs_t.isInstanceOf[IConstant])
+//           throw new SyntaxError(
+//              "Error: currently $let_tf only supports constants, not " + lhs_t)
+//         val IConstant(c) = lhs_t
+//         if (lhs_type == OType || lhs_type != rhs_type) {
 //           throw new SyntaxError(
 //              "Error: ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + "." +
 //              " Possibly the type of " + lhs_t + " has to be declared.")
-           warn("ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + ".")
-         }
-         env.pushVar(c.name, rhs_type)
-         (c, rhs_t)
+//           warn("ill-sorted $let_tf: between " + lhs_t + " and " + rhs_t + ".")
+//         }
+         env.pushVar(lhs_name, rhs_type)
+         rhs_t
        }
      }) ~ "," ~ tff_logic_formula <~ ")") ^^ {
-      case definition ~ _ ~ body => {
+      case rhs_t ~ _ ~ body => {
         env.popVar
-        VariableSubstVisitor(body, (List(definition._2), -1))
+        VariableSubstVisitor(body, (List(rhs_t), -1))
 //        ConstantSubstVisitor(body, Map(definition))
       }
     }) |
@@ -1333,27 +1333,27 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   }
 
   private lazy val tff_let_term =
-    ((("$let_tt" ~ "(" ~> term ~ "=" ~ term ^^ {
-       case lhs ~ _ ~ rhs => {
-         val (lhs_t, lhs_type) = lhs
+    ((("$let_tt" ~ "(" ~> functor /* term */ ~ "=" ~ term ^^ {
+       case lhs_name ~ _ ~ rhs => {
+//         val (lhs_t, lhs_type) = lhs
          val (rhs_t, rhs_type) = rhs
-         if (!lhs_t.isInstanceOf[IConstant])
-           throw new SyntaxError(
-              "Error: currently $let_tt only supports constants, not " + lhs_t)
-         val IConstant(c) = lhs_t
-         if (lhs_type == OType || lhs_type != rhs_type) {
+//         if (!lhs_t.isInstanceOf[IConstant])
+//           throw new SyntaxError(
+//              "Error: currently $let_tt only supports constants, not " + lhs_t)
+//         val IConstant(c) = lhs_t
+//         if (lhs_type == OType || lhs_type != rhs_type) {
 //           throw new SyntaxError(
 //              "Error: ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + "." +
 //              " Possibly the type of " + lhs_t + " has to be declared.")
-           warn("ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + ".")
-         }
-         env.pushVar(c.name, rhs_type)
-         (c, rhs_t)
+//           warn("ill-sorted $let_tt: between " + lhs_t + " and " + rhs_t + ".")
+//         }
+         env.pushVar(lhs_name, rhs_type)
+         rhs_t
        }
      }) ~ "," ~ term <~ ")") ^^ {
-      case definition ~ _ ~ body => {
+      case rhs_t ~ _ ~ body => {
         env.popVar
-        (VariableSubstVisitor(body._1, (List(definition._2), -1)), body._2)
+        (VariableSubstVisitor(body._1, (List(rhs_t), -1)), body._2)
 //        (ConstantSubstVisitor(body._1, Map(definition)), body._2)
       }
     }) |
