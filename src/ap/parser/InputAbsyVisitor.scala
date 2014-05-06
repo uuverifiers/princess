@@ -677,7 +677,8 @@ object Transform2NNF extends CollectingVisitor[Boolean, IExpression] {
   def postVisit(t : IExpression, negate : Boolean,
                 subres : Seq[IExpression]) : IExpression =
     if (negate) t match {
-      case IBinFormula(Eqv, _, _) | _ : ITrigger | _ : INamedPart =>
+      case IBinFormula(Eqv, _, _) | _ : ITrigger | _ : INamedPart |
+           _ : IFormulaITE =>
         t update subres
       case IBinFormula(And, _, _) =>
         subres(0).asInstanceOf[IFormula] | subres(1).asInstanceOf[IFormula]

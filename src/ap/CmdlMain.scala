@@ -449,7 +449,7 @@ object CmdlMain {
             println("ERROR: " + e.getMessage)
           }
         }
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }
