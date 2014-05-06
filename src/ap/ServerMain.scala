@@ -140,9 +140,9 @@ object ServerMain {
 
     } catch {
       case _ : SocketTimeoutException => {
-        // check whether any thread is still active
+        // check whether any other thread is still active
 
-        var joinedThreads = 0
+        var joinedThreads = 1
         var timeout = false
         while (!timeout && joinedThreads < MaxThreadNum)
           receiveWithin(0) {
