@@ -24,11 +24,14 @@ package ap.theories
 import ap.basetypes.IdealInt
 import ap.Signature
 import ap.parser._
-import ap.terfor.{Formula, TermOrder}
+import ap.terfor.{Formula, TermOrder, TerForConvenience}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
+import ap.proof.theoryPlugins.Plugin
+import ap.proof.goal.Goal
+import ap.parameters.Param
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 
 /**
  * Multiplication by means of axioms describing shift-and-add
@@ -88,9 +91,41 @@ object BitShiftMultiplication extends Theory {
 
   val functionalPredicates = predicates.toSet
 
-  val functionPredicateMapping = List((mul, predicates(0)))
+  private def _mul = predicates(0)
 
-  val plugin = None
+  val functionPredicateMapping = List((mul, _mul))
+
+  val plugin = Some(new Plugin {
+
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+      if (Param.PROOF_CONSTRUCTION(goal.settings)) {
+        List()
+      } else {
+
+        // check if we find any mul-literal with concrete operands;
+        // in this case, the literal can be replaced with a simple
+        // equation
+
+        implicit val order = goal.order
+        import TerForConvenience._
+
+        val (newEqs, atomsToRemove) =
+          (for (a <- goal.facts.predConj.positiveLitsWithPred(_mul);
+                if (a(0).isConstant || a(1).isConstant))
+           yield (a(0) * a(1) === a(2), a)).unzip
+
+        if (newEqs.isEmpty) {
+          List()
+        } else {
+          List(Plugin.AddFormula(conj(newEqs).negate),
+               Plugin.RemoveFacts(conj(atomsToRemove)))
+        }
+
+      }
+
+    def generateAxioms(goal : Goal)
+                      : Option[(Conjunction, Conjunction)] = None
+  })
 
   TheoryRegistry register this
 
