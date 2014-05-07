@@ -103,14 +103,15 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
    * superterms of the current term are potential triggers (and in this case
    * the current term with all variables shifted to the top level), the second one
    * gives the triggers found so far (together with the sets of variables 
-   * occurring in the triggers), the third one gives all variables contained
+   * occurring in the triggers, as well as the variables occurring in a trigger, but
+   * not in sub-triggers), the third one gives all variables contained
    * in the current expression.
    * 
    * We use the result type <code>ListSet</code> to avoid non-determinism
    */
   private object TriggerSearcher
                  extends ContextAwareVisitor[Int, (Option[ITerm],
-                                                   ListSet[(ITerm, Set[Int])],
+                                                   ListSet[(ITerm, Set[Int], Set[Int])],
                                                    Set[Int])] {
     
     override def preVisit(t : IExpression,
@@ -123,17 +124,23 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                    
     def postVisit(t : IExpression,
                   ctxt : Context[Int],
-                  subres : Seq[(Option[ITerm], ListSet[(ITerm, Set[Int])], Set[Int])])
-                 : (Option[ITerm], ListSet[(ITerm, Set[Int])], Set[Int]) = {
+                  subres : Seq[(Option[ITerm],
+                               ListSet[(ITerm, Set[Int], Set[Int])],
+                               Set[Int])])
+                 : (Option[ITerm], ListSet[(ITerm, Set[Int], Set[Int])], Set[Int]) = {
       
       // the union of all subtrigger sets
       val subTriggers = (ListSet.empty ++ (for ((_, ts, _) <- subres.iterator;
                                                 t <- ts.iterator) yield t))
-                          .asInstanceOf[ListSet[(ITerm, Set[Int])]]
+                          .asInstanceOf[ListSet[(ITerm, Set[Int], Set[Int])]]
 
       // the set of all variables occurring in subterms
       lazy val allVariables =
         Set() ++ (for ((_, _, vars) <- subres.iterator; v <- vars.iterator) yield v)
+
+      // the set of all variables occurring in subtriggers
+      lazy val subTriggerVars =
+        Set() ++ (for ((_, s, _) <- subTriggers.iterator; v <- s.iterator) yield v)
 
       // the number of subterms that contain variables
       lazy val subTermVarNum = (0 /: subres) {
@@ -157,7 +164,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
             val shiftedTerm =
               IFunApp(fun, for ((Some(t), _, _) <- subres) yield t)
 
-            val newTriggers : ListSet[(ITerm, Set[Int])] =
+            val newTriggers : ListSet[(ITerm, Set[Int], Set[Int])] =
               if (allVariables.isEmpty) {
                 //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 Debug.assertInt(TriggerGenerator.AC, subTriggers.isEmpty)
@@ -170,7 +177,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                   // two subterms contain variables
                   if (subTriggers.isEmpty || subTermVarNum >= 2)
                     // ignore the triggers from the subterms
-                    ListSet.empty + (shiftedTerm -> allVariables)
+                    ListSet.empty + ((shiftedTerm, allVariables, allVariables))
                   else
                     // ignore this new trigger
                     subTriggers
@@ -179,16 +186,26 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                   // check whether the current term contains more variables than
                   // any of the individual subterms
                   // (otherwise we do not consider the term an interesting trigger)
-                  val foundMoreVars = subres forall {
-                    case (Some(_ : IFunApp), _, subVariables) =>
-                      subVariables != allVariables
-                    case _ =>
-                      true
+                  val foundMoreVars = shiftedTerm.subExpressions exists {
+                    case IVariable(v) =>
+                      v < ctxt.a &&
+                      (subTriggers forall {
+                         case (_, vars, _) => !(vars contains v)
+                       })
+                    case _ => false
                   }
+
+                    /* subres forall {
+                         case (Some(_ : IFunApp), _, subVariables) =>
+                           subVariables.size < allVariables.size
+                         case _ =>
+                           true
+                       } */
                   
                   if (foundMoreVars)
                     // ignore the triggers from the subterms
-                    ListSet.empty + (shiftedTerm -> allVariables)
+                    subTriggers + ((shiftedTerm, allVariables,
+                                    allVariables -- subTriggerVars))
                   else
                     // only consider the subtriggers
                     subTriggers
@@ -201,8 +218,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                     // consider all triggers but those that are smaller
                     // in KBO than the new trigger
                     (subTriggers filterNot {
-                       case (t, _) => iTermOrdering.lt(t, shiftedTerm)
-                     }) + (shiftedTerm -> allVariables)
+                       case (t, _, _) => iTermOrdering.lt(t, shiftedTerm)
+                     }) + ((shiftedTerm, allVariables, allVariables))
                   else
                     subTriggers
               }
@@ -269,8 +286,12 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
     case t : IFormula if (ctxt.a > 0) => {
       val newFor = t update subres
       val triggers = TriggerSearcher.visit(newFor, Context(ctxt.a))._2
-      
-      def allVars(vars : Set[Int]) = (0 until ctxt.a) forall (vars contains _)
+      val allTriggerVars =
+        (for ((_, s, _) <- triggers.iterator;
+              v <- s.iterator;
+              if (v < ctxt.a)) yield v).toSet
+
+      def allVars(vars : Set[Int]) = allTriggerVars forall (vars contains _)
       
       // Recursive function generate all minimal multi-triggers. The second
       // argument of the function specifies the number of expressions covering
@@ -278,11 +299,11 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
       
       var multiTriggerIterations = 0
       
-      def multiTriggersHelp(chosenTriggers : List[(ITerm, Set[Int])],
-                            remainingTriggers : List[(ITerm, Set[Int])],
+      def multiTriggersHelp(chosenTriggers : List[(ITerm, Set[Int], Set[Int])],
+                            remainingTriggers : List[(ITerm, Set[Int], Set[Int])],
                             coveredVars : Map[Int, Int],
                             resultList : ArrayBuffer[List[ITerm]]) : Unit =
-        if ((0 until ctxt.a) forall (coveredVars(_) > 0)) {
+        if (allTriggerVars forall (coveredVars(_) > 0)) {
           // we have found a useable multi-trigger and can ignore the
           // remaining uni-triggers
           resultList += (chosenTriggers map (_._1))
@@ -293,20 +314,21 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
             throw TriggerGenerator.ENOUGH_TRIGGERS
           
           remainingTriggers match {
-            case (trigger, vars) :: rem => {
-              if (vars forall (coveredVars.getOrElse(_, 1) > 0)) {
+            case (trigger, vars, localVars) :: rem => {
+              if (localVars forall (coveredVars.getOrElse(_, 1) > 0)) {
                 // this uni-trigger does not add any new variables and
                 // can be ignored
               } else {
                 val newCoveredVars = addCoveredVars(coveredVars, vars.iterator)
                   
                 if (chosenTriggers exists {
-                      case (_, vars) => vars forall (newCoveredVars.getOrElse(_, 2) > 1)
+                      case (_, _, localVars) =>
+                        localVars forall (newCoveredVars.getOrElse(_, 2) > 1)
                     }) {
                   // this new expressions would make previously chosen
                   // triggers redundant, so don't use it
                 } else {
-                  multiTriggersHelp((trigger, vars) :: chosenTriggers,
+                  multiTriggersHelp((trigger, vars, localVars) :: chosenTriggers,
                                     rem, newCoveredVars, resultList)
                 }
               }
@@ -355,10 +377,10 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
         
         case _ => { // AllMaximal or AllMinimal
           val chosenTriggers : Seq[List[ITerm]] =
-            if (triggers exists { case (_, vars) => allVars(vars) })
+            if (triggers exists { case (_, vars, _) => allVars(vars) })
               // there are uni-triggers that contain all variables
           
-              (for ((t, vars) <- triggers.iterator;
+              (for ((t, vars, _) <- triggers.iterator;
                     if (allVars(vars))) yield List(t)).toSeq
             else
               multiTriggers

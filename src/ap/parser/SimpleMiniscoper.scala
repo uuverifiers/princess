@@ -45,11 +45,11 @@ class SimpleMiniscoper(signature : Signature) {
                      IBinFormula(Or, f1, f2))
         if (signature.domainPredicates contains p) =>
       IBinFormula(Or, IBinFormula(And, g, f1), IBinFormula(And, g, f2))
-/*    case IBinFormula(And,
+    case IBinFormula(And,
                      IAtom(p, Seq(IVariable(ind))),
                      IQuantified(EX, f))
         if (signature.domainPredicates contains p) =>
-      IQuantified(EX, IBinFormula(And, IAtom(p, List(IVariable(ind+1))), f)) */
+      IQuantified(EX, IBinFormula(And, IAtom(p, List(IVariable(ind+1))), f))
     case IBinFormula(And,
                      IAtom(p, Seq(v@IVariable(ind))),
                      f)
