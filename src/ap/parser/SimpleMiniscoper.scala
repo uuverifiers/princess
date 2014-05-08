@@ -51,6 +51,11 @@ class SimpleMiniscoper(signature : Signature) {
         if (signature.domainPredicates contains p) =>
       IQuantified(EX, IBinFormula(And, IAtom(p, List(IVariable(ind+1))), f))
     case IBinFormula(And,
+                     g@IAtom(p, Seq(_ : IVariable)),
+                     ITrigger(patterns, f))
+        if (signature.domainPredicates contains p) =>
+      ITrigger(patterns, IBinFormula(And, g, f))
+    case IBinFormula(And,
                      IAtom(p, Seq(v@IVariable(ind))),
                      f)
         if ((signature.domainPredicates contains p) && !ContainsSymbol(f, v)) =>
