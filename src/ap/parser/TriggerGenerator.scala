@@ -389,7 +389,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
           val chosenTriggers : Seq[List[ITerm]] =
             multiTriggers ++ List(List())
               
-          println(chosenTriggers.toList)
+//          println(chosenTriggers.toList)
           (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
         }
 
