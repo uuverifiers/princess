@@ -182,7 +182,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                     // ignore this new trigger
                     subTriggers
                   
-                case TriggerStrategy.AllMinimal => {
+                case TriggerStrategy.AllMinimal |
+                     TriggerStrategy.AllMinimalAndEmpty => {
                   // check whether the current term contains more variables than
                   // any of the individual subterms
                   // (otherwise we do not consider the term an interesting trigger)
@@ -195,7 +196,7 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                     case _ => false
                   }
 
-                    /* subres forall {
+                  /*  val foundMoreVars = subres forall {
                          case (Some(_ : IFunApp), _, subVariables) =>
                            subVariables.size < allVariables.size
                          case _ =>
@@ -226,11 +227,14 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
 
             // if we already have found all variables, we do not have to consider
             // superterms
-            (if (strategy == TriggerStrategy.AllMinimal &&
-                 ((0 until ctxt.a) forall (allVariables contains _)))
-               None
-             else
-               Some(shiftedTerm),
+            (strategy match {
+               case TriggerStrategy.AllMinimal |
+                    TriggerStrategy.AllMinimalAndEmpty
+                 if ((0 until ctxt.a) forall (allVariables contains _)) =>
+                   None
+               case _ =>
+                   Some(shiftedTerm)
+             },
              newTriggers, allVariables)
 
           }
@@ -285,7 +289,13 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
     // this is the case in which we want to generate triggers
     case t : IFormula if (ctxt.a > 0) => {
       val newFor = t update subres
+//      println(newFor)
       val triggers = TriggerSearcher.visit(newFor, Context(ctxt.a))._2
+
+      if (triggers.isEmpty) {
+        newFor
+      } else {
+
       val allTriggerVars =
         (for ((_, s, _) <- triggers.iterator;
               v <- s.iterator;
@@ -363,32 +373,41 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
       strategy match {
         case TriggerStrategy.Maximal => {
           val chosenTriggers = multiTriggers
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(TriggerGenerator.AC, !chosenTriggers.isEmpty)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
 //          println(chosenTriggers)
-          if (chosenTriggers.isEmpty) {
-            t
-          } else {
-            val sortedTriggers = for (t <- chosenTriggers)
-                                 yield (t sorted reverseITermOrdering)
-            val maxTrigger = sortedTriggers.max(Ordering Iterable iTermOrdering)
-//            println("Max: " + maxTrigger)
-            ITrigger(maxTrigger, t)
-          }
+
+          val sortedTriggers = for (t <- chosenTriggers)
+                               yield (t sorted reverseITermOrdering)
+          val maxTrigger = sortedTriggers.max(Ordering Iterable iTermOrdering)
+//          println("Max: " + maxTrigger)
+          ITrigger(maxTrigger, newFor)
         }
         
-        case _ => { // AllMaximal or AllMinimal
+        case TriggerStrategy.AllMinimalAndEmpty => {
           val chosenTriggers : Seq[List[ITerm]] =
+            multiTriggers ++ List(List())
+              
+//          println(chosenTriggers.toList)
+          (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
+        }
+
+        case _ => { // AllMaximal or AllMinimal
+          val chosenTriggers : Seq[List[ITerm]] = /*
             if (triggers exists { case (_, vars, _) => allVars(vars) })
               // there are uni-triggers that contain all variables
           
               (for ((t, vars, _) <- triggers.iterator;
                     if (allVars(vars))) yield List(t)).toSeq
-            else
+            else */
               multiTriggers
               
-//          println(chosenTriggers)
+//          println(chosenTriggers.toList)
           (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
         }
       }
+    }
     }
     
     case _ =>

@@ -134,6 +134,8 @@ object GlobalSettings {
           Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(settings, value)
         case ValueOpt("triggerStrategy", "allMinimal") =>
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMinimal)
+        case ValueOpt("triggerStrategy", "allMinimalAndEmpty") =>
+          Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMinimalAndEmpty)
         case ValueOpt("triggerStrategy", "allMaximal") =>
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMaximal)
         case ValueOpt("triggerStrategy", "maximal") =>
