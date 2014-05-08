@@ -131,7 +131,7 @@ object Param {
   }
 
   object TriggerStrategyOptions extends Enumeration {
-    val AllMinimal, AllMaximal, Maximal = Value
+    val AllMinimal, AllMinimalAndEmpty, AllMaximal, Maximal = Value
   }
   case object TRIGGER_STRATEGY extends Param {
     type Value = TriggerStrategyOptions.Value
