@@ -29,7 +29,7 @@ startDaemon() {
     if [ ! -f "$portfile" ]; then
         touch "$lockfile"
 
-        BASEDIR=`dirname $(readlink -e $0)`
+        BASEDIR=`dirname $($pathCmd $0)`
         EXTLIBSDIR=$BASEDIR/extlibs
 
         export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
@@ -39,7 +39,7 @@ startDaemon() {
         touch "$tempportfile"
         chmod go-rwx "$tempportfile"
 
-        scala ap.ServerMain "$@" >"$tempportfile" &
+        scala ap.ServerMain >"$tempportfile" &
 
         sleep 1
         while [ `wc -l "$tempportfile" | gawk '{ printf $1 }'` -lt 2 ]; do
