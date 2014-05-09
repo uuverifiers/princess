@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -184,8 +184,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                   
                 case TriggerStrategy.AllMinimal |
                      TriggerStrategy.AllMinimalAndEmpty => {
-                  // check whether the current term contains more variables than
-                  // any of the individual subterms
+                  // check whether any of the direct sub-terms is a variable that
+                  // does not occur in any sub-trigger
                   // (otherwise we do not consider the term an interesting trigger)
                   val foundMoreVars = shiftedTerm.subExpressions exists {
                     case IVariable(v) =>
@@ -195,16 +195,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                        })
                     case _ => false
                   }
-
-                  /*  val foundMoreVars = subres forall {
-                         case (Some(_ : IFunApp), _, subVariables) =>
-                           subVariables.size < allVariables.size
-                         case _ =>
-                           true
-                       } */
                   
                   if (foundMoreVars)
-                    // ignore the triggers from the subterms
                     subTriggers + ((shiftedTerm, allVariables,
                                     allVariables -- subTriggerVars))
                   else
@@ -212,6 +204,25 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                     subTriggers
                 }
                 
+                case TriggerStrategy.AllUni => {
+                  // check whether the current term contains more variables than
+                  // any of the individual subterms
+                  // (otherwise we do not consider the term an interesting trigger)
+                  val foundMoreVars = subres forall {
+                    case (Some(_ : IFunApp), subVariables, _) =>
+                      subVariables != allVariables
+                    case _ =>
+                      true
+                  }
+                  
+                  if (foundMoreVars)
+                    // ignore the triggers from the subterms
+                    ListSet.empty + ((shiftedTerm, allVariables, allVariables))
+                  else
+                    // only consider the subtriggers
+                    subTriggers
+                }
+
                 case TriggerStrategy.Maximal =>
                   // We choose the complete term as a trigger only if at least
                   // two subterms contain variables
@@ -229,7 +240,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
             // superterms
             (strategy match {
                case TriggerStrategy.AllMinimal |
-                    TriggerStrategy.AllMinimalAndEmpty
+                    TriggerStrategy.AllMinimalAndEmpty |
+                    TriggerStrategy.AllUni
                  if ((0 until ctxt.a) forall (allVariables contains _)) =>
                    None
                case _ =>
@@ -393,15 +405,22 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
           (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
         }
 
-        case _ => { // AllMaximal or AllMinimal
-          val chosenTriggers : Seq[List[ITerm]] = /*
+        case TriggerStrategy.AllUni => {
+          val chosenTriggers : Seq[List[ITerm]] =
             if (triggers exists { case (_, vars, _) => allVars(vars) })
               // there are uni-triggers that contain all variables
           
               (for ((t, vars, _) <- triggers.iterator;
                     if (allVars(vars))) yield List(t)).toSeq
-            else */
+            else
               multiTriggers
+              
+//          println(chosenTriggers)
+          (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
+        }
+
+        case _ => { // AllMaximal or AllMinimal
+          val chosenTriggers : Seq[List[ITerm]] = multiTriggers
               
 //          println(chosenTriggers.toList)
           (newFor /: chosenTriggers) { case (f, t) => ITrigger(t, f) }
