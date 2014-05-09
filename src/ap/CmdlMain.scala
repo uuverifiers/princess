@@ -43,10 +43,11 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(CASC version 2014-04-12)")
+    println("(CASC version 2014-05-09)")
     println
     println("(c) Philipp Rümmer, 2009-2014")
-    println("(contributions by Angelo Brillout, Peter Baumgartner, Aleksandar Zeljic)")
+    println("(contributions by Peter Backeman, Peter Baumgartner,")
+    println("                  Angelo Brillout, Aleksandar Zeljic)")
     println("Free software under GNU General Public License (GPL).")
     println("Bug reports to ph_r@gmx.net")
     println
