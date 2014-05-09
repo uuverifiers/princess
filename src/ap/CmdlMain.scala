@@ -337,11 +337,12 @@ object CmdlMain {
 
             while (result == null) {
               val baseSettings =
+                Param.CLAUSIFIER_TIMEOUT.set(
                 Param.CONJECTURE_TO_PROVE.set(settings2,
                              if (Param.SPLIT_CONJECTURES(settings2))
                                Some(conjNum)
                              else
-                               None)
+                               None), 15000)
               
               val prover = if (Param.MULTI_STRATEGY(settings)) {
                 import ParallelFileProver._

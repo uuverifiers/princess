@@ -158,7 +158,8 @@ class SimpleClausifier {
       }
   
     def postVisit(t : IExpression, lastQuan : Quantifier,
-                  subres : Seq[IFormula]) : IFormula =
+                  subres : Seq[IFormula]) : IFormula = {
+      incOpNum
       t match {
         case t@IBinFormula(And, _, _) if (lastQuan == EX) =>
           Conj2DNF(t update subres)
@@ -166,6 +167,7 @@ class SimpleClausifier {
           DistributeEx(t update subres)
         case t : IFormula =>
           t update subres
+      }
       }
   }
   
@@ -298,11 +300,13 @@ class SimpleClausifier {
           KeepArg
         case IQuantified(EX, IBinFormula(Or, f1, f2)) =>
           TryAgain(ex(f1) | ex(f2), ())
-        case t@IQuantified(_, sub) =>
+        case t@IQuantified(_, sub) => {
+          incOpNum
           if (ContainsSymbol(sub, IVariable(0)))
             ShortCutResult(t)
           else
             ShortCutResult(VariableShiftVisitor(sub, 1, -1))
+        }
       }
     
     def postVisit(t : IExpression, arg : Unit, subres : Seq[IFormula]) : IFormula =
