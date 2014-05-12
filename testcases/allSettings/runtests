@@ -38,7 +38,7 @@ TESTS="cryptarithm.pri \
        endsWithComment.pri triggerBug.pri non-body-trigger.pri \
        ite.pri ite2.pri ite3.pri \
        div-elimination.pri bad-divisibility.pri binderTypes.pri \
-       nestedITE.pri"
+       nestedITE.pri blockedOmegaBug.pri"
 
 $PRI "$@" $TESTS
 
