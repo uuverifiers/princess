@@ -1,5 +1,5 @@
 /**
- * Situation that lead to an assertion failure in OmegaTask,
+ * Situation that led to an assertion failure in OmegaTask,
  * due to incorrect handling of BlockedFormulaTask
  */
 
