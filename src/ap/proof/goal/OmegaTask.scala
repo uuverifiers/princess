@@ -90,8 +90,12 @@ case object OmegaTask extends EagerTask {
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // OmegaTask should be the last remaining task to be done
-    Debug.assertPre(AC, Seqs.disjoint(goal.eliminatedConstants,
-                                      goal.tasks.taskInfos.constants))
+//    Debug.assertPre(AC, Seqs.disjoint(goal.eliminatedConstants,
+//                                      goal.tasks.taskInfos.constants))
+    Debug.assertPre(AC, goal.tasks.prioritisedTasks forall {
+                      case _ : BlockedFormulaTask => true
+                      case _ => false
+                    })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val ec = eliminableConsts(goal)
