@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -767,4 +767,15 @@ object Seqs {
       }
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Lazily convert a function (over naturals) to a stream
+   */
+  def toStream[A](f : Int => A) : Stream[A] =
+    toStreamHelp(0, f)
+  
+  private def toStreamHelp[A](n : Int, f : Int => A) : Stream[A] =
+    f(n) #:: toStreamHelp(n + 1, f)
 }

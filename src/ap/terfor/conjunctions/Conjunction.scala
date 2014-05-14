@@ -726,7 +726,7 @@ class Conjunction private (val quans : Seq[Quantifier],
    * the innermost quantifier to be instantiated
    */
   def instantiate(terms : Seq[Term])(implicit newOrder : TermOrder) : Conjunction =
-    new VariableSubst (0, terms, newOrder) (unquantify(terms.size))
+    VariableSubst (0, terms, newOrder) (unquantify(terms.size))
   
   /**
    * Update the arithmetic parts of this conjunction (without changing anything
