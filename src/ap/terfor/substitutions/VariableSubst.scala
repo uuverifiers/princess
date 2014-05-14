@@ -86,11 +86,13 @@ class VariableSubst private (
     val i = v.index
     if (i < offset)
       v
-    else if (i - offset < replacements.size)
+    else if (i - offset < replacementsSize)
       replacements(i - offset)
     else
-      VariableTerm(i - replacements.size)
+      VariableTerm(i - replacementsSize)
   }
+
+  private val replacementsSize = replacements.size
 
   protected[substitutions] def applyToConstant(c : ConstantTerm) : Term = c
 
