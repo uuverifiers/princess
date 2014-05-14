@@ -21,7 +21,7 @@
 
 package ap.terfor.substitutions;
 
-import ap.util.{Debug, Logic}
+import ap.util.{Debug, Logic, Seqs}
 
 import ap.terfor._
 
@@ -29,7 +29,23 @@ object VariableSubst {
   
   private val AC = Debug.AC_SUBSTITUTIONS
   
+  def apply(offset : Int,
+            replacements : Seq[Term],
+            order : TermOrder) =
+    new VariableSubst(offset, replacements, order, null)
+
+  private class LazyVariableSubst(subst : VariableSubst, shift : Int) {
+    lazy val newSubst = {
+      val shiftSubst = VariableShiftSubst(0, shift, subst.order)
+      val newReplacements = for (t <- subst.replacements) yield shiftSubst(t)
+      new VariableSubst(subst.offset + shift, newReplacements, subst.order,
+                        subst.shiftedSubstCache drop shift)
+    }
+  }
+
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Substitute the variable starting from index <code>offset</code> with the
@@ -38,9 +54,11 @@ object VariableSubst {
  * variables above <code>offset+replacements.size</code> are shifted downwards
  * by <code>replacements.size</code>
  */
-class VariableSubst(offset : Int,
-                    replacements : Seq[Term],
-                    protected [substitutions] val order : TermOrder)
+class VariableSubst private (
+        private val offset : Int,
+        private val replacements : Seq[Term],
+        protected [substitutions] val order : TermOrder,
+        oldSubstCache : Stream[VariableSubst.LazyVariableSubst])
       extends SimpleSubstitution {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
@@ -50,12 +68,19 @@ class VariableSubst(offset : Int,
                                 yield (order isSortingOf t)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////     
 
-  protected[substitutions] def passQuantifiers(num : Int) : Substitution = {
-    // TODO: could be optimised by caching
-    val shiftSubst = VariableShiftSubst(0, num, order)
-    val newReplacements = for (t <- replacements) yield shiftSubst(t)
-    new VariableSubst(offset + num, newReplacements, order)
-  }
+  protected[substitutions] def passQuantifiers(num : Int) : Substitution =
+    if (num == 0)
+      this
+    else
+      shiftedSubstCache(num - 1).newSubst
+
+  private val shiftedSubstCache : Stream[VariableSubst.LazyVariableSubst] =
+    oldSubstCache match {
+      case null =>
+        Seqs.toStream { i => new VariableSubst.LazyVariableSubst(this, i + 1) }
+      case c =>
+        c
+    }
 
   protected[substitutions] def applyToVariable(v : VariableTerm) : Term = {
     val i = v.index
@@ -74,7 +99,8 @@ class VariableSubst(offset : Int,
   def sortBy(newOrder : TermOrder) : VariableSubst =
     new VariableSubst(offset,
                       for (t <- replacements) yield (newOrder sort t),
-                      newOrder)
+                      newOrder,
+                      null)
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -475,7 +475,7 @@ object PresburgerTools {
               val extendedOrder = order extend freshConsts
               
               val vars2Consts =
-                new VariableSubst(0, freshConsts, extendedOrder)
+                VariableSubst(0, freshConsts, extendedOrder)
               val consts2Vars =
                 ConstantSubst(Map() ++ (for ((c, i) <- freshConsts.iterator.zipWithIndex)
                                           yield (c, VariableTerm(i))),
