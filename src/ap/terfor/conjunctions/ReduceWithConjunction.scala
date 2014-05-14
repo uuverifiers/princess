@@ -157,8 +157,9 @@ object ReduceWithConjunction {
       case Some(Quantifier.EX) => {
         var eliminableVars : Set[Term] = Set()
     
+        val quansSize = quans.size
         var i : Int = 0
-        while (i < quans.size && quans(i) == Quantifier.EX) {
+        while (i < quansSize && quans(i) == Quantifier.EX) {
           val variable = VariableTerm(i)
           if (!(newNegConjs.variables contains variable))
             eliminableVars = eliminableVars + variable
