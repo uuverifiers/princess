@@ -21,7 +21,7 @@
 
 package ap.proof.goal;
 
-import ap.proof.theoryPlugins.{Plugin, AxiomGenTask}
+import ap.proof.theoryPlugins.{Plugin, EagerPluginTask}
 
 
 /**
@@ -125,12 +125,12 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
    */
   private object NormalisedFactsInvokePlugin
                  extends DefaultEagerTaskManager(
-                           for (p <- plugin) yield (new AxiomGenTask(p)),
+                           for (p <- plugin) yield (new EagerPluginTask(p)),
                            true) {
     def afterTask(task : Task) = unwrapReal(task) match {
-      case _ : AddFactsTask =>   NonNormalisedFacts
-      case _ : AxiomGenTask =>   NormalisedFacts
-      case _ =>                  NormalisedFactsInvokePlugin
+      case _ : AddFactsTask =>    NonNormalisedFacts
+      case _ : EagerPluginTask => NormalisedFacts
+      case _ =>                   NormalisedFactsInvokePlugin
     }
     protected def recommendationNecessary(t : Task) = t match {
       case _ : BetaFormulaTask |
@@ -275,11 +275,11 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
    */
   private object FinalInvokePlugin
                  extends DefaultEagerTaskManager(
-                            for (p <- plugin) yield (new AxiomGenTask(p)),
+                            for (p <- plugin) yield (new EagerPluginTask(p)),
                             true) {
     def afterTask(task : Task) = unwrapReal(task) match {
       case FactsNormalisationTask | EliminateFactsTask => ReducedFacts
-      case _ : AxiomGenTask =>                            Final
+      case _ : EagerPluginTask =>                         Final
       case _ : AddFactsTask =>                            NonNormalisedFacts
       case _ : UpdateConstantFreedomTask =>               NormalisedFacts
       // all other tasks could result in the disappearance of constants in

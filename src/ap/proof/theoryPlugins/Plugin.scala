@@ -21,22 +21,38 @@
 
 package ap.proof.theoryPlugins;
 
-import ap.proof.goal.{Goal, EagerTask}
+import ap.proof.goal.{Goal, Task, EagerTask, PrioritisedTask}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
 import scala.collection.mutable.{Stack, ArrayBuffer}
 
-
 object Plugin {
   protected[theoryPlugins] val AC = Debug.AC_PLUGIN
 
   abstract sealed class Action
-  case class AddFormula (formula : Conjunction)    extends Action
-  case class RemoveFacts(facts : Conjunction)      extends Action
-  case class SplitGoal  (cases : Seq[Seq[Action]]) extends Action
+  case class AddFormula  (formula : Conjunction)    extends Action
+  case class RemoveFacts (facts : Conjunction)      extends Action
+  case class SplitGoal   (cases : Seq[Seq[Action]]) extends Action
+  case class ScheduleTask(proc : TheoryProcedure,
+                          priority : Int)           extends Action
 }
+
+/**
+ * General interface for a theory-specific procedure that
+ * can be applied by a prover to reason about interpreted symbols.
+ */
+trait TheoryProcedure {
+
+  /**
+   * Apply this procedure to the given goal.
+   */
+  def handleGoal(goal : Goal) : Seq[Plugin.Action]
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Interface for theory plugins that can be added to the
@@ -47,7 +63,7 @@ object Plugin {
  *
  * Plugin objects have to be immutable.
  */
-trait Plugin {
+trait Plugin extends TheoryProcedure {
 
   /**
    * Given the current goal, possible generate (local and global) axioms.
@@ -81,7 +97,11 @@ trait Plugin {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class AxiomGenTask(plugin : Plugin) extends EagerTask {
+/**
+ * Task integrating a <code>Plugin</code> (or <code>TheoryProcedure</code>)
+ * into a prover
+ */
+abstract class PluginTask(plugin : TheoryProcedure) extends Task {
   import Plugin._
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
@@ -134,22 +154,42 @@ class AxiomGenTask(plugin : Plugin) extends EagerTask {
       goal.reduceWithFacts(
         Conjunction.disj(for (AddFormula(f) <- actions.iterator) yield f,
                          goal.order))
+    val tasksToSchedule =
+      (for (ScheduleTask(proc, priority) <- actions.iterator)
+       yield new PrioritisedPluginTask(proc, priority, goal.age)).toList
 
-    if (factsToRemove.isTrue) {
-      if (factsToAdd.isFalse)
-        ptf.updateGoal(goal)
-      else
-        ptf.updateGoal(goal formulaTasks factsToAdd, goal)
-    } else {
-      val remainingFacts = goal.facts -- factsToRemove
-      if (factsToAdd.isFalse)
-        ptf.updateGoal(remainingFacts, goal)
-      else
-        ptf.updateGoal(remainingFacts,
-                       goal formulaTasks factsToAdd,
-                       goal)
-    }
+    if (factsToRemove.isTrue)
+      ptf.updateGoal(tasksToSchedule ++ (goal formulaTasks factsToAdd), goal)
+    else
+      ptf.updateGoal(goal.facts -- factsToRemove,
+                     tasksToSchedule ++ (goal formulaTasks factsToAdd),
+                     goal)
   }
+}
 
-  override def toString = "AxiomGenTask(" + plugin + ")"
+////////////////////////////////////////////////////////////////////////////////
+
+class EagerPluginTask(plugin : TheoryProcedure)
+      extends PluginTask(plugin) with EagerTask {
+  override def toString = "EagerPluginTask(" + plugin + ")"
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class PrioritisedPluginTask(plugin : TheoryProcedure,
+                            basePriority : Int,
+                            age : Int)
+      extends PluginTask(plugin) with PrioritisedTask {
+
+  val priority : Int = basePriority + age
+ 
+  /**
+   * Update the task with possibly new information from the goal.
+   * Currently, this does not modify the theory procedure.
+   */
+  def updateTask(goal : Goal, factCollector : Conjunction => Unit)
+                                                   : Seq[PrioritisedTask] =
+    List(this)
+
+  override def toString = "PrioritisedPluginTask(" + plugin + ")"
 }

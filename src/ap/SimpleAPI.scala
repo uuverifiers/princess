@@ -2139,8 +2139,9 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   private def flushTodo : Unit = {
-    val (transTodo, axioms) = formulaeTodo match {
-      case IBoolLit(false) => (Conjunction.FALSE, Conjunction.FALSE)
+    val (transTodo, axioms) = (formulaeTodo, functionEnc.axioms) match {
+      case (IBoolLit(false), IBoolLit(true)) =>
+        (Conjunction.FALSE, Conjunction.FALSE)
       case _ => toInternal(formulaeTodo)
     }
     formulaeTodo = false
