@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -73,7 +73,8 @@ object ParallelFileProver {
   case class Configuration(settings : GlobalSettings,
                            complete : Boolean,
                            name : String,
-                           timeout : Long)
+                           timeout : Long,
+                           initialSeqRuntime : Long)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -94,9 +95,11 @@ object ParallelFileProver {
       var activationCount : Int = 0
       
       def resume(nextDiff : Long) = {
-        // First let each prover run for 3s, to solve simple problems without
-        // any parallelism. Afterwards, use time slices of 1s.
-        val maxtime : Long = if (activationCount == 0) 3000 else 1000
+        // First let each prover run for a while by itself,
+        // to solve simple problems without any parallelism.
+        // Afterwards, use time slices of 1s.
+        val maxtime : Long =
+          if (activationCount == 0) config.initialSeqRuntime else 1000
         val nextPeriod = nextDiff max maxtime
         lastStartTime = System.currentTimeMillis
         targetedSuspendTime = lastStartTime + nextPeriod
@@ -287,12 +290,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   val (result, successfulProver) = {
     
-    val subProverManagers =
-      (for ((s, num) <- settings.iterator.zipWithIndex)
-       yield new SubProverManager(num, createReader, s,
-                                  Actor.self, userDefStoppingCond)).toArray
-    
-    val subProversToSpawn = subProverManagers.iterator
+    val subProversToSpawn =
+      for ((s, num) <- settings.iterator.zipWithIndex)
+      yield new SubProverManager(num, createReader, s,
+                                 Actor.self, userDefStoppingCond)
     
     // all provers that have been spawned so far
     val spawnedProvers = new ArrayBuffer[SubProverManager]
@@ -341,7 +342,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
     def retireProver(num : Int, res : SubProverResult) = {
       updateOffset
-      subProverManagers(num).result = res
+      spawnedProvers(num).result = res
       runningProverNum = runningProverNum - 1
     }
       
@@ -412,13 +413,13 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case SubProverSuspended(num) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC,
-                        !(pendingProvers.iterator contains subProverManagers(num)))
+                        !(pendingProvers.iterator contains spawnedProvers(num)))
         //-END-ASSERTION-///////////////////////////////////////////////////////
         if (System.currentTimeMillis < startTime + timeout) {
-          subProverManagers(num).suspended match {
+          spawnedProvers(num).suspended match {
             case SuspensionIgnored => // nothing
             case SuspensionGranted => {
-              pendingProvers += subProverManagers(num)
+              pendingProvers += spawnedProvers(num)
               resumeProver
             }
             case SuspensionTimeout => {

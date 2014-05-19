@@ -319,18 +319,18 @@ object CmdlMain {
             fileProperties.conjectureNum = -1
             
             var rawStrategies =
-              List(("1010002", 15000),
-                   ("1210110", 15000),
-                   ("0010101", 13000),
-                   ("0000000", 20000),
-                   ("0011001", 20000),
-                   ("0211100", 5000),
-                   ("0010012", 50000),
-                   ("1201000", Int.MaxValue),
-                   ("1001102", 10000),
-                   ("0011011", Int.MaxValue),
-                   ("1001001", 10000),
-                   ("1011002", Int.MaxValue))
+              List(("1010002", 15000, 3000),
+                   ("1210110", 15000, 3000),
+                   ("0010101", 13000, 3000),
+                   ("0000000", 20000, 3000),
+                   ("0011001", 20000, 3000),
+                   ("0211100", 5000, 3000),
+                   ("0010012", 50000, 3000),
+                   ("1201000", Int.MaxValue, 3000),
+                   ("1001102", 10000, 3000),
+                   ("0011011", Int.MaxValue, 3000),
+                   ("1001001", 10000, 3000),
+                   ("1011002", Int.MaxValue, 3000))
                 
             var conjNum = 0
             var result : Prover.Result = null
@@ -347,13 +347,13 @@ object CmdlMain {
               val prover = if (Param.MULTI_STRATEGY(settings)) {
                 import ParallelFileProver._
                 
-                val strategies = for ((str, to) <- rawStrategies) yield {
+                val strategies = for ((str, to, seq) <- rawStrategies) yield {
                   val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
                                                        to min 50000)
                   val options = toOptionList(str)
                   Configuration(s,
                     Param.GENERATE_TOTALITY_AXIOMS(s) == Param.TotalityAxiomOptions.All,
-                    options, to)
+                    options, to, seq)
                 }
                 
                 new ParallelFileProver(reader,
