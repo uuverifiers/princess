@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,10 +28,11 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
 import ap.Signature.{PredicateMatchStatus, PredicateMatchConfig}
-import ap.util.{Debug, FilterIt, Seqs, Timeout}
+import ap.util.{Debug, FilterIt, Seqs, UnionSet, Timeout}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap,
                                  Map => MutableMap}
+import scala.collection.{Set => GSet}
 
 object IterativeClauseMatcher {
   
@@ -46,7 +47,7 @@ object IterativeClauseMatcher {
                              mayAlias : (LinearCombination,
                                          LinearCombination) => AliasStatus.Value,
                              contextReducer : ReduceWithConjunction,
-                             isNotRedundant : (Conjunction, Set[ConstantTerm]) => Boolean,
+                             isNotRedundant : (Conjunction, GSet[ConstantTerm]) => Boolean,
                              allowConditionalInstances : Boolean,
                              logger : ComputationLogger,
                              order : TermOrder) : Iterator[Conjunction] = {
@@ -66,17 +67,17 @@ object IterativeClauseMatcher {
      * that could only be discharged using the free-constant optimisation
      */
     def exec(program : List[MatchStatement],
-             originatingConstants : Set[ConstantTerm],
-             conditional : Boolean) : Unit =
+             originatingConstants : GSet[ConstantTerm],
+             conditional : Boolean) : Unit = {
+          selectionCounter = selectionCounter + 1
+          if (selectionCounter % 1000 == 0)
+            Timeout.check
+
       program match {
         
         case List() => // nothing
           
         case SelectLiteral(pred, negative) :: progTail => {
-          selectionCounter = selectionCounter + 1
-          if (selectionCounter % 1000 == 0)
-            Timeout.check
-          
           val selLitsNum = selectedLits.size
           selectedLits += null
           
@@ -87,12 +88,16 @@ object IterativeClauseMatcher {
           
           for (a <- atoms) {
             selectedLits(selLitsNum) = a
-            exec(progTail, originatingConstants ++ a.constants, conditional)
+            exec(progTail,
+                 UnionSet(originatingConstants, a.constants),
+                 conditional)
           }
           for (a <- if (negative) additionalNegLits else additionalPosLits)
             if (a.pred == pred) {
               selectedLits(selLitsNum) = a
-              exec(progTail, originatingConstants ++ a.constants, conditional)
+              exec(progTail,
+                   UnionSet(originatingConstants, a.constants),
+                   conditional)
             }
           
           selectedLits reduceToSize selLitsNum
@@ -137,7 +142,8 @@ object IterativeClauseMatcher {
             order)
           
           if (!newEqs.isFalse) {
-            val allOriConstants = originatingConstants ++ originalClause.constants
+            val allOriConstants =
+              UnionSet(originatingConstants, originalClause.constants)
             if (logger.isLogging) {
               // If we are logging, we avoid simplifications (which would not
               // be captured in the proof) and rather just substitute terms for
@@ -219,6 +225,7 @@ object IterativeClauseMatcher {
             exec(prog, originatingConstants, conditional)
         }
       }
+    }
     
     ////////////////////////////////////////////////////////////////////////////
     
@@ -555,7 +562,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                   contextReducer : ReduceWithConjunction,
                   // predicate to distinguish the relevant matches
                   // (e.g., to filter out shielded formulae)
-                  isIrrelevantMatch : (Conjunction, Set[ConstantTerm]) => Boolean,
+                  isIrrelevantMatch : (Conjunction, GSet[ConstantTerm]) => Boolean,
                   allowConditionalInstances : Boolean,
                   logger : ComputationLogger,
                   order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =
@@ -569,7 +576,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       
       var newGeneratedInstances = generatedInstances
       def isNotRedundant(reducedInstance : Conjunction,
-                         originatingConstants : Set[ConstantTerm]) : Boolean =
+                         originatingConstants : GSet[ConstantTerm]) : Boolean =
         if ((newGeneratedInstances contains reducedInstance) ||
             isIrrelevantMatch(reducedInstance, originatingConstants)) {
           false
@@ -634,7 +641,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                  contextReducer : ReduceWithConjunction,
                  // predicate to distinguish the relevant matches
                  // (e.g., to filter out shielded formulae)
-                 isIrrelevantMatch : (Conjunction, Set[ConstantTerm]) => Boolean,
+                 isIrrelevantMatch : (Conjunction, GSet[ConstantTerm]) => Boolean,
                  allowConditionalInstances : Boolean,
                  logger : ComputationLogger,
                  order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =

@@ -38,7 +38,7 @@ private object MatchFunctions {
                            // used to generate this instance; this might be
                            // fewer/different constants than occurring in the
                            // (reduced) instance, due to rewriting
-                           originatingConstants : Set[ConstantTerm],
+                           originatingConstants : scala.collection.Set[ConstantTerm],
                            reversePropagation : Boolean) =
     reversePropagation && 
     !(AddFactsTask isCoveredFormula instance) && {
