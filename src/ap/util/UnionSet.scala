@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,11 +27,11 @@ object UnionSet {
 
   def apply[A](set1 : scala.collection.Set[A],
                set2 : scala.collection.Set[A]) : scala.collection.Set[A] =
-    if (set1.size == 0)
+/*    if (set1.size == 0)
       set2
     else if (set2.size == 0)
       set1
-    else
+    else */
       new UnionSet (set1, set2)
 }
 
