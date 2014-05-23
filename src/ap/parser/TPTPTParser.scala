@@ -197,7 +197,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
         chosenFiniteConstraintMethod = tptpType match {
           case TPTPType.FOF | TPTPType.CNF =>
-            Param.FiniteDomainConstraints.VocabularyEquations
+            if (containsEquations)
+              Param.FiniteDomainConstraints.VocabularyEquations
+            else {
+              warn("no equations")
+              Param.FiniteDomainConstraints.None
+            }
           case TPTPType.TFF =>
             Param.FiniteDomainConstraints.TypeGuards
           case TPTPType.Unknown => {
@@ -284,6 +289,19 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                       domPred(checkUnintFunTerm(constName, List(), List())._1)
                     }, IBinJunctor.And)
           }
+          case Param.FiniteDomainConstraints.VocabularyEquations =>
+            // check whether there is any declared constant
+            if (env.symbols exists {
+                  case Environment.Constant(_, Environment.NullaryFunction, _) => true
+                  case _ => false
+                }) {
+              i(true)
+            } else {
+              // add a constant to make sure that the universe is inhabited
+              val constName = "arbitrary_constant"
+              declareSym(constName, Rank0(IType))
+              checkUnintFunTerm(constName, List(), List())._1 === 0
+            }
           case _ =>
             i(true)
         }
@@ -317,7 +335,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           warn("Finite sorts: " + (finiteDomainSorts mkString ", "))
 
         ////////////////////////////////////////////////////////////////////////
-                  
+
         val completeFor =
           (getAxioms &&& stringConstantAxioms &&& genRRAxioms &&&
              domainPredAxioms) ===>
@@ -346,7 +364,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   
   var chosenFiniteConstraintMethod : Param.FiniteDomainConstraints.Value =
     Param.FiniteDomainConstraints.None
-  
+
+  var containsEquations = false
+
   //////////////////////////////////////////////////////////////////////////////
   
   // Types with the corresponding domain predicates
@@ -372,7 +392,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   }
   
   //////////////////////////////////////////////////////////////////////////////
-  
+
   private val occurringStrings =
     new scala.collection.mutable.HashMap[String, ConstantTerm]
     
@@ -1504,6 +1524,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
    * CheckedXX: creates an XX, type-checked against sig and varTypes
    */
   private def CheckedEquation(s: (ITerm, Type), t: (ITerm, Type)) = {
+    containsEquations = true
     val (s_term, s_type) = s
     val (t_term, t_type) = t
     if (s_type != OType && s_type == t_type) 

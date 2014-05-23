@@ -23,7 +23,7 @@ package ap.proof.goal;
 
 import ap.PresburgerTools
 import ap.proof.Vocabulary
-import ap.terfor.ConstantTerm
+import ap.terfor.{ConstantTerm, TerForConvenience}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.util.Debug
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
@@ -57,43 +57,70 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
     val (rawInstantiatedConj, constants, newOrder, newBindingContext) =
       instantiateWithConstants(goal)
 
-    val addGuard = Param.FINITE_DOMAIN_CONSTRAINTS(goal.settings) ==
-                     Param.FiniteDomainConstraints.TypeGuards
+    ////////////////////////////////////////////////////////////////////////////
 
-    val (instantiatedConj, guard) = if (addGuard) {
+    val finDomConstraints = Param.FINITE_DOMAIN_CONSTRAINTS(goal.settings)
+
+    val (instantiatedConj, guard) = finDomConstraints match {
+      case Param.FiniteDomainConstraints.TypeGuards => {
+
+        implicit val _ = newOrder
+  
+        // are there any type guards to be satisfied?
+        val domainPredicates = Param.DOMAIN_PREDICATES(goal.settings)
         
-      implicit val _ = newOrder
+        val predConj = rawInstantiatedConj.predConj
+        val (guards, otherLits) =
+          predConj.positiveLits partition { a => domainPredicates contains a.pred }
+        
+        if (guards.isEmpty) {
+          (rawInstantiatedConj, Conjunction.TRUE)
+        } else {
+          val newInst =
+            Conjunction.conj(guards, newOrder) ==>
+            rawInstantiatedConj.updatePredConj(
+              predConj.updateLits(otherLits, predConj.negativeLits))
+          val eqGuard =
+            !Conjunction.disjFor(
+               for (g <- guards.iterator)
+               yield {
+                 //-BEGIN-ASSERTION-//////////////////////////////////////////////
+                 Debug.assertInt(ExQuantifierTask.AC, g.pred.arity == 1)
+                 //-END-ASSERTION-////////////////////////////////////////////////
+                 NegEquationConj(for (a <- goal.facts.predConj positiveLitsWithPred g.pred)
+                                 yield g.unify(a, newOrder)(0), newOrder)
+               }, newOrder)
+          (newInst, eqGuard)
+        }
 
-      // are there any type guards to be satisfied?
-      val domainPredicates = Param.DOMAIN_PREDICATES(goal.settings)
-      
-      val predConj = rawInstantiatedConj.predConj
-      val (guards, otherLits) =
-        predConj.positiveLits partition { a => domainPredicates contains a.pred }
-      
-      if (guards.isEmpty) {
-        (rawInstantiatedConj, Conjunction.TRUE)
-      } else {
-        val newInst =
-          Conjunction.conj(guards, newOrder) ==>
-          rawInstantiatedConj.updatePredConj(
-            predConj.updateLits(otherLits, predConj.negativeLits))
-        val eqGuard =
-          !Conjunction.disjFor(
-             for (g <- guards.iterator)
-             yield {
-               //-BEGIN-ASSERTION-//////////////////////////////////////////////
-               Debug.assertInt(ExQuantifierTask.AC, g.pred.arity == 1)
-               //-END-ASSERTION-////////////////////////////////////////////////
-               NegEquationConj(for (a <- goal.facts.predConj positiveLitsWithPred g.pred)
-                               yield g.unify(a, newOrder)(0), newOrder)
-             }, newOrder)
-        (newInst, eqGuard)
       }
-      
-    } else {
-      (rawInstantiatedConj, Conjunction.TRUE)
+
+      case Param.FiniteDomainConstraints.VocabularyEquations => {
+        import TerForConvenience._
+        implicit val _ = newOrder
+
+        val guard =
+          conj(for (c <- constants.iterator)
+               yield disjFor(for (d <- goal.bindingContext.universallyBoundConstants)
+                             yield (c === d)))
+        (rawInstantiatedConj, guard)
+      }
+
+      case Param.FiniteDomainConstraints.DomainSize => {
+        import TerForConvenience._
+        implicit val _ = newOrder
+
+        val guard =
+          conj(for (c <- constants.iterator)
+               yield (c >= 0 & c < ap.CmdlMain.domain_size))
+        (rawInstantiatedConj, guard)
+      }
+
+      case Param.FiniteDomainConstraints.None =>
+        (rawInstantiatedConj, Conjunction.TRUE)
     }
+
+    ////////////////////////////////////////////////////////////////////////////
 
     val newVocabulary =
       Vocabulary(newOrder, newBindingContext, goal.constantFreedom)
@@ -149,10 +176,10 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
     }
 
     ptf.quantify(
-      if (addGuard)
-        ptf.strengthen(subtree, guard, newVocabulary)
+      if (guard.isTrue)
+        subtree
       else
-        subtree,
+        ptf.strengthen(subtree, guard, newVocabulary),
       Quantifier.EX, constants, goal.vocabulary, newOrder)
   }
   

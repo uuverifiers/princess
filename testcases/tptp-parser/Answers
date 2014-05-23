@@ -77,6 +77,18 @@ Loading multiple-conjectures.p ...
 No countermodel exists, formula is valid
 % SZS status Theorem for multiple-conjectures
 
+Loading SYN340+1.p ...
+
+Formula is valid, resulting constraint:
+true
+% SZS status Theorem for SYN340+1
+
+Loading SYN340+1-mod.p ...
+
+Formula is valid, resulting constraint:
+true
+% SZS status Theorem for SYN340+1-mod
+
 Loading SWV032+1.p ...
 
 10 conjectures left
