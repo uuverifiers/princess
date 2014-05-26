@@ -129,6 +129,21 @@ object TPTPTParser {
     splitHelp(Transform2NNF(f))._2.toList
   }
 
+  // Substitute functions
+  private class FunSubstituter(mapping : Map[IFunction, IFunction])
+          extends CollectingVisitor[Unit, IExpression] {
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case t@IFunApp(f, _) => (mapping get f) match {
+        case Some(newF) => IFunApp(newF, subres map (_.asInstanceOf[ITerm]))
+        case None       => t update subres
+      }
+        
+      case t =>
+        t update subres
+    }
+  }
+
 }
 
 /**
@@ -306,7 +321,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
             i(true)
         }
         
-        val finiteDomainSorts = chosenFiniteConstraintMethod match {
+        ////////////////////////////////////////////////////////////////////////
+
+        val finiteDomainSorts : Set[Predicate] = chosenFiniteConstraintMethod match {
           case Param.FiniteDomainConstraints.TypeGuards => {
             val finiteSorts = new MHashSet[Predicate]
             val disjuncts = LineariseVisitor(Transform2NNF(problem), IBinJunctor.Or)
@@ -332,7 +349,26 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         }
 
         if (!finiteDomainSorts.isEmpty)
-          warn("Finite sorts: " + (finiteDomainSorts mkString ", "))
+          warn("Finite sorts: " + (finiteDomainSorts map (_.name) mkString ", "))
+
+        ////////////////////////////////////////////////////////////////////////
+
+        val funMapping : Map[IFunction, IFunction] =
+          if (partialQueries &&
+              chosenFiniteConstraintMethod ==
+                Param.FiniteDomainConstraints.TypeGuards) {
+
+            (for (Environment.Function(f, t) <- env.symbols;
+                  p <- declaredTypes(t.resType).iterator;
+                  if (finiteDomainSorts contains p);
+                  partial = true;
+                  if (partial != f.partial)) yield {
+               val newF = new IFunction(f.name, f.arity, partial, f.relational)
+               f -> newF
+             }).toMap
+          } else {
+            Map()
+          }
 
         ////////////////////////////////////////////////////////////////////////
 
@@ -341,18 +377,35 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
              domainPredAxioms) ===>
           (problem ||| domainAxioms)
 
-        val signature =
+        val preSignature =
           genSignature(completeFor, constructFunctionType _)
 
         val finalPredMatchConfig =
-          signature.predicateMatchConfig ++ ( 
+          preSignature.predicateMatchConfig ++ ( 
             for (p <- finiteDomainSorts.iterator)
             yield (p -> Signature.PredicateMatchStatus.Positive))
 
-        (completeFor, List(),
-         signature updatePredicateMatchConfig finalPredMatchConfig)
+        val signature =
+          preSignature updatePredicateMatchConfig finalPredMatchConfig
 
-//        (completeFor, List(), genSignature(completeFor))
+        println("Total: " + (for (Environment.Function(f, t) <- env.symbols;
+                newF = funMapping.getOrElse(f, f);
+                if (!newF.partial)) yield newF.name).mkString(", "))
+        println("Partial: " + (for (Environment.Function(f, t) <- env.symbols;
+                newF = funMapping.getOrElse(f, f);
+                if (newF.partial)) yield newF.name).mkString(", "))
+
+        if (funMapping.isEmpty) {
+          (completeFor, List(), signature)
+        } else {
+          val newFunctionTypes =
+            for ((f, t) <- signature.functionTypes)
+            yield (funMapping.getOrElse(f, f), t)
+          ((new FunSubstituter(funMapping)).visit(completeFor, ())
+                                           .asInstanceOf[IFormula],
+           List(),
+           signature updateFunctionTypes newFunctionTypes)
+        }
       }
       case error =>
         throw new SyntaxError(error.toString)
@@ -961,8 +1014,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
              val partial =
                !totalityAxiom ||
                (partialQueries &&
-                ((interpretedTypes contains rank.resType) ||
-                 !(rank.argsTypes exists interpretedTypes)))
+                !( // (rank.argsTypes exists interpretedTypes) &&
+                    !(interpretedTypes contains rank.resType)   ))
 
              env.addFunction(new IFunction(symbolName, rank.argsTypes.size,
                                            partial, !functionalityAxiom),

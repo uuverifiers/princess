@@ -105,4 +105,8 @@ class Signature(val universalConstants : Set[ConstantTerm],
     new Signature(universalConstants, existentialConstants,
                   nullaryFunctions, newPredicateMatchConfig, order, theories,
                   domainPredicates, functionTypes)
+  def updateFunctionTypes(newFunctionTypes : Map[IFunction, Signature.FunctionType]) =
+    new Signature(universalConstants, existentialConstants,
+                  nullaryFunctions, predicateMatchConfig, order, theories,
+                  domainPredicates, newFunctionTypes)
 }

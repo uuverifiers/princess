@@ -408,6 +408,24 @@ object IExpression {
     }
   }
 
+  /**
+   * Match on a difference
+   * <code>IPlus(a, ITimes(IdealInt.MINUS_ONE, b))</code>
+   * or
+   * <code>IPlus(ITimes(IdealInt.MINUS_ONE, a), b)</code>
+   */
+  object Difference {
+    def unapply(t : ITerm) : Option[(ITerm, ITerm)] = t match {
+      case IPlus(ITimes(IdealInt.ONE, a),
+                 ITimes(IdealInt.MINUS_ONE, b))    => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, a),
+                 ITimes(IdealInt.ONE, b))          => Some((a, b))
+      case IPlus(a, ITimes(IdealInt.MINUS_ONE, b)) => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, a), b) => Some((a, b))
+      case _                                       => None
+    }
+  }
+
   // Classes to talk about sequences of terms in a more succinct way
   
   implicit def iterm2RichITerm(lc : ITerm) : RichITerm =
