@@ -244,7 +244,7 @@ object Param {
 
   case object MUL_PROCEDURE extends Param {
     type Value = MulProcedure.Value
-    val defau : MulProcedure.Value = MulProcedure.BitShift
+    val defau : MulProcedure.Value = MulProcedure.Native
   }
 
   class FileProperties {
