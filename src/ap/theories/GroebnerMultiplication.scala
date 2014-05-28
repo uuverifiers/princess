@@ -27,6 +27,7 @@ import ap.theories._
 import ap.proof.theoryPlugins.Plugin
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.{Term, TerForConvenience, TermOrder, ConstantTerm}
+
 import ap.proof.goal.Goal
 
 import ap.basetypes.IdealInt
@@ -67,19 +68,26 @@ object GroebnerMultiplication extends MulTheory {
   //////////////////////////////////////////////////////////////////////////////
 
   val plugin = Some(new Plugin {
-    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = 
+
+   def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = 
+   {
+     None
+   }
+ 
+
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
     {
       import TerForConvenience._
       import ap.terfor.linearcombination.LinearCombination
       import ap.terfor.preds.Atom
+
       import scala.collection.mutable.Map
       implicit val _ = goal.order
-
 
       // First move from unprocessed => passive - reducing all polynomials in active
       // Then move from passive to active => adding all s-polynomials to unprocessed
       def Buchberger_improved_aux(active : Basis, passive : Basis, unprocessed
- : Basis) : Basis =
+          : Basis) : Basis =
       {
         implicit val _ = active.ordering
 
@@ -161,44 +169,63 @@ object GroebnerMultiplication extends MulTheory {
         }
       }
 
-      // def Buchberger_improved(basis : Basis) : Basis = Buchberger_improved_aux(new Basis(basis.ordering), new Basis(basis.ordering), basis)
-
-      def Buchberger_improved(basis : Basis) : Basis = 
+      def Buchberger_improved(basis : Basis) : Basis =
       {
         implicit val _ = basis.ordering
         Buchberger_improved_aux(new Basis, new Basis, basis)
       }
 
-      def atomToPolynomial(a : Atom)(implicit ordering : monomialOrdering) : Polynomial =
+      def lcToPolynomial(lc : LinearCombination)(implicit ordering : monomialOrdering) : Polynomial =
       {
-        def lcToPolynomial(lc : LinearCombination) : Polynomial =
+        var retPoly = new Polynomial(List())
+
+        for (llcc <- lc)
         {
-          var retPoly = new Polynomial(List())
-
-          for (llcc <- lc)
+          retPoly +=
+          (if (llcc._2.toString == "1")
+            new Term(llcc._1.intValue, new Monomial(List()))
+          else
           {
-            retPoly += 
-            (if (llcc._2.toString == "1")
-              new Term(llcc._1.intValue, new Monomial(List()))
-            else
+            (llcc._2) match
             {
-              (llcc._2) match
-              {
-                case (x : ConstantTerm) => new Term(llcc._1.intValue, new Monomial(List((x, 1))))
-              }
-            })
+              case (x : ConstantTerm) => new Term(llcc._1.intValue, new Monomial(List((x, 1))))
+            }
+          })
 
-          }
-
-          retPoly
         }
 
+        retPoly
+      }
+
+      def atomToPolynomial(a : Atom)(implicit ordering : monomialOrdering) : Polynomial =
+      {
         val a0 = lcToPolynomial(a(0))
         val a1 = lcToPolynomial(a(1))
         val a2 = lcToPolynomial(a(2))
 
         val aa = a0*a1 - a2
         aa
+      }
+
+      def polynomialToAtom(p : Polynomial) : Conjunction =
+      {
+        def termToLc(t : Term) : LinearCombination =
+        {
+          if (t.m.pairs == Nil)
+            t.c
+          else
+            l(t.c) * t.m.pairs.head._1
+        }
+
+        val lcs =
+          for (t <- p.terms;
+            if (!t.isZero))
+          yield
+            termToLc(t)
+
+        
+        val a = (lcs.tail).foldLeft(lcs.head) ((t1,t2) => t1 + t2)
+        conj(a === 0)
       }
 
       // Create a list ordering
@@ -232,7 +259,7 @@ object GroebnerMultiplication extends MulTheory {
       }
 
       // Fix-point computation
-      def genDefsymbols(predicates : List[Atom], defined : Set[ConstantTerm], undefined : List[ConstantTerm]) : List[ConstantTerm] = 
+      def genDefsymbols(predicates : List[Atom], defined : Set[ConstantTerm], undefined : List[ConstantTerm]) : List[ConstantTerm] =
       {
         if (predicates == Nil)
           undefined
@@ -252,9 +279,9 @@ object GroebnerMultiplication extends MulTheory {
           if (allDefined)
             a(2)(0)._2 match
             {
-              case (OneTerm) => 
+              case (OneTerm) =>
                 return genDefsymbols(predicates diff List(a), defined, undefined)
-              case (x : ConstantTerm) => 
+              case (x : ConstantTerm) =>
                 return genDefsymbols(predicates diff List(a), defined + x, x :: undefined)
             }
 
@@ -265,7 +292,7 @@ object GroebnerMultiplication extends MulTheory {
       orderList = genDefsymbols(predicates.toList,definedList, List())
 
       implicit val monOrder = new PartitionOrdering(orderList, new GrevlexOrdering(new ListOrdering(orderList)))
-      // implicit val monOrder = new PartitionOrdering(List(), new GrevlexOrdering(new ListOrdering(List())))
+      // implicit val monOrder = new GrevlexOrdering(new StringOrdering)
 
       val basis = new Basis()
 
@@ -274,30 +301,14 @@ object GroebnerMultiplication extends MulTheory {
         basis.add(atomToPolynomial(a))
       }
 
+      // println("\n\nGroenberMultiplication")
+      // println("\nGoal.facts: " + goal.facts)
+      // println("\tTrying to calculate Groebner Basis")
+
       val gb =  Buchberger_improved(basis)
 
       val simplified = gb.Simplify()
 
-      def polynomialToAtom(p : Polynomial) : Conjunction =
-      {
-        def termToLc(t : Term) : LinearCombination = 
-        {
-          if (t.m.pairs == Nil)
-            t.c
-          else
-            l(t.c) * t.m.pairs.head._1
-        }
-
-        val lcs = 
-          for (t <- p.terms;
-            if (!t.isZero))
-            yield
-              termToLc(t)
-
-              
-        val a = (lcs.tail).foldLeft(lcs.head) ((t1,t2) => t1 + t2)
-        conj(a === 0)
-      }
 
       // Translate this to a linear system
 
@@ -370,20 +381,139 @@ object GroebnerMultiplication extends MulTheory {
         val m = makeMatrix(linearEq)
         val gaussian = new Gaussian(m)
 
-      val linearConj =
-        conj(for (r <- gaussian.getRows();
-          val poly = rowToPolynomial(map, r);
-          if (poly.linear))
-        yield
-          polynomialToAtom(poly))
+        val linearConj =
+          conj(for (r <- gaussian.getRows();
+            val poly = rowToPolynomial(map, r);
+            if (poly.linear))
+          yield
+            polynomialToAtom(poly))
 
-        if (linearConj.isTrue)
-          None
-        else
-          Some((linearConj, Conjunction.TRUE))
+        if (!linearConj.isTrue)
+        {
+          val allAxioms = Conjunction.conj(List(linearConj, Conjunction.TRUE),
+            goal.order).negate
+          // println("\tFound linear formulas!")
+          // println("\t\t" + allAxioms)
+          return List(Plugin.AddFormula(allAxioms))
+        }
       }
-      else
-        None
+
+      // If gröbner basis calculation does nothing
+      // Lets try to do some interval propagation
+
+      // println(gb)
+
+      // println("\tGroebner failed, trying interval propagation")
+
+      val preds = predicates.map(atomToPolynomial).toList ++ gb.toList
+      // println("preds: " + preds)
+      val ineqs = goal.facts.arithConj.inEqs
+      val negeqs = goal.facts.arithConj.negativeEqs
+      val poseqs = goal.facts.arithConj.positiveEqs
+      val intervalSet = new IntervalSet(
+        preds,
+        ineqs.map(lcToPolynomial).toList,
+        negeqs.map(lcToPolynomial).toList,
+        poseqs.map(lcToPolynomial).toList)
+
+      intervalSet.propagate()
+
+      val intervals = intervalSet.getIntervals();
+
+      // if (!intervals.isEmpty)
+      //   println("\tPropagation result: ")
+
+      var intervalAtoms = List() : List[ap.terfor.inequalities.InEqConj]
+      for ((ct, i, (ul, uu, gu)) <- intervals)
+      {
+      //   print("\t\t" + ct + ": (")
+      //   if (ul)
+      //     print(">")
+      //   print(i.lower)
+      //   if (ul)
+      //     print("<")
+      //   print(", ")
+      //   if (uu)
+      //     print(">")
+      //   print(i.upper)
+      //   if (uu)
+      //     print("<")
+      //   print(") ")
+      //   print("\n")
+
+        // Generate inequalities according to intervals
+        if (ul)
+          intervalAtoms = (ct >= i.lower.get) :: intervalAtoms
+
+        if (uu)
+          intervalAtoms = (ct <= i.upper.get) :: intervalAtoms
+      }
+
+
+      val intervalAxioms = goal.reduceWithFacts(conj(intervalAtoms))
+
+      if (!intervalAxioms.isTrue)
+      {
+        val allAxioms = Conjunction.conj(List(intervalAxioms, Conjunction.TRUE),
+          goal.order).negate
+        // println("\tReturning axioms: " + allAxioms)
+        return List(Plugin.AddFormula(allAxioms))
+      }
+
+      // Do splitting
+      // println("\tInterval propagation failed, splitting")
+      // if (!negeqs.isEmpty)
+      //   println("\t\tNegeq split: ")
+      // for (eq <- negeqs)
+      //   println("\t\t\t" + eq)
+
+      // Lets try FIFO!
+      if (!negeqs.isEmpty)
+      {
+        val negeq = negeqs.head
+        // println("\t\tnegeq (" + negeq.getClass + "): " + negeq)
+        val opt1 = (negeq > 0).negate
+        val opt2 = (negeq < 0).negate
+        // println("\t\t\topt1: " + opt1)
+        // println("\t\t\topt2: " + opt2)
+        val opt1act  = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
+        val opt2act  = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
+        val actionList = List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act)))
+        val splitgoal = Plugin.SplitGoal(actionList)
+        // println("\tReturning: " + splitgoal)
+        return List(Plugin.SplitGoal(actionList))
+      }
+
+      val gaps = intervalSet.getGaps()
+
+      if (!gaps.isEmpty)
+      {
+      //   println("\tGap split:")
+      //   for ((ct, i) <- gaps)
+      //   {
+      //     print("\t\t" + ct + ": (")
+      //     print(i.lower)
+      //     print(", ")
+      //     print(i.upper)
+      //     print(") gap (" + i.gap + ")\n")
+      //   }
+
+        val (term, interval) = gaps.head
+        val opt1 = (term < interval.gap.get._1).negate
+        val opt2 = (term > interval.gap.get._2).negate
+
+        // println("\t\t\topt1: " + opt1)
+        // println("\t\t\topt2: " + opt2)
+        val opt1act  = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
+        val opt2act  = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
+        val actionList = List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act)))
+        val splitgoal = Plugin.SplitGoal(actionList)
+        // println("\tReturning: " + splitgoal)
+        return List(Plugin.SplitGoal(actionList))
+      }
+
+      // println("\tEven splitting failed ...")
+      List()
     }
   })
 

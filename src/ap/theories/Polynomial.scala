@@ -238,6 +238,10 @@ class Monomial(val pairs : List[(ConstantTerm, Int)])(implicit val ordering : mo
 
   def isEmpty = (pairs.size == 0)
 
+  def variables = (for ((ct, _) <- pairs) yield ct).toSet
+
+  def size = pairs.size
+
   def order : Int =
   {
     (for ((_, c) <- pairs)
@@ -361,12 +365,13 @@ class Term(coeff : IdealInt, monomial : Monomial)(implicit val ordering : monomi
 
   if (coeff == 0)
   {
-    val e = new Exception
+    val e = new Exception("Zero coefficient of a term")
     e.printStackTrace()
     throw e
   }
 
   def isZero = (coeff.isZero)
+  def isConstant = (monomial.isConstant)
 
   // Equality!
   def ==(that : Term) =
@@ -379,10 +384,12 @@ class Term(coeff : IdealInt, monomial : Monomial)(implicit val ordering : monomi
     if (monomial.isEmpty)
       "" + coeff
     else
-      (if (coeff == 1 || coeff == -1)
+      (if (coeff.intValue == 1)
         ""
+      else if (coeff.intValue == -1)
+        "-"
       else
-        coeff.abs) + (for {(v, e) <- monomial.pairs} yield {if (e == 1) "(" + v + ")" else "(" + v + "^" + e + ")"}).mkString("*")
+        coeff) + (for {(v, e) <- monomial.pairs} yield {if (e == 1) "(" + v + ")" else "(" + v + "^" + e + ")"}).mkString("*")
   }
 
   override def toString() : String =
@@ -394,6 +401,8 @@ class Term(coeff : IdealInt, monomial : Monomial)(implicit val ordering : monomi
   }
 
   def order : Int = monomial.order
+
+  def variables : Set[ConstantTerm] = monomial.variables
 
   def >(that : Term)(implicit ordering : monomialOrdering) : Boolean =
   {
@@ -496,18 +505,24 @@ class Polynomial(val terms : List[Term])(implicit val ordering : monomialOrderin
 
   def linear : Boolean = !terms.exists(t => !t.linear)
 
+  def isConstant : Boolean = !terms.exists(t => !t.isConstant)
+
   def contains(term : Term) : Boolean = terms.exists(t => t == term)
 
   def neg() : Polynomial = new Polynomial(for (t <- terms) yield t.neg())
 
   def size : Int = terms.length
 
+  def variables : Set[ConstantTerm] = (for (t <- terms) yield (t.variables)).flatten.toSet
+
+  def order = (0 /: terms)((c, n) => c.max(n.order))
+
   override def toString() : String =
   {
     terms match
     {
       case Nil => "0"
-      case t => t.foldLeft("") ((str, term) => str + (if (term.c < 0) " - " else " + ") + term.myString)
+      case t => t.foldLeft("") ((str, term) => str + (if (term.c > 0) " +" else " ") + term.myString)
     }
   } 
 
@@ -808,7 +823,7 @@ class Basis(implicit val ordering : monomialOrdering)
 
       if (newPoly.isZero)
       {
-        throw new zeroPolynomialException("")
+        throw new zeroPolynomialException("Redcued polynomial in basis to zero ???")
       }
 
       newBasis.add(newPoly)
