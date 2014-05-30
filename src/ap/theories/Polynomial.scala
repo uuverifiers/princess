@@ -242,6 +242,15 @@ class Monomial(val pairs : List[(ConstantTerm, Int)])(implicit val ordering : mo
 
   def size = pairs.size
 
+  override def equals(other : Any) =
+  {
+    other match
+    {
+      case that : Monomial => (this.pairs == that.pairs)
+      case _ => false
+    }
+  }
+
   def order : Int =
   {
     (for ((_, c) <- pairs)
@@ -517,6 +526,11 @@ class Polynomial(val terms : List[Term])(implicit val ordering : monomialOrderin
 
   def order = (0 /: terms)((c, n) => c.max(n.order))
 
+  override def equals(that : Any) : Boolean =
+  {
+    this.toString == that.toString
+  }
+
   override def toString() : String =
   {
     terms match
@@ -704,6 +718,8 @@ class Basis(implicit val ordering : monomialOrdering)
 
   // def toList : List[Polynomial] = polyQueue.toList
   def toList : List[Polynomial] = polyMap.values.toList.flatten
+ 
+  def toSet : Set[Polynomial] = toList.toSet
 
   def size : Int = toList.size
 
