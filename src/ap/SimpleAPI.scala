@@ -42,8 +42,8 @@ import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
                                  LinkedHashMap}
+import scala.actors.{Actor, DaemonActor, TIMEOUT}
 import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
 import scala.concurrent.SyncVar
 
 object SimpleAPI {
@@ -2451,7 +2451,7 @@ class SimpleAPI private (enableAssert : Boolean,
   
   private var proofActorStatus : ProofActorStatus.Value = _
   
-  private val proofActor = actor {
+  private val proofActor = new DaemonActor { def act : Unit = {
     Debug enableAllAssertions enableAssert
     
     var cont = true
@@ -2563,7 +2563,9 @@ class SimpleAPI private (enableAssert : Boolean,
       }
       
     }
-  }
+  }}
+
+  proofActor.start
 
   //////////////////////////////////////////////////////////////////////////////
 
