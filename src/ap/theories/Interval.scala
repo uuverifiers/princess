@@ -104,6 +104,24 @@ abstract class IntervalInt
     }
   }
 
+  def divceil(other : IntervalInt) : IntervalInt =
+  {
+    (this, other) match
+    {
+      case (IntervalNegInf(), IntervalNegInf()) => new IntervalPosInf
+      case (IntervalNegInf(), IntervalPosInf()) => new IntervalNegInf
+      case (IntervalNegInf(), IntervalVal(v)) => if (v > 0) new IntervalNegInf else new IntervalPosInf
+
+      case (IntervalPosInf(), IntervalNegInf()) => new IntervalNegInf
+      case (IntervalPosInf(), IntervalPosInf()) => new IntervalPosInf
+      case (IntervalPosInf(), IntervalVal(v)) => if (v > 0) new IntervalPosInf else new IntervalNegInf
+
+      case (IntervalVal(v), IntervalNegInf()) => new IntervalVal(0)
+      case (IntervalVal(v), IntervalPosInf()) => new IntervalVal(0)
+      case (IntervalVal(v1), IntervalVal(v2)) => new IntervalVal(Math.ceil(v1.toDouble/v2.toDouble).toInt)
+    }
+  }
+
   def divfloor(other : Int) : IntervalInt =
   {
     this match
@@ -170,6 +188,7 @@ abstract class IntervalInt
     }
   }
 
+
   def containsZero(other : IntervalInt) : Boolean =
   {
     (this, other) match
@@ -178,6 +197,16 @@ abstract class IntervalInt
       case (IntervalNegInf(), IntervalVal(v)) => if (v >= 0) true else false
       case (IntervalVal(v), IntervalPosInf()) => if (v <= 0) true else false
       case (IntervalVal(v1), IntervalVal(v2)) => if (v1 <= 0 && v2 >= 0) true else false
+      case _ => false
+    }
+  }
+
+  def isNegative : Boolean =
+  {
+    this match
+    {
+      case (IntervalNegInf()) => true
+      case (IntervalVal(v)) => v < 0
       case _ => false
     }
   }
@@ -198,8 +227,36 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
 {
   override def toString =
   {
-    "(" + lower + ", " + upper + ")"
+    "(" + lower + ", " + upper + ") + gap: " + gap.toString
   }
+
+  def containsMinusOne : Boolean =
+  {
+    (lower, upper) match
+    {
+      case (IntervalNegInf(), IntervalPosInf()) => true
+      case (IntervalNegInf(), IntervalVal(l2)) => (l2 >= -1)
+      case (IntervalVal(l1), IntervalVal(l2)) => (l1 <= -1) && (l2 >= -1)
+      case (IntervalVal(l1), IntervalPosInf()) => (l1 <= -1)
+      case _ => false
+    }
+  }
+
+  def containsOne : Boolean =
+  {
+    (lower, upper) match
+    {
+      case (IntervalNegInf(), IntervalPosInf()) => true
+      case (IntervalNegInf(), IntervalVal(l2)) => (l2 >= 1)
+      case (IntervalVal(l1), IntervalVal(l2)) => (l1 <= 1) && (l2 >= 1)
+      case (IntervalVal(l1), IntervalPosInf()) => (l1 <= 1)
+      case _ => false
+    }
+  }
+
+  def containsZero : Boolean =
+    this.lower.containsZero(this.upper)
+
 
   def newUpper(n : IntervalInt) : Interval = 
   {
@@ -214,15 +271,71 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
   // this divided by other, minimised
   def mindiv(other : Interval) : IntervalInt =
   {
-    // Four possibilities
+    // Up to 10 possibilities
     val xtrm1 = this.lower.divfloor(other.lower)
     val xtrm2 = this.lower.divfloor(other.upper)
-    val xtrm3 = this.upper.divfloor(other.lower)
-    val xtrm4 = this.upper.divfloor(other.upper)
+    val xtrm3 = 
+      if (other.containsMinusOne)
+        this.lower.divfloor(new IntervalVal(-1))
+      else
+        new IntervalNegInf
+    val xtrm4 = 
+      if (other.containsOne)
+        this.lower.divfloor(new IntervalVal(11))
+      else
+        new IntervalNegInf
+    val xtrm5 = this.upper.divfloor(other.lower)
+    val xtrm6 = this.upper.divfloor(other.upper)
+    val xtrm7 = 
+      if (other.containsMinusOne)
+        this.upper.divfloor(new IntervalVal(-1))
+      else
+        new IntervalNegInf
+    val xtrm8 = 
+      if (other.containsOne)
+        this.upper.divfloor(new IntervalVal(1))
+      else
+        new IntervalNegInf
 
-    val xtrm = xtrm1.min(xtrm2.min(xtrm3.min(xtrm4)))
+    val xtrm = xtrm1.min(xtrm2.min(xtrm3.min(xtrm4.min(xtrm5.min(xtrm6.min(xtrm7.min(xtrm8)))))))
 
-    if (xtrm.greaterThanZero && (this.lower.containsZero(this.upper) || other.lower.containsZero(other.upper)))
+    if (xtrm.greaterThanZero && this.containsZero)
+      new IntervalVal(0)
+    else
+      xtrm
+  }
+
+  def maxdiv(other : Interval) : IntervalInt =
+  {
+    // Four possibilities
+    val xtrm1 = this.lower.divceil(other.lower)
+    val xtrm2 = this.lower.divceil(other.upper)
+    val xtrm3 = 
+      if (other.containsMinusOne)
+        this.lower.divceil(new IntervalVal(-1))
+      else
+        new IntervalPosInf
+    val xtrm4 = 
+      if (other.containsOne)
+        this.lower.divceil(new IntervalVal(1))
+      else
+        new IntervalPosInf
+    val xtrm5 = this.upper.divceil(other.lower)
+    val xtrm6 = this.upper.divceil(other.upper)
+    val xtrm7 = 
+      if (other.containsMinusOne)
+        this.upper.divceil(new IntervalVal(-1))
+      else
+        new IntervalPosInf
+    val xtrm8 = 
+      if (other.containsOne)
+        this.upper.divceil(new IntervalVal(1))
+      else
+        new IntervalPosInf
+
+    val xtrm = xtrm1.max(xtrm2.max(xtrm3.max(xtrm4.max(xtrm5.max(xtrm6.max(xtrm7.max(xtrm8)))))))
+
+    if (xtrm.lessThanZero && (this.containsZero))
       new IntervalVal(0)
     else
       xtrm
@@ -266,6 +379,19 @@ class IntervalSet(
       if (ul == true || uu == true))
       yield
         (ct, i, (ul, uu, gu))).toList
+  }
+
+  def getAllIntervals() : List[(ConstantTerm, Interval)] =
+  {
+    (for ((ct, (i, _)) <- intervals)
+    yield
+      (ct, i)).toList
+  }
+
+  def getTermInterval(ct : ConstantTerm) : Interval =
+  {
+    val (i, _) = intervals(ct)
+    i
   }
 
   def getGaps() : List[(ConstantTerm, Interval)] =
@@ -499,57 +625,110 @@ class IntervalSet(
       val LHS = if (t.c < 0) t.neg else t
       val RHS = if (t.c > 0) (p - t).neg else (p - t)
 
-      if (t.c > 0)
+      for ((ct, exp) <- t.m.pairs)
       {
-        // If the constant before t is positive, propagate t >= -ts
-        for ((term, exp) <- t.m.pairs)
+        // Does this term contain more than one variable?
+
+        val allTerms = t.m.pairs
+        val removeTerm = List(ct, exp)
+        val restTerms = (t.m.pairs).diff(List((ct, exp)))
+
+        val newInterval =
+          if (t.c > 0)
+          {
+            // If the constant before t is positive, propagate t >= -ts
+            val ll =
+              // term => ...
+              if (restTerms.size == 0)
+              {
+                lowerLimit(RHS)
+              }
+              else if (restTerms.size == 1)
+              {
+                val divmon = new Monomial(List(restTerms(0))) : Monomial
+                val RHSInterval = new Interval(lowerLimit(RHS), upperLimit(RHS))
+                val divtermInterval = new Interval(lowerLimit(divmon), upperLimit(divmon))
+
+                val result = RHSInterval.mindiv(divtermInterval)
+
+                result
+              }
+              else
+                throw new IntervalException("Monomials with more than 2 terms not supported!")
+
+            val newLowerLimit =
+              if (exp == 1)
+              {
+                ll.divceil(t.c.intValue.abs)
+              }
+              else if (exp == 2)
+              {
+                // Add GAP
+                new IntervalNegInf
+              }
+              else
+                new IntervalNegInf
+
+            new Interval(newLowerLimit, new IntervalPosInf)
+          }
+          else
+          {
+            // If the constant before t is negative, propagate t <= ts
+            val ul =
+              // term <= ...
+              if (restTerms.size == 0)
+              {
+                upperLimit(RHS)
+              }
+              else if (restTerms.size == 1)
+              {
+                val divmon = new Monomial(List(restTerms(0))) : Monomial
+                val RHSInterval = new Interval(lowerLimit(RHS), upperLimit(RHS))
+                val divtermInterval = new Interval(lowerLimit(divmon), upperLimit(divmon))
+
+                val result = RHSInterval.maxdiv(divtermInterval)
+
+                result
+              }
+              else
+                throw new IntervalException("Monomials with more than 2 terms not supported!")
+
+            val interval =
+              if (exp == 1)
+              {
+                new Interval(new IntervalNegInf, ul.divfloor(t.c.intValue.abs))
+              }
+              else if (exp == 2)
+              {
+                val limit = ul.divfloor(t.c.intValue.abs)
+
+                // If we have a^2 < 0, complex solution
+                if (limit.isNegative)
+                  new Interval(new IntervalVal(1), new IntervalVal(-1))
+                else
+
+                {
+                  limit match
+                  {
+                    case IntervalVal(l) => 
+                      {
+                        val bound = Math.floor(Math.sqrt(l.toDouble)).toInt
+                        new Interval(new IntervalVal(-bound), new IntervalVal(bound))
+                      }
+
+                    case _ => new Interval(new IntervalNegInf, new IntervalPosInf)
+                  }
+                }
+              }
+              else
+                new Interval(new IntervalNegInf, new IntervalPosInf)
+
+            interval
+          }
+
+        if (updateInterval(ct, newInterval))
         {
-          // Does this term contain more than one variable?
-
-          val allTerms = t.m.pairs
-          val removeTerm = List(term, exp)
-          val restTerms = (t.m.pairs).diff(List((term, exp)))
-
-          val ll =
-            // term => ...
-            if (restTerms.size == 0)
-            {
-              lowerLimit(RHS)
-            }
-            else if (restTerms.size == 1)
-            {
-              // Four possible values, and we want to minimize 
-              val divmon = new Monomial(List(restTerms(0))) : Monomial
-              val RHSInterval = new Interval(lowerLimit(RHS), upperLimit(RHS))
-              val divtermInterval = new Interval(lowerLimit(divmon), upperLimit(divmon))
-
-              val result = RHSInterval.mindiv(divtermInterval)
-
-              result
-            }
-            else
-              throw new IntervalException("Monomials with more than 2 terms not supported!")
-
-          val newLowerLimit = ll.divceil(t.c.intValue.abs)
-          val newInterval = new Interval(newLowerLimit, new IntervalPosInf)
-
-          if (updateInterval(term, newInterval))
-            changed = true
-        }
-      }
-      else
-      {
-        // If the constant before t is positive, propagate t <= ts 
-
-        {
-          val term = t.m.pairs(0)._1
-          val ul = upperLimit(RHS)
-          val newUpperLimit = ul.divfloor(t.c.intValue.abs)
-
-          val newInterval = new Interval(new IntervalNegInf, newUpperLimit)
-
-          if (updateInterval(term, newInterval))
-            changed = true
+          changed = true
         }
       }
     }

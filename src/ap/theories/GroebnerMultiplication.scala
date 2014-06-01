@@ -74,10 +74,6 @@ object GroebnerMultiplication extends MulTheory {
      None
    }
 
-    val DEBUG_MODE = false
-    def printd(str : Any) = if (DEBUG_MODE) print(str)
-    def printlnd(str : Any) = if (DEBUG_MODE) println(str)
-
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
     {
       import TerForConvenience._
@@ -207,6 +203,7 @@ object GroebnerMultiplication extends MulTheory {
         val a2 = lcToPolynomial(a(2))
 
         val aa = a0*a1 - a2
+
         aa
       }
 
@@ -301,12 +298,11 @@ object GroebnerMultiplication extends MulTheory {
 
       for (a <- predicates)
       {
-        basis.add(atomToPolynomial(a))
+        val p = atomToPolynomial(a)
+        if (!p.isZero)
+          basis.add(p)
       }
 
-      printlnd("\n\nGroenberMultiplication")
-      printlnd("\nGoal.facts: " + goal.facts)
-      printlnd("\tTrying to calculate Groebner Basis")
 
       val gb =  Buchberger_improved(basis)
 
@@ -395,18 +391,12 @@ object GroebnerMultiplication extends MulTheory {
         {
           val allAxioms = Conjunction.conj(List(linearConj, Conjunction.TRUE),
             goal.order).negate
-          printlnd("\tFound linear formulas!")
-          printlnd("\t\t" + allAxioms)
           return List(Plugin.AddFormula(allAxioms))
         }
       }
 
       // If gröbner basis calculation does nothing
       // Lets try to do some interval propagation
-
-      printlnd(gb)
-
-      printlnd("\tGroebner failed, trying interval propagation")
 
       val preds = (predicates.map(atomToPolynomial).toSet ++ gb.toSet).toList
       val ineqs = goal.facts.arithConj.inEqs
@@ -420,27 +410,9 @@ object GroebnerMultiplication extends MulTheory {
 
       val intervals = intervalSet.getIntervals();
 
-      if (!intervals.isEmpty)
-        printlnd("\tPropagation result: ")
-
       var intervalAtoms = List() : List[ap.terfor.inequalities.InEqConj]
       for ((ct, i, (ul, uu, gu)) <- intervals)
       {
-        printd("\t\t" + ct + ": (")
-        if (ul)
-          printd(">")
-        printd(i.lower)
-        if (ul)
-          printd("<")
-        printd(", ")
-        if (uu)
-          printd(">")
-        printd(i.upper)
-        if (uu)
-          printd("<")
-        printd(") ")
-        printd("\n")
-
         // Generate inequalities according to intervals
         if (ul)
           intervalAtoms = (ct >= i.lower.get) :: intervalAtoms
@@ -456,31 +428,21 @@ object GroebnerMultiplication extends MulTheory {
       {
         val allAxioms = Conjunction.conj(List(intervalAxioms, Conjunction.TRUE),
           goal.order).negate
-        printlnd("\tReturning axioms: " + allAxioms)
         return List(Plugin.AddFormula(allAxioms))
       }
 
       // Do splitting
-      printlnd("\tInterval propagation failed, splitting")
-      if (!negeqs.isEmpty)
-        printlnd("\t\tNegeq split: ")
-      for (eq <- negeqs)
-        printlnd("\t\t\t" + eq)
-
       // Lets try FIFO!
       if (!negeqs.isEmpty)
       {
         val negeq = negeqs.head
-        printlnd("\t\tnegeq (" + negeq.getClass + "): " + negeq)
         val opt1 = (negeq > 0).negate
         val opt2 = (negeq < 0).negate
-        printlnd("\t\t\topt1: " + opt1)
-        printlnd("\t\t\topt2: " + opt2)
+
         val opt1act  = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
         val opt2act  = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
         val actionList = List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act)))
         val splitgoal = Plugin.SplitGoal(actionList)
-        printlnd("\tReturning: " + splitgoal)
         return List(Plugin.SplitGoal(actionList))
       }
 
@@ -488,32 +450,75 @@ object GroebnerMultiplication extends MulTheory {
 
       if (!gaps.isEmpty)
       {
-        printlnd("\tGap split:")
-        for ((ct, i) <- gaps)
-        {
-          printd("\t\t" + ct + ": (")
-          printd(i.lower)
-          printd(", ")
-          printd(i.upper)
-          printd(") gap (" + i.gap + ")\n")
-        }
-
         val (term, interval) = gaps.head
         val opt1 = (term < interval.gap.get._1).negate
         val opt2 = (term > interval.gap.get._2).negate
 
-        printlnd("\t\t\topt1: " + opt1)
-        printlnd("\t\t\topt2: " + opt2)
+
         val opt1act  = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
         val opt2act  = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
         val actionList = List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act)))
         val splitgoal = Plugin.SplitGoal(actionList)
-        printlnd("\tReturning: " + splitgoal)
         return List(Plugin.SplitGoal(actionList))
       }
 
-      printlnd("\tEven splitting failed ...")
-      List()
+
+      def findSplit : List[ap.proof.theoryPlugins.Plugin.SplitGoal] = 
+      {
+        val allIntervals = intervalSet.getAllIntervals()
+        for ((c, i) <- allIntervals)
+        {
+          (i.lower, i.upper) match
+          {
+            // if x = [-, +], split at zero
+            case (IntervalNegInf(), IntervalPosInf()) => 
+            {
+              val opt1 = (c < 0).negate
+              val opt2 = (c >= 0).negate
+              val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
+              val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
+              val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
+              return List(splitgoal)
+            }
+            case _ => 
+          }
+        }
+
+        for (p <- predicates)
+        {
+          val symbols = p(0) ++ p(1) ++ p(2)
+
+          for (s <- symbols)
+          {
+            s._2 match
+            {
+              case (OneTerm) => ()
+              case (x : ConstantTerm) => 
+                {
+                  val i = intervalSet.getTermInterval(x)
+                  val (opt1, opt2) =
+                    (i.lower, i.upper) match
+                    {
+                      case (IntervalVal(ll), _) => ((x === ll).negate, (x > ll).negate)
+                      case (_, IntervalVal(ul)) => ((x === ul).negate, (x < ul).negate)
+                      case _ => throw new Exception("Double-Infitity-Ended intervals should have been split already")
+                    }
+                  // val opt1 = (x >).negate
+                  // val opt2 = (x < 0)
+                  val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
+                  val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
+                  val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
+                  return List(splitgoal)
+                }
+            }
+          }
+        }
+
+        return List()
+      }
+
+      val s = findSplit
+      s
     }
   })
 
