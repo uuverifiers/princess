@@ -42,8 +42,8 @@ import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
                                  LinkedHashMap}
+import scala.actors.{Actor, DaemonActor, TIMEOUT}
 import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
 import scala.concurrent.SyncVar
 
 object SimpleAPI {
@@ -58,17 +58,21 @@ object SimpleAPI {
    * by calling the method <code>SimpleAPI.shutDown</code> after use.
    */
   def apply(enableAssert : Boolean = false,
+            sanitiseNames : Boolean = true,
             dumpSMT : Boolean = false,
             smtDumpBasename : String = SMTDumpBasename,
             dumpScala : Boolean = false,
             scalaDumpBasename : String = ScalaDumpBasename,
             tightFunctionScopes : Boolean = true) : SimpleAPI =
     new SimpleAPI (enableAssert,
+                   sanitiseNames,
                    if (dumpSMT) Some(smtDumpBasename) else None,
                    if (dumpScala) Some(scalaDumpBasename) else None,
                    tightFunctionScopes)
 
   def spawn : SimpleAPI = apply()
+
+  def spawnNoSanitise : SimpleAPI = apply(sanitiseNames = false)
 
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
 
@@ -76,6 +80,10 @@ object SimpleAPI {
 
   def spawnWithLog(basename : String) : SimpleAPI =
     apply(dumpSMT = true, smtDumpBasename = basename)
+
+  def spawnWithLogNoSanitise(basename : String) : SimpleAPI =
+    apply(dumpSMT = true, smtDumpBasename = basename,
+          sanitiseNames = false)
 
   def spawnWithScalaLog : SimpleAPI = apply(dumpScala = true)
 
@@ -100,13 +108,14 @@ object SimpleAPI {
    * afterwards.
    */
   def withProver[A](enableAssert : Boolean = false,
+                    sanitiseNames : Boolean = true,
                     dumpSMT : Boolean = false,
                     smtDumpBasename : String = SMTDumpBasename,
                     dumpScala : Boolean = false,
                     scalaDumpBasename : String = ScalaDumpBasename,
                     tightFunctionScopes : Boolean = true)
                    (f : SimpleAPI => A) : A = {
-    val p = apply(enableAssert,
+    val p = apply(enableAssert, sanitiseNames,
                   dumpSMT, smtDumpBasename,
                   dumpScala, scalaDumpBasename,
                   tightFunctionScopes)
@@ -301,7 +310,7 @@ object SimpleAPI {
 
   private val badStringChar = """[^a-zA-Z_0-9']""".r
   
-  private def sanitise(s : String) : String =
+  private def sanitiseHelp(s : String) : String =
     badStringChar.replaceAllIn(s, (m : scala.util.matching.Regex.Match) =>
                                        ('a' + (m.toString()(0) % 26)).toChar.toString)
 
@@ -314,6 +323,7 @@ object SimpleAPI {
  * SMT-LIB command language.
  */
 class SimpleAPI private (enableAssert : Boolean,
+                         sanitiseNames : Boolean,
                          dumpSMT : Option[String],
                          dumpScala : Option[String],
                          tightFunctionScopes : Boolean) {
@@ -321,6 +331,9 @@ class SimpleAPI private (enableAssert : Boolean,
   import SimpleAPI._
 
   Debug enableAllAssertions enableAssert
+
+  private def sanitise(s : String) : String =
+    if (sanitiseNames) sanitiseHelp(s) else s
 
   private val dumpSMTStream = dumpSMT match {
     case Some(basename) => {
@@ -772,9 +785,17 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Create a new uninterpreted function with fixed arity.
    */
+  def createFunction(rawName : String, arity : Int) : IFunction =
+    createFunction(rawName, arity, FunctionalityMode.Full)
+
+  /**
+   * Create a new uninterpreted function with fixed arity,
+   * and chose to which degree functionality axioms should be
+   * generated.
+   */
   def createFunction(rawName : String, arity : Int,
-                     functionalityMode : FunctionalityMode.Value =
-                       FunctionalityMode.Full) : IFunction = {
+                     functionalityMode : FunctionalityMode.Value)
+                    : IFunction = {
     doDumpScala {
       println("val " + sanitise(rawName) + " = " +
               "createFunction(\"" + rawName + "\", " + arity +
@@ -786,7 +807,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def printFunctionalityMode(m : FunctionalityMode.Value) =
     m match {
       case FunctionalityMode.Full => ""
-      case m => ", functionalityMode = FunctionalityMode." + m
+      case m => ", FunctionalityMode." + m
     }
 
   private def createFunctionHelp(rawName : String, arity : Int,
@@ -820,10 +841,21 @@ class SimpleAPI private (enableAssert : Boolean,
    * In contrast to predicates (generated using <code>createRelation</code>),
    * Boolean functions can be used within triggers.
    */
+  def createBooleanFunction(rawName : String, arity : Int)
+                           : IExpression.BooleanFunApplier =
+    createBooleanFunction(rawName, arity, FunctionalityMode.Full)
+
+  /**
+   * Create a new uninterpreted Boolean-valued function with fixed arity.
+   * Booleans values are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.<br>
+   * In contrast to predicates (generated using <code>createRelation</code>),
+   * Boolean functions can be used within triggers.
+   */
   def createBooleanFunction(rawName : String,
                             arity : Int,
-                            functionalityMode : FunctionalityMode.Value =
-                              FunctionalityMode.Full)
+                            functionalityMode : FunctionalityMode.Value)
                            : IExpression.BooleanFunApplier =
     new IExpression.BooleanFunApplier({
       doDumpScala {
@@ -2419,7 +2451,7 @@ class SimpleAPI private (enableAssert : Boolean,
   
   private var proofActorStatus : ProofActorStatus.Value = _
   
-  private val proofActor = actor {
+  private val proofActor = new DaemonActor { def act : Unit = {
     Debug enableAllAssertions enableAssert
     
     var cont = true
@@ -2531,7 +2563,9 @@ class SimpleAPI private (enableAssert : Boolean,
       }
       
     }
-  }
+  }}
+
+  proofActor.start
 
   //////////////////////////////////////////////////////////////////////////////
 
