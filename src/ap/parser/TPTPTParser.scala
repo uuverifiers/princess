@@ -215,7 +215,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
             if (containsEquations)
               Param.FiniteDomainConstraints.VocabularyEquations
             else {
-              warn("no equations")
+//              warn("no equations")
               Param.FiniteDomainConstraints.None
             }
           case TPTPType.TFF =>
@@ -348,8 +348,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           case _ => Set()
         }
 
-        if (!finiteDomainSorts.isEmpty)
-          warn("Finite sorts: " + (finiteDomainSorts map (_.name) mkString ", "))
+//        if (!finiteDomainSorts.isEmpty)
+//          warn("Finite sorts: " + (finiteDomainSorts map (_.name) mkString ", "))
 
         ////////////////////////////////////////////////////////////////////////
 
@@ -388,12 +388,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         val signature =
           preSignature updatePredicateMatchConfig finalPredMatchConfig
 
-        println("Total: " + (for (Environment.Function(f, t) <- env.symbols;
+/*        println("Total: " + (for (Environment.Function(f, t) <- env.symbols;
                 newF = funMapping.getOrElse(f, f);
                 if (!newF.partial)) yield newF.name).mkString(", "))
         println("Partial: " + (for (Environment.Function(f, t) <- env.symbols;
                 newF = funMapping.getOrElse(f, f);
-                if (newF.partial)) yield newF.name).mkString(", "))
+                if (newF.partial)) yield newF.name).mkString(", ")) */
 
         if (funMapping.isEmpty) {
           (completeFor, List(), signature)
