@@ -296,6 +296,9 @@ object GroebnerMultiplication extends MulTheory {
 
       val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
 
+      if (predicates.isEmpty)
+        return List()
+
       import ap.terfor.OneTerm
 
       // Add all elements from LHS
@@ -533,15 +536,9 @@ object GroebnerMultiplication extends MulTheory {
       }
 
 
-      val intervalAxioms = goal.reduceWithFacts(conj(intervalAtoms))
-
-      if (!intervalAxioms.isTrue)
-      {
-        val allAxioms = Conjunction.conj(List(intervalAxioms, Conjunction.TRUE),
-          goal.order)
-        printlnd("\tReturning axioms: " + allAxioms)
-        return List(removeFactsAction, Plugin.AddFormula(allAxioms.negate))
-      }
+      val allFormulas = goal reduceWithFacts conj(intervalAtoms).negate
+      if (!allFormulas.isFalse)
+         return List(removeFactsAction, Plugin.AddFormula(allFormulas))
 
       // Do splitting
       printlnd("\tInterval propagation failed, splitting")

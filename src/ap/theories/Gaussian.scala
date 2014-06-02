@@ -35,8 +35,8 @@ class Gaussian(var array : Array[Array[IdealInt]])
   def getRows() : List[Array[IdealInt]] =
   {
     // Startup engine
-    // SimpleAPI.withProver { p =>
-    val p = SimpleAPI.spawnWithAssertions
+    SimpleAPI.withProver { p =>
+    // val p = SimpleAPI.spawnWithAssertions
     import p._
 
     // Create temporary constants
@@ -101,7 +101,7 @@ class Gaussian(var array : Array[Array[IdealInt]])
     // Convert constraints into polynomials
     val constraint = getConstraint    
 
-    p.shutDown
+//    p.shutDown
 
     val clist = bintoformula(constraint)
     (for (c <- clist)
@@ -109,6 +109,7 @@ class Gaussian(var array : Array[Array[IdealInt]])
         for (e <- c.subExpressions)
         yield
           expToRow(e)).flatten
+    }
   }
 }
 
