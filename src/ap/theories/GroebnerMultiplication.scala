@@ -128,7 +128,7 @@ object GroebnerMultiplication extends MulTheory {
 
    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = 
    {
-     println("GENERATE AXIOMS?")
+     printlnd("GENERATE AXIOMS?")
      None
    }
 
@@ -510,7 +510,7 @@ object GroebnerMultiplication extends MulTheory {
         if (uu)
           printd("<")
         printd(") ")
-        print("gap: " + i.gap)
+        printd("gap: " + i.gap)
         printd("\n")
 
         // Generate inequalities according to intervals
@@ -608,8 +608,8 @@ object GroebnerMultiplication extends MulTheory {
             {
               val opt1 = (c < 0)
               val opt2 = (c >= 0)
-              println("\t\topt1: " + opt1)
-              println("\t\topt2: " + opt2)
+              printlnd("\t\topt1: " + opt1)
+              printlnd("\t\topt2: " + opt2)
               val opt1act = Conjunction.conj(List(opt1.negate, Conjunction.TRUE), goal.order)
               val opt2act = Conjunction.conj(List(opt2.negate, Conjunction.TRUE), goal.order)
               val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
@@ -630,7 +630,7 @@ object GroebnerMultiplication extends MulTheory {
               case (x : ConstantTerm) => 
                 {
                   val i = intervalSet.getTermInterval(x)
-                  println("Splitting on: " + x + intervalSet.getTermInterval(x))
+                  printlnd("Splitting on: " + x + intervalSet.getTermInterval(x))
                   val (opt1, opt2) =
                     (i.lower, i.upper) match
                     {
