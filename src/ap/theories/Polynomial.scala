@@ -367,6 +367,11 @@ class Monomial(val pairs : List[(ConstantTerm, Int)])(implicit val ordering : mo
       yield
         new Monomial(kv)
   }
+
+  def divide(ct : ConstantTerm, exp : IdealInt) : Monomial =
+  {
+    new Monomial(pairs diff List((ct, exp)))
+  }
 }
 
 class Term(coeff : IdealInt, monomial : Monomial)(implicit val ordering : monomialOrdering)
