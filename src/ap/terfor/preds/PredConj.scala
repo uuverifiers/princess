@@ -379,24 +379,27 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
    * <code>oldConj</code>, as well as the subset of literals that do not occur
    * in <code>oldConj</code>.
    */
-  def diff(oldConj : PredConj) : (PredConj, PredConj) = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(PredConj.AC, oldConj isSortedBy order)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    implicit val orderAtom = new Ordering[Atom] {
-      def compare(thisA : Atom, thatA : Atom) : Int =
-        order.compare(thisA, thatA)
+  def diff(oldConj : PredConj) : (PredConj, PredConj) =
+    if (this.isTrue) {
+      (this, this)
+    } else {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(PredConj.AC, oldConj isSortedBy order)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+  
+      implicit val orderAtom = new Ordering[Atom] {
+        def compare(thisA : Atom, thatA : Atom) : Int =
+          order.compare(thisA, thatA)
+      }
+  
+      val (unchangedPosLits, changedPosLits) =
+        Seqs.diff(this.positiveLits, oldConj.positiveLits)
+      val (unchangedNegLits, changedNegLits) =
+        Seqs.diff(this.negativeLits, oldConj.negativeLits)
+      
+      (this.updateLitsSubset(unchangedPosLits, unchangedNegLits, order),
+       this.updateLitsSubset(changedPosLits, changedNegLits, order))
     }
-
-    val (unchangedPosLits, changedPosLits) =
-      Seqs.diff(this.positiveLits, oldConj.positiveLits)
-    val (unchangedNegLits, changedNegLits) =
-      Seqs.diff(this.negativeLits, oldConj.negativeLits)
-    
-    (this.updateLitsSubset(unchangedPosLits, unchangedNegLits, order),
-     this.updateLitsSubset(changedPosLits, changedNegLits, order))
-  }
   
   def partition(pred : (Atom) => Boolean) : (PredConj, PredConj) = {
     val (posLeft, posRight) = this.positiveLits partition pred
