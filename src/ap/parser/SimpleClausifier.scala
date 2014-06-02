@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -82,31 +82,88 @@ object SimpleClausifier {
    * kind. Outermost universal quantifiers are completely pulled out
    */
   private object CompactifyQuantifiers
-                 extends CollectingVisitor[Quantifier, IFormula] {
-    def apply(f : IFormula) : IFormula = this.visit(f, null)
+                 extends CollectingVisitor[(Quantifier, IBinJunctor.Value),
+                                           IFormula] {
+    def apply(f : IFormula) : IFormula = this.visit(f, (Quantifier.ALL, null))
     
-    override def preVisit(t : IExpression, lastQuan : Quantifier) : PreVisitResult =
+    override def preVisit(t : IExpression,
+                          lastOps : (Quantifier, IBinJunctor.Value)) : PreVisitResult =
       t match {
         case Literal(t) =>
           // do not look into atoms
           ShortCutResult(t)
         case IQuantified(q, _) =>
-          UniSubArgs(q)
+          UniSubArgs((q, null))
+        case IBinFormula(j, _, _) =>
+          UniSubArgs((lastOps._1, j))
         case _ =>
           KeepArg
       }
   
-    def postVisit(t : IExpression, lastQuan : Quantifier,
+    def postVisit(t : IExpression, lastOps : (Quantifier, IBinJunctor.Value),
                   subres : Seq[IFormula]) : IFormula =
       t match {
-        case t : IBinFormula =>
-          PullUpQuantifier(t update subres,
-                           if (lastQuan == null) Quantifier.ALL else lastQuan)
+        case t@IBinFormula(j, _, _) if (j != lastOps._2) => {
+          val lastQuan = lastOps._1
+          val newT = t update subres
+          val parts = LineariseVisitor(newT, j)
+
+          // are there any quantifiers to pull out?
+          if (parts exists {
+                case IQuantified(`lastQuan`, _) => true
+                case _ => false
+               }) {
+
+            val bodyQuans = parts map (sepQuan(_, lastQuan, List()))
+
+            if (j == And && lastQuan == ALL || j == Or && lastQuan == EX) {
+              // find maximum number of quantifiers in any component
+
+              val maxQuans = (bodyQuans map (_._2)) maxBy (_.size)
+              val maxQuansSize = maxQuans.size
+              val shiftedBodies =
+                for ((body, quans) <- bodyQuans)
+                yield VariableShiftVisitor(body, 0, maxQuansSize - quans.size)
+              quan(maxQuans, connect(shiftedBodies, j))
+
+            } else {
+              // find total number of required quantifiers
+
+              val allQuans = for ((_, qs) <- bodyQuans; q <- qs) yield q
+              val allQuansSize = allQuans.size
+              var offset = 0
+              val shiftedBodies = for ((body, quans) <- bodyQuans) yield {
+                val quansSize = quans.size
+                val newBody =
+                  VariablePermVisitor(body,
+                                      IVarShift(List.fill(quansSize)(offset),
+                                                allQuansSize - quansSize))
+                offset = offset + quansSize
+                newBody
+              }
+
+              quan(allQuans, connect(shiftedBodies, j))
+            }
+
+          } else {
+            newT
+          }
+        }
         case t : IFormula =>
           t update subres
       }
   }
   
+  private def sepQuan(f : IFormula,
+                      q : Quantifier,
+                      quans : List[Quantifier])
+                     : (IFormula, List[Quantifier]) = f match {
+    case IQuantified(`q`, subF) =>
+      sepQuan(subF, q, q :: quans)
+    case f =>
+      (f, quans)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -296,13 +353,13 @@ object SimpleClausifier {
    * <code>ALL ... & ALL ...</code> into <code>ALL (... & ...)</code>
    */
   private object CompactifyExBodies
-                 extends CollectingVisitor[Boolean, CEBResult] {
-    def apply(f : IFormula) : IFormula = this.visit(f, false).left.get
+                 extends CollectingVisitor[Boolean, IFormula] {
+    def apply(f : IFormula) : IFormula = this.visit(f, false)
     
     override def preVisit(t : IExpression, underEx : Boolean) : PreVisitResult =
       t match {
         case Literal(t) =>
-          ShortCutResult(if (underEx) Right(t, true) else Left(t))
+          ShortCutResult(t)
         case IQuantified(EX, IQuantified(EX, _)) => {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, !underEx)
@@ -315,44 +372,37 @@ object SimpleClausifier {
           //-END-ASSERTION-/////////////////////////////////////////////////////
           UniSubArgs(true)
         }
-        case IQuantified(ALL, _) =>
-          UniSubArgs(false)
         case _ : IFormula =>
-          KeepArg
+          UniSubArgs(false)
       }
 
     def postVisit(t : IExpression, underEx : Boolean,
-                  subres : Seq[CEBResult]) : CEBResult =
-      if (underEx)
-        t match {
-          case IBinFormula(And, _, _) => {
-            val (litsL, subforsL) = subres(0).right.get
-            val (litsR, subforsR) = subres(1).right.get
-            Right(litsL &&& litsR, PullUpQuantifier(subforsL &&& subforsR, ALL))
+                  subres : Seq[IFormula]) : IFormula = t match {
+      case t@IBinFormula(And, _, _) if (underEx) => {
+        val newT = t update subres
+
+        val (withQuans, withoutQuans) =
+          LineariseVisitor(newT, IBinJunctor.And) partition {
+            case IQuantified(ALL, _) => true
+            case _ => false
           }
-          case t@IQuantified(ALL, _) =>
-            Right(true, t update left(subres))
-          case _ => {assert(false); null}
+
+        if (withQuans.size <= 1) {
+          newT
+        } else {
+          val bodyQuans = withQuans map (sepQuan(_, ALL, List()))
+          val maxQuans = (bodyQuans map (_._2)) maxBy (_.size)
+          val maxQuansSize = maxQuans.size
+          val shiftedBodies =
+            for ((body, quans) <- bodyQuans)
+            yield VariableShiftVisitor(body, 0, maxQuansSize - quans.size)
+          and(withoutQuans) &&& quan(maxQuans, and(shiftedBodies))
         }
-      else
-        t match {
-          case IQuantified(EX, _) if (subres(0).isRight) => {
-            val (lits, subfors) = subres(0).right.get
-            Left(ex(lits &&& subfors))
-          }
-          case t : IFormula =>
-            Left(t update left(subres))
-        }
-    
-    private def left(subres : Seq[CEBResult]) = for (x <- subres) yield x.left.get
+      }
+
+      case t : IFormula =>
+        t update subres
+    }
   }
 
-  type CEBResult = Either[// single formula in case we are not underneath an
-                          // existential quantifier
-                          IFormula,
-                           // subformulas that do not start with a quantifier
-                          (IFormula,
-                           // subformulas that start with a universal quantifier
-                           IFormula)]
-  
 }
