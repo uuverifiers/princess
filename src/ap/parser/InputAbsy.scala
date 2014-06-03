@@ -86,11 +86,19 @@ object IExpression {
   type Predicate = ap.terfor.preds.Predicate
   
   /** Implicit conversion from integers to terms */
-  implicit def i(value : Int) : ITerm = IIntLit(value)
+  def i(value : Int) : ITerm = IIntLit(value)
   /** Implicit conversion from integers to terms */
-  implicit def i(value : IdealInt) : ITerm = IIntLit(value)
+  implicit def Int2ITerm(value : Int) : ITerm = IIntLit(value)
+
+  /** Implicit conversion from integers to terms */
+  def i(value : IdealInt) : ITerm = IIntLit(value)
+  /** Implicit conversion from integers to terms */
+  implicit def IdealInt2ITerm(value : IdealInt) : ITerm = IIntLit(value)
+
   /** Implicit conversion from constants to terms */
-  implicit def i(c : ConstantTerm) : ITerm = IConstant(c)
+  def i(c : ConstantTerm) : ITerm = IConstant(c)
+  /** Implicit conversion from constants to terms */
+  implicit def ConstantTerm2ITerm(c : ConstantTerm) : ITerm = IConstant(c)
 
   /**
    * Generate the variable with de Bruijn index <code>index</code>
@@ -98,7 +106,9 @@ object IExpression {
   def v(index : Int) : IVariable = IVariable(index)
 
   /** Implicit conversion from Booleans to formulas */
-  implicit def i(value : Boolean) : IFormula = IBoolLit(value)
+  def i(value : Boolean) : IFormula = IBoolLit(value)
+  /** Implicit conversion from Booleans to formulas */
+  implicit def Boolean2IFormula(value : Boolean) : IFormula = IBoolLit(value)
 
   /**
    * Implicit conversion, to enable the application of a predicate

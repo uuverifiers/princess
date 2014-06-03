@@ -694,29 +694,45 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Add an externally defined constant to the environment of this prover.
    */
-  def addConstant(c : IExpression.ConstantTerm) : Unit = {
-    flushTodo
+  def addConstant(t : ITerm) : Unit = t match {
+    case IConstant(c) => addConstantRaw(c)
+    case t => addConstantsRaw(SymbolCollector constants t)
+  }
 
-    currentOrder = currentOrder extend c
-    restartProofActor
+  /**
+   * Add a sequence of externally defined constants to the environment
+   * of this prover.
+   */
+  def addConstants(ts : Iterable[ITerm]) : Unit =
+    addConstantsRaw(for (t <- ts;
+                         c <- t match {
+                           case IConstant(c) => List(c)
+                           case t => SymbolCollector constants t
+                         }) yield c)
+
+  /**
+   * Add an externally defined constant to the environment of this prover.
+   */
+  def addConstantRaw(c : IExpression.ConstantTerm) : Unit = {
     doDumpSMT {
       println("(declare-fun " + c.name + " () Int)")
     }
     doDumpScala {
       println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-              "// addConstant(" + c.name + ")")
+              "// addConstantRaw(" + c.name + ")")
     }
+
+    flushTodo
+
+    currentOrder = currentOrder extend c
+    restartProofActor
   }
 
   /**
    * Add a sequence of externally defined constant to the environment of
    * this prover.
    */
-  def addConstants(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
-    flushTodo
-
-    currentOrder = currentOrder extend cs.toSeq
-    restartProofActor
+  def addConstantsRaw(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
     doDumpSMT {
       for (c <- cs)
         println("(declare-fun " + c.name + " () Int)")
@@ -724,22 +740,20 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       for (c <- cs)
         println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-                "// addConstant(" + c.name + ")")
+                "// addConstantRaw(" + c.name + ")")
     }
+    flushTodo
+
+    currentOrder = currentOrder extend cs.toSeq
+    restartProofActor
   }
 
   /**
    * Create a new Boolean variable (nullary predicate).
    */
   def createBooleanVariable(rawName : String) : IFormula = {
-    flushTodo
-
-    import IExpression._
-    
     val name = sanitise(rawName)
-    val p = new Predicate(name, 0)
-    currentOrder = currentOrder extendPred p
-    restartProofActor
+
     doDumpSMT {
       println("(declare-fun " + name + " () Bool)")
     }
@@ -747,7 +761,24 @@ class SimpleAPI private (enableAssert : Boolean,
       println("val " + name + " = " +
               "createBooleanVariable(\"" + rawName + "\")")
     }
+
+    flushTodo
+
+    import IExpression._
+    
+    val p = new Predicate(name, 0)
+    addRelation(p)
     p()
+  }
+
+  private def addRelation(p : IExpression.Predicate) : Unit = {
+    currentOrder = currentOrder extendPred p
+    restartProofActor
+  }
+
+  private def addRelations(ps : Iterable[IExpression.Predicate]) : Unit = {
+    currentOrder = currentOrder extendPred ps.toSeq
+    restartProofActor
   }
 
   /**
@@ -777,10 +808,29 @@ class SimpleAPI private (enableAssert : Boolean,
                 }
                 new Predicate ("p" + (startInd + i), 0)
               }).toIndexedSeq
-    currentOrder = currentOrder extendPred ps
-    restartProofActor
+    addRelations(ps)
     for (p <- ps) yield p()
   }
+
+  /**
+   * Add an externally defined boolean variable to the environment
+   * of this prover.
+   */
+  def addBooleanVariable(f : IFormula) : Unit = f match {
+    case IAtom(p, _) => addRelation(p)
+    case f => addRelations(SymbolCollector nullaryPredicates f)
+  }
+
+  /**
+   * Add a sequence of externally defined boolean variables to the environment
+   * of this prover.
+   */
+  def addBooleanVariables(fs : Iterable[IFormula]) : Unit =
+    addRelations(for (f <- fs;
+                      p <- f match {
+                        case IAtom(p, _) => List(p)
+                        case f => SymbolCollector nullaryPredicates f
+                      }) yield p)
 
   /**
    * Create a new uninterpreted function with fixed arity.
@@ -814,23 +864,78 @@ class SimpleAPI private (enableAssert : Boolean,
                                  functionalityMode : FunctionalityMode.Value =
                                    FunctionalityMode.Full)
                                 : IFunction = {
-    flushTodo
-
     val name = sanitise(rawName)
     val f = new IFunction(name, arity, true,
                           functionalityMode != FunctionalityMode.Full)
+    addFunctionHelp(f, functionalityMode)
+    f
+  }
+
+  /**
+   * Add an externally defined function to the environment of this prover.
+   */
+  def addFunction(f : IFunction) : Unit =
+    addFunction(f, FunctionalityMode.Full)
+
+  /**
+   * Add an externally defined function to the environment of this prover.
+   */
+  def addFunction(f : IFunction,
+                  functionalityMode : FunctionalityMode.Value) : Unit = {
+    doDumpScala {
+      println("val " + f.name +
+              " = createFunction(" + f.name + ", " + f.arity +
+              printFunctionalityMode(functionalityMode) + ")" +
+              "// addFunction(" + f.name +
+              printFunctionalityMode(functionalityMode) + ")")
+    }
+    addFunctionHelp(f, functionalityMode)
+  }
+
+  /**
+   * Add an externally defined function to the environment of this prover.
+   */
+  def addFunction(f : IExpression.BooleanFunApplier) : Unit =
+    addFunction(f.fun, FunctionalityMode.Full)
+
+  /**
+   * Add an externally defined function to the environment of this prover.
+   */
+  def addFunction(f : IExpression.BooleanFunApplier,
+                  functionalityMode : FunctionalityMode.Value) : Unit = {
+    val fun = f.fun
+    doDumpScala {
+      println("val " + fun.name +
+              " = createBooleanFunction(" + fun.name + ", " + fun.arity +
+              printFunctionalityMode(functionalityMode) + ")" +
+              "// addFunction(" + fun.name +
+              printFunctionalityMode(functionalityMode) + ")")
+    }
+    addFunctionHelp(fun, functionalityMode)
+  }
+
+  private def addFunctionHelp(f : IFunction,
+                              functionalityMode : FunctionalityMode.Value)
+                             : Unit = {
+    flushTodo
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(SimpleAPI.AC,
+                    f.relational ==
+                      (functionalityMode != FunctionalityMode.Full))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     // make sure that the function encoder knows about the function
     val (_, newOrder) =
-      functionEnc.apply(IFunApp(f, List.fill(arity)(0)) === 0, currentOrder)
+      functionEnc.apply(IFunApp(f, List.fill(f.arity)(0)) === 0, currentOrder)
     if (functionalityMode != FunctionalityMode.None)
       functionalPreds = functionalPreds + functionEnc.relations(f)
     doDumpSMT {
-      println("(declare-fun " + name + " (" +
-          (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
+      println("(declare-fun " + f.name + " (" +
+          (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
     }
     currentOrder = newOrder
     recreateProver
-    f
   }
 
   /**
@@ -878,8 +983,7 @@ class SimpleAPI private (enableAssert : Boolean,
     
     val name = sanitise(rawName)
     val r = new Predicate(name, arity)
-    currentOrder = currentOrder extendPred r
-    restartProofActor
+    addRelation(r)
     doDumpSMT {
       println("(declare-fun " + name + " (" +
           (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Bool)")
@@ -1531,7 +1635,7 @@ class SimpleAPI private (enableAssert : Boolean,
                       currentModel.arithConj.inEqs.isTrue &&
                       currentModel.negatedConjs.isEmpty)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-  
+
       val interpretation = new LinkedHashMap[ModelLocation, ModelValue]
   
       for (l <- currentModel.arithConj.positiveEqs) {
