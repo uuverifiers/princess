@@ -126,11 +126,14 @@ object GroebnerMultiplication extends MulTheory {
       implicit val monOrder = new GrevlexOrdering(new StringOrdering)
       import TerForConvenience._
 
-      println("\n\n\t\t\tDesperate times requires desperate measures\n\n\n")
+      // println("\n\n\t\t\tDesperate times requires desperate measures\n\n\n")
 
 
-      def findSplit(intervalSet : IntervalSet) : Option[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+      // Find the "best" split
+      def findSplit(intervalSet : IntervalSet) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] =
       {
+        var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
+
         val allIntervals = intervalSet.getAllIntervals()
         for ((c, i) <- intervalSet.getAllIntervals())
         {
@@ -142,12 +145,11 @@ object GroebnerMultiplication extends MulTheory {
                 val opt1 = (c < 0)
                 val opt2 = (c >= 0)
                 val msg = "[-Inf, +Inf] split: " + opt1 + ", " + opt2
-                return Some((opt1.negate, opt2.negate, msg))
+                alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
               }
             case _ =>
           }
         }
-
 
         for (x <- intervalSet.symbols)
         {
@@ -159,22 +161,20 @@ object GroebnerMultiplication extends MulTheory {
                   val opt1 = (x === ll)
                   val opt2 = (x > ll)
                   val msg = "LowerBound split: " + opt1 + ", " + opt2
-                  return Some((opt1.negate, opt2.negate, msg))
+                  alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
                 }
               case (_, IntervalVal(ul)) =>
                 {
                   val opt1 = (x === ul)
                   val opt2 = (x < ul)
                   val msg = "UpperBound split: " + opt1 + ", " + opt2
-                  return Some((opt1.negate, opt2.negate, msg))
+                  alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
                 }
-              case _ => throw new Exception("Double-Infitity-Ended intervals should have been split already")
+              case _ => 
             }
         }
 
-        printlnd("\tEven splitting failed ...")
-
-        return None
+        alternatives
       }
 
       // Extract all predicates
@@ -189,19 +189,27 @@ object GroebnerMultiplication extends MulTheory {
 
       intervalSet.propagate()
 
+
       val split = findSplit(intervalSet)
 
-      if (split.isEmpty)
-        List()
-      else
+      if (!split.isEmpty)
       {
-        val (opt1, opt2, msg) = split.get
-        println(msg)
-        val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
-        val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
-        val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
-        List(splitgoal)
+        // Let's try to find a decent splitting target
+        for ((opt1, opt2, msg) <- split)
+        {
+          val allFormulas = goal reduceWithFacts conj(List(opt1, opt2)).negate
+          if (!allFormulas.isFalse)
+          {
+            printlnd(msg)
+            val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
+            val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
+            val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
+            return List(splitgoal)
+          }
+        }
       }
+
+      List()
     }
   }
 
@@ -350,6 +358,9 @@ object GroebnerMultiplication extends MulTheory {
       var definedList = Set() : Set[ConstantTerm]
 
       val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
+
+      if (predicates.isEmpty)
+        return List()
 
       // Add all elements from LHS
       for (a <- predicates)
@@ -647,97 +658,12 @@ object GroebnerMultiplication extends MulTheory {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-      // Find the "best" split
-      def findSplit(intervalSet : IntervalSet) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] =
-      {
-        var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
-
-        val allIntervals = intervalSet.getAllIntervals()
-        for ((c, i) <- intervalSet.getAllIntervals())
-        {
-          (i.lower, i.upper) match
-          {
-            // if x = [-, +], split at zero
-            case (IntervalNegInf(), IntervalPosInf()) =>
-              {
-                val opt1 = (c < 0)
-                val opt2 = (c >= 0)
-                val msg = "[-Inf, +Inf] split: " + opt1 + ", " + opt2
-                alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
-              }
-            case _ =>
-          }
-        }
-
-        for (x <- intervalSet.symbols)
-        {
-          val i = intervalSet.getTermInterval(x)
-            (i.lower, i.upper) match
-            {
-              case (IntervalVal(ll), _) =>
-                {
-                  val opt1 = (x === ll)
-                  val opt2 = (x > ll)
-                  val msg = "LowerBound split: " + opt1 + ", " + opt2
-                  alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
-                }
-              case (_, IntervalVal(ul)) =>
-                {
-                  val opt1 = (x === ul)
-                  val opt2 = (x < ul)
-                  val msg = "UpperBound split: " + opt1 + ", " + opt2
-                  alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
-                }
-              case _ => 
-            }
-        }
-
-        alternatives
-      }
-
-
-      val split = findSplit(intervalSet)
-
-      if (!split.isEmpty)
-      {
-        // Let's try to find a decent splitting target
-        for ((opt1, opt2, msg) <- split)
-        {
-          val allFormulas = goal reduceWithFacts conj(List(opt1, opt2)).negate
-          if (!allFormulas.isFalse)
-          {
-            printlnd(msg)
-            val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
-            val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
-            val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
-            return List(removeFactsAction, splitgoal)
-          }
-        }
-      }
-
-        printlnd("\tRemoving facts: " + removeFactsAction)
-        List(removeFactsAction)
-
-      // val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
-      // List(removeFactsAction, scheduleAction)
+      printlnd("\tRemoving facts: " + removeFactsAction)
+      val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
+      List(removeFactsAction, scheduleAction)
 
     }
   })
 
   TheoryRegistry register this
-
-  override def toString = "GroebnerMultiplication"
 }
