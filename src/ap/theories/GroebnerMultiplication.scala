@@ -666,4 +666,6 @@ object GroebnerMultiplication extends MulTheory {
   })
 
   TheoryRegistry register this
+
+  override def toString = "GroebnerMultiplication"
 }
