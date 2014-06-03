@@ -653,7 +653,7 @@ class IntervalSet(
 
         if (updateInterval(ct, newInterval))
         {
-          println(p + " => " + ct + ": " + newInterval)
+          //println(p + " => " + ct + ": " + newInterval)
           changed = true
         }
       }
