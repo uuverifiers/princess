@@ -1169,7 +1169,16 @@ class SimpleAPI private (enableAssert : Boolean,
         flushTodo
     
         proofActorStatus match {
-          case ProofActorStatus.Init =>
+
+          case ProofActorStatus.AtPartialModel |
+               ProofActorStatus.AtFullModel
+               if (!constructProofs) => {
+            // TODO: can this case also be used when constructing proofs?
+            restartProofActor
+            proofActor ! RecheckCommand
+          }
+
+          case _ =>
             if (currentProver == null) {
               val completeFor = formulaeInProver match {
                 case List((_, f)) => f
@@ -1193,10 +1202,6 @@ class SimpleAPI private (enableAssert : Boolean,
               proofActor ! CheckSatCommand(currentProver)
             }
             
-          case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel => {
-            restartProofActor
-            proofActor ! RecheckCommand
-          }
         }
     
         getStatusWithDeadline(block)    
