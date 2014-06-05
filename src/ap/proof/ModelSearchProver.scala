@@ -106,9 +106,10 @@ object ModelSearchProver {
    * is valid).
    */
   private def applyHelp(disjuncts : Seq[Conjunction], order : TermOrder,
-                        settings : GoalSettings,
+                        rawSettings : GoalSettings,
                         searchDirector : (Conjunction, Boolean) => SearchDirection)
                        : Either[Conjunction, Certificate] = {
+    val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
     val elimConstants = order.orderedConstants
     val vocabulary =
       Vocabulary(order,
@@ -633,9 +634,11 @@ object ModelSearchProver {
   //////////////////////////////////////////////////////////////////////////////
   // Prover that can be used incrementally
   
-  def emptyIncProver(settings : GoalSettings) : IncProver =
+  def emptyIncProver(rawSettings : GoalSettings) : IncProver = {
+    val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
     new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings),
                   settings)
+  }
   
   class IncProver protected[proof] (goal : Goal,
                                     settings : GoalSettings) {

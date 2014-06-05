@@ -57,8 +57,12 @@ abstract class BlockedFormulaTask(_formula : Conjunction)
   protected def releaseFormula(f : Conjunction, goal : Goal) : Boolean
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree =
-    // application has not actual effect
-    ptf updateGoal goal
+    if (Param.APPLY_BLOCKED_TASKS(goal.settings)) {
+      ptf.updateGoal(goal formulaTasks formula, goal)
+    } else {
+      // application has no actual effect
+      ptf updateGoal goal
+    }
 
   /**
    * Return <code>true</code> if <code>f</code> is a formula that can be handled

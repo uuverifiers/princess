@@ -201,6 +201,14 @@ object Param {
     val defau : Boolean = false
   }
   
+  // even apply formulas that have been blocked, as last
+  // steps in a proof. this can be necessary in order to
+  // generate genuine models (<code>ModelSearchProver</code>)
+  case object APPLY_BLOCKED_TASKS extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   case object CONSTRAINT_SIMPLIFIER extends Param {
     type Value = ap.proof.ConstraintSimplifier
     val defau : ap.proof.ConstraintSimplifier =

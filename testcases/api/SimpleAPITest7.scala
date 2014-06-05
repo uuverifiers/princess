@@ -51,6 +51,7 @@ object SimpleAPITest7 extends App {
     p2 !! phi
     p2 !! (f(0) === 0)
     println(p2 ???)
+    println(p2.partialModel.eval(f(1)))
   }
 
   p1.shutDown
