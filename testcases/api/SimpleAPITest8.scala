@@ -22,38 +22,25 @@
 import ap._
 import ap.parser._
 
-object SimpleAPITest7 extends App {
+object SimpleAPITest8 extends App {
 
   ap.util.Debug.enableAllAssertions(true)
-  val p1 = SimpleAPI.spawnWithAssertions
-  val p2 = SimpleAPI.spawnWithAssertions
+  val p = SimpleAPI.spawnWithAssertions
 
   import IExpression._
   import SimpleAPI.ProverStatus
+  import p._
 
-  val f = p1.createFunction("f", 1)
-  p2 addFunction f
+  setConstructProofs(true)
 
-  val x = p1.createConstant
-  p2 addConstant x
+  val a, b = createBooleanVariable
 
-  val phi =
-    and(for (i <- 1 until 16) yield (f(i) === -f(i-1) + 3)) &
-    (f(x) > 1) & (x >= 0 & x < 16)
+  !! (a | b)
+  println(???)  // Sat
 
-  p1.scope {
-    p1 !! phi
-    p1 !! (f(0) === 1)
-    println(p1 ???)
-  }
+  !! (!b)
+  println(???)  // Sat
 
-  p2.scope {
-    p2 !! phi
-    p2 !! (f(0) === 0)
-    println(p2 ???)
-  }
-
-  p1.shutDown
-  p2.shutDown
+  p.shutDown
 
 }

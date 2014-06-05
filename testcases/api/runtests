@@ -27,6 +27,9 @@ scala -cp ../../bin:. SimpleAPITest6
 scalac $OPTIONS SimpleAPITest7.scala
 scala -cp ../../bin:. SimpleAPITest7
 
+scalac $OPTIONS SimpleAPITest8.scala
+scala -cp ../../bin:. SimpleAPITest8
+
 scala $OPTIONS interpolation-bug.scala
 scala $OPTIONS scope-bug.scala
 
