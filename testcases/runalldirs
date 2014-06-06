@@ -1,6 +1,6 @@
 #!/bin/sh
 
-./rundir tptp-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution
+./rundir tptp-parser "" -logo +assert -timeout=30 -clausifier=none +posUnitResolution
 
 ./rundir api ""
 
