@@ -315,6 +315,23 @@ object SimpleAPI {
                                        ('a' + (m.toString()(0) % 26)).toChar.toString)
 
   private val FormulaPart = new PartName ("formula")
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object AbbrevVariableVisitor
+          extends ContextAwareVisitor[Set[IFunction], IExpression] {
+    def apply(t : ITerm, funs : Set[IFunction]) : ITerm =
+      this.visit(t, Context(funs)).asInstanceOf[ITerm]
+    def apply(t : IFormula, funs : Set[IFunction]) : IFormula =
+      this.visit(t, Context(funs)).asInstanceOf[IFormula]
+    def postVisit(t : IExpression, ctxt : Context[Set[IFunction]],
+                  subres : Seq[IExpression]) = t match {
+      case IFunApp(f, _) if (ctxt.a contains f) =>
+        IFunApp(f, List(IVariable(ctxt.binders.size)))
+      case t =>
+        t update subres
+    }
+  }
 }
 
 /**
@@ -419,13 +436,13 @@ class SimpleAPI private (enableAssert : Boolean,
 
     storedStates.clear
     
-    preprocSettings = basicPreprocSettings
     currentOrder = TermOrder.EMPTY
     existentialConstants = Set()
     functionalPreds = Set()
     functionEnc =
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(preprocSettings), false)
-    currentProver = ModelSearchProver emptyIncProver goalSettings
+      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings), false)
+    currentProver = null
+    needExhaustiveProver = false
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = Conjunction.TRUE
@@ -441,6 +458,7 @@ class SimpleAPI private (enableAssert : Boolean,
     mostGeneralConstraints = false
     theoryPlugin = None
     theoryCollector = new TheoryCollector
+    abbrevFunctions = Set()
   }
 
   private var currentDeadline : Option[Long] = None
@@ -935,7 +953,7 @@ class SimpleAPI private (enableAssert : Boolean,
           (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
     }
     currentOrder = newOrder
-    recreateProver
+    proverRecreationNecessary
   }
 
   /**
@@ -994,7 +1012,85 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     r
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Introduce and return a function representing the given term <code>t</code>.
+   * This method can be used to represent dag-like terms (which might grow
+   * exponentially when expanded to a tree) concisely. Abbreviations can also
+   * speed up handling of large numbers of queries with big terms, since the
+   * abbreviated terms are only translated once to internal datastructures.
+   */
+  def abbrev(t : ITerm) : ITerm = {
+    val rawName = "abbrev_" + currentOrder.orderedPredicates.size
+    abbrev(t, rawName)
+  }
   
+  /**
+   * Introduce and return a function representing the given term <code>t</code>.
+   * This method can be used to represent dag-like terms (which might grow
+   * exponentially when expanded to a tree) concisely. Abbreviations can also
+   * speed up handling of large numbers of queries with big terms, since the
+   * abbreviated terms are only translated once to internal datastructures.
+   */
+  def abbrev(t : ITerm, rawName : String) : ITerm = {
+    val name = sanitise(rawName)
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // Currently only supported for terms without free variables
+    Debug.assertPre(SimpleAPI.AC,
+                    !ContainsSymbol(t, (x:IExpression) => x.isInstanceOf[IVariable]))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val a = createFunction(name, 1, FunctionalityMode.NoUnification)
+    abbrevFunctions = abbrevFunctions + a
+
+    import IExpression._
+    // ensure that nested application of abbreviations are contained in
+    // the definition and do not escape, using the AbbrevVariableVisitor
+    !! (all(trig(a(v(0)) === AbbrevVariableVisitor(t, abbrevFunctions), a(v(0)))))
+    a(0)
+  }
+  
+  /**
+   * Introduce and return a function representing the given formula <code>f</code>.
+   * This method can be used to represent dag-like formulas (which might grow
+   * exponentially when expanded to a tree) concisely. Abbreviations can also
+   * speed up handling of large numbers of queries with big expressions, since the
+   * abbreviated formulas are only translated once to internal datastructures.
+   */
+  def abbrev(f : IFormula) : IFormula = {
+    val rawName = "abbrev_" + currentOrder.orderedPredicates.size
+    abbrev(f, rawName)
+  }
+  
+  /**
+   * Introduce and return a function representing the given formula <code>f</code>.
+   * This method can be used to represent dag-like formulas (which might grow
+   * exponentially when expanded to a tree) concisely. Abbreviations can also
+   * speed up handling of large numbers of queries with big expressions, since the
+   * abbreviated formulas are only translated once to internal datastructures.
+   */
+  def abbrev(f : IFormula, rawName : String) : IFormula = {
+    val name = sanitise(rawName)
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // Currently only supported for formulas without free variables
+    Debug.assertPre(SimpleAPI.AC,
+                    !ContainsSymbol(f, (x:IExpression) => x.isInstanceOf[IVariable]))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val a = createFunction(name, 1, FunctionalityMode.NoUnification)
+    abbrevFunctions = abbrevFunctions + a
+
+    import IExpression._
+    // ensure that nested application of abbreviations are contained in
+    // the definition and do not escape, using the AbbrevVariableVisitor
+    !! (all(all(trig((a(v(0)) === v(1)) ==>
+                       (eqZero(v(1)) <=> AbbrevVariableVisitor(f, abbrevFunctions)),
+                     a(v(0))))))
+    eqZero(a(0))
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Export the current <code>TermOrder</code> of the prover. This method is
    * only useful when working with formulae in the internal prover format.
@@ -1167,6 +1263,7 @@ class SimpleAPI private (enableAssert : Boolean,
         proverRes.unset
     
         flushTodo
+        initProver
     
         proofActorStatus match {
 
@@ -1179,7 +1276,7 @@ class SimpleAPI private (enableAssert : Boolean,
           }
 
           case _ =>
-            if (currentProver == null) {
+            if (needExhaustiveProver) {
               val completeFor = formulaeInProver match {
                 case List((_, f)) => f
                 case formulae => 
@@ -1386,7 +1483,7 @@ class SimpleAPI private (enableAssert : Boolean,
       println("setConstructProofs(" + b + ")")
     }
     constructProofs = b
-    recreateProver
+    proverRecreationNecessary
   }
 
   /**
@@ -1458,7 +1555,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     theoryPlugin = Some(plugin)
-    recreateProver
+    proverRecreationNecessary
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2212,15 +2309,16 @@ class SimpleAPI private (enableAssert : Boolean,
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
     
-    storedStates push (preprocSettings,
-                       currentProver, currentOrder, existentialConstants,
+    storedStates push (currentProver, needExhaustiveProver,
+                       currentOrder, existentialConstants,
                        functionalPreds, functionEnc.clone,
                        arrayFuns, formulaeInProver,
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
                        currentModel, currentConstraint, currentCertificate,
-                       theoryPlugin, theoryCollector.clone)
+                       theoryPlugin, theoryCollector.clone,
+                       abbrevFunctions)
     
     doDumpSMT {
       println("(push 1)")
@@ -2246,14 +2344,15 @@ class SimpleAPI private (enableAssert : Boolean,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val (oldPreprocSettings, oldProver, oldOrder, oldExConstants,
+    val (oldProver, oldNeedExhaustiveProver,
+         oldOrder, oldExConstants,
          oldFunctionalPreds, oldFunctionEnc, oldArrayFuns,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
          oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert,
-         oldTheoryPlugin, oldTheories) =
+         oldTheoryPlugin, oldTheories, oldAbbrevFunctions) =
       storedStates.pop
-    preprocSettings = oldPreprocSettings
     currentProver = oldProver
+    needExhaustiveProver = oldNeedExhaustiveProver
     currentOrder = oldOrder
     existentialConstants = oldExConstants
     functionalPreds = oldFunctionalPreds
@@ -2274,7 +2373,8 @@ class SimpleAPI private (enableAssert : Boolean,
     currentCertificate = oldCert
     proofActorStatus = ProofActorStatus.Init
     theoryPlugin = oldTheoryPlugin
-    theoryCollector = oldTheories 
+    theoryCollector = oldTheories
+    abbrevFunctions = oldAbbrevFunctions
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -2322,30 +2422,32 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addToProver(completeFor : Conjunction,
                           axioms : Conjunction) : Unit = {
-      formulaeInProver =
-        (-1, axioms) :: (currentPartitionNum, completeFor) :: formulaeInProver
+    formulaeInProver =
+      (-1, axioms) :: (currentPartitionNum, completeFor) :: formulaeInProver
 
-      proofActorStatus match {
-        case ProofActorStatus.Init =>
-          // nothing
-        case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
-          if (completeFor.constants.isEmpty && axioms.isFalse) {
-            // then we should be able to add this formula to the running prover
-            proofActor ! AddFormulaCommand(completeFor)
-          } else {
-            restartProofActor
-          }
-      }
+    proofActorStatus match {
+      case ProofActorStatus.Init =>
+        // nothing
+      case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
+        if (completeFor.constants.isEmpty && axioms.isFalse) {
+          // then we should be able to add this formula to the running prover
+          proofActor ! AddFormulaCommand(completeFor)
+        } else {
+          restartProofActor
+        }
+    }
       
-      if (currentProver != null) {
-        if ((IterativeClauseMatcher.isMatchableRec(completeFor,
-               Param.PREDICATE_MATCH_CONFIG(goalSettings))) &&
-            Seqs.disjoint(completeFor.constants, existentialConstants))
-          currentProver =
-            currentProver.conclude(List(completeFor, axioms), currentOrder)
-        else
-          currentProver = null
-      }
+    if (!needExhaustiveProver &&
+        !(IterativeClauseMatcher.isMatchableRec(completeFor,
+            Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
+          Seqs.disjoint(completeFor.constants, existentialConstants))) {
+      currentProver = null
+      needExhaustiveProver = true
+    }
+
+    if (currentProver != null)
+      currentProver =
+        currentProver.conclude(List(completeFor, axioms), currentOrder)
   }
   
   private def resetModel = {
@@ -2426,8 +2528,7 @@ class SimpleAPI private (enableAssert : Boolean,
     functionEnc.clearAxioms
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(AC, currentOrder == newSig.order &&
-                  (functionEnc.predTranslation.keySet subsetOf functionalPreds))
+    Debug.assertInt(AC, currentOrder == newSig.order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val formula = 
@@ -2472,7 +2573,7 @@ class SimpleAPI private (enableAssert : Boolean,
         }
 
       theoryCollector.reset
-      recreateProver
+      proverRecreationNecessary
 
       theoryAxioms
     }
@@ -2490,6 +2591,11 @@ class SimpleAPI private (enableAssert : Boolean,
     gs
   }
 
+  // TODO: correct setting even if Theories are used?
+  private def preprocSettings =
+    Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
+            basicPreprocSettings, functionEnc.relations.keys.toSet)
+
   private def exhaustiveProverGoalSettings = {
     var gs = goalSettings
     // currently done for all predicates encoding functions; should this be
@@ -2498,12 +2604,12 @@ class SimpleAPI private (enableAssert : Boolean,
     gs
   }
 
-  private var preprocSettings : PreprocessingSettings = _
   private var currentOrder : TermOrder = _
   private var existentialConstants : Set[IExpression.ConstantTerm] = _
   private var functionalPreds : Set[IExpression.Predicate] = _
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
+  private var needExhaustiveProver : Boolean = false
   private var currentModel : Conjunction = _
   private var lastPartialModel : PartialModel = null
   private var currentConstraint : Conjunction = _
@@ -2516,9 +2622,10 @@ class SimpleAPI private (enableAssert : Boolean,
   private var rawFormulaeTodo : LazyConjunction = LazyConjunction.FALSE
   private var theoryPlugin : Option[Plugin] = None
   private var theoryCollector : TheoryCollector = _
+  private var abbrevFunctions : Set[IFunction] = Set()
 
-  private val storedStates = new ArrayStack[(PreprocessingSettings,
-                                             ModelSearchProver.IncProver,
+  private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
+                                             Boolean,
                                              TermOrder,
                                              Set[IExpression.ConstantTerm],
                                              Set[IExpression.Predicate],
@@ -2534,18 +2641,18 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Conjunction,
                                              Certificate,
                                              Option[Plugin],
-                                             TheoryCollector)]
+                                             TheoryCollector,
+                                             Set[IFunction])]
   
-  private def recreateProver = {
-    preprocSettings =
-      // TODO: correct setting even if Theories are used?
-      Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
-             preprocSettings, functionEnc.predTranslation.values.toSet)
-    if (currentProver != null)
-      currentProver = (ModelSearchProver emptyIncProver goalSettings)
-                          .conclude(formulaeInProver.unzip._2, currentOrder)
+  private def proverRecreationNecessary = {
+    currentProver = null
     restartProofActor
   }
+
+  private def initProver =
+    if (!needExhaustiveProver && currentProver == null)
+      currentProver = (ModelSearchProver emptyIncProver goalSettings)
+                          .conclude(formulaeInProver.unzip._2, currentOrder)
   
   private def restartProofActor =
     (proofActorStatus = ProofActorStatus.Init)

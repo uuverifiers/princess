@@ -171,6 +171,11 @@ Sat
 Some(3)
 Sat
 Sat
+Sat
+Valid
+Sat
+Sat
+Unsat
 0: Unsat
 1: Vector(rootjthen_fwd, false)
 0: Sat
