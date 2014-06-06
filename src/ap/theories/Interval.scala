@@ -6,7 +6,7 @@ import ap.terfor.OneTerm
 import ap.basetypes.IdealInt
 
 
-case class IntervalException(smth : String) extends Exception
+case class IntervalException(smth : String) extends Exception(smth)
 
 case class IntervalVal(val value : IdealInt) extends IntervalInt
 {

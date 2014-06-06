@@ -72,9 +72,9 @@ object GroebnerMultiplication extends MulTheory {
 
 
   // Enable turning off and on debug printouts
-    val DEBUG_MODE = false
-    def printd(str : Any) = if (DEBUG_MODE) print(str)
-    def printlnd(str : Any) = if (DEBUG_MODE) println(str)
+    val DEBUG_MODE = true
+    def printd(str : => Any) = if (DEBUG_MODE) print(str)
+    def printlnd(str : => Any) = if (DEBUG_MODE) println(str)
 
 
   // Conversion functions between Princess' LinearCombinations and Groebner's Polynomials
