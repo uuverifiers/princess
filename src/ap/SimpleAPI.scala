@@ -532,7 +532,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentOrder = currentOrder extend c
     restartProofActor
     doDumpSMT {
-      println("(declare-fun " + name + " () Int)")
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Int)")
     }
     doDumpScala {
       println("val " + name + " = " + scalaCmd + "(\"" + rawName + "\")")
@@ -557,7 +557,9 @@ class SimpleAPI private (enableAssert : Boolean,
     val cs = (for (i <- nums)
               yield {
                 doDumpSMT {
-                  println("(declare-fun " + (prefix + i) + " () Int)")
+                  println("(declare-fun " +
+                          SMTLineariser.quoteIdentifier(prefix + i) +
+                          " () Int)")
                 }
                 doDumpScala {
                   println("val " + prefix + i +
@@ -733,7 +735,8 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def addConstantRaw(c : IExpression.ConstantTerm) : Unit = {
     doDumpSMT {
-      println("(declare-fun " + c.name + " () Int)")
+      println("(declare-fun " +
+              SMTLineariser.quoteIdentifier(c.name) + " () Int)")
     }
     doDumpScala {
       println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
@@ -753,7 +756,8 @@ class SimpleAPI private (enableAssert : Boolean,
   def addConstantsRaw(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
     doDumpSMT {
       for (c <- cs)
-        println("(declare-fun " + c.name + " () Int)")
+        println("(declare-fun " +
+                SMTLineariser.quoteIdentifier(c.name) + " () Int)")
     }
     doDumpScala {
       for (c <- cs)
@@ -773,7 +777,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
 
     doDumpSMT {
-      println("(declare-fun " + name + " () Bool)")
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Bool)")
     }
     doDumpScala {
       println("val " + name + " = " +
@@ -891,7 +895,7 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def createFunctionSMTDump(name : String, arity : Int) = doDumpSMT {
-    println("(declare-fun " + name + " (" +
+    println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
         (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
   }
 
@@ -914,7 +918,7 @@ class SimpleAPI private (enableAssert : Boolean,
               printFunctionalityMode(functionalityMode) + ")")
     }
     doDumpSMT {
-      println("(declare-fun " + f.name + " (" +
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
           (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
     }
     addFunctionHelp(f, functionalityMode)
@@ -940,7 +944,7 @@ class SimpleAPI private (enableAssert : Boolean,
               printFunctionalityMode(functionalityMode) + ")")
     }
     doDumpSMT {
-      println("(declare-fun " + fun.name + " (" +
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(fun.name) + " (" +
           (for (_ <- 0 until fun.arity) yield "Int").mkString(" ") + ") Int)")
     }
     addFunctionHelp(fun, functionalityMode)
@@ -1013,7 +1017,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val r = new Predicate(name, arity)
     addRelation(r)
     doDumpSMT {
-      println("(declare-fun " + name + " (" +
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
           (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Bool)")
     }
     doDumpScala {
@@ -1046,24 +1050,18 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def abbrev(t : ITerm, rawName : String) : ITerm = {
     val name = sanitise(rawName)
+    abbrevLog(t, rawName, name)
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // Currently only supported for terms without free variables
     Debug.assertPre(SimpleAPI.AC,
                     !ContainsSymbol(t, (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    doDumpScala {
-      print("val IFunApp(" + name + ", _) = abbrev(")
-      PrettyScalaLineariser(getFunctionNames)(t)
-      println(", \"" + rawName + "\")")
-    }
-    doDumpSMT {
-      print("(define-fun " + name + " ((abbrev_arg Int)) Int ")
-      SMTLineariser(t)
-      println(")")
-    }
+    abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), t)
+  }
 
-    val a = createFunctionHelp(name, 1, FunctionalityMode.NoUnification)
+  private def abbrevHelp(a : IFunction, t : ITerm) = {
     abbrevFunctions = abbrevFunctions + a
 
     import IExpression._
@@ -1072,6 +1070,37 @@ class SimpleAPI private (enableAssert : Boolean,
     addFormulaHelp(
       !all(trig(a(v(0)) === AbbrevVariableVisitor(t, abbrevFunctions), a(v(0)))))
     a(0)
+  }
+
+  private def abbrevLog(t : ITerm, rawName : String, name : String) = {
+    doDumpScala {
+      print("val IFunApp(" + name + ", _) = abbrev(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println(", \"" + rawName + "\")")
+    }
+    doDumpSMT {
+      print("(define-fun " +
+            SMTLineariser.quoteIdentifier(name) + " ((abbrev_arg Int)) Int ")
+      SMTLineariser(t)
+      println(")")
+    }
+  }
+
+  /**
+   * Add an abbreviation introduced in a different <code>SimpleAPI</code>
+   * instance.
+   */
+  def addAbbrev(abbrevTerm : ITerm, fullTerm : ITerm) : ITerm = {
+    doDumpScala {
+      println("// addAbbrev")
+    }
+    doDumpSMT {
+      println("; addAbbrev")
+    }
+
+    val IFunApp(a, _) = abbrevTerm
+    abbrevLog(fullTerm, a.name, a.name)
+    abbrevHelp(a, fullTerm)
   }
   
   /**
@@ -1095,24 +1124,18 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def abbrev(f : IFormula, rawName : String) : IFormula = {
     val name = sanitise(rawName)
+    abbrevLog(f, rawName, name)
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // Currently only supported for formulas without free variables
     Debug.assertPre(SimpleAPI.AC,
                     !ContainsSymbol(f, (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    doDumpScala {
-      print("val IIntFormula(_, IFunApp(" + name + ", _)) = abbrev(")
-      PrettyScalaLineariser(getFunctionNames)(f)
-      println(", \"" + rawName + "\")")
-    }
-    doDumpSMT {
-      print("(define-fun " + name + " ((abbrev_arg Int)) Int (ite ")
-      SMTLineariser(f)
-      println(" 0 1))")
-    }
+    abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), f)
+  }
 
-    val a = createFunctionHelp(name, 1, FunctionalityMode.NoUnification)
+  private def abbrevHelp(a : IFunction, f : IFormula) = {
     abbrevFunctions = abbrevFunctions + a
 
     import IExpression._
@@ -1123,6 +1146,38 @@ class SimpleAPI private (enableAssert : Boolean,
             (eqZero(v(1)) <=> AbbrevVariableVisitor(f, abbrevFunctions)),
                       a(v(0))))))
     eqZero(a(0))
+  }
+  
+  private def abbrevLog(f : IFormula, rawName : String, name : String) = {
+    doDumpScala {
+      print("val IIntFormula(_, IFunApp(" + name + ", _)) = abbrev(")
+      PrettyScalaLineariser(getFunctionNames)(f)
+      println(", \"" + rawName + "\")")
+    }
+    doDumpSMT {
+      print("(define-fun " +
+            SMTLineariser.quoteIdentifier(name) +
+            " ((abbrev_arg Int)) Int (ite ")
+      SMTLineariser(f)
+      println(" 0 1))")
+    }
+  }
+
+  /**
+   * Add an abbreviation introduced in a different <code>SimpleAPI</code>
+   * instance.
+   */
+  def addAbbrev(abbrevFor : IFormula, fullFor : IFormula) : IFormula = {
+    doDumpScala {
+      println("// addAbbrev")
+    }
+    doDumpSMT {
+      println("; addAbbrev")
+    }
+
+    val IIntFormula(_, IFunApp(a, _)) = abbrevFor
+    abbrevLog(fullFor, a.name, a.name)
+    abbrevHelp(a, fullFor)
   }
   
   //////////////////////////////////////////////////////////////////////////////

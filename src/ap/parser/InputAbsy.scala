@@ -891,6 +891,9 @@ abstract class IFormula extends IExpression {
     case _ => !this
   }
 
+  /** Negation of a formula, with direct simplification. */
+  def notSimplify = ~this
+
   /**
    * Conjunction operator that directly simplify expressions involving true/false.
    */
@@ -903,6 +906,11 @@ abstract class IFormula extends IExpression {
   }
     
   /**
+   * Conjunction operator that directly simplify expressions involving true/false.
+   */
+  def andSimplify(that : IFormula) = this &&& that
+
+  /**
    * Disjunction operator that directly simplify expressions involving true/false.
    */
   def |||(that : IFormula) : IFormula = (this, that) match {
@@ -912,6 +920,11 @@ abstract class IFormula extends IExpression {
     case (f, IBoolLit(false)) => f
     case _ => this | that
   }
+
+  /**
+   * Disjunction operator that directly simplify expressions involving true/false.
+   */
+  def orSimplify(that : IFormula) = this ||| that
   
   /**
    * Implication operator that directly simplify expressions involving true/false.
@@ -923,6 +936,11 @@ abstract class IFormula extends IExpression {
     case (f, IBoolLit(false)) => !f
     case _ => this ==> that
   }
+
+  /**
+   * Disjunction operator that directly simplify expressions involving true/false.
+   */
+  def impSimplify(that : IFormula) = this ===> that
   
   /**
    * Replace the subexpressions of this node with new expressions

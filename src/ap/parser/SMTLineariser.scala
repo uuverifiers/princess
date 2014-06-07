@@ -36,6 +36,15 @@ import java.io.PrintStream
  */
 object SMTLineariser {
 
+  private val SaneId     = """[_a-zA-Z][_a-zA-Z0-9]*""".r
+  
+  def quoteIdentifier(str : String) = str match {
+    case SaneId() => str
+    case _        => "|" + str.replace("|", "\\|") + "|"
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def apply(formula : IFormula) = formula match {
     case IBoolLit(value) => print(value)
     case _ => {
@@ -105,18 +114,16 @@ class SMTLineariser(benchmarkName : String,
                     predsToDeclare : Seq[Predicate],
                     funPrefix : String, predPrefix : String, constPrefix : String) {
 
-  private val noGoodChar = """[^a-zA-Z0-9]""".r
-  
-  private def toIdentifier(str : String) = noGoodChar.replaceAllIn(str, "_")
-  
+  import SMTLineariser.quoteIdentifier
+
   private def fun2Identifier(fun : IFunction) = fun match {
     case BitShiftMultiplication.mul => "*"
-    case fun => funPrefix + toIdentifier(fun.name)
+    case fun => quoteIdentifier(funPrefix + fun.name)
   }
   private def pred2Identifier(pred : Predicate) =
-    predPrefix + toIdentifier(pred.name)
+    quoteIdentifier(predPrefix + pred.name)
   private def const2Identifier(const : ConstantTerm) =
-    constPrefix + toIdentifier(const.name)
+    quoteIdentifier(constPrefix + const.name)
   
   //////////////////////////////////////////////////////////////////////////////
 
