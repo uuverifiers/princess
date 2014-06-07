@@ -44,6 +44,11 @@ object SMTLineariser {
     }
   }
 
+  def apply(term : ITerm) = {
+    val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "")
+    lineariser printTerm term
+  }
+
   def apply(formulas : Seq[IFormula], signature : Signature,
             benchmarkName : String) : Unit =
     apply(formulas, signature, "AUFLIA", "unknown", benchmarkName)
@@ -144,6 +149,9 @@ class SMTLineariser(benchmarkName : String,
   
   def printFormula(formula : IFormula) =
     AbsyPrinter.visit(formula, PrintContext(List()))
+  
+  def printTerm(term : ITerm) =
+    AbsyPrinter.visit(term, PrintContext(List()))
   
   def close {
     println("(check-sat)")

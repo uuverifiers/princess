@@ -453,10 +453,10 @@ object IExpression {
       for (t <- terms) yield (t + that)
     /** Component-wise subtraction */
     def ---(that : Seq[ITerm]) : Seq[ITerm] =
-      (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 - t2)).toList
+      (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 --- t2)).toList
     /** Component-wise subtraction */
     def ---(that : ITerm) : Seq[ITerm] =
-      for (t <- terms) yield (t - that)
+      for (t <- terms) yield (t --- that)
     /** Component-wise multiplication */
     def ***(that : Seq[ITerm]) : Seq[ITerm] =
       (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 * t2)).toList
@@ -633,22 +633,22 @@ abstract class ITerm extends IExpression {
   def -(that : ITerm) : ITerm = IPlus(this, -that)
   /** Equation between two terms. */
   def ===(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.EqZero, this - that)
+    IIntFormula(IIntRelation.EqZero, this --- that)
   /** Dis-equation between two terms. */
   def =/=(that : ITerm) : IFormula =
     !(this === that)
   /** Inequality between two terms. */
   def >=(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, this - that)
+    IIntFormula(IIntRelation.GeqZero, this --- that)
   /** Inequality between two terms. */
   def <=(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, that - this)
+    IIntFormula(IIntRelation.GeqZero, that --- this)
   /** Inequality between two terms. */
   def >(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, this - that + IIntLit(IdealInt.MINUS_ONE))
+    IIntFormula(IIntRelation.GeqZero, this --- that +++ IIntLit(IdealInt.MINUS_ONE))
   /** Inequality between two terms. */
   def <(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, that - this + IIntLit(IdealInt.MINUS_ONE))
+    IIntFormula(IIntRelation.GeqZero, that --- this +++ IIntLit(IdealInt.MINUS_ONE))
 
   /**
    * Sum of two terms. The resulting expression is simplified immediately
@@ -659,6 +659,17 @@ abstract class ITerm extends IExpression {
     case (t, IExpression.Const(IdealInt.ZERO)) => t
     case (IExpression.Const(a), IExpression.Const(b)) => IIntLit(a + b)
     case _ => this + that
+  }
+
+  /**
+   * Difference of two terms. The resulting expression is simplified immediately
+   * if one of the terms disappears.
+   */
+  def ---(that : ITerm) : ITerm = (this, that) match {
+    case (IExpression.Const(IdealInt.ZERO), t) => -t
+    case (t, IExpression.Const(IdealInt.ZERO)) => t
+    case (IExpression.Const(a), IExpression.Const(b)) => IIntLit(a - b)
+    case _ => this - that
   }
 
   /**

@@ -869,6 +869,7 @@ class SimpleAPI private (enableAssert : Boolean,
               "createFunction(\"" + rawName + "\", " + arity +
                    printFunctionalityMode(functionalityMode) + ")")
     }
+    createFunctionSMTDump(sanitise(rawName), arity)
     createFunctionHelp(rawName, arity, functionalityMode)
   }
 
@@ -889,6 +890,11 @@ class SimpleAPI private (enableAssert : Boolean,
     f
   }
 
+  private def createFunctionSMTDump(name : String, arity : Int) = doDumpSMT {
+    println("(declare-fun " + name + " (" +
+        (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
+  }
+
   /**
    * Add an externally defined function to the environment of this prover.
    */
@@ -906,6 +912,10 @@ class SimpleAPI private (enableAssert : Boolean,
               printFunctionalityMode(functionalityMode) + ")" +
               "// addFunction(" + f.name +
               printFunctionalityMode(functionalityMode) + ")")
+    }
+    doDumpSMT {
+      println("(declare-fun " + f.name + " (" +
+          (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
     }
     addFunctionHelp(f, functionalityMode)
   }
@@ -929,6 +939,10 @@ class SimpleAPI private (enableAssert : Boolean,
               "// addFunction(" + fun.name +
               printFunctionalityMode(functionalityMode) + ")")
     }
+    doDumpSMT {
+      println("(declare-fun " + fun.name + " (" +
+          (for (_ <- 0 until fun.arity) yield "Int").mkString(" ") + ") Int)")
+    }
     addFunctionHelp(fun, functionalityMode)
   }
 
@@ -948,10 +962,6 @@ class SimpleAPI private (enableAssert : Boolean,
       functionEnc.apply(IFunApp(f, List.fill(f.arity)(0)) === 0, currentOrder)
     if (functionalityMode != FunctionalityMode.None)
       functionalPreds = functionalPreds + functionEnc.relations(f)
-    doDumpSMT {
-      println("(declare-fun " + f.name + " (" +
-          (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
-    }
     currentOrder = newOrder
     proverRecreationNecessary
   }
@@ -1041,13 +1051,26 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(SimpleAPI.AC,
                     !ContainsSymbol(t, (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val a = createFunction(name, 1, FunctionalityMode.NoUnification)
+
+    doDumpScala {
+      print("val IFunApp(" + name + ", _) = abbrev(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println(", \"" + rawName + "\")")
+    }
+    doDumpSMT {
+      print("(define-fun " + name + " ((abbrev_arg Int)) Int ")
+      SMTLineariser(t)
+      println(")")
+    }
+
+    val a = createFunctionHelp(name, 1, FunctionalityMode.NoUnification)
     abbrevFunctions = abbrevFunctions + a
 
     import IExpression._
     // ensure that nested application of abbreviations are contained in
     // the definition and do not escape, using the AbbrevVariableVisitor
-    !! (all(trig(a(v(0)) === AbbrevVariableVisitor(t, abbrevFunctions), a(v(0)))))
+    addFormulaHelp(
+      !all(trig(a(v(0)) === AbbrevVariableVisitor(t, abbrevFunctions), a(v(0)))))
     a(0)
   }
   
@@ -1077,15 +1100,28 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(SimpleAPI.AC,
                     !ContainsSymbol(f, (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val a = createFunction(name, 1, FunctionalityMode.NoUnification)
+
+    doDumpScala {
+      print("val IIntFormula(_, IFunApp(" + name + ", _)) = abbrev(")
+      PrettyScalaLineariser(getFunctionNames)(f)
+      println(", \"" + rawName + "\")")
+    }
+    doDumpSMT {
+      print("(define-fun " + name + " ((abbrev_arg Int)) Int (ite ")
+      SMTLineariser(f)
+      println(" 0 1))")
+    }
+
+    val a = createFunctionHelp(name, 1, FunctionalityMode.NoUnification)
     abbrevFunctions = abbrevFunctions + a
 
     import IExpression._
     // ensure that nested application of abbreviations are contained in
     // the definition and do not escape, using the AbbrevVariableVisitor
-    !! (all(all(trig((a(v(0)) === v(1)) ==>
-                       (eqZero(v(1)) <=> AbbrevVariableVisitor(f, abbrevFunctions)),
-                     a(v(0))))))
+    addFormulaHelp(
+      !all(all(trig((a(v(0)) === v(1)) ==>
+            (eqZero(v(1)) <=> AbbrevVariableVisitor(f, abbrevFunctions)),
+                      a(v(0))))))
     eqZero(a(0))
   }
   
@@ -2460,7 +2496,6 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   private def addFormula(f : IFormula) : Unit = {
-    resetModel
     doDumpSMT {
       f match {
         case INot(g) => {
@@ -2475,6 +2510,11 @@ class SimpleAPI private (enableAssert : Boolean,
         }
       }
     }
+    addFormulaHelp(f)
+  }
+
+  private def addFormulaHelp(f : IFormula) : Unit = {
+    resetModel
     formulaeTodo = formulaeTodo | f
   }
 
@@ -2791,6 +2831,8 @@ class SimpleAPI private (enableAssert : Boolean,
     arrayFuns.getOrElse(arity, {
       val select = createFunctionHelp("select" + arity, arity + 1)
       val store = createFunctionHelp("store" + arity, arity + 2)
+      createFunctionSMTDump(select.name, select.arity)
+      createFunctionSMTDump(store.name, store.arity)
       arrayFuns += (arity -> (select, store))
       
       val oldPartitionNum = currentPartitionNum

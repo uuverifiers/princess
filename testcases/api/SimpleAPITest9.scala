@@ -25,21 +25,28 @@ import ap.parser._
 object SimpleAPITest9 extends App {
 
   ap.util.Debug.enableAllAssertions(true)
-  val p = SimpleAPI.spawnWithLog
+  val p = SimpleAPI.spawnWithAssertions
 
   import IExpression._
   import SimpleAPI.ProverStatus
   import p._
 
-  val x, y, z = createConstant
+  val x = createConstant("x")
+  val y = createConstant("y")
+  val z = createConstant("z")
 
   val t1 = abbrev(x + 2*y)
 
   scope {
     !! (t1 === 5)
     println(???)   // Sat
-    ?? (t1 > 0)
-    println(???)   // Valid
+    scope {
+      ?? (t1 > 0)
+      println(???) // Valid
+    }
+    !! (x < -5)
+    !! (y < 0)
+    println(???)   // Unsat
   }
 
   scope {
