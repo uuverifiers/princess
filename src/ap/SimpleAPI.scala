@@ -523,8 +523,6 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def createConstantRaw(rawName : String,
                                 scalaCmd : String) : IExpression.ConstantTerm = {
-    flushTodo
-
     import IExpression._
     
     val name = sanitise(rawName)
@@ -551,8 +549,6 @@ class SimpleAPI private (enableAssert : Boolean,
 
   def createConstantsRaw(prefix : String, nums : Range, scalaCmd : String)
                         : IndexedSeq[IExpression.ConstantTerm] = {
-    flushTodo
-
     import IExpression._
     val cs = (for (i <- nums)
               yield {
@@ -743,8 +739,6 @@ class SimpleAPI private (enableAssert : Boolean,
               "// addConstantRaw(" + c.name + ")")
     }
 
-    flushTodo
-
     currentOrder = currentOrder extend c
     restartProofActor
   }
@@ -764,7 +758,6 @@ class SimpleAPI private (enableAssert : Boolean,
         println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
                 "// addConstantRaw(" + c.name + ")")
     }
-    flushTodo
 
     currentOrder = currentOrder extend cs.toSeq
     restartProofActor
@@ -783,8 +776,6 @@ class SimpleAPI private (enableAssert : Boolean,
       println("val " + name + " = " +
               "createBooleanVariable(\"" + rawName + "\")")
     }
-
-    flushTodo
 
     import IExpression._
     
@@ -814,8 +805,6 @@ class SimpleAPI private (enableAssert : Boolean,
    * predefined name.
    */
   def createBooleanVariables(num : Int) : IndexedSeq[IFormula] = {
-    flushTodo
-
     import IExpression._
     val startInd = currentOrder.orderedPredicates.size
     val ps = (for (i <- 0 until num)
@@ -953,8 +942,6 @@ class SimpleAPI private (enableAssert : Boolean,
   private def addFunctionHelp(f : IFunction,
                               functionalityMode : FunctionalityMode.Value)
                              : Unit = {
-    flushTodo
-
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(SimpleAPI.AC,
                     f.relational ==
@@ -1009,8 +996,6 @@ class SimpleAPI private (enableAssert : Boolean,
    * cannot be used within triggers.
    */
   def createRelation(rawName : String, arity : Int) = {
-    flushTodo
-
     import IExpression._
     
     val name = sanitise(rawName)
@@ -1186,25 +1171,19 @@ class SimpleAPI private (enableAssert : Boolean,
    * Export the current <code>TermOrder</code> of the prover. This method is
    * only useful when working with formulae in the internal prover format.
    */
-  def order = {
-    // flush, to make sure that all theories required by earlier formulas
-    // are loaded
-    flushTodo
-    currentOrder
-  }
+  def order = currentOrder
   
   /**
    * The theories currectly loaded in this prover.
    */
-  def theories : Seq[Theory] = {
-    flushTodo
-    theoryCollector.theories
-  }
+  def theories : Seq[Theory] = theoryCollector.theories
 
   /**
    * Convert a formula in input syntax to the internal prover format.
    */
   def asConjunction(f : IFormula) : Conjunction = {
+    // flush to make sure that no old axioms are left in the
+    // function encoder
     flushTodo
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
       toInternalNoAxioms(f, currentOrder))
@@ -1361,8 +1340,10 @@ class SimpleAPI private (enableAssert : Boolean,
           case ProofActorStatus.AtPartialModel |
                ProofActorStatus.AtFullModel
                if (!constructProofs) => {
+            // We can just add new formulas to the running proof actor,
+            // without a complete restart
             // TODO: can this case also be used when constructing proofs?
-            restartProofActor
+            restartProofActor // just mark that we are running again
             proofActor ! RecheckCommand
           }
 
@@ -1682,7 +1663,7 @@ class SimpleAPI private (enableAssert : Boolean,
       val oldPartitionNum = currentPartitionNum
       setPartitionNumberHelp(-1)
       for (f <- theoryAxioms)
-        addFormula(LazyConjunction(f)(currentOrder))
+        addFormulaHelp(LazyConjunction(f)(currentOrder))
       setPartitionNumberHelp(oldPartitionNum)
     }
   }
@@ -2399,6 +2380,7 @@ class SimpleAPI private (enableAssert : Boolean,
   def push : Unit = {
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
+    initProver
     
     storedStates push (currentProver, needExhaustiveProver,
                        currentOrder, existentialConstants,
@@ -2483,31 +2465,11 @@ class SimpleAPI private (enableAssert : Boolean,
       val completeFor =
         (rawFormulaeTodo | LazyConjunction(transTodo)).toConjunction
 
-      val additionalAxioms =
-        if (rawFormulaeTodo.isFalse) {
-          Conjunction.FALSE
-        } else {
-          // check whether further theories have to be loaded for the asserted
-          // raw formulae
-          // TODO: this should be done in a more intelligent way, to try and
-          // make the TermOrders match up in more cases
-
-          theoryCollector(completeFor.order)
-          val theoryAxioms = checkNewTheories
-  
-          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-          Debug.assertInt(AC, currentOrder isSortingOf completeFor)
-          //-END-ASSERTION-///////////////////////////////////////////////////////
-
-          !Conjunction.conj(theoryAxioms, currentOrder)
-        }
-
       rawFormulaeTodo = LazyConjunction.FALSE
       val reducedFor =
         ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
                               completeFor)
-      addToProver(reducedFor,
-                  Conjunction.disj(Array(axioms, additionalAxioms), currentOrder))
+      addToProver(reducedFor, axioms)
     }
   }
 
@@ -2570,14 +2532,28 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addFormulaHelp(f : IFormula) : Unit = {
     resetModel
+    theoryCollector(f)
     formulaeTodo = formulaeTodo | f
+    addTheoryAxioms
   }
 
   private def addFormula(f : LazyConjunction) : Unit = {
-    resetModel
     doDumpSMT {
       print("; adding internal formula: " + f)
     }
+    resetModel
+
+    // check whether further theories have to be loaded for the asserted
+    // raw formulae
+    // TODO: this should be done in a more intelligent way, to try and
+    // make the TermOrders match up in more cases
+    theoryCollector(f.order)
+
+    addFormulaHelp(f)
+    addTheoryAxioms
+  }
+
+  private def addFormulaHelp(f : LazyConjunction) : Unit = {
     implicit val o = currentOrder
     rawFormulaeTodo = rawFormulaeTodo | f
   }
@@ -2608,10 +2584,6 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
-    // check whether theories are involved that we don't know yet
-    theoryCollector(f)
-    val theoryAxioms = checkNewTheories
-
     val sig = Signature(Set(),
                         existentialConstants,
                         currentOrder.orderedConstants -- existentialConstants,
@@ -2631,10 +2603,9 @@ class SimpleAPI private (enableAssert : Boolean,
         IExpression.or(for (INamedPart(FormulaPart, f) <- fors.iterator)
                        yield f), currentOrder), currentOrder)
     val axioms = 
-      Conjunction.disjFor(
-        List(InputAbsy2Internal(
-               IExpression.or(for (INamedPart(PartName.NO_NAME, f) <- fors.iterator)
-                              yield f), currentOrder)) ++ theoryAxioms, currentOrder)
+      Conjunction.conj(InputAbsy2Internal(
+        IExpression.or(for (INamedPart(PartName.NO_NAME, f) <- fors.iterator)
+                       yield f), currentOrder), currentOrder)
     (formula, axioms)
   }
   
