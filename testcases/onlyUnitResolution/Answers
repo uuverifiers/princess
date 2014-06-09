@@ -179,5 +179,5 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-d = 0 & c = 0 & b = 0 & a = 0 & f(0) = 0
+d = 0 & c = 0 & b = 0 & a = 1 & f(1) = 0 & f(0) = 0
 

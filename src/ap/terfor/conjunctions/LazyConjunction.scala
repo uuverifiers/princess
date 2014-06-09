@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -73,7 +73,7 @@ abstract sealed class LazyConjunction {
   
   protected[conjunctions] def forceAnd : LazyConjunction =
     this
-  protected[conjunctions] def order : TermOrder =
+  protected[ap] def order : TermOrder =
     throw new UnsupportedOperationException
   
   def &(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction
@@ -105,7 +105,7 @@ protected[conjunctions] case class AtomicLazyConjunction(form : Formula,
   override def isTrue : Boolean = form.isTrue
   override def isFalse : Boolean = form.isFalse
 
-  protected[conjunctions] override def order : TermOrder = newOrder
+  protected[ap] override def order : TermOrder = newOrder
 
   override def &(that : LazyConjunction)
                 (implicit newOrder : TermOrder) : LazyConjunction =
@@ -146,6 +146,8 @@ protected[conjunctions] case class NegLazyConjunction(conj : LazyConjunction)
                     }) &&
                    !conj.isTrue && !conj.isFalse)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  protected[ap] override def order : TermOrder = conj.order
 
   def toFormula : Formula = conj match {
     case AtomicLazyConjunction(eqs : EquationConj, _)
@@ -216,7 +218,7 @@ protected[conjunctions] case class AndLazyConjunction(
                    
   def toConjunction : Conjunction = Conjunction.conj(iterator, newOrder)
 
-  protected[conjunctions] override def order : TermOrder = newOrder
+  protected[ap] override def order : TermOrder = newOrder
 
   def &(that : LazyConjunction)(implicit newOrder : TermOrder) : LazyConjunction = {
     val forcedThat = that.forceAnd

@@ -86,11 +86,19 @@ object IExpression {
   type Predicate = ap.terfor.preds.Predicate
   
   /** Implicit conversion from integers to terms */
-  implicit def i(value : Int) : ITerm = IIntLit(value)
+  def i(value : Int) : ITerm = IIntLit(value)
   /** Implicit conversion from integers to terms */
-  implicit def i(value : IdealInt) : ITerm = IIntLit(value)
+  implicit def Int2ITerm(value : Int) : ITerm = IIntLit(value)
+
+  /** Implicit conversion from integers to terms */
+  def i(value : IdealInt) : ITerm = IIntLit(value)
+  /** Implicit conversion from integers to terms */
+  implicit def IdealInt2ITerm(value : IdealInt) : ITerm = IIntLit(value)
+
   /** Implicit conversion from constants to terms */
-  implicit def i(c : ConstantTerm) : ITerm = IConstant(c)
+  def i(c : ConstantTerm) : ITerm = IConstant(c)
+  /** Implicit conversion from constants to terms */
+  implicit def ConstantTerm2ITerm(c : ConstantTerm) : ITerm = IConstant(c)
 
   /**
    * Generate the variable with de Bruijn index <code>index</code>
@@ -98,7 +106,9 @@ object IExpression {
   def v(index : Int) : IVariable = IVariable(index)
 
   /** Implicit conversion from Booleans to formulas */
-  implicit def i(value : Boolean) : IFormula = IBoolLit(value)
+  def i(value : Boolean) : IFormula = IBoolLit(value)
+  /** Implicit conversion from Booleans to formulas */
+  implicit def Boolean2IFormula(value : Boolean) : IFormula = IBoolLit(value)
 
   /**
    * Implicit conversion, to enable the application of a predicate
@@ -461,10 +471,10 @@ object IExpression {
       for (t <- terms) yield (t + that)
     /** Component-wise subtraction */
     def ---(that : Seq[ITerm]) : Seq[ITerm] =
-      (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 - t2)).toList
+      (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 --- t2)).toList
     /** Component-wise subtraction */
     def ---(that : ITerm) : Seq[ITerm] =
-      for (t <- terms) yield (t - that)
+      for (t <- terms) yield (t --- that)
     /** Component-wise multiplication */
     def ***(that : Seq[ITerm]) : Seq[ITerm] =
       (for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 * t2)).toList
@@ -641,22 +651,22 @@ abstract class ITerm extends IExpression {
   def -(that : ITerm) : ITerm = IPlus(this, -that)
   /** Equation between two terms. */
   def ===(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.EqZero, this - that)
+    IIntFormula(IIntRelation.EqZero, this --- that)
   /** Dis-equation between two terms. */
   def =/=(that : ITerm) : IFormula =
     !(this === that)
   /** Inequality between two terms. */
   def >=(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, this - that)
+    IIntFormula(IIntRelation.GeqZero, this --- that)
   /** Inequality between two terms. */
   def <=(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, that - this)
+    IIntFormula(IIntRelation.GeqZero, that --- this)
   /** Inequality between two terms. */
   def >(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, this - that + IIntLit(IdealInt.MINUS_ONE))
+    IIntFormula(IIntRelation.GeqZero, this --- that +++ IIntLit(IdealInt.MINUS_ONE))
   /** Inequality between two terms. */
   def <(that : ITerm) : IFormula =
-    IIntFormula(IIntRelation.GeqZero, that - this + IIntLit(IdealInt.MINUS_ONE))
+    IIntFormula(IIntRelation.GeqZero, that --- this +++ IIntLit(IdealInt.MINUS_ONE))
 
   /**
    * Sum of two terms. The resulting expression is simplified immediately
@@ -667,6 +677,17 @@ abstract class ITerm extends IExpression {
     case (t, IExpression.Const(IdealInt.ZERO)) => t
     case (IExpression.Const(a), IExpression.Const(b)) => IIntLit(a + b)
     case _ => this + that
+  }
+
+  /**
+   * Difference of two terms. The resulting expression is simplified immediately
+   * if one of the terms disappears.
+   */
+  def ---(that : ITerm) : ITerm = (this, that) match {
+    case (IExpression.Const(IdealInt.ZERO), t) => -t
+    case (t, IExpression.Const(IdealInt.ZERO)) => t
+    case (IExpression.Const(a), IExpression.Const(b)) => IIntLit(a - b)
+    case _ => this - that
   }
 
   /**
@@ -888,6 +909,9 @@ abstract class IFormula extends IExpression {
     case _ => !this
   }
 
+  /** Negation of a formula, with direct simplification. */
+  def notSimplify = ~this
+
   /**
    * Conjunction operator that directly simplify expressions involving true/false.
    */
@@ -900,6 +924,11 @@ abstract class IFormula extends IExpression {
   }
     
   /**
+   * Conjunction operator that directly simplify expressions involving true/false.
+   */
+  def andSimplify(that : IFormula) = this &&& that
+
+  /**
    * Disjunction operator that directly simplify expressions involving true/false.
    */
   def |||(that : IFormula) : IFormula = (this, that) match {
@@ -909,6 +938,11 @@ abstract class IFormula extends IExpression {
     case (f, IBoolLit(false)) => f
     case _ => this | that
   }
+
+  /**
+   * Disjunction operator that directly simplify expressions involving true/false.
+   */
+  def orSimplify(that : IFormula) = this ||| that
   
   /**
    * Implication operator that directly simplify expressions involving true/false.
@@ -920,6 +954,11 @@ abstract class IFormula extends IExpression {
     case (f, IBoolLit(false)) => !f
     case _ => this ==> that
   }
+
+  /**
+   * Disjunction operator that directly simplify expressions involving true/false.
+   */
+  def impSimplify(that : IFormula) = this ===> that
   
   /**
    * Replace the subexpressions of this node with new expressions
