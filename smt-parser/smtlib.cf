@@ -39,7 +39,7 @@ FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
                                                 "(" MESorts ")" Sort ")";
 ConstDeclCommand.	Command	        ::= "(" "declare-const" Symbol Sort ")";
 FunctionDefCommand.	Command	        ::= "(" "define-fun" Symbol
-                                                "(" [SortedVariableC] ")"
+                                                "(" [ESortedVarC] ")"
                                                 Sort Term ")";
 PushCommand.            Command         ::= "(" "push" Numeral ")";
 PopCommand.             Command         ::= "(" "pop" Numeral ")";
@@ -57,7 +57,7 @@ separator Command "";
 Option.                 OptionC         ::= Annotation;
 
 --------------------------------------------------------------------------------
--- Sort and their declarations
+-- Sorts and their declarations
 
 IdentSort.	Sort		::= Identifier;
 CompositeSort.	Sort		::= "(" Identifier [Sort] ")";
@@ -104,6 +104,10 @@ CastIdentifierRef.SymbolRef	::= "(" "as" Identifier Sort ")";
 SortedVariable.	SortedVariableC	::= "(" Symbol Sort ")";
 
 separator nonempty SortedVariableC "";
+
+ESortedVar.     ESortedVarC	::= "(" Symbol Sort ")";
+
+separator ESortedVarC "";
 
 --------------------------------------------------------------------------------
 -- Literals
