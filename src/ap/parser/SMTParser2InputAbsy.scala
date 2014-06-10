@@ -398,7 +398,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       case cmd : FunctionDefCommand => {
         // Functions are always declared to have integer inputs and outputs
         val name = asString(cmd.symbol_)
-        val argNum = pushVariables(cmd.listsortedvariablec_)
+        val argNum = pushVariables(cmd.listesortedvarc_)
         val resType = translateSort(cmd.sort_)
         
         // parse the definition of the function
@@ -526,18 +526,35 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     
     for (binder <- vars) binder match {
       case binder : SortedVariable => {
-        val sort = translateSort(binder.sort_)
-        if (sort != Type.Integer && sort != Type.Bool)
-          throw new Parser2InputAbsy.TranslationException(
-               "Quantification of variables of type " +
-               (printer print binder.sort_) +
-               " is currently not supported")
-        env.pushVar(asString(binder.symbol_), BoundVariable(sort == Type.Bool))
+        pushVar(binder.sort_, binder.symbol_)
         quantNum = quantNum + 1
       }
     }
     
     quantNum
+  }
+
+  private def pushVariables(vars : smtlib.Absyn.ListESortedVarC) : Int = {
+    var quantNum : Int = 0
+    
+    for (binder <- vars) binder match {
+      case binder : ESortedVar => {
+        pushVar(binder.sort_, binder.symbol_)
+        quantNum = quantNum + 1
+      }
+    }
+    
+    quantNum
+  }
+
+  private def pushVar(bsort : Sort, bsym : Symbol) : Unit = {
+    val sort = translateSort(bsort)
+    if (sort != Type.Integer && sort != Type.Bool)
+      throw new Parser2InputAbsy.TranslationException(
+           "Quantification of variables of type " +
+           (printer print bsort) +
+           " is currently not supported")
+    env.pushVar(asString(bsym), BoundVariable(sort == Type.Bool))
   }
   
   private def translateQuantifier(t : QuantifierTerm, polarity : Int)
