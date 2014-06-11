@@ -825,12 +825,17 @@ object GroebnerMultiplication extends MulTheory {
       }
 
       // If in final mode
-      if (goal.tasks.finalEagerTask)
+
+      // At the moment, schedule a new task even when in final state
+      // The only reason for this is to make sure that we don't give up,
+      // and then conclude that a goal is satisfiable
+
+/*      if (goal.tasks.finalEagerTask)
       {
         // Split directly!
         removeFactsAction :: (Splitter.handleGoal(goal)).toList
       }
-      else
+      else */
       {
         // Skriva ut goal.tasks
         val scheduleAction = Plugin.ScheduleTask(Splitter, 0)

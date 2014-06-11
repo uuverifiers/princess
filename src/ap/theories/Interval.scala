@@ -51,11 +51,11 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt
   def *(that : IdealInt) = 
   {
     val newVal = value*that
-    if (newVal >= IdealInt("1000000000000"))
+/*    if (newVal >= IdealInt("1000000000000"))
       new IntervalVal(IdealInt("1000000000000"))
     else if (newVal <= IdealInt("-1000000000000"))
       new IntervalVal(IdealInt("-1000000000000"))
-    else
+    else */
       new IntervalVal(newVal)
   }
   
@@ -271,6 +271,10 @@ abstract class IntervalInt
   def max(that : IntervalInt) : IntervalInt
 }
 
+object Interval {
+  val minBound = IdealInt("-1000000000000")
+  val maxBound = IdealInt("1000000000000")
+}
 
 class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Option[(Int, Int)] = None)
 {
@@ -341,6 +345,34 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
       new IntervalVal(0)
     else
       xtrm
+  }
+
+  def widen : Interval = {
+    import Interval._
+    val newLower = lower match {
+      case IntervalVal(v) =>
+        if (v < minBound)
+          IntervalNegInf
+        else if (v > maxBound)
+          IntervalVal(maxBound)
+        else
+          lower
+      case b => b
+    }
+    val newUpper = upper match {
+      case IntervalVal(v) =>
+        if (v < minBound)
+          IntervalVal(minBound)
+        else if (v > maxBound)
+          IntervalPosInf
+        else
+          upper
+      case b => b
+    }
+    if ((newLower eq lower) && (newUpper eq upper))
+      this
+    else
+      new Interval(newLower, newUpper, gap)
   }
 }
 
@@ -724,9 +756,9 @@ class IntervalSet(
           else
             propagateLessThan(LHS, ct, exp, divMon, RHS)
 
-        if (updateInterval(ct, newInterval))
+        if (updateInterval(ct, newInterval.widen))
         {
-          // println(p + " => " + ct + ": " + newInterval)
+          // println(p + " => " + ct + ": " + newInterval.widen)
           changed = true
         }
       }
