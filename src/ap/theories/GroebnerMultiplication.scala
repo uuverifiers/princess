@@ -24,9 +24,10 @@ package ap.theories
 import ap._
 import ap.parser._
 import ap.theories._
+import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.{Term, TerForConvenience, TermOrder, ConstantTerm}
+import ap.terfor.{TerForConvenience, TermOrder, ConstantTerm}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
 import ap.terfor.OneTerm
@@ -73,8 +74,8 @@ object GroebnerMultiplication extends MulTheory {
 
   // Enable turning off and on debug printouts
     val DEBUG_MODE = false
-    def printd(str : => Any) = if (DEBUG_MODE) print(str)
-    def printlnd(str : => Any) = if (DEBUG_MODE) println(str)
+    def printd(str : Any) = if (DEBUG_MODE) print(str)
+    def printlnd(str : Any) = if (DEBUG_MODE) println(str)
 
 
   // Conversion functions between Princess' LinearCombinations and Groebner's Polynomials
@@ -119,28 +120,203 @@ object GroebnerMultiplication extends MulTheory {
 
   object Splitter extends TheoryProcedure 
   {
-
     def handleGoal(goal : Goal) : Seq[Plugin.Action] = 
     {
       implicit val _ = goal.order
       implicit val monOrder = new GrevlexOrdering(new StringOrdering)
+      implicit val ctOrder = monOrder.termOrdering
       import TerForConvenience._
 
-      // println("\n\n\t\t\tDesperate times requires desperate measures\n\n\n")
+      // Extract all predicates
+      val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
+      val preds = predicates.map(atomToPolynomial).toList
+      val ineqs = goal.facts.arithConj.inEqs
+      val negeqs = goal.facts.arithConj.negativeEqs
 
 
-      // Find the "best" split
-      def findSplit(intervalSet : IntervalSet) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+      /**
+
+        Here follows the different splitting strategies
+
+       */
+
+      // We have to find sets of ConstantTerms such that all predicates are linearized
+      // Since we have predicates of the form a(0)*a(1)=a(2), a simple (but incomplete?)
+      // method is to ...
+      def linearizers(predicates : List[ap.terfor.preds.Atom]) : Set[Set[ConstantTerm]] =
       {
+
+
+        // Given the List [({x11, x12, ...}, {y11, y12, ...}), ({x21, ....]
+        // returns {{x1*, x2*, x3* ...xn*}, {x1*, x2*, ... yn*}, ..., {y1*, y2*, ... yn*}}
+        def helper(list : List[(Set[ConstantTerm], Set[ConstantTerm])]) : Set[Set[ConstantTerm]] =
+        {
+          list match
+          {
+            case Nil => Set(Set()) : Set[Set[ConstantTerm]]
+            case (xSet, ySet) :: rest =>
+              {
+                val recur = helper(rest)
+                val xRes = recur.map (x => x ++ xSet)
+                val yRes = recur.map (y => y ++ ySet)
+                (xRes ++ yRes)
+              }
+          }
+        }
+
+        val predSet =
+          for (p <- predicates)
+          yield
+          {
+            (p(0).constants, p(1).constants)
+          }
+
+        helper(predSet)
+      }
+
+
+      def sphericalSplit(predicates : List[ap.terfor.preds.Atom], intervalSet : IntervalSet) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] = 
+      {
+
+        println("sphericalSplit not enabled!")
+        return List()
+
+        println("sphericalSplit(" + predicates + ")")
+
+        // CHAngE
+        val ls = linearizers(predicates).toList.sortWith((s1, s2) => s1.size > s2.size)
+
+
+        // Just take the smallest set
+        val targetSet = ls.head.toList.sorted
+
+        // What is the current lower bound of the set?
+
+        val lbs = 
+          (for (ct <- targetSet)
+          yield
+          {
+            intervalSet.lowerLimit(new Monomial(List((ct, 2))))
+          })
+
+        val sum = (lbs.tail :\ lbs.head) ((s, lb) => s + lb)
+        val min = (lbs.tail :\ lbs.head) ((m, lb) => m.min(lb)).max(sum)
+        val actualMin = 
+          if (min.isNegative)
+            IdealInt(0)
+          else
+            min.get
+
+        def calcNewLimit(ack : Int, size : Int, curMin : IdealInt) : IdealInt =
+        {
+          val newLim = IdealInt((scala.math.pow(ack, 2)*size).toInt)
+          if (newLim > curMin)
+            newLim
+          else
+            calcNewLimit(ack+1, size, curMin)
+        }
+
+        import ap.terfor.conjunctions.Quantifier
+        import ap.terfor.VariableTerm
+
+        var i = 0
+        var newVariablesUsed = false
+        var varSet = Set() : Set[LinearCombination]
+
+        val mulEqs = 
+          for (t <- targetSet)
+          yield
+          {
+            // Is there already such a predicate?
+            def findMatchingPredicate(t : LinearCombination) : Option[LinearCombination] =
+            {
+              for (p <- predicates)
+              {
+                if ((p(0) == l(t)) && (p(1) == l(t)))
+                {
+                  if (p(2).lcSize == 1)
+                    return Some(p(2))
+                }
+              }
+              None
+            }
+
+            val newVar = 
+              (findMatchingPredicate(l(t)) match
+              {
+                case None => 
+                  {
+                    i = i + 1
+                    newVariablesUsed = true
+                    v(i - 1)
+                  }
+                case Some(v) => v
+              }) : LinearCombination
+
+            varSet = varSet + newVar
+            (_mul(List(l(t), l(t), newVar)))
+          }
+
+        val varList = varSet.toList
+        val helperSum = l(varList.foldLeft(l(0)) ((t1, t2) => t1 +t2))
+
+        println("varList: " + varList)
+        println("helperSum (" + helperSum.getClass + "): " + helperSum)
+        println("newVariablesUsed: " + newVariablesUsed)
+        val helperSumLowerBound = 
+          if (newVariablesUsed)
+            IdealInt(0)
+          else
+            PresburgerTools.lowerBound(helperSum, goal.facts) match
+            {
+              case None => IdealInt(0)
+              case Some(x) => x
+            }
+
+        val newLimit = 
+            calcNewLimit(2, lbs.size, helperSumLowerBound)
+
+        val lteq =  helperSum < newLimit
+        val geeq = helperSum >= newLimit
+
+        var ltFinal = conj(List(lteq, (conj(mulEqs.toList))))
+        var gtFinal = conj(List(geeq, (conj(mulEqs.toList))))
+
+        for (ii <- 0 until i)
+        {
+          ltFinal = forall(ltFinal)
+          gtFinal = forall(gtFinal)
+        }
+
+        val opt1 = ltFinal
+        val opt2 = gtFinal
+        val msg = "Spherical split: " + opt1 + ", " + opt2
+
+        List((opt1.negate, opt2.negate, msg))
+      }
+
+
+
+      def infinitySplit(intervalSet : IntervalSet, targetSet : Set[ConstantTerm]) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+      {
+
+
         var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
 
-        val allIntervals = intervalSet.getAllIntervals()
+        val allIntervals = 
+          if (targetSet.isEmpty)
+            intervalSet.getAllIntervals()
+          else
+            (for (ct <- targetSet)
+            yield
+              intervalSet.getTermInterval(ct)).toList
+
         for ((c, i) <- intervalSet.getAllIntervals())
         {
           (i.lower, i.upper) match
           {
             // if x = [-, +], split at zero
-            case (IntervalNegInf(), IntervalPosInf()) =>
+            case (IntervalNegInf, IntervalPosInf) =>
               {
                 val opt1 = (c < 0)
                 val opt2 = (c >= 0)
@@ -151,7 +327,20 @@ object GroebnerMultiplication extends MulTheory {
           }
         }
 
-        for (x <- intervalSet.symbols)
+        alternatives
+      }
+
+      def desperateSplit(intervalSet : IntervalSet, targetSet : Set[ConstantTerm]) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+      {
+        var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
+
+        val symbols =
+          if (targetSet.isEmpty)
+            intervalSet.symbols
+          else
+            targetSet.toList
+
+        for (x <- symbols)
         {
           val i = intervalSet.getTermInterval(x)
             (i.lower, i.upper) match
@@ -177,11 +366,58 @@ object GroebnerMultiplication extends MulTheory {
         alternatives
       }
 
-      // Extract all predicates
-      val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
-      val preds = predicates.map(atomToPolynomial).toList
-      val ineqs = goal.facts.arithConj.inEqs
-      val negeqs = goal.facts.arithConj.negativeEqs
+
+      def negeqSplit(negeqs : ap.terfor.equations.NegEquationConj) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+      {
+        var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
+
+        // Lets try FIFO!
+        for (negeq <- negeqs)
+        {
+          val negeq = negeqs.head
+          val opt1 = (negeq > 0)
+          val opt2 = (negeq < 0)
+          val msg = "Negeq split on: " + negeq
+          alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
+        }
+
+        alternatives
+      }
+
+      def gapSplit(intervalSet : IntervalSet) : List[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+      {
+        var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
+      
+        val gaps = intervalSet.getGaps()
+        for (gap <- gaps)
+        {
+          val (term, interval) = gap
+          val opt1 = (term < interval.gap.get._1)
+          val opt2 = (term > interval.gap.get._2)
+          val msg = "Gap split on: " + gap
+          alternatives = (opt1.negate, opt2.negate, msg) :: alternatives
+        }
+
+        alternatives
+      }
+
+
+      def doSplit(splitparams : (ap.terfor.Formula, ap.terfor.Formula, String)) : List[Plugin.Action] =
+      {
+        val (opt1, opt2, msg) = splitparams
+        val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
+        val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
+        val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
+        printlnd("Splitter> " + msg)
+        return List(splitgoal)
+      }
+
+      /*
+       
+       END OF SPLITTING STRATEGIES
+
+       */
+
       val intervalSet = new IntervalSet(
         preds,
         ineqs.map(lcToPolynomial).toList,
@@ -189,22 +425,28 @@ object GroebnerMultiplication extends MulTheory {
 
       intervalSet.propagate()
 
+      val targetSet = linearizers(predicates.toList).toList.sortWith((s1, s2) => s1.size > s2.size).head
 
-      val split = findSplit(intervalSet)
+      val negAlternatives = negeqSplit(negeqs)
+      if (!negAlternatives.isEmpty)
+        return doSplit(negAlternatives.head)
 
-      if (!split.isEmpty)
+      val gapAlternatives = gapSplit(intervalSet)
+      if (!gapAlternatives.isEmpty)
+        return doSplit(gapAlternatives.head)
+
+      // Removed parameters since we do not want to do spherical anywas
+
+      val infdespAlternatives = infinitySplit(intervalSet, targetSet) ++ desperateSplit(intervalSet, targetSet)
+      if (!infdespAlternatives.isEmpty)
       {
         // Let's try to find a decent splitting target
-        for ((opt1, opt2, msg) <- split)
+        for ((opt1, opt2, msg) <- infdespAlternatives)
         {
           val allFormulas = goal reduceWithFacts conj(List(opt1, opt2)).negate
           if (!allFormulas.isFalse)
           {
-            printlnd(msg)
-            val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
-            val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
-            val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
-            return List(splitgoal)
+            return doSplit((opt1, opt2, msg))
           }
         }
       }
@@ -215,22 +457,18 @@ object GroebnerMultiplication extends MulTheory {
 
 
 
-
-
-
-
-
-
-
   //////////////////////////////////////////////////////////////////////////////
 
   val plugin = Some(new Plugin {
 
-   def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = 
-   {
-     println("GENERATE AXIOMS?")
-     None
-   }
+    var oldGBSrc = None : Option[Basis]
+    var oldGBRes = None : Option[Basis]
+
+    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+    {
+      println("GENERATE AXIOMS?")
+      None
+    }
 
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
@@ -431,106 +669,125 @@ object GroebnerMultiplication extends MulTheory {
       for (a <- predicates)
       {
         val p = atomToPolynomial(a)
-        if (!p.isZero)
-          basis.add(p)
-        else
+        if (p.isZero)
           factsToRemove = a :: factsToRemove
+        else if (p.isConstant)
+        {
+          printlnd("FAILING: " + a + " => " + p)
+          return List(Plugin.AddFormula(forall(conj(List(v(0) > 0, v(0) < 0))).negate))
+        }
+        else
+          basis.add(p)
       }
 
       val removeFactsAction = Plugin.RemoveFacts(conj(factsToRemove))
 
-      val gb =  Buchberger_improved(basis)
-
-      val simplified = gb.Simplify()
-
-
-      // Translate this to a linear system
-
-      def makeMap(polylist : List[Polynomial]) : List[Monomial] =
-      {
-        var newmap = List() : List[Monomial]
-
-        for (p <- polylist)
-          for (t <- p.terms)
-            if (!(newmap exists (x => x.toString == (t.m.toString))))
-            {
-              if (t.m.linear)
-                newmap = t.m :: newmap
-              else
-                newmap = newmap ++ List(t.m)
-            }
-        newmap
-      }
-
-      def polyToRow(poly : Polynomial, map : List[Monomial]) : List[IdealInt] =
-      {
-        for (m <- map)
-        yield
+      val gb = 
+        if (oldGBSrc.isEmpty || oldGBSrc.toSet != basis.toSet)
         {
-          val termOpt = poly.terms find (x => x.m.toString == m.toString)
-          termOpt match
+
+          oldGBSrc = Some(basis)
+
+          val gb =  Buchberger_improved(basis)
+
+          val simplified = gb.Simplify()
+
+          oldGBRes = Some(simplified)
+
+          // Translate this to a linear system
+
+          def makeMap(polylist : List[Polynomial]) : List[Monomial] =
           {
-            case Some(term) => term.c
-            case None => 0 : IdealInt
+            var newmap = List() : List[Monomial]
+
+            for (p <- polylist)
+              for (t <- p.terms)
+                if (!(newmap exists (x => x.toString == (t.m.toString))))
+                {
+                  if (t.m.linear)
+                    newmap = t.m :: newmap
+                  else
+                    newmap = newmap ++ List(t.m)
+                }
+            newmap
           }
-        }
-      }
 
-      def makeMatrix(polylist : List[Polynomial]) : Array[Array[IdealInt]] =
-      {
-        var maxLength = 0
-        var monomialMap = makeMap(polylist)
-        val list =
-          (for (p <- polylist)
-          yield
+          def polyToRow(poly : Polynomial, map : List[Monomial]) : List[IdealInt] =
           {
-            polyToRow(p, monomialMap)
-          }).toList
+            for (m <- map)
+            yield
+            {
+              val termOpt = poly.terms find (x => x.m.toString == m.toString)
+              termOpt match
+              {
+                case Some(term) => term.c
+                case None => 0 : IdealInt
+              }
+            }
+          }
 
-        val array = Array.ofDim[IdealInt](list.length, monomialMap.length)
+          def makeMatrix(polylist : List[Polynomial]) : Array[Array[IdealInt]] =
+          {
+            var maxLength = 0
+            var monomialMap = makeMap(polylist)
+            val list =
+              (for (p <- polylist)
+              yield
+              {
+                polyToRow(p, monomialMap)
+              }).toList
 
-        for (i <- 0 until list.length)
-          for (j <- 0 until list(i).length)
-            array(i)(j) = list(i)(j)
+            val array = Array.ofDim[IdealInt](list.length, monomialMap.length)
 
-        array
-      }
+            for (i <- 0 until list.length)
+              for (j <- 0 until list(i).length)
+                array(i)(j) = list(i)(j)
 
-      def rowToPolynomial(map : List[Monomial], row : Array[IdealInt])(implicit ordering : monomialOrdering) =
-      {
-        var retPoly = new Polynomial(List())
-        for (i <- 0 until row.length)
-        {
-          if (row(i) != 0)
-            retPoly += new Term(row(i), map(i))
+            array
+          }
+
+          def rowToPolynomial(map : List[Monomial], row : Array[IdealInt])(implicit ordering : monomialOrdering) =
+          {
+            var retPoly = new Polynomial(List())
+            for (i <- 0 until row.length)
+            {
+              if (row(i) != 0)
+                retPoly += new Term(row(i), map(i))
+            }
+            retPoly
+          }
+
+          val linearEq = simplified.toList
+
+          if (!linearEq.isEmpty)
+          {
+            val map = makeMap(linearEq)
+            val m = makeMatrix(linearEq)
+            val gaussian = new Gaussian(m)
+
+            val linearConj =
+              conj(for (r <- gaussian.getRows();
+                poly = rowToPolynomial(map, r);
+                if (poly.linear))
+              yield
+                polynomialToAtom(poly))
+
+            if (!linearConj.isTrue)
+            {
+              val allAxioms = Conjunction.conj(List(linearConj, Conjunction.TRUE),
+                goal.order).negate
+              printlnd("\tFound linear formulas!")
+              printlnd("\t\t" + allAxioms)
+              return List(removeFactsAction, Plugin.AddFormula(allAxioms))
+            }
+          }
+          gb
         }
-        retPoly
-      }
-
-      val linearEq = simplified.toList
-
-      if (!linearEq.isEmpty)
-      {
-        val map = makeMap(linearEq)
-        val m = makeMatrix(linearEq)
-        val gaussian = new Gaussian(m)
-
-        val linearConj =
-          conj(for (r <- gaussian.getRows();
-            val poly = rowToPolynomial(map, r);
-            if (poly.linear))
-          yield
-            polynomialToAtom(poly))
-
-        if (!linearConj.isTrue)
+        else
         {
-          val allAxioms = Conjunction.conj(List(linearConj, Conjunction.TRUE),
-            goal.order).negate
-          printlnd("\tFound linear formulas!")
-          printlnd("\t\t" + allAxioms)
-          return List(removeFactsAction, Plugin.AddFormula(allAxioms))
+          printlnd("Returing: " + oldGBRes.get)
+          oldGBRes.get
         }
-      }
 
       // If gröbner basis calculation does nothing
       // Lets try to do some interval propagation
@@ -545,8 +802,10 @@ object GroebnerMultiplication extends MulTheory {
         ineqs.map(lcToPolynomial).toList,
         negeqs.map(lcToPolynomial).toList)
 
-      intervalSet.propagate()
-
+      if (intervalSet.propagate())
+      {
+        throw new Exception("Interval propagation error, abort!")
+      }
 
       val intervals = intervalSet.getIntervals();
 
@@ -578,8 +837,8 @@ object GroebnerMultiplication extends MulTheory {
         {
           i.lower match
           {
-            case IntervalNegInf() =>
-            case IntervalPosInf() => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
+            case IntervalNegInf =>
+            case IntervalPosInf => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
             case IntervalVal(v) => intervalAtoms = (ct >= v) :: intervalAtoms
           }
         }
@@ -588,9 +847,9 @@ object GroebnerMultiplication extends MulTheory {
         {
           i.upper match
           {
-            case IntervalNegInf() => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
+            case IntervalNegInf => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
             case IntervalVal(v) => intervalAtoms = (ct <= v) :: intervalAtoms
-            case IntervalPosInf() =>
+            case IntervalPosInf =>
           }
         }
       }
@@ -604,63 +863,22 @@ object GroebnerMultiplication extends MulTheory {
       }
 
       // Do splitting
-      printlnd("\tInterval propagation failed, splitting")
-      if (!negeqs.isEmpty)
-        printlnd("\t\tNegeq split: ")
-      for (eq <- negeqs)
-        printlnd("\t\t\t" + eq)
+      printlnd("\tInterval propagation failed")
 
-      // Lets try FIFO!
-      if (!negeqs.isEmpty)
+      // If in final mode
+      if (goal.tasks.finalEagerTask)
       {
-        val negeq = negeqs.head
-        printlnd("\t\tnegeq (" + negeq.getClass + "): " + negeq)
-        val opt1 = (negeq > 0)
-        val opt2 = (negeq < 0)
-        printlnd("\t\t\topt1: " + opt1)
-        printlnd("\t\t\topt2: " + opt2)
-        val opt1act  = Conjunction.conj(List(opt1.negate, Conjunction.TRUE), goal.order)
-        val opt2act  = Conjunction.conj(List(opt2.negate, Conjunction.TRUE), goal.order)
-        val actionList = List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act)))
-        val splitgoal = Plugin.SplitGoal(actionList)
-        printlnd("\tReturning: " + splitgoal)
-        return List(removeFactsAction, Plugin.SplitGoal(actionList))
+        // Split directly!
+        printlnd("\tSplitting and removing facts: " + removeFactsAction)
+        removeFactsAction :: (Splitter.handleGoal(goal)).toList
       }
-
-      val gaps = intervalSet.getGaps()
-
-      if (!gaps.isEmpty)
+      else
       {
-        printlnd("\tGap split:")
-        for ((ct, i) <- gaps)
-        {
-          printd("\t\t" + ct + ": (")
-          printd(i.lower)
-          printd(", ")
-          printd(i.upper)
-          printd(") gap (" + i.gap + ")\n")
-        }
-
-        val (term, interval) = gaps.head
-        val opt1 = (term < interval.gap.get._1)
-        val opt2 = (term > interval.gap.get._2)
-
-        printlnd("\t\t\topt1: " + opt1)
-        printlnd("\t\t\topt2: " + opt2)
-        val opt1act  = Conjunction.conj(List(opt1.negate, Conjunction.TRUE), goal.order)
-        val opt2act  = Conjunction.conj(List(opt2.negate, Conjunction.TRUE), goal.order)
-        val actionList = List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act)))
-        val splitgoal = Plugin.SplitGoal(actionList)
-        printlnd("\tReturning: " + splitgoal)
-        return List(Plugin.SplitGoal(actionList))
+        // Skriva ut goal.tasks
+        val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
+        printlnd("\tScheduling Splitter and removing facts: " + removeFactsAction)
+        List(removeFactsAction, scheduleAction)
       }
-
-
-
-
-      printlnd("\tRemoving facts: " + removeFactsAction)
-      val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
-      List(removeFactsAction, scheduleAction)
 
     }
   })

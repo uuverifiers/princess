@@ -4,7 +4,7 @@ package ap.theories
 import ap.basetypes.IdealInt
 import ap.terfor.TermOrder
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.{Term, TerForConvenience, TermOrder, ConstantTerm}
+import ap.terfor.{TerForConvenience, TermOrder, ConstantTerm}
 import ap.SimpleAPI
 import ap.parser._
 import ap.terfor.preds.Atom

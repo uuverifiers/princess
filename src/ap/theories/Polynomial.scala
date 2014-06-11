@@ -8,6 +8,7 @@ import ap.terfor.ConstantTerm
 import ap.terfor.TermOrder
 import ap.basetypes.IdealInt
 import scala.math.Ordering.Implicits.infixOrderingOps
+import ap.util.Debug
 
 //
 // ConstantTerm orderings
@@ -376,13 +377,7 @@ class Monomial(val pairs : List[(ConstantTerm, Int)])(implicit val ordering : mo
 
 class Term(coeff : IdealInt, monomial : Monomial)(implicit val ordering : monomialOrdering)
 {
-
-  if (coeff == 0)
-  {
-    val e = new Exception("Zero coefficient of a term")
-    e.printStackTrace()
-    throw e
-  }
+  Debug.assertPre(Debug.AC_NIA, !coeff.isZero)
 
   def isZero = (coeff.isZero)
   def isConstant = (monomial.isConstant)
@@ -547,8 +542,7 @@ class Polynomial(val terms : List[Term])(implicit val ordering : monomialOrderin
 
   def LT : Term =
   {
-    if (isZero())
-      throw new zeroPolynomialException("Taking LT of the zero polynomial")
+    Debug.assertPre(Debug.AC_NIA, !isZero())
 
     terms.head
   }
@@ -616,8 +610,7 @@ class Polynomial(val terms : List[Term])(implicit val ordering : monomialOrderin
 
   def ReduceBy(that : Polynomial) : Polynomial =
   {
-    if (!this.LT.isDividedBy(that.LT))
-      throw new notDividableException(this + " is not dividable by " + that)
+    Debug.assertPre(Debug.AC_NIA, this.LT.isDividedBy(that.LT))
 
     def gcd(a: IdealInt, b: IdealInt):IdealInt=if (b.isZero) a.abs else gcd(b, a%b)
     def lcm(a: IdealInt, b: IdealInt)=(a*b).abs/gcd(a,b)
@@ -660,7 +653,6 @@ class Polynomial(val terms : List[Term])(implicit val ordering : monomialOrderin
     }
 
     this
-    // throw new cannotSimplifyException("No terms divides " + this)
   }
 
   def ContainsTerms(searchTerms : List[Term]) : Boolean =
@@ -741,8 +733,7 @@ class Basis(implicit val ordering : monomialOrdering)
 
   def add(poly : Polynomial) : Unit =
   {
-    if (poly.isZero)
-      throw new zeroPolynomialException("Trying to add zero polynomial")
+    Debug.assertPre(Debug.AC_NIA, !poly.isZero)
 
     val curList = polyMap.getOrElse(poly.LM.toString, List()) : List[Polynomial]
 
@@ -809,10 +800,8 @@ class Basis(implicit val ordering : monomialOrdering)
           if (p != poly))
         yield
         {
-          if (poly.LT.isDividedBy(p.LT) && poly != p)
-            p
-          else
-            throw new Exception(poly.LT + " NOT DIVIDED BY " + p.LT)
+          Debug.assertPre(Debug.AC_NIA, poly.LT.isDividedBy(p.LT))
+          p
         }
       }).flatten
 
@@ -842,10 +831,7 @@ class Basis(implicit val ordering : monomialOrdering)
       for (pp <- newBasis.toList)
         newPoly = newPoly.simplifyBy(pp)
 
-      if (newPoly.isZero)
-      {
-        throw new zeroPolynomialException("Redcued polynomial in basis to zero ???")
-      }
+      Debug.assertPost(Debug.AC_NIA, !newPoly.isZero)
 
       newBasis.add(newPoly)
 

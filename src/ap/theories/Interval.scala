@@ -4,277 +4,273 @@ import ap.terfor.ConstantTerm
 import ap.terfor.preds.Atom
 import ap.terfor.OneTerm
 import ap.basetypes.IdealInt
-
+import ap.util.{Debug, Timeout}
+import scala.collection.mutable.{LinkedHashMap, LinkedHashSet}
 
 case class IntervalException(smth : String) extends Exception(smth)
 
 case class IntervalVal(val value : IdealInt) extends IntervalInt
 {
-  if (value > (1000000000 : IdealInt)*(10000000 : IdealInt))
-    throw new IntervalException("IntervalVal value too big: " + value)
-}
-case class IntervalNegInf extends IntervalInt
-case class IntervalPosInf extends IntervalInt
+  override def toString = value.toString
 
-abstract class IntervalInt
-{
-  override def toString =
+  def isZero = value.isZero
+  def isPositive = value > 0
+  def isNegative = value < 0
+  def get = value
+  def +(that : IntervalInt) =
   {
-    this match
+    that match
     {
-      case (IntervalVal(v)) => v.toString
-      case (IntervalNegInf()) => "-Inf"
-      case (IntervalPosInf()) => "+Inf"
+      case IntervalVal(value2) => IntervalVal(value + value2)
+      case IntervalNegInf => IntervalNegInf
+      case IntervalPosInf => IntervalPosInf
+    }
+  }
+  def *(that : IntervalInt) =
+  {
+    that match
+    {
+      case IntervalVal(value2) => this*value2
+      case IntervalNegInf => 
+        if (value > 0) 
+          IntervalNegInf 
+        else if (value < 0)
+          IntervalPosInf
+        else
+          IntervalVal(0)
+      case IntervalPosInf => 
+        if (value > 0) 
+          IntervalPosInf
+        else if (value < 0)
+          IntervalNegInf 
+        else
+          IntervalVal(0)
     }
   }
 
-  override def equals(that : Any) : Boolean =
+  def *(that : IdealInt) = 
   {
-    (this, that) match
-    {
-      case (IntervalVal(v1), IntervalVal(v2)) => v1 == v2
-      case (IntervalPosInf(), IntervalPosInf()) => true
-      case (IntervalNegInf(), IntervalNegInf()) => true
-      case _ => false
-    }
+    val newVal = value*that
+    if (newVal.abs < IdealInt("1000000000000"))
+      new IntervalVal(value*that)
+    else if (newVal >= IdealInt("1000000000000"))
+      IntervalPosInf
+    else if (newVal <= IdealInt("-1000000000000"))
+      IntervalNegInf
+    else
+      throw new IntervalException("IntervalVal multiplication error: " + this + "*" + that)
   }
-
-  def isZero : Boolean =
+  
+  def divceil(that : IdealInt) =
   {
-    this match
-    {
-      case IntervalVal(v) => v.isZero
-      case _ => false
-    }
-  }
-
-  def isPositive : Boolean =
-  {
-    this match
-    {
-      case IntervalPosInf() => true
-      case IntervalNegInf() => false
-      case IntervalVal(v) => v > 0
-    }
-  }
-
-  def isNegative : Boolean =
-  {
-    this match
-    {
-      case IntervalPosInf() => false
-      case IntervalNegInf() => true
-      case IntervalVal(v) => v < 0
-    }
-  }
-
-  def get() : IdealInt =
-  {
-    this match
-    {
-      case (IntervalVal(v)) => v
-      case _ => throw new IntervalException("Calling get() on Infinity IntervalInt: " + this)
-    }
-  }
-
-
-  def +(that : IntervalInt) : IntervalInt =
-  {
-    (this, that) match
-    {
-      case (IntervalVal(v1), IntervalVal(v2)) => IntervalVal(v1+v2)
-      case (IntervalNegInf(), IntervalPosInf()) => throw new IntervalException("Adding infinities of different sign: " + this + " + " + that)
-      case (IntervalPosInf(), IntervalNegInf()) => throw new IntervalException("Adding infinities of different sign: " + this + " + " + that)
-      case (IntervalNegInf(), _) => new IntervalNegInf
-      case (IntervalPosInf(), _) => new IntervalPosInf
-      case (_, IntervalNegInf()) => new IntervalNegInf
-      case (_, IntervalPosInf()) => new IntervalPosInf
-    }
-  }
-
-  def *(that : IntervalInt) : IntervalInt =
-  {
-    (this, that) match
-    {
-      case (_, IntervalVal(v2)) => this*v2
-
-      case (IntervalVal(v1), _) => that*v1
-
-      case (IntervalNegInf(), IntervalNegInf()) => new IntervalPosInf
-      case (IntervalNegInf(), IntervalPosInf()) => new IntervalNegInf
-
-      case (IntervalPosInf(), IntervalNegInf()) => new IntervalNegInf
-      case (IntervalPosInf(), IntervalPosInf()) => new IntervalPosInf
-
-
-      // case (IntervalVal(v), IntervalNegInf()) => if (v > 0) new IntervalNegInf else if (v < 0) new IntervalPosInf else IntervalVal(0)
-      // case (IntervalVal(v), IntervalPosInf()) => if (v > 0) new IntervalPosInf else if (v < 0) new IntervalNegInf else IntervalVal(0)
-
-      // case (IntervalNegInf(), IntervalVal(v)) => if (v > 0) new IntervalNegInf else if (v < 0) new IntervalPosInf else IntervalVal(0)
-      // case (IntervalNegInf(), IntervalNegInf()) => new IntervalPosInf
-      // case (IntervalNegInf(), IntervalPosInf()) => new IntervalNegInf
-
-      // case (IntervalPosInf(), IntervalVal(v)) => if (v > 0) new IntervalPosInf else if (v < 0) new IntervalNegInf else IntervalVal(0)
-      // case (IntervalPosInf(), IntervalNegInf()) => new IntervalNegInf
-      // case (IntervalPosInf(), IntervalPosInf()) => new IntervalPosInf
-    }
-  }
-
-  def *(that : IdealInt) : IntervalInt =
-  {
-    this match
-    {
-      case (IntervalNegInf()) => if (that < 0) new IntervalPosInf else new IntervalNegInf
-      case (IntervalPosInf()) => if (that < 0) new IntervalNegInf else new IntervalPosInf
-      case (IntervalVal(v)) => new IntervalVal(v*that)
-    }
-  }
-
-  def divceil(that : IdealInt) : IntervalInt =
-  {
-    if (that.isZero)
-      throw new IntervalException("Dividing by zero: " + this + "/" + that)
-
-    this match
-    {
-      case (IntervalNegInf()) => if (that < 0) new IntervalPosInf else new IntervalNegInf
-      case (IntervalPosInf()) => if (that < 0) new IntervalNegInf else new IntervalPosInf
-      case (IntervalVal(v)) => 
-        {
-          // Round up
-          val (div, rem) = v /% that
-          new IntervalVal(if (rem.isZero) div else div + 1)
-        }
-    }
+    Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    val (div, rem) = value /% that
+    new IntervalVal(if (rem.isZero) div else div + 1)
   }
 
   def divceil(that : IntervalInt) : IntervalInt =
-  {
-    (this, that) match
+    that match
     {
-      case (IntervalNegInf(), IntervalNegInf()) => new IntervalPosInf
-      case (IntervalNegInf(), IntervalPosInf()) => new IntervalNegInf
-      case (IntervalNegInf(), IntervalVal(v)) => if (v > 0) new IntervalNegInf else new IntervalPosInf
-
-      case (IntervalPosInf(), IntervalNegInf()) => new IntervalNegInf
-      case (IntervalPosInf(), IntervalPosInf()) => new IntervalPosInf
-      case (IntervalPosInf(), IntervalVal(v)) => if (v > 0) new IntervalPosInf else new IntervalNegInf
-
-      case (IntervalVal(v), IntervalNegInf()) => new IntervalVal(0)
-      case (IntervalVal(v), IntervalPosInf()) => new IntervalVal(0)
-      case (IntervalVal(v1), IntervalVal(v2)) => 
+      case IntervalVal(value2) =>
         {
-          if (v2.isZero) 
-            throw new IntervalException("Dividing by zero: " + v1 + "/" + v2)
-          else
-          {
-            // Round up
-            val (div, rem) = v1 /% v2
-            new IntervalVal(if (rem.isZero) div else div + 1)
-          }
+          Debug.assertPre(Debug.AC_NIA, !that.isZero)
+          // Round up
+          val (div, rem) = value /% value2
+          new IntervalVal(if (rem.isZero) div else div + 1)
         }
+      case IntervalNegInf => new IntervalVal(0)
+      case IntervalPosInf => new IntervalVal(0)
     }
-  }
 
-  def divfloor(that : IdealInt) : IntervalInt =
+  def divfloor(that : IdealInt) =
   {
-    if (that.isZero)
-      throw new IntervalException("Dividing by zero: " + this + "/" + that)
-
-    this match
-    {
-      case (IntervalNegInf()) => if (that < 0) new IntervalPosInf else new IntervalNegInf
-      case (IntervalPosInf()) => if (that < 0) new IntervalNegInf else new IntervalPosInf
-      case (IntervalVal(v)) => 
-        {
-          // Round down
-          val (div, rem) = v /% that
-          new IntervalVal(if (rem.isZero) div else div - 1)
-        }
-    }
+    Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    val (div, rem) = value /% that
+    new IntervalVal(if (rem.isZero) div else div - 1)
   }
 
   def divfloor(that : IntervalInt) : IntervalInt =
-  {
-    (this, that) match
+    that match
     {
-      case (IntervalNegInf(), IntervalNegInf()) => new IntervalPosInf
-      case (IntervalNegInf(), IntervalPosInf()) => new IntervalNegInf
-      case (IntervalNegInf(), IntervalVal(v)) => if (v > 0) new IntervalNegInf else new IntervalPosInf
-
-      case (IntervalPosInf(), IntervalNegInf()) => new IntervalNegInf
-      case (IntervalPosInf(), IntervalPosInf()) => new IntervalPosInf
-      case (IntervalPosInf(), IntervalVal(v)) => if (v > 0) new IntervalPosInf else new IntervalNegInf
-
-      case (IntervalVal(v), IntervalNegInf()) => new IntervalVal(0)
-      case (IntervalVal(v), IntervalPosInf()) => new IntervalVal(0)
-      case (IntervalVal(v1), IntervalVal(v2)) => 
+      case IntervalVal(value2) =>
         {
-          if (v2.isZero) 
-            throw new IntervalException("Dividing by zero: " + v1 + "/" + v2)
-          else
-          {
-            // Round down
-            val (div, rem) = v1 /% v2
-            new IntervalVal(if (rem.isZero) div else div - 1)
-          }
+          Debug.assertPre(Debug.AC_NIA, !value2.isZero)
+          // Round up
+          val (div, rem) = value /% value2
+          new IntervalVal(if (rem.isZero) div else div - 1)
         }
+      case IntervalNegInf => new IntervalVal(0)
+      case IntervalPosInf => new IntervalVal(0)
+    }
+
+  def divtozero(that : IdealInt) : IntervalInt = 
+  {
+    Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    if (value < 0)
+    {
+      val (div, rem) = value /% that
+      new IntervalVal(if (rem.isZero) div else div + 1)
+    }
+    else
+    {
+      val (div, rem) = value /% that
+      new IntervalVal(if (rem.isZero) div else div - 1)
     }
   }
 
+  def min(that : IntervalInt) : IntervalInt = 
+    that match
+    {
+      case IntervalVal(value2) => new IntervalVal(value.min(value2))
+      case IntervalNegInf => IntervalNegInf
+      case IntervalPosInf => this
+    }
+
+  def max(that : IntervalInt) : IntervalInt = 
+    that match
+    {
+      case IntervalVal(value2) => new IntervalVal(value.max(value2))
+      case IntervalNegInf => this
+      case IntervalPosInf => IntervalPosInf
+    }
+}
+
+case object IntervalNegInf extends IntervalInt
+{
+  def isZero = false
+  def isPositive = false
+  def isNegative = true
+  def get = throw new IntervalException("Calling get() on Infinity IntervalInt: " + this)
+
+  def +(that : IntervalInt) = 
+  {
+    that match
+    {
+      case (IntervalVal(_)) => IntervalNegInf
+      case IntervalNegInf => IntervalNegInf
+      case IntervalPosInf =>throw new IntervalException("Adding infinities of different sign: " + this + " + " + that)
+    }
+  }
+
+
+  def *(that : IntervalInt) =
+  {
+    that match
+    {
+      case (IntervalVal(value)) => this*value
+      case IntervalNegInf => IntervalPosInf
+      case IntervalPosInf => IntervalNegInf
+    }
+  }
+
+  def *(that : IdealInt) =
+    if (that < 0)
+      IntervalPosInf
+    else if (that > 0)
+      IntervalNegInf
+    else 
+      new IntervalVal(0)
+
+  def divceil(that : IdealInt) : IntervalInt =
+  {
+    Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    if (that < 0) IntervalPosInf else IntervalNegInf
+  }
+
+  def divceil(that : IntervalInt) : IntervalInt =
+    that match
+    {
+      case IntervalVal(value) => this.divceil(value)
+      case IntervalNegInf => IntervalPosInf
+      case IntervalPosInf => IntervalNegInf
+    }
+
+  def divfloor(that : IdealInt) = divceil(that)
+  def divfloor(that : IntervalInt) = divceil(that)
+  def divtozero(that : IdealInt) = divceil(that)
+
+  def min(that : IntervalInt) = this
+  def max(that : IntervalInt) = that
+}
+
+
+
+
+
+case object IntervalPosInf extends IntervalInt
+{
+  def isZero = false
+  def isPositive = true
+  def isNegative = false
+  def get = throw new IntervalException("Calling get() on Infinity IntervalInt: " + this)
+  def +(that : IntervalInt) =
+  {
+    that match
+    {
+      case (IntervalVal(_)) => IntervalPosInf
+      case IntervalPosInf => IntervalPosInf
+      case IntervalNegInf =>throw new IntervalException("Adding infinities of different sign: " + this + " + " + that)
+    }
+  }
+
+  def *(that : IntervalInt) = 
+  {
+    that match
+    {
+      case (IntervalVal(value)) => this*value
+      case IntervalNegInf => IntervalNegInf
+      case IntervalPosInf => IntervalPosInf
+    }
+  }
+
+  def *(that : IdealInt) =
+    if (that < 0)
+      IntervalNegInf
+    else if (that > 0)
+      IntervalPosInf
+    else 
+      new IntervalVal(0)
+
+  def divceil(that : IdealInt) : IntervalInt =
+  {
+    Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    if (that < 0) IntervalNegInf else IntervalPosInf
+  }
+
+  def divceil(that : IntervalInt) : IntervalInt =
+    that match
+    {
+      case IntervalVal(value) => this.divceil(value)
+      case IntervalNegInf => IntervalNegInf
+      case IntervalPosInf => IntervalPosInf
+    }
+
+  def divfloor(that : IdealInt) = divceil(that)
+  def divfloor(that : IntervalInt) = divceil(that)
+  def divtozero(that : IdealInt) = divceil(that)
+
+  def min(that : IntervalInt) = that
+  def max(that : IntervalInt) = this
+}
+
+
+abstract class IntervalInt
+{
+  def isZero : Boolean
+  def isPositive : Boolean
+  def isNegative : Boolean
+  def get() : IdealInt
+  def +(that : IntervalInt) : IntervalInt
+  def *(that : IntervalInt) : IntervalInt
+  def *(that : IdealInt) : IntervalInt
+  def divceil(that : IdealInt) : IntervalInt
+  def divceil(that : IntervalInt) : IntervalInt
+  def divfloor(that : IdealInt) : IntervalInt
+  def divfloor(that : IntervalInt) : IntervalInt
   // Used to minimize the absolute value
-  def divtozero(that : IdealInt) : IntervalInt =
-  {
-    if (that.isZero)
-      throw new IntervalException("Dividing by zero: " + this + "/" + that)
-
-    this match
-    {
-      case (IntervalNegInf()) => if (that < 0) new IntervalPosInf else new IntervalNegInf
-      case (IntervalPosInf()) => if (that < 0) new IntervalNegInf else new IntervalPosInf
-      case (IntervalVal(v)) => 
-        {
-          if (v < 0)
-          {
-            val (div, rem) = v /% that
-            new IntervalVal(if (rem.isZero) div else div + 1)
-          }
-          else
-          {
-            val (div, rem) = v /% that
-            new IntervalVal(if (rem.isZero) div else div - 1)
-          }
-        }
-    }
-  }
-
-  def min(that : IntervalInt) : IntervalInt =
-  {
-    (this, that) match
-    {
-      case (IntervalNegInf(), _) => new IntervalNegInf
-      case (_, IntervalNegInf()) => new IntervalNegInf
-
-      case (IntervalPosInf(), ii2) => ii2
-      case (ii1, IntervalPosInf()) => ii1
-
-      case (IntervalVal(v1), IntervalVal(v2)) => new IntervalVal(v1.min(v2))
-    }
-  }
-
-  def max(that : IntervalInt) : IntervalInt =
-  {
-    (this, that) match
-    {
-      case (IntervalPosInf(), _) => new IntervalPosInf
-      case (_, IntervalPosInf()) => new IntervalPosInf
-
-      case (IntervalNegInf(), ii2) => ii2
-      case (ii1, IntervalNegInf()) => ii1
-
-      case (IntervalVal(v1), IntervalVal(v2)) => new IntervalVal(v1.max(v2))
-    }
-  }
+  def divtozero(that : IdealInt) : IntervalInt
+  def min(that : IntervalInt) : IntervalInt
+  def max(that : IntervalInt) : IntervalInt
 }
 
 
@@ -289,10 +285,10 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
   {
     (lower, upper) match
     {
-      case (IntervalNegInf(), IntervalPosInf()) => true
-      case (IntervalNegInf(), IntervalVal(l2)) => (l2 >= i)
+      case (IntervalNegInf, IntervalPosInf) => true
+      case (IntervalNegInf, IntervalVal(l2)) => (l2 >= i)
       case (IntervalVal(l1), IntervalVal(l2)) => (l1 <= i) && (l2 >= i)
-      case (IntervalVal(l1), IntervalPosInf()) => (l1 <= i)
+      case (IntervalVal(l1), IntervalPosInf) => (l1 <= i)
       case _ => false
     }
   }
@@ -302,14 +298,14 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
   {
     // println("\tmindiv: " + this + " / " + that)
     val xtrms = List(
-      if (!that.lower.isZero) this.lower.divfloor(that.lower) else new IntervalPosInf, 
-      if (!that.upper.isZero) this.lower.divfloor(that.upper) else new IntervalPosInf,
-      if (that.containsInt(-1)) this.lower.divfloor(new IntervalVal(-1)) else new IntervalPosInf,
-      if (that.containsInt(1)) this.lower.divfloor(new IntervalVal(1)) else new IntervalPosInf,
-      if (!that.lower.isZero) this.upper.divfloor(that.lower) else new IntervalPosInf,
-      if (!that.upper.isZero) this.upper.divfloor(that.upper) else new IntervalPosInf,
-      if (that.containsInt(-1)) this.upper.divfloor(new IntervalVal(-1)) else new IntervalPosInf,
-      if (that.containsInt(1)) this.upper.divfloor(new IntervalVal(1)) else new IntervalPosInf)
+      if (!that.lower.isZero) this.lower.divfloor(that.lower) else IntervalPosInf, 
+      if (!that.upper.isZero) this.lower.divfloor(that.upper) else IntervalPosInf,
+      if (that.containsInt(-1)) this.lower.divfloor(new IntervalVal(-1)) else IntervalPosInf,
+      if (that.containsInt(1)) this.lower.divfloor(new IntervalVal(1)) else IntervalPosInf,
+      if (!that.lower.isZero) this.upper.divfloor(that.lower) else IntervalPosInf,
+      if (!that.upper.isZero) this.upper.divfloor(that.upper) else IntervalPosInf,
+      if (that.containsInt(-1)) this.upper.divfloor(new IntervalVal(-1)) else IntervalPosInf,
+      if (that.containsInt(1)) this.upper.divfloor(new IntervalVal(1)) else IntervalPosInf)
 
     // println("\tmindiv: "+ xtrms)
 
@@ -326,14 +322,14 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
     // println("\tmaxdiv: " + this + " / " + that)
 
     val xtrms = List(
-      if (!that.lower.isZero) this.lower.divceil(that.lower) else new IntervalNegInf, 
-      if (!that.upper.isZero) this.lower.divceil(that.upper) else new IntervalNegInf,
-      if (that.containsInt(-1)) this.lower.divceil(new IntervalVal(-1)) else new IntervalNegInf,
-      if (that.containsInt(1)) this.lower.divceil(new IntervalVal(1)) else new IntervalNegInf,
-      if (!that.lower.isZero) this.upper.divceil(that.lower) else new IntervalNegInf,
-      if (!that.upper.isZero) this.upper.divceil(that.upper) else new IntervalNegInf,
-      if (that.containsInt(-1)) this.upper.divceil(new IntervalVal(-1)) else new IntervalNegInf,
-      if (that.containsInt(1)) this.upper.divceil(new IntervalVal(1)) else new IntervalNegInf)
+      if (!that.lower.isZero) this.lower.divceil(that.lower) else IntervalNegInf, 
+      if (!that.upper.isZero) this.lower.divceil(that.upper) else IntervalNegInf,
+      if (that.containsInt(-1)) this.lower.divceil(new IntervalVal(-1)) else IntervalNegInf,
+      if (that.containsInt(1)) this.lower.divceil(new IntervalVal(1)) else IntervalNegInf,
+      if (!that.lower.isZero) this.upper.divceil(that.lower) else IntervalNegInf,
+      if (!that.upper.isZero) this.upper.divceil(that.upper) else IntervalNegInf,
+      if (that.containsInt(-1)) this.upper.divceil(new IntervalVal(-1)) else IntervalNegInf,
+      if (that.containsInt(1)) this.upper.divceil(new IntervalVal(1)) else IntervalNegInf)
 
     // println("\tmaxdiv: "+ xtrms)
 
@@ -359,15 +355,16 @@ class IntervalSet(
 
   // Get all symbols and create all-covering intervals
 
-  var symbols = Set() : Set[ConstantTerm]
-  var intervals = Map() : Map[ConstantTerm, (Interval, (Boolean, Boolean, Boolean))]
+  var symbols = new LinkedHashSet() : LinkedHashSet[ConstantTerm]
+  var intervals = new LinkedHashMap() : LinkedHashMap[ConstantTerm, (Interval, (Boolean, Boolean, Boolean))]
+  var error = false
 
   for (p <- (inEqs ++ negEqs))
     for (s <- p.variables)
       symbols += s
 
   for (s <- symbols)
-    intervals += (s -> ((new Interval(new IntervalNegInf, new IntervalPosInf), (false, false, false))))
+    intervals += (s -> ((new Interval(IntervalNegInf, IntervalPosInf), (false, false, false))))
 
   def getIntervals() : List[(ConstantTerm, Interval, (Boolean, Boolean, Boolean))] =
   {
@@ -410,14 +407,22 @@ class IntervalSet(
 
     if (newLower != oldInterval.lower || newUpper != oldInterval.upper || newGap != oldInterval.gap)
     {
-      val lowerChange = (newLower != oldInterval.lower || oldul)
-      val upperChange = (newUpper != oldInterval.upper || olduu)
-      val gapChange = (newGap != oldInterval.gap || oldug)
+      if (newLower == IntervalPosInf || newUpper == IntervalNegInf)
+      {
+        error = true
+        false
+      }
+      else
+      {
+        val lowerChange = (newLower != oldInterval.lower || oldul)
+        val upperChange = (newUpper != oldInterval.upper || olduu)
+        val gapChange = (newGap != oldInterval.gap || oldug)
 
-      val newInterval = new Interval(newLower, newUpper, newGap)
+        val newInterval = new Interval(newLower, newUpper, newGap)
 
-      intervals += (term -> (newInterval, (lowerChange, upperChange, gapChange)))
-      true
+        intervals += (term -> (newInterval, (lowerChange, upperChange, gapChange)))
+        true
+      }
     }
     else
       false
@@ -479,7 +484,7 @@ class IntervalSet(
       }
     // Anything else we just skip for now, -Inf is always a safe bet
       else
-        new IntervalNegInf
+        IntervalNegInf
     // println("\t\t\t\tlowerLimit(" + m + "): " + limit)
     limit
   }
@@ -507,7 +512,7 @@ class IntervalSet(
       if (t1 != t2);
       if (t1.hasCommonVariables(t2)))
     {
-      return new IntervalNegInf
+      return IntervalNegInf
     }
 
     val limit =
@@ -563,7 +568,7 @@ class IntervalSet(
     }
     else
       // Anything else we just skip for now, +Inf is always a safe bet
-      new IntervalPosInf
+      IntervalPosInf
   }
 
   // If t is negative, the upper limit is equal to the lower limit of the negation
@@ -585,15 +590,15 @@ class IntervalSet(
       if (t1 != t2);
       if (t1.hasCommonVariables(t2)))
     {
-      return new IntervalPosInf
+      return IntervalPosInf
     }
+
     ((for (t <- p.terms) yield upperLimit(t)).toList :\ (new IntervalVal(0) : IntervalInt)) ((t1, t2) => t1 + t2)
   }
 
 
   def propagateGreaterThan(term : Term, ct : ConstantTerm, exp : Int, divMon : Monomial, RHS : Polynomial) : Interval =
   {
-    // println("propagateGreaterThan(" + term + ", " + ct + ", " + exp + ", " + divMon + ", " + RHS + ")")
     // If the constant before t is positive, propagate t >= -ts
     val ll =
       if (divMon.size == 0)
@@ -611,33 +616,45 @@ class IntervalSet(
         ri
       }
       else
-        new IntervalNegInf
+        IntervalNegInf
 
-    val newLowerLimit =
-      if (exp == 1)
-        if (ll.isPositive)
-          ll.divceil(term.c)
-        else
-          ll.divfloor(term.c)
+    if (exp == 1)
+      if (ll.isPositive)
+        new Interval(ll.divceil(term.c), IntervalPosInf)
+      else
+        new Interval(ll.divfloor(term.c), IntervalPosInf)
       else if (exp == 2)
       {
-        // Add GAP
-        new IntervalNegInf
+        ll match
+        {
+          case IntervalVal(v) =>
+            if (v > 0)
+            {
+              val sqrt = Math.sqrt(v.doubleValue) / term.c.doubleValue
+              val (gapNeg, gapPos) =
+                // If this value is exact
+                if (sqrt == Math.floor(sqrt))
+                  (-sqrt.toInt + 1, sqrt.toInt - 1)
+                else
+                  (Math.ceil(-sqrt).toInt, Math.floor(sqrt).toInt)
+
+              new Interval(IntervalNegInf, IntervalPosInf, Some(gapNeg, gapPos))
+            }
+            else
+              new Interval(IntervalNegInf, IntervalPosInf)
+          case _ => new Interval(IntervalNegInf, IntervalPosInf)
+        }
       }
       else
-        new IntervalNegInf
-
-    new Interval(newLowerLimit, new IntervalPosInf)
+        new Interval(IntervalNegInf, IntervalPosInf)
   }
 
   def propagateLessThan(term : Term, ct : ConstantTerm, exp : Int, divMon : Monomial, RHS : Polynomial) : Interval =
   {
-    // println("propagateLessThan(" + term + ", " + ct + ", " + exp + ", " + divMon + ", " + RHS + ")")
     val ul =
       if (divMon.size == 0)
       {
-        val limit = upperLimit(RHS)
-        limit
+        upperLimit(RHS)
       }
       else if (divMon.size == 1)
       {
@@ -646,7 +663,7 @@ class IntervalSet(
         RHSInterval.maxdiv(divtermInterval)
       }
       else
-        new IntervalPosInf
+        IntervalPosInf
 
       if (exp == 1)
       {
@@ -655,7 +672,8 @@ class IntervalSet(
             ul.divfloor(term.c)
           else
             ul.divceil(term.c)
-        new Interval(new IntervalNegInf, newUpper)
+
+        new Interval(IntervalNegInf, newUpper)
       }
       else if (exp == 2)
       {
@@ -673,12 +691,12 @@ class IntervalSet(
                 val bound = Math.floor(Math.sqrt(l.doubleValue)).toInt
                 new Interval(new IntervalVal(-bound), new IntervalVal(bound))
               }
-            case _ => new Interval(new IntervalNegInf, new IntervalPosInf)
+            case _ => new Interval(IntervalNegInf, IntervalPosInf)
           }
         }
       }
       else
-        new Interval(new IntervalNegInf, new IntervalPosInf)
+        new Interval(IntervalNegInf, IntervalPosInf)
   }
 
   def propagateIneq(p : Polynomial) : Boolean =
@@ -698,7 +716,6 @@ class IntervalSet(
       for ((ct, exp) <- t.m.pairs)
       {
         val divMon = new Monomial((t.m.pairs).diff(List((ct, exp))))
-
         val newInterval =
           if (t.c > 0)
             propagateGreaterThan(LHS, ct, exp, divMon, RHS)
@@ -716,20 +733,27 @@ class IntervalSet(
     changed
   }
 
-  def propagate() =
+  def propagate() : Boolean=
   {
+    var i = 0
     try
     {
       var changed = true
       var limit = 50
       while (changed && limit > 0)
       {
+        if (error)
+          return true
+        Timeout.check
         changed = false
         limit = limit - 1
         for (ineq <- inEqs)
+        {
           if (propagateIneq(ineq))
             changed = true
+        }
       }
     }
+    false
   }
 }
