@@ -51,14 +51,12 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt
   def *(that : IdealInt) = 
   {
     val newVal = value*that
-    if (newVal.abs < IdealInt("1000000000000"))
-      new IntervalVal(value*that)
-    else if (newVal >= IdealInt("1000000000000"))
-      IntervalPosInf
+    if (newVal >= IdealInt("1000000000000"))
+      new IntervalVal(IdealInt("1000000000000"))
     else if (newVal <= IdealInt("-1000000000000"))
-      IntervalNegInf
+      new IntervalVal(IdealInt("-1000000000000"))
     else
-      throw new IntervalException("IntervalVal multiplication error: " + this + "*" + that)
+      new IntervalVal(newVal)
   }
   
   def divceil(that : IdealInt) =
@@ -296,6 +294,8 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
   // this divided by other, minimised
   def mindiv(that : Interval) : IntervalInt =
   {
+    if (that.lower.isZero && that.upper.isZero)
+      return IntervalNegInf
     // println("\tmindiv: " + this + " / " + that)
     val xtrms = List(
       if (!that.lower.isZero) this.lower.divfloor(that.lower) else IntervalPosInf, 
@@ -319,6 +319,8 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
 
   def maxdiv(that : Interval) : IntervalInt =
   {    
+    if (that.lower.isZero && that.upper.isZero)
+      return IntervalPosInf
     // println("\tmaxdiv: " + this + " / " + that)
 
     val xtrms = List(
