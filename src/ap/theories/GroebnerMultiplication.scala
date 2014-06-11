@@ -71,13 +71,6 @@ object GroebnerMultiplication extends MulTheory {
   val functionalPredicates = predicates.toSet
   val functionPredicateMapping = List(mul -> _mul)
 
-
-  // Enable turning off and on debug printouts
-    val DEBUG_MODE = false
-    def printd(str : Any) = if (DEBUG_MODE) print(str)
-    def printlnd(str : Any) = if (DEBUG_MODE) println(str)
-
-
   // Conversion functions between Princess' LinearCombinations and Groebner's Polynomials
   def lcToPolynomial(lc : LinearCombination)(implicit ordering : monomialOrdering) : Polynomial =
   {
@@ -408,7 +401,6 @@ object GroebnerMultiplication extends MulTheory {
         val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
         val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
         val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
-        printlnd("Splitter> " + msg)
         return List(splitgoal)
       }
 
@@ -658,10 +650,6 @@ object GroebnerMultiplication extends MulTheory {
       implicit val monOrder = new PartitionOrdering(orderList, new GrevlexOrdering(new ListOrdering(orderList)))
       // implicit val monOrder = new GrevlexOrdering(new StringOrdering)
 
-      printlnd("\n\nGroebnerMultiplication")
-      printlnd("\nGoal.facts: " + goal.facts)
-      printlnd("\tTrying to calculate Groebner Basis")
-
       val basis = new Basis()
 
       var factsToRemove = List() : List[ap.terfor.preds.Atom]
@@ -673,8 +661,7 @@ object GroebnerMultiplication extends MulTheory {
           factsToRemove = a :: factsToRemove
         else if (p.isConstant)
         {
-          printlnd("FAILING: " + a + " => " + p)
-          return List(Plugin.AddFormula(forall(conj(List(v(0) > 0, v(0) < 0))).negate))
+          return List(Plugin.AddFormula(Conjunction.TRUE))
         }
         else
           basis.add(p)
@@ -776,8 +763,6 @@ object GroebnerMultiplication extends MulTheory {
             {
               val allAxioms = Conjunction.conj(List(linearConj, Conjunction.TRUE),
                 goal.order).negate
-              printlnd("\tFound linear formulas!")
-              printlnd("\t\t" + allAxioms)
               return List(removeFactsAction, Plugin.AddFormula(allAxioms))
             }
           }
@@ -785,14 +770,11 @@ object GroebnerMultiplication extends MulTheory {
         }
         else
         {
-          printlnd("Returing: " + oldGBRes.get)
           oldGBRes.get
         }
 
       // If gröbner basis calculation does nothing
       // Lets try to do some interval propagation
-
-      printlnd("\tGroebner failed, trying interval propagation")
 
       val preds = (predicates.map(atomToPolynomial).toSet ++ gb.toSet).toList
       val ineqs = goal.facts.arithConj.inEqs
@@ -809,29 +791,10 @@ object GroebnerMultiplication extends MulTheory {
 
       val intervals = intervalSet.getIntervals();
 
-      if (!intervals.isEmpty)
-        printlnd("\tPropagation result: ")
 
       var intervalAtoms = List() : List[ap.terfor.inequalities.InEqConj]
       for ((ct, i, (ul, uu, gu)) <- intervals)
       {
-        printd("\t\t" + ct + ": (")
-
-        if (ul)
-          printd(">")
-        printd(i.lower)
-        if (ul)
-          printd("<")
-        printd(", ")
-        if (uu)
-          printd(">")
-        printd(i.upper)
-        if (uu)
-          printd("<")
-        printd(") ")
-        printd("gap: " + i.gap)
-        printd("\n")
-
         // Generate inequalities according to intervals
         if (ul)
         {
@@ -858,25 +821,19 @@ object GroebnerMultiplication extends MulTheory {
       val allFormulas = goal reduceWithFacts conj(intervalAtoms).negate
       if (!allFormulas.isFalse)
       {
-        printlnd("\tReturning axioms: " + allFormulas.negate)
         return List(removeFactsAction, Plugin.AddFormula(allFormulas))
       }
-
-      // Do splitting
-      printlnd("\tInterval propagation failed")
 
       // If in final mode
       if (goal.tasks.finalEagerTask)
       {
         // Split directly!
-        printlnd("\tSplitting and removing facts: " + removeFactsAction)
         removeFactsAction :: (Splitter.handleGoal(goal)).toList
       }
       else
       {
         // Skriva ut goal.tasks
         val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
-        printlnd("\tScheduling Splitter and removing facts: " + removeFactsAction)
         List(removeFactsAction, scheduleAction)
       }
 
