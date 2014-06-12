@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -177,6 +177,7 @@ object GoalSettings {
   val allParams = List(Param.POS_UNIT_RESOLUTION, Param.SYMBOL_WEIGHTS,
                        Param.GARBAGE_COLLECTED_FUNCTIONS,
                        Param.FUNCTIONAL_PREDICATES,
+                       Param.SINGLE_INSTANTIATION_PREDICATES,
                        Param.FULL_SPLITTING, Param.APPLY_BLOCKED_TASKS,
                        Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,

@@ -22,6 +22,7 @@
 package ap.proof.goal;
 
 import ap.PresburgerTools
+import ap.parameters.Param
 import ap.proof.Vocabulary
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
@@ -59,7 +60,8 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
       Vocabulary(newOrder, newBindingContext, goal.constantFreedom)
 
     val subtree =
-      if (!formula.predicates.isEmpty) {
+      if (!(formula.predicates subsetOf
+              Param.SINGLE_INSTANTIATION_PREDICATES(goal.settings))) {
         // can some of the Presburger conditions be extracted and added as
         // constraints to the proof tree?
 
@@ -100,7 +102,7 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
 
         val instantiatedConjTask =
             Goal.formulaTasks(instantiatedConj, goal.age,
-                             Set.empty, newVocabulary, goal.settings)
+                              Set.empty, newVocabulary, goal.settings)
         ptf.updateGoal(Set.empty.asInstanceOf[Set[ConstantTerm]],
                        newVocabulary,
                        instantiatedConjTask,
