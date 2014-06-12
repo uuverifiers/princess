@@ -226,6 +226,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.DOMAIN_PREDICATES.set(gs, signature.domainPredicates)
+    gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
+           (for (t <- signature.theories.iterator;
+                 p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, plugins.headOption)
     gs

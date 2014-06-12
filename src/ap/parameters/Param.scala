@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -200,6 +200,11 @@ object Param {
   }
 
   case object FUNCTIONAL_PREDICATES extends Param {
+    type Value = Set[ap.terfor.preds.Predicate]
+    val defau : Set[ap.terfor.preds.Predicate] = Set()
+  }
+
+  case object SINGLE_INSTANTIATION_PREDICATES extends Param {
     type Value = Set[ap.terfor.preds.Predicate]
     val defau : Set[ap.terfor.preds.Predicate] = Set()
   }

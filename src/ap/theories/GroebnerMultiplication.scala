@@ -69,6 +69,7 @@ object GroebnerMultiplication extends MulTheory {
 
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val functionalPredicates = predicates.toSet
+  override val singleInstantiationPredicates = predicates.toSet
   val functionPredicateMapping = List(mul -> _mul)
 
   // Conversion functions between Princess' LinearCombinations and Groebner's Polynomials

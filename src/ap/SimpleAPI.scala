@@ -2653,6 +2653,9 @@ class SimpleAPI private (enableAssert : Boolean,
     // restricted?
 //    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
+    gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
+           (for (t <- theories.iterator;
+                 p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
     gs
   }

@@ -190,6 +190,7 @@ object GoalSettings {
   val allParams = List(Param.POS_UNIT_RESOLUTION, Param.SYMBOL_WEIGHTS,
                        Param.GARBAGE_COLLECTED_FUNCTIONS,
                        Param.FUNCTIONAL_PREDICATES,
+                       Param.SINGLE_INSTANTIATION_PREDICATES,
                        Param.FULL_SPLITTING, Param.APPLY_BLOCKED_TASKS,
                        Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,

@@ -128,6 +128,14 @@ trait Theory {
   val predicateMatchConfig : Signature.PredicateMatchConfig
 
   /**
+   * When instantiating existentially quantifier formulas,
+   * <code>EX phi</code>, at most one instantiation is necessary
+   * provided that all predicates in <code>phi</code> are contained
+   * in this set.
+   */
+  val singleInstantiationPredicates : Set[IExpression.Predicate] = Set()
+
+  /**
    * Axioms defining the theory; such axioms are simply added as formulae
    * to the problem to be proven, and thus handled using the standard
    * reasoning techniques (including e-matching).

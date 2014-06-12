@@ -95,6 +95,8 @@ object BitShiftMultiplication extends MulTheory {
 
   val functionalPredicates = predicates.toSet
 
+  override val singleInstantiationPredicates = predicates.toSet
+
   private def _mul = predicates(0)
 
   val functionPredicateMapping = List((mul, _mul))
