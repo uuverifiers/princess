@@ -61,7 +61,9 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt
   
   def divceil(that : IdealInt) =
   {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (div, rem) = value /% that
     new IntervalVal(if (rem.isZero) div else div + 1)
   }
@@ -71,7 +73,9 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt
     {
       case IntervalVal(value2) =>
         {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertPre(Debug.AC_NIA, !that.isZero)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           // Round up
           val (div, rem) = value /% value2
           new IntervalVal(if (rem.isZero) div else div + 1)
@@ -82,7 +86,9 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt
 
   def divfloor(that : IdealInt) =
   {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (div, rem) = value /% that
     new IntervalVal(if (rem.isZero) div else div - 1)
   }
@@ -92,7 +98,9 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt
     {
       case IntervalVal(value2) =>
         {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertPre(Debug.AC_NIA, !value2.isZero)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           // Round up
           val (div, rem) = value /% value2
           new IntervalVal(if (rem.isZero) div else div - 1)
@@ -103,7 +111,9 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt
 
   def divtozero(that : IdealInt) : IntervalInt = 
   {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (value < 0)
     {
       val (div, rem) = value /% that
@@ -171,7 +181,9 @@ case object IntervalNegInf extends IntervalInt
 
   def divceil(that : IdealInt) : IntervalInt =
   {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (that < 0) IntervalPosInf else IntervalNegInf
   }
 
@@ -231,7 +243,9 @@ case object IntervalPosInf extends IntervalInt
 
   def divceil(that : IdealInt) : IntervalInt =
   {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Debug.AC_NIA, !that.isZero)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (that < 0) IntervalNegInf else IntervalPosInf
   }
 

@@ -31,7 +31,7 @@ import ap.terfor.{TerForConvenience, TermOrder, ConstantTerm}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
 import ap.terfor.OneTerm
-
+import ap.util.Timeout
 
 import ap.proof.goal.Goal
 
@@ -475,6 +475,8 @@ object GroebnerMultiplication extends MulTheory {
       def Buchberger_improved_aux(active : Basis, passive : Basis, unprocessed
           : Basis) : Basis =
       {
+        Timeout.check
+
         implicit val _ = active.ordering
 
         if (!unprocessed.isEmpty)
