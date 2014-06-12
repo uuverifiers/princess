@@ -424,9 +424,11 @@ object GroebnerMultiplication extends MulTheory {
       if (!negAlternatives.isEmpty)
         return doSplit(negAlternatives.head)
 
+/*
       val gapAlternatives = gapSplit(intervalSet)
       if (!gapAlternatives.isEmpty)
         return doSplit(gapAlternatives.head)
+*/
 
       // Removed parameters since we do not want to do spherical anywas
 

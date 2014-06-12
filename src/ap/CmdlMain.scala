@@ -565,7 +565,7 @@ object CmdlMain {
               }
     }
 
-    case Param.InputFormat.TPTP => {
+    case Param.InputFormat.TPTP | Param.InputFormat.Princess => {
             val fileProperties = Param.FILE_PROPERTIES(settings)
             res match {
               case Prover.Proof(tree) => {
