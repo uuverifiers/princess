@@ -63,7 +63,9 @@ object GroebnerMultiplication extends MulTheory {
         functionEnc)
 
     (predicates,
-      axioms, Conjunction.TRUE,
+      // axioms,
+      Conjunction.TRUE,   // no explicit functionality axiom
+      Conjunction.TRUE,
       functionTranslation(mul))
   }
 
