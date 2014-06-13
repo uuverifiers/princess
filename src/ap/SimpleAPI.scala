@@ -1085,6 +1085,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
     val IFunApp(a, _) = abbrevTerm
     abbrevLog(fullTerm, a.name, a.name)
+    addFunctionHelp(a, FunctionalityMode.NoUnification)
     abbrevHelp(a, fullTerm)
   }
   
@@ -1162,6 +1163,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
     val IIntFormula(_, IFunApp(a, _)) = abbrevFor
     abbrevLog(fullFor, a.name, a.name)
+    addFunctionHelp(a, FunctionalityMode.NoUnification)
     abbrevHelp(a, fullFor)
   }
   
