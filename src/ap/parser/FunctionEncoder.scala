@@ -208,15 +208,16 @@ object FunctionEncoder {
   private def findRelevantAbstractions
     (p : IFormula, abstractions : Seq[(IFunApp, Int, IFormula)])
     : Seq[(IFunApp, Int, IFormula)] = {
- 
-    val vars = new scala.collection.mutable.HashSet[IVariable]
+
+    val vars = new scala.collection.mutable.BitSet
+    val addToVars : Int => Unit = (x:Int) => vars += x
     val defs = ArrayBuilder.make[(IFunApp, Int, IFormula)]
-    
-    vars ++= SymbolCollector variables p
+
+    VariableIndexCollector(p, addToVars)
     
     for (newApp@(funApp, newVarNum, atom) <- abstractions)
-      if (vars contains v(newVarNum)) {
-        vars ++= SymbolCollector variables funApp
+      if (vars contains newVarNum) {
+        VariableIndexCollector(funApp, addToVars)
         defs += newApp
       }
 
@@ -226,7 +227,7 @@ object FunctionEncoder {
     // Check that we have actually found all definitions relevant for this
     // sub-formula 
     Debug.assertPost(FunctionEncoder.AC, abstractions forall {
-      case app@(_, num, _) => !(vars contains v(num)) || (res contains app)
+      case app@(_, num, _) => !(vars contains num) || (res contains app)
     })
     //-END-ASSERTION-/////////////////////////////////////////////////////////// 
     res
