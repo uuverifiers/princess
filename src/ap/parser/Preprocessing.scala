@@ -57,12 +57,21 @@ object Preprocessing {
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
+    val initialSize = SizeVisitor(f)
+
+    def checkSize(fs : Iterable[IFormula]) = {
+      val newSize = (for (f <- fs.iterator) yield SizeVisitor(f)).sum
+      if (newSize > 5000000 && newSize > initialSize * 5)
+        throw new Exception("Undue size blow-up")
+    }
+
     // turn the formula into a list of its named parts
     val fors = PartExtractor(f)
 
     // partial evaluation, expand equivalences
     val fors2 = for (f <- fors)
                 yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
+    checkSize(fors2)
 
     // simple mini-scoping for existential quantifiers
     val miniscoper = new SimpleMiniscoper(signature)
@@ -119,6 +128,7 @@ object Preprocessing {
         newNoNamePart :: realNamedParts
       }
     }
+    checkSize(fors4)
 
     // do some direct simplifications
     val fors5 = 
@@ -133,6 +143,7 @@ object Preprocessing {
           for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
         )(throw new Exception("Clausification timed out"))
     }
+    checkSize(fors6)
     
     (fors6, interpolantSpecs, signature updateOrder order3)
   }
