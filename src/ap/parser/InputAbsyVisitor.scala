@@ -531,7 +531,7 @@ class SymbolCollector(variables : scala.collection.mutable.Set[IVariable],
   override def preVisit(t : IExpression, boundVars : Int) : PreVisitResult =
     t match {
       case _ : IQuantified | _ : IEpsilon => UniSubArgs(boundVars + 1)
-      case _ => super.preVisit(t, boundVars)
+      case _ => KeepArg
     }
 
   def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
@@ -544,6 +544,33 @@ class SymbolCollector(variables : scala.collection.mutable.Set[IVariable],
         nullaryPredicates += p
       case _ => // nothing
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object VariableIndexCollector
+       extends CollectingVisitor[(Int, Int => Unit), Unit] {
+
+  def apply(t : IExpression, f : Int => Unit) : Unit =
+    this.visitWithoutResult(t, (0, f))
+
+  override def preVisit(t : IExpression,
+                        ctxt : (Int, Int => Unit)) : PreVisitResult = t match {
+    case _ : IQuantified | _ : IEpsilon => UniSubArgs((ctxt._1 + 1, ctxt._2))
+    case _ => KeepArg
+  }
+
+  def postVisit(t : IExpression,
+                ctxt : (Int, Int => Unit),
+                subres : Seq[Unit]) : Unit = t match {
+    case IVariable(i) => {
+      val (boundVars, f) = ctxt
+      if (i >= boundVars)
+        f(i - boundVars)
+    }
+    case _ => // nothing
+  }
+    
 }
 
 ////////////////////////////////////////////////////////////////////////////////
