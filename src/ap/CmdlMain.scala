@@ -261,6 +261,7 @@ object CmdlMain {
       case '2' => Param.TriggerStrategyOptions.AllMinimal
       case '3' => Param.TriggerStrategyOptions.AllMinimalAndEmpty
       case '4' => Param.TriggerStrategyOptions.AllUni
+      case '5' => Param.TriggerStrategyOptions.MaximalOutermost
     })
     s
   }
@@ -287,8 +288,10 @@ object CmdlMain {
          "allMinimal"
        else if(strategy.charAt(6)=='3')
          "allMinimalAndEmpty"
-       else
+       else if(strategy.charAt(6)=='4')
          "allUni"
+       else
+         "maximalOutermost"
     )
     
     s

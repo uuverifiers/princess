@@ -142,6 +142,8 @@ object GlobalSettings {
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMaximal)
         case ValueOpt("triggerStrategy", "maximal") =>
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.Maximal)
+        case ValueOpt("triggerStrategy", "maximalOutermost") =>
+          Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.MaximalOutermost)
         case Opt("triggersInConjecture", value) =>
           Param.TRIGGERS_IN_CONJECTURE.set(settings, value)
         case Opt("splitConjectures", value) =>

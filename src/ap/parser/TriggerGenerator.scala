@@ -55,7 +55,9 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
    * measuring the number of occurrences of the various symbols in the formulae
    */
   def setup(f : IFormula) : Unit = strategy match {
-    case TriggerStrategy.Maximal => funFreqs.visitWithoutResult(f, {})
+    case TriggerStrategy.Maximal |
+         TriggerStrategy.MaximalOutermost =>
+      funFreqs.visitWithoutResult(f, {})
     case _ => // nothing
   }
 
@@ -223,7 +225,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
                     subTriggers
                 }
 
-                case TriggerStrategy.Maximal =>
+                case TriggerStrategy.Maximal |
+                     TriggerStrategy.MaximalOutermost =>
                   // We choose the complete term as a trigger only if at least
                   // two subterms contain variables
                   if (subTriggers.isEmpty || subTermVarNum >= 2)
@@ -279,9 +282,15 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
   override def preVisit(t : IExpression, ctxt : Context[Int])
                        : PreVisitResult = t match {
     case IQuantified(q, _) if (q == Quantifier(ctxt.polarity <= 0)) =>
+      if (ctxt.a == 0 &&
+          strategy == TriggerStrategy.MaximalOutermost &&
+          (ctxt.binders contains Context.EX))
+        // only consider outermost quantifiers
+        ShortCutResult(t)
+      else
         super.preVisit(t, ctxt(ctxt.a + 1))
     case _ =>
-        super.preVisit(t, ctxt(0))
+      super.preVisit(t, ctxt(0))
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -383,7 +392,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
       }
       
       strategy match {
-        case TriggerStrategy.Maximal => {
+        case TriggerStrategy.Maximal |
+             TriggerStrategy.MaximalOutermost => {
           val chosenTriggers = multiTriggers
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(TriggerGenerator.AC, !chosenTriggers.isEmpty)
