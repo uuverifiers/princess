@@ -55,7 +55,9 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
    * measuring the number of occurrences of the various symbols in the formulae
    */
   def setup(f : IFormula) : Unit = strategy match {
-    case TriggerStrategy.Maximal => funFreqs.visitWithoutResult(f, {})
+    case TriggerStrategy.Maximal |
+         TriggerStrategy.MaximalOutermost =>
+      funFreqs.visitWithoutResult(f, {})
     case _ => // nothing
   }
 
@@ -390,7 +392,8 @@ class TriggerGenerator(consideredFunctions : Set[IFunction],
       }
       
       strategy match {
-        case TriggerStrategy.Maximal => {
+        case TriggerStrategy.Maximal |
+             TriggerStrategy.MaximalOutermost => {
           val chosenTriggers = multiTriggers
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(TriggerGenerator.AC, !chosenTriggers.isEmpty)
