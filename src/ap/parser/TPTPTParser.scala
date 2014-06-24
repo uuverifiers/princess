@@ -603,6 +603,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   //////////////////////////////////////////////////////////////////////////////
   
   private def genRRAxioms = {
+    saturateRR
+
     val allLits = ratLiterals.toMap
     
     val res = tptpType match {
@@ -634,6 +636,28 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     res
   }
   
+  private def saturateRR : Unit =
+    for (_ <- 0 until Param.REAL_RAT_SATURATION_ROUNDS(settings)) {
+      val allValues = ratLiterals.keys.toList
+      for (val1 <- allValues.iterator; val2 <- allValues.iterator) {
+        constsFor(-val1)
+
+        constsFor(val1 + val2)
+//        constsFor(-(val1 + val2))
+        constsFor(val1 - val2)
+
+        constsFor(val1 * val2)
+//        constsFor(-(val1 * val2))
+
+        if (!val1.isZero) {
+          constsFor(IdealRat.ONE / val1)
+//          constsFor(-(IdealRat.ONE / val1))
+          constsFor(val2 / val1)
+//          constsFor(-(val2 / val1))
+        }
+      }
+    }
+
   private def distinctRatConstants(constants : Iterator[ConstantTerm]) = {
     val allConsts = (for (c <- constants) yield i(c)).toSeq
     for (i <- 0 until allConsts.size;

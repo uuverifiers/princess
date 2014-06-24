@@ -152,6 +152,8 @@ object GlobalSettings {
           Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.BitShift)
         case ValueOpt("mulProcedure", "native") =>
           Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.Native)
+        case ValueOpt("realRatSaturationRounds", IntVal(value)) =>
+          Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
         case Opt(_, _) =>
@@ -180,7 +182,7 @@ object GlobalSettings {
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
          Param.FINITE_DOMAIN_CONSTRAINTS, Param.CONJECTURE_TO_PROVE,
          Param.SPLIT_CONJECTURES, Param.FILE_PROPERTIES,
-         Param.MUL_PROCEDURE)
+         Param.MUL_PROCEDURE, Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -212,7 +214,8 @@ object ParserSettings {
                        Param.CONJECTURE_TO_PROVE,
                        Param.MAKE_QUERIES_PARTIAL,
                        Param.FILE_PROPERTIES,
-                       Param.MUL_PROCEDURE)
+                       Param.MUL_PROCEDURE,
+                       Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())
