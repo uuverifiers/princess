@@ -142,6 +142,8 @@ object GlobalSettings {
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.MaximalOutermost)
         case Opt("triggersInConjecture", value) =>
           Param.TRIGGERS_IN_CONJECTURE.set(settings, value)
+        case ValueOpt("realRatSaturationRounds", IntVal(value)) =>
+          Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
         case Opt(_, _) =>
@@ -167,7 +169,7 @@ object GlobalSettings {
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
-         Param.MULTI_STRATEGY)
+         Param.MULTI_STRATEGY, Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -195,7 +197,8 @@ object ParserSettings {
 
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
                        Param.TRIGGERS_IN_CONJECTURE,
-                       Param.MAKE_QUERIES_PARTIAL)
+                       Param.MAKE_QUERIES_PARTIAL,
+                       Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

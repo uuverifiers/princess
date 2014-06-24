@@ -162,6 +162,11 @@ object Param {
     val defau : Boolean = false
   }
 
+  case object REAL_RAT_SATURATION_ROUNDS extends Param {
+    type Value = Int
+    val defau : Int = 0
+  }
+
   case object MULTI_STRATEGY extends Param {
     type Value = Boolean
     val defau : Boolean = false
