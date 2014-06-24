@@ -183,3 +183,16 @@ Constructing countermodel ...
 
 VALID
 
+Loading ARI495=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
+Warning: Problem contains reals, using incomplete axiomatisation
+Preprocessing ...
+Proving ...
+
+VALID
+

@@ -10,3 +10,5 @@ TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
        quotes.p multiple-conjectures.p"
 
 $PRI "$@" $TESTS
+
+$PRI "$@" -realRatSaturationRounds=1 -assert ARI495\=1.p
