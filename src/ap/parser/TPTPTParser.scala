@@ -415,7 +415,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
              j <- ((i+1) until allConsts.size).iterator)
         yield (allConsts(i) =/= allConsts(j))
       }
-    }.take(10000).toList
+    }.take(50000).toList
 
     boundedInstances ++
     //
