@@ -21,7 +21,7 @@
 
 package ap.parser
 
-import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet, PriorityQueue}
 
 import ap.Signature
 import ap.terfor.TermOrder
@@ -206,32 +206,80 @@ object FunctionEncoder {
    * this order will be preserved by the function
    */
   private def findRelevantAbstractions
-    (p : IFormula, abstractions : Seq[(IFunApp, Int, IFormula)])
-    : Seq[(IFunApp, Int, IFormula)] = {
+    (p : IFormula, abstractions : IndexedSeq[(IFunApp, Int, IFormula)])
+    : IndexedSeq[(IFunApp, Int, IFormula)] = {
 
-    val vars = new scala.collection.mutable.BitSet
-    val addToVars : Int => Unit = (x:Int) => vars += x
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // Abstractions should be sorted
+    Debug.assertPre(FunctionEncoder.AC, (abstractions sliding 2) forall {
+                      case Seq((_, x, _), (_, y, _)) => x < y
+                      case _ => true
+                    })
+    //-END-ASSERTION-/////////////////////////////////////////////////////////// 
+
+    val vars = new PriorityQueue[Int] ()(intReverseOrdering)
+    val addToVars : Int => Unit = (vars enqueue _)
     val defs = ArrayBuilder.make[(IFunApp, Int, IFormula)]
 
-    VariableIndexCollector(p, addToVars)
-    
-    for (newApp@(funApp, newVarNum, atom) <- abstractions)
-      if (vars contains newVarNum) {
-        VariableIndexCollector(funApp, addToVars)
-        defs += newApp
+    val varsIterator = new Iterator[Int] {
+      var nextVar = -1
+      var nextReady = false
+
+      def hasNext : Boolean = {
+        while (!nextReady && !vars.isEmpty) {
+          val n = vars.dequeue
+          if (n > nextVar) {
+            nextVar = n
+            nextReady = true
+          }
+        }
+        nextReady
       }
+
+      def next : Int = {
+        if (!nextReady)
+          hasNext
+        nextReady = false
+        nextVar
+      }
+    }
+
+    VariableIndexCollector(p, addToVars)
+
+    for ((_, newApp@(funApp, newVarNum, atom)) <-
+           Seqs.binIntersect(varsIterator, abstractions,
+                             intAbstractionCompare)) {
+      VariableIndexCollector(funApp, addToVars)
+      defs += newApp
+    }
 
     val res = defs.result
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // Check that we have actually found all definitions relevant for this
     // sub-formula 
-    Debug.assertPost(FunctionEncoder.AC, abstractions forall {
-      case app@(_, num, _) => !(vars contains num) || (res contains app)
-    })
+    Debug.assertPost(FunctionEncoder.AC, {
+                       val allVars = new MHashSet[Int]
+                       VariableIndexCollector(p, (allVars += _))
+                       for ((funApp, _, _) <- res)
+                         VariableIndexCollector(funApp, (allVars += _))
+                       
+                       abstractions forall {
+                         case app@(_, num, _) =>
+                           !(allVars contains num) || (res contains app)
+                       }
+                     })
     //-END-ASSERTION-/////////////////////////////////////////////////////////// 
     res
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val intAbstractionCompare =
+    (x : Int, a : (IFunApp, Int, IFormula)) => x - a._2
+
+  private val intReverseOrdering = Ordering.fromLessThan[Int](_ > _)
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -437,8 +485,10 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
       else f match {
         case IBinFormula(op, _, _) => {
           val parts = LineariseVisitor(f, op)
-          val relevantDefs = for (p <- parts) 
-                             yield findRelevantAbstractions(p, abstractions)
+          val indexedAbstractions = abstractions.toIndexedSeq
+          val relevantDefs =
+            for (p <- parts) 
+            yield findRelevantAbstractions(p, indexedAbstractions)
         
           val toplevelDefs = op match {
             case _ if (!tightFunctionScopes) =>

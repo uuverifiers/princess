@@ -115,6 +115,22 @@ Formula is valid, resulting constraint:
 true
 % SZS status Theorem for SWV032+1
 
+Loading ARI495=1.p ...
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
+Prover 0: Warning: Problem contains reals, using incomplete axiomatisation
+Prover 0: Preprocessing ...
+Prover 0: Constructing countermodel ...
+Prover 0: stopped
+Prover 1: Options:  +triggersInConjecture -genTotalityAxioms=all +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal
+Prover 1: Warning: Problem contains reals, using incomplete axiomatisation
+Prover 1: Preprocessing ...
+Prover 1: Proving ...
+Prover 1: proved (4190ms)
+
+Formula is valid, resulting constraint:
+true
+% SZS status Theorem for ARI495=1
+
 Loading SYN000_2.p ...
 Prover 0: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal
 Prover 0: Exception: [70.9] failure: `<=>' expected but `,' found

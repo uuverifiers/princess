@@ -724,6 +724,109 @@ object Seqs {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Compute the intersection of two sequences in (strictly) ascending
+   * order. The procedure uses binary search on the second list, and
+   * should in particular perform well if the second list is much bigger
+   * than the first list.
+   * <code>compare</code> should return a negative number of the
+   * <code>a</code> argument is smaller than the <code>b</code> argument,
+   * a positive number if <code>a</code> argument is bigger than
+   * <code>b</code>, <code>0</code> otherwise.
+   */
+  def binIntersect[A, B](aEls : Iterator[A], bEls : IndexedSeq[B],
+                         compare : (A, B) => Int) : Iterator[(A, B)] =
+    new Iterator[(A, B)] {
+      private val bSize = bEls.size
+
+      private var nextPair : (A, B) = null
+      private var nextBIndex : Int = -1      
+
+      private def findNext : Unit = {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(AC, nextBIndex < bSize - 1)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
+        var step = 1
+        var newBIndex = nextBIndex + step
+        var newB = bEls(newBIndex)
+        
+        while (aEls.hasNext) {
+          val nextA = aEls.next
+
+          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+          Debug.assertInt(AC, nextBIndex + 1 == newBIndex)
+          //-END-ASSERTION-///////////////////////////////////////////////////////
+
+          var c = compare(nextA, newB)
+          while (c > 0) {
+            if (newBIndex == bSize - 1)
+              // no further B elements
+              return
+
+            nextBIndex = newBIndex
+            step = step * 2
+            newBIndex = (nextBIndex + step) min (bSize - 1)
+
+            newB = bEls(newBIndex)
+            c = compare(nextA, newB)
+          }
+
+          if (c < 0) {
+            // sought element is between nextBIndex and newBIndex;
+            // use binary search to find exact index
+
+            while (nextBIndex + 1 < newBIndex) {
+              val mid = (nextBIndex + newBIndex) / 2
+              val midB = bEls(mid)
+              c = compare(nextA, midB)
+              if (c < 0) {
+                newBIndex = mid
+                newB = midB
+              } else {
+                nextBIndex = mid
+                if (c == 0) {
+                  // found it
+                  nextPair = (nextA, midB)
+                  return
+                }
+              }
+            }
+
+            // B element does not exist, search for the next A element ...
+
+          } else {
+            // c == 0, we have found the exact index
+            nextBIndex = newBIndex
+            nextPair = (nextA, newB)
+            return
+          }
+        }
+
+        nextBIndex = bSize
+      }
+
+      def hasNext : Boolean =
+        if (nextPair != null) {
+          true
+        } else if (nextBIndex < bSize - 1) {
+          findNext
+          nextPair != null
+        } else {
+          false
+        }
+
+      def next : (A, B) = {
+        if (nextPair == null)
+          findNext
+        val res = nextPair
+        nextPair = null
+        res
+      }
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Determine all elements that occur in more than one of the given collections
    */
   def findDuplicates[A](els : Iterator[A]) : Set[A] = {

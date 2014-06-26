@@ -249,7 +249,7 @@ class VariableShiftVisitor(offset : Int, shift : Int)
 object VariablePermVisitor extends CollectingVisitor[IVarShift, IExpression] {
 
   def apply(t : IExpression, shifts : IVarShift) : IExpression =
-    this.visit(t, shifts)
+    if (shifts.isIdentity) t else this.visit(t, shifts)
 
   def apply(t : IFormula, shifts : IVarShift) : IFormula =
     apply(t.asInstanceOf[IExpression], shifts).asInstanceOf[IFormula]
@@ -280,13 +280,14 @@ object IVarShift {
   def apply(prefix : List[Int], defaultShift : Int) =
     IVarShiftList(prefix, defaultShift)
   
-  def apply(prefix :Map[Int, Int], defaultShift : Int) =
-    IVarShiftMap(List(), prefix, defaultShift)
+  def apply(prefix : Map[Int, Int], defaultShift : Int) =
+    IVarShiftMapEmptyPrefix(0, prefix, defaultShift)
   
   def apply(mapping : Map[IVariable, IVariable],
             defaultShift : Int) : IVarShift = {
-    val prefix = for ((IVariable(i), IVariable(j)) <- mapping) yield (i -> (j - i))
-    IVarShiftMap(List(), prefix, defaultShift)
+    val intMapping =
+      for ((IVariable(i), IVariable(j)) <- mapping) yield (i -> (j - i))
+    IVarShiftMapEmptyPrefix(0, intMapping, defaultShift)
   }
 }
 
@@ -295,6 +296,8 @@ abstract class IVarShift {
   def push(n : Int) : IVarShift
   def pop : IVarShift
   
+  def isIdentity : Boolean
+
   def apply(i : Int) : Int
   
   def apply(v : IVariable) : IVariable = {
@@ -332,6 +335,9 @@ case class IVarShiftList(prefix : List[Int], defaultShift : Int)
     IVarShiftList(newPrefix.toList, this.defaultShift + that.defaultShift)
   }
   
+  def isIdentity : Boolean =
+    defaultShift == 0 && (prefix forall (_ == 0))
+
   def apply(i : Int) : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IVarShift.AC, i >= 0)
@@ -365,6 +371,11 @@ case class IVarShiftMap(prefix : List[Int],
     IVarShiftMap(prefix.tail, mapping, defaultShift)
   }
   
+  def isIdentity : Boolean =
+    defaultShift == 0 &&
+    (prefix forall (_ == 0)) &&
+    (mapping.values forall (_ == 0))
+
   def apply(i : Int) : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IVarShift.AC, i >= 0)
@@ -373,6 +384,48 @@ case class IVarShiftMap(prefix : List[Int],
            prefix(i)
          else
            mapping.getOrElse(i - prefixLength, defaultShift))
+  }
+
+}
+
+/**
+ * Special case for a prefix only containing zeroes
+ */
+case class IVarShiftMapEmptyPrefix(prefixLength : Int,
+                                   mapping : Map[Int, Int],
+                                   defaultShift : Int)
+           extends IVarShift {
+  
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(IVarShift.AC,
+    (defaultShift >= 0 || ((0 until -defaultShift) forall (mapping contains _))) &&
+    (mapping forall {case (i, j) => i + j >= 0}))
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  def push(n : Int) =
+    if (n == 0)
+      IVarShiftMapEmptyPrefix(prefixLength + 1, mapping, defaultShift)
+    else
+      IVarShiftMap(n :: List.fill(prefixLength)(0), mapping, defaultShift)
+  
+  def pop = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IVarShift.AC, prefixLength > 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    IVarShiftMapEmptyPrefix(prefixLength - 1, mapping, defaultShift)
+  }
+  
+  def isIdentity : Boolean =
+    defaultShift == 0 && (mapping.values forall (_ == 0))
+
+  def apply(i : Int) : Int = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IVarShift.AC, i >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (i < prefixLength)
+      i
+    else
+      i + mapping.getOrElse(i - prefixLength, defaultShift)
   }
 
 }

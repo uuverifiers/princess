@@ -12,6 +12,8 @@ TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
 $PRI "$@" $TESTS 2>&1 | grep -v '^Prover'
 
 $PRI "$@" SWV032+1.p -assert +splitConjectures 2>&1 | grep -v '^Prover'
+$PRI "$@" -realRatSaturationRounds=1 -assert ARI495\=1.p
 
 # will exit with an exception
 $PRI "$@" SYN000_2.p
+
