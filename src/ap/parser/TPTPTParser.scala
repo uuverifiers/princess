@@ -395,18 +395,35 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     val veryLarge = new ConstantTerm(prefix + "very_large")
     env.addConstant(verySmall,  Environment.NullaryFunction, t)
     env.addConstant(veryLarge,  Environment.NullaryFunction, t)
+
+    val sortedValues = constants.keys.toList.sorted
     
+    val boundedInstances = {
+      //
+      // binary predicates
+      (for (predName <- Iterator("$less", "$lesseq", "$greater", "$greatereq");
+            (value1, const1) <- constants.iterator;
+            (value2, const2) <- constants.iterator;
+            res <- evalRRPred(predName, value1, value2).iterator)
+       yield rrPred(predName, !res, const1, const2)) ++
+      //
+      // literals are pairwise different
+      {
+        val allConsts =
+          (List(i(verySmall), i(veryLarge)) ++ (for (c <- constants.values) yield i(c))).toSeq
+        for (i <- (0 until allConsts.size).iterator;
+             j <- ((i+1) until allConsts.size).iterator)
+        yield (allConsts(i) =/= allConsts(j))
+      }
+    }.take(10000).toList
+
+    boundedInstances ++
+    //
     // unary predicates
     (for (predName <- List("$is_int", "$is_rat");
           (value, const) <- constants;
           res <- evalRRPred(predName, value).toSeq)
      yield rrPred(predName, !res, const)) ++
-    //
-    // binary predicates
-    (for (predName <- List("$less", "$lesseq", "$greater", "$greatereq");
-          (value1, const1) <- constants; (value2, const2) <- constants;
-          res <- evalRRPred(predName, value1, value2).toSeq)
-     yield rrPred(predName, !res, const1, const2)) ++
     //
     // unary functions
     (for (funName <- List("$uminus", "$floor", "$ceiling", "$truncate", "$round");
@@ -414,6 +431,13 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           res <- evalRRFun(funName, value).toSeq;
           resConst <- findRepresentations(res, t))
      yield (rrFun(funName, const) === resConst)) ++
+    //
+    // binary predicates
+    (for (Seq(value1, value2) <- (sortedValues sliding 2).toSeq;
+          const1 = constants(value1);
+          const2 = constants(value2);
+          res <- evalRRPred("$less", value1, value2).toSeq)
+     yield rrPred("$less", !res, const1, const2)) ++
     //
     // binary functions
     (for (funName <- List("$sum", "$difference", "$product", "$quotient",
@@ -434,14 +458,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
          rrPred("$lesseq", false, verySmall, veryLarge),
          rrPred("$greater", true, verySmall, veryLarge),
          rrPred("$greatereq", true, verySmall, veryLarge)) ++
-    //
-    // literals are pairwise different
-    {
-      val allConsts =
-        (List(i(verySmall), i(veryLarge)) ++ (for (c <- constants.values) yield i(c))).toSeq
-      for (i <- 0 until allConsts.size;
-           j <- (i+1) until allConsts.size) yield (allConsts(i) =/= allConsts(j))
-    } ++
     //
     // quantified axioms
     //
