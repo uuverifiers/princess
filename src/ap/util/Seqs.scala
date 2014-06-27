@@ -746,16 +746,16 @@ object Seqs {
         Debug.assertPre(AC, nextBIndex < bSize - 1)
         //-END-ASSERTION-///////////////////////////////////////////////////////
 
-        var step = 1
-        var newBIndex = nextBIndex + step
+        var newBIndex = nextBIndex + 1
         var newB = bEls(newBIndex)
         
         while (aEls.hasNext) {
           val nextA = aEls.next
+          var step = 1
 
-          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-          Debug.assertInt(AC, nextBIndex + 1 == newBIndex)
-          //-END-ASSERTION-///////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, nextBIndex + step == newBIndex)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
 
           var c = compare(nextA, newB)
           while (c > 0) {
