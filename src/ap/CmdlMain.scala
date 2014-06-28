@@ -263,6 +263,8 @@ object CmdlMain {
       case '4' => Param.TriggerStrategyOptions.AllUni
       case '5' => Param.TriggerStrategyOptions.MaximalOutermost
     })
+    if (str.size > 7)
+      s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
     s
   }
               
@@ -293,6 +295,9 @@ object CmdlMain {
        else
          "maximalOutermost"
     )
+
+    if (strategy.size > 7)
+      s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
     
     s
   }
@@ -322,6 +327,8 @@ object CmdlMain {
             fileProperties.conjectureNum = -1
             
             var rawStrategies =
+            List(("10010010",31000,2200), ("10001111",5000,200), ("12010030",16000,400), ("10011131",1000,600), ("12100101",5000,4000), ("11100010",1000,600), ("10110041",25000,2600), ("11110131",2000,2000), ("00101051",7000,5000), ("01100041",2000,2000), ("11001031",14000,14000), ("01100030",13000,1800), ("11010141",40000,20000), ("11010011",26000,2600), ("12100111",27000,200), ("12010011",33000,32000), ("12011130",29000,13000), ("11011011",4000,200), ("11011011",2000,800), ("11100011",19000,1400))
+      /*
               List(("1010002", 15000, 3000),
                    ("1210110", 15000, 3000),
                    ("0010101", 13000, 3000),
@@ -334,7 +341,8 @@ object CmdlMain {
                    ("0011011", Int.MaxValue, 3000),
                    ("1001001", 10000, 3000),
                    ("1011002", Int.MaxValue, 3000))
-                
+        */
+        
             var conjNum = 0
             var result : Prover.Result = null
 

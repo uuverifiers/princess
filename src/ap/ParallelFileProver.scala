@@ -22,7 +22,7 @@
 package ap
 
 import ap.parameters.GlobalSettings
-import ap.util.{Seqs, Debug, Timeout}
+import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
 
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
@@ -90,7 +90,7 @@ object ParallelFileProver {
       var result : SubProverResult = null
       
       def unfinished = (result == null)
-      def localTimeout = config.timeout
+      var localTimeout = config.timeout
       
       var runtime : Long = 0
       var runtimeOffset : Long = 0
@@ -103,7 +103,11 @@ object ParallelFileProver {
         // to solve simple problems without any parallelism.
         // Afterwards, use time slices
         val nextDiff =
-          if (activationCount == 0) config.initialSeqRuntime else Timeslice
+          if (activationCount == 0)
+            RuntimeStatistics.recommendInitialProofRuntime(
+                                 config.initialSeqRuntime)
+          else
+            Timeslice
         resume(nextDiff min maxNextPeriod)
       }
       
@@ -114,13 +118,26 @@ object ParallelFileProver {
         proofActor ! SubProverResume(targetedSuspendTime)
       }
       
+      def recordRuntime : Unit = {
+        val currentTime = System.currentTimeMillis
+        val lastRuntime = currentTime - lastStartTime
+        runtime = runtime + lastRuntime
+//        Console.err.println("Prover " + num + " runtime: " + runtime)
+
+        localTimeout = localTimeout +
+          (if (activationCount == 1)
+             RuntimeStatistics.recordInitialProofRuntime(lastRuntime)
+           else
+             RuntimeStatistics.recordProofRuntime(lastRuntime))
+      }
+
       /**
        * Record that the prover has signalled suspension.
        */
       def suspended(maxNextPeriod : Long) : ProverSuspensionDecision = {
         val currentTime = System.currentTimeMillis
-        runtime = runtime + (currentTime - lastStartTime)
-//        Console.err.println("Prover " + num + " runtime: " + runtime)
+        recordRuntime
+
         if (activationCount == 1 &&
             currentTime >= targetedSuspendTime + 5000 &&
             maxNextPeriod > 0) {
@@ -428,6 +445,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     // the main loop of the controller    
     while (runningProverNum > 0) receive {
       case r @ SubProverFinished(num, res) => {
+        spawnedProvers(num).recordRuntime
         retireProver(num, r)
         if (inconclusiveResult(num, res)) {
 //          if (incompleteResult == null)
@@ -439,6 +457,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       }
       
       case r @ SubProverException(num, t) => {
+        spawnedProvers(num).recordRuntime
         retireProver(num, r)
 //        t.printStackTrace
         addExceptionResult(t)
@@ -446,6 +465,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       }
       
       case r @ SubProverKilled(num, res) => {
+        spawnedProvers(num).recordRuntime
         retireProver(num, r)
 //        if (incompleteResult == null)
 //          incompleteResult = res
