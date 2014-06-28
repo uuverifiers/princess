@@ -325,7 +325,7 @@ object PresburgerTools {
       ReduceWithConjunction(Conjunction.TRUE, order)(
         ConstraintSimplifier.LEMMA_SIMPLIFIER(quantifiedImp, order))
 
-    if (boundSolutions.isFalse) {
+    if (boundSolutions.isTrue || boundSolutions.isFalse) {
       // there are no bounds
       None
     } else {

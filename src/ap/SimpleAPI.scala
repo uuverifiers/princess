@@ -347,7 +347,9 @@ class SimpleAPI private (enableAssert : Boolean,
 
   import SimpleAPI._
 
-  Debug enableAllAssertions enableAssert
+// Don't change assertion status of this thread,
+// which would have unwanted side-effects
+//    Debug enableAllAssertions enableAssert
 
   private def sanitise(s : String) : String =
     if (sanitiseNames) sanitiseHelp(s) else s
