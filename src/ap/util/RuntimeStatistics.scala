@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,10 +28,10 @@ package ap.util;
  */
 object RuntimeStatistics {
 
-  val firstLoadExtraTime : Long        = 1000
+  val firstLoadExtraTime : Long        = 2000
 
-  val initialSlowdown : Double         = 3.0
-  val slowdownHalftime : Long          = 3000
+  val initialSlowdown : Double         = 5.0
+  val slowdownHalftime : Long          = 4000
 
   val calculationSamplingPeriod : Long = 1000
 
@@ -41,12 +41,16 @@ object RuntimeStatistics {
   private def loadExtraTime = firstLoadExtraTime / (1 + loadCount)
 
   private def warmupSlowdown(proofTime : Long) : Double =
-    (initialSlowdown - 1.0) * scala.math.pow(2.0, -proofTime / slowdownHalftime) + 1.0
+    if (longRunning)
+      1.0
+    else
+      (initialSlowdown - 1.0) *
+         slowdownHalftime / (slowdownHalftime + proofTime) + 1.0
 
-//    (initialSlowdown - 1.0) * slowdownHalftime / (slowdownHalftime + proofTime) + 1.0
+//    (initialSlowdown - 1.0) * scala.math.pow(2.0, -proofTime / slowdownHalftime) + 1.0
 
   private def longRunning =
-    totalProofTime > (slowdownHalftime * 10.0)
+    totalProofTime > (slowdownHalftime * 30.0)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -57,6 +61,9 @@ object RuntimeStatistics {
    */
   def recommendInitialProofRuntime(regularInitial : Long)
                                   : Long = synchronized {
+    println(loadCount)
+    println(warmupSlowdown(totalProofTime))
+
     var leftTodo : Long  = regularInitial
     var allocated : Long = 0
 
