@@ -35,6 +35,8 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
+  class GaveUpException(_msg : String) extends Exception(_msg)
+
   def printGreeting = {
     println("________       _____")                                 
     println("___  __ \\_________(_)________________________________")
@@ -459,16 +461,34 @@ object CmdlMain {
             Some(result)
           } catch {
       case _ : StackOverflowError => Console.withOut(Console.err) {
-        if (format == Param.InputFormat.SMTLIB)
-          println("unknown")
-        println("Stack overflow, giving up")
+        format match {
+          case Param.InputFormat.SMTLIB => {
+            println("unknown")
+            Console.err.println("Stack overflow, giving up")
+          }
+          case Param.InputFormat.TPTP => {
+            println("% SZS status GaveUp for " + lastFilename)
+            Console.err.println("Stack overflow, giving up")
+          }
+          case _ =>
+            println("Stack overflow, giving up")
+        }
         // let's hope that everything is still in a valid state
         None
       }
       case _ : OutOfMemoryError => Console.withOut(Console.err) {
-        if (format == Param.InputFormat.SMTLIB)
-          println("unknown")
-        println("Out of memory, giving up")
+        format match {
+          case Param.InputFormat.SMTLIB => {
+            println("unknown")
+            Console.err.println("Out of memory, giving up")
+          }
+          case Param.InputFormat.TPTP => {
+            println("% SZS status GaveUp for " + lastFilename)
+            Console.err.println("Out of memory, giving up")
+          }
+          case _ =>
+            println("Out of memory, giving up")
+        }
         System.gc
         // let's hope that everything is still in a valid state
         None
@@ -480,7 +500,12 @@ object CmdlMain {
             Console.err.println(e.getMessage) 
           }
           case Param.InputFormat.TPTP => {
-            println("% SZS status Error for " + lastFilename)
+            e match {
+              case _ : GaveUpException =>
+                println("% SZS status GaveUp for " + lastFilename)
+              case _ =>
+                println("% SZS status Error for " + lastFilename)
+            }
             Console.err.println(e.getMessage) 
           }
           case _ => {

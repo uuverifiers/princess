@@ -62,7 +62,7 @@ object Preprocessing {
     def checkSize(fs : Iterable[IFormula]) = {
       val newSize = (for (f <- fs.iterator) yield SizeVisitor(f)).sum
       if (newSize > 5000000 && newSize > initialSize * 5)
-        throw new Exception("Undue size blow-up")
+        throw new CmdlMain.GaveUpException("Unexpected explosion during preprocessing")
     }
 
     // turn the formula into a list of its named parts
@@ -141,7 +141,7 @@ object Preprocessing {
       case Param.ClausifierOptions.Simple =>
         Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
           for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
-        )(throw new Exception("Clausification timed out"))
+        )(throw new CmdlMain.GaveUpException("Clausification timed out"))
     }
     checkSize(fors6)
     

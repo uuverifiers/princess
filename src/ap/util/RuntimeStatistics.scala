@@ -65,6 +65,7 @@ object RuntimeStatistics {
 //    println("Current assumed warm-up slowdown: " +
 //            warmupSlowdown(totalProofTime))
 
+/*
     var leftTodo : Long  = regularInitial
     var allocated : Long = 0
 
@@ -81,6 +82,8 @@ object RuntimeStatistics {
     }
 
     allocated + loadExtraTime
+ */
+    regularInitial + loadExtraTime
   }
 
   /**
