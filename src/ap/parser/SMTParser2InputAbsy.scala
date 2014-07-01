@@ -91,12 +91,12 @@ object SMTParser2InputAbsy {
    * a Java list */
   import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
 
-  private def asString(s : SymbolRef) : String = s match {
+  def asString(s : SymbolRef) : String = s match {
     case s : IdentifierRef     => asString(s.identifier_)
     case s : CastIdentifierRef => asString(s.identifier_)
   }
   
-  private def asString(id : Identifier) : String = id match {
+  def asString(id : Identifier) : String = id match {
     case id : SymbolIdent =>
       asString(id.symbol_)
     case id : IndexIdent =>
@@ -104,14 +104,14 @@ object SMTParser2InputAbsy {
       ((id.listindexc_ map (_.asInstanceOf[Index].numeral_)) mkString "_")
   }
   
-  private def asString(s : Symbol) : String = s match {
+  def asString(s : Symbol) : String = s match {
     case s : NormalSymbol =>
       sanitise(s.normalsymbolt_)
     case s : QuotedSymbol =>
       sanitise(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
   }
   
-  private object PlainSymbol {
+  object PlainSymbol {
     def unapply(s : SymbolRef) : scala.Option[String] = s match {
       case s : IdentifierRef => s.identifier_ match {
         case id : SymbolIdent => id.symbol_ match {
@@ -124,7 +124,7 @@ object SMTParser2InputAbsy {
     }
   }
   
-  private object IndexedSymbol {
+  object IndexedSymbol {
     def unapplySeq(s : SymbolRef) : scala.Option[Seq[String]] = s match {
       case s : IdentifierRef => s.identifier_ match {
         case id : IndexIdent => id.symbol_ match {
@@ -254,6 +254,14 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Hook to enable integration of further features or theories
+   */
+  protected def symAppExtension(sym : SymbolRef, args : Seq[Term], polarity : Int)
+                               : scala.Option[(IExpression, Type.Value)] = None
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private val printer = new PrettyPrinterNonStatic
   
   //////////////////////////////////////////////////////////////////////////////
@@ -277,17 +285,27 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
 
   private val functionDefs = new MHashMap[IFunction, (IExpression, Type.Value)]
 
+  private val sortDefs = new MHashMap[String, Type.Value]
+
   private var declareConstWarning = false
   
   private def apply(script : Script) = for (cmd <- script.listcommand_) cmd match {
 //      case cmd : SetLogicCommand =>
 //      case cmd : SetInfoCommand =>
 //      case cmd : SortDeclCommand =>
-//      case cmd : SortDefCommand =>
 //      case cmd : PushCommand =>
 //      case cmd : PopCommand =>
 //      case cmd : CheckSatCommand =>
 //      case cmd : ExitCommand =>
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : SortDefCommand => {
+        if (!cmd.listsymbol_.isEmpty)        
+          throw new Parser2InputAbsy.TranslationException(
+              "Currently only define-sort with arity 0 is supported")
+        sortDefs.put(asString(cmd.symbol_), translateSort(cmd.sort_))
+      }
 
       //////////////////////////////////////////////////////////////////////////
       
@@ -449,6 +467,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     case s : IdentSort => asString(s.identifier_) match {
       case "Int" => Type.Integer
       case "Bool" => Type.Bool
+      case id if (sortDefs contains id) => sortDefs(id)
       case id => {
         warn("treating sort " + (printer print s) + " as Int")
         Type.Integer
@@ -464,8 +483,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def translateTerm(t : Term, polarity : Int)
-                           : (IExpression, Type.Value) = t match {
+  protected def translateTerm(t : Term, polarity : Int)
+                             : (IExpression, Type.Value) = t match {
     case t : smtlib.Absyn.ConstantTerm =>
       (translateSpecConstant(t.specconstant_), Type.Integer)
       
@@ -966,9 +985,12 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     }
       
     ////////////////////////////////////////////////////////////////////////////
-    // Declared symbols from the environment
+    // Declared symbols from the environment, or extensions
     case id =>
-      unintFunApp(asString(id), sym, args, polarity)
+      symAppExtension(sym, args, polarity) match {
+        case Some(p) => p
+        case None    => unintFunApp(asString(id), sym, args, polarity)
+      }
   }
   
   private def unintFunApp(id : String,
@@ -1079,6 +1101,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   
   private def translateSpecConstant(c : SpecConstant) = c match {
     case c : NumConstant => i(IdealInt(c.numeral_))
+    case c : HexConstant => i(IdealInt(c.hexadecimal_ substring 2, 16))
+    case c : BinConstant => i(IdealInt(c.binary_ substring 2, 2))
   }
   
   private def translateChainablePred(args : Seq[Term],
@@ -1105,7 +1129,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   private def checkArgNumLazy(op : => String, expected : Int, args : Seq[Term]) : Unit =
     if (expected != args.size) checkArgNum(op, expected, args)
       
-  private def checkArgNum(op : String, expected : Int, args : Seq[Term]) : Unit =
+  protected def checkArgNum(op : String, expected : Int, args : Seq[Term]) : Unit =
     if (expected != args.size)
       throw new Parser2InputAbsy.TranslationException(
           "Operator \"" + op +
@@ -1128,7 +1152,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private def asFormula(expr : (IExpression, Type.Value)) : IFormula = expr match {
+  protected def asFormula(expr : (IExpression, Type.Value)) : IFormula = expr match {
     case (expr : IFormula, Type.Bool) =>
       expr
     case (expr : ITerm, Type.Bool) =>
@@ -1139,7 +1163,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
                    "Expected a formula, not " + expr)
   }
 
-  private def asTerm(expr : (IExpression, Type.Value)) : ITerm = expr match {
+  protected def asTerm(expr : (IExpression, Type.Value)) : ITerm = expr match {
     case (expr : ITerm, _) =>
       expr
     case (expr : IFormula, Type.Bool) =>

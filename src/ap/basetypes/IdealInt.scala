@@ -69,6 +69,12 @@ object IdealInt {
     */
   def apply(intString: String) : IdealInt = apply(new BigInteger(intString))
 
+  /** Translates the String representation of an <code>IdealInt</code>
+    * with base <code>b</code> into an <code>IdealInt</code>.
+    */
+  def apply(intString: String, b : Int) : IdealInt =
+    apply(new BigInteger(intString, b))
+
   /**
    * Pre-condition: i is in [minCached, maxCached]
    */

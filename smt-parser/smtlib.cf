@@ -34,7 +34,8 @@ SetLogicCommand.        Command         ::= "(" "set-logic" Symbol ")";
 SetOptionCommand.       Command         ::= "(" "set-option" OptionC ")";
 SetInfoCommand.         Command         ::= "(" "set-info" Annotation ")";
 SortDeclCommand. 	Command	        ::= "(" "declare-sort" Symbol Numeral ")";
-SortDefCommand. 	Command	        ::= "(" "define-sort" Symbol Sort ")";
+SortDefCommand. 	Command	        ::= "(" "define-sort" Symbol
+                                                "(" [Symbol] ")" Sort ")";
 FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
                                                 "(" MESorts ")" Sort ")";
 ConstDeclCommand.	Command	        ::= "(" "declare-const" Symbol Sort ")";
@@ -120,8 +121,8 @@ StringConstant.	SpecConstant	::= String;
 
 token Numeral     ('0' | (["123456789"] ["0123456789"]*));
 token Rational    (('0' | (["123456789"] ["0123456789"]*)) '.' ["0123456789"]+);
-token Hexadecimal ({"#hex"} ["0123456789ABCDEF"]+);
-token Binary      ({"#bin"} ["01"]+);
+token Hexadecimal ({"#h"} ["0123456789ABCDEF"]+);
+token Binary      ({"#b"} ["01"]+);
 
 NumMetaConstant.MetaConstant	::= "NUMERAL";
 RatMetaConstant.MetaConstant	::= "RATIONAL";
@@ -146,6 +147,8 @@ token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
                      (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
 
 token QuotedSymbolT ('|' [" `^~<=>_,;:!?/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ\n"]* '|');
+
+separator Symbol "";
 
 --------------------------------------------------------------------------------
 -- Annotations
