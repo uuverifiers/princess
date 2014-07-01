@@ -79,15 +79,38 @@ abstract class CollectingVisitor[A, R] {
     val toVisit = new Stack[IExpression]
     val argsToVisit = new Stack[A]
     val results = new Stack[R]
-    
+
+    val subRes = new ArrayBuffer[R]
+    object subResReverseView extends Seq[R] {
+      var N : Int = 0
+      def length = N
+      def apply(n : Int) = subRes(N - n - 1)
+      def iterator = new Iterator[R] {
+        var n = N - 1
+        def hasNext = n >= 0
+        def next = {
+          val res = subRes(n)
+          n = n - 1
+          res
+        }
+      }
+    }
+
     toVisit push expr
     argsToVisit push arg
     
     while (!toVisit.isEmpty) toVisit.pop match {
       case PostVisit(expr, arg) => {
-        var subRes : List[R] = List()
-        for (_ <- PlainRange(expr.length)) subRes = results.pop :: subRes
-        results push postVisit(expr, arg, subRes)
+        subResReverseView.N = expr.length
+
+        var i = subResReverseView.N - 1
+        while (i >= 0) {
+          subRes += results.pop
+          i = i - 1
+        }
+
+        results push postVisit(expr, arg, subResReverseView)
+        subRes.clear
       }
       
       case expr => {

@@ -517,9 +517,12 @@ object IExpression {
     } else {
       val newArgs = new scala.collection.mutable.ArrayBuffer[ITerm]
       var changed = false
-      for ((newE, oldE) <- newExprs.iterator zip oldExprs.iterator) {
-        val newArg = newE.asInstanceOf[ITerm]
-        if (!(newArg eq oldE)) changed = true
+
+      val newEIt = newExprs.iterator
+      val oldEIt = oldExprs.iterator
+      while (newEIt.hasNext) {
+        val newArg = newEIt.next.asInstanceOf[ITerm]
+        if (!(newArg eq oldEIt.next)) changed = true
         newArgs += newArg
       }
       if (changed) Some(newArgs) else None
