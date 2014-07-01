@@ -418,6 +418,24 @@ object IExpression {
     }
   }
 
+  /**
+   * Match on a difference
+   * <code>IPlus(a, ITimes(IdealInt.MINUS_ONE, b))</code>
+   * or
+   * <code>IPlus(ITimes(IdealInt.MINUS_ONE, a), b)</code>
+   */
+  object Difference {
+    def unapply(t : ITerm) : Option[(ITerm, ITerm)] = t match {
+      case IPlus(ITimes(IdealInt.ONE, a),
+                 ITimes(IdealInt.MINUS_ONE, b))    => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, a),
+                 ITimes(IdealInt.ONE, b))          => Some((a, b))
+      case IPlus(a, ITimes(IdealInt.MINUS_ONE, b)) => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, a), b) => Some((a, b))
+      case _                                       => None
+    }
+  }
+
   // Classes to talk about sequences of terms in a more succinct way
   
   implicit def iterm2RichITerm(lc : ITerm) : RichITerm =
@@ -499,9 +517,12 @@ object IExpression {
     } else {
       val newArgs = new scala.collection.mutable.ArrayBuffer[ITerm]
       var changed = false
-      for ((newE, oldE) <- newExprs.iterator zip oldExprs.iterator) {
-        val newArg = newE.asInstanceOf[ITerm]
-        if (!(newArg eq oldE)) changed = true
+
+      val newEIt = newExprs.iterator
+      val oldEIt = oldExprs.iterator
+      while (newEIt.hasNext) {
+        val newArg = newEIt.next.asInstanceOf[ITerm]
+        if (!(newArg eq oldEIt.next)) changed = true
         newArgs += newArg
       }
       if (changed) Some(newArgs) else None
