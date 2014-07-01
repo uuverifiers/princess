@@ -603,7 +603,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   //////////////////////////////////////////////////////////////////////////////
   
   private def genRRAxioms = {
-    saturateRR
+    if (tptpType == TPTPType.TFF && (containsRat || containsReal))
+      saturateRR
 
     val allLits = ratLiterals.toMap
     
