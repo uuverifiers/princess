@@ -138,7 +138,20 @@ object SMTParser2InputAbsy {
       case _ => None
     }
   }
-  
+
+  object CastSymbol {
+    def unapply(s : SymbolRef) : scala.Option[(String, Sort)] = s match {
+      case s : CastIdentifierRef => s.identifier_ match {
+        case id : SymbolIdent => id.symbol_ match {
+          case ns : NormalSymbol => Some((ns.normalsymbolt_, s.sort_))
+          case _ => None
+        }
+        case _ => None
+      }
+      case _ => None
+    }
+  }  
+
   //////////////////////////////////////////////////////////////////////////////
   
   private object LetInlineVisitor
@@ -252,14 +265,6 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
    */
   private var genInterpolants = false
   
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Hook to enable integration of further features or theories
-   */
-  protected def symAppExtension(sym : SymbolRef, args : Seq[Term], polarity : Int)
-                               : scala.Option[(IExpression, Type.Value)] = None
-
   //////////////////////////////////////////////////////////////////////////////
 
   private val printer = new PrettyPrinterNonStatic
@@ -463,7 +468,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def translateSort(s : Sort) : Type.Value = s match {
+  protected def translateSort(s : Sort) : Type.Value = s match {
     case s : IdentSort => asString(s.identifier_) match {
       case "Int" => Type.Integer
       case "Bool" => Type.Bool
@@ -781,8 +786,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
 
   private var tildeWarning = false
   
-  private def symApp(sym : SymbolRef, args : Seq[Term], polarity : Int)
-                    : (IExpression, Type.Value) = sym match {
+  protected def symApp(sym : SymbolRef, args : Seq[Term], polarity : Int)
+                      : (IExpression, Type.Value) = sym match {
     ////////////////////////////////////////////////////////////////////////////
     // Hardcoded connectives of formulae
     
@@ -985,12 +990,8 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     }
       
     ////////////////////////////////////////////////////////////////////////////
-    // Declared symbols from the environment, or extensions
-    case id =>
-      symAppExtension(sym, args, polarity) match {
-        case Some(p) => p
-        case None    => unintFunApp(asString(id), sym, args, polarity)
-      }
+    // Declared symbols from the environment
+    case id => unintFunApp(asString(id), sym, args, polarity)
   }
   
   private def unintFunApp(id : String,
