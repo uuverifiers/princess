@@ -106,19 +106,20 @@ object GroebnerMultiplication extends MulTheory {
   {
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
 
+      // Extract all predicates
+      val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
+
+      if (predicates.isEmpty)
+        return List()
+
       // An order is needed to construct polynomials, since Buchberger isn't used,
       // the order shouldn't matter.
       implicit val _ = goal.order
       implicit val monOrder = new GrevlexOrdering(new StringOrdering)
       implicit val ctOrder = monOrder.termOrdering
 
-      if (goal.facts.isTrue)
-        return List()
-
 // println("Splitter: " + goal.facts)
 
-      // Extract all predicates
-      val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
       val preds = (predicates.map(atomToPolynomial).toList).filter(x => !x.isZero)
       val ineqs = goal.facts.arithConj.inEqs
       val negeqs = goal.facts.arithConj.negativeEqs
@@ -754,7 +755,38 @@ object GroebnerMultiplication extends MulTheory {
         }
       }
 
-      val allFormulas = goal reduceWithFacts conj(intervalAtoms).negate
+      //////////////////////////////////////////////////////////////////////////
+      //
+      // Generate linear approximations of quadratic terms using
+      // cross-multiplication
+
+      def enumBounds(i : Interval) : Iterator[(IdealInt, IdealInt)] =
+        (i.lower match {
+           case IntervalVal(v) => Iterator single ((IdealInt.ONE, v))
+           case _ => Iterator.empty
+         }) ++
+        (i.upper match {
+           case IntervalVal(v) => Iterator single ((IdealInt.MINUS_ONE, -v))
+           case _ => Iterator.empty
+         })
+
+      val crossInEqs =
+        (for (a <- predicates.iterator;
+              if (a(0).size == 1 && a(0).constants.size == 1 &&
+                  a(1).size == 1 && a(1).constants.size == 1);
+              i0 = intervalSet getTermInterval a(0).leadingTerm.asInstanceOf[ConstantTerm];
+              (coeff0, bound0) <- enumBounds(i0 * a(0).leadingCoeff);
+              i1 = intervalSet getTermInterval a(1).leadingTerm.asInstanceOf[ConstantTerm];
+              (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff)) yield {
+           (a(2) * coeff0 * coeff1) -
+             (a(0) * coeff0 * bound1) -
+             (a(1) * coeff1 * bound0) +
+             (bound0 * bound1) >= 0
+         }).toList
+
+      //////////////////////////////////////////////////////////////////////////
+
+      val allFormulas = goal reduceWithFacts conj(intervalAtoms ++ crossInEqs).negate
       if (!allFormulas.isFalse) {
         return List(removeFactsAction, Plugin.AddFormula(allFormulas))
       }

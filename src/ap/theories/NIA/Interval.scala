@@ -273,6 +273,17 @@ class Interval(val lower : IntervalInt, val upper : IntervalInt, val gap : Optio
     }
   }
 
+  def *(that : IdealInt) : Interval =
+    if (that.isOne || this.isEmpty) {
+      this
+    } else if (that.isZero) {
+      new Interval (IntervalVal(IdealInt.ZERO), IntervalVal(IdealInt.ZERO), None)
+    } else if (that.signum > 0) {
+      new Interval (lower * that, upper * that, None)
+    } else { // that.signum < 0
+      new Interval (upper * that, lower * that, None)
+    }
+
   // this divided by that, minimized
   def mindiv(that : Interval) : IntervalInt =  {
     if (that.lower.isZero && that.upper.isZero)
