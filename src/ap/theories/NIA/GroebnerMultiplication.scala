@@ -115,6 +115,8 @@ object GroebnerMultiplication extends MulTheory {
       if (goal.facts.isTrue)
         return List()
 
+// println("Splitter: " + goal.facts)
+
       // Extract all predicates
       val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
       val preds = (predicates.map(atomToPolynomial).toList).filter(x => !x.isZero)
@@ -274,15 +276,14 @@ object GroebnerMultiplication extends MulTheory {
         */
 
       def infinitySplit(intervalSet : IntervalSet, targetSet : Set[ConstantTerm]) : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
-        var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
-
-        (intervalSet.getAllIntervals().collect {
-          case (c, i) if (i.lower == IntervalNegInf && i.upper == IntervalPosInf) => {
+        (intervalSet.getAllIntervals().iterator.collect {
+          case (c, i) if ((targetSet contains c) &&
+                          i.lower == IntervalNegInf && i.upper == IntervalPosInf) => {
             val opt1 = (c >= 0)
             val opt2 = (c < 0)
             (opt1.negate, opt2.negate, "[-Inf, +Inf] split: " + opt1 + ", " + opt2)
           }
-        }).iterator
+        })
       }
 
       /**
@@ -291,7 +292,7 @@ object GroebnerMultiplication extends MulTheory {
         */ 
 
       def desperateSplit(intervalSet : IntervalSet, targetSet : Set[ConstantTerm]) : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
-        val symbols = intervalSet.symbols.toList
+        val symbols = targetSet.toList.sortBy(_.name) // intervalSet.symbols.toList
 
         var alternatives = List() : List[(ap.terfor.Formula, ap.terfor.Formula, String)]
 
@@ -357,14 +358,17 @@ object GroebnerMultiplication extends MulTheory {
         *
         */
 
-      def gapSplit(intervalSet : IntervalSet) : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
+      def gapSplit(intervalSet : IntervalSet,
+                   targetSet : Set[ConstantTerm])
+                  : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
         val gaps = intervalSet.getGaps()
-        (for ((term, interval) <- gaps)
+        (for ((term, interval) <- gaps.iterator;
+              if (targetSet contains term))
         yield {
           val opt1 = (term < interval.gap.get._1)
           val opt2 = (term > interval.gap.get._2)
           (opt1.negate, opt2.negate, "Gap split on " + term + " using " + interval)
-        }).iterator
+        })
       }
 
 
@@ -397,7 +401,7 @@ object GroebnerMultiplication extends MulTheory {
       // Let the target set be the smallest set such that all predicates are made linear
       val targetSet = linearizers(predicates.toList).toList.sortWith((s1, s2) => s1.size > s2.size).head
 
-      val alternatives = negeqSplit(negeqs) ++ gapSplit(intervalSet) ++ 
+      val alternatives = negeqSplit(negeqs) ++ gapSplit(intervalSet, targetSet) ++ 
         (Param.NONLINEAR_SPLITTING(goal.settings) match {
           case Param.NonLinearSplitting.Sign => {
             infinitySplit(intervalSet, targetSet) ++ desperateSplit(intervalSet, targetSet)
@@ -407,8 +411,11 @@ object GroebnerMultiplication extends MulTheory {
           }
         })
 
-      if (!alternatives.isEmpty) 
-        return doSplit(alternatives.next())
+      if (!alternatives.isEmpty) {
+        val s = alternatives.next()
+        // println("Splitting: " + s)
+        return doSplit(s)
+      }
 
       val retList = plugin.get.handleGoalAux(goal, true)
       if (retList.isEmpty) {
@@ -553,6 +560,8 @@ object GroebnerMultiplication extends MulTheory {
       val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
       if (predicates.isEmpty)
         return List()
+
+// println("Groebner: " + goal.facts)
 
       // Add all elements from LHS as defined
       for (a <- predicates) {
