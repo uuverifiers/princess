@@ -333,6 +333,15 @@ object Param {
     type Value = Option[ap.proof.theoryPlugins.Plugin]
     val defau : Option[ap.proof.theoryPlugins.Plugin] = None
   }
+
+  object NonLinearSplitting extends Enumeration {
+    val Spherical, Sign = Value
+  }
+
+  case object NONLINEAR_SPLITTING extends Param {
+    type Value = NonLinearSplitting.Value
+    val defau : NonLinearSplitting.Value = NonLinearSplitting.Sign
+  }
 }
 
 abstract class Param {

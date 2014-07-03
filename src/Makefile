@@ -22,6 +22,7 @@ all:
 		ap/interpolants/*.scala \
 		ap/parameterInference/*.scala \
 		ap/theories/*.scala \
+		ap/theories/NIA/*.scala \
 		ap/*.scala
 
 doc:
@@ -46,4 +47,5 @@ doc:
 		ap/interpolants/*.scala \
 		ap/parameterInference/*.scala \
 		ap/theories/*.scala \
+		ap/theories/NIA/*.scala \
 		ap/*.scala

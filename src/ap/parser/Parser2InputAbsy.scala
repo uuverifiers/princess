@@ -227,7 +227,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
         val theory =
           Param.MUL_PROCEDURE(settings) match {
             case Param.MulProcedure.BitShift => ap.theories.BitShiftMultiplication
-            case Param.MulProcedure.Native   => ap.theories.GroebnerMultiplication
+            case Param.MulProcedure.Native   => ap.theories.NIA.GroebnerMultiplication
           }
         if (!nonLinearMultDefined) {
           Parser2InputAbsy.warn(

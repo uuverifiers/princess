@@ -23,7 +23,8 @@ package ap.parser
 
 import ap._
 import ap.basetypes.IdealInt
-import ap.theories.{GroebnerMultiplication, BitShiftMultiplication}
+import ap.theories.BitShiftMultiplication
+import ap.theories.NIA.GroebnerMultiplication
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
