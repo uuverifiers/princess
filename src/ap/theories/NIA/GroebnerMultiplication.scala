@@ -567,7 +567,9 @@ object GroebnerMultiplication extends MulTheory {
       for (a <- predicates) {
         for (aa <- a(2))
           aa._2 match {
-            case (x : ConstantTerm) => if (x.toString != "x" && x.toString != "y" && x.toString != "a" && x.toString != "b" && x.toString != "c" && x.toString != "d") definedList -= x
+            case (x : ConstantTerm) =>
+              if ((x.toString startsWith "all") || (x.toString startsWith "ex") || (x.toString startsWith "sc"))
+                definedList -= x
             case (OneTerm) => ()
           }
       }
