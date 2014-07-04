@@ -333,11 +333,17 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       case TPTPType.TFF => connect(
         // add full axioms
         (if (containsRat)
-           generalRatAxioms("rat_", RatType, allLits mapValues (_._1))
+           generalRatAxioms("rat_", RatType, allLits mapValues (_._1)) ++
+           (for ((value, (const, _)) <- allLits; if (value.denom.isOne))
+            yield (checkUnintFunTerm("int_$to_rat", List(i(value.num)), List(IntType))._1 ===
+                     const))
          else
            List()) ++
         (if (containsReal)
-           generalRatAxioms("real_", RealType, allLits mapValues (_._2))
+           generalRatAxioms("real_", RealType, allLits mapValues (_._2)) ++
+           (for ((value, (_, const)) <- allLits; if (value.denom.isOne))
+            yield (checkUnintFunTerm("int_$to_real", List(i(value.num)), List(IntType))._1 ===
+                     const))
          else
            List())
         , IBinJunctor.And)
@@ -390,7 +396,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                constants : Map[IdealRat, ConstantTerm]) = {
     // instances of axioms for the defined literals
     
-    implicit val s = t
+    implicit val _ = t
     
     val verySmall = new ConstantTerm(prefix + "very_small")
     val veryLarge = new ConstantTerm(prefix + "very_large")
@@ -431,6 +437,17 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           (value, const) <- constants;
           res <- evalRRFun(funName, value).toSeq;
           resConst <- findRepresentations(res, t))
+     yield (rrFun(funName, const) === resConst)) ++
+    //
+    // coercion function $to_int
+    (for ((value, const) <- constants;
+          res <- evalRRFun("$floor", value).toSeq)
+     yield (rrFun("$to_int", const) === res.num)) ++
+    //
+    // coercion functions $to_rat, $to_real
+    (for ((funName, resType) <- List(("$to_rat", RatType), ("$to_real", RealType));
+          (value, const) <- constants;
+          resConst <- findRepresentations(value, resType))
      yield (rrFun(funName, const) === resConst)) ++
     //
     // binary predicates
@@ -1472,6 +1489,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     }
 
     case ("$to_int",      Seq(IntType))           => args(0)
+    case ("$to_rat",      Seq(RatType))           => args(0)
+    case ("$to_real",     Seq(RealType))          => args(0)
+
     case ("$to_rat",      Seq(IntType))           => {
       foundRat
       args(0)._1 match {
@@ -1481,6 +1501,15 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
          checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
       }
     }
+    case ("$to_rat",      Seq(RealType))          => {
+      foundRat
+      args(0)._1 match {
+        case RRValue(value) =>
+          (ratConstFor(value), RatType)
+        case _ =>
+         checkUnintFunTerm("real_" + fun, args map (_._1), Seq(RealType))
+      }
+    }
     case ("$to_real",     Seq(IntType))           => {
       foundReal
       args(0)._1 match {
@@ -1488,6 +1517,15 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           (realConstFor(IdealRat(value)), RealType)
         case _ =>
          checkUnintFunTerm("int_" + fun, args map (_._1), Seq(IntType))
+      }
+    }
+    case ("$to_real",     Seq(RatType))           => {
+      foundReal
+      args(0)._1 match {
+        case RRValue(value) =>
+          (realConstFor(value), RealType)
+        case _ =>
+         checkUnintFunTerm("rat_" + fun, args map (_._1), Seq(RatType))
       }
     }
 
