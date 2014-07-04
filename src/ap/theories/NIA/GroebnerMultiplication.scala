@@ -384,8 +384,8 @@ object GroebnerMultiplication extends MulTheory {
       // Converts a split alternative to a Plugin.SplitGoal
       def doSplit(splitparams : (ap.terfor.Formula, ap.terfor.Formula, String)) : List[Plugin.Action] = {
         val (opt1, opt2, msg) = splitparams
-        val opt1act = Conjunction.conj(List(opt1, Conjunction.TRUE), goal.order)
-        val opt2act = Conjunction.conj(List(opt2, Conjunction.TRUE), goal.order)
+        val opt1act = Conjunction.conj(opt1, goal.order)
+        val opt2act = Conjunction.conj(opt2, goal.order)
         val splitgoal = Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)), List(Plugin.AddFormula(opt2act))))
         List(splitgoal)
       }
