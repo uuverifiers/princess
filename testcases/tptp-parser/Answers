@@ -59,6 +59,34 @@ Proving ...
 
 VALID
 
+Loading ARI526=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
+Warning: Problem contains reals, using incomplete axiomatisation
+Warning: Problem contains rationals, using incomplete axiomatisation
+Preprocessing ...
+Constructing countermodel ...
+
+VALID
+
+Loading ARI522=1.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
+Warning: Problem contains reals, using incomplete axiomatisation
+Warning: Problem contains rationals, using incomplete axiomatisation
+Preprocessing ...
+Constructing countermodel ...
+
+VALID
+
 Loading GEG021=1.p ...
 Warning: You are using the normal version of Princess to solve TPTP problems.
          Note that this version assumes a non-standard semantics
