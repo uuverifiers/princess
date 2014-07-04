@@ -5,6 +5,7 @@
 PRI=../../princess
 
 TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
+       ARI526=1.p ARI522=1.p \
        GEG021=1.p PUZ001+1.p PUZ133=2.p SYN050-1.p \
        SYO561_1.p SYO563+1.p SYO563+2.p let-tests.p \
        quotes.p multiple-conjectures.p SYN340+1.p SYN340+1-mod.p"
