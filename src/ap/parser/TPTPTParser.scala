@@ -648,6 +648,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       val allValues = ratLiterals.keys.toList
       for (val1 <- allValues.iterator; val2 <- allValues.iterator) {
         constsFor(-val1)
+        constsFor(val1 / IdealRat(2))
 
         constsFor(val1 + val2)
 //        constsFor(-(val1 + val2))
