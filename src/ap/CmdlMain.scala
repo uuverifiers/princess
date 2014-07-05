@@ -34,6 +34,8 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
+  private val version = "release 2014-02-10"
+
   def printGreeting = {
     println("________       _____")                                 
     println("___  __ \\_________(_)________________________________")
@@ -42,7 +44,7 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(release 2014-02-10)")
+    println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2014")
     println("(contributions by Angelo Brillout, Peter Baumgartner)")
@@ -61,6 +63,7 @@ object CmdlMain {
   def printOptions = {
     println("Options:")
     println(" [+-]logo                  Print logo and elapsed time              (default: +)")
+    println(" [+-]version               Print version and exit                   (default: -)")
     println(" [+-]quiet                 Suppress all output to stderr            (default: -)")
     println(" [+-]printTree             Output the constructed proof tree        (default: -)")
     println(" -inputFormat=val          Specify format of problem file:       (default: auto)")
@@ -657,7 +660,7 @@ object CmdlMain {
   def doMain(args: Array[String],
              userDefStoppingCond : => Boolean) : Unit = {
     val (settings, inputs) =
-      try { // switch on proof construction by default in the iPrincess version
+      try {
             GlobalSettings.fromArguments(args, GlobalSettings.DEFAULT)
           } catch {
       case e : Throwable => {
@@ -672,6 +675,11 @@ object CmdlMain {
       }
     }
 
+    if (Param.VERSION(settings)) {
+      println(version)
+      return
+    }
+          
     if (Param.QUIET(settings))
       Console setErr NullStream
           

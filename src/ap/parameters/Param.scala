@@ -25,6 +25,11 @@ import ap.Signature.PredicateMatchConfig
 
 object Param {
   
+  case object VERSION extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   case object LOGO extends Param {
     type Value = Boolean
     val defau : Boolean = true
