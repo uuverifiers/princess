@@ -89,6 +89,8 @@ object ServerMain {
       val clientSocket = socket.accept
 
       actor {
+        Console setErr CmdlMain.NullStream
+
         val inputReader =
           new java.io.BufferedReader(
           new java.io.InputStreamReader(clientSocket.getInputStream))
@@ -96,7 +98,6 @@ object ServerMain {
         val receivedTicket = inputReader.readLine
         if (ticket == receivedTicket) {
           val arguments = new ArrayBuffer[String]
-          arguments += "+quiet"
   
           var str = inputReader.readLine
           var done = false
