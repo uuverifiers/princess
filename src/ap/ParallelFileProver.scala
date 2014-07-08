@@ -506,7 +506,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case (null, null) =>
         // no conclusive result could be derived, return something inconclusive
 //        incompleteResult
-        (Prover.TimeoutCounterModel, -1)
+        if (overallTimeout)
+          (Prover.TimeoutCounterModel, -1)
+        else
+          (Prover.NoProof(null), -1)
       case (null, t) => throw t
       case (res, _) => (res, successfulProver)
     }

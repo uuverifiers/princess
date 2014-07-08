@@ -37,6 +37,8 @@ object CmdlMain {
 
   class GaveUpException(_msg : String) extends Exception(_msg)
 
+  private val version = "CASC version 2014-07-04"
+
   def printGreeting = {
     println("________       _____")                                 
     println("___  __ \\_________(_)________________________________")
@@ -45,7 +47,7 @@ object CmdlMain {
     println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
     println
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
-    println("(CASC version 2014-07-04)")
+    println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2014")
     println("(contributions by Peter Backeman, Peter Baumgartner,")
@@ -65,6 +67,7 @@ object CmdlMain {
   def printOptions = {
     println("Options:")
     println(" [+-]logo                  Print logo and elapsed time              (default: +)")
+    println(" [+-]version               Print version and exit                   (default: -)")
     println(" [+-]quiet                 Suppress all output to stderr            (default: -)")
     println(" [+-]printTree             Output the constructed proof tree        (default: -)")
     println(" -inputFormat=val          Specify format of problem file:       (default: auto)")
@@ -812,21 +815,26 @@ List(
   def doMain(args: Array[String],
              userDefStoppingCond : => Boolean) : Unit = {
     val (settings, inputs) =
-      try { // switch on proof construction by default in the iPrincess version
+      try {
             GlobalSettings.fromArguments(args, GlobalSettings.DEFAULT)
           } catch {
       case e : Throwable => {
         Console.withOut(Console.err) {
           printGreeting
           println
-          println(e.getMessage)
-          println
-          printUsage
         }
+        println(e.getMessage)
+        println
+        printUsage
         return
       }
     }
 
+    if (Param.VERSION(settings)) {
+      println(version)
+      return
+    }
+          
     if (Param.QUIET(settings))
       Console setErr NullStream
           

@@ -43,6 +43,8 @@ object GlobalSettings {
     
     for (arg <- args)
       settings = arg match {
+        case Opt("version", value) =>
+          Param.VERSION.set(settings, value)
         case Opt("logo", value) =>
           Param.LOGO.set(settings, value)
         case Opt("quiet", value) =>
@@ -165,7 +167,7 @@ object GlobalSettings {
   }
   
   val allParams =
-    List(Param.LOGO, Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
+    List(Param.VERSION, Param.LOGO, Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
          Param.ASSERTIONS, Param.PRINT_TREE,
          Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE,
