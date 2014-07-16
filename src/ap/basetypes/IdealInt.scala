@@ -61,7 +61,7 @@ object IdealInt {
   def apply(i : Long) : IdealInt =
     if (minCached <= i && i <= maxCached) fromCache(i.toInt) else newIdealInt(i)
 
-  private def apply(i : BigInteger) : IdealInt =
+  def apply(i : BigInteger) : IdealInt =
     if (i.bitLength <= cachedBits) fromCache(i) else newIdealInt(i)
 
   /** Translates the decimal String representation of an <code>IdealInt</code>
