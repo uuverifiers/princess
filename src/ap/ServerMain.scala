@@ -31,12 +31,12 @@ import java.net._
 
 object ServerMain {
 
-  private val InactivityTimeout = 15 * 60 * 1000 // shutdown after 15min inactivity
+  private val InactivityTimeout = 30 * 60 * 1000 // shutdown after 15min inactivity
   private val TicketLength = 40
   private val MaxThreadNum = 16
   private val MaxWaitNum   = 32
 
-  private object ThreadToken
+  private case class ThreadToken(stopTime : Long)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -56,7 +56,7 @@ object ServerMain {
                        InetAddress getByName "localhost")
     val port = socket.getLocalPort
 
-    socket.setSoTimeout(InactivityTimeout)
+    socket.setSoTimeout(InactivityTimeout / 2)
 
     Console.withOut(Console.err) {
       CmdlMain.printGreeting
@@ -73,94 +73,102 @@ object ServerMain {
 
     val serverActor = self
     for (_ <- 0 until MaxThreadNum)
-      serverActor ! ThreadToken
+      serverActor ! ThreadToken(System.currentTimeMillis)
 
     ////////////////////////////////////////////////////////////////////////////
     // The main loop
 
     var serverRunning = true
-    while (serverRunning) try {
+    while (serverRunning) {
 
       // Get a token to serve another request
-      receive {
-        case ThreadToken => // nothing
+      val curToken = receive {
+        case t : ThreadToken => t
       }
 
-      val clientSocket = socket.accept
-
-      actor {
-        Console setErr CmdlMain.NullStream
-
-        val inputReader =
-          new java.io.BufferedReader(
-          new java.io.InputStreamReader(clientSocket.getInputStream))
+      try {
+        val clientSocket = socket.accept
   
-        val receivedTicket = inputReader.readLine
-        if (ticket == receivedTicket) {
-          val arguments = new ArrayBuffer[String]
+        actor {
+          Console setErr CmdlMain.NullStream
   
-          var str = inputReader.readLine
-          var done = false
-          while (!done && str != null) {
-            str.trim match {
-              case "PROVE_AND_EXIT" => {
-                done = true
-                Console.withOut(clientSocket.getOutputStream) {
-                  var checkNum = 0
-                  var lastPing = System.currentTimeMillis
-                  var cancel = false
-
-                  CmdlMain.doMain(arguments.toArray, {
-                    checkNum = checkNum + 1
-                    cancel || (checkNum % 50 == 0 && {
-                      val currentTime = System.currentTimeMillis
-                      while (inputReader.ready) {
-                        inputReader.read
-                        lastPing = currentTime
-                      }
-                      cancel = currentTime - lastPing > 3000
-                      cancel
+          val inputReader =
+            new java.io.BufferedReader(
+            new java.io.InputStreamReader(clientSocket.getInputStream))
+    
+          val receivedTicket = inputReader.readLine
+          if (ticket == receivedTicket) {
+            val arguments = new ArrayBuffer[String]
+    
+            var str = inputReader.readLine
+            var done = false
+            while (!done && str != null) {
+              str.trim match {
+                case "PROVE_AND_EXIT" => {
+                  done = true
+                  Console.withOut(clientSocket.getOutputStream) {
+                    var checkNum = 0
+                    var lastPing = System.currentTimeMillis
+                    var cancel = false
+  
+                    CmdlMain.doMain(arguments.toArray, {
+                      checkNum = checkNum + 1
+                      cancel || (checkNum % 50 == 0 && {
+                        val currentTime = System.currentTimeMillis
+                        while (inputReader.ready) {
+                          inputReader.read
+                          lastPing = currentTime
+                        }
+                        cancel = currentTime - lastPing > 3000
+                        cancel
+                      })
                     })
-                  })
+                  }
                 }
+                case str =>
+                  arguments += str
               }
-              case str =>
-                arguments += str
+    
+              if (!done)
+                str = inputReader.readLine
             }
-  
-            if (!done)
-              str = inputReader.readLine
           }
+    
+          inputReader.close
+  
+          // Put back the token
+  	  serverActor ! ThreadToken(System.currentTimeMillis)
         }
   
-        inputReader.close
+      } catch {
+        case _ : SocketTimeoutException => {
+          // check whether any other thread is still active
+  
+          serverActor ! curToken
 
-        // Put back the token
-	serverActor ! ThreadToken
-      }
-
-    } catch {
-      case _ : SocketTimeoutException => {
-        // check whether any other thread is still active
-
-        var joinedThreads = 1
-        var timeout = false
-        while (!timeout && joinedThreads < MaxThreadNum)
-          receiveWithin(0) {
-            case ThreadToken => {
-              joinedThreads = joinedThreads + 1
+          var joinedThreads = List[ThreadToken]()
+          var stillActive = false
+          while (!stillActive && joinedThreads.size < MaxThreadNum)
+            receiveWithin(0) {
+              case t : ThreadToken => {
+                joinedThreads = t :: joinedThreads
+                // some thread only finished recently
+                stillActive =
+                  System.currentTimeMillis - t.stopTime < InactivityTimeout
+              }
+              case TIMEOUT => {
+                // there are still some threads running
+                stillActive = true
+              }
             }
-            case TIMEOUT => {
-              // there are still some threads running
-              timeout = true
-              for (_ <- 0 until joinedThreads)
-                serverActor ! ThreadToken
-            }
+  
+          if (stillActive) {
+            for (t <- joinedThreads)
+              serverActor ! t
+          } else {
+            Console.err.println("Shutting down inactive Princess daemon")
+            serverRunning = false
           }
-
-        if (!timeout) {
-          Console.err.println("Shutting down inactive Princess daemon")
-          serverRunning = false
         }
       }
     }
