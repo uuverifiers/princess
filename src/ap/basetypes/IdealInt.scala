@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009,2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -759,6 +759,9 @@ final class IdealInt private (private val longStore : Long,
   def floatValue  = if (usesLong) longStore.toFloat else biStore.floatValue
   def doubleValue = if (usesLong) longStore.toDouble else biStore.doubleValue
   
+  /** Converts this <code>IdealInt</code> to an <tt>BigInt</tt>.  */
+  def bigIntValue = getBI
+
   /** Returns the decimal <code>String</code> representation of this
     * <code>IdealInt</code>.
     */
