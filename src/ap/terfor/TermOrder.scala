@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -351,8 +351,16 @@ class TermOrder private (
                    consideredConstants : scala.collection.Set[ConstantTerm],
                    consideredPredicates : scala.collection.Set[Predicate])
                   : Boolean = {
+    val consideredConstantsSize = consideredConstants.size
+    if (consideredConstantsSize > that.constantWeight.size)
+      return false
+
+    val consideredPredicatesSize = consideredPredicates.size
+    if (consideredPredicatesSize > that.predicateWeight.size)
+      return false
+
     val constantIt =
-      if (consideredConstants.size < this.constantSeq.size / 3)
+      if (consideredConstantsSize < this.constantWeight.size / 3)
         (this sort consideredConstants).reverseIterator
       else
         this.constantSeq.iterator filter consideredConstants
@@ -366,7 +374,7 @@ class TermOrder private (
     }
 
     val predicateIt =
-      if (consideredPredicates.size < this.predicateSeq.size / 3)
+      if (consideredPredicatesSize < this.predicateWeight.size / 3)
         (this sortPreds consideredPredicates).reverseIterator
       else
         this.predicateSeq.iterator filter consideredPredicates
