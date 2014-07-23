@@ -336,7 +336,7 @@ class TermOrder private (
    * constants that are ordered by <code>this</code> it describes the same
    * order.
    */
-  def isSubOrderOf(that : TermOrder) : Boolean = 
+  def isSubOrderOf(that : TermOrder) : Boolean =
     Seqs.subSeq(this.constantSeq.iterator, that.constantSeq.iterator) &&
     Seqs.subSeq(this.predicateSeq.iterator, that.predicateSeq.iterator)
 
@@ -349,11 +349,38 @@ class TermOrder private (
    */
   def isSubOrderOf(that : TermOrder,
                    consideredConstants : scala.collection.Set[ConstantTerm],
-                   consideredPredicates : scala.collection.Set[Predicate]) : Boolean = 
-    Seqs.subSeq(this.constantSeq.iterator, consideredConstants,
-                that.constantSeq.iterator) &&
-    Seqs.subSeq(this.predicateSeq.iterator, consideredPredicates,
-                that.predicateSeq.iterator)
+                   consideredPredicates : scala.collection.Set[Predicate])
+                  : Boolean = {
+    val constantIt =
+      if (consideredConstants.size < this.constantSeq.size / 3)
+        (this sort consideredConstants).reverseIterator
+      else
+        this.constantSeq.iterator filter consideredConstants
+
+    var lastWeight = Int.MaxValue
+    while (constantIt.hasNext) {
+      val ConstantWeight(newWeight) = that.constantWeight(constantIt.next)
+      if (newWeight >= lastWeight)
+        return false
+      lastWeight = newWeight
+    }
+
+    val predicateIt =
+      if (consideredPredicates.size < this.predicateSeq.size / 3)
+        (this sortPreds consideredPredicates).reverseIterator
+      else
+        this.predicateSeq.iterator filter consideredPredicates
+
+    lastWeight = Int.MaxValue
+    while (predicateIt.hasNext) {
+      val newWeight = that.predicateWeight(predicateIt.next)
+      if (newWeight >= lastWeight)
+        return false
+      lastWeight = newWeight
+    }
+
+    true
+  }
 
   /**
    * Extend this ordering by inserting a further constant <code>newConst</code>.
