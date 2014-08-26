@@ -6,16 +6,16 @@
  * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -34,7 +34,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  private val version = "release 2014-02-10"
+  private val version = "release 2014-08-27"
 
   def printGreeting = {
     println("________       _____")                                 
@@ -48,7 +48,7 @@ object CmdlMain {
     println
     println("(c) Philipp Rümmer, 2009-2014")
     println("(contributions by Angelo Brillout, Peter Baumgartner)")
-    println("Free software under GNU General Public License (GPL).")
+    println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to ph_r@gmx.net")
     println
     println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
