@@ -237,6 +237,42 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     (completeFor, interpolantSpecs, genSignature(completeFor))
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Parse an SMT-LIB script of the form
+   * <code>(ignore expression)</code>.
+   */
+  def parseIgnoreCommand(input : java.io.Reader) : IExpression = {
+    def entry(parser : smtlib.parser) = {
+      val parseTree = parser.pScriptC
+      parseTree match {
+        case script : Script
+          if (script.listcommand_.size == 1) =>
+            script.listcommand_.head match {
+              case cmd : IgnoreCommand => cmd.term_
+              case _ =>
+                throw new ParseException(
+                    "Input is not of the form (ignore expression)")
+            }
+        case _ => throw new ParseException(
+                    "Input is not of the form (ignore expression)")
+      }
+    }
+    val expr = parseWithEntry(input, env, entry _)
+    translateTerm(expr, -1) match {
+      case p@(_, Type.Bool)    => asFormula(p)
+      case p@(_, Type.Integer) => asTerm(p)
+    }
+  }
+
+  def parseExpression(str : String) : IExpression =
+    parseIgnoreCommand(
+      new java.io.BufferedReader (
+        new java.io.StringReader("(ignore " + str + ")")))
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   protected def defaultFunctionType(f : IFunction) : Boolean = false
 
   /**
