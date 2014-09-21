@@ -21,7 +21,7 @@
 
 package ap.proof.goal;
 
-import ap.proof.theoryPlugins.{Plugin, EagerPluginTask}
+import ap.proof.theoryPlugins.{Plugin, EagerPluginTask, PrioritisedPluginTask}
 
 
 /**
@@ -113,6 +113,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
            _ : DivisibilityTask |
            _ : LazyMatchTask |
            _ : BoundStrengthenTask |
+           _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
     }
@@ -137,6 +138,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
            _ : LazyMatchTask |
+           _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
     }
@@ -160,6 +162,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
            _ : ExQuantifierTask |
            _ : DivisibilityTask |
            _ : LazyMatchTask |
+           _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
     }
@@ -183,6 +186,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
            _ : LazyMatchTask |
+           _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
     }
@@ -209,6 +213,7 @@ class EagerTaskAutomaton(plugin : Option[Plugin]) {
       case _ : BetaFormulaTask |
            _ : ExQuantifierTask |
            _ : LazyMatchTask |
+           _ : PrioritisedPluginTask |
            _ : BlockedFormulaTask => true
       case _ => false
     }
