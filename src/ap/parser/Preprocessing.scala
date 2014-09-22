@@ -65,16 +65,16 @@ object Preprocessing {
     val fors2a = for (f <- fors2) yield SimpleMiniscoper(f)
 
     // compress chains of implications
-    val fors2b = for (INamedPart(n, f) <- fors2a)
-                 yield INamedPart(n, ImplicationCompressor(f))
+//    val fors2b = for (INamedPart(n, f) <- fors2a)
+//                 yield INamedPart(n, ImplicationCompressor(f))
     
     val triggerGenerator =
       new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
                             Param.TRIGGER_STRATEGY(settings))
-    for (f <- fors2b)
+    for (f <- fors2a)
       triggerGenerator setup f
     val fors2c =
-      for (f <- fors2b) yield triggerGenerator(f)
+      for (f <- fors2a) yield triggerGenerator(f)
 
     // translate functions to relations
     var order3 = signature.order
