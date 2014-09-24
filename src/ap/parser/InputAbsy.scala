@@ -290,7 +290,7 @@ object IExpression {
   /**
    * Generate or match the equation <code>t = 0</code>.
    */
-  object EqZero {
+  object EqZ {
     def apply(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
     def unapply(f : IFormula) : Option[ITerm] = f match {
       case IIntFormula(IIntRelation.EqZero, t) => Some(t)
@@ -317,7 +317,7 @@ object IExpression {
   /**
    * Generate or match the inequality <code>t >= 0</code>.
    */
-  object GeqZero {
+  object GeqZ {
     def apply(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
     def unapply(f : IFormula) : Option[ITerm] = f match {
       case IIntFormula(IIntRelation.GeqZero, t) => Some(t)
