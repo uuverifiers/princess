@@ -286,11 +286,55 @@ object IExpression {
    * Generate the equation <code>t = 0</code>.
    */
   def eqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
+
+  /**
+   * Generate or match the equation <code>t = 0</code>.
+   */
+  object EqZero {
+    def apply(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
+    def unapply(f : IFormula) : Option[ITerm] = f match {
+      case IIntFormula(IIntRelation.EqZero, t) => Some(t)
+      case _ => None
+    }
+  }
+  
+  /**
+   * Generate or match an equation <code>s === t</code>.
+   */
+  object Eq {
+    def apply(s : ITerm, t : ITerm) : IFormula = (s === t)
+    def unapply(f : IFormula) : Option[(ITerm, ITerm)] = f match {
+      case IIntFormula(IIntRelation.EqZero, Difference(s, t)) => Some((s, t))
+      case _ => None
+    }
+  }
   
   /**
    * Generate the inequality <code>t >= 0</code>.
    */
   def geqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
+  
+  /**
+   * Generate or match the inequality <code>t >= 0</code>.
+   */
+  object GeqZero {
+    def apply(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
+    def unapply(f : IFormula) : Option[ITerm] = f match {
+      case IIntFormula(IIntRelation.GeqZero, t) => Some(t)
+      case _ => None
+    }
+  }
+
+  /**
+   * Generate or match an inequality <code>s >= t</code>.
+   */
+  object Geq {
+    def apply(s : ITerm, t : ITerm) : IFormula = (s >= t)
+    def unapply(f : IFormula) : Option[(ITerm, ITerm)] = f match {
+      case IIntFormula(IIntRelation.GeqZero, Difference(s, t)) => Some((s, t))
+      case _ => None
+    }
+  }
   
   def connect(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
     connect(fors.iterator, op)
@@ -422,16 +466,16 @@ object IExpression {
    * Match on a difference
    * <code>IPlus(a, ITimes(IdealInt.MINUS_ONE, b))</code>
    * or
-   * <code>IPlus(ITimes(IdealInt.MINUS_ONE, a), b)</code>
+   * <code>IPlus(ITimes(IdealInt.MINUS_ONE, b), a)</code>
    */
   object Difference {
     def unapply(t : ITerm) : Option[(ITerm, ITerm)] = t match {
       case IPlus(ITimes(IdealInt.ONE, a),
                  ITimes(IdealInt.MINUS_ONE, b))    => Some((a, b))
-      case IPlus(ITimes(IdealInt.MINUS_ONE, a),
-                 ITimes(IdealInt.ONE, b))          => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, b),
+                 ITimes(IdealInt.ONE, a))          => Some((a, b))
       case IPlus(a, ITimes(IdealInt.MINUS_ONE, b)) => Some((a, b))
-      case IPlus(ITimes(IdealInt.MINUS_ONE, a), b) => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, b), a) => Some((a, b))
       case _                                       => None
     }
   }
