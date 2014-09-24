@@ -304,8 +304,14 @@ object IExpression {
   object Eq {
     def apply(s : ITerm, t : ITerm) : IFormula = (s === t)
     def unapply(f : IFormula) : Option[(ITerm, ITerm)] = f match {
-      case IIntFormula(IIntRelation.EqZero, Difference(s, t)) => Some((s, t))
-      case _ => None
+      case IIntFormula(IIntRelation.EqZero, Difference(s, t)) =>
+        Some((s, t))
+      case IIntFormula(IIntRelation.EqZero, ITimes(IdealInt.MINUS_ONE, t)) =>
+        Some((i(0), t))
+      case IIntFormula(IIntRelation.EqZero, t) =>
+        Some((t, i(0)))
+      case _ =>
+        None
     }
   }
   
@@ -331,8 +337,14 @@ object IExpression {
   object Geq {
     def apply(s : ITerm, t : ITerm) : IFormula = (s >= t)
     def unapply(f : IFormula) : Option[(ITerm, ITerm)] = f match {
-      case IIntFormula(IIntRelation.GeqZero, Difference(s, t)) => Some((s, t))
-      case _ => None
+      case IIntFormula(IIntRelation.GeqZero, Difference(s, t)) =>
+        Some((s, t))
+      case IIntFormula(IIntRelation.GeqZero, ITimes(IdealInt.MINUS_ONE, t)) =>
+        Some((i(0), t))
+      case IIntFormula(IIntRelation.GeqZero, t) =>
+        Some((t, i(0)))
+      case _ =>
+        None
     }
   }
   
