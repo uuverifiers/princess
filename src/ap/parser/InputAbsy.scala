@@ -488,6 +488,8 @@ object IExpression {
                  ITimes(IdealInt.ONE, a))          => Some((a, b))
       case IPlus(a, ITimes(IdealInt.MINUS_ONE, b)) => Some((a, b))
       case IPlus(ITimes(IdealInt.MINUS_ONE, b), a) => Some((a, b))
+      case IPlus(a, IIntLit(value))                => Some((a, IIntLit(-value)))
+      case IPlus(IIntLit(value), a)                => Some((a, IIntLit(-value)))
       case _                                       => None
     }
   }
