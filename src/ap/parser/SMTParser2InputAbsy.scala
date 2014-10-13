@@ -1136,7 +1136,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private def translateSpecConstant(c : SpecConstant) = c match {
+  protected def translateSpecConstant(c : SpecConstant) = c match {
     case c : NumConstant => i(IdealInt(c.numeral_))
     case c : HexConstant => i(IdealInt(c.hexadecimal_ substring 2, 16))
     case c : BinConstant => i(IdealInt(c.binary_ substring 2, 2))
