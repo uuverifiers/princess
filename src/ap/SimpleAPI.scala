@@ -1516,14 +1516,22 @@ class SimpleAPI private (enableAssert : Boolean,
    * Stop a running prover. If the prover had already terminated, give same
    * result as <code>getResult</code>, otherwise <code>Unknown</code>.
    */
-  def stop : ProverStatus.Value = {
+  def stop : ProverStatus.Value = stop(true)
+
+  /**
+   * Stop a running prover. If the prover had already terminated, give same
+   * result as <code>getResult</code>, otherwise <code>Unknown</code>.
+   * Will block until completion if <code>block</code> argument is true,
+   * otherwise return immediately.
+   */
+  def stop(block : Boolean) : ProverStatus.Value = {
     doDumpScala {
-      println("// stop")
+      println("// stop(" + block + ")")
     }
     getStatusHelp(false) match {
       case ProverStatus.Running => {
         proofActor ! StopCommand
-        getStatusHelp(true)
+        getStatusHelp(block)
       }
       case res =>
         res
