@@ -45,7 +45,7 @@ object SimpleAPITest3 extends App {
       val knownPosLits =
         (for (atom <- goal.facts.predConj.positiveLits)
            yield atom.pred().asInstanceOf[IFormula]).toSet
-      if (Set(a, b) subsetOf knownPosLits)
+      if ((Set(a, b) subsetOf knownPosLits) && !(knownPosLits contains c))
         Some((asConjunction(c), Conjunction.TRUE))
       else
         None

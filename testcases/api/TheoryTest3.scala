@@ -80,7 +80,10 @@ object ATheory extends Theory {
                   })}))) yield a1
 
       val factsToRemove = Conjunction.conj(atomsToRemove, goal.order)
-      List(Plugin.RemoveFacts(factsToRemove))
+      if (factsToRemove.isTrue)
+        List()
+      else
+        List(Plugin.RemoveFacts(factsToRemove))
     }
   })
 

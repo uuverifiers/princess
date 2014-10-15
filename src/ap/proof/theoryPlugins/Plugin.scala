@@ -154,16 +154,37 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       goal.reduceWithFacts(
         Conjunction.disj(for (AddFormula(f) <- actions.iterator) yield f,
                          goal.order))
+
     val tasksToSchedule =
       (for (ScheduleTask(proc, priority) <- actions.iterator)
        yield new PrioritisedPluginTask(proc, priority, goal.age)).toList
+    val formulaTasks =
+      (goal formulaTasks factsToAdd)
 
-    if (factsToRemove.isTrue)
-      ptf.updateGoal(tasksToSchedule ++ (goal formulaTasks factsToAdd), goal)
-    else
-      ptf.updateGoal(goal.facts -- factsToRemove,
-                     tasksToSchedule ++ (goal formulaTasks factsToAdd),
-                     goal)
+    val newFacts =
+      if (factsToRemove.isTrue)
+        goal.facts
+      else
+        goal.facts -- factsToRemove
+
+    val allFormulaTasks =
+      if (formulaTasks.isEmpty &&
+          (actions exists {
+             case AddFormula(_) | RemoveFacts(_) => true
+             case _ => false
+           }) &&
+          !newFacts.isTrue) {
+        // we have to make sure that the plugin is called a a further time,
+        // otherwise we get very confusing semantics
+        // just add a formula that we already know about
+        goal formulaTasks !newFacts.iterator.next
+      } else {
+        formulaTasks
+      }
+
+    ptf.updateGoal(newFacts,
+                   tasksToSchedule ++ allFormulaTasks,
+                   goal)
   }
 }
 
