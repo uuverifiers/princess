@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,14 +30,15 @@ import ap.util.Seqs
 import java.io.PrintStream
 
 object PrettyScalaLineariser {
-  def apply(functionNames : Map[IFunction, String]) =
+  def apply(functionNames : PartialFunction[IFunction, String]) =
     new PrettyScalaLineariser(functionNames)
 }
 
 /**
  * Class for printing <code>IExpression</code>s in pretty Scala syntax
  */
-class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
+class PrettyScalaLineariser private (
+               functionNames : PartialFunction[IFunction, String]) {
 
   def apply(e : IExpression) =
     AbsyPrinter.visit(e, PrintContext(List(), "", true))
@@ -161,7 +162,7 @@ class PrettyScalaLineariser private (functionNames : Map[IFunction, String]) {
         }
       
         case IFunApp(fun, _) => {
-          print(functionNames.getOrElse(fun, fun.name))
+          print(functionNames.applyOrElse(fun, (f : IFunction) => f.name))
           print("(")
           allButLast(ctxt, ", ", ")", fun.arity)
         }

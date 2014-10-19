@@ -23,7 +23,7 @@ package ap.parser
 
 import ap._
 import ap.basetypes.IdealInt
-import ap.theories.BitShiftMultiplication
+import ap.theories._
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -116,10 +116,19 @@ class SMTLineariser(benchmarkName : String,
 
   import SMTLineariser.quoteIdentifier
 
-  private def fun2Identifier(fun : IFunction) = fun match {
-    case BitShiftMultiplication.mul => "*"
-    case fun => quoteIdentifier(funPrefix + fun.name)
-  }
+  private def fun2Identifier(fun : IFunction) =
+    (TheoryRegistry lookupSymbol fun) match {
+      case Some(t : SimpleArray) => fun match {
+        case t.select => "select"
+        case t.store => "store"
+      }
+      case Some(BitShiftMultiplication) => fun match {
+        case BitShiftMultiplication.mul => "*"
+      }
+      case _ =>
+        quoteIdentifier(funPrefix + fun.name)
+    }
+
   private def pred2Identifier(pred : Predicate) =
     quoteIdentifier(predPrefix + pred.name)
   private def const2Identifier(const : ConstantTerm) =

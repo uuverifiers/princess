@@ -36,7 +36,7 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction}
-import ap.theories.{Theory, TheoryCollector}
+import ap.theories.{Theory, TheoryCollector, TheoryRegistry, SimpleArray}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.{Debug, Timeout, Seqs}
 
@@ -353,6 +353,18 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def sanitise(s : String) : String =
     if (sanitiseNames) sanitiseHelp(s) else s
+
+  private val getFunctionNames = new PartialFunction[IFunction, String] {
+    def isDefinedAt(f : IFunction) =
+      (TheoryRegistry lookupSymbol f).isDefined
+    def apply(f : IFunction) = (TheoryRegistry lookupSymbol f) match {
+      case Some(t : SimpleArray) => f match {
+        case t.select => "select"
+        case t.store => "store"
+      }
+      case _ => f.name
+    }
+  }
 
   private val dumpSMTStream = dumpSMT match {
     case Some(basename) => {
@@ -1203,12 +1215,12 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * <code>select</code> function of the theory of arrays.
    */
-  def selectFun(arity : Int) : IFunction = getArrayFuns(arity)._1
+  def selectFun(arity : Int) : IFunction = SimpleArray(arity).select
   
   /**
    * <code>store</code> function of the theory of arrays.
    */
-  def storeFun(arity : Int) : IFunction = getArrayFuns(arity)._2
+  def storeFun(arity : Int) : IFunction = SimpleArray(arity).store
   
   /**
    * Generate a <code>select</code> expression in the theory of arrays.
@@ -1612,10 +1624,8 @@ class SimpleAPI private (enableAssert : Boolean,
     }
   }
   
-  private def interpolantSimplifier = (arrayFuns get 1) match {
-    case None => new Simplifier
-    case Some((sel, sto)) => new InterpolantSimplifier(sel, sto)
-  }
+  private def interpolantSimplifier =
+    new InterpolantSimplifier(SimpleArray(1).select, SimpleArray(1).store)
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2397,7 +2407,7 @@ class SimpleAPI private (enableAssert : Boolean,
     storedStates push (currentProver, needExhaustiveProver,
                        currentOrder, existentialConstants,
                        functionalPreds, functionEnc.clone,
-                       arrayFuns, formulaeInProver,
+                       formulaeInProver,
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
@@ -2431,7 +2441,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (oldProver, oldNeedExhaustiveProver,
          oldOrder, oldExConstants,
-         oldFunctionalPreds, oldFunctionEnc, oldArrayFuns,
+         oldFunctionalPreds, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
          oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert,
          oldTheoryPlugin, oldTheories, oldAbbrevFunctions) =
@@ -2442,7 +2452,6 @@ class SimpleAPI private (enableAssert : Boolean,
     existentialConstants = oldExConstants
     functionalPreds = oldFunctionalPreds
     functionEnc = oldFunctionEnc
-    arrayFuns = oldArrayFuns
     formulaeInProver = oldFormulaeInProver
     currentPartitionNum = oldPartitionNum
     constructProofs = oldConstructProofs
@@ -2711,7 +2720,6 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Set[IExpression.ConstantTerm],
                                              Set[IExpression.Predicate],
                                              FunctionEncoder,
-                                             Map[Int, (IFunction, IFunction)],
                                              List[(Int, Conjunction)],
                                              Int,
                                              Boolean,
@@ -2866,6 +2874,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
+/*
   private var arrayFuns : Map[Int, (IFunction, IFunction)] = Map()
   
   private def getArrayFuns(arity : Int) : (IFunction, IFunction) =
@@ -2888,6 +2897,7 @@ class SimpleAPI private (enableAssert : Boolean,
     (for ((_, (sel, sto)) <- arrayFuns.iterator;
           p <- Seqs.doubleIterator(sel -> "select", sto -> "store"))
      yield p).toMap
+*/
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -30,6 +30,7 @@ import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
+import ap.theories.SimpleArray
 import ap.basetypes.IdealInt
 import smtlib._
 import smtlib.Absyn._
@@ -515,9 +516,10 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       }
     }
     case s : CompositeSort => {
-      if (asString(s.identifier_) == "Array")
-        genArrayAxioms(!totalityAxiom, s.listsort_.size - 1)
-      warn("treating sort " + (printer print s) + " as Int")
+//      if (asString(s.identifier_) == "Array")
+//        genArrayAxioms(!totalityAxiom, s.listsort_.size - 1)
+      if (asString(s.identifier_) != "Array")
+        warn("treating sort " + (printer print s) + " as Int")
       Type.Integer
     }
   }
@@ -1005,6 +1007,17 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
     ////////////////////////////////////////////////////////////////////////////
     // Array operations
     
+    case PlainSymbol("select") =>
+      (IFunApp(SimpleArray(args.size - 1).select,
+               for (a <- args) yield asTerm(translateTerm(a, 0))),
+       Type.Integer)
+
+    case PlainSymbol("store") =>
+      (IFunApp(SimpleArray(args.size - 2).store,
+               for (a <- args) yield asTerm(translateTerm(a, 0))),
+       Type.Integer)
+
+/*
     case PlainSymbol("select") if (args.size == 2) => {
       genArrayAxioms(!totalityAxiom, 1)
       unintFunApp("select", sym, args, polarity)
@@ -1024,7 +1037,7 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
       genArrayAxioms(!totalityAxiom, args.size - 2)
       unintFunApp("_store_" + (args.size - 2), sym, args, polarity)
     }
-      
+*/    
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)
@@ -1096,44 +1109,53 @@ class SMTParser2InputAbsy (_env : Environment[Unit, SMTParser2InputAbsy.Variable
           "Expected a function application, not " + (printer print expr))
       
       expr.listsexpr_.head match {
-        case funExpr : SymbolSExpr => (env lookupSym asString(funExpr.symbol_)) match {
-          case Environment.Function(fun, _) => {
-            val args = expr.listsexpr_.tail.toList
-            checkArgNumSExpr(printer print funExpr.symbol_, fun.arity, args)
-            val translatedArgs = for (e <- args) yield translateTrigger(e) match {
-              case ta : ITerm => ta
-              case ta : IFormula => ITermITE(ta, i(0), i(1))
+        case funExpr : SymbolSExpr => asString(funExpr.symbol_) match {
+          case "select" =>
+            IFunApp(SimpleArray(expr.listsexpr_.size - 2).select,
+                    translateSExprTail(expr.listsexpr_))
+          case "store" =>
+            IFunApp(SimpleArray(expr.listsexpr_.size - 3).store,
+                    translateSExprTail(expr.listsexpr_))
+
+          case funName => (env lookupSym funName) match {
+            case Environment.Function(fun, _) => {
+              checkArgNumSExpr(printer print funExpr.symbol_, fun.arity,
+                               expr.listsexpr_.tail)
+              IFunApp(fun, translateSExprTail(expr.listsexpr_))
             }
-            IFunApp(fun, translatedArgs)
-          }
-          case Environment.Predicate(pred, _, _) => {
-            val args = expr.listsexpr_.tail.toList
-            checkArgNumSExpr(printer print funExpr.symbol_, pred.arity, args)
-            val translatedArgs = for (e <- args) yield translateTrigger(e) match {
-              case ta : ITerm => ta
-              case ta : IFormula => ITermITE(ta, i(0), i(1))
+            case Environment.Predicate(pred, _, _) => {
+              checkArgNumSExpr(printer print funExpr.symbol_, pred.arity,
+                               expr.listsexpr_.tail)
+              IAtom(pred, translateSExprTail(expr.listsexpr_))
             }
-            IAtom(pred, translatedArgs)
+            case Environment.Constant(c, _, _) => {
+              checkArgNumSExpr(printer print funExpr.symbol_,
+                               0, expr.listsexpr_.tail)
+              c
+            }
+            case Environment.Variable(i, BoundVariable(false)) => {
+              checkArgNumSExpr(printer print funExpr.symbol_,
+                               0, expr.listsexpr_.tail)
+              v(i)
+            }
+            case _ =>
+              throw new Parser2InputAbsy.TranslationException(
+                "Unexpected symbol in a trigger: " +
+                (printer print funExpr.symbol_))
           }
-          case Environment.Constant(c, _, _) => {
-            checkArgNumSExpr(printer print funExpr.symbol_,
-                             0, expr.listsexpr_.tail)
-            c
-          }
-          case Environment.Variable(i, BoundVariable(false)) => {
-            checkArgNumSExpr(printer print funExpr.symbol_,
-                             0, expr.listsexpr_.tail)
-            v(i)
-          }
-          case _ =>
-            throw new Parser2InputAbsy.TranslationException(
-              "Unexpected symbol in a trigger: " +
-              (printer print funExpr.symbol_))
         }
       }
     }
   }
   
+  private def translateSExprTail(exprs : ListSExpr) : Seq[ITerm] = {
+    val args = exprs.tail.toList
+    for (e <- args) yield translateTrigger(e) match {
+      case ta : ITerm => ta
+      case ta : IFormula => ITermITE(ta, i(0), i(1))
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   protected def translateSpecConstant(c : SpecConstant) = c match {
