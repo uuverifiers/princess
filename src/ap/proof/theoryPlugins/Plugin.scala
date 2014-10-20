@@ -37,6 +37,10 @@ object Plugin {
   case class SplitGoal   (cases : Seq[Seq[Action]]) extends Action
   case class ScheduleTask(proc : TheoryProcedure,
                           priority : Int)           extends Action
+
+  object GoalState extends Enumeration {
+    val Intermediate, Final = Value
+  }
 }
 
 /**
@@ -45,10 +49,18 @@ object Plugin {
  */
 trait TheoryProcedure {
 
+  import Plugin.GoalState
+
   /**
    * Apply this procedure to the given goal.
    */
   def handleGoal(goal : Goal) : Seq[Plugin.Action]
+
+  /**
+   * Try to determine in which state a given goal is.
+   */
+  def goalState(goal : Goal) : GoalState.Value =
+    if (goal.tasks.finalEagerTask) GoalState.Final else GoalState.Intermediate
 
 }
 

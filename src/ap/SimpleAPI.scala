@@ -794,16 +794,50 @@ class SimpleAPI private (enableAssert : Boolean,
     import IExpression._
     
     val p = new Predicate(name, 0)
-    addRelation(p)
+    addRelationHelp(p)
     p()
   }
 
-  private def addRelation(p : IExpression.Predicate) : Unit = {
+  /**
+   * Add an externally defined relation to the environment
+   * of this prover.
+   */
+  def addRelation(p : IExpression.Predicate) : Unit = {
+    doDumpSMT {
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(p.name) + " (" +
+          (for (_ <- 0 until p.arity) yield "Int").mkString(" ") + ") Bool)")
+    }
+    doDumpScala {
+      println("val " + p.name + " = " +
+              "createRelation(\"" + p.name + "\", " + p.arity + ")")
+    }
+    addRelationHelp(p)
+  }
+
+  private def addRelationHelp(p : IExpression.Predicate) : Unit = {
     currentOrder = currentOrder extendPred p
     restartProofActor
   }
 
-  private def addRelations(ps : Iterable[IExpression.Predicate]) : Unit = {
+  /**
+   * Add a sequence of externally defined relations to the environment
+   * of this prover.
+   */
+  def addRelations(ps : Iterable[IExpression.Predicate]) : Unit = {
+    doDumpSMT {
+      for (p <- ps)
+        println("(declare-fun " + SMTLineariser.quoteIdentifier(p.name) + " (" +
+            (for (_ <- 0 until p.arity) yield "Int").mkString(" ") + ") Bool)")
+    }
+    doDumpScala {
+      for (p <- ps)
+        println("val " + p.name + " = " +
+                "createRelation(\"" + p.name + "\", " + p.arity + ")")
+    }
+    addRelationsHelp(ps)
+  }
+
+  private def addRelationsHelp(ps : Iterable[IExpression.Predicate]) : Unit = {
     currentOrder = currentOrder extendPred ps.toSeq
     restartProofActor
   }
@@ -833,7 +867,7 @@ class SimpleAPI private (enableAssert : Boolean,
                 }
                 new Predicate ("p" + (startInd + i), 0)
               }).toIndexedSeq
-    addRelations(ps)
+    addRelationsHelp(ps)
     for (p <- ps) yield p()
   }
 
@@ -842,8 +876,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * of this prover.
    */
   def addBooleanVariable(f : IFormula) : Unit = f match {
-    case IAtom(p, _) => addRelation(p)
-    case f => addRelations(SymbolCollector nullaryPredicates f)
+    case IAtom(p, _) => addRelationHelp(p)
+    case f => addRelationsHelp(SymbolCollector nullaryPredicates f)
   }
 
   /**
@@ -1015,14 +1049,6 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
     val r = new Predicate(name, arity)
     addRelation(r)
-    doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
-          (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Bool)")
-    }
-    doDumpScala {
-      println("val " + name + " = " +
-              "createRelation(\"" + rawName + "\", " + arity + ")")
-    }
     r
   }
 

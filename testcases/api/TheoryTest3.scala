@@ -54,6 +54,7 @@ object ATheory extends Theory {
   }
 
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
+  val triggerRelevantFunctions : Set[IFunction] = Set()
   val functionalPredicates = predicates.toSet
   val functionPredicateMapping = List(f -> _f)
 
