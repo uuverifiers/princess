@@ -2684,7 +2684,13 @@ class SimpleAPI private (enableAssert : Boolean,
   // TODO: correct setting even if Theories are used?
   private def preprocSettings =
     Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
-            basicPreprocSettings, functionEnc.relations.keys.toSet)
+            basicPreprocSettings,
+            (for (f <- functionEnc.relations.keysIterator;
+                  if ((TheoryRegistry lookupSymbol f) match {
+                        case Some(t) => t.triggerRelevantFunctions contains f
+                        case None => true
+                      }))
+             yield f).toSet)
 
   private def exhaustiveProverGoalSettings = {
     var gs = goalSettings

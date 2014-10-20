@@ -70,6 +70,8 @@ class SimpleArray private (arity : Int) extends Theory {
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
 
+  val triggerRelevantFunctions : Set[IFunction] = functions.toSet
+
   val functionalPredicates = predicates.toSet
 
   val functionPredicateMapping =

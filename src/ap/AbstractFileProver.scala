@@ -30,6 +30,7 @@ import ap.parser.{InputAbsy2Internal,
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.Predicate
+import ap.theories.TheoryRegistry
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -64,13 +65,17 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       case Param.TriggerGenerationOptions.None => Set()
       case Param.TriggerGenerationOptions.All =>
         env.nonNullaryFunctions -- (
-          // remove interpreted functions
+          // remove irrelevant interpreted functions
           for (t <- signature.theories.iterator;
                f <- t.functions.iterator;
-               if (f.partial || f.relational)) yield f)
+               if (!(t.triggerRelevantFunctions contains f))) yield f)
       case Param.TriggerGenerationOptions.Total =>
-        for (f <- env.nonNullaryFunctions; if (!f.partial && !f.relational))
-          yield f
+        for (f <- env.nonNullaryFunctions;
+             if ((TheoryRegistry lookupSymbol f) match {
+                   case Some(t) => t.triggerRelevantFunctions contains f
+                   case None => !f.partial && !f.relational
+                 }))
+        yield f
     }
   
   private def newParser = Param.INPUT_FORMAT(settings) match {

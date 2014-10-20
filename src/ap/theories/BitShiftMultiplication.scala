@@ -97,6 +97,8 @@ object BitShiftMultiplication extends Theory {
 
   val functionPredicateMapping = List((mul, _mul))
 
+  val triggerRelevantFunctions : Set[IFunction] = Set()
+
   val plugin = Some(new Plugin {
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =

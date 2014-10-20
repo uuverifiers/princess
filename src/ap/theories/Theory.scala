@@ -128,6 +128,12 @@ trait Theory {
   val predicateMatchConfig : Signature.PredicateMatchConfig
 
   /**
+   * A list of functions that should be considered in automatic trigger
+   * generation
+   */
+  val triggerRelevantFunctions : Set[IFunction]
+
+  /**
    * When instantiating existentially quantifier formulas,
    * <code>EX phi</code>, at most one instantiation is necessary
    * provided that all predicates in <code>phi</code> are contained
