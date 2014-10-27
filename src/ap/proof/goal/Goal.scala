@@ -271,6 +271,12 @@ class Goal private (val facts : Conjunction,
   }
   
   lazy val closingConstraint : Conjunction = {
+    println("Goal:")
+    println(facts)
+    println("Functional predicates: " + (Param.FUNCTIONAL_PREDICATES(settings) mkString ", "))
+    println("Bindings: " + bindingContext)
+    println
+
     val ac = facts.arithConj
     
     // we can always leave out antecedent equations that contain eliminated

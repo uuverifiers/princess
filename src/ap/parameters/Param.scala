@@ -111,7 +111,10 @@ object Param {
   // resolve negative predicate literals in clauses with positive facts
   case object POS_UNIT_RESOLUTION extends Param {
     type Value = Boolean
-    val defau : Boolean = true
+//
+// We just use unification for the time being
+//
+    val defau : Boolean = false
   }
   
   object ClausifierOptions extends Enumeration {
@@ -157,7 +160,8 @@ object Param {
   
   case object BOOLEAN_FUNCTIONS_AS_PREDICATES extends Param {
     type Value = Boolean
-    val defau : Boolean = false
+
+    val defau : Boolean = true
   }
   
   // Use heuristics to distinguish between constructor and query

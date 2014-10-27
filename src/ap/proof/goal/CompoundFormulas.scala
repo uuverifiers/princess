@@ -34,7 +34,10 @@ object CompoundFormulas {
   
   def EMPTY(config : PredicateMatchConfig) =
     new CompoundFormulas(NegatedConjunctions.TRUE,
-                         IterativeClauseMatcher.empty(true, config),
+//
+// Detection of complementary literals is done via unification
+//
+                         IterativeClauseMatcher.empty(false, config),
                          IterativeClauseMatcher.empty(false, config))
   
 }

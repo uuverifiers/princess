@@ -361,8 +361,11 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   def addFunction(fun : IFunction) : Predicate = 
     relations.getOrElseUpdate(fun, {
       val pred = new Predicate(fun.name, fun.arity + 1)
-      if (!fun.relational)
-        axiomsVar = axiomsVar &&& functionality(pred)
+//
+// Functionality is handled by unification
+//
+//      if (!fun.relational)
+//        axiomsVar = axiomsVar &&& functionality(pred)
       if (!fun.partial && genTotalityAxioms)
         axiomsVar = axiomsVar &&& totality(pred)
       predTranslation += (pred -> fun)
