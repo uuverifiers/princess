@@ -1766,6 +1766,29 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants, return a (satisfiable)
+   * constraint over the existential constants that describes satisfying
+   * assignments of the existential constants.
+   */
+  def getConstraintRaw : Conjunction = {
+    doDumpSMT {
+      println("; (get-constraint-raw)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getConstraintRaw)")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatusHelp(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    currentConstraint
+  }
+
+  /**
    * Project a formula to a given set of constants; all other constants
    * are removed by quantifying them universally.
    * Note that this will also return all formulas that have previously
