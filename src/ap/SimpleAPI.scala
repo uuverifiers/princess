@@ -1232,6 +1232,12 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   /**
+   * Convert a formula from the internal prover format to input syntax.
+   */
+  def asIFormula(c : Conjunction) : IFormula =
+    (new Simplifier)(Internal2InputAbsy(c, Map()))
+
+  /**
    * Pretty-print a formula or term.
    */
   def pp(f : IExpression) : String = SimpleAPI.pp(f)
@@ -1762,7 +1768,31 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    (new Simplifier)(Internal2InputAbsy(currentConstraint, Map()))
+    asIFormula(currentConstraint)
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants, return a (satisfiable)
+   * constraint over the existential constants that describes satisfying
+   * assignments of the existential constants.
+   * The produced constraint is simplified and minimised.
+   */
+  def getMinimisedConstraint : IFormula = {
+    doDumpSMT {
+      println("; (get-minimised-constraint)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getMinimisedConstraint)")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatusHelp(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    asIFormula(PresburgerTools.minimiseFormula(currentConstraint))
   }
 
   /**

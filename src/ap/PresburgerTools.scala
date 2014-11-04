@@ -34,6 +34,8 @@ import ap.terfor.TerForConvenience._
 import ap.parameters.{GoalSettings, Param}
 import ap.util.{Debug, Seqs, IdealRange, Combinatorics}
 
+import scala.collection.mutable.{HashSet => MHashSet}
+
 /**
  * A collection of tools for analysing and transforming formulae in Presburger
  * arithmetic
@@ -561,6 +563,65 @@ object PresburgerTools {
     implicit val o = order
     val fors = ReduceWithConjunction(Conjunction.TRUE, order)(!c | !axioms)
     expansionProver(fors, order).closingConstraint.negate
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Minimise the given formula by eliminating unnecessary disjuncts.
+   * This is a stronger version of the simplification performed by
+   * <code>ReduceWithConjunction</code>, and also simplifies formulae
+   * <code>a & (b | c) & (b | c')</code> where <code>c & c'</code> is
+   * unsatisfiable.
+   */
+  def minimiseFormula(c : Conjunction) : Conjunction = {
+    val order = c.order
+    val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
+    minimiseFormulaHelp(reducer(c), reducer)
+  }
+
+  private def minimiseFormulaHelp(
+                  c : Conjunction,
+                  reducer : ReduceWithConjunction) : Conjunction = {
+    implicit val order = c.order
+    val newNegatedConjs =
+      c.negatedConjs.update(for (d <- c.negatedConjs)
+                              yield minimiseFormulaHelp(d, reducer),
+                            order)
+    val newC =
+      if (c.negatedConjs eq newNegatedConjs)
+        c
+      else
+        reducer(c.updateNegatedConjs(newNegatedConjs))
+
+    val impliedLiterals : Iterator[Conjunction] =
+      if (newC.negatedConjs.size <= 1) {
+        Iterator.empty
+      } else {
+        val checkedLits = new MHashSet[Conjunction]
+        for (d <- newC.negatedConjs.iterator;
+             lit <- d.iterator;
+             if ({
+                   if (checkedLits contains lit) {
+                     false
+                   } else {
+                     checkedLits += lit
+                     (ReduceWithConjunction(lit, order) tentativeReduce newC).isFalse
+                   }
+                 }))
+        yield lit
+      }
+
+    if (impliedLiterals.hasNext)
+      minimiseFormulaHelp(
+        reducer(Conjunction.conj((for (lit <- impliedLiterals) yield !lit) ++
+                                   (Iterator single newC),
+                                 order)),
+        reducer)
+    else if (newC eq c)
+      c
+    else
+      minimiseFormulaHelp(newC, reducer)
   }
 
   //////////////////////////////////////////////////////////////////////////////
