@@ -577,7 +577,16 @@ object PresburgerTools {
   def minimiseFormula(c : Conjunction) : Conjunction = {
     val order = c.order
     val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
-    minimiseFormulaHelp(reducer(c), reducer)
+
+    var newC = c
+    var changed = true
+    while (changed) {
+      val newC2 = minimiseFormulaHelp(reducer(newC), reducer)
+      changed = !(newC2 eq newC)
+      newC = newC2
+    }
+
+    newC
   }
 
   private def minimiseFormulaHelp(
@@ -588,7 +597,7 @@ object PresburgerTools {
       c.negatedConjs.update(for (d <- c.negatedConjs)
                               yield minimiseFormulaHelp(d, reducer),
                             order)
-    val newC =
+    var newC =
       if (c.negatedConjs eq newNegatedConjs)
         c
       else
@@ -613,15 +622,11 @@ object PresburgerTools {
       }
 
     if (impliedLiterals.hasNext)
-      minimiseFormulaHelp(
-        reducer(Conjunction.conj((for (lit <- impliedLiterals) yield !lit) ++
-                                   (Iterator single newC),
-                                 order)),
-        reducer)
-    else if (newC eq c)
-      c
+      reducer(Conjunction.conj((for (lit <- impliedLiterals) yield !lit) ++
+                                 (Iterator single newC),
+                               order))
     else
-      minimiseFormulaHelp(newC, reducer)
+      newC
   }
 
   //////////////////////////////////////////////////////////////////////////////
