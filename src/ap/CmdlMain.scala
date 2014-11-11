@@ -36,6 +36,8 @@ object CmdlMain {
 
   private val version = "release 2014-08-27"
 
+  var currentFilename : String = ""
+
   def printGreeting = {
     println("________       _____")                                 
     println("___  __ \\_________(_)________________________________")
@@ -695,6 +697,7 @@ object CmdlMain {
 
     for (filename <- inputs) try {
       implicit val format = determineInputFormat(filename, settings)
+      currentFilename = filename
       proveProblems(settings,
                     filename,
                     () => new java.io.BufferedReader (
