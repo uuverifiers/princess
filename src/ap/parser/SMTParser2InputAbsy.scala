@@ -616,15 +616,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     quantNum
   }
 
-  private def pushVar(bsort : Sort, bsym : Symbol) : Unit = {
-    val sort = translateSort(bsort)
-    if (sort != SMTInteger && sort != SMTBool)
-      throw new Parser2InputAbsy.TranslationException(
-           "Quantification of variables of type " +
-           (printer print bsort) +
-           " is currently not supported")
-    env.pushVar(asString(bsym), BoundVariable(sort))
-  }
+  private def pushVar(bsort : Sort, bsym : Symbol) : Unit =
+    env.pushVar(asString(bsym), BoundVariable(translateSort(bsort)))
   
   private def translateQuantifier(t : QuantifierTerm, polarity : Int)
                                  : (IExpression, SMTType) = {
@@ -727,11 +720,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       if (inlineLetExpressions) {
         // then we directly inline the bound formulae and terms
         
-        val subst = for ((_, t, s) <- bindings.toList.reverse) yield t match {
-          case SMTInteger => asTerm((s, t))
-          case SMTBool    => asTerm((s, t))
-        }
-        
+        val subst = for ((_, t, s) <- bindings.toList.reverse) yield asTerm((s, t))
         (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
       } else {
         val definingEqs =
@@ -739,12 +728,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             val shiftedS = VariableShiftVisitor(s, 0, bindings.size)
             val bv = v(bindings.length - num - 1)
             t match {        
-              case SMTInteger =>
-                asTerm((shiftedS, t)) === bv
               case SMTBool    =>
                 IFormulaITE(asFormula((shiftedS, t)),
                             IIntFormula(IIntRelation.EqZero, bv),
                             IIntFormula(IIntRelation.EqZero, bv + i(-1)))
+              case _ =>
+                asTerm((shiftedS, t)) === bv
             }}, IBinJunctor.And)
       
         bodyType match {
