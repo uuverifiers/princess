@@ -51,7 +51,7 @@ case class BindingContext private (// the groups of constants that are bound in 
     res
   }
 
-  private val quantifiers : scala.collection.Map[ConstantTerm, Quantifier] = {
+  val quantifiers : scala.collection.Map[ConstantTerm, Quantifier] = {
     val res = new scala.collection.mutable.HashMap[ConstantTerm, Quantifier]
     res ++= (for ((q, consts) <- constantSeq.iterator; c <- consts.iterator)
              yield (c, q))
