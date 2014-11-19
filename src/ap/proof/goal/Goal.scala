@@ -24,6 +24,7 @@ package ap.proof.goal;
 import scala.collection.mutable.ArrayBuffer
 
 import ap.proof._
+import ap.CmdlMain
 import ap.terfor.{Formula, ConstantTerm, VariableTerm,
                   TermOrder, TerFor, Term, AliasStatus}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
@@ -271,11 +272,199 @@ class Goal private (val facts : Conjunction,
   }
   
   lazy val closingConstraint : Conjunction = {
-    println("Goal:")
-    println(facts)
-    println("Functional predicates: " + (Param.FUNCTIONAL_PREDICATES(settings) mkString ", "))
-    println("Bindings: " + bindingContext)
-    println
+
+    val funpreds = Param.FUNCTIONAL_PREDICATES(settings)
+
+
+    //
+    // Output "interesting" unification problems
+    //
+
+    class FoundDataException(msg : String) extends Exception
+    class LookAgainException(msg : String) extends Exception
+
+    try {
+
+      var funcount = 0
+      for (p <- facts.predConj.iterator) {
+        for (pp <- p.positiveLits) {
+          if (funpreds.contains(pp.predicates.toList(0))) {
+            funcount += 1
+          }
+        }
+      }
+
+      if (funcount >= 0) {
+        //
+        // NODES / VARIABLES
+        //
+        var ctMap = Map() : Map[ConstantTerm, (Boolean, Int)]
+
+        var exCount = 0
+        var allCount = 0
+
+        for ((t, q) <- bindingContext.quantifiers) {
+          q match {
+	    case Quantifier.ALL => {
+              ctMap += (t -> ((true, allCount)))
+              allCount += 1
+            }
+	    case Quantifier.EX =>  {
+              ctMap += (t -> ((false, exCount)))
+              exCount += 1
+            }
+          }
+        }
+
+        //
+        // Functions
+        //
+
+        var Functions = List() : List[(Int, (Boolean, Int), List[(Boolean, Int)])]
+
+        val predicates = facts.predicates
+        // Create a map for predicates
+
+        import ap.terfor.preds.Predicate
+
+        val funMap = scala.collection.mutable.Map[Predicate,Int]()
+        val posPredMap = scala.collection.mutable.Map[Int,List[List[(Boolean, Int)]]]()
+        val negPredMap = scala.collection.mutable.Map[Int,List[List[(Boolean, Int)]]]()
+        var goals = List() : List[((Boolean, Int), (Boolean, Int))]
+
+        var funCount = 0
+        for (p <- predicates) {
+          funMap += (p -> funCount)
+          funCount += 1
+        }
+
+        def getArglist(elements : Iterator[LinearCombination]) : List[(Boolean, Int)] = {
+          var arglist = List() : List[(Boolean, Int)]
+          for (e <- elements) {
+            if (e.lcSize == 1) {
+              e.getTerm(0) match {
+                case ct : ConstantTerm => arglist ::= ctMap(ct)
+                case x => {
+                  println("Found: " + x + " (" + x.getClass + ")")
+                  throw new Exception("Error 2: Not ConstantTerm in function argument")
+                }
+              }
+            } else {
+              println("Elements: " + elements)
+              println("\te: " + e)
+              throw new Exception("Error 3: lcSize > 1")
+            }
+          }
+
+          return arglist
+        }
+
+        for (conj <- facts.predConj.iterator) {
+
+          // Positive literals give arise to equalities and predicate facts
+          for (literal <- conj.positiveLits) {
+            val function = literal.predicates.toList(0)
+            val f = funMap(function)
+            val arglist = getArglist(literal.elements)
+
+            if (funpreds.contains(function)) {
+              // If it is a function, store in Functions
+              val tuple = (f, arglist.head, arglist.drop(1).reverse)
+
+              Functions ::= tuple
+            } else {
+              // If not a function, store in posPredMap
+              posPredMap += (f -> (arglist :: (posPredMap.getOrElse(f, List()))))
+            }
+          }
+
+          // Negative literals give arise to goals and predicate facts
+          for (literal <- conj.negativeLits) {
+            val function = literal.predicates.toList(0)
+            val f = funMap(function)
+            val arglist = getArglist(literal.elements)
+
+            if (funpreds.contains(function)) {
+
+              // For each f(a, b) != c, make f(a,b) = c' and new goal c' = c
+              val tuple = (f, (false, exCount), arglist.drop(1).reverse)
+              Functions ::= tuple
+
+              goals ::= (((false, exCount), (arglist.head)))
+
+              exCount += 1
+            } else {
+              // If not a function, store in negPredMap
+              negPredMap += (f -> (arglist :: (negPredMap.getOrElse(f, List()))))
+            }
+          }
+        }
+
+        def convertTuple(t : (Boolean, Int)) : Int = {
+          val (all, n) = t
+          if (all) 
+            return n+exCount
+          else
+            return n
+        }
+
+        def convertFunction(fun : (Int, (Boolean, Int), List[(Boolean, Int)])) = {
+          val (f, n, args) = fun
+          (f, convertTuple(n), args.map(convertTuple))
+        }
+
+        val mapped_functions = Functions.map(convertFunction)
+
+        val Goals =
+          (for (pred <- posPredMap.keys)
+          yield (for (pp <- posPredMap(pred); np <- negPredMap(pred)) yield (pp.map(convertTuple) zip np.map(convertTuple)))).flatten
+
+        if (Goals.isEmpty) {
+          throw new LookAgainException("No goals")
+        }
+
+        var funlist = List() : List[String]
+        for ((f, n, args) <- mapped_functions) {
+          funlist ::= n + " " + f + " " + args.mkString(" ")
+        }
+
+
+        var exMap = Map() : Map[ConstantTerm, Int]
+        var allMap = Map() : Map[ConstantTerm, Int]
+
+
+        val output = CmdlMain.currentFilename + "\n" +
+          (0 to (exCount-1)).toList.mkString(" ") + "\n" +
+          (exCount to (exCount+allCount-1)).toList.mkString(" ") + "\n" +
+        "" + "\n" +
+        (funlist.mkString("-")) + "\n" +
+        ((for (goal <- Goals) yield ((for ((s,t) <- goal) yield (s + " " + t)).mkString("-"))).mkString("+"))
+
+        def using[A <: {def close(): Unit}, B](param: A)(f: A => B): B =
+          try { f(param) } finally { param.close() }
+
+        import java.io.{PrintWriter, FileWriter}
+
+        def appendToFile(fileName:String, textData:String) =
+          using (new FileWriter(fileName, true)){
+            fileWriter => using (new PrintWriter(fileWriter)) {
+              printWriter => printWriter.println(textData)
+            }
+          }
+
+
+        appendToFile("problems.txt", output)
+
+        throw new FoundDataException("Printed data")
+      } else {
+        println(facts)
+      }
+    } catch {
+      case fde : FoundDataException => throw new Exception("Found Data")
+      case lae : LookAgainException => 
+    }
+
+
 
     val ac = facts.arithConj
     
