@@ -536,7 +536,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   protected def translateTerm(t : Term, polarity : Int)
                              : (IExpression, SMTType) = t match {
     case t : smtlib.Absyn.ConstantTerm =>
-      (translateSpecConstant(t.specconstant_), SMTInteger)
+      translateSpecConstant(t.specconstant_)
       
     case t : NullaryTerm =>
       symApp(t.symbolref_, List(), polarity)
@@ -1103,7 +1103,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   private def translateTrigger(expr : SExpr) : IExpression = expr match {
     
-    case expr : ConstantSExpr => translateSpecConstant(expr.specconstant_)
+    case expr : ConstantSExpr => translateSpecConstant(expr.specconstant_)._1
     
     case expr : SymbolSExpr => (env lookupSym asString(expr.symbol_)) match {
       case Environment.Function(fun, _) => {
@@ -1179,10 +1179,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
   
-  protected def translateSpecConstant(c : SpecConstant) = c match {
-    case c : NumConstant => i(IdealInt(c.numeral_))
-    case c : HexConstant => i(IdealInt(c.hexadecimal_ substring 2, 16))
-    case c : BinConstant => i(IdealInt(c.binary_ substring 2, 2))
+  protected def translateSpecConstant(c : SpecConstant)
+                                     : (ITerm, SMTType) = c match {
+    case c : NumConstant =>
+      (i(IdealInt(c.numeral_)), SMTInteger)
+    case c : HexConstant =>
+      (i(IdealInt(c.hexadecimal_ substring 2, 16)), SMTInteger)
+    case c : BinConstant =>
+      (i(IdealInt(c.binary_ substring 2, 2)), SMTInteger)
   }
   
   private def translateChainablePred(args : Seq[Term],
