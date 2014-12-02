@@ -6,16 +6,16 @@
  * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -23,7 +23,7 @@ package ap.parser
 
 import ap._
 import ap.basetypes.IdealInt
-import ap.theories.BitShiftMultiplication
+import ap.theories._
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -116,10 +116,19 @@ class SMTLineariser(benchmarkName : String,
 
   import SMTLineariser.quoteIdentifier
 
-  private def fun2Identifier(fun : IFunction) = fun match {
-    case BitShiftMultiplication.mul => "*"
-    case fun => quoteIdentifier(funPrefix + fun.name)
-  }
+  private def fun2Identifier(fun : IFunction) =
+    (TheoryRegistry lookupSymbol fun) match {
+      case Some(t : SimpleArray) => fun match {
+        case t.select => "select"
+        case t.store => "store"
+      }
+      case Some(BitShiftMultiplication) => fun match {
+        case BitShiftMultiplication.mul => "*"
+      }
+      case _ =>
+        quoteIdentifier(funPrefix + fun.name)
+    }
+
   private def pred2Identifier(pred : Predicate) =
     quoteIdentifier(predPrefix + pred.name)
   private def const2Identifier(const : ConstantTerm) =

@@ -6,16 +6,16 @@
  * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -187,12 +187,14 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
   
   private def reduce(eqs1 : EquationConj, eqs2 : EquationConj,
                      logger : ComputationLogger) : EquationConj =
-    if (eqs2.isTrue)
+    if (eqs2.isTrue) {
       reduce(eqs1)
-    else if (eqs1.isTrue)
+    } else if (eqs1.isTrue) {
       reduce(eqs2)
-    else
-      reduce(EquationConj.conj(Array(eqs1, eqs2), logger, order))
+    } else {
+      val res = reduce(EquationConj.conj(Array(eqs1, eqs2), logger, order))
+      if (res == eqs1) eqs1 else res
+    }
 
   private def reduce(eqs : EquationConj) : EquationConj = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

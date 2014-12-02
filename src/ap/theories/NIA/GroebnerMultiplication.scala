@@ -69,6 +69,7 @@ object GroebnerMultiplication extends MulTheory {
   val functionalPredicates = predicates.toSet
   override val singleInstantiationPredicates = predicates.toSet
   val functionPredicateMapping = List(mul -> _mul)
+  val triggerRelevantFunctions : Set[IFunction] = Set()
 
   /**
     * Conversion functions
@@ -94,7 +95,380 @@ object GroebnerMultiplication extends MulTheory {
   }
 
 
+  //////////////////////////////////////////////////////////////////////////////
 
+  def plugin = Some(new Plugin {
+
+    var oldGBSrc = None : Option[Basis]
+    var oldGBRes = None : Option[Basis]
+
+    // not used
+    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
+
+
+
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = handleGoalAux(goal, false)
+
+    def handleGoalAux(goal : Goal, calledFromSplitter : Boolean) : Seq[Plugin.Action] = {
+      implicit val _ = goal.order
+
+      // First move from unprocessed => passive - reducing all polynomials in active
+      // Then move from passive to active => adding all s-polynomials to unprocessed
+      def Buchberger_aux(active : Basis, passive : Basis, unprocessed : Basis) : Basis = {
+        implicit val _ = active.ordering
+
+        if (!unprocessed.isEmpty) {
+          // Move one polynomial from unprocessed to passive
+
+          // Copy the current active set and add the passive set (so the original one is not destroyed)
+          val reducingBasis = active.copy()
+          reducingBasis.addBasis(passive)
+
+          val newPoly = reducingBasis.ReducePolynomial(unprocessed.get())
+
+          // If the new polynomial is reduced to zero, reiterate
+          if (newPoly.isZero)
+            return Buchberger_aux(active, passive, unprocessed)
+
+
+          // Reduce all polynomials in active w.r.t. newPoly
+          val activeReduced =
+            for (pA <- active.toList;
+              if (pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA))
+            yield
+              pA
+
+          val newActive = new Basis()
+          for (pA <- active.toList;
+            if (!(pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA)))
+            newActive.add(pA)
+
+          // Reduce all polynomials in passive w.r.t. newPoly
+          val passiveReduced =
+            for (pA <- passive.toList;
+              if (pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA))
+            yield
+              pA
+
+          val newPassive = new Basis()
+          for (pA <- passive.toList;
+            if (!(pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA)))
+            newPassive.add(pA)
+
+          newPassive.add(newPoly)
+
+          var newUnprocessed = unprocessed
+          for (p <- activeReduced ++ passiveReduced)
+            if (!p.ReduceBy(newPoly).isZero)
+              newUnprocessed.add(p.ReduceBy(newPoly))
+
+          return Buchberger_aux(newActive, newPassive, newUnprocessed)
+        } else if (!passive.isEmpty) {
+          val newPoly = passive.get()
+          val newPassive = passive.copy()
+          val newUnprocessed = unprocessed
+
+          for (p <- active.toList)
+            if (newPoly.LT.hasCommonVariables(p.LT)) {
+              val spol = newPoly.SPOL(p)
+              if (!spol.isZero)
+                newUnprocessed.add(newPoly.SPOL(p))
+            }
+
+          active.add(newPoly)
+
+          return Buchberger_aux(active, newPassive, newUnprocessed)
+        } else {
+          return active
+        }
+      }
+
+      // Buchberger algorithm
+      def Buchberger(basis : Basis) : Basis =
+      {
+        implicit val _ = basis.ordering
+        Buchberger_aux(new Basis, new Basis, basis)
+      }
+
+
+      // Converts Polynomial (Groebner) to an Atom (Princess)
+      // PRE: p is linear
+      def polynomialToAtom(p : Polynomial) : Conjunction = {
+        def termToLc(t : Term) : LinearCombination = {
+          if (t.m.pairs == Nil)
+            t.c
+          else
+            l(t.c) * t.m.pairs.head._1
+        }
+
+        val terms =
+          for (t <- p.terms;
+            if (!t.isZero))
+          yield
+            termToLc(t)
+
+        val LHS = (terms.tail).foldLeft(terms.head) ((t1,t2) => t1 + t2)
+        conj(LHS === 0)
+      }
+
+      // Create a list ordering
+      var orderList = List() : List[ConstantTerm]
+      var definedList = Set() : Set[ConstantTerm]
+
+      // Fetch all predicates, if none nothing we can do
+      val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
+      if (predicates.isEmpty)
+        return List()
+
+// println("Groebner: " + goal.facts)
+
+      // Add all elements from LHS as defined
+      for (a <- predicates) {
+        for (aa <- a(0) ++ a(1))
+          aa._2 match {
+            case (OneTerm) => ()
+            case (x : ConstantTerm) => definedList += x
+          }
+      }
+
+      // Remove all elements that occurs on RHS from defined
+      for (a <- predicates) {
+        for (aa <- a(2))
+          aa._2 match {
+            case (x : ConstantTerm) =>
+              if ((x.toString startsWith "all") || (x.toString startsWith "ex") || (x.toString startsWith "sc"))
+                definedList -= x
+            case (OneTerm) => ()
+          }
+      }
+
+      // Fix-point computation to find the defined-set
+      def genDefsymbols(predicates : List[Atom],
+                        defined : Set[ConstantTerm],
+                        undefined : List[ConstantTerm]) : List[ConstantTerm] = {
+        if (predicates == Nil)
+          undefined
+
+        for (a <- predicates) {
+          var allDefined = true
+          for (aa <- a(0) ++ a(1)) {
+            aa._2 match {
+              case (OneTerm) => ()
+              case (x : ConstantTerm) =>
+                if (!defined.exists(xx => xx == x))
+                  allDefined = false
+            }
+          }
+
+          if (allDefined)
+            a(2)(0)._2 match {
+              case (OneTerm) =>
+                return genDefsymbols(predicates diff List(a), defined, undefined)
+              case (x : ConstantTerm) =>
+                return genDefsymbols(predicates diff List(a), defined + x, x :: undefined)
+            }
+        }
+        undefined.reverse
+      }
+
+      orderList = genDefsymbols(predicates.toList,definedList, List())
+
+      implicit val monOrder = new PartitionOrdering(orderList, new GrevlexOrdering(new ListOrdering(orderList)))
+
+      val basis = new Basis()
+
+      var factsToRemove = List() : List[ap.terfor.preds.Atom]
+
+      for (a <- predicates) {
+        val p = atomToPolynomial(a)
+
+        if (p.isZero)
+          factsToRemove = a :: factsToRemove
+        else if (p.isConstant)
+          // If p is non-zero we have an inconsistency
+          return List(Plugin.AddFormula(Conjunction.TRUE))
+        else
+          basis.add(p)
+      }
+
+      val removeFactsActions =
+        if (factsToRemove.isEmpty)
+          List()
+        else
+          List(Plugin.RemoveFacts(conj(factsToRemove)))
+
+      val gb = 
+        if (oldGBSrc.isEmpty || oldGBSrc.toSet != basis.toSet) {
+
+          oldGBSrc = Some(basis)
+          val gb =  Buchberger(basis)
+          val simplified = gb.Simplify()
+          oldGBRes = Some(simplified)
+
+          // Translate this to a linear system
+
+          def makeMap(polylist : List[Polynomial]) : List[Monomial] = {
+            var newmap = List() : List[Monomial]
+
+            for (p <- polylist)
+              for (t <- p.terms)
+                if (!(newmap exists (x => x.toString == (t.m.toString)))) {
+                  if (t.m.isLinear)
+                    newmap = t.m :: newmap
+                  else
+                    newmap = newmap ++ List(t.m)
+                }
+            newmap
+          }
+
+          def polyToRow(poly : Polynomial, map : List[Monomial]) : List[IdealInt] = {
+            for (m <- map)
+            yield {
+              val termOpt = poly.terms find (x => x.m.toString == m.toString)
+              termOpt match {
+                case Some(term) => term.c
+                case None => 0 : IdealInt
+              }
+            }
+          }
+
+          def makeMatrix(polylist : List[Polynomial]) : Array[Array[IdealInt]] = {
+            var monomialMap = makeMap(polylist)
+            val list =
+              (for (p <- polylist)
+              yield
+                polyToRow(p, monomialMap)).toList
+
+            val array = Array.ofDim[IdealInt](list.length, monomialMap.length)
+
+            for (i <- 0 until list.length)
+              for (j <- 0 until list(i).length)
+                array(i)(j) = list(i)(j)
+
+            array
+          }
+
+          def rowToPolynomial(map : List[Monomial], row : Array[IdealInt])(implicit ordering : monomialOrdering) = {
+            var retPoly = new Polynomial(List())
+            for (i <- 0 until row.length;
+              if (!row(i).isZero))
+              retPoly += new Term(row(i), map(i))
+
+            retPoly
+          }
+
+          // Did we find any linear formulas that can be propagated back to princess
+          val linearEq = simplified.toList
+          if (!linearEq.isEmpty) {
+            val map = makeMap(linearEq)
+            val m = makeMatrix(linearEq)
+            val gaussian = new Gaussian(m)
+
+            val linearConj =
+              conj(for (r <- gaussian.getRows();
+                poly = rowToPolynomial(map, r);
+                if (poly.isLinear))
+              yield
+                polynomialToAtom(poly))
+
+            if (!linearConj.isTrue)
+              return removeFactsActions ::: List(Plugin.AddFormula(linearConj.negate))
+          }
+          gb
+        }
+        else
+        {
+          println("Reusing: " + oldGBRes.get)
+          oldGBRes.get
+        }
+
+      // If gröbner basis calculation does nothing
+      // Lets try to do some interval propagation
+
+      val preds = ((predicates.map(atomToPolynomial).toList).filter(x => !x.isZero) ++ gb.toSet).toList
+      val ineqs = goal.facts.arithConj.inEqs
+      val negeqs = goal.facts.arithConj.negativeEqs
+      val intervalSet = new IntervalSet(
+        preds,
+        ineqs.map(lcToPolynomial).toList,
+        negeqs.map(lcToPolynomial).toList)
+
+      if (intervalSet.propagate())
+        throw new Exception("Interval propagation error, abort!")
+
+      val intervals = intervalSet.getIntervals();
+
+      var intervalAtoms = List() : List[ap.terfor.inequalities.InEqConj]
+      for ((ct, i, (ul, uu, gu)) <- intervals) {
+        // Generate inequalities according to intervals
+        if (ul) {
+          i.lower match {
+            case IntervalNegInf =>
+            case IntervalPosInf => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
+            case IntervalVal(v) => intervalAtoms = (ct >= v) :: intervalAtoms
+          }
+        }
+
+        if (uu) {
+          i.upper match {
+            case IntervalNegInf => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
+            case IntervalVal(v) => intervalAtoms = (ct <= v) :: intervalAtoms
+            case IntervalPosInf =>
+          }
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+      //
+      // Generate linear approximations of quadratic terms using
+      // cross-multiplication
+
+      def enumBounds(i : Interval) : Iterator[(IdealInt, IdealInt)] =
+        (i.lower match {
+           case IntervalVal(v) => Iterator single ((IdealInt.ONE, v))
+           case _ => Iterator.empty
+         }) ++
+        (i.upper match {
+           case IntervalVal(v) => Iterator single ((IdealInt.MINUS_ONE, -v))
+           case _ => Iterator.empty
+         })
+
+      val crossInEqs =
+        (for (a <- predicates.iterator;
+              if (a(0).size == 1 && a(0).constants.size == 1 &&
+                  a(1).size == 1 && a(1).constants.size == 1);
+              i0 = intervalSet getTermInterval a(0).leadingTerm.asInstanceOf[ConstantTerm];
+              (coeff0, bound0) <- enumBounds(i0 * a(0).leadingCoeff);
+              i1 = intervalSet getTermInterval a(1).leadingTerm.asInstanceOf[ConstantTerm];
+              (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff)) yield {
+           (a(2) * coeff0 * coeff1) -
+             (a(0) * coeff0 * bound1) -
+             (a(1) * coeff1 * bound0) +
+             (bound0 * bound1) >= 0
+         }).toList
+
+      //////////////////////////////////////////////////////////////////////////
+
+      val allFormulas = goal reduceWithFacts conj(intervalAtoms ++ crossInEqs).negate
+      if (!allFormulas.isFalse)
+        return removeFactsActions ::: List(Plugin.AddFormula(allFormulas))
+
+      // Do splitting
+      if (calledFromSplitter)
+        return List()
+
+      goalState(goal) match {
+        case Plugin.GoalState.Final =>
+          // Split directly!
+          removeFactsActions ::: (Splitter handleGoal goal).toList
+        case _ =>
+          val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
+          removeFactsActions ::: List(scheduleAction)
+      }
+
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
 
   /**
     * Splitter handles the splitting when no new information can be deduced
@@ -161,7 +535,7 @@ object GroebnerMultiplication extends MulTheory {
       def sphericalSplit(predicates : List[ap.terfor.preds.Atom], intervalSet : IntervalSet) : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] =  {
 
         println("sphericalSplit not enabled!")
-        return (List()).iterator
+        return Iterator.empty
 
         // // CHAngE
         // val ls = linearizers(predicates).toList.sortWith((s1, s2) => s1.size > s2.size)
@@ -397,7 +771,7 @@ object GroebnerMultiplication extends MulTheory {
 
       intervalSet.propagate()
       if (!intervalSet.getInconsistency.isEmpty) {
-        return List(Plugin.AddFormula(forall(conj(List(v(0) > 0, v(0) < 0))).negate))
+        return List(Plugin.AddFormula(Conjunction.TRUE))
       }
 
       // Let the target set be the smallest set such that all predicates are made linear
@@ -419,394 +793,17 @@ object GroebnerMultiplication extends MulTheory {
         return doSplit(s)
       }
 
-      val retList = plugin.get.handleGoalAux(goal, true)
+      val retList = handleGoalAux(goal, true)
       if (retList.isEmpty) {
         println(intervalSet)
         throw new Exception("ERROR: No splitting alternatives found!")
-        List()
       } else {
         retList
       }
     }
   }
-
-
-
-
-
-
-
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  val plugin = Some(new Plugin {
-
-    var oldGBSrc = None : Option[Basis]
-    var oldGBRes = None : Option[Basis]
-
-    def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = {
-      println("ERROR :GENERATE AXIOMS?")
-      None
-    }
-
-
-    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = handleGoalAux(goal, false)
-
-    def handleGoalAux(goal : Goal, calledFromSplitter : Boolean) : Seq[Plugin.Action] = {
-      implicit val _ = goal.order
-
-      // First move from unprocessed => passive - reducing all polynomials in active
-      // Then move from passive to active => adding all s-polynomials to unprocessed
-      def Buchberger_aux(active : Basis, passive : Basis, unprocessed : Basis) : Basis = {
-        implicit val _ = active.ordering
-
-        if (!unprocessed.isEmpty) {
-          // Move one polynomial from unprocessed to passive
-
-          // Copy the current active set and add the passive set (so the original one is not destroyed)
-          val reducingBasis = active.copy()
-          reducingBasis.addBasis(passive)
-
-          val newPoly = reducingBasis.ReducePolynomial(unprocessed.get())
-
-          // If the new polynomial is reduced to zero, reiterate
-          if (newPoly.isZero)
-            return Buchberger_aux(active, passive, unprocessed)
-
-
-          // Reduce all polynomials in active w.r.t. newPoly
-          val activeReduced =
-            for (pA <- active.toList;
-              if (pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA))
-            yield
-              pA
-
-          val newActive = new Basis()
-          for (pA <- active.toList;
-            if (!(pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA)))
-            newActive.add(pA)
-
-          // Reduce all polynomials in passive w.r.t. newPoly
-          val passiveReduced =
-            for (pA <- passive.toList;
-              if (pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA))
-            yield
-              pA
-
-          val newPassive = new Basis()
-          for (pA <- passive.toList;
-            if (!(pA.LT.isDividedBy(newPoly.LT) && pA.ReduceBy(newPoly) != pA)))
-            newPassive.add(pA)
-
-          newPassive.add(newPoly)
-
-          var newUnprocessed = unprocessed
-          for (p <- activeReduced ++ passiveReduced)
-            if (!p.ReduceBy(newPoly).isZero)
-              newUnprocessed.add(p.ReduceBy(newPoly))
-
-          return Buchberger_aux(newActive, newPassive, newUnprocessed)
-        } else if (!passive.isEmpty) {
-          val newPoly = passive.get()
-          val newPassive = passive.copy()
-          val newUnprocessed = unprocessed
-
-          for (p <- active.toList)
-            if (newPoly.LT.hasCommonVariables(p.LT)) {
-              val spol = newPoly.SPOL(p)
-              if (!spol.isZero)
-                newUnprocessed.add(newPoly.SPOL(p))
-            }
-
-          active.add(newPoly)
-
-          return Buchberger_aux(active, newPassive, newUnprocessed)
-        } else {
-          return active
-        }
-      }
-
-      // Buchberger algorithm
-      def Buchberger(basis : Basis) : Basis =
-      {
-        implicit val _ = basis.ordering
-        Buchberger_aux(new Basis, new Basis, basis)
-      }
-
-
-      // Converts Polynomial (Groebner) to an Atom (Princess)
-      // PRE: p is linear
-      def polynomialToAtom(p : Polynomial) : Conjunction = {
-        def termToLc(t : Term) : LinearCombination = {
-          if (t.m.pairs == Nil)
-            t.c
-          else
-            l(t.c) * t.m.pairs.head._1
-        }
-
-        val terms =
-          for (t <- p.terms;
-            if (!t.isZero))
-          yield
-            termToLc(t)
-
-        val LHS = (terms.tail).foldLeft(terms.head) ((t1,t2) => t1 + t2)
-        conj(LHS === 0)
-      }
-
-      // Create a list ordering
-      var orderList = List() : List[ConstantTerm]
-      var definedList = Set() : Set[ConstantTerm]
-
-      // Fetch all predicates, if none nothing we can do
-      val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
-      if (predicates.isEmpty)
-        return List()
-
-// println("Groebner: " + goal.facts)
-
-      // Add all elements from LHS as defined
-      for (a <- predicates) {
-        for (aa <- a(0) ++ a(1))
-          aa._2 match {
-            case (OneTerm) => ()
-            case (x : ConstantTerm) => definedList += x
-          }
-      }
-
-      // Remove all elements that occurs on RHS from defined
-      for (a <- predicates) {
-        for (aa <- a(2))
-          aa._2 match {
-            case (x : ConstantTerm) =>
-              if ((x.toString startsWith "all") || (x.toString startsWith "ex") || (x.toString startsWith "sc"))
-                definedList -= x
-            case (OneTerm) => ()
-          }
-      }
-
-      // Fix-point computation to find the defined-set
-      def genDefsymbols(predicates : List[Atom], defined : Set[ConstantTerm], undefined : List[ConstantTerm]) : List[ConstantTerm] = {
-        if (predicates == Nil)
-          undefined
-
-        for (a <- predicates) {
-          var allDefined = true
-          for (aa <- a(0) ++ a(1)) {
-            aa._2 match {
-              case (OneTerm) => ()
-              case (x : ConstantTerm) => if (!defined.exists(xx => xx == x)) allDefined = false
-            }
-          }
-
-          if (allDefined)
-            a(2)(0)._2 match {
-              case (OneTerm) =>
-                return genDefsymbols(predicates diff List(a), defined, undefined)
-              case (x : ConstantTerm) =>
-                return genDefsymbols(predicates diff List(a), defined + x, x :: undefined)
-            }
-        }
-        undefined.reverse
-      }
-
-      orderList = genDefsymbols(predicates.toList,definedList, List())
-
-      implicit val monOrder = new PartitionOrdering(orderList, new GrevlexOrdering(new ListOrdering(orderList)))
-
-      val basis = new Basis()
-
-      var factsToRemove = List() : List[ap.terfor.preds.Atom]
-
-      for (a <- predicates) {
-        val p = atomToPolynomial(a)
-
-        if (p.isZero)
-          factsToRemove = a :: factsToRemove
-        else if (p.isConstant)
-          // If p is non-zero we have an inconsistency
-          return List(Plugin.AddFormula(forall(conj(List(v(0) > 0, v(0) < 0))).negate))
-        else
-          basis.add(p)
-      }
-
-      val removeFactsAction = Plugin.RemoveFacts(conj(factsToRemove))
-
-      val gb = 
-        if (oldGBSrc.isEmpty || oldGBSrc.toSet != basis.toSet) {
-
-          oldGBSrc = Some(basis)
-          val gb =  Buchberger(basis)
-          val simplified = gb.Simplify()
-          oldGBRes = Some(simplified)
-
-          // Translate this to a linear system
-
-          def makeMap(polylist : List[Polynomial]) : List[Monomial] = {
-            var newmap = List() : List[Monomial]
-
-            for (p <- polylist)
-              for (t <- p.terms)
-                if (!(newmap exists (x => x.toString == (t.m.toString)))) {
-                  if (t.m.isLinear)
-                    newmap = t.m :: newmap
-                  else
-                    newmap = newmap ++ List(t.m)
-                }
-            newmap
-          }
-
-          def polyToRow(poly : Polynomial, map : List[Monomial]) : List[IdealInt] = {
-            for (m <- map)
-            yield {
-              val termOpt = poly.terms find (x => x.m.toString == m.toString)
-              termOpt match {
-                case Some(term) => term.c
-                case None => 0 : IdealInt
-              }
-            }
-          }
-
-          def makeMatrix(polylist : List[Polynomial]) : Array[Array[IdealInt]] = {
-            var monomialMap = makeMap(polylist)
-            val list =
-              (for (p <- polylist)
-              yield
-                polyToRow(p, monomialMap)).toList
-
-            val array = Array.ofDim[IdealInt](list.length, monomialMap.length)
-
-            for (i <- 0 until list.length)
-              for (j <- 0 until list(i).length)
-                array(i)(j) = list(i)(j)
-
-            array
-          }
-
-          def rowToPolynomial(map : List[Monomial], row : Array[IdealInt])(implicit ordering : monomialOrdering) = {
-            var retPoly = new Polynomial(List())
-            for (i <- 0 until row.length;
-              if (!row(i).isZero))
-              retPoly += new Term(row(i), map(i))
-
-            retPoly
-          }
-
-          // Did we find any linear formulas that can be propagated back to princess
-          val linearEq = simplified.toList
-          if (!linearEq.isEmpty) {
-            val map = makeMap(linearEq)
-            val m = makeMatrix(linearEq)
-            val gaussian = new Gaussian(m)
-
-            val linearConj =
-              conj(for (r <- gaussian.getRows();
-                poly = rowToPolynomial(map, r);
-                if (poly.isLinear))
-              yield
-                polynomialToAtom(poly))
-
-            if (!linearConj.isTrue) {
-              val allAxioms = Conjunction.conj(List(linearConj, Conjunction.TRUE),
-                goal.order).negate
-              return List(removeFactsAction, Plugin.AddFormula(allAxioms))
-            }
-          }
-          gb
-        }
-        else
-        {
-          println("Reusing: " + oldGBRes.get)
-          oldGBRes.get
-        }
-
-      // If gröbner basis calculation does nothing
-      // Lets try to do some interval propagation
-
-      val preds = ((predicates.map(atomToPolynomial).toList).filter(x => !x.isZero) ++ gb.toSet).toList
-      val ineqs = goal.facts.arithConj.inEqs
-      val negeqs = goal.facts.arithConj.negativeEqs
-      val intervalSet = new IntervalSet(
-        preds,
-        ineqs.map(lcToPolynomial).toList,
-        negeqs.map(lcToPolynomial).toList)
-
-      if (intervalSet.propagate())
-        throw new Exception("Interval propagation error, abort!")
-
-      val intervals = intervalSet.getIntervals();
-
-      var intervalAtoms = List() : List[ap.terfor.inequalities.InEqConj]
-      for ((ct, i, (ul, uu, gu)) <- intervals) {
-        // Generate inequalities according to intervals
-        if (ul) {
-          i.lower match {
-            case IntervalNegInf =>
-            case IntervalPosInf => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
-            case IntervalVal(v) => intervalAtoms = (ct >= v) :: intervalAtoms
-          }
-        }
-
-        if (uu) {
-          i.upper match {
-            case IntervalNegInf => intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
-            case IntervalVal(v) => intervalAtoms = (ct <= v) :: intervalAtoms
-            case IntervalPosInf =>
-          }
-        }
-      }
-
-      //////////////////////////////////////////////////////////////////////////
-      //
-      // Generate linear approximations of quadratic terms using
-      // cross-multiplication
-
-      def enumBounds(i : Interval) : Iterator[(IdealInt, IdealInt)] =
-        (i.lower match {
-           case IntervalVal(v) => Iterator single ((IdealInt.ONE, v))
-           case _ => Iterator.empty
-         }) ++
-        (i.upper match {
-           case IntervalVal(v) => Iterator single ((IdealInt.MINUS_ONE, -v))
-           case _ => Iterator.empty
-         })
-
-      val crossInEqs =
-        (for (a <- predicates.iterator;
-              if (a(0).size == 1 && a(0).constants.size == 1 &&
-                  a(1).size == 1 && a(1).constants.size == 1);
-              i0 = intervalSet getTermInterval a(0).leadingTerm.asInstanceOf[ConstantTerm];
-              (coeff0, bound0) <- enumBounds(i0 * a(0).leadingCoeff);
-              i1 = intervalSet getTermInterval a(1).leadingTerm.asInstanceOf[ConstantTerm];
-              (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff)) yield {
-           (a(2) * coeff0 * coeff1) -
-             (a(0) * coeff0 * bound1) -
-             (a(1) * coeff1 * bound0) +
-             (bound0 * bound1) >= 0
-         }).toList
-
-      //////////////////////////////////////////////////////////////////////////
-
-      val allFormulas = goal reduceWithFacts conj(intervalAtoms ++ crossInEqs).negate
-      if (!allFormulas.isFalse) {
-        return List(removeFactsAction, Plugin.AddFormula(allFormulas))
-      }
-
-      // Do splitting
-      if (calledFromSplitter)
-        return List()
-
-      // If in final mode
-      if (goal.tasks.finalEagerTask) {
-        // Split directly!
-        removeFactsAction :: (Splitter.handleGoal(goal)).toList
-      } else {
-        val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
-        List(removeFactsAction, scheduleAction)
-      }
-
-    }
   })
+
 
   TheoryRegistry register this
 

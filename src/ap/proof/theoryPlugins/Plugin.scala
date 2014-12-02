@@ -6,16 +6,16 @@
  * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -37,6 +37,10 @@ object Plugin {
   case class SplitGoal   (cases : Seq[Seq[Action]]) extends Action
   case class ScheduleTask(proc : TheoryProcedure,
                           priority : Int)           extends Action
+
+  object GoalState extends Enumeration {
+    val Intermediate, Final = Value
+  }
 }
 
 /**
@@ -45,10 +49,18 @@ object Plugin {
  */
 trait TheoryProcedure {
 
+  import Plugin.GoalState
+
   /**
    * Apply this procedure to the given goal.
    */
   def handleGoal(goal : Goal) : Seq[Plugin.Action]
+
+  /**
+   * Try to determine in which state a given goal is.
+   */
+  def goalState(goal : Goal) : GoalState.Value =
+    if (goal.tasks.finalEagerTask) GoalState.Final else GoalState.Intermediate
 
 }
 
@@ -154,16 +166,37 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       goal.reduceWithFacts(
         Conjunction.disj(for (AddFormula(f) <- actions.iterator) yield f,
                          goal.order))
+
     val tasksToSchedule =
       (for (ScheduleTask(proc, priority) <- actions.iterator)
        yield new PrioritisedPluginTask(proc, priority, goal.age)).toList
+    val formulaTasks =
+      (goal formulaTasks factsToAdd)
 
-    if (factsToRemove.isTrue)
-      ptf.updateGoal(tasksToSchedule ++ (goal formulaTasks factsToAdd), goal)
-    else
-      ptf.updateGoal(goal.facts -- factsToRemove,
-                     tasksToSchedule ++ (goal formulaTasks factsToAdd),
-                     goal)
+    val newFacts =
+      if (factsToRemove.isTrue)
+        goal.facts
+      else
+        goal.facts -- factsToRemove
+
+    val allFormulaTasks =
+      if (formulaTasks.isEmpty &&
+          (actions exists {
+             case AddFormula(_) | RemoveFacts(_) => true
+             case _ => false
+           }) &&
+          !newFacts.isTrue) {
+        // we have to make sure that the plugin is called a a further time,
+        // otherwise we get very confusing semantics
+        // just add a formula that we already know about
+        goal formulaTasks !newFacts.iterator.next
+      } else {
+        formulaTasks
+      }
+
+    ptf.updateGoal(newFacts,
+                   tasksToSchedule ++ allFormulaTasks,
+                   goal)
   }
 }
 

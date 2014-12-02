@@ -3,19 +3,19 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -828,9 +828,16 @@ object LineariseVisitor {
 ////////////////////////////////////////////////////////////////////////////////
 
 object QuantifierCountVisitor {
+  protected[parser] val AC = Debug.AC_INPUT_ABSY
+
   def apply(f : IFormula) : Int = {
     val v = new QuantifierCountVisitor
     v.visitWithoutResult(f, {})
+    v.count
+  }
+  def apply(f : IFormula, consideredQuantifiers : Set[Quantifier]) : Int = {
+    val v = new SelectiveQuantifierCountVisitor (consideredQuantifiers)
+    v.visitWithoutResult(f, Context({}))
     v.count
   }
 }
@@ -848,17 +855,57 @@ class QuantifierCountVisitor extends CollectingVisitor[Unit, Unit] {
   }
 }
 
+/**
+ * Count the number of quantifiers in a formula
+ */
+class SelectiveQuantifierCountVisitor(consideredQuantifiers : Set[Quantifier])
+      extends ContextAwareVisitor[Unit, Unit] {
+  protected[parser] var count = 0
+
+  override def preVisit(t : IExpression,
+                        ctxt : Context[Unit]) : PreVisitResult = t match {
+    case IQuantified(q, _) => {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(QuantifierCountVisitor.AC, ctxt.polarity != 0)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      val realQuan = if (ctxt.polarity > 0) q else q.dual
+      if (consideredQuantifiers contains realQuan) {
+        count = count + 1
+        KeepArg
+      } else {
+        ShortCutResult()
+      }
+    }
+    case _ => KeepArg
+  }
+
+  def postVisit(t : IExpression, ctxt : Context[Unit],
+                subres : Seq[Unit]) : Unit = ()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 object Transform2Prenex {
   private val AC = Debug.AC_INPUT_ABSY
 
-  def apply(f : IFormula) : IFormula = {
-    val quantifierNum = QuantifierCountVisitor(f)
+  def apply(f : IFormula) : IFormula =
+    applyHelp(f,
+              Set(Quantifier.EX, Quantifier.ALL),
+              QuantifierCountVisitor(f))
+
+  def apply(f : IFormula,
+            consideredQuantifiers : Set[Quantifier]) : IFormula =
+    applyHelp(f,
+              consideredQuantifiers,
+              QuantifierCountVisitor(f, consideredQuantifiers))
+
+  private def applyHelp(f : IFormula,
+                        consideredQuantifiers : Set[Quantifier],
+                        quantifierNum : Int) : IFormula =
     if (quantifierNum == 0) {
       f
     } else {
-      val v = new Transform2Prenex(quantifierNum)
+      val v = new Transform2Prenex(quantifierNum, consideredQuantifiers)
       val quantifierFree =
         v.visit(f, Context(List[IVariable]())).asInstanceOf[IFormula]
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -866,13 +913,13 @@ object Transform2Prenex {
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       IExpression.quan(v.quantifiersToAdd, quantifierFree)
     }
-  }
 }
 
 /**
  * Turn a formula into prenex form.
  */
-class Transform2Prenex private (finalQuantifierNum : Int)
+class Transform2Prenex private (finalQuantifierNum : Int,
+                                consideredQuantifiers : Set[Quantifier])
       extends ContextAwareVisitor[List[IVariable], IExpression] {
 
   private val quantifiersToAdd = new ArrayBuffer[Quantifier]
@@ -884,9 +931,18 @@ class Transform2Prenex private (finalQuantifierNum : Int)
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(Transform2Prenex.AC, context.polarity != 0)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val newVars = IVariable(finalQuantifierNum - quantifiersToAdd.size - 1) :: context.a
-      quantifiersToAdd += (if (context.polarity > 0) q else q.dual)
-      super.preVisit(t, context(newVars))
+      val realQuan = if (context.polarity > 0) q else q.dual
+      if (consideredQuantifiers contains realQuan) {
+        val newVars =
+          IVariable(finalQuantifierNum - quantifiersToAdd.size - 1) :: context.a
+        quantifiersToAdd += realQuan
+        super.preVisit(t, context(newVars))
+      } else {
+        // Don't look underneath this quantifier. We still have to substitute
+        // variables in the right way
+        ShortCutResult(
+          VariableSubstVisitor(t, (context.a, finalQuantifierNum - context.a.size)))
+      }
     }
     case _ : IEpsilon => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////

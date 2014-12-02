@@ -3,19 +3,19 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -336,7 +336,7 @@ class TermOrder private (
    * constants that are ordered by <code>this</code> it describes the same
    * order.
    */
-  def isSubOrderOf(that : TermOrder) : Boolean = 
+  def isSubOrderOf(that : TermOrder) : Boolean =
     Seqs.subSeq(this.constantSeq.iterator, that.constantSeq.iterator) &&
     Seqs.subSeq(this.predicateSeq.iterator, that.predicateSeq.iterator)
 
@@ -349,11 +349,46 @@ class TermOrder private (
    */
   def isSubOrderOf(that : TermOrder,
                    consideredConstants : scala.collection.Set[ConstantTerm],
-                   consideredPredicates : scala.collection.Set[Predicate]) : Boolean = 
-    Seqs.subSeq(this.constantSeq.iterator, consideredConstants,
-                that.constantSeq.iterator) &&
-    Seqs.subSeq(this.predicateSeq.iterator, consideredPredicates,
-                that.predicateSeq.iterator)
+                   consideredPredicates : scala.collection.Set[Predicate])
+                  : Boolean = {
+    val consideredConstantsSize = consideredConstants.size
+    if (consideredConstantsSize > that.constantWeight.size)
+      return false
+
+    val consideredPredicatesSize = consideredPredicates.size
+    if (consideredPredicatesSize > that.predicateWeight.size)
+      return false
+
+    val constantIt =
+      if (consideredConstantsSize < this.constantWeight.size / 3)
+        (this sort consideredConstants).reverseIterator
+      else
+        this.constantSeq.iterator filter consideredConstants
+
+    var lastWeight = Int.MaxValue
+    while (constantIt.hasNext) {
+      val ConstantWeight(newWeight) = that.constantWeight(constantIt.next)
+      if (newWeight >= lastWeight)
+        return false
+      lastWeight = newWeight
+    }
+
+    val predicateIt =
+      if (consideredPredicatesSize < this.predicateWeight.size / 3)
+        (this sortPreds consideredPredicates).reverseIterator
+      else
+        this.predicateSeq.iterator filter consideredPredicates
+
+    lastWeight = Int.MaxValue
+    while (predicateIt.hasNext) {
+      val newWeight = that.predicateWeight(predicateIt.next)
+      if (newWeight >= lastWeight)
+        return false
+      lastWeight = newWeight
+    }
+
+    true
+  }
 
   /**
    * Extend this ordering by inserting a further constant <code>newConst</code>.

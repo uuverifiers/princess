@@ -6,16 +6,16 @@
  * Copyright (C) 2012-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -36,7 +36,7 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction}
-import ap.theories.{Theory, TheoryCollector}
+import ap.theories.{Theory, TheoryCollector, TheoryRegistry, SimpleArray}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.{Debug, Timeout, Seqs}
 
@@ -353,6 +353,18 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def sanitise(s : String) : String =
     if (sanitiseNames) sanitiseHelp(s) else s
+
+  private val getFunctionNames = new PartialFunction[IFunction, String] {
+    def isDefinedAt(f : IFunction) =
+      (TheoryRegistry lookupSymbol f).isDefined
+    def apply(f : IFunction) = (TheoryRegistry lookupSymbol f) match {
+      case Some(t : SimpleArray) => f match {
+        case t.select => "select"
+        case t.store => "store"
+      }
+      case _ => f.name
+    }
+  }
 
   private val dumpSMTStream = dumpSMT match {
     case Some(basename) => {
@@ -782,16 +794,50 @@ class SimpleAPI private (enableAssert : Boolean,
     import IExpression._
     
     val p = new Predicate(name, 0)
-    addRelation(p)
+    addRelationHelp(p)
     p()
   }
 
-  private def addRelation(p : IExpression.Predicate) : Unit = {
+  /**
+   * Add an externally defined relation to the environment
+   * of this prover.
+   */
+  def addRelation(p : IExpression.Predicate) : Unit = {
+    doDumpSMT {
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(p.name) + " (" +
+          (for (_ <- 0 until p.arity) yield "Int").mkString(" ") + ") Bool)")
+    }
+    doDumpScala {
+      println("val " + p.name + " = " +
+              "createRelation(\"" + p.name + "\", " + p.arity + ")")
+    }
+    addRelationHelp(p)
+  }
+
+  private def addRelationHelp(p : IExpression.Predicate) : Unit = {
     currentOrder = currentOrder extendPred p
     restartProofActor
   }
 
-  private def addRelations(ps : Iterable[IExpression.Predicate]) : Unit = {
+  /**
+   * Add a sequence of externally defined relations to the environment
+   * of this prover.
+   */
+  def addRelations(ps : Iterable[IExpression.Predicate]) : Unit = {
+    doDumpSMT {
+      for (p <- ps)
+        println("(declare-fun " + SMTLineariser.quoteIdentifier(p.name) + " (" +
+            (for (_ <- 0 until p.arity) yield "Int").mkString(" ") + ") Bool)")
+    }
+    doDumpScala {
+      for (p <- ps)
+        println("val " + p.name + " = " +
+                "createRelation(\"" + p.name + "\", " + p.arity + ")")
+    }
+    addRelationsHelp(ps)
+  }
+
+  private def addRelationsHelp(ps : Iterable[IExpression.Predicate]) : Unit = {
     currentOrder = currentOrder extendPred ps.toSeq
     restartProofActor
   }
@@ -821,7 +867,7 @@ class SimpleAPI private (enableAssert : Boolean,
                 }
                 new Predicate ("p" + (startInd + i), 0)
               }).toIndexedSeq
-    addRelations(ps)
+    addRelationsHelp(ps)
     for (p <- ps) yield p()
   }
 
@@ -830,8 +876,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * of this prover.
    */
   def addBooleanVariable(f : IFormula) : Unit = f match {
-    case IAtom(p, _) => addRelation(p)
-    case f => addRelations(SymbolCollector nullaryPredicates f)
+    case IAtom(p, _) => addRelationHelp(p)
+    case f => addRelationsHelp(SymbolCollector nullaryPredicates f)
   }
 
   /**
@@ -1003,14 +1049,6 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
     val r = new Predicate(name, arity)
     addRelation(r)
-    doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
-          (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Bool)")
-    }
-    doDumpScala {
-      println("val " + name + " = " +
-              "createRelation(\"" + rawName + "\", " + arity + ")")
-    }
     r
   }
 
@@ -1194,6 +1232,12 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   /**
+   * Convert a formula from the internal prover format to input syntax.
+   */
+  def asIFormula(c : Conjunction) : IFormula =
+    (new Simplifier)(Internal2InputAbsy(c, Map()))
+
+  /**
    * Pretty-print a formula or term.
    */
   def pp(f : IExpression) : String = SimpleAPI.pp(f)
@@ -1203,12 +1247,12 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * <code>select</code> function of the theory of arrays.
    */
-  def selectFun(arity : Int) : IFunction = getArrayFuns(arity)._1
+  def selectFun(arity : Int) : IFunction = SimpleArray(arity).select
   
   /**
    * <code>store</code> function of the theory of arrays.
    */
-  def storeFun(arity : Int) : IFunction = getArrayFuns(arity)._2
+  def storeFun(arity : Int) : IFunction = SimpleArray(arity).store
   
   /**
    * Generate a <code>select</code> expression in the theory of arrays.
@@ -1516,14 +1560,22 @@ class SimpleAPI private (enableAssert : Boolean,
    * Stop a running prover. If the prover had already terminated, give same
    * result as <code>getResult</code>, otherwise <code>Unknown</code>.
    */
-  def stop : ProverStatus.Value = {
+  def stop : ProverStatus.Value = stop(true)
+
+  /**
+   * Stop a running prover. If the prover had already terminated, give same
+   * result as <code>getResult</code>, otherwise <code>Unknown</code>.
+   * Will block until completion if <code>block</code> argument is true,
+   * otherwise return immediately.
+   */
+  def stop(block : Boolean) : ProverStatus.Value = {
     doDumpScala {
-      println("// stop")
+      println("// stop(" + block + ")")
     }
     getStatusHelp(false) match {
       case ProverStatus.Running => {
         proofActor ! StopCommand
-        getStatusHelp(true)
+        getStatusHelp(block)
       }
       case res =>
         res
@@ -1604,10 +1656,8 @@ class SimpleAPI private (enableAssert : Boolean,
     }
   }
   
-  private def interpolantSimplifier = (arrayFuns get 1) match {
-    case None => new Simplifier
-    case Some((sel, sto)) => new InterpolantSimplifier(sel, sto)
-  }
+  private def interpolantSimplifier =
+    new InterpolantSimplifier(SimpleArray(1).select, SimpleArray(1).store)
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1718,7 +1768,54 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    (new Simplifier)(Internal2InputAbsy(currentConstraint, Map()))
+    asIFormula(currentConstraint)
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants, return a (satisfiable)
+   * constraint over the existential constants that describes satisfying
+   * assignments of the existential constants.
+   * The produced constraint is simplified and minimised.
+   */
+  def getMinimisedConstraint : IFormula = {
+    doDumpSMT {
+      println("; (get-minimised-constraint)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getMinimisedConstraint)")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatusHelp(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    asIFormula(PresburgerTools.minimiseFormula(currentConstraint))
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants, return a (satisfiable)
+   * constraint over the existential constants that describes satisfying
+   * assignments of the existential constants.
+   */
+  def getConstraintRaw : Conjunction = {
+    doDumpSMT {
+      println("; (get-constraint-raw)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getConstraintRaw)")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, Set(ProverStatus.Unsat,
+                            ProverStatus.Valid) contains getStatusHelp(false))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    currentConstraint
   }
 
   /**
@@ -2389,7 +2486,7 @@ class SimpleAPI private (enableAssert : Boolean,
     storedStates push (currentProver, needExhaustiveProver,
                        currentOrder, existentialConstants,
                        functionalPreds, functionEnc.clone,
-                       arrayFuns, formulaeInProver,
+                       formulaeInProver,
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
@@ -2423,7 +2520,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (oldProver, oldNeedExhaustiveProver,
          oldOrder, oldExConstants,
-         oldFunctionalPreds, oldFunctionEnc, oldArrayFuns,
+         oldFunctionalPreds, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
          oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert,
          oldTheoryPlugin, oldTheories, oldAbbrevFunctions) =
@@ -2434,7 +2531,6 @@ class SimpleAPI private (enableAssert : Boolean,
     existentialConstants = oldExConstants
     functionalPreds = oldFunctionalPreds
     functionEnc = oldFunctionEnc
-    arrayFuns = oldArrayFuns
     formulaeInProver = oldFormulaeInProver
     currentPartitionNum = oldPartitionNum
     constructProofs = oldConstructProofs
@@ -2667,7 +2763,13 @@ class SimpleAPI private (enableAssert : Boolean,
   // TODO: correct setting even if Theories are used?
   private def preprocSettings =
     Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
-            basicPreprocSettings, functionEnc.relations.keys.toSet)
+            basicPreprocSettings,
+            (for (f <- functionEnc.relations.keysIterator;
+                  if ((TheoryRegistry lookupSymbol f) match {
+                        case Some(t) => t.triggerRelevantFunctions contains f
+                        case None => true
+                      }))
+             yield f).toSet)
 
   private def exhaustiveProverGoalSettings = {
     var gs = goalSettings
@@ -2703,7 +2805,6 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Set[IExpression.ConstantTerm],
                                              Set[IExpression.Predicate],
                                              FunctionEncoder,
-                                             Map[Int, (IFunction, IFunction)],
                                              List[(Int, Conjunction)],
                                              Int,
                                              Boolean,
@@ -2858,6 +2959,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
+/*
   private var arrayFuns : Map[Int, (IFunction, IFunction)] = Map()
   
   private def getArrayFuns(arity : Int) : (IFunction, IFunction) =
@@ -2880,6 +2982,7 @@ class SimpleAPI private (enableAssert : Boolean,
     (for ((_, (sel, sto)) <- arrayFuns.iterator;
           p <- Seqs.doubleIterator(sel -> "select", sto -> "store"))
      yield p).toMap
+*/
 
   //////////////////////////////////////////////////////////////////////////////
 

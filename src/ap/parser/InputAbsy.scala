@@ -6,16 +6,16 @@
  * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -286,11 +286,67 @@ object IExpression {
    * Generate the equation <code>t = 0</code>.
    */
   def eqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
+
+  /**
+   * Generate or match the equation <code>t = 0</code>.
+   */
+  object EqZ {
+    def apply(t : ITerm) : IFormula = IIntFormula(IIntRelation.EqZero, t)
+    def unapply(f : IFormula) : Option[ITerm] = f match {
+      case IIntFormula(IIntRelation.EqZero, t) => Some(t)
+      case _ => None
+    }
+  }
+  
+  /**
+   * Generate or match an equation <code>s === t</code>.
+   */
+  object Eq {
+    def apply(s : ITerm, t : ITerm) : IFormula = (s === t)
+    def unapply(f : IFormula) : Option[(ITerm, ITerm)] = f match {
+      case IIntFormula(IIntRelation.EqZero, Difference(s, t)) =>
+        Some((s, t))
+      case IIntFormula(IIntRelation.EqZero, ITimes(IdealInt.MINUS_ONE, t)) =>
+        Some((i(0), t))
+      case IIntFormula(IIntRelation.EqZero, t) =>
+        Some((t, i(0)))
+      case _ =>
+        None
+    }
+  }
   
   /**
    * Generate the inequality <code>t >= 0</code>.
    */
   def geqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
+  
+  /**
+   * Generate or match the inequality <code>t >= 0</code>.
+   */
+  object GeqZ {
+    def apply(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)
+    def unapply(f : IFormula) : Option[ITerm] = f match {
+      case IIntFormula(IIntRelation.GeqZero, t) => Some(t)
+      case _ => None
+    }
+  }
+
+  /**
+   * Generate or match an inequality <code>s >= t</code>.
+   */
+  object Geq {
+    def apply(s : ITerm, t : ITerm) : IFormula = (s >= t)
+    def unapply(f : IFormula) : Option[(ITerm, ITerm)] = f match {
+      case IIntFormula(IIntRelation.GeqZero, Difference(s, t)) =>
+        Some((s, t))
+      case IIntFormula(IIntRelation.GeqZero, ITimes(IdealInt.MINUS_ONE, t)) =>
+        Some((i(0), t))
+      case IIntFormula(IIntRelation.GeqZero, t) =>
+        Some((t, i(0)))
+      case _ =>
+        None
+    }
+  }
   
   def connect(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
     connect(fors.iterator, op)
@@ -422,16 +478,18 @@ object IExpression {
    * Match on a difference
    * <code>IPlus(a, ITimes(IdealInt.MINUS_ONE, b))</code>
    * or
-   * <code>IPlus(ITimes(IdealInt.MINUS_ONE, a), b)</code>
+   * <code>IPlus(ITimes(IdealInt.MINUS_ONE, b), a)</code>
    */
   object Difference {
     def unapply(t : ITerm) : Option[(ITerm, ITerm)] = t match {
       case IPlus(ITimes(IdealInt.ONE, a),
                  ITimes(IdealInt.MINUS_ONE, b))    => Some((a, b))
-      case IPlus(ITimes(IdealInt.MINUS_ONE, a),
-                 ITimes(IdealInt.ONE, b))          => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, b),
+                 ITimes(IdealInt.ONE, a))          => Some((a, b))
       case IPlus(a, ITimes(IdealInt.MINUS_ONE, b)) => Some((a, b))
-      case IPlus(ITimes(IdealInt.MINUS_ONE, a), b) => Some((a, b))
+      case IPlus(ITimes(IdealInt.MINUS_ONE, b), a) => Some((a, b))
+      case IPlus(a, IIntLit(value))                => Some((a, IIntLit(-value)))
+      case IPlus(IIntLit(value), a)                => Some((a, IIntLit(-value)))
       case _                                       => None
     }
   }

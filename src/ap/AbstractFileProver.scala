@@ -6,16 +6,16 @@
  * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -31,6 +31,7 @@ import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
+import ap.theories.TheoryRegistry
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -65,13 +66,17 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       case Param.TriggerGenerationOptions.None => Set()
       case Param.TriggerGenerationOptions.All =>
         env.nonNullaryFunctions -- (
-          // remove interpreted functions
+          // remove irrelevant interpreted functions
           for (t <- signature.theories.iterator;
                f <- t.functions.iterator;
-               if (f.partial || f.relational)) yield f)
+               if (!(t.triggerRelevantFunctions contains f))) yield f)
       case Param.TriggerGenerationOptions.Total =>
-        for (f <- env.nonNullaryFunctions; if (!f.partial && !f.relational))
-          yield f
+        for (f <- env.nonNullaryFunctions;
+             if ((TheoryRegistry lookupSymbol f) match {
+                   case Some(t) => t.triggerRelevantFunctions contains f
+                   case None => !f.partial && !f.relational
+                 }))
+        yield f
     }
   
   private def newParser = Param.INPUT_FORMAT(preSettings) match {

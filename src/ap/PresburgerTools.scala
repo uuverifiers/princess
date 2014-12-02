@@ -6,16 +6,16 @@
  * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
@@ -33,6 +33,8 @@ import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst, ConstantSubst
 import ap.terfor.TerForConvenience._
 import ap.parameters.{GoalSettings, Param}
 import ap.util.{Debug, Seqs, IdealRange, Combinatorics}
+
+import scala.collection.mutable.{HashSet => MHashSet}
 
 /**
  * A collection of tools for analysing and transforming formulae in Presburger
@@ -561,6 +563,70 @@ object PresburgerTools {
     implicit val o = order
     val fors = ReduceWithConjunction(Conjunction.TRUE, order)(!c | !axioms)
     expansionProver(fors, order).closingConstraint.negate
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Minimise the given formula by eliminating unnecessary disjuncts.
+   * This is a stronger version of the simplification performed by
+   * <code>ReduceWithConjunction</code>, and also simplifies formulae
+   * <code>a & (b | c) & (b | c')</code> where <code>c & c'</code> is
+   * unsatisfiable.
+   */
+  def minimiseFormula(c : Conjunction) : Conjunction = {
+    val order = c.order
+    val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
+
+    var newC = c
+    var changed = true
+    while (changed) {
+      val newC2 = minimiseFormulaHelp(reducer(newC), reducer)
+      changed = !(newC2 eq newC)
+      newC = newC2
+    }
+
+    newC
+  }
+
+  private def minimiseFormulaHelp(
+                  c : Conjunction,
+                  reducer : ReduceWithConjunction) : Conjunction = {
+    implicit val order = c.order
+    val newNegatedConjs =
+      c.negatedConjs.update(for (d <- c.negatedConjs)
+                              yield minimiseFormulaHelp(d, reducer),
+                            order)
+    var newC =
+      if (c.negatedConjs eq newNegatedConjs)
+        c
+      else
+        reducer(c.updateNegatedConjs(newNegatedConjs))
+
+    val impliedLiterals : Iterator[Conjunction] =
+      if (newC.negatedConjs.size <= 1) {
+        Iterator.empty
+      } else {
+        val checkedLits = new MHashSet[Conjunction]
+        for (d <- newC.negatedConjs.iterator;
+             lit <- d.iterator;
+             if ({
+                   if (checkedLits contains lit) {
+                     false
+                   } else {
+                     checkedLits += lit
+                     (ReduceWithConjunction(lit, order) tentativeReduce newC).isFalse
+                   }
+                 }))
+        yield lit
+      }
+
+    if (impliedLiterals.hasNext)
+      reducer(Conjunction.conj((for (lit <- impliedLiterals) yield !lit) ++
+                                 (Iterator single newC),
+                               order))
+    else
+      newC
   }
 
   //////////////////////////////////////////////////////////////////////////////
