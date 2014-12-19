@@ -42,7 +42,7 @@ object CCURun {
 
       var domains = scala.collection.mutable.Map() : scala.collection.mutable.Map[Int, Set[Int]]
       for (c <- 0 until Constants)
-        domains(c) = Set(c)
+        domains(c) = Set() : Set[Int]
       for (v <- Constants until (Constants + Variables))
         domains(v) = (0 to v).toSet
 
