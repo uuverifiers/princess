@@ -1,0 +1,100 @@
+examples/constraint1c.pri-0
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-1
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-2
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-3
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
+examples/constraint1c.pri-4
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-5
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-6
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
+examples/constraint1c.pri-7
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
+examples/constraint1c.pri-8
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-9
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-10
+8
+2
+6 7
+0 5 7-0 2 4-0 1 9-0 0 8
+examples/constraint1c.pri-11
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
+examples/constraint1c.pri-12
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
+examples/constraint1c.pri-13
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
+examples/constraint1c.pri-14
+4
+1
+2 3
+0 1 3-0 0 4
+examples/constraint1c.pri-15
+8
+2
+6 7
+0 5 7-0 2 4-0 1 9-0 0 8
+examples/constraint1c.pri-16
+8
+2
+6 7
+0 5 7-0 2 4-0 1 9-0 0 8
+examples/constraint1c.pri-17
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
+examples/constraint1c.pri-18
+8
+2
+6 7
+0 5 7-0 2 4-0 1 9-0 0 8
+examples/constraint1c.pri-19
+5
+2
+3 4
+0 2 4-0 1 6-0 0 5
