@@ -45,6 +45,7 @@
 			<pathelement location="parser/parser.jar" />
 			<pathelement location="smt-parser/smt-parser.jar" />
 			<pathelement location="extlibs/java-cup-11a.jar" />
+			<pathelement location="extlibs/ccu.jar" />
                         <pathelement location="${bin}" />
 		</path>
 

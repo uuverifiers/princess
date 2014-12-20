@@ -31,7 +31,7 @@ import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.Predicate
 import ap.theories.TheoryRegistry
-import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
+import ap.proof.{ModelSearchProver, ExhaustiveCCUProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.Certificate
@@ -250,7 +250,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
     Timeout.withChecker(stoppingCond) {
       val prover =
-        new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
+        new ExhaustiveCCUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
       val tree = prover(closedFor, signature)
       val validConstraint = prover.isValidConstraint(tree.closingConstraint, signature)
       (tree, validConstraint)
