@@ -1,3 +1,5 @@
+package ccu;
+
 import org.sat4j.core._
 import org.sat4j.specs._
 import org.sat4j.minisat._
