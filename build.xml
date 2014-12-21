@@ -43,6 +43,7 @@
                         <pathelement location="${scala-reflect.jar}"  />
                         <pathelement location="${scala-actors.jar}"  />
 			<pathelement location="parser/parser.jar" />
+			<pathelement location="${scala.home}/lib/scala-parser-combinators_2.11-1.0.2.jar" />
 			<pathelement location="smt-parser/smt-parser.jar" />
 			<pathelement location="extlibs/java-cup-11a.jar" />
 			<pathelement location="extlibs/ccu.jar" />

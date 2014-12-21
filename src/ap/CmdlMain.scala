@@ -37,6 +37,7 @@ object CmdlMain {
   private val version = "release 2014-08-27"
 
   var currentFilename : String = ""
+  var problemOutputCount : Int = 0
 
   def printGreeting = {
     println("________       _____")                                 
@@ -380,7 +381,7 @@ object CmdlMain {
 	} else {
           println("ERROR: " + e.getMessage)
         }
-//         e.printStackTrace
+        e.printStackTrace
         None
       }
     }
