@@ -1,5 +1,6 @@
 import scala.io.Source
 import scala.collection.mutable.{Map => MMap}
+import ccu._
 
 object CCURun {
   //
