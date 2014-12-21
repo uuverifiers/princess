@@ -1,7 +1,5 @@
-package ccu;
-
 import scala.io.Source
-import scala.collection.mutable.Map
+import scala.collection.mutable.{Map => MMap}
 
 object CCURun {
   //
@@ -48,7 +46,7 @@ object CCURun {
       for (v <- Constants until (Constants + Variables))
         domains(v) = (0 to v).toSet
 
-      problems ::= ((Title, ((0 until (Constants + Variables)).toList, domains, goals, functions)))
+      problems ::= ((Title, ((0 until (Constants + Variables)).toList, domains.toMap, goals, functions)))
     }
     problems.reverse
   }
@@ -65,11 +63,14 @@ object CCURun {
       println("FILE: " + f)
       for ((title, p) <- parseFile(f)) {
         val (t, d, g, f) = p
-        val result = ccusolver.solve(t, d, g, f)
+        val goal2 = List(List((0,1)))
+        val fun2 = List((0, List(0), 0), (0, List(0), 1))
+        val result = ccusolver.parallelSolve(t, d, List(g,goal2), List(f,fun2))
 
         result match {
           case Some(model) => {
             println(title + " = SAT")
+            println("Model: " + model)
             for ((k,v) <- model)
               println(k + " := " + v)
           }
