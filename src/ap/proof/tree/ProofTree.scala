@@ -31,6 +31,8 @@ import ap.util.Debug
 
 import ccu.CCUSolver
 
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
+
 object ProofTree {
   
   private val AC = Debug.AC_PROOF_TREE
@@ -100,41 +102,80 @@ trait ProofTree {
    */
   lazy val ccUnifiableLocally : Boolean = unifiabilityStatus._2
 
-  private lazy val unifiabilityStatus = this match {
-    case goal : Goal => {
-println(goal.facts)
-      
-      def fullDomainsHelp(constantSeq : List[(Quantifier, Set[ConstantTerm])])
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def domainsFromContext(
+                      constantSeq : List[(Quantifier, Set[ConstantTerm])])
                     : (Map[ConstantTerm, Set[ConstantTerm]],
+                       Map[ConstantTerm, Set[ConstantTerm]],
                        Set[ConstantTerm]) = constantSeq match {
-        case List() => (Map(), Set())
+    case List() => (Map(), Map(), Set())
 
-        case (Quantifier.ALL, consts) :: rest => {
-          val (restMap, restSet) = fullDomainsHelp(rest)
-          (restMap, restSet ++ consts)
-        }
+    case (Quantifier.ALL, consts) :: rest => {
+      val (restMap1, restMap2, restSet) = domainsFromContext(rest)
+      (restMap1, restMap2, restSet ++ consts)
+    }
 
-        case (Quantifier.EX, consts) :: rest => {
-          val (restMap, restSet) = fullDomainsHelp(rest)
-          var newRestSet = restSet
+    case (Quantifier.EX, consts) :: rest => {
+      val (restMap1, restMap2, restSet) = domainsFromContext(rest)
 
-          val newRestMap = restMap ++ {
-            for (c <- consts.toSeq.sortBy(_.name).iterator) yield {
-              val res = (c -> newRestSet)
-              newRestSet = newRestSet + c
-              res
-            }
-          }
-          
-          (newRestMap, newRestSet)
+      var newRestSet = restSet
+      val newRestMap1 = restMap1 ++ {
+        for (c <- consts.toSeq.sortBy(_.name).iterator) yield {
+          val res = (c -> newRestSet)
+          newRestSet = newRestSet + c
+          res
         }
       }
 
-      val fullDomains = fullDomainsHelp(bindingContext.constantSeq)._1
-      println(fullDomains)
+      val newRestMap2 =
+        restMap2 ++ (for (c <- consts.iterator) yield (c -> Set(c)))
+      
+      (newRestMap1, newRestMap2, newRestSet)
+    }
+  }
 
-      //////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
 
+  private type CCUProblem =
+    (Map[ConstantTerm, Set[ConstantTerm]],                 // domains
+     List[List[(ConstantTerm, ConstantTerm)]],             // goals
+     List[(Predicate, List[ConstantTerm], ConstantTerm)])  // function apps
+
+  private def constructUnificationProblems(
+                    tree : ProofTree,
+                    domains : Map[ConstantTerm, Set[ConstantTerm]])
+                   : List[CCUProblem] = tree match {
+
+    case QuantifiedTree(Quantifier.ALL, _, subtree) =>
+      constructUnificationProblems(subtree, domains)
+
+    case QuantifiedTree(Quantifier.EX, consts, subtree) => {
+      var allConsts = tree.order.orderedConstants
+      val newDomains = domains ++ {
+        for (c <- consts.iterator) yield {
+          val res = (c -> allConsts)
+          allConsts = allConsts + c
+          res
+        }
+      }
+
+      constructUnificationProblems(subtree, newDomains)
+    }
+
+    case StrengthenTree(conj, subtree) =>
+      throw new Exception
+
+    case WeakenTree(conj, subtree) =>
+      throw new Exception
+
+    case AndTree(leftTree, rightTree, _) => {
+      val problems1 = constructUnificationProblems(leftTree, domains)
+      val problems2 = constructUnificationProblems(rightTree, domains)
+      problems1 ++ problems2
+    }
+
+    case goal : Goal => {
       val funPreds = Param.FUNCTIONAL_PREDICATES(goal.settings)
       val predConj = goal.facts.predConj
       
@@ -155,7 +196,7 @@ println(goal.facts)
 
            (a.pred, consts.init, consts.last)
          }).toList
-println(funApps)
+
       //////////////////////////////////////////////////////////////////////////
 
       val predUnificationGoals =
@@ -194,22 +235,100 @@ println(funApps)
 
       val unificationGoals = predUnificationGoals ::: eqUnificationGoals
 
-println(unificationGoals)
+      List((domains, unificationGoals, funApps))
+    }
+  }
 
-      //////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
 
-      val solver = new CCUSolver[ConstantTerm, Predicate]
-      println(solver.solve(for ((_, consts) <- bindingContext.constantSeq;
-                                c <- consts.toList) yield c,
-                           fullDomains,
-                           unificationGoals,
-                           funApps))
+  private def checkUnifiability(
+                 globalDomains : Map[ConstantTerm, Set[ConstantTerm]],
+                 globalConsts : Set[ConstantTerm],
+                 unificationProblems : List[CCUProblem])
+               : Boolean = {
 
-      (false, false)
+    val (domains, goals, funApps) = unificationProblems.unzip3
+
+    val allDomains = new MHashMap[ConstantTerm, Set[ConstantTerm]]
+    val allConsts = new MHashSet[ConstantTerm]
+
+    allDomains ++= globalDomains
+    allConsts ++= globalConsts
+  
+    for (domain <- domains.iterator; (c, consts) <- domain.iterator) {
+      // domains have to be consistent
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(ProofTree.AC, (allDomains get c) match {
+                        case Some(oldConsts) => consts == oldConsts
+                        case None => true
+                      })
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      allDomains.put(c, consts)
+      allConsts += c
+      allConsts ++= consts
     }
 
-    // Currently we only handle goals, not more complicated trees
-    case _ => (false, false)
+    for (l <- goals; l2 <- l; (c1, c2) <- l2) {
+      allConsts += c1
+      allConsts += c2
+    }
+
+    for (a <- funApps; (_, cs, c) <- a) {
+      allConsts ++= cs
+      allConsts += c
+    }
+  
+    val solver = new CCUSolver[ConstantTerm, Predicate]
+
+    (if (unificationProblems.size == 1)
+       solver.solve(allConsts.toList.sortBy(_.name),
+                    allDomains.toMap,
+                    goals.head, funApps.head)
+     else
+       solver.parallelSolve(allConsts.toList.sortBy(_.name),
+                            allDomains.toMap,
+                            goals, funApps)).isDefined
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private lazy val unifiabilityStatus = {
+//    println
+    print("Trying to close subtree ... ")
+//    println(this)
+
+    val unificationProblems = constructUnificationProblems(this, Map())
+//    println(unificationProblems)
+    print("" + unificationProblems.size + " ... ")
+
+    val res =
+    if (unificationProblems.isEmpty) {
+      (true, true)
+    } else if (unificationProblems exists {
+                 case (_, goals, _) => goals.isEmpty
+               }) {
+      (false, false)
+    } else {
+      val (fullDomains, restrictedDomains, globalConsts) =
+        domainsFromContext(bindingContext.constantSeq)
+
+//      println("restricted domains:")
+//      println(restrictedDomains)
+
+      if (checkUnifiability(restrictedDomains, globalConsts,
+                            unificationProblems))
+        (true, true)
+      else {
+//        println("full domains:")
+//        println(fullDomains)
+        (checkUnifiability(fullDomains, globalConsts, unificationProblems),
+         false)
+      }
+    }
+
+    println(res)
+    res
   }
 
 }

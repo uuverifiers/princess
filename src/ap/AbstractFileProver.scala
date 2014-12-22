@@ -252,7 +252,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       val prover =
         new ExhaustiveCCUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
       val tree = prover(closedFor, signature)
-      val validConstraint = prover.isValidConstraint(tree.closingConstraint, signature)
+      val validConstraint = tree.ccUnifiable
+         // prover.isValidConstraint(tree.closingConstraint, signature)
       (tree, validConstraint)
     }
   }

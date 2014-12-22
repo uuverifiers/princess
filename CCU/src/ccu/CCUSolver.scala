@@ -514,41 +514,39 @@ class CCUSolver[TERM, FUNC] {
     val problemCount = goals.length
 
     // Convert to Int representation
-    var termToInt = MMap() : MMap[TERM, Int] 
-    var intToTerm = MMap() : MMap[Int, TERM] 
+    var termToInt = Map() : Map[TERM, Int] 
+    var intToTerm = Map() : Map[Int, TERM] 
 
     for (i <- 0 until terms.length) {
-      termToInt(terms(i)) = i
-      intToTerm(i) = terms(i)
+      termToInt += (terms(i) -> i)
+      intToTerm += (i -> terms(i))
     }
 
     val newTerms = terms.map(termToInt)
 
-    var newDomains = MMap() : MMap[Int, Set[Int]]
-    for ((k, v) <- domains) newDomains(termToInt(k)) = v.map(termToInt)
+    var newDomains = Map() : Map[Int, Set[Int]]
+    for ((k, v) <- domains)
+      newDomains += (termToInt(k) -> v.map(termToInt))
 
-    var newGoals = List() : List[List[List[(Int, Int)]]]
-    for (p <- 0 until problemCount) {
-      val tmpGoals = goals(p).map(g => g.map(x => { val (s,t) = x; (termToInt(s), termToInt(t)) }))
-      newGoals = newGoals :+ tmpGoals
-    }
+    val newGoals =
+      for (g <- goals)
+      yield (for (eqs <- g)
+             yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
 
-    var newFunctions = List() : List[List[(FUNC, List[Int], Int)]]
-    for (p <- 0 until problemCount) {
-      val tmpFunctions =
-        functions(p).map(x => { val(f, args, r) = x; (f, args.map(termToInt), termToInt(r)) })
-      newFunctions = newFunctions :+ tmpFunctions
-    }
+    val newFunctions =
+      for (funs <- functions)
+      yield (for ((f, args, r) <- funs)
+             yield (f, args.map(termToInt), termToInt(r)))
 
     // Solve and return UNSAT or SAT + model
     parallelSolveaux(newTerms, newDomains.toMap, newGoals, newFunctions, true) match {
       case (Some(model), assignments) => {
-        var assMap = MMap() : MMap[TERM, TERM]
+        var assMap = Map() : Map[TERM, TERM]
         for (((variable, value), bit) <- assignments; 
           if model contains bit)
-          assMap(intToTerm(variable)) = intToTerm(value)
+          assMap += (intToTerm(variable) -> intToTerm(value))
 
-        Some(assMap.toMap)
+        Some(assMap)
       }
       case (None, _) =>  None
     }

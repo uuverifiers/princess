@@ -144,14 +144,15 @@ class ExhaustiveCCUProver(depthFirst : Boolean, settings : GoalSettings) {
   private def continueProving(tree : ProofTree, underConstraintWeakener : Boolean,
                               signature : Signature) = {
     Timeout.check
-    (tree.stepMeaningful || !tree.fixedConstantFreedom) &&
+//    (tree.stepMeaningful || !tree.fixedConstantFreedom) &&
     // when proving in depth-first mode, a tree is expanded only as long as
     // its constraint is not satisfiable
-    (!depthFirst ||
-     (if (underConstraintWeakener)
+    (!depthFirst || !tree.ccUnifiable
+/*     (if (underConstraintWeakener)
         !(PresburgerTools isSatisfiable tree.closingConstraint)
       else
-        !isValidConstraint(tree.closingConstraint, signature)))
+        !isValidConstraint(tree.closingConstraint, signature)) */
+      )
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -180,8 +181,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, settings : GoalSettings) {
   /*  println(tree)
      println(goalNum(tree))
      println  */
-        val (newTree, newCont) =
-          expandProofGoals(tree, tree.closingConstantFreedom, 1)
+        val (newTree, newCont) = expandProofGoals(tree, 1)
         tree = newTree
         cont = newCont
         if (newCont) swp = true
@@ -217,20 +217,20 @@ class ExhaustiveCCUProver(depthFirst : Boolean, settings : GoalSettings) {
                                                        : (ProofTree, Boolean) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // if there are free constants, we have to expand in a fair manner
-    Debug.assertPre(ExhaustiveCCUProver.AC, tree.constantFreedom.isBottom)
+//    Debug.assertPre(ExhaustiveCCUProver.AC, tree.constantFreedom.isBottom)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (Timeout.unfinishedValue(tree) {
           continueProving(tree, underConstraintWeakener, signature)
         })
       tree match {
-      case _ if (isGoalLike(tree) ||
+      case _ if (isGoalLike(tree) /* ||
                  tree.subtrees.exists((subtree) =>
-                                      !subtree.constantFreedom.isBottom)) => {
+                                      !subtree.constantFreedom.isBottom) */) => {
         // we always consider the goal together with the enclosing universal
         // quantifiers
         val (newTree, swp) =
           Timeout.unfinishedValue(tree) {
-            expandProofGoals(tree, ConstantFreedom.BOTTOM, 1)
+            expandProofGoals(tree, 1)
           }
         
         if (swp) {
@@ -310,39 +310,28 @@ class ExhaustiveCCUProver(depthFirst : Boolean, settings : GoalSettings) {
    * that tells whether it was possible to apply any steps
    */
   private def expandProofGoals(tree : ProofTree,
-                               newConstantFreedom : ConstantFreedom,
                                limit : Int) : (ProofTree, Boolean) =
     if (limit > 0 &&
-        (tree.stepMeaningful && (!depthFirst || !tree.closingConstraint.isTrue)
-         ||
-         newConstantFreedom != tree.constantFreedom || !tree.fixedConstantFreedom))
+        (//tree.stepMeaningful && 
+         (!depthFirst || !tree.ccUnifiableLocally)))
       tree match {
       
-      case goal : Goal => {
-        goal.ccUnifiable
-        val updatedGoal = goal updateConstantFreedom newConstantFreedom
-        val newTree =
-          if (updatedGoal.stepPossible)
-            expandProofGoals(updatedGoal.step(ptf), newConstantFreedom, limit - 1) _1
-          else
-            updatedGoal
-        (newTree, true)  // also updating the set of free constants is
-                         // considered as a proof step
-      }
+      case goal : Goal =>
+        if (goal.stepPossible)
+          (expandProofGoals(goal.step(ptf), limit - 1) _1, true)
+        else
+          (goal, false)
       
       case tree : ProofTreeOneChild => {
         val (newSubtree, stepWasPossible) =
-          expandProofGoals(tree.subtree,
-                           tree newConstantFreedomForSubtree newConstantFreedom,
-                           limit)
-        (tree.update(newSubtree, newConstantFreedom), stepWasPossible)
+          expandProofGoals(tree.subtree, limit)
+        (tree.update(newSubtree, tree.constantFreedom), stepWasPossible)
       }
       
       case tree : AndTree => {
-        val (leftCF, rightCF) = tree newConstantFreedomForSubtrees newConstantFreedom
-        val (newLeft, leftSWP) = expandProofGoals(tree.left, leftCF, limit)
-        val (newRight, rightSWP) = expandProofGoals(tree.right, rightCF, limit)        
-        (tree.update(newLeft, newRight, newConstantFreedom), leftSWP || rightSWP)
+        val (newLeft, leftSWP) = expandProofGoals(tree.left, limit)
+        val (newRight, rightSWP) = expandProofGoals(tree.right, limit)
+        (tree.update(newLeft, newRight, tree.constantFreedom), leftSWP || rightSWP)
       }
       
     } else {

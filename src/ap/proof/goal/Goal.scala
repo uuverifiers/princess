@@ -272,7 +272,7 @@ class Goal private (val facts : Conjunction,
   }
 
   
-  lazy val closingConstraint : Conjunction = {
+  lazy val closingConstraintXXX : Conjunction = {
 
     val funpreds = Param.FUNCTIONAL_PREDICATES(settings)
 
@@ -540,8 +540,10 @@ class Goal private (val facts : Conjunction,
       // case lae : LookAgainException =>
     }
 
+    null
+  }
 
-
+  lazy val closingConstraint : Conjunction = {
     val ac = facts.arithConj
     
     // we can always leave out antecedent equations that contain eliminated
