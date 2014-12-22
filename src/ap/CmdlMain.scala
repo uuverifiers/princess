@@ -491,6 +491,7 @@ object CmdlMain {
     case _ => res match {
               case Prover.Proof(tree) => {
                 println("VALID")
+/*
                 if (!tree.closingConstraint.isTrue ||
                     Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
@@ -501,6 +502,7 @@ object CmdlMain {
                              "") + "constraint:")
                   printFormula(tree.closingConstraint)
                 }
+*/
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.PRINT_TREE(settings)) {
@@ -511,6 +513,7 @@ object CmdlMain {
               }
               case Prover.ProofWithModel(tree, model) => {
                 println("VALID")
+/*
                 if (!tree.closingConstraint.isTrue ||
                     Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
@@ -521,8 +524,10 @@ object CmdlMain {
                              "") + "constraint:")
                   printFormula(tree.closingConstraint)
                 }
+*/
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
+/*
                 model match {
                   case IBoolLit(true) => // nothing
                   case _ if ({
@@ -535,6 +540,7 @@ object CmdlMain {
                     printFormula(model)
                   }
                 }
+*/
                 if (Param.PRINT_TREE(settings)) {
                   println
                   println("Proof tree:")

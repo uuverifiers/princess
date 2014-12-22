@@ -130,7 +130,7 @@ object Param {
   }
   case object TRIGGER_GENERATION extends Param {
     type Value = TriggerGenerationOptions.Value
-    val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.Total
+    val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.None
   }
 
   case object GENERATE_TOTALITY_AXIOMS extends Param {

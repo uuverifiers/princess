@@ -27,7 +27,7 @@ import ap.parameters.Param
 import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.preds.Predicate
-import ap.util.Debug
+import ap.util.{Debug, Seqs}
 
 import ccu.CCUSolver
 
@@ -42,11 +42,11 @@ object ProofTree {
 trait ProofTree {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(ProofTree.AC,
-                   (order isSortingOf closingConstraint) &&
-                   (constantFreedom freeConstsAreUniversal bindingContext) &&
-                   (closingConstantFreedom freeConstsAreUniversal bindingContext) &&
-                   closingConstantFreedom <= constantFreedom)
+//  Debug.assertCtor(ProofTree.AC,
+//                   (order isSortingOf closingConstraint) &&
+//                   (constantFreedom freeConstsAreUniversal bindingContext) &&
+//                   (closingConstantFreedom freeConstsAreUniversal bindingContext) &&
+//                   closingConstantFreedom <= constantFreedom)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   val subtrees : Seq[ProofTree]
@@ -102,6 +102,9 @@ trait ProofTree {
    */
   lazy val ccUnifiableLocally : Boolean = unifiabilityStatus._2
 
+  // HACK: remember whether we have already checked cc-unifiability here
+  private var unifiabilityChecked = false
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def domainsFromContext(
@@ -144,100 +147,138 @@ trait ProofTree {
 
   private def constructUnificationProblems(
                     tree : ProofTree,
-                    domains : Map[ConstantTerm, Set[ConstantTerm]])
-                   : List[CCUProblem] = tree match {
+                    domains : Map[ConstantTerm, Set[ConstantTerm]],
+                    furtherDisjuncts : List[Conjunction])
+                   : List[CCUProblem] =
+    if (tree.unifiabilityChecked && tree.ccUnifiableLocally) {
+      // then this subtree can be ignored, we have already
+      // shown that it can be closed
+      List()
+    } else tree match {
 
-    case QuantifiedTree(Quantifier.ALL, _, subtree) =>
-      constructUnificationProblems(subtree, domains)
-
-    case QuantifiedTree(Quantifier.EX, consts, subtree) => {
-      var allConsts = tree.order.orderedConstants
-      val newDomains = domains ++ {
-        for (c <- consts.iterator) yield {
-          val res = (c -> allConsts)
-          allConsts = allConsts + c
-          res
+      case QuantifiedTree(Quantifier.ALL, _, subtree) =>
+        constructUnificationProblems(subtree, domains, furtherDisjuncts)
+  
+      case QuantifiedTree(Quantifier.EX, consts, subtree) => {
+        var allConsts = tree.order.orderedConstants
+        val newDomains = domains ++ {
+          for (c <- consts.iterator) yield {
+            val res = (c -> allConsts)
+            allConsts = allConsts + c
+            res
+          }
         }
+  
+        constructUnificationProblems(subtree, newDomains, furtherDisjuncts)
       }
-
-      constructUnificationProblems(subtree, newDomains)
-    }
-
-    case StrengthenTree(conj, subtree) =>
-      throw new Exception
-
-    case WeakenTree(conj, subtree) =>
-      throw new Exception
-
-    case AndTree(leftTree, rightTree, _) => {
-      val problems1 = constructUnificationProblems(leftTree, domains)
-      val problems2 = constructUnificationProblems(rightTree, domains)
-      problems1 ++ problems2
-    }
-
-    case goal : Goal => {
-      val funPreds = Param.FUNCTIONAL_PREDICATES(goal.settings)
-      val predConj = goal.facts.predConj
-      
-      val funApps =
-        (for (a <- predConj.positiveLits.iterator;
-              if (funPreds contains a.pred)) yield {
-
-           //-BEGIN-ASSERTION-//////////////////////////////////////////////////
-           Debug.assertInt(ProofTree.AC,
+  
+      case StrengthenTree(conj, subtree) =>
+        throw new Exception
+  
+      case WeakenTree(disj, subtree) =>
+        constructUnificationProblems(subtree, domains, disj :: furtherDisjuncts)
+  
+      case AndTree(leftTree, rightTree, _) => {
+        val problems1 =
+          constructUnificationProblems(leftTree, domains, furtherDisjuncts)
+        val problems2 =
+          constructUnificationProblems(rightTree, domains, furtherDisjuncts)
+        problems1 ++ problems2
+      }
+  
+      case goal : Goal => {
+        val funPreds = Param.FUNCTIONAL_PREDICATES(goal.settings)
+        val predConj = goal.facts.predConj
+        
+        val funApps =
+          (for (a <- predConj.positiveLits.iterator;
+                if (funPreds contains a.pred)) yield {
+  
+             //-BEGIN-ASSERTION-////////////////////////////////////////////////
+             Debug.assertInt(ProofTree.AC,
                    a forall { lc => lc.size == 1 &&
                                     lc.leadingCoeff.isOne &&
                                     lc.leadingTerm.isInstanceOf[ConstantTerm]})
-           //-END-ASSERTION-////////////////////////////////////////////////////
-
-           val consts =
-             (for (lc <- a.iterator)
-              yield lc.leadingTerm.asInstanceOf[ConstantTerm]).toList
-
-           (a.pred, consts.init, consts.last)
-         }).toList
-
-      //////////////////////////////////////////////////////////////////////////
-
-      val predUnificationGoals =
-        (for (a <- predConj.positiveLits.iterator;
-              b <- predConj.negativeLitsWithPred(a.pred).iterator) yield {
-
-           //-BEGIN-ASSERTION-//////////////////////////////////////////////////
-           Debug.assertInt(ProofTree.AC,
-                   (a forall { lc => lc.size == 1 &&
-                                     lc.leadingCoeff.isOne &&
-                                     lc.leadingTerm.isInstanceOf[ConstantTerm]}) &&
-                   (b forall { lc => lc.size == 1 &&
-                                     lc.leadingCoeff.isOne &&
-                                     lc.leadingTerm.isInstanceOf[ConstantTerm]}))
-           //-END-ASSERTION-////////////////////////////////////////////////////
-           
-           (for ((lcA, lcB) <- a.iterator zip b.iterator)
-            yield (lcA.leadingTerm.asInstanceOf[ConstantTerm],
-                   lcB.leadingTerm.asInstanceOf[ConstantTerm])).toList
-         }).toList
-
-      val eqUnificationGoals =
-        (for (lc <- goal.facts.arithConj.negativeEqs.iterator) yield {
-
-           //-BEGIN-ASSERTION-//////////////////////////////////////////////////
-           Debug.assertInt(ProofTree.AC,
-                   lc.size == 2 &&
-                   lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
-                   lc.getTerm(0).isInstanceOf[ConstantTerm] &&
-                   lc.getTerm(1).isInstanceOf[ConstantTerm])
-           //-END-ASSERTION-////////////////////////////////////////////////////
-
-           List((lc.getTerm(0).asInstanceOf[ConstantTerm],
-                 lc.getTerm(1).asInstanceOf[ConstantTerm]))
-         }).toList
-
-      val unificationGoals = predUnificationGoals ::: eqUnificationGoals
-
-      List((domains, unificationGoals, funApps))
+             //-END-ASSERTION-//////////////////////////////////////////////////
+  
+             val consts =
+               (for (lc <- a.iterator)
+                yield lc.leadingTerm.asInstanceOf[ConstantTerm]).toList
+  
+             (a.pred, consts.init, consts.last)
+           }).toList
+  
+        // check whether there are further positive equations that we have to
+        // convert to function applications
+        val eqFunApps =
+          (for (lc <- goal.facts.arithConj.positiveEqs.iterator ++
+                      (for (d <- furtherDisjuncts.iterator;
+                            lc <- d.arithConj.negativeEqs.iterator)
+                       yield lc);
+                app <- {
+                  //-BEGIN-ASSERTION-///////////////////////////////////////////
+                  Debug.assertInt(ProofTree.AC,
+                         lc.size == 2 &&
+                         lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
+                         lc.getTerm(0).isInstanceOf[ConstantTerm] &&
+                         lc.getTerm(1).isInstanceOf[ConstantTerm])
+                  //-END-ASSERTION-/////////////////////////////////////////////
+  
+                  val tempPred = new Predicate ("tempPred", 0)
+  
+                  Seqs.doubleIterator((tempPred, List(),
+                                       lc.getTerm(0).asInstanceOf[ConstantTerm]),
+                                      (tempPred, List(),
+                                       lc.getTerm(1).asInstanceOf[ConstantTerm]))
+                })
+           yield app).toList
+  
+        val allFunApps = funApps ++ eqFunApps
+  
+        ////////////////////////////////////////////////////////////////////////
+  
+        val predUnificationGoals =
+          (for (a <- predConj.positiveLits.iterator;
+                b <- predConj.negativeLitsWithPred(a.pred).iterator) yield {
+  
+             //-BEGIN-ASSERTION-////////////////////////////////////////////////
+             Debug.assertInt(ProofTree.AC,
+                 (a forall { lc => lc.size == 1 &&
+                                   lc.leadingCoeff.isOne &&
+                                   lc.leadingTerm.isInstanceOf[ConstantTerm]}) &&
+                 (b forall { lc => lc.size == 1 &&
+                                   lc.leadingCoeff.isOne &&
+                                   lc.leadingTerm.isInstanceOf[ConstantTerm]}))
+             //-END-ASSERTION-//////////////////////////////////////////////////
+             
+             (for ((lcA, lcB) <- a.iterator zip b.iterator)
+              yield (lcA.leadingTerm.asInstanceOf[ConstantTerm],
+                     lcB.leadingTerm.asInstanceOf[ConstantTerm])).toList
+           }).toList
+  
+        val eqUnificationGoals =
+          (for (lc <- goal.facts.arithConj.negativeEqs.iterator ++
+                      (for (d <- furtherDisjuncts.iterator;
+                            lc <- d.arithConj.positiveEqs.iterator)
+                       yield lc)) yield {
+  
+             //-BEGIN-ASSERTION-////////////////////////////////////////////////
+             Debug.assertInt(ProofTree.AC,
+                     lc.size == 2 &&
+                     lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
+                     lc.getTerm(0).isInstanceOf[ConstantTerm] &&
+                     lc.getTerm(1).isInstanceOf[ConstantTerm])
+             //-END-ASSERTION-//////////////////////////////////////////////////
+  
+             List((lc.getTerm(0).asInstanceOf[ConstantTerm],
+                   lc.getTerm(1).asInstanceOf[ConstantTerm]))
+           }).toList
+  
+        val unificationGoals = predUnificationGoals ::: eqUnificationGoals
+  
+        List((domains, unificationGoals, allFunApps))
+      }
     }
-  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -295,12 +336,12 @@ trait ProofTree {
 
   private lazy val unifiabilityStatus = {
 //    println
-    print("Trying to close subtree ... ")
+    print("Trying to close subtree ")
 //    println(this)
 
-    val unificationProblems = constructUnificationProblems(this, Map())
+    val unificationProblems = constructUnificationProblems(this, Map(), List())
 //    println(unificationProblems)
-    print("" + unificationProblems.size + " ... ")
+    print("(" + unificationProblems.size + " parallel problems) ... ")
 
     val res =
     if (unificationProblems.isEmpty) {
@@ -328,6 +369,9 @@ trait ProofTree {
     }
 
     println(res)
+
+    unifiabilityChecked = true
+
     res
   }
 
