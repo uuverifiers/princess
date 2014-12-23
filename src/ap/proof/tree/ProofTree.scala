@@ -334,7 +334,7 @@ trait ProofTree {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private lazy val unifiabilityStatus = {
+  private lazy val unifiabilityStatus = ap.util.Timer.measure("unification") {
 //    println
     print("Trying to close subtree ")
 //    println(this)
