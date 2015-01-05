@@ -74,9 +74,11 @@ object ModelSearchProver {
     Debug.assertPre(ModelSearchProver.AC,
                     inputFor.variables.isEmpty && (order isSortingOf inputFor))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    cache(inputFor) {
+    cache.cached(inputFor) {
       applyHelp(List(Conjunction.conj(inputFor, order)),
                 order, GoalSettings.DEFAULT, FullModelDirector).left.get
+    } {
+      result => result sortBy order
     }
   }
 
