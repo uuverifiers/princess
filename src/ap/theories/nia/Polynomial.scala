@@ -28,7 +28,7 @@ import ap.terfor.ConstantTerm
 import ap.terfor.TermOrder
 import ap.basetypes.IdealInt
 import scala.math.Ordering.Implicits.infixOrderingOps
-import ap.util.Debug
+import ap.util.{Debug, Timeout}
 
 import scala.collection.mutable.{HashMap => MHashMap, PriorityQueue,
                                  ArrayBuffer}
@@ -813,6 +813,8 @@ class Basis(implicit val ordering : MonomialOrdering) {
     val newBasis = new Basis
 
     while (!this.isEmpty) {
+      Timeout.check
+
       val nextPoly = this.get
       val simpPoly = nextPoly simplifyBy { m => {
         val reducers =

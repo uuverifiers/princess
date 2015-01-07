@@ -129,6 +129,7 @@ object GroebnerMultiplication extends MulTheory {
       val active, passive = new Basis
 
       while (!unprocessed.isEmpty || !passive.isEmpty) {
+        Timeout.check
 
 /*
 println("======================")
@@ -531,7 +532,7 @@ println(unprocessed)
   
           // Given the List [({x11, x12, ...}, {y11, y12, ...}), ({x21, ....]
           // returns {{x1*, x2*, x3* ...xn*}, {x1*, x2*, ... yn*}, ..., {y1*, y2*, ... yn*}}
-          def helper(list : List[(Set[ConstantTerm], Set[ConstantTerm])])
+/*          def helper(list : List[(Set[ConstantTerm], Set[ConstantTerm])])
                     : Set[Set[ConstantTerm]] = {
             list match {
               case Nil => Set(Set()) : Set[Set[ConstantTerm]]
@@ -542,14 +543,36 @@ println(unprocessed)
                   (xRes ++ yRes)
                 }
             }
-          }
+          } */
   
           val predSet =
             for (p <- predicates)
             yield
               (p(0).constants, p(1).constants)
   
-          helper(predSet)
+          val allConsts =
+            (for ((_, consts) <- goal.bindingContext.constantSeq.iterator;
+                  c <- consts.iterator)
+             yield c).toSeq
+
+          val allConstsSet = new MHashSet[ConstantTerm]
+          allConstsSet ++= allConsts
+
+          def isLinear : Boolean =
+            predSet forall { case (s1, s2) => (s1 subsetOf allConstsSet) ||
+                                              (s2 subsetOf allConstsSet) }
+
+          if (isLinear)
+            // minimise the set of chosen constants (greedily)
+            for (c <- allConsts) {
+              allConstsSet -= c
+              if (!isLinear)
+                allConstsSet += c
+            }
+
+          Set(allConstsSet.toSet)
+
+//          helper(predSet)
         }
   
   
