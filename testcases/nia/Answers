@@ -134,7 +134,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-b = 1 & a = 0
+b = 0 & a = 1
 
 Loading ./quadraticInEq12.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication
