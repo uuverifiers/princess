@@ -206,3 +206,23 @@ Sat
 Unsat
 Unsat
 Unsat
+0: Sat
+{c1 -> 4, c0 -> 1}
+1: Sat
+{c1 -> 3, c0 -> 3}
+2: Unsat
+3: Invalid
+{c0 -> -1}
+4: Valid
+5: Valid
+Unsat
+Vector(!((-3 + c1) = 0))
+0: Sat
+{c0 -> 8}
+1: Sat
+{c0 -> 7}
+2: Invalid
+{c0 -> -4}
+3: Invalid
+{c1 -> 2, c0 -> 1}
+4: Valid

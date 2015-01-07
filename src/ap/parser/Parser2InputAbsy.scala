@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,7 +22,8 @@
 package ap.parser;
 
 import ap._
-import ap.theories.TheoryCollector
+import ap.theories.{TheoryCollector, MulTheory}
+import ap.parameters.{ParserSettings, Param}
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -118,10 +119,12 @@ object Parser2InputAbsy {
 
 
 abstract class Parser2InputAbsy[CT, VT, PT, FT]
-                               (val env : Environment[CT, VT, PT, FT]) {
+                               (val env : Environment[CT, VT, PT, FT],
+                                settings : ParserSettings) {
   
   import IExpression._
-  
+
+
   type GrammarExpression
   
   /**
@@ -134,21 +137,11 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
            : (IFormula, List[IInterpolantSpec], Signature)
 
   protected def genSignature(completeFor : IExpression) : Signature = {
-    var prel = env.toSignature
     val coll = new TheoryCollector
     coll(completeFor)
-    if (coll.theories.isEmpty) {
-      prel
-    } else {
-      Signature(prel.universalConstants,
-                prel.existentialConstants,
-                prel.nullaryFunctions,
-                prel.predicateMatchConfig ++ (
-                  for (t <- coll.theories.iterator;
-                       p <- t.predicateMatchConfig.iterator) yield p),
-                (prel.order /: coll.theories) { case (o, t) => t extend o },
-                coll.theories)
-    }
+    for (t <- coll.theories find (_.isInstanceOf[MulTheory]))
+      Parser2InputAbsy.warn("using theory to encode multiplication: " + t)
+    env.toSignature addTheories coll.theories
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -186,27 +179,15 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
   protected def getAxioms : IFormula = connect(axioms, IBinJunctor.And)
   
   protected def defaultFunctionType(f : IFunction) : FT
-  
-  protected def mult(t1 : ITerm, t2 : ITerm) : ITerm =
-    try { t1 * t2 }
-    catch {
-      case _ : IllegalArgumentException => {
-//        throw new Parser2InputAbsy.TranslationException(
-//                        "Do not know how to multiply " + t1 + " with " + t2)
-//        genNonLinearMultAxioms
-//        nonLinMult(t1, t2)
-        val theory = ap.theories.BitShiftMultiplication
-        if (!nonLinearMultDefined) {
-          Parser2InputAbsy.warn(
-            "using theory to encode multiplication: " + theory)
-          nonLinearMultDefined = true
-        }
-        theory.mul(t1, t2)
-      }
-    }
 
-  private var nonLinearMultDefined = false
+  protected lazy val mulTheory : MulTheory =
+    Param.MUL_PROCEDURE(settings) match {
+      case Param.MulProcedure.BitShift => ap.theories.BitShiftMultiplication
+      case Param.MulProcedure.Native   => ap.theories.nia.GroebnerMultiplication
+    }
   
+  protected def mult(t1 : ITerm, t2 : ITerm) : ITerm = mulTheory.mult(t1, t2)
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**

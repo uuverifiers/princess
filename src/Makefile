@@ -21,6 +21,7 @@ all:
 		ap/parameters/*.scala \
 		ap/interpolants/*.scala \
 		ap/theories/*.scala \
+		ap/theories/nia/*.scala \
 		ap/*.scala
 
 doc:
@@ -44,4 +45,5 @@ doc:
 		ap/parameters/*.scala \
 		ap/interpolants/*.scala \
 		ap/theories/*.scala \
+		ap/theories/nia/*.scala \
 		ap/*.scala

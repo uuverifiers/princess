@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -144,6 +144,10 @@ object GlobalSettings {
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.MaximalOutermost)
         case Opt("triggersInConjecture", value) =>
           Param.TRIGGERS_IN_CONJECTURE.set(settings, value)
+        case ValueOpt("mulProcedure", "bitShift") =>
+          Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.BitShift)
+        case ValueOpt("mulProcedure", "native") =>
+          Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.Native)
         case ValueOpt("realRatSaturationRounds", IntVal(value)) =>
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case Opt("multiStrategy", value) =>
@@ -171,7 +175,8 @@ object GlobalSettings {
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
-         Param.MULTI_STRATEGY, Param.REAL_RAT_SATURATION_ROUNDS)
+         Param.MULTI_STRATEGY,
+         Param.MUL_PROCEDURE, Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -188,7 +193,8 @@ object GoalSettings {
                        Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
-                       Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG)
+                       Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
+                       Param.NONLINEAR_SPLITTING)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -200,6 +206,7 @@ object ParserSettings {
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
                        Param.TRIGGERS_IN_CONJECTURE,
                        Param.MAKE_QUERIES_PARTIAL,
+                       Param.MUL_PROCEDURE,
                        Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =

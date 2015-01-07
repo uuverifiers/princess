@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -230,7 +230,25 @@ object Param {
     val defau : ap.proof.ConstraintSimplifier =
       ap.proof.ConstraintSimplifier.FAIR_SIMPLIFIER
   }
-  
+
+  object MulProcedure extends Enumeration {
+    val BitShift, Native = Value
+  }
+
+  case object MUL_PROCEDURE extends Param {
+    type Value = MulProcedure.Value
+    val defau : MulProcedure.Value = MulProcedure.Native
+  }
+
+  object NonLinearSplitting extends Enumeration {
+    val Spherical, Sign = Value
+  }
+
+  case object NONLINEAR_SPLITTING extends Param {
+    type Value = NonLinearSplitting.Value
+    val defau : NonLinearSplitting.Value = NonLinearSplitting.Sign
+  }
+
   case object PREDICATE_MATCH_CONFIG extends Param {
     type Value = PredicateMatchConfig
     val defau : PredicateMatchConfig = Map()

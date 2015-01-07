@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -122,8 +122,8 @@ class SMTLineariser(benchmarkName : String,
         case t.select => "select"
         case t.store => "store"
       }
-      case Some(BitShiftMultiplication) => fun match {
-        case BitShiftMultiplication.mul => "*"
+      case Some(t : MulTheory) => fun match {
+        case t.mul => "*"
       }
       case _ =>
         quoteIdentifier(funPrefix + fun.name)

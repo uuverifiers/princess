@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -47,7 +47,7 @@ object CmdlMain {
     println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2014")
-    println("(contributions by Angelo Brillout, Peter Baumgartner)")
+    println("(contributions by Angelo Brillout, Peter Backeman, Peter Baumgartner)")
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to ph_r@gmx.net")
     println
@@ -98,6 +98,9 @@ object CmdlMain {
     println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
     println(" [+-]boolFunsAsPreds       In smtlib and tptp, encode               (default: -)")
     println("                           boolean functions as predicates")
+    println(" -mulProcedure=val         Handling of nonlinear integer formulae")
+    println("                             bitShift: axioms encoding shift-and-add (default)")
+    println("                             native:   built-in methods (Groebner, etc.)")
     println(" -constructProofs=val      Extract proofs")
     println("                             never")
     println("                             ifInterpolating: if \\interpolant occurs (default)")

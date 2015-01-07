@@ -42,3 +42,7 @@ scala $OPTIONS scope-bug.scala
 scala $OPTIONS TheoryTest.scala
 scala $OPTIONS TheoryTest2.scala
 scala $OPTIONS TheoryTest3.scala
+
+scala $OPTIONS nonlinear.scala
+scala $OPTIONS nonlinearInterpolation.scala
+scala $OPTIONS division.scala

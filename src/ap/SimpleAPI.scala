@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -36,8 +36,9 @@ import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction}
-import ap.theories.{Theory, TheoryCollector, TheoryRegistry, SimpleArray}
-import ap.proof.theoryPlugins.Plugin
+import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
+                    SimpleArray, MulTheory}
+import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
@@ -361,6 +362,9 @@ class SimpleAPI private (enableAssert : Boolean,
       case Some(t : SimpleArray) => f match {
         case t.select => "select"
         case t.store => "store"
+      }
+      case Some(t : MulTheory) => f match {
+        case t.mul => "mult"
       }
       case _ => f.name
     }
@@ -1245,6 +1249,31 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * The current theory used for non-linear problems.
+   */
+  def mulTheory : MulTheory =
+    if (constructProofs)
+      ap.theories.BitShiftMultiplication
+    else
+      ap.theories.nia.GroebnerMultiplication
+
+  /**
+   * Generate the product of the given terms. Depending on the arguments,
+   * either Presburger multiplication with a constant, or the non-linear
+   * operator <code>mulTheory.mul</code> will be chosen.
+   */
+  def mult(t1 : ITerm, t2 : ITerm) : ITerm = mulTheory.mult(t1, t2)
+
+  /**
+   * Convert a term to a rich term, offering operations
+   * <code>mul, div, mod</code>, etc., for non-linear arithmetic.
+   */
+  implicit def convert2RichMulTerm(term : ITerm) =
+    mulTheory.convert2RichMulTerm(term)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * <code>select</code> function of the theory of arrays.
    */
   def selectFun(arity : Int) : IFunction = SimpleArray(arity).select
@@ -1675,12 +1704,8 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       println("// setupTheoryPlugin")
     }
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    // Multiple theory plugins are currently unsupported
-    Debug.assertPre(AC, theoryPlugin == None)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    theoryPlugin = Some(plugin)
+    theoryPlugin = PluginSequence(theoryPlugin.toSeq ++ List(plugin))
     proverRecreationNecessary
   }
 
@@ -1894,7 +1919,7 @@ class SimpleAPI private (enableAssert : Boolean,
       println("; (partial-model)")
     }
     doDumpScala {
-      println("partialModel")
+      println("println(\"" + getScalaNum + ": \" + partialModel)")
     }
 
     if (lastPartialModel != null) {
@@ -2658,6 +2683,21 @@ class SimpleAPI private (enableAssert : Boolean,
     rawFormulaeTodo = rawFormulaeTodo | f
   }
 
+  /**
+   * HACK: When constructing proofs, make sure that the given formula only uses
+   * the <code>BitShiftMultiplicationTheory</code>; other theories do not support
+   * proof extraction at the moment.
+   */
+  private def fixMulTheory(f : IFormula) : IFormula =
+    if (constructProofs) {
+      val newF = ap.theories.BitShiftMultiplication convert f
+      theoryCollector(newF)
+      addTheoryAxioms
+      newF
+    } else {
+      f
+    }
+
   private def toInternalNoAxioms(f : IFormula,
                                  order : TermOrder) : Conjunction = {
     val sig = Signature(Set(),
@@ -2683,7 +2723,8 @@ class SimpleAPI private (enableAssert : Boolean,
     formula
   }
 
-  private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
+  private def toInternal(preF : IFormula) : (Conjunction, Conjunction) = {
+    val f = fixMulTheory(preF)
     val sig = Signature(Set(),
                         existentialConstants,
                         currentOrder.orderedConstants -- existentialConstants,
@@ -2727,13 +2768,8 @@ class SimpleAPI private (enableAssert : Boolean,
   
           functionalPreds = functionalPreds ++ t.functionalPredicates
   
-          for (plugin <- t.plugin) {
-            //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-            // Multiple theory plugins are currently unsupported
-            Debug.assertInt(AC, theoryPlugin == None)
-            //-END-ASSERTION-/////////////////////////////////////////////////////
-            theoryPlugin = Some(plugin)
-          }
+          for (plugin <- t.plugin)
+            theoryPlugin = PluginSequence(theoryPlugin.toSeq ++ List(plugin))
   
           Conjunction.negate(t.axioms, currentOrder)
         }

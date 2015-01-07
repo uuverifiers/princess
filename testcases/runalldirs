@@ -1,5 +1,7 @@
 #!/bin/sh
 
+./rundir nia "" -logo +assert -timeout=5000 -clausifier=none +posUnitResolution
+
 ./rundir api ""
 
 ./rundir smtlib-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution

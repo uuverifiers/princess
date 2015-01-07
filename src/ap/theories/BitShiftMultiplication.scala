@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,10 +33,220 @@ import ap.parameters.Param
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 
+trait MulTheory extends Theory {
+
+  /**
+   * Symbol representing proper (non-linear) multiplication
+   */
+  val mul : IFunction
+
+  /**
+   * Multiply two terms, using the <code>mul</code> function if necessary;
+   * if any of the two terms is constant, normal Presburger
+   * multiplication will be used.
+   */
+  def mult(t1 : ITerm, t2 : ITerm) : ITerm =
+    try {
+      t1 * t2
+    } catch {
+      case _ : IllegalArgumentException => IFunApp(mul, List(t1, t2))
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  import IExpression._
+
+  /**
+   * Euclidian division
+   */
+  def eDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
+    val num = VariableShiftVisitor(numTerm, 0, 1)
+    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+
+    val v0Denom = mult(v(0), denom)
+    eps((v0Denom <= num) & (v0Denom > num - abs(denom)))
+  }
+
+  /**
+   * Euclidian remainder
+   */
+  def eMod(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
+    val num = VariableShiftVisitor(numTerm, 0, 1)
+    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+
+    eps((v(0) >= 0) & (v(0) < abs(denom)) &
+        ex(VariableShiftVisitor(num, 0, 1) ===
+             mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
+  }
+
+  /**
+   * Truncation division
+   */
+  def tDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
+    val num = VariableShiftVisitor(numTerm, 0, 1)
+    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+
+    val rem = num - mult(v(0), denom)
+    eps((rem < abs(denom)) & (-rem < abs(denom)) &
+        ((rem > 0) ==> (num > 0)) & ((rem < 0) ==> (num < 0)))
+  }
+
+  /**
+   * Truncation remainder
+   */
+  def tMod(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
+    val num = VariableShiftVisitor(numTerm, 0, 1)
+    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+
+    eps((v(0) < abs(denom)) & (-v(0) < abs(denom)) &
+        ((v(0) > 0) ==> (num > 0)) & ((v(0) < 0) ==> (num < 0)) &
+        ex(VariableShiftVisitor(num, 0, 1) ===
+           mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
+  }
+
+  /**
+   * Floor division
+   */
+  def fDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
+    val num = VariableShiftVisitor(numTerm, 0, 1)
+    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+
+    val rem = num - mult(v(0), denom)
+    eps((rem < abs(denom)) & (-rem < abs(denom)) &
+        ((rem > 0) ==> (denom > 0)) & ((rem < 0) ==> (denom < 0)))
+  }
+
+  /**
+   * Floor remainder
+   */
+  def fMod(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
+    val num = VariableShiftVisitor(numTerm, 0, 1)
+    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+
+    eps((v(0) < abs(denom)) & (-v(0) < abs(denom)) &
+        ((v(0) > 0) ==> (denom > 0)) & ((v(0) < 0) ==> (denom < 0)) &
+        ex(VariableShiftVisitor(num, 0, 1) ===
+           mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
+  }
+
+  /**
+   * Exponentiation, with non-negative exponent
+   */
+  def pow(basis : ITerm, expTerm : ITerm) : ITerm = expTerm match {
+    case Const(exp) => exp.signum match {
+      case -1 =>
+        throw new IllegalArgumentException
+      case 0 =>
+        1
+      case 1 =>
+        (for (_ <- 0 until exp.intValueSafe) yield basis) reduceLeft (mult _)
+    }
+    case _ =>
+      throw new IllegalArgumentException
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  class RichMulTerm(term : ITerm) {
+    /**
+     * Multiply two terms, using the <code>MulTheory.mul</code> function
+     * if necessary;
+     * if any of the two terms is constant, normal Presburger
+     * multiplication will be used.
+     */
+    def **(that : ITerm) : ITerm  = mult(term, that)
+
+    /**
+     * Euclidian division
+     */
+    def /(that : ITerm) : ITerm  = MulTheory.this.eDiv(term, that)
+
+    /**
+     * Euclidian remainder
+     */
+    def %(that : ITerm) : ITerm  = MulTheory.this.eMod(term, that)
+
+    /**
+     * Euclidian division
+     */
+    def eDiv(that : ITerm) : ITerm = MulTheory.this.eDiv(term, that)
+
+    /**
+     * Euclidian remainder
+     */
+    def eMod(that : ITerm) : ITerm = MulTheory.this.eMod(term, that)
+
+    /**
+     * Truncation division
+     */
+    def tDiv(that : ITerm) : ITerm = MulTheory.this.tDiv(term, that)
+
+    /**
+     * Truncation remainder
+     */
+    def tMod(that : ITerm) : ITerm = MulTheory.this.tMod(term, that)
+
+    /**
+     * Floor division
+     */
+    def fDiv(that : ITerm) : ITerm = MulTheory.this.fDiv(term, that)
+
+    /**
+     * Floor remainder
+     */
+    def fMod(that : ITerm) : ITerm = MulTheory.this.fMod(term, that)
+
+    /**
+     * Exponentiation, with non-negative exponent. Note that <code>^</code>
+     * binds only weakly in Scala, so usually one has to write <code>(x^2)</code>
+     * with parentheses.
+     */
+    def ^(exp : ITerm) : ITerm = pow(term, exp)
+  }
+
+  implicit def convert2RichMulTerm(term : ITerm) = new RichMulTerm(term)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Convert the given expression to this multiplication theory
+   */
+  def convert(expr : IExpression) : IExpression =
+    MulConverter.visit(expr, ())
+
+  /**
+   * Convert the given expression to this multiplication theory
+   */
+  def convert(expr : ITerm) : ITerm =
+    MulConverter.visit(expr, ()).asInstanceOf[ITerm]
+
+  /**
+   * Convert the given expression to this multiplication theory
+   */
+  def convert(expr : IFormula) : IFormula =
+    MulConverter.visit(expr, ()).asInstanceOf[IFormula]
+
+  private object MulConverter extends CollectingVisitor[Unit, IExpression] {
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case IFunApp(f, _) => (TheoryRegistry lookupSymbol f) match {
+        case Some(mulTheory : MulTheory) if (f == mulTheory.mul && f != mul) =>
+          IFunApp(mul, for (e <- subres.toList) yield e.asInstanceOf[ITerm])
+        case _ =>
+          t update subres
+      }
+      case _ =>
+        t update subres
+    }
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 /**
  * Multiplication by means of axioms describing shift-and-add
  */
-object BitShiftMultiplication extends Theory {
+object BitShiftMultiplication extends MulTheory {
 
   import IExpression._
 

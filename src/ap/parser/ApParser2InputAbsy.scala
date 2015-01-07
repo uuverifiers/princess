@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -41,7 +41,8 @@ object ApParser2InputAbsy {
   import Parser2InputAbsy._
   
   def apply(settings : ParserSettings) =
-    new ApParser2InputAbsy(new Environment[Unit, Unit, Unit, Unit])
+    new ApParser2InputAbsy(new Environment[Unit, Unit, Unit, Unit],
+                           settings)
   
   def parseExpression(input : java.io.Reader,
                       env : Environment[Unit, Unit, Unit, Unit]) : IExpression = {
@@ -53,7 +54,7 @@ object ApParser2InputAbsy {
       }
     }
     val expr = parseWithEntry(input, env, entry _)
-    val t = new ApParser2InputAbsy (env)
+    val t = new ApParser2InputAbsy (env, ParserSettings.DEFAULT)
     t translateExpression expr
   }
   
@@ -77,8 +78,9 @@ object ApParser2InputAbsy {
 
 }
 
-class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
-      extends Parser2InputAbsy(_env) {
+class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
+                         settings : ParserSettings)
+      extends Parser2InputAbsy(_env, settings) {
   
   import IExpression._
   import Parser2InputAbsy._
@@ -354,6 +356,8 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
       translateBinForConnective(f.expression_1, f.expression_2, _ <=> _)
     case f : ExprImp =>
       translateBinForConnective(f.expression_1, f.expression_2, _ ==> _)
+    case f : ExprImpInv =>
+      translateBinForConnective(f.expression_2, f.expression_1, _ ==> _)
     case f : ExprOr => {
       val subs = collectSubExpressions(f, _.isInstanceOf[ExprOr], ApConnective)
       (for (f <- subs.iterator)
@@ -370,6 +374,7 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
       translateQuant(f)
     case _ : ExprTrue => i(true)
     case _ : ExprFalse => i(false)
+    case f : ExprDistinct => distinct(translateOptArgs(f.optargs_))
     case f : ExprIdApp => translateExprIdApp(f)
     case f : ExprRel =>
       translateBinTerConnective(f.expression_1, f.expression_2,
@@ -393,10 +398,16 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
       translateBinTerConnective(t.expression_1, t.expression_2, _ - _)
     case t : ExprMult =>
       translateBinTerConnective(t.expression_1, t.expression_2, mult _)
+    case t : ExprDiv =>
+      translateBinTerConnective(t.expression_1, t.expression_2, mulTheory.eDiv _)
+    case t : ExprMod =>
+      translateBinTerConnective(t.expression_1, t.expression_2, mulTheory.eMod _)
     case t : ExprUnPlus =>
       translateUnTerConnective(t.expression_, (lc) => lc)
     case t : ExprUnMinus =>
       translateUnTerConnective(t.expression_, - _)
+    case t : ExprExp =>
+      translateBinTerConnective(t.expression_1, t.expression_2, mulTheory.pow _)
     case t : ExprLit =>
       IIntLit(IdealInt(t.intlit_))
     case t : ExprEpsilon => {
@@ -404,6 +415,22 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit])
       val cond = asFormula(translateExpression(t.expression_))
       env.popVar
       IEpsilon(guard &&& cond)
+    }
+    case t : ExprAbs =>
+      translateUnTerConnective(t.expression_, abs _)
+    case t : ExprMax => {
+      val args = translateOptArgs(t.optargs_)
+      if (args.isEmpty)
+        throw new Parser2InputAbsy.TranslationException(
+            "Function max needs to receive at least one argument")
+      max(args)
+    }
+    case t : ExprMin => {
+      val args = translateOptArgs(t.optargs_)
+      if (args.isEmpty)
+        throw new Parser2InputAbsy.TranslationException(
+            "Function min needs to receive at least one argument")
+      min(args)
     }
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)

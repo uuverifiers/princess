@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010,2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2015 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -124,7 +124,8 @@ abstract class SoftwareInterpolationFramework {
   //////////////////////////////////////////////////////////////////////////////
 
   protected def parseProblem(reader : java.io.Reader) : (IFormula, Signature) = {
-    val (problem, _, sig) = new ApParser2InputAbsy(preludeEnv.clone)(reader)
+    val (problem, _, sig) =
+      new ApParser2InputAbsy(preludeEnv.clone, ParserSettings.DEFAULT)(reader)
     (problem, sig)
   }
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -194,7 +194,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               Unit,
                                               SMTParser2InputAbsy.SMTType],
                            settings : ParserSettings)
-      extends Parser2InputAbsy(_env) {
+      extends Parser2InputAbsy(_env, settings) {
   
   import IExpression._
   import Parser2InputAbsy._
@@ -980,33 +980,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case PlainSymbol("div") => {
       checkArgNum("div", 2, args)
-      val Seq(num, denom) =
-        for (a <- args) yield VariableShiftVisitor(asTerm(translateTerm(a, 0)), 0, 1)
-      val v0Denom = mult(v(0), denom)
-      (eps((v0Denom <= num) & (denom match {
-             case Const(denomVal) => v0Denom > num - denomVal.abs
-             case denom => (num < v0Denom + denom) | (num < v0Denom - denom)
-           })),
-       SMTInteger)
+      val Seq(num, denom) = for (a <- args) yield asTerm(translateTerm(a, 0))
+      (mulTheory.eDiv(num, denom), SMTInteger)
     }
        
     case PlainSymbol("mod") => {
       checkArgNum("mod", 2, args)
-      val Seq(num, denom) =
-        for (a <- args) yield VariableShiftVisitor(asTerm(translateTerm(a, 0)), 0, 1)
-      (eps((v(0) >= 0) & (denom match {
-             case Const(denomVal) => v(0) < denomVal.abs
-             case denom => (v(0) < denom) | (v(0) < -denom)
-           }) &
-           ex(VariableShiftVisitor(num, 0, 1) ===
-              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
-       SMTInteger)
+      val Seq(num, denom) = for (a <- args) yield asTerm(translateTerm(a, 0))
+      (mulTheory.eMod(num, denom), SMTInteger)
     }
 
     case PlainSymbol("abs") => {
       checkArgNum("abs", 1, args)
-      val arg = VariableShiftVisitor(asTerm(translateTerm(args.head, 0)), 0, 1)
-      (eps((v(0) === arg | v(0) === -arg) & (v(0) >= 0)), SMTInteger)
+      (abs(asTerm(translateTerm(args.head, 0))), SMTInteger)
     }
       
     ////////////////////////////////////////////////////////////////////////////

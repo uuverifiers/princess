@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -104,6 +104,57 @@ trait Plugin extends TheoryProcedure {
    * formula is meant to replace the goal facts in this case.
    */
   def generateModel(goal : Goal) : Option[Conjunction] = None
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object PluginSequence {
+  def apply(plugins : Seq[Plugin]) : Option[Plugin] = plugins match {
+    case Seq()       => None
+    case Seq(plugin) => Some(plugin)
+    case plugins     => {
+      val flatPlugins =
+        for (p <- plugins;
+             q <- p match {
+               case p : PluginSequence => p.plugins
+               case p => List(p)
+             })
+        yield q
+      Some(new PluginSequence(flatPlugins))
+    }
+  }
+}
+
+/**
+ * Execution of a sequence of plugins.
+ */
+class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
+
+  // not used
+  def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+    throw new UnsupportedOperationException
+
+  override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+    val it = plugins.iterator
+    var res : Seq[Plugin.Action] = List()
+    while (res.isEmpty && it.hasNext)
+      res = it.next handleGoal goal
+    res
+  }
+
+  /**
+   * Check whether the formulas in the given goal are satisfiable,
+   * and if yes generate a model. The returned
+   * formula is meant to replace the goal facts in this case.
+   */
+  override def generateModel(goal : Goal) : Option[Conjunction] = {
+    val it = plugins.iterator
+    var res : Option[Conjunction] = None
+    while (!res.isDefined && it.hasNext)
+      res = it.next generateModel goal
+    res
+  }
 
 }
 
