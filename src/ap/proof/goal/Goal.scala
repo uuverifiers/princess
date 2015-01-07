@@ -274,271 +274,271 @@ class Goal private (val facts : Conjunction,
   
   lazy val closingConstraintXXX : Conjunction = {
 
-    val funpreds = Param.FUNCTIONAL_PREDICATES(settings)
+    // val funpreds = Param.FUNCTIONAL_PREDICATES(settings)
 
 
-    //
-    // Output "interesting" unification problems
-    //
+    // //
+    // // Output "interesting" unification problems
+    // //
 
-    class FoundDataException(msg : String) extends Exception
-    class LookAgainException(msg : String) extends Exception
+    // class FoundDataException(msg : String) extends Exception
+    // class LookAgainException(msg : String) extends Exception
 
-    try {
+    // try {
 
-      //
-      // NODES / VARIABLES
-      //
+    //   //
+    //   // NODES / VARIABLES
+    //   //
 
-      // Store map for CT -> Variables
-      var qMap = Map() : Map[ConstantTerm, Boolean]
-      for ((t, q) <- bindingContext.quantifiers) {
-        q match {
-	  case Quantifier.ALL => {
-            qMap += (t -> true)
-          }
-	  case Quantifier.EX =>  {
-            qMap += (t -> false)
-          }
-        }
-      }
-
-
-      //
-      //  ID HANDLING FUNCTIONS
-      //
-      type Id = (Boolean, Int)
-      type Fun = (Id, Int, List[Id])
-
-      var idMap = Map() : Map[ConstantTerm, Id]
-      var Functions = List() : List[Fun]
-      var Goals = List() : List[List[(Id, Id)]]
-
-      var exCount = 0
-      var allCount = 0
-
-      // Get ID of constant term, if non-exist, create new
-      def IDof(ct : ConstantTerm) : Id = {
-        if (!(idMap contains ct)) {
-          // Create new
-          if (qMap getOrElse (ct, false)) {
-            idMap += (ct -> newAll())
-          } else {
-            idMap += (ct -> newEx())
-          }
-        }
-        return idMap(ct)
-      }
-
-      // Create a new variable
-      def newAll() : Id = {
-        allCount += 1
-        return (true, allCount - 1)
-      }
-
-      // Create a new constant
-      def newEx() : Id = {
-        exCount += 1
-        return (false, exCount - 1)
-      }
-
-      def INTof(id : Id) : Int = {
-        val (all, n) = id
-        if (all)
-          return n+exCount
-        else
-          return n
-      }
-
-      def mkN() : String = {
-        (0 to (exCount-1)).toList.mkString(" ")
-      }
-
-      def mkV() : String = {
-        (exCount to (exCount+allCount-1)).toList.mkString(" ")
-      }
-
-      def mkCons() : String = {
-        ""
-      }
-
-      def mkFun(fun : Fun) = {
-        val (n, f, args) = fun
-        INTof(n) + " " + f + " " + (args.map(INTof)).mkString(" ")
-      }
-
-      def mkFuns(funs : List[Fun]) : String = {
-        (for (f <- funs) yield mkFun(f)).mkString("-")
-      }
-
-      def mkScalaFun(fun : Fun) = {
-        val (n, f, args) = fun
-        f + " " + INTof(n) + " " + (args.map(INTof)).mkString(" ")
-      }
-
-      def mkScalaFuns(funs : List[Fun]) : String = {
-        (for (f <- funs) yield mkScalaFun(f)).mkString("-")
-      }
-
-      def mkGoal(goal : List[(Id, Id)]) : String = {
-        (for ((s, t) <- goal)
-        yield 
-        {
-          val min = INTof(s) min INTof(t)
-          val max = INTof(s) max INTof(t)
-          (min + " " + max)
-        }).mkString("-")
-      }
-
-      def mkGoals(goals : List[List[(Id, Id)]]) : String = {
-        // Just pick up to three at random:
-        val goalList = (if (goals.length > 3) {
-          import scala.util.Random
-          Random.shuffle(goals)
-          goals.take(3)
-        } else {
-          goals 
-        })
-
-        (for (g <- goalList) yield mkGoal(g)).mkString("+")
-      }
+    //   // Store map for CT -> Variables
+    //   var qMap = Map() : Map[ConstantTerm, Boolean]
+    //   for ((t, q) <- bindingContext.quantifiers) {
+    //     q match {
+    //       case Quantifier.ALL => {
+    //         qMap += (t -> true)
+    //       }
+    //       case Quantifier.EX =>  {
+    //         qMap += (t -> false)
+    //       }
+    //     }
+    //   }
 
 
+    //   //
+    //   //  ID HANDLING FUNCTIONS
+    //   //
+    //   type Id = (Boolean, Int)
+    //   type Fun = (Id, Int, List[Id])
 
-      //
-      // Functions
-      //
+    //   var idMap = Map() : Map[ConstantTerm, Id]
+    //   var Functions = List() : List[Fun]
+    //   var Goals = List() : List[List[(Id, Id)]]
 
+    //   var exCount = 0
+    //   var allCount = 0
 
-      import ap.terfor.preds.Predicate
+    //   // Get ID of constant term, if non-exist, create new
+    //   def IDof(ct : ConstantTerm) : Id = {
+    //     if (!(idMap contains ct)) {
+    //       // Create new
+    //       if (qMap getOrElse (ct, false)) {
+    //         idMap += (ct -> newAll())
+    //       } else {
+    //         idMap += (ct -> newEx())
+    //       }
+    //     }
+    //     return idMap(ct)
+    //   }
 
-      // Contains Map Function -> Int
-      val funMap = scala.collection.mutable.Map[Predicate,Int]()
-      var funCount = 0
-      for (p <- facts.predicates) {
-        funMap += (p -> funCount)
-        funCount += 1
-      }
+    //   // Create a new variable
+    //   def newAll() : Id = {
+    //     allCount += 1
+    //     return (true, allCount - 1)
+    //   }
 
-      // Contains all positive & negative predicates with their arguments
-      val posPredMap = scala.collection.mutable.Map[Int,List[List[Id]]]()
-      val negPredMap = scala.collection.mutable.Map[Int,List[List[Id]]]()
+    //   // Create a new constant
+    //   def newEx() : Id = {
+    //     exCount += 1
+    //     return (false, exCount - 1)
+    //   }
 
+    //   def INTof(id : Id) : Int = {
+    //     val (all, n) = id
+    //     if (all)
+    //       return n+exCount
+    //     else
+    //       return n
+    //   }
 
-      // Gets argument list and converts to IDlist
-      def getArglist(elements : Iterator[LinearCombination]) : List[Id] = {
-        var arglist = List() : List[(Boolean, Int)]
+    //   def mkN() : String = {
+    //     (0 to (exCount-1)).toList.mkString(" ")
+    //   }
 
-        for (e <- elements) {
-          if (e.lcSize == 1) {
-            e.getTerm(0) match {
-              case ct : ConstantTerm => arglist ::= IDof(ct)
-              case x => throw new Exception("Error 2: Not ConstantTerm in function argument")
-            }
-          } else {
-            throw new Exception("Error 3: lcSize > 1")
-          }
-        }
+    //   def mkV() : String = {
+    //     (exCount to (exCount+allCount-1)).toList.mkString(" ")
+    //   }
 
-        return arglist
-      }
+    //   def mkCons() : String = {
+    //     ""
+    //   }
 
+    //   def mkFun(fun : Fun) = {
+    //     val (n, f, args) = fun
+    //     INTof(n) + " " + f + " " + (args.map(INTof)).mkString(" ")
+    //   }
 
-      def extractPredicate(literal : ap.terfor.preds.Atom) : (Predicate, Int, List[Id]) = {
-        val function = literal.predicates.toList(0)
-        val f = funMap(function)
-        val arglist = getArglist(literal.elements)
-        (function, f, arglist)
-      }
+    //   def mkFuns(funs : List[Fun]) : String = {
+    //     (for (f <- funs) yield mkFun(f)).mkString("-")
+    //   }
 
-      // Main loop, check all predicates!
-      for (conj <- facts.predConj.iterator) {
+    //   def mkScalaFun(fun : Fun) = {
+    //     val (n, f, args) = fun
+    //     f + " " + INTof(n) + " " + (args.map(INTof)).mkString(" ")
+    //   }
 
-        // Positive literals give arise to equalities and predicate facts
-        for (literal <- conj.positiveLits) {
+    //   def mkScalaFuns(funs : List[Fun]) : String = {
+    //     (for (f <- funs) yield mkScalaFun(f)).mkString("-")
+    //   }
 
-          val (function, f, arglist) = extractPredicate(literal)
-          if (funpreds.contains(function)) {
-            // If it is a function, store in Functions
-            Functions ::= (arglist.head, f, arglist.drop(1).reverse)
-          } else {
-            // If not a function, store in posPredMap
-            posPredMap += (f -> (arglist :: (posPredMap.getOrElse(f, List()))))
-          }
-        }
+    //   def mkGoal(goal : List[(Id, Id)]) : String = {
+    //     (for ((s, t) <- goal)
+    //     yield 
+    //     {
+    //       val min = INTof(s) min INTof(t)
+    //       val max = INTof(s) max INTof(t)
+    //       (min + " " + max)
+    //     }).mkString("-")
+    //   }
 
-        // Negative literals give arise to goals and predicate facts
-        for (literal <- conj.negativeLits) {
+    //   def mkGoals(goals : List[List[(Id, Id)]]) : String = {
+    //     // Just pick up to three at random:
+    //     val goalList = (if (goals.length > 3) {
+    //       import scala.util.Random
+    //       Random.shuffle(goals)
+    //       goals.take(3)
+    //     } else {
+    //       goals 
+    //     })
 
-          val (function, f, arglist) = extractPredicate(literal)
-          if (funpreds.contains(function)) {
-            // If it is a function: f(a, b) != c, make f(a,b) = c' and new goal c' = c
-            val ex = newEx()
-            Functions ::= (ex, f, arglist.drop(1).reverse)
-            Goals ::= List((ex, (arglist.head)))
-          } else {
-            // If not a function, store in negPredMap
-            negPredMap += (f -> (arglist :: (negPredMap.getOrElse(f, List()))))
-          }
-        }
-      }
-
-
-      // Convert predicates to goals
-      for (pred <- posPredMap.keys) {
-        for (pp <- posPredMap(pred); np <- negPredMap.getOrElse(pred, List())) {
-          // Clear out all trivial subgoals
-          val goal = (pp zip np).filter{case (s, t) => s != t}
-
-          if (!goal.isEmpty)
-            Goals ::= goal
-        }
-      }
-
-      if (Goals.isEmpty) {
-        throw new LookAgainException("No goals")
-      }
-
-      val output = CmdlMain.currentFilename + "-" + CmdlMain.problemOutputCount + "\n" +
-        mkN() + "\n" +
-        mkV() + "\n" + 
-        mkCons() + "\n" +
-        mkFuns(Functions) + "\n" + 
-        mkGoal(Goals(0))
-
-      val scalaOutput = CmdlMain.currentFilename + "-" + CmdlMain.problemOutputCount + "\n" + 
-      exCount + "\n" +
-      allCount + "\n" + 
-      mkGoal(Goals(0)) + "\n" +
-      mkScalaFuns(Functions)
-
-
-      def using[A <: {def close(): Unit}, B](param: A)(f: A => B): B =
-        try { f(param) } finally { param.close() }
-
-      import java.io.{PrintWriter, FileWriter}
-
-      def appendToFile(fileName:String, textData:String) =
-        using (new FileWriter(fileName, true)){
-          fileWriter => using (new PrintWriter(fileWriter)) {
-            printWriter => printWriter.println(textData)
-          }
-        }
-
-      appendToFile("problems.txt", output)
-      appendToFile("scalaProblems.txt", scalaOutput)
-      CmdlMain.problemOutputCount += 1
-      if (CmdlMain.problemOutputCount == 20)
-        throw new FoundDataException("")
+    //     (for (g <- goalList) yield mkGoal(g)).mkString("+")
+    //   }
 
 
 
-      true
-    } catch {
-      case _ => 
-      // case fde : FoundDataException => throw new Exception("Found Data")
-      // case lae : LookAgainException =>
-    }
+    //   //
+    //   // Functions
+    //   //
+
+
+    //   import ap.terfor.preds.Predicate
+
+    //   // Contains Map Function -> Int
+    //   val funMap = scala.collection.mutable.Map[Predicate,Int]()
+    //   var funCount = 0
+    //   for (p <- facts.predicates) {
+    //     funMap += (p -> funCount)
+    //     funCount += 1
+    //   }
+
+    //   // Contains all positive & negative predicates with their arguments
+    //   val posPredMap = scala.collection.mutable.Map[Int,List[List[Id]]]()
+    //   val negPredMap = scala.collection.mutable.Map[Int,List[List[Id]]]()
+
+
+    //   // Gets argument list and converts to IDlist
+    //   def getArglist(elements : Iterator[LinearCombination]) : List[Id] = {
+    //     var arglist = List() : List[(Boolean, Int)]
+
+    //     for (e <- elements) {
+    //       if (e.lcSize == 1) {
+    //         e.getTerm(0) match {
+    //           case ct : ConstantTerm => arglist ::= IDof(ct)
+    //           case x => throw new Exception("Error 2: Not ConstantTerm in function argument")
+    //         }
+    //       } else {
+    //         throw new Exception("Error 3: lcSize > 1")
+    //       }
+    //     }
+
+    //     return arglist
+    //   }
+
+
+    //   def extractPredicate(literal : ap.terfor.preds.Atom) : (Predicate, Int, List[Id]) = {
+    //     val function = literal.predicates.toList(0)
+    //     val f = funMap(function)
+    //     val arglist = getArglist(literal.elements)
+    //     (function, f, arglist)
+    //   }
+
+    //   // Main loop, check all predicates!
+    //   for (conj <- facts.predConj.iterator) {
+
+    //     // Positive literals give arise to equalities and predicate facts
+    //     for (literal <- conj.positiveLits) {
+
+    //       val (function, f, arglist) = extractPredicate(literal)
+    //       if (funpreds.contains(function)) {
+    //         // If it is a function, store in Functions
+    //         Functions ::= (arglist.head, f, arglist.drop(1).reverse)
+    //       } else {
+    //         // If not a function, store in posPredMap
+    //         posPredMap += (f -> (arglist :: (posPredMap.getOrElse(f, List()))))
+    //       }
+    //     }
+
+    //     // Negative literals give arise to goals and predicate facts
+    //     for (literal <- conj.negativeLits) {
+
+    //       val (function, f, arglist) = extractPredicate(literal)
+    //       if (funpreds.contains(function)) {
+    //         // If it is a function: f(a, b) != c, make f(a,b) = c' and new goal c' = c
+    //         val ex = newEx()
+    //         Functions ::= (ex, f, arglist.drop(1).reverse)
+    //         Goals ::= List((ex, (arglist.head)))
+    //       } else {
+    //         // If not a function, store in negPredMap
+    //         negPredMap += (f -> (arglist :: (negPredMap.getOrElse(f, List()))))
+    //       }
+    //     }
+    //   }
+
+
+    //   // Convert predicates to goals
+    //   for (pred <- posPredMap.keys) {
+    //     for (pp <- posPredMap(pred); np <- negPredMap.getOrElse(pred, List())) {
+    //       // Clear out all trivial subgoals
+    //       val goal = (pp zip np).filter{case (s, t) => s != t}
+
+    //       if (!goal.isEmpty)
+    //         Goals ::= goal
+    //     }
+    //   }
+
+    //   if (Goals.isEmpty) {
+    //     throw new LookAgainException("No goals")
+    //   }
+
+    //   val output = CmdlMain.currentFilename + "-" + CmdlMain.problemOutputCount + "\n" +
+    //     mkN() + "\n" +
+    //     mkV() + "\n" + 
+    //     mkCons() + "\n" +
+    //     mkFuns(Functions) + "\n" + 
+    //     mkGoal(Goals(0))
+
+    //   val scalaOutput = CmdlMain.currentFilename + "-" + CmdlMain.problemOutputCount + "\n" + 
+    //   exCount + "\n" +
+    //   allCount + "\n" + 
+    //   mkGoal(Goals(0)) + "\n" +
+    //   mkScalaFuns(Functions)
+
+
+    //   def using[A <: {def close(): Unit}, B](param: A)(f: A => B): B =
+    //     try { f(param) } finally { param.close() }
+
+    //   import java.io.{PrintWriter, FileWriter}
+
+    //   def appendToFile(fileName:String, textData:String) =
+    //     using (new FileWriter(fileName, true)){
+    //       fileWriter => using (new PrintWriter(fileWriter)) {
+    //         printWriter => printWriter.println(textData)
+    //       }
+    //     }
+
+    //   appendToFile("problems.txt", output)
+    //   appendToFile("scalaProblems.txt", scalaOutput)
+    //   CmdlMain.problemOutputCount += 1
+    //   if (CmdlMain.problemOutputCount == 20)
+    //     throw new FoundDataException("")
+
+
+
+    //   true
+    // } catch {
+    //   case _ => 
+    //   // case fde : FoundDataException => throw new Exception("Found Data")
+    //   // case lae : LookAgainException =>
+    // }
 
     null
   }

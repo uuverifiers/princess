@@ -64,9 +64,16 @@ object CCURun {
       println("FILE: " + f)
       for ((title, p) <- parseFile(f)) {
         val (t, d, g, f) = p
-        val goal2 = List(List((0,1)))
-        val fun2 = List((0, List(0), 0), (0, List(0), 1))
-        val result = ccusolver.parallelSolve(t, d, List(g,goal2), List(f,fun2))
+
+        println("--------------")
+        println("--------------")
+        println("--------------")
+        println("oldFunctions: " + f)
+        println("oldGoals: " + g)
+        println("oldDomains: " + d)
+        println("oldTerms: " + t)
+
+        val result = ccusolver.parallelSolve(t, d, List(g), List(f))
 
         result match {
           case Some(model) => {

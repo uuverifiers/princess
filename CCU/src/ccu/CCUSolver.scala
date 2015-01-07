@@ -69,6 +69,9 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 
   // C[t1] == C[t2]
   def termEqTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
+    val allocNext = alloc.next
+    var used = 0
+
     val (c1, t1) = term1
     val (c2, t2) = term2
     val iBit = this(c1, t1)
@@ -76,18 +79,24 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 
     val eqBits =
       for (b  <- 0 until bits) yield {
-        val tmpBit = alloc.alloc(1)
+        val tmpBit = allocNext + used
+        used += 1
         gt.iff(tmpBit, new VecInt(List(iBit + b, jBit + b).toArray))
         tmpBit
       }
 
-    val eqBit = alloc.alloc(1)
+    val eqBit = allocNext + used
+    used += 1
     gt.and(eqBit, new VecInt(eqBits.toArray))
+    alloc.alloc(used)
     eqBit
   }
 
   // C[t1] > C[t2]
   def termGtTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
+    val allocNext = alloc.next
+    var used = 0
+
     val (c1, t1) = term1
     val (c2, t2) = term2
     val iBit = this(c1, t1)
@@ -97,13 +106,15 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
     var e_bits = List() : List[Int]
     for (b <- 1 to bits) yield {
       // iBit[bits - b] = jBit[bits - b]
-      val eq = alloc.alloc(1)
+      val eq = allocNext + used
+      used += 1
       gt.iff(eq, new VecInt(List(iBit + bits - b, jBit + bits - b).toArray))
 
       if (b == 1) {
         e_bits = e_bits :+ eq
       } else {
-        val e = alloc.alloc(1)
+        val e = allocNext + used
+        used += 1 
         gt.and(e, e_bits.last, eq)
         e_bits = e_bits :+ e
       }
@@ -113,23 +124,27 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 
     // m_bits[b]: bits [bits..(bits-b)] of i are greater than j
     for (b <- 1 to bits) {
-      val bit_gt = alloc.alloc(1)
+      val bit_gt = allocNext + used
+      used += 1
       gt.and(bit_gt, (iBit + bits - b), -(jBit + bits - b))
 
       if (b == 1) {
         m_bits = m_bits :+ bit_gt
       } else {
         val prev_eq = e_bits(b-2)
-        val opt1 = alloc.alloc(1)
+        val opt1 = allocNext + used
+        used += 1
         gt.and(opt1, prev_eq, bit_gt)
 
         val opt2 = m_bits(b-2)
 
-        val m = alloc.alloc(1)
+        val m = allocNext + used
+        used += 1
         gt.or(m, new VecInt(List(opt1, opt2).toArray))
         m_bits = m_bits :+ m
       }
     }
+    alloc.alloc(used)
     m_bits.last
   }
 
@@ -452,15 +467,17 @@ class CCUSolver[TERM, FUNC] {
     var cont = true
     var model = None : Option[Array[Int]]
 
-    // Since all table have same domain, they should have same assginments
     // TODO: change if tables has different rows
     val assignments = for (p <- 0 until problemCount) yield tables(p).addInitialColumn()
 
-    for (((variable, value), bit) <- assignments(0)) {
-      val tmpBit = alloc.alloc(1)
-      val lits = for (ass <- assignments) yield ass((variable, value))
-      gt.iff(tmpBit, new VecInt(lits.toArray))
-      solver.addClause(new VecInt(List(tmpBit).toArray))
+    // Since all table have same domain, they should have same assginments
+    if (problemCount > 1) {
+      for (((variable, value), bit) <- assignments(0)) {
+        val tmpBit = alloc.alloc(1)
+        val lits = for (ass <- assignments) yield ass((variable, value))
+        gt.iff(tmpBit, new VecInt(lits.toArray))
+        solver.addClause(new VecInt(List(tmpBit).toArray))
+      }
     }
 
 
@@ -509,6 +526,8 @@ class CCUSolver[TERM, FUNC] {
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]], 
     functions : List[List[(FUNC, List[TERM], TERM)]]) = {
+
+    // TODO: Build up terms automatically
 
     // HACK?
     val problemCount = goals.length
