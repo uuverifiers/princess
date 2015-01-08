@@ -36,6 +36,7 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 object ProofTree {
   
   private val AC = Debug.AC_PROOF_TREE
+  private val CCUSolver = new CCUSolver[ConstantTerm, Predicate]
   
 }
 
@@ -319,16 +320,17 @@ trait ProofTree {
       allConsts ++= cs
       allConsts += c
     }
-  
-    val solver = new CCUSolver[ConstantTerm, Predicate]
 
-    ap.util.Timer.measure("CCUSolver") {
+    ap.util.Timer.measure("CCUSolver") {  
+    // val solver = new CCUSolver[ConstantTerm, Predicate]
+
+
     (if (unificationProblems.size == 1)
-       solver.solve(allConsts.toList.sortBy(_.name),
+       ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
                     allDomains.toMap,
                     goals.head, funApps.head)
      else
-       solver.parallelSolve(allConsts.toList.sortBy(_.name),
+       ProofTree.CCUSolver.parallelSolve(allConsts.toList.sortBy(_.name),
                             allDomains.toMap,
                             goals, funApps)).isDefined
     }

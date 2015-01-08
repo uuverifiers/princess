@@ -312,14 +312,17 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 class CCUSolver[TERM, FUNC] {
 
   // SAT4J stuff
-  val solver = SolverFactory.newDefault()
-  val gt = new GateTranslator(solver)
+  val asd = (ap.util.Timer.measure("SAT4Jinit") {
+  val solverasd = SolverFactory.newDefault()
+  val gtasd = new GateTranslator(solverasd)
+  
 
   // TODO: Make real bound?
   val MAXVAR = 1000000;
-  solver.newVar (MAXVAR);
-
-
+  solverasd.newVar (MAXVAR);
+    (solverasd, gtasd)
+  }) : (ISolver, GateTranslator)
+  val (solver, gt) = asd
 
   // 
   // MATH HELPER FUNCTIONS
