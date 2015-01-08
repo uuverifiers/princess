@@ -5,15 +5,15 @@ import org.sat4j.specs._
 import org.sat4j.minisat._
 import org.sat4j.tools._
 
+import ap.util.Timer
+
 import scala.collection.mutable.{Map => MMap}
 
 class Allocator(init : Int) {
   var next = init
-  var history = List() : List[Int]
 
   def alloc(count : Int) = {
     val ret = next
-    history = history :+ ret
     next = next + count
     ret
   }
@@ -40,6 +40,7 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 
   // C[t] == i
   def termEqInt(term : (Int, Int), i : Int) : Int = {
+    ap.util.Timer.measure("termEqInt") {
     val (c, t) = term
 
     // TODO: Optimize
@@ -66,9 +67,11 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
     gt.and(prevBit, new VecInt(lits.toArray))
     prevBit
   }
+  }
 
   // C[t1] == C[t2]
   def termEqTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
+    ap.util.Timer.measure("termEqTerm") {
     val allocNext = alloc.next
     var used = 0
 
@@ -91,9 +94,11 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
     alloc.alloc(used)
     eqBit
   }
+  }
 
   // C[t1] > C[t2]
   def termGtTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
+    ap.util.Timer.measure("termGtTerm") {
     val allocNext = alloc.next
     var used = 0
 
@@ -147,9 +152,11 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
     alloc.alloc(used)
     m_bits.last
   }
+  }
 
 
   def addInitialColumn() = {
+    ap.util.Timer.measure("addInitialColumn") {
     columnStartBit = columnStartBit :+ alloc.alloc(ROWS*bits)
 
     var assignments = MMap() : MMap[(Int, Int), Int]
@@ -172,8 +179,10 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 
     assignments
   }
+  }
 
   def addDerivedColumn() = {
+    ap.util.Timer.measure("addDerivedColumn") {
     // For all pairs of functions with identical function symbols and different results,
     // form a three-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
     currentColumn += 1
@@ -272,10 +281,12 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
       val asd = new VecInt(List(-isRepresentative, identityBit, functionalityBit).toArray)
       solver.addClause(asd)
     }
+    }
   }
 
   // Make sure goal variables are removed at "POP"
   def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
+    ap.util.Timer.measure("addGoalConstraint") {
     val goalBits =
       for (g <- goals) yield {
         val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
@@ -287,11 +298,14 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
     val asd = new VecInt(goalBits.toArray)
     solver.addClause(asd)
   }
+  }
 
   def addCompletionConstraint() = {
+    ap.util.Timer.measure("addCompletionConstraint") {
     val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
     val asd = new VecInt(diff.toArray)
     solver.addClause(asd)
+  }
   }
 }
 
@@ -314,6 +328,7 @@ class CCUSolver[TERM, FUNC] {
   // Calculating log_2 (b)
   // Used for cacluating number of bits needed
   def binlog(b : Int) : Int = {
+    ap.util.Timer.measure("binlog") {
     var bits = b
     var log = 0
     if ((bits & 0xffff0000) != 0) { 
@@ -339,6 +354,7 @@ class CCUSolver[TERM, FUNC] {
     // Actually only needed for 2, 4, 8, 16, 32 ...
     return log + ( bits >>> 1 ) + 1
   }
+  }
 
 
 
@@ -351,7 +367,7 @@ class CCUSolver[TERM, FUNC] {
     goals : List[List[(Int, Int)]], 
     functions : List[(FUNC, List[Int], Int)], 
     debug : Boolean) : (Option[Array[Int]], Map[(Int, Int), Int]) = {
-
+    ap.util.Timer.measure("solveaux") {
     val rows = terms.length
     val bits = binlog(rows)
     val alloc = new Allocator(1)
@@ -366,6 +382,7 @@ class CCUSolver[TERM, FUNC] {
       table.addDerivedColumn()
       val goalConstraint = table.addGoalConstraint(goals)
 
+      ap.util.Timer.measure("solveaux_isSat") {
       if (solver.isSatisfiable()) {
         model = Option(solver.model)
         cont = false
@@ -382,9 +399,11 @@ class CCUSolver[TERM, FUNC] {
           cont = false
         }
       }
+      }
     }
 
     (model, assignments.toMap)
+  }
   }
 
   def solve(
@@ -392,7 +411,7 @@ class CCUSolver[TERM, FUNC] {
     domains : Map[TERM, Set[TERM]],
     goals : List[List[(TERM, TERM)]], 
     functions : List[(FUNC, List[TERM], TERM)]) : Option[Map[TERM, TERM]] = {
-
+    ap.util.Timer.measure("solve") {
     if (terms.isEmpty || goals.isEmpty) 
       return None
     for (g <- goals)
@@ -434,6 +453,7 @@ class CCUSolver[TERM, FUNC] {
       case (None, _) =>  None
     }
   }
+  }
 
   //
   //
@@ -447,7 +467,7 @@ class CCUSolver[TERM, FUNC] {
     goals : List[List[List[(Int, Int)]]], 
     functions : List[List[(FUNC, List[Int], Int)]], 
     debug : Boolean) : (Option[Array[Int]], Map[(Int, Int), Int]) = {
-
+    ap.util.Timer.measure("parallelSolveaux") {
     // TODO: optimize such that each table has its own rows
     val rows = terms.length
     // TODO: optimize such that each table has its own bits
@@ -489,6 +509,7 @@ class CCUSolver[TERM, FUNC] {
         for (p <- 0 until problemCount) yield
           tables(p).addGoalConstraint(goals(p))
 
+      ap.util.Timer.measure("parallelSolve_isSat") {
       if (solver.isSatisfiable()) {
         model = Option(solver.model)
         cont = false
@@ -512,10 +533,12 @@ class CCUSolver[TERM, FUNC] {
           cont = false
         }
       }
+      }
     }
 
     // TODO: Change if differents rows
     (model, assignments(0).toMap)
+  }
   }
 
   // Given a list of domains, goals, functions, see if there is a solution to
@@ -526,7 +549,7 @@ class CCUSolver[TERM, FUNC] {
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]], 
     functions : List[List[(FUNC, List[TERM], TERM)]]) = {
-
+    ap.util.Timer.measure("parallelSolve") {   
     // TODO: Build up terms automatically
 
     // HACK?
@@ -569,6 +592,7 @@ class CCUSolver[TERM, FUNC] {
       }
       case (None, _) =>  None
     }
+  }
   }
 
 }

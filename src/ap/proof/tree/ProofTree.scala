@@ -322,6 +322,7 @@ trait ProofTree {
   
     val solver = new CCUSolver[ConstantTerm, Predicate]
 
+    ap.util.Timer.measure("CCUSolver") {
     (if (unificationProblems.size == 1)
        solver.solve(allConsts.toList.sortBy(_.name),
                     allDomains.toMap,
@@ -330,6 +331,7 @@ trait ProofTree {
        solver.parallelSolve(allConsts.toList.sortBy(_.name),
                             allDomains.toMap,
                             goals, funApps)).isDefined
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
