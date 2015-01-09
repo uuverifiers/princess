@@ -66,26 +66,51 @@ object CCURun {
         val (t, d, g, f) = p
 
         println("--------------")
-        println("--------------")
-        println("--------------")
-        println("oldFunctions: " + f)
-        println("oldGoals: " + g)
-        println("oldDomains: " + d)
-        println("oldTerms: " + t)
+        println("Functions: " + f)
+        println("Domains: " + d)
+        println("Terms: " + t)
 
-        val result = ccusolver.parallelSolve(t, d, List(g), List(f))
+        val arr = Array.ofDim[Int](t.length, t.length)
 
-        result match {
-          case Some(model) => {
-            println(title + " = SAT")
-            println("Model: " + model)
-            for ((k,v) <- model)
-              println(k + " := " + v)
-          }
-          case None => {
-            println(title + " = UNSAT")
+        for (i <- 0 until t.length) {
+          arr(i)(i) = 1
+          for (j <- d(i)) {
+            arr(i)(j) = 1
+            arr(j)(i) = 1
           }
         }
+
+        println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
+
+        val diseq = ccusolver.disequalityCheck(arr,f)
+        println("diseq: \n" + diseq.map(x => x.mkString(" ")).mkString("\n"))
+        var ineq = false
+        for (i <- 0 until t.length) {
+          for (j <- 0 until t.length) {
+            if (diseq(i)(j) == 0) {
+              ineq = true
+            }
+          }
+        }
+
+        if (ineq)
+          println("INEQ")
+        else
+          println("NOINFO")
+
+        // val result = ccusolver.parallelSolve(t, d, List(g), List(f))
+
+        // result match {
+        //   case Some(model) => {
+        //     println(title + " = SAT")
+        //     println("Model: " + model)
+        //     for ((k,v) <- model)
+        //       println(k + " := " + v)
+        //   }
+        //   case None => {
+        //     println(title + " = UNSAT")
+        //   }
+        // }
       }
     }
   }
