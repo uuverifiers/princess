@@ -62,7 +62,4 @@ TESTS="division.pri \
        simplify9.pri \
        subsumptionExample.pri"
 
-# the returned constraints and witnesses are filtered out, because
-# this data is too unstable and would cause the test cases to fail
-# most of the time
 $PRI "$@" $TESTS 2>&1
