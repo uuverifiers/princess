@@ -177,7 +177,8 @@ trait ProofTree {
         throw new Exception
   
       case WeakenTree(disj, subtree) =>
-        constructUnificationProblems(subtree, domains, disj :: furtherDisjuncts)
+        throw new Exception
+//        constructUnificationProblems(subtree, domains, disj :: furtherDisjuncts)
   
       case AndTree(leftTree, rightTree, _) => {
         val problems1 =

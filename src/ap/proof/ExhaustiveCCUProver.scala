@@ -57,6 +57,8 @@ object ExhaustiveCCUProver {
 }
 
 /**
+ * (Outdated description)
+ *
  * A prover that tries to construct an exhaustive proof for a given goal. The
  * prover tries to optimise by early stopping the expansion of the proof tree
  * if it is detected that a certain subtree can never yield a satisfiable
@@ -66,9 +68,16 @@ object ExhaustiveCCUProver {
  * the tree is expanded depth-first until it is exhaustive (which terminates
  * in the case of PA formulae, but not in general).
  */
-class ExhaustiveCCUProver(depthFirst : Boolean, settings : GoalSettings) {
+class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
-  def this(settings : GoalSettings) = this(false, settings)
+  def this(preSettings : GoalSettings) = this(false, preSettings)
+
+  private val settings = {
+    var gs = preSettings
+    gs = Param.USE_WEAKEN_TREE.set(gs, false)
+    gs = Param.FULL_SPLITTING.set(gs, true)
+    gs
+  }
 
   private val simplifier = Param.CONSTRAINT_SIMPLIFIER(settings)
   

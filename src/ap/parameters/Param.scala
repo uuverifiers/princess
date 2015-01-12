@@ -220,7 +220,14 @@ object Param {
     type Value = Boolean
     val defau : Boolean = false
   }
-  
+
+  // use the <code>WeakenTree</code> class to eliminate certain
+  // equations from goals
+  case object USE_WEAKEN_TREE extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
+  } 
+ 
   // even apply formulas that have been blocked, as last
   // steps in a proof. this can be necessary in order to
   // generate genuine models (<code>ModelSearchProver</code>)

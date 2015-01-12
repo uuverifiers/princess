@@ -185,6 +185,7 @@ object GoalSettings {
                        Param.FUNCTIONAL_PREDICATES,
                        Param.SINGLE_INSTANTIATION_PREDICATES,
                        Param.FULL_SPLITTING, Param.APPLY_BLOCKED_TASKS,
+                       Param.USE_WEAKEN_TREE,
                        Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
