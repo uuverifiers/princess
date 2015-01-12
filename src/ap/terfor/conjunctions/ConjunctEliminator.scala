@@ -53,6 +53,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                                   // be eliminated from the e-graph if they are
                                   // not referred to from anywhere else
                                   eliminableFunctionPreds : Set[Predicate],
+                                  assumeInfiniteDomain : Boolean,
                                   order : TermOrder) {
   
   private var conj = oriConj
@@ -574,7 +575,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       case (false, true, false, false, false) if (eliminableNegativeEqs(c))
           => elimNegativeEqs(c)
 
-      case (false, _, _, false, true) if (onesidedInEqsU(c))
+      case (false, inNegEqs, _, false, true) if ((!inNegEqs || assumeInfiniteDomain) &&
+                                                 onesidedInEqsU(c))
           => {
         val eliminatedFor = ArithConj.conj(Array(elimNegativeEqsU(c),
                                                  elimOnesidedInEqsU(c, logger)),

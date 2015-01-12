@@ -147,7 +147,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Conjunction.conj(for (t <- signature.theories) yield t.axioms, order).negate
 
   private val reducer =
-    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
+    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, false, order)
 
   private val allPartNames =
     (List(PartName.NO_NAME) ++

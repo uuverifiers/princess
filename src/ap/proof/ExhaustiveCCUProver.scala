@@ -76,6 +76,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     var gs = preSettings
     gs = Param.USE_WEAKEN_TREE.set(gs, false)
     gs = Param.FULL_SPLITTING.set(gs, true)
+    gs = Param.ASSUME_INFINITE_DOMAIN.set(gs, false)
     gs
   }
 

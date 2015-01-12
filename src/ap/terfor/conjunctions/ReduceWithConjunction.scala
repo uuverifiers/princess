@@ -33,11 +33,23 @@ object ReduceWithConjunction {
   
   private val AC = Debug.AC_PROPAGATION
 
-  def apply(conj : Conjunction, order : TermOrder) : ReduceWithConjunction =
-    apply(conj, Set(), order)
+  def apply(conj : Conjunction,
+            order : TermOrder) : ReduceWithConjunction =
+    apply(conj, Set(), true, order)
   
   def apply(conj : Conjunction,
+            assumeInfiniteDomain : Boolean,
+            order : TermOrder) : ReduceWithConjunction =
+    apply(conj, Set(), assumeInfiniteDomain, order)
+
+  def apply(conj : Conjunction,
             functionalPreds : Set[Predicate],
+            order : TermOrder) : ReduceWithConjunction =
+    apply(conj, functionalPreds, true, order)
+
+  def apply(conj : Conjunction,
+            functionalPreds : Set[Predicate],
+            assumeInfiniteDomain : Boolean,
             order : TermOrder) : ReduceWithConjunction = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, conj isSortedBy order)
@@ -46,6 +58,7 @@ object ReduceWithConjunction {
     if (conj.quans.isEmpty)
       new ReduceWithConjunction(ReduceWithAC(conj.arithConj, order),
                                 ReduceWithPredLits(conj.predConj, functionalPreds, order),
+                                assumeInfiniteDomain,
                                 order)
     else
       // formulas with quantifiers are not supported right now
@@ -57,6 +70,7 @@ object ReduceWithConjunction {
    */
   private def reduceConj(conj : Conjunction,
                          initialReducer : ReduceWithConjunction,
+                         assumeInfiniteDomain : Boolean,
                          logger : ComputationLogger) : Conjunction =
     if (conj.isTrue)
       conj
@@ -73,10 +87,10 @@ object ReduceWithConjunction {
       reducer.reduce(conj.predConj, logger) match {
 
         case Left((newPredConj, reducer2)) => {
-          val newNegConjs = reduceNegatedConjs(conj.negatedConjs, reducer2)
+          val newNegConjs = reduceNegatedConjs(conj.negatedConjs, reducer2, assumeInfiniteDomain)
           val res = constructConj(conj, conj.quans,
                                   newArithConj, newPredConj, newNegConjs,
-                                  reducer2.order)    
+                                  assumeInfiniteDomain, reducer2.order)    
 
           if ((conj.quans == res.quans) &&
               (newArithConj eq res.arithConj) &&
@@ -85,7 +99,7 @@ object ReduceWithConjunction {
           } else {
             // it might be necessary to repeat reduction, because new facts became
             // available
-            reduceConj(res, initialReducer, logger)
+            reduceConj(res, initialReducer, assumeInfiniteDomain, logger)
           }
         }
         
@@ -96,7 +110,7 @@ object ReduceWithConjunction {
           val newConj = Conjunction(conj.quans,
                                     newAC, newPredConj, conj.negatedConjs,
                                     reducer.order)
-          reduceConj(newConj, initialReducer, logger)
+          reduceConj(newConj, initialReducer, assumeInfiniteDomain, logger)
         }
         
       }
@@ -106,17 +120,19 @@ object ReduceWithConjunction {
     }
 
   private def reduceConj(conj : Conjunction,
-                         initialReducer : ReduceWithConjunction) : Conjunction =
-    reduceConj(conj, initialReducer, ComputationLogger.NonLogger)
+                         initialReducer : ReduceWithConjunction,
+                         assumeInfiniteDomain : Boolean) : Conjunction =
+    reduceConj(conj, initialReducer, assumeInfiniteDomain, ComputationLogger.NonLogger)
 
   //////////////////////////////////////////////////////////////////////////////
 
   private def reduceNegatedConjs(conjs : NegatedConjunctions,
-                                 reducer : ReduceWithConjunction)
+                                 reducer : ReduceWithConjunction,
+                                 assumeInfiniteDomain : Boolean)
                                 : NegatedConjunctions = {
     var changed = false
     val newConjs = for (c <- conjs) yield {
-      val reduced = reduceConj(c, reducer)
+      val reduced = reduceConj(c, reducer, assumeInfiniteDomain)
       if (reduced.isTrue)
         throw FALSE_EXCEPTION
       if (!(reduced eq c))
@@ -152,6 +168,7 @@ object ReduceWithConjunction {
                             newArithConj : ArithConj,
                             newPredConj : PredConj,
                             newNegConjs : NegatedConjunctions,
+                            assumeInfiniteDomain : Boolean,
                             order : TermOrder) : Conjunction =
     quans.headOption match {
       case Some(Quantifier.EX) => {
@@ -172,7 +189,7 @@ object ReduceWithConjunction {
           val literals =
             Conjunction(List(), newArithConj, newPredConj, NegatedConjunctions.TRUE, order)
           val eliminator =
-            new LiteralEliminator(literals, eliminableVars, order)
+            new LiteralEliminator(literals, eliminableVars, assumeInfiniteDomain, order)
           val essentialLits = 
             eliminator eliminate ComputationLogger.NonLogger
           
@@ -191,7 +208,7 @@ object ReduceWithConjunction {
             // quantifiers now
             constructConj(oldConj,
                           newConj.quans, newConj.arithConj, newConj.predConj,
-                          newConj.negatedConjs, order)
+                          newConj.negatedConjs, assumeInfiniteDomain, order)
           else
             newConj
         }
@@ -206,7 +223,7 @@ object ReduceWithConjunction {
             constructConj(null,
                           for (q <- quans) yield q.dual,
                           newArithConj.negate, PredConj.TRUE, NegatedConjunctions.TRUE,
-                          order).negate
+                          assumeInfiniteDomain, order).negate
           if (oldConj != null && res == oldConj)
             oldConj
           else
@@ -224,7 +241,7 @@ object ReduceWithConjunction {
             constructConj(null,
                           subConj.quans ++ (for (q <- quans) yield q.dual),
                           subConj.arithConj, subConj.predConj, subConj.negatedConjs,
-                          order).negate
+                          assumeInfiniteDomain, order).negate
 
           if (oldConj != null && res == oldConj)
             oldConj
@@ -296,6 +313,7 @@ object ReduceWithConjunction {
 
 class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
                                      private val predReducer : ReduceWithPredLits,
+                                     assumeInfiniteDomain : Boolean,
                                      private val order : TermOrder) {
 
   def passQuantifiers(num : Int) : ReduceWithConjunction = {
@@ -311,7 +329,7 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
       if ((new1 eq acReducer) && (new2 eq predReducer))
         this
       else
-        new ReduceWithConjunction(new1, new2, order)
+        new ReduceWithConjunction(new1, new2, assumeInfiniteDomain, order)
     }
   }
 
@@ -322,6 +340,7 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
   lazy val withoutFacts =
     new ReduceWithConjunction(ReduceWithAC(ArithConj.TRUE, order),
                               predReducer.withoutFacts,
+                              assumeInfiniteDomain,
                               order)
 
   def addArithConj(ac : ArithConj) : ReduceWithConjunction = {
@@ -332,7 +351,8 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     if (ac.isEmpty)
       this
     else
-      new ReduceWithConjunction(acReducer addArithConj ac, predReducer, order)
+      new ReduceWithConjunction(acReducer addArithConj ac, predReducer,
+                                assumeInfiniteDomain, order)
   }
 
   def apply(conj : Conjunction) : Conjunction =
@@ -343,12 +363,12 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     Debug.assertPre(ReduceWithConjunction.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
       
-    val res = ReduceWithConjunction.reduceConj(conj, this, logger)
+    val res = ReduceWithConjunction.reduceConj(conj, this, assumeInfiniteDomain, logger)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithConjunction.AC,
-                         (ReduceWithConjunction.reduceConj(res, this) eq res) &&
+                         (ReduceWithConjunction.reduceConj(res, this, assumeInfiniteDomain) eq res) &&
                          ((res eq conj) || (res != conj)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
@@ -395,7 +415,7 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val res = try {
-      ReduceWithConjunction.reduceNegatedConjs(conjs, this)
+      ReduceWithConjunction.reduceNegatedConjs(conjs, this, assumeInfiniteDomain)
     } catch {
       case FALSE_EXCEPTION => NegatedConjunctions.FALSE
     }
@@ -417,13 +437,13 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     if (newAC eq this.acReducer)
       this
     else
-      new ReduceWithConjunction(newAC, predReducer, order)
+      new ReduceWithConjunction(newAC, predReducer, assumeInfiniteDomain, order)
   
   private def replacePred(newPred : ReduceWithPredLits) : ReduceWithConjunction =
     if (newPred eq this.predReducer)
       this
     else
-      new ReduceWithConjunction(acReducer, newPred, order)
+      new ReduceWithConjunction(acReducer, newPred, assumeInfiniteDomain, order)
   
   private def reduce(ac : ArithConj,
                      logger : ComputationLogger) : (ArithConj, ReduceWithConjunction) = {
@@ -476,8 +496,10 @@ private object FALSE_EXCEPTION extends Exception
 
 private class LiteralEliminator(literals : Conjunction,
                                 uniVariables : Set[Term],
+                                assumeInfiniteDomain : Boolean,
                                 order : TermOrder)
-              extends ConjunctEliminator(literals, uniVariables, Set(), order) {
+              extends ConjunctEliminator(literals, uniVariables, Set(),
+                                         assumeInfiniteDomain, order) {
   
   protected def nonUniversalElimination(f : Conjunction) =
     throw new UnsupportedOperationException

@@ -89,7 +89,9 @@ case object FactsNormalisationTask extends EagerTask {
     while (cont) {
       // propagate the solved equations into the other facts
       facts = ReduceWithConjunction(Conjunction.TRUE,
-                                    functionalPreds, order)(facts, collector)
+                                    functionalPreds,
+                                    Param.ASSUME_INFINITE_DOMAIN(goal.settings),
+                                    order)(facts, collector)
 
       if (facts.isFalse) {
         // then the goal can be closed immediately. if a proof is being
@@ -116,7 +118,9 @@ case object FactsNormalisationTask extends EagerTask {
     ////////////////////////////////////////////////////////////////////////////
     // update clauses
 
-    val reducer = ReduceWithConjunction(facts, allFunctionalPreds, order)
+    val reducer =
+      ReduceWithConjunction(facts, allFunctionalPreds,
+                            Param.ASSUME_INFINITE_DOMAIN(goal.settings), order)
 
     def illegalQFClause(c : Conjunction) =
       c.isTrue || c.isLiteral || c.isNegatedConjunction ||

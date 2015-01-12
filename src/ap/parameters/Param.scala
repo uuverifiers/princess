@@ -227,7 +227,13 @@ object Param {
     type Value = Boolean
     val defau : Boolean = true
   } 
- 
+
+  // enable simplifications that are only valid over infinite domains
+  case object ASSUME_INFINITE_DOMAIN extends Param {
+    type Value = Boolean
+    val defau : Boolean = true
+  }
+
   // even apply formulas that have been blocked, as last
   // steps in a proof. this can be necessary in order to
   // generate genuine models (<code>ModelSearchProver</code>)

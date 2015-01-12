@@ -148,7 +148,11 @@ class IntelliFileProver(reader : java.io.Reader,
       case _ => TimeoutCounterModel
     }
 
-  val result : Prover.Result = {
+  val result : Prover.Result =
+    // try to construct a proof
+    proofResult
+
+  lazy val resultX : Prover.Result = {
     val constants =
       Set() ++ (for (f <- formulas.iterator; c <- f.constants.iterator) yield c)
     val quantifiers =
