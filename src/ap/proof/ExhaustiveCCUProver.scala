@@ -240,11 +240,11 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
         // quantifiers
         val (newTree, swp) =
           Timeout.unfinishedValue(tree) {
-println("Before:")
-println(tree)
+// println("Before:")
+// println(tree)
 val res =            expandProofGoals(tree)
-println("After:")
-println(res)
+// println("After:")
+// println(res)
 
 res
           }
