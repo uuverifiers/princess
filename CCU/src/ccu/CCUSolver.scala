@@ -413,7 +413,7 @@ class CCUSolver[TERM, FUNC] {
         // Functionality
         if (equal) {
           if (eq(s_i min s_j)(s_i max s_j) == 0) {
-            println(">" + s_i + " = " + s_j + ", because of " + f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
+            // println(">" + s_i + " = " + s_j + ", because of " + f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
             eq(s_i)(s_j) = 1
             eq(s_j)(s_i) = 1
             changed = true
@@ -423,7 +423,7 @@ class CCUSolver[TERM, FUNC] {
           for (i <- 0 until eq.length) {
             for (j <- 0 until eq.length) {
               if (eq(s_i)(i) != 0 && eq(s_j)(j) != 0 && eq(i)(j) == 0) {
-                println(">" + i + " = " + j + ", because of " + s_i + " = " + i + " and " + s_j + " = " + j)
+                // println(">" + i + " = " + j + ", because of " + s_i + " = " + i + " and " + s_j + " = " + j)
                 eq(i)(j) = 1
                 eq(j)(i) = 1
                 changed = true
@@ -643,7 +643,8 @@ class CCUSolver[TERM, FUNC] {
 
       // TODO: Change if differents rows
       Timer.measure("Columns_" + (for (p <- 0 until problemCount) yield tables(0).currentColumn).mkString("[", " ", "]")) { true }
-      println("\tVariables: " + solver.realNumberOfVariables())
+      if (debug)
+        println("\tVariables: " + solver.realNumberOfVariables())
       (model, assignments(0).toMap)
     }
   }
@@ -745,13 +746,13 @@ class CCUSolver[TERM, FUNC] {
       for (d <- diseq)
         println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
 
-      // We have p problems, and if any one of them is possible,
-      // the problem itself is possible
+      // We have p problems, and we are dealing with the simultaneous problem,
+      // i.e. every problem must be solvable
       var allGoalPossible = true
 
       for (p <- 0 until problemCount) {
-        // This particular goal consists of subgoals,
-        // one of the subgoals must be possible for the 
+        // This particular problem consists of subgoals,
+        // one of the subgoals must be solvable for the 
         // whole problem to be possible
 
         var subGoalPossible = false
@@ -768,7 +769,6 @@ class CCUSolver[TERM, FUNC] {
           }
 
           if (allUnifiable) {
-              // println("Subgoal: " + gs + " is possible")
             subGoalPossible = true
           }
         }
@@ -776,22 +776,24 @@ class CCUSolver[TERM, FUNC] {
         if (!subGoalPossible)
           allGoalPossible = false
       }
-      if (allGoalPossible) {
-        // Solve and return UNSAT or SAT  + model
-            solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, true) match {
-              case (Some(model), assignments) => {
-                var assMap = Map() : Map[TERM, TERM]
-                for (((variable, value), bit) <- assignments;
-                  if model contains bit)
-                  assMap += (intToTerm(variable) -> intToTerm(value))
 
-                Some(assMap)
-              }
-              case (None, _) =>  None
-            }
-      } else {
+
+      if (!allGoalPossible) {
         println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
-        None
+        return None
+      }
+
+      // Solve and return UNSAT or SAT  + model
+      solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, true) match {
+        case (Some(model), assignments) => {
+          var assMap = Map() : Map[TERM, TERM]
+          for (((variable, value), bit) <- assignments;
+            if model contains bit)
+            assMap += (intToTerm(variable) -> intToTerm(value))
+
+          Some(assMap)
+        }
+        case (None, _) =>  None
       }
     }
   }
