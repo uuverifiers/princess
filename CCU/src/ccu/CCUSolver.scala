@@ -696,7 +696,7 @@ class CCUSolver[TERM, FUNC] {
 
       val newFunctions =
         for (funs <- functions)
-        yield (for ((f, args, r) <- funs; if args.length > 0)
+        yield (for ((f, args, r) <- funs)
         yield (f, args.map(termToInt), termToInt(r)))
 
 
