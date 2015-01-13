@@ -98,7 +98,7 @@ object CCURun {
         else
           println("NOINFO")
 
-        // val result = ccusolver.parallelSolve(t, d, List(g), List(f))
+        // val result = ccusolver.solve(t, d, List(g), List(f))
 
         // result match {
         //   case Some(model) => {

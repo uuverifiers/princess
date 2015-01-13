@@ -5,7 +5,7 @@ import org.sat4j.specs._
 import org.sat4j.minisat._
 import org.sat4j.tools._
 
-import ap.util.Timer
+import Timer._
 
 import scala.collection.mutable.{Map => MMap}
 
@@ -19,8 +19,8 @@ class Allocator(init : Int) {
   }
 }
 
-class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator, 
-  solver : ISolver, terms : List[Int], domains : Map[Int, Set[Int]], 
+class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator,
+  solver : ISolver, terms : List[Int], domains : Map[Int, Set[Int]],
   functions : List[(FUNC, List[Int], Int)] ) {
 
   var columnStartBit = List() : List[Int]
@@ -40,149 +40,149 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 
   // C[t] == i
   def termEqInt(term : (Int, Int), i : Int) : Int = {
-    ap.util.Timer.measure("termEqInt") {
-    val (c, t) = term
+    Timer.measure("termEqInt") {
+      val (c, t) = term
 
-    // TODO: Optimize
-    var lits = List() : List[Int]
-    var curBit = this(c, t)
-    var curVal = i
-    while (curVal > 0) {
-      if (curVal % 2 == 1) {
-        lits ::= curBit
-        curVal -= 1
-      } else {
-        lits ::= -curBit
+      // TODO: Optimize
+      var lits = List() : List[Int]
+      var curBit = this(c, t)
+      var curVal = i
+      while (curVal > 0) {
+        if (curVal % 2 == 1) {
+          lits ::= curBit
+          curVal -= 1
+        } else {
+          lits ::= -curBit
+        }
+        curBit += 1
+        curVal /= 2
       }
-      curBit += 1
-      curVal /= 2
-    }
 
-    while (lits.length < bits) {
-      lits ::= -curBit
-      curBit += 1
-    }
+      while (lits.length < bits) {
+        lits ::= -curBit
+        curBit += 1
+      }
 
-    val prevBit = alloc.alloc(1)
-    gt.and(prevBit, new VecInt(lits.toArray))
-    prevBit
-  }
+      val prevBit = alloc.alloc(1)
+      gt.and(prevBit, new VecInt(lits.toArray))
+      prevBit
+    }
   }
 
   // C[t1] == C[t2]
   def termEqTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
-    ap.util.Timer.measure("termEqTerm") {
-    val allocNext = alloc.next
-    var used = 0
+    Timer.measure("termEqTerm") {
+      val allocNext = alloc.next
+      var used = 0
 
-    val (c1, t1) = term1
-    val (c2, t2) = term2
-    val iBit = this(c1, t1)
-    val jBit = this(c2, t2)
+      val (c1, t1) = term1
+      val (c2, t2) = term2
+      val iBit = this(c1, t1)
+      val jBit = this(c2, t2)
 
-    val eqBits =
-      for (b  <- 0 until bits) yield {
-        val tmpBit = allocNext + used
-        used += 1
-        gt.iff(tmpBit, new VecInt(List(iBit + b, jBit + b).toArray))
-        tmpBit
-      }
+      val eqBits =
+        for (b  <- 0 until bits) yield {
+          val tmpBit = allocNext + used
+          used += 1
+          gt.iff(tmpBit, new VecInt(List(iBit + b, jBit + b).toArray))
+          tmpBit
+        }
 
-    val eqBit = allocNext + used
-    used += 1
-    gt.and(eqBit, new VecInt(eqBits.toArray))
-    alloc.alloc(used)
-    eqBit
-  }
+      val eqBit = allocNext + used
+      used += 1
+      gt.and(eqBit, new VecInt(eqBits.toArray))
+      alloc.alloc(used)
+      eqBit
+    }
   }
 
   // C[t1] > C[t2]
   def termGtTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
-    ap.util.Timer.measure("termGtTerm") {
-    val allocNext = alloc.next
-    var used = 0
+    Timer.measure("termGtTerm") {
+      val allocNext = alloc.next
+      var used = 0
 
-    val (c1, t1) = term1
-    val (c2, t2) = term2
-    val iBit = this(c1, t1)
-    val jBit = this(c2, t2)
+      val (c1, t1) = term1
+      val (c2, t2) = term2
+      val iBit = this(c1, t1)
+      val jBit = this(c2, t2)
 
-    // e_bits[b]: bit (bits-b) of i and j are equal
-    var e_bits = List() : List[Int]
-    for (b <- 1 to bits) yield {
-      // iBit[bits - b] = jBit[bits - b]
-      val eq = allocNext + used
-      used += 1
-      gt.iff(eq, new VecInt(List(iBit + bits - b, jBit + bits - b).toArray))
-
-      if (b == 1) {
-        e_bits = e_bits :+ eq
-      } else {
-        val e = allocNext + used
-        used += 1 
-        gt.and(e, e_bits.last, eq)
-        e_bits = e_bits :+ e
-      }
-    }
-
-    var m_bits = List() : List[Int]
-
-    // m_bits[b]: bits [bits..(bits-b)] of i are greater than j
-    for (b <- 1 to bits) {
-      val bit_gt = allocNext + used
-      used += 1
-      gt.and(bit_gt, (iBit + bits - b), -(jBit + bits - b))
-
-      if (b == 1) {
-        m_bits = m_bits :+ bit_gt
-      } else {
-        val prev_eq = e_bits(b-2)
-        val opt1 = allocNext + used
+      // e_bits[b]: bit (bits-b) of i and j are equal
+      var e_bits = List() : List[Int]
+      for (b <- 1 to bits) yield {
+        // iBit[bits - b] = jBit[bits - b]
+        val eq = allocNext + used
         used += 1
-        gt.and(opt1, prev_eq, bit_gt)
+        gt.iff(eq, new VecInt(List(iBit + bits - b, jBit + bits - b).toArray))
 
-        val opt2 = m_bits(b-2)
-
-        val m = allocNext + used
-        used += 1
-        gt.or(m, new VecInt(List(opt1, opt2).toArray))
-        m_bits = m_bits :+ m
+        if (b == 1) {
+          e_bits = e_bits :+ eq
+        } else {
+          val e = allocNext + used
+          used += 1
+          gt.and(e, e_bits.last, eq)
+          e_bits = e_bits :+ e
+        }
       }
+
+      var m_bits = List() : List[Int]
+
+      // m_bits[b]: bits [bits..(bits-b)] of i are greater than j
+      for (b <- 1 to bits) {
+        val bit_gt = allocNext + used
+        used += 1
+        gt.and(bit_gt, (iBit + bits - b), -(jBit + bits - b))
+
+        if (b == 1) {
+          m_bits = m_bits :+ bit_gt
+        } else {
+          val prev_eq = e_bits(b-2)
+          val opt1 = allocNext + used
+          used += 1
+          gt.and(opt1, prev_eq, bit_gt)
+
+          val opt2 = m_bits(b-2)
+
+          val m = allocNext + used
+          used += 1
+          gt.or(m, new VecInt(List(opt1, opt2).toArray))
+          m_bits = m_bits :+ m
+        }
+      }
+      alloc.alloc(used)
+      m_bits.last
     }
-    alloc.alloc(used)
-    m_bits.last
-  }
   }
 
 
   def addInitialColumn() = {
-    ap.util.Timer.measure("addInitialColumn") {
-    columnStartBit = columnStartBit :+ alloc.alloc(ROWS*bits)
+    Timer.measure("addInitialColumn") {
+      columnStartBit = columnStartBit :+ alloc.alloc(ROWS*bits)
 
-    val assignments = MMap() : MMap[(Int, Int), Int]
+      val assignments = MMap() : MMap[(Int, Int), Int]
 
-    for (t <- terms) {
-      if ((domains.getOrElse(t, Set())).size == 0) {
-        val identity = termEqInt((0, t), t)
-        val asd = new VecInt(List(identity).toArray)
-        solver.addClause(asd)
-      } else {
-        val assBits = for (tt <- domains(t)) yield  {
-          val tmpBit = termEqInt((0, t), tt)
-          assignments((t, tt)) = tmpBit
-          tmpBit
+      for (t <- terms) {
+        if ((domains.getOrElse(t, Set())).size == 0) {
+          val identity = termEqInt((0, t), t)
+          val asd = new VecInt(List(identity).toArray)
+          solver.addClause(asd)
+        } else {
+          val assBits = for (tt <- domains(t)) yield  {
+            val tmpBit = termEqInt((0, t), tt)
+            assignments((t, tt)) = tmpBit
+            tmpBit
+          }
+          val asd = new VecInt(assBits.toArray)
+          solver.addClause(asd)
         }
-        val asd = new VecInt(assBits.toArray)
-        solver.addClause(asd)
       }
-    }
 
-    assignments
-  }
+      assignments
+    }
   }
 
   def addDerivedColumn() = {
-    ap.util.Timer.measure("addDerivedColumn") {
+    Timer.measure("addDerivedColumn") {
       // For all pairs of functions with identical function symbols and different results,
       // form a three-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
       currentColumn += 1
@@ -294,40 +294,94 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
 
   // Make sure goal variables are removed at "POP"
   def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
-    ap.util.Timer.measure("addGoalConstraint") {
-    val goalBits =
-      for (g <- goals) yield {
-        val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
-        val subGoal = alloc.alloc(1)
-        gt.and(subGoal, new VecInt(subGoals.toArray))
-        subGoal
-      }
+    Timer.measure("addGoalConstraint") {
+      val goalBits =
+        for (g <- goals) yield {
+          val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
+          val subGoal = alloc.alloc(1)
+          gt.and(subGoal, new VecInt(subGoals.toArray))
+          subGoal
+        }
 
-    val asd = new VecInt(goalBits.toArray)
-    solver.addClause(asd)
-  }
+      val asd = new VecInt(goalBits.toArray)
+      solver.addClause(asd)
+    }
   }
 
   def addCompletionConstraint() = {
-    ap.util.Timer.measure("addCompletionConstraint") {
-    val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
-    val asd = new VecInt(diff.toArray)
-    solver.addClause(asd)
+    Timer.measure("addCompletionConstraint") {
+      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      val asd = new VecInt(diff.toArray)
+      solver.addClause(asd)
+    }
   }
+
+  def getCompletionConstraint() = {
+    Timer.measure("getCompletionConstraint") {
+      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      val asd = new VecInt(diff.toArray)
+      val cc = alloc.alloc(1)
+      gt.or(cc, asd)
+      cc
+    }
+  }
+
+  def addGoalCompletionConstraint(goals : List[List[(Int, Int)]]) = {
+    Timer.measure("addGoalCompletionConstraint") {
+      val goalBits =
+        for (g <- goals) yield {
+          val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
+          val subGoal = alloc.alloc(1)
+          gt.and(subGoal, new VecInt(subGoals.toArray))
+          subGoal
+        }
+
+      val goalBit = alloc.alloc(1)
+      gt.or(goalBit, new VecInt(goalBits.toArray))
+
+      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      val gcBits = goalBits ++ diff
+
+      val solverClause = solver.addClause(new VecInt(gcBits.toArray))
+      (solverClause, goalBit)
+    }
+  }
+
+  def getGoalCompletionConstraint(goals : List[List[(Int, Int)]]) = {
+    Timer.measure("getGoalCompletionConstraint") {
+      val goalBits =
+        for (g <- goals) yield {
+          val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
+          val subGoal = alloc.alloc(1)
+          gt.and(subGoal, new VecInt(subGoals.toArray))
+          subGoal
+        }
+
+      val goalBit = alloc.alloc(1)
+      gt.or(goalBit, new VecInt(goalBits.toArray))
+
+      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      val gcBits = goalBits ++ diff
+
+      val gc = alloc.alloc(1)
+      gt.or(gc, new VecInt(gcBits.toArray))
+      // val solverClause = solver.addClause(new VecInt(gcBits.toArray))
+      (gc, goalBit)
+    }
   }
 }
 
 class CCUSolver[TERM, FUNC] {
 
   // SAT4J stuff
-  val asd = (ap.util.Timer.measure("SAT4Jinit") {
-  val solverasd = SolverFactory.newDefault()
-  val gtasd = new GateTranslator(solverasd)
-  
+  val asd = (Timer.measure("SAT4Jinit") {
+    val solverasd = SolverFactory.newDefault()
+    val gtasd = new GateTranslator(solverasd)
+    
 
-  // TODO: Make real bound?
-  val MAXVAR = 1000000;
-  solverasd.newVar (MAXVAR);
+    // TODO: Make real bound?
+    val MAXVAR = 1000000;
+    solverasd.newVar (MAXVAR);
     (solverasd, gtasd)
   }) : (ISolver, GateTranslator)
   val (solver, gt) = asd
@@ -344,10 +398,10 @@ class CCUSolver[TERM, FUNC] {
     while (changed) {
       changed = false
 
-      // Functionality
+      // Functionality & Transitivity
       for ((f_i, args_i, s_i) <- functions;
         (f_j, args_j, s_j) <- functions;
-        if (f_i == f_j && s_i != s_j && eq(s_i min s_j)(s_i max s_j) == 0)) 
+        if (f_i == f_j && s_i != s_j && eq(s_i min s_j)(s_i max s_j) == 0))
       {
         var equal = true
         for (i <- 0 until args_i.length) {
@@ -355,238 +409,228 @@ class CCUSolver[TERM, FUNC] {
             equal = false
           }
         }
-        if (equal) {
-          eq(s_i)(s_j) = 1
-          eq(s_j)(s_i) = 1
-          changed = true
-        }
-      }
 
-      // Transitivity
-      for (i <- 0 until eq.length) {
-        for (j <- 0 until eq.length) {
-          for (k <- 0 until eq.length) {
-            if (eq(i)(k) == 0 && eq(i)(j) == 1 && eq(j)(k) == 1) {
-              eq(i)(k) = 1
-              changed = true
+        // Functionality
+        if (equal) {
+          if (eq(s_i min s_j)(s_i max s_j) == 0) {
+            // println(">" + s_i + " = " + s_j + ", because of " + f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
+            eq(s_i)(s_j) = 1
+            eq(s_j)(s_i) = 1
+            changed = true
+          }
+
+          // "Transitivity"
+          for (i <- 0 until eq.length; if (s_i != i)) {
+            for (j <- 0 until eq.length; if (s_j != j)) {
+              if (eq(s_i)(i) != 0 && eq(s_j)(j) != 0 && eq(i)(j) == 0) {
+                // println(">" + i + " = " + j + ", because of " + s_i + " = " + i + " and " + s_j + " = " + j)
+                eq(i)(j) = 1
+                eq(j)(i) = 1
+                changed = true
+              }
             }
           }
         }
       }
+
     }
     eq
   }
 
+  def tsPairs(assignments : MMap[Int, Int], domains : Map[Int, Set[Int]],
+    goals : List[(Int, Int)]) : (Option[MMap[Int, Int]]) = {
 
-  // 
+    if (goals.isEmpty) {
+      Some(assignments)
+    } else {
+      // Pick out first goal and make larger term LHS
+      val (s, t) = goals.head
+      val lhs = s max t
+      val rhs = s min t
+
+      if (assignments.contains(lhs)) {
+        if (assignments(lhs) == rhs) 
+          tsPairs(assignments, domains, goals.tail)
+        else
+          None
+      } else {
+        val lhsDomain = domains.getOrElse(lhs, Set())
+        if (lhsDomain contains rhs) {
+          assignments(lhs) = rhs
+          tsPairs(assignments, domains, goals.tail)
+        } else {
+          None
+        }
+      }
+    }
+  }
+
+  // Returns an (extended) assignment if one is possible, else None
+  def tsSubgoals(
+    domains : Map[Int, Set[Int]],
+    subGoals : List[List[(Int, Int)]],
+    assignment : Map[Int, Int]) : Option[MMap[Int, Int]] = {
+    for (pairs <- subGoals) {
+      val ass = MMap() : MMap[Int, Int]
+      for ((k, v) <- assignment)
+        ass(k) = v
+      tsPairs(ass, domains, pairs) match {
+        case Some(ass) => Some(ass)
+        case None => 
+      }
+    }
+    None
+  }
+
+  def trivialSolution(domains : Map[Int, Set[Int]], 
+    goals : List[List[List[(Int, Int)]]]) : (Option[MMap[Int, Int]]) = {
+    var assignment = MMap() : MMap[Int, Int]
+
+    // All problems must be satisfied
+    for (subGoals <- goals) {
+      tsSubgoals(domains, subGoals, assignment.toMap) match {
+        case Some(ass) => assignment = ass
+        case None => return None
+      }
+    }
+
+    Some(assignment)
+  }
+
+
+  //
   // MATH HELPER FUNCTIONS
   //
   
   // Calculating log_2 (b)
   // Used for cacluating number of bits needed
   def binlog(b : Int) : Int = {
-    ap.util.Timer.measure("binlog") {
-    var bits = b
-    var log = 0
-    if ((bits & 0xffff0000) != 0) { 
-      bits >>>= 16
-      log = 16
-    }
-    
-    if (bits >= 256) { 
-      bits >>>= 8
-      log += 8 
-    }
-    if (bits >= 16) { 
-      bits >>>= 4
-      log += 4
-    }
-    
-    if (bits >= 4) { 
-      bits >>>= 2
-      log += 2
-    }
+    Timer.measure("binlog") {
+      var bits = b
+      var log = 0
+      if ((bits & 0xffff0000) != 0) {
+        bits >>>= 16
+        log = 16
+      }
+      
+      if (bits >= 256) {
+        bits >>>= 8
+        log += 8
+      }
+      if (bits >= 16) {
+        bits >>>= 4
+        log += 4
+      }
+      
+      if (bits >= 4) {
+        bits >>>= 2
+        log += 2
+      }
 
-    // TODO: Add 1 for luck!
-    // Actually only needed for 2, 4, 8, 16, 32 ...
-    return log + ( bits >>> 1 ) + 1
+      // TODO: Add 1 for luck!
+      // Actually only needed for 2, 4, 8, 16, 32 ...
+      return log + ( bits >>> 1 ) + 1
+    }
   }
-  }
-
 
 
   //
-  // SOLVER FUNCTIONS
   //
+  //  PROBLEM PRINTING FUNCTIONS
+  //
+  //
+
+  def printProblem(terms : List[Int],
+    domains : Map[Int, Set[Int]],
+    goals : List[List[List[(Int, Int)]]],
+    functions : List[List[(FUNC, List[Int], Int)]]) = {
+    println("/--PROBLEM--\\")
+    for (t <- terms)
+      println("| " + t + " = {" + (domains getOrElse (t, Set(t))).mkString(", ") + "}")
+    println("| Goals: " + goals.mkString(", "))
+    println("| Functions: " + functions.mkString(", "))
+    println("\\----------/")
+  }
+
+  //
+  //
+  //  SOLVER
+  //
+  //
+
   def solveaux(
     terms : List[Int],
-    domains : Map[Int, Set[Int]], 
-    goals : List[List[(Int, Int)]], 
-    functions : List[(FUNC, List[Int], Int)], 
+    domains : Map[Int, Set[Int]],
+    goals : List[List[List[(Int, Int)]]],
+    functions : List[List[(FUNC, List[Int], Int)]],
     debug : Boolean) : (Option[Array[Int]], Map[(Int, Int), Int]) = {
-    ap.util.Timer.measure("solveaux") {
-    val rows = terms.length
-    val bits = binlog(rows)
-    val alloc = new Allocator(1)
-    val table = new Table[FUNC](bits, rows, alloc, gt, solver, terms, domains, functions)
-    solver.reset()
+    Timer.measure("Solveaux") {
+      // TODO: optimize such that each table has its own rows
+      val rows = terms.length
+      // TODO: optimize such that each table has its own bits
+      val bits = binlog(rows)
+      // Alloc must be shared between tables
+      val alloc = new Allocator(1)
 
-    // MAIN SOLVE LOOP
-    var cont = true
-    var model = None : Option[Array[Int]]
-    var assignments = table.addInitialColumn()
-    while (cont) {
-      table.addDerivedColumn()
-      val goalConstraint = table.addGoalConstraint(goals)
+      if (debug)
+        printProblem(terms, domains, goals, functions)
 
-      ap.util.Timer.measure("solveaux_isSat") {
-      if (solver.isSatisfiable()) {
-        model = Option(solver.model)
-        cont = false
-      } else {
-        // More info?
-        ap.util.Timer.measure("solveaux_completionConstraint") {
-          solver.removeConstr(goalConstraint)
-          val completionConstraint = table.addCompletionConstraint()
-          if (solver.isSatisfiable()) {
-            // Yes
-            solver.removeConstr(completionConstraint)
-          } else {
-            // No
-            model = None
-            cont = false
-          }
+      // HACK?
+      val problemCount = goals.length
+
+      val tables =
+        for (p <- 0 until problemCount) yield
+          new Table[FUNC](bits, rows, alloc, gt, solver, terms, domains, functions(p))
+      solver.reset()
+
+      // MAIN SOLVE LOOP
+      var cont = true
+      var model = None : Option[Array[Int]]
+
+      // TODO: change if tables has different rows
+      val assignments = for (p <- 0 until problemCount) yield tables(p).addInitialColumn()
+
+      // Since all table have same domain, they should have same assginments
+      if (problemCount > 1) {
+        for (((variable, value), bit) <- assignments(0)) {
+          val tmpBit = alloc.alloc(1)
+          val lits = for (ass <- assignments) yield ass((variable, value))
+          gt.iff(tmpBit, new VecInt(lits.toArray))
+          solver.addClause(new VecInt(List(tmpBit).toArray))
         }
       }
+
+      for (p <- 0 until problemCount) {
+        tables(p).addDerivedColumn()
       }
-    }
-
-    (model, assignments.toMap)
-  }
-  }
-
-  def solve(
-    terms : List[TERM],
-    domains : Map[TERM, Set[TERM]],
-    goals : List[List[(TERM, TERM)]], 
-    functions : List[(FUNC, List[TERM], TERM)]) : Option[Map[TERM, TERM]] = {
-    ap.util.Timer.measure("solve") {
-    if (terms.isEmpty || goals.isEmpty) 
-      return None
-    for (g <- goals)
-      if (g.isEmpty)
-        return None
-
-    // println("CCUSolver.solve()")
-    // println("\tterms:" + terms)
-    // println("\tdomains:" + domains)
-    // println("\tgoals:" + goals)
-    // println("\tfunctions:" + functions)
-
-    // Convert to Int representation
-    val termToInt = MMap() : MMap[TERM, Int] 
-    val intToTerm = MMap() : MMap[Int, TERM] 
-
-    for (i <- 0 until terms.length) {
-      termToInt(terms(i)) = i
-      intToTerm(i) = terms(i)
-    }
-
-    val newTerms = terms.map(termToInt)
-    val newDomains = MMap() : MMap[Int, Set[Int]]
-    for ((k, v) <- domains) newDomains(termToInt(k)) = v.map(termToInt)
-    val newGoals = goals.map(g => g.map(x => { val (s,t) = x; (termToInt(s), termToInt(t)) }))
-    val newFunctions = 
-      functions.map(x => { val(f, args, r) = x; (f, args.map(termToInt), termToInt(r)) })
-
-    // Solve and return UNSAT or SAT + model
-    solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, true) match {
-      case (Some(model), assignments) => {
-        val assMap = MMap() : MMap[TERM, TERM]
-        for (((variable, value), bit) <- assignments; 
-          if model contains bit)
-          assMap(intToTerm(variable)) = intToTerm(value)
-
-        Some(assMap.toMap)
-      }
-      case (None, _) =>  None
-    }
-  }
-  }
-
-  //
-  //
-  //  PARALLEL SOLVER
-  //
-  //
-
-  def parallelSolveaux(
-    terms : List[Int],
-    domains : Map[Int, Set[Int]],
-    goals : List[List[List[(Int, Int)]]], 
-    functions : List[List[(FUNC, List[Int], Int)]], 
-    debug : Boolean) : (Option[Array[Int]], Map[(Int, Int), Int]) = {
-    ap.util.Timer.measure("parallelSolveaux") {
-    // TODO: optimize such that each table has its own rows
-    val rows = terms.length
-    // TODO: optimize such that each table has its own bits
-    val bits = binlog(rows)
-    // Alloc must be shared between tables
-    val alloc = new Allocator(1)
-
-    // HACK?
-    val problemCount = goals.length
-
-    val tables = 
-      for (p <- 0 until problemCount) yield
-        new Table[FUNC](bits, rows, alloc, gt, solver, terms, domains, functions(p))
-    solver.reset()
-
-    // MAIN SOLVE LOOP
-    var cont = true
-    var model = None : Option[Array[Int]]
-
-    // TODO: change if tables has different rows
-    val assignments = for (p <- 0 until problemCount) yield tables(p).addInitialColumn()
-
-    // Since all table have same domain, they should have same assginments
-    if (problemCount > 1) {
-      for (((variable, value), bit) <- assignments(0)) {
-        val tmpBit = alloc.alloc(1)
-        val lits = for (ass <- assignments) yield ass((variable, value))
-        gt.iff(tmpBit, new VecInt(lits.toArray))
-        solver.addClause(new VecInt(List(tmpBit).toArray))
-      }
-    }
-
 
     while (cont) {
-      for (p <- 0 until problemCount)
-        tables(p).addDerivedColumn()
-
       val goalConstraints =
         for (p <- 0 until problemCount) yield
           tables(p).addGoalConstraint(goals(p))
 
-      ap.util.Timer.measure("parallelSolve_isSat") {
+      Timer.measure("isSat") {
       if (solver.isSatisfiable()) {
         model = Option(solver.model)
         cont = false
       } else {
-        ap.util.Timer.measure("parallelSolve_completionConstraint") {
+        Timer.measure("completionConstraint") {
         // More info?
         for (gc <- goalConstraints)
           solver.removeConstr(gc)
 
-        // TODO: Make disjunction
-        val completionConstraints = 
+        val goalCompletionConstraints = 
         for (p <- 0 until problemCount) yield
-          tables(p).addCompletionConstraint()
+          tables(p).addGoalCompletionConstraint(goals(p))
 
         if (solver.isSatisfiable()) {
-          // Yes
-          for (cc <- completionConstraints)
-            solver.removeConstr(cc)
+          // Yes, extend necesseray tables
+          for (p <- 0 until problemCount) {
+            val (gcc, gbit) = goalCompletionConstraints(p)
+            solver.removeConstr(gcc)
+            if (!(solver.model contains gbit))
+              tables(p).addDerivedColumn()
+          }
         } else {
           // No
           model = None
@@ -597,63 +641,152 @@ class CCUSolver[TERM, FUNC] {
       }
     }
 
-    // TODO: Change if differents rows
-    (model, assignments(0).toMap)
-  }
+      // TODO: Change if differents rows
+      Timer.measure("Columns_" + (for (p <- 0 until problemCount) yield tables(0).currentColumn).mkString("[", " ", "]")) { true }
+      println("\tVariables: " + solver.realNumberOfVariables())
+      (model, assignments(0).toMap)
+    }
   }
 
   // Given a list of domains, goals, functions, see if there is a solution to
-  // the simultaneous problem. 
+  // the simultaneous problem.
 
-  def parallelSolve(
+  def solve(
     terms : List[TERM],
     domains : Map[TERM, Set[TERM]],
-    goals : List[List[List[(TERM, TERM)]]], 
-    functions : List[List[(FUNC, List[TERM], TERM)]]) = {
-    ap.util.Timer.measure("parallelSolve") {   
-    // TODO: Build up terms automatically
+    goals : List[List[List[(TERM, TERM)]]],
+    functions : List[List[(FUNC, List[TERM], TERM)]]) : Option[Map[TERM, TERM]] = {
+    Timer.measure("Solve") {
+      // TODO: Build up terms automatically
+      println("\n\tsolve(" + terms.length + ", " + domains.size + ", " + goals.length + ", " + functions.length + ")")
+    // println("\tterms:" + terms)
+    // println("\tdomains:" + domains)
+    // println("\tgoals:" + goals)
+    // println("\tfunctions:" + functions)
 
-    // HACK?
-    val problemCount = goals.length
+    if (terms.isEmpty || goals.isEmpty) 
+      return None
 
-    // Convert to Int representation
-    var termToInt = Map() : Map[TERM, Int] 
-    var intToTerm = Map() : Map[Int, TERM] 
+    for (g <- goals)
+      if (g.isEmpty)
+        return None
 
-    for (i <- 0 until terms.length) {
-      termToInt += (terms(i) -> i)
-      intToTerm += (i -> terms(i))
-    }
+      // HACK?
+      val problemCount = goals.length
 
-    val newTerms = terms.map(termToInt)
+      // Convert to Int representation
+      var termToInt = Map() : Map[TERM, Int]
+      var intToTerm = Map() : Map[Int, TERM]
 
-    var newDomains = Map() : Map[Int, Set[Int]]
-    for ((k, v) <- domains)
-      newDomains += (termToInt(k) -> v.map(termToInt))
-
-    val newGoals =
-      for (g <- goals)
-      yield (for (eqs <- g)
-             yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
-
-    val newFunctions =
-      for (funs <- functions)
-      yield (for ((f, args, r) <- funs)
-             yield (f, args.map(termToInt), termToInt(r)))
-
-    // Solve and return UNSAT or SAT + model
-    parallelSolveaux(newTerms, newDomains.toMap, newGoals, newFunctions, true) match {
-      case (Some(model), assignments) => {
-        var assMap = Map() : Map[TERM, TERM]
-        for (((variable, value), bit) <- assignments; 
-          if model contains bit)
-          assMap += (intToTerm(variable) -> intToTerm(value))
-
-        Some(assMap)
+      for (i <- 0 until terms.length) {
+        termToInt += (terms(i) -> i)
+        intToTerm += (i -> terms(i))
       }
-      case (None, _) =>  None
+
+      val newTerms = terms.map(termToInt)
+
+      var newDomains = Map() : Map[Int, Set[Int]]
+      for ((k, v) <- domains)
+        newDomains += (termToInt(k) -> v.map(termToInt))
+
+      val newGoals =
+        for (g <- goals)
+        yield (for (eqs <- g)
+        yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
+
+      val newFunctions =
+        for (funs <- functions)
+        yield (for ((f, args, r) <- funs; if args.length > 0)
+        yield (f, args.map(termToInt), termToInt(r)))
+
+
+
+      // --- TRIVIAL SOLUTION CHECK ---
+      // Check if any of the goals are trivially satisfied by
+      // greedy assignment!
+      val ts = trivialSolution(newDomains, newGoals)
+      if (ts.isDefined) {
+        // Make model
+        println("\n\n\n\t\tTRIVIAL SOLUTION FOUND\n\n")
+        printProblem(newTerms, newDomains, newGoals, newFunctions)
+        println("Solution:")
+        println(ts)
+        return Some(Map())
+      } 
+
+      //
+      // --- DISEQUALITY CHECK ---
+      // Check if goals are even possible to unify
+      // If not we can immeadietly return UNSAT
+      val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
+      for (t <- newTerms) {
+        val domain = newDomains getOrElse(t, List(t))
+        for (d <- domain) {
+          arr(t)(d) = 1
+          arr(d)(t) = 1
+        }
+      }
+
+      val diseq = for (p <- 0 until problemCount)
+      yield
+      {
+        val c = Array.ofDim[Int](newTerms.length, newTerms.length)
+        for (t <- newTerms; tt <- newTerms) 
+          c(t)(tt) = arr(t)(tt)
+
+        val deq = disequalityCheck(c, newFunctions(p))
+        deq
+      }
+
+
+      // We have p problems, and if any one of them is possible,
+      // the problem itself is possible
+      var allGoalPossible = true
+
+      for (p <- 0 until problemCount) {
+        // This particular goal consists of subgoals,
+        // one of the subgoals must be possible for the 
+        // whole problem to be possible
+
+        var subGoalPossible = false
+
+        for (gs <- newGoals(p)) {
+          // A subgoal consists of pairs of terms,
+          // all of the must be unifiable for this
+          // subgoal to be possible.
+
+          var allUnifiable = true
+          for ((s,t) <- gs) {
+            if (diseq(p)(s)(t) == 0)
+              allUnifiable = false
+          }
+
+          if (allUnifiable) {
+              // println("Subgoal: " + gs + " is possible")
+            subGoalPossible = true
+          }
+        }
+
+        if (!subGoalPossible)
+          allGoalPossible = false
+      }
+      if (allGoalPossible) {
+        // Solve and return UNSAT or SAT  + model
+            solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, false) match {
+              case (Some(model), assignments) => {
+                var assMap = Map() : Map[TERM, TERM]
+                for (((variable, value), bit) <- assignments;
+                  if model contains bit)
+                  assMap += (intToTerm(variable) -> intToTerm(value))
+
+                Some(assMap)
+              }
+              case (None, _) =>  None
+            }
+      } else {
+        println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
+        None
+      }
     }
   }
-  }
-
 }

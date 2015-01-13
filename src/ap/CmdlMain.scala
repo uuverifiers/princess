@@ -355,6 +355,7 @@ object CmdlMain {
             
             println
             println(ap.util.Timer)
+            println(ccu.Timer)
             ap.util.Timer.reset
             
             Some(prover.result)
