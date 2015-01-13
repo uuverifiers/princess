@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -191,7 +191,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
   /*  println(tree)
      println(goalNum(tree))
      println  */
-        val (newTree, newCont) = expandProofGoals(tree, 1)
+        val (newTree, newCont) = expandProofGoals(tree)
         tree = newTree
         cont = newCont
         if (newCont) swp = true
@@ -240,7 +240,13 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
         // quantifiers
         val (newTree, swp) =
           Timeout.unfinishedValue(tree) {
-            expandProofGoals(tree, 1)
+println("Before:")
+println(tree)
+val res =            expandProofGoals(tree)
+println("After:")
+println(res)
+
+res
           }
         
         if (swp) {
@@ -314,34 +320,60 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     }
   }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object PrefixedTree {
+    def unapply(t : ProofTree) : Option[(ProofTree => ProofTree, ProofTree)] = {
+      var subtree : ProofTree = t
+      while (subtree.isInstanceOf[QuantifiedTree])
+        subtree = subtree.asInstanceOf[QuantifiedTree].subtree
+
+      Some((
+        newSubtree => {
+          def update(s : ProofTree) : ProofTree = s match {
+            case s : QuantifiedTree =>
+              s.update(update(s.subtree), s.constantFreedom)
+            case _ =>
+              newSubtree
+          }
+          update(t)
+        },
+        subtree
+      ))
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Try to expand each goal of <code>tree</code> by applying <code>limit</code>
    * steps. The result is a pair consisting of the new proof tree and a boolean
    * that tells whether it was possible to apply any steps
    */
-  private def expandProofGoals(tree : ProofTree,
-                               limit : Int) : (ProofTree, Boolean) =
-    if (limit > 0 &&
-        (//tree.stepMeaningful && 
+  private def expandProofGoals(tree : ProofTree) : (ProofTree, Boolean) =
+    if ((//tree.stepMeaningful && 
          (!depthFirst || !tree.ccUnifiableLocally)))
       tree match {
       
-      case goal : Goal =>
+      case PrefixedTree(prefix, goal : Goal) =>
         if (goal.stepPossible)
-          (expandProofGoals(goal.step(ptf), limit - 1) _1, true)
+          (prefix(goal.step(ptf)), true)
         else
-          (goal, false)
-      
+          (tree, false)
+
+/*      
       case tree : ProofTreeOneChild => {
         val (newSubtree, stepWasPossible) =
-          expandProofGoals(tree.subtree, limit)
+          expandProofGoals(tree.subtree)
         (tree.update(newSubtree, tree.constantFreedom), stepWasPossible)
       }
-      
-      case tree : AndTree => {
-        val (newLeft, leftSWP) = expandProofGoals(tree.left, limit)
-        val (newRight, rightSWP) = expandProofGoals(tree.right, limit)
-        (tree.update(newLeft, newRight, tree.constantFreedom), leftSWP || rightSWP)
+  */
+    
+      case PrefixedTree(prefix, tree : AndTree) => {
+        val (newLeft, leftSWP) = expandProofGoals(tree.left)
+        val (newRight, rightSWP) = expandProofGoals(tree.right)
+        (prefix(tree.update(newLeft, newRight, tree.constantFreedom)),
+         leftSWP || rightSWP)
       }
       
     } else {
