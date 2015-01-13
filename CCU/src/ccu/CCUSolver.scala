@@ -8,6 +8,8 @@ import org.sat4j.tools._
 import Timer._
 
 import scala.collection.mutable.{Map => MMap}
+import scala.collection.mutable.{Set => MSet}
+import scala.collection.mutable.{MutableList => MList}
 
 class Allocator(init : Int) {
   var next = init
@@ -19,7 +21,7 @@ class Allocator(init : Int) {
   }
 }
 
-class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator,
+class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator,
   solver : ISolver, terms : List[Int], domains : Map[Int, Set[Int]],
   functions : List[(FUNC, List[Int], Int)] ) {
 
@@ -162,20 +164,15 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
       val assignments = MMap() : MMap[(Int, Int), Int]
 
       for (t <- terms) {
-        if ((domains.getOrElse(t, Set())).size == 0) {
-          val identity = termEqInt((0, t), t)
-          val asd = new VecInt(List(identity).toArray)
-          solver.addClause(asd)
-        } else {
-          val assBits = for (tt <- domains(t)) yield  {
-            val tmpBit = termEqInt((0, t), tt)
-            assignments((t, tt)) = tmpBit
-            tmpBit
-          }
-          val asd = new VecInt(assBits.toArray)
-          solver.addClause(asd)
+        val assBits = for (tt <- domains(t); if tt <= t) yield  {
+          val tmpBit = termEqInt((0, t), tt)
+          assignments((t, tt)) = tmpBit
+          tmpBit
         }
+        val asd = new VecInt(assBits.toArray)
+        solver.addClause(asd)
       }
+
 
       assignments
     }
@@ -292,12 +289,14 @@ class Table[FUNC](bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator
     }
   }
 
-  // Make sure goal variables are removed at "POP"
+  // TODO: Make sure goal variables are removed at "POP"
   def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
     Timer.measure("addGoalConstraint") {
       val goalBits =
         for (g <- goals) yield {
-          val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
+          val subGoals = for ((s, t) <- g) yield {
+            termEqTerm((currentColumn, s), (currentColumn, t))
+          }
           val subGoal = alloc.alloc(1)
           gt.and(subGoal, new VecInt(subGoals.toArray))
           subGoal
@@ -547,8 +546,13 @@ class CCUSolver[TERM, FUNC] {
     println("/--PROBLEM--\\")
     for (t <- terms)
       println("| " + t + " = {" + (domains getOrElse (t, Set(t))).mkString(", ") + "}")
-    println("| Goals: " + goals.mkString(", "))
-    println("| Functions: " + functions.mkString(", "))
+    val problemCount = goals.length
+    println("| ProblemCount: " + problemCount)
+    for (p <- 0 until problemCount) {
+     println("| -----------")
+      println("| Goals: " + goals(p).mkString(", "))
+      println("| Functions: " + functions(p).mkString(", "))
+    }
     println("\\----------/")
   }
 
@@ -571,9 +575,6 @@ class CCUSolver[TERM, FUNC] {
       val bits = binlog(rows)
       // Alloc must be shared between tables
       val alloc = new Allocator(1)
-
-      if (debug)
-        printProblem(terms, domains, goals, functions)
 
       // HACK?
       val problemCount = goals.length
@@ -611,7 +612,32 @@ class CCUSolver[TERM, FUNC] {
 
       Timer.measure("isSat") {
       if (solver.isSatisfiable()) {
+
+        def printInt(bit : Int) {
+
+
+        }
+
         model = Option(solver.model)
+        for (p <- 0 until problemCount) {
+          println("TABLE " + p)
+          for (t <- terms) {
+            print(t + "\t>")
+            for (c <- 0 until tables(p).currentColumn) {
+              val startBit = tables(p)(c, t)
+              var curMul = 1
+              var curVal = 0
+              for (i <- 0 until tables(p).bits) {
+                if (solver.model contains (startBit + i))
+                  curVal += curMul
+                curMul *= 2
+              }
+              print(curVal + " ")
+            }
+            println
+          }
+        }
+        println(model.mkString(" "))
         cont = false
       } else {
         Timer.measure("completionConstraint") {
@@ -642,9 +668,9 @@ class CCUSolver[TERM, FUNC] {
     }
 
       // TODO: Change if differents rows
-      Timer.measure("Columns_" + (for (p <- 0 until problemCount) yield tables(0).currentColumn).mkString("[", " ", "]")) { true }
-      if (debug)
-        println("\tVariables: " + solver.realNumberOfVariables())
+      Timer.measure("Columns_" + (for (p <- 0 until problemCount) yield tables(p).currentColumn).mkString("[", " ", "]")) { true }
+      println("\tColumns: " + (for (p <- 0 until problemCount) yield tables(p).currentColumn).mkString("[", " ", "]"))
+      println("\tVariables: " + solver.realNumberOfVariables())
       (model, assignments(0).toMap)
     }
   }
@@ -652,14 +678,15 @@ class CCUSolver[TERM, FUNC] {
   // Given a list of domains, goals, functions, see if there is a solution to
   // the simultaneous problem.
 
-  def solve(
+  def solve_asserted(
     terms : List[TERM],
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]],
     functions : List[List[(FUNC, List[TERM], TERM)]]) : Option[Map[TERM, TERM]] = {
     Timer.measure("Solve") {
+      println("\n")
       // TODO: Build up terms automatically
-      println("\n\tsolve(" + terms.length + ", " + domains.size + ", " + goals.length + ", " + functions.length + ")")
+      // println("\n\tsolve(" + terms.length + ", " + domains.size + ", " + goals.length + ", " + functions.length + ")")
     // println("\tterms:" + terms)
     // println("\tdomains:" + domains)
     // println("\tgoals:" + goals)
@@ -679,16 +706,34 @@ class CCUSolver[TERM, FUNC] {
       var termToInt = Map() : Map[TERM, Int]
       var intToTerm = Map() : Map[Int, TERM]
 
-      for (i <- 0 until terms.length) {
-        termToInt += (terms(i) -> i)
-        intToTerm += (i -> terms(i))
+      var assigned = 0
+
+      while (assigned < terms.length) {
+        for (t <- terms) {
+          if (!(termToInt contains t)) {
+            var domainAssigned = true 
+            for (tt <- (domains getOrElse(t, Set())); if (t != tt)) {
+              if (!(termToInt contains tt))
+                domainAssigned = false
+            }
+            if (domainAssigned) {
+              termToInt += (t -> assigned)
+              intToTerm += (assigned -> t)
+              assigned += 1
+            }
+          }
+        }
       }
+
+
 
       val newTerms = terms.map(termToInt)
 
       var newDomains = Map() : Map[Int, Set[Int]]
-      for ((k, v) <- domains)
-        newDomains += (termToInt(k) -> v.map(termToInt))
+      for (t <- terms) {
+        val oldDomain = domains getOrElse(t, Set(t))
+        newDomains += (termToInt(t) -> oldDomain.map(termToInt))
+      }
 
       val newGoals =
         for (g <- goals)
@@ -730,7 +775,7 @@ class CCUSolver[TERM, FUNC] {
         }
       }
 
-      println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
+      // println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
 
       val diseq = for (p <- 0 until problemCount)
       yield
@@ -743,8 +788,8 @@ class CCUSolver[TERM, FUNC] {
         deq
       }
 
-      for (d <- diseq)
-        println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
+      // for (d <- diseq)
+      //   println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
 
       // We have p problems, and we are dealing with the simultaneous problem,
       // i.e. every problem must be solvable
@@ -784,17 +829,209 @@ class CCUSolver[TERM, FUNC] {
       }
 
       // Solve and return UNSAT or SAT  + model
-      solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, true) match {
+      solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, false) match {
         case (Some(model), assignments) => {
           var assMap = Map() : Map[TERM, TERM]
           for (((variable, value), bit) <- assignments;
-            if model contains bit)
+            if model contains bit) {
+            println(variable + " := " + value)
             assMap += (intToTerm(variable) -> intToTerm(value))
+          }
 
           Some(assMap)
         }
-        case (None, _) =>  None
+        case (None, _) =>  {
+          println(termToInt)
+          None
+        }
       }
     }
   }
+
+  def CC(sets : MSet[Set[TERM]], functions : List[(FUNC, List[TERM], TERM)], assignments : List[(TERM, TERM)] = List()) : Set[Set[TERM]] = {
+    def rep(t : TERM) : TERM = {
+      for (s <- sets)
+        if (s contains t)
+          return s.minBy(_.toString)
+      throw new Exception("No set contains t?")
+    }
+
+    def set(t : TERM) : Set[TERM] = {
+      for (s <- sets)
+        if (s contains t)
+          return s
+      throw new Exception("No set contains t?")
+    }
+
+    def mergeSets(t1 : TERM, t2 : TERM) : Unit = {
+      val set1 = set(t1)
+      val set2 = set(t2)
+
+      val newset = set1 ++ set2
+      sets -= set1
+      sets -= set2
+      sets += newset
+    }
+
+    // First merge assigned terms
+    for ((s, t) <- assignments) {
+      mergeSets(s, t)
+    }
+
+    // Fix-point calculation
+    var changed = true 
+    while (changed) {
+      changed = false
+      // All pairs of functions, if args_i = args_j, merge s_i with s_j
+      for ((f_i, args_i, s_i) <- functions;
+        (f_j, args_j, s_j) <- functions;
+        if (f_i == f_j && set(s_i) != set(s_j))) {
+        var argsEquals = true
+        for (i <- 0 until args_i.length) {
+
+          if (set(args_i(i)) != set(args_j(i)))
+            argsEquals = false
+        }
+        if (argsEquals) {
+          mergeSets(s_i, s_j)
+          changed = true
+        }
+      }
+    }
+
+    sets.toSet
+  }
+
+  def checkSAT(
+    terms : List[TERM],
+    domains : Map[TERM, Set[TERM]], 
+    goals : List[List[List[(TERM, TERM)]]],
+    functions : List[List[(FUNC, List[TERM], TERM)]],
+    solution : Map[TERM, TERM]) : Boolean = {
+
+    val sets = MSet() : MSet[Set[TERM]]
+    for (t <- terms)
+      sets += Set(t)
+
+    def set(t : TERM) : Set[TERM] = {
+      for (s <- sets)
+        if (s contains t)
+          return s
+      throw new Exception("No set contains t?")
+    }
+
+
+    for (p <- 0 until functions.length) {
+      // println("\n\nSETS BEFORE:")
+      // println(sets.mkString("\n"))
+      // println("SOLUTION: " + solution)
+      // println("FUNCTIONS: " + functions(p))
+      CC(sets, functions(p), solution.toList)
+      // println("\n\nSETS AFTER: ")
+      // println(sets.mkString("\n"))
+      // println(goals(p))
+      // Of these subgoals, one must be true
+      var anySubGoalTrue = false
+      for (subGoal <- goals(p)) {
+        var allPairsTrue = true
+        for ((s,t) <- subGoal) {
+          if (set(s) != set(t)) {
+            allPairsTrue = false
+          }
+        }
+        if (allPairsTrue) 
+          anySubGoalTrue = true
+      }
+
+      if (!anySubGoalTrue) {
+        return false
+      }
+    }
+
+    true
+  }
+
+  def checkUNSAT(
+    terms : List[TERM],
+    domains : Map[TERM, Set[TERM]], 
+    goals : List[List[List[(TERM, TERM)]]],
+    functions : List[List[(FUNC, List[TERM], TERM)]]) : Boolean = {
+    // Enumerate all solutions and do a check sat
+    
+    if (domains.isEmpty) {
+      !(checkSAT(terms, domains, goals, functions, Map()))
+    } else {
+      // 1. Convert domain to lists of tuples
+      var totalSolutions = 1
+
+      val newDomains =
+        (for ((k, v) <- domains) yield {
+          var tmp = 0
+          val asd = (for (vv <- v) yield { 
+            tmp += 1 
+            (k, vv) 
+          }).toList
+          totalSolutions *= tmp
+          asd
+        }).toList
+
+      var checkedSolutions = 0
+      // 2. Form all solutions
+      def formSolutions(dom : List[List[(TERM, TERM)]], sol : Map[TERM, TERM]) : Option[Map[TERM, TERM]] = {
+        if (dom.isEmpty) {
+          checkedSolutions += 1
+          if (checkedSolutions % 100000 == 0)
+            println("Checked " + checkedSolutions + "/" + totalSolutions)
+          if (checkSAT(terms, domains, goals, functions, sol.toMap)) {
+            Some(sol)
+          } else {
+            None
+          }
+        } else {
+          for ((k, v) <- dom.head) {
+            val isSol = formSolutions(dom.tail, sol + (k -> v))
+            if (isSol.isDefined)
+              return isSol
+          }
+          None
+        }
+      }
+
+      val result = formSolutions(newDomains, Map())
+      if (result.isDefined) {
+        println("THERE IS SOLUTION: " + result.get)
+        false
+      } else {
+        true
+      }
+    }
+  }
+
+  def solve(
+    terms : List[TERM],
+    domains : Map[TERM, Set[TERM]],
+    goals : List[List[List[(TERM, TERM)]]],
+    functions : List[List[(FUNC, List[TERM], TERM)]]) : Option[Map[TERM, TERM]] = {
+    solve_asserted(terms, domains, goals, functions) match {
+      case Some(sol) =>
+        print("Verifying SAT...")
+        if (!checkSAT(terms, domains, goals, functions, sol)) {
+          println("FALSE SAT!")
+          throw new Exception("FalseSATException")
+        } else {
+          println("OK!")
+          Some(sol)
+        }
+      case None =>
+        print("Verifying UNSAT...")
+        if (!checkUNSAT(terms, domains, goals, functions)) {
+          println("FALSE UNSAT!")
+          throw new Exception("FalseUNSATException")
+        } else {
+          println("OK!")
+          None
+        }
+    }
+  }
+
 }
