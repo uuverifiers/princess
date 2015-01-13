@@ -413,17 +413,17 @@ class CCUSolver[TERM, FUNC] {
         // Functionality
         if (equal) {
           if (eq(s_i min s_j)(s_i max s_j) == 0) {
-            // println(">" + s_i + " = " + s_j + ", because of " + f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
+            println(">" + s_i + " = " + s_j + ", because of " + f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
             eq(s_i)(s_j) = 1
             eq(s_j)(s_i) = 1
             changed = true
           }
 
           // "Transitivity"
-          for (i <- 0 until eq.length; if (s_i != i)) {
-            for (j <- 0 until eq.length; if (s_j != j)) {
+          for (i <- 0 until eq.length) {
+            for (j <- 0 until eq.length) {
               if (eq(s_i)(i) != 0 && eq(s_j)(j) != 0 && eq(i)(j) == 0) {
-                // println(">" + i + " = " + j + ", because of " + s_i + " = " + i + " and " + s_j + " = " + j)
+                println(">" + i + " = " + j + ", because of " + s_i + " = " + i + " and " + s_j + " = " + j)
                 eq(i)(j) = 1
                 eq(j)(i) = 1
                 changed = true
@@ -699,6 +699,7 @@ class CCUSolver[TERM, FUNC] {
         yield (for ((f, args, r) <- funs)
         yield (f, args.map(termToInt), termToInt(r)))
 
+        printProblem(newTerms, newDomains, newGoals, newFunctions)
 
 
       // --- TRIVIAL SOLUTION CHECK ---
@@ -719,6 +720,7 @@ class CCUSolver[TERM, FUNC] {
       // Check if goals are even possible to unify
       // If not we can immeadietly return UNSAT
       val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
+      
       for (t <- newTerms) {
         val domain = newDomains getOrElse(t, List(t))
         for (d <- domain) {
@@ -726,6 +728,8 @@ class CCUSolver[TERM, FUNC] {
           arr(d)(t) = 1
         }
       }
+
+      println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
 
       val diseq = for (p <- 0 until problemCount)
       yield
@@ -772,7 +776,7 @@ class CCUSolver[TERM, FUNC] {
       }
       if (allGoalPossible) {
         // Solve and return UNSAT or SAT  + model
-            solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, false) match {
+            solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, true) match {
               case (Some(model), assignments) => {
                 var assMap = Map() : Map[TERM, TERM]
                 for (((variable, value), bit) <- assignments;
