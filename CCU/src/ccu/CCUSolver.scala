@@ -401,7 +401,7 @@ class CCUSolver[TERM, FUNC] {
       // Functionality & Transitivity
       for ((f_i, args_i, s_i) <- functions;
         (f_j, args_j, s_j) <- functions;
-        if (f_i == f_j && s_i != s_j && eq(s_i min s_j)(s_i max s_j) == 0))
+        if (f_i == f_j && s_i != s_j))
       {
         var equal = true
         for (i <- 0 until args_i.length) {
@@ -742,6 +742,8 @@ class CCUSolver[TERM, FUNC] {
         deq
       }
 
+      for (d <- diseq)
+        println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
 
       // We have p problems, and if any one of them is possible,
       // the problem itself is possible
