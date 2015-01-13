@@ -126,8 +126,8 @@ trait ProofTree {
       var newRestSet = restSet
       val newRestMap1 = restMap1 ++ {
         for (c <- consts.toSeq.sortBy(_.name).iterator) yield {
-          val res = (c -> newRestSet)
           newRestSet = newRestSet + c
+          val res = (c -> newRestSet)
           res
         }
       }
@@ -164,8 +164,8 @@ trait ProofTree {
         var allConsts = tree.order.orderedConstants
         val newDomains = domains ++ {
           for (c <- consts.iterator) yield {
-            val res = (c -> allConsts)
             allConsts = allConsts + c
+            val res = (c -> allConsts)
             res
           }
         }
