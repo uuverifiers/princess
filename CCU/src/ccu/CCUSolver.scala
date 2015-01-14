@@ -21,9 +21,9 @@ class Allocator(init : Int) {
   }
 }
 
-class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTranslator,
-  solver : ISolver, terms : List[Int], domains : Map[Int, Set[Int]],
-  functions : List[(FUNC, List[Int], Int)] ) {
+class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, 
+  gt : GateTranslator, solver : ISolver, terms : List[Int], 
+  domains : Map[Int, Set[Int]], functions : List[(FUNC, List[Int], Int)] ) {
 
   var columnStartBit = List() : List[Int]
   var currentColumn = 0
@@ -33,7 +33,6 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
   //
 
   // Access Table[Column][Row]
-  // TODO change to ()
   def apply(col : Int, row : Int) = columnStartBit(col) + row*bits
 
   //
@@ -169,8 +168,8 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
           assignments((t, tt)) = tmpBit
           tmpBit
         }
-        val asd = new VecInt(assBits.toArray)
-        solver.addClause(asd)
+
+        solver.addClause(new VecInt(assBits.toArray))
       }
 
 
@@ -180,8 +179,8 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
 
   def addDerivedColumn() = {
     Timer.measure("addDerivedColumn") {
-      // For all pairs of functions with identical function symbols and different results,
-      // form a three-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
+      // For all pairs of functions with identical function symbols and 
+      // different results,form a 3-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
       currentColumn += 1
       columnStartBit = columnStartBit :+ alloc.alloc(ROWS*bits)
 
@@ -196,7 +195,9 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
             val t1 = args_i(i) min args_j(i)
             val t2 = args_i(i) max args_j(i)
             if (eqBits(t1)(t2) == -1)
-              eqBits(t1)(t2) = termEqTerm((currentColumn-1, args_i(i)), (currentColumn-1,args_j(i)))
+              eqBits(t1)(t2) = 
+                termEqTerm((currentColumn-1, args_i(i)), 
+                  (currentColumn-1,args_j(i)))
             eqBits(t1)(t2)
           }
           // argBit <=> C_p[args_i] = C_p[args_j]
@@ -281,10 +282,11 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
         // C_p[t] = t
         val isRepresentative = termEqInt((currentColumn-1, t), t)
 
-        // C_p[t] = t ==> (C_c[t] = t v C_c[t] = s) for some functionality (t = s)
-        // Either: not representative OR allowed identity OR derived functionality
-        val asd = new VecInt(List(-isRepresentative, identityBit, functionalityBit).toArray)
-        solver.addClause(asd)
+        // C_p[t] = t => (C_c[t] = t v C_c[t] = s) for some functionality t = s
+        // not representative OR allowed identity OR derived functionality
+        solver.addClause(
+          new VecInt(
+            List(-isRepresentative, identityBit, functionalityBit).toArray))
       }
     }
   }
@@ -309,18 +311,22 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
 
   def addCompletionConstraint() = {
     Timer.measure("addCompletionConstraint") {
-      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
-      val asd = new VecInt(diff.toArray)
-      solver.addClause(asd)
+      val diff = 
+        for (t <- terms)
+        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      
+      solver.addClause(new VecInt(diff.toArray))
     }
   }
 
   def getCompletionConstraint() = {
     Timer.measure("getCompletionConstraint") {
-      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
-      val asd = new VecInt(diff.toArray)
+      val diff = 
+        for (t <- terms)
+        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      
       val cc = alloc.alloc(1)
-      gt.or(cc, asd)
+      gt.or(cc, new VecInt(diff.toArray))
       cc
     }
   }
@@ -329,7 +335,10 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
     Timer.measure("addGoalCompletionConstraint") {
       val goalBits =
         for (g <- goals) yield {
-          val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
+          val subGoals = 
+            for ((s, t) <- g)
+            yield termEqTerm((currentColumn, s), (currentColumn, t))
+          
           val subGoal = alloc.alloc(1)
           gt.and(subGoal, new VecInt(subGoals.toArray))
           subGoal
@@ -338,7 +347,10 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
       val goalBit = alloc.alloc(1)
       gt.or(goalBit, new VecInt(goalBits.toArray))
 
-      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      val diff = 
+        for (t <- terms)
+        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      
       val gcBits = goalBits ++ diff
 
       val solverClause = solver.addClause(new VecInt(gcBits.toArray))
@@ -350,7 +362,10 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
     Timer.measure("getGoalCompletionConstraint") {
       val goalBits =
         for (g <- goals) yield {
-          val subGoals = for ((s, t) <- g)  yield termEqTerm((currentColumn, s), (currentColumn, t))
+          val subGoals = 
+            for ((s, t) <- g) 
+            yield termEqTerm((currentColumn, s), (currentColumn, t))
+
           val subGoal = alloc.alloc(1)
           gt.and(subGoal, new VecInt(subGoals.toArray))
           subGoal
@@ -359,7 +374,10 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, gt : GateTransl
       val goalBit = alloc.alloc(1)
       gt.or(goalBit, new VecInt(goalBits.toArray))
 
-      val diff = for (t <- terms) yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+      val diff = 
+        for (t <- terms) 
+        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+
       val gcBits = goalBits ++ diff
 
       val gc = alloc.alloc(1)
@@ -392,7 +410,9 @@ class CCUSolver[TERM, FUNC] {
   // List all disequalities, and see which ones can never be united
   // Only send in pairs that are possible, so domains doesn't have to be passed
   // eq shows POSSIBLE equalities
-  def disequalityCheck(eq : Array[Array[Int]], functions : List[(FUNC, List[Int], Int)]) = {
+  def disequalityCheck(eq : Array[Array[Int]], 
+    functions : List[(FUNC, List[Int], Int)]) = {
+
     var changed = true
     while (changed) {
       changed = false
@@ -412,7 +432,8 @@ class CCUSolver[TERM, FUNC] {
         // Functionality
         if (equal) {
           if (eq(s_i min s_j)(s_i max s_j) == 0) {
-            // println(">" + s_i + " = " + s_j + ", because of " + f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
+            // println(">" + s_i + " = " + s_j + ", because of " + 
+            // f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
             eq(s_i)(s_j) = 1
             eq(s_j)(s_i) = 1
             changed = true
@@ -422,7 +443,8 @@ class CCUSolver[TERM, FUNC] {
           for (i <- 0 until eq.length) {
             for (j <- 0 until eq.length) {
               if (eq(s_i)(i) != 0 && eq(s_j)(j) != 0 && eq(i)(j) == 0) {
-                // println(">" + i + " = " + j + ", because of " + s_i + " = " + i + " and " + s_j + " = " + j)
+                // println(">" + i + " = " + j + ", because of " + s_i + 
+                // " = " + i + " and " + s_j + " = " + j)
                 eq(i)(j) = 1
                 eq(j)(i) = 1
                 changed = true
@@ -545,7 +567,8 @@ class CCUSolver[TERM, FUNC] {
     functions : List[List[(FUNC, List[Int], Int)]]) = {
     println("/--PROBLEM--\\")
     for (t <- terms)
-      println("| " + t + " = {" + (domains getOrElse (t, Set(t))).mkString(", ") + "}")
+      println("| " + t + " = {" + 
+        (domains getOrElse (t, Set(t))).mkString(", ") + "}")
     val problemCount = goals.length
     println("| ProblemCount: " + problemCount)
     for (p <- 0 until problemCount) {
@@ -581,7 +604,8 @@ class CCUSolver[TERM, FUNC] {
 
       val tables =
         for (p <- 0 until problemCount) yield
-          new Table[FUNC](bits, rows, alloc, gt, solver, terms, domains, functions(p))
+          new Table[FUNC](bits, rows, alloc, gt, 
+            solver, terms, domains, functions(p))
       solver.reset()
 
       // MAIN SOLVE LOOP
@@ -589,14 +613,26 @@ class CCUSolver[TERM, FUNC] {
       var model = None : Option[Array[Int]]
 
       // TODO: change if tables has different rows
-      val assignments = for (p <- 0 until problemCount) yield tables(p).addInitialColumn()
+      val assignments = 
+        for (p <- 0 until problemCount) 
+        yield tables(p).addInitialColumn()
 
       // Since all table have same domain, they should have same assginments
       if (problemCount > 1) {
         for (((variable, value), bit) <- assignments(0)) {
+
+          // So enforce ass(0)(k,v) <=> ass(p)(k,v) for all p
+          val iffBits = 
+            for (p <- 0 until problemCount) yield {
+              val iffBit = alloc.alloc(1)
+              val bit2 = assignments(p)((variable, value))
+              gt.iff(iffBit, new VecInt(List(bit, bit2).toArray))
+              iffBit
+            }
+
           val tmpBit = alloc.alloc(1)
-          val lits = for (ass <- assignments) yield ass((variable, value))
-          gt.iff(tmpBit, new VecInt(lits.toArray))
+          gt.and(tmpBit, new VecInt(iffBits.toArray))
+
           solver.addClause(new VecInt(List(tmpBit).toArray))
         }
       }
@@ -613,30 +649,48 @@ class CCUSolver[TERM, FUNC] {
       Timer.measure("isSat") {
       if (solver.isSatisfiable()) {
 
-        def printInt(bit : Int) {
-
-
+        def bitToInt(startBit : Int, p : Int) : Int = {
+          var curMul = 1
+          var curVal = 0
+          for (i <- 0 until tables(p).bits) {
+            if (solver.model contains (startBit + i))
+              curVal += curMul
+            curMul *= 2
+          }
+          curVal
         }
 
         model = Option(solver.model)
         for (p <- 0 until problemCount) {
           println("TABLE " + p)
           for (t <- terms) {
-            print(t + "\t>")
+            print(t + ">\t")
             for (c <- 0 until tables(p).currentColumn) {
-              val startBit = tables(p)(c, t)
-              var curMul = 1
-              var curVal = 0
-              for (i <- 0 until tables(p).bits) {
-                if (solver.model contains (startBit + i))
-                  curVal += curMul
-                curMul *= 2
-              }
-              print(curVal + " ")
+              val i = bitToInt(tables(p)(c, t), p)
+              print(i + " ")
             }
             println
           }
         }
+
+        for (t <- terms) {
+          for (p <- 1 until problemCount) {
+            if (bitToInt(tables(0)(0, t), 0) != bitToInt(tables(p)(0, t), p)) {
+              println("tables(0)(0, " + t + ") != tables(" + p + ")(0, " + t + ")")
+              var i = 0
+              while (i <= 2000) {
+                if (solver.model contains i)
+                  println(i)
+                else
+                  println(-i)
+                i += 1
+                
+              }
+              throw new Exception("Different assignments!")
+            }
+          }
+        }
+
         println(model.mkString(" "))
         cont = false
       } else {
@@ -668,8 +722,13 @@ class CCUSolver[TERM, FUNC] {
     }
 
       // TODO: Change if differents rows
-      Timer.measure("Columns_" + (for (p <- 0 until problemCount) yield tables(p).currentColumn).mkString("[", " ", "]")) { true }
-      println("\tColumns: " + (for (p <- 0 until problemCount) yield tables(p).currentColumn).mkString("[", " ", "]"))
+      Timer.measure("Columns_" + 
+        (for (p <- 0 until problemCount) 
+        yield tables(p).currentColumn).mkString("[", " ", "]")) { true }
+
+      println("\tColumns: " + 
+        (for (p <- 0 until problemCount) 
+        yield tables(p).currentColumn).mkString("[", " ", "]"))
       println("\tVariables: " + solver.realNumberOfVariables())
       (model, assignments(0).toMap)
     }
@@ -682,15 +741,11 @@ class CCUSolver[TERM, FUNC] {
     terms : List[TERM],
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]],
-    functions : List[List[(FUNC, List[TERM], TERM)]]) : Option[Map[TERM, TERM]] = {
+    functions : List[List[(FUNC, List[TERM], TERM)]]) 
+      : Option[Map[TERM, TERM]] = {
     Timer.measure("Solve") {
       println("\n")
       // TODO: Build up terms automatically
-      // println("\n\tsolve(" + terms.length + ", " + domains.size + ", " + goals.length + ", " + functions.length + ")")
-    // println("\tterms:" + terms)
-    // println("\tdomains:" + domains)
-    // println("\tgoals:" + goals)
-    // println("\tfunctions:" + functions)
 
     if (terms.isEmpty || goals.isEmpty) 
       return None
@@ -775,7 +830,7 @@ class CCUSolver[TERM, FUNC] {
         }
       }
 
-      // println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
+      println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
 
       val diseq = for (p <- 0 until problemCount)
       yield
@@ -788,21 +843,19 @@ class CCUSolver[TERM, FUNC] {
         deq
       }
 
-      // for (d <- diseq)
-      //   println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
+      for (d <- diseq)
+        println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
 
       // We have p problems, and we are dealing with the simultaneous problem,
       // i.e. every problem must be solvable
       var allGoalPossible = true
 
-      for (p <- 0 until problemCount) {
+      val diseqedGoals = 
+      (for (p <- 0 until problemCount) yield {
         // This particular problem consists of subgoals,
         // one of the subgoals must be solvable for the 
         // whole problem to be possible
-
-        var subGoalPossible = false
-
-        for (gs <- newGoals(p)) {
+        (for (gs <- newGoals(p)) yield {
           // A subgoal consists of pairs of terms,
           // all of the must be unifiable for this
           // subgoal to be possible.
@@ -813,23 +866,21 @@ class CCUSolver[TERM, FUNC] {
               allUnifiable = false
           }
 
-          if (allUnifiable) {
-            subGoalPossible = true
-          }
-        }
-
-        if (!subGoalPossible)
-          allGoalPossible = false
-      }
+          (gs, allUnifiable)
+        }).filter(x => x._2).map(x => x._1).toList
+      }).toList
 
 
-      if (!allGoalPossible) {
+      if (diseqedGoals contains List()) {
         println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
         return None
       }
 
+      println("diseqedGoals: " + diseqedGoals)
+
       // Solve and return UNSAT or SAT  + model
-      solveaux(newTerms, newDomains.toMap, newGoals, newFunctions, false) match {
+      solveaux(newTerms, newDomains.toMap, 
+        diseqedGoals, newFunctions, false) match {
         case (Some(model), assignments) => {
           var assMap = Map() : Map[TERM, TERM]
           for (((variable, value), bit) <- assignments;
@@ -848,7 +899,8 @@ class CCUSolver[TERM, FUNC] {
     }
   }
 
-  def CC(sets : MSet[Set[TERM]], functions : List[(FUNC, List[TERM], TERM)], assignments : List[(TERM, TERM)] = List()) : Set[Set[TERM]] = {
+  def CC(sets : MSet[Set[TERM]], functions : List[(FUNC, List[TERM], TERM)], 
+    assignments : List[(TERM, TERM)] = List()) : Set[Set[TERM]] = {
     def rep(t : TERM) : TERM = {
       for (s <- sets)
         if (s contains t)
@@ -977,7 +1029,8 @@ class CCUSolver[TERM, FUNC] {
 
       var checkedSolutions = 0
       // 2. Form all solutions
-      def formSolutions(dom : List[List[(TERM, TERM)]], sol : Map[TERM, TERM]) : Option[Map[TERM, TERM]] = {
+      def formSolutions(dom : List[List[(TERM, TERM)]], sol : Map[TERM, TERM]) 
+          : Option[Map[TERM, TERM]] = {
         if (dom.isEmpty) {
           checkedSolutions += 1
           if (checkedSolutions % 100000 == 0)
@@ -1011,9 +1064,11 @@ class CCUSolver[TERM, FUNC] {
     terms : List[TERM],
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]],
-    functions : List[List[(FUNC, List[TERM], TERM)]]) : Option[Map[TERM, TERM]] = {
+    functions : List[List[(FUNC, List[TERM], TERM)]]) 
+      : Option[Map[TERM, TERM]] = {
     solve_asserted(terms, domains, goals, functions) match {
       case Some(sol) =>
+        return Some(sol)
         print("Verifying SAT...")
         if (!checkSAT(terms, domains, goals, functions, sol)) {
           println("FALSE SAT!")
@@ -1023,6 +1078,7 @@ class CCUSolver[TERM, FUNC] {
           Some(sol)
         }
       case None =>
+        return None
         print("Verifying UNSAT...")
         if (!checkUNSAT(terms, domains, goals, functions)) {
           println("FALSE UNSAT!")
