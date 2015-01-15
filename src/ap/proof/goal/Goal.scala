@@ -744,7 +744,7 @@ class Goal private (val facts : Conjunction,
   val subtrees : Seq[ProofTree] = List()
   
   override def toString : String = {
-    "^ " + closingConstraint + "\n" +
+    "^ " + unifiabilityString /* closingConstraint */ + "\n" +
     ". Facts: " + facts + "\n" +
     ". Arithmetic clauses: " + compoundFormulas.qfClauses + "\n" +
     ". Eagerly matched clauses: " + compoundFormulas.eagerQuantifiedClauses + "\n" +

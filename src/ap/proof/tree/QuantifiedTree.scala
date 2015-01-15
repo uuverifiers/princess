@@ -156,7 +156,7 @@ class QuantifiedTree private (val subtree : ProofTree,
   //////////////////////////////////////////////////////////////////////////////
 
   override def toString : String =
-    "^ " + closingConstraint + " (" +
+    "^ " + unifiabilityString /* closingConstraint */ + " (" +
     quan + " " +
     (for (c <- quantifiedConstants) yield c.toString).mkString(" ") +
     ")\n" + subtree

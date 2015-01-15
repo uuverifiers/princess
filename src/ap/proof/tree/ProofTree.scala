@@ -106,6 +106,12 @@ trait ProofTree {
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
 
+  protected def unifiabilityString : String =
+    if (unifiabilityChecked)
+      "(" + ccUnifiable + ", " + ccUnifiableLocally + ")"
+    else
+      "(unknown)"
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def domainsFromContext(
@@ -155,6 +161,12 @@ trait ProofTree {
       // then this subtree can be ignored, we have already
       // shown that it can be closed
       List()
+    } else if (tree.unifiabilityChecked && !tree.ccUnifiable) {
+      // then there is a subtree that cannot be closed, and
+      // also the unification problem as a whole does not have
+      // any solutions.
+      // return a problem with empty goal, which cannot be closed
+      List((Map(), List(), List()))
     } else tree match {
 
       case QuantifiedTree(Quantifier.ALL, _, subtree) =>

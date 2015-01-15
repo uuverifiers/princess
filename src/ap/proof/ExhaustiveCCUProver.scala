@@ -108,9 +108,10 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     Timeout.unfinished {
       
       (if (depthFirst)
-         expandDepthFirstUntilSat(goal, false, signature, false)
+         expandDepthFirstUntilSat(goal, signature)
+//         expandDepthFirstUntilSatX(goal, false, signature, false) _1
        else
-         expandFairUntilSat(goal, false, signature, false)) _1
+         expandFairUntilSat(goal, false, signature, false) _1)
         
     } {
       case None => goal
@@ -212,6 +213,75 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     case _                                                              => false
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def expandDepthFirstUntilSat(tree : ProofTree,
+                                       signature : Signature)
+                                      : ProofTree = {
+    Timeout.unfinishedValue(tree) { Timeout.check }
+
+    tree match {
+
+      case PrefixedTree(_, _ : Goal) =>
+        if (tree.ccUnifiable) {
+          // we are finished here
+          tree
+        } else {
+          (Timeout.unfinishedValue(tree) {
+            println("applying rule ...")
+            expandProofGoals(tree)
+           }) match {
+
+            case (newTree, true) =>
+              expandDepthFirstUntilSat(newTree, signature)
+
+            case (_, false) =>
+              // this problem is hopeless: we have a subtree to
+              // which no further rules can be applied, and
+              // that cannot be closed
+              tree
+
+          }
+        }
+
+      case PrefixedTree(prefix, subtree : AndTree) => {
+
+        val newLeft =
+          Timeout.unfinished {
+            expandDepthFirstUntilSat(subtree.left, signature)
+          } {
+            case lastTree : ProofTree =>
+              prefix(subtree.update(lastTree, subtree.right,
+                                    ConstantFreedom.BOTTOM))
+          }
+
+        if (newLeft.ccUnifiable) {
+          val newRight =
+            Timeout.unfinished {
+              expandDepthFirstUntilSat(subtree.right, signature)
+            } {
+              case lastTree : ProofTree =>
+                prefix(subtree.update(newLeft, lastTree,
+                                      ConstantFreedom.BOTTOM))
+            }
+        
+          val newTree =
+            prefix(subtree.update(newLeft, newRight, ConstantFreedom.BOTTOM))
+
+          if (newRight.ccUnifiable)
+            expandFairUntilSat(newTree, false, signature, true)._1
+          else
+            newTree
+        } else {
+          prefix(subtree.update(newLeft, subtree.right, ConstantFreedom.BOTTOM))
+        }
+
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Expand the proof depth-first until the root constraint is satisfiable
    * (or until <code>stoppingCond</code> returns <code>true</code>).
@@ -220,7 +290,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
    * <code>underConstraintWeakener</code> tells whether <code>tree</code> is
    * underneath a <code>QuantifiedTree</code> or <code>WeakenTree</code> node.
    */
-  private def expandDepthFirstUntilSat(tree : ProofTree,
+  private def expandDepthFirstUntilSatX(tree : ProofTree,
                                        underConstraintWeakener : Boolean,
                                        signature : Signature,
                                        swpBefore : Boolean)
@@ -251,7 +321,7 @@ res
         
         if (swp) {
           // recurse because the structure of the tree might have changed
-          expandDepthFirstUntilSat(newTree, underConstraintWeakener, signature, true)
+          expandDepthFirstUntilSatX(newTree, underConstraintWeakener, signature, true)
         } else {
           // we continue in a fair manner
           expandFairUntilSat(newTree, underConstraintWeakener, signature, swpBefore)
@@ -260,7 +330,7 @@ res
       
       case goal : Goal => {
         val goalOneStep = Timeout.unfinishedValue(goal) { goal step ptf }
-        expandDepthFirstUntilSat(goalOneStep, underConstraintWeakener, signature, true)
+        expandDepthFirstUntilSatX(goalOneStep, underConstraintWeakener, signature, true)
       }
       
       case tree : ProofTreeOneChild => {
@@ -271,7 +341,7 @@ res
         //-END-ASSERTION-///////////////////////////////////////////////////////
         val (newSubtree, swp) =
           Timeout.unfinished {
-            expandDepthFirstUntilSat(tree.subtree, true, signature, false)
+            expandDepthFirstUntilSatX(tree.subtree, true, signature, false)
           } {
             case lastTree : ProofTree =>
               tree.update(lastTree, ConstantFreedom.BOTTOM)
@@ -280,7 +350,7 @@ res
         
         if (swp) {
           // recurse because the structure of the tree might have changed
-          expandDepthFirstUntilSat(newTree, underConstraintWeakener, signature, true)
+          expandDepthFirstUntilSatX(newTree, underConstraintWeakener, signature, true)
         } else {
           // we continue in a fair manner
           expandFairUntilSat(newTree, underConstraintWeakener, signature, swpBefore)
@@ -290,14 +360,14 @@ res
       case tree : AndTree => {
         val (newLeft, leftSWP) =
           Timeout.unfinished {
-            expandDepthFirstUntilSat(tree.left, underConstraintWeakener, signature, false)
+            expandDepthFirstUntilSatX(tree.left, underConstraintWeakener, signature, false)
           } {
             case lastTree : ProofTree =>
               tree.update(lastTree, tree.right, ConstantFreedom.BOTTOM)
           }
         val (newRight, rightSWP) =
           Timeout.unfinished {
-            expandDepthFirstUntilSat(tree.right, underConstraintWeakener, signature, false)
+            expandDepthFirstUntilSatX(tree.right, underConstraintWeakener, signature, false)
           } {
             case lastTree : ProofTree =>
               tree.update(newLeft, lastTree, ConstantFreedom.BOTTOM)
@@ -307,7 +377,7 @@ res
         
         if (leftSWP || rightSWP) {
           // recurse because the structure of the tree might have changed
-          expandDepthFirstUntilSat(newTree, underConstraintWeakener, signature, true)
+          expandDepthFirstUntilSatX(newTree, underConstraintWeakener, signature, true)
         } else {
           // we continue in a fair manner
           expandFairUntilSat(newTree, underConstraintWeakener, signature, swpBefore)

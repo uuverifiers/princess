@@ -251,7 +251,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
     prefix + str.replaceAll("\n", "\n" + prefix)
     
   override def toString : String =
-    "^ " + closingConstraint + " (/\\)\n" +
+    "^ " + unifiabilityString /* closingConstraint */ + " (/\\)\n" +
       (for (t <- subtrees) yield indent("" + t, "  ")).mkString("\n/\\\n")
 
 }
