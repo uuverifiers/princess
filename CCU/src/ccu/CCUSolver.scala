@@ -28,9 +28,6 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
   var columnStartBit = List() : List[Int]
   var currentColumn = 0
 
-  //
-  // UTILITY FUNCTIONS
-  //
 
   // Access Table[Column][Row]
   def apply(col : Int, row : Int) = columnStartBit(col) + row*bits
@@ -590,6 +587,7 @@ class CCUSolver[TERM, FUNC] {
     domains : Map[Int, Set[Int]],
     goals : List[List[List[(Int, Int)]]],
     functions : List[List[(FUNC, List[Int], Int)]],
+    diseq : List[Array[Array[Int]]],
     debug : Boolean) : (Option[Array[Int]], Map[(Int, Int), Int]) = {
     Timer.measure("Solveaux") {
       // TODO: optimize such that each table has its own rows
@@ -699,16 +697,13 @@ class CCUSolver[TERM, FUNC] {
         for (gc <- goalConstraints)
           solver.removeConstr(gc)
 
-        val goalCompletionConstraints = 
-        for (p <- 0 until problemCount) yield
-          tables(p).addGoalCompletionConstraint(goals(p))
+          val cc = 
+            for (p <- 0 until problemCount) yield
+              tables(p).addCompletionConstraint()
 
         if (solver.isSatisfiable()) {
           // Yes, extend necesseray tables
           for (p <- 0 until problemCount) {
-            val (gcc, gbit) = goalCompletionConstraints(p)
-            solver.removeConstr(gcc)
-            if (!(solver.model contains gbit))
               tables(p).addDerivedColumn()
           }
         } else {
@@ -832,7 +827,7 @@ class CCUSolver[TERM, FUNC] {
 
       println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
 
-      val diseq = for (p <- 0 until problemCount)
+      val diseq = (for (p <- 0 until problemCount)
       yield
       {
         val c = Array.ofDim[Int](newTerms.length, newTerms.length)
@@ -841,7 +836,7 @@ class CCUSolver[TERM, FUNC] {
 
         val deq = disequalityCheck(c, newFunctions(p))
         deq
-      }
+      }).toList
 
       for (d <- diseq)
         println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
@@ -880,7 +875,7 @@ class CCUSolver[TERM, FUNC] {
 
       // Solve and return UNSAT or SAT  + model
       solveaux(newTerms, newDomains.toMap, 
-        diseqedGoals, newFunctions, false) match {
+        diseqedGoals, newFunctions, diseq, false) match {
         case (Some(model), assignments) => {
           var assMap = Map() : Map[TERM, TERM]
           for (((variable, value), bit) <- assignments;
