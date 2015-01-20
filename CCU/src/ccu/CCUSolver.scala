@@ -10,6 +10,7 @@ import Timer._
 import scala.collection.mutable.{Map => MMap}
 import scala.collection.mutable.{Set => MSet}
 import scala.collection.mutable.{MutableList => MList}
+import scala.collection.mutable.ListBuffer
 
 class Allocator(init : Int) {
   var next = init
@@ -21,16 +22,19 @@ class Allocator(init : Int) {
   }
 }
 
-class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator, 
-  gt : GateTranslator, solver : ISolver, terms : List[Int], 
-  domains : Map[Int, Set[Int]], functions : List[(FUNC, List[Int], Int)] ) {
+class Table[FUNC](val bits : Int, alloc : Allocator, 
+  gt : GateTranslator, solver : ISolver, val terms : List[Int], 
+  domains : Map[Int, Set[Int]], functions : List[(FUNC, List[Int], Int)],
+  ZEROBIT : Int, ONEBIT : Int) {
 
-  var columnStartBit = List() : List[Int]
+  val columns = ListBuffer() : ListBuffer[MMap[Int, List[Int]]]
   var currentColumn = 0
 
-
   // Access Table[Column][Row]
-  def apply(col : Int, row : Int) = columnStartBit(col) + row*bits
+  def apply(term : (Int, Int)) = {
+    val (col, row) = term
+    columns(col)(row)
+  }
 
   //
   //  TERM EQUALITY FUNCTION
@@ -39,57 +43,47 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
   // C[t] == i
   def termEqInt(term : (Int, Int), i : Int) : Int = {
     Timer.measure("termEqInt") {
-      val (c, t) = term
-
-      // TODO: Optimize
-      var lits = List() : List[Int]
-      var curBit = this(c, t)
       var curVal = i
-      while (curVal > 0) {
-        if (curVal % 2 == 1) {
-          lits ::= curBit
-          curVal -= 1
-        } else {
-          lits ::= -curBit
-        }
-        curBit += 1
-        curVal /= 2
-      }
 
-      while (lits.length < bits) {
-        lits ::= -curBit
-        curBit += 1
-      }
+      val lits = 
+        (for (t <- this(term)) yield {
+          if (curVal % 2 == 1) {
+            curVal -= 1
+            curVal /= 2
+            t
+          } else {
+            curVal /= 2
+            -t
+          }
+        }).toArray
 
-      val prevBit = alloc.alloc(1)
-      gt.and(prevBit, new VecInt(lits.toArray))
-      prevBit
+      val eqBit = alloc.alloc(1)
+      gt.and(eqBit, new VecInt(lits))
+      eqBit
     }
   }
 
   // C[t1] == C[t2]
   def termEqTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
     Timer.measure("termEqTerm") {
-      val allocNext = alloc.next
-      var used = 0
+      val term1Bits = this(term1)
+      val term2Bits = this(term2)
 
-      val (c1, t1) = term1
-      val (c2, t2) = term2
-      val iBit = this(c1, t1)
-      val jBit = this(c2, t2)
+      val maxBits = term1Bits.length max term2Bits.length
 
-      val eqBits =
-        for (b  <- 0 until bits) yield {
-          val tmpBit = allocNext + used
-          used += 1
-          gt.iff(tmpBit, new VecInt(List(iBit + b, jBit + b).toArray))
+      val term1BitsPadded = term1Bits.padTo(maxBits, ZEROBIT)
+      val term2BitsPadded = term2Bits.padTo(maxBits, ZEROBIT)
+
+      // TODO: Could be optimised (by not doing padding...)
+      val eqBits = 
+        (for ((t1b, t2b) <- term1BitsPadded zip term2BitsPadded) yield {
+          val tmpBit = alloc.alloc(1)
+          gt.iff(tmpBit, new VecInt(Array(t1b, t2b)))
           tmpBit
-        }
+        }).toArray
 
-      val eqBit = allocNext + used
-      used += 1
-      gt.and(eqBit, new VecInt(eqBits.toArray))
-      alloc.alloc(used)
+      val eqBit = alloc.alloc(1)
+      gt.and(eqBit, new VecInt(eqBits))
       eqBit
     }
   }
@@ -97,81 +91,70 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
   // C[t1] > C[t2]
   def termGtTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
     Timer.measure("termGtTerm") {
-      val allocNext = alloc.next
-      var used = 0
-
       val (c1, t1) = term1
       val (c2, t2) = term2
-      val iBit = this(c1, t1)
-      val jBit = this(c2, t2)
+
+      val term1Bits = this(c1, t1)
+      val term2Bits = this(c2, t2)
+      val maxBits = term1Bits.length max term2Bits.length
+
+      // Make the reversed since we are studying from most significant bit
+      val term1BitsPadded = term1Bits.padTo(maxBits, ZEROBIT).reverse
+      val term2BitsPadded = term2Bits.padTo(maxBits, ZEROBIT).reverse
 
       // e_bits[b]: bit (bits-b) of i and j are equal
       var e_bits = List() : List[Int]
-      for (b <- 1 to bits) yield {
-        // iBit[bits - b] = jBit[bits - b]
-        val eq = allocNext + used
-        used += 1
-        gt.iff(eq, new VecInt(List(iBit + bits - b, jBit + bits - b).toArray))
+      // for (b <- 1 to maxBits) yield {
+      for ((t1b, t2b) <- term1BitsPadded zip term2BitsPadded) {
 
-        if (b == 1) {
-          e_bits = e_bits :+ eq
+        // term1[bits - b] = term2[bits - b]
+        val bitsEq = alloc.alloc(1)
+        gt.iff(bitsEq, new VecInt(Array(t1b, t2b)))
+
+        if (e_bits.isEmpty) {
+          e_bits = e_bits :+ bitsEq
         } else {
-          val e = allocNext + used
-          used += 1
-          gt.and(e, e_bits.last, eq)
-          e_bits = e_bits :+ e
+          val prevEq = alloc.alloc(1)
+          gt.and(prevEq, e_bits.last, bitsEq)
+          e_bits = e_bits :+ prevEq
         }
       }
 
       var m_bits = List() : List[Int]
 
       // m_bits[b]: bits [bits..(bits-b)] of i are greater than j
-      for (b <- 1 to bits) {
-        val bit_gt = allocNext + used
-        used += 1
-        gt.and(bit_gt, (iBit + bits - b), -(jBit + bits - b))
+      // for (b <- 1 to bits) {
+      for (b <- 0 until maxBits) {
+        val bit_gt = alloc.alloc(1)
+        gt.and(bit_gt, term1BitsPadded(b), -term2BitsPadded(b))
 
-        if (b == 1) {
+        if (m_bits.isEmpty) {
           m_bits = m_bits :+ bit_gt
         } else {
-          val prev_eq = e_bits(b-2)
-          val opt1 = allocNext + used
-          used += 1
+          val prev_eq = e_bits(b-1)
+
+          // Option1: All prev bits are eq and this is greater
+          val opt1 = alloc.alloc(1)
           gt.and(opt1, prev_eq, bit_gt)
 
-          val opt2 = m_bits(b-2)
+          // Option2: Term1 was already greater than Term2
+          val opt2 = m_bits(b-1)
 
-          val m = allocNext + used
-          used += 1
-          gt.or(m, new VecInt(List(opt1, opt2).toArray))
+          val m = alloc.alloc(1)
+          gt.or(m, new VecInt(Array(opt1, opt2)))
           m_bits = m_bits :+ m
         }
       }
-      alloc.alloc(used)
       m_bits.last
     }
   }
 
+  def addInitialColumn(assignments : Map[Int, List[Int]]) {
+    val newColumn =
+      MMap() ++ (for (t <- terms) yield
+        (t, assignments(t))).toMap
 
-  def addInitialColumn() = {
-    Timer.measure("addInitialColumn") {
-      columnStartBit = columnStartBit :+ alloc.alloc(ROWS*bits)
-
-      val assignments = MMap() : MMap[(Int, Int), Int]
-
-      for (t <- terms) {
-        val assBits = for (tt <- domains(t); if tt <= t) yield  {
-          val tmpBit = termEqInt((0, t), tt)
-          assignments((t, tt)) = tmpBit
-          tmpBit
-        }
-
-        solver.addClause(new VecInt(assBits.toArray))
-      }
-
-
-      assignments
-    }
+    columns += newColumn
   }
 
   def addDerivedColumn() = {
@@ -179,27 +162,39 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
       // For all pairs of functions with identical function symbols and 
       // different results,form a 3-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
       currentColumn += 1
-      columnStartBit = columnStartBit :+ alloc.alloc(ROWS*bits)
+
+      val startBit = alloc.alloc(terms.length * bits)
+
+      val newColumn =
+        MMap() ++ (List.tabulate(terms.length)(x => {
+          (terms(x), List.tabulate(bits)(y => startBit + x*bits + y))
+        })).toMap
+
+      columns += newColumn
 
       val eqBits = Array.tabulate(terms.length, terms.length)( (x, y) => -1)
 
+      // termToIndex
+      val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
 
       val V =
         for ((f_i, args_i, s_i) <- functions;
           (f_j, args_j, s_j) <- functions;
           if (f_i == f_j && s_i != s_j)) yield {
-          var argBits = for (i <- 0 until args_i.length) yield {
-            val t1 = args_i(i) min args_j(i)
-            val t2 = args_i(i) max args_j(i)
-            if (eqBits(t1)(t2) == -1)
-              eqBits(t1)(t2) = 
-                termEqTerm((currentColumn-1, args_i(i)), 
-                  (currentColumn-1,args_j(i)))
-            eqBits(t1)(t2)
-          }
+          val argBits =
+            (for (i <- 0 until args_i.length) yield {
+              val t1 = args_i(i) min args_j(i)
+              val t2 = args_i(i) max args_j(i)
+              if (eqBits(tTI(t1))(tTI(t2)) == -1)
+                eqBits(tTI(t1))(tTI(t2)) =
+                  termEqTerm((currentColumn-1, args_i(i)),
+                    (currentColumn-1,args_j(i)))
+              eqBits(tTI(t1))(tTI(t2))
+            }).toArray
+
           // argBit <=> C_p[args_i] = C_p[args_j]
           val argBit = alloc.alloc(1)
-          gt.and(argBit, new VecInt(argBits.toArray))
+          gt.and(argBit, new VecInt(argBits))
 
           // gtBit <=> C_p[s_i] > C_p[s_j]
           val gtBit = termGtTerm((currentColumn-1, s_i), (currentColumn-1, s_j))
@@ -213,6 +208,19 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
 
 
       for (t <- terms) {
+        // --- CASE0: Not a representing term, following a rowless bit ---
+        val neqBits = 
+          (for (tt <- terms) yield {
+            -termEqInt((currentColumn-1, t), tt)
+          }).toArray
+
+        val diffBit = alloc.alloc(1)
+        gt.and(diffBit, new VecInt(neqBits))
+
+        // Force identity
+        val idBit = termEqTerm((currentColumn-1, t), (currentColumn, t))
+        solver.addClause(new VecInt(Array(-diffBit, idBit)))
+
         // --- CASE1: Not a representing term ---
 
         for (tt <- terms; if t != tt) {
@@ -220,8 +228,7 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
           val asBit = termEqTerm((currentColumn, t), (currentColumn, tt))
 
           // C_p[t] = tt ==> C_c[t] = C_c[tt]
-          val asd = new VecInt(List(-eqBit, asBit).toArray)
-          solver.addClause(asd)
+          solver.addClause(new VecInt(Array(-eqBit, asBit)))
         }
 
         // --- CASE2: Representing term ---
@@ -229,7 +236,7 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
         // is this term allowed to be identity
 
         val noVBits =
-          for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
+          (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
 
             // C_p[s_i] = t
             val eqBit = termEqInt((currentColumn-1, s_i), t)
@@ -239,14 +246,14 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
             val noVBit = alloc.alloc(1)
 
             // noVBit <=> !V ^ C_p[s_i] != t
-            gt.or(noVBit, new VecInt(List(ineqBit, -vBit).toArray))
+            gt.or(noVBit, new VecInt(Array(ineqBit, -vBit)))
             noVBit
-          }
+          }).toArray
 
 
         // vFalseBit <=> No V is true
         val vFalseBit = alloc.alloc(1)
-        gt.and(vFalseBit, new VecInt(noVBits.toArray))
+        gt.and(vFalseBit, new VecInt(noVBits))
 
 
 
@@ -257,7 +264,7 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
         gt.and(identityBit, vFalseBit, eqBit)
 
         val funcBits =
-          for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
+          (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
             // C_p[s_i] = t
             val prevEqBit = termEqInt((currentColumn - 1, s_i), t)
 
@@ -265,15 +272,15 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
             val curEqBit = termEqTerm((currentColumn, t), (currentColumn, s_j))
 
             val fBit = alloc.alloc(1)
-            gt.and(fBit, new VecInt (List(vBit, prevEqBit, curEqBit).toArray))
+            gt.and(fBit, new VecInt(Array(vBit, prevEqBit, curEqBit)))
             fBit
-          }
+          }).toArray
 
         val functionalityBit = alloc.alloc(1)
         if (funcBits.length == 0) {
           gt.gateFalse(functionalityBit)
         } else {
-          gt.or(functionalityBit, new VecInt(funcBits.toArray))
+          gt.or(functionalityBit, new VecInt(funcBits))
         }
 
         // C_p[t] = t
@@ -283,47 +290,50 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
         // not representative OR allowed identity OR derived functionality
         solver.addClause(
           new VecInt(
-            List(-isRepresentative, identityBit, functionalityBit).toArray))
+            Array(-isRepresentative, identityBit, functionalityBit)))
       }
     }
   }
 
   // TODO: Make sure goal variables are removed at "POP"
   def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
+    println("addGoalConstraint:")
     Timer.measure("addGoalConstraint") {
       val goalBits =
-        for (g <- goals) yield {
-          val subGoals = for ((s, t) <- g) yield {
-            termEqTerm((currentColumn, s), (currentColumn, t))
-          }
+        (for (g <- goals) yield {
+          val subGoals = 
+            (for ((s, t) <- g) yield {
+              println("\t" + s + " = " + t)
+              println("\t\t" + this(currentColumn, s) + " = " + this(currentColumn, t))
+              termEqTerm((currentColumn, s), (currentColumn, t))
+            }).toArray
           val subGoal = alloc.alloc(1)
-          gt.and(subGoal, new VecInt(subGoals.toArray))
+          gt.and(subGoal, new VecInt(subGoals))
           subGoal
-        }
+        }).toArray
 
-      val asd = new VecInt(goalBits.toArray)
-      solver.addClause(asd)
+      solver.addClause(new VecInt(goalBits))
     }
   }
 
   def addCompletionConstraint() = {
     Timer.measure("addCompletionConstraint") {
       val diff = 
-        for (t <- terms)
-        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+        (for (t <- terms)
+        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))).toArray
       
-      solver.addClause(new VecInt(diff.toArray))
+      solver.addClause(new VecInt(diff))
     }
   }
 
   def getCompletionConstraint() = {
     Timer.measure("getCompletionConstraint") {
       val diff = 
-        for (t <- terms)
-        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+        (for (t <- terms)
+        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))).toArray
       
       val cc = alloc.alloc(1)
-      gt.or(cc, new VecInt(diff.toArray))
+      gt.or(cc, new VecInt(diff))
       cc
     }
   }
@@ -331,26 +341,24 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
   def addGoalCompletionConstraint(goals : List[List[(Int, Int)]]) = {
     Timer.measure("addGoalCompletionConstraint") {
       val goalBits =
-        for (g <- goals) yield {
+        (for (g <- goals) yield {
           val subGoals = 
-            for ((s, t) <- g)
-            yield termEqTerm((currentColumn, s), (currentColumn, t))
+            (for ((s, t) <- g)
+            yield termEqTerm((currentColumn, s), (currentColumn, t))).toArray
           
           val subGoal = alloc.alloc(1)
-          gt.and(subGoal, new VecInt(subGoals.toArray))
+          gt.and(subGoal, new VecInt(subGoals))
           subGoal
-        }
+        }).toArray
 
       val goalBit = alloc.alloc(1)
-      gt.or(goalBit, new VecInt(goalBits.toArray))
+      gt.or(goalBit, new VecInt(goalBits))
 
       val diff = 
-        for (t <- terms)
-        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
+        (for (t <- terms)
+        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))).toArray
       
-      val gcBits = goalBits ++ diff
-
-      val solverClause = solver.addClause(new VecInt(gcBits.toArray))
+      val solverClause = solver.addClause(new VecInt(goalBits ++ diff))
       (solverClause, goalBit)
     }
   }
@@ -358,28 +366,25 @@ class Table[FUNC](val bits : Int, ROWS : Int, alloc : Allocator,
   def getGoalCompletionConstraint(goals : List[List[(Int, Int)]]) = {
     Timer.measure("getGoalCompletionConstraint") {
       val goalBits =
-        for (g <- goals) yield {
+        (for (g <- goals) yield {
           val subGoals = 
-            for ((s, t) <- g) 
-            yield termEqTerm((currentColumn, s), (currentColumn, t))
+            (for ((s, t) <- g) 
+            yield termEqTerm((currentColumn, s), (currentColumn, t))).toArray
 
           val subGoal = alloc.alloc(1)
-          gt.and(subGoal, new VecInt(subGoals.toArray))
+          gt.and(subGoal, new VecInt(subGoals))
           subGoal
-        }
+        }).toArray
 
       val goalBit = alloc.alloc(1)
-      gt.or(goalBit, new VecInt(goalBits.toArray))
+      gt.or(goalBit, new VecInt(goalBits))
 
       val diff = 
         for (t <- terms) 
         yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
 
-      val gcBits = goalBits ++ diff
-
       val gc = alloc.alloc(1)
-      gt.or(gc, new VecInt(gcBits.toArray))
-      // val solverClause = solver.addClause(new VecInt(gcBits.toArray))
+      gt.or(gc, new VecInt(goalBits ++ diff))
       (gc, goalBit)
     }
   }
@@ -588,52 +593,123 @@ class CCUSolver[TERM, FUNC] {
     goals : List[List[List[(Int, Int)]]],
     functions : List[List[(FUNC, List[Int], Int)]],
     diseq : List[Array[Array[Int]]],
-    debug : Boolean) : (Option[Array[Int]], Map[(Int, Int), Int]) = {
+    debug : Boolean) : (Option[Array[Int]], Map[Int, List[Int]]) = {
     Timer.measure("Solveaux") {
-      // TODO: optimize such that each table has its own rows
-      val rows = terms.length
       // TODO: optimize such that each table has its own bits
-      val bits = binlog(rows)
+      val bits = binlog(terms.length)
       // Alloc must be shared between tables
       val alloc = new Allocator(1)
+
+      val ZEROBIT = alloc.alloc(1)
+      val ONEBIT = alloc.alloc(1)
 
       // HACK?
       val problemCount = goals.length
 
       val tables =
-        for (p <- 0 until problemCount) yield
-          new Table[FUNC](bits, rows, alloc, gt, 
-            solver, terms, domains, functions(p))
+        for (p <- 0 until problemCount) yield {
+          // Filter terms per table
+          def isUsed(term : Int, functions : List[(FUNC, List[Int], Int)], 
+            goals : List[List[(Int, Int)]]) : Boolean = {
+            for ((_, args, s) <- functions) {
+              if (s == term)
+                return true
+              for (a <- args)
+                if (a == term)
+                  return true
+            }
+
+            for (g <- goals)
+              for ((s, t) <- g) 
+                if (s == term || t == term)
+                  return true
+
+            false
+          }
+          val filterTerms = terms.filter(x => isUsed(x, functions(p), goals(p)))
+          val filterDomains = 
+            (for ((t, d) <- domains) yield { 
+              (t, d.filter(x => filterTerms contains x))
+            }).toMap
+
+          println("Terms before: " + terms)
+          println("\tDomains: " + domains)
+          println("\tFunctions: " + functions(p))
+          println("\tGoals: " + goals(p))
+          println("Terms after: " + filterTerms)
+          println("\tfilterDomains: " + filterDomains)
+
+
+          new Table[FUNC](bits, alloc, gt, solver, filterTerms, 
+            filterDomains, functions(p), ZEROBIT, ONEBIT)
+        }
       solver.reset()
+
+      solver.addClause(new VecInt(Array(-ZEROBIT)))
+      solver.addClause(new VecInt(Array(ONEBIT)))
 
       // MAIN SOLVE LOOP
       var cont = true
       var model = None : Option[Array[Int]]
 
-      // TODO: change if tables has different rows
-      val assignments = 
-        for (p <- 0 until problemCount) 
-        yield tables(p).addInitialColumn()
 
-      // Since all table have same domain, they should have same assginments
-      if (problemCount > 1) {
-        for (((variable, value), bit) <- assignments(0)) {
+      // Create Initial Column
 
-          // So enforce ass(0)(k,v) <=> ass(p)(k,v) for all p
-          val iffBits = 
-            for (p <- 0 until problemCount) yield {
-              val iffBit = alloc.alloc(1)
-              val bit2 = assignments(p)((variable, value))
-              gt.iff(iffBit, new VecInt(List(bit, bit2).toArray))
-              iffBit
-            }
+      def termAssIntAux(i : Int) = {
+        var curVal = i
 
-          val tmpBit = alloc.alloc(1)
-          gt.and(tmpBit, new VecInt(iffBits.toArray))
-
-          solver.addClause(new VecInt(List(tmpBit).toArray))
+        for (b <- 0 until bits) yield {
+          if (curVal % 2 == 1) {
+            curVal -= 1
+            curVal /= 2
+            ONEBIT
+          } else {
+            curVal /= 2
+            ZEROBIT
+          }
         }
       }
+
+      def termEqIntAux(bitList : List[Int], i : Int) : Int = {
+        Timer.measure("termEqInt") {
+          var curVal = i
+
+          val lits =
+            (for (b <- bitList) yield {
+              if (curVal % 2 == 1) {
+                curVal -= 1
+                curVal /= 2
+                b
+              } else {
+                curVal /= 2
+                -b
+              }
+            }).toArray
+
+          val eqBit = alloc.alloc(1)
+          gt.and(eqBit, new VecInt(lits))
+          eqBit
+        }
+      }
+
+      val assignments =
+        (for (t <- terms) yield {
+          (t,
+            (if (domains(t).size == 1) {
+              termAssIntAux(domains(t).toList(0))
+            } else {
+              val termStartBit = alloc.alloc(bits)
+              val termBits = List.tabulate(bits)(x => x + termStartBit)
+              val assBits =
+                (for (tt <- domains(t); if tt <= t) yield  {
+                  val tmpBit = termEqIntAux(termBits, tt)
+                  tmpBit
+                }).toArray
+              solver.addClause(new VecInt(assBits))
+              termBits}).toList)}).toMap
+        
+      for (p <- 0 until problemCount)
+        tables(p).addInitialColumn(assignments)
 
       for (p <- 0 until problemCount) {
         tables(p).addDerivedColumn()
@@ -647,11 +723,11 @@ class CCUSolver[TERM, FUNC] {
       Timer.measure("isSat") {
       if (solver.isSatisfiable()) {
 
-        def bitToInt(startBit : Int, p : Int) : Int = {
+        def bitToInt(bits : List[Int]) : Int = {
           var curMul = 1
           var curVal = 0
-          for (i <- 0 until tables(p).bits) {
-            if (solver.model contains (startBit + i))
+          for (b <-bits) {
+            if (solver.model contains b)
               curVal += curMul
             curMul *= 2
           }
@@ -661,33 +737,17 @@ class CCUSolver[TERM, FUNC] {
         model = Option(solver.model)
         for (p <- 0 until problemCount) {
           println("TABLE " + p)
-          for (t <- terms) {
+          for (t <- tables(p).terms) {
             print(t + ">\t")
-            for (c <- 0 until tables(p).currentColumn) {
-              val i = bitToInt(tables(p)(c, t), p)
-              print(i + " ")
+            for (c <- 0 to tables(p).currentColumn) {
+              val i = bitToInt(tables(p)(c, t))
+              print("(" + tables(p)(c, t) + " => " + i + ") ")
             }
             println
           }
         }
 
-        for (t <- terms) {
-          for (p <- 1 until problemCount) {
-            if (bitToInt(tables(0)(0, t), 0) != bitToInt(tables(p)(0, t), p)) {
-              println("tables(0)(0, " + t + ") != tables(" + p + ")(0, " + t + ")")
-              var i = 0
-              while (i <= 2000) {
-                if (solver.model contains i)
-                  println(i)
-                else
-                  println(-i)
-                i += 1
-                
-              }
-              throw new Exception("Different assignments!")
-            }
-          }
-        }
+        println("AHA!")
 
         println(model.mkString(" "))
         cont = false
@@ -725,7 +785,7 @@ class CCUSolver[TERM, FUNC] {
         (for (p <- 0 until problemCount) 
         yield tables(p).currentColumn).mkString("[", " ", "]"))
       println("\tVariables: " + solver.realNumberOfVariables())
-      (model, assignments(0).toMap)
+      (model, assignments)
     }
   }
 
@@ -874,14 +934,26 @@ class CCUSolver[TERM, FUNC] {
       println("diseqedGoals: " + diseqedGoals)
 
       // Solve and return UNSAT or SAT  + model
+      def bitToInt(bits : List[Int]) : Int = {
+        var curMul = 1
+        var curVal = 0
+        for (b <-bits) {
+          if (solver.model contains b)
+            curVal += curMul
+          curMul *= 2
+        }
+        curVal
+      }
+
+
       solveaux(newTerms, newDomains.toMap, 
         diseqedGoals, newFunctions, diseq, false) match {
         case (Some(model), assignments) => {
           var assMap = Map() : Map[TERM, TERM]
-          for (((variable, value), bit) <- assignments;
-            if model contains bit) {
-            println(variable + " := " + value)
-            assMap += (intToTerm(variable) -> intToTerm(value))
+          for (t <- newTerms) {
+            val iVal = bitToInt(assignments(t))
+            println(t + " := " + iVal)
+            assMap += (intToTerm(t) -> intToTerm(iVal))
           }
 
           Some(assMap)
