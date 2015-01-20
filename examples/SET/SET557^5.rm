@@ -1,0 +1,37 @@
+%------------------------------------------------------------------------------
+% File     : SET557^5 : TPTP v6.1.0. Removed v5.2.0.
+% Domain   : Set Theory (Sets of sets)
+% Problem  : TPS problem X5305A
+% Version  : Especial.
+% English  : Restatement of Cantor's theorem.
+
+% Refs     : [Bro09] Brown (2009), Email to Geoff Sutcliffe
+% Source   : [Bro09]
+% Names    : tps_0542 [Bro09]
+%          : tps_0215 [Bro09]
+%          : X5305A [TPS]
+%          : THM43 [TPS]
+
+% Status   : Theorem
+% Rating   : 0.80 v4.1.0, 0.67 v4.0.0
+% Syntax   : Number of formulae    :    2 (   1 unit;   1 type;   0 defn)
+%            Number of atoms       :   20 (   1 equality;   9 variable)
+%            Maximal formula depth :   10 (   6 average)
+%            Number of connectives :    8 (   1   ~;   0   |;   1   &;   4   @)
+%                                         (   0 <=>;   2  =>;   0  <=;   0 <~>)
+%                                         (   0  ~|;   0  ~&;   0  !!;   0  ??)
+%            Number of type conns  :    4 (   4   >;   0   *;   0   +;   0  <<)
+%            Number of symbols     :    4 (   1   :;   0  :=)
+%            Number of variables   :    5 (   0 sgn;   3   !;   2   ?;   0   ^)
+%                                         (   5   :;   0  :=;   0  !>;   0  ?*)
+%                                         (   0  @-;   0  @+)
+% SPC      : ERROR: Could not parse SET557^5.rm
+
+% Comments : This problem is from the TPS library. Copyright (c) 2009 The TPS
+%            project in the Department of Mathematical Sciences at Carnegie
+%            Mellon University. Distributed under the Creative Commons copyleft
+%            license: http://creativecommons.org/licenses/by-sa/3.0/
+%          : Polymorphic definitions expanded.
+%          : THF0 syntax
+% Bugfixes : v5.2.0 - Removed, duplicate of SET557^6
+%------------------------------------------------------------------------------

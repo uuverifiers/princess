@@ -1,0 +1,29 @@
+%------------------------------------------------------------------------------
+% File     : SET989+1 : TPTP v6.1.0. Released v3.2.0.
+% Domain   : Set theory
+% Problem  : Functions and their basic properties, theorem 8
+% Version  : [Urb06] axioms : Especial.
+% English  :
+
+% Refs     : [Byl90] Bylinski (1990), Functions and Their Basic Properties
+%          : [Urb06] Urban (2006), Email to G. Sutcliffe
+% Source   : [Urb06]
+% Names    : funct_1__t8_funct_1 [Urb06]
+
+% Status   : Theorem
+% Rating   : 0.32 v3.3.0, 0.21 v3.2.0
+% Syntax   : Number of formulae    :   35 (  11 unit)
+%            Number of atoms       :   78 (   9 equality)
+%            Maximal formula depth :    8 (   4 average)
+%            Number of connectives :   59 (  16 ~  ;   1  |;  21  &)
+%                                         (   6 <=>;  15 =>;   0 <=)
+%                                         (   0 <~>;   0 ~|;   0 ~&)
+%            Number of predicates  :    8 (   0 propositional; 1-2 arity)
+%            Number of functors    :    7 (   1 constant; 0-2 arity)
+%            Number of variables   :   57 (   1 singleton;  47 !;  10 ?)
+%            Maximal term depth    :    3 (   1 average)
+
+% Comments : Translated by MPTP 0.2 from the original problem in the Mizar
+%            library, www.mizar.org
+% Bugfixes : v3.4.0 - Renamed to SEU212+3
+%------------------------------------------------------------------------------

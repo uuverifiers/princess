@@ -1,0 +1,38 @@
+%------------------------------------------------------------------------------
+% File     : SET557^7 : TPTP v6.1.0. Removed v5.2.0.
+% Domain   : Set Theory
+% Problem  : Cantor's theorem
+% Version  : Especial.
+% English  : Restatement of Cantor's theorem.
+
+% Refs     : [Bro09] Brown (2009), Email to Geoff Sutcliffe
+% Source   : [Bro09]
+% Names    : tps_0048 [Bro09]
+%          : CT28 [TPS]
+%          : X5304 [TPS]
+%          : THM5 [TPS]
+%          : tps_0666 [Bro09]
+
+% Status   : Theorem
+% Rating   : 0.20 v5.1.0
+% Syntax   : Number of formulae    :    2 (   1 unit;   1 type;   0 defn)
+%            Number of atoms       :   11 (   1 equality;   3 variable)
+%            Maximal formula depth :    7 (   4 average)
+%            Number of connectives :    2 (   1   ~;   0   |;   0   &;   1   @)
+%                                         (   0 <=>;   0  =>;   0  <=;   0 <~>)
+%                                         (   0  ~|;   0  ~&;   0  !!;   0  ??)
+%            Number of type conns  :    3 (   3   >;   0   *;   0   +;   0  <<)
+%            Number of symbols     :    4 (   1   :;   0  :=)
+%            Number of variables   :    3 (   0 sgn;   1   !;   2   ?;   0   ^)
+%                                         (   3   :;   0  :=;   0  !>;   0  ?*)
+%                                         (   0  @-;   0  @+)
+% SPC      : ERROR: Could not parse SET557^7.rm
+
+% Comments : This problem is from the TPS library. Copyright (c) 2009 The TPS
+%            project in the Department of Mathematical Sciences at Carnegie
+%            Mellon University. Distributed under the Creative Commons copyleft
+%            license: http://creativecommons.org/licenses/by-sa/3.0/
+%          : THF0 syntax
+%          : Renamed from SYO201^5 
+% Bugfixes : v5.2.0 - Removed - duplicate of SET557^1
+%------------------------------------------------------------------------------

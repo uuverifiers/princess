@@ -1,0 +1,29 @@
+%--------------------------------------------------------------------------
+% File     : SET164-6 : TPTP v6.1.0. Bugfixed v2.2.0.
+% Domain   : Set Theory
+% Problem  : Idempotency of union
+% Version  : [Qua92] axioms.
+% English  :
+
+% Refs     : [BL+86] Boyer et al. (1986), Set Theory in First-Order Logic:
+%          : [Qua92] Quaife (1992), Automated Deduction in von Neumann-Bern
+% Source   : [Quaife]
+% Names    : U6 [Qua92]
+
+% Status   : Unknown
+% Rating   : 1.00 v2.1.0
+% Syntax   :
+
+% Comments : Quaife proves all these problems by augmenting the axioms with
+%            all previously proved theorems. With a few exceptions (the
+%            problems that correspond to [BL+86] problems), the TPTP has
+%            retained the order in which Quaife presents the problems. The
+%            user may create an augmented version of this problem by adding
+%            all previously proved theorems (the ones that correspond to
+%            [BL+86] are easily identified and positioned using Quaife's
+%            naming scheme).
+%          : Used as a demodulator by Quaife.
+% Bugfixes : v1.0.1 - Bugfix in SET004-1.ax.
+%          : v2.1.0 - Bugfix in SET004-0.ax.
+%          : v2.2.0 - Renamed to SET002-6.p.
+%--------------------------------------------------------------------------

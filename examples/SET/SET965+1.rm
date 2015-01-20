@@ -1,0 +1,29 @@
+%------------------------------------------------------------------------------
+% File     : SET965+1 : TPTP v6.1.0. Released v3.2.0.
+% Domain   : Set theory
+% Problem  : Basic properties of sets, theorem 118
+% Version  : [Urb06] axioms : Especial.
+% English  :
+
+% Refs     : [Byl90] Bylinski (1990), Some Basic Properties of Sets
+%          : [Urb06] Urban (2006), Email to G. Sutcliffe
+% Source   : [Urb06]
+% Names    : zfmisc_1__t118_zfmisc_1 [Urb06]
+
+% Status   : Theorem
+% Rating   : 0.84 v3.3.0, 0.64 v3.2.0
+% Syntax   : Number of formulae    :   10 (   6 unit)
+%            Number of atoms       :   19 (   4 equality)
+%            Maximal formula depth :   11 (   5 average)
+%            Number of connectives :   12 (   3 ~  ;   0  |;   3  &)
+%                                         (   3 <=>;   3 =>;   0 <=)
+%                                         (   0 <~>;   0 ~|;   0 ~&)
+%            Number of predicates  :    4 (   0 propositional; 1-2 arity)
+%            Number of functors    :    4 (   0 constant; 1-2 arity)
+%            Number of variables   :   24 (   1 singleton;  20 !;   4 ?)
+%            Maximal term depth    :    3 (   1 average)
+
+% Comments : Translated by MPTP 0.2 from the original problem in the Mizar
+%            library, www.mizar.org
+% Bugfixes : v3.4.0 - Renamed to SEU166+3
+%------------------------------------------------------------------------------

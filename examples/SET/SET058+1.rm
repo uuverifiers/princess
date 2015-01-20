@@ -1,0 +1,18 @@
+%--------------------------------------------------------------------------
+% File     : SET058+1 : TPTP v6.1.0. Released v2.2.0.
+% Domain   : Set Theory
+% Problem  : Expanded equality definition
+% Version  : [Qua92] axioms : Reduced & Augmented > Complete.
+% English  :
+
+% Refs     : [Qua92] Quaife (1992), Automated Deduction in von Neumann-Bern
+%          : [BL+86] Boyer et al. (1986), Set Theory in First-Order Logic:
+% Source   : [Qua92]
+% Names    :
+
+% Status   : Theorem
+% Rating   : 1.00 v2.2.1
+% Syntax   :
+
+% Comments :
+%--------------------------------------------------------------------------
