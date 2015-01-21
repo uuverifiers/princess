@@ -202,10 +202,13 @@ trait ProofTree {
         problems1 ++ problems2
       }
   
+      case goal : Goal if (goal.facts.isFalse) =>
+        List()
+
       case goal : Goal => {
         val funPreds = Param.FUNCTIONAL_PREDICATES(goal.settings)
         val predConj = goal.facts.predConj
-        
+
         val funApps =
           (for (a <- predConj.positiveLits.iterator;
                 if (funPreds contains a.pred)) yield {

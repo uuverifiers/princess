@@ -197,6 +197,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, plugins.headOption)
+    gs = Param.POS_UNIT_RESOLUTION_METHOD.set(gs,
+                   Param.PosUnitResolutionMethod.NonUnifying)
     gs
   }
   

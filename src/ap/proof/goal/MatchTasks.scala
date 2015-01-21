@@ -96,13 +96,14 @@ private object MatchFunctions {
       val voc = goal.vocabulary
   
       val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
-      val (instances, newMatcher) =
+      val (instances, quantifiedInstances, newMatcher) =
         reducedMatcher.updateFacts(goal.facts.predConj,
                                    goal.mayAlias,
                                    goal.reduceWithFacts,
                                    isIrrelevantInstance(_, voc, _, reverseProp),
                                    reverseProp,
-                                   collector, order)
+                                   collector, order,
+                                   Param.POS_UNIT_RESOLUTION_METHOD(goal.settings))
 
       // check whether some of the instances are useless and blocked
       // for the time being
@@ -123,8 +124,10 @@ private object MatchFunctions {
           // separately (to log all performed simplifications)
           for (f <- normalInstances; t <- goal.formulaTasks(f)) yield t
         else
-          for (t <- goal.formulaTasks(
-                 goal reduceWithFacts disjPullOutAll(normalInstances, order))) yield t
+          (for (t <- goal.formulaTasks(
+                   goal reduceWithFacts disjPullOutAll(normalInstances, order)))
+           yield t) ++
+          (for (f <- quantifiedInstances) yield new ExQuantifierTask(f, goal.age))
 
       ptf.updateGoal(newCF, newTasks ++ blockedTasks, collector.getCollection, goal)
     } else {

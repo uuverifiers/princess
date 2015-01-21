@@ -96,7 +96,8 @@ object Goal {
     }
 
     apply(Conjunction.TRUE,
-          CompoundFormulas.EMPTY(Param.PREDICATE_MATCH_CONFIG(settings)),
+          CompoundFormulas.EMPTY(Param.FUNCTIONAL_PREDICATES(settings),
+                                 Param.PREDICATE_MATCH_CONFIG(settings)),
           emptyTaskManager ++ tasks,
           0,
           eliminatedConstants,
@@ -594,7 +595,13 @@ class Goal private (val facts : Conjunction,
 
   lazy val mayAlias : ((LinearCombination, LinearCombination) => AliasStatus.Value) =
     new AliasAnalyser (reduceWithFacts,
-                       constantFreedom, vocabulary.bindingContext,
+                       Param.POS_UNIT_RESOLUTION_METHOD(settings) match {
+                         case Param.PosUnitResolutionMethod.NonUnifying =>
+                           ConstantFreedom.BOTTOM
+                         case _ =>
+                           constantFreedom
+                       },
+                       vocabulary.bindingContext,
                        order)
   
   //////////////////////////////////////////////////////////////////////////////

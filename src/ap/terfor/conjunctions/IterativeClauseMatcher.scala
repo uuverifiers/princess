@@ -22,16 +22,18 @@
 package ap.terfor.conjunctions
 
 import ap.basetypes.IdealInt
+import ap.parameters.Param
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
+import ap.terfor.substitutions.VariableShiftSubst
 import ap.Signature.{PredicateMatchStatus, PredicateMatchConfig}
 import ap.util.{Debug, FilterIt, Seqs, UnionSet}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap,
-                                 Map => MutableMap}
+                                 Map => MutableMap, HashSet => MHashSet}
 import scala.collection.{Set => GSet}
 
 object IterativeClauseMatcher {
@@ -50,11 +52,13 @@ object IterativeClauseMatcher {
                              isNotRedundant : (Conjunction, GSet[ConstantTerm]) => Boolean,
                              allowConditionalInstances : Boolean,
                              logger : ComputationLogger,
-                             order : TermOrder) : Iterator[Conjunction] = {
+                             order : TermOrder,
+                             method : Param.PosUnitResolutionMethod.Value)
+                            : (Iterator[Conjunction], Iterator[Conjunction]) = {
     
     val selectedLits = new ArrayBuffer[Atom]
     
-    val instances = new ArrayBuffer[Conjunction]
+    val instances, quantifiedInstances = new ArrayBuffer[Conjunction]
 
     ////////////////////////////////////////////////////////////////////////////
     
@@ -120,7 +124,8 @@ object IterativeClauseMatcher {
           }
 
         case InstantiateClause(originalClause, matchedLits, quans, arithConj,
-                               remainingLits, negConjs) :: progTail => {
+                               remainingLits, negConjs,
+                               simpOriginalClause) :: progTail => {
           // we generate a system of equations that precisely describes the
           // match conditions
           
@@ -169,12 +174,42 @@ object IterativeClauseMatcher {
               }
               
             } else {
+
               val newAC = arithConj.updatePositiveEqs(newEqs)(order)
               val reducedInstance = 
                 contextReducer(Conjunction(quans, newAC, remainingLits,
                                            negConjs, order))
-              if (isNotRedundant(reducedInstance, allOriConstants))
-                instances += reducedInstance
+
+              method match {
+                case Param.PosUnitResolutionMethod.NonUnifying => {
+                  val doesUnification =
+                    (newEqs exists { lc => !lc.isEmpty &&
+                                           !lc.leadingTerm.isInstanceOf[VariableTerm] &&
+                                           lc.leadingCoeff.isUnit }) &&
+                    (reducedInstance.size > 1)
+
+                  // if we would have to unify arguments of some match
+                  // predicate, we rather just add the whole quantified formula
+                  if (doesUnification) {
+                    if (isNotRedundant(simpOriginalClause, allOriConstants)) {
+       //        println("=== quantified instance")
+       //        println(newEqs)
+       //        println(simpOriginalClause)
+                      quantifiedInstances += simpOriginalClause
+                    }
+                  } else {
+                    if (isNotRedundant(reducedInstance, allOriConstants)) {
+       //        println("=== normal instance")
+       //        println(reducedInstance)
+                      instances += reducedInstance
+                    }
+                  }
+                }
+
+                case Param.PosUnitResolutionMethod.Normal =>
+                  if (isNotRedundant(reducedInstance, allOriConstants))
+                    instances += reducedInstance
+              }
             }
           }
           
@@ -225,7 +260,7 @@ object IterativeClauseMatcher {
     selectedLits += startLit
     exec(program, startLit.constants, false)
     
-    instances.iterator
+    (instances.iterator, quantifiedInstances.iterator)
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -233,7 +268,8 @@ object IterativeClauseMatcher {
   private def constructMatcher(startPred : Predicate, negStartLit : Boolean,
                                clauses : Seq[Conjunction],
                                includeAxiomMatcher : Boolean)
-                              (implicit config : PredicateMatchConfig) : List[MatchStatement] = {
+                              (implicit config : PredicateMatchConfig,
+                               totalFuns : Set[Predicate]) : List[MatchStatement] = {
     val matchers = new ArrayBuffer[List[MatchStatement]]
     
     if ((negStartLit && isNegativelyMatched(startPred)) ||
@@ -261,7 +297,8 @@ object IterativeClauseMatcher {
    */
   private def constructMatcher(startLit : Atom, negStartLit : Boolean,
                                clause : Conjunction)
-                              (implicit config : PredicateMatchConfig)
+                              (implicit config : PredicateMatchConfig,
+                               totalFuns : Set[Predicate])
                               : List[MatchStatement] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
@@ -300,11 +337,87 @@ object IterativeClauseMatcher {
     
     res += InstantiateClause(clause, Seq(startLit) ++ nonStartMatchedLits,
                              clause.quans, clause.arithConj,
-                             remainingLits, clause.negatedConjs)
-    
+                             remainingLits, clause.negatedConjs,
+                             simpClause(clause, totalFuns))
+
     res.toList
   }
   
+////////////////////////////////////////////////////////////////////////////////
+
+  private def simpClause(clause : Conjunction,
+                         totalFuns : Set[Predicate]) : Conjunction = {
+    implicit val order = clause.order
+
+    val (functionalAtoms, otherAtoms) =
+      clause.predConj.positiveLits partition {
+        a => (totalFuns contains a.pred) &&
+             a.last.leadingTerm.isInstanceOf[VariableTerm]
+      }
+
+    var remainingFunctionalAtoms = functionalAtoms
+    var oldSize = -1
+
+    val extractedAtoms = new ArrayBuffer[Atom]
+    val newUniversalVars = new MHashSet[Int]
+
+    while (remainingFunctionalAtoms.size != oldSize &&
+           !remainingFunctionalAtoms.isEmpty) {
+      oldSize = remainingFunctionalAtoms.size
+
+      val definedVars =
+        (for (a <- remainingFunctionalAtoms.iterator)
+         yield a.last.leadingTerm.asInstanceOf[VariableTerm]).toSet
+
+      val (extractableAtoms, nonExtractableAtoms) =
+        remainingFunctionalAtoms partition {
+          a => Seqs.disjointSeq(definedVars,
+                                for (lc <- a.init.iterator;
+                                     v <- lc.variables.iterator) yield v) }
+
+      extractedAtoms ++= extractableAtoms
+      newUniversalVars ++=
+        (for (a <- extractableAtoms.iterator)
+         yield a.last.leadingTerm.asInstanceOf[VariableTerm].index)
+      remainingFunctionalAtoms = nonExtractableAtoms
+    }
+
+    var uniVarIndex = 0
+    var exVarIndex = newUniversalVars.size
+
+    val variableShift =
+      (for (i <- (0 until clause.quans.size).iterator) yield {
+         if (newUniversalVars contains i) {
+           val res = uniVarIndex - i
+           uniVarIndex = uniVarIndex + 1
+           res
+         } else {
+           val res = exVarIndex - i
+           exVarIndex = exVarIndex + 1
+           res
+         }
+       }).toList
+    val subst = VariableShiftSubst(variableShift, 0, order)
+
+    val newPredConj =
+      clause.predConj.updateLits(otherAtoms ++ remainingFunctionalAtoms,
+                                 clause.predConj.negativeLits)
+
+    val subConj = Conjunction(List(),
+                              subst(clause.arithConj),
+                              subst(newPredConj),
+                              subst(clause.negatedConjs),
+                              order)
+
+    val guard = subst(PredConj(extractedAtoms, List(), order))
+    val matrix = Conjunction.implies(guard, subConj, order)
+
+    Conjunction.quantify(
+      (for (_ <- 0 until newUniversalVars.size) yield Quantifier.ALL) ++
+      (for (_ <- newUniversalVars.size until clause.quans.size) yield Quantifier.EX),
+      matrix, order)
+  }
+
   /**
    * Given a conjunction of atoms, determine which atoms are to be matched on
    * facts. The 2nd component of the result are the remaining literals.
@@ -502,17 +615,21 @@ object IterativeClauseMatcher {
     }
   }
 
-  def empty(matchAxioms : Boolean, config : PredicateMatchConfig) =
+  def empty(matchAxioms : Boolean,
+            totalFuns : Set[Predicate],
+            config : PredicateMatchConfig) =
     IterativeClauseMatcher (PredConj.TRUE, NegatedConjunctions.TRUE,
-                            matchAxioms,
+                            matchAxioms, totalFuns,
                             Set(Conjunction.FALSE))(config)
 
   private def apply(currentFacts : PredConj,
                     currentClauses : NegatedConjunctions,
                     matchAxioms : Boolean,
+                    totalFuns : Set[Predicate],
                     generatedInstances : Set[Conjunction])
                    (implicit config : PredicateMatchConfig) =
     new IterativeClauseMatcher(currentFacts, currentClauses, matchAxioms,
+                               totalFuns,
                                new HashMap[(Predicate, Boolean), List[MatchStatement]],
                                generatedInstances)
   
@@ -523,6 +640,7 @@ object IterativeClauseMatcher {
 class IterativeClauseMatcher private (currentFacts : PredConj,
                                       val clauses : NegatedConjunctions,
                                       matchAxioms : Boolean,
+                                      totalFuns : Set[Predicate],
                                       matchers : MutableMap[(Predicate, Boolean),
                                                             List[MatchStatement]],
                                       // All instances that have already been
@@ -546,7 +664,8 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
   private def matcherFor(pred : Predicate, negated : Boolean) : List[MatchStatement] =
     matchers.getOrElseUpdate(
       (pred, negated),
-      IterativeClauseMatcher.constructMatcher(pred, negated, clauses, matchAxioms))
+      IterativeClauseMatcher.constructMatcher(pred, negated, clauses, matchAxioms)
+                                             (config, totalFuns))
   
   def updateFacts(newFacts : PredConj,
                   mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
@@ -556,13 +675,17 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                   isIrrelevantMatch : (Conjunction, GSet[ConstantTerm]) => Boolean,
                   allowConditionalInstances : Boolean,
                   logger : ComputationLogger,
-                  order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =
+                  order : TermOrder,
+                  method : Param.PosUnitResolutionMethod.Value)
+                 : (Iterable[Conjunction], Iterable[Conjunction], 
+                    IterativeClauseMatcher) =
     if (currentFacts == newFacts) {
-      (List(), this)
+      (List(), List(), this)
     } else {
       val (oldFacts, addedFacts) = newFacts diff currentFacts
     
-      val instances = new scala.collection.mutable.LinkedHashSet[Conjunction]
+      val instances, quantifiedInstances =
+        new scala.collection.mutable.LinkedHashSet[Conjunction]
       val additionalPosLits, additionalNegLits = new ArrayBuffer[Atom]
       
       var newGeneratedInstances = generatedInstances
@@ -579,8 +702,8 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       for (negated <- List(false, true))
         for (a <- if (negated) addedFacts.negativeLits else addedFacts.positiveLits) {
           (if (negated) additionalNegLits else additionalPosLits) += a
-          
-          instances ++=
+
+          val (i1, i2) =
             IterativeClauseMatcher.executeMatcher(a,
                                                   negated,
                                                   matcherFor(a.pred, negated),
@@ -591,12 +714,18 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                   isNotRedundant _,
                                                   allowConditionalInstances,
                                                   logger,
-                                                  order)
+                                                  order,
+                                                  method)
+
+          instances ++= i1
+          quantifiedInstances ++= i2
         }
 
       (instances,
-       new IterativeClauseMatcher(newFacts, clauses, matchAxioms, matchers,
-                                  newGeneratedInstances))
+       quantifiedInstances,
+       new IterativeClauseMatcher(newFacts, clauses, matchAxioms,
+                                  totalFuns,
+                                  matchers, newGeneratedInstances))
     }
 
 /*
@@ -635,9 +764,12 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                  isIrrelevantMatch : (Conjunction, GSet[ConstantTerm]) => Boolean,
                  allowConditionalInstances : Boolean,
                  logger : ComputationLogger,
-                 order : TermOrder) : (Iterable[Conjunction], IterativeClauseMatcher) =
+                 order : TermOrder,
+                 method : Param.PosUnitResolutionMethod.Value)
+                : (Iterable[Conjunction], Iterable[Conjunction],
+                   IterativeClauseMatcher) =
     if (addedClauses.isEmpty) {
-      (List(), this)
+      (List(), List(), this)
     } else {
       val newClauses =
         NegatedConjunctions(clauses.iterator ++ addedClauses.iterator, order)
@@ -645,15 +777,17 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       val tempMatcher =
         IterativeClauseMatcher(PredConj.TRUE,
                                NegatedConjunctions(addedClauses, order),
-                               false, generatedInstances)
+                               false, totalFuns, generatedInstances)
     
-      val (instances, _) =
+      val (instances, quantifiedInstances, _) =
         tempMatcher.updateFacts(currentFacts,
                                 mayAlias, contextReducer, isIrrelevantMatch,
-                                allowConditionalInstances, logger, order)
+                                allowConditionalInstances, logger, order, method)
     
       (instances,
+       quantifiedInstances,
        IterativeClauseMatcher(currentFacts, newClauses, matchAxioms,
+                              totalFuns,
                               generatedInstances ++ instances))
     }
   
@@ -674,12 +808,14 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
         (List(), this)
       else
         (List(),
-         new IterativeClauseMatcher(keptLits, clauses, matchAxioms, matchers,
+         new IterativeClauseMatcher(keptLits, clauses, matchAxioms,
+                                    totalFuns, matchers,
                                     generatedInstances))
     } else {
       val keptClauses = clauses.updateSubset(keptClausesSeq, clauses.order)
       (removedClauses,
-       new IterativeClauseMatcher(keptLits, keptClauses, matchAxioms, matchers,
+       new IterativeClauseMatcher(keptLits, keptClauses, matchAxioms,
+                                  totalFuns, matchers,
                                   generatedInstances))
     }
   }
@@ -722,11 +858,12 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
      else if (keptClauses.size == clauses.size)
        // just change the instance cache
        new IterativeClauseMatcher(currentFacts, clauses, matchAxioms,
+                                  totalFuns,
                                   matchers, reducedInstances)
      else
        // reset the matchers
        IterativeClauseMatcher(currentFacts, clauses.updateSubset(keptClauses, order),
-                              matchAxioms, reducedInstances))
+                              matchAxioms, totalFuns, reducedInstances))
   }
 
   private def reduceIfNecessary(conj : Conjunction,
@@ -751,6 +888,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       IterativeClauseMatcher(currentFacts sortBy order,
                              clauses sortBy order,
                              matchAxioms,
+                             totalFuns,
                              for (i <- generatedInstances) yield (i sortBy order))
   
   def isSortedBy(order : TermOrder) : Boolean =
@@ -793,7 +931,8 @@ private case class InstantiateClause(originalClause : Conjunction,
                                      quans : Seq[Quantifier],
                                      arithConj : ArithConj,
                                      remainingLits : PredConj,
-                                     negConjs : NegatedConjunctions)
+                                     negConjs : NegatedConjunctions,
+                                     simpOriginalClause : Conjunction)
                    extends MatchStatement
 
 private case class UnifyLiterals(litNrA : Int, litNrB : Int)

@@ -117,6 +117,15 @@ object Param {
     val defau : Boolean = false
   }
   
+  object PosUnitResolutionMethod extends Enumeration {
+    val Normal, NonUnifying = Value
+  }
+
+  case object POS_UNIT_RESOLUTION_METHOD extends Param {
+    type Value = PosUnitResolutionMethod.Value
+    val defau : PosUnitResolutionMethod.Value = PosUnitResolutionMethod.Normal
+  }
+
   object ClausifierOptions extends Enumeration {
     val None, Simple = Value
   }

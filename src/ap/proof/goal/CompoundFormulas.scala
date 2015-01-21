@@ -26,19 +26,24 @@ import ap.proof._
 import ap.terfor.{TermOrder, Sorted, Formula, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                IterativeClauseMatcher}
+import ap.terfor.preds.Predicate
 import ap.util.{Debug, Seqs}
 
 object CompoundFormulas {
   
   private val AC = Debug.AC_GOAL
+
+  def EMPTY(config : PredicateMatchConfig) : CompoundFormulas =
+    EMPTY(Set(), config)
   
-  def EMPTY(config : PredicateMatchConfig) =
+  def EMPTY(totalFuns : Set[Predicate],
+            config : PredicateMatchConfig) : CompoundFormulas =
     new CompoundFormulas(NegatedConjunctions.TRUE,
 //
 // Detection of complementary literals is done via unification
 //
-                         IterativeClauseMatcher.empty(false, config),
-                         IterativeClauseMatcher.empty(false, config))
+                         IterativeClauseMatcher.empty(false, totalFuns, config),
+                         IterativeClauseMatcher.empty(false, totalFuns, config))
   
 }
 

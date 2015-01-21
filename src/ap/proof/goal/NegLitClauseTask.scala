@@ -113,13 +113,14 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int,
     val oldMatcher = cf.quantifierClauses(eager)
     
     val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
-    val (instances, newMatcher) =
+    val (instances, quantifiedInstances, newMatcher) =
       oldMatcher.addClauses(addedClauses,
                             goal.mayAlias,
                             goal.reduceWithFacts,
                             (MatchFunctions.isIrrelevantInstance(_, voc, _, reverseProp)),
                             reverseProp,
-                            collector, order)
+                            collector, order,
+                            Param.POS_UNIT_RESOLUTION_METHOD(goal.settings))
     
     val newCF = cf.updateQuantifierClauses(eager, newMatcher)
     
@@ -129,8 +130,9 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int,
         // separately (to log all performed simplifications)
         for (f <- instances; t <- goal formulaTasks f) yield t
       else
-        for (t <- goal.formulaTasks(Conjunction.disj(instances, order)))
-          yield t
+        (for (t <- goal.formulaTasks(Conjunction.disj(instances, order)))
+         yield t) ++
+        (for (f <- quantifiedInstances) yield new ExQuantifierTask(f, goal.age))
           
     (newCF, newTasks)
   }

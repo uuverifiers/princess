@@ -180,7 +180,9 @@ object GlobalSettings {
 
 object GoalSettings {
 
-  val allParams = List(Param.POS_UNIT_RESOLUTION, Param.SYMBOL_WEIGHTS,
+  val allParams = List(Param.POS_UNIT_RESOLUTION,
+                       Param.POS_UNIT_RESOLUTION_METHOD,
+                       Param.SYMBOL_WEIGHTS,
                        Param.GARBAGE_COLLECTED_FUNCTIONS,
                        Param.FUNCTIONAL_PREDICATES,
                        Param.SINGLE_INSTANTIATION_PREDICATES,
