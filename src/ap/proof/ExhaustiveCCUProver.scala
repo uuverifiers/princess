@@ -44,7 +44,7 @@ object ExhaustiveCCUProver {
         } 
       case FactsNormalisationTask | EliminateFactsTask | UpdateTasksTask |
            _ : UpdateConstantFreedomTask | EagerMatchTask |
-           _ : AddFactsTask => false
+           _ : AddFactsTask | _ : AllQuantifierTask => false
       case _ : LazyMatchTask =>
         // if there are no clauses, matching is trivial
         !goal.compoundFormulas.lazyQuantifiedClauses.clauses.isTrue
@@ -108,7 +108,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     Timeout.unfinished {
       
       (if (depthFirst)
-         expandDepthFirstUntilSat(goal, signature)
+         expandDepthFirstUntilSat(goal, signature, 0)
 //         expandDepthFirstUntilSatX(goal, false, signature, false) _1
        else
          expandFairUntilSat(goal, false, signature, false) _1)
@@ -192,6 +192,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
   /*  println(tree)
      println(goalNum(tree))
      println  */
+            println("applying rule ...")
         val (newTree, newCont) = expandProofGoals(tree)
         tree = newTree
         cont = newCont
@@ -216,7 +217,8 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
   //////////////////////////////////////////////////////////////////////////////
 
   private def expandDepthFirstUntilSat(tree : ProofTree,
-                                       signature : Signature)
+                                       signature : Signature,
+                                       depth : Int)
                                       : ProofTree = {
     Timeout.unfinishedValue(tree) { Timeout.check }
 
@@ -233,7 +235,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
            }) match {
 
             case (newTree, true) =>
-              expandDepthFirstUntilSat(newTree, signature)
+              expandDepthFirstUntilSat(newTree, signature, depth)
 
             case (_, false) =>
               // this problem is hopeless: we have a subtree to
@@ -248,7 +250,8 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
         val newLeft =
           Timeout.unfinished {
-            expandDepthFirstUntilSat(subtree.left, signature)
+            println("depth " + (depth + 1))
+            expandDepthFirstUntilSat(subtree.left, signature, depth + 1)
           } {
             case lastTree : ProofTree =>
               prefix(subtree.update(lastTree, subtree.right,
@@ -258,7 +261,8 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
         if (newLeft.ccUnifiable) {
           val newRight =
             Timeout.unfinished {
-              expandDepthFirstUntilSat(subtree.right, signature)
+            println("depth " + (depth + 1))
+              expandDepthFirstUntilSat(subtree.right, signature, depth + 1)
             } {
               case lastTree : ProofTree =>
                 prefix(subtree.update(newLeft, lastTree,

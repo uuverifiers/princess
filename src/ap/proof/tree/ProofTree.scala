@@ -107,8 +107,10 @@ trait ProofTree {
   private var unifiabilityChecked = false
 
   protected def unifiabilityString : String =
-    if (unifiabilityChecked)
-      "(" + ccUnifiable + ", " + ccUnifiableLocally + ")"
+    if (unifiabilityChecked && ccUnifiableLocally)
+      "(unconditionally closable)"
+    else if (unifiabilityChecked && ccUnifiable)
+      "(closable)"
     else
       "(unknown)"
 
@@ -336,10 +338,10 @@ trait ProofTree {
 
     ap.util.Timer.measure("CCUSolver") {  
     // val solver = new CCUSolver[ConstantTerm, Predicate]
-
+Console.withOut(ap.CmdlMain.NullStream) {
     (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
         allDomains.toMap,
-        goals, funApps)).isDefined
+        goals, funApps)).isDefined }
     }
   }
 
