@@ -297,14 +297,11 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
 
   // TODO: Make sure goal variables are removed at "POP"
   def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
-    println("addGoalConstraint:")
     Timer.measure("addGoalConstraint") {
       val goalBits =
         (for (g <- goals) yield {
           val subGoals = 
             (for ((s, t) <- g) yield {
-              println("\t" + s + " = " + t)
-              println("\t\t" + this(currentColumn, s) + " = " + this(currentColumn, t))
               termEqTerm((currentColumn, s), (currentColumn, t))
             }).toArray
           val subGoal = alloc.alloc(1)
@@ -626,22 +623,45 @@ class CCUSolver[TERM, FUNC] {
 
             false
           }
-          val filterTerms = terms.filter(x => isUsed(x, functions(p), goals(p)))
+
+          // TODO: Check arguments agains diseq?
+          def matchable(funs : List[(FUNC, List[Int], Int)],
+            fun : (FUNC, List[Int], Int)) : Boolean = {
+            val (f1, args1, s1) = fun
+            for ((f2, args2, s2) <- funs) {
+              if (f1 == f2 && s1 != s2) {
+                var m = true
+                for ((a1, a2) <- args1 zip args2)
+                  if (diseq(p)(a1)(a2) == 0)
+                    m = false
+
+                if (m)
+                  return true
+              }
+            }
+            false
+          }
+
+          val filterFunctions = functions(p).filter(x => (matchable(functions(p), x)))
+          val filterTerms = terms.filter(x => isUsed(x, filterFunctions, goals(p)))
           val filterDomains = 
             (for ((t, d) <- domains) yield { 
               (t, d.filter(x => filterTerms contains x))
             }).toMap
 
-          println("Terms before: " + terms)
-          println("\tDomains: " + domains)
-          println("\tFunctions: " + functions(p))
-          println("\tGoals: " + goals(p))
-          println("Terms after: " + filterTerms)
-          println("\tfilterDomains: " + filterDomains)
+          // println("Terms before: " + terms)
+          // println("\tDomains: " + domains)
+          // println("\tFunctions: (" + functions(p).length + "): " + functions(p))
+          // println("\tGoals: " + goals(p))
+          // println("Terms after: " + filterTerms)
+          // println("\tfilterDomains: " + filterDomains)
+          // println("\tfilterFunctions: (" + filterFunctions.length + "): " + filterFunctions)
+          println("Removed " + (terms.length - filterTerms.length) + " terms")
+          println("Removed " + (functions(p).length - filterFunctions.length) + " functions")
 
 
           new Table[FUNC](bits, alloc, gt, solver, filterTerms, 
-            filterDomains, functions(p), ZEROBIT, ONEBIT)
+            filterDomains, filterFunctions, ZEROBIT, ONEBIT)
         }
       solver.reset()
 
@@ -735,21 +755,19 @@ class CCUSolver[TERM, FUNC] {
         }
 
         model = Option(solver.model)
-        for (p <- 0 until problemCount) {
-          println("TABLE " + p)
-          for (t <- tables(p).terms) {
-            print(t + ">\t")
-            for (c <- 0 to tables(p).currentColumn) {
-              val i = bitToInt(tables(p)(c, t))
-              print("(" + tables(p)(c, t) + " => " + i + ") ")
-            }
-            println
-          }
-        }
+        // for (p <- 0 until problemCount) {
+        //   println("TABLE " + p)
+        //   for (t <- tables(p).terms) {
+        //     print(t + ">\t")
+        //     for (c <- 0 to tables(p).currentColumn) {
+        //       val i = bitToInt(tables(p)(c, t))
+        //       print("(" + tables(p)(c, t) + " => " + i + ") ")
+        //     }
+        //     println
+        //   }
+        // }
 
-        println("AHA!")
-
-        println(model.mkString(" "))
+        // println(model.mkString(" "))
         cont = false
       } else {
         Timer.measure("completionConstraint") {
@@ -781,10 +799,10 @@ class CCUSolver[TERM, FUNC] {
         (for (p <- 0 until problemCount) 
         yield tables(p).currentColumn).mkString("[", " ", "]")) { true }
 
-      println("\tColumns: " + 
-        (for (p <- 0 until problemCount) 
-        yield tables(p).currentColumn).mkString("[", " ", "]"))
-      println("\tVariables: " + solver.realNumberOfVariables())
+      // println("\tColumns: " + 
+      //   (for (p <- 0 until problemCount) 
+      //   yield tables(p).currentColumn).mkString("[", " ", "]"))
+      // println("\tVariables: " + solver.realNumberOfVariables())
       (model, assignments)
     }
   }
@@ -885,7 +903,7 @@ class CCUSolver[TERM, FUNC] {
         }
       }
 
-      println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
+      // println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
 
       val diseq = (for (p <- 0 until problemCount)
       yield
@@ -898,8 +916,8 @@ class CCUSolver[TERM, FUNC] {
         deq
       }).toList
 
-      for (d <- diseq)
-        println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
+      // for (d <- diseq)
+      //   println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
 
       // We have p problems, and we are dealing with the simultaneous problem,
       // i.e. every problem must be solvable
@@ -931,7 +949,7 @@ class CCUSolver[TERM, FUNC] {
         return None
       }
 
-      println("diseqedGoals: " + diseqedGoals)
+      // println("diseqedGoals: " + diseqedGoals)
 
       // Solve and return UNSAT or SAT  + model
       def bitToInt(bits : List[Int]) : Int = {
@@ -952,14 +970,14 @@ class CCUSolver[TERM, FUNC] {
           var assMap = Map() : Map[TERM, TERM]
           for (t <- newTerms) {
             val iVal = bitToInt(assignments(t))
-            println(t + " := " + iVal)
+            // println(t + " := " + iVal)
             assMap += (intToTerm(t) -> intToTerm(iVal))
           }
 
           Some(assMap)
         }
         case (None, _) =>  {
-          println(termToInt)
+          // println(termToInt)
           None
         }
       }
