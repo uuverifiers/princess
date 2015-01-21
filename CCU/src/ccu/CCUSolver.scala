@@ -394,6 +394,56 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
       (gc, goalBit)
     }
   }
+
+  def addVConstraint() = {
+    // termToIndex
+    val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
+
+    def unifiable(args1 : List[Int], args2 : List[Int]) : Boolean = {
+      for ((a1, a2) <- (args1 zip args2)) {
+        if (diseq(a1)(a2) == 0)
+          return false
+      }
+      return true
+    }
+
+    val eqBits = Array.tabulate(terms.length, terms.length)( (x, y) => -1)
+
+    val V =
+      for ((f_i, args_i, s_i) <- functions;
+        (f_j, args_j, s_j) <- functions;
+        if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
+
+        val argBits =
+          (for (i <- 0 until args_i.length) yield {
+            val t1 = args_i(i) min args_j(i)
+            val t2 = args_i(i) max args_j(i)
+            if (eqBits(tTI(t1))(tTI(t2)) == -1)
+              eqBits(tTI(t1))(tTI(t2)) =
+                termEqTerm((currentColumn, args_i(i)),
+                  (currentColumn,args_j(i)))
+            eqBits(tTI(t1))(tTI(t2))
+          }).toArray
+
+        // argBit <=> C_p[args_i] = C_p[args_j]
+        val argBit = alloc.alloc(1)
+        gt.and(argBit, new VecInt(argBits))
+
+        // gtBit <=> C_p[s_i] > C_p[s_j]
+        val gtBit = termGtTerm((currentColumn, s_i), (currentColumn, s_j))
+
+        // vBit <=> args_i = args_j ^ s_i > s_j
+        val vBit = alloc.alloc(1)
+        gt.and(vBit, argBit, gtBit)
+
+        vBit
+      }
+
+    if (V.isEmpty)
+      None
+    else
+      Some(solver.addClause(new VecInt(V.toArray)))
+  }
 }
 
 class CCUSolver[TERM, FUNC] {
@@ -576,7 +626,7 @@ class CCUSolver[TERM, FUNC] {
     println("/--PROBLEM--\\")
     for (t <- terms)
       println("| " + t + " = {" +
-        (domains getOrElse (t, Set(t))).mkString(", ") + "}")
+        (domains.getOrElse(t, Set(t))).mkString(", ") + "}")
     val problemCount = goals.length
     println("| ProblemCount: " + problemCount)
     for (p <- 0 until problemCount) {
@@ -809,8 +859,25 @@ class CCUSolver[TERM, FUNC] {
               sat
             }
 
+            def CCV() : Boolean = {
+              val ccs =
+                for (p <- 0 until problemCount) yield
+                  tables(p).addVConstraint() match {
+                    case Some(cc) => cc
+                    case None => return false
+                  }
+
+
+              val sat = solver.isSatisfiable()
+              for (cc <- ccs)
+                solver.removeConstr(cc)
+
+              sat
+            }
+
+
             Timer.measure("completionConstraint_" + tables(0).currentColumn + "_columns") {
-              val moreInfo = CCAllTables()
+              val moreInfo = CCV()
 
               if (!moreInfo) {
                 model = None
@@ -870,7 +937,7 @@ class CCUSolver[TERM, FUNC] {
         for (t <- terms) {
           if (!(termToInt contains t)) {
             var domainAssigned = true
-            for (tt <- (domains getOrElse(t, Set())); if (t != tt)) {
+            for (tt <- (domains.getOrElse(t, Set())); if (t != tt)) {
               if (!(termToInt contains tt))
                 domainAssigned = false
             }
@@ -889,7 +956,7 @@ class CCUSolver[TERM, FUNC] {
 
       var newDomains = Map() : Map[Int, Set[Int]]
       for (t <- terms) {
-        val oldDomain = domains getOrElse(t, Set(t))
+        val oldDomain = domains.getOrElse(t, Set(t))
         newDomains += (termToInt(t) -> oldDomain.map(termToInt))
       }
 
@@ -926,7 +993,7 @@ class CCUSolver[TERM, FUNC] {
       val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
       
       for (t <- newTerms) {
-        val domain = newDomains getOrElse(t, List(t))
+        val domain = newDomains.getOrElse(t, List(t))
         for (d <- domain) {
           arr(t)(d) = 1
           arr(d)(t) = 1
