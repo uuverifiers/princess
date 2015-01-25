@@ -56,7 +56,10 @@ object SMTParser2InputAbsy {
   private type Env = Environment[SMTType, VariableType, Unit, SMTType]
   
   def apply(settings : ParserSettings) =
-    new SMTParser2InputAbsy (new Env, settings)
+    new SMTParser2InputAbsy (new Env, settings, null)
+  
+  def apply(settings : ParserSettings, prover : SimpleAPI) =
+    new SMTParser2InputAbsy (new Env, settings, prover)
   
   /**
    * Parse starting at an arbitrarily specified entry point
@@ -77,7 +80,147 @@ object SMTParser2InputAbsy {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  private object ExitException extends Exception("SMT-LIB interpreter terminated")
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Class for adding parentheses <code>()</code> after each SMT-LIB command;
+   * this is necessary in the interactive/incremental mode, because otherwise
+   * the parser always waits for the next token to arrive before forwarding
+   * a command.
+   * This also removes all CR-characters in a stream (necessary because the
+   * lexer seems to dislike CRs in comments), and adds an LF in the end,
+   * because the lexer does not allow inputs that end with a //-comment line
+   * either.
+   */
+  class SMTCommandTerminator(input : java.io.Reader) extends java.io.Reader {
+  
+    private val CR : Int         = '\r'
+    private val LF : Int         = '\n'
+    private val LParen : Int     = '('
+    private val RParen : Int     = ')'
+    private val Quote : Int      = '"'
+    private val Pipe : Int       = '|'
+    private val Backslash : Int  = '\\'
+
+    private var parenDepth : Int = 0
+    private var state : Int = 0
+    
+    def read(cbuf : Array[Char], off : Int, len : Int) : Int = {
+      var read = 0
+      var cont = true
+
+      while (read < len && cont) {
+        state match {
+          case 0 => input.read match {
+            case CR => // nothing, read next character
+            case LParen => {
+              parenDepth = parenDepth + 1
+              cbuf(off + read) = LParen.toChar
+            }
+            case RParen if (parenDepth > 1) => {
+              parenDepth = parenDepth - 1
+              cbuf(off + read) = RParen.toChar
+            }
+            case RParen if (parenDepth == 1) => {
+              parenDepth = 0
+              cbuf(off + read) = RParen.toChar
+              state = 4
+            }
+            case Quote => {
+              cbuf(off + read) = Quote.toChar
+              state = 1
+            }
+            case Pipe => {
+              cbuf(off + read) = Pipe.toChar
+              state = 3
+            }
+            case -1 => {
+              cbuf(off + read) = LF.toChar
+              state = 6
+            }
+            case next => {
+              cbuf(off + read) = next.toChar
+            }
+          }
+
+          case 1 => input.read match {
+            case Backslash => {
+              cbuf(off + read) = Backslash.toChar
+              state = 2
+            }
+            case Quote => {
+              cbuf(off + read) = Quote.toChar
+              state = 0
+            }
+            case CR => // nothing, read next character
+            case -1 => {
+              cbuf(off + read) = LF.toChar
+              state = 6
+            }
+            case next => {
+              cbuf(off + read) = next.toChar
+            }
+          }
+
+          case 2 => input.read match {
+            case -1 => {
+              cbuf(off + read) = LF.toChar
+              state = 6
+            }
+            case next => {
+              cbuf(off + read) = next.toChar
+              state = 1
+            }
+          }
+
+          case 3 => input.read match {
+            case Pipe => {
+              cbuf(off + read) = Pipe.toChar
+              state = 0
+            }
+            case CR => // nothing, read next character
+            case -1 => {
+              cbuf(off + read) = LF.toChar
+              state = 6
+            }
+            case next => {
+              cbuf(off + read) = next.toChar
+            }
+          }
+
+          case 4 => {
+            cbuf(off + read) = LParen.toChar
+            state = 5
+          }
+
+          case 5 => {
+            cbuf(off + read) = RParen.toChar
+            state = 0
+          }
+
+          case 6 => {
+            return if (read == 0) -1 else read
+          }
+        }
+
+        read = read + 1
+        cont = state >= 4 || input.ready
+      }
+
+      read
+    }
+   
+    def close : Unit = input.close
+
+    override def ready : Boolean = (state >= 4 || input.ready)
+  
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   private val badStringChar = """[^a-zA-Z_0-9']""".r
   
   private def sanitise(s : String) : String =
@@ -193,8 +336,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               SMTParser2InputAbsy.VariableType,
                                               Unit,
                                               SMTParser2InputAbsy.SMTType],
-                           settings : ParserSettings)
-      extends Parser2InputAbsy(_env, settings) {
+                           settings : ParserSettings,
+                           prover : SimpleAPI)
+      extends Parser2InputAbsy
+          [SMTParser2InputAbsy.SMTType,
+           SMTParser2InputAbsy.VariableType,
+           Unit,
+           SMTParser2InputAbsy.SMTType,
+           (Boolean,                                // booleanFunctionsAsPredicates
+            Boolean,                                // inlineLetExpressions
+            Boolean,                                // inlineDefinedFuns
+            Boolean,                                // totalityAxiom
+            Boolean,                                // functionalityAxiom
+            Boolean,                                // genInterpolants
+            Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
+            Map[String, SMTParser2InputAbsy.SMTType]                    // sortDefs
+            )](_env, settings) {
   
   import IExpression._
   import Parser2InputAbsy._
@@ -236,6 +393,31 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     val completeFor = !assumptionFormula
     (completeFor, interpolantSpecs, genSignature(completeFor))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def processIncrementally(input : java.io.Reader) : Unit = {
+    val l = new Yylex(new SMTCommandTerminator (input))
+    val p = new parser(l) {
+      override def commandHook(cmd : Command) : Boolean = {
+        apply(cmd)
+        false
+      }
+    }
+
+    try { p.pScriptC } catch {
+      case ExitException => {
+        // normal exit
+        input.close
+      }
+      case e : Exception =>
+        throw new ParseException(
+             "At line " + String.valueOf(l.line_num()) +
+             ", near \"" + l.buff() + "\" :" +
+             "     " + e.getMessage())
+    }
+
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -304,6 +486,60 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   //////////////////////////////////////////////////////////////////////////////
 
+  private val assumptions = new ArrayBuffer[IFormula]
+
+  private var functionDefs = Map[IFunction, (IExpression, SMTType)]()
+
+  private var sortDefs = Map[String, SMTType]()
+
+  private var declareConstWarning = false
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Add a new frame to the settings stack; this in particular affects the
+   * <code>Environment</code>.
+   */
+  protected def push : Unit = {
+    pushState((booleanFunctionsAsPredicates,
+               inlineLetExpressions,
+               inlineDefinedFuns,
+               totalityAxiom,
+               functionalityAxiom,
+               genInterpolants,
+               functionDefs,
+               sortDefs))
+    if (prover != null)
+      prover.push
+  }
+
+  /**
+   * Pop a frame from the settings stack.
+   */
+  protected def pop : Unit = {
+    if (prover != null)
+      prover.pop
+
+    val (oldBooleanFunctionsAsPredicates,
+         oldInlineLetExpressions,
+         oldInlineDefinedFuns,
+         oldTotalityAxiom,
+         oldFunctionalityAxiom,
+         oldGenInterpolants,
+         oldFunctionDefs,
+         oldSortDefs) = popState
+    booleanFunctionsAsPredicates = oldBooleanFunctionsAsPredicates
+    inlineLetExpressions = oldInlineLetExpressions
+    inlineDefinedFuns = oldInlineDefinedFuns
+    totalityAxiom = oldTotalityAxiom
+    functionalityAxiom = oldFunctionalityAxiom
+    genInterpolants = oldGenInterpolants
+    functionDefs = oldFunctionDefs
+    sortDefs = oldSortDefs
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private val printer = new PrettyPrinterNonStatic
   
   //////////////////////////////////////////////////////////////////////////////
@@ -323,22 +559,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
   }
 
-  private val assumptions = new ArrayBuffer[IFormula]
-
-  private val functionDefs = new MHashMap[IFunction, (IExpression, SMTType)]
-
-  private val sortDefs = new MHashMap[String, SMTType]
-
-  private var declareConstWarning = false
+  private def apply(script : Script) : Unit =
+    for (cmd <- script.listcommand_) apply(cmd)
   
-  private def apply(script : Script) = for (cmd <- script.listcommand_) cmd match {
+  private def apply(cmd : Command) : Unit = cmd match {
 //      case cmd : SetLogicCommand =>
 //      case cmd : SetInfoCommand =>
 //      case cmd : SortDeclCommand =>
-//      case cmd : PushCommand =>
-//      case cmd : PopCommand =>
-//      case cmd : CheckSatCommand =>
-//      case cmd : ExitCommand =>
+//      case cmd : GetUnsatCoreCommand =>
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -346,7 +574,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         if (!cmd.listsymbol_.isEmpty)        
           throw new Parser2InputAbsy.TranslationException(
               "Currently only define-sort with arity 0 is supported")
-        sortDefs.put(asString(cmd.symbol_), translateSort(cmd.sort_))
+        sortDefs = sortDefs + (asString(cmd.symbol_) -> translateSort(cmd.sort_))
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -417,22 +645,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           case _ : NoSorts =>
             List()
         }
+
         val res = translateSort(cmd.sort_)
+
+        ensureEnvironmentCopy
+
         if (args.length > 0) {
-          if (!booleanFunctionsAsPredicates || res != SMTBool)
+          if (!booleanFunctionsAsPredicates || res != SMTBool) {
             // use a real function
-            env.addFunction(new IFunction(name, args.length,
-                                          !totalityAxiom, !functionalityAxiom),
-                            res)
-          else
+            val f = new IFunction(name, args.length,
+                                  !totalityAxiom, !functionalityAxiom)
+            env.addFunction(f, res)
+            if (prover != null)
+              prover.addFunction(f,
+                                 if (functionalityAxiom)
+                                   SimpleAPI.FunctionalityMode.Full
+                                 else
+                                   SimpleAPI.FunctionalityMode.None)
+          } else {
             // use a predicate
-            env.addPredicate(new Predicate(name, args.length), ())
-        } else if (res != SMTBool)
+            val p = new Predicate(name, args.length)
+            env.addPredicate(p, ())
+            if (prover != null)
+              prover.addRelation(p)
+          }
+        } else if (res != SMTBool) {
           // use a constant
-          env.addConstant(new ConstantTerm(name), Environment.NullaryFunction, res)
-        else
+          val c = new ConstantTerm(name)
+          env.addConstant(c, Environment.NullaryFunction, res)
+          if (prover != null)
+            prover.addConstantRaw(c)
+        } else {
           // use a nullary predicate (propositional variable)
-          env.addPredicate(new Predicate(name, 0), ())
+          val p = new Predicate(name, 0)
+          env.addPredicate(p, ())
+          if (prover != null)
+            prover.addRelation(p)
+        }
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -445,12 +694,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         val name = asString(cmd.symbol_)
         val res = translateSort(cmd.sort_)
-        if (res != SMTBool)
+
+        ensureEnvironmentCopy
+
+        if (res != SMTBool) {
           // use a constant
-          env.addConstant(new ConstantTerm(name), Environment.NullaryFunction, res)
-        else
+          val c = new ConstantTerm(name)
+          env.addConstant(c, Environment.NullaryFunction, res)
+          if (prover != null)
+            prover.addConstantRaw(c)
+        } else {
           // use a nullary predicate (propositional variable)
-          env.addPredicate(new Predicate(name, 0), ())
+          val p = new Predicate(name, 0)
+          env.addPredicate(p, ())
+          if (prover != null)
+            prover.addRelation(p)
+        }
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -474,9 +733,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         // use a real function
         val f = new IFunction(name, argNum, true, true)
         env.addFunction(f, resType)
+        if (prover != null)
+          prover.addFunction(f, SimpleAPI.FunctionalityMode.None)
   
         if (inlineDefinedFuns) {
-          functionDefs += (f -> body) 
+          functionDefs = functionDefs + (f -> body) 
         } else {
           // set up a defining equation and formula
           val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
@@ -489,7 +750,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
-        assumptions += f
+        if (prover == null)
+          assumptions += f
+        else
+          prover addAssertion f
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -499,6 +763,68 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
       //////////////////////////////////////////////////////////////////////////
       
+      case cmd : PushCommand if (prover != null) =>
+        for (_ <- 0 until cmd.numeral_.toInt)
+          push
+
+      case cmd : PopCommand if (prover != null) =>
+        for (_ <- 0 until cmd.numeral_.toInt)
+          pop
+
+      case cmd : CheckSatCommand if (prover != null) =>
+        prover.??? match {
+          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid =>
+            println("sat")
+          case SimpleAPI.ProverStatus.Unsat | SimpleAPI.ProverStatus.Valid =>
+            println("unsat")
+        }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetValueCommand if (prover != null) => {
+        val expressions = cmd.listterm_.toList
+
+        var unsupportedType = false
+        val values = for (expr <- expressions) yield
+          translateTerm(expr, 0) match {
+            case p@(_, SMTBool) =>
+              prover.eval(asFormula(p)).toString
+            case p@(_, SMTInteger) =>
+              SMTLineariser toSMTExpr (prover eval asTerm(p))
+            case (_, _) => {
+              unsupportedType = true
+              ""
+            }
+          }
+        
+        if (unsupportedType) {
+          Console.err.println("Cannot print values of this type yet")
+          println("error")
+        } else {
+          println("(" +
+                  (for ((e, v) <- expressions.iterator zip values.iterator)
+                   yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
+                  ")")
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : EchoCommand if (prover != null) =>
+        println(cmd.string_)
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : ExitCommand if (prover != null) =>
+        throw ExitException
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case _ : EmptyCommand =>
+        // command to be ignored
+
+      //////////////////////////////////////////////////////////////////////////
+
       case _ =>
         warn("ignoring " + (printer print cmd))
   }
@@ -616,8 +942,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     quantNum
   }
 
-  private def pushVar(bsort : Sort, bsym : Symbol) : Unit =
+  private def pushVar(bsort : Sort, bsym : Symbol) : Unit = {
+    ensureEnvironmentCopy
     env.pushVar(asString(bsym), BoundVariable(translateSort(bsort)))
+  }
   
   private def translateQuantifier(t : QuantifierTerm, polarity : Int)
                                  : (IExpression, SMTType) = {
@@ -704,6 +1032,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       val (boundTerm, boundType) = translateTerm(binding.term_, 0)
       (asString(binding.symbol_), boundType, boundTerm)
     }
+
+    ensureEnvironmentCopy
 
     if (env existsVar (_.isInstanceOf[BoundVariable])) {
       // we are underneath a real quantifier, so have to introduce quantifiers

@@ -54,6 +54,11 @@ object Param {
     val defau : Boolean = false
   }
   
+  case object INCREMENTAL extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
   case object ASSERTIONS extends Param {
     type Value = Boolean
     val defau : Boolean = false

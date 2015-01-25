@@ -48,10 +48,15 @@ PopCommand.             Command         ::= "(" "pop" Numeral ")";
 AssertCommand.          Command	        ::= "(" "assert" Term ")";
 CheckSatCommand.        Command	        ::= "(" "check-sat" ")";
 GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" ")";
+GetUnsatCoreCommand.    Command	        ::= "(" "get-unsat-core" ")";
 GetModelCommand.        Command	        ::= "(" "get-model" ")";
+GetValueCommand.        Command	        ::= "(" "get-value" "(" [Term] ")" ")";
+EchoCommand.            Command	        ::= "(" "echo" String ")";
+ResetCommand.           Command	        ::= "(" "reset" ")";
 ExitCommand.            Command	        ::= "(" "exit" ")";
 
 IgnoreCommand.          Command         ::= "(" "ignore" Term ")";
+EmptyCommand.           Command         ::= "(" ")";
 
 separator Command "";
 

@@ -118,8 +118,8 @@ object Parser2InputAbsy {
 }
 
 
-abstract class Parser2InputAbsy[CT, VT, PT, FT]
-                               (val env : Environment[CT, VT, PT, FT],
+abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
+                               (initialEnv : Environment[CT, VT, PT, FT],
                                 settings : ParserSettings) {
   
   import IExpression._
@@ -143,6 +143,46 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
       Parser2InputAbsy.warn("using theory to encode multiplication: " + t)
     env.toSignature addTheories coll.theories
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Add a new frame to the settings stack; this in particular affects the
+   * <code>Environment</code>.
+   */
+  protected def pushState(state : StackState) : Unit = {
+    storedStates push (currentEnv, environmentCopied, state)
+    environmentCopied = false
+  }
+
+  /**
+   * Pop a frame from the settings stack.
+   */
+  protected def popState : StackState = {
+    val (oldEnv, oldCopied, oldState) = storedStates.pop
+    currentEnv = oldEnv
+    environmentCopied = oldCopied
+    oldState
+  }
+
+  /**
+   * Make sure that the current settings frame contains a local copy of
+   * the <code>Environment</code>.
+   * To be called before changing anything in the <code>Environment</code>.
+   */
+  protected def ensureEnvironmentCopy : Unit =
+    if (!environmentCopied) {
+      currentEnv = currentEnv.clone
+      environmentCopied = true
+    }
+
+  private val storedStates =
+    new Stack[(Environment[CT, VT, PT, FT], Boolean, StackState)]
+
+  private var currentEnv : Environment[CT, VT, PT, FT] = initialEnv
+  private var environmentCopied : Boolean = true
+
+  def env : Environment[CT, VT, PT, FT] = currentEnv
 
   //////////////////////////////////////////////////////////////////////////////
 

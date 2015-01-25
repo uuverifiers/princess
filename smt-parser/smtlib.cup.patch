@@ -1,0 +1,22 @@
+--- smtlib.cup	2015-01-24 12:27:25.077793264 +0100
++++ smtlib.cup-modified	2015-01-24 12:28:04.709989780 +0100
+@@ -2,6 +2,10 @@
+ package smtlib;
+ 
+ parser code {:
++    public boolean commandHook(smtlib.Absyn.Command cmd) {
++        return true;
++    }
++
+   public smtlib.Absyn.ScriptC pScriptC() throws Exception
+   {
+ 	java_cup.runtime.Symbol res = parse();
+@@ -120,7 +124,7 @@
+   | _SYMB_0 _SYMB_25 Term:p_3 _SYMB_2  {: RESULT = new smtlib.Absyn.IgnoreCommand(p_3); :}
+ ;
+ ListCommand ::=  /* empty */  {: RESULT = new smtlib.Absyn.ListCommand(); :} 
+-  | ListCommand:p_1 Command:p_2  {: RESULT = p_1; p_1.addLast(p_2); :}
++    | ListCommand:p_1 Command:p_2  {: RESULT = p_1; if (parser.commandHook(p_2)) p_1.addLast(p_2); :}
+ ;
+ OptionC ::= Annotation:p_1  {: RESULT = new smtlib.Absyn.Option(p_1); :} 
+ ;

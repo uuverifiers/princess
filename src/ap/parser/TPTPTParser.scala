@@ -100,7 +100,11 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                      TPTPTParser.Rank,
                                      TPTPTParser.Rank],
                   settings : ParserSettings)
-      extends Parser2InputAbsy(_env, settings)
+      extends Parser2InputAbsy[TPTPTParser.Type,
+                               TPTPTParser.Type,
+                               TPTPTParser.Rank,
+                               TPTPTParser.Rank,
+                               Unit](_env, settings)
       with JavaTokenParsers with PackratParsers {
 
   import IExpression._

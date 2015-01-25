@@ -45,6 +45,14 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def toSMTExpr(value : IdealInt) : String =
+    if (value.signum < 0)
+      "(- " + value.abs.toString + ")"
+    else
+      value.toString
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   def apply(formula : IFormula) = formula match {
     case IBoolLit(value) => print(value)
     case _ => {
@@ -114,7 +122,7 @@ class SMTLineariser(benchmarkName : String,
                     predsToDeclare : Seq[Predicate],
                     funPrefix : String, predPrefix : String, constPrefix : String) {
 
-  import SMTLineariser.quoteIdentifier
+  import SMTLineariser.{quoteIdentifier, toSMTExpr}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -175,14 +183,6 @@ class SMTLineariser(benchmarkName : String,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private def toSMTExpr(value : IdealInt) : String =
-    if (value.signum < 0)
-      "(- " + value.abs.toString + ")"
-    else
-      value.toString
-  
-  //////////////////////////////////////////////////////////////////////////////
-
   private case class PrintContext(vars : List[String]) {
     def pushVar(name : String) = PrintContext(name :: vars)
   }

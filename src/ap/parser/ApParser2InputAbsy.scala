@@ -80,7 +80,7 @@ object ApParser2InputAbsy {
 
 class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
                          settings : ParserSettings)
-      extends Parser2InputAbsy(_env, settings) {
+      extends Parser2InputAbsy[Unit, Unit, Unit, Unit, Unit](_env, settings) {
   
   import IExpression._
   import Parser2InputAbsy._

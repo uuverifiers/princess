@@ -29,7 +29,8 @@ import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
-                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface}
+                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
+                  SMTParser2InputAbsy}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -69,6 +70,7 @@ object CmdlMain {
     println(" -inputFormat=val          Specify format of problem file:       (default: auto)")
     println("                             auto, pri, smtlib, tptp")
     println(" [+-]stdin                 Read SMT-LIB 2 problems from stdin       (default: -)")
+    println(" [+-]incremental           Incremental SMT-LIB 2 interpreter        (default: -)")
     println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
     println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
@@ -392,6 +394,14 @@ object CmdlMain {
   def proveMultiSMT(settings : GlobalSettings,
                     input : java.io.BufferedReader,
                     userDefStoppingCond : => Boolean) = {
+    val assertions = Param.ASSERTIONS(settings)
+    Debug.enableAllAssertions(assertions)
+    SimpleAPI.withProver(enableAssert = assertions) { p =>
+      val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
+      parser.processIncrementally(input)
+    }
+
+/*
     implicit val format = Param.InputFormat.SMTLIB
     val interface = new IncrementalSMTLIBInterface {
       protected def solve(input : String) : Option[Prover.Result] = {
@@ -403,6 +413,7 @@ object CmdlMain {
       }
     }
     interface.readInputs(input, settings)
+*/
   }
   
   def proveProblems(settings : GlobalSettings,
@@ -412,7 +423,7 @@ object CmdlMain {
                    (implicit format : Param.InputFormat.Value) = {
     Console.err.println("Loading " + name + " ...")
     format match {
-      case Param.InputFormat.SMTLIB =>
+      case Param.InputFormat.SMTLIB if (Param.INCREMENTAL(settings)) =>
         proveMultiSMT(settings, input(), userDefStoppingCond)
       case _ => {
         proveProblem(settings, name, input, userDefStoppingCond)
@@ -466,6 +477,9 @@ object CmdlMain {
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("unsat")
                 printDOTCertificate(cert, settings)
+                Console.err.println
+                Console.err.println("Interpolants:")
+                for (i <- inters) printFormula(i)
               }
               case Prover.Model(model) =>  {
                 println("unsat")
