@@ -22,6 +22,71 @@ class Allocator(init : Int) {
   }
 }
 
+class Problem[TERM, FUNC](
+  val count : Int,
+  val allTerms : List[Int],
+  val allDomains : Map[Int, Set[Int]],
+  val terms : List[List[Int]],
+  val domains : List[Map[Int, Set[Int]]],
+  var goals : List[List[List[(Int, Int)]]],
+  val functions : List[List[(FUNC, List[Int], Int)]],
+  val bits : Int,
+  val diseq : List[Array[Array[Int]]],
+  val termMap : Map[Int, TERM])
+{ 
+
+  // SubGoal removal variables
+  var lastGoals = List() : List[List[List[(Int, Int)]]]
+  var currentSubproblem = -1
+  var currentSubgoal = 0
+  var currentPair = 0
+
+  def print() = {
+    println("minUnsatCore><<<<<<<<<<<<<<<<")
+    println("minUnsatCore> Subproblems: " + count)
+    println("minUnsatCore>" + goals.mkString(";;;"))
+    println("minUnsatCore>>>>>>>>>>>>>>>")
+  }
+
+  def removeGoal(subproblem : Int) = {
+    lastGoals = goals
+    if (currentSubproblem != subproblem) {
+      currentSubgoal = 0
+      currentSubproblem = subproblem
+    }
+
+    goals = 
+      (for (p <- 0 until count) yield {
+        if (p == subproblem) {
+          (for (subgoal <- 0 until goals(p).length) yield {
+            var retval = goals(p)(subgoal)
+            if (subgoal == currentSubgoal && currentPair < goals(p)(subgoal).length) {
+              retval = (goals(p)(subgoal).take(currentPair)) ++ (goals(p)(subgoal).drop(currentPair+1))
+            } else if (subgoal == currentSubgoal) {
+              currentSubgoal += 1
+              currentPair = 0
+            }
+            retval
+          }).toList
+        } else {
+          goals(p)
+        }
+      }).toList
+
+
+    if (currentSubgoal == goals(subproblem).length)
+      true
+    else
+      false
+  }
+
+  def restoreGoal() = {
+    goals = lastGoals
+    currentPair += 1
+  }
+
+}
+
 class Table[FUNC](val bits : Int, alloc : Allocator,
   gt : GateTranslator, solver : ISolver, val terms : List[Int],
   domains : Map[Int, Set[Int]], functions : List[(FUNC, List[Int], Int)],
@@ -232,7 +297,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
 
         // --- CASE1: Not a representing term ---
 
-        for (tt <- terms; if t != tt) {
+        for (tt <- terms; if t != tt; if (diseq(t)(tt) != 0)) {
           val eqBit = termEqInt((currentColumn-1, t), tt)
           val asBit = termEqTerm((currentColumn, t), (currentColumn, tt))
 
@@ -286,7 +351,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
           }).toArray
 
         val functionalityBit = alloc.alloc(1)
-        if (funcBits.length == 0) {
+        if (funcBits.length == 0) {      
           gt.gateFalse(functionalityBit)
         } else {
           gt.or(functionalityBit, new VecInt(funcBits))
@@ -308,7 +373,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
   def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
     Timer.measure("addGoalConstraint") {
       val goalBits =
-        (for (g <- goals) yield {
+        (for (g <- goals; if (!g.isEmpty)) yield {
           val subGoals =
             (for ((s, t) <- g) yield {
               termEqTerm((currentColumn, s), (currentColumn, t))
@@ -447,6 +512,18 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
 }
 
 class CCUSolver[TERM, FUNC] {
+  val alloc = new Allocator(1)
+
+  val ZEROBIT = alloc.alloc(1)
+  val ONEBIT = alloc.alloc(1)
+
+  var tableComplete = false
+  var tables = List() : List[Table[FUNC]]
+  var problem = 
+    new Problem[TERM, FUNC](0, List(), Map(), List(List()), List(Map()), 
+      List(), List(), 0, List(), Map())
+  var termToInt = Map() : Map[TERM, Int]
+  var intToTerm = Map() : Map[Int, TERM]
 
   // SAT4J stuff
   val asd = (Timer.measure("SAT4Jinit") {
@@ -516,66 +593,6 @@ class CCUSolver[TERM, FUNC] {
     eq
   }
 
-  def tsPairs(assignments : MMap[Int, Int], domains : Map[Int, Set[Int]],
-    goals : List[(Int, Int)]) : (Option[MMap[Int, Int]]) = {
-
-    if (goals.isEmpty) {
-      Some(assignments)
-    } else {
-      // Pick out first goal and make larger term LHS
-      val (s, t) = goals.head
-      val lhs = s max t
-      val rhs = s min t
-
-      if (assignments.contains(lhs)) {
-        if (assignments(lhs) == rhs)
-          tsPairs(assignments, domains, goals.tail)
-        else
-          None
-      } else {
-        val lhsDomain = domains.getOrElse(lhs, Set())
-        if (lhsDomain contains rhs) {
-          assignments(lhs) = rhs
-          tsPairs(assignments, domains, goals.tail)
-        } else {
-          None
-        }
-      }
-    }
-  }
-
-  // Returns an (extended) assignment if one is possible, else None
-  def tsSubgoals(
-    domains : Map[Int, Set[Int]],
-    subGoals : List[List[(Int, Int)]],
-    assignment : Map[Int, Int]) : Option[MMap[Int, Int]] = {
-    for (pairs <- subGoals) {
-      val ass = MMap() : MMap[Int, Int]
-      for ((k, v) <- assignment)
-        ass(k) = v
-      tsPairs(ass, domains, pairs) match {
-        case Some(ass) => Some(ass)
-        case None =>
-      }
-    }
-    None
-  }
-
-  def trivialSolution(domains : Map[Int, Set[Int]],
-    goals : List[List[List[(Int, Int)]]]) : (Option[MMap[Int, Int]]) = {
-    var assignment = MMap() : MMap[Int, Int]
-
-    // All problems must be satisfied
-    for (subGoals <- goals) {
-      tsSubgoals(domains, subGoals, assignment.toMap) match {
-        case Some(ass) => assignment = ass
-        case None => return None
-      }
-    }
-
-    Some(assignment)
-  }
-
 
   //
   // MATH HELPER FUNCTIONS
@@ -637,92 +654,237 @@ class CCUSolver[TERM, FUNC] {
     println("\\----------/")
   }
 
+  def printProblemLazy(terms : List[Int],
+    domains : Map[Int, Set[Int]],
+    goals : List[List[List[(Int, Int)]]],
+    functions : List[List[(FUNC, List[Int], Int)]]) = {
+    println("LAZY: /--PROBLEM--\\")
+    for (t <- terms)
+      println("LAZY: | " + t + " = {" +
+        (domains.getOrElse(t, Set(t))).mkString(", ") + "}")
+    val problemCount = goals.length
+    println("LAZY: | ProblemCount: " + problemCount)
+    for (p <- 0 until problemCount) {
+      println("LAZY: | -----------")
+      println("LAZY: | Goals: " + goals(p).mkString(", "))
+      println("LAZY: | Functions: " + functions(p).mkString(", "))
+    }
+    println("LAZY: \\----------/")
+  }
+
   //
   //
   //  SOLVER
   //
   //
 
-  def solveaux(
-    terms : List[Int],
-    domains : Map[Int, Set[Int]],
-    goals : List[List[List[(Int, Int)]]],
-    functions : List[List[(FUNC, List[Int], Int)]],
-    diseq : List[Array[Array[Int]]],
-    debug : Boolean) : (Option[Array[Int]], Map[Int, List[Int]]) = {
-    Timer.measure("Solveaux") {
-      // TODO: optimize such that each table has its own bits
-      val bits = binlog(terms.length)
-      // Alloc must be shared between tables
-      val alloc = new Allocator(1)
 
-      val ZEROBIT = alloc.alloc(1)
-      val ONEBIT = alloc.alloc(1)
 
-      // HACK?
-      val problemCount = goals.length
+  def createProblem(
+    terms : List[TERM],
+    domains : Map[TERM, Set[TERM]],
+    goals : List[List[List[(TERM, TERM)]]],
+    functions : List[List[(FUNC, List[TERM], TERM)]]) : 
+      Problem[TERM, FUNC] = {
 
-      val tables =
-        for (p <- 0 until problemCount) yield {
-          // Filter terms per table
-          def isUsed(term : Int, functions : List[(FUNC, List[Int], Int)],
-            goals : List[List[(Int, Int)]]) : Boolean = {
-            for ((_, args, s) <- functions) {
-              if (s == term)
-                return true
-              for (a <- args)
-                if (a == term)
-                  return true
-            }
+    // TODO: optimize such that each table has its own bits
+    val bits = binlog(terms.length)
 
-            for (g <- goals)
-              for ((s, t) <- g)
-                if (s == term || t == term)
-                  return true
+    // HACK?
+    val problemCount = goals.length
 
-            false
+    // Convert to Int representation
+    termToInt = Map()
+    intToTerm = Map()
+    var assigned = 0
+
+    while (assigned < terms.length) {
+      for (t <- terms) {
+        if (!(termToInt contains t)) {
+          var domainAssigned = true
+          for (tt <- (domains.getOrElse(t, Set())); if (t != tt)) {
+            if (!(termToInt contains tt))
+              domainAssigned = false
           }
-
-          // TODO: Check arguments agains diseq?
-          def matchable(funs : List[(FUNC, List[Int], Int)],
-            fun : (FUNC, List[Int], Int)) : Boolean = {
-            val (f1, args1, s1) = fun
-            for ((f2, args2, s2) <- funs) {
-              if (f1 == f2 && s1 != s2) {
-                var m = true
-                for ((a1, a2) <- args1 zip args2)
-                  if (diseq(p)(a1)(a2) == 0)
-                    m = false
-
-                if (m)
-                  return true
-              }
-            }
-            false
+          if (domainAssigned) {
+            termToInt += (t -> assigned)
+            intToTerm += (assigned -> t)
+            assigned += 1
           }
-
-          val filterFunctions = functions(p).filter(x => (matchable(functions(p), x)))
-          val filterTerms = terms.filter(x => isUsed(x, filterFunctions, goals(p)))
-          val filterDomains =
-            (for ((t, d) <- domains) yield {
-              (t, d.filter(x => filterTerms contains x))
-            }).toMap
-
-          // println("Terms before: " + terms)
-          // println("\tDomains: " + domains)
-          // println("\tFunctions: (" + functions(p).length + "): " + functions(p))
-          // println("\tGoals: " + goals(p))
-          // println("Terms after: " + filterTerms)
-          // println("\tfilterDomains: " + filterDomains)
-          // println("\tfilterFunctions: (" + filterFunctions.length + "): " + filterFunctions)
-          println("Removed " + (terms.length - filterTerms.length) + " terms")
-          println("Removed " + (functions(p).length - filterFunctions.length) + " functions")
-
-
-          new Table[FUNC](bits, alloc, gt, solver, filterTerms,
-            filterDomains, filterFunctions, ZEROBIT, ONEBIT, diseq(p))
         }
-      solver.reset()
+      }
+    }
+
+    // Adjust to new representation
+
+    val newTerms = terms.map(termToInt)
+
+    var newDomains = Map() : Map[Int, Set[Int]]
+    for (t <- terms) {
+      val oldDomain = domains.getOrElse(t, Set(t))
+      newDomains += (termToInt(t) -> oldDomain.map(termToInt))
+    }
+
+    val newGoals =
+      for (g <- goals)
+      yield (for (eqs <- g)
+      yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
+
+    val newFunctions =
+      for (funs <- functions)
+      yield (for ((f, args, r) <- funs)
+      yield (f, args.map(termToInt), termToInt(r)))
+
+
+    //
+    // --- DISEQUALITY CHECK ---
+    // Check if goals are even possible to unify
+    // If not we can immeadietly return UNSAT
+    val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
+    
+    for (t <- newTerms) {
+      val domain = newDomains.getOrElse(t, List(t))
+      for (d <- domain) {
+        arr(t)(d) = 1
+        arr(d)(t) = 1
+      }
+
+      for (tt <- newTerms; if t != tt) {
+        for (ttt <- newTerms) {
+          if ((newDomains.getOrElse(t, Set(t)) contains ttt) && (newDomains.getOrElse(tt, Set(tt)) contains ttt)) {
+            arr(t)(tt) = 1
+            arr(tt)(t) = 1
+          }
+        }
+      }
+    }
+
+
+    // println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
+
+    val diseq = (for (p <- 0 until problemCount)
+    yield
+    {
+      val c = Array.ofDim[Int](newTerms.length, newTerms.length)
+      for (t <- newTerms; tt <- newTerms)
+        c(t)(tt) = arr(t)(tt)
+
+      val deq = disequalityCheck(c, newFunctions(p))
+      deq
+    }).toList
+
+
+    printProblem(newTerms, newDomains, newGoals, newFunctions)
+
+    // for (d <- diseq)
+    //   println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
+
+    // Create tables
+
+
+    val ffs =
+      (for (p <- 0 until problemCount) yield {
+        // Filter terms per table
+        def isUsed(term : Int, functions : List[(FUNC, List[Int], Int)],
+          goals : List[List[(Int, Int)]]) : Boolean = {
+          for ((_, args, s) <- functions) {
+            if (s == term)
+              return true
+            for (a <- args)
+              if (a == term)
+                return true
+          }
+
+          for (g <- goals)
+            for ((s, t) <- g)
+              if (s == term || t == term)
+                return true
+
+          false
+        }
+
+        // TODO: Check arguments agains diseq?
+        def matchable(funs : List[(FUNC, List[Int], Int)],
+          fun : (FUNC, List[Int], Int)) : Boolean = {
+          val (f1, args1, s1) = fun
+          for ((f2, args2, s2) <- funs) {
+            if (f1 == f2 && s1 != s2) {
+              var m = true
+              for ((a1, a2) <- args1 zip args2)
+                if (diseq(p)(a1)(a2) == 0)
+                  m = false
+
+              if (m)
+                return true
+            }
+          }
+          false
+        }
+
+        val ff =
+          newFunctions(p).filter(x => (matchable(newFunctions(p), x))).toList
+        val ft =
+          newTerms.filter(x => isUsed(x, ff, newGoals(p))).toList
+        val fd =
+          (for ((t, d) <- newDomains) yield {
+            (t, d.filter(x => ft contains x))
+          }).toMap
+        (ff, ft, fd)
+      }).toList : List[(List[(FUNC, List[Int], Int)], List[Int], Map[Int, Set[Int]])]
+
+    val filterTerms = for ((_, ft, _) <- ffs) yield ft
+    val filterDomains = for ((_, _, fd) <- ffs) yield fd
+    val filterFunctions = for ((ff, _, _) <- ffs) yield ff
+
+
+    val problem =
+      new Problem[TERM, FUNC](problemCount, newTerms, newDomains, 
+        filterTerms, filterDomains, newGoals, filterFunctions, bits, diseq, Map())
+
+    problem
+  }
+
+  def solveaux() 
+      : (Option[Array[Int]], Map[Int, List[Int]]) = {
+    Timer.measure("Solveaux") {
+      println("solveaux")
+      // We have p problems, and we are dealing with the simultaneous problem,
+      // i.e. every problem must be solvable
+      var allGoalPossible = true
+
+      val diseqedGoals =
+        (for (p <- 0 until problem.count) yield {
+          // This particular problem consists of subgoals,
+          // one of the subgoals must be solvable for the
+          // whole problem to be possible
+          (for (gs <- problem.goals(p)) yield {
+            // A subgoal consists of pairs of terms,
+            // all of the must be unifiable for this
+            // subgoal to be possible.
+
+            var allUnifiable = true
+            for ((s,t) <- gs) {
+              if (problem.diseq(p)(s)(t) == 0)
+                allUnifiable = false
+            }
+
+            (gs, allUnifiable)
+          }).filter(x => x._2).map(x => x._1).toList
+        }).toList
+
+      if (diseqedGoals contains List()) {
+        println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
+        return (None, Map())
+      }
+
+      println("diseqed goals: " + diseqedGoals)
+      tables =
+        (for (i <- 0 until problem.count) yield {
+          new Table[FUNC](problem.bits, alloc, gt, solver,
+            problem.terms(i), problem.domains(i),
+            problem.functions(i), ZEROBIT, ONEBIT, problem.diseq(i))
+        }).toList
+
 
       solver.addClause(new VecInt(Array(-ZEROBIT)))
       solver.addClause(new VecInt(Array(ONEBIT)))
@@ -730,7 +892,11 @@ class CCUSolver[TERM, FUNC] {
       // MAIN SOLVE LOOP
       var cont = true
       var model = None : Option[Array[Int]]
-
+      val bits = problem.bits
+      val terms = problem.allTerms
+      val domains = problem.allDomains
+      val problemCount = problem.count
+      val goals = problem.goals
 
       // Create Initial Column
 
@@ -771,6 +937,7 @@ class CCUSolver[TERM, FUNC] {
         }
       }
 
+
       val assignments =
         (for (t <- terms) yield {
           (t,
@@ -786,6 +953,20 @@ class CCUSolver[TERM, FUNC] {
                 }).toArray
               solver.addClause(new VecInt(assBits))
               termBits}).toList)}).toMap
+
+      println(assignments)
+
+      // Enforce idempotent solutions
+      for (t <- terms) {
+        println(t + ":")
+        for (tt <- domains(t); if tt <= t) {
+          // Either tt = tt or t != tt
+          println("\t" + tt)
+          val iddBit = termEqIntAux(assignments(tt), tt)
+          val neqBit = -termEqIntAux(assignments(t), tt)
+          solver.addClause(new VecInt(Array(iddBit, neqBit)))
+        }
+      }
       
       for (p <- 0 until problemCount)
         tables(p).addInitialColumn(assignments)
@@ -796,7 +977,7 @@ class CCUSolver[TERM, FUNC] {
 
       while (cont) {
         val goalConstraints =
-          for (p <- 0 until problemCount) yield
+          for (p <- 0 until problemCount; if (!goals(p).isEmpty)) yield
             tables(p).addGoalConstraint(goals(p))
 
         Timer.measure("isSat") {
@@ -880,6 +1061,10 @@ class CCUSolver[TERM, FUNC] {
               val moreInfo = CCV()
 
               if (!moreInfo) {
+                println("Table completed!")
+                for (p <- 0 until problemCount)
+                  println("Terms: " + tables(p).terms)
+                tableComplete = true
                 model = None
                 cont = false
               } else {
@@ -927,125 +1112,6 @@ class CCUSolver[TERM, FUNC] {
       // HACK?
       val problemCount = goals.length
 
-      // Convert to Int representation
-      var termToInt = Map() : Map[TERM, Int]
-      var intToTerm = Map() : Map[Int, TERM]
-
-      var assigned = 0
-
-      while (assigned < terms.length) {
-        for (t <- terms) {
-          if (!(termToInt contains t)) {
-            var domainAssigned = true
-            for (tt <- (domains.getOrElse(t, Set())); if (t != tt)) {
-              if (!(termToInt contains tt))
-                domainAssigned = false
-            }
-            if (domainAssigned) {
-              termToInt += (t -> assigned)
-              intToTerm += (assigned -> t)
-              assigned += 1
-            }
-          }
-        }
-      }
-
-
-
-      val newTerms = terms.map(termToInt)
-
-      var newDomains = Map() : Map[Int, Set[Int]]
-      for (t <- terms) {
-        val oldDomain = domains.getOrElse(t, Set(t))
-        newDomains += (termToInt(t) -> oldDomain.map(termToInt))
-      }
-
-      val newGoals =
-        for (g <- goals)
-        yield (for (eqs <- g)
-        yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
-
-      val newFunctions =
-        for (funs <- functions)
-        yield (for ((f, args, r) <- funs)
-        yield (f, args.map(termToInt), termToInt(r)))
-
-      printProblem(newTerms, newDomains, newGoals, newFunctions)
-
-
-      // --- TRIVIAL SOLUTION CHECK ---
-      // Check if any of the goals are trivially satisfied by
-      // greedy assignment!
-      val ts = trivialSolution(newDomains, newGoals)
-      if (ts.isDefined) {
-        // Make model
-        println("\n\n\n\t\tTRIVIAL SOLUTION FOUND\n\n")
-        printProblem(newTerms, newDomains, newGoals, newFunctions)
-        println("Solution:")
-        println(ts)
-        return Some(Map())
-      }
-
-      //
-      // --- DISEQUALITY CHECK ---
-      // Check if goals are even possible to unify
-      // If not we can immeadietly return UNSAT
-      val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
-      
-      for (t <- newTerms) {
-        val domain = newDomains.getOrElse(t, List(t))
-        for (d <- domain) {
-          arr(t)(d) = 1
-          arr(d)(t) = 1
-        }
-      }
-
-      // println("arr: \n" + arr.map(x => x.mkString(" ")).mkString("\n"))
-
-      val diseq = (for (p <- 0 until problemCount)
-      yield
-      {
-        val c = Array.ofDim[Int](newTerms.length, newTerms.length)
-        for (t <- newTerms; tt <- newTerms)
-          c(t)(tt) = arr(t)(tt)
-
-        val deq = disequalityCheck(c, newFunctions(p))
-        deq
-      }).toList
-
-      // for (d <- diseq)
-      //   println("diseq: \n" + d.map(x => x.mkString(" ")).mkString("\n"))
-
-      // We have p problems, and we are dealing with the simultaneous problem,
-      // i.e. every problem must be solvable
-      var allGoalPossible = true
-
-      val diseqedGoals =
-        (for (p <- 0 until problemCount) yield {
-          // This particular problem consists of subgoals,
-          // one of the subgoals must be solvable for the
-          // whole problem to be possible
-          (for (gs <- newGoals(p)) yield {
-            // A subgoal consists of pairs of terms,
-            // all of the must be unifiable for this
-            // subgoal to be possible.
-
-            var allUnifiable = true
-            for ((s,t) <- gs) {
-              if (diseq(p)(s)(t) == 0)
-                allUnifiable = false
-            }
-
-            (gs, allUnifiable)
-          }).filter(x => x._2).map(x => x._1).toList
-        }).toList
-
-
-      if (diseqedGoals contains List()) {
-        println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
-        return None
-      }
-
       // println("diseqedGoals: " + diseqedGoals)
 
       // Solve and return UNSAT or SAT  + model
@@ -1060,12 +1126,12 @@ class CCUSolver[TERM, FUNC] {
         curVal
       }
 
+      problem = createProblem(terms, domains, goals, functions)
 
-      solveaux(newTerms, newDomains.toMap,
-        diseqedGoals, newFunctions, diseq, false) match {
+      solveaux() match {
         case (Some(model), assignments) => {
           var assMap = Map() : Map[TERM, TERM]
-          for (t <- newTerms) {
+          for (t <- problem.allTerms) {
             val iVal = bitToInt(assignments(t))
             // println(t + " := " + iVal)
             assMap += (intToTerm(t) -> intToTerm(iVal))
@@ -1073,15 +1139,15 @@ class CCUSolver[TERM, FUNC] {
 
           Some(assMap)
         }
+
         case (None, _) =>  {
-          // println(termToInt)
           None
         }
       }
     }
   }
 
-  def CC(sets : MSet[Set[TERM]], functions : List[(FUNC, List[TERM], TERM)],
+  def CC[FUNC, TERM](sets : MSet[Set[TERM]], functions : List[(FUNC, List[TERM], TERM)],
     assignments : List[(TERM, TERM)] = List()) : Set[Set[TERM]] = {
     def rep(t : TERM) : TERM = {
       for (s <- sets)
@@ -1248,6 +1314,12 @@ class CCUSolver[TERM, FUNC] {
     goals : List[List[List[(TERM, TERM)]]],
     functions : List[List[(FUNC, List[TERM], TERM)]])
       : Option[Map[TERM, TERM]] = {
+
+    // solve_lazy()
+
+    solver.reset()
+    tableComplete = false
+
     solve_asserted(terms, domains, goals, functions) match {
       case Some(sol) =>
         return Some(sol)
@@ -1260,7 +1332,11 @@ class CCUSolver[TERM, FUNC] {
           Some(sol)
         }
       case None =>
+        // println("Calculating minimum unsat core")
+        // minUnsatCore()
+        // problem.print()
         return None
+
         print("Verifying UNSAT...")
         if (!checkUNSAT(terms, domains, goals, functions)) {
           println("FALSE UNSAT!")
@@ -1272,4 +1348,318 @@ class CCUSolver[TERM, FUNC] {
     }
   }
 
+  def solveAgain() : Boolean = {
+    if (problem.goals.flatten.flatten.isEmpty)
+      return true
+
+    var retval = false : Boolean
+
+    if (tableComplete) {
+      val goals = problem.goals
+
+      val goalConstraints =
+        for (p <- 0 until problem.count; if (!goals(p).flatten.isEmpty)) yield {
+          println("TABLE " + p)
+          println("\t" + tables(p).terms)
+          println(goals(p))
+          tables(p).addGoalConstraint(goals(p))
+        }
+      retval =  solver.isSatisfiable()
+
+      for (gc <- goalConstraints)
+        solver.removeConstr(gc)
+    } else {
+      solveaux() match {
+        case (Some(_), _) => retval = true
+        case (None, _) => retval = false
+      }
+    }
+
+    retval
+  }
+
+
+
+  // PRE: Call after solve returns UNSAT
+  def minUnsatCore() {
+    println("minUnsatCore")
+    // Find minimum subset of goals that still yields unsat
+    // So in this case we have a unsat, so we greedily remove goals until 
+    // it goes SAT then we return last one before
+
+
+    // println("minUnsatCore> BEGIN")
+    // println("minUnsatCore> Tables: " + tables.length)
+    // Try removing the first goal from the the first problem, etc.
+
+    // problem.print()
+
+    for (p <- 0 until problem.count) {
+      var end = false
+      while (!end) {
+        // println("minUnsatCore> removeGoal(" + p + ")")
+        end = problem.removeGoal(p)
+        // Goal could be removed
+        if (!end && solveAgain())
+          problem.restoreGoal()
+        // problem.print()
+      }
+    }
+
+    // problem.print()
+
+    // println("minUnsatCore>END")
+
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+  def solve_lazy() : Option[Map[TERM, TERM]] = {
+
+    println("\nLAZY: solver_lazy()")
+    val tmpAlloc = new Allocator(1)
+    val ZEROBIT = tmpAlloc.alloc(1)
+    val ONEBIT = tmpAlloc.alloc(1)
+    val tmpSolver = SolverFactory.newDefault()
+    val tmpGt = new GateTranslator(tmpSolver)
+    val terms = problem.allTerms
+    val domains = problem.allDomains
+    val termBits = Array.ofDim[Int](terms.length)
+    val bits = binlog(terms.length)
+
+    tmpSolver.addClause(new VecInt(Array(ONEBIT)))
+    tmpSolver.addClause(new VecInt(Array(-ZEROBIT)))
+
+    def termAssIntAux(i : Int) = {
+      var curVal = i
+
+      for (b <- 0 until bits) yield {
+        if (curVal % 2 == 1) {
+          curVal -= 1
+          curVal /= 2
+          ONEBIT
+        } else {
+          curVal /= 2
+          ZEROBIT
+        }
+      }
+    }
+
+    def termEqIntAux(bitList : List[Int], i : Int) : Int = {
+      Timer.measure("termEqInt") {
+        var curVal = i
+
+        val lits =
+          (for (b <- bitList) yield {
+            if (curVal % 2 == 1) {
+              curVal -= 1
+              curVal /= 2
+              b
+            } else {
+              curVal /= 2
+              -b
+            }
+          }).toArray
+
+        val eqBit = tmpAlloc.alloc(1)
+        tmpGt.and(eqBit, new VecInt(lits))
+        eqBit
+      }
+    }
+
+    // Solve and return UNSAT or SAT  + model
+    def bitToInt(bits : List[Int]) : Int = {
+      var curMul = 1
+      var curVal = 0
+      for (b <-bits) {
+        if (tmpSolver.model contains b)
+          curVal += curMul
+        curMul *= 2
+      }
+      curVal
+    }
+    
+    // Should return minDI
+    def verifySolution(assignments : Map[Int, Int], p : Int) : Option[List[(Int, Int)]] = {
+      val sets = MSet() : MSet[Set[Int]]
+      for (t <- terms)
+        sets += Set(t)
+
+      def set(t : Int) : Set[Int] = {
+        for (s <- sets)
+          if (s contains t)
+            return s
+        throw new Exception("No set contains t?")
+      }
+
+      println("Calling CC(" + sets + ", " + problem.functions(p) + ", " + assignments.toList + ")")
+      CC[FUNC, Int](sets, problem.functions(p), assignments.toList)
+      println("Result: " + sets)
+      var anySubGoalTrue = false
+      for (subGoal <- problem.goals(p)) {
+        var allPairsTrue = true
+        for ((s,t) <- subGoal) {
+          if (set(s) != set(t)) {
+            allPairsTrue = false
+          }
+        }
+        if (allPairsTrue)
+          anySubGoalTrue = true
+      }
+
+      if (!anySubGoalTrue) {
+        val diseq =
+          (for (s <- terms; t <- terms; if s != t; if (set(s) != set(t))) yield {
+            (s, t)
+          }).toList
+        return Some(diseq)
+      }
+      None
+    }
+
+
+
+    printProblemLazy(terms, domains, problem.goals, problem.functions)
+
+    println("LAZY: ASSIGNMENTS")
+    val assignments =
+      (for (t <- terms) yield {
+        (t,
+          (if (domains(t).size == 1) {
+            println("LAZY: " + t + " = " + domains(t).toList(0))
+            termAssIntAux(domains(t).toList(0))
+          } else {
+            val termStartBit = tmpAlloc.alloc(bits)
+            val termBits = List.tabulate(bits)(x => x + termStartBit)
+            print("LAZY: " + t + " = ")
+            val assBits =
+              (for (tt <- domains(t); if tt <= t) yield  {
+                print(tt + " ")
+                val tmpBit = termEqIntAux(termBits, tt)
+                tmpBit
+              }).toArray
+            println("")
+            tmpSolver.addClause(new VecInt(assBits))
+            termBits}).toList)}).toMap
+
+    for (t <- terms) {
+      println(t + ":")
+      for (tt <- domains(t); if tt <= t) {
+        // Either tt = tt or t != tt
+        println("\t" + tt)
+        val iddBit = termEqIntAux(assignments(tt), tt)
+        val neqBit = -termEqIntAux(assignments(t), tt)
+        solver.addClause(new VecInt(Array(iddBit, neqBit)))
+      }
+    }
+
+
+    tables =
+      (for (i <- 0 until problem.count) yield {
+        new Table[FUNC](problem.bits, alloc, gt, solver,
+          problem.terms(i), problem.domains(i),
+          problem.functions(i), ZEROBIT, ONEBIT, problem.diseq(i))
+      }).toList
+
+
+    for (p <- 0 until problem.count) {
+      tables(p).addInitialColumn(assignments)
+      tables(p).addDerivedColumn()
+    }
+
+    var complete = false
+    val addedClauses = ListBuffer() : ListBuffer[IConstr]
+    val blockingClauses = ListBuffer() : ListBuffer[(Int, List[(Int, Int)])]
+
+    while (!complete) {
+      if (tmpSolver.isSatisfiable()) {
+        var assMap = Map() : Map[TERM, TERM]
+        var intMap = Map() : Map[Int, Int]
+        for (t <- terms) {
+          val iVal = bitToInt(assignments(t))
+          assMap += (intToTerm(t) -> intToTerm(iVal))
+          intMap += (t -> iVal)
+        }
+
+        val endMap = 
+          (for (p <- 0 until problem.count) yield {
+            (for (t <- terms) yield {
+              (t, bitToInt(tables(p)(tables(p).currentColumn,t)))
+            }).toMap
+          }).toList
+
+        var allSat = true
+        for (p <- 0 until problem.count) {
+          verifySolution(endMap(p), p) match {
+            case Some(minDI) => {
+              allSat = false
+              blockingClauses += ((p, minDI))
+              val blockingClause =
+                (for ((s,t) <- minDI) yield {
+                  tables(p).termEqTerm(
+                    (tables(p).currentColumn, s),
+                      (tables(p).currentColumn, t))
+                }).toArray
+
+              try {
+                addedClauses += tmpSolver.addClause(new VecInt(blockingClause))
+              } catch {
+                case _ => { return None }
+              }
+            }
+          }
+        }
+
+        if (allSat)
+          return Some(assMap)
+      } else {
+        val ccs =
+          for (p <- 0 until problem.count) yield
+            tables(p).addVConstraint() match {
+              case Some(cc) => cc
+              case None => return None
+            }
+
+        val moreInfo = solver.isSatisfiable()
+        for (cc <- ccs)
+          solver.removeConstr(cc)
+
+        if (moreInfo) {
+          // Move all clauses one column right
+          for (p <- 0 until problem.count)
+            tables(p).addDerivedColumn()
+          for (ac <- addedClauses)
+            tmpSolver.removeConstr(ac)
+          addedClauses.clear
+
+          for ((p, minDI) <- blockingClauses) {
+            val blockingClause =
+              (for ((s,t) <- minDI) yield {
+                tables(p).termEqTerm(
+                  (tables(p).currentColumn, s),
+                    (tables(p).currentColumn, t))
+              }).toArray
+
+            tmpSolver.addClause(new VecInt(blockingClause))
+          }
+        } else {
+          complete =true
+        }
+      }
+    }
+
+    // UNSAT
+    println("LAZY: UNSAT")
+    None
+  }
 }
+

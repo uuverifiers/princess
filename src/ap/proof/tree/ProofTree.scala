@@ -349,10 +349,13 @@ trait ProofTree {
 
     ap.util.Timer.measure("CCUSolver") {  
     // val solver = new CCUSolver[ConstantTerm, Predicate]
-Console.withOut(ap.CmdlMain.NullStream) {
-    (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
+// Console.withOut(ap.CmdlMain.NullStream) {
+//     (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
+//         allDomains.toMap,
+//         goals, funApps)).isDefined }
+      (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
         allDomains.toMap,
-        goals, funApps)).isDefined }
+        goals, funApps)).isDefined
     }
   }
 
