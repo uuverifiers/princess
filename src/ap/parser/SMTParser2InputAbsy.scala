@@ -465,7 +465,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       false
     }
 
-  private var printSuccess = true
+  private var printSuccess = false
 
   private def success : Unit = {
     if (incremental && printSuccess)
