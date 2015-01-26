@@ -344,7 +344,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            Unit,
            SMTParser2InputAbsy.SMTType,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
-            Map[String, SMTParser2InputAbsy.SMTType]                    // sortDefs
+            Map[String, SMTParser2InputAbsy.SMTType],                   // sortDefs
+            Int,                                                        // nextPartitionNumber
+            Map[String, PartName],                                      // partNames
+            Map[PartName, Int]                                          // partNameIndexes
             )](_env, settings) {
   
   import IExpression._
@@ -519,8 +522,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private val assumptions = new ArrayBuffer[IFormula]
 
   private var functionDefs = Map[IFunction, (IExpression, SMTType)]()
-
   private var sortDefs = Map[String, SMTType]()
+
+  // Information about partitions used for interpolation
+  private var nextPartitionNumber : Int = 0
+  private var partNames = Map[String, PartName]()
+  private var partNameIndexes = Map[PartName, Int]()
 
   private var declareConstWarning = false
   private var echoWarning = false
@@ -534,7 +541,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   protected def push : Unit = {
     checkIncremental("push")
-    pushState((functionDefs, sortDefs))
+    pushState((functionDefs, sortDefs,
+               nextPartitionNumber, partNames, partNameIndexes))
     prover.push
   }
 
@@ -544,11 +552,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   protected def pop : Unit = {
     checkIncremental("pop")
     prover.pop
-//    prover.setConstructProofs(...)
 
-    val (oldFunctionDefs, oldSortDefs) = popState
+    val (oldFunctionDefs, oldSortDefs,
+         oldNextPartitionNumber, oldPartNames, oldPartNameIndexes) = popState
     functionDefs = oldFunctionDefs
     sortDefs = oldSortDefs
+    nextPartitionNumber = oldNextPartitionNumber
+    partNames = oldPartNames
+    partNameIndexes = oldPartNameIndexes
+
+    // make sure that the prover generates proofs; this setting
+    // is handled via the stack in the prover, but is global
+    // in SMT-LIB scripts
+    prover.setConstructProofs(genInterpolants)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -587,6 +603,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       false
     }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   private def apply(script : Script) : Unit =
     for (cmd <- script.listcommand_) apply(cmd)
 
@@ -599,23 +617,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : SetInfoCommand =>
-        unsupported
-
-//      case cmd : SortDeclCommand =>
-
-      //////////////////////////////////////////////////////////////////////////
-
-      case cmd : SortDefCommand => {
-        if (!cmd.listsymbol_.isEmpty)        
-          throw new Parser2InputAbsy.TranslationException(
-              "Currently only define-sort with arity 0 is supported")
-        sortDefs = sortDefs + (asString(cmd.symbol_) -> translateSort(cmd.sort_))
-        success
-      }
-
-      //////////////////////////////////////////////////////////////////////////
-      
       case cmd : SetOptionCommand => {
         val annot = cmd.optionc_.asInstanceOf[Option]
                                 .annotation_.asInstanceOf[AttrAnnotation]
@@ -643,7 +644,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           value => functionalityAxiom = value
         } ||
         handleBooleanAnnot(":produce-interpolants", annot) {
-          value => genInterpolants = value
+          value => {
+            genInterpolants = value
+            if (incremental)
+              prover.setConstructProofs(value)
+          }
         }
 
         if (handled) {
@@ -654,6 +659,25 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           else
             warn("ignoring option " + annot.annotattribute_)
         }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+      
+      case cmd : SetInfoCommand =>
+        success
+
+      //////////////////////////////////////////////////////////////////////////
+
+//      case cmd : SortDeclCommand =>
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : SortDefCommand => {
+        if (!cmd.listsymbol_.isEmpty)        
+          throw new Parser2InputAbsy.TranslationException(
+              "Currently only define-sort with arity 0 is supported")
+        sortDefs = sortDefs + (asString(cmd.symbol_) -> translateSort(cmd.sort_))
+        success
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -776,23 +800,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
       
-      case cmd : AssertCommand => {
-        val f = asFormula(translateTerm(cmd.term_, -1))
-        if (incremental)
-          prover addAssertion f
-        else
-          assumptions += f
-
-        success
-      }
-
-      //////////////////////////////////////////////////////////////////////////
-
-      case cmd : GetInterpolantsCommand =>
-        genInterpolants = true
-      
-      //////////////////////////////////////////////////////////////////////////
-      
       case cmd : PushCommand => {
         for (_ <- 0 until cmd.numeral_.toInt)
           push
@@ -805,6 +812,25 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         success
       }
 
+      //////////////////////////////////////////////////////////////////////////
+      
+      case cmd : AssertCommand => {
+        val f = asFormula(translateTerm(cmd.term_, -1))
+        if (incremental) {
+          if (genInterpolants) {
+            prover setPartitionNumber nextPartitionNumber
+            nextPartitionNumber = nextPartitionNumber + 1
+          }
+          prover addAssertion f
+        } else {
+          assumptions += f
+        }
+
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
       case cmd : CheckSatCommand =>
         if (incremental) prover.??? match {
           case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid =>
@@ -812,6 +838,45 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           case SimpleAPI.ProverStatus.Unsat | SimpleAPI.ProverStatus.Valid =>
             println("unsat")
         }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetAssertionsCommand =>
+        error("get-assertions not supported")
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
+        val expressions = cmd.listterm_.toList
+
+        var unsupportedType = false
+        val values = for (expr <- expressions) yield
+          translateTerm(expr, 0) match {
+            case p@(_, SMTBool) =>
+              (prover eval asFormula(p)).toString
+            case p@(_, SMTInteger) =>
+              SMTLineariser toSMTExpr (prover eval asTerm(p))
+            case (_, _) => {
+              unsupportedType = true
+              ""
+            }
+          }
+        
+        if (unsupportedType) {
+          Console.err.println("Cannot print values of this type yet")
+          println("error")
+        } else {
+          println("(" +
+                  (for ((e, v) <- expressions.iterator zip values.iterator)
+                   yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
+                  ")")
+        }
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetProofCommand =>
+        error("get-proof not supported")
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -858,35 +923,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
-        val expressions = cmd.listterm_.toList
-
-        var unsupportedType = false
-        val values = for (expr <- expressions) yield
-          translateTerm(expr, 0) match {
-            case p@(_, SMTBool) =>
-              (prover eval asFormula(p)).toString
-            case p@(_, SMTInteger) =>
-              SMTLineariser toSMTExpr (prover eval asTerm(p))
-            case (_, _) => {
-              unsupportedType = true
-              ""
-            }
+      case cmd : GetInterpolantsCommand =>
+        if (incremental) {
+          for (interpolant <-
+                 prover.getInterpolants(
+                   for (i <- 0 until nextPartitionNumber) yield Set(i))) {
+            SMTLineariser(interpolant)
+            println
           }
-        
-        if (unsupportedType) {
-          Console.err.println("Cannot print values of this type yet")
-          println("error")
         } else {
-          println("(" +
-                  (for ((e, v) <- expressions.iterator zip values.iterator)
-                   yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
-                  ")")
+          genInterpolants = true
         }
-      }
-
+      
       //////////////////////////////////////////////////////////////////////////
-
+      
+      case cmd : GetInfoCommand => if (checkIncrementalWarn("get-info"))
+        cmd.annotattribute_ match {
+          case ":authors" => {
+            println("(:authors \"")
+            CmdlMain.printGreeting
+            println("\n\")")
+          }
+          case ":name" =>
+            println("(:name \"Princess\")")
+          case ":version" =>
+            println("(:version \"" + CmdlMain.version + "\")")
+          case ":error-behavior" =>
+            println("(:error-behavior \"immediate-exit\")")
+        }
+      
+      //////////////////////////////////////////////////////////////////////////
+      
+      case cmd : GetOptionCommand => if (checkIncrementalWarn("get-option")) {
+        unsupported
+      }
+      
+      //////////////////////////////////////////////////////////////////////////
+      
       case cmd : EchoCommand => if (checkIncrementalWarn("echo")) {
         if (!echoWarning) {
           warn("accepting command echo, which is not SMT-LIB 2")
