@@ -343,13 +343,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.VariableType,
            Unit,
            SMTParser2InputAbsy.SMTType,
-           (Boolean,                                // booleanFunctionsAsPredicates
-            Boolean,                                // inlineLetExpressions
-            Boolean,                                // inlineDefinedFuns
-            Boolean,                                // totalityAxiom
-            Boolean,                                // functionalityAxiom
-            Boolean,                                // genInterpolants
-            Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
+           (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
             Map[String, SMTParser2InputAbsy.SMTType]                    // sortDefs
             )](_env, settings) {
   
@@ -456,6 +450,42 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   //////////////////////////////////////////////////////////////////////////////
 
+  private val incremental = (prover != null)
+  
+  private def checkIncremental(thing : String) =
+    if (!incremental)
+      throw new Parser2InputAbsy.TranslationException(
+        thing + " is only supported in incremental mode (option +incremental)")
+
+  private def checkIncrementalWarn(thing : String) : Boolean =
+    if (incremental) {
+      true
+    } else {
+      warn(thing + " is only supported in incremental mode (option +incremental), ignoring it")
+      false
+    }
+
+  private var printSuccess = true
+
+  private def success : Unit = {
+    if (incremental && printSuccess)
+      println("success")
+  }
+
+  private def unsupported : Unit = {
+    if (incremental)
+      println("unsupported")
+  }
+
+  private def error(str : String) : Unit = {
+    if (incremental)
+      println("(error \"" + str + "\")")
+    else
+      warn(str)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   protected def defaultFunctionType(f : IFunction) : SMTType = SMTInteger
 
   /**
@@ -493,6 +523,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var sortDefs = Map[String, SMTType]()
 
   private var declareConstWarning = false
+  private var echoWarning = false
+  private var getModelWarning = false
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -501,39 +533,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    * <code>Environment</code>.
    */
   protected def push : Unit = {
-    pushState((booleanFunctionsAsPredicates,
-               inlineLetExpressions,
-               inlineDefinedFuns,
-               totalityAxiom,
-               functionalityAxiom,
-               genInterpolants,
-               functionDefs,
-               sortDefs))
-    if (prover != null)
-      prover.push
+    checkIncremental("push")
+    pushState((functionDefs, sortDefs))
+    prover.push
   }
 
   /**
    * Pop a frame from the settings stack.
    */
   protected def pop : Unit = {
-    if (prover != null)
-      prover.pop
+    checkIncremental("pop")
+    prover.pop
+//    prover.setConstructProofs(...)
 
-    val (oldBooleanFunctionsAsPredicates,
-         oldInlineLetExpressions,
-         oldInlineDefinedFuns,
-         oldTotalityAxiom,
-         oldFunctionalityAxiom,
-         oldGenInterpolants,
-         oldFunctionDefs,
-         oldSortDefs) = popState
-    booleanFunctionsAsPredicates = oldBooleanFunctionsAsPredicates
-    inlineLetExpressions = oldInlineLetExpressions
-    inlineDefinedFuns = oldInlineDefinedFuns
-    totalityAxiom = oldTotalityAxiom
-    functionalityAxiom = oldFunctionalityAxiom
-    genInterpolants = oldGenInterpolants
+    val (oldFunctionDefs, oldSortDefs) = popState
     functionDefs = oldFunctionDefs
     sortDefs = oldSortDefs
   }
@@ -559,14 +572,37 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
   }
 
+  private def handleBooleanAnnot(option : String, annot : AttrAnnotation)
+                                (todo : Boolean => Unit) : Boolean =
+    if (annot.annotattribute_ == option) {
+      annot.attrparam_ match {
+        case BooleanParameter(value) =>
+          todo(value)
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Expected a boolean parameter after option " + option)
+      }
+      true
+    } else {
+      false
+    }
+
   private def apply(script : Script) : Unit =
     for (cmd <- script.listcommand_) apply(cmd)
-  
+
   private def apply(cmd : Command) : Unit = cmd match {
-//      case cmd : SetLogicCommand =>
-//      case cmd : SetInfoCommand =>
+
+      case cmd : SetLogicCommand => {
+        // just ignore for the time being
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : SetInfoCommand =>
+        unsupported
+
 //      case cmd : SortDeclCommand =>
-//      case cmd : GetUnsatCoreCommand =>
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -575,62 +611,48 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           throw new Parser2InputAbsy.TranslationException(
               "Currently only define-sort with arity 0 is supported")
         sortDefs = sortDefs + (asString(cmd.symbol_) -> translateSort(cmd.sort_))
+        success
       }
 
       //////////////////////////////////////////////////////////////////////////
       
       case cmd : SetOptionCommand => {
-        def noBooleanParam(option : String) =
-          throw new Parser2InputAbsy.TranslationException(
-              "Expected a boolean parameter after option " + option)
-        
         val annot = cmd.optionc_.asInstanceOf[Option]
                                 .annotation_.asInstanceOf[AttrAnnotation]
-        annot.annotattribute_ match {
-          case ":boolean-functions-as-predicates" => annot.attrparam_ match {
-            case BooleanParameter(value) =>
-              booleanFunctionsAsPredicates = value
-            case _ =>
-              noBooleanParam(":boolean-functions-as-predicates")
-          }
-          
-          case ":inline-let" => annot.attrparam_ match {
-            case BooleanParameter(value) =>
-              inlineLetExpressions = value
-            case _ =>
-               noBooleanParam(":inline-let")
-          }
-          
-          case ":inline-definitions" => annot.attrparam_ match {
-            case BooleanParameter(value) =>
-              inlineDefinedFuns = value
-            case _ =>
-               noBooleanParam(":inline-definitions")
-          }
-          
-          case ":totality-axiom" => annot.attrparam_ match {
-            case BooleanParameter(value) =>
-              totalityAxiom = value
-            case _ =>
-               noBooleanParam(":totality-axiom")
-          }
-          
-          case ":functionality-axiom" => annot.attrparam_ match {
-            case BooleanParameter(value) =>
-              functionalityAxiom = value
-            case _ =>
-               noBooleanParam(":functionality-axiom")
-          }
-          
-          case ":produce-interpolants" => annot.attrparam_ match {
-            case BooleanParameter(value) =>
-              genInterpolants = value
-            case _ =>
-               noBooleanParam(":produce-interpolants")
-          }
-          
-          case opt =>
-            warn("ignoring option " + opt)
+
+        val handled =
+        handleBooleanAnnot(":print-success", annot) {
+          value => printSuccess = value
+        } ||
+        handleBooleanAnnot(":produce-models", annot) {
+          value => // nothing
+        } ||
+        handleBooleanAnnot(":boolean-functions-as-predicates", annot) {
+          value => booleanFunctionsAsPredicates = value
+        } ||
+        handleBooleanAnnot(":inline-let", annot) {
+          value => inlineLetExpressions = value
+        } ||
+        handleBooleanAnnot(":inline-definitions", annot) {
+          value => inlineDefinedFuns = value
+        } ||
+        handleBooleanAnnot(":totality-axiom", annot) {
+          value => totalityAxiom = value
+        } ||
+        handleBooleanAnnot(":functionality-axiom", annot) {
+          value => functionalityAxiom = value
+        } ||
+        handleBooleanAnnot(":produce-interpolants", annot) {
+          value => genInterpolants = value
+        }
+
+        if (handled) {
+          success
+        } else {
+          if (incremental)
+            unsupported
+          else
+            warn("ignoring option " + annot.annotattribute_)
         }
       }
 
@@ -656,7 +678,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             val f = new IFunction(name, args.length,
                                   !totalityAxiom, !functionalityAxiom)
             env.addFunction(f, res)
-            if (prover != null)
+            if (incremental)
               prover.addFunction(f,
                                  if (functionalityAxiom)
                                    SimpleAPI.FunctionalityMode.Full
@@ -666,22 +688,24 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             // use a predicate
             val p = new Predicate(name, args.length)
             env.addPredicate(p, ())
-            if (prover != null)
+            if (incremental)
               prover.addRelation(p)
           }
         } else if (res != SMTBool) {
           // use a constant
           val c = new ConstantTerm(name)
           env.addConstant(c, Environment.NullaryFunction, res)
-          if (prover != null)
+          if (incremental)
             prover.addConstantRaw(c)
         } else {
           // use a nullary predicate (propositional variable)
           val p = new Predicate(name, 0)
           env.addPredicate(p, ())
-          if (prover != null)
+          if (incremental)
             prover.addRelation(p)
         }
+
+        success
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -701,15 +725,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           // use a constant
           val c = new ConstantTerm(name)
           env.addConstant(c, Environment.NullaryFunction, res)
-          if (prover != null)
+          if (incremental)
             prover.addConstantRaw(c)
         } else {
           // use a nullary predicate (propositional variable)
           val p = new Predicate(name, 0)
           env.addPredicate(p, ())
-          if (prover != null)
+          if (incremental)
             prover.addRelation(p)
         }
+
+        success
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -733,7 +759,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         // use a real function
         val f = new IFunction(name, argNum, true, true)
         env.addFunction(f, resType)
-        if (prover != null)
+        if (incremental)
           prover.addFunction(f, SimpleAPI.FunctionalityMode.None)
   
         if (inlineDefinedFuns) {
@@ -744,16 +770,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           val matrix = ITrigger(List(lhs), lhs === asTerm(body))
           addAxiom(quan(Array.fill(argNum){Quantifier.ALL}, matrix))
         }
+
+        success
       }
 
       //////////////////////////////////////////////////////////////////////////
       
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
-        if (prover == null)
-          assumptions += f
-        else
+        if (incremental)
           prover addAssertion f
+        else
+          assumptions += f
+
+        success
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -763,16 +793,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
       //////////////////////////////////////////////////////////////////////////
       
-      case cmd : PushCommand if (prover != null) =>
+      case cmd : PushCommand => {
         for (_ <- 0 until cmd.numeral_.toInt)
           push
+        success
+      }
 
-      case cmd : PopCommand if (prover != null) =>
+      case cmd : PopCommand => {
         for (_ <- 0 until cmd.numeral_.toInt)
           pop
+        success
+      }
 
-      case cmd : CheckSatCommand if (prover != null) =>
-        prover.??? match {
+      case cmd : CheckSatCommand =>
+        if (incremental) prover.??? match {
           case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid =>
             println("sat")
           case SimpleAPI.ProverStatus.Unsat | SimpleAPI.ProverStatus.Valid =>
@@ -781,14 +815,57 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : GetValueCommand if (prover != null) => {
+      case cmd : GetUnsatCoreCommand =>
+        error("get-unsat-core not supported")
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetAssignmentCommand =>
+        error("get-assignment not supported")
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetModelCommand => if (checkIncrementalWarn("get-model")) {
+        if (!getModelWarning) {
+          warn("accepting command get-model, which is not SMT-LIB 2.")
+          warn("only values of integer constants or Boolean variables will be shown.")
+          getModelWarning = true
+        }
+
+        val model = prover.partialModel
+
+        for ((SimpleAPI.ConstantLoc(c), SimpleAPI.IntValue(value)) <-
+               model.interpretation.iterator)
+          println("(define-fun " + c + " () Int " +
+                  (SMTLineariser toSMTExpr value) +
+                  ")")
+        for ((SimpleAPI.PredicateLoc(p, Seq()), SimpleAPI.BoolValue(value)) <-
+               model.interpretation.iterator)
+          println("(define-fun " + p.name + " () Bool " + value + ")")
+
+/*
+        val funValues =
+          (for ((SimpleAPI.IntFunctionLoc(f, args), value) <-
+                  model.interpretation.iterator)
+           yield (f, args, value)).toSeq.groupBy(_._1)
+        for ((f, triplets) <- funValues) {
+          print("(define-fun " + f.name + " (" +
+                (for (i <- 0 until f.arity) yield ("x" + i + " Int")).mkString(" ") +
+                ") Int ")
+        }
+ */
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
         val expressions = cmd.listterm_.toList
 
         var unsupportedType = false
         val values = for (expr <- expressions) yield
           translateTerm(expr, 0) match {
             case p@(_, SMTBool) =>
-              prover.eval(asFormula(p)).toString
+              (prover eval asFormula(p)).toString
             case p@(_, SMTInteger) =>
               SMTLineariser toSMTExpr (prover eval asTerm(p))
             case (_, _) => {
@@ -810,13 +887,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : EchoCommand if (prover != null) =>
+      case cmd : EchoCommand => if (checkIncrementalWarn("echo")) {
+        if (!echoWarning) {
+          warn("accepting command echo, which is not SMT-LIB 2")
+          echoWarning = true
+        }
         println(cmd.string_)
+      }
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : ExitCommand if (prover != null) =>
+      case cmd : ExitCommand => if (checkIncrementalWarn("exit")) {
         throw ExitException
+      }
 
       //////////////////////////////////////////////////////////////////////////
 

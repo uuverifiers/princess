@@ -35,7 +35,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  private val version = "release 2014-08-27"
+  private val version = "daily build"
 
   def printGreeting = {
     println("________       _____")                                 
@@ -47,7 +47,7 @@ object CmdlMain {
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println
-    println("(c) Philipp Rümmer, 2009-2014")
+    println("(c) Philipp Rümmer, 2009-2015")
     println("(contributions by Angelo Brillout, Peter Backeman, Peter Baumgartner)")
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to ph_r@gmx.net")
@@ -396,7 +396,8 @@ object CmdlMain {
                     userDefStoppingCond : => Boolean) = {
     val assertions = Param.ASSERTIONS(settings)
     Debug.enableAllAssertions(assertions)
-    SimpleAPI.withProver(enableAssert = assertions) { p =>
+    SimpleAPI.withProver(enableAssert = assertions,
+                         sanitiseNames = false) { p =>
       val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
       parser.processIncrementally(input)
     }

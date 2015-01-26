@@ -2,7 +2,7 @@
 -- arithmetic with uninterpreted predicates.
 -- <http://www.philipp.ruemmer.org/princess.shtml>
 --
--- Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+-- Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
 --
 -- Princess is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Lesser General Public License as published by
@@ -47,10 +47,15 @@ PushCommand.            Command         ::= "(" "push" Numeral ")";
 PopCommand.             Command         ::= "(" "pop" Numeral ")";
 AssertCommand.          Command	        ::= "(" "assert" Term ")";
 CheckSatCommand.        Command	        ::= "(" "check-sat" ")";
-GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" ")";
-GetUnsatCoreCommand.    Command	        ::= "(" "get-unsat-core" ")";
-GetModelCommand.        Command	        ::= "(" "get-model" ")";
+GetAssertionsCommand.   Command	        ::= "(" "get-assertions" ")";
 GetValueCommand.        Command	        ::= "(" "get-value" "(" [Term] ")" ")";
+GetProofCommand.        Command	        ::= "(" "get-proof" ")";
+GetUnsatCoreCommand.    Command	        ::= "(" "get-unsat-core" ")";
+GetInfoCommand.         Command	        ::= "(" "get-info" AnnotAttribute ")";
+GetOptionCommand.       Command	        ::= "(" "get-option" AnnotAttribute ")";
+GetAssignmentCommand.   Command	        ::= "(" "get-assignment" ")";
+GetModelCommand.        Command	        ::= "(" "get-model" ")";
+GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" ")";
 EchoCommand.            Command	        ::= "(" "echo" String ")";
 ResetCommand.           Command	        ::= "(" "reset" ")";
 ExitCommand.            Command	        ::= "(" "exit" ")";
@@ -177,3 +182,4 @@ SymbolSExpr.	SExpr		::= Symbol;
 ParenSExpr.	SExpr		::= "(" [SExpr] ")";
 
 separator SExpr "";
+
