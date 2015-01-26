@@ -1,203 +1,128 @@
 Loading bignum_quant.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (set-info :source | SMT-COMP'06 organizers |)
-Warning: ignoring (set-info :smt-lib-version 2.0)
-Warning: ignoring (set-info :category "check")
-Warning: ignoring (set-info :status unsat)
-Warning: ignoring (set-info :notes |This benchmark is designed to check if the DP supports bignumbers.|)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading int_incompleteness1.smt2 ...
-Warning: ignoring (set-logic QF_LIA)
-Warning: ignoring (set-info :source | SMT-COMP'06 Organizers |)
-Warning: ignoring (set-info :smt-lib-version 2.0)
-Warning: ignoring (set-info :category "check")
-Warning: ignoring (set-info :status unsat)
-Warning: ignoring (set-info :notes |This benchmark is designed to check if the integer DP is complete.|)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading int_incompleteness2.smt2 ...
-Warning: ignoring (set-logic QF_LIA)
-Warning: ignoring (set-info :source | Leonardo de Moura |)
-Warning: ignoring (set-info :smt-lib-version 2.0)
-Warning: ignoring (set-info :category "check")
-Warning: ignoring (set-info :status unsat)
-Warning: ignoring (set-info :notes |This benchmark is designed to check if the integer DP is complete.|)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading int_incompleteness3.smt2 ...
-Warning: ignoring (set-logic QF_LIA)
-Warning: ignoring (set-info :source | Leonardo de Moura |)
-Warning: ignoring (set-info :smt-lib-version 2.0)
-Warning: ignoring (set-info :category "check")
-Warning: ignoring (set-info :status unsat)
-Warning: ignoring (set-info :notes |This benchmark is designed to check if the integer DP is complete.|)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading init-1.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (set-info :source |
-      Tokeneer case study <http://www.adacore.com/home/products/gnatpro/tokeneer/>
-  |)
-Warning: ignoring (set-info :smt-lib-version 2.0)
-Warning: ignoring (set-info :category "industrial")
-Warning: ignoring (set-info :status unknown)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading MULTIPLIER_2.msat.smt2 ...
-Warning: ignoring (set-logic QF_LIA)
-Warning: ignoring (set-info :source |
-Mathsat benchmarks available from http://mathsat.itc.it
-
-This benchmark was automatically translated into SMT-LIB format from
-CVC format using CVC Lite
-|)
-Warning: ignoring (set-info :smt-lib-version 2.0)
-Warning: ignoring (set-info :category "industrial")
-Warning: ignoring (set-info :status unsat)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading ite.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading ite2.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading ite3.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading for_in_term.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading for_in_term2.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading let.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading let2.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading divmod.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading arrays.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading arrays2.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading arrays3.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading patternBug.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading correct-eq.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading array-interpolation.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 Found proof (size 8), simplifying (8), interpolating ...
@@ -208,32 +133,24 @@ Interpolants:
 (= 0 (+ (- 42) (select b 1 ) ) ) 
 
 Loading define-fun.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading define-fun2.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading define-fun3.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading define-fun-interpolation.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 Found proof (size 2), simplifying (2), interpolating ...
@@ -244,55 +161,44 @@ Interpolants:
 (<= 0 (+ (- 1) (+ d c ) ) ) 
 
 Loading seconds.smt2 ...
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Proving ...
 
 sat
 
 Loading quotes.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading extensions.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
 Warning: accepting command declare-const, which is not SMT-LIB 2
 Warning: interpreting "~" as unary minus, like in SMT-LIB 1
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading boolean-quant.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
 Warning: accepting command declare-const, which is not SMT-LIB 2
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 
 unsat
 
 Loading define-fun-bug.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (check-sat)
-Warning: ignoring (exit)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 unsat
 
 Loading boolean-array.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
 Warning: accepting command declare-const, which is not SMT-LIB 2
-Warning: ignoring (check-sat)
 Preprocessing ...
 Constructing countermodel ...
 
@@ -302,19 +208,39 @@ Model:
 (and (= 0 a ) (= 0 (select 0 42 ) ) ) 
 
 Loading multiple-check-sat.smt2 ...
-Warning: ignoring (set-logic AUFLIA)
 unsat
 unsat
 Loading simple-joogie.smt2 ...
 Warning: ignoring (reset)
-Warning: ignoring (set-logic AUFLIA)
 sat
 ((Block3538_bwd true))
 unsat
+Loading named-interpolation.smt2 ...
+unsat
+Warning: accepting command echo, which is not SMT-LIB 2
+
+01:
+(<= 0 (+ 100 (* (- 1) x_1 ) ) ) 
+(<= 0 (+ 111 (* (- 1) xm1 ) ) ) 
+(<= 0 (+ 111 (* (- 1) xm1 ) ) ) 
+(<= 0 (+ 101 (+ (* (- 1) res4 ) (+ x2 (* (- 1) xm1 ) ) ) ) ) 
+(<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
+(<= 0 (+ 101 (* (- 1) xm6 ) ) ) 
+(or (<= 0 (+ (- 1) (+ x7 (* (- 1) xm6 ) ) ) ) (and (= 0 (+ (- 101) x7 ) ) (<= 0 (+ 101 (* (- 1) xm6 ) ) ) ) ) 
+(or (<= 0 (+ (- 1) (+ x7 (* (- 1) xm6 ) ) ) ) (and (= 0 (+ (- 91) res9 ) ) (= 0 (+ x7 (* (- 1) xm6 ) ) ) ) ) 
+(= 0 (+ (- 91) resm10 ) ) 
+(= 0 (+ (- 91) res11 ) ) 
+
+02:
+(<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
+(<= 0 (+ 101 (* (- 1) xm6 ) ) ) 
+(= 0 (+ (- 91) resm10 ) ) 
+
+02:
+(<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
+(or (<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) (and (= 0 (+ (- 91) resm10 ) ) (= 0 (+ xm6 (* (- 1) resm5 ) ) ) ) ) 
+(<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) 
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
-Warning: ignoring (set-info :origin "SLAyer refinement benchmarks created by Jael Kriener")
-Warning: ignoring (set-logic HORN)
-Warning: ignoring (check-sat)
 Preprocessing ...
 Proving ...
 

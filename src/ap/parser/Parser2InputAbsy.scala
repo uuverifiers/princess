@@ -215,7 +215,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
 
   private val axioms = new ArrayBuffer[IFormula]
 
-  protected def addAxiom(f : IFormula) = (axioms += f)
+  protected def addAxiom(f : IFormula) : Unit = (axioms += f)
   protected def getAxioms : IFormula = connect(axioms, IBinJunctor.And)
   
   protected def defaultFunctionType(f : IFunction) : FT

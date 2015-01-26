@@ -529,6 +529,27 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var partNames = Map[String, PartName]()
   private var partNameIndexes = Map[PartName, Int]()
 
+  private def getPartNameFor(name : String) : PartName =
+    (partNames get name) match {
+      case Some(n) => n
+      case None => {
+        val n = new PartName(name)
+        partNames = partNames + (name -> n)
+        n
+      }
+    }
+
+  private def getPartNameIndexFor(name : PartName) : Int =
+    (partNameIndexes get name) match {
+      case Some(ind) => ind
+      case None => {
+        val ind = nextPartitionNumber
+        nextPartitionNumber = nextPartitionNumber + 1
+        partNameIndexes = partNameIndexes + (name -> ind)
+        ind
+      }
+    }
+
   private var declareConstWarning = false
   private var echoWarning = false
   private var getModelWarning = false
@@ -566,6 +587,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // in SMT-LIB scripts
     prover.setConstructProofs(genInterpolants)
   }
+
+  protected override def addAxiom(f : IFormula) : Unit =
+    if (incremental) {
+      prover setPartitionNumber -1
+      prover addAssertion PartNameEliminator(f)
+    } else {
+      super.addAxiom(f)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -818,10 +847,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         val f = asFormula(translateTerm(cmd.term_, -1))
         if (incremental) {
           if (genInterpolants) {
-            prover setPartitionNumber nextPartitionNumber
-            nextPartitionNumber = nextPartitionNumber + 1
+            PartExtractor(f, false) match {
+              case List(INamedPart(PartName.NO_NAME, g)) => {
+                // generate consecutive partition numbers
+                prover setPartitionNumber nextPartitionNumber
+                nextPartitionNumber = nextPartitionNumber + 1
+                prover addAssertion PartNameEliminator(g)
+              }
+              case parts =>
+                for (INamedPart(name, g) <- parts) {
+                  prover setPartitionNumber getPartNameIndexFor(name)
+                  prover addAssertion PartNameEliminator(g)
+                }
+            }
+          } else {
+            prover addAssertion f
           }
-          prover addAssertion f
         } else {
           assumptions += f
         }
@@ -925,9 +966,27 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case cmd : GetInterpolantsCommand =>
         if (incremental) {
-          for (interpolant <-
-                 prover.getInterpolants(
-                   for (i <- 0 until nextPartitionNumber) yield Set(i))) {
+          val interpolantSpecs =
+            if (cmd.listsexpr_.isEmpty)
+              for (i <- 0 until nextPartitionNumber) yield Set(i)
+            else
+              for (p <- cmd.listsexpr_.toList) yield p match {
+                case p : SymbolSExpr =>
+                  Set(partNameIndexes(partNames(printer print p.symbol_)))
+                case p : ParenSExpr
+                    if (!p.listsexpr_.isEmpty &&
+                        (printer print p.listsexpr_.head) == "and") => {
+                  val it = p.listsexpr_.iterator
+                  it.next
+                  (for (s <- it)
+                   yield partNameIndexes(partNames(printer print s))).toSet
+                }
+                case p =>
+                  throw new Parser2InputAbsy.TranslationException(
+                    "Could not parse interpolation partition: " + (printer print p))
+              }
+
+          for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
             SMTLineariser(interpolant)
             println
           }
@@ -1056,11 +1115,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                "Expected trigger patterns after \":pattern\"")
         }
       }
-      
+
+      val baseExpr =
+        if (genInterpolants) {
+          val names = for (annot <- t.listannotation_;
+                           a = annot.asInstanceOf[AttrAnnotation];
+                           if (a.annotattribute_ == ":named")) yield {
+            a.attrparam_ match {
+              case p : SomeAttrParam => p.sexpr_ match {
+                case e : SymbolSExpr => 
+                  printer print e
+                case _ =>
+                  throw new Parser2InputAbsy.TranslationException(
+                     "Expected name after \":named\"")
+              }
+              case _ : NoAttrParam =>
+                throw new Parser2InputAbsy.TranslationException(
+                   "Expected name after \":named\"")
+            }
+          }
+          
+          translateTerm(t.term_, polarity) match {
+            case p@(expr, SMTBool) =>
+              ((asFormula(p) /: names) {
+                 case (res, name) => INamedPart(getPartNameFor(name), res)
+               }, SMTBool)
+            case p =>
+              // currently names for terms are ignored
+              p
+          }
+        } else {
+          translateTerm(t.term_, polarity)
+        }
+
       if (triggers.isEmpty)
-        translateTerm(t.term_, polarity)
+        baseExpr
       else
-        ((asFormula(translateTerm(t.term_, polarity)) /: triggers) {
+        ((asFormula(baseExpr) /: triggers) {
            case (res, trigger) => ITrigger(ITrigger.extractTerms(trigger), res)
          }, SMTBool)
     }

@@ -53,7 +53,7 @@ GetProofCommand.        Command	        ::= "(" "get-proof" ")";
 GetUnsatCoreCommand.    Command	        ::= "(" "get-unsat-core" ")";
 GetAssignmentCommand.   Command	        ::= "(" "get-assignment" ")";
 GetModelCommand.        Command	        ::= "(" "get-model" ")";
-GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" ")";
+GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" [SExpr] ")";
 GetInfoCommand.         Command	        ::= "(" "get-info" AnnotAttribute ")";
 GetOptionCommand.       Command	        ::= "(" "get-option" AnnotAttribute ")";
 EchoCommand.            Command	        ::= "(" "echo" String ")";
@@ -182,4 +182,3 @@ SymbolSExpr.	SExpr		::= Symbol;
 ParenSExpr.	SExpr		::= "(" [SExpr] ")";
 
 separator SExpr "";
-

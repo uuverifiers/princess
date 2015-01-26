@@ -27,8 +27,10 @@ object PartExtractor {
   
   private val AC = Debug.AC_INPUT_ABSY
 
-  def apply(f : IFormula) : List[INamedPart] = {
-    val extractor = new PartExtractor
+  def apply(f : IFormula) : List[INamedPart] = apply(f, true)
+
+  def apply(f : IFormula, errorForIllegalNames : Boolean) : List[INamedPart] = {
+    val extractor = new PartExtractor(errorForIllegalNames)
     if (!extractor.visit(f, Context(true)))
       extractor.addPart(f)
     (for ((name, f) <- extractor.parts.iterator) yield INamedPart(name, f)).toList
@@ -42,7 +44,8 @@ object PartExtractor {
  * returned by the visitor tells whether the current (sub)formula has been added
  * to the <code>parts</code> map.
  */
-class PartExtractor extends ContextAwareVisitor[Boolean, Boolean] {
+class PartExtractor private (errorForIllegalNames : Boolean)
+      extends ContextAwareVisitor[Boolean, Boolean] {
 
   import IExpression._
 
@@ -51,12 +54,12 @@ class PartExtractor extends ContextAwareVisitor[Boolean, Boolean] {
   
   private def addPart(f : IFormula) : Unit = f match {
     case INamedPart(name, f) =>
-      parts += (name -> ((parts get name) match {
+      parts.put(name, ((parts get name) match {
         case None => f
         case Some(g) => g | f
       }))
     case f =>
-      parts += (PartName.NO_NAME -> ((parts get PartName.NO_NAME) match {
+      parts.put(PartName.NO_NAME, ((parts get PartName.NO_NAME) match {
         case None => f
         case Some(g) => g | f
       }))
@@ -73,7 +76,7 @@ class PartExtractor extends ContextAwareVisitor[Boolean, Boolean] {
         super.preVisit(t, c)
       case INot(_) =>
         super.preVisit(t, c)
-      case INamedPart(_, _) if (!c.a) =>
+      case INamedPart(_, _) if (errorForIllegalNames && !c.a) =>
         throw new Preprocessing.PreprocessingException(
                             "Named formula part in illegal position: " + t)
       case _ =>
@@ -109,4 +112,20 @@ class PartExtractor extends ContextAwareVisitor[Boolean, Boolean] {
       }
     }
   }
+}
+
+/**
+ * Visitor that eliminates all occurrences of the <code>INamedPart</code>
+ * operator from a formula.
+ */
+object PartNameEliminator extends CollectingVisitor[Unit, IExpression] {
+
+  def apply(f : IFormula) : IFormula = this.visit(f, ()).asInstanceOf[IFormula]
+
+  def postVisit(t : IExpression, arg : Unit,
+                subres : Seq[IExpression]) : IExpression = t match {
+    case t : INamedPart => subres(0)
+    case _ => t update subres
+  }
+
 }
