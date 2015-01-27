@@ -54,7 +54,7 @@ object StrengthenCertificate {
  * strengthen rule: the inequality <code>weakInEq(0) >= 0</code> is strengthened
  * to the equations <code>weakInEq(0) === 0</code>,
  * <code>weakInEq(0) === 1</code>, etc. and the inequality
- * <code>Set(weakInEq(0) >= eqCases</code>.
+ * <code>weakInEq(0) >= eqCases</code>.
  */
 case class StrengthenCertificate(weakInEq : CertInequality, eqCases : IdealInt,
                                  children : Seq[Certificate],

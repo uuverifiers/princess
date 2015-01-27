@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -120,8 +120,7 @@ case object OmegaTask extends EagerTask {
     if (goal.constants subsetOf goal.eliminatedConstants) {
       // this is just a satisfiability-problem
       
-      if (store.currentCases.get > 50 && formulaSplitStore.currentCases == None &&
-          !Param.PROOF_CONSTRUCTION(goal.settings)) {
+      if (store.currentCases.get > 50 && formulaSplitStore.currentCases == None) {
         // If there are so many cases that the situation seems hopeless, and
         // all constants are to be eliminated, we instead split random
         // inequalities with a non-unit leading coefficient. This yields a
