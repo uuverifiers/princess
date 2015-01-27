@@ -56,7 +56,7 @@ GetModelCommand.        Command	        ::= "(" "get-model" ")";
 GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" [SExpr] ")";
 GetInfoCommand.         Command	        ::= "(" "get-info" AnnotAttribute ")";
 GetOptionCommand.       Command	        ::= "(" "get-option" AnnotAttribute ")";
-EchoCommand.            Command	        ::= "(" "echo" String ")";
+EchoCommand.            Command	        ::= "(" "echo" SMTString ")";
 ResetCommand.           Command	        ::= "(" "reset" ")";
 ExitCommand.            Command	        ::= "(" "exit" ")";
 
@@ -130,7 +130,7 @@ NumConstant.	SpecConstant	::= Numeral;
 RatConstant.	SpecConstant	::= Rational;
 HexConstant.	SpecConstant	::= Hexadecimal;
 BinConstant.	SpecConstant	::= Binary;
-StringConstant.	SpecConstant	::= String;
+StringConstant.	SpecConstant	::= SMTString;
 
 token Numeral     ('0' | (["123456789"] ["0123456789"]*));
 token Rational    (('0' | (["123456789"] ["0123456789"]*)) '.' ["0123456789"]+);
@@ -160,6 +160,8 @@ token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
                      (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
 
 token QuotedSymbolT ('|' [" `^~<=>_,;:!?/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ\n"]* '|');
+
+token SMTString     ('"' ((char - ["\"\\"]) | ('\\' ["\"\\"]) | ["\n"])* '"');
 
 separator Symbol "";
 

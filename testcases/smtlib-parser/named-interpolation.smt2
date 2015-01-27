@@ -1,5 +1,7 @@
-; Example from "Interpolation in SMTLIB 2.0", Juergen Christ, Jochen Hoenicke
-; (slightly modified)
+(set-info :source "
+  Example from \"Interpolation in SMTLIB 2.0\", Juergen Christ, Jochen Hoenicke
+  (slightly modified)
+ ")
 
 (set-option :print-success false)
 (set-option :produce-interpolants true)
