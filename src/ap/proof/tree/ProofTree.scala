@@ -123,30 +123,33 @@ trait ProofTree {
                       constantSeq : List[(Quantifier, Set[ConstantTerm])])
                     : (Map[ConstantTerm, Set[ConstantTerm]],
                        Map[ConstantTerm, Set[ConstantTerm]],
+                       Set[ConstantTerm],
                        Set[ConstantTerm]) = constantSeq match {
-    case List() => (Map(), Map(), Set())
+    case List() => (Map(), Map(), Set(), Set())
 
     case (Quantifier.ALL, consts) :: rest => {
-      val (restMap1, restMap2, restSet) = domainsFromContext(rest)
-      (restMap1, restMap2, restSet ++ consts)
+      val (restMap1, restMap2, restSet, restUniSet) =
+        domainsFromContext(rest)
+      (restMap1, restMap2, restSet ++ consts, restUniSet ++ consts)
     }
 
-    case (Quantifier.EX, consts) :: rest => {
-      val (restMap1, restMap2, restSet) = domainsFromContext(rest)
+    case (Quantifier.EX, preConsts) :: rest => {
+      val (restMap1, restMap2, restSet, preRestUniSet) =
+        domainsFromContext(rest)
+      val consts = preConsts.toSeq.sortBy(_.name)
 
-      var newRestSet = restSet
+      // make sure that there is some greatest universal constant
+      val restUniSet =
+        if (preRestUniSet.isEmpty) Set(consts.head) else preRestUniSet
+
       val newRestMap1 = restMap1 ++ {
-        for (c <- consts.toSeq.sortBy(_.name).iterator) yield {
-          newRestSet = newRestSet + c
-          val res = (c -> newRestSet)
-          res
-        }
+        for (c <- consts.iterator) yield (c -> (restUniSet + c))
       }
 
       val newRestMap2 =
         restMap2 ++ (for (c <- consts.iterator) yield (c -> Set(c)))
       
-      (newRestMap1, newRestMap2, newRestSet)
+      (newRestMap1, newRestMap2, restSet ++ consts, restUniSet)
     }
   }
 
@@ -179,6 +182,7 @@ trait ProofTree {
   private def constructUnificationProblems(
                     tree : ProofTree,
                     domains : Map[ConstantTerm, Set[ConstantTerm]],
+                    uniConsts : Set[ConstantTerm],
                     intLiteralConsts : MMap[IdealInt, ConstantTerm])
                    : List[CCUProblem] =
     if (tree.unifiabilityChecked && tree.ccUnifiableLocally) {
@@ -193,20 +197,18 @@ trait ProofTree {
       List((Map(), List(), List()))
     } else tree match {
 
-      case QuantifiedTree(Quantifier.ALL, _, subtree) =>
-        constructUnificationProblems(subtree, domains, intLiteralConsts)
+      case QuantifiedTree(Quantifier.ALL, consts, subtree) =>
+        constructUnificationProblems(subtree, domains,
+                                     uniConsts ++ consts,
+                                     intLiteralConsts)
   
       case QuantifiedTree(Quantifier.EX, consts, subtree) => {
-        var allConsts = tree.order.orderedConstants
         val newDomains = domains ++ {
-          for (c <- consts.iterator) yield {
-            allConsts = allConsts + c
-            val res = (c -> allConsts)
-            res
-          }
+          for (c <- consts.iterator) yield (c -> (uniConsts + c))
         }
   
-        constructUnificationProblems(subtree, newDomains, intLiteralConsts)
+        constructUnificationProblems(subtree, newDomains, uniConsts,
+                                     intLiteralConsts)
       }
   
       case StrengthenTree(conj, subtree) =>
@@ -218,9 +220,9 @@ trait ProofTree {
   
       case AndTree(leftTree, rightTree, _) => {
         val problems1 =
-          constructUnificationProblems(leftTree, domains, intLiteralConsts)
+          constructUnificationProblems(leftTree, domains, uniConsts, intLiteralConsts)
         val problems2 =
-          constructUnificationProblems(rightTree, domains, intLiteralConsts)
+          constructUnificationProblems(rightTree, domains, uniConsts, intLiteralConsts)
         problems1 ++ problems2
       }
   
@@ -349,13 +351,10 @@ trait ProofTree {
 
     ap.util.Timer.measure("CCUSolver") {  
     // val solver = new CCUSolver[ConstantTerm, Predicate]
-// Console.withOut(ap.CmdlMain.NullStream) {
-//     (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
-//         allDomains.toMap,
-//         goals, funApps)).isDefined }
-      (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
+Console.withOut(ap.CmdlMain.NullStream) {
+    (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
         allDomains.toMap,
-        goals, funApps)).isDefined
+        goals, funApps)).isDefined }
     }
   }
 
@@ -367,8 +366,15 @@ trait ProofTree {
 //    println(this)
 
     val intLiteralConstMap = new LinkedHashMap[IdealInt, ConstantTerm]
+    val uniConsts =
+      if (this.order.orderedConstants.isEmpty)
+        Set(new ConstantTerm ("X"))
+      else
+        this.order.orderedConstants
     val unificationProblemsPre =
-      constructUnificationProblems(this, Map(), intLiteralConstMap)
+      constructUnificationProblems(this, Map(),
+                                   uniConsts,
+                                   intLiteralConstMap)
 
     val intLiteralConsts = intLiteralConstMap.values.toArray
     val intLiteralGoals =
@@ -391,7 +397,7 @@ trait ProofTree {
                }) {
       (false, false)
     } else {
-      val (fullDomains, restrictedDomains, globalConsts) =
+      val (fullDomains, restrictedDomains, globalConsts, _) =
         domainsFromContext(bindingContext.constantSeq)
 
 //      println("restricted domains:")
