@@ -64,12 +64,14 @@ object SimpleAPI {
             smtDumpBasename : String = SMTDumpBasename,
             dumpScala : Boolean = false,
             scalaDumpBasename : String = ScalaDumpBasename,
-            tightFunctionScopes : Boolean = true) : SimpleAPI =
+            tightFunctionScopes : Boolean = true,
+            genTotalityAxioms : Boolean = false) : SimpleAPI =
     new SimpleAPI (enableAssert,
                    sanitiseNames,
                    if (dumpSMT) Some(smtDumpBasename) else None,
                    if (dumpScala) Some(scalaDumpBasename) else None,
-                   tightFunctionScopes)
+                   tightFunctionScopes,
+                   genTotalityAxioms)
 
   def spawn : SimpleAPI = apply()
 
@@ -114,12 +116,13 @@ object SimpleAPI {
                     smtDumpBasename : String = SMTDumpBasename,
                     dumpScala : Boolean = false,
                     scalaDumpBasename : String = ScalaDumpBasename,
-                    tightFunctionScopes : Boolean = true)
+                    tightFunctionScopes : Boolean = true,
+                    genTotalityAxioms : Boolean = false)
                    (f : SimpleAPI => A) : A = {
     val p = apply(enableAssert, sanitiseNames,
                   dumpSMT, smtDumpBasename,
                   dumpScala, scalaDumpBasename,
-                  tightFunctionScopes)
+                  tightFunctionScopes, genTotalityAxioms)
     try {
       f(p)
     } finally {
@@ -344,7 +347,8 @@ class SimpleAPI private (enableAssert : Boolean,
                          sanitiseNames : Boolean,
                          dumpSMT : Option[String],
                          dumpScala : Option[String],
-                         tightFunctionScopes : Boolean) {
+                         tightFunctionScopes : Boolean,
+                         genTotalityAxioms : Boolean = false) {
 
   import SimpleAPI._
 
@@ -458,7 +462,8 @@ class SimpleAPI private (enableAssert : Boolean,
     existentialConstants = Set()
     functionalPreds = Set()
     functionEnc =
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings), false)
+      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings),
+                          genTotalityAxioms)
     currentProver = null
     needExhaustiveProver = false
     formulaeInProver = List()
@@ -2992,33 +2997,6 @@ class SimpleAPI private (enableAssert : Boolean,
   }}
 
   proofActor.start
-
-  //////////////////////////////////////////////////////////////////////////////
-
-/*
-  private var arrayFuns : Map[Int, (IFunction, IFunction)] = Map()
-  
-  private def getArrayFuns(arity : Int) : (IFunction, IFunction) =
-    arrayFuns.getOrElse(arity, {
-      val select = createFunctionHelp("select" + arity, arity + 1)
-      val store = createFunctionHelp("store" + arity, arity + 2)
-      createFunctionSMTDump(select.name, select.arity)
-      createFunctionSMTDump(store.name, store.arity)
-      arrayFuns += (arity -> (select, store))
-      
-      val oldPartitionNum = currentPartitionNum
-      setPartitionNumberHelp(-1)
-      addFormula(!Parser2InputAbsy.arrayAxioms(arity, select, store))
-      setPartitionNumberHelp(oldPartitionNum)
-      
-      (select, store)
-    })
-  
-  private def getFunctionNames =
-    (for ((_, (sel, sto)) <- arrayFuns.iterator;
-          p <- Seqs.doubleIterator(sel -> "select", sto -> "store"))
-     yield p).toMap
-*/
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -364,7 +364,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
             Map[String, SMTParser2InputAbsy.SMTType],                   // sortDefs
             Int,                                                        // nextPartitionNumber
-            Map[String, PartName],                                      // partNames
             Map[PartName, Int]                                          // partNameIndexes
             )](_env, settings) {
   
@@ -412,7 +411,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def processIncrementally(input : java.io.Reader) : Unit = {
+  private var timeoutChecker : () => Boolean = () => false
+
+  def processIncrementally(input : java.io.Reader,
+                           timeout : Int,
+                           userDefStoppingCond : => Boolean) : Unit = {
+    val startTime = System.currentTimeMillis
+    timeoutChecker = () => {
+      (System.currentTimeMillis - startTime > timeout) || userDefStoppingCond
+    }
+
     val l = new Yylex(new SMTCommandTerminator (input))
     val p = new parser(l) {
       override def commandHook(cmd : Command) : Boolean = {
@@ -544,18 +552,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   // Information about partitions used for interpolation
   private var nextPartitionNumber : Int = 0
-  private var partNames = Map[String, PartName]()
   private var partNameIndexes = Map[PartName, Int]()
-
-  private def getPartNameFor(name : String) : PartName =
-    (partNames get name) match {
-      case Some(n) => n
-      case None => {
-        val n = new PartName(name)
-        partNames = partNames + (name -> n)
-        n
-      }
-    }
+//  private val interpolantSpecs = new ArrayBuffer[IInterpolantSpec]
 
   private def getPartNameIndexFor(name : PartName) : Int =
     (partNameIndexes get name) match {
@@ -581,7 +579,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   protected def push : Unit = {
     checkIncremental("push")
     pushState((functionDefs, sortDefs,
-               nextPartitionNumber, partNames, partNameIndexes))
+               nextPartitionNumber, partNameIndexes))
     prover.push
   }
 
@@ -593,17 +591,38 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     prover.pop
 
     val (oldFunctionDefs, oldSortDefs,
-         oldNextPartitionNumber, oldPartNames, oldPartNameIndexes) = popState
+         oldNextPartitionNumber, oldPartNameIndexes) = popState
     functionDefs = oldFunctionDefs
     sortDefs = oldSortDefs
     nextPartitionNumber = oldNextPartitionNumber
-    partNames = oldPartNames
     partNameIndexes = oldPartNameIndexes
 
     // make sure that the prover generates proofs; this setting
     // is handled via the stack in the prover, but is global
     // in SMT-LIB scripts
     prover.setConstructProofs(genInterpolants)
+  }
+
+  /**
+   * Erase all stored information.
+   */
+  protected override def reset : Unit = {
+    super.reset
+    prover.reset
+
+    printSuccess         = false
+    booleanFunctionsAsPredicates =
+      Param.BOOLEAN_FUNCTIONS_AS_PREDICATES(settings)
+    inlineLetExpressions = true
+    inlineDefinedFuns    = true
+    totalityAxiom        = true
+    functionalityAxiom   = true
+    genInterpolants      = false
+    assumptions.clear
+    functionDefs         = Map()
+    sortDefs             = Map()
+    nextPartitionNumber  = 0
+    partNameIndexes      = Map()
   }
 
   protected override def addAxiom(f : IFormula) : Unit =
@@ -890,13 +909,29 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : CheckSatCommand =>
-        if (incremental) prover.??? match {
+      case cmd : CheckSatCommand => if (incremental) {
+        prover.checkSat(false)
+
+        var res = SimpleAPI.ProverStatus.Running
+        while (res == SimpleAPI.ProverStatus.Running) {
+          if (timeoutChecker()) {
+            println("unknown")
+            Console.err.println("Timeout occurred")
+            prover.stop
+            throw ExitException
+          }
+          res = prover.getStatus(100)
+        }
+        
+        res match {
           case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid =>
             println("sat")
           case SimpleAPI.ProverStatus.Unsat | SimpleAPI.ProverStatus.Valid =>
             println("unsat")
+          case _ =>
+            println("(error)")
         }
+      }
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -990,14 +1025,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             else
               for (p <- cmd.listsexpr_.toList) yield p match {
                 case p : SymbolSExpr =>
-                  Set(partNameIndexes(partNames(printer print p.symbol_)))
+                  Set(partNameIndexes(env.lookupPartName(printer print p.symbol_)))
                 case p : ParenSExpr
                     if (!p.listsexpr_.isEmpty &&
                         (printer print p.listsexpr_.head) == "and") => {
                   val it = p.listsexpr_.iterator
                   it.next
                   (for (s <- it)
-                   yield partNameIndexes(partNames(printer print s))).toSet
+                   yield partNameIndexes(env.lookupPartName(printer print s))).toSet
                 }
                 case p =>
                   throw new Parser2InputAbsy.TranslationException(
@@ -1044,6 +1079,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
         val str = cmd.smtstring_
         println(str.substring(1, str.size - 1))
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : ResetCommand => if (checkIncrementalWarn("reset")) {
+        reset
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -1157,7 +1198,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           translateTerm(t.term_, polarity) match {
             case p@(expr, SMTBool) =>
               ((asFormula(p) /: names) {
-                 case (res, name) => INamedPart(getPartNameFor(name), res)
+                 case (res, name) => INamedPart(env lookupPartName name, res)
                }, SMTBool)
             case p =>
               // currently names for terms are ignored
@@ -1620,27 +1661,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
 
-/*
-    case PlainSymbol("select") if (args.size == 2) => {
-      genArrayAxioms(!totalityAxiom, 1)
-      unintFunApp("select", sym, args, polarity)
-    }
-
-    case PlainSymbol("store") if (args.size == 3) => {
-      genArrayAxioms(!totalityAxiom, 1)
-      unintFunApp("store", sym, args, polarity)
-    }
-
-    case PlainSymbol("select") if (args.size != 2) => {
-      genArrayAxioms(!totalityAxiom, args.size - 1)
-      unintFunApp("_select_" + (args.size - 1), sym, args, polarity)
-    }
-    
-    case PlainSymbol("store") if (args.size != 3) => {
-      genArrayAxioms(!totalityAxiom, args.size - 2)
-      unintFunApp("_store_" + (args.size - 2), sym, args, polarity)
-    }
-*/    
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)

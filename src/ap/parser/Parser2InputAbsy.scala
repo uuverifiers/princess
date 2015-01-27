@@ -151,7 +151,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
    * <code>Environment</code>.
    */
   protected def pushState(state : StackState) : Unit = {
-    storedStates push (currentEnv, environmentCopied, state)
+    storedStates push ((currentEnv, environmentCopied, axioms, state))
     environmentCopied = false
   }
 
@@ -159,9 +159,10 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
    * Pop a frame from the settings stack.
    */
   protected def popState : StackState = {
-    val (oldEnv, oldCopied, oldState) = storedStates.pop
+    val (oldEnv, oldCopied, oldAxioms, oldState) = storedStates.pop
     currentEnv = oldEnv
     environmentCopied = oldCopied
+    axioms = oldAxioms
     oldState
   }
 
@@ -176,8 +177,20 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
       environmentCopied = true
     }
 
+  /**
+   * Erase all stored information.
+   */
+  protected def reset : Unit = {
+    storedStates.clear
+    currentEnv = initialEnv
+    currentEnv.clear
+    environmentCopied = true
+    axioms = List()
+  }
+
   private val storedStates =
-    new Stack[(Environment[CT, VT, PT, FT], Boolean, StackState)]
+    new Stack[(Environment[CT, VT, PT, FT], Boolean, List[IFormula],
+               StackState)]
 
   private var currentEnv : Environment[CT, VT, PT, FT] = initialEnv
   private var environmentCopied : Boolean = true
@@ -213,9 +226,9 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private val axioms = new ArrayBuffer[IFormula]
+  private var axioms : List[IFormula] = List()
 
-  protected def addAxiom(f : IFormula) : Unit = (axioms += f)
+  protected def addAxiom(f : IFormula) : Unit = (axioms = f :: axioms)
   protected def getAxioms : IFormula = connect(axioms, IBinJunctor.And)
   
   protected def defaultFunctionType(f : IFunction) : FT
@@ -227,41 +240,5 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
     }
   
   protected def mult(t1 : ITerm, t2 : ITerm) : ITerm = mulTheory.mult(t1, t2)
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Declare functions <code>select, store</code> and generate axioms of the
-   * (non-extensional) theory of arrays. The argument determines whether the
-   * array functions should be declared as partial or as total functions
-   */
-  protected def genArrayAxioms(partial : Boolean,
-                               arity : Int) : Unit =
-    if (!(definedArrayArities contains arity)) {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////
-      Debug.assertPre(Parser2InputAbsy.AC, arity > 0)
-      //-END-ASSERTION-/////////////////////////////////////////////////
-
-      definedArrayArities += arity
-       
-      val (prefix, suffix) =
-        if (arity == 1) {
-          Parser2InputAbsy.warn("adding array axioms")
-          ("", "")
-        } else {
-          Parser2InputAbsy.warn("adding array axioms for arity " + arity)
-          ("_", "_" + arity)
-        }
-      
-      val select = new IFunction(prefix + "select" + suffix, arity + 1, partial, false)
-      val store = new IFunction(prefix + "store" + suffix, arity + 2, partial, false)
-    
-      env.addFunction(select, defaultFunctionType(select))
-      env.addFunction(store, defaultFunctionType(store))
-
-      addAxiom(Parser2InputAbsy.arrayAxioms(arity, select, store))
-  }
-
-  private var definedArrayArities = Set[Int]()
 
 }

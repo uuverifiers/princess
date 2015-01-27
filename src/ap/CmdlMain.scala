@@ -71,6 +71,7 @@ object CmdlMain {
     println("                             auto, pri, smtlib, tptp")
     println(" [+-]stdin                 Read SMT-LIB 2 problems from stdin       (default: -)")
     println(" [+-]incremental           Incremental SMT-LIB 2 interpreter        (default: -)")
+    println("                             (+incremental implies -genTotalityAxioms)")
     println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
     println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
@@ -397,9 +398,13 @@ object CmdlMain {
     val assertions = Param.ASSERTIONS(settings)
     Debug.enableAllAssertions(assertions)
     SimpleAPI.withProver(enableAssert = assertions,
-                         sanitiseNames = false) { p =>
+                         sanitiseNames = false,
+                         genTotalityAxioms = 
+                           Param.GENERATE_TOTALITY_AXIOMS(settings)) { p =>
       val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
-      parser.processIncrementally(input)
+      parser.processIncrementally(input,
+                                  Param.TIMEOUT(settings),
+                                  userDefStoppingCond)
     }
 
 /*

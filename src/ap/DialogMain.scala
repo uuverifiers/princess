@@ -401,7 +401,7 @@ class InputDialog extends JPanel {
      println(";; (set-option :inline-definitions false) ; default: true")
      println
      println(";; Introduce totality axiom for functions?")
-     println(";; (set-option :totality-axiom false) ; default: true")
+     println(";; (set-option :totality-axiom true) ; default: false")
      println
      println(";; Introduce functionality axiom for functions?")
      println(";; (set-option :functionality-axiom false) ; default: true")

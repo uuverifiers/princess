@@ -59,8 +59,13 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
         case Opt("stdin", value) =>
           Param.STDIN.set(settings, value)
-        case Opt("incremental", value) =>
-          Param.INCREMENTAL.set(settings, value)
+        case Opt("incremental", value) => {
+          val settings2 = Param.INCREMENTAL.set(settings, value)
+          if (value)
+            Param.GENERATE_TOTALITY_AXIOMS.set(settings2, false)
+          else
+            settings2
+        }
         case Opt("printTree", value) =>
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>

@@ -94,11 +94,19 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     
     res.signature ++= this.signature
     res.context ++= this.context
+    res.partNames ++= this.partNames
     res.orderVar = this.orderVar
     
     res
   }
   
+  def clear : Unit = {
+    signature.clear
+    context.clear
+    partNames.clear
+    orderVar = TermOrder.EMPTY
+  }
+
   def lookupSym(name : String) : DSym =
     (context lastIndexWhere (_._1 == name)) match {
       case -1 => (signature get name) match {
