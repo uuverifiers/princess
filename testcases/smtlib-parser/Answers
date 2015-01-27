@@ -211,7 +211,6 @@ Loading multiple-check-sat.smt2 ...
 unsat
 unsat
 Loading simple-joogie.smt2 ...
-Warning: ignoring (reset)
 sat
 ((Block3538_bwd true))
 unsat
