@@ -854,7 +854,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         val f = new IFunction(name, argNum, true, true)
         env.addFunction(f, resType)
         if (incremental)
-          prover.addFunction(f, SimpleAPI.FunctionalityMode.None)
+          prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
   
         if (inlineDefinedFuns) {
           functionDefs = functionDefs + (f -> body) 
@@ -1409,20 +1409,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             val f = new IFunction(letVarName(name), 1, true, false)
             env.addFunction(f, SMTInteger)
             if (incremental)
-              prover.addFunction(f, SimpleAPI.FunctionalityMode.None)
-            env.pushVar(name, SubstExpression(all((v(0) === 0) ==> (f(v(0)) === 0)),
+              prover.addFunction(f)
+            env.pushVar(name, SubstExpression(all(eqZero(v(0)) ==> eqZero(f(v(0)))),
                                               SMTBool))
             all(ITrigger(List(f(v(0))),
-                         (v(0) === 0) ==>
-                         (((f(v(0)) === 0) & asFormula((s, t))) |
+                         eqZero(v(0)) ==>
+                         ((eqZero(f(v(0))) & asFormula((s, t))) |
                              ((f(v(0)) === 1) & !asFormula((s, t))))))
-//            assumptions += all(ITrigger(List(f(v(0))),
-//                               ((v(0) === 0) ==> ((f(v(0)) === 0) | (f(v(0)) === 1)))))
           }
           case exprType => {
             val c = new ConstantTerm(letVarName(name))
             env.addConstant(c, Environment.NullaryFunction, exprType)
             env.pushVar(name, SubstExpression(c, exprType))
+            if (incremental)
+              prover.addConstantRaw(c)
             c === asTerm((s, t))
           }
         })
