@@ -48,12 +48,15 @@ object SMTParser2InputAbsy {
   case object SMTInteger extends SMTType
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType) extends SMTType
+
+  case class SMTFunctionType(arguments : List[SMTType],
+                             result : SMTType)
   
   sealed abstract class VariableType
   case class BoundVariable(varType : SMTType)              extends VariableType
   case class SubstExpression(e : IExpression, t : SMTType) extends VariableType
   
-  private type Env = Environment[SMTType, VariableType, Unit, SMTType]
+  private type Env = Environment[SMTType, VariableType, Unit, SMTFunctionType]
   
   def apply(settings : ParserSettings) =
     new SMTParser2InputAbsy (new Env, settings, null)
@@ -357,14 +360,14 @@ object SMTParser2InputAbsy {
 class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               SMTParser2InputAbsy.VariableType,
                                               Unit,
-                                              SMTParser2InputAbsy.SMTType],
+                                              SMTParser2InputAbsy.SMTFunctionType],
                            settings : ParserSettings,
                            prover : SimpleAPI)
       extends Parser2InputAbsy
           [SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.VariableType,
            Unit,
-           SMTParser2InputAbsy.SMTType,
+           SMTParser2InputAbsy.SMTFunctionType,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
             Map[String, SMTParser2InputAbsy.SMTType],                   // sortDefs
             Int,                                                        // nextPartitionNumber
@@ -439,6 +442,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         input.close
       }
       case e : Exception =>
+        e.printStackTrace
         throw new ParseException(
              "At line " + String.valueOf(l.line_num()) +
              ", near \"" + l.buff() + "\" :" +
@@ -518,8 +522,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   }
 
   //////////////////////////////////////////////////////////////////////////////
-
-  protected def defaultFunctionType(f : IFunction) : SMTType = SMTInteger
 
   /**
    * Translate boolean-valued functions as predicates or as functions? 
@@ -640,6 +642,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   //////////////////////////////////////////////////////////////////////////////
 
   private val printer = new PrettyPrinterNonStatic
+
+  private val constantTypeFunction =
+    (c : ConstantTerm) => (env lookupSymPartial c.name) match {
+       case Some(Environment.Constant(_, _, t)) => Some(t)
+       case _ => None
+    }
+
+  private val functionTypeFunction =
+    (f : IFunction) => (env lookupSymPartial f.name) match {
+      case Some(Environment.Function(_, t)) => Some(t)
+      case _ => None
+    }
+
+  private def smtLinearise(f : IFormula) : Unit =
+    SMTLineariser(f, constantTypeFunction, functionTypeFunction)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -771,7 +788,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             // use a real function
             val f = new IFunction(name, args.length,
                                   !totalityAxiom, !functionalityAxiom)
-            env.addFunction(f, res)
+            env.addFunction(f, SMTFunctionType(args.toList, res))
             if (incremental)
               prover.addFunction(f,
                                  if (functionalityAxiom)
@@ -837,6 +854,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : FunctionDefCommand => {
         // Functions are always declared to have integer inputs and outputs
         val name = asString(cmd.symbol_)
+        val args : Seq[SMTType] = 
+          for (sortedVar <- cmd.listesortedvarc_)
+          yield translateSort(sortedVar.asInstanceOf[ESortedVar].sort_)
         val argNum = pushVariables(cmd.listesortedvarc_)
         val resType = translateSort(cmd.sort_)
         
@@ -852,7 +872,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         // use a real function
         val f = new IFunction(name, argNum, true, true)
-        env.addFunction(f, resType)
+        env.addFunction(f, SMTFunctionType(args.toList, resType))
         if (incremental)
           prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
   
@@ -1048,7 +1068,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                 }
   
             for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
-              SMTLineariser(interpolant)
+              smtLinearise(interpolant)
               println
             }
           } else {
@@ -1407,7 +1427,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         } else addAxiom(t match {
           case SMTBool => {
             val f = new IFunction(letVarName(name), 1, true, false)
-            env.addFunction(f, SMTInteger)
+            env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTInteger))
             if (incremental)
               prover.addFunction(f)
             env.pushVar(name, SubstExpression(all(eqZero(v(0)) ==> eqZero(f(v(0)))),
@@ -1689,7 +1709,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          SMTBool)
       }
       
-      case Environment.Function(fun, resultType) => {
+      case Environment.Function(fun, SMTFunctionType(_, resultType)) => {
         checkArgNumLazy(printer print sym, fun.arity, args)
         (functionDefs get fun) match {
           case Some((body, t)) => {

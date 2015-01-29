@@ -53,18 +53,40 @@ object SMTLineariser {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  def apply(formula : IFormula) = formula match {
-    case IBoolLit(value) => print(value)
-    case _ => {
-      val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "")
-      lineariser printFormula formula
-    }
-  }
+  private val emptyConstantType :
+       ConstantTerm => Option[SMTParser2InputAbsy.SMTType] = (_) => None
+  private val emptyFunctionType :
+       IFunction => Option[SMTParser2InputAbsy.SMTFunctionType] = (_) => None
 
-  def apply(term : ITerm) = {
-    val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "")
+  private val trueConstant  = IConstant(new ConstantTerm("true"))
+  private val falseConstant = IConstant(new ConstantTerm("false"))
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def apply(formula : IFormula) : Unit =
+    apply(formula, emptyConstantType, emptyFunctionType)
+
+  def apply(formula : IFormula,
+            constantType :
+              ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
+            functionType :
+              IFunction => Option[SMTParser2InputAbsy.SMTFunctionType]) : Unit =
+    formula match {
+      case IBoolLit(value) => print(value)
+      case _ => {
+        val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "",
+                                           constantType, functionType)
+        lineariser printFormula formula
+      }
+    }
+
+  def apply(term : ITerm) : Unit = {
+    val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "",
+                                       emptyConstantType, emptyFunctionType)
     lineariser printTerm term
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   def apply(formulas : Seq[IFormula], signature : Signature,
             benchmarkName : String) : Unit =
@@ -103,7 +125,8 @@ object SMTLineariser {
                                        logic, status,
                                        constsToDeclare.toList,
                                        order.orderedPredicates.toList,
-                                       "fun", "pred", "const")
+                                       "fun", "pred", "const",
+                                       emptyConstantType, emptyFunctionType)
    
     lineariser.open
     for (f <- finalFormulas)
@@ -120,9 +143,13 @@ class SMTLineariser(benchmarkName : String,
                     status : String,
                     constsToDeclare : Seq[ConstantTerm],
                     predsToDeclare : Seq[Predicate],
-                    funPrefix : String, predPrefix : String, constPrefix : String) {
+                    funPrefix : String, predPrefix : String, constPrefix : String,
+                    constantType :
+                           ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
+                    functionType :
+                           IFunction => Option[SMTParser2InputAbsy.SMTFunctionType]) {
 
-  import SMTLineariser.{quoteIdentifier, toSMTExpr}
+  import SMTLineariser.{quoteIdentifier, toSMTExpr, trueConstant, falseConstant}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -186,11 +213,64 @@ class SMTLineariser(benchmarkName : String,
   private case class PrintContext(vars : List[String]) {
     def pushVar(name : String) = PrintContext(name :: vars)
   }
+
+  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTFunctionType}
+
+  private def getTermType(t : ITerm) : Option[SMTType] = t match {
+    case IFunApp(SimpleArray.Select(), args) =>
+      for (SMTArray(_, res) <- getTermType(args.head)) yield res
+    case IFunApp(SimpleArray.Store(), args) =>
+      getTermType(args.head)
+    case IFunApp(f, _) =>
+      for (SMTFunctionType(_, res) <- functionType(f)) yield res
+    case IConstant(c) => constantType(c)
+    case _ => None
+  }
+
+  private def getArgTypes(t : IFunApp) : Option[Seq[SMTType]] = {
+    val IFunApp(fun, args) = t
+    fun match {
+      case SimpleArray.Select() =>
+        for (s@SMTArray(argTypes, _) <- getTermType(args.head))
+        yield (s :: argTypes)
+      case SimpleArray.Store() =>
+        for (s@SMTArray(argTypes, resType) <- getTermType(args.head))
+        yield (s :: argTypes ::: List(resType))
+      case fun =>
+        for (SMTFunctionType(argTypes, _) <- functionType(fun)) yield argTypes
+    }
+  }
+
+  private object BooleanTerm {
+    def unapply(t : IExpression) : Option[ITerm] = t match {
+      case t@IFunApp(f, _)
+        if (functionType(f) match {
+              case Some(SMTFunctionType(_, SMTBool)) => true
+              case _ => false
+            }) =>
+        Some(t)
+      case t : ITerm if (getTermType(t) == Some(SMTBool)) =>
+        Some(t)
+      case _ =>
+        None
+    }
+  }
   
+  //////////////////////////////////////////////////////////////////////////////
+
   private object AbsyPrinter extends CollectingVisitor[PrintContext, Unit] {
     
     override def preVisit(t : IExpression,
                           ctxt : PrintContext) : PreVisitResult = t match {
+      // Terms with Boolean type, which were encoded as integer terms
+      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
+        // strip off the integer encoding
+        TryAgain(t, ctxt)
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
+        // strip off the integer encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+
       // Terms
       case IConstant(c) => {
         print(const2Identifier(c) + " ")
@@ -212,9 +292,31 @@ class SMTLineariser(benchmarkName : String,
         print(ctxt.vars(index) + " ")
         ShortCutResult()
       }
-      case IFunApp(fun, args) => {
-        print((if (args.isEmpty) "" else "(") + fun2Identifier(fun) + " ")
-        KeepArg
+      case t@IFunApp(fun, args) => {
+        // check if any Boolean arguments have to be decoded
+        var changed = false
+        val newArgs = getArgTypes(t) match {
+          case Some(argTypes) =>
+            (for (p <- args.iterator zip argTypes.iterator) yield p match {
+               case (IIntLit(IdealInt.ZERO), SMTBool) => {
+                 changed = true
+                 trueConstant
+               }                
+               case (IIntLit(v), SMTBool) if (!v.isZero) => {
+                 changed = true
+                 falseConstant
+               }
+               case (t, _) => t
+             }).toList
+          case _ => args
+        }
+
+        if (changed) {
+          TryAgain(IFunApp(fun, newArgs), ctxt)
+        } else {
+          print((if (args.isEmpty) "" else "(") + fun2Identifier(fun) + " ")
+          KeepArg
+        }
       }
 
       case _ : ITermITE | _ : IFormulaITE => {

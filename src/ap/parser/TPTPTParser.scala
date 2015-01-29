@@ -191,12 +191,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
    */
   private var functionalityAxiom = true
 
-  protected def defaultFunctionType(f : IFunction) : Rank = tptpType match {
+/*  protected def defaultFunctionType(f : IFunction) : Rank = tptpType match {
     case TPTPType.FOF | TPTPType.CNF =>
       Rank(((for (_ <- 0 until f.arity) yield IType).toList, IType))
     case TPTPType.TFF =>
       Rank(((for (_ <- 0 until f.arity) yield IntType).toList, IntType))
-  }
+  } */
 
   private val arithmeticPreds = Set(
     "$less",

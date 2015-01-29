@@ -117,8 +117,6 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
     (completeFor, interSpecs, genSignature(completeFor))
   }
 
-  protected def defaultFunctionType(f : IFunction) : Unit = ()
-
   //////////////////////////////////////////////////////////////////////////////
   
   protected def translateProblem(api : API) : IFormula = api match {

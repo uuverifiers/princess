@@ -231,8 +231,6 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
   protected def addAxiom(f : IFormula) : Unit = (axioms = f :: axioms)
   protected def getAxioms : IFormula = connect(axioms, IBinJunctor.And)
   
-  protected def defaultFunctionType(f : IFunction) : FT
-
   protected lazy val mulTheory : MulTheory =
     Param.MUL_PROCEDURE(settings) match {
       case Param.MulProcedure.BitShift => ap.theories.BitShiftMultiplication

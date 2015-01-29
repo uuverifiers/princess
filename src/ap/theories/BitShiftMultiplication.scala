@@ -41,6 +41,18 @@ trait MulTheory extends Theory {
   val mul : IFunction
 
   /**
+   * Extractor recognising the <code>mul</code> function of
+   * any multiplication theory.
+   */
+  object Mul {
+    def unapply(fun : IFunction) : Boolean =
+      (TheoryRegistry lookupSymbol fun) match {
+        case Some(t : MulTheory) => fun == t.mul
+        case _ => false
+      }
+  }
+
+  /**
    * Multiply two terms, using the <code>mul</code> function if necessary;
    * if any of the two terms is constant, normal Presburger
    * multiplication will be used.
