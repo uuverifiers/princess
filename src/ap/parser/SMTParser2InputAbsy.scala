@@ -239,11 +239,13 @@ object SMTParser2InputAbsy {
   
   //////////////////////////////////////////////////////////////////////////////
 
+/*
   private val badStringChar = """[^a-zA-Z_0-9']""".r
   
   private def sanitise(s : String) : String =
     badStringChar.replaceAllIn(s, (m : scala.util.matching.Regex.Match) =>
                                        ('a' + (m.toString()(0) % 26)).toChar.toString)
+ */
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -266,9 +268,11 @@ object SMTParser2InputAbsy {
   
   def asString(s : Symbol) : String = s match {
     case s : NormalSymbol =>
-      sanitise(s.normalsymbolt_)
+//      sanitise(s.normalsymbolt_)
+      s.normalsymbolt_
     case s : QuotedSymbol =>
-      sanitise(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
+//      sanitise(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
+      s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1)
   }
   
   object PlainSymbol {
@@ -1019,29 +1023,36 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case cmd : GetInterpolantsCommand =>
         if (incremental) {
-          val interpolantSpecs =
-            if (cmd.listsexpr_.isEmpty)
-              for (i <- 0 until nextPartitionNumber) yield Set(i)
-            else
-              for (p <- cmd.listsexpr_.toList) yield p match {
-                case p : SymbolSExpr =>
-                  Set(partNameIndexes(env.lookupPartName(printer print p.symbol_)))
-                case p : ParenSExpr
-                    if (!p.listsexpr_.isEmpty &&
-                        (printer print p.listsexpr_.head) == "and") => {
-                  val it = p.listsexpr_.iterator
-                  it.next
-                  (for (s <- it)
-                   yield partNameIndexes(env.lookupPartName(printer print s))).toSet
+          if (genInterpolants) {
+            val interpolantSpecs =
+              if (cmd.listsexpr_.isEmpty)
+                for (i <- 0 until nextPartitionNumber) yield Set(i)
+              else
+                for (p <- cmd.listsexpr_.toList) yield p match {
+                  case p : SymbolSExpr =>
+                    Set(partNameIndexes(
+                          env.lookupPartName(printer print p.symbol_)))
+                  case p : ParenSExpr
+                      if (!p.listsexpr_.isEmpty &&
+                          (printer print p.listsexpr_.head) == "and") => {
+                    val it = p.listsexpr_.iterator
+                    it.next
+                    (for (s <- it)
+                     yield partNameIndexes(
+                             env.lookupPartName(printer print s))).toSet
+                  }
+                  case p =>
+                    throw new Parser2InputAbsy.TranslationException(
+                      "Could not parse interpolation partition: " +
+                      (printer print p))
                 }
-                case p =>
-                  throw new Parser2InputAbsy.TranslationException(
-                    "Could not parse interpolation partition: " + (printer print p))
-              }
-
-          for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
-            SMTLineariser(interpolant)
-            println
+  
+            for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
+              SMTLineariser(interpolant)
+              println
+            }
+          } else {
+            error(":produce-interpolants has to be set before get-interpolants")
           }
         } else {
           genInterpolants = true
@@ -1397,6 +1408,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           case SMTBool => {
             val f = new IFunction(letVarName(name), 1, true, false)
             env.addFunction(f, SMTInteger)
+            if (incremental)
+              prover.addFunction(f, SimpleAPI.FunctionalityMode.None)
             env.pushVar(name, SubstExpression(all((v(0) === 0) ==> (f(v(0)) === 0)),
                                               SMTBool))
             all(ITrigger(List(f(v(0))),

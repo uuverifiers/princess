@@ -36,7 +36,7 @@ import java.io.PrintStream
  */
 object SMTLineariser {
 
-  private val SaneId     = """[_a-zA-Z][_a-zA-Z0-9]*""".r
+  private val SaneId     = """[+-/*=%?!.$_~&^<>@a-zA-Z][+-/*=%?!.$_~&^<>@a-zA-Z0-9]*""".r
   
   def quoteIdentifier(str : String) = str match {
     case SaneId() => str

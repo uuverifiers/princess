@@ -239,6 +239,27 @@ Warning: accepting command echo, which is not SMT-LIB 2
 (<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
 (or (<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) (and (= 0 (+ (- 91) resm10 ) ) (= 0 (+ xm6 (* (- 1) resm5 ) ) ) ) ) 
 (<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) 
+Loading LockingExample.bpl.smt2 ...
+Warning: accepting command echo, which is not SMT-LIB 2
+begin unification
+sat
+end unification
+starting trace check
+unsat
+unsat
+unsat
+unsat
+unsat
+unsat
+unsat
+unsat
+unsat
+true
+true
+(= 0 (+ lockingEx_auld_2 (* (- 1) lockingEx_new_-1 ) ) ) 
+false
+false
+finished trace check
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
 Preprocessing ...
 Proving ...

@@ -23,7 +23,7 @@ TESTS="bignum_quant.smt2 \
 $PRI "$@" $TESTS
 
 TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
-       named-interpolation.smt2"
+       named-interpolation.smt2 LockingExample.bpl.smt2"
 
 $PRI "$@" +incremental $TESTS
 
