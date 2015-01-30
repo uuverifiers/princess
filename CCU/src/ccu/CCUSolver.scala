@@ -288,6 +288,7 @@ abstract class CCUSolver[TERM, FUNC] {
       termSet += r
     }
     
+
     val terms = termSet.toList
 
     // TODO: optimize such that each table has its own bits
