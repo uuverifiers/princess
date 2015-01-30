@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -138,43 +138,46 @@ object IterativeClauseMatcher {
           if (!newEqs.isFalse) {
             val allOriConstants =
               UnionSet(originatingConstants, originalClause.constants)
-            if (logger.isLogging) {
-              // If we are logging, we avoid simplifications (which would not
-              // be captured in the proof) and rather just substitute terms for
-              // the quantified variables. Hopefully this is possible ...
-              
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              // Currently, we just assume that all leading quantifiers are
-              // existential (is the other case possible at all?)
-              Debug.assertInt(IterativeClauseMatcher.AC,
-                              quans forall (Quantifier.EX == _))
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              
-              val reducer = ReduceWithEqs(newEqs, order)
-              val instanceTerms =
-                (for (i <- 0 until quans.size)
-                 yield reducer(LinearCombination(VariableTerm(i), order))).toList
 
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              Debug.assertInt(IterativeClauseMatcher.AC,
-                              instanceTerms forall (_.variables.isEmpty))
-              //-END-ASSERTION-/////////////////////////////////////////////////
+            val newAC = arithConj.updatePositiveEqs(newEqs)(order)
+            val reducedInstance = 
+              contextReducer(Conjunction(quans, newAC, remainingLits,
+                                         negConjs, order))
 
-              val instance = originalClause.instantiate(instanceTerms)(order)
-              if (!contextReducer(instance).isFalse &&
-                  isNotRedundant(instance, allOriConstants)) {
-                logger.groundInstantiateQuantifier(originalClause.negate,
-                                                   instanceTerms, instance.negate, order)
-                instances += instance
+            if (!reducedInstance.isFalse) {
+              if (logger.isLogging) {
+                // If we are logging, we avoid simplifications (which would not
+                // be captured in the proof) and rather just substitute terms for
+                // the quantified variables. Hopefully this is possible ...
+                
+                //-BEGIN-ASSERTION-///////////////////////////////////////////////
+                // Currently, we just assume that all leading quantifiers are
+                // existential (is the other case possible at all?)
+                Debug.assertInt(IterativeClauseMatcher.AC,
+                                quans forall (Quantifier.EX == _))
+                //-END-ASSERTION-/////////////////////////////////////////////////
+                
+                val reducer = ReduceWithEqs(newEqs, order)
+                val instanceTerms =
+                  (for (i <- 0 until quans.size)
+                   yield reducer(LinearCombination(VariableTerm(i), order))).toList
+  
+                //-BEGIN-ASSERTION-///////////////////////////////////////////////
+                Debug.assertInt(IterativeClauseMatcher.AC,
+                                instanceTerms forall (_.variables.isEmpty))
+                //-END-ASSERTION-/////////////////////////////////////////////////
+  
+                val instance = originalClause.instantiate(instanceTerms)(order)
+                  if (isNotRedundant(instance, allOriConstants)) {
+                  logger.groundInstantiateQuantifier(originalClause.negate,
+                                                     instanceTerms, instance.negate, order)
+                  instances += instance
+                }
+                
+              } else {
+                if (isNotRedundant(reducedInstance, allOriConstants))
+                  instances += reducedInstance
               }
-              
-            } else {
-              val newAC = arithConj.updatePositiveEqs(newEqs)(order)
-              val reducedInstance = 
-                contextReducer(Conjunction(quans, newAC, remainingLits,
-                                           negConjs, order))
-              if (isNotRedundant(reducedInstance, allOriConstants))
-                instances += reducedInstance
             }
           }
           

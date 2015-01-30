@@ -29,6 +29,12 @@ $PRI "$@" $TESTS
 
 # Some examples that need special settings.
 
+# Examples where -genTotalityAxioms is needed
+
+TESTS="function-bug.smt2 function-bug2.smt2"
+
+$PRI "$@" -genTotalityAxioms $TESTS
+
 # Testing some large examples for which we have to switch off assertions
 
 TESTS="prp-2-17.pri prp-3-18.pri"

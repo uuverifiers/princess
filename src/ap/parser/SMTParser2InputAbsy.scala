@@ -964,29 +964,35 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
-        val expressions = cmd.listterm_.toList
+        prover.getStatus(false) match {
+          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid => {
+            val expressions = cmd.listterm_.toList
 
-        var unsupportedType = false
-        val values = for (expr <- expressions) yield
-          translateTerm(expr, 0) match {
-            case p@(_, SMTBool) =>
-              (prover eval asFormula(p)).toString
-            case p@(_, SMTInteger) =>
-              SMTLineariser toSMTExpr (prover eval asTerm(p))
-            case (_, _) => {
-              unsupportedType = true
-              ""
+            var unsupportedType = false
+            val values = for (expr <- expressions) yield
+              translateTerm(expr, 0) match {
+                case p@(_, SMTBool) =>
+                  (prover eval asFormula(p)).toString
+                case p@(_, SMTInteger) =>
+                  SMTLineariser toSMTExpr (prover eval asTerm(p))
+                case (_, _) => {
+                  unsupportedType = true
+                  ""
+                }
+              }
+            
+            if (unsupportedType) {
+              error("cannot print values of this type yet")
+            } else {
+              println("(" +
+                (for ((e, v) <- expressions.iterator zip values.iterator)
+                 yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
+                ")")
             }
           }
-        
-        if (unsupportedType) {
-          Console.err.println("Cannot print values of this type yet")
-          println("error")
-        } else {
-          println("(" +
-                  (for ((e, v) <- expressions.iterator zip values.iterator)
-                   yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
-                  ")")
+
+          case _ =>
+            error("no model available")
         }
       }
 
