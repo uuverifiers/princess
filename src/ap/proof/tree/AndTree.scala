@@ -215,6 +215,8 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
     case (false, false) => false
     }
 
+  lazy val goalCount : Int = left.goalCount + right.goalCount
+
   def update(newSubtrees : Seq[ProofTree]) : ProofTree =
     AndTree(newSubtrees, vocabulary, partialCertificate, simplifier)
 

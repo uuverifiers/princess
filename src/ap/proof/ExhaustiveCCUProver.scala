@@ -193,6 +193,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
      println(goalNum(tree))
      println  */
             println("applying rule ...")
+//println("Unsat goals: " + tree.ccMinUnsolvableGoalSet)
         val (newTree, newCont) = expandProofGoals(tree)
         tree = newTree
         cont = newCont
@@ -216,6 +217,10 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Expand the proof depth-first until the root constraint is satisfiable
+   * (or until <code>stoppingCond</code> returns <code>true</code>).
+   */
   private def expandDepthFirstUntilSat(tree : ProofTree,
                                        signature : Signature,
                                        depth : Int)
@@ -286,116 +291,6 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Expand the proof depth-first until the root constraint is satisfiable
-   * (or until <code>stoppingCond</code> returns <code>true</code>).
-   * The result is a pair consisting of the new proof tree and a boolean
-   * that tells whether it was possible to apply any steps. The argument
-   * <code>underConstraintWeakener</code> tells whether <code>tree</code> is
-   * underneath a <code>QuantifiedTree</code> or <code>WeakenTree</code> node.
-   */
-  private def expandDepthFirstUntilSatX(tree : ProofTree,
-                                       underConstraintWeakener : Boolean,
-                                       signature : Signature,
-                                       swpBefore : Boolean)
-                                                       : (ProofTree, Boolean) = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    // if there are free constants, we have to expand in a fair manner
-//    Debug.assertPre(ExhaustiveCCUProver.AC, tree.constantFreedom.isBottom)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    if (Timeout.unfinishedValue(tree) {
-          continueProving(tree, underConstraintWeakener, signature)
-        })
-      tree match {
-      case _ if (isGoalLike(tree) /* ||
-                 tree.subtrees.exists((subtree) =>
-                                      !subtree.constantFreedom.isBottom) */) => {
-        // we always consider the goal together with the enclosing universal
-        // quantifiers
-        val (newTree, swp) =
-          Timeout.unfinishedValue(tree) {
-// println("Before:")
-// println(tree)
-val res =            expandProofGoals(tree)
-// println("After:")
-// println(res)
-
-res
-          }
-        
-        if (swp) {
-          // recurse because the structure of the tree might have changed
-          expandDepthFirstUntilSatX(newTree, underConstraintWeakener, signature, true)
-        } else {
-          // we continue in a fair manner
-          expandFairUntilSat(newTree, underConstraintWeakener, signature, swpBefore)
-        }
-      }
-      
-      case goal : Goal => {
-        val goalOneStep = Timeout.unfinishedValue(goal) { goal step ptf }
-        expandDepthFirstUntilSatX(goalOneStep, underConstraintWeakener, signature, true)
-      }
-      
-      case tree : ProofTreeOneChild => {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(ExhaustiveCCUProver.AC,
-                        tree.isInstanceOf[QuantifiedTree] ||
-                        tree.isInstanceOf[WeakenTree])
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        val (newSubtree, swp) =
-          Timeout.unfinished {
-            expandDepthFirstUntilSatX(tree.subtree, true, signature, false)
-          } {
-            case lastTree : ProofTree =>
-              tree.update(lastTree, ConstantFreedom.BOTTOM)
-          }
-        val newTree = tree.update(newSubtree, ConstantFreedom.BOTTOM)
-        
-        if (swp) {
-          // recurse because the structure of the tree might have changed
-          expandDepthFirstUntilSatX(newTree, underConstraintWeakener, signature, true)
-        } else {
-          // we continue in a fair manner
-          expandFairUntilSat(newTree, underConstraintWeakener, signature, swpBefore)
-        }        
-      }
-      
-      case tree : AndTree => {
-        val (newLeft, leftSWP) =
-          Timeout.unfinished {
-            expandDepthFirstUntilSatX(tree.left, underConstraintWeakener, signature, false)
-          } {
-            case lastTree : ProofTree =>
-              tree.update(lastTree, tree.right, ConstantFreedom.BOTTOM)
-          }
-        val (newRight, rightSWP) =
-          Timeout.unfinished {
-            expandDepthFirstUntilSatX(tree.right, underConstraintWeakener, signature, false)
-          } {
-            case lastTree : ProofTree =>
-              tree.update(newLeft, lastTree, ConstantFreedom.BOTTOM)
-          }
-        
-        val newTree = tree.update(newLeft, newRight, ConstantFreedom.BOTTOM)
-        
-        if (leftSWP || rightSWP) {
-          // recurse because the structure of the tree might have changed
-          expandDepthFirstUntilSatX(newTree, underConstraintWeakener, signature, true)
-        } else {
-          // we continue in a fair manner
-          expandFairUntilSat(newTree, underConstraintWeakener, signature, swpBefore)
-        }
-      }
-    } else {
-      // otherwise, the tree is already satisfiable (or at least the constraint
-      // is not false .. TODO) or no more steps are possible
-      (tree, swpBefore)
-    }
-  }
-  
-  //////////////////////////////////////////////////////////////////////////////
-
   private object PrefixedTree {
     def unapply(t : ProofTree) : Option[(ProofTree => ProofTree, ProofTree)] = {
       var subtree : ProofTree = t
@@ -435,14 +330,6 @@ res
         else
           (tree, false)
 
-/*      
-      case tree : ProofTreeOneChild => {
-        val (newSubtree, stepWasPossible) =
-          expandProofGoals(tree.subtree)
-        (tree.update(newSubtree, tree.constantFreedom), stepWasPossible)
-      }
-  */
-    
       case PrefixedTree(prefix, tree : AndTree) => {
         val (newLeft, leftSWP) = expandProofGoals(tree.left)
         val (newRight, rightSWP) = expandProofGoals(tree.right)
@@ -454,9 +341,39 @@ res
       (tree, false)
     }
    
-   private def goalNum(tree : ProofTree) : Int = tree match {
-     case g : Goal => if (g.closingConstraint.isTrue) 0 else 1
-     case t : ProofTreeOneChild => goalNum(t.subtree)
-     case t : AndTree => goalNum(t.left) + goalNum(t.right)
-   }
+  private def expandProofGoalsSelectively
+                 (tree : ProofTree,
+                  goals : Set[Int],
+                  oldStartIndex : Int,
+                  newStartIndex : Int)
+                : (ProofTree, Boolean, Int, Int, Seq[(Int, Int)]) =
+    tree match {
+      
+      case PrefixedTree(prefix, goal : Goal) =>
+        if (goal.stepPossible && (goals contains oldStartIndex)) {
+          val newTree = prefix(goal.step(ptf))
+          val goalIndexMap =
+            (for (i <- 0 until newTree.goalCount)
+             yield (oldStartIndex, newStartIndex + i)).toList
+          (newTree, true,
+           oldStartIndex + 1, newStartIndex + newTree.goalCount, goalIndexMap)
+        } else {
+          (tree, false,
+           oldStartIndex + 1, newStartIndex + 1,
+           List((oldStartIndex, newStartIndex)))
+        }
+
+      case PrefixedTree(prefix, tree : AndTree) => {
+        val (newLeft, leftSWP, oldStartIndex2, newStartIndex2, mapLeft) =
+          expandProofGoalsSelectively(tree.left, goals,
+                                      oldStartIndex, newStartIndex)
+        val (newRight, rightSWP, oldStartIndex3, newStartIndex3, mapRight) =
+          expandProofGoalsSelectively(tree.right, goals,
+                                      oldStartIndex2, newStartIndex2)
+        (prefix(tree.update(newLeft, newRight, tree.constantFreedom)),
+         leftSWP || rightSWP,
+         oldStartIndex3, newStartIndex3, mapLeft ++ mapRight)
+      }
+    }
+      
 }

@@ -55,6 +55,8 @@ trait ProofTreeOneChild extends ProofTree {
 
   lazy val stepPossible : Boolean = subtree.stepPossible
 
+  lazy val goalCount : Int = subtree.goalCount
+
   /**
    * Replace the subtree and the constant freedom status with new values.
    */

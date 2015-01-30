@@ -260,6 +260,8 @@ class Goal private (val facts : Conjunction,
     })
     
   private def arithClauses : NegatedConjunctions = compoundFormulas.qfClauses
+
+  val goalCount : Int = 1
   
   /**
    * In case the goal contains predicate literals, it might not be possible to
