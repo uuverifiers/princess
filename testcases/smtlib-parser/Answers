@@ -274,6 +274,17 @@ unsat
 (select ar proc_x_0 ) 
 unsat
 (and proc_x_0_2 (select ar true ) ) 
+unsat
+(and (not proc_x_0_2 ) (select ar false ) ) 
+Loading Typedef-safe.bpl.smt2 ...
+success
+success
+success
+success
+success
+success
+success
+unsupported
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
 Preprocessing ...
 Proving ...

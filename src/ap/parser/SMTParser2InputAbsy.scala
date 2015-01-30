@@ -755,7 +755,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-//      case cmd : SortDeclCommand =>
+      case cmd : SortDeclCommand if (incremental) =>
+        unsupported
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -934,9 +935,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : CheckSatCommand => if (incremental) {
-        prover.checkSat(false)
-
-        var res = SimpleAPI.ProverStatus.Running
+        var res = prover.checkSat(false)
         while (res == SimpleAPI.ProverStatus.Running) {
           if (timeoutChecker()) {
             println("unknown")

@@ -266,8 +266,13 @@ class SMTLineariser(benchmarkName : String,
       case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
         // strip off the integer encoding
         TryAgain(t, ctxt)
+
       case IIntFormula(IIntRelation.EqZero,
                        IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
+        // strip off the integer encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
         // strip off the integer encoding
         TryAgain(!IExpression.eqZero(t), ctxt)
 
