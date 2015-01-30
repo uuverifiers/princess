@@ -32,6 +32,8 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Seqs}
 
 import ccu.CCUSolver
+import ccu.LazySolver
+import ccu.TableSolver
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  Map => MMap, LinkedHashMap}
@@ -39,7 +41,7 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
 object ProofTree {
   
   private val AC = Debug.AC_PROOF_TREE
-  private val CCUSolver = new CCUSolver[ConstantTerm, Predicate]
+  private val CCUSolver = new LazySolver[ConstantTerm, Predicate]
   
 }
 
@@ -351,10 +353,13 @@ trait ProofTree {
 
     ap.util.Timer.measure("CCUSolver") {  
     // val solver = new CCUSolver[ConstantTerm, Predicate]
-Console.withOut(ap.CmdlMain.NullStream) {
-    (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
-        allDomains.toMap,
-        goals, funApps)).isDefined }
+// Console.withOut(ap.CmdlMain.NullStream) {
+//     (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
+//         allDomains.toMap,
+//         goals, funApps)).isDefined }
+      ProofTree.CCUSolver.createProblem(allDomains.toMap, goals, funApps)
+
+      ProofTree.CCUSolver.solve() == ccu.Result.SAT
     }
   }
 
