@@ -60,6 +60,7 @@ object SMTLineariser {
 
   private val trueConstant  = IConstant(new ConstantTerm("true"))
   private val falseConstant = IConstant(new ConstantTerm("false"))
+  private val eqPredicate   = new Predicate ("=", 2)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -149,7 +150,8 @@ class SMTLineariser(benchmarkName : String,
                     functionType :
                            IFunction => Option[SMTParser2InputAbsy.SMTFunctionType]) {
 
-  import SMTLineariser.{quoteIdentifier, toSMTExpr, trueConstant, falseConstant}
+  import SMTLineariser.{quoteIdentifier, toSMTExpr,
+                        trueConstant, falseConstant, eqPredicate}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -348,6 +350,9 @@ class SMTLineariser(benchmarkName : String,
         print(value + " ")
         ShortCutResult()
       }
+      case IExpression.Eq(s, t) =>
+        // rewrite to a proper equation
+        TryAgain(IAtom(eqPredicate, List(s, t)), ctxt)
       case IIntFormula(rel, _) => {
         print("(")
         print(rel match {

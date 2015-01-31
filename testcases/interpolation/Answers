@@ -501,9 +501,9 @@ Found proof (size 26), simplifying (30), interpolating ...
 unsat
 
 Interpolants:
-(or (= 0 (+ (- 23) (select a_0 ULTIMATE.start_i_-1 ) ) ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= 0 (+ 1 (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) ) ) ) (= 0 (+ (- 23) (select a_0 upper_-1 ) ) ) ) ) ) 
-(or (= 0 (+ (- 23) (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) ) ) (= 0 (+ (- 23) (select a_0 ULTIMATE.start_i_-1 ) ) ) ) 
-(= 0 (+ (- 23) (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) ) ) 
+(or (= (select a_0 ULTIMATE.start_i_-1 ) 23 ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) (- 1) ) ) (= (select a_0 upper_-1 ) 23 ) ) ) ) 
+(or (= (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) (= (select a_0 ULTIMATE.start_i_-1 ) 23 ) ) 
+(= (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) 
 
 Loading function-bug2.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -515,9 +515,9 @@ Found proof (size 25), simplifying (29), interpolating ...
 unsat
 
 Interpolants:
-(or (= 0 (+ (- 23) (f ULTIMATE.start_i_-1 ) ) ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= 0 (+ 1 (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) ) ) ) (= 0 (+ (- 23) (f upper_-1 ) ) ) ) ) ) 
-(or (= 0 (+ (- 23) (f (+ 1 ULTIMATE.start_i_-1 ) ) ) ) (= 0 (+ (- 23) (f ULTIMATE.start_i_-1 ) ) ) ) 
-(= 0 (+ (- 23) (f (+ 1 ULTIMATE.start_i_-1 ) ) ) ) 
+(or (= (f ULTIMATE.start_i_-1 ) 23 ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) (- 1) ) ) (= (f upper_-1 ) 23 ) ) ) ) 
+(or (= (f (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) (= (f ULTIMATE.start_i_-1 ) 23 ) ) 
+(= (f (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) 
 
 Loading prp-2-17.pri ...
 Preprocessing ...

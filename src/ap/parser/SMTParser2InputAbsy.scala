@@ -31,7 +31,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
 import ap.theories.SimpleArray
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, IdealRat}
 import smtlib._
 import smtlib.Absyn._
 
@@ -442,7 +442,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         input.close
       }
       case e : Exception =>
-        e.printStackTrace
+//        e.printStackTrace
         throw new ParseException(
              "At line " + String.valueOf(l.line_num()) +
              ", near \"" + l.buff() + "\" :" +
@@ -639,6 +639,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       super.addAxiom(f)
     }
 
+  private def addConstant(c : ConstantTerm, cType : SMTType) : Unit = {
+    env.addConstant(c, Environment.NullaryFunction, cType)
+    if (incremental)
+      prover.addConstantRaw(c)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val printer = new PrettyPrinterNonStatic
@@ -805,10 +811,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           }
         } else if (res != SMTBool) {
           // use a constant
-          val c = new ConstantTerm(name)
-          env.addConstant(c, Environment.NullaryFunction, res)
-          if (incremental)
-            prover.addConstantRaw(c)
+          addConstant(new ConstantTerm(name), res)
         } else {
           // use a nullary predicate (propositional variable)
           val p = new Predicate(name, 0)
@@ -835,10 +838,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         if (res != SMTBool) {
           // use a constant
-          val c = new ConstantTerm(name)
-          env.addConstant(c, Environment.NullaryFunction, res)
-          if (incremental)
-            prover.addConstantRaw(c)
+          addConstant(new ConstantTerm(name), res)
         } else {
           // use a nullary predicate (propositional variable)
           val p = new Predicate(name, 0)
@@ -1020,28 +1020,35 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           getModelWarning = true
         }
 
-        val model = prover.partialModel
+        prover.getStatus(false) match {
+          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid => {
+            val model = prover.partialModel
 
-        for ((SimpleAPI.ConstantLoc(c), SimpleAPI.IntValue(value)) <-
-               model.interpretation.iterator)
-          println("(define-fun " + c + " () Int " +
-                  (SMTLineariser toSMTExpr value) +
-                  ")")
-        for ((SimpleAPI.PredicateLoc(p, Seq()), SimpleAPI.BoolValue(value)) <-
-               model.interpretation.iterator)
-          println("(define-fun " + p.name + " () Bool " + value + ")")
+            for ((SimpleAPI.ConstantLoc(c), SimpleAPI.IntValue(value)) <-
+                   model.interpretation.iterator)
+              println("(define-fun " + (SMTLineariser quoteIdentifier c.name) +
+                      " () Int " + (SMTLineariser toSMTExpr value) + ")")
+            for ((SimpleAPI.PredicateLoc(p, Seq()), SimpleAPI.BoolValue(value)) <-
+                   model.interpretation.iterator)
+              println("(define-fun " + (SMTLineariser quoteIdentifier p.name) +
+                      " () Bool " + value + ")")
 
 /*
-        val funValues =
-          (for ((SimpleAPI.IntFunctionLoc(f, args), value) <-
-                  model.interpretation.iterator)
-           yield (f, args, value)).toSeq.groupBy(_._1)
-        for ((f, triplets) <- funValues) {
-          print("(define-fun " + f.name + " (" +
-                (for (i <- 0 until f.arity) yield ("x" + i + " Int")).mkString(" ") +
-                ") Int ")
-        }
+            val funValues =
+              (for ((SimpleAPI.IntFunctionLoc(f, args), value) <-
+                      model.interpretation.iterator)
+               yield (f, args, value)).toSeq.groupBy(_._1)
+            for ((f, triplets) <- funValues) {
+              print("(define-fun " + f.name + " (" +
+                    (for (i <- 0 until f.arity) yield ("x" + i + " Int")).mkString(" ") +
+                    ") Int ")
+            }
  */
+          }
+
+          case _ =>
+            error("no model available")
+        }
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -1444,10 +1451,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           }
           case exprType => {
             val c = new ConstantTerm(letVarName(name))
-            env.addConstant(c, Environment.NullaryFunction, exprType)
+            addConstant(c, exprType)
             env.pushVar(name, SubstExpression(c, exprType))
-            if (incremental)
-              prover.addConstantRaw(c)
             c === asTerm((s, t))
           }
         })
@@ -1827,6 +1832,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (i(IdealInt(c.hexadecimal_ substring 2, 16)), SMTInteger)
     case c : BinConstant =>
       (i(IdealInt(c.binary_ substring 2, 2)), SMTInteger)
+
+    case c : RatConstant => {
+      val v = IdealRat(c.rational_)
+      if (v.denom.isOne) {
+        warn("mapping rational literal " + c.rational_ + " to an integer literal")
+        (i(v.num), SMTInteger)
+      } else {
+        warn("mapping rational literal " + c.rational_ + " to an integer constant")
+        val const = new ConstantTerm("rat_" + c.rational_)
+        addConstant(const, SMTInteger)
+        (const, SMTInteger)
+      }
+    }
   }
   
   private def translateChainablePred(args : Seq[Term],
