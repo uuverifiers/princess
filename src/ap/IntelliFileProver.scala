@@ -148,11 +148,7 @@ class IntelliFileProver(reader : java.io.Reader,
       case _ => TimeoutCounterModel
     }
 
-  val result : Prover.Result =
-    // try to construct a proof
-    proofResult
-
-  lazy val resultX : Prover.Result = {
+  val result : Prover.Result = {
     val constants =
       Set() ++ (for (f <- formulas.iterator; c <- f.constants.iterator) yield c)
     val quantifiers =
@@ -179,13 +175,13 @@ class IntelliFileProver(reader : java.io.Reader,
     if ((formulas exists (_.isTrue)) || canUseModelSearchProver) {
       // try to find a countermodel
       counterModelResult
-    } else if (!Param.MOST_GENERAL_CONSTRAINT(settings) &&
+    } else /* if (!Param.MOST_GENERAL_CONSTRAINT(settings) &&
                (constants subsetOf signature.existentialConstants) &&
                (formulas forall ((f) => f.predicates.isEmpty)) &&
                (quantifiers subsetOf Set(Quantifier.EX))) {
       // try to find a model
       modelResult
-    } else {
+    } else */ {
       // try to construct a proof
       proofResult
     }

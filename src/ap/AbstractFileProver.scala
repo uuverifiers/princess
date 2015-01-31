@@ -187,6 +187,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   protected val goalSettings = {
     var gs = settings.toGoalSettings
+
+    gs = Param.ASSUME_INFINITE_DOMAIN.set(gs, false)
+
     gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
     gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
@@ -197,8 +200,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, plugins.headOption)
-    gs = Param.POS_UNIT_RESOLUTION_METHOD.set(gs,
-                   Param.PosUnitResolutionMethod.NonUnifying)
     gs
   }
   

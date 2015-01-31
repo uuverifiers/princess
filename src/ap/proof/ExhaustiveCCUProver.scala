@@ -29,6 +29,8 @@ import ap.util.{Logic, Debug, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 
+import scala.collection.mutable.Stack
+
 object ExhaustiveCCUProver {
   
   private def AC = Debug.AC_PROVER
@@ -76,7 +78,8 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     var gs = preSettings
     gs = Param.USE_WEAKEN_TREE.set(gs, false)
     gs = Param.FULL_SPLITTING.set(gs, true)
-    gs = Param.ASSUME_INFINITE_DOMAIN.set(gs, false)
+    gs = Param.POS_UNIT_RESOLUTION_METHOD.set(gs,
+                   Param.PosUnitResolutionMethod.NonUnifying)
     gs
   }
 
@@ -181,39 +184,112 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
                                  signature : Signature,
                                  swpBefore : Boolean) : (ProofTree, Boolean) = {
     var tree : ProofTree = _tree
-    var cont : Boolean = true
     var swp : Boolean = swpBefore
+
+
+    println("====== Entering fair expansion")
     
     Timeout.unfinished {
-      // if a timeout occurs, we return the proof tree that has been constructed
-      // up to this point
-      
-      while (cont && continueProving(tree, underConstraintWeakener, signature)) {
+      var cont : Boolean = !tree.ccUnifiable
+      if (cont) {
+        val expansionStack = new Stack[ExpansionStackItem]
+
+        var goalCore : Set[Int] = tree.ccMinUnsolvableGoalSet.toSet
+        if (goalCore.size != tree.goalCount)
+          expansionStack push GoalCoreItem((0 until tree.goalCount).toSet)
+
+        while (cont) {
+
   /*  println(tree)
      println(goalNum(tree))
      println  */
-            println("applying rule ...")
-//println("Unsat goals: " + tree.ccMinUnsolvableGoalSet)
-        val (newTree, newCont) = expandProofGoals(tree)
-        tree = newTree
-        cont = newCont
-        if (newCont) swp = true
+
+          println("expanding goals " + (goalCore mkString " "))
+
+          val (newTree, stepDone, oldEnd, newEnd, goalNumMapping) =
+            expandProofGoalsSelectively(tree, goalCore, 0, 0)
+
+          if (stepDone) {
+            swp = true
+            tree = newTree
+
+println(goalNumMapping.toList)
+
+            val newGoalCore =
+              (for ((a, b) <- goalNumMapping.iterator; if (goalCore contains b))
+               yield a).toSet
+
+            val (unifiable, newMinCore) = tree.goalsAreCCUnifiable(newGoalCore)
+            if (unifiable) {
+
+              // search in the stack for the next group of goals to be
+              // expanded
+              var cumGoalNumMapping = goalNumMapping
+              var cont2 = true
+
+              while (cont2) {
+                if (expansionStack.isEmpty) {
+                  // then the whole subtree must be closable
+                  //-BEGIN-ASSERTION-///////////////////////////////////////////
+                  Debug.assertInt(ExhaustiveCCUProver.AC, tree.ccUnifiable)
+                  //-END-ASSERTION-/////////////////////////////////////////////
+                  cont = false
+                  cont2 = false
+                } else expansionStack.pop match {
+                  case GoalMappingItem(mapping) =>
+                    cumGoalNumMapping = cumGoalNumMapping mapValues mapping
+                  case GoalCoreItem(core) => {
+                    val coreCandidate = (for ((a, b) <- cumGoalNumMapping.iterator;
+                                              if (core contains b))
+                                         yield a).toSet
+                    val (unifiable, newMinCore) =
+                      tree.goalsAreCCUnifiable(coreCandidate)
+                    if (!unifiable) {
+                      cont2 = false
+                      expansionStack push GoalMappingItem(cumGoalNumMapping)
+
+                      goalCore = newMinCore().toSet
+                      if (goalCore != coreCandidate)
+                        expansionStack push GoalCoreItem(coreCandidate)
+                    }
+                  }
+                }
+              }
+
+            } else {
+              if (newGoalCore != goalCore) {
+                expansionStack push GoalMappingItem(goalNumMapping)
+                goalCore = newMinCore().toSet
+
+                if (goalCore.size != newGoalCore.size)
+                  expansionStack push GoalCoreItem(newGoalCore)
+              }
+            }
+
+          } else {
+            cont = false
+          }
+
+          Timeout.check
+        }
       }
-      
+  
     } {
+      // if a timeout occurs, we return the proof tree that has been constructed
+      // up to this point
       case _ => tree
     }
     
+    println("====== Leaving fair expansion")
+
     (tree, swp)
   }
 
-  private def isGoalLike(tree : ProofTree) : Boolean = tree match {
-    case _ : Goal                                                       => true
-    case StrengthenTree(_, _ : Goal)                                    => true
-    case QuantifiedTree(Quantifier.ALL, _, _ : Goal)                    => true
-    case QuantifiedTree(Quantifier.ALL, _, StrengthenTree(_, _ : Goal)) => true
-    case _                                                              => false
-  }
+  private sealed abstract class ExpansionStackItem
+  private case class GoalCoreItem(goalCore : Set[Int])
+               extends ExpansionStackItem
+  private case class GoalMappingItem(mapping : Map[Int, Int])
+               extends ExpansionStackItem
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -346,7 +422,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
                   goals : Set[Int],
                   oldStartIndex : Int,
                   newStartIndex : Int)
-                : (ProofTree, Boolean, Int, Int, Seq[(Int, Int)]) =
+                : (ProofTree, Boolean, Int, Int, Map[Int, Int]) =
     tree match {
       
       case PrefixedTree(prefix, goal : Goal) =>
@@ -354,13 +430,13 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
           val newTree = prefix(goal.step(ptf))
           val goalIndexMap =
             (for (i <- 0 until newTree.goalCount)
-             yield (oldStartIndex, newStartIndex + i)).toList
+             yield (newStartIndex + i, oldStartIndex)).toMap
           (newTree, true,
            oldStartIndex + 1, newStartIndex + newTree.goalCount, goalIndexMap)
         } else {
           (tree, false,
            oldStartIndex + 1, newStartIndex + 1,
-           List((oldStartIndex, newStartIndex)))
+           Map(newStartIndex -> oldStartIndex))
         }
 
       case PrefixedTree(prefix, tree : AndTree) => {
