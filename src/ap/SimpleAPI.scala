@@ -142,7 +142,9 @@ object SimpleAPI {
     val Sat, Unsat, Invalid, Valid, Unknown, Running, Error = Value
   }
 
-  object TimeoutException extends Exception("Timeout during ap.SimpleAPI call")
+  class SimpleAPIException(msg : String) extends Exception(msg)
+
+  object TimeoutException extends SimpleAPIException("Timeout during ap.SimpleAPI call")
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -473,6 +475,7 @@ class SimpleAPI private (enableAssert : Boolean,
     lastPartialModel = null
     currentConstraint = null
     currentCertificate = null
+    currentSimpCertificate = null
     lastStatus = ProverStatus.Sat
     validityMode = false
     proofActorStatus = ProofActorStatus.Init
@@ -1431,6 +1434,12 @@ class SimpleAPI private (enableAssert : Boolean,
 
           case _ =>
             if (needExhaustiveProver) {
+              if (constructProofs)
+                throw new SimpleAPIException(
+                            "Complicated quantifier scheme preventing interpolation.\n" +
+                            "It might be necessary to manually add triggers, or to switch\n" +
+                            "off proof construction and interpolation.")
+
               val completeFor = formulaeInProver match {
                 case List((_, f)) => f
                 case formulae => 
@@ -1558,7 +1567,8 @@ class SimpleAPI private (enableAssert : Boolean,
         case UnsatCertResult(cert) => {
           currentModel = Conjunction.TRUE
           currentConstraint = Conjunction.TRUE
-          currentCertificate = ProofSimplifier(cert)
+          currentCertificate = cert
+          currentSimpCertificate = null
           lastStatus =
             if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
         }
@@ -1668,6 +1678,9 @@ class SimpleAPI private (enableAssert : Boolean,
                         currentCertificate != null)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
   
+    if (currentSimpCertificate == null)
+      currentSimpCertificate = ProofSimplifier(currentCertificate)
+
     val simp = interpolantSimplifier
                         
     for (i <- 1 to (partitions.size - 1)) yield {
@@ -1682,7 +1695,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
       val iContext =
         InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
-      val internalInt = Interpolator(currentCertificate, iContext)
+      val internalInt = Interpolator(currentSimpCertificate, iContext)
 
       val interpolant = Internal2InputAbsy(internalInt, functionEnc.predTranslation)
 
@@ -2099,9 +2112,10 @@ class SimpleAPI private (enableAssert : Boolean,
                 result
               }
               case _ =>
-                throw new Exception ("Model extension failed.\n" +
-                                     "This is probably caused by badly chosen triggers,\n" +
-                                     "preventing complete application of axioms.")
+                throw new SimpleAPIException (
+                            "Model extension failed.\n" +
+                            "This is probably caused by badly chosen triggers,\n" +
+                            "preventing complete application of axioms.")
             }
           }
         
@@ -2134,9 +2148,10 @@ class SimpleAPI private (enableAssert : Boolean,
                 result
               }
               case _ =>
-                throw new Exception ("Model extension failed.\n" +
-                                     "This is probably caused by badly chosen triggers,\n" +
-                                     "preventing complete application of axioms.")
+                throw new SimpleAPIException (
+                            "Model extension failed.\n" +
+                            "This is probably caused by badly chosen triggers,\n" +
+                            "preventing complete application of axioms.")
             }
           }
         
@@ -2409,9 +2424,10 @@ class SimpleAPI private (enableAssert : Boolean,
                 result
               }
               case _ =>
-                throw new Exception ("Model extension failed.\n" +
-                                     "This is probably caused by badly chosen triggers,\n" +
-                                     "preventing complete application of axioms.")
+                throw new SimpleAPIException (
+                            "Model extension failed.\n" +
+                            "This is probably caused by badly chosen triggers,\n" +
+                            "preventing complete application of axioms.")
             }
           }
         }
@@ -2574,6 +2590,7 @@ class SimpleAPI private (enableAssert : Boolean,
     lastPartialModel = null
     currentConstraint = oldConstraint
     currentCertificate = oldCert
+    currentSimpCertificate = null
     proofActorStatus = ProofActorStatus.Init
     theoryPlugin = oldTheoryPlugin
     theoryCollector = oldTheories
@@ -2638,6 +2655,7 @@ class SimpleAPI private (enableAssert : Boolean,
     lastPartialModel = null
     currentConstraint = null
     currentCertificate = null
+    currentSimpCertificate = null
     lastStatus = ProverStatus.Unknown
     decoderDataCache.clear
   }
@@ -2830,6 +2848,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var lastPartialModel : PartialModel = null
   private var currentConstraint : Conjunction = _
   private var currentCertificate : Certificate = _
+  private var currentSimpCertificate : Certificate = _
   private var formulaeInProver : List[(Int, Conjunction)] = List()
   private var currentPartitionNum : Int = -1
   private var constructProofs : Boolean = false
