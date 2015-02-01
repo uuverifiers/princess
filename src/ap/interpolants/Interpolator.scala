@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *                    Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -105,18 +105,21 @@ object Interpolator
                                inferences : List[BranchInference],
                                iContext: InterpolationContext) : Boolean = {
     implicit val o = iContext.order
+
+    def certConj(fors : Iterable[CertFormula]) : Conjunction =
+      conj(for (f <- fors) yield f.toConj)
       
-    if (!isValid((conj(iContext.leftFormulae) &
-                  conj(iContext.commonFormulae)) ==> interpolant) ||
-        !isValid(!(conj(iContext.rightFormulae) &
-                   conj(iContext.commonFormulae) & interpolant))) {
+    if (!isValid((certConj(iContext.leftFormulae) &
+                  certConj(iContext.commonFormulae)) ==> interpolant) ||
+        !isValid(!(certConj(iContext.rightFormulae) &
+                   certConj(iContext.commonFormulae) & interpolant))) {
       println("Incorrect interpolant:")
       println("Certificate: " + certificate)
       println("Leading inferences: " + inferences)
       println("Interpolant: " + interpolant)
       println("Left formulae: " + iContext.leftFormulae)
       println("Right formulae: " + iContext.rightFormulae)
-      println("Partial interpolants: " + iContext.partialInterpolants)
+//      println("Partial interpolants: " + iContext.partialInterpolants)
       false
     } else {
       true
@@ -844,7 +847,11 @@ object Interpolator
                                 yield (-c, iContext getPartialInterpolant eq)) ++
                              List((IdealInt.ONE, modifierPI)),
                              piKind)
-    extractTotalInterpolant(combinedPartialInter, iContext)
+
+//  Quantifiers for alien variables are introduced in
+//  processBranchInferences, in the PredUnifyInference case
+//    extractTotalInterpolant(combinedPartialInter, iContext)
+    combinedPartialInter.toFormula
   }
   
   private def atomsIterator(conj : PredConj,

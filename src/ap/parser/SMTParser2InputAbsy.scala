@@ -106,6 +106,7 @@ object SMTParser2InputAbsy {
     private val RParen : Int     = ')'
     private val Quote : Int      = '"'
     private val Pipe : Int       = '|'
+    private val Semicolon : Int  = ';'
     private val Backslash : Int  = '\\'
 
     private var parenDepth : Int = 0
@@ -133,7 +134,7 @@ object SMTParser2InputAbsy {
               parenDepth = 0
               cbuf(off + read) = RParen.toChar
               read = read + 1
-              state = 4
+              state = 5
             }
             case Quote => {
               cbuf(off + read) = Quote.toChar
@@ -145,10 +146,15 @@ object SMTParser2InputAbsy {
               read = read + 1
               state = 3
             }
+            case Semicolon => {
+              cbuf(off + read) = Semicolon.toChar
+              read = read + 1
+              state = 4
+            }
             case -1 => {
               cbuf(off + read) = LF.toChar
               read = read + 1
-              state = 6
+              state = 7
             }
             case next => {
               cbuf(off + read) = next.toChar
@@ -171,7 +177,7 @@ object SMTParser2InputAbsy {
             case -1 => {
               cbuf(off + read) = LF.toChar
               read = read + 1
-              state = 6
+              state = 7
             }
             case next => {
               cbuf(off + read) = next.toChar
@@ -183,7 +189,7 @@ object SMTParser2InputAbsy {
             case -1 => {
               cbuf(off + read) = LF.toChar
               read = read + 1
-              state = 6
+              state = 7
             }
             case CR => // nothing, read next character
             case next => {
@@ -203,7 +209,7 @@ object SMTParser2InputAbsy {
             case -1 => {
               cbuf(off + read) = LF.toChar
               read = read + 1
-              state = 6
+              state = 7
             }
             case next => {
               cbuf(off + read) = next.toChar
@@ -211,24 +217,42 @@ object SMTParser2InputAbsy {
             }
           }
 
-          case 4 => {
-            cbuf(off + read) = LParen.toChar
-            read = read + 1
-            state = 5
+          case 4 => input.read match {
+            case LF => {
+              cbuf(off + read) = LF.toChar
+              read = read + 1
+              state = 0
+            }
+            case CR => // nothing, read next character
+            case -1 => {
+              cbuf(off + read) = LF.toChar
+              read = read + 1
+              state = 7
+            }
+            case next => {
+              cbuf(off + read) = next.toChar
+              read = read + 1
+            }
           }
 
           case 5 => {
+            cbuf(off + read) = LParen.toChar
+            read = read + 1
+            state = 6
+          }
+
+          case 6 => {
             cbuf(off + read) = RParen.toChar
             read = read + 1
             state = 0
           }
 
-          case 6 => {
+          case 7 => {
             return if (read == 0) -1 else read
           }
         }
 
-        cont = state >= 4 || input.ready
+        cont = state >= 5 || input.ready
       }
 
       read
@@ -236,7 +260,7 @@ object SMTParser2InputAbsy {
    
     def close : Unit = input.close
 
-    override def ready : Boolean = (state >= 4 || input.ready)
+    override def ready : Boolean = (state >= 5 || input.ready)
   
   }
   
