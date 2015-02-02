@@ -77,6 +77,7 @@ object CmdlMain {
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
     println(" [+-]assert                Enable runtime assertions                (default: -)")
     println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
+    println(" -timeoutPer=val           Set a timeout per SMT-LIB query (ms) (default: infty)")
     println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: -)")
     println(" -simplifyConstraints=val  How to simplify constraints:")
     println("                             none:   not at all")
@@ -404,6 +405,7 @@ object CmdlMain {
       val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
       parser.processIncrementally(input,
                                   Param.TIMEOUT(settings),
+                                  Param.TIMEOUT_PER(settings),
                                   userDefStoppingCond)
     }
 

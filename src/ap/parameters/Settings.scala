@@ -93,6 +93,8 @@ object GlobalSettings {
           Param.DNF_CONSTRAINTS.set(settings, value)
         case ValueOpt("timeout", IntVal(value)) =>
           Param.TIMEOUT.set(settings, value)
+        case ValueOpt("timeoutPer", IntVal(value)) =>
+          Param.TIMEOUT_PER.set(settings, value)
         case Opt("posUnitResolution", value) =>
           Param.POS_UNIT_RESOLUTION.set(settings, value)
         case ValueOpt("clausifier", "none") =>
@@ -174,7 +176,8 @@ object GlobalSettings {
          Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
-         Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
+         Param.TIMEOUT, Param.TIMEOUT_PER,
+         Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,

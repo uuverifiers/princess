@@ -445,12 +445,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var timeoutChecker : () => Boolean = () => false
 
   def processIncrementally(input : java.io.Reader,
-                           timeout : Int,
+                           timeout : Int, _timeoutPer : Int,
                            userDefStoppingCond : => Boolean) : Unit = {
     val startTime = System.currentTimeMillis
     timeoutChecker = () => {
       (System.currentTimeMillis - startTime > timeout) || userDefStoppingCond
     }
+
+    timeoutPer = _timeoutPer
 
     val l = new Yylex(new SMTCommandTerminator (input))
     val p = new parser(l) {
@@ -572,6 +574,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    * Set up things for interpolant generation?
    */
   private var genInterpolants = false
+  /**
+   * Timeout per query, in incremental mode
+   */
+  private var timeoutPer = Int.MaxValue
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -705,6 +711,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
   }
 
+  private object NumParameter {
+    def unapply(param : AttrParam) : scala.Option[IdealInt] = param match {
+      case param : SomeAttrParam => param.sexpr_ match {
+        case expr : ConstantSExpr => expr.specconstant_ match {
+          case const : NumConstant => Some(IdealInt(const.numeral_))
+          case _ => None
+        }
+        case _ => None
+      }
+      case _ : NoAttrParam => None
+    }
+  }
+
   private def handleBooleanAnnot(option : String, annot : AttrAnnotation)
                                 (todo : Boolean => Unit) : Boolean =
     if (annot.annotattribute_ == option) {
@@ -714,6 +733,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         case _ =>
           throw new Parser2InputAbsy.TranslationException(
             "Expected a boolean parameter after option " + option)
+      }
+      true
+    } else {
+      false
+    }
+
+  private def handleNumAnnot(option : String, annot : AttrAnnotation)
+                            (todo : IdealInt => Unit) : Boolean =
+    if (annot.annotattribute_ == option) {
+      annot.attrparam_ match {
+        case NumParameter(value) =>
+          todo(value)
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Expected a numeric parameter after option " + option)
       }
       true
     } else {
@@ -766,6 +800,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             if (incremental)
               prover.setConstructProofs(value)
           }
+        } ||
+        handleNumAnnot(":timeout-per", annot) {
+          value => timeoutPer = (value min IdealInt(Int.MaxValue)).intValue
         }
 
         if (handled) {
@@ -959,14 +996,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : CheckSatCommand => if (incremental) {
-        var res = prover.checkSat(false)
+        var res = prover checkSat false
+        val startTime = System.currentTimeMillis
+
         while (res == SimpleAPI.ProverStatus.Running) {
           if (timeoutChecker()) {
             println("unknown")
-            Console.err.println("Timeout occurred")
+            Console.err.println("Global timeout, stopping solver")
             prover.stop
             throw ExitException
           }
+          if ((System.currentTimeMillis - startTime).toInt > timeoutPer)
+            prover.stop
           res = prover.getStatus(100)
         }
         
@@ -975,8 +1016,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             println("sat")
           case SimpleAPI.ProverStatus.Unsat | SimpleAPI.ProverStatus.Valid =>
             println("unsat")
+          case SimpleAPI.ProverStatus.Unknown =>
+            println("unknown")
           case _ =>
-            println("(error)")
+            error("unexpected prover result")
         }
       }
 
