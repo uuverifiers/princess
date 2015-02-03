@@ -1795,6 +1795,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         quan(for (_ <- 0 until arity) yield Quantifier.ALL, matrix)
       }
+
+      case SMTBool =>
+        eqZero(a) <=> eqZero(b)
+
       case _ =>
         a === b
     }
