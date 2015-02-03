@@ -995,7 +995,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : CheckSatCommand => if (incremental) {
+      case cmd : CheckSatCommand => if (incremental) try {
         var res = prover checkSat false
         val startTime = System.currentTimeMillis
 
@@ -1021,6 +1021,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           case _ =>
             error("unexpected prover result")
         }
+      } catch {
+        case e : SimpleAPI.SimpleAPIException =>
+          error(e.getMessage)
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -1652,7 +1655,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            throw new Parser2InputAbsy.TranslationException(
              "Can only compare terms of same type using =")
          connect(for (Seq(a, b) <- (transArgs map (asTerm(_))) sliding 2)
-                   yield (a === b),
+                   yield translateEq(a, b, types.iterator.next, polarity),
                  IBinJunctor.And)
        },
        SMTBool)
@@ -1775,7 +1778,27 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)
   }
-  
+
+  private def translateEq(a : ITerm, b : ITerm, t : SMTType,
+                          polarity : Int) : IFormula =
+    t match {
+      case SMTArray(argTypes, resType) if (polarity > 0) => {
+        val arity = argTypes.size
+        val theory = SimpleArray(arity)
+        val args = (for (n <- 0 until arity) yield v(n))
+        val matrix =
+          translateEq(IFunApp(theory.select,
+                              List(VariableShiftVisitor(a, 0, arity)) ++ args),
+                      IFunApp(theory.select,
+                              List(VariableShiftVisitor(b, 0, arity)) ++ args),
+                      resType, polarity)
+
+        quan(for (_ <- 0 until arity) yield Quantifier.ALL, matrix)
+      }
+      case _ =>
+        a === b
+    }
+
   private def unintFunApp(id : String,
                           sym : SymbolRef, args : Seq[Term], polarity : Int)
                          : (IExpression, SMTType) =

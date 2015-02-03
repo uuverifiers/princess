@@ -25,6 +25,7 @@ package ap.interpolants
 import ap._
 import ap.basetypes.IdealInt
 import ap.parser._
+import ap.theories.SimpleArray
 
 
 /**
@@ -100,16 +101,16 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
   protected override def furtherSimplifications(expr : IExpression) = elimStore(expr)
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Extended version of the InputAbsy simplifier that also rewrites certain
- * array expressions:
- *    \exists int a; x = store(a, b, c)
+ * Even more extended version of the InputAbsy simplifier that also
+ * rewrites certain array expressions:
+ *    \exists int a; (x = store(a, b, c) & phi)
  * is replaced with
- *    select(x, b) = c 
+ *    \exists int d, a; (select(x, b) = c & a = store(x, b, d) & phi)
  */
-class InterpolantSimplifier2(select : IFunction, store : IFunction)
-      extends ap.parser.Simplifier {
+object ArraySimplifier extends ap.parser.Simplifier {
   import IBinJunctor._
   import IIntRelation._
   import IExpression._
@@ -136,31 +137,54 @@ class InterpolantSimplifier2(select : IFunction, store : IFunction)
       case INot(f) =>
         for (res <- translate(f, !negated, depth)) yield INot(res)
 
-      case Eq(IFunApp(`store`, Seq(w@IVariable(`depth`), t1, t2)), ar)
-          if (!negated &&
-              !ContainsSymbol(t1, w) && !ContainsSymbol(t2, w) &&
-              !ContainsSymbol(ar, w)) =>
-        Some(shiftFor(select(ar, t1) === t2) &
-             (w === store(shiftTerm(ar), shiftTerm(t1), v(depth + 1))))
+      case Eq(IFunApp(SimpleArray.Store(),
+                      Seq(w@IVariable(`depth`), args @ _*)), ar)
+          if (!negated && !ContainsSymbol(ar, w) &&
+              (args forall { t => !ContainsSymbol(t, w) })) => {
+        val theory = SimpleArray(args.size - 1)
+        val shiftedAr = shiftTerm(ar)
+        val shiftedArgs = for (t <- args) yield shiftTerm(t)
+        Some((IFunApp(theory.select,
+                      List(shiftedAr) ++ shiftedArgs.init) === shiftedArgs.last) &
+             (IFunApp(theory.store,
+                      List(shiftedAr) ++ shiftedArgs.init ++
+                      List(v(depth + 1))) === w))
+      }
   
-      case Eq(ar, IFunApp(`store`, Seq(w@IVariable(`depth`), t1, t2)))
-          if (!negated &&
-              !ContainsSymbol(t1, w) && !ContainsSymbol(t2, w) &&
-              !ContainsSymbol(ar, w)) =>
-        Some(shiftFor(select(ar, t1) === t2) &
-             (w === store(shiftTerm(ar), shiftTerm(t1), v(depth + 1))))
+      case Eq(ar, IFunApp(SimpleArray.Store(),
+                          Seq(w@IVariable(`depth`), args @ _*)))
+          if (!negated && !ContainsSymbol(ar, w) &&
+              (args forall { t => !ContainsSymbol(t, w) })) => {
+        val theory = SimpleArray(args.size - 1)
+        val shiftedAr = shiftTerm(ar)
+        val shiftedArgs = for (t <- args) yield shiftTerm(t)
+        Some((IFunApp(theory.select,
+                      List(shiftedAr) ++ shiftedArgs.init) === shiftedArgs.last) &
+             (IFunApp(theory.store,
+                      List(shiftedAr) ++ shiftedArgs.init ++
+                      List(v(depth + 1))) === w))
+      }
   
       case _ => None
     }
   }
   
   private def elimStore(expr : IExpression) : IExpression = expr match {
+    case IFunApp(SimpleArray.Select(),
+                 Seq(IFunApp(SimpleArray.Store(),
+                             Seq(ar, storeArgs @ _*)),
+                     selectArgs @ _*))
+        if (storeArgs.size == selectArgs.size + 1) =>
+      ite(selectArgs === storeArgs.init,
+          storeArgs.last,
+          IFunApp(SimpleArray(selectArgs.size).select, List(ar) ++ selectArgs))
+
     case IQuantified(EX, f) =>
       (for (res <- translate(f, false, 0))
-       yield { Console.err.println("" + f + " -> " + res); IQuantified(EX, IQuantified(EX, res))}) getOrElse expr
+       yield IQuantified(EX, IQuantified(EX, res))) getOrElse expr
     case IQuantified(ALL, f) =>
       (for (res <- translate(f, true, 0))
-       yield { Console.err.println("" + f + " -> " + res); IQuantified(ALL, IQuantified(ALL, res))}) getOrElse expr
+       yield IQuantified(ALL, IQuantified(ALL, res))) getOrElse expr
     case _ => expr
   }
 

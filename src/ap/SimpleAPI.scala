@@ -29,7 +29,7 @@ import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.certificates.Certificate
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
-                        InterpolantSimplifier}
+                        ArraySimplifier}
 import ap.terfor.equations.ReduceWithEqs
 import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
@@ -1434,11 +1434,13 @@ class SimpleAPI private (enableAssert : Boolean,
 
           case _ =>
             if (needExhaustiveProver) {
-              if (constructProofs)
+              if (constructProofs) {
+                lastStatus = ProverStatus.Error
                 throw new SimpleAPIException(
                             "Complicated quantifier scheme preventing interpolation.\n" +
                             "It might be necessary to manually add triggers, or to switch\n" +
                             "off proof construction and interpolation.")
+              }
 
               val completeFor = formulaeInProver match {
                 case List((_, f)) => f
@@ -1703,8 +1705,7 @@ class SimpleAPI private (enableAssert : Boolean,
     }
   }
   
-  private def interpolantSimplifier =
-    new InterpolantSimplifier(SimpleArray(1).select, SimpleArray(1).store)
+  private def interpolantSimplifier = ArraySimplifier
   
   //////////////////////////////////////////////////////////////////////////////
 
