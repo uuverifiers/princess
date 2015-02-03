@@ -1798,6 +1798,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case SMTBool =>
         eqZero(a) <=> eqZero(b)
+//        all(all(!((VariableShiftVisitor(a, 0, 2) === v(0)) &
+//                 (VariableShiftVisitor(b, 0, 2) === v(1)) &
+//                 ((eqZero(v(0)) & (v(1) === 1)) | (eqZero(v(1)) & (v(0) === 1))))))
+//                 geqZero(v(0)) & geqZero(v(1)) & (v(0) <= 1) & (v(1) <= 1)) ==>
+//                (v(0) === v(1))))
 
       case _ =>
         a === b
