@@ -29,6 +29,8 @@ import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
 import ap.util.Seqs
 
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+
 import java.io.PrintStream
 
 /**
@@ -36,7 +38,8 @@ import java.io.PrintStream
  */
 object SMTLineariser {
 
-  private val SaneId     = """[+-/*=%?!.$_~&^<>@a-zA-Z][+-/*=%?!.$_~&^<>@a-zA-Z0-9]*""".r
+  private val SaneId =
+    """[+-/*=%?!.$_~&^<>@a-zA-Z][+-/*=%?!.$_~&^<>@a-zA-Z0-9]*""".r
   
   def quoteIdentifier(str : String) = str match {
     case SaneId() => str
@@ -136,6 +139,8 @@ object SMTLineariser {
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 /**
  * Class for printing <code>IFormula</code>s in the SMT-Lib format
  */
@@ -212,10 +217,6 @@ class SMTLineariser(benchmarkName : String,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  private case class PrintContext(vars : List[String]) {
-    def pushVar(name : String) = PrintContext(name :: vars)
-  }
-
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTFunctionType}
 
   private def getTermType(t : ITerm) : Option[SMTType] = t match {
@@ -259,6 +260,56 @@ class SMTLineariser(benchmarkName : String,
   }
   
   //////////////////////////////////////////////////////////////////////////////
+
+/*
+  private val type2Predicate = new MHashMap[SMTType, Predicate]
+  private val predicate2Type = new MHashMap[Predicate, SMTType]
+
+  object TypePredicate {
+    def unapply(t : IExpression) : Option[(ITerm, SMTType)] = t match {
+      case IAtom(p, Seq(v)) => for (s <- predicate2Type get p) yield (v, s)
+      case _                => None
+    }
+  }
+
+  private object VariableTypeInferenceVisitor
+                 extends CollectingVisitor[Unit, IExpression] {
+
+    private val variableTypes = new ArrayBuffer[SMTType]
+
+    private def setVariableType(variableIndex : Int, t : SMTType) : Unit = {
+      val pos = variableTypes.size - variableIndex - 1
+      val oldType = variableTypes(pos)
+      if (oldType != null && oldType != t)
+        Console.err.println("Warning: type clash during inference: " +
+                            oldType + " vs " + t)
+      variableTypes(pos) = t
+    }
+
+    override def preVisit(t : IExpression,
+                          arg : Unit) : PreVisitResult = t match {
+      case t : IQuantified => {
+        variableTypes += null
+        KeepArg
+      }
+      case TypePredicate(IVariable(ind), s) => {
+        setVariableType(ind, s)
+        KeepArg
+      }
+    }
+
+    def postVisit(t : IExpression,
+                  arg : Unit, subres : Seq[IExpression]) : IExpression = t match {
+      case _ => t update subres
+    }
+  }
+*/
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private case class PrintContext(vars : List[String]) {
+    def pushVar(name : String) = PrintContext(name :: vars)
+  }
 
   private object AbsyPrinter extends CollectingVisitor[PrintContext, Unit] {
     
