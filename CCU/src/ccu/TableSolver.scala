@@ -18,7 +18,7 @@ class TableSolver[TERM, FUNC]()
 
   def solveTable()
       : (Option[Array[Int]], Map[Int, List[Int]]) = {
-    Timer.measure("solveTable") {
+    Timer.measure("Table.solveTable") {
       // We have p problems, and we are dealing with the simultaneous problem,
       // i.e. every problem must be solvable
       var allGoalPossible = true
@@ -50,15 +50,12 @@ class TableSolver[TERM, FUNC]()
         return (None, Map())
       }
 
-      println("diseqed goals: " + diseqedGoals)
       tables =
         (for (i <- 0 until problem.count) yield {
           new Table[FUNC](problem.bits, alloc, gt, solver,
             problem.terms(i), problem.domains(i),
             problem.functions(i), ZEROBIT, ONEBIT, problem.diseq(i))
         }).toList
-
-      println("TABLES CREATED: " + tables.length)
 
 
       solver.addClause(new VecInt(Array(-ZEROBIT)))
@@ -194,9 +191,6 @@ class TableSolver[TERM, FUNC]()
               val moreInfo = CCV()
 
               if (!moreInfo) {
-                println("Table completed!")
-                for (p <- 0 until problemCount)
-                  println("Terms: " + tables(p).terms)
                 tablesComplete = true
                 model = None
                 cont = false
@@ -225,7 +219,7 @@ class TableSolver[TERM, FUNC]()
   // Given a list of domains, goals, functions, see if there is a solution to
   // the simultaneous problem.
   override def solve() : ccu.Result.Result = {
-    Timer.measure("Solve") {
+    Timer.measure("Table.solve") {
       println("TABLE: Using Table solver")
       problem.print("TABLE:")
 
@@ -250,13 +244,12 @@ class TableSolver[TERM, FUNC]()
             assMap += (intToTerm(t) -> intToTerm(iVal))
           }
 
+          problem.result = Some(ccu.Result.SAT)
           ccu.Result.SAT
         }
 
         case (None, _) =>  {
-          val core = minUnsatCore()
-          println("minUnsatCore: GOALS: " + problem.goals)
-          println("minUnsatCore: CORE: " + core)
+          problem.result = Some(ccu.Result.UNSAT)
           ccu.Result.UNSAT
         }
       }
@@ -264,36 +257,38 @@ class TableSolver[TERM, FUNC]()
   }
 
   def solveAgain() : Boolean = {
-    if (problem.goals.flatten.flatten.isEmpty)
-      return true
+    Timer.measure("Table.solveAgain") {
+      if (problem.goals.flatten.flatten.isEmpty)
+        return true
 
-    var retval = false : Boolean
+      var retval = false : Boolean
 
-    if (tablesComplete) {
-      val goals = problem.goals
+      if (tablesComplete) {
+        val goals = problem.goals
 
-      val goalConstraints =
-        for (p <- 0 until problem.count; if (!goals(p).flatten.isEmpty)) yield {
-          tables(p).addGoalConstraint(goals(p))
+        val goalConstraints =
+          for (p <- 0 until problem.count; if (!goals(p).flatten.isEmpty)) yield {
+            tables(p).addGoalConstraint(goals(p))
+          }
+        retval =  solver.isSatisfiable()
+
+        for (gc <- goalConstraints)
+          solver.removeConstr(gc)
+      } else {
+        solveTable() match {
+          case (Some(_), _) => retval = true
+          case (None, _) => retval = false
         }
-      retval =  solver.isSatisfiable()
-
-      for (gc <- goalConstraints)
-        solver.removeConstr(gc)
-    } else {
-      solveTable() match {
-        case (Some(_), _) => retval = true
-        case (None, _) => retval = false
       }
-    }
 
-    retval
+      retval
+    }
   }
 
 
 
   // PRE: Call after solve returns UNSAT
-  def minUnsatCore() : List[Int] = {
+  def minUnsatCore2() : List[Int] = {
     if (problem.count == 1)
       return List(0)
     // Find minimum subset of goals that still yields unsat
@@ -303,22 +298,48 @@ class TableSolver[TERM, FUNC]()
     // Try removing the first goal from the the first problem, etc.
 
     for (p <- 0 until problem.count) {
-      var end = false
-      while (!end) {
-        end = problem.removeGoal()
-        // Problem was sat with p removed => restore
-        if (solveAgain())
-          problem.restoreGoal()
-      }
+      problem.removeGoal(p)
+
+      // Problem was sat with p removed => restore
+      if (solveAgain())
+        problem.restoreGoal(p)
     }
-    
+
     val unsatCore = 
       (for (c <- 0 until problem.count; 
         if !problem.goals(c).isEmpty) yield c).toList
 
-    println("minUnsatCore: " + problem.goals.length + " => " + unsatCore.length)
     unsatCore
   }
+
+  def minUnsatCore() : List[Int] = {
+    Timer.measure("Table.minUnsatCore") {
+      val unsatCore = ListBuffer() : ListBuffer[Int]
+
+      if (!problem.result.isDefined)
+        throw new Exception("minUnsatCore on without previous solve call")
+      
+      if (problem.result.get != ccu.Result.UNSAT)
+        return (0 until problem.count).toList
+      // throw new Exception("minUnsatCore on SAT solution")
+
+      for (p <- 0 until problem.count)
+        problem.removeGoal(p)
+
+      for (p <- 0 until problem.count) {
+        problem.restoreGoal(p)
+        unsatCore += p
+        if (!solveAgain())
+          return unsatCore.toList
+      }
+
+      throw new Exception("Entire problem is not UNSAT?")
+      return unsatCore.toList
+    }
+  }
+  
+
+    
 
 }
 
@@ -485,6 +506,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
         return true
       }
 
+
       val V =
         for ((f_i, args_i, s_i) <- functions;
           (f_j, args_j, s_j) <- functions;
@@ -572,6 +594,12 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
         val identityBit = alloc.alloc(1)
         gt.and(identityBit, vFalseBit, eqBit)
 
+        // Lets add a new condition:
+        // -Require that all to be allowed to "use" v (in V)
+        // all v' s.t. v' < v, and applicable to row r
+        // must be set to false (i.e. use the v:s in a
+        // increasing (and deterministic) order)
+
         val funcBits =
           (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
             // C_p[s_i] = t
@@ -580,8 +608,21 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
             // C_c[t] = C_c[s_j]
             val curEqBit = termEqTerm((currentColumn, t), (currentColumn, s_j))
 
+            // FORALL v2 < vBit : !(v2 ^ prevEqBit2) === (!v' v !prevEqBit2)
+            val minVBits = 
+              (for ((vBit2, (args_i2, s_i2), (args_j2, s_j2)) <- V;
+                if (vBit2 < vBit)) yield {
+                val prevEqBit2 = termEqInt((currentColumn - 1, s_i2), t)
+                val minVBit = alloc.alloc(1)
+                gt.or(minVBit, new VecInt(Array(-vBit2, -prevEqBit2)))
+                minVBit
+              }).toArray
+
+            val mBit = alloc.alloc(1)
+            gt.and(mBit, new VecInt(minVBits))
+
             val fBit = alloc.alloc(1)
-            gt.and(fBit, new VecInt(Array(vBit, prevEqBit, curEqBit)))
+            gt.and(fBit, new VecInt(Array(vBit, prevEqBit, curEqBit, mBit)))
             fBit
           }).toArray
 

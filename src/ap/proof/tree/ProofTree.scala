@@ -41,7 +41,7 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
 object ProofTree {
   
   private val AC = Debug.AC_PROOF_TREE
-  private val CCUSolver = new TableSolver[ConstantTerm, Predicate]
+  private val CCUSolver = new LazySolver[ConstantTerm, Predicate]
 
   private var unificationCount = 0
   
@@ -389,14 +389,14 @@ trait ProofTree {
 
     ap.util.Timer.measure("CCUSolver") {  
     // val solver = new CCUSolver[ConstantTerm, Predicate]
- Console.withOut(ap.CmdlMain.NullStream) {
+ // Console.withOut(ap.CmdlMain.NullStream) {
 //     (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
 //         allDomains.toMap,
 //         goals, funApps)).isDefined }
       ProofTree.CCUSolver.createProblem(allDomains.toMap, goals, funApps)
 
       ProofTree.CCUSolver.solve() == ccu.Result.SAT
-     }
+     // }
     }
   }
 

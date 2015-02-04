@@ -132,6 +132,7 @@ object GlobalSettings {
           Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(settings, value)
         case ValueOpt("triggerStrategy", "allMinimal") =>
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMinimal)
+
         case ValueOpt("triggerStrategy", "allUni") =>
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllUni)
         case ValueOpt("triggerStrategy", "allMinimalAndEmpty") =>
@@ -148,6 +149,10 @@ object GlobalSettings {
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
+        case ValueOpt("CCU", "Table") =>
+          Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Table)
+        case ValueOpt("CCU", "Lazy") =>
+          Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Lazy)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -171,7 +176,8 @@ object GlobalSettings {
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
-         Param.MULTI_STRATEGY, Param.REAL_RAT_SATURATION_ROUNDS)
+         Param.MULTI_STRATEGY, Param.REAL_RAT_SATURATION_ROUNDS,
+         Param.CCU_STRATEGY)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())

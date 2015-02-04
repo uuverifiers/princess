@@ -302,6 +302,16 @@ object Param {
     type Value = Option[ap.proof.theoryPlugins.Plugin]
     val defau : Option[ap.proof.theoryPlugins.Plugin] = None
   }
+
+  object CCUStrategyOptions extends Enumeration {
+    val Table, Lazy = Value
+  }
+
+  case object CCU_STRATEGY extends Param {
+    type Value = CCUStrategyOptions.Value
+    val defau : CCUStrategyOptions.Value = CCUStrategyOptions.Table
+  }
+
 }
 
 abstract class Param {

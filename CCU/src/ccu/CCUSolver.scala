@@ -37,9 +37,13 @@ class Problem[TERM, FUNC](
   val functions : List[List[(FUNC, List[Int], Int)]],
   val bits : Int,
   val diseq : List[Array[Array[Int]]],
+  val baseDI : List[Array[Array[Int]]],
   val termMap : Map[TERM, Int],
   val intMap : Map[Int, TERM])
 { 
+
+  val originalGoals = goals : List[List[List[(Int, Int)]]]
+  var result = None : Option[ccu.Result.Result]
 
   // SubGoal removal variables
 
@@ -58,24 +62,14 @@ class Problem[TERM, FUNC](
     println("\\----------/")
   }
 
-  var lastGoals = List() : List[List[List[(Int, Int)]]]
-  var currentSubproblem = -1
 
-  def removeGoal() = {
-    currentSubproblem += 1
-    if (currentSubproblem >= goals.length) {
-      true
-    } else {
-      lastGoals = goals
-      println("minUnsatCore> goalsBefore " + goals)
-      goals = goals.take(currentSubproblem) ++ List(List()) ++ goals.drop(currentSubproblem + 1)
-      println("minUnsatCore> goalsAfter " + goals)
-      false
-    }
+
+  def removeGoal(p : Int) = {
+    goals = goals.updated(p, List())
   }
 
-  def restoreGoal() = {
-    goals = lastGoals
+  def restoreGoal(p : Int) = {
+    goals = goals.updated(p, originalGoals(p))
   }
 }
 
@@ -83,6 +77,13 @@ abstract class CCUSolver[TERM, FUNC] {
 
   def solve() : Result.Result
   def minUnsatCore() : List[Int]
+
+  def disequalities(p : Int) : List[(TERM, TERM)] = {
+    (for (i <- 0 until problem.allTerms.length; 
+      j <- 0 until problem.terms.length;
+      if i < j; if (problem.baseDI(p)(i)(j) == 0)) 
+    yield (problem.intMap(i), problem.intMap(j))).toList
+  }
 
   val util = new Util[TERM, FUNC]
   val alloc = new Allocator(1)
@@ -103,7 +104,7 @@ abstract class CCUSolver[TERM, FUNC] {
   val (solver, gt) = asd
 
   var problem = new Problem[TERM, FUNC](0, List(), Map(), List(List()), 
-    List(Map()), List(), List(), 0, List(), Map(), Map())
+    List(Map()), List(), List(), 0, List(), List(), Map(), Map())
 
   var termToInt = Map() : Map[TERM, Int]
   var intToTerm = Map() : Map[Int, TERM]
@@ -117,7 +118,7 @@ abstract class CCUSolver[TERM, FUNC] {
     solver.reset()
     alloc.next = 1
     problem = new Problem[TERM, FUNC](0, List(), Map(), List(List()), 
-    List(Map()), List(), List(), 0, List(), Map(), Map())
+    List(Map()), List(), List(), 0, List(), List(), Map(), Map())
   }
 
   // TODO: just check the relevant terms (i.e. problem.terms(p))
@@ -127,38 +128,40 @@ abstract class CCUSolver[TERM, FUNC] {
     functions : List[(FUNC, List[TERM], TERM)],
     goals : List[List[(TERM, TERM)]])
       : Boolean = {
+    Timer.measure("verifySolution") {
 
-    val sets = MSet() : MSet[Set[TERM]]
-    for (t <- terms)
-      sets += Set(t)
+      val sets = MSet() : MSet[Set[TERM]]
+      for (t <- terms)
+        sets += Set(t)
 
-    val newSets = util.CC[FUNC, TERM](sets, functions, assignment.toList)
+      val newSets = util.CC[FUNC, TERM](sets, functions, assignment.toList)
 
-    def set(t : TERM) : Set[TERM] = {
-      for (s <- newSets)
-        if (s contains t)
-          return s
-      throw new Exception("No set contains t?")
-    }
-
-    var satisfiable = false
-
-    for (subGoal <- goals) {
-      var subGoalSat = true
-
-      var allPairsTrue = true
-      for ((s,t) <- subGoal) {
-        if (set(s) != set(t)) {
-          allPairsTrue = false
-        }
-
-        if (!allPairsTrue)
-          subGoalSat = false
+      def set(t : TERM) : Set[TERM] = {
+        for (s <- newSets)
+          if (s contains t)
+            return s
+        throw new Exception("No set contains t?")
       }
-      if (subGoalSat)
-        satisfiable = true
+
+      var satisfiable = false
+
+      for (subGoal <- goals) {
+        var subGoalSat = true
+
+        var allPairsTrue = true
+        for ((s,t) <- subGoal) {
+          if (set(s) != set(t)) {
+            allPairsTrue = false
+          }
+
+          if (!allPairsTrue)
+            subGoalSat = false
+        }
+        if (subGoalSat)
+          satisfiable = true
+      }
+      satisfiable
     }
-    satisfiable
   }
 
 
@@ -272,170 +275,184 @@ abstract class CCUSolver[TERM, FUNC] {
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]],
     functions : List[List[(FUNC, List[TERM], TERM)]]) : Boolean = {
+    Timer.measure("createProblem") {
 
-    // TODO: Create terms automatically
-    val termSet = MSet() : MSet[TERM]
-    for ((_, d) <- domains) 
-      for (t <- d)
+
+      // TODO: Create terms automatically
+      val termSet = MSet() : MSet[TERM]
+      for ((_, d) <- domains)
+        for (t <- d)
+          termSet += t
+      for ((s,t) <- goals.flatten.flatten) {
+        termSet += s
         termSet += t
-    for ((s,t) <- goals.flatten.flatten) {
-      termSet += s
-      termSet += t
-    }
-    for ((_, args, r) <- functions.flatten) {
-      for (t <- args)
-        termSet += t
-      termSet += r
-    }
-    
-
-    val terms = termSet.toList
-
-    // TODO: optimize such that each table has its own bits
-    val bits = util.binlog(terms.length)
-
-    // HACK?
-    val problemCount = goals.length
-
-    // Convert to Int representation
-    termToInt = Map()
-    intToTerm = Map()
-    var assigned = 0
-
-    while (assigned < terms.length) {
-      for (t <- terms) {
-        if (!(termToInt contains t)) {
-          var domainAssigned = true
-          for (tt <- (domains.getOrElse(t, Set())); if (t != tt)) {
-            if (!(termToInt contains tt))
-              domainAssigned = false
-          }
-          if (domainAssigned) {
-            termToInt += (t -> assigned)
-            intToTerm += (assigned -> t)
-            assigned += 1
-          }
-        }
       }
-    }
-
-    // Adjust to new representation
-
-    val newTerms = terms.map(termToInt)
-
-    var newDomains = Map() : Map[Int, Set[Int]]
-    for (t <- terms) {
-      val oldDomain = domains.getOrElse(t, Set(t))
-      newDomains += (termToInt(t) -> oldDomain.map(termToInt))
-    }
-
-    val newGoals =
-      for (g <- goals)
-      yield (for (eqs <- g)
-      yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
-
-    val newFunctions =
-      for (funs <- functions)
-      yield (for ((f, args, r) <- funs)
-      yield (f, args.map(termToInt), termToInt(r)))
-
-
-    //
-    // --- DISEQUALITY CHECK ---
-    // Check if goals are even possible to unify
-    // If not we can immeadietly return UNSAT
-    val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
-    
-    for (t <- newTerms) {
-      val domain = newDomains.getOrElse(t, List(t))
-      for (d <- domain) {
-        arr(t)(d) = 1
-        arr(d)(t) = 1
+      for ((_, args, r) <- functions.flatten) {
+        for (t <- args)
+          termSet += t
+        termSet += r
       }
+      
 
-      for (tt <- newTerms; if t != tt) {
-        for (ttt <- newTerms) {
-          if ((newDomains.getOrElse(t, Set(t)) contains ttt) && (newDomains.getOrElse(tt, Set(tt)) contains ttt)) {
-            arr(t)(tt) = 1
-            arr(tt)(t) = 1
-          }
-        }
-      }
-    }
+      val terms = termSet.toList
 
-    val diseq = (for (p <- 0 until problemCount)
-    yield
-    {
-      val c = Array.ofDim[Int](newTerms.length, newTerms.length)
-      for (t <- newTerms; tt <- newTerms)
-        c(t)(tt) = arr(t)(tt)
+      // TODO: optimize such that each table has its own bits
+      val bits = util.binlog(terms.length)
 
-      val deq = util.disequalityCheck(c, newFunctions(p))
-      deq
-    }).toList
+      // HACK?
+      val problemCount = goals.length
 
-    val ffs =
-      (for (p <- 0 until problemCount) yield {
-        // Filter terms per table
-        def isUsed(term : Int, functions : List[(FUNC, List[Int], Int)],
-          goals : List[List[(Int, Int)]]) : Boolean = {
-          for ((_, args, s) <- functions) {
-            if (s == term)
-              return true
-            for (a <- args)
-              if (a == term)
-                return true
-          }
+      // Convert to Int representation
+      termToInt = Map()
+      intToTerm = Map()
+      var assigned = 0
 
-          for (g <- goals)
-            for ((s, t) <- g)
-              if (s == term || t == term)
-                return true
-
-          false
-        }
-
-        // TODO: Check arguments agains diseq?
-        def matchable(funs : List[(FUNC, List[Int], Int)],
-          fun : (FUNC, List[Int], Int)) : Boolean = {
-          val (f1, args1, s1) = fun
-          for ((f2, args2, s2) <- funs) {
-            if (f1 == f2 && s1 != s2) {
-              var m = true
-              for ((a1, a2) <- args1 zip args2)
-                if (diseq(p)(a1)(a2) == 0)
-                  m = false
-
-              if (m)
-                return true
+      while (assigned < terms.length) {
+        for (t <- terms) {
+          if (!(termToInt contains t)) {
+            var domainAssigned = true
+            for (tt <- (domains.getOrElse(t, Set())); if (t != tt)) {
+              if (!(termToInt contains tt))
+                domainAssigned = false
+            }
+            if (domainAssigned) {
+              termToInt += (t -> assigned)
+              intToTerm += (assigned -> t)
+              assigned += 1
             }
           }
-          false
+        }
+      }
+
+      // Adjust to new representation
+
+      val newTerms = terms.map(termToInt)
+
+      var newDomains = Map() : Map[Int, Set[Int]]
+      for (t <- terms) {
+        val oldDomain = domains.getOrElse(t, Set(t))
+        newDomains += (termToInt(t) -> oldDomain.map(termToInt))
+      }
+
+      val newGoals =
+        for (g <- goals)
+        yield (for (eqs <- g)
+        yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
+
+      val newFunctions =
+        for (funs <- functions)
+        yield (for ((f, args, r) <- funs)
+        yield (f, args.map(termToInt), termToInt(r)))
+
+
+      //
+      // --- DISEQUALITY CHECK ---
+      // Check if goals are even possible to unify
+      // If not we can immeadietly return UNSAT
+      val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
+      
+      for (t <- newTerms) {
+        val domain = newDomains.getOrElse(t, List(t))
+        for (d <- domain) {
+          arr(t)(d) = 1
+          arr(d)(t) = 1
         }
 
-        val ff =
-          newFunctions(p).filter(x => (matchable(newFunctions(p), x))).toList
-        val ft =
-          newTerms.filter(x => isUsed(x, ff, newGoals(p))).toList
-        val fd =
-          (for ((t, d) <- newDomains) yield {
-            (t, d.filter(x => ft contains x))
-          }).toMap
-        (ff, ft, fd)
-      }).toList : List[(List[(FUNC, List[Int], Int)], List[Int], Map[Int, Set[Int]])]
+        for (tt <- newTerms; if t != tt) {
+          for (ttt <- newTerms) {
+            if ((newDomains.getOrElse(t, Set(t)) contains ttt) && (newDomains.getOrElse(tt, Set(tt)) contains ttt)) {
+              arr(t)(tt) = 1
+              arr(tt)(t) = 1
+            }
+          }
+        }
+      }
 
-    val filterTerms = for ((_, ft, _) <- ffs) yield ft
-    val filterDomains = for ((_, _, fd) <- ffs) yield fd
-    val filterFunctions = for ((ff, _, _) <- ffs) yield ff
+      val diseq = (for (p <- 0 until problemCount)
+      yield
+      {
+        val c = Array.ofDim[Int](newTerms.length, newTerms.length)
+        for (t <- newTerms; tt <- newTerms)
+          c(t)(tt) = arr(t)(tt)
+
+        val deq = util.disequalityCheck(c, newFunctions(p))
+        deq
+      }).toList
+
+      val baseDI = (for (p <- 0 until problemCount)
+      yield
+      {
+        val c = Array.ofDim[Int](newTerms.length, newTerms.length)
+        for (t <- newTerms; tt <- newTerms)
+          c(t)(tt) = arr(t)(tt)
+
+        val deq = util.disequalityCheck(c, newFunctions(p))
+        deq
+      }).toList
+
+      val ffs =
+        (for (p <- 0 until problemCount) yield {
+          // Filter terms per table
+          def isUsed(term : Int, functions : List[(FUNC, List[Int], Int)],
+            goals : List[List[(Int, Int)]]) : Boolean = {
+            for ((_, args, s) <- functions) {
+              if (s == term)
+                return true
+              for (a <- args)
+                if (a == term)
+                  return true
+            }
+
+            for (g <- goals)
+              for ((s, t) <- g)
+                if (s == term || t == term)
+                  return true
+
+            false
+          }
+
+          // TODO: Check arguments agains diseq?
+          def matchable(funs : List[(FUNC, List[Int], Int)],
+            fun : (FUNC, List[Int], Int)) : Boolean = {
+            val (f1, args1, s1) = fun
+            for ((f2, args2, s2) <- funs) {
+              if (f1 == f2 && s1 != s2) {
+                var m = true
+                for ((a1, a2) <- args1 zip args2)
+                  if (diseq(p)(a1)(a2) == 0)
+                    m = false
+
+                if (m)
+                  return true
+              }
+            }
+            false
+          }
+
+          val ff =
+            newFunctions(p).filter(x => (matchable(newFunctions(p), x))).toList
+          val ft =
+            newTerms.filter(x => isUsed(x, ff, newGoals(p))).toList
+          val fd =
+            (for ((t, d) <- newDomains) yield {
+              (t, d.filter(x => ft contains x))
+            }).toMap
+          (ff, ft, fd)
+        }).toList : List[(List[(FUNC, List[Int], Int)], List[Int], Map[Int, Set[Int]])]
+
+      val filterTerms = for ((_, ft, _) <- ffs) yield ft
+      val filterDomains = for ((_, _, fd) <- ffs) yield fd
+      val filterFunctions = for ((ff, _, _) <- ffs) yield ff
 
 
-    problem =
-      new Problem[TERM, FUNC](problemCount, newTerms, newDomains, 
-        filterTerms, filterDomains, newGoals, filterFunctions, bits, diseq, 
-        termToInt, intToTerm)
+      problem =
+        new Problem[TERM, FUNC](problemCount, newTerms, newDomains,
+          filterTerms, filterDomains, newGoals, filterFunctions, bits, diseq,
+          baseDI, termToInt, intToTerm)
 
-    
-    false
+      
+      false
+    }
   }
 
 
