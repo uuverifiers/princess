@@ -312,6 +312,13 @@ object Param {
     val defau : CCUStrategyOptions.Value = CCUStrategyOptions.Table
   }
 
+  case object CCU_SOLVER extends Param {
+    type Value = Option[ccu.CCUSolver[ap.terfor.ConstantTerm,
+                                      ap.terfor.preds.Predicate]]
+    val defau : Option[ccu.CCUSolver[ap.terfor.ConstantTerm,
+                                     ap.terfor.preds.Predicate]] = None
+  }
+
 }
 
 abstract class Param {

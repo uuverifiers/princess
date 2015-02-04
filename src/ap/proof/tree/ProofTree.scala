@@ -41,7 +41,6 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
 object ProofTree {
   
   private val AC = Debug.AC_PROOF_TREE
-  private val CCUSolver = new LazySolver[ConstantTerm, Predicate]
 
   private var unificationCount = 0
   
@@ -124,12 +123,19 @@ trait ProofTree {
         " ccUnifiable = false")
     val allGoals = unifiabilityStatus._3.toArray
 
-    for (ind <- ProofTree.CCUSolver.minUnsatCore())
+    for (ind <- Console.withOut(ap.CmdlMain.NullStream) { ccuSolver.minUnsatCore() })
     yield allGoals(ind)
   }
 
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
+
+  private lazy val ccuSolver : CCUSolver[ConstantTerm, Predicate] =
+    this match {
+      case goal : Goal => Param.CCU_SOLVER(goal.settings).get
+      case AndTree(left, _, _) => left.ccuSolver
+      case ProofTreeOneChild(subtree) => subtree.ccuSolver
+    }
 
   protected def unifiabilityString : String =
     if (unifiabilityChecked && ccUnifiableLocally)
@@ -215,7 +221,9 @@ trait ProofTree {
       // then this subtree can be ignored, we have already
       // shown that it can be closed
       (List(), proofGoalStartIndex + tree.goalCount)
-    } else if (tree.unifiabilityChecked && !tree.ccUnifiable) {
+    } else if (tree.unifiabilityChecked && !tree.ccUnifiable &&
+               ((0 until tree.goalCount) forall {
+                  i => consideredGoals contains (proofGoalStartIndex + i) })) {
       // then there is a subtree that cannot be closed, and
       // also the unification problem as a whole does not have
       // any solutions.
@@ -388,15 +396,14 @@ trait ProofTree {
     }
 
     ap.util.Timer.measure("CCUSolver") {  
-    // val solver = new CCUSolver[ConstantTerm, Predicate]
- // Console.withOut(ap.CmdlMain.NullStream) {
-//     (ProofTree.CCUSolver.solve(allConsts.toList.sortBy(_.name),
+  Console.withOut(ap.CmdlMain.NullStream) {
+//     (ccuSolver.solve(allConsts.toList.sortBy(_.name),
 //         allDomains.toMap,
 //         goals, funApps)).isDefined }
-      ProofTree.CCUSolver.createProblem(allDomains.toMap, goals, funApps)
+      ccuSolver.createProblem(allDomains.toMap, goals, funApps)
 
-      ProofTree.CCUSolver.solve() == ccu.Result.SAT
-     // }
+      ccuSolver.solve() == ccu.Result.SAT
+      }
     }
   }
 
@@ -464,7 +471,7 @@ trait ProofTree {
         (res,
          () => {
            val allGoals = (unificationProblems map (_._4)).toArray
-           for (ind <- ProofTree.CCUSolver.minUnsatCore())
+           for (ind <- Console.withOut(ap.CmdlMain.NullStream) { ccuSolver.minUnsatCore() })
            yield allGoals(ind)
          })
       }

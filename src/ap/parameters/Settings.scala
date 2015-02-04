@@ -197,7 +197,8 @@ object GoalSettings {
                        Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
-                       Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG)
+                       Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
+                       Param.CCU_STRATEGY, Param.CCU_SOLVER)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

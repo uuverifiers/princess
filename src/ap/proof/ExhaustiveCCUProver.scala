@@ -22,8 +22,9 @@
 package ap.proof;
 
 import ap._
-import ap.terfor.{Formula, TermOrder}
+import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.preds.Predicate
 import ap.proof.goal._
 import ap.util.{Logic, Debug, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
@@ -80,6 +81,13 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     gs = Param.FULL_SPLITTING.set(gs, true)
     gs = Param.POS_UNIT_RESOLUTION_METHOD.set(gs,
                    Param.PosUnitResolutionMethod.NonUnifying)
+    gs = Param.CCU_SOLVER.set(gs,
+           Param.CCU_STRATEGY(gs) match {
+             case Param.CCUStrategyOptions.Table =>
+               Some(new ccu.TableSolver[ConstantTerm, Predicate])
+             case Param.CCUStrategyOptions.Lazy =>
+               Some(new ccu.LazySolver[ConstantTerm, Predicate])
+           })
     gs
   }
 
