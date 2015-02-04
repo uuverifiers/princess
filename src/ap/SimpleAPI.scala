@@ -144,7 +144,10 @@ object SimpleAPI {
 
   class SimpleAPIException(msg : String) extends Exception(msg)
 
-  object TimeoutException extends SimpleAPIException("Timeout during ap.SimpleAPI call")
+  object TimeoutException
+         extends SimpleAPIException("Timeout during ap.SimpleAPI call")
+  object NoModelException
+         extends SimpleAPIException("No full model is available")
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -492,8 +495,9 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Run a block of commands for at most <code>millis</code> milli-seconds.
    * After this, calls to <code>???</code>, <code>checkSat(true)</code>,
-   * <code>nextModel(true)</code>, <code>getStatus(true)</code> will throw a
-   * <code>TimeoutException</code>.
+   * <code>nextModel(true)</code>, <code>getStatus(true)</code>,
+   * <code>eval</code>, <code>evalPartial</code>, <code>partialModel</code>
+   * will throw a <code>TimeoutException</code>.
    */
   def withTimeout[A](millis : Long)(comp : => A) = {
     val oldDeadline = currentDeadline
@@ -1911,7 +1915,7 @@ class SimpleAPI private (enableAssert : Boolean,
         lastStatus = ProverStatus.Running
         proverRes.unset
         proofActor ! DeriveFullModelCommand
-        getStatusHelp(true)
+        getStatusWithDeadline(true)
       } else {
         // then we have to completely re-run the prover
         lastStatus = ProverStatus.Unknown
@@ -2158,10 +2162,8 @@ class SimpleAPI private (enableAssert : Boolean,
         
           //////////////////////////////////////////////////////////////////////
 
-          case _ => {
-            assert(false)
-            null
-          }
+          case _ =>
+            throw NoModelException
         }
       }
     }
@@ -2193,7 +2195,7 @@ class SimpleAPI private (enableAssert : Boolean,
     evalPartialHelp(t)
   }
 
-  def evalPartialHelp(t : ITerm) : Option[IdealInt] = t match {
+  private def evalPartialHelp(t : ITerm) : Option[IdealInt] = t match {
     case IConstant(c) =>
       // faster check, find an equation that determines the value of c
       evalPartialHelp(c)
@@ -2260,10 +2262,8 @@ class SimpleAPI private (enableAssert : Boolean,
       true
     }
       
-    case _ => {
-      assert(false)
-      false
-    }
+    case _ =>
+      throw NoModelException
   }
   
   /**

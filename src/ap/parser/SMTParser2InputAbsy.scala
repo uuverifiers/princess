@@ -452,7 +452,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (System.currentTimeMillis - startTime > timeout) || userDefStoppingCond
     }
 
-    timeoutPer = _timeoutPer
+    timeoutPer = timeout min _timeoutPer
 
     val l = new Yylex(new SMTCommandTerminator (input))
     val p = new parser(l) {
@@ -1035,21 +1035,24 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
         prover.getStatus(false) match {
-          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid => {
+          case SimpleAPI.ProverStatus.Sat |
+               SimpleAPI.ProverStatus.Invalid => try {
             val expressions = cmd.listterm_.toList
 
             var unsupportedType = false
-            val values = for (expr <- expressions) yield
-              translateTerm(expr, 0) match {
-                case p@(_, SMTBool) =>
-                  (prover eval asFormula(p)).toString
-                case p@(_, SMTInteger) =>
-                  SMTLineariser toSMTExpr (prover eval asTerm(p))
-                case (_, _) => {
-                  unsupportedType = true
-                  ""
+            val values = prover.withTimeout(timeoutPer) {
+              for (expr <- expressions) yield
+                translateTerm(expr, 0) match {
+                  case p@(_, SMTBool) =>
+                    (prover eval asFormula(p)).toString
+                  case p@(_, SMTInteger) =>
+                    SMTLineariser toSMTExpr (prover eval asTerm(p))
+                  case (_, _) => {
+                    unsupportedType = true
+                    ""
+                  }
                 }
-              }
+            }
             
             if (unsupportedType) {
               error("cannot print values of this type yet")
@@ -1059,6 +1062,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                  yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
                 ")")
             }
+          } catch {
+            case SimpleAPI.TimeoutException =>
+              error("timeout when constructing full model")
+            case SimpleAPI.NoModelException =>
+              error("no model available")
           }
 
           case _ =>
@@ -1091,8 +1099,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
 
         prover.getStatus(false) match {
-          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid => {
-            val model = prover.partialModel
+          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid => try {
+            val model = prover.withTimeout(timeoutPer) {
+              prover.partialModel
+            }
 
             for ((SimpleAPI.ConstantLoc(c), SimpleAPI.IntValue(value)) <-
                    model.interpretation.iterator)
@@ -1114,6 +1124,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                     ") Int ")
             }
  */
+          } catch {
+            case SimpleAPI.TimeoutException =>
+              error("timeout when constructing full model")
+            case SimpleAPI.NoModelException =>
+              error("no model available")
           }
 
           case _ =>
