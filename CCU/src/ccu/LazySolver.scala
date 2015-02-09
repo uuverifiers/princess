@@ -24,61 +24,88 @@ class LazySolver[TERM, FUNC]()
     goals : List[List[(Int, Int)]]) = {
     Timer.measure("Lazy.minimiseDI") {
 
-      def isSAT(newDI : Array[Array[Int]]) = {
-        // println("BEFORE DISEQUALITY CHECK:")
-        // println(newDI.map(x => x.mkString(" ")).mkString("\n"))
+      // val DQ = new Disequalities[FUNC](DI, functions)
+      var asd = None : Option[Disequalities[FUNC]]
+      Timer.measure("MIN.Init") {
+        asd = Some(new Disequalities[FUNC](DI, functions))
+      }
 
-        util.disequalityCheck(newDI, functions)
-        // println("AFTER DISEQUALITY CHECK (ORG):")
-        // println(newDI.map(x => x.mkString(" ")).mkString("\n"))
+      val DQ2 = asd.get
 
-        var satisfiable = false
+      // Go through all disequalities
+      // We try to remove disequalities one by one
+      Timer.measure("MIN.Loop") {
+        for (i <- 0 until DI.length; j <- 0 until DI.length;
+          if (i < j); if (DI(i)(j) == 0)) {
+          // var equal = false
+          // Timer.measure("MIN.equal") {
+          // equal = DQ.equalTo(DQ2)
+          
+          // if (equal) {
+          //   println("EQUAL")
+          //   println("DQ")
+          //   // DQ.print()
+          //   println("DQ2")
+          //   DQ2.doprint()
+          // }
+          // }
 
-        for (subGoal <- goals) {
-          var subGoalSat = true
+          // Timer.measure("MIN.DQ1") {
+          //   // Try removing one disequality
+          //   println("PRUNING DQ")
+          //   println("\tremoving: " + ((i, j)))
+          //   DQ.unify(i, j)
+          //   DQ.pruneINEQ()
+          // }
 
-          var allPairsTrue = true
-          for ((s,t) <- subGoal) {
-            if (newDI(s)(t) == 0) {
-              allPairsTrue = false
-            }
-
-            if (!allPairsTrue)
-              subGoalSat = false
+          Timer.measure("MIN.cascadeRemove") {
+            // println("CASCADING DQ2")
+            // println("\tremoving: " + ((i,j)))
+            DQ2.cascadeRemoveDQ(i, j)
           }
-          if (subGoalSat)
-            satisfiable = true
+
+          // Timer.measure("MIN.equal") {
+          //   if (equal && !DQ.equalTo(DQ2))
+          //     println(10 / 0)
+          // }
+          
+          // Still UNSAT? Propagate Changes
+          var sat = false
+          Timer.measure("MIN.satisfies") {
+            sat = DQ2.satisfies(goals)
+          }
+          if (!sat) {
+            // Timer.measure("MIN.DQ1") {
+            //   DQ.setBase()
+            // }
+            Timer.measure("MIN.setBase") {
+              DQ2.setBase()
+            }
+          } else {
+            // Timer.measure("MIN.DQ1") {
+            //   DQ.restore()
+            // }
+            Timer.measure("MIN.restire") {
+              DQ2.restore()
+            }
+          }
         }
-        satisfiable
       }
 
-      var tmpDI = Array.ofDim[Int](DI.length, DI.length)
+      // println("\n\n")
+      // println("DONE")
+      // println("\n\n")
 
-      val DQ = new Disequalities(DI, functions)
+      // Timer.measure("MIN.getINEQ") {
+      // if (DQ.getINEQ() != DQ2.getINEQ())
+      //   println(10/0)
+      // }
 
-
-      for (i <- 0 until DI.length; j <- 0 until DI.length;
-        if (i < j); if (DI(i)(j) == 0)) {
-
-        // Restore tmpDI to be equal to DI
-        for (i <- 0 until DI.length; j <- 0 until DI.length)
-          tmpDI(i)(j) = DI(i)(j)
-
-        // Try removing one disequality
-        tmpDI(i)(j) = 1
-        tmpDI(j)(i) = 1
-
-        // Still UNSAT? Propagate Changes
-        if (!isSAT(tmpDI)) {
-          for (i <- 0 until DI.length; j <- 0 until DI.length;
-            if (tmpDI(i)(j) == 1))
-            DI(i)(j) = tmpDI(i)(j)
-        }
+      var retVal = List() : List[(Int, Int)]
+      Timer.measure("MIN.getINEQ") {
+        retVal = DQ2.getINEQ()
       }
-      
-      (for (i <- 0 until DI.length; j <- 0 until DI.length;
-        if (i < j); if (DI(i)(j) == 0)) yield
-        (i,j)).toList
+      retVal
     }
   }
 
@@ -87,19 +114,22 @@ class LazySolver[TERM, FUNC]()
     Timer.measure("Lazy.solve") {
       println("\nLAZY: Using Lazy solver")
 
+      var assignments = Map() : Map[Int, List[Int]]
       // Initialize problem and some useful values
-      val terms = problem.allTerms
-      val domains = problem.allDomains
+        val terms = problem.allTerms
+        val domains = problem.allDomains
 
-      // Shows what bits are used to represent value of terms
-      val bits = util.binlog(terms.length)
+      Timer.measure("SOLVE.Init") {
+        // Shows what bits are used to represent value of terms
+        val bits = util.binlog(terms.length)
 
-      // Reset and add default stuff
-      solver.reset()
-      solver.addClause(new VecInt(Array(ONEBIT)))
-      solver.addClause(new VecInt(Array(-ZEROBIT)))
+        // Reset and add default stuff
+        solver.reset()
+        solver.addClause(new VecInt(Array(ONEBIT)))
+        solver.addClause(new VecInt(Array(-ZEROBIT)))
 
-      val assignments = createAssignments(terms)
+        assignments = createAssignments(terms)
+      }
 
       // Just keeping track of how many candidate solutions we have checked
       var tries = 0
@@ -108,7 +138,7 @@ class LazySolver[TERM, FUNC]()
 
       def KeepOnGoing() = {
         var result = false 
-        Timer.measure("Lazy.SAT4J") {
+        Timer.measure("SOLVE.SAT4J") {
           result = solver.isSatisfiable()
         }
         result
@@ -119,11 +149,72 @@ class LazySolver[TERM, FUNC]()
         // Convert the model to a more convenient format
         var termAss = Map() : Map[TERM, TERM]
         var intAss = Map() : Map[Int, Int]
-        for (t <- terms) {
-          val iVal = bitToInt(assignments(t))
-          termAss += (problem.intMap(t) -> problem.intMap(iVal))
-          intAss += (t -> iVal)
+
+        // var termAss2 = Map() : Map[TERM, TERM]
+        // var intAss2 = Map() : Map[Int, Int]
+        // Timer.measure("SOLVE.createAss") {
+        //   for (t <- terms) {
+        //     var iVal = 0
+        //     Timer.measure("SOLVE.createAss.bitToInt") {
+        //       iVal = bitToInt(assignments(t))
+        //     }
+        //     Timer.measure("SOLVE.createAss.termAss+=") {
+        //       termAss += (problem.intMap(t) -> problem.intMap(iVal))
+        //     }
+        //     Timer.measure("SOLVE.createAss.intAss+=") {
+        //       intAss += (t -> iVal)
+        //     }
+        //   }
+        // }
+
+        Timer.measure("SOLVE.createAss2") {
+          // If bit B is true, bitArray(bitMap(B)) should be true
+          var bitMap = Map() : Map[Int, List[Int]]
+
+          // Term T can find its bits in resultMap(T)
+          var resultMap = Map() : Map[Int, List[Int]]
+
+          // Prune all bits that are not with var ass and put in bitArray
+          var bitArray = Array.ofDim[Boolean](terms.length * problem.bits)
+
+          // Current position in bitArray
+          var curPos = 0
+
+          for ((term, bits) <- assignments) {
+            val newResult = 
+              (for (i <- 0 until bits.length) yield {
+                val newList = curPos :: (bitMap.getOrElse(bits(i), List()))
+                bitMap += (bits(i) -> newList)
+                curPos += 1
+                (curPos - 1)
+              }).toList
+            resultMap += term -> newResult
+          }
+
+          for (i <- solver.model) {
+            val newVal = i >= 0
+            for (b <- bitMap.getOrElse(Math.abs(i), List()))
+              bitArray(b) = newVal
+          }
+
+          def bitToInt2(bits : List[Int]) = {
+            var curMul = 1
+            var curVal = 0
+            for (b <- bits) {
+              if (bitArray(b))
+                curVal += curMul
+              curMul *= 2
+            }
+            curVal
+          }
+
+          for (t <- terms) {
+            val iVal = bitToInt2(resultMap(t))
+            termAss += (problem.intMap(t) -> problem.intMap(iVal))
+            intAss += (t -> iVal)
+          }
         }
+
 
         tries += 1
         println("\n\nCandidate solution (TRY: " + tries + "): " + intAss)
@@ -134,68 +225,92 @@ class LazySolver[TERM, FUNC]()
         // Check each problem one by one, adding blocking clauses
         // if any of the are UNSAT by this model
         var p = 0
-        while (allSat && p < problem.count) {
-          // Check if this IS a solution (exact check!)
-          if (!verifySolution[Int, FUNC](terms, intAss, problem.functions(p), problem.goals(p))) {
-
-            // If not, we have to find a new model, but we should add a blocking
-            // clause to not get the same model again
-            allSat = false
-
-            // Find out DI (i.e. expand diseq by using FP calculation)
-            // this gives a lower bound on inequalities (i.e. inequalities)
-            // that MUST hold
-            // diseq(s)(t) Contains a 1 if terms s and t ARE equal (exact)
-            val diseq = Array.ofDim[Int](problem.allTerms.length, problem.allTerms.length)
-
-            val sets = MSet() : MSet[Set[Int]]
-            for (t <- problem.allTerms)
-              sets += Set(t)
-
-            val newSets = util.CC[FUNC, Int](sets, problem.functions(p), intAss.toList)
-
-            def set(t : Int) : Set[Int] = {
-              for (s <- newSets)
-                if (s contains t)
-                  return s
-              throw new Exception("No set contains t?")
+        Timer.measure("SOLVE.Loop") {
+          while (allSat && p < problem.count) {
+            // Check if this IS a solution (exact check!)
+            var verified = false
+            Timer.measure("SOLVE.verify") {
+              verified = verifySolution[Int, FUNC](terms, intAss, problem.functions(p), problem.goals(p))
             }
 
-            for (s <- problem.allTerms; t <- problem.allTerms;
-              if (s <= t); if (set(s) == set(t))) {
-              diseq(s)(t) = 1
-              diseq(t)(s) = 1
+            if (!verified) {
+
+              // If not, we have to find a new model, but we should add a blocking
+              // clause to not get the same model again
+              allSat = false
+
+              // Find out DI (i.e. expand diseq by using FP calculation)
+              // this gives a lower bound on inequalities (i.e. inequalities)
+              // that MUST hold
+              // diseq(s)(t) Contains a 1 if terms s and t ARE equal (exact)
+              var minDI = List() : List[(Int, Int)]
+              Timer.measure("SOLVE.findMin") {
+                val diseq = Array.ofDim[Int](problem.allTerms.length, problem.allTerms.length)
+
+                val sets = MSet() : MSet[Set[Int]]
+                for (t <- problem.allTerms)
+                  sets += Set(t)
+
+                val newSets = util.CC[FUNC, Int](sets, problem.functions(p), intAss.toList)
+
+                def set(t : Int) : Set[Int] = {
+                  for (s <- newSets)
+                    if (s contains t)
+                      return s
+                  throw new Exception("No set contains t?")
+                }
+
+                for (s <- problem.allTerms; t <- problem.allTerms;
+                  if (s <= t); if (set(s) == set(t))) {
+                  diseq(s)(t) = 1
+                  diseq(t)(s) = 1
+                }
+
+                val DI = util.disequalityCheck(diseq, problem.functions(p))
+
+                // Now we minimize DI to only contain "relevant" inequalities
+                minDI = minimiseDI(DI, problem.functions(p), problem.goals(p))
+              }
+
+
+              Timer.measure("SOLVE.addBlockingClause") {
+                val teqt =
+                  Array.ofDim[Int](problem.allTerms.length, problem.allTerms.length)
+                for (i <- 0 until problem.allTerms.length;
+                  j <- 0 until problem.allTerms.length)
+                  teqt(i)(j) = -1
+
+                // The blocking clause states that one of the inequalities
+                // in minDI must be false (i.e. equality must hold)
+
+                // Remove all "base" inequalities, since they will always be there
+                // no need trying to satisfy those
+                // println("LAZY: blockingClause: " + minDI.mkString(", "))
+                // println("LAZY: baseDI: ")
+                // println(problem.baseDI(p).map(x => x.mkString(" ")).mkString("\n"))
+                val blockingClause =
+                  (for ((s,t) <- minDI;
+                    if (problem.baseDI(p)(s)(t) != 0)) yield {
+                    if (teqt(s min t)(s max t) == -1)
+                      teqt(s min t)(s max t) =
+                        termEqTermAux(
+                          assignments(s),
+                          assignments(t))
+                    // println("\t " + (s min t) + " != " + (s max t))
+                    teqt(s min t)(s max t)
+                  }).toArray
+
+                try {
+                  solver.addClause(new VecInt(blockingClause))
+                } catch {
+                  case _ : Throwable => { return ccu.Result.UNSAT }
+                }
+              }
             }
-
-            val DI = util.disequalityCheck(diseq, problem.functions(p))
-
-            // Now we minimize DI to only contain "relevant" inequalities
-            val minDI = minimiseDI(DI, problem.functions(p), problem.goals(p))
-
-
-
-            // The blocking clause states that one of the inequalities
-            // in minDI must be false (i.e. equality must hold)
-
-            // Remove all "base" inequalities, since they will always be there
-            // no need trying to satisfy those
-            // println("LAZY: blockingClause: " + minDI.mkString(", "))
-            val blockingClause =
-              (for ((s,t) <- minDI;
-                if (problem.baseDI(p)(s)(t) != 0)) yield {
-                termEqTermAux(
-                  assignments(s),
-                  assignments(t))
-              }).toArray
-
-            try {
-              solver.addClause(new VecInt(blockingClause))
-            } catch {
-              case _ : Throwable => { return ccu.Result.UNSAT }
-            }
+            p += 1
           }
-          p += 1
         }
+
         if (allSat) {
           println("LAZY: SAT: " + intAss)
           return ccu.Result.SAT

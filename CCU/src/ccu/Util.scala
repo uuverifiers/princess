@@ -1,56 +1,245 @@
 package ccu;
 
 import scala.collection.mutable.{Set => MSet}
+import scala.collection.mutable.ListBuffer
+import scala.annotation.tailrec
+
 
 class Disequalities[FUNC](
   initialDiseqs : Array[Array[Int]],
   functions : List[(FUNC, List[Int], Int)]) {
 
-  val DQ = Array.ofDim[Boolean](initialDiseqs.size, initialDiseqs.size)
+  var DQ = Array() : Array[Array[Int]]
+  var changes = ListBuffer() : ListBuffer[(Int, Int, Int)]
+  var relMap = Map() : Map[(Int, Int), List[((FUNC, List[Int], Int), (FUNC, List[Int], Int))]]
+  var goalMap = Map() : Map[Int, List[((FUNC, List[Int], Int), (FUNC, List[Int], Int))]]
 
-  for (i <- 0 until DQ.size; j <- 0 until DQ.size; if i <= j) yield
-    DQ(i)(j) = (initialDiseqs(i)(j) != 0)
 
-  var diseqs = 
-    (for (i <- 0 until DQ.size; j <- 0 until DQ.size; 
-      if i < j; if !DQ(i)(j)) yield
-      (i,j)).toList
+  Timer.measure("DISEQ.init") {
+    Timer.measure("DISEQ.DQ") {
+      DQ = Array.ofDim[Int](initialDiseqs.size, initialDiseqs.size)
+      for (i <- 0 until DQ.size; j <- 0 until DQ.size)
+        DQ(i)(j) = initialDiseqs(i)(j)
+    }
 
+
+    Timer.measure("DISEQ.relMap") {
+      // Build up a map from term-tuples to function-pairs that are relevant
+      relMap =
+        (for (i <- 0 until DQ.size; j <- 0 until DQ.size;
+          if (i < j)) yield {
+          ((i, j),
+            (for (f1 <- 0 until functions.length; f2 <- 0 until functions.length;
+              if f1 < f2)
+            yield (functions(f1), functions(f2))).filter(x => {
+              val ((fun1, args1, res1), (fun2, args2, res2)) = x
+              val zipArgs = args1 zip args2
+              (fun1 == fun2) && ((zipArgs contains (i,j)) || (zipArgs contains (j,i)))
+            }).toList)
+        }).toMap
+    }
+
+    Timer.measure("DISEQ.goalMap") {
+      goalMap =
+        (for (i <- 0 until DQ.size)
+        yield {
+          (i,
+            (for (f1 <- 0 until functions.length; f2 <- 0 until functions.length)
+            yield (functions(f1), functions(f2))).filter(x => {
+              val ((fun1, args1, res1), (fun2, args2, res2)) = x
+              fun1 == fun2 && res1 == i && res2 != i
+            }).toList)
+        }).toMap
+    }
+  }
 
   //
   // GET/SET
   //
   def apply(i : Int, j : Int) : Boolean = {
     if (i < j)
+      DQ(i)(j) != 0
+    else
+      DQ(j)(i) != 0
+  }
+
+  def dq(i : Int, j : Int) : Int = {
+    if (i < j)
       DQ(i)(j)
     else
       DQ(j)(i)
   }
 
-  def update(i : Int, j : Int, v : Boolean) : Unit = {
-    if (i < j)
-      DQ(i)(j) = v
-    else
-      DQ(j)(i) = v
-  }
+
 
   def getDQ() = {
-    val asd = Array.ofDim[Int](DQ.size, DQ.size)
+    val copy = Array.ofDim[Int](DQ.size, DQ.size)
     for (i <- 0 until DQ.size; j <- 0 until DQ.size)
-      asd(i)(j) = (if (this(i, j)) 1 else 0)
+      copy(i)(j) = (if (this(i, j)) 1 else 0)
 
-    asd
+    copy
   }
 
-  def print() = {
-    println("Disequalities:")
-    println(DQ.map(x => x.mkString(" ")).mkString("\n"))
+  def getINEQ() = {
+    (for (i <- 0 until DQ.length; j <- 0 until DQ.length;
+      if (i < j); if (0 == DQ(i)(j))) yield
+      (i,j)).toList
+  }
+
+  def getChanges() = changes
+
+  def unify(i : Int, j : Int) = {
+    if (dq(i, j) < 1) {
+      val old = DQ(i min j)(i max j)
+      changes += ((old, (i min j), (i max j)))
+      if (i < j)
+        DQ(i)(j) = 1
+      else
+        DQ(j)(i) = 1
+    }
+  }
+
+  def funify(i : Int, j : Int) = {
+    if (dq(i ,j) < 2) {
+      val old = DQ(i min j)(i max j)
+      changes += ((old, (i min j), (i max j)))
+      if (i < j)
+        DQ(i)(j) = 2
+      else
+        DQ(j)(i) = 2
+    }
+  }
+
+  def cascadeRemoveDQ(s : Int, t : Int) : Unit = {
+
+    def funUnify(s : Int, t : Int) : Set[(Int, Int)] = {
+      Timer.measure("CASC.funUnify") {
+        val sEq =
+          for (i <- 0 until DQ.length; if (this(s, i))) yield i
+        val tEq =
+          for (i <- 0 until DQ.length; if (this(t, i))) yield i
+
+        // println("sEq: " + sEq)
+        // println("tEq: " + tEq)
+
+        (for (i <- sEq; j <- tEq; if i != j; if !this(i,j)) yield {
+          // println(((i min j, i max j)) + " because of " + ((s, t)) +
+          //   " was removed and " + ((s, i)) + " and " + ((t, j)))
+          (i min j, i max j)
+        }).toSet
+      }
+    }
+
+    val done = MSet() : MSet[(Int, Int)]
+    var todo = MSet((s, t))
+
+    while (!todo.isEmpty) {
+      val next = todo.head
+      todo -= next
+
+      val (s,t) = next
+      if (s != t && !(done contains next)) {
+        done += next
+
+        // Remove (s != t)
+        unify(s, t)
+
+        Timer.measure("CASC.Functionality") {
+          // Functionality
+          for (((f_i, args_i, s_i), (f_j, args_j, s_j)) <- relMap((s,t))) {
+            var equal = true
+            for (i <- 0 until args_i.length)
+              if (!this(args_i(i), args_j(i)))
+                equal = false
+
+            if (equal) {
+              if (2 != dq(s_i, s_j)) {
+                funify(s_i, s_j)
+                val newEq = (s_i min s_j, s_i max s_j)
+                if (!(done  contains newEq))
+                  todo += newEq
+                for (eq <- funUnify(s_i, s_j); if (!(done contains eq)))
+                  todo += eq
+              }
+
+            }
+          }
+        }
+
+        Timer.measure("CASC.goalMap(s)") {
+          for (((f_i, args_i, s_i), (f_j, args_j, s_j)) <- goalMap(s)) {
+            var equal = true
+            for (k <- 0 until args_i.length)
+              if (!this(args_i(k), args_j(k)))
+                equal = false
+            if (equal)
+              // We know that s_i = s
+              for (i <- 0 until DQ.length) {
+                if (!this(t, i) && this(i, s_j) && !(done contains (t, i))) {
+                  todo += (((t min i, t max i)))
+                }
+              }
+          }
+        }
+
+        Timer.measure("CASC.goalMap(t)") {
+          for (((f_i, args_i, s_i), (f_j, args_j, s_j)) <- goalMap(t)) {
+            var equal = true
+            for (k <- 0 until args_i.length)
+              if (!this(args_i(k), args_j(k)))
+                equal = false
+            if (equal)
+              // We know that s_i = s
+              for (i <- 0 until DQ.length) {
+                if (!this(s, i) && this(i, s_j) && !(done contains (s, i))) {
+                  todo += (((s min i, s max i)))
+                }
+              }
+          }
+        }
+      }
+      
+    }
+  }
+
+
+  def equalTo(DQ2 : Disequalities[FUNC]) : Boolean = {
+    if (DQ.size != DQ2.DQ.size)
+      return false
+
+    for (i <- 0 until DQ.size; j <- 0 until DQ.size; if i<=j)
+      if (this(i, j) != DQ2(i, j))
+        return false
+    true
+  }
+
+  def setBase() = {
+    changes = ListBuffer()
+  }
+
+  def restore() = {
+    for ((old, s, t) <- changes.reverse)
+      DQ(s)(t) = old
+    changes = ListBuffer()
+  }
+
+  def doprint() : Unit = {
+
+    println(DQ)
+    // for (i <- 0 until DQ.size) {
+    //   for (j <- 0 until DQ.size) {
+    //     print(" " + (DQ(i)(j)))
+    //   }
+    //   println
+    // }
+    // println(DQ.map(x => x.mkString(" ")).mkString("\n"));
   }
 
   // "Congruence Closure"
-  def pruneINEQ() = {
+  // Returns list of disequalities removed
+  def pruneINEQ() : List[(Int, Int)] = {
     var changed = true
-    var anyChange = false
+
     while (changed) {
       changed = false
 
@@ -67,9 +256,10 @@ class Disequalities[FUNC](
         // Functionality
         if (equal) {
           if (!this(s_i, s_j)) {
-            // println(">" + s_i + " = " + s_j + ", because of " +
-            // f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
-            update(s_i, s_j, true)
+            // println(((s_i, s_j)) + " because of " + ((f_i, args_i, s_i)) +
+            //   " and " + ((f_j, args_j, s_j)) + " (FUNC)")
+            println("FUNIFY(" + s_i + ", " + s_j + ")")
+            funify(s_i, s_j)
             changed = true
           }
 
@@ -77,24 +267,25 @@ class Disequalities[FUNC](
           for (i <- 0 until DQ.length) {
             for (j <- 0 until DQ.length) {
               if (this(s_i, i) && this(s_j, j) && !this(i, j)) {
-                // println(">" + i + " = " + j + ", because of " + s_i +
-                // " = " + i + " and " + s_j + " = " + j)
-                update(i, j, true)
+                // println(((s_i, s_j)) + " because of " + ((f_i, args_i, s_i)) +
+                //   " and " + ((f_j, args_j, s_j)) + " and " + ((s_i, i)))
+                println("UNIFY(" + i + ", " + j + ")")
+                unify(i, j)
                 changed = true
               }
             }
           }
         }
       }
-
-      if (changed)
-        anyChange = true
     }
 
-    anyChange
+    changes.map(x => {
+      val (a,b,c) = x
+      (b, c)
+    }).toList
   }
 
-  def satifies(goals : List[List[(Int, Int)]]) = {
+  def satisfies(goals : List[List[(Int, Int)]]) = {
     var satisfiable = false
 
     for (subGoal <- goals) {
@@ -102,7 +293,7 @@ class Disequalities[FUNC](
 
       var allPairsTrue = true
       for ((s,t) <- subGoal) {
-        if (this(s,t)) {
+        if (!this(s,t)) {
           allPairsTrue = false
         }
 
@@ -237,8 +428,8 @@ class Util[TERM, FUNC] {
           // Functionality
           if (equal) {
             if (eq(s_i min s_j)(s_i max s_j) == 0) {
-              // println(">" + s_i + " = " + s_j + ", because of " +
-              // f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
+              println(">" + s_i + " = " + s_j + ", because of " +
+              f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
               eq(s_i)(s_j) = 1
               eq(s_j)(s_i) = 1
               changed = true
@@ -248,8 +439,8 @@ class Util[TERM, FUNC] {
             for (i <- 0 until eq.length) {
               for (j <- 0 until eq.length) {
                 if (eq(s_i)(i) != 0 && eq(s_j)(j) != 0 && eq(i)(j) == 0) {
-                  // println(">" + i + " = " + j + ", because of " + s_i +
-                  // " = " + i + " and " + s_j + " = " + j)
+                  println(">" + i + " = " + j + ", because of " + s_i +
+                  " = " + i + " and " + s_j + " = " + j)
                   eq(i)(j) = 1
                   eq(j)(i) = 1
                   changed = true

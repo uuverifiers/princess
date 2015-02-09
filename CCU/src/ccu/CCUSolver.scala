@@ -244,28 +244,33 @@ abstract class CCUSolver[TERM, FUNC] {
   def createAssignments(terms : List[Int]) : Map[Int, List[Int]] = {
     // Connects each term with its list of bits
     // (e.g. assignment(a) = List(3,4,5))
-    val assignments =
-      (for (t <- terms) yield {
-        (t,
-          (if (problem.allDomains(t).size == 1) {
-            termAssIntAux(problem.allDomains(t).toList(0))
-          } else {
-            val termStartBit = alloc.alloc(problem.bits)
-            val termBits = List.tabulate(problem.bits)(x => x + termStartBit)
-            val assBits =
-              (for (tt <- problem.allDomains(t); if tt <= t) yield  {
-                termEqIntAux(termBits, tt)
-              }).toArray
-            solver.addClause(new VecInt(assBits))
-            termBits}).toList)}).toMap
+    var assignments = Map() : Map[Int, List[Int]]
+    Timer.measure("create.ASSIGNMENTS") {
+      assignments =
+        (for (t <- terms) yield {
+          (t,
+            (if (problem.allDomains(t).size == 1) {
+              termAssIntAux(problem.allDomains(t).toList(0))
+            } else {
+              val termStartBit = alloc.alloc(problem.bits)
+              val termBits = List.tabulate(problem.bits)(x => x + termStartBit)
+              val assBits =
+                (for (tt <- problem.allDomains(t); if tt <= t) yield  {
+                  termEqIntAux(termBits, tt)
+                }).toArray
+              solver.addClause(new VecInt(assBits))
+              termBits}).toList)}).toMap
+    }
 
-    // Enforce idempotency
-    for (t <- terms) {
-      for (tt <- problem.allDomains(t); if tt <= t) {
-        // Either tt = tt or t != tt
-        val iddBit = termEqIntAux(assignments(tt), tt)
-        val neqBit = -termEqIntAux(assignments(t), tt)
-        solver.addClause(new VecInt(Array(iddBit, neqBit)))
+    Timer.measure("create.IDEMPOTENCY") {
+      // Enforce idempotency
+      for (t <- terms) {
+        for (tt <- problem.allDomains(t); if tt <= t) {
+          // Either tt = tt or t != tt
+          val iddBit = termEqIntAux(assignments(tt), tt)
+          val neqBit = -termEqIntAux(assignments(t), tt)
+          solver.addClause(new VecInt(Array(iddBit, neqBit)))
+        }
       }
     }
     assignments
@@ -380,14 +385,14 @@ abstract class CCUSolver[TERM, FUNC] {
       }).toList
 
       val baseDI = (for (p <- 0 until problemCount)
-      yield
-      {
+      yield {
         val c = Array.ofDim[Int](newTerms.length, newTerms.length)
         for (t <- newTerms; tt <- newTerms)
           c(t)(tt) = arr(t)(tt)
 
-        val deq = util.disequalityCheck(c, newFunctions(p))
-        deq
+        arr
+        // val deq = util.disequalityCheck(c, newFunctions(p))
+        // deq-
       }).toList
 
       val ffs =

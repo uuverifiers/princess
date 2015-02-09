@@ -149,9 +149,9 @@ object GlobalSettings {
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
-        case ValueOpt("CCU", "Table") =>
+        case ValueOpt("CCU", "table") =>
           Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Table)
-        case ValueOpt("CCU", "Lazy") =>
+        case ValueOpt("CCU", "lazy") =>
           Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Lazy)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)

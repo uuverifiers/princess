@@ -396,14 +396,14 @@ trait ProofTree {
     }
 
     ap.util.Timer.measure("CCUSolver") {  
-  Console.withOut(ap.CmdlMain.NullStream) {
+  // Console.withOut(ap.CmdlMain.NullStream) {
 //     (ccuSolver.solve(allConsts.toList.sortBy(_.name),
 //         allDomains.toMap,
 //         goals, funApps)).isDefined }
       ccuSolver.createProblem(allDomains.toMap, goals, funApps)
 
       ccuSolver.solve() == ccu.Result.SAT
-      }
+      // }
     }
   }
 
