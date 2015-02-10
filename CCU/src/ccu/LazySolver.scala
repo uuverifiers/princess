@@ -21,99 +21,75 @@ class LazySolver[TERM, FUNC]()
   // by transitivity (in some cases) yields that a = b = c = d
   def minimiseDI(DI : Array[Array[Int]],
     functions : List[(FUNC, List[Int], Int)],
-    goals : List[List[(Int, Int)]]) = {
+    goals : List[List[(Int, Int)]]) : List[(Int, Int)] = {
     Timer.measure("Lazy.minimiseDI") {
 
+      // println("DI: " + DI.map(x => x.mkString(" ")).mkString("\n"))
       // val DQ = new Disequalities[FUNC](DI, functions)
-      var asd = None : Option[Disequalities[FUNC]]
-      Timer.measure("MIN.Init") {
-        asd = Some(new Disequalities[FUNC](DI, functions))
-      }
-
-      val DQ2 = asd.get
+      val DQ2 = new Disequalities[FUNC](DI, functions)
+      // println("DQ2:")
+      // DQ2.doprint
 
       // Go through all disequalities
       // We try to remove disequalities one by one
       Timer.measure("MIN.Loop") {
         for (i <- 0 until DI.length; j <- 0 until DI.length;
-          if (i < j); if (DI(i)(j) == 0)) {
+          if (i < j); if (!DQ2(i, j))) {
           // var equal = false
-          // Timer.measure("MIN.equal") {
           // equal = DQ.equalTo(DQ2)
           
           // if (equal) {
           //   println("EQUAL")
-          //   println("DQ")
+          //   // println("DQ")
           //   // DQ.print()
-          //   println("DQ2")
-          //   DQ2.doprint()
-          // }
+          //   // println("DQ2")
+          //   // DQ2.doprint()
           // }
 
-          // Timer.measure("MIN.DQ1") {
-          //   // Try removing one disequality
-          //   println("PRUNING DQ")
-          //   println("\tremoving: " + ((i, j)))
-          //   DQ.unify(i, j)
-          //   DQ.pruneINEQ()
-          // }
+          // Try removing one disequality
+          // println("PRUNING DQ")
+          // println("\tremoving: " + ((i, j)))
+          // DQ.unify(i, j)
+          // DQ.pruneINEQ()
 
           Timer.measure("MIN.cascadeRemove") {
-            // println("CASCADING DQ2")
-            // println("\tremoving: " + ((i,j)))
             DQ2.cascadeRemoveDQ(i, j)
           }
 
-          // Timer.measure("MIN.equal") {
-          //   if (equal && !DQ.equalTo(DQ2))
-          //     println(10 / 0)
-          // }
+          // if (equal && !DQ.equalTo(DQ2))
+          //   println(10 / 0)
           
           // Still UNSAT? Propagate Changes
           var sat = false
-          Timer.measure("MIN.satisfies") {
-            sat = DQ2.satisfies(goals)
-          }
+          sat = DQ2.satisfies(goals)
+
           if (!sat) {
-            // Timer.measure("MIN.DQ1") {
-            //   DQ.setBase()
-            // }
-            Timer.measure("MIN.setBase") {
-              DQ2.setBase()
-            }
+            // DQ.setBase()
+            DQ2.setBase()
           } else {
-            // Timer.measure("MIN.DQ1") {
-            //   DQ.restore()
-            // }
-            Timer.measure("MIN.restire") {
-              DQ2.restore()
-            }
+            // DQ.restore()
+            // println("Restoring ...")
+            DQ2.restore()
           }
         }
       }
 
-      // println("\n\n")
-      // println("DONE")
-      // println("\n\n")
-
       // Timer.measure("MIN.getINEQ") {
       // if (DQ.getINEQ() != DQ2.getINEQ())
       //   println(10/0)
-      // }
 
-      var retVal = List() : List[(Int, Int)]
-      Timer.measure("MIN.getINEQ") {
-        retVal = DQ2.getINEQ()
-      }
-      retVal
+      // println("RESULT:")
+      // DQ2.doprint
+      // println("\n\n\n")
+      // problem.print("AFTERMINIMISE")
+      // println("\n\n\n")
+      DQ2.getINEQ()
     }
   }
 
 
   override def solve() : ccu.Result.Result = {
     Timer.measure("Lazy.solve") {
-      println("\nLAZY: Using Lazy solver")
-
       var assignments = Map() : Map[Int, List[Int]]
       // Initialize problem and some useful values
         val terms = problem.allTerms
@@ -135,7 +111,6 @@ class LazySolver[TERM, FUNC]()
       var tries = 0
 
       // As long as the model is SAT, we can search for more solutions
-
       def KeepOnGoing() = {
         var result = false 
         Timer.measure("SOLVE.SAT4J") {
@@ -144,8 +119,16 @@ class LazySolver[TERM, FUNC]()
         result
       }
 
+      // Used to store what bits are equivalent to term equal term
+      val teqt =
+        Array.ofDim[Int](problem.allTerms.length, problem.allTerms.length)
+      for (i <- 0 until problem.allTerms.length;
+        j <- 0 until problem.allTerms.length)
+        teqt(i)(j) = -1
+
+
       while (KeepOnGoing()) {
-        println(Timer)
+        // println(Timer)
         // Convert the model to a more convenient format
         var termAss = Map() : Map[TERM, TERM]
         var intAss = Map() : Map[Int, Int]
@@ -217,7 +200,7 @@ class LazySolver[TERM, FUNC]()
 
 
         tries += 1
-        println("\n\nCandidate solution (TRY: " + tries + "): " + intAss)
+        // println("\n\nCandidate solution (TRY: " + tries + "): " + intAss)
 
         // If all problems are SAT, then we are done
         var allSat = true
@@ -225,6 +208,7 @@ class LazySolver[TERM, FUNC]()
         // Check each problem one by one, adding blocking clauses
         // if any of the are UNSAT by this model
         var p = 0
+
         Timer.measure("SOLVE.Loop") {
           while (allSat && p < problem.count) {
             // Check if this IS a solution (exact check!)
@@ -274,11 +258,6 @@ class LazySolver[TERM, FUNC]()
 
 
               Timer.measure("SOLVE.addBlockingClause") {
-                val teqt =
-                  Array.ofDim[Int](problem.allTerms.length, problem.allTerms.length)
-                for (i <- 0 until problem.allTerms.length;
-                  j <- 0 until problem.allTerms.length)
-                  teqt(i)(j) = -1
 
                 // The blocking clause states that one of the inequalities
                 // in minDI must be false (i.e. equality must hold)
@@ -289,18 +268,22 @@ class LazySolver[TERM, FUNC]()
                 // println("LAZY: baseDI: ")
                 // println(problem.baseDI(p).map(x => x.mkString(" ")).mkString("\n"))
                 val blockingClause =
-                  (for ((s,t) <- minDI;
-                    if (problem.baseDI(p)(s)(t) != 0)) yield {
-                    if (teqt(s min t)(s max t) == -1)
-                      teqt(s min t)(s max t) =
+                  (for ((s,t) <- minDI) yield {
+                  // (for ((s,t) <- minDI;
+                    // if (problem.baseDI(p)(s)(t) != 0)) yield {
+                    if (teqt(s min t)(s max t) == -1) {
+                      val newT =
                         termEqTermAux(
                           assignments(s),
                           assignments(t))
-                    // println("\t " + (s min t) + " != " + (s max t))
+                      teqt(s min t)(s max t) = newT
+                    }
+                    // println("\t " + (s min t) + " != " + (s max t) + " [" + (teqt(s min t)(s max t)) + "]")
                     teqt(s min t)(s max t)
                   }).toArray
 
                 try {
+                  // println("blockingClause: " + blockingClause.mkString(" "))
                   solver.addClause(new VecInt(blockingClause))
                 } catch {
                   case _ : Throwable => { return ccu.Result.UNSAT }
@@ -313,8 +296,8 @@ class LazySolver[TERM, FUNC]()
 
         if (allSat) {
           println("LAZY: SAT: " + intAss)
+          model = Some(termAss)
           return ccu.Result.SAT
-          // return Some(termAss)
         }
       }
 

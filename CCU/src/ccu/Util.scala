@@ -1,8 +1,9 @@
 package ccu;
 
 import scala.collection.mutable.{Set => MSet}
+import scala.collection.mutable.{Map => MMap}
 import scala.collection.mutable.ListBuffer
-import scala.annotation.tailrec
+import scala.collection.mutable.Queue
 
 
 class Disequalities[FUNC](
@@ -11,46 +12,51 @@ class Disequalities[FUNC](
 
   var DQ = Array() : Array[Array[Int]]
   var changes = ListBuffer() : ListBuffer[(Int, Int, Int)]
-  var relMap = Map() : Map[(Int, Int), List[((FUNC, List[Int], Int), (FUNC, List[Int], Int))]]
-  var goalMap = Map() : Map[Int, List[((FUNC, List[Int], Int), (FUNC, List[Int], Int))]]
+  var relMap = MMap() : MMap[(Int, Int), List[(Int, Int)]]
+  var goalMap = Map() : Map[Int, List[(Int, Int)]]
 
+  // var diseqCount = 0
 
   Timer.measure("DISEQ.init") {
-    Timer.measure("DISEQ.DQ") {
-      DQ = Array.ofDim[Int](initialDiseqs.size, initialDiseqs.size)
-      for (i <- 0 until DQ.size; j <- 0 until DQ.size)
-        DQ(i)(j) = initialDiseqs(i)(j)
+    DQ = Array.ofDim[Int](initialDiseqs.size, initialDiseqs.size)
+    for (i <- 0 until DQ.size; j <- 0 until DQ.size; if i <= j) {
+      DQ(i)(j) = initialDiseqs(i)(j)
+      // if (DQ(i)(j) == 0)
+      //   diseqCount += 1
     }
 
 
-    Timer.measure("DISEQ.relMap") {
-      // Build up a map from term-tuples to function-pairs that are relevant
-      relMap =
-        (for (i <- 0 until DQ.size; j <- 0 until DQ.size;
-          if (i < j)) yield {
-          ((i, j),
-            (for (f1 <- 0 until functions.length; f2 <- 0 until functions.length;
-              if f1 < f2)
-            yield (functions(f1), functions(f2))).filter(x => {
-              val ((fun1, args1, res1), (fun2, args2, res2)) = x
-              val zipArgs = args1 zip args2
-              (fun1 == fun2) && ((zipArgs contains (i,j)) || (zipArgs contains (j,i)))
-            }).toList)
-        }).toMap
-    }
 
-    Timer.measure("DISEQ.goalMap") {
-      goalMap =
-        (for (i <- 0 until DQ.size)
-        yield {
-          (i,
-            (for (f1 <- 0 until functions.length; f2 <- 0 until functions.length)
-            yield (functions(f1), functions(f2))).filter(x => {
-              val ((fun1, args1, res1), (fun2, args2, res2)) = x
-              fun1 == fun2 && res1 == i && res2 != i
-            }).toList)
-        }).toMap
+
+    // Build up a map from term-tuples to function-pairs that are relevant
+    for (f1 <- 0 until functions.length; f2 <- 0 until functions.length;
+      if f1 < f2) {
+      val (fun1, args1, res1) = functions(f1)
+      val (fun2, args2, res2) = functions(f2)
+      if (fun1 == fun2 && res1 != res2) {
+        for (i <- 0 until args1.length) {
+          val s = args1(i) min args2(i)
+          val t = args1(i) max args2(i)
+
+          val newList = (f1, f2) ::
+          (relMap.getOrElse((s, t), List()))
+          relMap += ((s, t)) -> newList
+        }
+      }
     }
+    goalMap =
+      (for (i <- 0 until DQ.size)
+      yield {
+        val funPairs = 
+          // NOT f1 < f2 since its not symmetric!
+          (for (f1 <- 0 until functions.length;
+            f2 <- 0 until functions.length) yield {
+            val (fun1, args1, res1) = functions(f1)
+            val (fun2, args2, res2) = functions(f2)
+            val include = (fun1 == fun2 && res1 == i && res2 != i)
+            (include, (f1, f2))}).toList
+        (i, funPairs.filter(_._1).map(_._2))
+      }).toMap
   }
 
   //
@@ -88,120 +94,145 @@ class Disequalities[FUNC](
 
   def getChanges() = changes
 
+  def update(i : Int, j : Int, v : Int) = {
+    val ii = i min j
+    val jj = i max j
+
+    val old = DQ(ii)(jj)
+    changes += ((old, ii, jj))
+
+    DQ(ii)(jj) = v
+  }
+
   def unify(i : Int, j : Int) = {
     if (dq(i, j) < 1) {
-      val old = DQ(i min j)(i max j)
-      changes += ((old, (i min j), (i max j)))
-      if (i < j)
-        DQ(i)(j) = 1
-      else
-        DQ(j)(i) = 1
+      // diseqCount -= 1
+      update(i, j, 1)
     }
   }
 
   def funify(i : Int, j : Int) = {
     if (dq(i ,j) < 2) {
-      val old = DQ(i min j)(i max j)
-      changes += ((old, (i min j), (i max j)))
-      if (i < j)
-        DQ(i)(j) = 2
-      else
-        DQ(j)(i) = 2
+      // if (dq(i,j) < 1)
+      //   diseqCount -= 1
+      update(i, j, 2)
     }
   }
 
   def cascadeRemoveDQ(s : Int, t : Int) : Unit = {
 
     def funUnify(s : Int, t : Int) : Set[(Int, Int)] = {
-      Timer.measure("CASC.funUnify") {
-        val sEq =
-          for (i <- 0 until DQ.length; if (this(s, i))) yield i
-        val tEq =
-          for (i <- 0 until DQ.length; if (this(t, i))) yield i
+      val sEq =
+        for (i <- 0 until DQ.length; if (this(s, i))) yield i
+      val tEq =
+        for (i <- 0 until DQ.length; if (this(t, i))) yield i
 
-        // println("sEq: " + sEq)
-        // println("tEq: " + tEq)
 
-        (for (i <- sEq; j <- tEq; if i != j; if !this(i,j)) yield {
-          // println(((i min j, i max j)) + " because of " + ((s, t)) +
-          //   " was removed and " + ((s, i)) + " and " + ((t, j)))
-          (i min j, i max j)
-        }).toSet
+      (for (i <- sEq; j <- tEq; if i != j; if !this(i,j)) yield {
+        // println(((i min j, i max j)) + " because of " + ((s, t)) +
+        //   " was removed and " + ((s, i)) + " and " + ((t, j)))
+        (i min j, i max j)
+      }).toSet
+    }
+
+    val todo = Queue() : Queue[(Int, Int)]
+    val inQueue = Array.ofDim[Boolean](DQ.size, DQ.size)
+
+    def addTodo(newEq : (Int, Int), fun : Boolean) = {
+      val (ss, tt) = newEq
+      val s = ss min tt
+      val t = ss max tt
+      val curdq = dq(s, t)
+
+      var queue = true
+
+      if (fun && curdq < 2) {
+        funify(ss, t)
+      } else if (curdq < 1) {
+        unify(s, t)
+      } else {
+        queue = false
+      }
+
+      if (queue && !inQueue(s)(t)) {
+        inQueue(s)(t) = true
+        todo.enqueue((s, t))
       }
     }
 
-    val done = MSet() : MSet[(Int, Int)]
-    var todo = MSet((s, t))
+    // Add initial todo item
+    addTodo((s, t), false)
 
+    // DISEQ COUNT?
     while (!todo.isEmpty) {
-      val next = todo.head
-      todo -= next
+      val (s, t) = todo.dequeue
+      inQueue(s)(t) = false
 
-      val (s,t) = next
-      if (s != t && !(done contains next)) {
-        done += next
+      // ASSERT
+      if (!this(s, t))
+        throw new Exception("Tuple " + ((s,t)) + " in todo not unified!")
 
-        // Remove (s != t)
-        unify(s, t)
 
-        Timer.measure("CASC.Functionality") {
-          // Functionality
-          for (((f_i, args_i, s_i), (f_j, args_j, s_j)) <- relMap((s,t))) {
-            var equal = true
-            for (i <- 0 until args_i.length)
-              if (!this(args_i(i), args_j(i)))
-                equal = false
+      // Functionality
+      // println("FUNC" + ((s, t)))
+      // println("\t" + relMap.getOrElse((s,t), List()))
+      // println("\n\t\trelMap: " + relMap)
+      for ((f1, f2) <- relMap.getOrElse((s,t), List())) {
+        val (f_i, args_i, s_i) = functions(f1)
+        val (f_j, args_j, s_j) = functions(f2)
+        // println("\t" + (f_i, args_i, s_i) + " and " + (f_j, args_j, s_j))
 
-            if (equal) {
-              if (2 != dq(s_i, s_j)) {
-                funify(s_i, s_j)
-                val newEq = (s_i min s_j, s_i max s_j)
-                if (!(done  contains newEq))
-                  todo += newEq
-                for (eq <- funUnify(s_i, s_j); if (!(done contains eq)))
-                  todo += eq
-              }
+        var equal = true
 
-            }
-          }
+        for (i <- 0 until args_i.length)
+          if (!this(args_i(i), args_j(i)))
+            equal = false
+
+        if (equal) {
+          addTodo((s_i, s_j), true)
+
+          for (eq <- funUnify(s_i, s_j))
+            addTodo(eq, false)
         }
+      }
 
-        Timer.measure("CASC.goalMap(s)") {
-          for (((f_i, args_i, s_i), (f_j, args_j, s_j)) <- goalMap(s)) {
-            var equal = true
-            for (k <- 0 until args_i.length)
-              if (!this(args_i(k), args_j(k)))
-                equal = false
-            if (equal)
-              // We know that s_i = s
-              for (i <- 0 until DQ.length) {
-                if (!this(t, i) && this(i, s_j) && !(done contains (t, i))) {
-                  todo += (((t min i, t max i)))
-                }
-              }
-          }
-        }
+      for ((f1, f2) <- goalMap(s)) {
+        val (f_i, args_i, s_i) = functions(f1)
+        val (f_j, args_j, s_j) = functions(f2)
 
-        Timer.measure("CASC.goalMap(t)") {
-          for (((f_i, args_i, s_i), (f_j, args_j, s_j)) <- goalMap(t)) {
-            var equal = true
-            for (k <- 0 until args_i.length)
-              if (!this(args_i(k), args_j(k)))
-                equal = false
-            if (equal)
-              // We know that s_i = s
-              for (i <- 0 until DQ.length) {
-                if (!this(s, i) && this(i, s_j) && !(done contains (s, i))) {
-                  todo += (((s min i, s max i)))
-                }
-              }
+        var equal = true
+        for (k <- 0 until args_i.length)
+          if (!this(args_i(k), args_j(k)))
+            equal = false
+
+        if (equal) {
+          // We know that s_i = s
+          for (i <- 0 until DQ.length; if (i != s && i != t)) {
+            if (this(i, s_j))
+              addTodo((t, i), false)
           }
         }
       }
-      
+
+      for ((f1, f2) <- goalMap(t)) {
+        val (f_i, args_i, s_i) = functions(f1)
+        val (f_j, args_j, s_j) = functions(f2)
+
+        var equal = true
+        for (k <- 0 until args_i.length)
+          if (!this(args_i(k), args_j(k)))
+            equal = false
+
+        if (equal) {
+          // We know that s_i = s
+          for (i <- 0 until DQ.length; if (i != s && i != t)) {
+            if (this(i, s_j))
+              addTodo((s, i), false)
+          }
+        }
+      }
     }
   }
-
 
   def equalTo(DQ2 : Disequalities[FUNC]) : Boolean = {
     if (DQ.size != DQ2.DQ.size)
@@ -218,21 +249,17 @@ class Disequalities[FUNC](
   }
 
   def restore() = {
-    for ((old, s, t) <- changes.reverse)
+    for ((old, s, t) <- changes.reverse) {
+      // if (old == 0)
+      //   diseqCount += 1
       DQ(s)(t) = old
+    }
+
     changes = ListBuffer()
   }
 
   def doprint() : Unit = {
-
-    println(DQ)
-    // for (i <- 0 until DQ.size) {
-    //   for (j <- 0 until DQ.size) {
-    //     print(" " + (DQ(i)(j)))
-    //   }
-    //   println
-    // }
-    // println(DQ.map(x => x.mkString(" ")).mkString("\n"));
+    println(DQ.map(x => x.mkString(" ")).mkString("\n"));
   }
 
   // "Congruence Closure"
@@ -258,7 +285,7 @@ class Disequalities[FUNC](
           if (!this(s_i, s_j)) {
             // println(((s_i, s_j)) + " because of " + ((f_i, args_i, s_i)) +
             //   " and " + ((f_j, args_j, s_j)) + " (FUNC)")
-            println("FUNIFY(" + s_i + ", " + s_j + ")")
+            // println("FUNIFY(" + s_i + ", " + s_j + ")")
             funify(s_i, s_j)
             changed = true
           }
@@ -269,7 +296,7 @@ class Disequalities[FUNC](
               if (this(s_i, i) && this(s_j, j) && !this(i, j)) {
                 // println(((s_i, s_j)) + " because of " + ((f_i, args_i, s_i)) +
                 //   " and " + ((f_j, args_j, s_j)) + " and " + ((s_i, i)))
-                println("UNIFY(" + i + ", " + j + ")")
+                // println("UNIFY(" + i + ", " + j + ")")
                 unify(i, j)
                 changed = true
               }
@@ -293,12 +320,12 @@ class Disequalities[FUNC](
 
       var allPairsTrue = true
       for ((s,t) <- subGoal) {
-        if (!this(s,t)) {
+        if (!this(s,t))
           allPairsTrue = false
-        }
 
         if (!allPairsTrue)
           subGoalSat = false
+
       }
       if (subGoalSat)
         satisfiable = true
@@ -344,12 +371,6 @@ class Util[TERM, FUNC] {
     functions : List[(FUNC, List[TERM], TERM)],
     assignments : List[(TERM, TERM)] = List()) 
       : Set[Set[TERM]] = {
-    def rep(t : TERM) : TERM = {
-      for (s <- sets)
-        if (s contains t)
-          return s.minBy(_.toString)
-      throw new Exception("No set contains t?")
-    }
 
     def set(t : TERM) : Set[TERM] = {
       for (s <- sets)
@@ -428,8 +449,8 @@ class Util[TERM, FUNC] {
           // Functionality
           if (equal) {
             if (eq(s_i min s_j)(s_i max s_j) == 0) {
-              println(">" + s_i + " = " + s_j + ", because of " +
-              f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
+              // println(">" + s_i + " = " + s_j + ", because of " +
+              // f_i + "(" + args_i + ") = " + f_j + "(" + args_j + ")")
               eq(s_i)(s_j) = 1
               eq(s_j)(s_i) = 1
               changed = true
@@ -439,8 +460,8 @@ class Util[TERM, FUNC] {
             for (i <- 0 until eq.length) {
               for (j <- 0 until eq.length) {
                 if (eq(s_i)(i) != 0 && eq(s_j)(j) != 0 && eq(i)(j) == 0) {
-                  println(">" + i + " = " + j + ", because of " + s_i +
-                  " = " + i + " and " + s_j + " = " + j)
+                  // println(">" + i + " = " + j + ", because of " + s_i +
+                  // " = " + i + " and " + s_j + " = " + j)
                   eq(i)(j) = 1
                   eq(j)(i) = 1
                   changed = true

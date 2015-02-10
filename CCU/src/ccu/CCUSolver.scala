@@ -41,11 +41,8 @@ class Problem[TERM, FUNC](
   val termMap : Map[TERM, Int],
   val intMap : Map[Int, TERM])
 { 
-
   val originalGoals = goals : List[List[List[(Int, Int)]]]
   var result = None : Option[ccu.Result.Result]
-
-  // SubGoal removal variables
 
   def print(prefix : String) = {
     val p = prefix + ": "
@@ -76,7 +73,42 @@ class Problem[TERM, FUNC](
 abstract class CCUSolver[TERM, FUNC] {
 
   def solve() : Result.Result
+  var model = None : Option[Map[TERM, TERM]]
+  def getModel() = model.get
   def minUnsatCore() : List[Int]
+
+  def solveAsserted() = solve()
+  // def solveAsserted() = {
+  //   solve() match {
+  //     case ccu.Result.SAT => {
+  //       val model = getModel()
+  //       if (!checkSAT(
+  //         origTerms,
+  //         origDomains,
+  //         origGoals,
+  //         origFunctions,
+  //         model)) {
+  //         problem.print("")
+  //         println("Model: " + model)
+  //         throw new Exception("False SAT")
+  //       }
+  //       println("SAT ASSERTED")
+  //       ccu.Result.SAT
+  //     }
+  //     case ccu.Result.UNSAT => {
+  //       if (!checkUNSAT(
+  //         origTerms,
+  //         origDomains,
+  //         origGoals,
+  //         origFunctions)) {
+  //         throw new Exception("False UNSAT")
+  //       }
+  //       println("UNSAT ASSERTED")
+  //       ccu.Result.UNSAT
+  //     }
+  //   }
+  // }
+
 
   def disequalities(p : Int) : List[(TERM, TERM)] = {
     (for (i <- 0 until problem.allTerms.length; 
@@ -129,7 +161,6 @@ abstract class CCUSolver[TERM, FUNC] {
     goals : List[List[(TERM, TERM)]])
       : Boolean = {
     Timer.measure("verifySolution") {
-
       val sets = MSet() : MSet[Set[TERM]]
       for (t <- terms)
         sets += Set(t)
@@ -157,8 +188,9 @@ abstract class CCUSolver[TERM, FUNC] {
           if (!allPairsTrue)
             subGoalSat = false
         }
-        if (subGoalSat)
+        if (subGoalSat) {
           satisfiable = true
+        }
       }
       satisfiable
     }
@@ -276,6 +308,12 @@ abstract class CCUSolver[TERM, FUNC] {
     assignments
   }
 
+  // HACK: Keeping original problem
+  var origTerms = List() : List[TERM]
+  var origDomains = Map() : Map[TERM, Set[TERM]]
+  var origFunctions = List() : List[List[(FUNC, List[TERM], TERM)]]
+  var origGoals = List() : List[List[List[(TERM, TERM)]]]
+
   def createProblem(
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]],
@@ -298,8 +336,11 @@ abstract class CCUSolver[TERM, FUNC] {
         termSet += r
       }
       
-
       val terms = termSet.toList
+      origTerms = terms
+      origDomains = domains
+      origGoals = goals
+      origFunctions = functions
 
       // TODO: optimize such that each table has its own bits
       val bits = util.binlog(terms.length)
@@ -361,7 +402,7 @@ abstract class CCUSolver[TERM, FUNC] {
         for (d <- domain) {
           arr(t)(d) = 1
           arr(d)(t) = 1
-        }
+                  }
 
         for (tt <- newTerms; if t != tt) {
           for (ttt <- newTerms) {
@@ -450,12 +491,37 @@ abstract class CCUSolver[TERM, FUNC] {
       val filterFunctions = for ((ff, _, _) <- ffs) yield ff
 
 
-      problem =
-        new Problem[TERM, FUNC](problemCount, newTerms, newDomains,
-          filterTerms, filterDomains, newGoals, filterFunctions, bits, diseq,
-          baseDI, termToInt, intToTerm)
+      val newOrder  = 
+        (for (i <- 0 until problemCount) yield 
+          (i, newGoals(i).length)).sortBy(_._2).map(_._1)
 
-      
+      val reorderTerms = (for (i <- newOrder) yield filterTerms(i)).toList
+      val reorderDomains = (for (i <- newOrder) yield filterDomains(i)).toList
+      val reorderGoals = (for (i <- newOrder) yield newGoals(i)).toList
+      val reorderFunctions = (for (i <- newOrder) yield filterFunctions(i)).toList
+      val reorderDiseq = (for (i <- newOrder) yield diseq(i)).toList
+      val reorderBaseDI = (for (i <- newOrder) yield baseDI(i)).toList
+
+
+      problem = 
+        new Problem[TERM,FUNC](
+          problemCount,
+          newTerms,
+          newDomains,
+          reorderTerms,
+          reorderDomains,
+          reorderGoals,
+          reorderFunctions,
+          bits,
+          reorderDiseq,
+          reorderBaseDI,
+          termToInt,
+          intToTerm)
+
+      // problem =
+      //   new Problem[TERM, FUNC](problemCount, newTerms, newDomains,
+      //     filterTerms, filterDomains, newGoals, filterFunctions, bits, diseq,
+      //     baseDI, termToInt, intToTerm)
       false
     }
   }
@@ -481,7 +547,7 @@ abstract class CCUSolver[TERM, FUNC] {
     }
 
 
-    for (p <- 0 until functions.length)
+    for (p <- 0 until goals.length)
       if (!verifySolution[TERM, FUNC](terms, solution, functions(p), goals(p)))
         return false
 
@@ -522,8 +588,7 @@ abstract class CCUSolver[TERM, FUNC] {
           if (checkedSolutions % 100000 == 0)
             println("Checked " + checkedSolutions + "/" + totalSolutions)
 
-          if (checkSAT(terms, domains, goals, functions, Map())) {
-          // if (verifySolution[TERM, FUNC](terms, sol.toMap, functions, goals)) {
+          if (checkSAT(terms, domains, goals, functions, sol)) {
             Some(sol)
           } else {
             None
@@ -540,7 +605,10 @@ abstract class CCUSolver[TERM, FUNC] {
 
       val result = formSolutions(newDomains, Map())
       if (result.isDefined) {
-        println("THERE IS SOLUTION: " + result.get)
+        val sol = result.get
+        println("THERE IS SOLUTION: ")
+        for ((k,v) <- sol)
+          println("\t" + termToInt(k) + " := " + termToInt(v))
         false
       } else {
         true

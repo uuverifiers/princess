@@ -46,7 +46,7 @@ class TableSolver[TERM, FUNC]()
         }).toList
 
       if (diseqedGoals contains List()) {
-        println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
+        // println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
         return (None, Map())
       }
 
@@ -220,8 +220,6 @@ class TableSolver[TERM, FUNC]()
   // the simultaneous problem.
   override def solve() : ccu.Result.Result = {
     Timer.measure("Table.solve") {
-      println("TABLE: Using Table solver")
-      problem.print("TABLE:")
 
       // Reset and add default stuff
       solver.reset()
@@ -237,13 +235,15 @@ class TableSolver[TERM, FUNC]()
       // TODO: Build up terms automatically
 
       solveTable() match {
-        case (Some(model), assignments) => {
+        // TODO: Some(m), m unused?
+        case (Some(m), assignments) => {
           var assMap = Map() : Map[TERM, TERM]
           for (t <- problem.allTerms) {
             val iVal = bitToInt(assignments(t))
             assMap += (intToTerm(t) -> intToTerm(iVal))
           }
 
+          model = Some(assMap)
           problem.result = Some(ccu.Result.SAT)
           ccu.Result.SAT
         }
