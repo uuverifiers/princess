@@ -92,9 +92,9 @@ class CCUInstance[TERM, FUNC](
 
   def notUnifiable(problem : Int, s : TERM, t : TERM) : Boolean = {
     confirmActive
-    val i = solver.problem.termMap(s)
-    val j = solver.problem.termMap(t)
-    (solver.problem.diseq(problem)(i)(j) == 0)
+    (for (i <- solver.problem.termMap get s;
+          j <- solver.problem.termMap get t)
+     yield (solver.problem.diseq(problem)(i)(j) == 0)) getOrElse (s != t)
   }
 
   def unsatCore = {

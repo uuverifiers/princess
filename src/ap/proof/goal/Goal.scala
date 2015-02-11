@@ -600,7 +600,8 @@ class Goal private (val facts : Conjunction,
    * the disequality propagation method.
    */
   lazy val ccuClosingConstantFreedom : ConstantFreedom =
-    ConstantFreedom.BOTTOM
+    ccuDiseqConstantFreedom
+//    ConstantFreedom.BOTTOM
 
   lazy val ccuFixedConstantFreedom : Boolean =
     constantFreedom == closingConstantFreedom

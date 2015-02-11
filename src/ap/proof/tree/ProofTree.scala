@@ -31,9 +31,7 @@ import ap.terfor.preds.Predicate
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Seqs}
 
-import ccu.CCUSolver
-import ccu.LazySolver
-import ccu.TableSolver
+import ccu.{CCUSolver, LazySolver, TableSolver, CCUInstance}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  Map => MMap, LinkedHashMap}
@@ -42,8 +40,6 @@ object ProofTree {
   
   private val AC = Debug.AC_PROOF_TREE
 
-  private var unificationCount = 0
-  
 }
 
 trait ProofTree {
@@ -115,17 +111,7 @@ trait ProofTree {
    * If not <code>ccUnifiable</code>, this field can be used to compute
    * a minimal set of goals that cannot be closed together.
    */
-  lazy val ccMinUnsolvableGoalSet : Seq[Int] = {
-    if (unifiabilityStatus._4 != ProofTree.unificationCount ||
-        unifiabilityStatus._1)
-      throw new Exception(
-        "ccMinUnsolvableGoalSet can only be read directly after " +
-        " ccUnifiable = false")
-    val allGoals = unifiabilityStatus._3.toArray
-
-    for (ind <- ccuSolver.unsatCore)
-    yield allGoals(ind)
-  }
+  lazy val ccMinUnsolvableGoalSet : Seq[Int] = unifiabilityStatus._3()
 
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
@@ -148,6 +134,50 @@ trait ProofTree {
       "(closable)"
     else
       "(unknown)"
+
+  protected lazy val ccuDiseqConstantFreedom : ConstantFreedom = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ProofTree.AC, this.isInstanceOf[Goal])
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val (fullDomains, _, _, _) = ccuContextDomains
+    val goalProblem =
+      constructUnificationProblem(this.asInstanceOf[Goal], fullDomains,
+                                  new LinkedHashMap[IdealInt, ConstantTerm],
+                                  0)
+    val instance = createCCUInstance(fullDomains, List(goalProblem))
+    
+    val freeConstants = new MHashSet[ConstantTerm]
+
+    def findFreeConstants(constantSeq : List[(Quantifier, Set[ConstantTerm])])
+                         : Unit = constantSeq match {
+      case (Quantifier.ALL, consts) :: rest => {
+        var sortedConsts = (order sort consts).reverse.toList
+
+        while (!sortedConsts.isEmpty) {
+          val c = sortedConsts.head
+          sortedConsts = sortedConsts.tail
+
+          if ((sortedConsts forall (instance.notUnifiable(0, c, _))) ||
+              (rest forall {
+                 case (_, otherConsts) =>
+                   otherConsts forall (instance.notUnifiable(0, c, _))
+               }))
+            freeConstants += c
+        }
+
+        findFreeConstants(rest)
+      }
+      case (Quantifier.EX, _) :: rest =>
+        findFreeConstants(rest)
+      case List() =>
+        // nothing
+    }
+
+    findFreeConstants(bindingContext.constantSeq)
+
+    ConstantFreedom.BOTTOM addTopStatus freeConstants
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -185,6 +215,9 @@ trait ProofTree {
     }
   }
 
+  private lazy val ccuContextDomains =
+    domainsFromContext(bindingContext.constantSeq)
+
   //////////////////////////////////////////////////////////////////////////////
 
   private type CCUProblem =
@@ -192,7 +225,6 @@ trait ProofTree {
      List[List[(ConstantTerm, ConstantTerm)]],             // goals
      List[(Predicate, List[ConstantTerm], ConstantTerm)],  // function apps
      Int)                                                  // proof goal number
-
 
   private def toConstant(lc : LinearCombination,
                          intLiteralConsts : MMap[IdealInt, ConstantTerm])
@@ -276,7 +308,18 @@ trait ProofTree {
       case goal : Goal if (goal.facts.isFalse) =>
         (List(), proofGoalStartIndex + 1)
 
-      case goal : Goal => {
+      case goal : Goal =>
+        (List(constructUnificationProblem(goal, domains, intLiteralConsts,
+                                          proofGoalStartIndex)),
+         proofGoalStartIndex + 1)
+    }
+
+  private def constructUnificationProblem(
+                    goal : Goal,
+                    domains : Map[ConstantTerm, Set[ConstantTerm]],
+                    intLiteralConsts : MMap[IdealInt, ConstantTerm],
+                    proofGoalStartIndex : Int)
+                   : CCUProblem = {
         val funPreds = Param.FUNCTIONAL_PREDICATES(goal.settings)
         val predConj = goal.facts.predConj
 
@@ -350,30 +393,23 @@ trait ProofTree {
   
         val unificationGoals = predUnificationGoals ::: eqUnificationGoals
   
-        (List((domains, unificationGoals, allFunApps, proofGoalStartIndex)),
-         proofGoalStartIndex + 1)
-      }
-    }
+        (domains, unificationGoals, allFunApps, proofGoalStartIndex)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def checkUnifiability(
+  private def createCCUInstance(
                  globalDomains : Map[ConstantTerm, Set[ConstantTerm]],
-                 globalConsts : Iterable[ConstantTerm],
-                 intConsts : Iterable[ConstantTerm],
                  unificationProblems : List[CCUProblem])
-               : Boolean = {
+               : CCUInstance[ConstantTerm, Predicate] = {
 
     val domains = unificationProblems map (_._1)
     val goals =   unificationProblems map (_._2)
     val funApps = unificationProblems map (_._3)
 
     val allDomains = new MHashMap[ConstantTerm, Set[ConstantTerm]]
-    val allConsts = new MHashSet[ConstantTerm]
 
     allDomains ++= globalDomains
-    allConsts ++= globalConsts
-    allConsts ++= intConsts
   
     for (domain <- domains.iterator; (c, consts) <- domain.iterator) {
       // domains have to be consistent
@@ -385,27 +421,14 @@ trait ProofTree {
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       allDomains.put(c, consts)
-      allConsts += c
-      allConsts ++= consts
     }
 
-    for (l <- goals; l2 <- l; (c1, c2) <- l2) {
-      allConsts += c1
-      allConsts += c2
-    }
-
-    for (a <- funApps; (_, cs, c) <- a) {
-      allConsts ++= cs
-      allConsts += c
-    }
-
-    ap.util.Timer.measure("CCUSolver") {  
+    ap.util.Timer.measure("CCUSolver_createProblem") {
    // Console.withOut(ap.CmdlMain.NullStream) {
       var tableResult = ccu.Result.SAT
       var lazyResult = ccu.Result.SAT
 
-      val instance = ccuSolver.createProblem(allDomains.toMap, goals, funApps)
-      instance.solve == ccu.Result.SAT
+      ccuSolver.createProblem(allDomains.toMap, goals, funApps)
        // }
     }
   }
@@ -449,7 +472,7 @@ trait ProofTree {
     } else {
       print("Trying to close goals " + (consideredGoals mkString " ") + " ")
       
-      val (unificationProblems, intLiteralConsts) =
+      val (unificationProblems, _) =
         constructUnificationProblems(consideredGoals)
 
 //    println(unificationProblems)
@@ -458,25 +481,23 @@ trait ProofTree {
 
       if (unificationProblems.isEmpty) {
         println("true")
-        (true, () => List())
+        (true, () => throw new UnsupportedOperationException)
       } else {
-        val (fullDomains, _, globalConsts, _) =
-          domainsFromContext(bindingContext.constantSeq)
+        val (fullDomains, _, globalConsts, _) = ccuContextDomains
 
 //      println("restricted domains:")
 //      println(restrictedDomains)
 
-        val res = checkUnifiability(fullDomains, globalConsts,
-                                    intLiteralConsts,
-                                    unificationProblems)
+        val instance = createCCUInstance(fullDomains, unificationProblems)
+        val res = ap.util.Timer.measure("CCUSolver_solve") {
+          (instance.solve == ccu.Result.SAT)
+        }
         println(res)
-
-        ProofTree.unificationCount = ProofTree.unificationCount + 1
 
         (res,
          () => {
            val allGoals = (unificationProblems map (_._4)).toArray
-           for (ind <- ccuSolver.unsatCore)
+           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") {instance.unsatCore})
            yield allGoals(ind)
          })
       }
@@ -489,7 +510,7 @@ trait ProofTree {
     print("Trying to close subtree ")
 //    println(this)
 
-    val (unificationProblems, intLiteralConsts) =
+    val (unificationProblems, _) =
       constructUnificationProblems((0 until goalCount).toSet)
 
 //    println(unificationProblems)
@@ -498,41 +519,38 @@ trait ProofTree {
 
     val res =
     if (unificationProblems.isEmpty) {
-      (true, true)
-    } else if (unificationProblems exists {
-                 case (_, goals, _, _) => goals.isEmpty
-               }) {
-      (false, false)
+      (true, true, () => throw new UnsupportedOperationException)
     } else {
       val (fullDomains, restrictedDomains, globalConsts, _) =
-        domainsFromContext(bindingContext.constantSeq)
+        ccuContextDomains
 
-//      println("restricted domains:")
-//      println(restrictedDomains)
-
-      if (checkUnifiability(restrictedDomains, globalConsts,
-                            intLiteralConsts,
-                            unificationProblems))
-        (true, true)
+      if ({
+            val preInstance =
+              createCCUInstance(restrictedDomains, unificationProblems)
+            ap.util.Timer.measure("CCUSolver_solve") {
+              preInstance.solve
+            }
+          } == ccu.Result.SAT)
+        (true, true, () => throw new UnsupportedOperationException)
       else {
-//        println("full domains:")
-//        println(fullDomains)
-        val unif = checkUnifiability(fullDomains, globalConsts,
-                                     intLiteralConsts,
-                                     unificationProblems)
-        (unif, false)
+        val instance = createCCUInstance(fullDomains, unificationProblems)
+        (ap.util.Timer.measure("CCUSolver_solve") {
+           instance.solve == ccu.Result.SAT
+         }, false,
+         () => {
+           val allGoals = (unificationProblems map (_._4)).toArray
+           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") { instance.unsatCore })
+           yield allGoals(ind)
+         })
       }
 
     }
 
-    println(res)
+    println("(" + res._1 + ", " + res._2 + ")")
 
     unifiabilityChecked = true
-    ProofTree.unificationCount = ProofTree.unificationCount + 1
 
-    (res._1, res._2,
-     unificationProblems map (_._4),
-     ProofTree.unificationCount)
+    res
   }
 
 }
