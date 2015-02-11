@@ -88,6 +88,12 @@ object GlobalSettings {
           Param.TIMEOUT.set(settings, value)
         case Opt("posUnitResolution", value) =>
           Param.POS_UNIT_RESOLUTION.set(settings, value)
+        case ValueOpt("resolutionMethod", "normal") =>
+          Param.POS_UNIT_RESOLUTION_METHOD.set(settings,
+            Param.PosUnitResolutionMethod.Normal)
+        case ValueOpt("resolutionMethod", "nonUnifying") =>
+          Param.POS_UNIT_RESOLUTION_METHOD.set(settings,
+            Param.PosUnitResolutionMethod.NonUnifying)
         case ValueOpt("clausifier", "none") =>
           Param.CLAUSIFIER.set(settings, Param.ClausifierOptions.None)
         case ValueOpt("clausifier", "simple") =>
@@ -169,6 +175,7 @@ object GlobalSettings {
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
+         Param.POS_UNIT_RESOLUTION_METHOD,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,

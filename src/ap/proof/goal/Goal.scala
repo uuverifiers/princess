@@ -595,14 +595,18 @@ class Goal private (val facts : Conjunction,
   lazy val fixedConstantFreedom : Boolean =
     constantFreedom == closingConstantFreedom
 
+  /**
+   * For the CCU case, constant freedom is calculated using
+   * the disequality propagation method.
+   */
+  lazy val ccuClosingConstantFreedom : ConstantFreedom =
+    ConstantFreedom.BOTTOM
+
+  lazy val ccuFixedConstantFreedom : Boolean =
+    constantFreedom == closingConstantFreedom
+
   lazy val mayAlias : ((LinearCombination, LinearCombination) => AliasStatus.Value) =
-    new AliasAnalyser (reduceWithFacts,
-                       Param.POS_UNIT_RESOLUTION_METHOD(settings) match {
-                         case Param.PosUnitResolutionMethod.NonUnifying =>
-                           ConstantFreedom.BOTTOM
-                         case _ =>
-                           constantFreedom
-                       },
+    new AliasAnalyser (reduceWithFacts, constantFreedom,
                        vocabulary.bindingContext,
                        order)
   

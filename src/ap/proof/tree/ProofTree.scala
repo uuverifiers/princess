@@ -400,10 +400,7 @@ trait ProofTree {
     }
 
     ap.util.Timer.measure("CCUSolver") {  
-  // Console.withOut(ap.CmdlMain.NullStream) {
-//     (ccuSolver.solve(allConsts.toList.sortBy(_.name),
-//         allDomains.toMap,
-//         goals, funApps)).isDefined }
+   Console.withOut(ap.CmdlMain.NullStream) {
       var tableResult = ccu.Result.SAT
       var lazyResult = ccu.Result.SAT
 
@@ -430,7 +427,7 @@ trait ProofTree {
       println("\n" + ap.util.Timer)
 
       tableResult == ccu.Result.SAT
-      // }
+       }
     }
   }
 
@@ -494,6 +491,8 @@ trait ProofTree {
                                     intLiteralConsts,
                                     unificationProblems)
         println(res)
+
+        ProofTree.unificationCount = ProofTree.unificationCount + 1
 
         (res,
          () => {

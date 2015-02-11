@@ -99,6 +99,11 @@ object ModelSearchProver {
               FullModelDirector)
   }
    
+  private def setDefaultSettings(rawSettings : GoalSettings) : GoalSettings =
+      Param.POS_UNIT_RESOLUTION_METHOD.set(
+        Param.APPLY_BLOCKED_TASKS.set(rawSettings, true),
+        Param.PosUnitResolutionMethod.Normal)
+
   /**
    * <code>inputFor</code> is the formula to be disproven. The result of the
    * method is a countermodel of <code>inputFor</code>, or <code>None</code>
@@ -109,7 +114,7 @@ object ModelSearchProver {
                         rawSettings : GoalSettings,
                         searchDirector : (Conjunction, Boolean) => SearchDirection)
                        : Either[Conjunction, Certificate] = {
-    val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
+    val settings = setDefaultSettings(rawSettings)
     val elimConstants = order.orderedConstants
     val vocabulary =
       Vocabulary(order,
@@ -635,7 +640,7 @@ object ModelSearchProver {
   // Prover that can be used incrementally
   
   def emptyIncProver(rawSettings : GoalSettings) : IncProver = {
-    val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
+    val settings = setDefaultSettings(rawSettings)
     new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings),
                   settings)
   }

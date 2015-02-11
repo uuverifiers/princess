@@ -79,8 +79,6 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     var gs = preSettings
     gs = Param.USE_WEAKEN_TREE.set(gs, false)
     gs = Param.FULL_SPLITTING.set(gs, true)
-    gs = Param.POS_UNIT_RESOLUTION_METHOD.set(gs,
-                   Param.PosUnitResolutionMethod.NonUnifying)
     gs = Param.CCU_SOLVER.set(gs,
            Param.CCU_STRATEGY(gs) match {
              case Param.CCUStrategyOptions.Table =>
@@ -408,11 +406,19 @@ println(goalNumMapping.toList)
          (!depthFirst || !tree.ccUnifiableLocally)))
       tree match {
       
-      case PrefixedTree(prefix, goal : Goal) =>
-        if (goal.stepPossible)
-          (prefix(goal.step(ptf)), true)
-        else
+      case PrefixedTree(prefix, goal : Goal) => {
+        val freedomFixed = goal.ccuFixedConstantFreedom
+        if (goal.stepPossible || !freedomFixed) {
+          val newGoal =
+            if (freedomFixed)
+              goal
+            else
+              goal updateConstantFreedom goal.ccuClosingConstantFreedom
+          (prefix(newGoal.step(ptf)), true)
+        } else {
           (tree, false)
+        }
+      }
 
       case PrefixedTree(prefix, tree : AndTree) => {
         val (newLeft, leftSWP) = expandProofGoals(tree.left)
@@ -424,6 +430,8 @@ println(goalNumMapping.toList)
     } else {
       (tree, false)
     }
+
+  //////////////////////////////////////////////////////////////////////////////
    
   private def expandProofGoalsSelectively
                  (tree : ProofTree,
@@ -434,8 +442,14 @@ println(goalNumMapping.toList)
     tree match {
       
       case PrefixedTree(prefix, goal : Goal) =>
-        if (goal.stepPossible && (goals contains oldStartIndex)) {
-          val newTree = prefix(goal.step(ptf))
+        if ((goals contains oldStartIndex) &&
+            (goal.stepPossible || !goal.ccuFixedConstantFreedom)) {
+          val newGoal =
+            if (goal.ccuFixedConstantFreedom)
+              goal
+            else
+              goal updateConstantFreedom goal.ccuClosingConstantFreedom
+          val newTree = prefix(newGoal.step(ptf))
           val goalIndexMap =
             (for (i <- 0 until newTree.goalCount)
              yield (newStartIndex + i, oldStartIndex)).toMap
