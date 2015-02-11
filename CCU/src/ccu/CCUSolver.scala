@@ -82,7 +82,7 @@ class CCUInstance[TERM, FUNC](
 
   def solve = {
     confirmActive
-    solver.solveAsserted
+    solver.solve
   }
 
   def solveAsserted = {
