@@ -123,23 +123,23 @@ trait ProofTree {
         " ccUnifiable = false")
     val allGoals = unifiabilityStatus._3.toArray
 
-    for (ind <- Console.withOut(ap.CmdlMain.NullStream) { ccuSolvers(0).minUnsatCore() })
+    for (ind <- ccuSolver.unsatCore)
     yield allGoals(ind)
   }
 
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
 
-  // private lazy val ccuSolver : CCUSolver[ConstantTerm, Predicate] =
-  //   this match {
-  //     case goal : Goal => Param.CCU_SOLVER(goal.settings).get
-  //     case AndTree(left, _, _) => left.ccuSolver
-  //     case ProofTreeOneChild(subtree) => subtree.ccuSolver
-  //   }
+  private lazy val ccuSolver : CCUSolver[ConstantTerm, Predicate] =
+    this match {
+      case goal : Goal => Param.CCU_SOLVER(goal.settings).get
+      case AndTree(left, _, _) => left.ccuSolver
+      case ProofTreeOneChild(subtree) => subtree.ccuSolver
+    }
 
-  private lazy val ccuSolvers : List[CCUSolver[ConstantTerm, Predicate]] =
-    List(new ccu.TableSolver[ConstantTerm, Predicate], 
-      new ccu.LazySolver[ConstantTerm, Predicate])
+  // private lazy val ccuSolvers : List[CCUSolver[ConstantTerm, Predicate]] =
+  //   List(new ccu.TableSolver[ConstantTerm, Predicate], 
+  //     new ccu.LazySolver[ConstantTerm, Predicate])
 
   protected def unifiabilityString : String =
     if (unifiabilityChecked && ccUnifiableLocally)
@@ -400,34 +400,13 @@ trait ProofTree {
     }
 
     ap.util.Timer.measure("CCUSolver") {  
-   Console.withOut(ap.CmdlMain.NullStream) {
+   // Console.withOut(ap.CmdlMain.NullStream) {
       var tableResult = ccu.Result.SAT
       var lazyResult = ccu.Result.SAT
 
-      println("\n")
-      ap.util.Timer.measure("TableSolver") {
-        val instance = ccuSolvers(0).createProblem(allDomains.toMap, goals, funApps)
-        tableResult = instance.solve()
-        println("TABLE.DQ: " + instance.getDQ()(0).map(x => x.mkString(" ")).mkString("\n"))
-      }
-
-      ap.util.Timer.measure("LazySolver") {
-        val instance = ccuSolvers(1).createProblem(allDomains.toMap, goals, funApps)
-        lazyResult = instance.solve()
-        println("LAZY.DQ: " + instance.getDQ()(0).map(x => x.mkString(" ")).mkString("\n"))
-      }
-
-      if (tableResult != lazyResult)  {
-        ccuSolvers(0).problem.print("TABLE")
-        ccuSolvers(1).problem.print("LAZY")
-        throw new Exception("Different results!")
-      }
-
-
-      println("\n" + ap.util.Timer)
-
-      tableResult == ccu.Result.SAT
-       }
+      val instance = ccuSolver.createProblem(allDomains.toMap, goals, funApps)
+      instance.solve == ccu.Result.SAT
+       // }
     }
   }
 
@@ -497,7 +476,7 @@ trait ProofTree {
         (res,
          () => {
            val allGoals = (unificationProblems map (_._4)).toArray
-           for (ind <- Console.withOut(ap.CmdlMain.NullStream) { ccuSolvers(0).minUnsatCore() })
+           for (ind <- ccuSolver.unsatCore)
            yield allGoals(ind)
          })
       }
