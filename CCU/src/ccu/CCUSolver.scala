@@ -70,12 +70,38 @@ class Problem[TERM, FUNC](
   }
 }
 
+class CCUInstance[TERM, FUNC](
+  id : Int, 
+  solver : CCUSolver[TERM, FUNC]) {
+
+  def confirmActive() = {
+    if (solver.curId != id)
+      throw new Exception("New instance has been created by solver")
+  }
+
+  def solve() = {
+    confirmActive()
+    solver.solve()
+  }
+
+  def solveAsserted() = {
+    confirmActive()
+    solver.solveAsserted()
+  }
+
+  def getDQ() = {
+    confirmActive()
+    solver.problem.diseq
+  }
+}
+
 abstract class CCUSolver[TERM, FUNC] {
 
   def solve() : Result.Result
   var model = None : Option[Map[TERM, TERM]]
   def getModel() = model.get
   def minUnsatCore() : List[Int]
+  var curId = 0
 
   def solveAsserted() = solve()
   // def solveAsserted() = {
@@ -317,7 +343,7 @@ abstract class CCUSolver[TERM, FUNC] {
   def createProblem(
     domains : Map[TERM, Set[TERM]],
     goals : List[List[List[(TERM, TERM)]]],
-    functions : List[List[(FUNC, List[TERM], TERM)]]) : Boolean = {
+    functions : List[List[(FUNC, List[TERM], TERM)]]) : CCUInstance[TERM, FUNC] = {
     Timer.measure("createProblem") {
 
 
@@ -415,8 +441,7 @@ abstract class CCUSolver[TERM, FUNC] {
       }
 
       val diseq = (for (p <- 0 until problemCount)
-      yield
-      {
+      yield {
         val c = Array.ofDim[Int](newTerms.length, newTerms.length)
         for (t <- newTerms; tt <- newTerms)
           c(t)(tt) = arr(t)(tt)
@@ -524,8 +549,10 @@ abstract class CCUSolver[TERM, FUNC] {
       //     baseDI, termToInt, intToTerm)
       false
     }
-  }
 
+    curId += 1
+    new CCUInstance(curId, this)
+  }
 
 
   def checkSAT(

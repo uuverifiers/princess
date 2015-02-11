@@ -295,7 +295,6 @@ class LazySolver[TERM, FUNC]()
         }
 
         if (allSat) {
-          println("LAZY: SAT: " + intAss)
           model = Some(termAss)
           return ccu.Result.SAT
         }
