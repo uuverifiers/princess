@@ -16,8 +16,7 @@ class TableSolver[TERM, FUNC]()
   var tablesComplete = false
   var tables = List() : List[Table[FUNC]]
 
-  def solveTable()
-      : (Option[Array[Int]], Map[Int, List[Int]]) = {
+  def solveTable() : (Option[Array[Int]], Map[Int, List[Int]]) = {
     Timer.measure("Table.solveTable") {
       // We have p problems, and we are dealing with the simultaneous problem,
       // i.e. every problem must be solvable
@@ -123,7 +122,8 @@ class TableSolver[TERM, FUNC]()
 
         Timer.measure("isSat") {
           if (solver.isSatisfiable()) {
-
+            for (gc <- goalConstraints)
+              solver.removeConstr(gc)
             model = Option(solver.model)
             // for (p <- 0 until problemCount) {
             //   println("TABLE " + p)
@@ -220,7 +220,6 @@ class TableSolver[TERM, FUNC]()
   // the simultaneous problem.
   override def solve() : ccu.Result.Result = {
     Timer.measure("Table.solve") {
-
       // Reset and add default stuff
       solver.reset()
       solver.addClause(new VecInt(Array(ONEBIT)))
@@ -258,15 +257,17 @@ class TableSolver[TERM, FUNC]()
 
   def solveAgain() : Boolean = {
     Timer.measure("Table.solveAgain") {
-      if (problem.goals.flatten.flatten.isEmpty)
+      if (problem.goals.flatten.flatten.isEmpty) {
         return true
+      }
 
       var retval = false : Boolean
 
       if (tablesComplete) {
+
         val goals = problem.goals
 
-        val goalConstraints =
+        val goalConstraints = 
           for (p <- 0 until problem.count; if (!goals(p).flatten.isEmpty)) yield {
             tables(p).addGoalConstraint(goals(p))
           }
@@ -288,59 +289,28 @@ class TableSolver[TERM, FUNC]()
 
 
   // PRE: Call after solve returns UNSAT
-  def minUnsatCore2() : List[Int] = {
-    if (problem.count == 1)
-      return List(0)
-    // Find minimum subset of goals that still yields unsat
-    // So in this case we have a unsat, so we greedily remove goals until 
-    // it goes SAT then we undo the last removal, etc.
+  def unsatCoreAux : List[Int] = {
+    val unsatCore = ListBuffer() : ListBuffer[Int]
 
-    // Try removing the first goal from the the first problem, etc.
+    if (!problem.result.isDefined)
+      throw new Exception("unsatCore on without previous solve call")
+    
+    if (problem.result.get != ccu.Result.UNSAT)
+      throw new Exception("unsatCore on SAT solution")
 
-    for (p <- 0 until problem.count) {
+    for (p <- 0 until problem.count)
       problem.removeGoal(p)
 
-      // Problem was sat with p removed => restore
-      if (solveAgain())
-        problem.restoreGoal(p)
+    for (p <- 0 until problem.count) {
+      problem.restoreGoal(p)
+      unsatCore += p
+      if (!solveAgain())
+        return unsatCore.toList
     }
 
-    val unsatCore = 
-      (for (c <- 0 until problem.count; 
-        if !problem.goals(c).isEmpty) yield c).toList
-
-    unsatCore
+    throw new Exception("Entire problem is not UNSAT?")
+    return unsatCore.toList
   }
-
-  def minUnsatCore() : List[Int] = {
-    Timer.measure("Table.minUnsatCore") {
-      val unsatCore = ListBuffer() : ListBuffer[Int]
-
-      if (!problem.result.isDefined)
-        throw new Exception("minUnsatCore on without previous solve call")
-      
-      if (problem.result.get != ccu.Result.UNSAT)
-        return (0 until problem.count).toList
-      // throw new Exception("minUnsatCore on SAT solution")
-
-      for (p <- 0 until problem.count)
-        problem.removeGoal(p)
-
-      for (p <- 0 until problem.count) {
-        problem.restoreGoal(p)
-        unsatCore += p
-        if (!solveAgain())
-          return unsatCore.toList
-      }
-
-      throw new Exception("Entire problem is not UNSAT?")
-      return unsatCore.toList
-    }
-  }
-  
-
-    
-
 }
 
 class Table[FUNC](val bits : Int, alloc : Allocator,
@@ -737,7 +707,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
   }
 
   def addVConstraint() = {
-    // termToIndex
+    // termToIndex 
     val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
 
     def unifiable(args1 : List[Int], args2 : List[Int]) : Boolean = {

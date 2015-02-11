@@ -39,7 +39,8 @@ class Problem[TERM, FUNC](
   val diseq : List[Array[Array[Int]]],
   val baseDI : List[Array[Array[Int]]],
   val termMap : Map[TERM, Int],
-  val intMap : Map[Int, TERM])
+  val intMap : Map[Int, TERM],
+  val order : List[Int])
 { 
   val originalGoals = goals : List[List[List[(Int, Int)]]]
   var result = None : Option[ccu.Result.Result]
@@ -74,25 +75,33 @@ class CCUInstance[TERM, FUNC](
   id : Int, 
   solver : CCUSolver[TERM, FUNC]) {
 
-  def confirmActive() = {
+  def confirmActive = {
     if (solver.curId != id)
       throw new Exception("New instance has been created by solver")
   }
 
-  def solve() = {
-    confirmActive()
-    solver.solve()
+  def solve = {
+    confirmActive
+    solver.solveAsserted
   }
 
-  def solveAsserted() = {
-    confirmActive()
-    solver.solveAsserted()
+  def solveAsserted = {
+    confirmActive
+    solver.solveAsserted
   }
 
-  def getDQ() = {
-    confirmActive()
-    solver.problem.diseq
+  def notUnifiable(problem : Int, s : TERM, t : TERM) : Boolean = {
+    confirmActive
+    val i = solver.problem.termMap(s)
+    val j = solver.problem.termMap(t)
+    (solver.problem.diseq(problem)(i)(j) == 0)
   }
+
+  def unsatCore = {
+    confirmActive
+    solver.unsatCore
+  }
+
 }
 
 abstract class CCUSolver[TERM, FUNC] {
@@ -100,40 +109,47 @@ abstract class CCUSolver[TERM, FUNC] {
   def solve() : Result.Result
   var model = None : Option[Map[TERM, TERM]]
   def getModel() = model.get
-  def minUnsatCore() : List[Int]
+  def unsatCoreAux : List[Int]
+  def unsatCore = {
+    val core = 
+      unsatCoreAux
+    val retval =
+      (for (p <- core) yield (problem.order(p))).toList
+    retval
+  }
+
   var curId = 0
 
-  def solveAsserted() = solve()
-  // def solveAsserted() = {
-  //   solve() match {
-  //     case ccu.Result.SAT => {
-  //       val model = getModel()
-  //       if (!checkSAT(
-  //         origTerms,
-  //         origDomains,
-  //         origGoals,
-  //         origFunctions,
-  //         model)) {
-  //         problem.print("")
-  //         println("Model: " + model)
-  //         throw new Exception("False SAT")
-  //       }
-  //       println("SAT ASSERTED")
-  //       ccu.Result.SAT
-  //     }
-  //     case ccu.Result.UNSAT => {
-  //       if (!checkUNSAT(
-  //         origTerms,
-  //         origDomains,
-  //         origGoals,
-  //         origFunctions)) {
-  //         throw new Exception("False UNSAT")
-  //       }
-  //       println("UNSAT ASSERTED")
-  //       ccu.Result.UNSAT
-  //     }
-  //   }
-  // }
+  def solveAsserted() = {
+    solve() match {
+      case ccu.Result.SAT => {
+        val model = getModel()
+        if (!checkSAT(
+          origTerms,
+          origDomains,
+          origGoals,
+          origFunctions,
+          model)) {
+          problem.print("")
+          println("Model: " + model)
+          throw new Exception("False SAT")
+        }
+        // println("SAT ASSERTED")
+        ccu.Result.SAT
+      }
+      case ccu.Result.UNSAT => {
+        // if (!checkUNSAT(
+        //   origTerms,
+        //   origDomains,
+        //   origGoals,
+        //   origFunctions)) {
+        //   throw new Exception("False UNSAT")
+        // }
+        // println("UNSAT NOT ASSERTED")
+        ccu.Result.UNSAT
+      }
+    }
+  }
 
 
   def disequalities(p : Int) : List[(TERM, TERM)] = {
@@ -162,7 +178,7 @@ abstract class CCUSolver[TERM, FUNC] {
   val (solver, gt) = asd
 
   var problem = new Problem[TERM, FUNC](0, List(), Map(), List(List()), 
-    List(Map()), List(), List(), 0, List(), List(), Map(), Map())
+    List(Map()), List(), List(), 0, List(), List(), Map(), Map(), List())
 
   var termToInt = Map() : Map[TERM, Int]
   var intToTerm = Map() : Map[Int, TERM]
@@ -176,7 +192,7 @@ abstract class CCUSolver[TERM, FUNC] {
     solver.reset()
     alloc.next = 1
     problem = new Problem[TERM, FUNC](0, List(), Map(), List(List()), 
-    List(Map()), List(), List(), 0, List(), List(), Map(), Map())
+    List(Map()), List(), List(), 0, List(), List(), Map(), Map(), List())
   }
 
   // TODO: just check the relevant terms (i.e. problem.terms(p))
@@ -516,16 +532,17 @@ abstract class CCUSolver[TERM, FUNC] {
       val filterFunctions = for ((ff, _, _) <- ffs) yield ff
 
 
-      val newOrder  = 
+      val order  = 
         (for (i <- 0 until problemCount) yield 
-          (i, newGoals(i).length)).sortBy(_._2).map(_._1)
+          (i, newGoals(i).length)).sortBy(_._2).map(_._1).toList
+      // val order = (0 until problemCount).toList
 
-      val reorderTerms = (for (i <- newOrder) yield filterTerms(i)).toList
-      val reorderDomains = (for (i <- newOrder) yield filterDomains(i)).toList
-      val reorderGoals = (for (i <- newOrder) yield newGoals(i)).toList
-      val reorderFunctions = (for (i <- newOrder) yield filterFunctions(i)).toList
-      val reorderDiseq = (for (i <- newOrder) yield diseq(i)).toList
-      val reorderBaseDI = (for (i <- newOrder) yield baseDI(i)).toList
+      val reorderTerms = (for (i <- order) yield filterTerms(i)).toList
+      val reorderDomains = (for (i <- order) yield filterDomains(i)).toList
+      val reorderGoals = (for (i <- order) yield newGoals(i)).toList
+      val reorderFunctions = (for (i <- order) yield filterFunctions(i)).toList
+      val reorderDiseq = (for (i <- order) yield diseq(i)).toList
+      val reorderBaseDI = (for (i <- order) yield baseDI(i)).toList
 
 
       problem = 
@@ -541,7 +558,8 @@ abstract class CCUSolver[TERM, FUNC] {
           reorderDiseq,
           reorderBaseDI,
           termToInt,
-          intToTerm)
+          intToTerm,
+          order)
 
       // problem =
       //   new Problem[TERM, FUNC](problemCount, newTerms, newDomains,
