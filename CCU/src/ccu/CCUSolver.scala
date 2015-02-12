@@ -467,14 +467,13 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
         for (d <- domain) {
           arr(t)(d) = 1
           arr(d)(t) = 1
-                  }
+        }
 
         for (tt <- newTerms; if t != tt) {
-          for (ttt <- newTerms) {
-            if ((newDomains.getOrElse(t, Set(t)) contains ttt) && (newDomains.getOrElse(tt, Set(tt)) contains ttt)) {
-              arr(t)(tt) = 1
-              arr(tt)(t) = 1
-            }
+          val ttDomain = newDomains.getOrElse(tt, Set(tt))
+          if (domain exists ttDomain) {
+            arr(t)(tt) = 1
+            arr(tt)(t) = 1
           }
         }
       }

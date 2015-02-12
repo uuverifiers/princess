@@ -477,14 +477,13 @@ trait ProofTree {
       // then all goals are considered
       (ccUnifiable, () => ccMinUnsolvableGoalSet)
     } else {
-      print("Trying to close goals " + (consideredGoals mkString " ") + " ")
+      print("Trying to close goals ")
       
       val (unificationProblems, _) =
         constructUnificationProblems(consideredGoals)
 
 //    println(unificationProblems)
-      print("(" + unificationProblems.size + " parallel problems, " +
-            (unificationProblems map (_._4)).mkString(" ") + ") ... ")
+      print("(" + unificationProblems.size + " parallel problems) ... ")
 
       if (unificationProblems.isEmpty) {
         println("true")
@@ -524,8 +523,7 @@ trait ProofTree {
       constructUnificationProblems((0 until goalCount).toSet)
 
 //    println(unificationProblems)
-    print("(" + unificationProblems.size + " parallel problems, " +
-          (unificationProblems map (_._4)).mkString(" ") + ") ... ")
+    print("(" + unificationProblems.size + " parallel problems) ... ")
 
     val res =
     if (unificationProblems.isEmpty) {
