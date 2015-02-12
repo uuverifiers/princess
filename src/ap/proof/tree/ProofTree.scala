@@ -497,7 +497,10 @@ trait ProofTree {
 
         val instance = createCCUInstance(fullDomains, unificationProblems)
         val res = ap.util.Timer.measure("CCUSolver_solve") {
-          (instance.solve == ccu.Result.SAT)
+          instance.solve match {
+            case ccu.Result.UNKNOWN => throw new Exception("CCUsolver timeout!")
+            case result => result == ccu.Result.SAT
+          }
         }
         println(res)
 

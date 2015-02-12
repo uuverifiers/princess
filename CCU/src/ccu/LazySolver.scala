@@ -8,9 +8,9 @@ import org.sat4j.core.VecInt
 import scala.collection.mutable.{Set => MSet}
 
 
-class LazySolver[TERM, FUNC]() 
-    extends CCUSolver[TERM, FUNC] {
-
+class LazySolver[TERM, FUNC](timeoutChecker : () => Unit, 
+                              maxSolverRuntime : Long)  
+    extends CCUSolver[TERM, FUNC](timeoutChecker, maxSolverRuntime) {
 
   // We automatically calculate unsatCore
   var lastUnsatCore = List() : List[Int]
@@ -92,6 +92,7 @@ class LazySolver[TERM, FUNC]()
       val blockingProblem = Array.ofDim[Boolean](problem.count)
 
       while (KeepOnGoing()) {
+        timeoutChecker()
         // Convert the model to a more convenient format
         var termAss = Map() : Map[TERM, TERM]
         var intAss = Map() : Map[Int, Int]

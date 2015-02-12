@@ -10,9 +10,10 @@ import scala.collection.mutable.{Map => MMap}
 import scala.collection.mutable.ListBuffer
 
 
-class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
-                              maxSolverRuntime : Long)
-    extends CCUSolver[TERM, FUNC] {
+class TableSolver[TERM, FUNC](timeoutChecker : () => Unit, 
+                              maxSolverRuntime : Long)  
+    extends CCUSolver[TERM, FUNC](timeoutChecker, maxSolverRuntime) {
+
 
   var tablesComplete = false
   var tables = List() : List[Table[FUNC]]
@@ -113,7 +114,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
         tables(p).addInitialColumn(assignments)
 
       for (p <- 0 until problemCount) {
-        tables(p).addDerivedColumn()
+        tables(p).addDerivedColumn
       }
 
       while (cont) {
@@ -122,26 +123,13 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
         val goalConstraints =
           for (p <- 0 until problemCount; if (!goals(p).isEmpty)) yield
             tables(p).addGoalConstraint(goals(p))
-
+         
         Timer.measure("isSat") {
-          solver.setTimeoutMs(maxSolverRuntime)
+          // solver.setTimeoutMs(maxSolverRuntime)
           if (solver.isSatisfiable()) {
             for (gc <- goalConstraints)
               solver.removeConstr(gc)
             model = Option(solver.model)
-            // for (p <- 0 until problemCount) {
-            //   println("TABLE " + p)
-            //   for (t <- tables(p).terms) {
-            //     print(t + ">\t")
-            //     for (c <- 0 to tables(p).currentColumn) {
-            //       val i = bitToInt(tables(p)(c, t))
-            //       print("(" + tables(p)(c, t) + " => " + i + ") ")
-            //     }
-            //     println
-            //   }
-            // }
-
-            // println(model.mkString(" "))
             cont = false
           } else {
             for (gc <- goalConstraints)
@@ -153,7 +141,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
                 val cc =
                   tables(p).addCompletionConstraint()
 
-                solver.setTimeoutMs(maxSolverRuntime)
+                // solver.setTimeoutMs(maxSolverRuntime)
                 val sat = solver.isSatisfiable()
                 solver.removeConstr(cc)
 
@@ -168,7 +156,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
                 for (p <- 0 until problemCount) yield
                   tables(p).addCompletionConstraint()
 
-              solver.setTimeoutMs(maxSolverRuntime)
+              // solver.setTimeoutMs(maxSolverRuntime)
               val sat = solver.isSatisfiable()
               for (cc <- ccs)
                 solver.removeConstr(cc)
@@ -185,7 +173,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
                   }
 
 
-              solver.setTimeoutMs(maxSolverRuntime)
+              // solver.setTimeoutMs(maxSolverRuntime)
               val sat = solver.isSatisfiable()
               for (cc <- ccs)
                 solver.removeConstr(cc)
@@ -203,7 +191,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
                 cont = false
               } else {
                 for (p <- 0 until problemCount)
-                  tables(p).addDerivedColumn()
+                  tables(p).addDerivedColumn
               }
             }
           }
@@ -215,10 +203,6 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
         (for (p <- 0 until problemCount)
         yield tables(p).currentColumn).mkString("[", " ", "]")) { true }
 
-      // println("\tColumns: " +
-      //   (for (p <- 0 until problemCount)
-      //   yield tables(p).currentColumn).mkString("[", " ", "]"))
-      // println("\tVariables: " + solver.realNumberOfVariables())
       (model, assignments)
     }
   }
@@ -228,7 +212,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
   override def solve() : ccu.Result.Result = {
     Timer.measure("Table.solve") {
       // Reset and add default stuff
-      solver.reset()
+      reset
       solver.addClause(new VecInt(Array(ONEBIT)))
       solver.addClause(new VecInt(Array(-ZEROBIT)))
       tablesComplete = false
@@ -244,12 +228,15 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
         // TODO: Some(m), m unused?
         case (Some(m), assignments) => {
           var assMap = Map() : Map[TERM, TERM]
+          var intAss = Map() : Map[Int, Int]
           for (t <- problem.allTerms) {
             val iVal = bitToInt(assignments(t))
+            intAss += (t -> iVal)
             assMap += (intToTerm(t) -> intToTerm(iVal))
           }
 
           model = Some(assMap)
+          problem.intAss = intAss
           problem.result = Some(ccu.Result.SAT)
           ccu.Result.SAT
         }
@@ -271,18 +258,18 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
       var retval = false : Boolean
 
       if (tablesComplete) {
-
         val goals = problem.goals
 
         val goalConstraints = 
           for (p <- 0 until problem.count; if (!goals(p).flatten.isEmpty)) yield {
             tables(p).addGoalConstraint(goals(p))
           }
-        solver.setTimeoutMs(maxSolverRuntime)
+
         retval =  solver.isSatisfiable()
 
-        for (gc <- goalConstraints)
+        for (gc <- goalConstraints) {
           solver.removeConstr(gc)
+        }
       } else {
         solveTable() match {
           case (Some(_), _) => retval = true
@@ -309,17 +296,59 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
     for (p <- 0 until problem.count)
       problem.removeGoal(p)
 
-    for (p <- 0 until problem.count) {
-      timeoutChecker()
+    var curProb = 0
+    unsatCore += curProb
+    problem.restoreGoal(curProb)
 
-      problem.restoreGoal(p)
-      unsatCore += p
-      if (!solveAgain())
-        return unsatCore.toList
+    def addProblem = {
+      curProb += 1
+      if (curProb < problem.count) {
+        unsatCore += curProb
+        problem.restoreGoal(curProb)
+      }
     }
 
-    throw new Exception("Entire problem is not UNSAT?")
-    return unsatCore.toList
+    while (curProb < problem.count) {
+      timeoutChecker()
+
+      if (solveAgain()) {
+        // If the problem is SAT, we need one more sub-problem
+        addProblem
+      } else {
+        // Make sure that tables 0..p are complete, 
+        // if NOT, we have to add columns
+        // if IS, we have an unsat core!
+
+        val ccs =
+          for (p <- 0 to curProb) yield
+            tables(p).addVConstraint() match {
+              case Some(cc) => Some(cc)
+              case None => None
+            }
+
+        // Do we need extra columns?
+        val addColumn = 
+          if (ccs.filter(x => x.isDefined).isEmpty) {
+            false
+          } else {
+            solver.isSatisfiable()
+          }
+
+        for (cc <- ccs; if cc.isDefined)
+          solver.removeConstr(cc.get)
+
+        if (addColumn) {
+          // if YES - Add and try again
+          for (p <- 0 to curProb)
+            tables(p).addDerivedColumn
+        } else {
+          // if NO - unsat core achieved!
+          return unsatCore.toList
+        }
+      }
+    }
+
+    throw new Exception("TableSolver: Entire problem is not UNSAT?")
   }
 }
 
@@ -458,7 +487,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
     columns += newColumn
   }
 
-  def addDerivedColumn() = {
+  def addDerivedColumn = {
     Timer.measure("addDerivedColumn") {
       // For all pairs of functions with identical function symbols and
       // different results,form a 3-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
@@ -627,20 +656,18 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
 
   // TODO: Make sure goal variables are removed at "POP"
   def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
-    Timer.measure("addGoalConstraint") {
-      val goalBits =
-        (for (g <- goals; if (!g.isEmpty)) yield {
-          val subGoals =
-            (for ((s, t) <- g) yield {
-              termEqTerm((currentColumn, s), (currentColumn, t))
-            }).toArray
-          val subGoal = alloc.alloc(1)
-          gt.and(subGoal, new VecInt(subGoals))
-          subGoal
-        }).toArray
+    val goalBits =
+      (for (g <- goals; if (!g.isEmpty)) yield {
+        val subGoals =
+          (for ((s, t) <- g) yield {
+            termEqTerm((currentColumn, s), (currentColumn, t))
+          }).toArray
+        val subGoal = alloc.alloc(1)
+        gt.and(subGoal, new VecInt(subGoals))
+        subGoal
+      }).toArray
 
-      solver.addClause(new VecInt(goalBits))
-    }
+    solver.addClause(new VecInt(goalBits))
   }
 
   def addCompletionConstraint() = {

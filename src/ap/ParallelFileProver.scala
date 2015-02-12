@@ -22,7 +22,8 @@
 package ap
 
 import ap.parameters.GlobalSettings
-import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
+// import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
+import ap.util.{Seqs, Debug, Timeout}
 
 import scala.actors.Actor._
 import scala.actors.{Actor, TIMEOUT}
@@ -102,13 +103,13 @@ object ParallelFileProver {
         // First let each prover run for a while by itself,
         // to solve simple problems without any parallelism.
         // Afterwards, use time slices
-        val nextDiff =
-          if (activationCount == 0)
-            RuntimeStatistics.recommendInitialProofRuntime(
-                                 config.initialSeqRuntime)
-          else
-            Timeslice
-        resume(nextDiff min maxNextPeriod)
+        // val nextDiff =
+        //   if (activationCount == 0)
+        //     RuntimeStatistics.recommendInitialProofRuntime(
+        //                          config.initialSeqRuntime)
+        //   else
+        //     Timeslice
+        // resume(nextDiff min maxNextPeriod)
       }
       
       def resume(nextPeriod : Long) : Unit = {
@@ -124,11 +125,11 @@ object ParallelFileProver {
         runtime = runtime + lastRuntime
 //        Console.err.println("Prover " + num + " runtime: " + runtime)
 
-        localTimeout = localTimeout +
-          (if (activationCount == 1)
-             RuntimeStatistics.recordInitialProofRuntime(lastRuntime)
-           else
-             RuntimeStatistics.recordProofRuntime(lastRuntime))
+        // localTimeout = localTimeout +
+          // (if (activationCount == 1)
+          //    RuntimeStatistics.recordInitialProofRuntime(lastRuntime)
+          //  else
+          //    RuntimeStatistics.recordProofRuntime(lastRuntime))
       }
 
       /**

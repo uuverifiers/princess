@@ -12,8 +12,11 @@ import scala.collection.mutable.{Set => MSet}
 import scala.collection.mutable.{MutableList => MList}
 import scala.collection.mutable.ListBuffer
 
-class Allocator(init : Int) {
-  var next = init
+class Allocator {
+  // Leave room for ONEBIT (1) and ZEROBIT (2)
+  var next = 3
+
+  def reset = { next = 3 }
 
   def alloc(count : Int) = {
     val ret = next
@@ -24,11 +27,11 @@ class Allocator(init : Int) {
 
 object Result extends Enumeration {
   type Result = Value
-  val SAT, UNSAT = Value
+  val SAT, UNSAT, UNKNOWN = Value
 }
 
 class Problem[TERM, FUNC](
-  val count : Int,
+  var count : Int,
   val allTerms : List[Int],
   val allDomains : Map[Int, Set[Int]],
   val terms : List[List[Int]],
@@ -44,6 +47,7 @@ class Problem[TERM, FUNC](
 { 
   val originalGoals = goals : List[List[List[(Int, Int)]]]
   var result = None : Option[ccu.Result.Result]
+  var intAss = Map() : Map[Int, Int]
 
   def print(prefix : String) = {
     val p = prefix + ": "
@@ -82,7 +86,16 @@ class CCUInstance[TERM, FUNC](
 
   def solve = {
     confirmActive
-    solver.solve
+    val result = 
+      try {
+        solver.solveAsserted
+      } catch {
+        case to : org.sat4j.specs.TimeoutException => {
+          ccu.Result.UNKNOWN
+        }
+      }
+
+    result
   }
 
   def solveAsserted = {
@@ -99,13 +112,21 @@ class CCUInstance[TERM, FUNC](
 
   def unsatCore = {
     confirmActive
-    solver.unsatCore
+    val core =
+      try {
+        solver.unsatCore
+      } catch {
+        case to : org.sat4j.specs.TimeoutException => {
+          (0 until solver.problem.count).toList
+        }
+      }
+    core
   }
 
 }
 
-abstract class CCUSolver[TERM, FUNC] {
-
+abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
+                                     val maxSolverRuntime : Long) {
   def solve() : Result.Result
   var model = None : Option[Map[TERM, TERM]]
   def getModel() = model.get
@@ -115,6 +136,9 @@ abstract class CCUSolver[TERM, FUNC] {
       unsatCoreAux
     val retval =
       (for (p <- core) yield (problem.order(p))).toList
+
+    val m = problem.termMap
+
     retval
   }
 
@@ -160,9 +184,9 @@ abstract class CCUSolver[TERM, FUNC] {
   }
 
   val util = new Util[TERM, FUNC]
-  val alloc = new Allocator(1)
-  val ZEROBIT = alloc.alloc(1)
-  val ONEBIT = alloc.alloc(1)
+  val alloc = new Allocator
+  val ZEROBIT = 1
+  val ONEBIT = 2
 
   // SAT4J stuff
   val asd = (Timer.measure("SAT4Jinit") {
@@ -176,6 +200,7 @@ abstract class CCUSolver[TERM, FUNC] {
     (solverasd, gtasd)
   }) : (ISolver, GateTranslator)
   val (solver, gt) = asd
+  solver.setTimeoutMs(maxSolverRuntime)
 
   var problem = new Problem[TERM, FUNC](0, List(), Map(), List(List()), 
     List(Map()), List(), List(), 0, List(), List(), Map(), Map(), List())
@@ -188,11 +213,9 @@ abstract class CCUSolver[TERM, FUNC] {
   // IS a solution, and if it returns false it is NOT a
   // solution
 
-  def reset() = {
+  def reset = {
     solver.reset()
-    alloc.next = 1
-    problem = new Problem[TERM, FUNC](0, List(), Map(), List(List()), 
-    List(Map()), List(), List(), 0, List(), List(), Map(), Map(), List())
+    alloc.reset
   }
 
   // TODO: just check the relevant terms (i.e. problem.terms(p))
@@ -361,7 +384,7 @@ abstract class CCUSolver[TERM, FUNC] {
     goals : List[List[List[(TERM, TERM)]]],
     functions : List[List[(FUNC, List[TERM], TERM)]]) : CCUInstance[TERM, FUNC] = {
     Timer.measure("createProblem") {
-
+      curId += 1
 
       // TODO: Create terms automatically
       val termSet = MSet() : MSet[TERM]
@@ -568,7 +591,7 @@ abstract class CCUSolver[TERM, FUNC] {
       false
     }
 
-    curId += 1
+
     new CCUInstance(curId, this)
   }
 
