@@ -118,8 +118,15 @@ trait ProofTree {
 
   private lazy val ccuSolver : CCUSolver[ConstantTerm, Predicate] =
     this match {
-      case goal : Goal => Param.CCU_SOLVER(goal.settings).get
-      case AndTree(left, _, _) => left.ccuSolver
+      case goal : Goal =>
+        Param.CCU_SOLVER(goal.settings) match {
+          case Some(s) => s
+          case None => null
+        }
+      case AndTree(left, right, _) => {
+        val s = left.ccuSolver
+        if (s == null) right.ccuSolver else s
+      }
       case ProofTreeOneChild(subtree) => subtree.ccuSolver
     }
 
