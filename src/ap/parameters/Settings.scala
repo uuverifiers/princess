@@ -183,7 +183,8 @@ object GlobalSettings {
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
-         Param.MULTI_STRATEGY, Param.REAL_RAT_SATURATION_ROUNDS,
+         Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
+         Param.FILE_PROPERTIES, Param.REAL_RAT_SATURATION_ROUNDS,
          Param.CCU_STRATEGY)
 
   val DEFAULT =
@@ -205,7 +206,8 @@ object GoalSettings {
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
-                       Param.CCU_STRATEGY, Param.CCU_SOLVER)
+                       Param.CCU_STRATEGY, Param.CCU_SOLVER,
+                       Param.CLAUSIFIER_TIMEOUT)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -217,6 +219,7 @@ object ParserSettings {
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
                        Param.TRIGGERS_IN_CONJECTURE,
                        Param.MAKE_QUERIES_PARTIAL,
+                       Param.FILE_PROPERTIES,
                        Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
@@ -229,7 +232,8 @@ object PreprocessingSettings {
   val allParams = List(Param.CLAUSIFIER,
                        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS,
                        Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY,
-                       Param.GENERATE_TOTALITY_AXIOMS)
+                       Param.GENERATE_TOTALITY_AXIOMS,
+                       Param.CLAUSIFIER_TIMEOUT)
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())

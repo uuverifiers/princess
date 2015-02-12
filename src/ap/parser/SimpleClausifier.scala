@@ -22,7 +22,7 @@
 package ap.parser
 
 import ap.terfor.conjunctions.Quantifier
-import ap.util.{Debug, Seqs, PlainRange}
+import ap.util.{Debug, Seqs, PlainRange, Timeout}
 
 import IBinJunctor._
 import IExpression._
@@ -31,6 +31,28 @@ import Quantifier._
 object SimpleClausifier {
 
   private val AC = Debug.AC_INPUT_ABSY
+   
+  protected[parser] object Literal {
+    def unapply(t : IExpression) : Option[IFormula] = t match {
+      case LeafFormula(t) => Some(t)
+      case t@INot(sub) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        // we assume that the formula is in negation normal form
+        Debug.assertPre(AC, LeafFormula.unapply(sub) != None)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        Some(t)
+      }
+      case _ => None
+    }
+  }
+  
+}
+
+////////////////////////////////////////////////////////////////////////////////
+  
+class SimpleClausifier {
+
+  import SimpleClausifier._
   
   def apply(f : IFormula) : IFormula = {
     val f1 = Transform2NNF(f)
@@ -41,6 +63,14 @@ object SimpleClausifier {
     f5
   }
 
+  private var opNum = 0
+  
+  private def incOpNum = {
+    opNum = opNum + 1
+    if (opNum % 100 == 0)
+      Timeout.check
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -185,7 +215,8 @@ object SimpleClausifier {
       }
   
     def postVisit(t : IExpression, lastQuan : Quantifier,
-                  subres : Seq[IFormula]) : IFormula =
+                  subres : Seq[IFormula]) : IFormula = {
+      incOpNum
       t match {
         case t@IBinFormula(And, _, _) if (lastQuan == EX) =>
           Conj2DNF(t update subres)
@@ -193,6 +224,7 @@ object SimpleClausifier {
           DistributeEx(t update subres)
         case t : IFormula =>
           t update subres
+      }
       }
   }
   
@@ -208,7 +240,8 @@ object SimpleClausifier {
     def apply(f : IFormula, quanToPullUp : Quantifier) : IFormula =
       this.visit(f, quanToPullUp)
     
-    override def preVisit(t : IExpression, quanToPullUp : Quantifier) : PreVisitResult =
+    override def preVisit(t : IExpression, quanToPullUp : Quantifier) : PreVisitResult = {
+      incOpNum
       t match {
         case IBinFormula(j,
                          IQuantified(`quanToPullUp`, f1),
@@ -229,6 +262,7 @@ object SimpleClausifier {
         case t : IFormula =>
           ShortCutResult(t)
       }
+    }
   
     def postVisit(t : IExpression, quanToPullUp : Quantifier,
                   subres : Seq[IFormula]) : IFormula =
@@ -246,10 +280,14 @@ object SimpleClausifier {
     
     override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
       t match {
-        case IBinFormula(And, IBinFormula(Or, f1, f2), f3) =>
+        case IBinFormula(And, IBinFormula(Or, f1, f2), f3) => {
+          incOpNum
           TryAgain((f1 & f3) | (f2 & f3), ())
-        case IBinFormula(And, f3, IBinFormula(Or, f1, f2)) =>
+        }
+        case IBinFormula(And, f3, IBinFormula(Or, f1, f2)) => {
+          incOpNum
           TryAgain((f3 & f1) | (f3 & f2), ())
+        }
         case IBinFormula(Or, _, _) =>
           KeepArg
         case t : IFormula =>
@@ -319,31 +357,17 @@ object SimpleClausifier {
           KeepArg
         case IQuantified(EX, IBinFormula(Or, f1, f2)) =>
           TryAgain(ex(f1) | ex(f2), ())
-        case t@IQuantified(_, sub) =>
+        case t@IQuantified(_, sub) => {
+          incOpNum
           if (ContainsSymbol(sub, IVariable(0)))
             ShortCutResult(t)
           else
             ShortCutResult(VariableShiftVisitor(sub, 1, -1))
+        }
       }
     
     def postVisit(t : IExpression, arg : Unit, subres : Seq[IFormula]) : IFormula =
       t.asInstanceOf[IFormula] update subres
-  }
-  
-  //////////////////////////////////////////////////////////////////////////////
-  
-  protected[parser] object Literal {
-    def unapply(t : IExpression) : Option[IFormula] = t match {
-      case LeafFormula(t) => Some(t)
-      case t@INot(sub) => {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        // we assume that the formula is in negation normal form
-        Debug.assertPre(AC, LeafFormula.unapply(sub) != None)
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        Some(t)
-      }
-      case _ => None
-    }
   }
   
   //////////////////////////////////////////////////////////////////////////////

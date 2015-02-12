@@ -108,13 +108,15 @@ object Param {
     val defau : Int = Int.MaxValue
   }
 
+  case object CLAUSIFIER_TIMEOUT extends Param {
+    type Value = Int
+    val defau : Int = Int.MaxValue
+  }
+
   // resolve negative predicate literals in clauses with positive facts
   case object POS_UNIT_RESOLUTION extends Param {
     type Value = Boolean
-//
-// We just use unification for the time being
-//
-    val defau : Boolean = false
+    val defau : Boolean = true
   }
   
   object PosUnitResolutionMethod extends Enumeration {
@@ -139,7 +141,7 @@ object Param {
   }
   case object TRIGGER_GENERATION extends Param {
     type Value = TriggerGenerationOptions.Value
-    val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.None
+    val defau : TriggerGenerationOptions.Value = TriggerGenerationOptions.Total
   }
 
   case object GENERATE_TOTALITY_AXIOMS extends Param {
@@ -256,7 +258,19 @@ object Param {
     val defau : ap.proof.ConstraintSimplifier =
       ap.proof.ConstraintSimplifier.FAIR_SIMPLIFIER
   }
-  
+
+  class FileProperties {
+    var positiveResult : String = "Theorem"
+    var negativeResult : String = "CounterSatisfiable"
+    
+    var conjectureNum : Int = -1
+  }
+
+  case object FILE_PROPERTIES extends Param {
+    type Value = FileProperties
+    val defau : FileProperties = null
+  }
+
   case object PREDICATE_MATCH_CONFIG extends Param {
     type Value = PredicateMatchConfig
     val defau : PredicateMatchConfig = Map()

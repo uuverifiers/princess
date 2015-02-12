@@ -10,7 +10,8 @@ import scala.collection.mutable.{Map => MMap}
 import scala.collection.mutable.ListBuffer
 
 
-class TableSolver[TERM, FUNC]() 
+class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
+                              maxSolverRuntime : Long)
     extends CCUSolver[TERM, FUNC] {
 
   var tablesComplete = false
@@ -116,11 +117,14 @@ class TableSolver[TERM, FUNC]()
       }
 
       while (cont) {
+        timeoutChecker()
+
         val goalConstraints =
           for (p <- 0 until problemCount; if (!goals(p).isEmpty)) yield
             tables(p).addGoalConstraint(goals(p))
 
         Timer.measure("isSat") {
+          solver.setTimeoutMs(maxSolverRuntime)
           if (solver.isSatisfiable()) {
             for (gc <- goalConstraints)
               solver.removeConstr(gc)
@@ -149,6 +153,7 @@ class TableSolver[TERM, FUNC]()
                 val cc =
                   tables(p).addCompletionConstraint()
 
+                solver.setTimeoutMs(maxSolverRuntime)
                 val sat = solver.isSatisfiable()
                 solver.removeConstr(cc)
 
@@ -163,6 +168,7 @@ class TableSolver[TERM, FUNC]()
                 for (p <- 0 until problemCount) yield
                   tables(p).addCompletionConstraint()
 
+              solver.setTimeoutMs(maxSolverRuntime)
               val sat = solver.isSatisfiable()
               for (cc <- ccs)
                 solver.removeConstr(cc)
@@ -179,6 +185,7 @@ class TableSolver[TERM, FUNC]()
                   }
 
 
+              solver.setTimeoutMs(maxSolverRuntime)
               val sat = solver.isSatisfiable()
               for (cc <- ccs)
                 solver.removeConstr(cc)
@@ -271,6 +278,7 @@ class TableSolver[TERM, FUNC]()
           for (p <- 0 until problem.count; if (!goals(p).flatten.isEmpty)) yield {
             tables(p).addGoalConstraint(goals(p))
           }
+        solver.setTimeoutMs(maxSolverRuntime)
         retval =  solver.isSatisfiable()
 
         for (gc <- goalConstraints)
@@ -302,6 +310,8 @@ class TableSolver[TERM, FUNC]()
       problem.removeGoal(p)
 
     for (p <- 0 until problem.count) {
+      timeoutChecker()
+
       problem.restoreGoal(p)
       unsatCore += p
       if (!solveAgain())

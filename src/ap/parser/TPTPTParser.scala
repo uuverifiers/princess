@@ -114,6 +114,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private val partialQueries =    
     Param.MAKE_QUERIES_PARTIAL(settings)
 
+  private val fileProperties =
+    Param.FILE_PROPERTIES(settings)
+
   //////////////////////////////////////////////////////////////////////////////
     
   def apply(reader : java.io.Reader)
@@ -126,6 +129,20 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         val conjectureFors =
           (for (fors <- formulas.iterator;
                 (true, f) <- fors.iterator) yield f).toList
+
+        tptpType match {
+          case TPTPType.FOF | TPTPType.TFF if (!conjectureFors.isEmpty) => {
+            fileProperties.positiveResult = "Theorem"
+            fileProperties.negativeResult = "CounterSatisfiable"
+          }
+          case _ => { 
+            fileProperties.positiveResult = "Unsatisfiable"
+            fileProperties.negativeResult = "Satisfiable"
+          }
+        }
+
+        if (tptpType == TPTPType.TFF && (containsRat || containsReal))
+          fileProperties.negativeResult = "GaveUp"
 
         val conjecture : IFormula =
           or(conjectureFors)

@@ -34,10 +34,9 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  private val version = "release 2014-08-27"
+  class GaveUpException(_msg : String) extends Exception(_msg)
 
-  var currentFilename : String = ""
-  var problemOutputCount : Int = 0
+  private val version = "ccu development version"
 
   def printGreeting = {
     println("________       _____")                                 
@@ -50,7 +49,7 @@ object CmdlMain {
     println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2014")
-    println("(contributions by Angelo Brillout, Peter Baumgartner)")
+    println("(contributions by Peter Backeman, Angelo Brillout, Peter Baumgartner)")
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to ph_r@gmx.net")
     println
@@ -238,6 +237,68 @@ object CmdlMain {
       (for (st <- t.subtrees.iterator) yield existentialConstantNum(st)).sum
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
+  def toSetting(str : String, baseSettings : GlobalSettings) = {
+    var s = baseSettings
+    s = Param.TRIGGERS_IN_CONJECTURE.set(s, str(0) == '1')
+    s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) match {
+          case '0' => false
+          case _   => true
+        })
+    s = Param.TIGHT_FUNCTION_SCOPES.set(s, str(2) == '1')
+    s = Param.CLAUSIFIER.set(s,
+        if (str(3) == '0')
+          Param.ClausifierOptions.Simple
+        else
+          Param.ClausifierOptions.None)
+    s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, str(4) == '1')
+    s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, str(5) == '1')
+    s = Param.TRIGGER_STRATEGY.set(s, str(6) match {
+      case '0' => Param.TriggerStrategyOptions.AllMaximal
+      case '1' => Param.TriggerStrategyOptions.Maximal
+      case '2' => Param.TriggerStrategyOptions.AllMinimal
+      case '3' => Param.TriggerStrategyOptions.AllMinimalAndEmpty
+      case '4' => Param.TriggerStrategyOptions.AllUni
+      case '5' => Param.TriggerStrategyOptions.MaximalOutermost
+    })
+    if (str.size > 7)
+      s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
+    s
+  }
+              
+  def toOptionList(strategy : String) : String = {
+    var s = ""
+    s = s + " " + (if (strategy.charAt(0)=='0') "-" else "+") + "triggersInConjecture"
+    s = s + " " + (if (strategy.charAt(1)=='0') "-" else "+") + "genTotalityAxioms"
+    s = s + " " + (if (strategy.charAt(2)=='0') "-" else "+") + "tightFunctionScopes"
+    s = s + " -clausifier=" + (if (strategy.charAt(3)=='0') "simple" else "none")
+    s = s + " " + (if (strategy.charAt(4)=='0') "-" else "+") + "reverseFunctionalityPropagation"
+    s = s + " " + (if (strategy.charAt(5)=='0') "-" else "+") + "boolFunsAsPreds"
+    
+    s = s + " -triggerStrategy=" + (
+       if(strategy.charAt(6)=='0')
+         "allMaximal"
+       else if(strategy.charAt(6)=='1')
+         "maximal"
+       else if(strategy.charAt(6)=='2')
+         "allMinimal"
+       else if(strategy.charAt(6)=='3')
+         "allMinimalAndEmpty"
+       else if(strategy.charAt(6)=='4')
+         "allUni"
+       else
+         "maximalOutermost"
+    )
+
+    if (strategy.size > 7)
+      s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
+    
+    s
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def proveProblem(settings : GlobalSettings,
                    name : String,
                    reader : () => java.io.Reader,
@@ -245,103 +306,80 @@ object CmdlMain {
                   (implicit format : Param.InputFormat.Value) : Option[Prover.Result] = {
     Debug.enableAllAssertions(Param.ASSERTIONS(settings))
 
+    var lastFilename : String = ""
+    val fileProperties = new Param.FileProperties
+
+    val settings2 = Param.INPUT_FORMAT.set(
+                    Param.FILE_PROPERTIES.set(settings,
+                                           fileProperties), format)
+
     try {
             val timeBefore = System.currentTimeMillis
-            val baseSettings = Param.INPUT_FORMAT.set(settings, format)
-            
-            val prover = if (Param.MULTI_STRATEGY(settings)) {
-              import ParallelFileProver._
-              
-              /*
-              val s1 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val s2 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val s3 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s
-              }
-              
-              val strategies =
-                List((s1, true, "+reverseFunctionalityPropagation -tightFunctionScopes"),
-                     (s2, false, "-genTotalityAxioms -tightFunctionScopes"),
-                     (s3, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"))
-              */
-                
-              val S = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val J = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s
-              }
-              val P = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val Y = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              
-              val strategies =
-                List(Configuration(S, false, "-genTotalityAxioms -tightFunctionScopes", Long.MaxValue),
-                     Configuration(J, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation", Long.MaxValue),
-                     Configuration(P, true, "-triggerStrategy=allMaximal -tightFunctionScopes", Long.MaxValue),
-                     Configuration(Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes", Long.MaxValue))
 
-              new ParallelFileProver(reader,
-                                     Param.TIMEOUT(settings),
-                                     true,
-                                     userDefStoppingCond,
-                                     strategies,
-                                     2)
-            } else {
-              new IntelliFileProver(reader(),
-                                    Param.TIMEOUT(settings),
-                                    true,
-                                    userDefStoppingCond,
-                                    baseSettings)
-            }
+            lastFilename = (name split "/").last stripSuffix ".p"
+            fileProperties.conjectureNum = -1
+            
+            var rawStrategies =
+List(
+("10010010",31000,2400), 
+("11001031",15000,600), 
+("12100100",5000,2400), 
+("11100010",2000,800), 
+("10001111",12000,9000), 
+("12100041",27000,8000), 
+("00101050",10000,6000), 
+("10010021",13000,8000), 
+("11010131",28000,400), 
+("11010011",4000,800), 
+("01100030",13000,200), 
+("11010140",29000,5000), 
+("01100040",3000,200), 
+("12100110",30000,30000), 
+("11011011",27000,27000), 
+("12010011",34000,31000), 
+("11100011",39000,18000), 
+("12100040",19000,3000), 
+("02101011",45000,3000), 
+("11010010",45000,2600))
+
+              val baseSettings =
+                Param.CLAUSIFIER_TIMEOUT.set(settings2,
+                                             50000 min Param.TIMEOUT(settings2))
+
+              val prover = if (Param.MULTI_STRATEGY(settings)) {
+                import ParallelFileProver._
+                
+                val strategies = for ((str, to, seq) <- rawStrategies) yield {
+                  val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
+                                                       to min 50000)
+                  val options = toOptionList(str)
+                  Configuration(s,
+                    Param.GENERATE_TOTALITY_AXIOMS(s),
+                    options, to, seq)
+                }
+                
+                new ParallelFileProver(reader,
+                                       Param.TIMEOUT(settings),
+                                       true,
+                                       userDefStoppingCond,
+                                       strategies,
+                                       3)
+  
+              } else {
+                new IntelliFileProver(reader(),
+                                      Param.TIMEOUT(settings),
+                                      true,
+                                      userDefStoppingCond,
+                                      baseSettings)
+              }
+
+
 
             Console.withOut(Console.err) {
               println
             }
 
-            printResult(prover.result, settings)
+            printResult(prover.result, settings2, lastFilename)
             
             val timeAfter = System.currentTimeMillis
             
@@ -351,6 +389,7 @@ object CmdlMain {
                 println("" + (timeAfter - timeBefore) + "ms")
             }
             
+/*
             prover match {
               case prover : AbstractFileProver => {
                 printSMT(prover, name, settings)
@@ -358,6 +397,7 @@ object CmdlMain {
               }
               case _ => // nothing
             }
+*/
             
             println
             println(ap.util.Timer)
@@ -367,26 +407,56 @@ object CmdlMain {
             Some(prover.result)
           } catch {
       case _ : StackOverflowError => Console.withOut(Console.err) {
-        if (format == Param.InputFormat.SMTLIB)
-          println("unknown")
-        println("Stack overflow, giving up")
+        format match {
+          case Param.InputFormat.SMTLIB => {
+            println("unknown")
+            Console.err.println("Stack overflow, giving up")
+          }
+          case Param.InputFormat.TPTP => {
+            println("% SZS status GaveUp for " + lastFilename)
+            Console.err.println("Stack overflow, giving up")
+          }
+          case _ =>
+            println("Stack overflow, giving up")
+        }
         // let's hope that everything is still in a valid state
         None
       }
       case _ : OutOfMemoryError => Console.withOut(Console.err) {
-        if (format == Param.InputFormat.SMTLIB)
-          println("unknown")
-        println("Out of memory, giving up")
+        format match {
+          case Param.InputFormat.SMTLIB => {
+            println("unknown")
+            Console.err.println("Out of memory, giving up")
+          }
+          case Param.InputFormat.TPTP => {
+            println("% SZS status GaveUp for " + lastFilename)
+            Console.err.println("Out of memory, giving up")
+          }
+          case _ =>
+            println("Out of memory, giving up")
+        }
         System.gc
         // let's hope that everything is still in a valid state
         None
       }
       case e : Throwable => {
-        if (format == Param.InputFormat.SMTLIB) {
-          println("error")
-	  Console.err.println(e.getMessage)
-	} else {
-          println("ERROR: " + e.getMessage)
+        format match {
+          case Param.InputFormat.SMTLIB => {
+            println("error")
+            Console.err.println(e.getMessage) 
+          }
+          case Param.InputFormat.TPTP => {
+            e match {
+              case _ : GaveUpException =>
+                println("% SZS status GaveUp for " + lastFilename)
+              case _ =>
+                println("% SZS status Error for " + lastFilename)
+            }
+            Console.err.println(e.getMessage) 
+          }
+          case _ => {
+            println("ERROR: " + e.getMessage)
+          }
         }
         e.printStackTrace
         None
@@ -430,7 +500,8 @@ object CmdlMain {
   //////////////////////////////////////////////////////////////////////////////
   
   def printResult(res : Prover.Result,
-                  settings : GlobalSettings)
+                  settings : GlobalSettings,
+                  lastFilename : String)
                  (implicit format : Param.InputFormat.Value) = format match {
     case Param.InputFormat.SMTLIB => res match {
               case Prover.Proof(tree) => {
@@ -494,10 +565,12 @@ object CmdlMain {
                 Console.err.println("Cancelled or timeout")
               }
     }
-      
-    case _ => res match {
+
+    case Param.InputFormat.TPTP | Param.InputFormat.Princess => {
+            val fileProperties = Param.FILE_PROPERTIES(settings)
+            res match {
               case Prover.Proof(tree) => {
-                println("VALID")
+//                println("VALID")
 /*
                 if (!tree.closingConstraint.isTrue ||
                     Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -517,9 +590,11 @@ object CmdlMain {
                   println("Proof tree:")
                   println(tree)
                 }
+                
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.ProofWithModel(tree, model) => {
-                println("VALID")
+//                println("VALID")
 /*
                 if (!tree.closingConstraint.isTrue ||
                     Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -553,9 +628,11 @@ object CmdlMain {
                   println("Proof tree:")
                   println(tree)
                 }
+                
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoProof(tree) => {
-                println("UNKNOWN")
+                Console.err.println("UNKNOWN")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -563,9 +640,11 @@ object CmdlMain {
                   println("Most-general constraint:")
                   println("false")
                 }
+                
+                println("% SZS status GaveUp for " + lastFilename)
               }
               case Prover.Invalid(tree) => {
-                println("INVALID")
+                Console.err.println("No proof found")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -573,48 +652,52 @@ object CmdlMain {
                   println("Most-general constraint:")
                   println("false")
                 }
+                println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.CounterModel(model) =>  {
-                println("INVALID")
-                model match {
-                  case IBoolLit(true) => // nothing
-                  case _ => {
-                    println
-                    println("Countermodel:")
-                    printFormula(model)
-                  }
+                Console.withOut(Console.err) {
+                  println("Formula is invalid, found a countermodel:")
+                  printFormula(model)
                 }
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("false")
                 }
+                
+                println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.NoCounterModel =>  {
-                println("VALID")
+                Console.err.println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("true")
                 }
+                
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCert(cert) =>  {
-                println("VALID")
+                Console.err.println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("true")
                 }
-                println
-                println("Certificate: " + cert)
-                println("Assumed formulae: " + cert.assumedFormulas)
-                print("Constraint: ")
-                printFormula(cert.closingConstraint)
+                Console.withOut(Console.err) {
+                  println
+                  println("Certificate: " + cert)
+                  println("Assumed formulae: " + cert.assumedFormulas)
+                  print("Constraint: ")
+                  printFormula(cert.closingConstraint)
+                }
                 
                 printDOTCertificate(cert, settings)
+
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
-                println("VALID")
+                Console.err.println("No countermodel exists, formula is valid")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -624,23 +707,29 @@ object CmdlMain {
 //                println("Certificate: " + cert)
 //                println("Assumed formulae: " + cert.assumedFormulas)
 //                println("Constraint: " + cert.closingConstraint)
-                println
-                println("Interpolants:")
-                for (i <- inters) printFormula(i)
+                Console.withOut(Console.err) {
+                  println
+                  println("Interpolants:")
+                  for (i <- inters) printFormula(i)
+                }
 
                 printDOTCertificate(cert, settings)
+                
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.Model(model) =>  {
-                println("VALID")
-                println
-                println("Under the assignment:")
-                printFormula(model)
+                Console.withOut(Console.err) {
+                  println("Formula is valid, satisfying assignment for the existential constants is:")
+                  printFormula(model)
+                }
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoModel =>  {
-                println("INVALID")
+                Console.err.println("No satisfying assignment for the existential constants exists, formula is invalid")
+                println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.TimeoutProof(tree) =>  {
-                println("CANCELLED/TIMEOUT")
+                Console.err.println("Cancelled or timeout")
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -657,16 +746,19 @@ object CmdlMain {
                   println("Proof tree:")
                   println(tree)
                 }
+                println("% SZS status Timeout for " + lastFilename)
               }
               case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
-                println("CANCELLED/TIMEOUT")
+                Console.err.println("Cancelled or timeout")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Current constraint:")
                   println("false")
                 }
+                println("% SZS status Timeout for " + lastFilename)
               }
-    }
+            }
+          }
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -711,7 +803,6 @@ object CmdlMain {
 
     for (filename <- inputs) try {
       implicit val format = determineInputFormat(filename, settings)
-      currentFilename = filename
       proveProblems(settings,
                     filename,
                     () => new java.io.BufferedReader (

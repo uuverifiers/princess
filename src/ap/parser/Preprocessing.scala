@@ -24,6 +24,7 @@ package ap.parser
 import ap._
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parameters.{PreprocessingSettings, Param}
+import ap.util.Timeout
 
 /**
  * Preprocess an InputAbsy formula in order to make it suitable for
@@ -54,12 +55,21 @@ object Preprocessing {
             functionEncoder : FunctionEncoder)
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
+    val initialSize = SizeVisitor(f)
+
+    def checkSize(fs : Iterable[IFormula]) = {
+      val newSize = (for (f <- fs.iterator) yield SizeVisitor(f)).sum
+      if (newSize > 5000000 && newSize > initialSize * 5)
+        throw new CmdlMain.GaveUpException("Unexpected explosion during preprocessing")
+    }
+
     // turn the formula into a list of its named parts
     val fors = PartExtractor(f)
 
     // partial evaluation, expand equivalences
     val fors2 = for (f <- fors)
                 yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
+    checkSize(fors2)
 
     // simple mini-scoping for existential quantifiers
     val fors2a = for (f <- fors2) yield SimpleMiniscoper(f)
@@ -104,6 +114,7 @@ object Preprocessing {
         newNoNamePart :: realNamedParts
       }
     }
+    checkSize(fors4)
 
     // do some direct simplifications
     val fors5 = 
@@ -114,8 +125,12 @@ object Preprocessing {
       case Param.ClausifierOptions.None =>
         fors5
       case Param.ClausifierOptions.Simple =>
-        for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
+      println(Param.CLAUSIFIER_TIMEOUT(settings))
+        Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
+          for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
+        )(throw new CmdlMain.GaveUpException("Clausification timed out"))
     }
+    checkSize(fors6)
     
     (fors6, interpolantSpecs, signature updateOrder order3)
   }
