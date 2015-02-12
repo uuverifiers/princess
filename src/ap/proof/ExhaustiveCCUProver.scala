@@ -221,8 +221,6 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
             swp = true
             tree = newTree
 
-println(goalNumMapping.toList)
-
             val newGoalCore =
               (for ((a, b) <- goalNumMapping.iterator; if (goalCore contains b))
                yield a).toSet
@@ -268,6 +266,11 @@ println(goalNumMapping.toList)
               if (newGoalCore != goalCore) {
                 expansionStack push GoalMappingItem(goalNumMapping)
                 goalCore = newMinCore().toSet
+
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
+                Debug.assertInt(ExhaustiveCCUProver.AC,
+                                !tree.goalsAreCCUnifiable(goalCore)._1)
+                //-END-ASSERTION-///////////////////////////////////////////////
 
                 if (goalCore.size != newGoalCore.size)
                   expansionStack push GoalCoreItem(newGoalCore)
