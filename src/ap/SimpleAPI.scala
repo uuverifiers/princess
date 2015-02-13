@@ -316,6 +316,7 @@ object SimpleAPI {
   private case class SatResult(model : Conjunction) extends ProverResult
   private case class SatPartialResult(model : Conjunction) extends ProverResult
   private case object StoppedResult extends ProverResult
+  private case class ExceptionResult(msg : String) extends ProverResult
 
   private val badStringChar = """[^a-zA-Z_0-9']""".r
   
@@ -1602,6 +1603,10 @@ class SimpleAPI private (enableAssert : Boolean,
             if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
         case StoppedResult =>
           lastStatus = ProverStatus.Unknown
+        case ExceptionResult(msg) => {
+          lastStatus = ProverStatus.Error
+          throw new SimpleAPIException(msg)
+        }
         case _ =>
           lastStatus = ProverStatus.Error
   }
@@ -3002,16 +3007,24 @@ class SimpleAPI private (enableAssert : Boolean,
       case TIMEOUT => // nothing
     }) {
             
-      while (cont) {
-        // wait for a command on what to do next
-        if (nextCommand != null) {
-          val c = nextCommand
-          nextCommand = null
-          commandParser(c)
-        } else {
-          receive(commandParser)
+      while (cont)
+        try {
+          // wait for a command on what to do next
+          if (nextCommand != null) {
+            val c = nextCommand
+            nextCommand = null
+            commandParser(c)
+          } else {
+            receive(commandParser)
+          }
+        } catch {
+          case t : Timeout =>
+            // just forward
+            throw t
+          case t : Throwable =>
+            // hope that we are able to continue
+            proverRes set ExceptionResult(t.toString)
         }
-      }
       
     }
   }}
