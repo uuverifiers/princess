@@ -758,6 +758,8 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
   
   def isSortedBy(order : TermOrder) : Boolean =
     (currentFacts isSortedBy order) && (clauses isSortedBy order)
+
+  def isEmpty : Boolean = clauses.isEmpty
   
   override def toString : String =
     "(" + this.currentFacts + ", " + this.clauses + ")"
