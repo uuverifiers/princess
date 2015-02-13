@@ -34,6 +34,7 @@ class LazySolver[TERM, FUNC](timeoutChecker : () => Unit,
       Timer.measure("MIN.Loop") {
         for (i <- 0 until DI.length; j <- 0 until DI.length;
           if (i < j); if (!DQ(i, j))) {
+          timeoutChecker()
 
           Timer.measure("MIN.cascadeRemove") {
             DQ.cascadeRemoveDQ(i, j)
