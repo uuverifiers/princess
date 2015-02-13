@@ -110,11 +110,11 @@ class CCUInstance[TERM, FUNC](
      yield (solver.problem.diseq(problem)(i)(j) == 0)) getOrElse (s != t)
   }
 
-  def unsatCore = {
+  def unsatCore(timeout : Int) = {
     confirmActive
     val core =
       try {
-        solver.unsatCore
+        solver.unsatCore(timeout)
       } catch {
         case to : org.sat4j.specs.TimeoutException => {
           (0 until solver.problem.count).toList
@@ -130,10 +130,10 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
   def solve() : Result.Result
   var model = None : Option[Map[TERM, TERM]]
   def getModel() = model.get
-  def unsatCoreAux : List[Int]
-  def unsatCore = {
+  def unsatCoreAux(timeout : Int) : List[Int]
+  def unsatCore(timeout : Int) = {
     val core = 
-      unsatCoreAux
+      unsatCoreAux(timeout)
     val retval =
       (for (p <- core) yield (problem.order(p))).toList
 
@@ -216,6 +216,7 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
   def reset = {
     solver.reset()
     alloc.reset
+    solver.setTimeoutMs(maxSolverRuntime)
   }
 
   // TODO: just check the relevant terms (i.e. problem.terms(p))

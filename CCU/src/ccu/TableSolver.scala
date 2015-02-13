@@ -285,76 +285,82 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
 
 
   // PRE: Call after solve returns UNSAT
-  def unsatCoreAux : List[Int] = {
-    val unsatCore = ListBuffer() : ListBuffer[Int]
+  def unsatCoreAux(timeout : Int) : List[Int] = {
+    solver.setTimeoutMs(timeout)
+    Timeout.withTimeoutMillis(timeout) {
+      val unsatCore = ListBuffer() : ListBuffer[Int]
 
-    if (!problem.result.isDefined)
-      throw new Exception("unsatCore on without previous solve call")
-    
-    if (problem.result.get != ccu.Result.UNSAT)
-      throw new Exception("unsatCore on SAT solution")
+      if (!problem.result.isDefined)
+        throw new Exception("unsatCore on without previous solve call")
+      
+      if (problem.result.get != ccu.Result.UNSAT)
+        throw new Exception("unsatCore on SAT solution")
 
-    for (p <- 0 until problem.count)
-      problem.removeGoal(p)
+      for (p <- 0 until problem.count)
+        problem.removeGoal(p)
 
-    var curProb = 0
-    unsatCore += curProb
-    problem.restoreGoal(curProb)
+      var curProb = 0
+      unsatCore += curProb
+      problem.restoreGoal(curProb)
 
-    def addProblem = {
-      curProb += 1
-      if (curProb < problem.count) {
-        unsatCore += curProb
-        problem.restoreGoal(curProb)
+      def addProblem = {
+        curProb += 1
+        if (curProb < problem.count) {
+          unsatCore += curProb
+          problem.restoreGoal(curProb)
+        }
       }
-    }
 
-    while (curProb < problem.count) {
-      timeoutChecker()
+      while (curProb < problem.count) {
+        Timeout.check
+        timeoutChecker()
 
-      if (solveAgain()) {
-        // If the problem is SAT, we need one more sub-problem
-        addProblem
-      } else {
-        // Make sure that tables 0..p are complete, 
-        // if NOT, we have to add columns
-        // if IS, we have an unsat core!
+        if (solveAgain()) {
+          // If the problem is SAT, we need one more sub-problem
+          addProblem
+        } else {
+          // Make sure that tables 0..p are complete,
+          // if NOT, we have to add columns
+          // if IS, we have an unsat core!
 
-        val ccs =
-          for (p <- 0 to curProb) yield
-            tables(p).addVConstraintAux match {
-              case (Some(cc), bits) => (Some(cc), bits)
-              case (None, _) => {
-                (None, List())
+          val ccs =
+            for (p <- 0 to curProb) yield
+              tables(p).addVConstraintAux match {
+                case (Some(cc), bits) => (Some(cc), bits)
+                case (None, _) => {
+                  (None, List())
+                }
               }
+
+          // Do we need extra columns?
+          val addColumn =
+            if (ccs.filter(x => x._1.isDefined).isEmpty) {
+              false
+            } else {
+              solver.isSatisfiable()
             }
 
-        // Do we need extra columns?
-        val addColumn = 
-          if (ccs.filter(x => x._1.isDefined).isEmpty) {
-            false
-          } else {
-            solver.isSatisfiable()
+          for (cc <- ccs; if cc._1.isDefined) {
+            solver.removeConstr(cc._1.get)
           }
 
-        for (cc <- ccs; if cc._1.isDefined) {
-          solver.removeConstr(cc._1.get)
-        }
-
-        if (addColumn) {
-          // if YES - Add and try again
-          for (p <- 0 to curProb)
-            tables(p).addDerivedColumn(timeoutChecker)
-        } else {
-          // if NO - unsat core achieved!
-          return unsatCore.toList
+          if (addColumn) {
+            // if YES - Add and try again
+            for (p <- 0 to curProb)
+              tables(p).addDerivedColumn(timeoutChecker)
+          } else {
+            // if NO - unsat core achieved!
+            return unsatCore.toList
+          }
         }
       }
+      throw new Exception("TableSolver: Entire problem is not UNSAT?")
+    }{
+      return (0 until problem.count).toList
     }
-
-    throw new Exception("TableSolver: Entire problem is not UNSAT?")
   }
 }
+
 
 class Table[FUNC](val bits : Int, alloc : Allocator,
   gt : GateTranslator, solver : ISolver, val terms : List[Int],

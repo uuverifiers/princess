@@ -525,7 +525,7 @@ trait ProofTree {
         (res,
          () => {
            val allGoals = (unificationProblems map (_._4)).toArray
-           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") {instance.unsatCore})
+           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") {instance.unsatCore(1000)})
            yield allGoals(ind)
          })
       }
@@ -573,7 +573,7 @@ trait ProofTree {
          }, false,
          () => {
            val allGoals = (unificationProblems map (_._4)).toArray
-           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") { instance.unsatCore })
+           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") { instance.unsatCore(1000) })
            yield allGoals(ind)
          })
       }

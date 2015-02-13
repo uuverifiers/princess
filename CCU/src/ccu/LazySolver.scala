@@ -251,7 +251,7 @@ class LazySolver[TERM, FUNC](timeoutChecker : () => Unit,
     }
   }
 
-  def unsatCoreAux = {
+  def unsatCoreAux(timeout : Int) = {
     lastUnsatCore
   }
 }
