@@ -252,6 +252,29 @@ trait ProofTree {
       lc.leadingTerm.asInstanceOf[ConstantTerm]
   }
 
+  private def eqTerms(lc : LinearCombination,
+                      intLiteralConsts : MMap[IdealInt, ConstantTerm])
+                     : (ConstantTerm, ConstantTerm) = lc.size match {
+    case 1 =>
+      (toConstant(lc, intLiteralConsts),
+       toConstant(LinearCombination.ZERO, intLiteralConsts))
+    case 2 if (lc.constants.size == 1 && lc.leadingCoeff.isOne) =>
+      (lc.leadingTerm.asInstanceOf[ConstantTerm],
+       toConstant(LinearCombination(-lc.constant), intLiteralConsts))
+    case 2 => {
+      //-BEGIN-ASSERTION-////////////////////////////////////////////
+      Debug.assertInt(ProofTree.AC,
+             lc.size == 2 &&
+             lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
+             lc.getTerm(0).isInstanceOf[ConstantTerm] &&
+             lc.getTerm(1).isInstanceOf[ConstantTerm])
+      //-END-ASSERTION-//////////////////////////////////////////////
+      
+      (lc.getTerm(0).asInstanceOf[ConstantTerm],
+       lc.getTerm(1).asInstanceOf[ConstantTerm])
+    }
+  }
+
   private def constructUnificationProblems(
                     tree : ProofTree,
                     consideredGoals : Set[Int],
@@ -346,21 +369,10 @@ trait ProofTree {
         val eqFunApps =
           (for (lc <- goal.facts.arithConj.positiveEqs.iterator;
                 app <- {
-                  //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  Debug.assertInt(ProofTree.AC,
-                         lc match {
-                           case Seq((IdealInt.ONE, _ : ConstantTerm),
-                                    (IdealInt.MINUS_ONE, _ : ConstantTerm)) => true
-                           case _ => false
-                         })
-                  //-END-ASSERTION-/////////////////////////////////////////////
-  
+                  val (c, d) = eqTerms(lc, intLiteralConsts)
                   val tempPred = new Predicate ("tempPred", 0)
-  
-                  Seqs.doubleIterator((tempPred, List(),
-                                       lc.getTerm(0).asInstanceOf[ConstantTerm]),
-                                      (tempPred, List(),
-                                       lc.getTerm(1).asInstanceOf[ConstantTerm]))
+                  Seqs.doubleIterator((tempPred, List(), c),
+                                      (tempPred, List(), d))
                 })
            yield app).toList
   
@@ -386,28 +398,8 @@ trait ProofTree {
                }).toList
       
             val eqUnificationGoals =
-              (for (lc <- goal.facts.arithConj.negativeEqs.iterator) yield {
-                 lc.size match {
-                   case 1 =>
-                     List((toConstant(lc, intLiteralConsts),
-                           toConstant(LinearCombination.ZERO, intLiteralConsts)))
-                   case 2 if (lc.constants.size == 1 && lc.leadingCoeff.isOne) =>
-                     List((lc.leadingTerm.asInstanceOf[ConstantTerm],
-                           toConstant(LinearCombination(-lc.constant), intLiteralConsts)))
-                   case 2 => {
-                     //-BEGIN-ASSERTION-////////////////////////////////////////////
-                     Debug.assertInt(ProofTree.AC,
-                             lc.size == 2 &&
-                             lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
-                             lc.getTerm(0).isInstanceOf[ConstantTerm] &&
-                             lc.getTerm(1).isInstanceOf[ConstantTerm])
-                     //-END-ASSERTION-//////////////////////////////////////////////
-      
-                     List((lc.getTerm(0).asInstanceOf[ConstantTerm],
-                           lc.getTerm(1).asInstanceOf[ConstantTerm]))
-                   }
-                 }
-               }).toList
+              (for (lc <- goal.facts.arithConj.negativeEqs.iterator)
+               yield List(eqTerms(lc, intLiteralConsts))).toList
       
             predUnificationGoals ::: eqUnificationGoals
           }
@@ -523,10 +515,15 @@ trait ProofTree {
         println(res)
 
         (res,
-         () => {
+         () => try {
            val allGoals = (unificationProblems map (_._4)).toArray
            for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") {instance.unsatCore(1000)})
            yield allGoals(ind)
+         } catch {
+           case t : Throwable => {
+             Console.err.println("Warning: " + t.getMessage)
+             unificationProblems map (_._4)
+           }
          })
       }
     }
@@ -571,10 +568,15 @@ trait ProofTree {
         (ap.util.Timer.measure("CCUSolver_solve") {
            instance.solve == ccu.Result.SAT
          }, false,
-         () => {
+         () => try {
            val allGoals = (unificationProblems map (_._4)).toArray
            for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") { instance.unsatCore(1000) })
            yield allGoals(ind)
+         } catch {
+           case t : Throwable => {
+             Console.err.println("Warning: " + t.getMessage)
+             unificationProblems map (_._4)
+           }
          })
       }
 
