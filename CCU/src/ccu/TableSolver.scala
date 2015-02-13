@@ -46,6 +46,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
           }).filter(x => x._2).map(x => x._1).toList
         }).toList
 
+
       if (diseqedGoals contains List()) {
         // println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
         return (None, Map())
@@ -166,19 +167,22 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
 
             def CCV() : Boolean = {
               val ccs =
-                for (p <- 0 until problemCount) yield
-                  tables(p).addVConstraint() match {
-                    case Some(cc) => cc
-                    case None => return false
-                  }
+                for (p <- 0 until problemCount) 
+                yield tables(p).addVConstraint
 
 
-              // solver.setTimeoutMs(maxSolverRuntime)
-              val sat = solver.isSatisfiable()
-              for (cc <- ccs)
-                solver.removeConstr(cc)
 
-              sat
+              val retVal = 
+              if (ccs contains None) {
+                false
+              } else {
+                solver.isSatisfiable()
+              }
+
+              for (cc <- ccs; if cc.isDefined)
+                solver.removeConstr(cc.get)
+
+              retVal
             }
 
 
@@ -222,8 +226,6 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
       val goals = problem.goals
       val functions = problem.functions
 
-      // TODO: Build up terms automatically
-
       solveTable() match {
         // TODO: Some(m), m unused?
         case (Some(m), assignments) => {
@@ -251,9 +253,8 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
 
   def solveAgain() : Boolean = {
     Timer.measure("Table.solveAgain") {
-      if (problem.goals.flatten.flatten.isEmpty) {
-        return true
-      }
+      if (problem.goals.flatten.flatten.isEmpty) 
+        throw new Exception("SolveAgain emptyproblem!")
 
       var retval = false : Boolean
 
@@ -268,7 +269,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
         retval =  solver.isSatisfiable()
 
         for (gc <- goalConstraints) {
-          solver.removeConstr(gc)
+          // solver.removeConstr(gc)
         }
       } else {
         solveTable() match {
@@ -321,21 +322,24 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
 
         val ccs =
           for (p <- 0 to curProb) yield
-            tables(p).addVConstraint() match {
-              case Some(cc) => Some(cc)
-              case None => None
+            tables(p).addVConstraintAux match {
+              case (Some(cc), bits) => (Some(cc), bits)
+              case (None, _) => {
+                (None, List())
+              }
             }
 
         // Do we need extra columns?
         val addColumn = 
-          if (ccs.filter(x => x.isDefined).isEmpty) {
+          if (ccs.filter(x => x._1.isDefined).isEmpty) {
             false
           } else {
             solver.isSatisfiable()
           }
 
-        for (cc <- ccs; if cc.isDefined)
-          solver.removeConstr(cc.get)
+        for (cc <- ccs; if cc._1.isDefined) {
+          solver.removeConstr(cc._1.get)
+        }
 
         if (addColumn) {
           // if YES - Add and try again
@@ -364,6 +368,43 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
   def apply(term : (Int, Int)) = {
     val (col, row) = term
     columns(col)(row)
+  }
+
+  // USE AFTER solved
+  def printTable {
+
+    def bitToInt(bits : List[Int]) : Int = {
+      var curMul = 1
+      var curVal = 0
+      for (b <-bits) {
+        if (solver.model contains b)
+          curVal += curMul
+        curMul *= 2
+      }
+      curVal
+    }
+
+    println("<-----" + ("---" * currentColumn) + "-->")
+    for (t <- terms) {
+      print(t + ">\t")
+      for (c <- 0 to currentColumn) {
+        val i = bitToInt(this((c, t)))
+        print(" " + i)
+      }
+      println
+    }
+    printTableStats
+  }
+
+  def printTableStats {
+    println("<#####" + ("###" * 3) + "##>")
+    println("currentColum: " + currentColumn)
+    for (t <- terms)
+      println(t + " := {" + domains(t).mkString(", ") + "}")
+    println("functions:")
+    for (f <- functions)
+      println("\t" + f)
+    println("<-----" + ("---" * 3) + "-->")
   }
 
   //
@@ -529,12 +570,20 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
                 eqBits(tTI(t1))(tTI(t2)) =
                   termEqTerm((currentColumn-1, args_i(i)),
                     (currentColumn-1,args_j(i)))
+
               eqBits(tTI(t1))(tTI(t2))
             }).toArray
 
           // argBit <=> C_p[args_i] = C_p[args_j]
-          val argBit = alloc.alloc(1)
-          gt.and(argBit, new VecInt(argBits))
+          val argBit = 
+            if (argBits.isEmpty) {
+              // No arguments (i.e. f() = a && f() = b is trivial equality)
+              ONEBIT
+            } else {
+              val tmp = alloc.alloc(1)
+              gt.and(tmp, new VecInt(argBits))
+              tmp
+            }
 
           // gtBit <=> C_p[s_i] > C_p[s_j]
           val gtBit = termGtTerm((currentColumn-1, s_i), (currentColumn-1, s_j))
@@ -743,10 +792,12 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
     }
   }
 
-  def addVConstraint() = {
+  def addVConstraintAux = {
     // termToIndex 
+    // converts a term into its index in terms ...
     val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
 
+    // Returns true if args1 could equal args2
     def unifiable(args1 : List[Int], args2 : List[Int]) : Boolean = {
       for ((a1, a2) <- (args1 zip args2)) {
         if (diseq(a1)(a2) == 0)
@@ -774,7 +825,16 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
           }).toArray
 
         // argBit <=> C_p[args_i] = C_p[args_j]
-        val argBit = alloc.alloc(1)
+        val argBit =
+          if (argBits.isEmpty) {
+            // No arguments (i.e. f() = a && f() = b is trivial equality)
+            ONEBIT
+          } else {
+            val tmp = alloc.alloc(1)
+            gt.and(tmp, new VecInt(argBits))
+            tmp
+          }
+
         gt.and(argBit, new VecInt(argBits))
 
         // gtBit <=> C_p[s_i] > C_p[s_j]
@@ -788,8 +848,13 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
       }
 
     if (V.isEmpty)
-      None
+      (None, List())
     else
-      Some(solver.addClause(new VecInt(V.toArray)))
+      (Some(solver.addClause(new VecInt(V.toArray))), V)
+  }
+
+  def addVConstraint = {
+    val (ret, bits) = addVConstraintAux
+    ret
   }
 }

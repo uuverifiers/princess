@@ -535,17 +535,40 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
                   return true
               }
             }
+
             false
           }
 
           val ff =
+
             newFunctions(p).filter(x => (matchable(newFunctions(p), x))).toList
-          val ft =
-            newTerms.filter(x => isUsed(x, ff, newGoals(p))).toList
-          val fd =
-            (for ((t, d) <- newDomains) yield {
-              (t, d.filter(x => ft contains x))
-            }).toMap
+          // val tmpFt = ListBuffer() : ListBuffer[Int]
+          // for (t <- (newTerms.filter(x => isUsed(x, ff, newGoals(p)))))
+          //   tmpFt += t
+
+          // // We have to add all terms that are in the domains of ft
+          // var ftChanged = true
+          // while (ftChanged) {
+          //   ftChanged = false
+          //   for (t <- tmpFt) {
+          //     for (tt <- newDomains(t)) {
+          //       if (!(tmpFt contains tt)) {
+          //         tmpFt += tt
+          //         ftChanged = true
+          //       }
+          //     }
+          //   }
+          // }
+
+          // val ft = tmpFt.toList
+
+          val ft = newTerms
+
+          // val fd =
+          //   (for ((t, d) <- newDomains) yield {
+          //     (t, d.filter(x => ft contains x))
+          //   }).toMap
+          val fd = newDomains
           (ff, ft, fd)
         }).toList : List[(List[(FUNC, List[Int], Int)], List[Int], Map[Int, Set[Int]])]
 
