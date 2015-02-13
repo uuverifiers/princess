@@ -30,7 +30,7 @@ import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.Signature.{PredicateMatchStatus, PredicateMatchConfig}
-import ap.util.{Debug, FilterIt, Seqs, UnionSet}
+import ap.util.{Debug, FilterIt, Seqs, UnionSet, Timeout}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap,
                                  Map => MutableMap, HashSet => MHashSet}
@@ -60,6 +60,8 @@ object IterativeClauseMatcher {
     
     val instances, quantifiedInstances = new ArrayBuffer[Conjunction]
 
+    var selectionCounter = 0
+    
     ////////////////////////////////////////////////////////////////////////////
     
     /**
@@ -70,7 +72,11 @@ object IterativeClauseMatcher {
      */
     def exec(program : List[MatchStatement],
              originatingConstants : GSet[ConstantTerm],
-             conditional : Boolean) : Unit =
+             conditional : Boolean) : Unit = {
+          selectionCounter = selectionCounter + 1
+          if (selectionCounter % 1000 == 0)
+            Timeout.check
+
       program match {
         
         case List() => // nothing
@@ -254,6 +260,7 @@ object IterativeClauseMatcher {
             exec(prog, originatingConstants, conditional)
         }
       }
+    }
     
     ////////////////////////////////////////////////////////////////////////////
     

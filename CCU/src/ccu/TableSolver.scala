@@ -90,7 +90,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
       }
 
       def termEqIntAux(bitList : List[Int], i : Int) : Int = {
-        Timer.measure("termEqInt") {
+//        Timer.measure("termEqInt") {
           var curVal = i
 
           val lits =
@@ -108,7 +108,7 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
           val eqBit = alloc.alloc(1)
           gt.and(eqBit, new VecInt(lits))
           eqBit
-        }
+//        }
       }
 
       for (p <- 0 until problemCount)
@@ -419,7 +419,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
 
   // C[t] == i
   def termEqInt(term : (Int, Int), i : Int) : Int = {
-    Timer.measure("termEqInt") {
+//    Timer.measure("termEqInt") {
       var curVal = i
 
       val lits =
@@ -437,12 +437,12 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
       val eqBit = alloc.alloc(1)
       gt.and(eqBit, new VecInt(lits))
       eqBit
-    }
+//    }
   }
 
   // C[t1] == C[t2]
   def termEqTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
-    Timer.measure("termEqTerm") {
+//    Timer.measure("termEqTerm") {
       val term1Bits = this(term1)
       val term2Bits = this(term2)
 
@@ -462,7 +462,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
       val eqBit = alloc.alloc(1)
       gt.and(eqBit, new VecInt(eqBits))
       eqBit
-    }
+//    }
   }
 
   // C[t1] > C[t2]
