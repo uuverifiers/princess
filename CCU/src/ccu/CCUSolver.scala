@@ -479,6 +479,7 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
         }
       }
 
+
       val diseq = (for (p <- 0 until problemCount)
       yield {
         val c = Array.ofDim[Int](newTerms.length, newTerms.length)

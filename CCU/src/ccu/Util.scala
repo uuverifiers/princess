@@ -8,7 +8,8 @@ import scala.collection.mutable.Queue
 
 class Disequalities[FUNC](
   initialDiseqs : Array[Array[Int]],
-  functions : List[(FUNC, List[Int], Int)]) {
+  functions : List[(FUNC, List[Int], Int)],
+  timeoutChecker : () => Unit) {
 
   var DQ = Array() : Array[Array[Int]]
   var changes = ListBuffer() : ListBuffer[(Int, Int, Int)]
@@ -47,6 +48,7 @@ class Disequalities[FUNC](
     goalMap =
       (for (i <- 0 until DQ.size)
       yield {
+        timeoutChecker()
         val funPairs = 
           // NOT f1 < f2 since its not symmetric!
           (for (f1 <- 0 until functions.length;
@@ -165,6 +167,7 @@ class Disequalities[FUNC](
 
     // DISEQ COUNT?
     while (!todo.isEmpty) {
+      timeoutChecker()
       val (s, t) = todo.dequeue
       inQueue(s)(t) = false
 

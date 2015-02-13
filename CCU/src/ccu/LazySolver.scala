@@ -27,7 +27,7 @@ class LazySolver[TERM, FUNC](timeoutChecker : () => Unit,
     goals : List[List[(Int, Int)]]) : List[(Int, Int)] = {
     Timer.measure("Lazy.minimiseDI") {
 
-      val DQ = new Disequalities[FUNC](DI, functions)
+      val DQ = new Disequalities[FUNC](DI, functions, timeoutChecker)
 
       // Go through all disequalities
       // We try to remove disequalities one by one
@@ -42,7 +42,9 @@ class LazySolver[TERM, FUNC](timeoutChecker : () => Unit,
 
           // Still UNSAT? Propagate Changes
           var sat = false
-          sat = DQ.satisfies(goals)
+          Timer.measure("MIN.SAT4J") {
+            sat = DQ.satisfies(goals)
+          }
 
           if (!sat) {
             DQ.setBase()
