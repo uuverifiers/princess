@@ -29,7 +29,7 @@ import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.preds.Predicate
 import ap.terfor.linearcombination.LinearCombination
-import ap.util.{Debug, Seqs}
+import ap.util.{Debug, Seqs, Timeout}
 
 import ccu.{CCUSolver, LazySolver, TableSolver, CCUInstance}
 
@@ -151,7 +151,7 @@ trait ProofTree {
     val goalProblem =
       constructUnificationProblem(this.asInstanceOf[Goal], fullDomains,
                                   new LinkedHashMap[IdealInt, ConstantTerm],
-                                  0)
+                                  0, true)
     val instance = createCCUInstance(fullDomains, List(goalProblem))
     
     val freeConstants = new MHashSet[ConstantTerm]
@@ -270,8 +270,9 @@ trait ProofTree {
       // then there is a subtree that cannot be closed, and
       // also the unification problem as a whole does not have
       // any solutions.
-      // return a problem with empty goal, which cannot be closed
-      (List((Map(), List(), List(), proofGoalStartIndex)),
+      // return problem with empty goal, which cannot be closed
+      ((for (i <- 0 until tree.goalCount)
+        yield ((Map(), List(), List(), proofGoalStartIndex + i) : CCUProblem)).toList,
        proofGoalStartIndex + tree.goalCount)
     } else tree match {
 
@@ -317,7 +318,7 @@ trait ProofTree {
 
       case goal : Goal =>
         (List(constructUnificationProblem(goal, domains, intLiteralConsts,
-                                          proofGoalStartIndex)),
+                                          proofGoalStartIndex, false)),
          proofGoalStartIndex + 1)
     }
 
@@ -325,7 +326,8 @@ trait ProofTree {
                     goal : Goal,
                     domains : Map[ConstantTerm, Set[ConstantTerm]],
                     intLiteralConsts : MMap[IdealInt, ConstantTerm],
-                    proofGoalStartIndex : Int)
+                    proofGoalStartIndex : Int,
+                    skipGoals : Boolean)
                    : CCUProblem = {
         val funPreds = Param.FUNCTIONAL_PREDICATES(goal.settings)
         val predConj = goal.facts.predConj
@@ -366,39 +368,49 @@ trait ProofTree {
   
         ////////////////////////////////////////////////////////////////////////
   
-        val predUnificationGoals =
-          (for (a <- predConj.positiveLits.iterator;
-                b <- predConj.negativeLitsWithPred(a.pred).iterator) yield {
-             (for ((lcA, lcB) <- a.iterator zip b.iterator)
-              yield (toConstant(lcA, intLiteralConsts),
-                     toConstant(lcB, intLiteralConsts))).toList
-           }).toList
-  
-        val eqUnificationGoals =
-          (for (lc <- goal.facts.arithConj.negativeEqs.iterator) yield {
-             lc.size match {
-               case 1 =>
-                 List((toConstant(lc, intLiteralConsts),
-                       toConstant(LinearCombination.ZERO, intLiteralConsts)))
-               case 2 if (lc.constants.size == 1 && lc.leadingCoeff.isOne) =>
-                 List((lc.leadingTerm.asInstanceOf[ConstantTerm],
-                       toConstant(LinearCombination(-lc.constant), intLiteralConsts)))
-               case 2 => {
-                 //-BEGIN-ASSERTION-////////////////////////////////////////////
-                 Debug.assertInt(ProofTree.AC,
-                         lc.size == 2 &&
-                         lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
-                         lc.getTerm(0).isInstanceOf[ConstantTerm] &&
-                         lc.getTerm(1).isInstanceOf[ConstantTerm])
-                 //-END-ASSERTION-//////////////////////////////////////////////
-  
-                 List((lc.getTerm(0).asInstanceOf[ConstantTerm],
-                       lc.getTerm(1).asInstanceOf[ConstantTerm]))
-               }
-             }
-           }).toList
-  
-        val unificationGoals = predUnificationGoals ::: eqUnificationGoals
+        val unificationGoals =
+          if (skipGoals) {
+            List()
+          } else {
+            var goalNum = 0
+    
+            val predUnificationGoals =
+              (for (a <- predConj.positiveLits.iterator;
+                    b <- predConj.negativeLitsWithPred(a.pred).iterator) yield {
+                 goalNum = goalNum + 1
+                 if (goalNum % 1000 == 0)
+                   Timeout.check
+                 (for ((lcA, lcB) <- a.iterator zip b.iterator)
+                  yield (toConstant(lcA, intLiteralConsts),
+                         toConstant(lcB, intLiteralConsts))).toList
+               }).toList
+      
+            val eqUnificationGoals =
+              (for (lc <- goal.facts.arithConj.negativeEqs.iterator) yield {
+                 lc.size match {
+                   case 1 =>
+                     List((toConstant(lc, intLiteralConsts),
+                           toConstant(LinearCombination.ZERO, intLiteralConsts)))
+                   case 2 if (lc.constants.size == 1 && lc.leadingCoeff.isOne) =>
+                     List((lc.leadingTerm.asInstanceOf[ConstantTerm],
+                           toConstant(LinearCombination(-lc.constant), intLiteralConsts)))
+                   case 2 => {
+                     //-BEGIN-ASSERTION-////////////////////////////////////////////
+                     Debug.assertInt(ProofTree.AC,
+                             lc.size == 2 &&
+                             lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
+                             lc.getTerm(0).isInstanceOf[ConstantTerm] &&
+                             lc.getTerm(1).isInstanceOf[ConstantTerm])
+                     //-END-ASSERTION-//////////////////////////////////////////////
+      
+                     List((lc.getTerm(0).asInstanceOf[ConstantTerm],
+                           lc.getTerm(1).asInstanceOf[ConstantTerm]))
+                   }
+                 }
+               }).toList
+      
+            predUnificationGoals ::: eqUnificationGoals
+          }
   
         (domains, unificationGoals, allFunApps, proofGoalStartIndex)
   }
@@ -488,6 +500,13 @@ trait ProofTree {
       if (unificationProblems.isEmpty) {
         println("true")
         (true, () => throw new UnsupportedOperationException)
+      } else if (unificationProblems exists {
+                   case (_, goals, _, _) => goals.isEmpty
+                 }) {
+        (false,
+         () => (for ((_, goals, _, num) <- unificationProblems.iterator;
+                     if (goals.isEmpty))
+                yield num).toList)
       } else {
         val (fullDomains, _, globalConsts, _) = ccuContextDomains
 
@@ -528,6 +547,13 @@ trait ProofTree {
     val res =
     if (unificationProblems.isEmpty) {
       (true, true, () => throw new UnsupportedOperationException)
+    } else if (unificationProblems exists {
+                 case (_, goals, _, _) => goals.isEmpty
+               }) {
+      (false, false,
+       () => (for ((_, goals, _, num) <- unificationProblems.iterator;
+                   if (goals.isEmpty))
+              yield num).toList)
     } else {
       val (fullDomains, restrictedDomains, globalConsts, _) =
         ccuContextDomains
