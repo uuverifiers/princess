@@ -183,7 +183,7 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
     yield (problem.intMap(i), problem.intMap(j))).toList
   }
 
-  val util = new Util[TERM, FUNC]
+  val util = new Util[TERM, FUNC] (timeoutChecker)
   val alloc = new Allocator
   val ZEROBIT = 1
   val ONEBIT = 2

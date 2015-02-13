@@ -337,7 +337,7 @@ class Disequalities[FUNC](
   }
 }
 
-class Util[TERM, FUNC] {
+class Util[TERM, FUNC] (timeoutChecker : () => Unit) {
   // Calculating log_2 (b)
   // Used for cacluating number of bits needed
   def binlog(b : Int) : Int = {
@@ -442,6 +442,8 @@ class Util[TERM, FUNC] {
           (f_j, args_j, s_j) <- functions;
           if (f_i == f_j && s_i != s_j))
         {
+          timeoutChecker()
+
           var equal = true
           for (i <- 0 until args_i.length) {
             if (eq(args_i(i) min args_j(i))(args_i(i) max args_j(i)) == 0) {
