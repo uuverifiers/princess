@@ -740,11 +740,10 @@ final class IdealInt private (private val longStore : Long,
   def intValue    = this.longStore.toInt
 
   def intValueSafe = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(IdealInt.AC,
-                    usesLong &&
-                    longStore <= Int.MaxValue && longStore >= Int.MinValue)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (!(usesLong &&
+          longStore <= Int.MaxValue && longStore >= Int.MinValue))
+      throw new UnsupportedOperationException(
+                  "Value too big to be converted to int")
     this.longStore.toInt
   }
 

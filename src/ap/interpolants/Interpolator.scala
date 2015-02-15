@@ -222,9 +222,10 @@ object Interpolator
         val newContext = iContext addParameter constTerm
         implicit val o = newContext.order
         val weakInterInEq = iContext getPartialInterpolant inEq
-        
-        val k = (eqCases * weakInterInEq.den).intValueSafe
-        
+
+        val k = eqCases * weakInterInEq.den
+        val eqCasesInt = eqCases.intValueSafe
+
 //        val negationFactor = inEq.lhs.leadingCoeff.signum
 
         // special cases that can be handled much more efficiently
@@ -241,19 +242,20 @@ object Interpolator
                               weakInterInEq.den.isOne)
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
-          val totalEqInters = for (i <- (0 until k).iterator) yield {
+          val totalEqInters = for (i <- (0 until eqCasesInt).iterator) yield {
             val lhs = inEq.lhs - i
             val partialInter =
               PartialInterpolant eqLeft (if (leftInequality) lhs else 0)
             applyHelp(cert children i,
-                      newContext.addPartialInterpolant(CertEquation(lhs), partialInter))
+                      newContext.addPartialInterpolant(CertEquation(lhs),
+                                                       partialInter))
           }
           
           lazy val totalInEqInter = {
-            val lhs = inEq.lhs - k
+            val lhs = inEq.lhs - eqCases
             val partialInter =
               PartialInterpolant inEqLeft (if (leftInequality) lhs else 0)
-            applyHelp(cert children k,
+            applyHelp(cert children eqCasesInt,
                       newContext.addPartialInterpolant(CertInequality(lhs), partialInter))
           }
           
