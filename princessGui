@@ -3,7 +3,7 @@
 BASEDIR=`dirname $(readlink -e $0)`
 EXTLIBSDIR=$BASEDIR/extlibs
 
-export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$BASEDIR/smt-parser/smt-parser.jar:$EXTLIBSDIR/java-cup-11a.jar
+export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$BASEDIR/smt-parser/smt-parser.jar:$EXTLIBSDIR/java-cup-11a.jar:$EXTLIBSDIR/ccu.jar:$EXTLIBSDIR/org.sat4j.core.jar
 export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
 exec scala ap.DialogMain "$@"
