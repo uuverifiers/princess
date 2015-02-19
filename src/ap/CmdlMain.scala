@@ -262,8 +262,10 @@ object CmdlMain {
       case '4' => Param.TriggerStrategyOptions.AllUni
       case '5' => Param.TriggerStrategyOptions.MaximalOutermost
     })
-    if (str.size > 7)
-      s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
+    s = Param.POS_UNIT_RESOLUTION_METHOD.set(s, str(7) match {
+      case '0' => Param.PosUnitResolutionMethod.Normal
+      case '1' => Param.PosUnitResolutionMethod.NonUnifying
+    })
     s
   }
               
@@ -291,8 +293,7 @@ object CmdlMain {
          "maximalOutermost"
     )
 
-    if (strategy.size > 7)
-      s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
+    s = s + " -resolutionMethod=" + (if (strategy.charAt(7)=='0') "normal" else "nonUnifying")
     
     s
   }
@@ -321,26 +322,27 @@ object CmdlMain {
             
             var rawStrategies =
 List(
-("10010010",31000,2400), 
-("11001031",15000,600), 
-("12100100",5000,2400), 
-("11100010",2000,800), 
-("10001111",12000,9000), 
-("12100041",27000,8000), 
-("00101050",10000,6000), 
-("10010021",13000,8000), 
-("11010131",28000,400), 
-("11010011",4000,800), 
-("01100030",13000,200), 
-("11010140",29000,5000), 
-("01100040",3000,200), 
-("12100110",30000,30000), 
-("11011011",27000,27000), 
-("12010011",34000,31000), 
-("11100011",39000,18000), 
-("12100040",19000,3000), 
-("02101011",45000,3000), 
-("11010010",45000,2600))
+("00000111",1000,800),
+("11001041",1000,600),
+("00000011",3000,1800),
+("01101100",15000,5000),
+("11110050",4000,4000),
+("01100000",9000,9000),
+("10011001",11000,7000),
+("11101110",35000,31000),
+("11100050",6000,1200),
+("01010050",4000,3000),
+("01010010",5000,2200),
+("11100120",25000,24000),
+("10001000",22000,5000),
+("00100101",40000,13000),
+("10011041",44000,8000),
+("01100041",21000,2600),
+("00010041",35000,13000),
+("00101031",11000,3000),
+("00101000",44000,37000),
+("01000110",26000,2400)
+)
 
               val baseSettings =
                 Param.CLAUSIFIER_TIMEOUT.set(settings2,
@@ -398,10 +400,11 @@ List(
               case _ => // nothing
             }
 */
-            
-            println
-            println(ap.util.Timer)
-            println(ccu.Timer)
+
+                   
+            Console.err.println
+            Console.err.println(ap.util.Timer)
+            Console.err.println(ccu.Timer)
             ap.util.Timer.reset
             
             Some(prover.result)
@@ -639,6 +642,11 @@ List(
                   println
                   println("Most-general constraint:")
                   println("false")
+                }
+                if (Param.PRINT_TREE(settings)) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
                 }
                 
                 println("% SZS status GaveUp for " + lastFilename)

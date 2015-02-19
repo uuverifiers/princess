@@ -481,16 +481,16 @@ trait ProofTree {
       // then all goals are considered
       (ccUnifiable, () => ccMinUnsolvableGoalSet)
     } else {
-      print("Trying to close goals ")
+      Console.err.print("Trying to close goals ")
       
       val (unificationProblems, _) =
         constructUnificationProblems(consideredGoals)
 
 //    println(unificationProblems)
-      print("(" + unificationProblems.size + " parallel problems) ... ")
+      Console.err.print("(" + unificationProblems.size + " parallel problems) ... ")
 
       if (unificationProblems.isEmpty) {
-        println("true")
+        Console.err.println("true")
         (true, () => throw new UnsupportedOperationException)
       } else if (unificationProblems exists {
                    case (_, goals, _, _) => goals.isEmpty
@@ -512,7 +512,7 @@ trait ProofTree {
             case result => result == ccu.Result.SAT
           }
         }
-        println(res)
+        Console.err.println(res)
 
         (res,
          () => try {
@@ -532,14 +532,14 @@ trait ProofTree {
 
   private lazy val unifiabilityStatus = ap.util.Timer.measure("unification") {
 //    println
-    print("Trying to close subtree ")
+    Console.err.print("Trying to close subtree ")
 //    println(this)
 
     val (unificationProblems, _) =
       constructUnificationProblems((0 until goalCount).toSet)
 
 //    println(unificationProblems)
-    print("(" + unificationProblems.size + " parallel problems) ... ")
+    Console.err.print("(" + unificationProblems.size + " parallel problems) ... ")
 
     val res =
     if (unificationProblems.isEmpty) {
@@ -582,7 +582,7 @@ trait ProofTree {
 
     }
 
-    println("(" + res._1 + ", " + res._2 + ")")
+    Console.err.println("(" + res._1 + ", " + res._2 + ")")
 
     unifiabilityChecked = true
 

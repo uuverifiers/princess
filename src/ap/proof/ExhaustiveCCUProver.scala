@@ -197,7 +197,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     var swp : Boolean = swpBefore
 
 
-    println("====== Entering fair expansion")
+    Console.err.println("====== Entering fair expansion")
     
     Timeout.unfinished {
       var cont : Boolean = !tree.ccUnifiable
@@ -214,7 +214,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
      println(goalNum(tree))
      println  */
 
-          println("expanding goals " + (goalCore mkString " "))
+          Console.err.println("expanding goals " + (goalCore mkString " "))
 
           val (newTree, stepDone, oldEnd, newEnd, goalNumMapping) =
             expandProofGoalsSelectively(tree, goalCore, 0, 0)
@@ -293,7 +293,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
       case _ => tree
     }
     
-    println("====== Leaving fair expansion")
+    Console.err.println("====== Leaving fair expansion")
 
     (tree, swp)
   }
@@ -324,7 +324,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
           tree
         } else {
           (Timeout.unfinishedValue(tree) {
-            println("applying rule ...")
+            Console.err.println("applying rule ...")
             expandProofGoals(tree)
            }) match {
 
@@ -344,7 +344,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
         val newLeft =
           Timeout.unfinished {
-            println("depth " + (depth + 1))
+            Console.err.println("depth " + (depth + 1))
             expandDepthFirstUntilSat(subtree.left, signature, depth + 1)
           } {
             case lastTree : ProofTree =>
@@ -355,7 +355,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
         if (newLeft.ccUnifiable) {
           val newRight =
             Timeout.unfinished {
-            println("depth " + (depth + 1))
+            Console.err.println("depth " + (depth + 1))
               expandDepthFirstUntilSat(subtree.right, signature, depth + 1)
             } {
               case lastTree : ProofTree =>

@@ -60,8 +60,9 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
       Vocabulary(newOrder, newBindingContext, goal.constantFreedom)
 
     val subtree =
-      if (!(formula.predicates subsetOf
-              Param.SINGLE_INSTANTIATION_PREDICATES(goal.settings))) {
+      if (!(Param.ASSUME_INFINITE_DOMAIN(goal.settings) &&
+            (formula.predicates subsetOf
+              Param.SINGLE_INSTANTIATION_PREDICATES(goal.settings)))) {
         // can some of the Presburger conditions be extracted and added as
         // constraints to the proof tree?
 

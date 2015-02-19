@@ -332,7 +332,7 @@ class Goal private (val facts : Conjunction,
 //    ConstantFreedom.BOTTOM
 
   lazy val ccuFixedConstantFreedom : Boolean =
-    constantFreedom == closingConstantFreedom
+    constantFreedom == ccuClosingConstantFreedom
 
   lazy val mayAlias : ((LinearCombination, LinearCombination) => AliasStatus.Value) =
     new AliasAnalyser (reduceWithFacts,
