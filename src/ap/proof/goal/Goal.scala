@@ -97,7 +97,8 @@ object Goal {
 
     apply(Conjunction.TRUE,
           CompoundFormulas.EMPTY(Param.FUNCTIONAL_PREDICATES(settings),
-                                 Param.PREDICATE_MATCH_CONFIG(settings)),
+                                 Param.PREDICATE_MATCH_CONFIG(settings),
+                                 !Param.CCU_SOLVER(settings).isDefined),
           emptyTaskManager ++ tasks,
           0,
           eliminatedConstants,

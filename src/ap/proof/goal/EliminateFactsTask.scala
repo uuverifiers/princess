@@ -107,7 +107,7 @@ private class Eliminator(oriFacts : Conjunction,
 //                                         for (c <- goal.eliminatedConstants)
 //                                           yield c.asInstanceOf[Term],
                                          Param.GARBAGE_COLLECTED_FUNCTIONS(goal.settings),
-                                         Param.ASSUME_INFINITE_DOMAIN(goal.settings),
+                                         !Param.CCU_SOLVER(goal.settings).isDefined,
                                          goal.order) {
   
   var postProcessor : ProofTree => ProofTree = ((p) => p)

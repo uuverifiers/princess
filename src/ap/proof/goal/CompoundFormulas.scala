@@ -34,15 +34,14 @@ object CompoundFormulas {
   private val AC = Debug.AC_GOAL
 
   def EMPTY(config : PredicateMatchConfig) : CompoundFormulas =
-    EMPTY(Set(), config)
+    EMPTY(Set(), config, true)
   
   def EMPTY(totalFuns : Set[Predicate],
-            config : PredicateMatchConfig) : CompoundFormulas =
+            config : PredicateMatchConfig,
+            matchComplementaryLiterals : Boolean) : CompoundFormulas =
     new CompoundFormulas(NegatedConjunctions.TRUE,
-//
-// Detection of complementary literals is done via unification
-//
-                         IterativeClauseMatcher.empty(false, totalFuns, config),
+                         IterativeClauseMatcher.empty(matchComplementaryLiterals,
+                                                      totalFuns, config),
                          IterativeClauseMatcher.empty(false, totalFuns, config))
   
 }

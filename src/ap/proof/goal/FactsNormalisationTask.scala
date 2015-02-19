@@ -90,7 +90,7 @@ case object FactsNormalisationTask extends EagerTask {
       // propagate the solved equations into the other facts
       facts = ReduceWithConjunction(Conjunction.TRUE,
                                     functionalPreds,
-                                    Param.ASSUME_INFINITE_DOMAIN(goal.settings),
+                                    !Param.CCU_SOLVER(goal.settings).isDefined,
                                     order)(facts, collector)
 
       if (facts.isFalse) {
