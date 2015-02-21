@@ -436,9 +436,6 @@ trait ProofTree {
 
     ap.util.Timer.measure("CCUSolver_createProblem") {
    // Console.withOut(ap.CmdlMain.NullStream) {
-      var tableResult = ccu.Result.SAT
-      var lazyResult = ccu.Result.SAT
-
       ccuSolver.createProblem(allDomains.toMap, goals, funApps)
        // }
     }
