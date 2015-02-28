@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *                    Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -25,6 +25,8 @@ package ap.interpolants
 import ap.basetypes.IdealInt
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.equations.{EquationConj, NegEquationConj}
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.{TermOrder, ConstantTerm, Formula}
 import ap.terfor.preds.Predicate
 import ap.parser.{PartName, IInterpolantSpec}
@@ -75,7 +77,8 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                                     val commonFormulae : Set[CertFormula],
                                     val leftConstants : Set[ConstantTerm],
                                     val rightConstants : Set[ConstantTerm],
-                                    partialInterpolants : Map[CertArithLiteral, PartialInterpolant],
+                                    val partialInterpolants : Map[CertArithLiteral,
+                                                                  PartialInterpolant],
                                     rewrittenPredAtoms : Map[CertPredLiteral,
                                                              (Seq[Seq[(IdealInt, CertEquation)]],
                                                               CertPredLiteral)],
@@ -138,6 +141,20 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
         }
     }
   
+  def getPIConverseFormula(literal : CertArithLiteral) : Formula = {
+    val pi = getPartialInterpolant(literal)
+    val lc = LinearCombination.sum(Array((pi.den, literal.lhs),
+                                         (IdealInt.MINUS_ONE, pi.linComb)),
+                                   order)
+
+    import PartialInterpolant.Kind._
+    pi.kind match {
+      case EqLeft | EqRight => EquationConj(lc, order)
+      case InEqLeft => InEqConj(lc, order)
+      case NegEqRight => NegEquationConj(lc, order)
+    }
+  }
+
   def getPredAtomRewriting(rewrittenLit : CertPredLiteral)
                           : (Seq[Seq[(IdealInt, CertEquation)]], CertPredLiteral) = {
     val pred = rewrittenLit.predicates.head
