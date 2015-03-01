@@ -23,17 +23,18 @@
 package ap.interpolants
 
 import ap.basetypes.IdealInt
+import ap.parser.{PartName, IInterpolantSpec}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.{TermOrder, ConstantTerm, Formula}
 import ap.terfor.preds.Predicate
-import ap.parser.{PartName, IInterpolantSpec}
+import ap.terfor.substitutions.{IdentitySubst, ConstantSubst}
 import ap.terfor.TerForConvenience._
 import ap.proof.certificates.{CertFormula, CertArithLiteral, CertEquation,
                               CertNegEquation, CertInequality, CertPredLiteral}
-import ap.util.Debug
+import ap.util.{Debug, LazyMappedMap, Seqs}
 
 object InterpolationContext {
   
@@ -57,7 +58,7 @@ object InterpolationContext {
                               toCertFormulaSet(commonFormulas),
                               getConstants(leftCertFors).toSet,
                               getConstants(rightCertFors).toSet,
-                              Map(), Map(), Set(), order)
+                              Map(), Map(), Set(), Map(), order)
   }
  
   private def toCertFormulaSet(fors : Iterable[Conjunction]) =
@@ -83,6 +84,10 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                                                              (Seq[Seq[(IdealInt, CertEquation)]],
                                                               CertPredLiteral)],
                                     val parameters : Set[ConstantTerm],
+                                    // constants that really represent a sum "c + d" of two
+                                    // constants. those are are used to represent combined
+                                    // application of col-red-l, col-red-r
+                                    val doubleConstants : Map[ConstantTerm, (ConstantTerm, ConstantTerm)],
                                     val order : TermOrder) {
 
   import InterpolationContext._
@@ -109,11 +114,48 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
   lazy val leftLocalPredicates = leftPredicates -- rightPredicates
   lazy val globalPredicates =
     (leftPredicates & rightPredicates) ++ commonFormulaPredicates
+
+  def addDoubleConstants(consts : Iterable[ConstantTerm])
+                        : Iterator[ConstantTerm] =
+    addDoubleConstants(consts.iterator)
+
+  def addDoubleConstants(consts : Iterator[ConstantTerm])
+                        : Iterator[ConstantTerm] =
+    if (doubleConstants.isEmpty) {
+      consts
+    } else {
+      for (c <- consts;
+           d <- (doubleConstants get c) match {
+                  case Some((d1, d2)) => Iterator(c, d1, d2)
+                  case None           => Iterator single c
+                })
+      yield d
+    }
+
+  lazy val doubleConstantsSubst =
+    if (doubleConstants.isEmpty) {
+      new IdentitySubst (order)
+    } else {
+      val map = new LazyMappedMap[ConstantTerm, (ConstantTerm, ConstantTerm),
+                                  ConstantTerm, LinearCombination](
+                                  doubleConstants,
+                                  (c:ConstantTerm) => c,
+                                  { case c : ConstantTerm => c }, {
+        case (c1, c2) =>
+          LinearCombination(Array((IdealInt.ONE, c1), (IdealInt.ONE, c2)),
+                            order)
+      })
+      ConstantSubst(map, order)
+    }
   
-  def addPartialInterpolant(literal : CertArithLiteral,
-                            partialInter : PartialInterpolant) : InterpolationContext = {
+  def addPartialInterpolant(
+        literal : CertArithLiteral,
+        partialInter : PartialInterpolant) : InterpolationContext = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(InterpolationContext.AC, partialInter compatible literal)
+    Debug.assertPre(InterpolationContext.AC,
+                    (partialInter compatible literal) &&
+                    Seqs.disjoint(partialInter.linComb.constants,
+                                  doubleConstants.keySet))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val newPartialInterpolants = partialInterpolants + (literal -> partialInter)
@@ -121,7 +163,7 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
     new InterpolationContext(
       leftFormulae, rightFormulae, commonFormulae,
       leftConstants, rightConstants, newPartialInterpolants,
-      rewrittenPredAtoms, parameters, order)
+      rewrittenPredAtoms, parameters, doubleConstants, order)
   }
   
   def getPartialInterpolant(literal : CertArithLiteral) : PartialInterpolant =
@@ -129,13 +171,19 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
       case Some(res) => res
       case None =>
         if (isFromLeft(literal)) literal match {
-          case CertEquation(lhs) => PartialInterpolant eqLeft lhs
-          case CertNegEquation(lhs) => PartialInterpolant eqRight lhs
-          case CertInequality(lhs) => PartialInterpolant inEqLeft lhs
+          case CertEquation(lhs) =>
+            PartialInterpolant eqLeft doubleConstantsSubst(lhs)
+          case CertNegEquation(lhs) =>
+            PartialInterpolant eqRight doubleConstantsSubst(lhs)
+          case CertInequality(lhs) =>
+            PartialInterpolant inEqLeft doubleConstantsSubst(lhs)
         } else if (isFromRight(literal)) literal match {
-          case CertEquation(_) => PartialInterpolant eqLeft LinearCombination.ZERO
-          case CertNegEquation(_) => PartialInterpolant negEqRight LinearCombination.ZERO
-          case CertInequality(_) => PartialInterpolant inEqLeft LinearCombination.ZERO
+          case CertEquation(_) =>
+            PartialInterpolant eqLeft LinearCombination.ZERO
+          case CertNegEquation(_) =>
+            PartialInterpolant negEqRight LinearCombination.ZERO
+          case CertInequality(_) =>
+            PartialInterpolant inEqLeft LinearCombination.ZERO
         } else {
           throw new Error("The arithmetic atom " + literal + " was not found")
         }
@@ -143,9 +191,10 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
   
   def getPIConverseFormula(literal : CertArithLiteral) : Formula = {
     val pi = getPartialInterpolant(literal)
-    val lc = LinearCombination.sum(Array((pi.den, literal.lhs),
-                                         (IdealInt.MINUS_ONE, pi.linComb)),
-                                   order)
+    val lc = LinearCombination.sum(
+               pi.den, doubleConstantsSubst(literal.lhs),
+               IdealInt.MINUS_ONE, pi.linComb,
+               order)
 
     import PartialInterpolant.Kind._
     pi.kind match {
@@ -188,7 +237,7 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                              leftConstants, rightConstants,
                              partialInterpolants,
                              rewrittenPredAtoms + (result -> (newEqs, oriLit)),
-                             parameters, order)
+                             parameters, doubleConstants, order)
   }
  
   def isFromLeft(conj : CertFormula) : Boolean = leftFormulae contains conj
@@ -202,7 +251,7 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                              leftConstants, rightConstants,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             parameters,
+                             parameters, doubleConstants,
                              order extend consts)
 
   def addParameter(const : ConstantTerm) : InterpolationContext =
@@ -214,42 +263,60 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                                partialInterpolants,
                                rewrittenPredAtoms,
                                parameters + const,
+                               doubleConstants,
                                order.extend(const))
   
-  def addLeft(left : CertFormula) : InterpolationContext =
-    new InterpolationContext(leftFormulae + left, rightFormulae,
+  def addDoubleConstant(const : ConstantTerm,
+                        d1 : ConstantTerm,
+                        d2 : ConstantTerm) : InterpolationContext =
+    new InterpolationContext(leftFormulae, rightFormulae,
                              commonFormulae,
-                             leftConstants ++ left.constants, rightConstants,
+                             leftConstants + d1,
+                             rightConstants + d2,
                              partialInterpolants,
                              rewrittenPredAtoms,
                              parameters,
+                             doubleConstants + (const -> (d1, d2)),
+                             order)
+
+  def addLeft(left : CertFormula) : InterpolationContext =
+    new InterpolationContext(leftFormulae + left, rightFormulae,
+                             commonFormulae,
+                             leftConstants ++ addDoubleConstants(left.constants),
+                             rightConstants,
+                             partialInterpolants,
+                             rewrittenPredAtoms,
+                             parameters, doubleConstants,
                              order)
   
   def addLeft(lefts : Iterable[CertFormula]) : InterpolationContext =
     new InterpolationContext(leftFormulae ++ lefts, rightFormulae,
                              commonFormulae,
-                             leftConstants ++ getConstants(lefts), rightConstants,
+                             leftConstants ++ addDoubleConstants(getConstants(lefts)),
+                             rightConstants,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             parameters,
+                             parameters, doubleConstants,
                              order)
   
   def addRight(right : CertFormula) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae + right,
                              commonFormulae,
-                             leftConstants, rightConstants ++ right.constants,
+                             leftConstants,
+                             rightConstants ++ addDoubleConstants(right.constants),
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             parameters,
+                             parameters, doubleConstants,
                              order)
   
   def addRight(rights : Iterable[CertFormula]) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae ++ rights,
                              commonFormulae,
-                             leftConstants, rightConstants ++ getConstants(rights),
+                             leftConstants,
+                             rightConstants ++ addDoubleConstants(getConstants(rights)),
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             parameters,
+                             parameters, doubleConstants,
                              order)
   
   def addCommon(commons : Iterable[CertFormula]) : InterpolationContext =
@@ -258,13 +325,13 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                              leftConstants, rightConstants,
                              partialInterpolants,
                              rewrittenPredAtoms,
-                             parameters,
+                             parameters, doubleConstants,
                              order)
   
   def setOrder(newOrder : TermOrder) : InterpolationContext =
     new InterpolationContext(leftFormulae, rightFormulae, commonFormulae,
                              leftConstants, rightConstants,
                              partialInterpolants, rewrittenPredAtoms,
-                             parameters, newOrder)
+                             parameters, doubleConstants, newOrder)
 }
 

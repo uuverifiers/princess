@@ -100,7 +100,7 @@ object Interpolator
                       (implicit o : TermOrder) : Conjunction =
     conj(for (f <- fors.iterator) yield f.toConj)
   
-/* 
+ 
   private def checkInterpolant(interpolant : Conjunction,
                                certificate : Certificate,
                                inferences : List[BranchInference],
@@ -148,14 +148,14 @@ object Interpolator
       }
     }
   }
-*/
+
 
   private def applyHelp(
     certificate : Certificate, 
     iContext: InterpolationContext) : LazyConjunction = {
 
-//    println(certificate)
 //    checkPartialInterpolants(iContext)
+//    println(certificate)
 
     val res = certificate match {
       
@@ -252,11 +252,10 @@ object Interpolator
         val k = eqCases * weakInterInEq.den
         val eqCasesInt = eqCases.intValueSafe
 
-//        val negationFactor = inEq.lhs.leadingCoeff.signum
-
         // special cases that can be handled much more efficiently
         val leftInequality =
-          weakInterInEq.linComb == inEq.lhs && weakInterInEq.den.isOne
+          weakInterInEq.linComb == iContext.doubleConstantsSubst(inEq.lhs) &&
+          weakInterInEq.den.isOne
         val rightInequality =
           weakInterInEq.linComb.isZero
         
@@ -269,20 +268,21 @@ object Interpolator
           //-END-ASSERTION-/////////////////////////////////////////////////////
           
           val totalEqInters = for (i <- (0 until eqCasesInt).iterator) yield {
-            val lhs = inEq.lhs - i
             val partialInter =
-              PartialInterpolant eqLeft (if (leftInequality) lhs else 0)
+              PartialInterpolant eqLeft (
+                if (leftInequality) (weakInterInEq.linComb - i) else 0)
             applyHelp(cert children i,
-                      newContext.addPartialInterpolant(CertEquation(lhs),
-                                                       partialInter))
+                      newContext.addPartialInterpolant(
+                        CertEquation(inEq.lhs - i), partialInter))
           }
           
           lazy val totalInEqInter = {
-            val lhs = inEq.lhs - eqCases
             val partialInter =
-              PartialInterpolant inEqLeft (if (leftInequality) lhs else 0)
+              PartialInterpolant inEqLeft (
+                if (leftInequality) (weakInterInEq.linComb - eqCases) else 0)
             applyHelp(cert children eqCasesInt,
-                      newContext.addPartialInterpolant(CertInequality(lhs), partialInter))
+                      newContext.addPartialInterpolant(
+                        CertInequality(inEq.lhs - eqCases), partialInter))
           }
           
           val allInters = totalEqInters ++ (Iterator single totalInEqInter)
@@ -427,6 +427,15 @@ object Interpolator
 
 //    checkInterpolant(res.toConjunction, certificate, List(), iContext)
 
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(Interpolator.AC, {
+                       val f = res.toConjunction
+                       (f.constants subsetOf (iContext.leftConstants ++ iContext.parameters)) &&
+                       (f.constants subsetOf (iContext.rightConstants ++ iContext.parameters)) &&
+                       Seqs.disjoint(f.constants, iContext.doubleConstants.keySet)
+                     })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     res
   }
   
@@ -444,8 +453,8 @@ object Interpolator
     child : Certificate,
     iContext : InterpolationContext) : LazyConjunction = {
 
-//    println(inferences.headOption)
 //    checkPartialInterpolants(iContext)
+//    println(inferences.headOption)
 
     val res = inferences match {
     
@@ -550,11 +559,13 @@ object Interpolator
           val newContext = iContext.addPartialInterpolant(result, newPartialInterpolant)
           processBranchInferences(remInferences, child, newContext)
           
-        } else if (newPartialInterpolant.linComb == targetLit.lhs &&
+        } else if (newPartialInterpolant.linComb ==
+                     iContext.doubleConstantsSubst(targetLit.lhs) &&
                    newPartialInterpolant.den.isOne) {
           // special case of an L-labelled formula
           
-          val newPI = PartialInterpolant inEqLeft result.lhs
+          val newPI =
+            PartialInterpolant inEqLeft iContext.doubleConstantsSubst(result.lhs)
           val newContext = iContext.addPartialInterpolant(result, newPI)
           processBranchInferences(remInferences, child, newContext)
           
@@ -614,28 +625,38 @@ object Interpolator
 
         val extendedOrder = iContext.order.extend(newSymb, largerConsts)
 
-        val (newContext) =
+        val newContext =
           if (eq.constants forall (iContext.leftConstants + newSymb)) {
             iContext.setOrder(extendedOrder).addLeft(eq)
           } else if (eq.constants forall (iContext.rightConstants + newSymb)) {
             iContext.setOrder(extendedOrder).addRight(eq)
           } else {
 
-            implicit val _ = extendedOrder
-        
-            val leftLinComb = eq.lhs filterPairs ( (c, t) => t match {
-              case c : ConstantTerm => iContext.leftConstants contains c
+            val extraSymb1, extraSymb2 = newConstant
+            implicit val extendedOrder2 =
+              extendedOrder.extend(extraSymb1, largerConsts)
+                           .extend(extraSymb2, largerConsts)
+
+            val iContext2 = iContext.setOrder(extendedOrder2)
+            val doubleLHS = iContext2.doubleConstantsSubst(eq.lhs)
+
+            val leftLinComb = doubleLHS filterPairs ( (_, t) => t match {
+              case c : ConstantTerm => iContext2.leftConstants contains c
+              case _ => false
+            } )
+            val coveredConsts = leftLinComb.constants + newSymb
+            val rightLinComb = doubleLHS filterPairs ( (_, t) => t match {
+              case c : ConstantTerm => !(coveredConsts contains c)
               case _ => false
             } )
           
-           val newInterLHS = leftLinComb - newSymb
-           val partialInter = PartialInterpolant.eqLeft(newInterLHS)
+            val leftInterLHS = leftLinComb - extraSymb1
+            val partialInter = PartialInterpolant.eqLeft(leftInterLHS)
         
-           iContext.setOrder(extendedOrder)
-                   .addLeft(CertEquation(newInterLHS))
-                   .addPartialInterpolant(eq, partialInter)
-
-   //         throw new Error("Column reduce is not supported for mixed terms")
+            iContext2.addDoubleConstant(newSymb, extraSymb1, extraSymb2)
+                     .addLeft(CertEquation(leftInterLHS))
+                     .addRight(CertEquation(rightLinComb - extraSymb2))
+                     .addPartialInterpolant(eq, partialInter)
           }
 
         processBranchInferences(remInferences, child, newContext)
@@ -764,8 +785,10 @@ object Interpolator
                             (iContext isCommon qFormula))
         //-END-ASSERTION-/////////////////////////////////////////////////////////
         
-        val termConsts = Set() ++ (for(t <- instTerms.iterator;
-                                       c <- t.constants.iterator) yield c)
+        val termConsts =
+          iContext.addDoubleConstants(
+                     for (t <- instTerms.iterator;
+                          c <- t.constants.iterator) yield c).toSet
 
         val leftQFormula =
           (iContext isFromLeft qFormula) ||
@@ -867,6 +890,15 @@ object Interpolator
 
 //    checkInterpolant(res.toConjunction, child, inferences, iContext)
 
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(Interpolator.AC, {
+                       val f = res.toConjunction
+                       (f.constants subsetOf (iContext.leftConstants ++ iContext.parameters)) &&
+                       (f.constants subsetOf (iContext.rightConstants ++ iContext.parameters)) &&
+                       Seqs.disjoint(f.constants, iContext.doubleConstants.keySet)
+                     })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     res
   }
   
@@ -880,7 +912,8 @@ object Interpolator
                    PartialInterpolant.Kind.NegEqRight
     val modifierPI =
       if (lInterpolation)
-        PartialInterpolant eqRight sum(for ((c, eq) <- equations) yield (c, eq.lhs))
+        PartialInterpolant eqRight iContext.doubleConstantsSubst(
+                   sum(for ((c, eq) <- equations) yield (c, eq.lhs)))
       else
         PartialInterpolant negEqRight 0
     

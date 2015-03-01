@@ -84,6 +84,8 @@ object SMTParser2InputAbsy {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private case class IncrementalException(t : Throwable) extends Exception
+  
   private object ExitException extends Exception("SMT-LIB interpreter terminated")
   
   //////////////////////////////////////////////////////////////////////////////
@@ -457,7 +459,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     val l = new Yylex(new SMTCommandTerminator (input))
     val p = new parser(l) {
       override def commandHook(cmd : Command) : Boolean = {
-        apply(cmd)
+        try {
+          apply(cmd)
+        } catch {
+          case ExitException => throw ExitException
+          case t : Throwable => throw IncrementalException(t)
+        }
         false
       }
     }
@@ -467,6 +474,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         // normal exit
         input.close
       }
+      case IncrementalException(t) =>
+        throw t
       case e : Exception =>
 //        e.printStackTrace
         throw new ParseException(
