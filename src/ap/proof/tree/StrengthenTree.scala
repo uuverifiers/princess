@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -93,14 +93,20 @@ class StrengthenTree private (val subtree : ProofTree,
   Debug.assertCtor(StrengthenTree.AC,
                    (order isSortingOf conjunct) &&
                    !conjunct.isTrue &&
-                   subtree.isInstanceOf[Goal]
-)
+                   subtree.isInstanceOf[Goal])
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
-  lazy val closingConstraint : Conjunction =
-    constantFreedom.unshieldedPart(simplifier(
-      Conjunction.conj(Array(subtree.closingConstraint, conjunct),
-                       order), order), bindingContext)
+  lazy val closingConstraint : Conjunction = {
+    val res = constantFreedom.unshieldedPart(simplifier(
+                Conjunction.conj(Array(subtree.closingConstraint, conjunct),
+                                 order), order), bindingContext)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(StrengthenTree.AC, order isSortingOf res)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    res
+  }
     
   lazy val closingConstantFreedom : ConstantFreedom =
     subtree.closingConstantFreedom.findNonFreeness(closingConstraint, bindingContext)

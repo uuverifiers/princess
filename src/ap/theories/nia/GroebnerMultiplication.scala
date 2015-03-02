@@ -552,7 +552,7 @@ println(unprocessed)
   
           val allConsts =
             (for ((_, consts) <- goal.bindingContext.constantSeq.iterator;
-                  c <- consts.iterator)
+                  c <- consts.toSeq.sortBy(_.name).iterator)
              yield c).toSeq
 
           val allConstsSet = new MHashSet[ConstantTerm]
