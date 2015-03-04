@@ -367,7 +367,10 @@ trait ProofTree {
         // check whether there are further positive equations that we have to
         // convert to function applications
         val eqFunApps =
-          (for (lc <- goal.facts.arithConj.positiveEqs.iterator;
+          (for (lc <- goal.facts.arithConj.positiveEqs.iterator ++ (
+                        for (eqs <- goal.eliminatedEquations.iterator;
+                             lc <- eqs.iterator)
+                        yield lc);
                 app <- {
                   val (c, d) = eqTerms(lc, intLiteralConsts)
                   val tempPred = new Predicate ("tempPred", 0)

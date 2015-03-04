@@ -53,12 +53,23 @@ object Goal {
             eliminatedConstants : Set[ConstantTerm], vocabulary : Vocabulary,
             definedSyms : Substitution,
             branchInferences : BranchInferenceCollection,
+            eliminatedEquations : List[EquationConj],
             settings : GoalSettings) : Goal =
     if (facts.isFalse)
       TRUE(vocabulary, branchInferences)
     else
       new Goal(facts, compoundFormulas, tasks, age, eliminatedConstants,
-               vocabulary, definedSyms, branchInferences, settings)
+               vocabulary, definedSyms, branchInferences,
+               eliminatedEquations, settings)
+
+  def apply(facts : Conjunction, compoundFormulas : CompoundFormulas,
+            tasks : TaskManager, age : Int,
+            eliminatedConstants : Set[ConstantTerm], vocabulary : Vocabulary,
+            definedSyms : Substitution,
+            branchInferences : BranchInferenceCollection,
+            settings : GoalSettings) : Goal =
+    apply(facts, compoundFormulas, tasks, age, eliminatedConstants,
+          vocabulary, definedSyms, branchInferences, List(), settings)
 
   def reduceAndCreateGoal(f : Formula, order : TermOrder, settings : GoalSettings) : Goal =
     reduceAndCreateGoal(f, Set.empty, order, settings)
@@ -115,7 +126,7 @@ object Goal {
               TaskManager.EMPTY, 0,
               Set.empty, vocabulary,
               new IdentitySubst (vocabulary.order),
-              branchInferences,
+              branchInferences, List(),
               GoalSettings.DEFAULT)
   
   val TRUE : Goal = TRUE(Vocabulary.EMPTY, BranchInferenceCollection.EMPTY)
@@ -191,6 +202,7 @@ class Goal private (val facts : Conjunction,
                     val vocabulary : Vocabulary,
                     val definedSyms : Substitution,
                     val branchInferences : BranchInferenceCollection,
+                    val eliminatedEquations : List[EquationConj],
                     val settings : GoalSettings) extends ProofTree {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////

@@ -26,6 +26,7 @@ import ap.proof.goal.{PrioritisedTask, Goal, TaskManager, CompoundFormulas}
 import ap.proof.certificates.{BranchInferenceCollection, PartialCertificate}
 import ap.terfor.{Formula, ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions, Quantifier}
+import ap.terfor.equations.EquationConj
 import ap.terfor.arithconj.ModelElement
 import ap.terfor.substitutions.Substitution
 import ap.parameters.GoalSettings
@@ -72,10 +73,11 @@ class SimpleProofTreeFactory(removeTask : Boolean,
                               newTasks : TaskManager,
                               age : Int,
                               branchInferences : BranchInferenceCollection,
+                              eliminatedEquations : List[EquationConj],
                               settings : GoalSettings) : ProofTree =
     Goal(updatedFacts, updatedCompoundFormulas, newTasks, age,
          updatedElimConstants, updatedVocabulary, updatedDefinedSyms,
-         branchInferences, settings)
+         branchInferences, eliminatedEquations, settings)
     
   def updateGoal(updatedFacts : Conjunction,
                  updatedCompoundFormulas : CompoundFormulas,
@@ -91,7 +93,8 @@ class SimpleProofTreeFactory(removeTask : Boolean,
                           goal.tasks) ++ newTasks
     createNewGoal(updatedFacts, updatedCompoundFormulas, updatedElimConstants,
                   updatedVocabulary, updatedDefinedSyms,
-                  updatedTasks, goal.age + 1, updatedInferences, goal.settings)
+                  updatedTasks, goal.age + 1, updatedInferences,
+                  goal.eliminatedEquations, goal.settings)
   }
 
   def updateGoal(updatedFacts : Conjunction,
@@ -105,6 +108,6 @@ class SimpleProofTreeFactory(removeTask : Boolean,
     createNewGoal(updatedFacts, updatedCompoundFormulas, updatedElimConstants,
                   updatedVocabulary, updatedDefinedSyms,
                   updatedTaskManager, goal.age + 1, updatedInferences,
-                  goal.settings)
+                  goal.eliminatedEquations, goal.settings)
 
 }

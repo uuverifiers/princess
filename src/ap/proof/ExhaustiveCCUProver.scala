@@ -25,6 +25,8 @@ import ap._
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.preds.Predicate
+import ap.terfor.equations.EquationConj
+import ap.terfor.arithconj.{ModelElement, EqModelElement}
 import ap.proof.goal._
 import ap.util.{Logic, Debug, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
@@ -101,7 +103,34 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     ExhaustiveCCUProver ruleApplicationYield goal
   }
 
-  private val ptf = new IteratingProofTreeFactory(ptfStoppingCond _, simplifier)
+  private def addEliminatedEquations(t : ProofTree,
+                                     eqs : EquationConj) : ProofTree = t match {
+    case goal : Goal =>
+      Goal(goal.facts, goal.compoundFormulas,
+           goal.tasks, goal.age, goal.eliminatedConstants,
+           goal.vocabulary, goal.definedSyms,
+           goal.branchInferences,
+           eqs :: goal.eliminatedEquations,
+           goal.settings)
+    case t : AndTree =>
+      t.update(addEliminatedEquations(t.left, eqs),
+               addEliminatedEquations(t.right, eqs),
+               t.constantFreedom)
+    case t : ProofTreeOneChild =>
+      t.update(addEliminatedEquations(t.subtree, eqs), t.constantFreedom)
+  }
+
+  private val ptf = new IteratingProofTreeFactory(ptfStoppingCond _, simplifier) {
+    override def eliminatedConstant(subtree : ProofTree,
+                                    m : ModelElement,
+                                    vocabulary : Vocabulary) : ProofTree =
+      m match {
+        case EqModelElement(eqs, _) =>
+          addEliminatedEquations(subtree, eqs)
+        case _ =>
+          subtree
+      }
+  }
    
   //////////////////////////////////////////////////////////////////////////////
 

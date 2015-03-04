@@ -27,6 +27,7 @@ import ap.proof.certificates.BranchInferenceCollection
 import ap.terfor.{Formula, ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
 import ap.terfor.substitutions.Substitution
+import ap.terfor.equations.EquationConj
 import ap.parameters.GoalSettings
 
 /**
@@ -45,11 +46,12 @@ class IteratingProofTreeFactory(stoppingCond : (Goal) => Boolean,
                                        newTasks : TaskManager,
                                        age : Int,
                                        branchInferences : BranchInferenceCollection,
+                                       eliminatedEquations : List[EquationConj],
                                        settings : GoalSettings) : ProofTree = {
     val newGoal = Goal(updatedFacts, updatedCompoundFormulas, newTasks, age,
                        updatedElimConstants,
                        updatedVocabulary, updatedDefinedSyms,
-                       branchInferences, settings)
+                       branchInferences, eliminatedEquations, settings)
     if (!newGoal.stepPossible || stoppingCond(newGoal))
       newGoal
     else
