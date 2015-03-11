@@ -1048,7 +1048,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
         prover.getStatus(false) match {
           case SimpleAPI.ProverStatus.Sat |
-               SimpleAPI.ProverStatus.Invalid => try {
+               SimpleAPI.ProverStatus.Invalid |
+               SimpleAPI.ProverStatus.Inconclusive => try {
             val expressions = cmd.listterm_.toList
 
             var unsupportedType = false
@@ -1111,7 +1112,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
 
         prover.getStatus(false) match {
-          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid => try {
+          case SimpleAPI.ProverStatus.Sat |
+               SimpleAPI.ProverStatus.Invalid |
+               SimpleAPI.ProverStatus.Inconclusive => try {
             val model = prover.withTimeout(timeoutPer) {
               prover.partialModel
             }
@@ -1152,34 +1155,42 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case cmd : GetInterpolantsCommand =>
         if (incremental) {
-          if (genInterpolants) {
-            val interpolantSpecs =
-              if (cmd.listsexpr_.isEmpty)
-                for (i <- 0 until nextPartitionNumber) yield Set(i)
-              else
-                for (p <- cmd.listsexpr_.toList) yield p match {
-                  case p : SymbolSExpr =>
-                    Set(partNameIndexes(
-                          env.lookupPartName(printer print p.symbol_)))
-                  case p : ParenSExpr
-                      if (!p.listsexpr_.isEmpty &&
-                          (printer print p.listsexpr_.head) == "and") => {
-                    val it = p.listsexpr_.iterator
-                    it.next
-                    (for (s <- it)
-                     yield partNameIndexes(
-                             env.lookupPartName(printer print s))).toSet
+          if (genInterpolants) prover.getStatus(false) match {
+            case SimpleAPI.ProverStatus.Unsat |
+                 SimpleAPI.ProverStatus.Valid => {
+
+              val interpolantSpecs =
+                if (cmd.listsexpr_.isEmpty)
+                  for (i <- 0 until nextPartitionNumber) yield Set(i)
+                else
+                  for (p <- cmd.listsexpr_.toList) yield p match {
+                    case p : SymbolSExpr =>
+                      Set(partNameIndexes(
+                            env.lookupPartName(printer print p.symbol_)))
+                    case p : ParenSExpr
+                        if (!p.listsexpr_.isEmpty &&
+                            (printer print p.listsexpr_.head) == "and") => {
+                      val it = p.listsexpr_.iterator
+                      it.next
+                      (for (s <- it)
+                       yield partNameIndexes(
+                               env.lookupPartName(printer print s))).toSet
+                    }
+                    case p =>
+                      throw new Parser2InputAbsy.TranslationException(
+                        "Could not parse interpolation partition: " +
+                        (printer print p))
                   }
-                  case p =>
-                    throw new Parser2InputAbsy.TranslationException(
-                      "Could not parse interpolation partition: " +
-                      (printer print p))
-                }
-  
-            for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
-              smtLinearise(interpolant)
-              println
+
+              for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
+                smtLinearise(interpolant)
+                println
+              }
+
             }
+
+            case _ =>
+              error("no proof available")
           } else {
             error(":produce-interpolants has to be set before get-interpolants")
           }

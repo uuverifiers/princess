@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -655,6 +655,58 @@ class InputDialog extends JPanel {
     println
     println("(check-sat)")
     println("(get-interpolants)")
+  })
+  
+  newTabWithInput("Incremental SMT-LIB", None,
+                  "-inputFormat=smtlib +incremental", asString{
+    println(";")
+    println(";  Example from \"Interpolation in SMTLIB 2.0\", Juergen Christ, Jochen Hoenicke")
+    println(";  (slightly modified)")
+    println(";")
+    println(";  The use of :named formulae for interpolation is currently only supported in")
+    println(";  incremental mode")
+    println(";")
+    println("")
+    println("(set-option :print-success false)")
+    println("(set-option :produce-interpolants true)")
+    println("(set-logic QF_UFLIA)")
+    println("")
+    println("(declare-fun x_1 () Int)")
+    println("(declare-fun xm1 () Int)")
+    println("(declare-fun x2 () Int)")
+    println("(declare-fun res4 () Int)")
+    println("(declare-fun resm5 () Int)")
+    println("(declare-fun xm6 () Int)")
+    println("(declare-fun x7 () Int)")
+    println("(declare-fun res9 () Int)")
+    println("(declare-fun resm10 () Int)")
+    println("(declare-fun res11 () Int)")
+    println("(assert (! (<= x_1 100) :named M1))")
+    println("(assert (! (= xm1 (+ x_1 11)) :named M2))")
+    println("(assert (! (> x2 100) :named S11))")
+    println("(assert (! (= res4 (- x2 10)) :named S12))")
+    println("(assert (! (and (= x2 xm1) (= resm5 res4)) :named S1RET))")
+    println("(assert (! (= xm6 resm5) :named M3))")
+    println("(assert (! (> x7 100) :named S21))")
+    println("(assert (! (= res9 (- x7 10)) :named S22))")
+    println("(assert (! (and (= x7 xm6) (= resm10 res9)) :named S2RET))")
+    println("(assert (! (= res11 resm10) :named M4))")
+    println("(check-sat) ; sat")
+    println("")
+    println("(assert (! (and (<= x_1 101) (distinct res11 91)) :named ERR))")
+    println("(check-sat) ; unsat")
+    println("")
+    println("(echo \"\")")
+    println("(echo \"01:\")")
+    println("(get-interpolants)")
+    println("")
+    println("(echo \"\")")
+    println("(echo \"02:\")")
+    println("(get-interpolants (and M1 M2 S12 S11 S1RET) M3 (and S21 S22 S2RET) (and M4 ERR))")
+    println("")
+    println("(echo \"\")")
+    println("(echo \"02:\")")
+    println("(get-interpolants (and M1 M2 S12 S11 S1RET) (and S21 S22 S2RET) (and M4 ERR) M3)")
   })
   
   tabbedPane setSelectedIndex 0

@@ -2978,6 +2978,7 @@ class SimpleAPI private (enableAssert : Boolean,
   
   private def proverRecreationNecessary = {
     currentProver = null
+    resetModel
     restartProofActor
   }
 

@@ -103,8 +103,8 @@ object CmdlMain {
     println(" [+-]boolFunsAsPreds       In smtlib and tptp, encode               (default: -)")
     println("                           boolean functions as predicates")
     println(" -mulProcedure=val         Handling of nonlinear integer formulae")
-    println("                             bitShift: axioms encoding shift-and-add (default)")
-    println("                             native:   built-in methods (Groebner, etc.)")
+    println("                             bitShift: shift-and-add axiom")
+    println("                             native:   built-in theory solver       (default)")
     println(" -constructProofs=val      Extract proofs")
     println("                             never")
     println("                             ifInterpolating: if \\interpolant occurs (default)")
@@ -363,17 +363,17 @@ object CmdlMain {
             
             Some(prover.result)
           } catch {
-      case _ : StackOverflowError => Console.withOut(Console.err) {
+      case _ : StackOverflowError => {
         if (format == Param.InputFormat.SMTLIB)
           println("unknown")
-        println("Stack overflow, giving up")
+        Console.err.println("Stack overflow, giving up")
         // let's hope that everything is still in a valid state
         None
       }
-      case _ : OutOfMemoryError => Console.withOut(Console.err) {
+      case _ : OutOfMemoryError => {
         if (format == Param.InputFormat.SMTLIB)
           println("unknown")
-        println("Out of memory, giving up")
+        Console.err.println("Out of memory, giving up")
         System.gc
         // let's hope that everything is still in a valid state
         None
@@ -395,7 +395,7 @@ object CmdlMain {
   
   def proveMultiSMT(settings : GlobalSettings,
                     input : java.io.BufferedReader,
-                    userDefStoppingCond : => Boolean) = {
+                    userDefStoppingCond : => Boolean) = try {
     val assertions = Param.ASSERTIONS(settings)
     Debug.enableAllAssertions(assertions)
     SimpleAPI.withProver(enableAssert = assertions,
@@ -422,6 +422,21 @@ object CmdlMain {
     }
     interface.readInputs(input, settings)
 */
+  } catch {
+      case _ : StackOverflowError => {
+        println("unknown")
+        Console.err.println("Stack overflow, giving up")
+      }
+      case _ : OutOfMemoryError => {
+        println("unknown")
+        Console.err.println("Out of memory, giving up")
+        System.gc
+      }
+      case e : Throwable => {
+        println("error")
+	Console.err.println(e.getMessage)
+//         e.printStackTrace
+      }
   }
   
   def proveProblems(settings : GlobalSettings,
