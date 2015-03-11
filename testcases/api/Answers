@@ -179,6 +179,8 @@ Sat
 Unsat
 Sat
 Sat
+Inconclusive
+0
 0: Unsat
 1: Vector(rootjthen_fwd, false)
 0: Sat
@@ -201,7 +203,7 @@ List((Vector(0, 2),1), (Vector(0, 1),2), (Vector(1, 2),3))
 Unsat
 Valid
 Unsat
-Sat
+Inconclusive
 {c -> 0, b -> 0, a -> 0, mul(0, 0) -> 0}
 Unsat
 Unsat

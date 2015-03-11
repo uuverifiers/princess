@@ -1021,11 +1021,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
         
         res match {
-          case SimpleAPI.ProverStatus.Sat | SimpleAPI.ProverStatus.Invalid =>
+          case SimpleAPI.ProverStatus.Sat |
+               SimpleAPI.ProverStatus.Invalid =>
             println("sat")
-          case SimpleAPI.ProverStatus.Unsat | SimpleAPI.ProverStatus.Valid =>
+          case SimpleAPI.ProverStatus.Unsat |
+               SimpleAPI.ProverStatus.Valid =>
             println("unsat")
-          case SimpleAPI.ProverStatus.Unknown =>
+          case SimpleAPI.ProverStatus.Inconclusive |
+               SimpleAPI.ProverStatus.Unknown =>
             println("unknown")
           case _ =>
             error("unexpected prover result")

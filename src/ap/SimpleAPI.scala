@@ -139,7 +139,28 @@ object SimpleAPI {
   //////////////////////////////////////////////////////////////////////////////
   
   object ProverStatus extends Enumeration {
-    val Sat, Unsat, Invalid, Valid, Unknown, Running, Error = Value
+    /**
+     * Status reported if only assertions are used.
+     */
+    val Sat, Unsat = Value
+    /**
+     * Status reported if assertions and conclusions are used.
+     */
+    val Invalid, Valid = Value
+    /**
+     * Proof search found a dead end: a situation where no
+     * further rules are applicable, but it is not possible
+     * to say anything definite about satisfiability of the
+     * problem (e.g., because of quantifiers).
+     */
+    val Inconclusive = Value
+    /**
+     * Status of the given problem is unknown; this is usually
+     * because satisfiability/validity has not been checked yet,
+     * or because a timeout occurred.
+     */
+    val Unknown = Value
+    val Running, Error = Value
   }
 
   class SimpleAPIException(msg : String) extends Exception(msg)
@@ -472,6 +493,7 @@ class SimpleAPI private (enableAssert : Boolean,
                           genTotalityAxioms)
     currentProver = null
     needExhaustiveProver = false
+    matchedTotalFunctions = false
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = Conjunction.TRUE
@@ -1333,6 +1355,7 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       println("// addAssertion(" + assertion + ")")
     }
+    checkQuantifierOccurrences(assertion)
     addFormula(!LazyConjunction(assertion)(currentOrder))
   }
     
@@ -1372,6 +1395,7 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       println("// addConclusion(" + conc + ")")
     }
+    checkQuantifierOccurrences(conc)
     addFormula(LazyConjunction(conc)(currentOrder))
   }
   
@@ -1498,7 +1522,9 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, getStatusHelp(false) == ProverStatus.Sat)
+    Debug.assertPre(AC,
+                    Set(ProverStatus.Sat,
+                        ProverStatus.Inconclusive) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (block)
@@ -1568,39 +1594,33 @@ class SimpleAPI private (enableAssert : Boolean,
         case UnsatResult => {
           currentModel = Conjunction.TRUE
           currentConstraint = Conjunction.TRUE
-          lastStatus =
-            if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+          lastStatus = getUnsatStatus
         }
         case UnsatCertResult(cert) => {
           currentModel = Conjunction.TRUE
           currentConstraint = Conjunction.TRUE
           currentCertificate = cert
           currentSimpCertificate = null
-          lastStatus =
-            if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+          lastStatus = getUnsatStatus
         }
         case FoundConstraintResult(constraint, m) => {
           currentModel = m
           currentConstraint = constraint
-          lastStatus =
-            if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
+          lastStatus = getUnsatStatus
         }
         case SatResult(m) => {
           currentModel = m
-          lastStatus =
-            if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+          lastStatus = getSatStatus
           proofActorStatus = ProofActorStatus.AtFullModel
         }
         case SatPartialResult(m) => {
           currentModel = m
-          lastStatus =
-            if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+          lastStatus = getSatStatus
           proofActorStatus = ProofActorStatus.AtPartialModel
         }
         case InvalidResult =>
           // no model is available in this case
-          lastStatus =
-            if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+          lastStatus = getSatStatus
         case StoppedResult =>
           lastStatus = ProverStatus.Unknown
         case ExceptionResult(msg) => {
@@ -1610,7 +1630,48 @@ class SimpleAPI private (enableAssert : Boolean,
         case _ =>
           lastStatus = ProverStatus.Error
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def getSatStatus : ProverStatus.Value =
+    if (theoriesAreSatComplete &&
+        (genTotalityAxioms || !matchedTotalFunctions ||
+         allFunctionsArePartial))
+      getBasicSatStatus
+    else
+      ProverStatus.Inconclusive
+
+  private def getUnsatStatus : ProverStatus.Value =
+    if (validityMode) ProverStatus.Valid else ProverStatus.Unsat
   
+  private def getSatSoundnessConfig : Theory.SatSoundnessConfig.Value =
+    if (needExhaustiveProver || matchedTotalFunctions)
+      Theory.SatSoundnessConfig.General
+    else if (formulaeInProver forall { case (_, f) => f.predicates.isEmpty })
+      Theory.SatSoundnessConfig.Elementary
+    else
+      Theory.SatSoundnessConfig.Existential
+
+  private def theoriesAreSatComplete =
+    theories.isEmpty || {
+      val config = getSatSoundnessConfig
+      theories exists (_.isSoundForSat(theories, config))
+    }
+
+  private def getBasicSatStatus : ProverStatus.Value =
+    if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
+
+  private def allFunctionsArePartial : Boolean =
+    (formulaeInProver forall { case (_, f) => f.predicates forall {
+       p => (functionEnc.predTranslation get p) match {
+               case Some(f) => f.partial
+               case None => true
+             }
+     }}) &&
+    (theories forall { t => t.functions forall (_.partial) })
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Stop a running prover. If the prover had already terminated, give same
    * result as <code>getResult</code>, otherwise <code>Unknown</code>.
@@ -1933,7 +1994,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * called in two situations:
    * <ul>
    *    <li> after receiving the result
-   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, or</li>
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
    * <li> after receiving
    * the result
    * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
@@ -2036,7 +2098,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * called in two situations:
    * <ul>
    *    <li> after receiving the result
-   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
    * which case the term is evaluated in the computed model, or</li>
    * <li> after receiving
    * the result
@@ -2093,11 +2156,13 @@ class SimpleAPI private (enableAssert : Boolean,
           
           //////////////////////////////////////////////////////////////////////
 
-          case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) => {
+          case ProverStatus.Sat |
+               ProverStatus.Invalid |
+               ProverStatus.Inconclusive if (currentModel != null) => {
             // then we work with a countermodel of the constraints
 
             val p = new IExpression.Predicate("p", 1)
-            implicit val extendedOrder = currentModel.order extendPred p
+            implicit val extendedOrder = order extendPred p
 
             val pAssertion =
               ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
@@ -2135,7 +2200,7 @@ class SimpleAPI private (enableAssert : Boolean,
             // then we work with a model of the existential constants 
 
             val c = new IExpression.ConstantTerm("c")
-            implicit val extendedOrder = currentModel.order extend c
+            implicit val extendedOrder = order extend c
 
             val cAssertion =
               ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
@@ -2181,7 +2246,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * called in two situations:
    * <ul>
    *    <li> after receiving the result
-   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
    * which case the term is evaluated in the computed model, or</li>
    * <li> after receiving
    * the result
@@ -2229,7 +2295,7 @@ class SimpleAPI private (enableAssert : Boolean,
         val existential = setupTermEval
         
         val c = new IExpression.ConstantTerm ("c")
-        val extendedOrder = currentModel.order extend c
+        val extendedOrder = order extend c
         
         val reduced =
           ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
@@ -2248,7 +2314,9 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   private def setupTermEval = getStatusHelp(false) match {
-    case ProverStatus.Sat | ProverStatus.Invalid if (currentModel != null) => {
+    case ProverStatus.Sat |
+         ProverStatus.Invalid |
+         ProverStatus.Inconclusive if (currentModel != null) => {
       // then we work with a countermodel of the constraints
       doDumpSMT {
         println("; (get-value ...)")
@@ -2278,7 +2346,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * called in two situations:
    * <ul>
    *    <li> after receiving the result
-   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
    * which case the term is evaluated in the computed model, or</li>
    * <li> after receiving
    * the result
@@ -2302,7 +2371,7 @@ class SimpleAPI private (enableAssert : Boolean,
       if (!(currentOrder.orderedPredicates forall (_.arity == 0))) {
         // we assume 0 as default value, but have to store this value
         import TerForConvenience._
-        implicit val o = currentModel.order
+        implicit val o = order
         currentModel = currentModel & (c === 0)
         lastPartialModel = null
       }
@@ -2317,7 +2386,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * called in two situations:
    * <ul>
    *    <li> after receiving the result
-   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>, in
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
    * which case the term is evaluated in the computed model, or</li>
    * <li> after receiving
    * the result
@@ -2349,7 +2419,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Evaluate the given formula in the current model.
    * This method can only be called after receiving the result
-   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>.
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
    */
   def eval(f : IFormula) : Boolean = {
     doDumpScala {
@@ -2397,8 +2468,8 @@ class SimpleAPI private (enableAssert : Boolean,
             if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
             // then we will just extend the partial model with a default value
           
-            implicit val order = currentModel.order
-            val a = Atom(p, List(), order)
+            implicit val o = order
+            val a = Atom(p, List(), o)
             currentModel = currentModel & a
             lastPartialModel = null
           
@@ -2407,7 +2478,7 @@ class SimpleAPI private (enableAssert : Boolean,
             
           case f => {
             val p = new IExpression.Predicate("p", 0)
-            implicit val extendedOrder = currentModel.order extendPred p
+            implicit val extendedOrder = order extendPred p
             val pAssertion =
               ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
                 toInternalNoAxioms(IAtom(p, Seq()) </> f, extendedOrder))
@@ -2445,7 +2516,8 @@ class SimpleAPI private (enableAssert : Boolean,
    * Evaluate the given formula in the current model, returning <code>None</code>
    * in case the model does not completely determine the value of the formula.
    * This method can only be called after receiving the result
-   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>.
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
    */
   def evalPartial(f : IFormula) : Option[Boolean] = {
     doDumpScala {
@@ -2471,7 +2543,8 @@ class SimpleAPI private (enableAssert : Boolean,
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, Set(ProverStatus.Sat,
-                            ProverStatus.Invalid) contains getStatusHelp(false))
+                            ProverStatus.Invalid,
+                            ProverStatus.Inconclusive) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     f match {
@@ -2536,6 +2609,7 @@ class SimpleAPI private (enableAssert : Boolean,
     initProver
     
     storedStates push (currentProver, needExhaustiveProver,
+                       matchedTotalFunctions,
                        currentOrder, existentialConstants,
                        functionalPreds, functionEnc.clone,
                        formulaeInProver,
@@ -2571,6 +2645,7 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (oldProver, oldNeedExhaustiveProver,
+         oldMatchedTotalFunctions,
          oldOrder, oldExConstants,
          oldFunctionalPreds, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
@@ -2579,6 +2654,7 @@ class SimpleAPI private (enableAssert : Boolean,
       storedStates.pop
     currentProver = oldProver
     needExhaustiveProver = oldNeedExhaustiveProver
+    matchedTotalFunctions = oldMatchedTotalFunctions
     currentOrder = oldOrder
     existentialConstants = oldExConstants
     functionalPreds = oldFunctionalPreds
@@ -2613,6 +2689,8 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     formulaeTodo = false
 
+    checkQuantifierOccurrences(transTodo)
+
     if (!transTodo.isFalse || !axioms.isFalse || !rawFormulaeTodo.isFalse) {
       implicit val o = currentOrder
       val completeFor =
@@ -2625,6 +2703,18 @@ class SimpleAPI private (enableAssert : Boolean,
       addToProver(reducedFor, axioms)
     }
   }
+
+  private def checkQuantifierOccurrences(c : Formula) : Unit =
+    if (!matchedTotalFunctions &&
+//        (Conjunction.collectQuantifiers(c) contains Quantifier.EX)
+        (IterativeClauseMatcher.matchedPredicatesRec(Conjunction.conj(c, order),
+             Param.PREDICATE_MATCH_CONFIG(goalSettings)) exists {
+           p => (functionEnc.predTranslation get p) match {
+             case Some(f) => !f.partial
+             case None => false
+           }
+         }))
+      matchedTotalFunctions = true
 
   private def addToProver(completeFor : Conjunction,
                           axioms : Conjunction) : Unit = {
@@ -2850,6 +2940,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var functionEnc : FunctionEncoder = _
   private var currentProver : ModelSearchProver.IncProver = _
   private var needExhaustiveProver : Boolean = false
+  private var matchedTotalFunctions : Boolean = false
   private var currentModel : Conjunction = _
   private var lastPartialModel : PartialModel = null
   private var currentConstraint : Conjunction = _
@@ -2866,6 +2957,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var abbrevFunctions : Set[IFunction] = Set()
 
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
+                                             Boolean,
                                              Boolean,
                                              TermOrder,
                                              Set[IExpression.ConstantTerm],

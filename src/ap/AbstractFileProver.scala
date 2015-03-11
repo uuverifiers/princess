@@ -28,15 +28,16 @@ import ap.parser.{InputAbsy2Internal,
                   FunctionEncoder, IExpression, INamedPart, PartName,
                   IFunction, IInterpolantSpec, IBinJunctor, Environment}
 import ap.terfor.{Formula, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
+                               IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
-import ap.theories.TheoryRegistry
+import ap.theories.{Theory, TheoryRegistry}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.Certificate
 import ap.proof.theoryPlugins.PluginSequence
-import ap.util.{Debug, Timeout}
+import ap.util.{Debug, Timeout, Seqs}
 
 object AbstractFileProver {
   
@@ -65,18 +66,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Param.TRIGGER_GENERATION(settings) match {
       case Param.TriggerGenerationOptions.None => Set()
       case Param.TriggerGenerationOptions.All =>
-        env.nonNullaryFunctions -- (
-          // remove irrelevant interpreted functions
+        env.nonNullaryFunctions ++ (
           for (t <- signature.theories.iterator;
-               f <- t.functions.iterator;
-               if (!(t.triggerRelevantFunctions contains f))) yield f)
+               f <- t.triggerRelevantFunctions.iterator) yield f)
       case Param.TriggerGenerationOptions.Total =>
-        for (f <- env.nonNullaryFunctions;
-             if ((TheoryRegistry lookupSymbol f) match {
-                   case Some(t) => t.triggerRelevantFunctions contains f
-                   case None => !f.partial && !f.relational
-                 }))
-        yield f
+        ((for (f <- env.nonNullaryFunctions.iterator;
+               if (!f.partial && !f.relational)) yield f) ++ (
+          for (t <- signature.theories.iterator;
+               f <- t.triggerRelevantFunctions.iterator) yield f)).toSet
     }
   
   private def newParser = Param.INPUT_FORMAT(settings) match {
@@ -148,12 +145,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc)
   }
   
+  protected val theories = signature.theories
+
   private val functionalPreds = 
     (for ((p, f) <- functionEncoder.predTranslation.iterator;
           if (!f.relational)) yield p).toSet
   
   private val plugin =
-    PluginSequence(for (t <- signature.theories; p <- t.plugin.toSeq) yield p)
+    PluginSequence(for (t <- theories; p <- t.plugin.toSeq) yield p)
 
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
     case Param.ProofConstructionOptions.Never => false
@@ -164,7 +163,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   val order = signature.order
 
   private val theoryAxioms =
-    Conjunction.conj(for (t <- signature.theories) yield t.axioms, order).negate
+    Conjunction.conj(for (t <- theories) yield t.axioms, order).negate
 
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
@@ -172,8 +171,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private val allPartNames =
     (List(PartName.NO_NAME) ++
      (for (INamedPart(n, _) <- inputFormulas) yield n)).distinct
-  
-  val (namedParts, formulas) =
+
+  val (namedParts, formulas, matchedTotalFunctions) =
     if (constructProofs) {
       // keep the different formula parts separate
       val rawNamedParts =
@@ -190,17 +189,18 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         }
 
       (reducedNamedParts,
-       for (n <- allPartNames) yield reducedNamedParts(n))
+       for (n <- allPartNames) yield reducedNamedParts(n),
+       checkMatchedTotalFunctions(rawNamedParts map (_._2)))
     } else {
       // merge everything into one formula
-      val f =
-        reducer(Conjunction.disjFor(
-               List(theoryAxioms,
-                    InputAbsy2Internal(
-                      IExpression.or(
-                         for (f <- inputFormulas.iterator)
-                         yield (IExpression removePartName f)), order)), order))
-      (Map(PartName.NO_NAME -> f), List(f))
+      val rawF =
+        InputAbsy2Internal(
+          IExpression.or(for (f <- inputFormulas.iterator)
+                         yield (IExpression removePartName f)), order)
+      val f = reducer(Conjunction.disjFor(List(theoryAxioms, rawF), order))
+      (Map(PartName.NO_NAME -> f),
+       List(f),
+       checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))))
     }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -213,7 +213,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
-           (for (t <- signature.theories.iterator;
+           (for (t <- theories.iterator;
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, plugin)
@@ -230,6 +230,70 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                              Param.TRACE_CONSTRAINT_SIMPLIFIER(settings))
     }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected lazy val formulaConstants =
+    (for (f <- formulas.iterator; c <- f.constants.iterator) yield c).toSet
+  protected lazy val formulaQuantifiers =
+    (for (f <- formulas.iterator;
+          q <- Conjunction.collectQuantifiers(f).iterator) yield q).toSet
+
+  protected lazy val canUseModelSearchProver = {
+    val config = Param.PREDICATE_MATCH_CONFIG(goalSettings)
+
+    (formulas exists (_.isTrue)) ||
+    (Seqs.disjoint(formulaConstants, signature.existentialConstants) &&
+     (if (Param.POS_UNIT_RESOLUTION(goalSettings))
+       formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
+      else
+        (formulaQuantifiers subsetOf Set(Quantifier.ALL))))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def checkMatchedTotalFunctions(conjs : Iterable[Conjunction]) : Boolean =
+    Param.POS_UNIT_RESOLUTION(settings) && {
+      val config = signature.predicateMatchConfig
+      conjs exists { c =>
+        IterativeClauseMatcher.matchedPredicatesRec(c, config) exists {
+          p => (functionEncoder.predTranslation get p) match {
+                 case Some(f) => !f.partial
+                 case None => false
+               }
+        }
+      }
+    }
+
+  private lazy val getSatSoundnessConfig : Theory.SatSoundnessConfig.Value =
+    if (!canUseModelSearchProver || matchedTotalFunctions)
+      Theory.SatSoundnessConfig.General
+    else if (formulas forall (_.predicates.isEmpty))
+      Theory.SatSoundnessConfig.Elementary
+    else
+      Theory.SatSoundnessConfig.Existential
+
+  private lazy val theoriesAreSatComplete =
+    theories.isEmpty || {
+      val config = getSatSoundnessConfig
+      Param.POS_UNIT_RESOLUTION(goalSettings) &&
+      (theories exists (_.isSoundForSat(theories, config)))
+    }
+
+  private lazy val allFunctionsArePartial =
+    (formulas forall { f => f.predicates forall {
+       p => (functionEncoder.predTranslation get p) match {
+               case Some(f) => f.partial
+               case None => true
+             }
+     }}) &&
+    (theories forall { t => t.functions forall (_.partial) })
+
+  protected lazy val soundForSat =
+    theoriesAreSatComplete &&
+    (Param.GENERATE_TOTALITY_AXIOMS(settings) ||
+     !matchedTotalFunctions ||
+     allFunctionsArePartial)
+
   //////////////////////////////////////////////////////////////////////////////
 
   protected def findModelTimeout : Either[Conjunction, Certificate] = {

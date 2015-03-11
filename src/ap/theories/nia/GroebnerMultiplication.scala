@@ -71,6 +71,13 @@ object GroebnerMultiplication extends MulTheory {
   val functionPredicateMapping = List(mul -> _mul)
   val triggerRelevantFunctions : Set[IFunction] = Set()
 
+  override def isSoundForSat(theories : Seq[Theory],
+                             config : Theory.SatSoundnessConfig.Value) : Boolean =
+    theories match {
+      case Seq(GroebnerMultiplication) => true
+      case _ => false
+    }
+
   /**
    * Conversion functions
    */

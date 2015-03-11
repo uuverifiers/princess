@@ -332,12 +332,14 @@ object IterativeClauseMatcher {
    * for some predicates the negative occurrences are resolved
    */
   private def isPositivelyMatched(pred : Predicate)
-                                 (implicit config : PredicateMatchConfig) : Boolean =
-    config.getOrElse(pred, PredicateMatchStatus.Positive) == PredicateMatchStatus.Positive
+                      (implicit config : PredicateMatchConfig) : Boolean =
+    config.getOrElse(pred, PredicateMatchStatus.Positive) ==
+      PredicateMatchStatus.Positive
 
   private def isNegativelyMatched(pred : Predicate)
-                                 (implicit config : PredicateMatchConfig) : Boolean =
-    config.getOrElse(pred, PredicateMatchStatus.Positive) == PredicateMatchStatus.Negative
+                      (implicit config : PredicateMatchConfig) : Boolean =
+    config.getOrElse(pred, PredicateMatchStatus.Positive) ==
+      PredicateMatchStatus.Negative
 
   object Matchable extends Enumeration {
     val No, ProducesLits, Complete = Value
@@ -422,6 +424,44 @@ object IterativeClauseMatcher {
        (0 until lastUniQuantifier) forall (matchedVariables contains _)
      }) &&
     (c.negatedConjs forall (isMatchableRecHelp(_, !negated, config)))
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Determine the set of predicates that are matched in some
+   * quantified expression
+   */
+  def matchedPredicatesRec(c : Conjunction,
+                           config : PredicateMatchConfig) : Set[Predicate] =
+    matchedPredicatesRecHelp(c, false, config)
+
+  private def matchedPredicatesRecHelp(
+                c : Conjunction,
+                negated : Boolean,
+                config : PredicateMatchConfig) : Set[Predicate] = {
+    implicit val _config = config
+
+    val subPreds =
+      (for (d <- c.negatedConjs.iterator;
+            p <- matchedPredicatesRecHelp(d, !negated, config).iterator)
+       yield p).toSet
+
+    val lastUniQuantifier = (c.quans lastIndexOf Quantifier(negated)) match {
+      case -1 => 0
+      case x => x + 1
+    }
+
+    if (!((c.quans take lastUniQuantifier) contains (Quantifier(!negated))) &&
+        lastUniQuantifier > 0 &&
+        !c.isQuantifiedDivisibility && !c.isQuantifiedNonDivisibility &&
+        ((c.size == 1 && c.predConj.isLiteral) || !negated)) {
+      val (matchLits, _) =
+        determineMatchedLits(if (negated) c.predConj.negate else c.predConj)
+      subPreds ++ (for (a <- matchLits.iterator) yield a.pred)
+    } else {
+      subPreds
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////

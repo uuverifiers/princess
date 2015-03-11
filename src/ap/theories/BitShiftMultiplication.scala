@@ -321,6 +321,13 @@ object BitShiftMultiplication extends MulTheory {
 
   val triggerRelevantFunctions : Set[IFunction] = Set()
 
+  override def isSoundForSat(theories : Seq[Theory],
+                             config : Theory.SatSoundnessConfig.Value) : Boolean =
+    theories match {
+      case Seq(BitShiftMultiplication) => true
+      case _ => false
+    }
+
   val plugin = Some(new Plugin {
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] =

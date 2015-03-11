@@ -103,6 +103,20 @@ class SimpleArray private (arity : Int) extends Theory {
 
   val plugin = None
 
+  override def isSoundForSat(theories : Seq[Theory],
+                             config : Theory.SatSoundnessConfig.Value) : Boolean =
+    config match {
+      case Theory.SatSoundnessConfig.Elementary |
+           Theory.SatSoundnessConfig.Existential =>
+        theories forall {
+          t => t.isInstanceOf[SimpleArray] ||
+               t == BitShiftMultiplication ||
+               t == nia.GroebnerMultiplication
+        }
+      case Theory.SatSoundnessConfig.General =>
+        false
+    }
+
   //////////////////////////////////////////////////////////////////////////////
 
   case class DecoderData(selectAtoms : Seq[Atom])

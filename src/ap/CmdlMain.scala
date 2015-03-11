@@ -35,7 +35,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "daily build"
+  val version = "release 2015-03-11"
 
   def printGreeting = {
     println("________       _____")                                 
@@ -475,6 +475,14 @@ object CmdlMain {
                   printFormula(model)
                 }
               }
+              case Prover.MaybeCounterModel(model) =>  {
+                println("unknown")
+                Console.withOut(Console.err) {
+                  println
+                  println("Possible model:")
+                  printFormula(model)
+                }
+              }
               case Prover.NoCounterModel =>  {
                 println("unsat")
               }
@@ -590,6 +598,22 @@ object CmdlMain {
                   case _ => {
                     println
                     println("Countermodel:")
+                    printFormula(model)
+                  }
+                }
+                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  println
+                  println("Most-general constraint:")
+                  println("false")
+                }
+              }
+              case Prover.MaybeCounterModel(model) =>  {
+                println("UNKNOWN")
+                model match {
+                  case IBoolLit(true) => // nothing
+                  case _ => {
+                    println
+                    println("Possible countermodel:")
                     printFormula(model)
                   }
                 }
