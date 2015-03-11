@@ -29,7 +29,7 @@ SCALABASEDIR:=/usr/local/scala
 SCALALIBDIR:=$(SCALABASEDIR)/lib
 
 JARSIGNERCMD:=jarsigner -keystore ../myKeys -storepass ../myPass -keypass ../myPass
-JARSIGNERALIAS:=mykey
+JARSIGNERALIAS:=mykey2015
 
 PROGUARDJAR:=/home/philipp/tmp/proguard/lib/proguard.jar
 
