@@ -332,11 +332,11 @@ class SMTLineariser(benchmarkName : String,
       // Terms
       case IConstant(c) => {
         print(const2Identifier(c) + " ")
-        ShortCutResult()
+        ShortCutResult(())
       }
       case IIntLit(value) => {
         print(toSMTExpr(value) + " ")
-        ShortCutResult()
+        ShortCutResult(())
       }
       case IPlus(_, _) => {
         print("(+ ")
@@ -348,7 +348,7 @@ class SMTLineariser(benchmarkName : String,
       }
       case IVariable(index) => {
         print(ctxt.vars(index) + " ")
-        ShortCutResult()
+        ShortCutResult(())
       }
       case t@IFunApp(fun, args) => {
         // check if any Boolean arguments have to be decoded
@@ -399,7 +399,7 @@ class SMTLineariser(benchmarkName : String,
       }
       case IBoolLit(value) => {
         print(value + " ")
-        ShortCutResult()
+        ShortCutResult(())
       }
       case IExpression.Eq(s, t) =>
         // rewrite to a proper equation
@@ -438,7 +438,7 @@ class SMTLineariser(benchmarkName : String,
           visit(t, ctxt)
         print(")) ")
         
-        ShortCutResult()
+        ShortCutResult(())
       }
     }
     

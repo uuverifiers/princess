@@ -7,7 +7,7 @@ CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-p
 
 SCALAC:=scalac
 SCALAC_OPTIONS:=-optimise -Yinline-warnings \
-                -deprecation -unchecked -Dscalac.patmat.analysisBudget=off \
+                -deprecation -unchecked \
                 -feature -language:implicitConversions,postfixOps,reflectiveCalls \
                 -d $(BASEDIR)/bin -classpath $(CLASSPATH)
 
@@ -47,7 +47,8 @@ copy-jars-to-dist:
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
-	$(shell cp $(SCALALIBDIR)/scala-actors.jar dist/)
+	$(shell cp $(SCALALIBDIR)/scala-actors-2.11.0.jar dist/)
+	$(shell cp $(SCALALIBDIR)/scala-parser-combinators_2.11*.jar dist/)
 
 jar: scala-src
 	cd bin && jar cmf ../dist/normal-manifest.txt princess.jar ap

@@ -873,19 +873,17 @@ class IntervalSet(predicates : List[Polynomial],
 
     propagateSpecials
 
-    try {
-      var changed = true
-      while (changed && iterations < 15) {
-        if (error)
-          return true
-        Timeout.check
-        changed = false
-        for (ineq <- inEqs)
-          if (propagateIneq(ineq))
-            changed = true
+    var changed = true
+    while (changed && iterations < 15) {
+      if (error)
+        return true
+      Timeout.check
+      changed = false
+      for (ineq <- inEqs)
+        if (propagateIneq(ineq))
+          changed = true
 
-        iterations += 1
-      }
+      iterations += 1
     }
 
     propagateSpecials

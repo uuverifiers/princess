@@ -1284,7 +1284,7 @@ object ITrigger {
     for (p <- rawPatterns)
       if (extractor.visit(p, ()))
         patterns += p.asInstanceOf[ITerm]
-    patterns.readOnly
+    patterns.toList
   }
 }
 

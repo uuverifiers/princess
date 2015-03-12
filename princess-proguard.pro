@@ -12,7 +12,8 @@
 -injars dist/parser.jar
 -injars dist/smt-parser.jar
 -injars dist/scala-library.jar(!META-INF/**)
--injars dist/scala-actors.jar(!META-INF/**)
+-injars dist/scala-actors-2.11.0.jar(!META-INF/**)
+-injars dist/scala-parser-combinators_2.11-1.0.3.jar(!META-INF/**)
 -libraryjars /usr/share/java/ant.jar
 -outjars dist/princess-all.jar
 
