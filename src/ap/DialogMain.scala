@@ -705,7 +705,7 @@ class InputDialog extends JPanel {
     println("(get-interpolants (and M1 M2 S12 S11 S1RET) M3 (and S21 S22 S2RET) (and M4 ERR))")
     println("")
     println("(echo \"\")")
-    println("(echo \"02:\")")
+    println("(echo \"03:\")")
     println("(get-interpolants (and M1 M2 S12 S11 S1RET) (and S21 S22 S2RET) (and M4 ERR) M3)")
   })
   
