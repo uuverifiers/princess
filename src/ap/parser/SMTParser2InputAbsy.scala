@@ -483,7 +483,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
              ", near \"" + l.buff() + "\" :" +
              "     " + e.getMessage())
     }
+  }
 
+  private var justStoreAssertions = false
+
+  def extractAssertions(input : java.io.Reader) : Seq[IFormula] = {
+    justStoreAssertions = true
+    processIncrementally(input, Int.MaxValue, Int.MaxValue, false)
+    justStoreAssertions = false
+    val res = assumptions.toList
+    assumptions.clear
+    res
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -555,6 +565,34 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     else
       warn(str)
   }
+
+  private val reusedSymbols : scala.collection.Map[String, AnyRef] =
+    if (incremental) prover.getSymbolMap else null
+
+  private def importProverSymbol(name : String,
+                                 args : Seq[SMTType],
+                                 res : SMTType) : Boolean =
+    incremental &&
+    ((reusedSymbols get name) match {
+       case None =>
+         false
+       case Some(c : ConstantTerm) if (args.isEmpty) => {
+         env.addConstant(c, Environment.NullaryFunction, res)
+         true
+       }
+       case Some(f : IFunction) if (args.size == f.arity) => {
+         env.addFunction(f, SMTFunctionType(args.toList, res))
+         true
+       }
+       case Some(p : Predicate) if (args.size == p.arity && res == SMTBool) => {
+         env.addPredicate(p, ())
+         true
+       }
+       case Some(_) => {
+         warn("inconsistent definition of symbol " + name)
+         false
+       }
+     })
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -860,34 +898,36 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         ensureEnvironmentCopy
 
-        if (args.length > 0) {
-          if (!booleanFunctionsAsPredicates || res != SMTBool) {
-            // use a real function
-            val f = new IFunction(name, args.length,
-                                  !totalityAxiom, !functionalityAxiom)
-            env.addFunction(f, SMTFunctionType(args.toList, res))
-            if (incremental)
-              prover.addFunction(f,
-                                 if (functionalityAxiom)
-                                   SimpleAPI.FunctionalityMode.Full
-                                 else
-                                   SimpleAPI.FunctionalityMode.None)
+        if (!importProverSymbol(name, args, res)) {
+          if (args.length > 0) {
+            if (!booleanFunctionsAsPredicates || res != SMTBool) {
+              // use a real function
+              val f = new IFunction(name, args.length,
+                                    !totalityAxiom, !functionalityAxiom)
+              env.addFunction(f, SMTFunctionType(args.toList, res))
+              if (incremental)
+                prover.addFunction(f,
+                                   if (functionalityAxiom)
+                                     SimpleAPI.FunctionalityMode.Full
+                                   else
+                                     SimpleAPI.FunctionalityMode.None)
+            } else {
+              // use a predicate
+              val p = new Predicate(name, args.length)
+              env.addPredicate(p, ())
+              if (incremental)
+                prover.addRelation(p)
+            }
+          } else if (res != SMTBool) {
+            // use a constant
+            addConstant(new ConstantTerm(name), res)
           } else {
-            // use a predicate
-            val p = new Predicate(name, args.length)
+            // use a nullary predicate (propositional variable)
+            val p = new Predicate(name, 0)
             env.addPredicate(p, ())
             if (incremental)
               prover.addRelation(p)
           }
-        } else if (res != SMTBool) {
-          // use a constant
-          addConstant(new ConstantTerm(name), res)
-        } else {
-          // use a nullary predicate (propositional variable)
-          val p = new Predicate(name, 0)
-          env.addPredicate(p, ())
-          if (incremental)
-            prover.addRelation(p)
         }
 
         success
@@ -906,15 +946,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         ensureEnvironmentCopy
 
-        if (res != SMTBool) {
-          // use a constant
-          addConstant(new ConstantTerm(name), res)
-        } else {
-          // use a nullary predicate (propositional variable)
-          val p = new Predicate(name, 0)
-          env.addPredicate(p, ())
-          if (incremental)
-            prover.addRelation(p)
+        if (!importProverSymbol(name, List(), res)) {
+          if (res != SMTBool) {
+            // use a constant
+            addConstant(new ConstantTerm(name), res)
+          } else {
+            // use a nullary predicate (propositional variable)
+            val p = new Predicate(name, 0)
+            env.addPredicate(p, ())
+            if (incremental)
+              prover.addRelation(p)
+          }
         }
 
         success
@@ -977,7 +1019,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
-        if (incremental) {
+        if (incremental && !justStoreAssertions) {
           if (genInterpolants) {
             PartExtractor(f, false) match {
               case List(INamedPart(PartName.NO_NAME, g)) => {

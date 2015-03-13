@@ -23,7 +23,8 @@ package ap
 
 import ap.basetypes.IdealInt
 import ap.parser._
-import ap.parameters.{PreprocessingSettings, GoalSettings, Param}
+import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
+                      Param}
 import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
@@ -1281,6 +1282,54 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def pp(f : IExpression) : String = SimpleAPI.pp(f)
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Create a map with all declared symbols known to this prover.
+   */
+  def getSymbolMap : scala.collection.Map[String, AnyRef] = {
+    val map = new MHashMap[String, AnyRef]
+    for (c <- currentOrder.orderedConstants)
+      map.put(c.name, c)
+    for ((f, _) <- functionEnc.relations)
+      map.put(f.name, f)
+    for (p <- currentOrder.orderedPredicates)
+      if (!(map contains p.name))
+        map.put(p.name, p)
+    map
+  }
+
+  /**
+   * Execute an SMT-LIB script. Symbols used in the script have
+   * to be declared in the script as well, i.e., the script has to
+   * be self-contained; however, if the prover already knows about
+   * symbols with the same name, they will be reused.
+   */
+  def execSMTLIB(input : java.io.Reader) : Unit = {
+    val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
+    parser.processIncrementally(input, Int.MaxValue, Int.MaxValue, false)
+  }
+
+  /**
+   * Extract the assertions in an SMT-LIB script. Symbols used in the script
+   * have to be declared in the script as well, i.e., the script has to
+   * be self-contained; however, if the prover already knows about
+   * symbols with the same name, they will be reused.
+   */
+  def extractSMTLIBAssertions(input : java.io.Reader) : Seq[IFormula] = {
+    val parser = SMTParser2InputAbsy(ParserSettings.DEFAULT, this)
+    parser.extractAssertions(input)
+  }
+
+/*  private def toSMTEnvironment = {
+    val env = Environment[SMTParser2InputAbsy.SMTType,
+                          SMTParser2InputAbsy.VariableType,
+                          Unit,
+                          SMTParser2InputAbsy.SMTFunctionType]
+    
+    env
+  } */
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
