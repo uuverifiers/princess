@@ -41,14 +41,20 @@ all: scala-src
 
 doc: scala-src-doc
 
+# This generates an empty scala-parser-combinators.jar file,
+# since Scala 2.10 does not include this as a separate library,
+# and Proguard needs it. With Scala 2.11, the empty jar file is
+# overwritten in the next line
 copy-jars-to-dist:
 	$(shell cp bin/princess.jar dist/)
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
-	$(shell cp $(SCALALIBDIR)/scala-actors-2.11.0.jar dist/)
-	$(shell cp $(SCALALIBDIR)/scala-parser-combinators_2.11*.jar dist/)
+	$(shell [ -f $(SCALALIBDIR)/scala-actors-2*.jar ] && cp $(SCALALIBDIR)/scala-actors-2*.jar dist/scala-actors.jar)
+	$(shell [ -f $(SCALALIBDIR)/scala-actors.jar ] && cp $(SCALALIBDIR)/scala-actors.jar dist/scala-actors.jar)
+	$(shell [ -f $(SCALALIBDIR)/scala-parser-combinators*.jar ] && cp $(SCALALIBDIR)/scala-parser-combinators*.jar dist/scala-parser-combinators.jar)
+	$(shell [ -f dist/scala-parser-combinators.jar ] || jar cf dist/scala-parser-combinators.jar dist/normal-manifest.txt)
 
 jar: scala-src
 	cd bin && jar cmf ../dist/normal-manifest.txt princess.jar ap
