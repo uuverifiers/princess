@@ -14,256 +14,218 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
                               maxSolverRuntime : Long)  
     extends CCUSolver[TERM, FUNC](timeoutChecker, maxSolverRuntime) {
 
-
   var tablesComplete = false
-  var tables = List() : List[Table[FUNC]]
-
-  def solveTable() : (Option[Array[Int]], Map[Int, List[Int]]) = {
-    Timer.measure("Table.solveTable") {
-      // We have p problems, and we are dealing with the simultaneous problem,
-      // i.e. every problem must be solvable
-      var allGoalPossible = true
-
-      val assignments = createAssignments(problem.allTerms)
-
-      val diseqedGoals =
-        (for (p <- 0 until problem.count) yield {
-          // This particular problem consists of subgoals,
-          // one of the subgoals must be solvable for the
-          // whole problem to be possible
-          (for (gs <- problem.goals(p)) yield {
-            // A subgoal consists of pairs of terms,
-            // all of the must be unifiable for this
-            // subgoal to be possible.
-
-            var allUnifiable = true
-            for ((s,t) <- gs) {
-              if (problem.diseq(p)(s)(t) == 0)
-                allUnifiable = false
-            }
-
-            (gs, allUnifiable)
-          }).filter(x => x._2).map(x => x._1).toList
-        }).toList
+  var tables = List() : Seq[Table]
+  var calculatedCore = None : Option[Seq[Int]]
 
 
-      if (diseqedGoals contains List()) {
-        // println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
-        return (None, Map())
+  def CCV(tab : Seq[Table]) : Boolean = {
+    val ccs =
+      for (t <- tab)
+      yield t.addVConstraint
+
+    val retVal =
+      if (ccs contains None) {
+        false
+      } else {
+        solver.isSatisfiable()
       }
 
-      tables =
-        (for (i <- 0 until problem.count) yield {
-          new Table[FUNC](problem.bits, alloc, gt, solver,
-            problem.terms(i), problem.domains(i),
-            problem.functions(i), ZEROBIT, ONEBIT, problem.diseq(i))
-        }).toList
+    for (cc <- ccs; if cc.isDefined)
+      solver.removeConstr(cc.get)
 
+    retVal
+  }
 
-      solver.addClause(new VecInt(Array(-ZEROBIT)))
-      solver.addClause(new VecInt(Array(ONEBIT)))
+  def solveIter : (Option[Array[Int]], Map[Int, Seq[Int]]) = {
+    val assignments = createAssignments(problem.terms)
+    val tmpTables = (for (p <- problem.problems) yield None).toArray : Array[Option[Table]]
+    calculatedCore = None
 
-      // MAIN SOLVE LOOP
-      var cont = true
-      var model = None : Option[Array[Int]]
-      val bits = problem.bits
-      val terms = problem.allTerms
-      val domains = problem.allDomains
-      val problemCount = problem.count
-      val goals = problem.goals
+    tmpTables(0) = Some(new Table(problem.bits, alloc, gt, solver,
+      problem.problems(0).terms, problem.problems(0).domains,
+      problem.problems(0).funEqs, ZEROBIT, ONEBIT, problem.problems(0).DQ,
+    problem.problems(0).goal))
 
-      // Create Initial Column
+    for (t <- tmpTables; if t.isDefined) {
+      (t.get).addInitialColumn(assignments)
+      (t.get).addDerivedColumn(timeoutChecker)
+    }
 
-      def termAssIntAux(i : Int) = {
-        var curVal = i
+    // MAIN SOLVE LOOP
+    var cont = true
+    var tmpModel = None : Option[Array[Int]]
 
-        for (b <- 0 until bits) yield {
-          if (curVal % 2 == 1) {
-            curVal -= 1
-            curVal /= 2
-            ONEBIT
-          } else {
-            curVal /= 2
-            ZEROBIT
+    while (cont) {
+      timeoutChecker()
+
+      // TODO: Empty goals == UNSAT!
+      val goalConstraints =
+        for (t <- tmpTables; if (t.isDefined); if (!t.get.goal.isEmpty)) yield
+          (t.get).addGoalConstraint
+      
+      if (solver.isSatisfiable()) {
+        for (gc <- goalConstraints) solver.removeConstr(gc)
+        val (termAss, intAss) = modelToAss(assignments, solver.model)
+
+        var p = 0
+        var allSat = true
+        while (p < problem.problems.length && allSat) {
+          val cp = problem.problems(p)
+          if (!verifySolution[Int, Int](problem.terms, intAss, cp.funEqs, cp.goal)) {
+            if (tmpTables(p).isDefined)
+              throw new Exception("Table should not be defined!")
+            tmpTables(p) = Some(new Table(problem.bits, alloc, gt, solver,
+              problem.problems(p).terms, problem.problems(p).domains,
+              problem.problems(p).funEqs, ZEROBIT, ONEBIT, 
+              problem.problems(p).DQ, problem.problems(p).goal))
+
+            (tmpTables(p).get).addInitialColumn(assignments)
+            (tmpTables(p).get).addDerivedColumn(timeoutChecker)
+            allSat = false
           }
+
+          p += 1
+        }
+
+        if (allSat) {
+          // println("ALL SATISIFED")
+          tmpModel = Option(solver.model)
+          cont = false
+        }
+      } else {
+        for (gc <- goalConstraints) solver.removeConstr(gc)
+        val moreInfo = CCV(for (t <- tmpTables; if t.isDefined) yield t.get)
+        if (!moreInfo) {
+          // tablesComplete = true
+          tmpModel = None
+          cont = false
+          calculatedCore = Some(for (t <- 0 until tmpTables.length; if (tmpTables(t).isDefined)) yield t)
+        } else {
+          for (t <- tmpTables; if t.isDefined)
+            (t.get).addDerivedColumn(timeoutChecker)
         }
       }
+    }
 
-      def termEqIntAux(bitList : List[Int], i : Int) : Int = {
-//        Timer.measure("termEqInt") {
-          var curVal = i
+    // println ("Tables used: " + (for (t <- tmpTables; if t.isDefined) yield 1).sum + "/" + tmpTables.length)
 
-          val lits =
-            (for (b <- bitList) yield {
-              if (curVal % 2 == 1) {
-                curVal -= 1
-                curVal /= 2
-                b
-              } else {
-                curVal /= 2
-                -b
-              }
-            }).toArray
+    (tmpModel, assignments)
+  }
 
-          val eqBit = alloc.alloc(1)
-          gt.and(eqBit, new VecInt(lits))
-          eqBit
-//        }
-      }
+  def solveAll : (Option[Array[Int]], Map[Int, Seq[Int]]) = {
+    val assignments = createAssignments(problem.terms)
 
-      for (p <- 0 until problemCount)
-        tables(p).addInitialColumn(assignments)
+    tables =
+      (for (i <- 0 until problem.count) yield {
+        new Table(problem.bits, alloc, gt, solver,
+          problem.problems(i).terms, problem.problems(i).domains,
+          problem.problems(i).funEqs, ZEROBIT, ONEBIT, problem.problems(i).DQ,
+          problem.problems(i).goal)
+      })
 
-      for (p <- 0 until problemCount) {
-        tables(p).addDerivedColumn(timeoutChecker)
-      }
+    // MAIN SOLVE LOOP
+    var cont = true
+    var model = None : Option[Array[Int]]
 
-      while (cont) {
-        timeoutChecker()
+    // Create Initial Column
 
-        val goalConstraints =
-          for (p <- 0 until problemCount; if (!goals(p).isEmpty)) yield
-            tables(p).addGoalConstraint(goals(p))
-         
-        Timer.measure("isSat") {
-          // solver.setTimeoutMs(maxSolverRuntime)
-          if (solver.isSatisfiable()) {
-            for (gc <- goalConstraints)
-              solver.removeConstr(gc)
-            model = Option(solver.model)
+    for (t <- tables) {
+      t.addInitialColumn(assignments)
+      t.addDerivedColumn(timeoutChecker)
+    }
+
+    while (cont) {
+      timeoutChecker()
+
+      val goalConstraints =
+        for (t <- tables; if (!t.goal.isEmpty)) yield
+          t.addGoalConstraint
+      
+      Timer.measure("isSat") {
+        val isSat = solver.isSatisfiable()
+        for (gc <- goalConstraints) solver.removeConstr(gc)
+
+        if (isSat) {
+          model = Option(solver.model)
+          cont = false
+        } else {
+          val moreInfo = CCV(tables)
+          if (!moreInfo) {
+            tablesComplete = true
+            model = None
             cont = false
           } else {
-            for (gc <- goalConstraints)
-              solver.removeConstr(gc)
-
-            def CCPerTable() : Boolean = {
-              // Check table per table
-              for (p <- 0 until problemCount) {
-                val cc =
-                  tables(p).addCompletionConstraint()
-
-                // solver.setTimeoutMs(maxSolverRuntime)
-                val sat = solver.isSatisfiable()
-                solver.removeConstr(cc)
-
-                if (sat)
-                  return true
-              }
-              false
-            }
-
-            def CCAllTables() : Boolean = {
-              val ccs =
-                for (p <- 0 until problemCount) yield
-                  tables(p).addCompletionConstraint()
-
-              // solver.setTimeoutMs(maxSolverRuntime)
-              val sat = solver.isSatisfiable()
-              for (cc <- ccs)
-                solver.removeConstr(cc)
-
-              sat
-            }
-
-            def CCV() : Boolean = {
-              val ccs =
-                for (p <- 0 until problemCount) 
-                yield tables(p).addVConstraint
-
-
-
-              val retVal = 
-              if (ccs contains None) {
-                false
-              } else {
-                solver.isSatisfiable()
-              }
-
-              for (cc <- ccs; if cc.isDefined)
-                solver.removeConstr(cc.get)
-
-              retVal
-            }
-
-
-            Timer.measure("completionConstraint_" + tables(0).currentColumn + "_columns") {
-              val moreInfo = CCV()
-
-              if (!moreInfo) {
-                tablesComplete = true
-                model = None
-                cont = false
-              } else {
-                for (p <- 0 until problemCount)
-                  tables(p).addDerivedColumn(timeoutChecker)
-              }
-            }
+            for (t <- tables)
+              t.addDerivedColumn(timeoutChecker)
           }
         }
       }
-
-      // TODO: Change if differents rows
-      Timer.measure("Columns_" +
-        (for (p <- 0 until problemCount)
-        yield tables(p).currentColumn).mkString("[", " ", "]")) { true }
-
-      (model, assignments)
     }
+
+    (model, assignments)
+  }
+
+  def solveTable() : (Option[Array[Int]], Map[Int, Seq[Int]]) = {
+    // TODO: check DiseqedGoals
+
+    solveIter
+    // solveAll
   }
 
   // Given a list of domains, goals, functions, see if there is a solution to
   // the simultaneous problem.
-  override def solve() : ccu.Result.Result = {
-    Timer.measure("Table.solve") {
-      // Reset and add default stuff
-      reset
-      solver.addClause(new VecInt(Array(ONEBIT)))
-      solver.addClause(new VecInt(Array(-ZEROBIT)))
-      tablesComplete = false
+  override def solveaux() : ccu.Result.Result = {
+    // Reset and add default stuff
 
-      val terms = problem.allTerms
-      val domains = problem.domains
-      val goals = problem.goals
-      val functions = problem.functions
+    reset
+    solver.addClause(new VecInt(Array(ONEBIT)))
+    solver.addClause(new VecInt(Array(-ZEROBIT)))
+    tablesComplete = false
 
-      solveTable() match {
-        // TODO: Some(m), m unused?
-        case (Some(m), assignments) => {
-          var assMap = Map() : Map[TERM, TERM]
-          var intAss = Map() : Map[Int, Int]
-          for (t <- problem.allTerms) {
-            val iVal = bitToInt(assignments(t))
-            intAss += (t -> iVal)
-            assMap += (intToTerm(t) -> intToTerm(iVal))
-          }
+    val terms = problem.terms
+    val domains = problem.domains
+    val goals = for (p <- problem.problems) yield p.goal
+    val functions = for (p <- problem.problems) yield p.funEqs
 
-          model = Some(assMap)
-          problem.intAss = intAss
-          problem.result = Some(ccu.Result.SAT)
-          ccu.Result.SAT
+    solveTable() match {
+      // TODO: Some(m), m unused?
+      case (Some(m), assignments) => {
+        var assMap = Map() : Map[TERM, TERM]
+        var intAss = Map() : Map[Int, Int]
+        for (t <- problem.terms) {
+          val iVal = bitToInt(assignments(t))
+          intAss += (t -> iVal)
+          assMap += (intToTerm(t) -> intToTerm(iVal))
         }
 
-        case (None, _) =>  {
-          problem.result = Some(ccu.Result.UNSAT)
-          ccu.Result.UNSAT
-        }
+        model = Some(assMap)
+        problem.intAss = intAss
+        problem.result = Some(ccu.Result.SAT)
+        ccu.Result.SAT
+      }
+
+      case (None, _) =>  {
+        problem.result = Some(ccu.Result.UNSAT)
+        ccu.Result.UNSAT
       }
     }
   }
 
   def solveAgain() : Boolean = {
     Timer.measure("Table.solveAgain") {
-      if (problem.goals.flatten.flatten.isEmpty) 
-        throw new Exception("SolveAgain emptyproblem!")
+      // TODO: FIX ASSERT
+      // if (problem.goals.flatten.flatten.isEmpty) 
+      //   throw new Exception("SolveAgain emptyproblem!")
 
       var retval = false : Boolean
 
       if (tablesComplete) {
-        val goals = problem.goals
+        val goals = for (p <- problem.problems) yield p.goal
 
         val goalConstraints = 
           for (p <- 0 until problem.count; if (!goals(p).flatten.isEmpty)) yield {
-            tables(p).addGoalConstraint(goals(p))
+            tables(p).addGoalConstraint
           }
 
         retval =  solver.isSatisfiable()
@@ -285,7 +247,12 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
 
 
   // PRE: Call after solve returns UNSAT
-  def unsatCoreAux(timeout : Int) : List[Int] = {
+  def unsatCoreAux(timeout : Int) : Seq[Int] = {
+    if (calculatedCore.isDefined) {
+      // println("Using pre-calculated core: " + calculatedCore.get)
+      return calculatedCore.get
+    }
+
     solver.setTimeoutMs(timeout)
     Timeout.withTimeoutMillis(timeout) {
       val unsatCore = ListBuffer() : ListBuffer[Int]
@@ -297,17 +264,17 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
         throw new Exception("unsatCore on SAT solution")
 
       for (p <- 0 until problem.count)
-        problem.removeGoal(p)
+        problem.deactivateProblem(p)
 
       var curProb = 0
       unsatCore += curProb
-      problem.restoreGoal(curProb)
+      problem.activateProblem(curProb)
 
       def addProblem = {
         curProb += 1
         if (curProb < problem.count) {
           unsatCore += curProb
-          problem.restoreGoal(curProb)
+          problem.activateProblem(curProb)
         }
       }
 
@@ -350,24 +317,26 @@ class TableSolver[TERM, FUNC](timeoutChecker : () => Unit,
               tables(p).addDerivedColumn(timeoutChecker)
           } else {
             // if NO - unsat core achieved!
-            return unsatCore.toList
+            return unsatCore
           }
         }
       }
-      throw new Exception("TableSolver: Entire problem is not UNSAT?")
+      throw new Exception("Tablesolver: Entire problem is not UNSAT?")
     }{
-      return (0 until problem.count).toList
+      return (0 until problem.count)
     }
   }
 }
 
 
-class Table[FUNC](val bits : Int, alloc : Allocator,
-  gt : GateTranslator, solver : ISolver, val terms : List[Int],
-  domains : Map[Int, Set[Int]], functions : List[(FUNC, List[Int], Int)],
-  ZEROBIT : Int, ONEBIT : Int, diseq : Array[Array[Int]]) {
+      // TODO: Make table take a problem instead
+class Table(val bits : Int, alloc : Allocator,
+  gt : GateTranslator, solver : ISolver, val terms : Seq[Int],
+  domains : Map[Int, Set[Int]], functions : Seq[(Int, Seq[Int], Int)],
+  ZEROBIT : Int, ONEBIT : Int, DQ : Disequalities, 
+  val goal : Seq[Seq[(Int, Int)]]) {
 
-  val columns = ListBuffer() : ListBuffer[MMap[Int, List[Int]]]
+  val columns = ListBuffer() : ListBuffer[MMap[Int, Seq[Int]]]
   var currentColumn = 0
 
   // Access Table[Column][Row]
@@ -379,7 +348,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
   // USE AFTER solved
   def printTable {
 
-    def bitToInt(bits : List[Int]) : Int = {
+    def bitToInt(bits : Seq[Int]) : Int = {
       var curMul = 1
       var curVal = 0
       for (b <-bits) {
@@ -399,10 +368,10 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
       }
       println
     }
-    printTableStats
+    printTablestats
   }
 
-  def printTableStats {
+  def printTablestats {
     println("<#####" + ("###" * 3) + "##>")
     println("currentColum: " + currentColumn)
     for (t <- terms)
@@ -480,7 +449,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
       val term2BitsPadded = term2Bits.padTo(maxBits, ZEROBIT).reverse
 
       // e_bits[b]: bit (bits-b) of i and j are equal
-      var e_bits = List() : List[Int]
+      var e_bits = List() : Seq[Int]
       // for (b <- 1 to maxBits) yield {
       for ((t1b, t2b) <- term1BitsPadded zip term2BitsPadded) {
 
@@ -497,7 +466,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
         }
       }
 
-      var m_bits = List() : List[Int]
+      var m_bits = List() : Seq[Int]
 
       // m_bits[b]: bits [bits..(bits-b)] of i are greater than j
       // for (b <- 1 to bits) {
@@ -526,7 +495,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
     }
   }
 
-  def addInitialColumn(assignments : Map[Int, List[Int]]) {
+  def addInitialColumn(assignments : Map[Int, Seq[Int]]) {
     val newColumn =
       MMap() ++ (for (t <- terms) yield
         (t, assignments(t))).toMap
@@ -542,10 +511,16 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
 
       val startBit = alloc.alloc(terms.length * bits)
 
-      val newColumn =
-        MMap() ++ (List.tabulate(terms.length)(x => {
-          (terms(x), List.tabulate(bits)(y => startBit + x*bits + y))
-        })).toMap
+      // val newColumn =
+      //   MMap() ++ (List.tabulate(terms.length)(x => {
+      //     (terms(x), List.tabulate(bits)(y => startBit + x*bits + y))
+      //   })).toMap
+
+      val newColumn = MMap() : MMap[Int, Seq[Int]]
+      for (t <- 0 until terms.length) {
+        val bitList = for (b <- 0 until bits) yield startBit + t*bits + b
+        newColumn += terms(t) -> bitList
+      }
 
       columns += newColumn
 
@@ -554,9 +529,9 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
       // termToIndex
       val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
 
-      def unifiable(args1 : List[Int], args2 : List[Int]) : Boolean = {
+      def unifiable(args1 : Seq[Int], args2 : Seq[Int]) : Boolean = {
         for ((a1, a2) <- (args1 zip args2)) {
-          if (diseq(a1)(a2) == 0)
+          if (!DQ(a1, a2))
             return false
         }
         return true
@@ -620,7 +595,7 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
 
         // --- CASE1: Not a representing term ---
 
-        for (tt <- terms; if t != tt; if (diseq(t)(tt) != 0)) {
+        for (tt <- terms; if t != tt; if (DQ(t, tt))) {
           val eqBit = termEqInt((currentColumn-1, t), tt)
           val asBit = termEqTerm((currentColumn, t), (currentColumn, tt))
 
@@ -713,9 +688,9 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
   }
 
   // TODO: Make sure goal variables are removed at "POP"
-  def addGoalConstraint(goals : List[List[(Int, Int)]]) = {
+  def addGoalConstraint = {
     val goalBits =
-      (for (g <- goals; if (!g.isEmpty)) yield {
+      (for (g <- goal; if (!g.isEmpty)) yield {
         val subGoals =
           (for ((s, t) <- g) yield {
             termEqTerm((currentColumn, s), (currentColumn, t))
@@ -738,78 +713,15 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
     }
   }
 
-  def getCompletionConstraint() = {
-    Timer.measure("getCompletionConstraint") {
-      val diff =
-        (for (t <- terms)
-        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))).toArray
-      
-      val cc = alloc.alloc(1)
-      gt.or(cc, new VecInt(diff))
-      cc
-    }
-  }
-
-  def addGoalCompletionConstraint(goals : List[List[(Int, Int)]]) = {
-    Timer.measure("addGoalCompletionConstraint") {
-      val goalBits =
-        (for (g <- goals) yield {
-          val subGoals =
-            (for ((s, t) <- g)
-            yield termEqTerm((currentColumn, s), (currentColumn, t))).toArray
-          
-          val subGoal = alloc.alloc(1)
-          gt.and(subGoal, new VecInt(subGoals))
-          subGoal
-        }).toArray
-
-      val goalBit = alloc.alloc(1)
-      gt.or(goalBit, new VecInt(goalBits))
-
-      val diff =
-        (for (t <- terms)
-        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))).toArray
-      
-      val solverClause = solver.addClause(new VecInt(goalBits ++ diff))
-      (solverClause, goalBit)
-    }
-  }
-
-  def getGoalCompletionConstraint(goals : List[List[(Int, Int)]]) = {
-    Timer.measure("getGoalCompletionConstraint") {
-      val goalBits =
-        (for (g <- goals) yield {
-          val subGoals =
-            (for ((s, t) <- g)
-            yield termEqTerm((currentColumn, s), (currentColumn, t))).toArray
-
-          val subGoal = alloc.alloc(1)
-          gt.and(subGoal, new VecInt(subGoals))
-          subGoal
-        }).toArray
-
-      val goalBit = alloc.alloc(1)
-      gt.or(goalBit, new VecInt(goalBits))
-
-      val diff =
-        for (t <- terms)
-        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))
-
-      val gc = alloc.alloc(1)
-      gt.or(gc, new VecInt(goalBits ++ diff))
-      (gc, goalBit)
-    }
-  }
-
   def addVConstraintAux = {
     // termToIndex 
     // converts a term into its index in terms ...
     val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
 
     // Returns true if args1 could equal args2
-    def unifiable(args1 : List[Int], args2 : List[Int]) : Boolean = {
+    def unifiable(args1 : Seq[Int], args2 : Seq[Int]) : Boolean = {
       for ((a1, a2) <- (args1 zip args2)) {
-        if (diseq(a1)(a2) == 0)
+        if (!DQ(a1, a2))
           return false
       }
       return true
@@ -867,3 +779,65 @@ class Table[FUNC](val bits : Int, alloc : Allocator,
     ret
   }
 }
+
+
+      // We have p problems, and we are dealing with the simultaneous problem,
+      // i.e. every problem must be solvable
+      // var allGoalPossible = true
+
+      // TODO: FIX
+      // val diseqedGoals =
+      //   (for (p <- 0 until problem.count) yield {
+      //     // This particular problem consists of subgoals,
+      //     // one of the subgoals must be solvable for the
+      //     // whole problem to be possible
+      //     (for (gs <- problem.goals(p)) yield {
+      //       // A subgoal consists of pairs of terms,
+      //       // all of the must be unifiable for this
+      //       // subgoal to be possible.
+
+      //       var allUnifiable = true
+      //       for ((s,t) <- gs) {
+      //         if (problem.diseq(p)(s)(t) == 0)
+      //           allUnifiable = false
+      //       }
+
+      //       (gs, allUnifiable)
+      //     }).filter(x => x._2).map(x => x._1).toList
+      //   }).toList
+
+
+      // if (diseqedGoals contains List()) {
+      //   // println("\tDISEQUALITY CHECK DEEMS PROBLEM IMPOSSIBLE")
+      //   return (None, Map())
+      // }
+
+
+            // def CCPerTable() : Boolean = {
+            //   // Check table per table
+            //   for (p <- 0 until problemCount) {
+            //     val cc =
+            //       tables(p).addCompletionConstraint()
+
+            //     // solver.setTimeoutMs(maxSolverRuntime)
+            //     val sat = solver.isSatisfiable()
+            //     solver.removeConstr(cc)
+
+            //     if (sat)
+            //       return true
+            //   }
+            //   false
+            // }
+
+            // def CCAllTables() : Boolean = {
+            //   val ccs =
+            //     for (p <- 0 until problemCount) yield
+            //       tables(p).addCompletionConstraint()
+
+            //   // solver.setTimeoutMs(maxSolverRuntime)
+            //   val sat = solver.isSatisfiable()
+            //   for (cc <- ccs)
+            //     solver.removeConstr(cc)
+
+            //   sat
+            // }
