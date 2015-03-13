@@ -193,7 +193,7 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
     }
   }
 
-  def solve() = solveAsserted()
+  def solve() = checkAndsolve()
 
   var model = None : Option[Map[TERM, TERM]]
   def getModel() = model.get
