@@ -133,7 +133,11 @@ class AddFactsTask(_formula : Conjunction, _age : Int)
       val collector = goal.getInferenceCollector
       val updatedFacts = Conjunction(List(), allFacts.iterator, collector, order)
       
-      val newTasks = if (hasPreds) (LazyMatchTask addTask goal) else List()
+      val newTasks =
+        if (hasPreds || !goal.compoundFormulas.lazyQuantifiedClauses.isEmpty)
+          LazyMatchTask addTask goal
+        else
+          List()
       ptf.updateGoal(updatedFacts, newTaskManager ++ newTasks,
                      collector.getCollection, goal)
       

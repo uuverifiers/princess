@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -63,6 +63,7 @@ object Debug {
   case object AC_PROOF_TREE extends ASSERTION_CATEGORY
   case object AC_CONSTRAINT_SIMPLIFIER extends ASSERTION_CATEGORY
   case object AC_PROVER extends ASSERTION_CATEGORY
+  case object AC_SIGNATURE extends ASSERTION_CATEGORY
   case object AC_GOAL extends ASSERTION_CATEGORY
   case object AC_FACTS_TASK extends ASSERTION_CATEGORY
   case object AC_ELIM_FACTS_TASK extends ASSERTION_CATEGORY  

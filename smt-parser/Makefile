@@ -40,6 +40,7 @@ smtlib.tex: smtlib.cf
 
 $(PARSER_BINDIR)/smtlib/Absyn/smtlib.java: smtlib.cf
 	bnfc -java1.5 smtlib.cf
+	cd smtlib && patch -p0 <../smtlib.cup.patch
 
 $(PARSER_BINDIR)/smtlib/Absyn/smtlib.class: $(PARSER_BINDIR)/smtlib/Absyn/smtlib.java
 	${JAVAC} ${JAVAC_FLAGS} -d $(PARSER_BINDIR) smtlib/Absyn/*.java

@@ -74,9 +74,11 @@ object ModelSearchProver {
     Debug.assertPre(ModelSearchProver.AC,
                     inputFor.variables.isEmpty && (order isSortingOf inputFor))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    cache(inputFor) {
+    cache.cached(inputFor) {
       applyHelp(List(Conjunction.conj(inputFor, order)),
                 order, GoalSettings.DEFAULT, FullModelDirector).left.get
+    } {
+      result => result sortBy order
     }
   }
 
@@ -139,12 +141,13 @@ object ModelSearchProver {
            * never provided) in a certificate
            * 
           val badFormula =
-            (cert.assumedFormulas -- (Set() ++ (for (d <- disjuncts.iterator) yield d.negate))).iterator.next
+            (cert.assumedFormulas --
+             (Set() ++ (for (d <- disjuncts.iterator) yield CertFormula(d.negate)))).iterator.next
           println(badFormula)
 
           def traceBF(c : Certificate) : Unit = {
             println(c)
-            for (d <- c) {
+            for (d <- c.subCertificates) {
               if (d.assumedFormulas contains badFormula)
                 traceBF(d)
             }

@@ -264,7 +264,8 @@ object ParallelFileProver {
                       "proved (" + runtime + "ms)"
                     case _ : Prover.NoProof |
                              Prover.NoModel |
-                         _ : Prover.CounterModel => "gave up"
+                         _ : Prover.CounterModel |
+                         _ : Prover.MaybeCounterModel => "gave up"
                     case _ => "terminated"
                   })
                   mainActor ! SubProverFinished(num, prover.result)
@@ -314,8 +315,11 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     // we currently ignore the NoProof result, since the way in which
     // finite domain guards are introduced destroys completeness in some
     // rare cases
-    case Prover.NoProof(_) | Prover.Invalid(_) => true
-    case Prover.NoModel | Prover.CounterModel(_)
+    case Prover.NoProof(_) |
+         Prover.Invalid(_) |
+         Prover.MaybeCounterModel(_) => true
+    case Prover.NoModel |
+         Prover.CounterModel(_)
       if (!settings(num).complete) => true
     case _ => false
   }

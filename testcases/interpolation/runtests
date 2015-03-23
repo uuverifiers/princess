@@ -20,13 +20,26 @@ TESTS="columnRed.pri cryptarithm.pri \
        incorrectPredInterpolant.pri certificateBug.pri \
        missingOmegaSupport.pri bignum_lia1.pri \
        linear-combination-bug.pri div-right-bug.pri \
-       tree.pri axiom-instantiation-bug.pri"
+       tree.pri axiom-instantiation-bug.pri \
+       nonlin.pri"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 
 $PRI "$@" $TESTS
 
 # Some examples that need special settings.
+
+# Examples where -genTotalityAxioms is needed
+
+TESTS="function-bug.smt2 function-bug2.smt2"
+
+$PRI "$@" -genTotalityAxioms $TESTS
+
+# +incremental mode
+
+TESTS="pred-unify-bug.smt2 rule60_list2.c_false-unreach-call_1.cil.c.smt2"
+
+$PRI "$@" +incremental $TESTS
 
 # Testing some large examples for which we have to switch off assertions
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2015 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -154,7 +154,11 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                      TPTPTParser.Rank,
                                      TPTPTParser.Rank],
                   settings : ParserSettings)
-      extends Parser2InputAbsy(_env, settings)
+      extends Parser2InputAbsy[TPTPTParser.Type,
+                               TPTPTParser.Type,
+                               TPTPTParser.Rank,
+                               TPTPTParser.Rank,
+                               Unit](_env, settings)
       with JavaTokenParsers with PackratParsers {
 
   import IExpression._
@@ -466,12 +470,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
    */
   private var functionalityAxiom = true
 
-  protected def defaultFunctionType(f : IFunction) : Rank = tptpType match {
+/*  protected def defaultFunctionType(f : IFunction) : Rank = tptpType match {
     case TPTPType.FOF | TPTPType.CNF =>
       Rank(((for (_ <- 0 until f.arity) yield IType).toList, IType))
     case TPTPType.TFF =>
       Rank(((for (_ <- 0 until f.arity) yield IntType).toList, IntType))
-  }
+  } */
 
   private val arithmeticPreds = Set(
     "$less",
@@ -1732,56 +1736,38 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case ("$difference",  Seq(IntType, IntType))  => (args(0)._1 - args(1)._1, IntType)
     case ("$product",     Seq(IntType, IntType))  => (mult(args(0)._1, args(1)._1), IntType)
     case ("$uminus",      Seq(IntType))           => (-args(0)._1, IntType)
+
     case ("$quotient_e",  Seq(IntType, IntType))  => {
       // Euclidian division
-      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
-      (eps((mult(v(0), denom) <= num) &
-           ((num < mult(v(0), denom) + denom) | (num < mult(v(0), denom) - denom))),
-       IntType)
+      val Seq(num, denom) = for ((a, _) <- args) yield a
+      (mulTheory.eDiv(num, denom), IntType)
     }
     case ("$remainder_e",  Seq(IntType, IntType))  => {
       // Euclidian remainder
-      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
-      (eps((v(0) >= 0) & ((v(0) < denom) | (v(0) < -denom)) &
-           ex(VariableShiftVisitor(num, 0, 1) ===
-              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
-       IntType)
+      val Seq(num, denom) = for ((a, _) <- args) yield a
+      (mulTheory.eMod(num, denom), IntType)
     }
 
     case ("$quotient_t",  Seq(IntType, IntType))  => {
       // Truncation division
-      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
-      val rem = num - mult(v(0), denom)
-      (eps(((rem < denom) | (rem < -denom)) & ((-rem < denom) | (-rem < -denom)) &
-           ((rem > 0) ==> (num > 0)) & ((rem < 0) ==> (num < 0))),
-       IntType)
+      val Seq(num, denom) = for ((a, _) <- args) yield a
+      (mulTheory.tDiv(num, denom), IntType)
     }
     case ("$remainder_t",  Seq(IntType, IntType))  => {
-      // Truncation division
-      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
-      (eps(((v(0) < denom) | (v(0) < -denom)) & ((-v(0) < denom) | (-v(0) < -denom)) &
-           ((v(0) > 0) ==> (num > 0)) & ((v(0) < 0) ==> (num < 0)) &
-           ex(VariableShiftVisitor(num, 0, 1) ===
-              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
-       IntType)
+      // Truncation remainder
+      val Seq(num, denom) = for ((a, _) <- args) yield a
+      (mulTheory.tMod(num, denom), IntType)
     }
 
     case ("$quotient_f",  Seq(IntType, IntType))  => {
       // Floor division
-      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
-      val rem = num - mult(v(0), denom)
-      (eps(((rem < denom) | (rem < -denom)) & ((-rem < denom) | (-rem < -denom)) &
-           ((rem > 0) ==> (denom > 0)) & ((rem < 0) ==> (denom < 0))),
-       IntType)
+      val Seq(num, denom) = for ((a, _) <- args) yield a
+      (mulTheory.fDiv(num, denom), IntType)
     }
     case ("$remainder_f",  Seq(IntType, IntType))  => {
-      // Floor division
-      val Seq(num, denom) = for ((a, _) <- args) yield VariableShiftVisitor(a, 0, 1)
-      (eps(((v(0) < denom) | (v(0) < -denom)) & ((-v(0) < denom) | (-v(0) < -denom)) &
-           ((v(0) > 0) ==> (denom > 0)) & ((v(0) < 0) ==> (denom < 0)) &
-           ex(VariableShiftVisitor(num, 0, 1) ===
-              mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1))),
-       IntType)
+      // Floor remainder
+      val Seq(num, denom) = for ((a, _) <- args) yield a
+      (mulTheory.fMod(num, denom), IntType)
     }
 
     case ("$to_int",      Seq(IntType))           => args(0)

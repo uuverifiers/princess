@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,8 +25,11 @@ import ap.parser.{ITerm, IFormula, IExpression, IFunction}
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.preds.Predicate
 import ap.theories.Theory
+import ap.util.Debug
 
 object Signature {
+  private val AC = Debug.AC_SIGNATURE
+
   abstract class FunctionType {
     def argumentTypeGuard(args : Seq[ITerm]) : IFormula
     def resultTypeGuard  (res : ITerm)       : IFormula
@@ -109,4 +112,26 @@ class Signature(val universalConstants : Set[ConstantTerm],
     new Signature(universalConstants, existentialConstants,
                   nullaryFunctions, predicateMatchConfig, order, theories,
                   domainPredicates, newFunctionTypes)
+
+  def addTheories(additionalTheories : Seq[Theory]) : Signature =
+    if (additionalTheories.isEmpty) {
+      this
+    } else {
+      val newTheories = this.theories ++ additionalTheories
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(Signature.AC, newTheories.toSet.size == newTheories.size)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      Signature(this.universalConstants,
+                this.existentialConstants,
+                this.nullaryFunctions,
+                this.predicateMatchConfig ++ (
+                  for (t <- additionalTheories.iterator;
+                       p <- t.predicateMatchConfig.iterator) yield p),
+                (this.order /: additionalTheories) { case (o, t) => t extend o },
+                newTheories,
+                domainPredicates,
+                functionTypes)
+    }
 }

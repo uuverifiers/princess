@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -60,7 +60,7 @@ class IntelliFileProver(reader : java.io.Reader,
           ProofWithModel(tree, toIFormula(findModel(tree.closingConstraint)))
         else
           Proof(tree)
-      } else if (signature.order.orderedPredicates.isEmpty) {
+      } else if (soundForSat) {
         Invalid(tree)
       } else {
         NoProof(tree)
@@ -116,8 +116,10 @@ class IntelliFileProver(reader : java.io.Reader,
         case Left(model) =>
           if (model.isFalse)
             NoCounterModel
-          else
+          else if (soundForSat)
             CounterModel(toIFormula(model))
+          else
+            MaybeCounterModel(toIFormula(model))
         case Right(cert) if (!interpolantSpecs.isEmpty) => {
           val finalCert = Console.withOut(Console.err) {
             val c = processCert(cert)
@@ -149,22 +151,6 @@ class IntelliFileProver(reader : java.io.Reader,
     }
 
   val result : Prover.Result = {
-    val constants =
-      Set() ++ (for (f <- formulas.iterator; c <- f.constants.iterator) yield c)
-    val quantifiers =
-      Set() ++ (for (f <- formulas.iterator;
-                     q <- Conjunction.collectQuantifiers(f).iterator) yield q)
-    val predicateMatchConfig = Param.PREDICATE_MATCH_CONFIG(goalSettings)
-    val isFullyMatchable =
-      formulas forall (IterativeClauseMatcher isMatchableRec(_, predicateMatchConfig))
-
-    val canUseModelSearchProver =
-      Seqs.disjoint(constants, signature.existentialConstants) &&
-      (if (Param.POS_UNIT_RESOLUTION(goalSettings))
-         isFullyMatchable
-       else
-         (quantifiers subsetOf Set(Quantifier.ALL)))
-    
     // currently, only the ModelSearchProver can construct proofs
     if (Param.PROOF_CONSTRUCTION(goalSettings) && !canUseModelSearchProver)
       throw new Exception ("Currently no proofs can be constructed for the given" +
@@ -172,14 +158,14 @@ class IntelliFileProver(reader : java.io.Reader,
                            " quantifiers that cannot be\nhandled by unit resolution.\n" +
                            "You might want to use the option -genTotalityAxioms")
       
-    if ((formulas exists (_.isTrue)) || canUseModelSearchProver) {
+    if (canUseModelSearchProver) {
       // try to find a countermodel
       counterModelResult
     } else if (!Param.MOST_GENERAL_CONSTRAINT(settings) &&
                Param.FINITE_DOMAIN_CONSTRAINTS(settings) == Param.FiniteDomainConstraints.None &&
-               (constants subsetOf signature.existentialConstants) &&
+               (formulaConstants subsetOf signature.existentialConstants) &&
                (formulas forall ((f) => f.predicates.isEmpty)) &&
-               (quantifiers subsetOf Set(Quantifier.EX))) {
+               (formulaQuantifiers subsetOf Set(Quantifier.EX))) {
       // try to find a model
       modelResult
     } else {

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -36,6 +36,30 @@ object SimpleArray {
 
   def apply(arity : Int) : SimpleArray = synchronized {
     instances.getOrElseUpdate(arity, new SimpleArray(arity))
+  }
+
+  /**
+   * Extractor recognising the <code>select</code> function of
+   * any array theory.
+   */
+  object Select {
+    def unapply(fun : IFunction) : Boolean =
+      (TheoryRegistry lookupSymbol fun) match {
+        case Some(t : SimpleArray) => fun == t.select
+        case _ => false
+      }
+  }
+
+  /**
+   * Extractor recognising the <code>store</code> function of
+   * any array theory.
+   */
+  object Store {
+    def unapply(fun : IFunction) : Boolean =
+      (TheoryRegistry lookupSymbol fun) match {
+        case Some(t : SimpleArray) => fun == t.store
+        case _ => false
+      }
   }
 
 }
@@ -78,6 +102,20 @@ class SimpleArray private (arity : Int) extends Theory {
     List((select, predicates(0)), (store, predicates(1)))
 
   val plugin = None
+
+  override def isSoundForSat(theories : Seq[Theory],
+                             config : Theory.SatSoundnessConfig.Value) : Boolean =
+    config match {
+      case Theory.SatSoundnessConfig.Elementary |
+           Theory.SatSoundnessConfig.Existential =>
+        theories forall {
+          t => t.isInstanceOf[SimpleArray] ||
+               t == BitShiftMultiplication ||
+               t == nia.GroebnerMultiplication
+        }
+      case Theory.SatSoundnessConfig.General =>
+        false
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 

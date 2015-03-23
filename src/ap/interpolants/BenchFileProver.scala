@@ -89,7 +89,7 @@ class BenchFileProver(filename : String,
         val lin = new SMTLineariser(filename, "QF_LIA", "unknown",
                                     order sort order.orderedConstants,
                                     order sortPreds order.orderedPredicates,
-                                    "fun", "pred", "const")
+                                    "fun", "pred", "const", null, null)
     
         for ((f, i) <- iFormulas.iterator.zipWithIndex) {
           println(":formula " + i)
@@ -103,7 +103,7 @@ class BenchFileProver(filename : String,
     	val lin = new SMTLineariser(filename, "QF_LIA", "unknown",
     			                    order sort order.orderedConstants,
     			                    order sortPreds order.orderedPredicates,
-                                    "fun", "pred", "const")
+                                    "fun", "pred", "const", null, null)
     
         println(":notes \"Interpolation Problem starts here\"")
     

@@ -58,11 +58,14 @@ The symbols used in ApInput are the following: \\
 {\symb{$\backslash$functions}} &{\symb{$\backslash$universalConstants}} &{\symb{$\backslash$predicates}} \\
 {\symb{$\backslash$interpolant}} &{\symb{;}} &{\symb{$\backslash$existentialConstants}} \\
 {\symb{$\backslash$metaVariables}} &{\symb{{$<$}{$-$}{$>$}}} &{\symb{{$-$}{$>$}}} \\
-{\symb{{$|$}}} &{\symb{\&}} &{\symb{!}} \\
-{\symb{$\backslash$eps}} &{\symb{$\backslash$part}} &{\symb{[}} \\
-{\symb{]}} &{\symb{{$+$}}} &{\symb{{$-$}}} \\
-{\symb{*}} &{\symb{$\backslash$if}} &{\symb{(}} \\
-{\symb{)}} &{\symb{$\backslash$then}} &{\symb{$\backslash$else}} \\
+{\symb{{$<$}{$-$}}} &{\symb{{$|$}}} &{\symb{\&}} \\
+{\symb{!}} &{\symb{$\backslash$abs}} &{\symb{$\backslash$max}} \\
+{\symb{$\backslash$min}} &{\symb{$\backslash$distinct}} &\\
+{\symb{$\backslash$eps}} &{\symb{$\backslash$part}} &\\
+{\symb{[}} &{\symb{]}} &{\symb{{$+$}}} \\
+{\symb{{$-$}}} &{\symb{*}} &{\symb{/}} \\
+{\symb{\%}} &{\symb{\^}} &{\symb{$\backslash$if}} \\
+{\symb{(}} &{\symb{)}} &{\symb{$\backslash$then}} &{\symb{$\backslash$else}} \\
 {\symb{$\backslash$forall}} &{\symb{$\backslash$exists}} &{\symb{{$=$}}} \\
 {\symb{!{$=$}}} &{\symb{{$<$}{$=$}}} &{\symb{{$>$}{$=$}}} \\
 {\symb{{$<$}}} &{\symb{{$>$}}} &{\symb{,}} \\
@@ -113,6 +116,7 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{Expression1}} & {\arrow}  &{\nonterminal{Expression2}} {\terminal{{$-$}{$>$}}} {\nonterminal{Expression1}}  \\
+ & {\delimit}  &{\nonterminal{Expression1}} {\terminal{{$<$}{$-$}}} {\nonterminal{Expression2}}  \\
  & {\delimit}  &{\nonterminal{Expression2}}  \\
 \end{tabular}\\
 
@@ -150,18 +154,29 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{Expression7}} & {\arrow}  &{\nonterminal{Expression7}} {\terminal{*}} {\nonterminal{Expression8}}  \\
+ & {\delimit}  &{\nonterminal{Expression7}} {\terminal{/}} {\nonterminal{Expression8}}  \\
+ & {\delimit}  &{\nonterminal{Expression7}} {\terminal{\%}} {\nonterminal{Expression8}}  \\
  & {\delimit}  &{\nonterminal{Expression8}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression8}} & {\arrow}  &{\terminal{{$+$}}} {\nonterminal{Expression8}}  \\
- & {\delimit}  &{\terminal{{$-$}}} {\nonterminal{Expression8}}  \\
- & {\delimit}  &{\terminal{$\backslash$if}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$then}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$else}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
+{\nonterminal{Expression8}} & {\arrow}  &{\terminal{{$+$}}} {\nonterminal{Expression9}}  \\
+ & {\delimit}  &{\terminal{{$-$}}} {\nonterminal{Expression9}}  \\
  & {\delimit}  &{\nonterminal{Expression9}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression9}} & {\arrow}  &{\nonterminal{Ident}} {\nonterminal{OptArgs}}  \\
+{\nonterminal{Expression9}} & {\arrow}  &{\nonterminal{Expression9}} {\terminal{\^}} {\nonterminal{Expression10}}  \\
+ & {\delimit}  &{\nonterminal{Expression10}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{Expression10}} & {\arrow}  &{\terminal{$\backslash$if}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$then}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$else}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
+ & {\delimit}  &{\terminal{$\backslash$abs}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
+ & {\delimit}  &{\terminal{$\backslash$max}} {\nonterminal{OptArgs}}  \\
+ & {\delimit}  &{\terminal{$\backslash$min}} {\nonterminal{OptArgs}}  \\
+ & {\delimit}  &{\terminal{$\backslash$distinct}} {\nonterminal{OptArgs}}  \\
+ & {\delimit}  &{\nonterminal{Ident}} {\nonterminal{OptArgs}}  \\
  & {\delimit}  &{\nonterminal{IntLit}}  \\
  & {\delimit}  &{\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
 \end{tabular}\\

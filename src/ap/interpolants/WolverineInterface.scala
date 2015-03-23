@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010,2011 Philipp Ruemmer <ph_r@gmx.net>
- *                         Angelo Brillout <bangelo@inf.ethz.ch>
+ * Copyright (C) 2010-2015 Philipp Ruemmer <ph_r@gmx.net>
+ *               2010,2011 Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -273,7 +273,7 @@ class WolverineInterpolantLineariser extends CollectingVisitor[List[String], Uni
         print("divides "); print(c); print(" ")
         visit(t, "" :: boundVars)
         print(") ")
-        ShortCutResult()
+        ShortCutResult(())
       }
 
       case IQuantified(Quantifier.ALL,
@@ -281,7 +281,7 @@ class WolverineInterpolantLineariser extends CollectingVisitor[List[String], Uni
         print("! (divides "); print(c); print(" ")
         visit(t, "" :: boundVars)
         print(")) ")
-        ShortCutResult()
+        ShortCutResult(())
       }
 
       case _ : IIntLit =>                 printOp("lit")
@@ -310,7 +310,7 @@ class WolverineInterpolantLineariser extends CollectingVisitor[List[String], Uni
           case Difference(t1, t2) => {
             visit(t1, boundVars); visit(t2, boundVars)
             print(") ")
-            ShortCutResult()
+            ShortCutResult(())
           }
           case _ => KeepArg
         }

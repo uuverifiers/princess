@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -109,7 +109,7 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ConstraintSimplifier.AC, order isSortingOf rawF)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    cache(rawF) {
+    cache.cached(rawF) {
       val f = ReduceWithConjunction(Conjunction.TRUE, order)(rawF)
       collectQuantifiers(f) match {
 //      case ALL | EX if (!f.quans.isEmpty) => simplifyMiniScope(f, order)
@@ -121,6 +121,12 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
         else
           f
       }
+    } {
+      result =>
+        // There is a small chance that we will get a result that is wrongly
+        // sorted, since the <code>TermOrder</code> is not part of the cache
+        // key. Therefore we sort the result properly in any case.
+        result sortBy order
     }
   }
   

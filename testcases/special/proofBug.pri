@@ -1,3 +1,6 @@
+// This example was previously provable (or alternatively led
+// to an assertion failure)
+
 \functions {
   \partial int union(int, int);
   \partial int intersect(int, int);

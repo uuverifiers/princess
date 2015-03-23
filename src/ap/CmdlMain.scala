@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,14 +30,15 @@ import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
-                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface}
+                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
+                  SMTParser2InputAbsy}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
   class GaveUpException(_msg : String) extends Exception(_msg)
 
-  private val version = "CASC version 2014-07-04"
+  val version = "CASC version 2014-07-04"
 
   def printGreeting = {
     println("________       _____")                                 
@@ -49,7 +50,7 @@ object CmdlMain {
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println
-    println("(c) Philipp Rümmer, 2009-2014")
+    println("(c) Philipp Rümmer, 2009-2015")
     println("(contributions by Peter Backeman, Peter Baumgartner,")
     println("                  Angelo Brillout, Aleksandar Zeljic)")
     println("Free software under GNU Lesser General Public License (LGPL).")
@@ -73,11 +74,14 @@ object CmdlMain {
     println(" -inputFormat=val          Specify format of problem file:       (default: auto)")
     println("                             auto, pri, smtlib, tptp")
     println(" [+-]stdin                 Read SMT-LIB 2 problems from stdin       (default: -)")
+    println(" [+-]incremental           Incremental SMT-LIB 2 interpreter        (default: -)")
+    println("                             (+incremental implies -genTotalityAxioms)")
     println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
     println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
     println(" [+-]assert                Enable runtime assertions                (default: -)")
     println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
+    println(" -timeoutPer=val           Set a timeout per SMT-LIB query (ms) (default: infty)")
     println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: -)")
     println(" -simplifyConstraints=val  How to simplify constraints:")
     println("                             none:   not at all")
@@ -109,8 +113,8 @@ object CmdlMain {
     println(" [+-]triggersInConjecture  Generate triggers in conjectures         (default: +)")
     println(" [+-]splitConjectures      Split conjunctions in conjectures        (default: -)")
     println(" -mulProcedure=val         Handling of nonlinear integer formulae")
-    println("                             bitShift: axioms encoding shift-and-add (default)")
-    println("                             native:   built-in methods (Groebner, etc.)")
+    println("                             bitShift: shift-and-add axiom")
+    println("                             native:   built-in theory solver       (default)")
     println(" -constructProofs=val      Extract proofs")
     println("                             never")
     println("                             ifInterpolating: if \\interpolant occurs (default)")
@@ -465,7 +469,7 @@ List(
             
             Some(result)
           } catch {
-      case _ : StackOverflowError => Console.withOut(Console.err) {
+      case _ : StackOverflowError => {
         format match {
           case Param.InputFormat.SMTLIB => {
             println("unknown")
@@ -481,7 +485,7 @@ List(
         // let's hope that everything is still in a valid state
         None
       }
-      case _ : OutOfMemoryError => Console.withOut(Console.err) {
+      case _ : OutOfMemoryError => {
         format match {
           case Param.InputFormat.SMTLIB => {
             println("unknown")
@@ -527,7 +531,22 @@ List(
   
   def proveMultiSMT(settings : GlobalSettings,
                     input : java.io.BufferedReader,
-                    userDefStoppingCond : => Boolean) = {
+                    userDefStoppingCond : => Boolean) = try {
+    val assertions = Param.ASSERTIONS(settings)
+    Debug.enableAllAssertions(assertions)
+    SimpleAPI.withProver(enableAssert = assertions,
+                         sanitiseNames = false,
+                         genTotalityAxioms = 
+                           Param.GENERATE_TOTALITY_AXIOMS(settings) ==
+                           Param.TotalityAxiomOptions.All) { p =>
+      val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
+      parser.processIncrementally(input,
+                                  Param.TIMEOUT(settings),
+                                  Param.TIMEOUT_PER(settings),
+                                  userDefStoppingCond)
+    }
+
+/*
     implicit val format = Param.InputFormat.SMTLIB
     val interface = new IncrementalSMTLIBInterface {
       protected def solve(input : String) : Option[Prover.Result] = {
@@ -539,6 +558,22 @@ List(
       }
     }
     interface.readInputs(input, settings)
+*/
+  } catch {
+      case _ : StackOverflowError => {
+        println("unknown")
+        Console.err.println("Stack overflow, giving up")
+      }
+      case _ : OutOfMemoryError => {
+        println("unknown")
+        Console.err.println("Out of memory, giving up")
+        System.gc
+      }
+      case e : Throwable => {
+        println("error")
+	Console.err.println(e.getMessage)
+//         e.printStackTrace
+      }
   }
   
   def proveProblems(settings : GlobalSettings,
@@ -548,7 +583,7 @@ List(
                    (implicit format : Param.InputFormat.Value) = {
     Console.err.println("Loading " + name + " ...")
     format match {
-      case Param.InputFormat.SMTLIB =>
+      case Param.InputFormat.SMTLIB if (Param.INCREMENTAL(settings)) =>
         proveMultiSMT(settings, input(), userDefStoppingCond)
       case _ => {
         proveProblem(settings, name, input, userDefStoppingCond)
@@ -593,6 +628,14 @@ List(
                   printFormula(model)
                 }
               }
+              case Prover.MaybeCounterModel(model) =>  {
+                println("unknown")
+                Console.withOut(Console.err) {
+                  println
+                  println("Possible model:")
+                  printFormula(model)
+                }
+              }
               case Prover.NoCounterModel =>  {
                 println("unsat")
               }
@@ -603,6 +646,9 @@ List(
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("unsat")
                 printDOTCertificate(cert, settings)
+                Console.err.println
+                Console.err.println("Interpolants:")
+                for (i <- inters) printFormula(i)
               }
               case Prover.Model(model) =>  {
                 println("unsat")
@@ -713,6 +759,24 @@ List(
                 }
                 
                 println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
+              }
+              case Prover.MaybeCounterModel(model) =>  {
+                Console.withOut(Console.err) {
+                model match {
+                  case IBoolLit(true) => // nothing
+                  case _ => {
+                    println
+                    println("Possible countermodel:")
+                    printFormula(model)
+                  }
+                }
+                }
+                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  println
+                  println("Most-general constraint:")
+                  println("false")
+                }
+                println("% SZS status GaveUp for " + lastFilename)
               }
               case Prover.NoCounterModel =>  {
                 Console.err.println("No countermodel exists, formula is valid")

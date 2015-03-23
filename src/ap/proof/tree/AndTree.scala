@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -191,10 +191,19 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
 
   lazy val subtrees : Seq[ProofTree] = Array(left, right)
     
-  lazy val closingConstraint : Conjunction =
-    simplifier(Conjunction.conj(for (t <- subtrees.iterator) yield t.closingConstraint,
-                                order),
-               order)
+  lazy val closingConstraint : Conjunction = {
+    val res =
+      simplifier(Conjunction.conj(for (t <- subtrees.iterator)
+                                    yield t.closingConstraint,
+                                  order),
+                 order)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(AndTree.AC, order isSortingOf res)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    res
+  }
 
   lazy val closingConstantFreedom : ConstantFreedom =
     left.closingConstantFreedom meet right.closingConstantFreedom

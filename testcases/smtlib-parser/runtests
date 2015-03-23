@@ -16,10 +16,17 @@ TESTS="bignum_quant.smt2 \
        array-interpolation.smt2 \
        define-fun.smt2 define-fun2.smt2 define-fun3.smt2 \
        define-fun-interpolation.smt2 \
-       multiple-check-sat.smt2 seconds.smt2 \
+       seconds.smt2 \
        quotes.smt2 extensions.smt2 boolean-quant.smt2 \
-       simple-joogie.smt2 define-fun-bug.smt2 boolean-array.smt2"
+       define-fun-bug.smt2 boolean-array.smt2"
 
 $PRI "$@" $TESTS
+
+TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
+       named-interpolation.smt2 LockingExample.bpl.smt2 \
+       let3.smt2 BugBooleanFunction.smt2 Typedef-safe.bpl.smt2 \
+       missingLazyMatch.smt2"
+
+$PRI "$@" +incremental $TESTS
 
 $PRI "$@" +boolFunsAsPreds changing_truth_value_unsafe_garbage.c.smt2

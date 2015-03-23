@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -144,43 +144,46 @@ object IterativeClauseMatcher {
           if (!newEqs.isFalse) {
             val allOriConstants =
               UnionSet(originatingConstants, originalClause.constants)
-            if (logger.isLogging) {
-              // If we are logging, we avoid simplifications (which would not
-              // be captured in the proof) and rather just substitute terms for
-              // the quantified variables. Hopefully this is possible ...
-              
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              // Currently, we just assume that all leading quantifiers are
-              // existential (is the other case possible at all?)
-              Debug.assertInt(IterativeClauseMatcher.AC,
-                              quans forall (Quantifier.EX == _))
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              
-              val reducer = ReduceWithEqs(newEqs, order)
-              val instanceTerms =
-                (for (i <- 0 until quans.size)
-                 yield reducer(LinearCombination(VariableTerm(i), order))).toList
 
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              Debug.assertInt(IterativeClauseMatcher.AC,
-                              instanceTerms forall (_.variables.isEmpty))
-              //-END-ASSERTION-/////////////////////////////////////////////////
+            val newAC = arithConj.updatePositiveEqs(newEqs)(order)
+            val reducedInstance = 
+              contextReducer(Conjunction(quans, newAC, remainingLits,
+                                         negConjs, order))
 
-              val instance = originalClause.instantiate(instanceTerms)(order)
-              if (!contextReducer(instance).isFalse &&
-                  isNotRedundant(instance, allOriConstants)) {
-                logger.groundInstantiateQuantifier(originalClause.negate,
-                                                   instanceTerms, instance.negate, order)
-                instances += instance
+            if (!reducedInstance.isFalse) {
+              if (logger.isLogging) {
+                // If we are logging, we avoid simplifications (which would not
+                // be captured in the proof) and rather just substitute terms for
+                // the quantified variables. Hopefully this is possible ...
+                
+                //-BEGIN-ASSERTION-///////////////////////////////////////////////
+                // Currently, we just assume that all leading quantifiers are
+                // existential (is the other case possible at all?)
+                Debug.assertInt(IterativeClauseMatcher.AC,
+                                quans forall (Quantifier.EX == _))
+                //-END-ASSERTION-/////////////////////////////////////////////////
+                
+                val reducer = ReduceWithEqs(newEqs, order)
+                val instanceTerms =
+                  (for (i <- 0 until quans.size)
+                   yield reducer(LinearCombination(VariableTerm(i), order))).toList
+  
+                //-BEGIN-ASSERTION-///////////////////////////////////////////////
+                Debug.assertInt(IterativeClauseMatcher.AC,
+                                instanceTerms forall (_.variables.isEmpty))
+                //-END-ASSERTION-/////////////////////////////////////////////////
+  
+                val instance = originalClause.instantiate(instanceTerms)(order)
+                  if (isNotRedundant(instance, allOriConstants)) {
+                  logger.groundInstantiateQuantifier(originalClause.negate,
+                                                     instanceTerms, instance.negate, order)
+                  instances += instance
+                }
+                
+              } else {
+                if (isNotRedundant(reducedInstance, allOriConstants))
+                  instances += reducedInstance
               }
-              
-            } else {
-              val newAC = arithConj.updatePositiveEqs(newEqs)(order)
-              val reducedInstance = 
-                contextReducer(Conjunction(quans, newAC, remainingLits,
-                                           negConjs, order))
-              if (isNotRedundant(reducedInstance, allOriConstants))
-                instances += reducedInstance
             }
           }
           
@@ -336,12 +339,14 @@ object IterativeClauseMatcher {
    * for some predicates the negative occurrences are resolved
    */
   private def isPositivelyMatched(pred : Predicate)
-                                 (implicit config : PredicateMatchConfig) : Boolean =
-    config.getOrElse(pred, PredicateMatchStatus.Positive) == PredicateMatchStatus.Positive
+                      (implicit config : PredicateMatchConfig) : Boolean =
+    config.getOrElse(pred, PredicateMatchStatus.Positive) ==
+      PredicateMatchStatus.Positive
 
   private def isNegativelyMatched(pred : Predicate)
-                                 (implicit config : PredicateMatchConfig) : Boolean =
-    config.getOrElse(pred, PredicateMatchStatus.Positive) == PredicateMatchStatus.Negative
+                      (implicit config : PredicateMatchConfig) : Boolean =
+    config.getOrElse(pred, PredicateMatchStatus.Positive) ==
+      PredicateMatchStatus.Negative
 
   object Matchable extends Enumeration {
     val No, ProducesLits, Complete = Value
@@ -428,6 +433,44 @@ object IterativeClauseMatcher {
        (0 until lastUniQuantifier) forall (matchedVariables contains _)
      }) &&
     (c.negatedConjs forall (isMatchableRecHelp(_, !negated, config)))
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Determine the set of predicates that are matched in some
+   * quantified expression
+   */
+  def matchedPredicatesRec(c : Conjunction,
+                           config : PredicateMatchConfig) : Set[Predicate] =
+    matchedPredicatesRecHelp(c, false, config)
+
+  private def matchedPredicatesRecHelp(
+                c : Conjunction,
+                negated : Boolean,
+                config : PredicateMatchConfig) : Set[Predicate] = {
+    implicit val _config = config
+
+    val subPreds =
+      (for (d <- c.negatedConjs.iterator;
+            p <- matchedPredicatesRecHelp(d, !negated, config).iterator)
+       yield p).toSet
+
+    val lastUniQuantifier = (c.quans lastIndexOf Quantifier(negated)) match {
+      case -1 => 0
+      case x => x + 1
+    }
+
+    if (!((c.quans take lastUniQuantifier) contains (Quantifier(!negated))) &&
+        lastUniQuantifier > 0 &&
+        !c.isQuantifiedDivisibility && !c.isQuantifiedNonDivisibility &&
+        ((c.size == 1 && c.predConj.isLiteral) || !negated)) {
+      val (matchLits, _) =
+        determineMatchedLits(if (negated) c.predConj.negate else c.predConj)
+      subPreds ++ (for (a <- matchLits.iterator) yield a.pred)
+    } else {
+      subPreds
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -764,6 +807,8 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
   
   def isSortedBy(order : TermOrder) : Boolean =
     (currentFacts isSortedBy order) && (clauses isSortedBy order)
+
+  def isEmpty : Boolean = clauses.isEmpty
   
   override def toString : String =
     "(" + this.currentFacts + ", " + this.clauses + ")"

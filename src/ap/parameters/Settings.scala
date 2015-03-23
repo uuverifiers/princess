@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -59,6 +59,13 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
         case Opt("stdin", value) =>
           Param.STDIN.set(settings, value)
+        case Opt("incremental", value) => {
+          val settings2 = Param.INCREMENTAL.set(settings, value)
+          if (value)
+            Param.GENERATE_TOTALITY_AXIOMS.set(settings2, Param.TotalityAxiomOptions.None)
+          else
+            settings2
+        }
         case Opt("printTree", value) =>
           Param.PRINT_TREE.set(settings, value)
         case ValueOpt("printSMT", value) =>
@@ -86,6 +93,8 @@ object GlobalSettings {
           Param.DNF_CONSTRAINTS.set(settings, value)
         case ValueOpt("timeout", IntVal(value)) =>
           Param.TIMEOUT.set(settings, value*1000)
+        case ValueOpt("timeoutPer", IntVal(value)) =>
+          Param.TIMEOUT_PER.set(settings, value)
         case Opt("posUnitResolution", value) =>
           Param.POS_UNIT_RESOLUTION.set(settings, value)
         case ValueOpt("clausifier", "none") =>
@@ -168,12 +177,13 @@ object GlobalSettings {
   
   val allParams =
     List(Param.VERSION, Param.LOGO, Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
-         Param.ASSERTIONS, Param.PRINT_TREE,
+         Param.INCREMENTAL, Param.ASSERTIONS, Param.PRINT_TREE,
          Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
-         Param.TIMEOUT, Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
+         Param.TIMEOUT, Param.TIMEOUT_PER,
+         Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,

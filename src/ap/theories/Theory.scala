@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -81,12 +81,39 @@ object Theory {
     def getDataFor(t : Theory) : TheoryDecoderData
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  object SatSoundnessConfig extends Enumeration {
+    /**
+     * Apart from symbols defined in the theories, only
+     * constants exist in a problem. All quantifiers are
+     * existential (in the antecedent).
+     */
+    val Elementary = Value
+    /**
+     * In addition to symbols defined in the theories, also
+     * constants, uninterpreted predicates, and uninterpreted
+     * functions can exist. Uninterpreted predicates
+     * or uninterpreted partial functions can be defined through
+     * e-matching.
+     * All other quantifiers are existential (in the antecedent),
+     * and in particular there are no function totality axioms.
+     */
+    val Existential = Value
+    /**
+     * In addition to symbols defined in the theories, also
+     * constants, uninterpreted predicates, uninterpreted
+     * functions, and arbitrary quantifiers can exist.
+     */
+    val General = Value
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Trait for representing signature and axioms of theories, e.g.,
+ * trait for representing signature and axioms of theories, e.g.,
  * the theory of arrays. This is used to make sure that theory symbols are
  * unique.
  */
@@ -168,5 +195,13 @@ trait Theory {
   def generateDecoderData(model : Conjunction)
                          : Option[Theory.TheoryDecoderData] =
     None
+
+  /**
+   * Check whether we can tell that the given combination of theories is
+   * sound for checking satisfiability of a problem, i.e., if proof construction
+   * ends up in a dead end, can it be concluded that a problem is satisfiable.
+   */
+  def isSoundForSat(theories : Seq[Theory],
+                    config : Theory.SatSoundnessConfig.Value) : Boolean = false
 
 }

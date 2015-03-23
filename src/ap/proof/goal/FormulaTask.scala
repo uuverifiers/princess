@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,6 +30,18 @@ object FormulaTask {
 
   private val AC = Debug.AC_COMPLEX_FORMULAS_TASK
   
+  private def isFunctionalityAxiom(formula : Conjunction,
+                                   settings : GoalSettings) : Boolean =
+    formula.negatedConjs.isEmpty &&
+    formula.predConj.negativeLits.isEmpty &&
+    (formula.predConj.positiveLits match {
+       case Seq(a, b) =>
+         a.pred == b.pred &&
+         (Param.FUNCTIONAL_PREDICATES(settings) contains a.pred) &&
+         a.init == b.init
+       case _ => false
+     })
+  
 }
 
 
@@ -46,6 +58,8 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(FormulaTask.AC, isCoveredFormula(formula))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  import FormulaTask.isFunctionalityAxiom
 
   /**
    * Return <code>true</code> if <code>f</code> is a formula that can be handled
@@ -98,10 +112,17 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
         List(this.updateFormula(reducedFormula, goal))
       else
         goal formulaTasks reducedFormula
-    if (simplifiedTasks.isEmpty)
-      List()
-    else
+
+    if (simplifiedTasks.isEmpty) {
+      if (isFunctionalityAxiom(formula, goal.settings))
+        // we have to be careful to not remove functionality axioms,
+        // since those might be reduced to false during reduction
+        List(this)
+      else
+        List()
+    } else {
       List(new WrappedFormulaTask (this, simplifiedTasks))
+    }
   }
   
   val name : String

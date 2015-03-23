@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,6 +28,8 @@ import IBinJunctor._
 import IIntRelation._
 import IExpression._
 import Quantifier._
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Class to simplify input formulas using various rewritings
@@ -104,6 +106,72 @@ class Simplifier {
   private val AndSplitter = new FormulaSplitter (IBinJunctor.And, IBinJunctor.Or)
   private val OrSplitter =  new FormulaSplitter (IBinJunctor.Or, IBinJunctor.And)
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def iteSplitter(t : ITerm)
+                         : Option[(IFormula, ITerm, ITerm)] = t match {
+    case IFunApp(fun, args) =>
+      for ((cond, args1, args2) <- iteSeqSplitter(args))
+      yield (cond, IFunApp(fun, args1), IFunApp(fun, args2))
+
+    case IPlus(left, right) =>
+      (for ((cond, l1, l2) <- iteSplitter(left))
+       yield (cond, IPlus(l1, right), IPlus(l2, right))) orElse
+      (for ((cond, r1, r2) <- iteSplitter(right))
+       yield (cond, IPlus(left, r1), IPlus(left, r2)))
+
+    case ITimes(coeff, subT) =>
+      for ((cond, t1, t2) <- iteSplitter(subT))
+      yield (cond, ITimes(coeff, t1), ITimes(coeff, t2))
+
+    case _ => None
+  }
+
+  private def iteSeqSplitter(terms : Iterable[ITerm])
+                        : Option[(IFormula, Seq[ITerm], Seq[ITerm])] = {
+    val prefix = new ArrayBuffer[ITerm]
+    val it = terms.iterator
+    while (it.hasNext) {
+      val a = it.next
+      iteSplitter(a) match {
+        case Some((cond, a1, a2)) => {
+          val prefixList = prefix.toList
+          val suffix = it.toList
+          return Some((cond,
+                       prefixList ++ List(a1) ++ suffix,
+                       prefixList ++ List(a2) ++ suffix))
+        }
+        case None =>
+          prefix += a
+      }
+    }
+
+    None
+  }
+
+  /**
+   * Split if-then-else expressions within literals
+   */
+  private def splitITEs(expr : IExpression) : IExpression = expr match {
+    case IAtom(p, args) =>
+      iteSeqSplitter(args) match {
+        case Some((cond, args1, args2)) =>
+          (cond & IAtom(p, args1)) | (!cond & IAtom(p, args2))
+        case None =>
+          expr
+      }
+
+    case IIntFormula(op, t) =>
+      iteSplitter(t) match {
+        case Some((cond, t1, t2)) =>
+          (cond & IIntFormula(op, t1)) | (!cond & IIntFormula(op, t2))
+        case None =>
+          expr
+      }
+
+    case _ => expr
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -281,6 +349,12 @@ class Simplifier {
     case IBinFormula(Or, IBoolLit(false), f) => f
     case IBinFormula(Or, f, IBoolLit(false)) => f
     
+    // Simplification of if-then-else expressions
+    case ITermITE(IBoolLit(true), t, _) => t
+    case ITermITE(IBoolLit(false), _, t) => t
+    case IFormulaITE(IBoolLit(true), f, _) => f
+    case IFormulaITE(IBoolLit(false), _, f) => f
+
     // Simplification of linear combinations
     case ITimes(IdealInt.ONE, t) => t
     case ITimes(IdealInt.ZERO, t) => 0
@@ -342,7 +416,7 @@ class Simplifier {
   
   private val defaultRewritings =
     Array(toNNF _, elimSimpleLiterals _, miniScope _, elimQuantifier _,
-          furtherSimplifications _)
+          splitITEs _, furtherSimplifications _)
   
   /**
    * Perform various kinds of simplification to the given formula, in particular

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -52,6 +52,11 @@ object Param {
   }
   
   case object STDIN extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
+  case object INCREMENTAL extends Param {
     type Value = Boolean
     val defau : Boolean = false
   }
@@ -111,6 +116,11 @@ object Param {
   }
 
   case object CLAUSIFIER_TIMEOUT extends Param {
+    type Value = Int
+    val defau : Int = Int.MaxValue
+  }
+
+  case object TIMEOUT_PER extends Param {
     type Value = Int
     val defau : Int = Int.MaxValue
   }
@@ -257,11 +267,6 @@ object Param {
       }
   }
   
-  case object DOMAIN_PREDICATES extends Param {
-    type Value = Set[Predicate]
-    val defau : Set[Predicate] = Set()
-  }
-
   object MulProcedure extends Enumeration {
     val BitShift, Native = Value
   }
@@ -269,6 +274,20 @@ object Param {
   case object MUL_PROCEDURE extends Param {
     type Value = MulProcedure.Value
     val defau : MulProcedure.Value = MulProcedure.Native
+  }
+
+  object NonLinearSplitting extends Enumeration {
+    val Spherical, Sign = Value
+  }
+
+  case object NONLINEAR_SPLITTING extends Param {
+    type Value = NonLinearSplitting.Value
+    val defau : NonLinearSplitting.Value = NonLinearSplitting.Sign
+  }
+
+  case object DOMAIN_PREDICATES extends Param {
+    type Value = Set[Predicate]
+    val defau : Set[Predicate] = Set()
   }
 
   class FileProperties {
@@ -337,15 +356,6 @@ object Param {
   case object THEORY_PLUGIN extends Param {
     type Value = Option[ap.proof.theoryPlugins.Plugin]
     val defau : Option[ap.proof.theoryPlugins.Plugin] = None
-  }
-
-  object NonLinearSplitting extends Enumeration {
-    val Spherical, Sign = Value
-  }
-
-  case object NONLINEAR_SPLITTING extends Param {
-    type Value = NonLinearSplitting.Value
-    val defau : NonLinearSplitting.Value = NonLinearSplitting.Sign
   }
 }
 
