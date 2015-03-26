@@ -9,99 +9,81 @@ import scala.collection.mutable.{HashMap => MHashMap}
 
 class Disequalities(
   val size : Int,
-  functions : Seq[(Int, Seq[Int], Int)],
+  funEqs : Array[(Int, Seq[Int], Int)],
   timeoutChecker : () => Unit) {
 
+  // Stores the actual disequalities (TODO: change to (size*size-1)/2
   var DQarr = Array.ofDim[Int](size * size)
-  var changes = ListBuffer() : ListBuffer[(Int, Int, Int)]
-  var relMap = MMap() : MMap[(Int, Int), List[(Int, Int)]]
-  var goalMap = MMap() : MMap[Int, List[(Int, Int)]]
 
+  // Buffer to store change to allow backtracking (old, s, t)
+  var changes = ListBuffer() : ListBuffer[(Int, Int, Int)]
+
+  // Maps terms to funEqs with t in argument 
+  // | Term -> List(Function, Index, funEq)
+  var funArgs = MMap() : MMap[Int, ListBuffer[(Int, Int, Int)]]
+
+  // Maps terms to funEqs with t in result
+  // | Term -> List(Function, funEq)
+  var funRes = MMap() : MMap[Int, ListBuffer[(Int, Int)]]
+
+  // Fun -> List[functions]
+  // Maps function symbols to funEqs with given function symbol 
+  // | Function -> List(funEqs)
+  var funFuns = MMap() : MMap[Int, ListBuffer[Int]]
+
+  // TODO: diseqCount
   // var diseqCount = 0
 
   def doprint : Unit = {
     println("DQ:")
     for (i <- 0 until size) {
       for (j <- 0 until size) {
-        print(" " + gDQ(i, j))
+        print(" " + getDQ(i, j))
       }
       println("")
     }
   }
 
-  def gDQ(i : Int, j : Int) = {
-    val pos =
-      if (i < j)
-        size*i + j
-      else
-        size*j + i
+  def pos(i : Int, j : Int) = if (i < j) size*i + j else size*j + i
 
-    DQarr(pos)
-  }
+  def getDQ(i : Int, j : Int) = DQarr(pos(i,j))
 
-  def sDQ(i : Int, j : Int, v : Int) = {
-    val pos = 
-      if (i < j)
-        size*i + j
-      else
-        size*j + i
-
-    DQarr(pos) = v
-  }
-
-
+  def setDQ(i : Int, j : Int, v : Int) = DQarr(pos(i,j)) = v
+ 
+  def apply(i : Int, j : Int) : Boolean = getDQ(i, j) != 0
 
   // if (DQ(i)(j) == 0)
   //   diseqCount += 1
 
-  // println("Building DQ")
-  // println("\tfuncount: " + functions.length)
-  // println("\tsize: " + size)
+  Timer.measure("createProblem.DQ.funArgs/Res/Funs") {
+    for (f <- 0 until funEqs.length) {
+      val (fun, args, res) = funEqs(f)
 
-  goalMap = MMap()
-  relMap = MMap()
-
-  // Build up a map from term-tuples to function-pairs that are relevant
-  for (f1 <- 0 until functions.length; f2 <- 0 until functions.length;
-    if f1 < f2) {
-    val (fun1, args1, res1) = functions(f1)
-    val (fun2, args2, res2) = functions(f2)
-    if (fun1 == fun2 && res1 != res2) {
-      // RelMap
-      for (i <- 0 until args1.length) {
-        val s = args1(i) min args2(i)
-        val t = args1(i) max args2(i)
-
-        val newList = (f1, f2) ::
-        (relMap.getOrElse((s, t), List()))
-        relMap += ((s, t)) -> newList
+      // Argument map
+      for (i <- 0 until args.length) {
+        if (funArgs contains (args(i)))
+          funArgs.get(args(i)).get += ((fun, i, f))
+        else
+          funArgs += (args(i) -> ListBuffer((fun, i, f)))
       }
 
-      // GoalMap
-      Timer.measure("createProblem.DQ.goalMap2") {
-        val oldRes1 = goalMap.getOrElse(res1, List() : List[(Int, Int)])
-        val oldRes2 = goalMap.getOrElse(res2, List() : List[(Int, Int)])
+      // Result map
+      if (funRes contains(res))
+        funRes.get(res).get += ((fun, f))
+      else
+        funRes += (res -> ListBuffer((fun, f)))
 
-        goalMap += (res1 -> ((f1, f2) :: oldRes1))
-        goalMap += (res2 -> ((f2, f1) :: oldRes2))
-      }
+      // Function symbol map
+      if (funFuns contains(fun))
+        funFuns.get(fun).get += f
+      else
+        funFuns += (fun -> ListBuffer(f))
     }
-  }
-
-
-  //
-  // GET/SET
-  //
-  def apply(i : Int, j : Int) : Boolean = {
-    if (i < j)
-      gDQ(i, j) != 0
-    else
-      gDQ(j, i) != 0
   }
 
   def getINEQ() = {
     (for (i <- 0 until size; j <- 0 until size;
-      if (i < j); if (0 == gDQ(i, j))) yield
+      if (i < j); if (0 == getDQ(i, j))) yield
       (i,j))
   }
 
@@ -109,28 +91,71 @@ class Disequalities(
     val ii = i min j
     val jj = i max j
 
-    val old = gDQ(ii, jj)
+    val old = getDQ(ii, jj)
     changes += ((old, ii, jj))
 
-    sDQ(ii, jj, v)
+    setDQ(ii, jj, v)
   }
 
   def unify(i : Int, j : Int) = {
-    if (gDQ(i, j) < 1) {
+    if (getDQ(i, j) < 1) {
       // diseqCount -= 1
       update(i, j, 1)
     }
   }
 
   def funify(i : Int, j : Int) = {
-    if (gDQ(i ,j) < 2) {
+    if (getDQ(i ,j) < 2) {
       // if (dq(i,j) < 1)
       //   diseqCount -= 1
       update(i, j, 2)
     }
   }
 
-  def cascadeRemoveDQ(s : Int, t : Int) : Unit = {
+  def check(pairs : Seq[(Int, Int)]) = {
+    if (pairs.isEmpty) {
+      true
+    } else {
+      var equal = true
+
+      val uf = new UnionFind[Int]
+
+      for ((s, t) <- pairs) {
+        if (!(uf contains s))
+          uf.makeSet(s)
+        if (!(uf contains t))
+          uf.makeSet(t)
+
+        if (!this(s, t))
+          equal = false
+        else
+          uf.union(s,t)
+      }
+
+
+      if (equal) {
+        for (set <- uf.getSets) {
+          if (set.size > 2) {
+            println("check(" + pairs + ")")
+            println("\t" + uf)
+            println("\t" + uf.getSets)
+
+            for (s <- set; t <- set; if s < t) {
+              if (!this(s,t)) {
+                equal = false
+                // println("\t\tChecking " + s + " != " + t)
+                // throw new Exception("Transitivity CHECK!")
+              }
+            }
+          }
+        }
+      }
+      equal
+    }
+  }
+
+  def cascadeRemoveDQ(s : Int, t : Int) : Unit = 
+  Timer.measure("cascadeRemove") {
 
     def funUnify(s : Int, t : Int) : Set[(Int, Int)] = {
       val sEq =
@@ -140,8 +165,6 @@ class Disequalities(
 
 
       (for (i <- sEq; j <- tEq; if i != j; if !this(i,j)) yield {
-        // println(((i min j, i max j)) + " because of " + ((s, t)) +
-        //   " was removed and " + ((s, i)) + " and " + ((t, j)))
         (i min j, i max j)
       }).toSet
     }
@@ -153,7 +176,7 @@ class Disequalities(
       val (ss, tt) = newEq
       val s = ss min tt
       val t = ss max tt
-      val curdq = gDQ(s, t)
+      val curdq = getDQ(s, t)
 
       var queue = true
 
@@ -174,7 +197,6 @@ class Disequalities(
     // Add initial todo item
     addTodo((s, t), false)
 
-    // DISEQ COUNT?
     while (!todo.isEmpty) {
       timeoutChecker()
       val (s, t) = todo.dequeue
@@ -186,62 +208,41 @@ class Disequalities(
 
 
       // Functionality
-      // println("FUNC" + ((s, t)))
-      // println("\t" + relMap.getOrElse((s,t), List()))
-      // println("\n\t\trelMap: " + relMap)
-      for ((f1, f2) <- relMap.getOrElse((s,t), List())) {
-        val (f_i, args_i, s_i) = functions(f1)
-        val (f_j, args_j, s_j) = functions(f2)
-        // println("\t" + (f_i, args_i, s_i) + " and " + (f_j, args_j, s_j))
+      for ((fun1, i1, eq1) <- funArgs.getOrElse(s, List()); 
+        (fun2, i2, eq2) <- funArgs.getOrElse(t, List()); 
+        if (fun1 == fun2 && i1 == i2 && eq1 != eq2)) yield {
 
-        var equal = true
+        val (f_i, args_i, r_i) = funEqs(eq1)
+        val (f_j, args_j, r_j) = funEqs(eq2)
 
-        for (i <- 0 until args_i.length)
-          if (!this(args_i(i), args_j(i)))
-            equal = false
-
-        if (equal) {
-          addTodo((s_i, s_j), true)
-
-          for (eq <- funUnify(s_i, s_j))
+        if (check(args_i zip args_j)) {
+          addTodo((r_i, r_j), true)
+          for (eq <- funUnify(r_i, r_j))
             addTodo(eq, false)
         }
       }
 
-      for ((f1, f2) <- goalMap getOrElse (s, List())) {
-        val (f_i, args_i, s_i) = functions(f1)
-        val (f_j, args_j, s_j) = functions(f2)
 
-        var equal = true
-        for (k <- 0 until args_i.length)
-          if (!this(args_i(k), args_j(k)))
-            equal = false
 
-        if (equal) {
-          // We know that s_i = s
-          for (i <- 0 until size; if (i != s && i != t)) {
-            if (this(i, s_j))
-              addTodo((t, i), false)
+      // Find all s, s.t. s = lhs and add s = rhs
+      def transitivity(lhs : Int, rhs : Int) = {
+        for ((fun1, eq1) <- funRes getOrElse (lhs, List())) {
+          val (_, args_i, _) = funEqs(eq1)
+
+          // Find all matching functions
+          for (eq2 <- funFuns getOrElse (fun1, List())) {
+            val (_, args_j, s) = funEqs(eq2)
+
+            // s = lhs => s = rhs
+            if (check(args_i zip args_j))
+              addTodo((s, rhs), false)
           }
         }
       }
 
-      for ((f1, f2) <- goalMap getOrElse (t, List())) {
-        val (f_i, args_i, s_i) = functions(f1)
-        val (f_j, args_j, s_j) = functions(f2)
-
-        var equal = true
-        for (k <- 0 until args_i.length)
-          if (!this(args_i(k), args_j(k)))
-            equal = false
-
-        if (equal) {
-          // We know that s_i = s
-          for (i <- 0 until size; if (i != s && i != t)) {
-            if (this(i, s_j))
-              addTodo((s, i), false)
-          }
-        }
+      Timer.measure("cascadeRemove.transitivity") {
+        transitivity(s, t)
+        transitivity(t, s)
       }
     }
   }
@@ -266,32 +267,17 @@ class Disequalities(
     }
   }
 
-  def equalTo(DQ2 : Disequalities) : Boolean = {
-    if (size != DQ2.size)
-      return false
-
-    for (i <- 0 until size; j <- 0 until size; if i<=j)
-      if (this(i, j) != DQ2(i, j))
-        return false
-    true
-  }
-
-  def setBase = {
-    changes = ListBuffer()
-  }
+  def setBase = changes = ListBuffer()
 
   def restore = {
     for ((old, s, t) <- changes.reverse) {
       // if (old == 0)
       //   diseqCount += 1
-      sDQ(s, t, old)
+      setDQ(s, t, old)
     }
 
     changes = ListBuffer()
   }
-
-  // "Congruence Closure"
-  // Returns list of disequalities removed
 
   def satisfies(goals : Seq[Seq[(Int, Int)]]) = {
     var satisfiable = false
@@ -353,6 +339,12 @@ class UnionFind[D] {
         rank.put(dp, dr + 1)
       }
     }
+  }
+
+  def getSets = parent.groupBy(_._2).mapValues(_.map(_._1)).values
+
+  def contains(d : D) : Boolean = {
+    parent contains d
   }
 
   override def toString : String = parent.toString

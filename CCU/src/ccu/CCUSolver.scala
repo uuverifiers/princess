@@ -637,7 +637,7 @@ abstract class CCUSolver[TERM, FUNC](val timeoutChecker : () => Unit,
         yield {
           // TODO: Length of disequalities
           val tmpDQ = (Timer.measure("createProblem.DQ.new") {
-            new Disequalities(newTerms.length, newFunctions(p), timeoutChecker)
+            new Disequalities(newTerms.length, newFunctions(p).toArray, timeoutChecker)
           })
           // val c = Array.ofDim[Int](newTerms.length, newTerms.length)
           for (t <- newTerms; tt <- newTerms)

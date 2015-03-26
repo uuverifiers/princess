@@ -87,27 +87,13 @@ class LazySolver[TERM, FUNC](timeoutChecker : () => Unit,
             // that MUST hold
 
             // TODO: Use problem.dq?
-            val DQ = new Disequalities(problem.terms.length, problem.problems(p).funEqs, timeoutChecker)
+            val DQ = new Disequalities(problem.terms.length, problem.problems(p).funEqs.toArray, timeoutChecker)
 
-            // val sets = MSet() : MSet[Set[Int]]
-            // for (t <- problem.terms)
-            //   sets += Set(t)
-
-            // val newSets = util.CC[Int, Int](sets, problem.problems(p).funEqs, intAss.toList)
             val uf = util.CCunionFind[Int, Int](problem.terms, 
               problem.problems(p).funEqs, intAss.toList)
 
-            // def set(t : Int) : Set[Int] = {
-            //   for (s <- newSets)
-            //     if (s contains t)
-            //       return s
-            //   throw new Exception("No set contains t?")
-            // }
-
             for (s <- problem.terms; t <- problem.terms;
               if (s <= t); if (uf(s) == uf(t))) {
-              // diseq(s*problem.terms.length + t) = 1
-              // diseq(t*problem.terms.length + s) = 1
               DQ.cascadeRemoveDQ(s, t)
             }
 
