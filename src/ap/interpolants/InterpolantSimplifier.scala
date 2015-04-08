@@ -105,10 +105,7 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
 
 /**
  * Even more extended version of the InputAbsy simplifier that also
- * rewrites certain array expressions:
- *    \exists int a; (x = store(a, b, c) & phi)
- * is replaced with
- *    \exists int d, a; (select(x, b) = c & a = store(x, b, d) & phi)
+ * rewrites certain array expression.
  */
 object ArraySimplifier extends ap.parser.Simplifier {
   import IBinJunctor._
@@ -116,26 +113,53 @@ object ArraySimplifier extends ap.parser.Simplifier {
   import IExpression._
   import Quantifier._
 
-  private def translate(f : IFormula,
-                        negated : Boolean,
-                        depth : Int) : Option[IFormula] = {
+  /**
+   *    \exists int a; (x = store(a, b, c) & phi)
+   * is replaced with
+   *    \exists int d, a; (select(x, b) = c & a = store(x, b, d) & phi)
+   */
+  private def elimStore(expr : IExpression) : IExpression = expr match {
+    case IFunApp(SimpleArray.Select(),
+                 Seq(IFunApp(SimpleArray.Store(),
+                             Seq(ar, storeArgs @ _*)),
+                     selectArgs @ _*))
+        if (storeArgs.size == selectArgs.size + 1) =>
+      ite(selectArgs === storeArgs.init,
+          storeArgs.last,
+          IFunApp(SimpleArray(selectArgs.size).select, List(ar) ++ selectArgs))
 
-    def shiftTerm(t : ITerm) : ITerm       = VariableShiftVisitor(t, depth + 1, 1)
-    def shiftFor (f : IFormula) : IFormula = VariableShiftVisitor(f, depth + 1, 1)
+    case IQuantified(EX, f) =>
+      (for (res <- translateStore(f, false, 0))
+       yield IQuantified(EX, IQuantified(EX, res))) getOrElse expr
+    case IQuantified(ALL, f) =>
+      (for (res <- translateStore(f, true, 0))
+       yield IQuantified(ALL, IQuantified(ALL, res))) getOrElse expr
+    case _ => expr
+  }
+
+  private def translateStore(f : IFormula,
+                             negated : Boolean,
+                             depth : Int) : Option[IFormula] = {
+
+    def shiftTerm(t : ITerm) : ITerm       =
+      VariableShiftVisitor(t, depth + 1, 1)
+    def shiftFor (f : IFormula) : IFormula =
+      VariableShiftVisitor(f, depth + 1, 1)
 
     f match {
       case IQuantified(q, subF) if (q == Quantifier(negated)) =>
-        for (res <- translate(subF, negated, depth + 1)) yield IQuantified(q, res)
+        for (res <- translateStore(subF, negated, depth + 1))
+        yield IQuantified(q, res)
   
       case IBinFormula(j, left, right)
           if (j == (if (negated) IBinJunctor.Or else IBinJunctor.And)) =>
-        (for (newLeft <- translate(left, negated, depth))
+        (for (newLeft <- translateStore(left, negated, depth))
          yield IBinFormula(j, newLeft, shiftFor(right))) orElse
-        (for (newRight <- translate(right, negated, depth))
+        (for (newRight <- translateStore(right, negated, depth))
          yield IBinFormula(j, shiftFor(left), newRight))
   
       case INot(f) =>
-        for (res <- translate(f, !negated, depth)) yield INot(res)
+        for (res <- translateStore(f, !negated, depth)) yield INot(res)
 
       case Eq(IFunApp(SimpleArray.Store(),
                       Seq(w@IVariable(`depth`), args @ _*)), ar)
@@ -144,8 +168,8 @@ object ArraySimplifier extends ap.parser.Simplifier {
         val theory = SimpleArray(args.size - 1)
         val shiftedAr = shiftTerm(ar)
         val shiftedArgs = for (t <- args) yield shiftTerm(t)
-        Some((IFunApp(theory.select,
-                      List(shiftedAr) ++ shiftedArgs.init) === shiftedArgs.last) &
+        Some((IFunApp(theory.select, List(shiftedAr) ++ shiftedArgs.init) ===
+                shiftedArgs.last) &
              (IFunApp(theory.store,
                       List(shiftedAr) ++ shiftedArgs.init ++
                       List(v(depth + 1))) === w))
@@ -158,8 +182,8 @@ object ArraySimplifier extends ap.parser.Simplifier {
         val theory = SimpleArray(args.size - 1)
         val shiftedAr = shiftTerm(ar)
         val shiftedArgs = for (t <- args) yield shiftTerm(t)
-        Some((IFunApp(theory.select,
-                      List(shiftedAr) ++ shiftedArgs.init) === shiftedArgs.last) &
+        Some((IFunApp(theory.select, List(shiftedAr) ++ shiftedArgs.init) ===
+                shiftedArgs.last) &
              (IFunApp(theory.store,
                       List(shiftedAr) ++ shiftedArgs.init ++
                       List(v(depth + 1))) === w))
@@ -168,25 +192,7 @@ object ArraySimplifier extends ap.parser.Simplifier {
       case _ => None
     }
   }
-  
-  private def elimStore(expr : IExpression) : IExpression = expr match {
-    case IFunApp(SimpleArray.Select(),
-                 Seq(IFunApp(SimpleArray.Store(),
-                             Seq(ar, storeArgs @ _*)),
-                     selectArgs @ _*))
-        if (storeArgs.size == selectArgs.size + 1) =>
-      ite(selectArgs === storeArgs.init,
-          storeArgs.last,
-          IFunApp(SimpleArray(selectArgs.size).select, List(ar) ++ selectArgs))
 
-    case IQuantified(EX, f) =>
-      (for (res <- translate(f, false, 0))
-       yield IQuantified(EX, IQuantified(EX, res))) getOrElse expr
-    case IQuantified(ALL, f) =>
-      (for (res <- translate(f, true, 0))
-       yield IQuantified(ALL, IQuantified(ALL, res))) getOrElse expr
-    case _ => expr
-  }
-
-  protected override def furtherSimplifications(expr : IExpression) = elimStore(expr)
+  protected override def furtherSimplifications(expr : IExpression) =
+    elimStore(expr)
 }
