@@ -1824,7 +1824,7 @@ class SimpleAPI private (enableAssert : Boolean,
     }
   }
   
-  private def interpolantSimplifier = ArraySimplifier
+  private def interpolantSimplifier = new ArraySimplifier
   
   //////////////////////////////////////////////////////////////////////////////
 

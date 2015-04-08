@@ -108,7 +108,7 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
  * Even more extended version of the InputAbsy simplifier that also
  * rewrites certain array expression.
  */
-object ArraySimplifier extends ap.parser.Simplifier {
+class ArraySimplifier extends ap.parser.Simplifier {
   import IBinJunctor._
   import IIntRelation._
   import IExpression._
@@ -203,13 +203,25 @@ object ArraySimplifier extends ap.parser.Simplifier {
    *
    * Similarly for \exists.
    */
-  private def elimQuantifiedSelect(f : IFormula) : IFormula = f match {
-    case IQuantified(_, subF) => f
+  private def elimQuantifiedSelect(t : IExpression) : IExpression = t match {
+    case IQuantified(q, subF) if (SelectFromVarDetector(subF)) =>
+      IQuantified(q, SelectReplaceVisitor(subF))
+    case t => t
   }
 
-  private class SelectFromVarDetector
+  private object SelectFromVarDetector
           extends ContextAwareVisitor[Unit, Unit] {
+    def apply(t : IFormula) : Boolean =
+      try {
+        visitWithoutResult(t, Context(()))
+        true
+      } catch {
+        case FoundBadVarOccurrence => false
+      }
+
     private var uniqueArgs : Seq[ITerm] = null
+
+    private object FoundBadVarOccurrence extends Exception
 
     override def preVisit(t : IExpression,
                           ctxt : Context[Unit]) : PreVisitResult = t match {
@@ -248,10 +260,35 @@ object ArraySimplifier extends ap.parser.Simplifier {
                   subres : Seq[Unit]) : Unit = ()
   }
 
-  private object FoundBadVarOccurrence extends Exception
+  private object SelectReplaceVisitor
+          extends ContextAwareVisitor[Unit, IExpression] {
+
+    def apply(t : IFormula) : IFormula =
+      visit(t, Context(())).asInstanceOf[IFormula]
+
+    override def preVisit(t : IExpression,
+                          ctxt : Context[Unit]) : PreVisitResult = t match {
+      case IFunApp(SimpleArray.Select(), Seq(v@IVariable(depth), _*))
+        if (depth == ctxt.binders.size) =>
+          ShortCutResult(v)
+
+      case IVariable(depth) if (depth == ctxt.binders.size) =>
+        throw new Exception
+
+      case _ =>
+        super.preVisit(t, ctxt)
+    }
+
+    def postVisit(t : IExpression, context : Context[Unit],
+                  subres : Seq[IExpression]) : IExpression =
+      t update subres
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private val rewritings =
+    Rewriter.combineRewritings(Array(elimStore _ , elimQuantifiedSelect _))
+  
   protected override def furtherSimplifications(expr : IExpression) =
-    elimStore(expr)
+    rewritings(expr)
 }
