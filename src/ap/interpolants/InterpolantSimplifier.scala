@@ -98,7 +98,8 @@ class InterpolantSimplifier(select : IFunction, store : IFunction)
     case _ => expr
   }
 
-  protected override def furtherSimplifications(expr : IExpression) = elimStore(expr)
+  protected override def furtherSimplifications(expr : IExpression) =
+    elimStore(expr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -192,6 +193,64 @@ object ArraySimplifier extends ap.parser.Simplifier {
       case _ => None
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   *    \forall int a; phi[select(a, x)]
+   * is replaced with
+   *    \forall int y; phi[y]
+   *
+   * Similarly for \exists.
+   */
+  private def elimQuantifiedSelect(f : IFormula) : IFormula = f match {
+    case IQuantified(_, subF) => f
+  }
+
+  private class SelectFromVarDetector
+          extends ContextAwareVisitor[Unit, Unit] {
+    private var uniqueArgs : Seq[ITerm] = null
+
+    override def preVisit(t : IExpression,
+                          ctxt : Context[Unit]) : PreVisitResult = t match {
+      case IFunApp(SimpleArray.Select(),
+                   Seq(IVariable(depth), selectArgs @ _*))
+        if (depth == ctxt.binders.size) => {
+
+        val badSymbol = (t : IExpression) => t match {
+          case IVariable(ind) if (ind <= depth) => true
+          case _ => false
+        }
+
+        if (selectArgs exists (ContainsSymbol(_, badSymbol)))
+          throw FoundBadVarOccurrence
+
+        val shiftedArgs =
+          (for (a <- selectArgs.iterator)
+           yield VariableShiftVisitor(a, depth, -depth)).toList
+
+        if (uniqueArgs == null)
+          uniqueArgs = shiftedArgs
+        else if (uniqueArgs != shiftedArgs)
+          throw FoundBadVarOccurrence
+
+        ShortCutResult(())
+      }
+
+      case IVariable(depth) if (depth == ctxt.binders.size) =>
+        throw FoundBadVarOccurrence
+
+      case _ =>
+        super.preVisit(t, ctxt)
+    }
+
+    def postVisit(t : IExpression, context : Context[Unit],
+                  subres : Seq[Unit]) : Unit = ()
+  }
+
+  private object FoundBadVarOccurrence extends Exception
+
+  //////////////////////////////////////////////////////////////////////////////
 
   protected override def furtherSimplifications(expr : IExpression) =
     elimStore(expr)
