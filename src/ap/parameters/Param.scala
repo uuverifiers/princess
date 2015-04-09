@@ -327,10 +327,8 @@ object Param {
   }
 
   case object CCU_SOLVER extends Param {
-    type Value = Option[ccu.CCUSolver[ap.terfor.ConstantTerm,
-                                      ap.terfor.preds.Predicate]]
-    val defau : Option[ccu.CCUSolver[ap.terfor.ConstantTerm,
-                                     ap.terfor.preds.Predicate]] = None
+    type Value = Option[ccu.CCUSolver]
+    val defau : Option[ccu.CCUSolver] = None
   }
 
 }
