@@ -58,7 +58,11 @@ object Preprocessing {
     val fors = PartExtractor(f)
 
     // the other steps can be skipped for simple cases
-    if (!needsPreprocessing(fors))
+    if ((functionEncoder.axioms match {
+           case IBoolLit(true) => true
+           case _ => false
+         }) &&
+        !needsPreprocessing(fors))
       return (fors, interpolantSpecs, signature)
 
     // partial evaluation, expand equivalences
