@@ -1462,7 +1462,7 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     checkTimeout
     getStatusHelp(true) match {
-      case ProverStatus.Unknown => checkSatHelp(true)
+      case ProverStatus.Unknown => checkSatHelp(true, true)
       case res => res
     }
   }
@@ -1486,10 +1486,11 @@ class SimpleAPI private (enableAssert : Boolean,
     if (block)
       checkTimeout
 
-    checkSatHelp(block)
+    checkSatHelp(block, true)
   }
   
-  private def checkSatHelp(block : Boolean) : ProverStatus.Value =
+  private def checkSatHelp(block : Boolean,
+                           allowShortCut : Boolean) : ProverStatus.Value =
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
         lastStatus = ProverStatus.Running
@@ -1537,6 +1538,16 @@ class SimpleAPI private (enableAssert : Boolean,
               proofActor ! CheckValidityCommand(closedFor,
                                                 exhaustiveProverGoalSettings,
                                                 mostGeneralConstraints)
+            } else if (allowShortCut && !constructProofs &&
+                       currentProver.isObviouslyValid) {
+              // no need to actually run the prover
+              lastStatus = getUnsatStatus
+              return lastStatus
+            } else if (allowShortCut &&
+                       currentProver.isObviouslyUnprovable) {
+              // no need to actually run the prover
+              lastStatus = getSatStatus
+              return lastStatus
             } else {
               // use a ModelCheckProver
               proofActor ! CheckSatCommand(currentProver)
@@ -2023,19 +2034,23 @@ class SimpleAPI private (enableAssert : Boolean,
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private def ensureFullModel =
-    while (proofActorStatus != ProofActorStatus.AtFullModel)
-      if (proofActorStatus == ProofActorStatus.AtPartialModel) {
-        // let's get a complete model
-        lastStatus = ProverStatus.Running
-        proverRes.unset
-        proofActor ! DeriveFullModelCommand
-        getStatusWithDeadline(true)
-      } else {
-        // then we have to completely re-run the prover
-        lastStatus = ProverStatus.Unknown
-        checkSatHelp(true)
-      }
+  private def ensurePartialModel =
+    if (currentModel == null) {
+      // then we have to completely re-run the prover
+      lastStatus = ProverStatus.Unknown
+      checkSatHelp(true, false)
+    }
+
+  private def ensureFullModel = {
+    ensurePartialModel
+    while (proofActorStatus != ProofActorStatus.AtFullModel) {
+      // let's get a complete model
+      lastStatus = ProverStatus.Running
+      proverRes.unset
+      proofActor ! DeriveFullModelCommand
+      getStatusWithDeadline(true)
+    }
+  }
 
   /**
    * Produce a partial model, i.e., a (usually) partial interpretation
@@ -2207,7 +2222,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
           case ProverStatus.Sat |
                ProverStatus.Invalid |
-               ProverStatus.Inconclusive if (currentModel != null) => {
+               ProverStatus.Inconclusive if (currentProver != null) => {
             // then we work with a countermodel of the constraints
 
             val p = new IExpression.Predicate("p", 1)
@@ -2365,7 +2380,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def setupTermEval = getStatusHelp(false) match {
     case ProverStatus.Sat |
          ProverStatus.Invalid |
-         ProverStatus.Inconclusive if (currentModel != null) => {
+         ProverStatus.Inconclusive if (currentProver != null) => {
       // then we work with a countermodel of the constraints
       doDumpSMT {
         println("; (get-value ...)")
@@ -2598,7 +2613,9 @@ class SimpleAPI private (enableAssert : Boolean,
     
     f match {
       case IAtom(p, args) if (args forall (_.isInstanceOf[IIntLit])) => {
-        if (!args.isEmpty)
+        if (args.isEmpty)
+          ensurePartialModel
+        else
           ensureFullModel
         
         val a = Atom(p, for (IIntLit(value) <- args) yield l(value), currentOrder)
@@ -2665,7 +2682,6 @@ class SimpleAPI private (enableAssert : Boolean,
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
-                       currentModel, currentConstraint, currentCertificate,
                        theoryPlugin, theoryCollector.clone,
                        abbrevFunctions)
     
@@ -2698,7 +2714,7 @@ class SimpleAPI private (enableAssert : Boolean,
          oldOrder, oldExConstants,
          oldFunctionalPreds, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
-         oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert,
+         oldMGCs, oldValidityMode, oldStatus,
          oldTheoryPlugin, oldTheories, oldAbbrevFunctions) =
       storedStates.pop
     currentProver = oldProver
@@ -2716,16 +2732,16 @@ class SimpleAPI private (enableAssert : Boolean,
     rawFormulaeTodo = LazyConjunction.FALSE
     validityMode = oldValidityMode
     lastStatus = oldStatus
-    currentModel = oldModel
     decoderDataCache.clear
-    lastPartialModel = null
-    currentConstraint = oldConstraint
-    currentCertificate = oldCert
-    currentSimpCertificate = null
     proofActorStatus = ProofActorStatus.Init
     theoryPlugin = oldTheoryPlugin
     theoryCollector = oldTheories
     abbrevFunctions = oldAbbrevFunctions
+    currentModel = null
+    lastPartialModel = null
+    currentConstraint = null
+    currentCertificate = null
+    currentSimpCertificate = null
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -3018,9 +3034,6 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Boolean,
                                              Boolean,
                                              ProverStatus.Value,
-                                             Conjunction,
-                                             Conjunction,
-                                             Certificate,
                                              Option[Plugin],
                                              TheoryCollector,
                                              Set[IFunction])]
