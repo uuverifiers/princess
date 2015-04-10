@@ -742,7 +742,10 @@ object ModelSearchProver {
         val ac = facts.arithConj
         val inEqConsts = ac.inEqs.constants
 
-        (facts.predConj.isTrue || goal.compoundFormulas.isEmpty) &&
+        (facts.predConj.isTrue ||
+           (goal.compoundFormulas.isEmpty &&
+              Seqs.disjoint(facts.predConj.predicates,
+                            Param.FUNCTIONAL_PREDICATES(goal.settings)))) &&
         (ac.positiveEqs forall {
            lc => lc.leadingCoeff.isOne && {
                    val c = lc.leadingTerm.asInstanceOf[ConstantTerm]
