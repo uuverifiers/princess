@@ -1814,24 +1814,26 @@ class SimpleAPI private (enableAssert : Boolean,
       currentSimpCertificate = ProofSimplifier(currentCertificate)
 
     val simp = interpolantSimplifier
-                        
-    for (i <- 1 to (partitions.size - 1)) yield {
-      val leftNums = (partitions take i).flatten.toSet
+    
+    Timeout.withChecker(checkTimeout _) {
+      for (i <- 1 to (partitions.size - 1)) yield {
+        val leftNums = (partitions take i).flatten.toSet
       
-      val commonFors = for ((n, f) <- formulaeInProver;
-                            if (n < 0)) yield f
-      val leftFors =   for ((n, f) <- formulaeInProver;
-                            if (n >= 0 && (leftNums contains n))) yield f
-      val rightFors =  for ((n, f) <- formulaeInProver;
-                            if (n >= 0 && !(leftNums contains n))) yield f
+        val commonFors = for ((n, f) <- formulaeInProver;
+                              if (n < 0)) yield f
+        val leftFors =   for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && (leftNums contains n))) yield f
+        val rightFors =  for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && !(leftNums contains n))) yield f
 
-      val iContext =
-        InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
-      val internalInt = Interpolator(currentSimpCertificate, iContext)
+        val iContext =
+          InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
+        val internalInt = Interpolator(currentSimpCertificate, iContext)
 
-      val interpolant = Internal2InputAbsy(internalInt, functionEnc.predTranslation)
+        val interpolant = Internal2InputAbsy(internalInt, functionEnc.predTranslation)
 
-      simp(interpolant)
+        simp(interpolant)
+      }
     }
   }
   

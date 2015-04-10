@@ -1224,9 +1224,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                         (printer print p))
                   }
 
-              for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
-                smtLinearise(interpolant)
-                println
+              try { prover.withTimeout(timeoutPer) {
+                for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
+                  smtLinearise(interpolant)
+                  println
+                }
+              }} catch {
+                case SimpleAPI.TimeoutException =>
+                  error("timeout while computing interpolants")
               }
 
             }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,7 +32,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst, ConstantSubst}
 import ap.terfor.TerForConvenience._
 import ap.parameters.{GoalSettings, Param}
-import ap.util.{Debug, Seqs, IdealRange, Combinatorics}
+import ap.util.{Debug, Seqs, IdealRange, Combinatorics, Timeout}
 
 import scala.collection.mutable.{HashSet => MHashSet}
 
@@ -424,36 +424,40 @@ object PresburgerTools {
     /**
      * Simple heuristic to expand quantifiers ranging over bounded domains
      */
-    def expandQuantifiers(c : Conjunction) : Conjunction = c.quans.lastOption match {
-      case (Some(Quantifier.EX)) => {
-        val qvar = v(c.quans.size - 1)
-        (c.arithConj.inEqs.findLowerBound(qvar),
-         c.arithConj.inEqs.findLowerBound(-qvar)) match {
-          case (Some(lb), Some(ub)) =>
-            disj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
-                 yield expandQuantifiers(c.instantiate(List(i))), order)
-          case _ =>
-            c
+    def expandQuantifiers(c : Conjunction) : Conjunction = {
+      Timeout.check
+
+      c.quans.lastOption match {
+        case (Some(Quantifier.EX)) => {
+          val qvar = v(c.quans.size - 1)
+          (c.arithConj.inEqs.findLowerBound(qvar),
+           c.arithConj.inEqs.findLowerBound(-qvar)) match {
+            case (Some(lb), Some(ub)) =>
+              disj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
+                   yield expandQuantifiers(c.instantiate(List(i))), order)
+            case _ =>
+              c
+          }
         }
-      }
       
-      case (Some(Quantifier.ALL))
-        if (c.arithConj.isTrue && c.predConj.isTrue && c.negatedConjs.size == 1) => {
-        val qvar = v(c.quans.size - 1)
-        val subC = c.negatedConjs.head
+        case (Some(Quantifier.ALL))
+          if (c.arithConj.isTrue && c.predConj.isTrue && c.negatedConjs.size == 1) => {
+          val qvar = v(c.quans.size - 1)
+          val subC = c.negatedConjs.head
         
-        (subC.arithConj.inEqs.findLowerBound(qvar),
-         subC.arithConj.inEqs.findLowerBound(-qvar)) match {
-          case (Some(lb), Some(ub)) =>
-            conj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
-                 yield expandQuantifiers(c.instantiate(List(i))), order)
-          case _ =>
-            c
+          (subC.arithConj.inEqs.findLowerBound(qvar),
+           subC.arithConj.inEqs.findLowerBound(-qvar)) match {
+            case (Some(lb), Some(ub)) =>
+              conj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
+                   yield expandQuantifiers(c.instantiate(List(i))), order)
+            case _ =>
+              c
+          }
         }
-      }
         
-      case _ =>
-        c
+        case _ =>
+          c
+      }
     }
     
     def elimHelp(c : Conjunction) : Conjunction =
