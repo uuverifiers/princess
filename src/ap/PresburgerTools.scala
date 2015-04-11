@@ -432,7 +432,10 @@ object PresburgerTools {
           val qvar = v(c.quans.size - 1)
           (c.arithConj.inEqs.findLowerBound(qvar),
            c.arithConj.inEqs.findLowerBound(-qvar)) match {
-            case (Some(lb), Some(ub)) =>
+            case (Some(lb), Some(ub))
+              // don't split if there would be more than 1000 cases
+              // (hopeless ...)
+              if (ub + lb > IdealInt(-1000)) =>
               disj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
                    yield expandQuantifiers(c.instantiate(List(i))), order)
             case _ =>
@@ -447,7 +450,10 @@ object PresburgerTools {
         
           (subC.arithConj.inEqs.findLowerBound(qvar),
            subC.arithConj.inEqs.findLowerBound(-qvar)) match {
-            case (Some(lb), Some(ub)) =>
+            case (Some(lb), Some(ub))
+              // don't split if there would be more than 1000 cases
+              // (hopeless ...)
+              if (ub + lb > IdealInt(-1000)) =>
               conj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
                    yield expandQuantifiers(c.instantiate(List(i))), order)
             case _ =>

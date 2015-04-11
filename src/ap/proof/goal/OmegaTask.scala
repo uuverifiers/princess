@@ -30,7 +30,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.arithconj.{ArithConj, InNegEqModelElement}
 import ap.terfor.linearcombination.LinearCombination
-import ap.util.{Debug, Seqs, PlainRange, FilterIt, IdealRange}
+import ap.util.{Debug, Seqs, PlainRange, FilterIt, IdealRange, Timeout}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificate,
                               AntiSymmetryInference, BranchInferenceCertificate,
@@ -535,6 +535,7 @@ case object OmegaTask extends EagerTask {
             val cases = -negDistance + 1
             store.push(cases) {
               val goals = for (d <- IdealRange(cases)) yield {
+                Timeout.check
                 val shiftedLC = lc + (-d)
                 val newFacts = Conjunction.conj(NegEquationConj(shiftedLC, order), order)
                 ptf.updateGoal(goal.formulaTasks(newFacts),

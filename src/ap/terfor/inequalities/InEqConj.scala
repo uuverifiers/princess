@@ -186,6 +186,8 @@ object InEqConj {
     
     def addRemainingLC(coeff1 : IdealInt, lc1 : LinearCombination,
                        coeff2 : IdealInt, lc2 : LinearCombination) : Unit = {
+      if (remainder.size % 100 == 0)
+        Timeout.check
       val lc = LinearCombination.sum(coeff1, lc1, coeff2, lc2, order)
       if (lc.isConstant) {
         if (lc.constant.signum < 0) {
