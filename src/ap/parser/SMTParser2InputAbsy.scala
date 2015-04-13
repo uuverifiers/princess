@@ -534,16 +534,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private val incremental = (prover != null)
   
+  protected def incrementalityMessage(thing : String, warnOnly : Boolean) =
+    thing +
+    " is only supported in incremental mode (option +incremental)" +
+    (if (warnOnly) ", ignoring it" else "")
+
   private def checkIncremental(thing : String) =
     if (!incremental)
       throw new Parser2InputAbsy.TranslationException(
-        thing + " is only supported in incremental mode (option +incremental)")
+                  incrementalityMessage(thing, false))
 
   private def checkIncrementalWarn(thing : String) : Boolean =
     if (incremental) {
       true
     } else {
-      warn(thing + " is only supported in incremental mode (option +incremental), ignoring it")
+      warn(incrementalityMessage(thing, true))
       false
     }
 

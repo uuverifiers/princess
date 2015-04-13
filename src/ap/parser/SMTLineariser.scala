@@ -26,7 +26,7 @@ import ap.basetypes.IdealInt
 import ap.theories._
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
-import ap.terfor.conjunctions.Quantifier
+import ap.parser.IExpression.Quantifier
 import ap.util.Seqs
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
@@ -205,11 +205,21 @@ class SMTLineariser(benchmarkName : String,
     println(")")
   }
   
-  def printFormula(formula : IFormula) =
-    AbsyPrinter.visit(formula, PrintContext(List()))
+  def printFormula(formula : IFormula) = {
+    // first derive types of variables
+    var typedFormula = formula
+    var oldTypedFormula : IFormula = null
+    while (!(typedFormula eq oldTypedFormula)) {
+      oldTypedFormula = typedFormula
+      typedFormula =
+        VariableTypeInferenceVisitor.visit(typedFormula, ())
+                                    .asInstanceOf[IFormula]
+    }
+    AbsyPrinter.visit(typedFormula, PrintContext(List(), None))
+  }
   
   def printTerm(term : ITerm) =
-    AbsyPrinter.visit(term, PrintContext(List()))
+    AbsyPrinter.visit(term, PrintContext(List(), None))
   
   def close {
     println("(check-sat)")
@@ -217,20 +227,28 @@ class SMTLineariser(benchmarkName : String,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTFunctionType}
+  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger,
+                              SMTFunctionType}
 
-  private def getTermType(t : ITerm) : Option[SMTType] = t match {
+  private def getTermType(t : ITerm)
+                         (implicit variableType : Int => Option[SMTType])
+                         : Option[SMTType] = t match {
     case IFunApp(SimpleArray.Select(), args) =>
       for (SMTArray(_, res) <- getTermType(args.head)) yield res
     case IFunApp(SimpleArray.Store(), args) =>
       getTermType(args.head)
     case IFunApp(f, _) =>
       for (SMTFunctionType(_, res) <- functionType(f)) yield res
-    case IConstant(c) => constantType(c)
+    case IConstant(c) =>
+      constantType(c)
+    case IVariable(ind) =>
+      variableType(ind)
     case _ => None
   }
 
-  private def getArgTypes(t : IFunApp) : Option[Seq[SMTType]] = {
+  private def getArgTypes(t : IFunApp)
+                         (implicit variableType : Int => Option[SMTType])
+                         : Option[Seq[SMTType]] = {
     val IFunApp(fun, args) = t
     fun match {
       case SimpleArray.Select() =>
@@ -245,7 +263,9 @@ class SMTLineariser(benchmarkName : String,
   }
 
   private object BooleanTerm {
-    def unapply(t : IExpression) : Option[ITerm] = t match {
+    def unapply(t : IExpression)
+               (implicit variableType : Int => Option[SMTType])
+               : Option[ITerm] = t match {
       case t@IFunApp(f, _)
         if (functionType(f) match {
               case Some(SMTFunctionType(_, SMTBool)) => true
@@ -261,9 +281,15 @@ class SMTLineariser(benchmarkName : String,
   
   //////////////////////////////////////////////////////////////////////////////
 
-/*
   private val type2Predicate = new MHashMap[SMTType, Predicate]
   private val predicate2Type = new MHashMap[Predicate, SMTType]
+
+  private def getTypePredicate(t : SMTType) : Predicate =
+    type2Predicate.getOrElseUpdate(t, {
+      val p = new Predicate("type_" + t, 1)
+      predicate2Type.put(p, t)
+      p
+    })
 
   object TypePredicate {
     def unapply(t : IExpression) : Option[(ITerm, SMTType)] = t match {
@@ -286,35 +312,108 @@ class SMTLineariser(benchmarkName : String,
       variableTypes(pos) = t
     }
 
+    implicit val getVariableType : Int => Option[SMTType] = (ind:Int) => {
+      val pos = variableTypes.size - ind - 1
+      variableTypes(pos) match {
+        case null => None
+        case t => Some(t)
+      }
+    }
+
     override def preVisit(t : IExpression,
-                          arg : Unit) : PreVisitResult = t match {
-      case t : IQuantified => {
-        variableTypes += null
-        KeepArg
+                          arg : Unit) : PreVisitResult = {
+      t match {
+        case t : IQuantified =>
+          variableTypes += null
+        case TypePredicate(IVariable(ind), s) =>
+          setVariableType(ind, s)
+        case IExpression.Eq(IVariable(ind1), IVariable(ind2)) =>
+          (getVariableType(ind1), getVariableType(ind2)) match {
+            case (Some(t), None) => setVariableType(ind2, t)
+            case (None, Some(t)) => setVariableType(ind1, t)
+            case _ => // nothing
+          }
+        case IExpression.Eq(IVariable(ind), t) =>
+          for (s <- getTermType(t)) setVariableType(ind, s)
+        case IExpression.Eq(t, IVariable(ind)) =>
+          for (s <- getTermType(t)) setVariableType(ind, s)
+        case t@IFunApp(_, args) =>
+          for (argTypes <- getArgTypes(t)) {
+            for ((IVariable(ind), s) <- args.iterator zip argTypes.iterator)
+              setVariableType(ind, s)
+          }
+        case _ =>
+          // nothing
       }
-      case TypePredicate(IVariable(ind), s) => {
-        setVariableType(ind, s)
-        KeepArg
-      }
+
+      KeepArg
     }
 
     def postVisit(t : IExpression,
                   arg : Unit, subres : Seq[IExpression]) : IExpression = t match {
+      case IQuantified(Quantifier.ALL,
+                       IBinFormula(IBinJunctor.Or,
+                                   INot(TypePredicate(IVariable(0), _)),
+                                   _)) |
+           IQuantified(Quantifier.EX,
+                       IBinFormula(IBinJunctor.And,
+                                   TypePredicate(IVariable(0), _),
+                                   _)) => {
+        variableTypes reduceToSize (variableTypes.size - 1)
+        t
+      }
+      case f@IQuantified(q, subF) => {
+        import IExpression._
+        val res = getVariableType(0) match {
+          case Some(t) => q match {
+            case Quantifier.ALL =>
+              all(getTypePredicate(t)(v(0)) ==> subF)
+            case Quantifier.EX =>
+              ex(getTypePredicate(t)(v(0)) & subF)
+          }
+          case None => f
+        }
+        variableTypes reduceToSize (variableTypes.size - 1)
+        res
+      }
       case _ => t update subres
     }
   }
-*/
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private case class PrintContext(vars : List[String]) {
-    def pushVar(name : String) = PrintContext(name :: vars)
+  private def printSMTType(t : SMTType) : Unit = t match {
+    case SMTInteger => print("Int")
+    case SMTBool    => print("Bool")
+    case SMTArray(args, res) => {
+      print("(Array")
+      for (s <- args) {
+        print(" ")
+        printSMTType(s)
+      }
+      print(" ")
+      printSMTType(res)
+      print(")")
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private case class PrintContext(vars : List[(String, Option[SMTType])],
+                                  pendingType : Option[SMTType]) {
+    def pushVar(name : String) =
+      PrintContext((name, pendingType) :: vars, None)
+    def addPendingType(t : SMTType) =
+      PrintContext(vars, Some(t))
+    implicit val variableType : Int => Option[SMTType] = (ind) => vars(ind)._2
   }
 
   private object AbsyPrinter extends CollectingVisitor[PrintContext, Unit] {
-    
+
     override def preVisit(t : IExpression,
-                          ctxt : PrintContext) : PreVisitResult = t match {
+                          ctxt : PrintContext) : PreVisitResult = {
+    import ctxt.variableType
+    t match {
       // Terms with Boolean type, which were encoded as integer terms
       case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
         // strip off the integer encoding
@@ -347,7 +446,7 @@ class SMTLineariser(benchmarkName : String,
         KeepArg
       }
       case IVariable(index) => {
-        print(ctxt.vars(index) + " ")
+        print(ctxt.vars(index)._1 + " ")
         ShortCutResult(())
       }
       case t@IFunApp(fun, args) => {
@@ -417,6 +516,16 @@ class SMTLineariser(benchmarkName : String,
         print("(not ")
         KeepArg
       }
+      case IQuantified(Quantifier.ALL,
+                       IBinFormula(IBinJunctor.Or,
+                                   INot(TypePredicate(IVariable(0), t)),
+                                   subF)) =>
+        TryAgain(IExpression.all(subF), ctxt addPendingType t)
+      case IQuantified(Quantifier.EX,
+                       IBinFormula(IBinJunctor.And,
+                                   TypePredicate(IVariable(0), t),
+                                   subF)) =>
+        TryAgain(IExpression.ex(subF), ctxt addPendingType t)
       case IQuantified(quan, _) => {
         val varName = "var" + ctxt.vars.size
         print("(")
@@ -424,7 +533,9 @@ class SMTLineariser(benchmarkName : String,
           case Quantifier.ALL => "forall"
           case Quantifier.EX => "exists"
         })
-        print(" ((" + varName + " Int)) ")
+        print(" ((" + varName + " ")
+        printSMTType(ctxt.pendingType.getOrElse(SMTInteger))
+        print(")) ")
         UniSubArgs(ctxt pushVar varName)
       }
       case ITrigger(trigs, body) => {
@@ -440,6 +551,7 @@ class SMTLineariser(benchmarkName : String,
         
         ShortCutResult(())
       }
+    }
     }
     
     def postVisit(t : IExpression,
