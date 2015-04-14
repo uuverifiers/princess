@@ -360,9 +360,10 @@ class SMTLineariser(benchmarkName : String,
                                    TypePredicate(IVariable(0), _),
                                    _)) => {
         variableTypes reduceToSize (variableTypes.size - 1)
-        t
+        t update subres
       }
-      case f@IQuantified(q, subF) => {
+      case _ : IQuantified => {
+        val f@IQuantified(q, subF) = t update subres
         import IExpression._
         val res = getVariableType(0) match {
           case Some(t) => q match {
