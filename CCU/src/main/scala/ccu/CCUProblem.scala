@@ -3,12 +3,16 @@ package ccu;
 @SerialVersionUID(15L)
 class CCUGoal(val subGoals : Seq[Seq[(Int, Int)]]) extends Serializable {
   override def toString = {
-    subGoals.mkString(" & ")
+    subGoals.mkString(" OR ")
   }
 }
 
 @SerialVersionUID(15L)
-class CCUEq(val eq : (Int, Seq[Int], Int)) extends Serializable {}
+class CCUEq(val eq : (Int, Seq[Int], Int)) extends Serializable {
+  override def toString = {
+    eq.toString
+  }
+}
 
 @SerialVersionUID(15L)
 class CCUSubProblem(
@@ -16,6 +20,7 @@ class CCUSubProblem(
   val domains : Map[Int, Set[Int]],
   val funEqs : Seq[CCUEq],
   val goal : CCUGoal,
+  @transient val baseDI : Array[Array[Int]],
   @transient val DQ : Disequalities) 
     extends Serializable {
 
@@ -32,7 +37,6 @@ class CCUSimProblem(
   val terms : Seq[Int],
   val domains : Map[Int, Set[Int]],
   val bits : Int,
-  val baseDI : Seq[Array[Array[Int]]],
   val order : Seq[Int],
   val subProblems : Seq[CCUSubProblem]) 
     extends Serializable {

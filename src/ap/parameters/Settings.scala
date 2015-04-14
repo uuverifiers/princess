@@ -159,6 +159,8 @@ object GlobalSettings {
           Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Table)
         case ValueOpt("CCU", "lazy") =>
           Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Lazy)
+        case ValueOpt("CCU", "bench") =>
+          Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Bench)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }

@@ -91,6 +91,10 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
                Some(new ccu.LazySolver(
                       () => Timeout.check,
                       Param.CLAUSIFIER_TIMEOUT(gs)))
+             case Param.CCUStrategyOptions.Bench =>
+               Some(new ccu.BenchSolver(
+                      () => Timeout.check,
+                      Param.CLAUSIFIER_TIMEOUT(gs)))
            })
     gs
   }

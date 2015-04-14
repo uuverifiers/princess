@@ -318,7 +318,7 @@ object Param {
   }
 
   object CCUStrategyOptions extends Enumeration {
-    val Table, Lazy = Value
+    val Table, Lazy, Bench = Value
   }
 
   case object CCU_STRATEGY extends Param {

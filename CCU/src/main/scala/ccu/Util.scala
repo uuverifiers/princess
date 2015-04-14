@@ -56,33 +56,35 @@ class Disequalities(
  
   def apply(i : Int, j : Int) : Boolean = getDQ(i, j) != 0
 
+  def getFunified(t : Int) = {
+    for (s <- 0 until size; if getDQ(s, t) >= 1) yield s
+  }
+
   // if (DQ(i)(j) == 0)
   //   diseqCount += 1
 
-  Timer.measure("createProblem.DQ.funArgs/Res/Funs") {
-    for (f <- 0 until funEqs.length) {
-      val (fun, args, res) = funEqs(f)
+  for (f <- 0 until funEqs.length) {
+    val (fun, args, res) = funEqs(f)
 
-      // Argument map
-      for (i <- 0 until args.length) {
-        if (funArgs contains (args(i)))
-          funArgs.get(args(i)).get += ((fun, i, f))
-        else
-          funArgs += (args(i) -> ListBuffer((fun, i, f)))
-      }
-
-      // Result map
-      if (funRes contains(res))
-        funRes.get(res).get += ((fun, f))
+    // Argument map
+    for (i <- 0 until args.length) {
+      if (funArgs contains (args(i)))
+        funArgs.get(args(i)).get += ((fun, i, f))
       else
-        funRes += (res -> ListBuffer((fun, f)))
-
-      // Function symbol map
-      if (funFuns contains(fun))
-        funFuns.get(fun).get += f
-      else
-        funFuns += (fun -> ListBuffer(f))
+        funArgs += (args(i) -> ListBuffer((fun, i, f)))
     }
+
+    // Result map
+    if (funRes contains(res))
+      funRes.get(res).get += ((fun, f))
+    else
+      funRes += (res -> ListBuffer((fun, f)))
+
+    // Function symbol map
+    if (funFuns contains(fun))
+      funFuns.get(fun).get += f
+    else
+      funFuns += (fun -> ListBuffer(f))
   }
 
   def getINEQ() = {
@@ -116,63 +118,68 @@ class Disequalities(
     }
   }
 
-  def check(pairs : Seq[(Int, Int)]) = {
-    if (pairs.isEmpty) {
-      true
-    } else {
-      var equal = true
+  // TODO: Restore check
+  def check(pairs : Seq[(Int, Int)]) : Boolean = {
+    for ((s, t) <- pairs; if !this(s,t))
+      return false
 
-      val uf = new UnionFind[Int]
+    true
 
-      for ((s, t) <- pairs) {
-        if (!(uf contains s))
-          uf.makeSet(s)
-        if (!(uf contains t))
-          uf.makeSet(t)
+    // if (pairs.isEmpty) {
+    //   true
+    // } else {
+    //   var equal = true
 
-        if (!this(s, t))
-          equal = false
-        else
-          uf.union(s,t)
-      }
+    //   val uf = new UnionFind[Int]
+
+    //   for ((s, t) <- pairs) {
+    //     if (!(uf contains s))
+    //       uf.makeSet(s)
+    //     if (!(uf contains t))
+    //       uf.makeSet(t)
+
+    //     if (!this(s, t))
+    //       equal = false
+    //     else
+    //       uf.union(s,t)
+    //   }
 
 
-      if (equal) {
-        for (set <- uf.getSets) {
-          if (set.size > 2) {
-            // println("check(" + pairs + ")")
-            // println("\t" + uf)
-            // println("\t" + uf.getSets)
+    //   if (equal) {
+    //     for (set <- uf.getSets) {
+    //       if (set.size > 2) {
+    //         // println("check(" + pairs + ")")
+    //         // println("\t" + uf)
+    //         // println("\t" + uf.getSets)
 
-            for (s <- set; t <- set; if s < t) {
-              if (!this(s,t)) {
-                equal = false
-                // println("\t\tChecking " + s + " != " + t)
-                // throw new Exception("Transitivity CHECK!")
-              }
-            }
-          }
-        }
-      }
-      equal
-    }
+    //         for (s <- set; t <- set; if s < t) {
+    //           if (!this(s,t)) {
+    //             equal = false
+    //             // println("\t\tChecking " + s + " != " + t)
+    //             // throw new Exception("Transitivity CHECK!")
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    //   equal
+    // }
+  }
+
+
+  def funUnify(s : Int, t : Int) : Set[(Int, Int)] = {
+    val sEq =
+      for (i <- 0 until size; if (this(s, i))) yield i
+    val tEq =
+      for (i <- 0 until size; if (this(t, i))) yield i
+
+    (for (i <- sEq; j <- tEq; if i != j; if !this(i,j)) yield {
+      (i min j, i max j)
+    }).toSet
   }
 
   def cascadeRemoveDQ(s : Int, t : Int) : Unit = 
   Timer.measure("cascadeRemove") {
-
-    def funUnify(s : Int, t : Int) : Set[(Int, Int)] = {
-      val sEq =
-        for (i <- 0 until size; if (this(s, i))) yield i
-      val tEq =
-        for (i <- 0 until size; if (this(t, i))) yield i
-
-
-      (for (i <- sEq; j <- tEq; if i != j; if !this(i,j)) yield {
-        (i min j, i max j)
-      }).toSet
-    }
-
     val todo = Queue() : Queue[(Int, Int)]
     val inQueue = Array.ofDim[Boolean](size, size)
 
@@ -182,17 +189,19 @@ class Disequalities(
       val t = ss max tt
       val curdq = getDQ(s, t)
 
-      var queue = true
-
-      if (fun && curdq < 2) {
-        funify(s, t)
-      } else if (curdq < 1) {
-        unify(s, t)
-      } else {
-        queue = false
-      }
+      val queue = 
+        if (fun && curdq < 2) {
+          funify(s, t)
+          true
+        } else if (curdq < 1) {
+          unify(s, t)
+          true
+        } else {
+          false
+        }
 
       if (queue && !inQueue(s)(t)) {
+        // println("\tAdding " + ((s, t)))
         inQueue(s)(t) = true
         todo.enqueue((s, t))
       }
@@ -206,7 +215,7 @@ class Disequalities(
       val (s, t) = todo.dequeue
       inQueue(s)(t) = false
 
-      // ASSERT
+      // TODO: ASSERT
       if (!this(s, t))
         throw new Exception("Tuple " + ((s,t)) + " in todo not unified!")
 
@@ -216,8 +225,8 @@ class Disequalities(
         (fun2, i2, eq2) <- funArgs.getOrElse(t, List()); 
         if (fun1 == fun2 && i1 == i2 && eq1 != eq2)) yield {
 
-        val (f_i, args_i, r_i) = funEqs(eq1)
-        val (f_j, args_j, r_j) = funEqs(eq2)
+        val (_, args_i, r_i) = funEqs(eq1)
+        val (_, args_j, r_j) = funEqs(eq2)
 
         if (check(args_i zip args_j)) {
           addTodo((r_i, r_j), true)
@@ -225,8 +234,6 @@ class Disequalities(
             addTodo(eq, false)
         }
       }
-
-
 
       // Find all s, s.t. s = lhs and add s = rhs
       def transitivity(lhs : Int, rhs : Int) = {
@@ -238,11 +245,14 @@ class Disequalities(
             val (_, args_j, s) = funEqs(eq2)
 
             // s = lhs => s = rhs
+            // Unify s with all terms that are Funified with rhs
             if (check(args_i zip args_j))
-              addTodo((s, rhs), false)
+              for (funified <- getFunified(s))
+                addTodo((rhs, funified), false)
           }
         }
       }
+
 
       Timer.measure("cascadeRemove.transitivity") {
         transitivity(s, t)
@@ -260,12 +270,15 @@ class Disequalities(
 
     for ((s, t) <- ineqs) {
       timeoutChecker()
+      // println("Removing inequality: " + s + " ~= " + t)
       this.cascadeRemoveDQ(s, t)
 
       val sat = this.satisfies(goals)
       if (!sat) {
+        // println("Still UNSAT - remove")
         this.setBase
       } else {
+        // println("Removed one too much - 
         this.restore
       }
     }
@@ -285,6 +298,10 @@ class Disequalities(
 
   def satisfies(goals : Seq[Seq[(Int, Int)]]) = {
     var satisfiable = false
+
+    // println("SATISFIES?")
+    // println("GOALS: " + goals.mkString(" OR "))
+    // println(this.getINEQ().mkString("; "))
 
     for (subGoal <- goals) {
       var subGoalSat = true
@@ -358,35 +375,33 @@ class Util (timeoutChecker : () => Unit) {
   // Calculating log_2 (b)
   // Used for cacluating number of bits needed
   def binlog(b : Int) : Int = {
-    Timer.measure("binlog") {
-      var bits = b
-      var log = 0
-      if ((bits & 0xffff0000) != 0) {
-        bits >>>= 16
-        log = 16
-      }
-      
-      if (bits >= 256) {
-        bits >>>= 8
-        log += 8
-      }
-      if (bits >= 16) {
-        bits >>>= 4
-        log += 4
-      }
-      
-      if (bits >= 4) {
-        bits >>>= 2
-        log += 2
-      }
-
-      // TODO: Add 1 for luck!
-      // Add one if we have an even power of 2
-      // if ((b & (b -1)) == 0)
-      return log + ( bits >>> 1 ) + 1
-      // else 
-        // return log + (bits >>> 1)
+    var bits = b
+    var log = 0
+    if ((bits & 0xffff0000) != 0) {
+      bits >>>= 16
+      log = 16
     }
+    
+    if (bits >= 256) {
+      bits >>>= 8
+      log += 8
+    }
+    if (bits >= 16) {
+      bits >>>= 4
+      log += 4
+    }
+    
+    if (bits >= 4) {
+      bits >>>= 2
+      log += 2
+    }
+
+    // TODO: Add 1 for luck!
+    // Add one if we have an even power of 2
+    // if ((b & (b -1)) == 0)
+    return log + ( bits >>> 1 ) + 1
+    // else
+    // return log + (bits >>> 1)
   }
 
   def CCunionFind(

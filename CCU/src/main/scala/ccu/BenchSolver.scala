@@ -17,16 +17,32 @@ class BenchSolver(timeoutChecker : () => Unit,
 
 
   override def solveaux(problem : CCUSimProblem) : (ccu.Result.Result, Option[Map[Int, Int]]) = {
-    val tresult = tsolver.solveaux(problem)
-    val lresult = lsolver.solveaux(problem)
+    reset
 
-    println("Table solver: " + tresult)
-    println("Lazy solver: " + lresult)
 
-    println(tsolver.S)
-    println(lsolver.S)
+    def time[R](block: => R): (R, Int) = {
+      val t0 = System.nanoTime()
+      val result = block
+      val t1 = System.nanoTime()
+      (result, ((t1 - t0)/1000000).toInt)
+    }
+
+    val (tresult, ttime) = time { Timer.measure("TableSolver") { tsolver.solveaux(problem) } }
+    val (lresult, ltime) = time { Timer.measure("LazySolver") { lsolver.solveaux(problem) } }
+
+    println("---NEW PROBLEM---")
+    println("ID:" + scala.util.Random.nextInt(2147483647))
+
+    println(problem)
+
+    println(tsolver.S + ",TIME:" + ttime)
+    println(lsolver.S + ",TIME:" + ltime)
+    println("---END PROBLEM---")
+    if (tresult._1 != lresult._1)
+      throw new Exception("Different Results!")
 
     tresult
+
 
   }
 
@@ -35,6 +51,6 @@ class BenchSolver(timeoutChecker : () => Unit,
 
 
   def unsatCoreAux(problem : CCUSimProblem, timeout : Int) = {
-    lastUnsatCore
+    tsolver.unsatCore(problem, timeout)
   }
 }

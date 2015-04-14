@@ -54,6 +54,8 @@ class Stats {
     stats += s
   }
 
+  def clear = stats.clear
+
   override def toString = {
     stats.mkString("\n")
   }
@@ -149,6 +151,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
         // println("UNSAT ASSERTED")
         ccu.Result.UNSAT
       }
+      case _ => throw new Exception("Strange result from solve!")
     }
   }
 
@@ -237,6 +240,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     solver.setTimeoutMs(maxSolverRuntime)
     solver.addClause(new VecInt(Array(-ZEROBIT)))
     solver.addClause(new VecInt(Array(ONEBIT)))
+    S.clear
   }
 
 
@@ -303,29 +307,27 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     goal : CCUGoal)
       : Boolean = {
 
-    Timer.measure("verifySolution") {
-      val uf = util.CCunionFind(terms, functions, assignment.toList)
+    val uf = util.CCunionFind(terms, functions, assignment.toList)
 
-      var satisfiable = false
+    var satisfiable = false
 
-      for (subGoal <- goal.subGoals) {
-        var subGoalSat = true
+    for (subGoal <- goal.subGoals) {
+      var subGoalSat = true
 
-        var allPairsTrue = true
-        for ((s,t) <- subGoal) {
-          if (uf(s) != uf(t)) {
-            allPairsTrue = false
-          }
-
-          if (!allPairsTrue)
-            subGoalSat = false
+      var allPairsTrue = true
+      for ((s,t) <- subGoal) {
+        if (uf(s) != uf(t)) {
+          allPairsTrue = false
         }
-        if (subGoalSat) {
-          satisfiable = true
-        }
+
+        if (!allPairsTrue)
+          subGoalSat = false
       }
-      satisfiable
+      if (subGoalSat) {
+        satisfiable = true
+      }
     }
+    satisfiable
   }
 
   def bitToInt(bits : Seq[Int]) : Int = {
@@ -355,53 +357,49 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
   }
 
   def termEqIntAux(bitList : Seq[Int], i : Int) : Int = {
-    Timer.measure("termEqInt") {
-      var curVal = i
+    var curVal = i
 
-      val lits =
-        (for (b <- bitList) yield {
-          if (curVal % 2 == 1) {
-            curVal -= 1
-            curVal /= 2
-            b
-          } else {
-            curVal /= 2
-            -b
-          }
-        }).toArray
+    val lits =
+      (for (b <- bitList) yield {
+        if (curVal % 2 == 1) {
+          curVal -= 1
+          curVal /= 2
+          b
+        } else {
+          curVal /= 2
+          -b
+        }
+      }).toArray
 
-      val eqBit = alloc.alloc(1)
-      gt.and(eqBit, new VecInt(lits))
-      eqBit
-    }
+    val eqBit = alloc.alloc(1)
+    gt.and(eqBit, new VecInt(lits))
+    eqBit
   }
 
   def termEqTermAux(term1Bits : Seq[Int], term2Bits : Seq[Int]) : Int = {
-    Timer.measure("termEqTerm") {
-      val maxBits = term1Bits.length max term2Bits.length
+    val maxBits = term1Bits.length max term2Bits.length
 
-      val term1BitsPadded = term1Bits.padTo(maxBits, ZEROBIT)
-      val term2BitsPadded = term2Bits.padTo(maxBits, ZEROBIT)
+    val term1BitsPadded = term1Bits.padTo(maxBits, ZEROBIT)
+    val term2BitsPadded = term2Bits.padTo(maxBits, ZEROBIT)
 
-      // TODO: Could be optimised (by not doing padding...)
-      val eqBits =
-        (for ((t1b, t2b) <- term1BitsPadded zip term2BitsPadded) yield {
-          // TODO: reply by match?
-          if (t1b == ZEROBIT && t2b == ZEROBIT || t1b == ONEBIT && t2b == ONEBIT) {
-            ONEBIT
-          } else if (t1b == ZEROBIT && t2b == ONEBIT || t1b == ONEBIT && t2b == ZEROBIT) {
-            return ZEROBIT
-          } else {
-            var tmpBit = alloc.alloc(1)
-            gt.iff(tmpBit, new VecInt(Array(t1b, t2b)))
-            tmpBit
-          }
-        }).toArray
+    // TODO: Could be optimised (by not doing padding...)
+    val eqBits =
+      (for ((t1b, t2b) <- term1BitsPadded zip term2BitsPadded) yield {
+        // TODO: reply by match?
+        if (t1b == ZEROBIT && t2b == ZEROBIT || t1b == ONEBIT && t2b == ONEBIT) {
+          ONEBIT
+        } else if (t1b == ZEROBIT && t2b == ONEBIT || t1b == ONEBIT && t2b == ZEROBIT) {
+          return ZEROBIT
+        } else {
+          var tmpBit = alloc.alloc(1)
+          gt.iff(tmpBit, new VecInt(Array(t1b, t2b)))
+          tmpBit
+        }
+      }).toArray
 
-      var eqBit = alloc.alloc(1)
-      gt.and(eqBit, new VecInt(eqBits))
-      eqBit
-    }
+    var eqBit = alloc.alloc(1)
+    gt.and(eqBit, new VecInt(eqBits))
+    eqBit
   }
 
   def createAssignments(problem : CCUSimProblem) : Map[Int, Seq[Int]] = {
@@ -410,32 +408,28 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     val terms = problem.terms 
 
     var assignments = Map() : Map[Int, Seq[Int]]
-    Timer.measure("create.ASSIGNMENTS") {
-      assignments =
-        (for (t <- terms) yield {
-          (t,
-            (if (problem.domains(t).size == 1) {
-              termAssIntAux(problem.domains(t).toList(0), problem.bits)
-            } else {
-              val termStartBit = alloc.alloc(problem.bits)
-              val termBits = List.tabulate(problem.bits)(x => x + termStartBit)
-              val assBits =
-                (for (tt <- problem.domains(t); if tt <= t) yield  {
-                  termEqIntAux(termBits, tt)
-                }).toArray
-              solver.addClause(new VecInt(assBits))
-              termBits}))}).toMap
-    }
+    assignments =
+      (for (t <- terms) yield {
+        (t,
+          (if (problem.domains(t).size == 1) {
+            termAssIntAux(problem.domains(t).toList(0), problem.bits)
+          } else {
+            val termStartBit = alloc.alloc(problem.bits)
+            val termBits = List.tabulate(problem.bits)(x => x + termStartBit)
+            val assBits =
+              (for (tt <- problem.domains(t); if tt <= t) yield  {
+                termEqIntAux(termBits, tt)
+              }).toArray
+            solver.addClause(new VecInt(assBits))
+            termBits}))}).toMap
 
-    Timer.measure("create.IDEMPOTENCY") {
-      // Enforce idempotency
-      for (t <- terms) {
-        for (tt <- problem.domains(t); if tt <= t) {
-          // Either tt = tt or t != tt
-          val iddBit = termEqIntAux(assignments(tt), tt)
-          val neqBit = -termEqIntAux(assignments(t), tt)
-          solver.addClause(new VecInt(Array(iddBit, neqBit)))
-        }
+    // Enforce idempotency
+    for (t <- terms) {
+      for (tt <- problem.domains(t); if tt <= t) {
+        // Either tt = tt or t != tt
+        val iddBit = termEqIntAux(assignments(tt), tt)
+        val neqBit = -termEqIntAux(assignments(t), tt)
+        solver.addClause(new VecInt(Array(iddBit, neqBit)))
       }
     }
     assignments
@@ -562,26 +556,21 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
 
       var DQ = List() : Seq[Disequalities]
 
-      Timer.measure("createProblem.DQ") {
-        DQ = (for (p <- 0 until problemCount)
-        yield {
-          // TODO: Length of disequalities
-          val tmpDQ = (Timer.measure("createProblem.DQ.new") {
-            new Disequalities(newTerms.length, newFunctions(p).toArray.map(x => new CCUEq(x)), timeoutChecker)
-          })
-          // val c = Array.ofDim[Int](newTerms.length, newTerms.length)
-          for (t <- newTerms; tt <- newTerms)
-            if (arr(t)(tt) == 1) {
-              Timer.measure("createProblem.DQ.cascadeRemove") {
-                tmpDQ.cascadeRemoveDQ(t,tt)
-              }
-            }
+      DQ = (for (p <- 0 until problemCount)
+      yield {
+        // TODO: Length of disequalities
+        val tmpDQ = new Disequalities(newTerms.length, newFunctions(p).toArray.map(x => new CCUEq(x)), timeoutChecker)
+        
+        // val c = Array.ofDim[Int](newTerms.length, newTerms.length)
+        for (t <- newTerms; tt <- newTerms)
+          if (arr(t)(tt) == 1) {
+            tmpDQ.cascadeRemoveDQ(t,tt)
+          }
 
-          // val deq = util.disequalityCheck(c, newFunctions(p))
-          // deq
-          tmpDQ
-        })
-      }
+        // val deq = util.disequalityCheck(c, newFunctions(p))
+        // deq
+        tmpDQ
+      })
 
       val baseDI = (for (p <- 0 until problemCount)
       yield {
@@ -699,7 +688,8 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
       val problems = 
         for (i <- 0 until problemCount) yield
           new CCUSubProblem(reorderTerms(i), reorderDomains(i), 
-            reorderFunctions(i), new CCUGoal(reorderGoals(i)), reorderDQ(i))
+            reorderFunctions(i), new CCUGoal(reorderGoals(i)),
+            reorderBaseDI(i), reorderDQ(i))
 
       // val newDiseq = 
       //   for (d <- reorderDiseq) yield {
@@ -717,7 +707,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
           bits,
           // reorderDiseq,
           // newDiseq,
-          reorderBaseDI,
+          // reorderBaseDI,
           order,
           problems)
 

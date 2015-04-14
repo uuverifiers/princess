@@ -20,9 +20,9 @@ class TableSolver(timeoutChecker : () => Unit,
   var lastUnsatCore = List() : Seq[Int]
   def addStat(sat : Boolean) = {
     val res = if (sat) "SAT" else "UNSAT"
-    S.addEntry("TABLE: " + res +
-      ", TABLES: " + (for (t <- tables; if t.isDefined) yield 1).sum +
-      ", Columns " + (for (t <- tables; if t.isDefined) yield t.get.currentColumn).max)
+    S.addEntry("TABLE>RESULT:" + res +
+      ",TABLES:" + (for (t <- tables; if t.isDefined) yield 1).sum +
+      ",COLUMNS:" + (for (t <- tables; if t.isDefined) yield t.get.currentColumn).max)
   }
 
   def CCV(tab : Seq[Table]) : Boolean = {
@@ -449,63 +449,61 @@ class Table(val bits : Int, alloc : Allocator,
 
   // C[t1] > C[t2]
   def termGtTerm(term1 : (Int, Int), term2 : (Int, Int)) : Int = {
-    Timer.measure("termGtTerm") {
-      val (c1, t1) = term1
-      val (c2, t2) = term2
+    val (c1, t1) = term1
+    val (c2, t2) = term2
 
-      val term1Bits = this(c1, t1)
-      val term2Bits = this(c2, t2)
-      val maxBits = term1Bits.length max term2Bits.length
+    val term1Bits = this(c1, t1)
+    val term2Bits = this(c2, t2)
+    val maxBits = term1Bits.length max term2Bits.length
 
-      // Make the reversed since we are studying from most significant bit
-      val term1BitsPadded = term1Bits.padTo(maxBits, ZEROBIT).reverse
-      val term2BitsPadded = term2Bits.padTo(maxBits, ZEROBIT).reverse
+    // Make the reversed since we are studying from most significant bit
+    val term1BitsPadded = term1Bits.padTo(maxBits, ZEROBIT).reverse
+    val term2BitsPadded = term2Bits.padTo(maxBits, ZEROBIT).reverse
 
-      // e_bits[b]: bit (bits-b) of i and j are equal
-      var e_bits = List() : Seq[Int]
-      // for (b <- 1 to maxBits) yield {
-      for ((t1b, t2b) <- term1BitsPadded zip term2BitsPadded) {
+    // e_bits[b]: bit (bits-b) of i and j are equal
+    var e_bits = List() : Seq[Int]
+    // for (b <- 1 to maxBits) yield {
+    for ((t1b, t2b) <- term1BitsPadded zip term2BitsPadded) {
 
-        // term1[bits - b] = term2[bits - b]
-        val bitsEq = alloc.alloc(1)
-        gt.iff(bitsEq, new VecInt(Array(t1b, t2b)))
+      // term1[bits - b] = term2[bits - b]
+      val bitsEq = alloc.alloc(1)
+      gt.iff(bitsEq, new VecInt(Array(t1b, t2b)))
 
-        if (e_bits.isEmpty) {
-          e_bits = e_bits :+ bitsEq
-        } else {
-          val prevEq = alloc.alloc(1)
-          gt.and(prevEq, e_bits.last, bitsEq)
-          e_bits = e_bits :+ prevEq
-        }
+      if (e_bits.isEmpty) {
+        e_bits = e_bits :+ bitsEq
+      } else {
+        val prevEq = alloc.alloc(1)
+        gt.and(prevEq, e_bits.last, bitsEq)
+        e_bits = e_bits :+ prevEq
       }
-
-      var m_bits = List() : Seq[Int]
-
-      // m_bits[b]: bits [bits..(bits-b)] of i are greater than j
-      // for (b <- 1 to bits) {
-      for (b <- 0 until maxBits) {
-        val bit_gt = alloc.alloc(1)
-        gt.and(bit_gt, term1BitsPadded(b), -term2BitsPadded(b))
-
-        if (m_bits.isEmpty) {
-          m_bits = m_bits :+ bit_gt
-        } else {
-          val prev_eq = e_bits(b-1)
-
-          // Option1: All prev bits are eq and this is greater
-          val opt1 = alloc.alloc(1)
-          gt.and(opt1, prev_eq, bit_gt)
-
-          // Option2: Term1 was already greater than Term2
-          val opt2 = m_bits(b-1)
-
-          val m = alloc.alloc(1)
-          gt.or(m, new VecInt(Array(opt1, opt2)))
-          m_bits = m_bits :+ m
-        }
-      }
-      m_bits.last
     }
+
+    var m_bits = List() : Seq[Int]
+
+    // m_bits[b]: bits [bits..(bits-b)] of i are greater than j
+    // for (b <- 1 to bits) {
+    for (b <- 0 until maxBits) {
+      val bit_gt = alloc.alloc(1)
+      gt.and(bit_gt, term1BitsPadded(b), -term2BitsPadded(b))
+
+      if (m_bits.isEmpty) {
+        m_bits = m_bits :+ bit_gt
+      } else {
+        val prev_eq = e_bits(b-1)
+
+        // Option1: All prev bits are eq and this is greater
+        val opt1 = alloc.alloc(1)
+        gt.and(opt1, prev_eq, bit_gt)
+
+        // Option2: Term1 was already greater than Term2
+        val opt2 = m_bits(b-1)
+
+        val m = alloc.alloc(1)
+        gt.or(m, new VecInt(Array(opt1, opt2)))
+        m_bits = m_bits :+ m
+      }
+    }
+    m_bits.last
   }
 
   def addInitialColumn(assignments : Map[Int, Seq[Int]]) {
@@ -517,186 +515,184 @@ class Table(val bits : Int, alloc : Allocator,
   }
 
   def addDerivedColumn(timeoutChecker : () => Unit) = {
-    Timer.measure("addDerivedColumn") {
-      // For all pairs of functions with identical function symbols and
-      // different results,form a 3-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
-      currentColumn += 1
+    // For all pairs of functions with identical function symbols and
+    // different results,form a 3-tuple of (v_ij, (arg_i, s_i), (arg_j, s_j))
+    currentColumn += 1
 
-      val startBit = alloc.alloc(terms.length * bits)
+    val startBit = alloc.alloc(terms.length * bits)
 
-      // val newColumn =
-      //   MMap() ++ (List.tabulate(terms.length)(x => {
-      //     (terms(x), List.tabulate(bits)(y => startBit + x*bits + y))
-      //   })).toMap
+    // val newColumn =
+    //   MMap() ++ (List.tabulate(terms.length)(x => {
+    //     (terms(x), List.tabulate(bits)(y => startBit + x*bits + y))
+    //   })).toMap
 
-      val newColumn = MMap() : MMap[Int, Seq[Int]]
-      for (t <- 0 until terms.length) {
-        val bitList = for (b <- 0 until bits) yield startBit + t*bits + b
-        newColumn += terms(t) -> bitList
+    val newColumn = MMap() : MMap[Int, Seq[Int]]
+    for (t <- 0 until terms.length) {
+      val bitList = for (b <- 0 until bits) yield startBit + t*bits + b
+      newColumn += terms(t) -> bitList
+    }
+
+    columns += newColumn
+
+    val eqBits = Array.tabulate(terms.length, terms.length)( (x, y) => -1)
+
+    // termToIndex
+    val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
+
+    def unifiable(args1 : Seq[Int], args2 : Seq[Int]) : Boolean = {
+      for ((a1, a2) <- (args1 zip args2)) {
+        if (!DQ(a1, a2))
+          return false
+      }
+      return true
+    }
+
+
+    val V =
+      for ((f_i, args_i, s_i) <- functions;
+        (f_j, args_j, s_j) <- functions;
+        if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
+        val argBits =
+          (for (i <- 0 until args_i.length) yield {
+            val t1 = args_i(i) min args_j(i)
+            val t2 = args_i(i) max args_j(i)
+            if (eqBits(tTI(t1))(tTI(t2)) == -1)
+              eqBits(tTI(t1))(tTI(t2)) =
+                termEqTerm((currentColumn-1, args_i(i)),
+                  (currentColumn-1,args_j(i)))
+
+            eqBits(tTI(t1))(tTI(t2))
+          }).toArray
+
+        // argBit <=> C_p[args_i] = C_p[args_j]
+        val argBit =
+          if (argBits.isEmpty) {
+            // No arguments (i.e. f() = a && f() = b is trivial equality)
+            ONEBIT
+          } else {
+            val tmp = alloc.alloc(1)
+            gt.and(tmp, new VecInt(argBits))
+            tmp
+          }
+
+        // gtBit <=> C_p[s_i] > C_p[s_j]
+        val gtBit = termGtTerm((currentColumn-1, s_i), (currentColumn-1, s_j))
+
+        // vBit <=> args_i = args_j ^ s_i > s_j
+        val vBit = alloc.alloc(1)
+        gt.and(vBit, argBit, gtBit)
+
+        (vBit, (args_i, s_i), (args_j, s_j))
       }
 
-      columns += newColumn
 
-      val eqBits = Array.tabulate(terms.length, terms.length)( (x, y) => -1)
 
-      // termToIndex
-      val tTI = (for (t <- terms) yield (t, terms indexOf t)).toMap
 
-      def unifiable(args1 : Seq[Int], args2 : Seq[Int]) : Boolean = {
-        for ((a1, a2) <- (args1 zip args2)) {
-          if (!DQ(a1, a2))
-            return false
-        }
-        return true
+    for (t <- terms) {
+      // --- CASE0: Not a representing term, following a rowless bit ---
+      timeoutChecker()
+      val neqBits =
+        (for (tt <- terms) yield {
+          -termEqInt((currentColumn-1, t), tt)
+        }).toArray
+
+      val diffBit = alloc.alloc(1)
+      gt.and(diffBit, new VecInt(neqBits))
+
+      // Force identity
+      val idBit = termEqTerm((currentColumn-1, t), (currentColumn, t))
+      solver.addClause(new VecInt(Array(-diffBit, idBit)))
+
+      // --- CASE1: Not a representing term ---
+
+      for (tt <- terms; if t != tt; if (DQ(t, tt))) {
+        val eqBit = termEqInt((currentColumn-1, t), tt)
+        val asBit = termEqTerm((currentColumn, t), (currentColumn, tt))
+
+        // C_p[t] = tt ==> C_c[t] = C_c[tt]
+        solver.addClause(new VecInt(Array(-eqBit, asBit)))
       }
 
+      // --- CASE2: Representing term ---
 
-      val V =
-        for ((f_i, args_i, s_i) <- functions;
-          (f_j, args_j, s_j) <- functions;
-          if (f_i == f_j && s_i != s_j && unifiable(args_i, args_j))) yield {
-          val argBits =
-            (for (i <- 0 until args_i.length) yield {
-              val t1 = args_i(i) min args_j(i)
-              val t2 = args_i(i) max args_j(i)
-              if (eqBits(tTI(t1))(tTI(t2)) == -1)
-                eqBits(tTI(t1))(tTI(t2)) =
-                  termEqTerm((currentColumn-1, args_i(i)),
-                    (currentColumn-1,args_j(i)))
+      // is this term allowed to be identity
 
-              eqBits(tTI(t1))(tTI(t2))
+      val noVBits =
+        (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
+
+          // C_p[s_i] = t
+          val eqBit = termEqInt((currentColumn-1, s_i), t)
+          val ineqBit = alloc.alloc(1)
+          gt.not(ineqBit, eqBit)
+
+          val noVBit = alloc.alloc(1)
+
+          // noVBit <=> !V ^ C_p[s_i] != t
+          gt.or(noVBit, new VecInt(Array(ineqBit, -vBit)))
+          noVBit
+        }).toArray
+
+
+      // vFalseBit <=> No V is true
+      val vFalseBit = alloc.alloc(1)
+      gt.and(vFalseBit, new VecInt(noVBits))
+
+
+
+      // C_c[t] = t
+      val eqBit = termEqInt((currentColumn, t), t)
+
+      val identityBit = alloc.alloc(1)
+      gt.and(identityBit, vFalseBit, eqBit)
+
+      // Lets add a new condition:
+      // -Require that all to be allowed to "use" v (in V)
+      // all v' s.t. v' < v, and applicable to row r
+      // must be set to false (i.e. use the v:s in a
+      // increasing (and deterministic) order)
+
+      val funcBits =
+        (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
+          timeoutChecker()
+          // C_p[s_i] = t
+          val prevEqBit = termEqInt((currentColumn - 1, s_i), t)
+
+          // C_c[t] = C_c[s_j]
+          val curEqBit = termEqTerm((currentColumn, t), (currentColumn, s_j))
+
+          // FORALL v2 < vBit : !(v2 ^ prevEqBit2) === (!v' v !prevEqBit2)
+          val minVBits =
+            (for ((vBit2, (args_i2, s_i2), (args_j2, s_j2)) <- V;
+              if (vBit2 < vBit)) yield {
+              val prevEqBit2 = termEqInt((currentColumn - 1, s_i2), t)
+              val minVBit = alloc.alloc(1)
+              gt.or(minVBit, new VecInt(Array(-vBit2, -prevEqBit2)))
+              minVBit
             }).toArray
 
-          // argBit <=> C_p[args_i] = C_p[args_j]
-          val argBit = 
-            if (argBits.isEmpty) {
-              // No arguments (i.e. f() = a && f() = b is trivial equality)
-              ONEBIT
-            } else {
-              val tmp = alloc.alloc(1)
-              gt.and(tmp, new VecInt(argBits))
-              tmp
-            }
+          val mBit = alloc.alloc(1)
+          gt.and(mBit, new VecInt(minVBits))
 
-          // gtBit <=> C_p[s_i] > C_p[s_j]
-          val gtBit = termGtTerm((currentColumn-1, s_i), (currentColumn-1, s_j))
+          val fBit = alloc.alloc(1)
+          gt.and(fBit, new VecInt(Array(vBit, prevEqBit, curEqBit, mBit)))
+          fBit
+        }).toArray
 
-          // vBit <=> args_i = args_j ^ s_i > s_j
-          val vBit = alloc.alloc(1)
-          gt.and(vBit, argBit, gtBit)
-
-          (vBit, (args_i, s_i), (args_j, s_j))
-        }
-
-
-
-
-      for (t <- terms) {
-        // --- CASE0: Not a representing term, following a rowless bit ---
-        timeoutChecker()
-        val neqBits =
-          (for (tt <- terms) yield {
-            -termEqInt((currentColumn-1, t), tt)
-          }).toArray
-
-        val diffBit = alloc.alloc(1)
-        gt.and(diffBit, new VecInt(neqBits))
-
-        // Force identity
-        val idBit = termEqTerm((currentColumn-1, t), (currentColumn, t))
-        solver.addClause(new VecInt(Array(-diffBit, idBit)))
-
-        // --- CASE1: Not a representing term ---
-
-        for (tt <- terms; if t != tt; if (DQ(t, tt))) {
-          val eqBit = termEqInt((currentColumn-1, t), tt)
-          val asBit = termEqTerm((currentColumn, t), (currentColumn, tt))
-
-          // C_p[t] = tt ==> C_c[t] = C_c[tt]
-          solver.addClause(new VecInt(Array(-eqBit, asBit)))
-        }
-
-        // --- CASE2: Representing term ---
-
-        // is this term allowed to be identity
-
-        val noVBits =
-          (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
-
-            // C_p[s_i] = t
-            val eqBit = termEqInt((currentColumn-1, s_i), t)
-            val ineqBit = alloc.alloc(1)
-            gt.not(ineqBit, eqBit)
-
-            val noVBit = alloc.alloc(1)
-
-            // noVBit <=> !V ^ C_p[s_i] != t
-            gt.or(noVBit, new VecInt(Array(ineqBit, -vBit)))
-            noVBit
-          }).toArray
-
-
-        // vFalseBit <=> No V is true
-        val vFalseBit = alloc.alloc(1)
-        gt.and(vFalseBit, new VecInt(noVBits))
-
-
-
-        // C_c[t] = t
-        val eqBit = termEqInt((currentColumn, t), t)
-
-        val identityBit = alloc.alloc(1)
-        gt.and(identityBit, vFalseBit, eqBit)
-
-        // Lets add a new condition:
-        // -Require that all to be allowed to "use" v (in V)
-        // all v' s.t. v' < v, and applicable to row r
-        // must be set to false (i.e. use the v:s in a
-        // increasing (and deterministic) order)
-
-        val funcBits =
-          (for ((vBit, (args_i, s_i), (args_j, s_j)) <- V) yield {
-            timeoutChecker()
-            // C_p[s_i] = t
-            val prevEqBit = termEqInt((currentColumn - 1, s_i), t)
-
-            // C_c[t] = C_c[s_j]
-            val curEqBit = termEqTerm((currentColumn, t), (currentColumn, s_j))
-
-            // FORALL v2 < vBit : !(v2 ^ prevEqBit2) === (!v' v !prevEqBit2)
-            val minVBits = 
-              (for ((vBit2, (args_i2, s_i2), (args_j2, s_j2)) <- V;
-                if (vBit2 < vBit)) yield {
-                val prevEqBit2 = termEqInt((currentColumn - 1, s_i2), t)
-                val minVBit = alloc.alloc(1)
-                gt.or(minVBit, new VecInt(Array(-vBit2, -prevEqBit2)))
-                minVBit
-              }).toArray
-
-            val mBit = alloc.alloc(1)
-            gt.and(mBit, new VecInt(minVBits))
-
-            val fBit = alloc.alloc(1)
-            gt.and(fBit, new VecInt(Array(vBit, prevEqBit, curEqBit, mBit)))
-            fBit
-          }).toArray
-
-        val functionalityBit = alloc.alloc(1)
-        if (funcBits.length == 0) {      
-          gt.gateFalse(functionalityBit)
-        } else {
-          gt.or(functionalityBit, new VecInt(funcBits))
-        }
-
-        // C_p[t] = t
-        val isRepresentative = termEqInt((currentColumn-1, t), t)
-
-        // C_p[t] = t => (C_c[t] = t v C_c[t] = s) for some functionality t = s
-        // not representative OR allowed identity OR derived functionality
-        solver.addClause(
-          new VecInt(
-            Array(-isRepresentative, identityBit, functionalityBit)))
+      val functionalityBit = alloc.alloc(1)
+      if (funcBits.length == 0) {
+        gt.gateFalse(functionalityBit)
+      } else {
+        gt.or(functionalityBit, new VecInt(funcBits))
       }
+
+      // C_p[t] = t
+      val isRepresentative = termEqInt((currentColumn-1, t), t)
+
+      // C_p[t] = t => (C_c[t] = t v C_c[t] = s) for some functionality t = s
+      // not representative OR allowed identity OR derived functionality
+      solver.addClause(
+        new VecInt(
+          Array(-isRepresentative, identityBit, functionalityBit)))
     }
   }
 
@@ -717,13 +713,11 @@ class Table(val bits : Int, alloc : Allocator,
   }
 
   def addCompletionConstraint() = {
-    Timer.measure("addCompletionConstraint") {
-      val diff =
-        (for (t <- terms)
-        yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))).toArray
-      
-      solver.addClause(new VecInt(diff))
-    }
+    val diff =
+      (for (t <- terms)
+      yield (-termEqTerm((currentColumn-1, t), (currentColumn, t)))).toArray
+    
+    solver.addClause(new VecInt(diff))
   }
 
   def addVConstraintAux = {

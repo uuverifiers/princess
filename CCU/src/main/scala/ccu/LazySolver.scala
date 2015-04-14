@@ -61,14 +61,20 @@ class LazySolver(timeoutChecker : () => Unit,
       // Keeps track whether a subproblem has triggered UNSAT
       val blockingProblem = Array.ofDim[Boolean](problem.size)
 
-      while (KeepOnGoing()) {
+      // println("\tbaseDI: " + problem(0).baseDI)
+
+      // If all problems are SAT, then we are done
+      var allSat = false
+      // If some problem is infeasible, we are done
+      var infeasible = false
+      var intAss = Map() : Map[Int, Int]
+
+      while (!infeasible && !allSat && KeepOnGoing()) {
         timeoutChecker()
 
-        val intAss = assignmentsToSolution(assignments)
+        intAss = assignmentsToSolution(assignments)
 
-
-        // If all problems are SAT, then we are done
-        var allSat = true
+        allSat = true
 
         // Check each problem one by one, adding blocking clauses
         // if any of the are UNSAT by this model
@@ -81,6 +87,7 @@ class LazySolver(timeoutChecker : () => Unit,
 
           if (!verified) {
             blockingProblem(p) = true
+            // println("\tPROBLEM " + p + " IS NOT SATISFIED!")
 
             // If not, we have to find a new model, but we should add a blocking
             // clause to not get the same model again
@@ -101,23 +108,25 @@ class LazySolver(timeoutChecker : () => Unit,
               DQ.cascadeRemoveDQ(s, t)
             }
 
+            // println("Minimising: " + DQ.getINEQ())
             // Now we minimize DI to only contain "relevant" inequalities
-            // DQ.minimise(problem(p).goal)
+            DQ.minimise(problem(p).goal.subGoals)
             
             val minDI = DQ.getINEQ()
+
+
+
+            // println("Afterwards: " + DQ.getINEQ())
+            val noBaseDQ = for ((s,t) <- DQ.getINEQ(); if problem(p).baseDI(s)(t) != 0) yield (s, t)
 
             // The blocking clause states that one of the inequalities
             // in minDI must be false (i.e. equality must hold)
 
             // Remove all "base" inequalities, since they will always be there
             // no need trying to satisfy those
-            // println("LAZY: blockingClause: " + minDI.mkString(", "))
-            // println("LAZY: baseDI: ")
-            // println(problem.baseDI(p).map(x => x.mkString(" ")).mkString("\n"))
+            // println("\tblockingClause: " + noBaseDQ.mkString(", "))
             val blockingClause =
-              (for ((s,t) <- minDI) yield {
-                // (for ((s,t) <- minDI;
-                // if (problem.baseDI(p)(s)(t) != 0)) yield {
+              (for ((s,t) <- noBaseDQ) yield {
                 if (teqt(s min t)(s max t) == -1) {
                   val newT =
                     termEqTermAux(
@@ -134,26 +143,27 @@ class LazySolver(timeoutChecker : () => Unit,
               solver.addClause(new VecInt(blockingClause))
               bcCount += 1
             } catch {
-              case _ : Throwable => { 
-                // println("EXCEPTION!")
-                return (ccu.Result.UNSAT, None)
+              case e : org.sat4j.specs.ContradictionException => { 
+                infeasible = true
               }
             }
           }
           p += 1
         }
-
-        if (allSat) {
-          return (ccu.Result.SAT, Some(intAss))
-        }
       }
 
-      // UNSAT
-      lastUnsatCore = 
-        (for (i <- 0 until problem.size; if (blockingProblem(i))) 
-        yield i)
-      S.addEntry("LAZY: UNSAT, BLOCKING CLAUSES: " + bcCount)
-      (ccu.Result.UNSAT, None)
+      if (allSat) {
+        // SAT
+        S.addEntry("LAZY>RESULT:SAT,BLOCKINGCLAUSES:" + bcCount)
+        (ccu.Result.SAT, Some(intAss))
+      } else {
+        // UNSAT
+        lastUnsatCore =
+          (for (i <- 0 until problem.size; if (blockingProblem(i)))
+          yield i)
+        S.addEntry("LAZY>RESULT:UNSAT,BLOCKINGCLAUSES:" + bcCount)
+        (ccu.Result.UNSAT, None)
+      }
     }
   }
 
