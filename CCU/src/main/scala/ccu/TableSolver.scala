@@ -15,9 +15,15 @@ class TableSolver(timeoutChecker : () => Unit,
     extends CCUSolver(timeoutChecker, maxSolverRuntime) {
 
   var tablesComplete = false
-  var tables = List() : Seq[Table]
+  var tables = Array() : Array[Option[Table]]
   var calculatedCore = None : Option[Seq[Int]]
-
+  var lastUnsatCore = List() : Seq[Int]
+  def addStat(sat : Boolean) = {
+    val res = if (sat) "SAT" else "UNSAT"
+    S.addEntry("TABLE: " + res +
+      ", TABLES: " + (for (t <- tables; if t.isDefined) yield 1).sum +
+      ", Columns " + (for (t <- tables; if t.isDefined) yield t.get.currentColumn).max)
+  }
 
   def CCV(tab : Seq[Table]) : Boolean = {
     val ccs =
@@ -109,7 +115,12 @@ class TableSolver(timeoutChecker : () => Unit,
       }
     }
 
+
+    tables = tmpTables
+    addStat(tmpModel.isDefined)
+
     // println ("Tables used: " + (for (t <- tmpTables; if t.isDefined) yield 1).sum + "/" + tmpTables.length)
+    lastUnsatCore = for (i <- 0 until tmpTables.length; if tmpTables(i).isDefined) yield i
 
     (tmpModel, assignments)
   }
@@ -212,120 +223,122 @@ class TableSolver(timeoutChecker : () => Unit,
     }
   }
 
-  def solveAgain(problem : CCUSimProblem) : Boolean = {
-    Timer.measure("Table.solveAgain") {
-      // TODO: FIX ASSERT
-      // if (problem.goals.flatten.flatten.isEmpty) 
-      //   throw new Exception("SolveAgain emptyproblem!")
+  // def solveAgain(problem : CCUSimProblem) : Boolean = {
+  //   Timer.measure("Table.solveAgain") {
+  //     // TODO: FIX ASSERT
+  //     // if (problem.goals.flatten.flatten.isEmpty) 
+  //     //   throw new Exception("SolveAgain emptyproblem!")
 
-      var retval = false : Boolean
+  //     var retval = false : Boolean
 
-      if (tablesComplete) {
-        val goals = for (p <- problem.subProblems) yield p.goal
+  //     if (tablesComplete) {
+  //       val goals = for (p <- problem.subProblems) yield p.goal
 
-        val goalConstraints = 
-          for (p <- 0 until problem.size; if (!goals(p).subGoals.flatten.isEmpty)) yield {
-            tables(p).addGoalConstraint
-          }
+  //       val goalConstraints = 
+  //         for (p <- 0 until problem.size; if (!goals(p).subGoals.flatten.isEmpty)) yield {
+  //           tables(p).addGoalConstraint
+  //         }
 
-        retval =  solver.isSatisfiable()
+  //       retval =  solver.isSatisfiable()
 
-        for (gc <- goalConstraints) {
-          solver.removeConstr(gc)
-        }
-      } else {
-        solveTable(problem) match {
-          case (Some(_), _) => retval = true
-          case (None, _) => retval = false
-        }
-      }
+  //       for (gc <- goalConstraints) {
+  //         solver.removeConstr(gc)
+  //       }
+  //     } else {
+  //       solveTable(problem) match {
+  //         case (Some(_), _) => retval = true
+  //         case (None, _) => retval = false
+  //       }
+  //     }
 
-      retval
-    }
-  }
+  //     retval
+  //   }
+  // }
 
 
 
   // PRE: Call after solve returns UNSAT
   def unsatCoreAux(problem : CCUSimProblem, timeout : Int) : Seq[Int] = {
-    if (calculatedCore.isDefined) {
-      // println("Using pre-calculated core: " + calculatedCore.get)
-      return calculatedCore.get
-    }
-
-    solver.setTimeoutMs(timeout)
-    Timeout.withTimeoutMillis(timeout) {
-      val unsatCore = ListBuffer() : ListBuffer[Int]
-
-      if (!problem.result.isDefined)
-        throw new Exception("unsatCore on without previous solve call")
-      
-      if (problem.result.get != ccu.Result.UNSAT)
-        throw new Exception("unsatCore on SAT solution")
-
-      for (p <- 0 until problem.size)
-        problem.deactivateProblem(p)
-
-      var curProb = 0
-      unsatCore += curProb
-      problem.activateProblem(curProb)
-
-      def addProblem = {
-        curProb += 1
-        if (curProb < problem.size) {
-          unsatCore += curProb
-          problem.activateProblem(curProb)
-        }
-      }
-
-      while (curProb < problem.size) {
-        Timeout.check
-        timeoutChecker()
-
-        if (solveAgain(problem : CCUSimProblem)) {
-          // If the problem is SAT, we need one more sub-problem
-          addProblem
-        } else {
-          // Make sure that tables 0..p are complete,
-          // if NOT, we have to add columns
-          // if IS, we have an unsat core!
-
-          val ccs =
-            for (p <- 0 to curProb) yield
-              tables(p).addVConstraintAux match {
-                case (Some(cc), bits) => (Some(cc), bits)
-                case (None, _) => {
-                  (None, List())
-                }
-              }
-
-          // Do we need extra columns?
-          val addColumn =
-            if (ccs.filter(x => x._1.isDefined).isEmpty) {
-              false
-            } else {
-              solver.isSatisfiable()
-            }
-
-          for (cc <- ccs; if cc._1.isDefined) {
-            solver.removeConstr(cc._1.get)
-          }
-
-          if (addColumn) {
-            // if YES - Add and try again
-            for (p <- 0 to curProb)
-              tables(p).addDerivedColumn(timeoutChecker)
-          } else {
-            // if NO - unsat core achieved!
-            return unsatCore
-          }
-        }
-      }
-      throw new Exception("Tablesolver: Entire problem is not UNSAT?")
-    }{
-      return (0 until problem.size)
-    }
+    lastUnsatCore
   }
+  //   if (calculatedCore.isDefined) {
+  //     // println("Using pre-calculated core: " + calculatedCore.get)
+  //     return calculatedCore.get
+  //   }
+
+  //   solver.setTimeoutMs(timeout)
+  //   Timeout.withTimeoutMillis(timeout) {
+  //     val unsatCore = ListBuffer() : ListBuffer[Int]
+
+  //     if (!problem.result.isDefined)
+  //       throw new Exception("unsatCore on without previous solve call")
+      
+  //     if (problem.result.get != ccu.Result.UNSAT)
+  //       throw new Exception("unsatCore on SAT solution")
+
+  //     for (p <- 0 until problem.size)
+  //       problem.deactivateProblem(p)
+
+  //     var curProb = 0
+  //     unsatCore += curProb
+  //     problem.activateProblem(curProb)
+
+  //     def addProblem = {
+  //       curProb += 1
+  //       if (curProb < problem.size) {
+  //         unsatCore += curProb
+  //         problem.activateProblem(curProb)
+  //       }
+  //     }
+
+  //     while (curProb < problem.size) {
+  //       Timeout.check
+  //       timeoutChecker()
+
+  //       if (solveAgain(problem : CCUSimProblem)) {
+  //         // If the problem is SAT, we need one more sub-problem
+  //         addProblem
+  //       } else {
+  //         // Make sure that tables 0..p are complete,
+  //         // if NOT, we have to add columns
+  //         // if IS, we have an unsat core!
+
+  //         val ccs =
+  //           for (p <- 0 to curProb) yield
+  //             tables(p).addVConstraintAux match {
+  //               case (Some(cc), bits) => (Some(cc), bits)
+  //               case (None, _) => {
+  //                 (None, List())
+  //               }
+  //             }
+
+  //         // Do we need extra columns?
+  //         val addColumn =
+  //           if (ccs.filter(x => x._1.isDefined).isEmpty) {
+  //             false
+  //           } else {
+  //             solver.isSatisfiable()
+  //           }
+
+  //         for (cc <- ccs; if cc._1.isDefined) {
+  //           solver.removeConstr(cc._1.get)
+  //         }
+
+  //         if (addColumn) {
+  //           // if YES - Add and try again
+  //           for (p <- 0 to curProb)
+  //             tables(p).addDerivedColumn(timeoutChecker)
+  //         } else {
+  //           // if NO - unsat core achieved!
+  //           return unsatCore
+  //         }
+  //       }
+  //     }
+  //     throw new Exception("Tablesolver: Entire problem is not UNSAT?")
+  //   }{
+  //     return (0 until problem.size)
+  //   }
+  // }
 }
 
 

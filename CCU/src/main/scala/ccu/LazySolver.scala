@@ -25,6 +25,7 @@ class LazySolver(timeoutChecker : () => Unit,
 
   override def solveaux(problem : CCUSimProblem) : (ccu.Result.Result, Option[Map[Int, Int]]) = {
     Timer.measure("Lazy.solve") {
+
       // Initialize problem and some useful values
       val terms = problem.terms
       val domains = problem.domains
@@ -33,6 +34,9 @@ class LazySolver(timeoutChecker : () => Unit,
 
       // Reset and add default stuff
       this.reset
+
+      // STATISTICS
+      var bcCount = 0
 
       // Shows what bits are used to represent value of terms
       val assignments = createAssignments(problem)
@@ -128,6 +132,7 @@ class LazySolver(timeoutChecker : () => Unit,
             try {
               // println("Adding blockingClause: " + blockingClause.mkString(" "))
               solver.addClause(new VecInt(blockingClause))
+              bcCount += 1
             } catch {
               case _ : Throwable => { 
                 // println("EXCEPTION!")
@@ -147,6 +152,7 @@ class LazySolver(timeoutChecker : () => Unit,
       lastUnsatCore = 
         (for (i <- 0 until problem.size; if (blockingProblem(i))) 
         yield i)
+      S.addEntry("LAZY: UNSAT, BLOCKING CLAUSES: " + bcCount)
       (ccu.Result.UNSAT, None)
     }
   }

@@ -382,10 +382,10 @@ class Util (timeoutChecker : () => Unit) {
 
       // TODO: Add 1 for luck!
       // Add one if we have an even power of 2
-      if ((b & (b -1)) == 0)
-        return log + ( bits >>> 1 ) + 1
-      else 
-        return log + (bits >>> 1)
+      // if ((b & (b -1)) == 0)
+      return log + ( bits >>> 1 ) + 1
+      // else 
+        // return log + (bits >>> 1)
     }
   }
 

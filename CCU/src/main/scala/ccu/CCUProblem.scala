@@ -1,15 +1,23 @@
 package ccu;
 
-class CCUGoal(val subGoals : Seq[Seq[(Int, Int)]]) {}
+@SerialVersionUID(15L)
+class CCUGoal(val subGoals : Seq[Seq[(Int, Int)]]) extends Serializable {
+  override def toString = {
+    subGoals.mkString(" & ")
+  }
+}
 
-class CCUEq(val eq : (Int, Seq[Int], Int)) {}
+@SerialVersionUID(15L)
+class CCUEq(val eq : (Int, Seq[Int], Int)) extends Serializable {}
 
+@SerialVersionUID(15L)
 class CCUSubProblem(
   val terms : Seq[Int],
   val domains : Map[Int, Set[Int]],
   val funEqs : Seq[CCUEq],
   val goal : CCUGoal,
-  val DQ : Disequalities) {
+  @transient val DQ : Disequalities) 
+    extends Serializable {
 
   override def toString = {
     var str = ""
@@ -19,13 +27,15 @@ class CCUSubProblem(
   }
 }
 
+@SerialVersionUID(15L)
 class CCUSimProblem(
   val terms : Seq[Int],
   val domains : Map[Int, Set[Int]],
   val bits : Int,
   val baseDI : Seq[Array[Array[Int]]],
   val order : Seq[Int],
-  val subProblems : Seq[CCUSubProblem]) {
+  val subProblems : Seq[CCUSubProblem]) 
+    extends Serializable {
 
   val size = subProblems.length
   var activeSubProblems = Array.fill[Boolean](size)(true)
@@ -39,6 +49,7 @@ class CCUSimProblem(
     for (t <- terms)
       str += "| " + t + " = {" + (domains.getOrElse(t, Set(t))).mkString(", ") + "}" + "\n"
     str += "| Size: " + size + "\n"
+    str += "| Bits: " + bits + "\n"
     for (p <- 0 until size) {
       str += "+--------\n"
       str += "| funEqs: " + subProblems(p).funEqs + "\n"
@@ -52,21 +63,9 @@ class CCUSimProblem(
 
   def deactivateProblem(p : Int) = {
     activeSubProblems(p) = false
-  }
+p  }
 
   def activateProblem(p : Int) = {
     activeSubProblems(p) = true
-  }
-
-  // TODO: SERIALIZE?
-  def output = {
-    import java.io._
-    val writer = new PrintWriter(new File("test.txt"))
-    var output = ""
-    output += subProblems.length + "\n"
-    output += domains.map(x => { val (k,v) = x; k + ":" + v.mkString(",") }).mkString(" ") + "\n"
-    output += subProblems.mkString("\n")
-    writer.write(output)
-    writer.close()
   }
 }
