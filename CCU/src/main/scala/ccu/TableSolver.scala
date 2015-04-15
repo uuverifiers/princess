@@ -211,13 +211,13 @@ class TableSolver(timeoutChecker : () => Unit,
         }
 
         // model = Some(intAss)
-        problem.intAss = intAss
-        problem.result = Some(ccu.Result.SAT)
+        // problem.intAss = intAss
+        // problem.result = Some(ccu.Result.SAT)
         (ccu.Result.SAT, Some(intAss))
       }
 
       case (None, _) =>  {
-        problem.result = Some(ccu.Result.UNSAT)
+        // problem.result = Some(ccu.Result.UNSAT)
         (ccu.Result.UNSAT, None)
       }
     }

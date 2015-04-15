@@ -9,6 +9,10 @@ import java.io.FileInputStream
 import java.io.ObjectInputStream
 import java.io.File
 
+import argonaut._, Argonaut._
+import scalaz._, Scalaz._
+
+
 import Timer._
 
 import scala.collection.mutable.{Map => MMap}
@@ -731,6 +735,57 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
 
     ois.close
     fis.close
+
+    new CCUInstance[Term, Fun](curId, this, problem, Map())
+  }
+
+  def createInstanceFromJson[Fun, Term](filename : String) = {
+    curId += 1
+
+    val lines = scala.io.Source.fromFile(filename).getLines
+    val json = lines.next
+
+    println("Parsing JSON: " + json)
+
+    implicit def CCUGoalDecodeJson: DecodeJson[CCUGoal] = 
+      DecodeJson(c => for {
+        subGoals <- (c --\ "subGoals").as[List[List[(Int,Int)]]]
+      } yield new CCUGoal(subGoals))
+
+    implicit def CCUEqDecodeJson: DecodeJson[CCUEq] = 
+      DecodeJson(c => for {
+        fun <- (c --\ "fun").as[Int]
+        args <- (c --\ "args").as[List[Int]]
+        res <- (c --\ "res").as[Int]
+      } yield new CCUEq((fun, args, res)))
+
+    implicit def CCUSubProblemDecodeJson: DecodeJson[CCUSubProblem] = 
+      DecodeJson(c => for {
+        terms <- (c --\ "terms").as[List[Int]]
+        domains <- (c --\ "domains").as[List[(Int,List[Int])]]
+        funEqs <- (c --\ "funEqs").as[List[CCUEq]]
+        goal <- (c --\ "goal").as[CCUGoal]
+      } yield new CCUSubProblem(terms, 
+        (for ((k, v) <- domains) yield (k, v.toSet)).toMap, 
+        funEqs, goal, Array.ofDim[Int](terms.length, terms.length), 
+        new Disequalities(terms.length, funEqs.toArray, timeoutChecker)))
+
+    implicit def CCUSimProblemDecodeJson: DecodeJson[CCUSimProblem] =
+      DecodeJson(c => for {
+        terms <- (c --\ "terms").as[List[Int]]
+        domains <- (c --\ "domains").as[List[(Int,List[Int])]]
+        bits <- (c --\ "bits").as[Int]
+        order <- (c --\ "order").as[List[Int]]
+        subProblems <- (c --\ "subProblem").as[List[CCUSubProblem]]
+      } yield new CCUSimProblem(terms, 
+        (for ((k, v) <- domains) yield (k, v.toSet)).toMap, 
+        bits, order, subProblems))
+
+    // TODO: error handling
+    val res = json.decodeEither[CCUSimProblem]
+    println(res)
+
+    val problem = json.decodeOption[CCUSimProblem].get
 
     new CCUInstance[Term, Fun](curId, this, problem, Map())
   }

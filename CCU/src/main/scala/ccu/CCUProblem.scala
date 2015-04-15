@@ -1,21 +1,25 @@
 package ccu;
 
 @SerialVersionUID(15L)
-class CCUGoal(val subGoals : Seq[Seq[(Int, Int)]]) extends Serializable {
+case class CCUGoal(val subGoals : Seq[Seq[(Int, Int)]]) extends Serializable {
   override def toString = {
     subGoals.mkString(" OR ")
   }
 }
 
 @SerialVersionUID(15L)
-class CCUEq(val eq : (Int, Seq[Int], Int)) extends Serializable {
+case class CCUEq(val eq : (Int, Seq[Int], Int)) extends Serializable {
+  val fun = eq._1
+  val args = eq._2
+  val res = eq._3
+
   override def toString = {
     eq.toString
   }
 }
 
 @SerialVersionUID(15L)
-class CCUSubProblem(
+case class CCUSubProblem(
   val terms : Seq[Int],
   val domains : Map[Int, Set[Int]],
   val funEqs : Seq[CCUEq],
@@ -33,7 +37,7 @@ class CCUSubProblem(
 }
 
 @SerialVersionUID(15L)
-class CCUSimProblem(
+case class CCUSimProblem(
   val terms : Seq[Int],
   val domains : Map[Int, Set[Int]],
   val bits : Int,
@@ -42,10 +46,6 @@ class CCUSimProblem(
     extends Serializable {
 
   val size = subProblems.length
-  var activeSubProblems = Array.fill[Boolean](size)(true)
-
-  var result = None : Option[ccu.Result.Result]
-  var intAss = Map() : Map[Int, Int]
 
   override def toString  = {
     var str = ""
@@ -64,12 +64,4 @@ class CCUSimProblem(
   }
 
   def apply(i : Int) = subProblems(i)
-
-  def deactivateProblem(p : Int) = {
-    activeSubProblems(p) = false
-p  }
-
-  def activateProblem(p : Int) = {
-    activeSubProblems(p) = true
-  }
 }
