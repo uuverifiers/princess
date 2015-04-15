@@ -90,4 +90,43 @@ class CCUInstance[Term, Fun](
     println(oos)
     println("Printed to: " + filename)
   }
+
+  // TODO: fix previous solution fix
+  def checkPreviousSolution = {
+    // var ss = true
+    // if (model.isDefined) {
+    //   val oldModel = model.get
+    //   val newTerms = problem.terms
+    //   val newModel =
+    //     (for (t <- newTerms) yield {
+    //       val newKey = t
+    //       val oldAss = oldModel.getOrElse(t, t)
+    //       val newAss = termMap.getOrElse(oldAss, newKey)
+    //       (newKey, newAss)
+    //     }).toMap
+
+
+
+    //   // println("Checking previous model...")
+    //   for (p <- problem.subProblems) {
+    //     if (!solver.verifySolution(problem.terms, newModel, p.funEqs, p.goal)) {
+    //       // println("\tNO")
+    //       ss = false
+    //     }
+    //   }
+
+    //   // Update model
+    //   if (ss) {
+    //     model = Some((for ((k, v) <- newModel) yield {
+    //       (problem.intMap(k), problem.intMap(v))
+    //     }).toMap)
+    //   }
+
+    // } else {
+    //   ss = false
+    // }
+
+    // ss
+  }
+
 }

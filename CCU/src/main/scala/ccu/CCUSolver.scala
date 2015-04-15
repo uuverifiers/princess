@@ -70,44 +70,6 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
                          val maxSolverRuntime : Long) {
   var debug = false
   val S = new Stats
-  // TODO: fix previous solution fix
-  // def checkPreviousSolution = {
-  //   var ss = true
-  //   if (model.isDefined) {
-  //     val oldModel = model.get
-  //     val newTerms = problem.terms.map(problem.intMap)
-  //     val newModel =
-  //       (for (t <- newTerms) yield {
-  //         val newKey = problem.termMap(t)
-  //         val oldAss = oldModel.getOrElse(t, t)
-  //         val newAss = problem.termMap.getOrElse(oldAss, newKey)
-  //         (newKey, newAss)
-  //       }).toMap
-
-
-
-  //     // println("Checking previous model...")
-  //     for (p <- problem.subProblems) {
-  //       if (!verifySolution(problem.terms, newModel, p.funEqs, p.goal)) {
-  //         // println("\tNO")
-  //         ss = false
-  //       }
-  //     }
-
-  //     // Update model
-  //     if (ss) {
-  //       model = Some((for ((k, v) <- newModel) yield {
-  //         (problem.intMap(k), problem.intMap(v))
-  //       }).toMap)
-  //     }
-
-  //   } else {
-  //     ss = false
-  //   }
-
-  //   ss
-  // }
-
 
   // var prob = None : Option[CCUSimProblem]
   // def problem = 
@@ -116,7 +78,6 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
   //   else
   //     prob.get
 
-  // TODO: reinstate checkAndSolve
   // Solving
   def statistics = S.toString
 
@@ -303,7 +264,6 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     intAss
   }
 
-  // TODO: just check the relevant terms (i.e. problem.terms(p))
   def verifySolution(
     terms : Seq[Int],
     assignment : Map[Int,Int],
@@ -475,7 +435,6 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
       // origGoals = goals
       // origFunctions = functions
 
-      // TODO: optimize such that each table has its own bits
       val bits = util.binlog(terms.length)
 
       // HACK?
@@ -558,9 +517,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
         }
       }
 
-      var DQ = List() : Seq[Disequalities]
-
-      DQ = (for (p <- 0 until problemCount)
+      val DQ = (for (p <- 0 until problemCount)
       yield {
         // TODO: Length of disequalities
         val tmpDQ = new Disequalities(newTerms.length, newFunctions(p).toArray.map(x => new CCUEq(x)), timeoutChecker)
@@ -786,6 +743,17 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     println(res)
 
     val problem = json.decodeOption[CCUSimProblem].get
+
+    for (p <- 0 until problem.size) {
+      val uf = util.CCunionFind(problem(p).terms, problem(p).funEqs, List())
+      val c = Array.ofDim[Int](problem(p).terms.length, problem(p).terms.length)
+      for (t <- problem(p).terms; tt <- problem(p).terms)
+        if (uf(t) == uf(tt))
+          c(t)(tt) = 1
+        else
+          c(t)(tt) = 0
+      problem(p).baseDI = c
+    }
 
     new CCUInstance[Term, Fun](curId, this, problem, Map())
   }

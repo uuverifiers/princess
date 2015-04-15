@@ -24,14 +24,13 @@ case class CCUSubProblem(
   val domains : Map[Int, Set[Int]],
   val funEqs : Seq[CCUEq],
   val goal : CCUGoal,
-  @transient val baseDI : Array[Array[Int]],
+  @transient var baseDI : Array[Array[Int]],
   @transient val DQ : Disequalities) 
     extends Serializable {
 
   override def toString = {
     var str = ""
-    str += funEqs.map(x => { val (f, a, r) = x.eq; f + ":" + a.mkString(":")  + ":" + r }).mkString(",") + "\n"
-    str += goal.subGoals.map(x => x.map(y => y._1 + "." + y._2).mkString(":")).mkString(",")
+     str += baseDI.map(x => x.mkString(" - ")).mkString("\n")
     str
   }
 }
@@ -58,6 +57,7 @@ case class CCUSimProblem(
       str += "+--------\n"
       str += "| funEqs: " + subProblems(p).funEqs + "\n"
       str += "| goal: " + subProblems(p).goal + "\n"
+      str += subProblems(p).toString + "\n"
     }
     str += "\\\\-------------\n"
     str
