@@ -47,6 +47,7 @@ object IterativeClauseMatcher {
                              mayAlias : (LinearCombination,
                                          LinearCombination) => AliasStatus.Value,
                              contextReducer : ReduceWithConjunction,
+                             allLitFacts : PredConj,
                              isNotRedundant : (Conjunction, GSet[ConstantTerm]) => Boolean,
                              allowConditionalInstances : Boolean,
                              logger : ComputationLogger,
@@ -167,11 +168,33 @@ object IterativeClauseMatcher {
                                 instanceTerms forall (_.variables.isEmpty))
                 //-END-ASSERTION-/////////////////////////////////////////////////
   
-                val instance = originalClause.instantiate(instanceTerms)(order)
-                  if (isNotRedundant(instance, allOriConstants)) {
+                val instance =
+                  ReduceWithConjunction(Conjunction.TRUE, order)(
+                    originalClause.instantiate(instanceTerms)(order))
+
+                if (isNotRedundant(instance, allOriConstants)) {
+                  // check which of the literals of the instance can directly be
+                  // discharged
+                  val pc = instance.predConj
+                  val (dischargedPosLits, remainingPosLits) =
+                    pc.positiveLits partition allLitFacts.positiveLitsAsSet
+                  val (dischargedNegLits, remainingNegLits) =
+                    pc.negativeLits partition allLitFacts.negativeLitsAsSet
+
+                  val dischargedLits =
+                    pc.updateLitsSubset(dischargedPosLits, dischargedNegLits,
+                                        order)
+                  val simpInstance =
+                    instance.updatePredConj(
+                      pc.updateLitsSubset(remainingPosLits, remainingNegLits,
+                                          order))(order)
+
                   logger.groundInstantiateQuantifier(originalClause.negate,
-                                                     instanceTerms, instance.negate, order)
-                  instances += instance
+                                                     instanceTerms,
+                                                     instance.negate,
+                                                     dischargedLits,
+                                                     simpInstance.negate, order)
+                  instances += simpInstance
                 }
                 
               } else {
@@ -631,6 +654,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                   additionalPosLits, additionalNegLits,
                                                   mayAlias,
                                                   contextReducer,
+                                                  newFacts,
                                                   isNotRedundant _,
                                                   allowConditionalInstances,
                                                   logger,

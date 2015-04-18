@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,7 +28,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.arithconj.ArithConj
-import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.substitutions.ConstantSubst
 import ap.util.Debug
@@ -243,11 +243,13 @@ object GroundInstInference {
  */
 case class GroundInstInference(quantifiedFormula : CertCompoundFormula,
                                instanceTerms : Seq[LinearCombination],
+                               instance : CertFormula,
+                               dischargedAtoms : Seq[CertPredLiteral],
                                result : CertFormula,
                                order : TermOrder)
            extends {
 
-  val assumedFormulas = Set[CertFormula](quantifiedFormula)
+  val assumedFormulas = Set[CertFormula](quantifiedFormula) ++ dischargedAtoms
   val providedFormulas = Set(result)
 
 } with BranchInference {
@@ -266,14 +268,43 @@ case class GroundInstInference(quantifiedFormula : CertCompoundFormula,
                      (quans.size == instanceTerms.size ||
                       quans(quans.size - instanceTerms.size - 1) != quans.last)
                    } &&
-                   result.toConj == quantifiedFormula.f.instantiate(instanceTerms)(order))
+                   instance.toConj ==
+                     ReduceWithConjunction(Conjunction.TRUE, order)(
+                       quantifiedFormula.f.instantiate(instanceTerms)(order)) &&
+                   (if (dischargedAtoms.isEmpty) {
+                      result == instance
+                    } else {
+                      val conj = instance.toConj.negate
+                      val predConj = conj.predConj
+                      val allAtoms =
+                        ((for (a <- predConj.negativeLits.iterator)
+                          yield CertPredLiteral(true, a)) ++
+                         (for (a <- predConj.positiveLits.iterator)
+                          yield CertPredLiteral(false, a))).toSet
+                      val dischargedSet = dischargedAtoms.toSet
+                      val remainingPredConj =
+                        predConj.updateLitsSubset(
+                          predConj.positiveLits filterNot { a =>
+                            dischargedAtoms contains CertPredLiteral(false, a)},
+                          predConj.negativeLits filterNot { a =>
+                            dischargedAtoms contains CertPredLiteral(true, a)},
+                          order)
+                      val reducedInstance =
+                        conj.updatePredConj(remainingPredConj)(order).negate
+
+                      result.toConj == reducedInstance &&
+                      dischargedSet.size == dischargedAtoms.size &&
+                      (dischargedSet subsetOf allAtoms)
+                    }))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
 
   override def toString : String =
     "GroundInst((" + quantifiedFormula + ") [" +
-    (instanceTerms mkString ", ") + "] -> " + result + ")"
+    (instanceTerms mkString ", ") + "] [" +
+    (dischargedAtoms mkString " & ") +
+    "] -> " + result + ")"
 }
 
 ////////////////////////////////////////////////////////////////////////////////
