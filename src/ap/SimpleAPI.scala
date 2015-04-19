@@ -21,7 +21,7 @@
 
 package ap
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, Tree}
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
                       Param}
@@ -1815,12 +1815,13 @@ class SimpleAPI private (enableAssert : Boolean,
 
     val simp = interpolantSimplifier
     
+    val commonFors =
+      for ((n, f) <- formulaeInProver; if (n < 0)) yield f
+
     Timeout.withChecker(checkTimeout _) {
       for (i <- 1 to (partitions.size - 1)) yield {
         val leftNums = (partitions take i).flatten.toSet
       
-        val commonFors = for ((n, f) <- formulaeInProver;
-                              if (n < 0)) yield f
         val leftFors =   for ((n, f) <- formulaeInProver;
                               if (n >= 0 && (leftNums contains n))) yield f
         val rightFors =  for ((n, f) <- formulaeInProver;
@@ -1829,12 +1830,70 @@ class SimpleAPI private (enableAssert : Boolean,
         val iContext =
           InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
         val internalInt = Interpolator(currentSimpCertificate, iContext)
-
-        val interpolant = Internal2InputAbsy(internalInt, functionEnc.predTranslation)
-
-        simp(interpolant)
+        simp(Internal2InputAbsy(internalInt, functionEnc.predTranslation))
       }
     }
+  }
+
+  /**
+   * Compute a tree interpolant for the given specification.
+   */
+  def getTreeInterpolant(partitions : Tree[Set[Int]]) : Tree[IFormula] = {
+    doDumpSMT {
+      println("; (get-tree-interpolant)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getTreeInterpolant(" +
+          partitions +
+//        List(" + (
+//        for (s <- partitions.iterator)
+//        yield ("Set(" + s.mkString(", ") + ")")).mkString(", ") + "))"
+        "))")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, (Set(ProverStatus.Unsat,
+                             ProverStatus.Valid) contains getStatusHelp(false)) &&
+                        currentCertificate != null)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+  
+    if (currentSimpCertificate == null)
+      currentSimpCertificate = ProofSimplifier(currentCertificate)
+
+    val commonFors =
+      for ((n, f) <- formulaeInProver; if (n < 0)) yield f
+
+    def computeInts(names : Tree[Set[Int]]) : Tree[Conjunction] = {
+      val thisInt = {
+        val subNames =
+          (for (s <- names.iterator; n <- s.iterator) yield n).toSet
+
+        val leftFors =   for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && (subNames contains n))) yield f
+        val rightFors =  for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && !(subNames contains n))) yield f
+
+        val iContext =
+          InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
+        Interpolator(currentSimpCertificate, iContext)
+      }
+
+      if (thisInt.isTrue)
+        // interpolants in the whole subtree can be assumed to be true
+        for (_ <- names) yield Conjunction.TRUE
+      else
+        Tree(thisInt, for (s <- names.children) yield computeInts(s))
+    }
+
+    val simp = interpolantSimplifier
+
+    val interpolants = Timeout.withChecker(checkTimeout _) {
+      Tree(Conjunction.FALSE,
+           for (n <- partitions.children) yield computeInts(n))
+    }
+    
+    for (c <- interpolants)
+    yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
   }
   
   private def interpolantSimplifier = new ArraySimplifier

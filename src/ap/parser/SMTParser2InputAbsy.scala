@@ -31,7 +31,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
 import ap.theories.SimpleArray
-import ap.basetypes.{IdealInt, IdealRat}
+import ap.basetypes.{IdealInt, IdealRat, Tree}
 import smtlib._
 import smtlib.Absyn._
 
@@ -1206,10 +1206,46 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             case SimpleAPI.ProverStatus.Unsat |
                  SimpleAPI.ProverStatus.Valid => {
 
-              val interpolantSpecs =
-                if (cmd.listsexpr_.isEmpty)
-                  for (i <- 0 until nextPartitionNumber) yield Set(i)
-                else
+              try { prover.withTimeout(timeoutPer) {
+                if (cmd.listsexpr_.isEmpty) {
+
+                  val interpolantSpecs =
+                    for (i <- 0 until nextPartitionNumber) yield Set(i)
+                  val interpolants = prover.getInterpolants(interpolantSpecs)
+
+                  print("(")
+                  var sep = ""
+                  for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
+                    print(sep)
+                    sep = "\n"
+                    smtLinearise(interpolant)
+                  }
+                  println(")")
+
+                } else translateTreeInterpolantSpec(cmd.listsexpr_) match {
+
+                  case List(tree) => {
+                    val interpolants = prover.getTreeInterpolant(tree)
+
+                    print("(")
+                    var sep = ""
+                    for (t <- interpolants.children) t foreachPostOrder { f =>
+                      print(sep)
+                      sep = "\n"
+                      smtLinearise(f)
+                    }
+                    println(")")
+                  }
+
+                  case _ =>
+                    error("could not parse interpolant specification")
+                }
+              } } catch {
+                case SimpleAPI.TimeoutException =>
+                  error("timeout while computing interpolants")
+              }
+/*
+   Old code that only works for sequence interpolants
                   for (p <- cmd.listsexpr_.toList) yield p match {
                     case p : SymbolSExpr =>
                       Set(partNameIndexes(
@@ -1228,16 +1264,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                         "Could not parse interpolation partition: " +
                         (printer print p))
                   }
-
-              try { prover.withTimeout(timeoutPer) {
-                for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
-                  smtLinearise(interpolant)
-                  println
-                }
-              }} catch {
-                case SimpleAPI.TimeoutException =>
-                  error("timeout while computing interpolants")
-              }
+ */
 
             }
 
@@ -1265,6 +1292,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             println("(:version \"" + CmdlMain.version + "\")")
           case ":error-behavior" =>
             println("(:error-behavior \"immediate-exit\")")
+          case ":interpolation-method" =>
+            println("(:interpolation-method \"tree\")")
         }
       
       //////////////////////////////////////////////////////////////////////////
@@ -2009,6 +2038,34 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case ta : ITerm => ta
       case ta : IFormula => ITermITE(ta, i(0), i(1))
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateTreeInterpolantSpec(exprs : ListSExpr)
+                                          : List[Tree[Set[Int]]] = {
+    var result = List[Tree[Set[Int]]]()
+
+    for (p <- exprs) p match {
+      case p : SymbolSExpr =>
+        result =
+          List(Tree(Set(partNameIndexes(
+                          env.lookupPartName(printer print p.symbol_))),
+                    result))
+      case p : ParenSExpr
+        if (!p.listsexpr_.isEmpty &&
+            (printer print p.listsexpr_.head) == "and") => {
+        val it = p.listsexpr_.iterator
+        it.next
+        val names = (for (s <- it) yield partNameIndexes(
+                       env.lookupPartName(printer print s))).toSet
+        result = List(Tree(names, result))
+      }
+      case p : ParenSExpr =>
+        result = result ++ translateTreeInterpolantSpec(p.listsexpr_)
+    }
+
+    result    
   }
 
   //////////////////////////////////////////////////////////////////////////////

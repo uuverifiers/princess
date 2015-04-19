@@ -525,11 +525,11 @@ Warning: accepting command echo, which is not SMT-LIB 2
 starting trace check
 unsat
 interpolants-3
-(<= 0 (+ (- 8) (select |#length_13| main_~p~4.base_18 ) ) ) 
+((<= 0 (+ (- 8) (select |#length_13| main_~p~4.base_18 ) ) ) )
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
 Warning: treating sort Real as Int
 unsat
-(forall ((var0 Int)) (not (= (+ (* 4294967296 var0 ) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42 ) ) ) 0 ) ) ) 
+((forall ((var0 Int)) (not (= (+ (* 4294967296 var0 ) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42 ) ) ) 0 ) ) ) )
 Loading function-bug3.smt2 ...
 Warning: accepting command echo, which is not SMT-LIB 2
 Start declaration of constants
@@ -546,7 +546,7 @@ unsat
 Loading simplifier.smt2 ...
 Warning: treating sort Real as Int
 unsat
-true
+(true
 true
 (= main_~a~4.offset_2 0 ) 
 (and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
@@ -557,13 +557,13 @@ true
 (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) (and (= main_~p~4.offset_7 0 ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) 0 ) 1 ) ) ) ) 
 (or (or (not (= |main_#t~mem15_9| 1 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
 (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
+(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) )
 Loading smtTyping.smt2 ...
 Warning: treating sort Real as Int
 unsat
+((and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
 (and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
-(and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
-(and (forall ((var0 Int)) (or (not (select |#valid_2| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) (exists ((var0 Bool)) (and (not var0 ) (exists ((var1 Int)) (and (and (not (= var1 0 ) ) (= (select |old(#valid)_-1| var1 ) var0 ) ) (forall ((var2 Int)) (or (= var2 var1 ) (= (select |old(#valid)_-1| var2 ) (select |#valid_2| var2 ) ) ) ) ) ) ) ) ) 
+(and (forall ((var0 Int)) (or (not (select |#valid_2| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) (exists ((var0 Bool)) (and (not var0 ) (exists ((var1 Int)) (and (and (not (= var1 0 ) ) (= (select |old(#valid)_-1| var1 ) var0 ) ) (forall ((var2 Int)) (or (= var2 var1 ) (= (select |old(#valid)_-1| var2 ) (select |#valid_2| var2 ) ) ) ) ) ) ) ) ) )
 Loading prp-2-17.pri ...
 Preprocessing ...
 Constructing countermodel ...

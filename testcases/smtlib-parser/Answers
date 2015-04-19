@@ -219,7 +219,7 @@ unsat
 Warning: accepting command echo, which is not SMT-LIB 2
 
 01:
-(<= 0 (+ 100 (* (- 1) x_1 ) ) ) 
+((<= 0 (+ 100 (* (- 1) x_1 ) ) ) 
 (<= 0 (+ 111 (* (- 1) xm1 ) ) ) 
 (<= 0 (+ 111 (* (- 1) xm1 ) ) ) 
 (<= 0 (+ 101 (+ (* (- 1) res4 ) (+ x2 (* (- 1) xm1 ) ) ) ) ) 
@@ -228,17 +228,29 @@ Warning: accepting command echo, which is not SMT-LIB 2
 (or (<= 0 (+ (- 1) (+ x7 (* (- 1) xm6 ) ) ) ) (and (= x7 101 ) (<= 0 (+ 101 (* (- 1) xm6 ) ) ) ) ) 
 (or (<= 0 (+ (- 1) (+ x7 (* (- 1) xm6 ) ) ) ) (and (= res9 91 ) (= x7 xm6 ) ) ) 
 (= resm10 91 ) 
-(= res11 91 ) 
+(= res11 91 ) )
 
 02:
+((<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
+(<= 0 (+ 101 (* (- 1) xm6 ) ) ) 
+(= resm10 91 ) )
+
+03:
+((<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
+(or (<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) (and (= resm10 91 ) (= xm6 resm5 ) ) ) 
+(<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) )
+
+04 (tree interpolants):
+((<= 0 (+ 100 (* (- 1) x_1 ) ) ) 
+(<= 0 (+ 111 (* (- 1) xm1 ) ) ) 
+true
+(<= 0 (+ (- 10) (+ (* (- 1) res4 ) x2 ) ) ) 
 (<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
 (<= 0 (+ 101 (* (- 1) xm6 ) ) ) 
+(<= 0 (+ (- 101) x7 ) ) 
+(or (<= 0 (+ (- 102) x7 ) ) (and (= res9 91 ) (= x7 101 ) ) ) 
 (= resm10 91 ) 
-
-02:
-(<= 0 (+ 101 (* (- 1) resm5 ) ) ) 
-(or (<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) (and (= resm10 91 ) (= xm6 resm5 ) ) ) 
-(<= 0 (+ (- 1) (+ xm6 (* (- 1) resm5 ) ) ) ) 
+(= res11 91 ) )
 Loading LockingExample.bpl.smt2 ...
 Warning: accepting command echo, which is not SMT-LIB 2
 begin unification
@@ -254,11 +266,11 @@ unsat
 unsat
 unsat
 unsat
-true
+(true
 true
 (= lockingEx_auld_2 lockingEx_new_-1 ) 
 false
-false
+false)
 finished trace check
 Loading let3.smt2 ...
 sat
@@ -267,15 +279,15 @@ unsat
 unsat
 unsat
 unsat
-(myFunc proc_x_0 ) 
+((myFunc proc_x_0 ) )
 unsat
-(and proc_x_0_2 (myFunc2 true ) ) 
+((and proc_x_0_2 (myFunc2 true ) ) )
 unsat
-(select ar proc_x_0 ) 
+((select ar proc_x_0 ) )
 unsat
-(and proc_x_0_2 (select ar true ) ) 
+((and proc_x_0_2 (select ar true ) ) )
 unsat
-(and (not proc_x_0_2 ) (select ar false ) ) 
+((and (not proc_x_0_2 ) (select ar false ) ) )
 Loading Typedef-safe.bpl.smt2 ...
 success
 success

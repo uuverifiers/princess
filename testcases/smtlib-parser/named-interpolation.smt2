@@ -38,5 +38,9 @@
 (get-interpolants (and M1 M2 S12 S11 S1RET) M3 (and S21 S22 S2RET) (and M4 ERR))
 
 (echo "")
-(echo "02:")
+(echo "03:")
 (get-interpolants (and M1 M2 S12 S11 S1RET) (and S21 S22 S2RET) (and M4 ERR) M3)
+
+(echo "")
+(echo "04 (tree interpolants):")
+(get-interpolants M1 M2 (S11 S12) S1RET M3 (S21 S22) S2RET M4 ERR)
