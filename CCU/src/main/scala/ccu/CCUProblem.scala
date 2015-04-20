@@ -30,7 +30,7 @@ case class CCUSubProblem(
 
   override def toString = {
     var str = ""
-     str += baseDI.map(x => x.mkString(" - ")).mkString("\n")
+     // str += baseDI.map(x => x.mkString(" - ")).mkString("\n")
     str
   }
 }
@@ -53,6 +53,7 @@ case class CCUSimProblem(
       str += "| " + t + " = {" + (domains.getOrElse(t, Set(t))).mkString(", ") + "}" + "\n"
     str += "| Size: " + size + "\n"
     str += "| Bits: " + bits + "\n"
+    str += "| Order: " + order + "\n"
     for (p <- 0 until size) {
       str += "+--------\n"
       str += "| funEqs: " + subProblems(p).funEqs + "\n"

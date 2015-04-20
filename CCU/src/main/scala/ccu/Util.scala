@@ -50,7 +50,9 @@ class Disequalities(
 
   def pos(i : Int, j : Int) = if (i < j) size*i + j else size*j + i
 
-  def getDQ(i : Int, j : Int) = DQarr(pos(i,j))
+  def getDQ(i : Int, j : Int) = {
+    DQarr(pos(i,j))
+  }
 
   def setDQ(i : Int, j : Int, v : Int) = DQarr(pos(i,j)) = v
  

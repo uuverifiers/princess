@@ -114,9 +114,9 @@ class LazySolver(timeoutChecker : () => Unit,
             
             val minDI = DQ.getINEQ()
 
-
-
             // println("Afterwards: " + DQ.getINEQ())
+            // println("baseDI: " + problem(p).baseDI.map(x => x.mkString("-")).mkString("\n"))
+
             val noBaseDQ = for ((s,t) <- DQ.getINEQ(); if problem(p).baseDI(s)(t) != 0) yield (s, t)
 
             // The blocking clause states that one of the inequalities
@@ -124,7 +124,7 @@ class LazySolver(timeoutChecker : () => Unit,
 
             // Remove all "base" inequalities, since they will always be there
             // no need trying to satisfy those
-            // println("\tblockingClause: " + noBaseDQ.mkString(", "))
+            // println("blockingClause: " + noBaseDQ.mkString(", "))
             val blockingClause =
               (for ((s,t) <- noBaseDQ) yield {
                 if (teqt(s min t)(s max t) == -1) {

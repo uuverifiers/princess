@@ -68,9 +68,10 @@ class TableSolver(timeoutChecker : () => Unit,
 
       // TODO: Empty goals == UNSAT!
       val goalConstraints =
-        for (t <- tmpTables; if (t.isDefined); if (!t.get.goal.isEmpty)) yield
+        for (t <- tmpTables; if (t.isDefined); if (!t.get.goal.isEmpty)) yield {
           (t.get).addGoalConstraint
-      
+        }
+
       if (solver.isSatisfiable()) {
         for (gc <- goalConstraints) solver.removeConstr(gc)
         val intAss = assignmentsToSolution(assignments)
@@ -80,8 +81,18 @@ class TableSolver(timeoutChecker : () => Unit,
         while (p < problem.size && allSat) {
           val cp = problem(p)
           if (!verifySolution(problem.terms, intAss, cp.funEqs, cp.goal)) {
-            if (tmpTables(p).isDefined)
+            if (tmpTables(p).isDefined) {
+              for (t <- 0 until tmpTables.length) {
+                if (tmpTables(t).isDefined) {
+                  println(t + ") is defined")
+                  println("\tgoal: " + tmpTables(t).get.goal)
+                }
+                else
+                  println(t + ") is UNdefined")
+              }
+              println("WHAT? " + p)
               throw new Exception("Table should not be defined!")
+            }
             tmpTables(p) = Some(new Table(problem.bits, alloc, gt, solver,
               problem(p).terms, problem(p).domains,
               problem(p).funEqs.map(_.eq), ZEROBIT, ONEBIT, 

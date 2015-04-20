@@ -8,7 +8,7 @@ import java.io.File
 class CCUInstance[Term, Fun](
   id : Int, 
   solver : CCUSolver,
-  problem : CCUSimProblem,
+  val problem : CCUSimProblem,
   termMap : Map[Term, Int]) {
 
   // var origTerms = List() : Seq[Term]
@@ -66,30 +66,6 @@ class CCUInstance[Term, Fun](
 
   def print = println("SOMETHING SHOULD BE PRINTED")
      // solver.problem.print
-
-  // TODO: SERIALIZE?
-  def output(filename : String) = {
-    // import java.io._
-    // val writer = new PrintWriter(new File("test.txt"))
-    // var output = ""
-    // output += subProblems.length + "\n"
-    // output += domains.map(x => { val (k,v) = x; k + ":" + v.mkString(",") }).mkString(" ") + "\n"
-    // output += subProblems.mkString("\n")
-    // writer.write(output)
-    // writer.close()
-
-    val file = new File(filename)
-    val fos = new FileOutputStream(file)
-    val oos = new ObjectOutputStream(fos)
-    
-    oos.writeObject(problem)
-    oos.close
-
-    println(filename)
-    println(fos)
-    println(oos)
-    println("Printed to: " + filename)
-  }
 
   // TODO: fix previous solution fix
   def checkPreviousSolution = {

@@ -36,6 +36,11 @@ class BenchSolver(timeoutChecker : () => Unit,
 
     println("---NEW PROBLEM---")
     println("ID:" + scala.util.Random.nextInt(2147483647))
+    println("SIZE:" + problem.size)
+    println("TERMS:" + problem.terms.length)
+    println("MAXFUN:" + (for (p <- problem.subProblems) yield p.funEqs.length).max)
+    println("MAXGOAL:" + (for (p <- problem.subProblems) yield p.goal.subGoals.length).max)
+
 
     implicit def CCUGoalEncodeJson: EncodeJson[CCUGoal] = 
       EncodeJson((g : CCUGoal) =>
@@ -60,7 +65,6 @@ class BenchSolver(timeoutChecker : () => Unit,
     val json = problem.asJson.toString
 
     println(problem)
-    println("JSON")
     println(json)
 
     println(tsolver.S + ",TIME:" + ttime)
