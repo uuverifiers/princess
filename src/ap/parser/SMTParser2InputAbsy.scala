@@ -658,6 +658,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var echoWarning = false
   private var getModelWarning = false
 
+  private var lastReasonUnknown = ""
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -1058,6 +1060,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         while (res == SimpleAPI.ProverStatus.Running) {
           if (timeoutChecker()) {
             println("unknown")
+            lastReasonUnknown = "timeout"
             Console.err.println("Global timeout, stopping solver")
             prover.stop
             throw ExitException
@@ -1074,9 +1077,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           case SimpleAPI.ProverStatus.Unsat |
                SimpleAPI.ProverStatus.Valid =>
             println("unsat")
-          case SimpleAPI.ProverStatus.Inconclusive |
-               SimpleAPI.ProverStatus.Unknown =>
+          case SimpleAPI.ProverStatus.Unknown => {
             println("unknown")
+            lastReasonUnknown = "timeout"
+          }
+          case SimpleAPI.ProverStatus.Inconclusive => {
+            println("unknown")
+            lastReasonUnknown = "incomplete"
+          }
           case _ =>
             error("unexpected prover result")
         }
@@ -1294,6 +1302,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             println("(:error-behavior \"immediate-exit\")")
           case ":interpolation-method" =>
             println("(:interpolation-method \"tree\")")
+          case ":reason-unknown" =>
+            println("(:reason-unknown " + lastReasonUnknown + ")")
         }
       
       //////////////////////////////////////////////////////////////////////////
