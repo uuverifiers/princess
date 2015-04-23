@@ -259,7 +259,7 @@ class Simplifier {
     f match {
       case IQuantified(q, subF)
         if (q == Quantifier(universal)) =>
-          findDefinition(subF, varIndex + 1, true)
+          findDefinition(subF, varIndex + 1, universal)
       case IBinFormula(j, f1, f2)
         if (j == (if (universal) Or else And)) =>
           findDefinition(f1, varIndex, universal) match {
@@ -415,6 +415,7 @@ class Simplifier {
 
     private def extractTerm(searchedTerm : ITerm,
                             in : ITerm) : (IdealInt, ITerm) = in match {
+      case `searchedTerm` => (IdealInt.ONE, 0)
       case ITimes(c, `searchedTerm`) => (c, 0)
       case IPlus(in1, in2) => {
         val (c1, rem1) = extractTerm(searchedTerm, in1)

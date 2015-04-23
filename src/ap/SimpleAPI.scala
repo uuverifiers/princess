@@ -1837,8 +1837,13 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Compute a tree interpolant for the given specification.
+   * Interpolants might contain quantifiers, which cannot always
+   * be eliminated efficiently; the provided timeout (milliseconds) specifies
+   * how long it is attempted to eliminated quantifiers in each interpolant. If
+   * QE fails, interpolants with quantifiers are returned instead.
    */
-  def getTreeInterpolant(partitions : Tree[Set[Int]]) : Tree[IFormula] = {
+  def getTreeInterpolant(partitions : Tree[Set[Int]],
+                         maxQETime : Long = Long.MaxValue) : Tree[IFormula] = {
     doDumpSMT {
       println("; (get-tree-interpolant)")
     }
@@ -1875,7 +1880,12 @@ class SimpleAPI private (enableAssert : Boolean,
 
         val iContext =
           InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
-        Interpolator(currentSimpCertificate, iContext)
+
+        Timeout.withTimeoutMillis(maxQETime) {
+          Interpolator(currentSimpCertificate, iContext)
+        } {
+          Interpolator(currentSimpCertificate, iContext, false)
+        }
       }
 
       if (thisInt.isTrue)
@@ -1887,10 +1897,9 @@ class SimpleAPI private (enableAssert : Boolean,
 
     val simp = interpolantSimplifier
 
-    val interpolants = Timeout.withChecker(checkTimeout _) {
+    val interpolants =
       Tree(Conjunction.FALSE,
            for (n <- partitions.children) yield computeInts(n))
-    }
     
     for (c <- interpolants)
     yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))

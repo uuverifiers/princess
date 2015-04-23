@@ -1233,7 +1233,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                 } else translateTreeInterpolantSpec(cmd.listsexpr_) match {
 
                   case List(tree) => {
-                    val interpolants = prover.getTreeInterpolant(tree)
+                    val interpolants =
+                      prover.getTreeInterpolant(tree,
+                                                (timeoutPer / tree.size) min 3000)
 
                     print("(")
                     var sep = ""
