@@ -8,7 +8,6 @@ import org.sat4j.core.VecInt
 import argonaut._, Argonaut._
 import scalaz._, Scalaz._
 
-
 import scala.collection.mutable.{Set => MSet}
 
 
@@ -31,15 +30,6 @@ class BenchSolver(timeoutChecker : () => Unit,
       (result, ((t1 - t0)/1000000).toInt)
     }
 
-    val (tresult, ttime) = time { Timer.measure("TableSolver") { tsolver.solveaux(problem) } }
-    val (lresult, ltime) = time { Timer.measure("LazySolver") { lsolver.solveaux(problem) } }
-
-    println("---NEW PROBLEM---")
-    println("ID:" + scala.util.Random.nextInt(2147483647))
-    println("SIZE:" + problem.size)
-    println("TERMS:" + problem.terms.length)
-    println("MAXFUN:" + (for (p <- problem.subProblems) yield p.funEqs.length).max)
-    println("MAXGOAL:" + (for (p <- problem.subProblems) yield p.goal.subGoals.length).max)
 
 
     implicit def CCUGoalEncodeJson: EncodeJson[CCUGoal] = 
@@ -61,6 +51,46 @@ class BenchSolver(timeoutChecker : () => Unit,
         ("terms" := p.terms.toList) ->: ("domains" := p.domains.toList) ->:  
           ("bits" := p.bits) ->: ("order" := p.order.toList) ->: 
           ("subProblem" := p.subProblems.toList) ->: jEmptyObject)
+
+
+    def handleTimeout = {
+      println("---TIMEOUTPROBLEM---")
+      val json = problem.asJson.toString
+      println(json)
+      println("---ENDTIMEOUTPROBLEM---")
+    }
+
+
+    val (tresult, ttime) = 
+      try {
+        time { Timer.measure("TableSolver") { tsolver.solveaux(problem) } }
+      } catch {
+        case (e : Exception) =>
+          if (e.getClass.toString == "class ap.util.Timeout")
+            handleTimeout
+
+          throw e
+      }
+
+    val (lresult, ltime) = 
+      try {
+        time { Timer.measure("LazySolver") { lsolver.solveaux(problem) } }
+      } catch {
+        case (e : Exception) =>
+          if (e.getClass.toString == "class ap.util.Timeout")
+            handleTimeout
+
+          throw e
+      }
+
+
+
+    println("---NEW PROBLEM---")
+    println("ID:" + scala.util.Random.nextInt(2147483647))
+    println("SIZE:" + problem.size)
+    println("TERMS:" + problem.terms.length)
+    println("MAXFUN:" + (for (p <- problem.subProblems) yield p.funEqs.length).max)
+    println("MAXGOAL:" + (for (p <- problem.subProblems) yield p.goal.subGoals.length).max)
 
     val json = problem.asJson.toString
 
