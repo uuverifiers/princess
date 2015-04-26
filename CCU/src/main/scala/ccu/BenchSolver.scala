@@ -27,8 +27,19 @@ class BenchSolver(timeoutChecker : () => Unit,
                               maxSolverRuntime : Long)  
     extends CCUSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime) {
 
+  BenchSolver.startTime = System.currentTimeMillis()
   val tsolver = new TableSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
+
+  BenchSolver.startTime = System.currentTimeMillis()
   val lsolver = new LazySolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
+
+  override def createProblem[Term, Fun](
+    domains : Map[Term, Set[Term]],
+    goals : Seq[Seq[Seq[(Term, Term)]]],
+    functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : CCUInstance[Term, Fun] = {
+    BenchSolver.startTime = System.currentTimeMillis()
+    super.createProblem[Term, Fun](domains, goals, functions)
+  }
 
   override def solveaux(problem : CCUSimProblem) : (ccu.Result.Result, Option[Map[Int, Int]]) = {
     reset
