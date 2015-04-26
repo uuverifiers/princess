@@ -24,7 +24,7 @@ class LazySolver(timeoutChecker : () => Unit,
   // by transitivity (in some cases) yields that a = b = c = d
 
   override def solveaux(problem : CCUSimProblem) : (ccu.Result.Result, Option[Map[Int, Int]]) = {
-    Timer.measure("Lazy.solve") {
+    // Timer.measure("Lazy.solve") {
 
       // Initialize problem and some useful values
       val terms = problem.terms
@@ -45,9 +45,9 @@ class LazySolver(timeoutChecker : () => Unit,
       // Added for timing reasons
       def KeepOnGoing() = {
         var result = false 
-        Timer.measure("SOLVE.SAT4J") {
+        // Timer.measure("SOLVE.SAT4J") {
           result = solver.isSatisfiable()
-        }
+        // }
         result
       }
 
@@ -164,7 +164,7 @@ class LazySolver(timeoutChecker : () => Unit,
         S.addEntry("LAZY>RESULT:UNSAT,BLOCKINGCLAUSES:" + bcCount)
         (ccu.Result.UNSAT, None)
       }
-    }
+    // }
   }
 
   def unsatCoreAux(problem : CCUSimProblem, timeout : Int) = {

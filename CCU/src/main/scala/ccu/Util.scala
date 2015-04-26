@@ -180,8 +180,8 @@ class Disequalities(
     }).toSet
   }
 
-  def cascadeRemoveDQ(s : Int, t : Int) : Unit = 
-  Timer.measure("cascadeRemove") {
+  def cascadeRemoveDQ(s : Int, t : Int) : Unit = {
+  // Timer.measure("cascadeRemove") {
     val todo = Queue() : Queue[(Int, Int)]
     val inQueue = Array.ofDim[Boolean](size, size)
 
@@ -256,10 +256,10 @@ class Disequalities(
       }
 
 
-      Timer.measure("cascadeRemove.transitivity") {
+      // Timer.measure("cascadeRemove.transitivity") {
         transitivity(s, t)
         transitivity(t, s)
-      }
+      // }
     }
   }
 
@@ -323,7 +323,6 @@ class Disequalities(
     satisfiable
   }
 }
-
 
 
 class UnionFind[D] {

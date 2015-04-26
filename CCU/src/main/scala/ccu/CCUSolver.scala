@@ -478,7 +478,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     domains : Map[Term, Set[Term]],
     goals : Seq[Seq[Seq[(Term, Term)]]],
     functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : CCUInstance[Term, Fun] = {
-    Timer.measure("createProblem") {
+    // Timer.measure("createProblem") {
       curId += 1
 
       val termSet = MSet() : MSet[Term]
@@ -740,7 +740,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
 
       // TODO: Fix immutable map
       new CCUInstance[Term, Fun](curId, this, problem, termToInt.toMap)
-    }
+    // }
   }
 
 

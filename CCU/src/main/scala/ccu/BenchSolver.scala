@@ -10,14 +10,25 @@ import scalaz._, Scalaz._
 
 import scala.collection.mutable.{Set => MSet}
 
+case class BenchTimeoutException(msg : String) extends RuntimeException(msg)
+
+
+object BenchSolver {
+  val TIMEOUT = 60000 : Long
+  var startTime = System.currentTimeMillis()
+  def customTimeoutChecker(timeout : Long)() = {
+    if (System.currentTimeMillis() - startTime >= timeout) {
+      throw new BenchTimeoutException("Bench Timeout")
+    }
+  }
+}
 
 class BenchSolver(timeoutChecker : () => Unit, 
                               maxSolverRuntime : Long)  
-    extends CCUSolver(timeoutChecker, maxSolverRuntime) {
+    extends CCUSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime) {
 
-  val tsolver = new TableSolver(timeoutChecker, maxSolverRuntime)
-  val lsolver = new LazySolver(timeoutChecker, maxSolverRuntime)
-
+  val tsolver = new TableSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
+  val lsolver = new LazySolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
 
   override def solveaux(problem : CCUSimProblem) : (ccu.Result.Result, Option[Map[Int, Int]]) = {
     reset
@@ -29,7 +40,6 @@ class BenchSolver(timeoutChecker : () => Unit,
       val t1 = System.nanoTime()
       (result, ((t1 - t0)/1000000).toInt)
     }
-
 
 
     implicit def CCUGoalEncodeJson: EncodeJson[CCUGoal] = 
@@ -54,33 +64,38 @@ class BenchSolver(timeoutChecker : () => Unit,
 
 
     def handleTimeout = {
-      println("---TIMEOUTPROBLEM---")
+      println("---BenchSolver.TIMEOUTPROBLEM---")
       val json = problem.asJson.toString
       println(json)
-      println("---ENDTIMEOUTPROBLEM---")
+      println("---ENDBenchSolver.TIMEOUTPROBLEM---")
     }
 
 
     val (tresult, ttime) = 
       try {
+        println("Running Tablesolver...")
+        BenchSolver.startTime = System.currentTimeMillis()
         time { Timer.measure("TableSolver") { tsolver.solveaux(problem) } }
       } catch {
-        case (e : Exception) =>
-          if (e.getClass.toString == "class ap.util.Timeout")
-            handleTimeout
-
-          throw e
+        case (e : BenchTimeoutException) =>
+          // handleTimeout
+          // throw new Timeout("Bench T/O")
+          println("Table timeout!")
+          ((ccu.Result.UNKNOWN, None), BenchSolver.TIMEOUT)
       }
 
     val (lresult, ltime) = 
       try {
+        println("Running Lazysolver...")
+        BenchSolver.startTime = System.currentTimeMillis()
         time { Timer.measure("LazySolver") { lsolver.solveaux(problem) } }
       } catch {
-        case (e : Exception) =>
-          if (e.getClass.toString == "class ap.util.Timeout")
-            handleTimeout
+        case (e : BenchTimeoutException) =>
+          println("Lazy timeout!")
+          ((ccu.Result.UNKNOWN, None), BenchSolver.TIMEOUT)
 
-          throw e
+        //   handleTimeout
+        //   throw new Timeout("Bench T/O")
       }
 
 
@@ -100,12 +115,16 @@ class BenchSolver(timeoutChecker : () => Unit,
     println(tsolver.S + ",TIME:" + ttime)
     println(lsolver.S + ",TIME:" + ltime)
     println("---END PROBLEM---")
-    if (tresult._1 != lresult._1)
-      throw new Exception("Different Results!")
 
-    tresult
+    (tresult._1, lresult._1) match {
+      case (ccu.Result.UNKNOWN, ccu.Result. UNKNOWN) => tresult
+      case (ccu.Result.UNKNOWN, _) => lresult
+      case (_, ccu.Result.UNKNOWN) => tresult
+      case (ccu.Result.SAT, ccu.Result.SAT) => tresult
+      case (ccu.Result.UNSAT, ccu.Result.UNSAT) => tresult
+      case _ => throw new Exception("Different Results!")
 
-
+    }
   }
 
   // We automatically calculate unsatCore
