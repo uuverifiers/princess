@@ -1796,18 +1796,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       (if (transArgs forall (_._2 == SMTBool)) transArgs.length match {
          case 0 | 1 => true
-         case 2 => asTerm(transArgs(0)) =/= asTerm(transArgs(1))
+         case 2 => asFormula(transArgs(0)) </> asFormula(transArgs(1))
          case _ => false
        } else {
          val types = (transArgs map (_._2)).toSet
          if (types.size > 1)
            throw new Parser2InputAbsy.TranslationException(
              "Can only compare terms of same type using distinct")
-         connect(for (firstIndex <- 1 until transArgs.length;
-                      firstTerm = asTerm(transArgs(firstIndex));
-                      secondIndex <- 0 until firstIndex) yield {
-           firstTerm =/= asTerm(transArgs(secondIndex))
-         }, IBinJunctor.And)
+         distinct(for (p <- transArgs.iterator) yield asTerm(p))
        }, SMTBool)
     }
     
