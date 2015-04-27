@@ -18,11 +18,16 @@ class TableSolver(timeoutChecker : () => Unit,
   var tables = Array() : Array[Option[Table]]
   var calculatedCore = None : Option[Seq[Int]]
   var lastUnsatCore = List() : Seq[Int]
-  def addStat(sat : Boolean) = {
-    val res = if (sat) "SAT" else "UNSAT"
-    S.addEntry("TABLE>RESULT:" + res +
+  def addStat(result : String) = {
+    S.addEntry("TABLE>RESULT:" + result +
       ",TABLES:" + (for (t <- tables; if t.isDefined) yield 1).sum +
       ",COLUMNS:" + (for (t <- tables; if t.isDefined) yield t.get.currentColumn).max)
+  }
+
+  override def getStat(result : ccu.Result.Result) = {
+    "TABLE>RESULT:" + result +
+    ",TABLES:" + (for (t <- tables; if t.isDefined) yield 1).sum +
+    ",COLUMNS:" + (for (t <- tables; if t.isDefined) yield t.get.currentColumn).max
   }
 
   def CCV(tab : Seq[Table]) : Boolean = {
@@ -125,10 +130,8 @@ class TableSolver(timeoutChecker : () => Unit,
         }
       }
     }
-
-
     tables = tmpTables
-    addStat(tmpModel.isDefined)
+    addStat(if (tmpModel.isDefined) "SAT" else "UNSAT")
 
     // println ("Tables used: " + (for (t <- tmpTables; if t.isDefined) yield 1).sum + "/" + tmpTables.length)
     lastUnsatCore = for (i <- 0 until tmpTables.length; if tmpTables(i).isDefined) yield i

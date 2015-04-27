@@ -12,7 +12,6 @@ import scala.collection.mutable.{Set => MSet}
 
 case class BenchTimeoutException(msg : String) extends RuntimeException(msg)
 
-
 object BenchSolver {
   val TIMEOUT = 60000 : Long
   var startTime = System.currentTimeMillis()
@@ -26,6 +25,8 @@ object BenchSolver {
 class BenchSolver(timeoutChecker : () => Unit, 
                               maxSolverRuntime : Long)  
     extends CCUSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime) {
+
+  override def getStat(res : ccu.Result.Result) = { res.toString }
 
   BenchSolver.startTime = System.currentTimeMillis()
   val tsolver = new TableSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
@@ -123,8 +124,8 @@ class BenchSolver(timeoutChecker : () => Unit,
     println(problem)
     println(json)
 
-    println(tsolver.S + ",TIME:" + ttime)
-    println(lsolver.S + ",TIME:" + ltime)
+    println(tsolver.getStat(tresult._1) + ",TIME:" + ttime)
+    println(lsolver.getStat(lresult._1) + ",TIME:" + ltime)
     println("---END PROBLEM---")
 
     (tresult._1, lresult._1) match {

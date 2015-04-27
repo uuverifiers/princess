@@ -46,6 +46,14 @@ class Allocator {
 object Result extends Enumeration {
   type Result = Value
   val SAT, UNSAT, UNKNOWN = Value
+
+  // def toString = {
+  //   this match {
+  //     case SAT => "SAT"
+  //     case UNSAT => "UNSAT"
+  //     case UNKNOWN => "UNKNOWN"
+  //   }
+  // }
 }
 
 
@@ -70,6 +78,8 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
                          val maxSolverRuntime : Long) {
   var debug = false
   val S = new Stats
+
+  def getStat(result : ccu.Result.Result) : String
 
   // var prob = None : Option[CCUSimProblem]
   // def problem = 

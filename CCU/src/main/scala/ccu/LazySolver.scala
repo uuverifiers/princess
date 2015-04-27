@@ -23,6 +23,8 @@ class LazySolver(timeoutChecker : () => Unit,
   // that a ~= c, b ~= d, d ~= a (where ~= is "could be equal"), this
   // by transitivity (in some cases) yields that a = b = c = d
 
+  var bcCount = 0
+
   override def solveaux(problem : CCUSimProblem) : (ccu.Result.Result, Option[Map[Int, Int]]) = {
     // Timer.measure("Lazy.solve") {
 
@@ -36,7 +38,7 @@ class LazySolver(timeoutChecker : () => Unit,
       this.reset
 
       // STATISTICS
-      var bcCount = 0
+      bcCount = 0
 
       // Shows what bits are used to represent value of terms
       val assignments = createAssignments(problem)
@@ -165,6 +167,10 @@ class LazySolver(timeoutChecker : () => Unit,
         (ccu.Result.UNSAT, None)
       }
     // }
+  }
+
+  override def getStat(result : ccu.Result.Result) = {
+    "LAZY>RESULT:" + result + ",BLOCKINGCLAUSES:" + bcCount
   }
 
   def unsatCoreAux(problem : CCUSimProblem, timeout : Int) = {
