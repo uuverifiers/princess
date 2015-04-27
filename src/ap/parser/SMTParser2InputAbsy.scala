@@ -1778,7 +1778,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       (if (transArgs forall (_._2 == SMTBool)) {
          connect(for (Seq(a, b) <- (transArgs map (asFormula(_))) sliding 2)
-                   yield (a <=> b),
+                   yield (a <===> b),
                  IBinJunctor.And)
        } else {
          val types = (transArgs map (_._2)).toSet
@@ -1796,7 +1796,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       (if (transArgs forall (_._2 == SMTBool)) transArgs.length match {
          case 0 | 1 => true
-         case 2 => asFormula(transArgs(0)) </> asFormula(transArgs(1))
+         case 2 => ~(asFormula(transArgs(0)) <===> asFormula(transArgs(1)))
          case _ => false
        } else {
          val types = (transArgs map (_._2)).toSet

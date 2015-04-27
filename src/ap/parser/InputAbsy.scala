@@ -1052,6 +1052,22 @@ abstract class IFormula extends IExpression {
   def impSimplify(that : IFormula) = this ===> that
   
   /**
+   * Equivalence operator that directly simplify expressions involving true/false.
+   */
+  def <===>(that : IFormula) : IFormula = (this, that) match {
+    case (IBoolLit(false), s) => ~s
+    case (s, IBoolLit(false)) => ~s
+    case (IBoolLit(true), s)  => s
+    case (s, IBoolLit(true))  => s
+    case _ => this <=> that
+  }
+
+  /**
+   * Equivalence operator that directly simplify expressions involving true/false.
+   */
+  def eqvSimplify(that : IFormula) = this <===> that
+
+  /**
    * Replace the subexpressions of this node with new expressions
    */
   override def update(newSubExprs : Seq[IExpression]) : IFormula = {
