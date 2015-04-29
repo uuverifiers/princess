@@ -33,7 +33,7 @@ val cmd = "../princess -timeout=60000"
 
 def newLogNumber = {
   val f = new File("logs/")
-  val files = f.listFiles
+  val files = f.listFiles.filter(x => x.toString.endsWith(".log"))
   if (!files.isEmpty) {
     val logs = files.map(_.toString).map(_.split('/')(1))
     val ints = logs.map(_.split('.')(0)).map(_.toInt)

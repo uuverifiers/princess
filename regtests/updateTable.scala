@@ -3,7 +3,8 @@ import scala.collection.mutable.{Map, ListBuffer}
 
 def getLogFiles = {
   val f = new File("logs/")
-  val logs = f.listFiles.map(_.toString).map(_.split('/')(1))
+  val files = f.listFiles.filter(x => x.toString.endsWith(".log"))
+  val logs = files.map(_.toString).map(_.split('/')(1))
   val numbers = logs.map(_.split('.')(0)).toSet.toList.sorted
   numbers.reverse
 }
