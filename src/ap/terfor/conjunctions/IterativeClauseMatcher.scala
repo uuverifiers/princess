@@ -407,8 +407,7 @@ object IterativeClauseMatcher {
     // or a disjunction ...
     (lastUniQuantifier == 0 ||
      (lastUniQuantifier == 1 &&
-      (c.isQuantifiedDivisibility || c.isQuantifiedNonDivisibility)) ||
-     (!negated || (c.size == 1 && c.predConj.isLiteral)) && {
+      (c.isQuantifiedDivisibility || c.isQuantifiedNonDivisibility)) || {
        // ... and all bound variables occur in matched predicate literals,
        // or can be eliminated through equations
 
@@ -420,41 +419,46 @@ object IterativeClauseMatcher {
 
   private def determineMatchedVariables(
                   c : Conjunction, negated : Boolean,
-                  config : PredicateMatchConfig) : Set[Int] = {
-    implicit val _config = config
-    implicit val order = c.order
+                  config : PredicateMatchConfig) : Set[Int] =
+    if (c.size == 1 && c.negatedConjs.size == 1) {
+      determineMatchedVariables(c.negatedConjs.head, !negated, config)
+    } else if (negated && !(c.size == 1 && c.predConj.isLiteral)) {
+      Set()
+    } else {
+      implicit val _config = config
+      implicit val order = c.order
 
-    val reducedPreds =
-      ReduceWithEqs(c.arithConj.positiveEqs, order)(c.predConj)
-    val (matchLits, _) =
-      determineMatchedLits(if (negated) reducedPreds.negate else reducedPreds)
+      val reducedPreds =
+        ReduceWithEqs(c.arithConj.positiveEqs, order)(c.predConj)
+      val (matchLits, _) =
+        determineMatchedLits(if (negated) reducedPreds.negate else reducedPreds)
 
-    val eqs = c.arithConj.positiveEqs
-      
-    // figure out which variables are actually uniquely determined by
-    // the matching
-    val maxVarIndex =
-      Seqs.max(for (a <- matchLits.iterator;
-                    v <- a.variables.iterator) yield v.index) max
-      Seqs.max(for (v <- eqs.variables.iterator) yield v.index)
-
-    // set up the equations that determine the values of variables
-    var i = maxVarIndex + 1
-    val quantVarEqs = EquationConj(
-          eqs.iterator ++
-          (for (a <- matchLits.iterator; lc <- a.iterator) yield {
-             val res = lc - LinearCombination(VariableTerm(i), order)
-             i = i + 1
-             res
-           }),
-        c.order)
-      
-    (for (// Seq((IdealInt.ONE, VariableTerm(ind)), _*) <- quantVarEqs.iterator;
-          lc <- quantVarEqs.iterator;
-          if (!lc.isEmpty && lc.leadingCoeff.isOne &&
-              lc.leadingTerm.isInstanceOf[VariableTerm]))
-     yield lc.leadingTerm.asInstanceOf[VariableTerm].index).toSet
-  }
+      val eqs = c.arithConj.positiveEqs
+        
+      // figure out which variables are actually uniquely determined by
+      // the matching
+      val maxVarIndex =
+        Seqs.max(for (a <- matchLits.iterator;
+                      v <- a.variables.iterator) yield v.index) max
+        Seqs.max(for (v <- eqs.variables.iterator) yield v.index)
+  
+      // set up the equations that determine the values of variables
+      var i = maxVarIndex + 1
+      val quantVarEqs = EquationConj(
+            eqs.iterator ++
+            (for (a <- matchLits.iterator; lc <- a.iterator) yield {
+               val res = lc - LinearCombination(VariableTerm(i), order)
+               i = i + 1
+               res
+             }),
+          c.order)
+        
+      (for (// Seq((IdealInt.ONE, VariableTerm(ind)), _*) <- quantVarEqs.iterator;
+            lc <- quantVarEqs.iterator;
+            if (!lc.isEmpty && lc.leadingCoeff.isOne &&
+                lc.leadingTerm.isInstanceOf[VariableTerm]))
+       yield lc.leadingTerm.asInstanceOf[VariableTerm].index).toSet
+    }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -518,24 +522,16 @@ object IterativeClauseMatcher {
         changed = true
       }
 
-      if (negated && !(c.size == 1 && c.predConj.isLiteral)) {
-        for (i <- 0 until firstExQuantifier) {
+      val matchedVariables = determineMatchedVariables(c, negated, config)
+      var contained = true
+      for (i <- 0 until firstExQuantifier) {
+        contained = contained && (matchedVariables contains i)
+        if (!contained) {
           newQuans(i) = EX
           changed = true
         }
-        newC
-      } else {
-        val matchedVariables = determineMatchedVariables(c, negated, config)
-        var contained = true
-        for (i <- 0 until firstExQuantifier) {
-          contained = contained && (matchedVariables contains i)
-          if (!contained) {
-            newQuans(i) = EX
-            changed = true
-          }
-        }
-        newC
       }
+      newC
     }
   }
 
