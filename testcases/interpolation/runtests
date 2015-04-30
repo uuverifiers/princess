@@ -38,7 +38,7 @@ $PRI "$@" -genTotalityAxioms $TESTS
 # +incremental mode
 
 TESTS="pred-unify-bug.smt2 rule60_list2.c_false-unreach-call_1.cil.c.smt2 \
-       function-bug3.smt2 simplifier.smt2 smtTyping.smt2"
+       function-bug3.smt2 simplifier.smt2 smtTyping.smt2 matchCheckBug.smt2"
 
 $PRI "$@" +incremental $TESTS
 
