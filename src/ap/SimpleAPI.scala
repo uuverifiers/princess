@@ -495,6 +495,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentProver = null
     needExhaustiveProver = false
     matchedTotalFunctions = false
+    ignoredQuantifiers = false
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = Conjunction.TRUE
@@ -1694,7 +1695,8 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   private def getSatStatus : ProverStatus.Value =
-    if (theoriesAreSatComplete &&
+    if (!ignoredQuantifiers &&
+        theoriesAreSatComplete &&
         (genTotalityAxioms || !matchedTotalFunctions ||
          allFunctionsArePartial))
       getBasicSatStatus
@@ -2745,7 +2747,7 @@ class SimpleAPI private (enableAssert : Boolean,
     initProver
     
     storedStates push (currentProver, needExhaustiveProver,
-                       matchedTotalFunctions,
+                       matchedTotalFunctions, ignoredQuantifiers,
                        currentOrder, existentialConstants,
                        functionalPreds, functionEnc.clone,
                        formulaeInProver,
@@ -2780,7 +2782,7 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (oldProver, oldNeedExhaustiveProver,
-         oldMatchedTotalFunctions,
+         oldMatchedTotalFunctions, oldIgnoredQuantifiers,
          oldOrder, oldExConstants,
          oldFunctionalPreds, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
@@ -2790,6 +2792,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentProver = oldProver
     needExhaustiveProver = oldNeedExhaustiveProver
     matchedTotalFunctions = oldMatchedTotalFunctions
+    ignoredQuantifiers = oldIgnoredQuantifiers
     currentOrder = oldOrder
     existentialConstants = oldExConstants
     functionalPreds = oldFunctionalPreds
@@ -2851,10 +2854,15 @@ class SimpleAPI private (enableAssert : Boolean,
          }))
       matchedTotalFunctions = true
 
-  private def addToProver(completeFor : Conjunction,
-                          axioms : Conjunction) : Unit = {
-    formulaeInProver =
-      (-1, axioms) :: (currentPartitionNum, completeFor) :: formulaeInProver
+  private def addToProver(preCompleteFor : Conjunction,
+                          preAxioms : Conjunction) : Unit = {
+    val completeFor = convertQuantifiers(preCompleteFor)
+    val axioms = convertQuantifiers(preAxioms)
+
+    if (!completeFor.isFalse)
+      formulaeInProver = (currentPartitionNum, completeFor) :: formulaeInProver
+    if (!axioms.isFalse)
+      formulaeInProver = (-1, axioms) :: formulaeInProver
 
     proofActorStatus match {
       case ProofActorStatus.Init =>
@@ -2950,6 +2958,26 @@ class SimpleAPI private (enableAssert : Boolean,
       newF
     } else {
       f
+    }
+
+  /**
+   * In some cases, convert universal quantifiers to existential ones.
+   * At the moment, this is in particular necessary when constructing
+   * proof for interpolation.
+   */
+  private def convertQuantifiers(c : Conjunction) : Conjunction =
+    if (constructProofs) {
+      val withoutQuans =
+        IterativeClauseMatcher.convertQuantifiers(
+          c, Param.PREDICATE_MATCH_CONFIG(goalSettings))
+      if (!ignoredQuantifiers && !(withoutQuans eq c)) {
+        Console.err.println(
+          "Warning: ignoring some quantifiers due to interpolation")
+        ignoredQuantifiers = true
+      }
+      withoutQuans
+    } else {
+      c
     }
 
   private def toInternalNoAxioms(f : IFormula,
@@ -3076,6 +3104,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var currentProver : ModelSearchProver.IncProver = _
   private var needExhaustiveProver : Boolean = false
   private var matchedTotalFunctions : Boolean = false
+  private var ignoredQuantifiers : Boolean = false
   private var currentModel : Conjunction = _
   private var lastPartialModel : PartialModel = null
   private var currentConstraint : Conjunction = _
@@ -3092,6 +3121,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var abbrevFunctions : Set[IFunction] = Set()
 
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
+                                             Boolean,
                                              Boolean,
                                              Boolean,
                                              TermOrder,

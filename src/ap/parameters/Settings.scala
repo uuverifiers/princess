@@ -114,6 +114,8 @@ object GlobalSettings {
           Param.PROOF_SIMPLIFICATION.set(settings, value)
         case Opt("elimInterpolantQuants", value) =>
           Param.ELIMINATE_INTERPOLANT_QUANTIFIERS.set(settings, value)
+        case Opt("ignoreQuantifiers", value) =>
+          Param.IGNORE_QUANTIFIERS.set(settings, value)
         case ValueOpt("generateTriggers", "none") =>
           Param.TRIGGER_GENERATION.set(settings,
                                        Param.TriggerGenerationOptions.None)
@@ -182,7 +184,7 @@ object GlobalSettings {
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
          Param.GENERATE_TOTALITY_AXIOMS,
-         Param.ELIMINATE_INTERPOLANT_QUANTIFIERS,
+         Param.ELIMINATE_INTERPOLANT_QUANTIFIERS, Param.IGNORE_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY,

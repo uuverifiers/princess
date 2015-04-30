@@ -172,7 +172,28 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     (List(PartName.NO_NAME) ++
      (for (INamedPart(n, _) <- inputFormulas) yield n)).distinct
 
-  val (namedParts, formulas, matchedTotalFunctions) =
+  val (namedParts, formulas, matchedTotalFunctions, ignoredQuantifiers) = {
+    var ignoredQuantifiers = false
+
+    /**
+     * In some cases, convert universal quantifiers to existential ones.
+     * At the moment, this is in particular necessary when constructing
+     * proof for interpolation.
+     */
+    def convertQuantifiers(c : Conjunction) : Conjunction =
+      if (constructProofs || Param.IGNORE_QUANTIFIERS(settings)) {
+        val withoutQuans =
+          IterativeClauseMatcher.convertQuantifiers(
+            c, signature.predicateMatchConfig)
+        if (!ignoredQuantifiers && !(withoutQuans eq c)) {
+          Console.err.println("Warning: ignoring some quantifiers")
+          ignoredQuantifiers = true
+        }
+        withoutQuans
+      } else {
+        c
+      }
+
     if (constructProofs) {
       // keep the different formula parts separate
       val rawNamedParts =
@@ -183,25 +204,30 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         for ((n, c) <- rawNamedParts) yield n match {
           case PartName.NO_NAME =>
             (PartName.NO_NAME ->
-             reducer(Conjunction.disj(List(theoryAxioms, c), order)))
+             convertQuantifiers(
+               reducer(Conjunction.disj(List(theoryAxioms, c), order))))
           case n =>
-            (n -> reducer(c))
+            (n -> convertQuantifiers(reducer(c)))
         }
 
       (reducedNamedParts,
        for (n <- allPartNames) yield reducedNamedParts(n),
-       checkMatchedTotalFunctions(rawNamedParts map (_._2)))
+       checkMatchedTotalFunctions(rawNamedParts map (_._2)),
+       ignoredQuantifiers)
     } else {
       // merge everything into one formula
       val rawF =
         InputAbsy2Internal(
           IExpression.or(for (f <- inputFormulas.iterator)
                          yield (IExpression removePartName f)), order)
-      val f = reducer(Conjunction.disjFor(List(theoryAxioms, rawF), order))
+      val f = convertQuantifiers(
+                reducer(Conjunction.disjFor(List(theoryAxioms, rawF), order)))
       (Map(PartName.NO_NAME -> f),
        List(f),
-       checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))))
+       checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))),
+       ignoredQuantifiers)
     }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -289,6 +315,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     (theories forall { t => t.functions forall (_.partial) })
 
   protected lazy val soundForSat =
+    !ignoredQuantifiers &&
     theoriesAreSatComplete &&
     (Param.GENERATE_TOTALITY_AXIOMS(settings) ||
      !matchedTotalFunctions ||
