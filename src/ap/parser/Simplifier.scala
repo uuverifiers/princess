@@ -31,6 +31,10 @@ import Quantifier._
 
 import scala.collection.mutable.ArrayBuffer
 
+object Simplifier {
+  private val SPLITTING_LIMIT = 20
+}
+
 /**
  * Class to simplify input formulas using various rewritings
  */
@@ -64,10 +68,14 @@ class Simplifier {
         VariableShiftVisitor(f1, 1, -1) | all(f2)
       else if (!ContainsSymbol(f2, IVariable(0)))
         all(f1) | VariableShiftVisitor(f2, 1, -1)
-      else f match {
-        case AndSplitter(f1, f2) => all(f1) & all(f2)
+      else if (splitNum < Simplifier.SPLITTING_LIMIT) f match {
+        case AndSplitter(f1, f2) => {
+          splitNum = splitNum + 1
+          all(f1) & all(f2)
+        }
         case _ => expr
-      }
+      } else
+        expr
     }
                                         
     case IQuantified(EX, f@IBinFormula(And, f1, f2)) => {
@@ -75,10 +83,14 @@ class Simplifier {
         VariableShiftVisitor(f1, 1, -1) & ex(f2)
       else if (!ContainsSymbol(f2, IVariable(0)))
         ex(f1) & VariableShiftVisitor(f2, 1, -1)
-      else f match {
-        case OrSplitter(f1, f2) => ex(f1) | ex(f2)
+      else if (splitNum < Simplifier.SPLITTING_LIMIT) f match {
+        case OrSplitter(f1, f2) => {
+          splitNum = splitNum + 1
+          ex(f1) | ex(f2)
+        }
         case _ => expr
-      }
+      } else
+        expr
     }
       
     case IQuantified(_, t)
@@ -88,6 +100,12 @@ class Simplifier {
     case _ => expr
   }
   
+  /**
+   * Keep a counter how often splitting was applied, to prevent exponential
+   * blow-up of the formula
+   */
+  private var splitNum = 0
+
   private class FormulaSplitter(SplitOp : IBinJunctor.Value,
                                 DistributedOp : IBinJunctor.Value) {
     def unapply(f : IFormula) : Option[(IFormula, IFormula)] = f match {
@@ -241,7 +259,7 @@ class Simplifier {
     f match {
       case IQuantified(q, subF)
         if (q == Quantifier(universal)) =>
-          findDefinition(subF, varIndex + 1, true)
+          findDefinition(subF, varIndex + 1, universal)
       case IBinFormula(j, f1, f2)
         if (j == (if (universal) Or else And)) =>
           findDefinition(f1, varIndex, universal) match {
@@ -397,6 +415,7 @@ class Simplifier {
 
     private def extractTerm(searchedTerm : ITerm,
                             in : ITerm) : (IdealInt, ITerm) = in match {
+      case `searchedTerm` => (IdealInt.ONE, 0)
       case ITimes(c, `searchedTerm`) => (c, 0)
       case IPlus(in1, in2) => {
         val (c1, rem1) = extractTerm(searchedTerm, in1)
@@ -415,7 +434,7 @@ class Simplifier {
   protected def furtherSimplifications(expr : IExpression) = expr
   
   private val defaultRewritings =
-    Array(toNNF _, elimSimpleLiterals _, miniScope _, elimQuantifier _,
+    Array(toNNF _, elimSimpleLiterals _, elimQuantifier _, miniScope _,
           splitITEs _, furtherSimplifications _)
   
   /**
@@ -424,6 +443,7 @@ class Simplifier {
    */
   def apply(expr : IFormula) : IFormula = {
     import Rewriter._
+    splitNum = 0
     rewrite(expr, combineRewritings(defaultRewritings)).asInstanceOf[IFormula]
   }
   

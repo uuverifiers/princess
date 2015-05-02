@@ -21,7 +21,7 @@
 
 package ap
 
-import ap.basetypes.IdealInt
+import ap.basetypes.{IdealInt, Tree}
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
                       Param}
@@ -494,6 +494,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentProver = null
     needExhaustiveProver = false
     matchedTotalFunctions = false
+    ignoredQuantifiers = false
     formulaeInProver = List()
     formulaeTodo = false
     currentModel = Conjunction.TRUE
@@ -1461,7 +1462,7 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     checkTimeout
     getStatusHelp(true) match {
-      case ProverStatus.Unknown => checkSatHelp(true)
+      case ProverStatus.Unknown => checkSatHelp(true, true)
       case res => res
     }
   }
@@ -1485,10 +1486,11 @@ class SimpleAPI private (enableAssert : Boolean,
     if (block)
       checkTimeout
 
-    checkSatHelp(block)
+    checkSatHelp(block, true)
   }
   
-  private def checkSatHelp(block : Boolean) : ProverStatus.Value =
+  private def checkSatHelp(block : Boolean,
+                           allowShortCut : Boolean) : ProverStatus.Value =
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
         lastStatus = ProverStatus.Running
@@ -1536,6 +1538,16 @@ class SimpleAPI private (enableAssert : Boolean,
               proofActor ! CheckValidityCommand(closedFor,
                                                 exhaustiveProverGoalSettings,
                                                 mostGeneralConstraints)
+            } else if (allowShortCut && !constructProofs &&
+                       currentProver.isObviouslyValid) {
+              // no need to actually run the prover
+              lastStatus = getUnsatStatus
+              return lastStatus
+            } else if (allowShortCut &&
+                       currentProver.isObviouslyUnprovable) {
+              // no need to actually run the prover
+              lastStatus = getSatStatus
+              return lastStatus
             } else {
               // use a ModelCheckProver
               proofActor ! CheckSatCommand(currentProver)
@@ -1682,7 +1694,8 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   private def getSatStatus : ProverStatus.Value =
-    if (theoriesAreSatComplete &&
+    if (!ignoredQuantifiers &&
+        theoriesAreSatComplete &&
         (genTotalityAxioms || !matchedTotalFunctions ||
          allFunctionsArePartial))
       getBasicSatStatus
@@ -1802,28 +1815,98 @@ class SimpleAPI private (enableAssert : Boolean,
       currentSimpCertificate = ProofSimplifier(currentCertificate)
 
     val simp = interpolantSimplifier
-                        
-    for (i <- 1 to (partitions.size - 1)) yield {
-      val leftNums = (partitions take i).flatten.toSet
+    
+    val commonFors =
+      for ((n, f) <- formulaeInProver; if (n < 0)) yield f
+
+    Timeout.withChecker(checkTimeout _) {
+      for (i <- 1 to (partitions.size - 1)) yield {
+        val leftNums = (partitions take i).flatten.toSet
       
-      val commonFors = for ((n, f) <- formulaeInProver;
-                            if (n < 0)) yield f
-      val leftFors =   for ((n, f) <- formulaeInProver;
-                            if (n >= 0 && (leftNums contains n))) yield f
-      val rightFors =  for ((n, f) <- formulaeInProver;
-                            if (n >= 0 && !(leftNums contains n))) yield f
+        val leftFors =   for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && (leftNums contains n))) yield f
+        val rightFors =  for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && !(leftNums contains n))) yield f
 
-      val iContext =
-        InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
-      val internalInt = Interpolator(currentSimpCertificate, iContext)
-
-      val interpolant = Internal2InputAbsy(internalInt, functionEnc.predTranslation)
-
-      simp(interpolant)
+        val iContext =
+          InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
+        val internalInt = Interpolator(currentSimpCertificate, iContext)
+        simp(Internal2InputAbsy(internalInt, functionEnc.predTranslation))
+      }
     }
   }
+
+  /**
+   * Compute a tree interpolant for the given specification.
+   * Interpolants might contain quantifiers, which cannot always
+   * be eliminated efficiently; the provided timeout (milliseconds) specifies
+   * how long it is attempted to eliminated quantifiers in each interpolant. If
+   * QE fails, interpolants with quantifiers are returned instead.
+   */
+  def getTreeInterpolant(partitions : Tree[Set[Int]],
+                         maxQETime : Long = Long.MaxValue) : Tree[IFormula] = {
+    doDumpSMT {
+      println("; (get-tree-interpolant)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getTreeInterpolant(" +
+          partitions +
+//        List(" + (
+//        for (s <- partitions.iterator)
+//        yield ("Set(" + s.mkString(", ") + ")")).mkString(", ") + "))"
+        "))")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, (Set(ProverStatus.Unsat,
+                             ProverStatus.Valid) contains getStatusHelp(false)) &&
+                        currentCertificate != null)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
   
-  private def interpolantSimplifier = ArraySimplifier
+    if (currentSimpCertificate == null)
+      currentSimpCertificate = ProofSimplifier(currentCertificate)
+
+    val commonFors =
+      for ((n, f) <- formulaeInProver; if (n < 0)) yield f
+
+    def computeInts(names : Tree[Set[Int]]) : Tree[Conjunction] = {
+      val thisInt = {
+        val subNames =
+          (for (s <- names.iterator; n <- s.iterator) yield n).toSet
+
+        val leftFors =   for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && (subNames contains n))) yield f
+        val rightFors =  for ((n, f) <- formulaeInProver;
+                              if (n >= 0 && !(subNames contains n))) yield f
+
+        val iContext =
+          InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
+
+        Timeout.withTimeoutMillis(maxQETime) {
+          Interpolator(currentSimpCertificate, iContext)
+        } {
+          Interpolator(currentSimpCertificate, iContext, false)
+        }
+      }
+
+      if (thisInt.isTrue)
+        // interpolants in the whole subtree can be assumed to be true
+        for (_ <- names) yield Conjunction.TRUE
+      else
+        Tree(thisInt, for (s <- names.children) yield computeInts(s))
+    }
+
+    val simp = interpolantSimplifier
+
+    val interpolants =
+      Tree(Conjunction.FALSE,
+           for (n <- partitions.children) yield computeInts(n))
+    
+    for (c <- interpolants)
+    yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
+  }
+  
+  private def interpolantSimplifier = new ArraySimplifier
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2022,19 +2105,23 @@ class SimpleAPI private (enableAssert : Boolean,
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private def ensureFullModel =
-    while (proofActorStatus != ProofActorStatus.AtFullModel)
-      if (proofActorStatus == ProofActorStatus.AtPartialModel) {
-        // let's get a complete model
-        lastStatus = ProverStatus.Running
-        proverRes.unset
-        proofActor ! DeriveFullModelCommand
-        getStatusWithDeadline(true)
-      } else {
-        // then we have to completely re-run the prover
-        lastStatus = ProverStatus.Unknown
-        checkSatHelp(true)
-      }
+  private def ensurePartialModel =
+    if (currentModel == null) {
+      // then we have to completely re-run the prover
+      lastStatus = ProverStatus.Unknown
+      checkSatHelp(true, false)
+    }
+
+  private def ensureFullModel = {
+    ensurePartialModel
+    while (proofActorStatus != ProofActorStatus.AtFullModel) {
+      // let's get a complete model
+      lastStatus = ProverStatus.Running
+      proverRes.unset
+      proofActor ! DeriveFullModelCommand
+      getStatusWithDeadline(true)
+    }
+  }
 
   /**
    * Produce a partial model, i.e., a (usually) partial interpretation
@@ -2206,7 +2293,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
           case ProverStatus.Sat |
                ProverStatus.Invalid |
-               ProverStatus.Inconclusive if (currentModel != null) => {
+               ProverStatus.Inconclusive if (currentProver != null) => {
             // then we work with a countermodel of the constraints
 
             val p = new IExpression.Predicate("p", 1)
@@ -2364,7 +2451,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def setupTermEval = getStatusHelp(false) match {
     case ProverStatus.Sat |
          ProverStatus.Invalid |
-         ProverStatus.Inconclusive if (currentModel != null) => {
+         ProverStatus.Inconclusive if (currentProver != null) => {
       // then we work with a countermodel of the constraints
       doDumpSMT {
         println("; (get-value ...)")
@@ -2597,7 +2684,9 @@ class SimpleAPI private (enableAssert : Boolean,
     
     f match {
       case IAtom(p, args) if (args forall (_.isInstanceOf[IIntLit])) => {
-        if (!args.isEmpty)
+        if (args.isEmpty)
+          ensurePartialModel
+        else
           ensureFullModel
         
         val a = Atom(p, for (IIntLit(value) <- args) yield l(value), currentOrder)
@@ -2657,14 +2746,13 @@ class SimpleAPI private (enableAssert : Boolean,
     initProver
     
     storedStates push (currentProver, needExhaustiveProver,
-                       matchedTotalFunctions,
+                       matchedTotalFunctions, ignoredQuantifiers,
                        currentOrder, existentialConstants,
                        functionalPreds, functionEnc.clone,
                        formulaeInProver,
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
-                       currentModel, currentConstraint, currentCertificate,
                        theoryPlugin, theoryCollector.clone,
                        abbrevFunctions)
     
@@ -2693,16 +2781,17 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (oldProver, oldNeedExhaustiveProver,
-         oldMatchedTotalFunctions,
+         oldMatchedTotalFunctions, oldIgnoredQuantifiers,
          oldOrder, oldExConstants,
          oldFunctionalPreds, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
-         oldMGCs, oldValidityMode, oldStatus, oldModel, oldConstraint, oldCert,
+         oldMGCs, oldValidityMode, oldStatus,
          oldTheoryPlugin, oldTheories, oldAbbrevFunctions) =
       storedStates.pop
     currentProver = oldProver
     needExhaustiveProver = oldNeedExhaustiveProver
     matchedTotalFunctions = oldMatchedTotalFunctions
+    ignoredQuantifiers = oldIgnoredQuantifiers
     currentOrder = oldOrder
     existentialConstants = oldExConstants
     functionalPreds = oldFunctionalPreds
@@ -2715,16 +2804,16 @@ class SimpleAPI private (enableAssert : Boolean,
     rawFormulaeTodo = LazyConjunction.FALSE
     validityMode = oldValidityMode
     lastStatus = oldStatus
-    currentModel = oldModel
     decoderDataCache.clear
-    lastPartialModel = null
-    currentConstraint = oldConstraint
-    currentCertificate = oldCert
-    currentSimpCertificate = null
     proofActorStatus = ProofActorStatus.Init
     theoryPlugin = oldTheoryPlugin
     theoryCollector = oldTheories
     abbrevFunctions = oldAbbrevFunctions
+    currentModel = null
+    lastPartialModel = null
+    currentConstraint = null
+    currentCertificate = null
+    currentSimpCertificate = null
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -2764,10 +2853,15 @@ class SimpleAPI private (enableAssert : Boolean,
          }))
       matchedTotalFunctions = true
 
-  private def addToProver(completeFor : Conjunction,
-                          axioms : Conjunction) : Unit = {
-    formulaeInProver =
-      (-1, axioms) :: (currentPartitionNum, completeFor) :: formulaeInProver
+  private def addToProver(preCompleteFor : Conjunction,
+                          preAxioms : Conjunction) : Unit = {
+    val completeFor = convertQuantifiers(preCompleteFor)
+    val axioms = convertQuantifiers(preAxioms)
+
+    if (!completeFor.isFalse)
+      formulaeInProver = (currentPartitionNum, completeFor) :: formulaeInProver
+    if (!axioms.isFalse)
+      formulaeInProver = (-1, axioms) :: formulaeInProver
 
     proofActorStatus match {
       case ProofActorStatus.Init =>
@@ -2863,6 +2957,26 @@ class SimpleAPI private (enableAssert : Boolean,
       newF
     } else {
       f
+    }
+
+  /**
+   * In some cases, convert universal quantifiers to existential ones.
+   * At the moment, this is in particular necessary when constructing
+   * proof for interpolation.
+   */
+  private def convertQuantifiers(c : Conjunction) : Conjunction =
+    if (constructProofs) {
+      val withoutQuans =
+        IterativeClauseMatcher.convertQuantifiers(
+          c, Param.PREDICATE_MATCH_CONFIG(goalSettings))
+      if (!ignoredQuantifiers && !(withoutQuans eq c)) {
+        Console.err.println(
+          "Warning: ignoring some quantifiers due to interpolation")
+        ignoredQuantifiers = true
+      }
+      withoutQuans
+    } else {
+      c
     }
 
   private def toInternalNoAxioms(f : IFormula,
@@ -2989,6 +3103,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var currentProver : ModelSearchProver.IncProver = _
   private var needExhaustiveProver : Boolean = false
   private var matchedTotalFunctions : Boolean = false
+  private var ignoredQuantifiers : Boolean = false
   private var currentModel : Conjunction = _
   private var lastPartialModel : PartialModel = null
   private var currentConstraint : Conjunction = _
@@ -3007,6 +3122,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
                                              Boolean,
                                              Boolean,
+                                             Boolean,
                                              TermOrder,
                                              Set[IExpression.ConstantTerm],
                                              Set[IExpression.Predicate],
@@ -3017,9 +3133,6 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Boolean,
                                              Boolean,
                                              ProverStatus.Value,
-                                             Conjunction,
-                                             Conjunction,
-                                             Certificate,
                                              Option[Plugin],
                                              TheoryCollector,
                                              Set[IFunction])]

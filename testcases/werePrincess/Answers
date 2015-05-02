@@ -25,47 +25,47 @@ VALID
 (>= (sym y) (lit -1) ) 
 (>= (sym z) (lit 12) ) 
 .
-Found proof (size 27), simplifying (27)
+Found proof (size 14), simplifying (26)
 VALID
 (>= (select (sym ar) (sym x) ) (lit 1) ) 
 (>= (select (sym ar) (sym y) ) (lit 1) ) 
 (>= (sym z) (lit 2) ) 
 .
-Found proof (size 48), simplifying (44)
+Found proof (size 20), simplifying (44)
 VALID
 (forall (| (forall (| (= (boundVar x1) (boundVar x0) ) (= (select (sym M) (boundVar x1) ) (select (sym M') (boundVar x1) ) ) ) ) (= (select (sym M) (boundVar x0) ) (select (sym M') (boundVar x0) ) ) ) ) 
 .
-Found proof (size 54), simplifying (54)
+Found proof (size 40), simplifying (46)
 VALID
 (>= (lit 5) (sym x) ) 
 (| (& (>= (lit 7) (sym y) ) (>= (sym y) (lit -2147483648) ) ) (& (>= (lit -3) (sym y) ) (>= (sym y) (lit -2147483648) ) ) ) 
 (>= (lit 20) (sym z) ) 
 .
-Found proof (size 233), simplifying (253)
+Found proof (size 207), simplifying (254)
 VALID
 (true) 
 (>= (lit 0) (and (lit 0) (lit 0) ) ) 
 (>= (lit 0) (and (lit 0) (lit 0) ) ) 
-(| (= (sym sym2) (lit 0)) (& (& (= (sym sym2) (sym sym1) ) (>= (sym sym1) (lit 1) ) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (= (sym sym1) (lit 4) ) (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) ) ) ) ) 
-(& (& (= (sym sym2) (sym sym1) ) (>= (sym sym1) (lit 1) ) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (= (sym sym1) (lit 4) ) (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) ) ) ) 
-(| (>= (+ (* (lit -1) (sym sym3) ) (sym sym1) ) (lit 2) ) (| (& (exists (>= (+ (* (lit -2) (boundVar x0) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 3) ) ) (= (+ (sym sym3) (* (lit -1) (sym sym1) ) ) (lit -1) ) ) (>= (+ (* (lit 2) (and (lit 0) (lit 0) ) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 1) ) ) ) 
+(& (= (sym sym2) (sym sym1) ) (| (= (sym sym1) (lit 0)) (& (>= (sym sym1) (lit 1) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (& (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) (& (= (sym sym1) (lit 4) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) ) ) ) ) ) 
+(& (& (= (sym sym2) (sym sym1) ) (>= (sym sym1) (lit 1) ) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (& (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) (& (= (sym sym1) (lit 4) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) ) ) ) 
+(| (>= (+ (* (lit -1) (sym sym3) ) (sym sym1) ) (lit 2) ) (| (>= (+ (* (lit 2) (and (lit 0) (lit 0) ) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 1) ) (| (& (exists (>= (+ (* (lit -2) (boundVar x0) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 3) ) ) (= (+ (sym sym3) (* (lit -1) (sym sym1) ) ) (lit -1) ) ) (>= (+ (* (lit 2) (and (lit 0) (lit 0) ) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 1) ) ) ) ) 
 .
-Found proof (size 52), simplifying (51)
+Found proof (size 60), simplifying (78)
 VALID
-(= (sym sym1) (sym sym0) ) 
-(& (= (sym sym1) (sym sym0) ) (>= (sym sym0) (lit 1) ) ) 
-(& (= (sym sym1) (sym sym0) ) (>= (sym sym0) (lit 1) ) ) 
-(& (= (sym sym1) (sym sym0) ) (>= (sym sym0) (lit 1) ) ) 
-(& (= (sym sym1) (sym sym0) ) (>= (sym sym0) (lit 1) ) ) 
-(>= (+ (* (lit -1) (sym sym10) ) (sym sym0) ) (lit 1) ) 
-(>= (+ (* (lit -1) (sym sym10) ) (sym sym0) ) (lit 1) ) 
-(& (>= (+ (* (lit -1) (sym sym12) ) (sym sym0) ) (lit 1) ) (>= (sym sym12) (sym sym10) ) ) 
-(& (& (>= (+ (* (lit -1) (sym sym12) ) (sym sym0) ) (lit 1) ) (>= (sym sym12) (sym sym10) ) ) (>= (sym sym10) (lit 1) ) ) 
-(& (& (>= (+ (* (lit -1) (sym sym12) ) (sym sym0) ) (lit 1) ) (>= (sym sym12) (sym sym10) ) ) (>= (sym sym10) (lit 1) ) ) 
-(& (& (>= (+ (* (lit -1) (sym sym12) ) (sym sym0) ) (lit 1) ) (>= (sym sym12) (sym sym10) ) ) (>= (sym sym10) (lit 1) ) ) 
-(& (& (>= (+ (* (lit -1) (sym sym12) ) (sym sym0) ) (lit 1) ) (>= (sym sym12) (sym sym10) ) ) (>= (sym sym10) (lit 1) ) ) 
-(& (>= (+ (* (lit -1) (sym sym16) ) (sym sym12) ) (lit 1) ) (>= (+ (* (lit -1) (sym sym12) ) (sym sym0) ) (lit 1) ) ) 
-(& (>= (+ (* (lit -1) (sym sym16) ) (sym sym12) ) (lit 1) ) (>= (+ (* (lit -1) (sym sym12) ) (sym sym0) ) (lit 1) ) ) 
+(& (& (= (sym sym3) (sym sym2) ) (= (sym sym1) (sym sym0) ) ) (& (& (>= (+ (sym sym6) (+ (sym sym2) (* (lit -1) (sym sym0) ) ) ) (sym sym7) ) (>= (sym sym0) (sym sym6) ) ) (>= (lit 127) (sym sym2) ) ) ) 
+(& (& (= (sym sym3) (sym sym2) ) (= (sym sym1) (sym sym0) ) ) (& (& (& (>= (+ (sym sym6) (+ (sym sym2) (* (lit -1) (sym sym0) ) ) ) (sym sym7) ) (>= (sym sym0) (sym sym6) ) ) (>= (lit 127) (sym sym2) ) ) (>= (sym sym0) (lit 1) ) ) ) 
+(& (& (= (sym sym3) (sym sym2) ) (= (sym sym1) (sym sym0) ) ) (& (& (& (& (>= (+ (sym sym6) (+ (sym sym2) (* (lit -1) (sym sym0) ) ) ) (sym sym7) ) (>= (sym sym0) (sym sym6) ) ) (>= (lit 127) (sym sym2) ) ) (>= (sym sym2) (lit 1) ) ) (>= (sym sym0) (lit 1) ) ) ) 
+(& (& (= (sym sym3) (sym sym2) ) (= (sym sym1) (sym sym0) ) ) (& (& (& (& (>= (+ (sym sym6) (+ (sym sym2) (* (lit -1) (sym sym0) ) ) ) (sym sym7) ) (>= (sym sym0) (sym sym6) ) ) (>= (lit 127) (sym sym2) ) ) (>= (sym sym2) (lit 1) ) ) (>= (sym sym0) (lit 1) ) ) ) 
+(& (& (= (sym sym3) (sym sym2) ) (= (sym sym1) (sym sym0) ) ) (& (& (& (& (>= (+ (sym sym6) (+ (sym sym2) (* (lit -1) (sym sym0) ) ) ) (sym sym7) ) (>= (sym sym0) (sym sym6) ) ) (>= (lit 127) (sym sym2) ) ) (>= (sym sym2) (lit 1) ) ) (>= (sym sym0) (lit 1) ) ) ) 
+(| (>= (lit -128) (sym sym11) ) (& (>= (lit 127) (sym sym10) ) (| (>= (sym sym0) (lit 129) ) (& (>= (+ (* (lit -1) (sym sym7) ) (+ (sym sym6) (+ (sym sym11) (* (lit -1) (sym sym10) ) ) ) ) (lit 2) ) (>= (sym sym0) (sym sym6) ) ) ) ) ) 
+(| (>= (lit -128) (sym sym11) ) (& (>= (lit 127) (sym sym10) ) (| (>= (sym sym0) (lit 129) ) (& (>= (+ (* (lit -1) (sym sym7) ) (+ (sym sym6) (+ (sym sym11) (* (lit -1) (sym sym10) ) ) ) ) (lit 2) ) (>= (sym sym0) (sym sym6) ) ) ) ) ) 
+(| (>= (lit -128) (sym sym11) ) (& (>= (lit 127) (sym sym10) ) (| (>= (+ (* (lit -1) (sym sym10) ) (sym sym0) ) (lit 1) ) (>= (sym sym0) (lit 129) ) ) ) ) 
+(| (>= (lit -128) (sym sym11) ) (& (>= (lit 127) (sym sym10) ) (| (>= (sym sym0) (lit 129) ) (& (>= (+ (* (lit -1) (sym sym10) ) (sym sym0) ) (lit 1) ) (>= (sym sym10) (lit 1) ) ) ) ) ) 
+(& (>= (lit 127) (sym sym10) ) (| (>= (sym sym0) (lit 129) ) (& (>= (+ (* (lit -1) (sym sym10) ) (sym sym0) ) (lit 1) ) (>= (sym sym10) (lit 1) ) ) ) ) 
+(& (>= (lit 127) (sym sym10) ) (| (>= (sym sym0) (lit 129) ) (& (>= (+ (* (lit -1) (sym sym10) ) (sym sym0) ) (lit 1) ) (>= (sym sym10) (lit 1) ) ) ) ) 
+(& (>= (lit 127) (sym sym10) ) (| (>= (sym sym0) (lit 129) ) (& (>= (+ (* (lit -1) (sym sym10) ) (sym sym0) ) (lit 1) ) (>= (sym sym10) (lit 1) ) ) ) ) 
+(>= (+ (* (lit -1) (sym sym16) ) (sym sym0) ) (lit 2) ) 
+(>= (+ (* (lit -1) (sym sym16) ) (sym sym0) ) (lit 2) ) 
 (>= (+ (* (lit -1) (sym sym16) ) (sym sym0) ) (lit 2) ) 
 .
 INVALID
@@ -77,11 +77,11 @@ VALID
 .
 VALID
 .
-Found proof (size 22), simplifying (22)
+Found proof (size 10), simplifying (22)
 VALID
 (forall (= (select (sym b) (boundVar x0) ) (select (sym a) (boundVar x0) ) ) ) 
 .
-Found proof (size 41), simplifying (41)
+Found proof (size 20), simplifying (41)
 VALID
 (forall (= (select (sym b) (boundVar x0) ) (select (sym a) (boundVar x0) ) ) ) 
 (forall (= (select (sym a) (boundVar x0) ) (select (sym c) (boundVar x0) ) ) ) 

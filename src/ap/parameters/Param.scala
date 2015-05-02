@@ -343,6 +343,15 @@ object Param {
     val defau : Boolean = true
   }
 
+  /**
+   * Ignore universal quantifiers in a problem that would require free
+   * variables, by converting the quantifiers to existential ones.
+   */
+  case object IGNORE_QUANTIFIERS extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   case object REVERSE_FUNCTIONALITY_PROPAGATION extends Param {
     type Value = Boolean
     val defau : Boolean = false

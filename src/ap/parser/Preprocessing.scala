@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -68,9 +68,18 @@ object Preprocessing {
     // turn the formula into a list of its named parts
     val fors = PartExtractor(f)
 
+    // the other steps can be skipped for simple cases
+    if ((functionEncoder.axioms match {
+           case IBoolLit(true) => true
+           case _ => false
+         }) &&
+        !needsPreprocessing(fors))
+      return (fors, interpolantSpecs, signature)
+
     // partial evaluation, expand equivalences
-    val fors2 = for (f <- fors)
-                yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
+    val fors2 =
+      for (f <- fors)
+      yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
     checkSize(fors2)
 
     // simple mini-scoping for existential quantifiers
@@ -93,8 +102,9 @@ object Preprocessing {
     }
     
     val triggerGenerator =
-      new TriggerGenerator (Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
-                            Param.TRIGGER_STRATEGY(settings))
+      new TriggerGenerator (
+        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS(settings),
+        Param.TRIGGER_STRATEGY(settings))
     for (f <- fors2c)
       triggerGenerator setup f
     val fors2d =
@@ -146,6 +156,35 @@ object Preprocessing {
     checkSize(fors6)
     
     (fors6, interpolantSpecs, signature updateOrder order3)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def needsPreprocessing(fors : List[INamedPart]) : Boolean = try {
+    val visitor = new ComplicatedOpVisitor
+    for (INamedPart(_, f) <- fors) visitor.visitWithoutResult(f, ())
+    false
+  } catch {
+    case NeedsPreprocException => true
+  }
+
+  private object NeedsPreprocException extends Exception
+
+  private class ComplicatedOpVisitor extends CollectingVisitor[Unit, Unit] {
+    private var opNum = 0
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = {
+      opNum = opNum + 1
+      if (opNum > 500)
+        throw NeedsPreprocException
+
+      t match {
+        case _ : IConstant | _ : IIntLit | _ : IPlus | _ : ITimes |
+             _ : IAtom | _ : IBoolLit | _ : IIntFormula | _ : INot |
+             IBinFormula(IBinJunctor.And | IBinJunctor.Or, _, _) => KeepArg
+        case _ => throw NeedsPreprocException
+      }
+    }
+    def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
   }
   
 }

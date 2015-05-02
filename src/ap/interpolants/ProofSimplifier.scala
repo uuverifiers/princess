@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,7 @@ import scala.collection.mutable.{HashSet => MHashSet}
 import ap.basetypes.IdealInt
 import ap.proof.certificates._
 import ap.terfor.TerForConvenience._
+import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
 /**
@@ -48,7 +49,6 @@ object ProofSimplifier {
    * Also, this function tries to remove redundant rule applications from
    * the proof
    */
-  
   private def encode(cert : Certificate,
                      availableFors : Set[CertFormula]) : Certificate = cert match {
     
@@ -182,9 +182,9 @@ object ProofSimplifier {
             if (inEq.lhs == eq.lhs) {
               ReduceInference(List((-1, !eq)), eq, CertNegEquation(0), o)
             } else {
-              //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
               Debug.assertInt(AC, inEq.lhs == -eq.lhs)
-              //-END-ASSERTION-///////////////////////////////////////////////////////
+              //-END-ASSERTION-/////////////////////////////////////////////////
               ReduceInference(List((1, CertEquation(inEq.lhs))), eq,
                               CertNegEquation(0), o)
             }
@@ -209,8 +209,8 @@ object ProofSimplifier {
           val closeCert = CloseCertificate(Set(CertInequality(-1)), o)
          
           val combineInEqInf =
-            CombineInequalitiesInference(1, CertInequality(left.lhs - 1), 1, right,
-                                         CertInequality(-1), o)
+            CombineInequalitiesInference(1, CertInequality(left.lhs - 1), 1,
+                                         right, CertInequality(-1), o)
         
           val eqCaseCert =
             BranchInferenceCertificate.checkEmptiness(newOtherInfs, newChild, o)
@@ -222,6 +222,46 @@ object ProofSimplifier {
             StrengthenCertificate(left, 1, List(eqCaseCert, inEqCaseCert), o)
         
           (List(), strengthenCert, strengthenCert.assumedFormulas)
+        }
+
+        case GroundInstInference(quantifiedFormula, instanceTerms, instance,
+                                 dischargedAtoms, result, order)
+          if (!dischargedAtoms.isEmpty) => {
+          // replace with a rule application without direct discharge
+
+          implicit val o = order
+
+          val closeCert =
+            CloseCertificate(Set(CertFormula(Conjunction.FALSE)), o)
+
+          val dischargedCases =
+            for (f@CertPredLiteral(_, a) <- dischargedAtoms) yield {
+              val predUnifyInf =
+                PredUnifyInference(a, a, CertFormula(Conjunction.TRUE), o)
+              (!f, BranchInferenceCertificate(List(predUnifyInf), closeCert, o))
+            }
+
+          val allCases =
+            if (result.isFalse) {
+              dischargedCases
+            } else {
+              val resultCert = BranchInferenceCertificate.checkEmptiness(
+                                 newOtherInfs, newChild, o)
+              dischargedCases ++ List((result, resultCert))
+            }
+
+          val splitCert = allCases match {
+            case Seq((_, cert)) => cert
+            case cases          => BetaCertificate(cases, o)
+          }
+
+          val instInf =
+            GroundInstInference(quantifiedFormula, instanceTerms, instance,
+                                List(), instance, o)
+
+          (List(instInf), splitCert,
+           (splitCert.assumedFormulas -- instInf.providedFormulas) ++
+                                                    instInf.assumedFormulas)
         }
 
         case inf =>

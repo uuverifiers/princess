@@ -21,14 +21,15 @@
 
 package ap;
 
-import ap.parser.{Internal2InputAbsy, Simplifier}
+import ap.parser.Internal2InputAbsy
 import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.{Seqs, Debug, Timeout}
-import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier}
+import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier,
+                        ArraySimplifier}
 
 object IntelliFileProver {
   
@@ -107,7 +108,7 @@ class IntelliFileProver(reader : java.io.Reader,
     
   private def toIFormula(c : Conjunction) = {
     val raw = Internal2InputAbsy(c, functionEncoder.predTranslation)
-    (new Simplifier)(raw)
+    (new ArraySimplifier)(raw)
   }
   
   lazy val counterModelResult : CounterModelResult =

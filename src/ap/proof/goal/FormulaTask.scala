@@ -39,6 +39,8 @@ object FormulaTask {
          a.pred == b.pred &&
          (Param.FUNCTIONAL_PREDICATES(settings) contains a.pred) &&
          a.init == b.init
+       case Seq(a) =>
+         (Param.FUNCTIONAL_PREDICATES(settings) contains a.pred)
        case _ => false
      })
   

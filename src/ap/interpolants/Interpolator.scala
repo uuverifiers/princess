@@ -776,7 +776,7 @@ object Interpolator
       
       ////////////////////////////////////////////////////////////////////////
       
-      case GroundInstInference(qFormula, instTerms, result, _) => {
+      case GroundInstInference(qFormula, instTerms, _, Seq(), result, _) => {
         implicit val extOrder = iContext.order
         
         //-BEGIN-ASSERTION-///////////////////////////////////////////////////////

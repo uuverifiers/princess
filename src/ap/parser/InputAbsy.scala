@@ -663,10 +663,10 @@ object IExpression {
         }
         
         case t@IBinFormula(IBinJunctor.Eqv, _, _) => newSubExpr match {
-          case Seq(IBoolLit(false), s : IFormula) => ~s
-          case Seq(s : IFormula, IBoolLit(false)) => ~s
           case Seq(IBoolLit(true), s : IFormula)  => s
           case Seq(s : IFormula, IBoolLit(true))  => s
+          case Seq(IBoolLit(false), s : IFormula) => ~s
+          case Seq(s : IFormula, IBoolLit(false)) => ~s
           case _ => t update newSubExpr
         }
         
@@ -1051,6 +1051,22 @@ abstract class IFormula extends IExpression {
    */
   def impSimplify(that : IFormula) = this ===> that
   
+  /**
+   * Equivalence operator that directly simplify expressions involving true/false.
+   */
+  def <===>(that : IFormula) : IFormula = (this, that) match {
+    case (IBoolLit(true), s)  => s
+    case (s, IBoolLit(true))  => s
+    case (IBoolLit(false), s) => ~s
+    case (s, IBoolLit(false)) => ~s
+    case _ => this <=> that
+  }
+
+  /**
+   * Equivalence operator that directly simplify expressions involving true/false.
+   */
+  def eqvSimplify(that : IFormula) = this <===> that
+
   /**
    * Replace the subexpressions of this node with new expressions
    */
