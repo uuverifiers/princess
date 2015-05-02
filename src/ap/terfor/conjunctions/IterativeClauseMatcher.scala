@@ -471,13 +471,15 @@ object IterativeClauseMatcher {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  def convertQuantifiers(c : Conjunction, config : PredicateMatchConfig)
+  def convertQuantifiers(c : Conjunction, config : PredicateMatchConfig,
+                         assumeInfiniteDomain : Boolean = true)
                         : Conjunction =
-    convertQuantifiersHelp(c, false, config)
+    convertQuantifiersHelp(c, false, config, assumeInfiniteDomain)
 
   private def convertQuantifiersHelp(c : Conjunction,
                                      negated : Boolean,
-                                     config : PredicateMatchConfig)
+                                     config : PredicateMatchConfig,
+                                     assumeInfiniteDomain : Boolean)
                                     : Conjunction = {
     val ALL = Quantifier(negated)
 
@@ -488,11 +490,12 @@ object IterativeClauseMatcher {
 
       val newNegConjs = c.negatedConjs.update(
                           for (d <- c.negatedConjs)
-                          yield convertQuantifiersHelp(d, !negated, config),
+                          yield convertQuantifiersHelp(d, !negated, config,
+                                                       assumeInfiniteDomain),
                           c.order)
       c.updateNegatedConjs(newNegConjs)(c.order)
 
-    } else if (c.predicates.isEmpty) {
+    } else if (assumeInfiniteDomain && c.predicates.isEmpty) {
 
       // just eliminate quantifiers; this is only correct
       // for integers (assuming infinite domains)
@@ -504,7 +507,8 @@ object IterativeClauseMatcher {
 
       val newNegConjs = c.negatedConjs.update(
                           for (d <- c.negatedConjs)
-                          yield convertQuantifiersHelp(d, !negated, config),
+                          yield convertQuantifiersHelp(d, !negated, config,
+                                                       assumeInfiniteDomain),
                           c.order)
       val newQuans = c.quans.toArray
       var changed = !(newNegConjs eq c.negatedConjs)
