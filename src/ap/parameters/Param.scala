@@ -349,7 +349,7 @@ object Param {
    */
   case object IGNORE_QUANTIFIERS extends Param {
     type Value = Boolean
-    val defau : Boolean = true
+    val defau : Boolean = false
   }
 
   case object REVERSE_FUNCTIONALITY_PROPAGATION extends Param {
