@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,7 @@
 
 package ap.terfor.inequalities;
 
-import scala.collection.mutable.{ArrayBuffer, LinkedHashSet}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
 
 import ap.terfor._
 import ap.basetypes.IdealInt
@@ -186,6 +186,8 @@ object InEqConj {
     
     def addRemainingLC(coeff1 : IdealInt, lc1 : LinearCombination,
                        coeff2 : IdealInt, lc2 : LinearCombination) : Unit = {
+      if (remainder.size % 100 == 0)
+        Timeout.check
       val lc = LinearCombination.sum(coeff1, lc1, coeff2, lc2, order)
       if (lc.isConstant) {
         if (lc.constant.signum < 0) {
@@ -308,6 +310,32 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       case `UNSATISFIABLE_CONJUNCTION_EXCEPTION` => true
     }
   
+  /**
+   * Cheap check whether this system of inequalities is satisfiable over
+   * integers
+   */
+  def isObviouslySat : Boolean =
+    isTrue || (!isFalse && completeInfs && {
+      // no contradiction could be derived, and all inferences
+      // were exact
+      val nonUnitPos, nonUnitNeg = new MHashSet[Term]
+
+      (geqZero.iterator ++ geqZeroInfs.iterator) forall { lc => {
+        val coeff = lc.leadingCoeff
+
+        coeff.isUnit || {
+          val term = lc.leadingTerm
+          if (coeff.signum > 0) {
+            nonUnitPos += term
+            !(nonUnitNeg contains term)
+          } else {
+            nonUnitNeg += term
+            !(nonUnitPos contains term)
+          }
+        }
+      }}
+    })
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**

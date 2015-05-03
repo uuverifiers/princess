@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,7 +22,8 @@
 package ap.parser;
 
 import ap._
-import ap.theories.TheoryCollector
+import ap.theories.{TheoryCollector, MulTheory}
+import ap.parameters.{ParserSettings, Param}
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -117,11 +118,13 @@ object Parser2InputAbsy {
 }
 
 
-abstract class Parser2InputAbsy[CT, VT, PT, FT]
-                               (val env : Environment[CT, VT, PT, FT]) {
+abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
+                               (initialEnv : Environment[CT, VT, PT, FT],
+                                settings : ParserSettings) {
   
   import IExpression._
-  
+
+
   type GrammarExpression
   
   /**
@@ -134,22 +137,65 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
            : (IFormula, List[IInterpolantSpec], Signature)
 
   protected def genSignature(completeFor : IExpression) : Signature = {
-    var prel = env.toSignature
     val coll = new TheoryCollector
     coll(completeFor)
-    if (coll.theories.isEmpty) {
-      prel
-    } else {
-      Signature(prel.universalConstants,
-                prel.existentialConstants,
-                prel.nullaryFunctions,
-                prel.predicateMatchConfig ++ (
-                  for (t <- coll.theories.iterator;
-                       p <- t.predicateMatchConfig.iterator) yield p),
-                (prel.order /: coll.theories) { case (o, t) => t extend o },
-                coll.theories)
-    }
+    for (t <- coll.theories find (_.isInstanceOf[MulTheory]))
+      Parser2InputAbsy.warn("using theory to encode multiplication: " + t)
+    env.toSignature addTheories coll.theories
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Add a new frame to the settings stack; this in particular affects the
+   * <code>Environment</code>.
+   */
+  protected def pushState(state : StackState) : Unit = {
+    storedStates push ((currentEnv, environmentCopied, axioms, state))
+    environmentCopied = false
+  }
+
+  /**
+   * Pop a frame from the settings stack.
+   */
+  protected def popState : StackState = {
+    val (oldEnv, oldCopied, oldAxioms, oldState) = storedStates.pop
+    currentEnv = oldEnv
+    environmentCopied = oldCopied
+    axioms = oldAxioms
+    oldState
+  }
+
+  /**
+   * Make sure that the current settings frame contains a local copy of
+   * the <code>Environment</code>.
+   * To be called before changing anything in the <code>Environment</code>.
+   */
+  protected def ensureEnvironmentCopy : Unit =
+    if (!environmentCopied) {
+      currentEnv = currentEnv.clone
+      environmentCopied = true
+    }
+
+  /**
+   * Erase all stored information.
+   */
+  protected def reset : Unit = {
+    storedStates.clear
+    currentEnv = initialEnv
+    currentEnv.clear
+    environmentCopied = true
+    axioms = List()
+  }
+
+  private val storedStates =
+    new Stack[(Environment[CT, VT, PT, FT], Boolean, List[IFormula],
+               StackState)]
+
+  private var currentEnv : Environment[CT, VT, PT, FT] = initialEnv
+  private var environmentCopied : Boolean = true
+
+  def env : Environment[CT, VT, PT, FT] = currentEnv
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -180,67 +226,17 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT]
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private val axioms = new ArrayBuffer[IFormula]
+  private var axioms : List[IFormula] = List()
 
-  protected def addAxiom(f : IFormula) = (axioms += f)
+  protected def addAxiom(f : IFormula) : Unit = (axioms = f :: axioms)
   protected def getAxioms : IFormula = connect(axioms, IBinJunctor.And)
   
-  protected def defaultFunctionType(f : IFunction) : FT
-  
-  protected def mult(t1 : ITerm, t2 : ITerm) : ITerm =
-    try { t1 * t2 }
-    catch {
-      case _ : IllegalArgumentException => {
-//        throw new Parser2InputAbsy.TranslationException(
-//                        "Do not know how to multiply " + t1 + " with " + t2)
-//        genNonLinearMultAxioms
-//        nonLinMult(t1, t2)
-        val theory = ap.theories.BitShiftMultiplication
-        if (!nonLinearMultDefined) {
-          Parser2InputAbsy.warn(
-            "using theory to encode multiplication: " + theory)
-          nonLinearMultDefined = true
-        }
-        theory.mul(t1, t2)
-      }
+  protected lazy val mulTheory : MulTheory =
+    Param.MUL_PROCEDURE(settings) match {
+      case Param.MulProcedure.BitShift => ap.theories.BitShiftMultiplication
+      case Param.MulProcedure.Native   => ap.theories.nia.GroebnerMultiplication
     }
-
-  private var nonLinearMultDefined = false
   
-  //////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Declare functions <code>select, store</code> and generate axioms of the
-   * (non-extensional) theory of arrays. The argument determines whether the
-   * array functions should be declared as partial or as total functions
-   */
-  protected def genArrayAxioms(partial : Boolean,
-                               arity : Int) : Unit =
-    if (!(definedArrayArities contains arity)) {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////
-      Debug.assertPre(Parser2InputAbsy.AC, arity > 0)
-      //-END-ASSERTION-/////////////////////////////////////////////////
-
-      definedArrayArities += arity
-       
-      val (prefix, suffix) =
-        if (arity == 1) {
-          Parser2InputAbsy.warn("adding array axioms")
-          ("", "")
-        } else {
-          Parser2InputAbsy.warn("adding array axioms for arity " + arity)
-          ("_", "_" + arity)
-        }
-      
-      val select = new IFunction(prefix + "select" + suffix, arity + 1, partial, false)
-      val store = new IFunction(prefix + "store" + suffix, arity + 2, partial, false)
-    
-      env.addFunction(select, defaultFunctionType(select))
-      env.addFunction(store, defaultFunctionType(store))
-
-      addAxiom(Parser2InputAbsy.arrayAxioms(arity, select, store))
-  }
-
-  private var definedArrayArities = Set[Int]()
+  protected def mult(t1 : ITerm, t2 : ITerm) : ITerm = mulTheory.mult(t1, t2)
 
 }

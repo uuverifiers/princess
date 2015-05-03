@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -59,6 +59,8 @@ object ComputationLogger {
                          result : LinearCombination, order : TermOrder) : Unit = {}
     def groundInstantiateQuantifier(quantifiedFormula : Conjunction,
                                     instanceTerms : Seq[LinearCombination],
+                                    instance : Conjunction,
+                                    dischargedAtoms : PredConj,
                                     result : Conjunction,
                                     order : TermOrder) : Unit = {}
     def unifyPredicates(leftAtom : Atom, rightAtom : Atom,
@@ -172,6 +174,8 @@ trait ComputationLogger {
    */
   def groundInstantiateQuantifier(quantifiedFormula : Conjunction,
                                   instanceTerms : Seq[LinearCombination],
+                                  instance : Conjunction,
+                                  dischargedAtoms : PredConj,
                                   result : Conjunction, order : TermOrder) : Unit
 
   /**

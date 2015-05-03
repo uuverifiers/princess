@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -74,9 +74,11 @@ object ModelSearchProver {
     Debug.assertPre(ModelSearchProver.AC,
                     inputFor.variables.isEmpty && (order isSortingOf inputFor))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    cache(inputFor) {
+    cache.cached(inputFor) {
       applyHelp(List(Conjunction.conj(inputFor, order)),
                 order, GoalSettings.DEFAULT, FullModelDirector).left.get
+    } {
+      result => result sortBy order
     }
   }
 
@@ -144,12 +146,13 @@ object ModelSearchProver {
            * never provided) in a certificate
            * 
           val badFormula =
-            (cert.assumedFormulas -- (Set() ++ (for (d <- disjuncts.iterator) yield d.negate))).iterator.next
+            (cert.assumedFormulas --
+             (Set() ++ (for (d <- disjuncts.iterator) yield CertFormula(d.negate)))).iterator.next
           println(badFormula)
 
           def traceBF(c : Certificate) : Unit = {
             println(c)
-            for (d <- c) {
+            for (d <- c.subCertificates) {
               if (d.assumedFormulas contains badFormula)
                 traceBF(d)
             }
@@ -725,7 +728,43 @@ object ModelSearchProver {
         case UnsatResult | UnsatEFResult(_) => Left(Conjunction.FALSE)
         case UnsatCertResult(cert)          => Right(cert)
       }
-    
+
+    /**
+     * Apply a simple criterion to check whether the formulas so far
+     * are valid
+     */
+    def isObviouslyValid : Boolean = goal.facts.isFalse
+
+    /**
+     * Apply a simple criterion to check whether the formulas so far
+     * are not valid (there are still countermodels)
+     */
+    def isObviouslyUnprovable : Boolean =
+      !goal.facts.isFalse &&
+      goal.tasks.prioritisedTasks.isEmpty &&
+      !Param.THEORY_PLUGIN(goal.settings).isDefined && {
+        val facts = goal.facts
+        val ac = facts.arithConj
+        val inEqConsts = ac.inEqs.constants
+
+        (facts.predConj.isTrue ||
+           (goal.compoundFormulas.isEmpty &&
+              Seqs.disjoint(facts.predConj.predicates,
+                            Param.FUNCTIONAL_PREDICATES(goal.settings)))) &&
+        (ac.positiveEqs forall {
+           lc => lc.leadingCoeff.isOne && {
+                   val c = lc.leadingTerm.asInstanceOf[ConstantTerm]
+                   !(inEqConsts contains c) &&
+                   !(ac.negativeEqs.constants contains c) &&
+                   !(facts.predConj.constants contains c)
+                 }
+         }) &&
+        ac.inEqs.isObviouslySat &&
+        (ac.negativeEqs forall {
+           lc => lc.constants exists { c => !(inEqConsts contains c) }
+         }) &&
+        Seqs.disjoint(facts.predConj.constants, inEqConsts)
+      }
   }
   
 }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,6 +24,7 @@ package ap.parser
 import ap._
 import ap.basetypes.IdealInt
 import ap.theories.BitShiftMultiplication
+import ap.theories.nia.GroebnerMultiplication
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -66,6 +67,7 @@ class TPTPLineariser(benchmarkName : String) {
         KeepArg
       }
       case IFunApp(f, _) if (!(seenSymbols contains f) &&
+                             f != GroebnerMultiplication.mul &&
                              f != BitShiftMultiplication.mul) => {
         seenSymbols += f
         val name = "" + f
@@ -272,7 +274,7 @@ class TPTPLineariser(benchmarkName : String) {
       
         case IFunApp(fun, _) => {
           fun match {
-            case BitShiftMultiplication.mul =>
+            case GroebnerMultiplication.mul | BitShiftMultiplication.mul =>
               print("$product")
             case f =>
               print(f.name)

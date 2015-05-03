@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -50,6 +50,11 @@ object Param {
   }
   
   case object STDIN extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
+  case object INCREMENTAL extends Param {
     type Value = Boolean
     val defau : Boolean = false
   }
@@ -109,6 +114,11 @@ object Param {
   }
 
   case object CLAUSIFIER_TIMEOUT extends Param {
+    type Value = Int
+    val defau : Int = Int.MaxValue
+  }
+
+  case object TIMEOUT_PER extends Param {
     type Value = Int
     val defau : Int = Int.MaxValue
   }
@@ -271,6 +281,24 @@ object Param {
     val defau : FileProperties = null
   }
 
+  object MulProcedure extends Enumeration {
+    val BitShift, Native = Value
+  }
+
+  case object MUL_PROCEDURE extends Param {
+    type Value = MulProcedure.Value
+    val defau : MulProcedure.Value = MulProcedure.Native
+  }
+
+  object NonLinearSplitting extends Enumeration {
+    val Spherical, Sign = Value
+  }
+
+  case object NONLINEAR_SPLITTING extends Param {
+    type Value = NonLinearSplitting.Value
+    val defau : NonLinearSplitting.Value = NonLinearSplitting.Sign
+  }
+
   case object PREDICATE_MATCH_CONFIG extends Param {
     type Value = PredicateMatchConfig
     val defau : PredicateMatchConfig = Map()
@@ -300,6 +328,15 @@ object Param {
   case object ELIMINATE_INTERPOLANT_QUANTIFIERS extends Param {
     type Value = Boolean
     val defau : Boolean = true
+  }
+
+  /**
+   * Ignore universal quantifiers in a problem that would require free
+   * variables, by converting the quantifiers to existential ones.
+   */
+  case object IGNORE_QUANTIFIERS extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
 
   case object REVERSE_FUNCTIONALITY_PROPAGATION extends Param {

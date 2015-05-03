@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -63,8 +63,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
   /** The declared symbols */
   private val signature = new scala.collection.mutable.HashMap[String, DSym]
   
-  /** The variables bound at the present point, together with a flag
-   *  telling whether the variables represent integers or booleans */
+  /** The variables bound at the present point, together with their type */
   private val context =
     new scala.collection.mutable.ArrayBuffer[(String, VariableType)]
   
@@ -94,11 +93,19 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     
     res.signature ++= this.signature
     res.context ++= this.context
+    res.partNames ++= this.partNames
     res.orderVar = this.orderVar
     
     res
   }
   
+  def clear : Unit = {
+    signature.clear
+    context.clear
+    partNames.clear
+    orderVar = TermOrder.EMPTY
+  }
+
   def lookupSym(name : String) : DSym =
     (context lastIndexWhere (_._1 == name)) match {
       case -1 => (signature get name) match {
@@ -109,6 +116,12 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
       }
       case index =>
         Variable(context.size - index - 1, context(index)._2)
+    }
+  
+  def lookupSymPartial(name : String) : Option[DSym] =
+    (context lastIndexWhere (_._1 == name)) match {
+      case -1 => signature get name
+      case index => Some(Variable(context.size - index - 1, context(index)._2))
     }
   
   def isDeclaredSym(name : String) : Boolean =

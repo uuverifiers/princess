@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -411,6 +411,34 @@ object IExpression {
    */
   def distinct(terms : Iterable[ITerm]) : IFormula =
     distinct(terms.iterator)
+
+  /**
+   * Absolute value
+   */
+  def abs(t : ITerm) : ITerm = t match {
+    case Const(tVal) => tVal.abs
+    case t           => ite(geqZero(t), t, -t)
+  }
+
+  /**
+   * Maximum value of a sequence of terms
+   */
+  def max(terms : Iterable[ITerm]) : ITerm = {
+    val shTerms =
+      (for (t <- terms.iterator) yield VariableShiftVisitor(t, 0, 1)).toList
+    eps(or( for (t <- shTerms.iterator) yield (v(0) === t)) &
+        and(for (t <- shTerms.iterator) yield (v(0) >= t)))
+  }
+
+  /**
+   * Minimum value of a sequence of terms
+   */
+  def min(terms : Iterable[ITerm]) : ITerm = {
+    val shTerms =
+      (for (t <- terms.iterator) yield VariableShiftVisitor(t, 0, 1)).toList
+    eps(or( for (t <- shTerms.iterator) yield (v(0) === t)) &
+        and(for (t <- shTerms.iterator) yield (v(0) <= t)))
+  }
   
   /** Extract the value of constant terms. */
   object Const {
@@ -635,10 +663,10 @@ object IExpression {
         }
         
         case t@IBinFormula(IBinJunctor.Eqv, _, _) => newSubExpr match {
-          case Seq(IBoolLit(false), s : IFormula) => ~s
-          case Seq(s : IFormula, IBoolLit(false)) => ~s
           case Seq(IBoolLit(true), s : IFormula)  => s
           case Seq(s : IFormula, IBoolLit(true))  => s
+          case Seq(IBoolLit(false), s : IFormula) => ~s
+          case Seq(s : IFormula, IBoolLit(false)) => ~s
           case _ => t update newSubExpr
         }
         
@@ -704,7 +732,9 @@ abstract class ITerm extends IExpression {
   def *(that : ITerm) : ITerm = (this, that) match {
     case (IExpression.Const(c), t) => t * c
     case (t, IExpression.Const(c)) => t * c
-    case _ => throw new IllegalArgumentException
+    case _ => throw new IllegalArgumentException(
+      "Only multiplication with literal constants is defined in Presburger arithmetic.\n" +
+      "Try the operator ** or the method mult instead.")
   }
   /** Negation of a term. */
   def unary_- : ITerm = ITimes(IdealInt.MINUS_ONE, this)
@@ -1022,6 +1052,22 @@ abstract class IFormula extends IExpression {
   def impSimplify(that : IFormula) = this ===> that
   
   /**
+   * Equivalence operator that directly simplify expressions involving true/false.
+   */
+  def <===>(that : IFormula) : IFormula = (this, that) match {
+    case (IBoolLit(true), s)  => s
+    case (s, IBoolLit(true))  => s
+    case (IBoolLit(false), s) => ~s
+    case (s, IBoolLit(false)) => ~s
+    case _ => this <=> that
+  }
+
+  /**
+   * Equivalence operator that directly simplify expressions involving true/false.
+   */
+  def eqvSimplify(that : IFormula) = this <===> that
+
+  /**
    * Replace the subexpressions of this node with new expressions
    */
   override def update(newSubExprs : Seq[IExpression]) : IFormula = {
@@ -1254,7 +1300,7 @@ object ITrigger {
     for (p <- rawPatterns)
       if (extractor.visit(p, ()))
         patterns += p.asInstanceOf[ITerm]
-    patterns.readOnly
+    patterns.toList
   }
 }
 

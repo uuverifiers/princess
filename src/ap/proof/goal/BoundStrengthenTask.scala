@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,10 +21,16 @@
 
 package ap.proof.goal
 
+import ap.basetypes.IdealInt
+import ap.parameters.Param
 import ap.proof.tree.{ProofTreeFactory, ProofTree}
 import ap.terfor.equations.EquationConj
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
+import ap.proof.certificates.{Certificate,
+                              PartialCertificate, StrengthenCertificate,
+                              CertInequality, CertEquation, CertFormula}
 import ap.util.Debug
 
 object BoundStrengthenTask {
@@ -35,7 +41,7 @@ object BoundStrengthenTask {
 
 /**
  * Task responsible for strengthening the inequalities <code>lc + b1 >= 0</code>
- * and <code>-lc - b2 >= 0</code> to <code>lc + b >= 1</code> and
+ * and <code>-lc - b2 >= 0</code> to <code>lc + b1 >= 1</code> and
  * <code>-lc - b2 >= 1</code>, introducing one splinter
  */
 class BoundStrengthenTask(lc : LinearCombination, age : Int)
@@ -51,20 +57,24 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
     val order = goal.order
     val inEqs = goal.facts.arithConj.inEqs
     
-    val lowerBoundEq = (inEqs findLowerBound lc) match {
+    val (lowerBoundEq, lowerBoundLC) = (inEqs findLowerBound lc) match {
       case None =>
-        Conjunction.TRUE
-      case Some(b) =>
-        Conjunction.conj(EquationConj(lc.-(LinearCombination(b))(order), order),
-                         order)
+        (Conjunction.TRUE, null)
+      case Some(b) => {
+        val boundLC = lc + (-b)
+        (Conjunction.conj(EquationConj(boundLC, order), order),
+         boundLC)
+      }
     }
     
-    val upperBoundEq = (inEqs findLowerBound -lc) match {
+    val (upperBoundEq, upperBoundLC) = (inEqs findLowerBound -lc) match {
       case None =>
-        Conjunction.TRUE
-      case Some(b) =>
-        Conjunction.conj(EquationConj(lc.-(LinearCombination(-b))(order), order),
-                         order)
+        (Conjunction.TRUE, null)
+      case Some(b) => {
+        val boundLC = lc + b
+        (Conjunction.conj(EquationConj(boundLC, order), order),
+         boundLC)
+      }
     }
     
     val relevantPredicates =
@@ -76,17 +86,101 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
         // the specified linear combination is not relevant for the goal anymore
         ptf.updateGoal(goal)
       case List(eq) => {
-        val goal1 = ptf.updateGoal(goal formulaTasks eq.negate, goal)
-        val goal2 = ptf.updateGoal(goal formulaTasks eq, goal)
-        ptf.and(Array(goal1, goal2), goal.vocabulary)
-      }
-      case List(eq1, eq2) => {
-        val goal1 = ptf.updateGoal(goal formulaTasks eq1.negate, goal)
-        val goal2 = ptf.updateGoal(goal formulaTasks eq2.negate, goal)
-        val goal3 = ptf.updateGoal(goal formulaTasks
-                                     Conjunction.disj(Array(eq1, eq2), order),
+        val weakInEq =
+          if (lowerBoundLC == null)
+            CertInequality(-upperBoundLC)
+          else
+            CertInequality(lowerBoundLC)
+
+        val newInEqLC = weakInEq.lhs + IdealInt.MINUS_ONE
+        val newInEq = Conjunction.conj(InEqConj(newInEqLC, order), order)
+
+        val goal1 = ptf.updateGoal(goal formulaTasks eq.negate,
+                                   goal startNewInferenceCollectionCert
+                                          List(CertEquation(weakInEq.lhs)),
                                    goal)
-        ptf.and(Array(goal1, goal2, goal3), goal.vocabulary)
+        val goal2 = ptf.updateGoal(goal formulaTasks newInEq.negate,
+                                   goal startNewInferenceCollectionCert
+                                          List(CertInequality(newInEqLC)),
+                                   goal)
+
+        if (Param.PROOF_CONSTRUCTION(goal.settings)) {
+          val branchInferences = goal.branchInferences
+    
+          def pCertFunction(children : Seq[Certificate]) : Certificate = {
+            val strengthenCert =
+              StrengthenCertificate(weakInEq, IdealInt.ONE, children, order)
+            branchInferences.getCertificate(strengthenCert, order)
+          }
+          
+          ptf.and(Array(goal1, goal2),
+                  PartialCertificate(pCertFunction _, 2),
+                  goal.vocabulary)
+
+        } else {
+
+          val goal1 = ptf.updateGoal(goal formulaTasks eq.negate, goal)
+          val goal2 = ptf.updateGoal(goal formulaTasks eq, goal)
+          ptf.and(Array(goal1, goal2), goal.vocabulary)
+
+        }
+      }
+
+      case List(eq1, eq2) => {
+        if (Param.PROOF_CONSTRUCTION(goal.settings)) {
+          val negUpperBoundLC = -upperBoundLC
+
+          val goal1 = ptf.updateGoal(goal formulaTasks eq1.negate,
+                                     goal startNewInferenceCollectionCert
+                                            List(CertEquation(lowerBoundLC)),
+                                     goal)
+          val goal2 = ptf.updateGoal(goal formulaTasks eq2.negate,
+                                     goal startNewInferenceCollectionCert
+                                            List(CertEquation(negUpperBoundLC)),
+                                     goal)
+
+          val newLowerInEqLC = lowerBoundLC + IdealInt.MINUS_ONE
+          val newLowerInEq =
+            Conjunction.conj(InEqConj(newLowerInEqLC, order), order)
+          val newUpperInEqLC = negUpperBoundLC + IdealInt.MINUS_ONE
+          val newUpperInEq =
+            Conjunction.conj(InEqConj(newUpperInEqLC, order), order)
+
+          val goal3 = ptf.updateGoal((goal formulaTasks newLowerInEq.negate) ++
+                                     (goal formulaTasks newUpperInEq.negate),
+                                     goal startNewInferenceCollectionCert
+                                            List(CertInequality(newLowerInEqLC),
+                                                 CertInequality(newUpperInEqLC)),
+                                     goal)
+
+          val branchInferences = goal.branchInferences
+    
+          def pCertFunction(children : Seq[Certificate]) : Certificate = {
+            val upperStrengthenCert =
+              StrengthenCertificate(CertInequality(negUpperBoundLC),
+                                    IdealInt.ONE, children.tail, order)
+            val lowerStrengthenCert =
+              StrengthenCertificate(CertInequality(lowerBoundLC),
+                                    IdealInt.ONE,
+                                    List(children.head, upperStrengthenCert),
+                                    order)
+            branchInferences.getCertificate(lowerStrengthenCert, order)
+          }
+          
+          ptf.and(Array(goal1, goal2, goal3),
+                  PartialCertificate(pCertFunction _, 3),
+                  goal.vocabulary)
+
+        } else {
+
+          val goal1 = ptf.updateGoal(goal formulaTasks eq1.negate, goal)
+          val goal2 = ptf.updateGoal(goal formulaTasks eq2.negate, goal)
+          val goal3 = ptf.updateGoal(goal formulaTasks
+                                       Conjunction.disj(Array(eq1, eq2), order),
+                                     goal)
+          ptf.and(Array(goal1, goal2, goal3), goal.vocabulary)
+
+        }
       }
     }
   }

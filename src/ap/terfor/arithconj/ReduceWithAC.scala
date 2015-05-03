@@ -187,12 +187,14 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
   
   private def reduce(eqs1 : EquationConj, eqs2 : EquationConj,
                      logger : ComputationLogger) : EquationConj =
-    if (eqs2.isTrue)
+    if (eqs2.isTrue) {
       reduce(eqs1)
-    else if (eqs1.isTrue)
+    } else if (eqs1.isTrue) {
       reduce(eqs2)
-    else
-      reduce(EquationConj.conj(Array(eqs1, eqs2), logger, order))
+    } else {
+      val res = reduce(EquationConj.conj(Array(eqs1, eqs2), logger, order))
+      if (res == eqs1) eqs1 else res
+    }
 
   private def reduce(eqs : EquationConj) : EquationConj = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

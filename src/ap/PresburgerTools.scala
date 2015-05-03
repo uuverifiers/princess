@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,7 +32,9 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst, ConstantSubst}
 import ap.terfor.TerForConvenience._
 import ap.parameters.{GoalSettings, Param}
-import ap.util.{Debug, Seqs, IdealRange, Combinatorics}
+import ap.util.{Debug, Seqs, IdealRange, Combinatorics, Timeout}
+
+import scala.collection.mutable.{HashSet => MHashSet}
 
 /**
  * A collection of tools for analysing and transforming formulae in Presburger
@@ -422,36 +424,46 @@ object PresburgerTools {
     /**
      * Simple heuristic to expand quantifiers ranging over bounded domains
      */
-    def expandQuantifiers(c : Conjunction) : Conjunction = c.quans.lastOption match {
-      case (Some(Quantifier.EX)) => {
-        val qvar = v(c.quans.size - 1)
-        (c.arithConj.inEqs.findLowerBound(qvar),
-         c.arithConj.inEqs.findLowerBound(-qvar)) match {
-          case (Some(lb), Some(ub)) =>
-            disj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
-                 yield expandQuantifiers(c.instantiate(List(i))), order)
-          case _ =>
-            c
+    def expandQuantifiers(c : Conjunction) : Conjunction = {
+      Timeout.check
+
+      c.quans.lastOption match {
+        case (Some(Quantifier.EX)) => {
+          val qvar = v(c.quans.size - 1)
+          (c.arithConj.inEqs.findLowerBound(qvar),
+           c.arithConj.inEqs.findLowerBound(-qvar)) match {
+            case (Some(lb), Some(ub))
+              // don't split if there would be more than 1000 cases
+              // (hopeless ...)
+              if (ub + lb > IdealInt(-1000)) =>
+              disj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
+                   yield expandQuantifiers(c.instantiate(List(i))), order)
+            case _ =>
+              c
+          }
         }
-      }
       
-      case (Some(Quantifier.ALL))
-        if (c.arithConj.isTrue && c.predConj.isTrue && c.negatedConjs.size == 1) => {
-        val qvar = v(c.quans.size - 1)
-        val subC = c.negatedConjs.head
+        case (Some(Quantifier.ALL))
+          if (c.arithConj.isTrue && c.predConj.isTrue && c.negatedConjs.size == 1) => {
+          val qvar = v(c.quans.size - 1)
+          val subC = c.negatedConjs.head
         
-        (subC.arithConj.inEqs.findLowerBound(qvar),
-         subC.arithConj.inEqs.findLowerBound(-qvar)) match {
-          case (Some(lb), Some(ub)) =>
-            conj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
-                 yield expandQuantifiers(c.instantiate(List(i))), order)
-          case _ =>
-            c
+          (subC.arithConj.inEqs.findLowerBound(qvar),
+           subC.arithConj.inEqs.findLowerBound(-qvar)) match {
+            case (Some(lb), Some(ub))
+              // don't split if there would be more than 1000 cases
+              // (hopeless ...)
+              if (ub + lb > IdealInt(-1000)) =>
+              conj(for (i <- IdealRange(lb, -ub + IdealInt.ONE).iterator)
+                   yield expandQuantifiers(c.instantiate(List(i))), order)
+            case _ =>
+              c
+          }
         }
-      }
         
-      case _ =>
-        c
+        case _ =>
+          c
+      }
     }
     
     def elimHelp(c : Conjunction) : Conjunction =
@@ -561,6 +573,70 @@ object PresburgerTools {
     implicit val o = order
     val fors = ReduceWithConjunction(Conjunction.TRUE, order)(!c | !axioms)
     expansionProver(fors, order).closingConstraint.negate
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Minimise the given formula by eliminating unnecessary disjuncts.
+   * This is a stronger version of the simplification performed by
+   * <code>ReduceWithConjunction</code>, and also simplifies formulae
+   * <code>a & (b | c) & (b | c')</code> where <code>c & c'</code> is
+   * unsatisfiable.
+   */
+  def minimiseFormula(c : Conjunction) : Conjunction = {
+    val order = c.order
+    val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
+
+    var newC = c
+    var changed = true
+    while (changed) {
+      val newC2 = minimiseFormulaHelp(reducer(newC), reducer)
+      changed = !(newC2 eq newC)
+      newC = newC2
+    }
+
+    newC
+  }
+
+  private def minimiseFormulaHelp(
+                  c : Conjunction,
+                  reducer : ReduceWithConjunction) : Conjunction = {
+    implicit val order = c.order
+    val newNegatedConjs =
+      c.negatedConjs.update(for (d <- c.negatedConjs)
+                              yield minimiseFormulaHelp(d, reducer),
+                            order)
+    var newC =
+      if (c.negatedConjs eq newNegatedConjs)
+        c
+      else
+        reducer(c.updateNegatedConjs(newNegatedConjs))
+
+    val impliedLiterals : Iterator[Conjunction] =
+      if (newC.negatedConjs.size <= 1) {
+        Iterator.empty
+      } else {
+        val checkedLits = new MHashSet[Conjunction]
+        for (d <- newC.negatedConjs.iterator;
+             lit <- d.iterator;
+             if ({
+                   if (checkedLits contains lit) {
+                     false
+                   } else {
+                     checkedLits += lit
+                     (ReduceWithConjunction(lit, order) tentativeReduce newC).isFalse
+                   }
+                 }))
+        yield lit
+      }
+
+    if (impliedLiterals.hasNext)
+      reducer(Conjunction.conj((for (lit <- impliedLiterals) yield !lit) ++
+                                 (Iterator single newC),
+                               order))
+    else
+      newC
   }
 
   //////////////////////////////////////////////////////////////////////////////

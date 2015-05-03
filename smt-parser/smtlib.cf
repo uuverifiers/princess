@@ -2,7 +2,7 @@
 -- arithmetic with uninterpreted predicates.
 -- <http://www.philipp.ruemmer.org/princess.shtml>
 --
--- Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+-- Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
 --
 -- Princess is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Lesser General Public License as published by
@@ -47,11 +47,21 @@ PushCommand.            Command         ::= "(" "push" Numeral ")";
 PopCommand.             Command         ::= "(" "pop" Numeral ")";
 AssertCommand.          Command	        ::= "(" "assert" Term ")";
 CheckSatCommand.        Command	        ::= "(" "check-sat" ")";
-GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" ")";
+GetAssertionsCommand.   Command	        ::= "(" "get-assertions" ")";
+GetValueCommand.        Command	        ::= "(" "get-value" "(" [Term] ")" ")";
+GetProofCommand.        Command	        ::= "(" "get-proof" ")";
+GetUnsatCoreCommand.    Command	        ::= "(" "get-unsat-core" ")";
+GetAssignmentCommand.   Command	        ::= "(" "get-assignment" ")";
 GetModelCommand.        Command	        ::= "(" "get-model" ")";
+GetInterpolantsCommand. Command	        ::= "(" "get-interpolants" [SExpr] ")";
+GetInfoCommand.         Command	        ::= "(" "get-info" AnnotAttribute ")";
+GetOptionCommand.       Command	        ::= "(" "get-option" AnnotAttribute ")";
+EchoCommand.            Command	        ::= "(" "echo" SMTString ")";
+ResetCommand.           Command	        ::= "(" "reset" ")";
 ExitCommand.            Command	        ::= "(" "exit" ")";
 
 IgnoreCommand.          Command         ::= "(" "ignore" Term ")";
+EmptyCommand.           Command         ::= "(" ")";
 
 separator Command "";
 
@@ -120,7 +130,7 @@ NumConstant.	SpecConstant	::= Numeral;
 RatConstant.	SpecConstant	::= Rational;
 HexConstant.	SpecConstant	::= Hexadecimal;
 BinConstant.	SpecConstant	::= Binary;
-StringConstant.	SpecConstant	::= String;
+StringConstant.	SpecConstant	::= SMTString;
 
 token Numeral     ('0' | (["123456789"] ["0123456789"]*));
 token Rational    (('0' | (["123456789"] ["0123456789"]*)) '.' ["0123456789"]+);
@@ -150,6 +160,8 @@ token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
                      (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
 
 token QuotedSymbolT ('|' [" `^~<=>_,;:!?/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ\n"]* '|');
+
+token SMTString     ('"' ((char - ["\"\\"]) | ('\\' ["\"\\"]) | ["\n"])* '"');
 
 separator Symbol "";
 

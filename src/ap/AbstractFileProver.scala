@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -28,14 +28,16 @@ import ap.parser.{InputAbsy2Internal,
                   FunctionEncoder, IExpression, INamedPart, PartName,
                   IFunction, IInterpolantSpec, IBinJunctor, Environment}
 import ap.terfor.{Formula, TermOrder}
-import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
+                               IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
-import ap.theories.TheoryRegistry
+import ap.theories.{Theory, TheoryRegistry}
 import ap.proof.{ModelSearchProver, ExhaustiveCCUProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.Certificate
-import ap.util.{Debug, Timeout}
+import ap.proof.theoryPlugins.PluginSequence
+import ap.util.{Debug, Timeout, Seqs}
 
 object AbstractFileProver {
   
@@ -64,18 +66,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Param.TRIGGER_GENERATION(settings) match {
       case Param.TriggerGenerationOptions.None => Set()
       case Param.TriggerGenerationOptions.All =>
-        env.nonNullaryFunctions -- (
-          // remove irrelevant interpreted functions
+        env.nonNullaryFunctions ++ (
           for (t <- signature.theories.iterator;
-               f <- t.functions.iterator;
-               if (!(t.triggerRelevantFunctions contains f))) yield f)
+               f <- t.triggerRelevantFunctions.iterator) yield f)
       case Param.TriggerGenerationOptions.Total =>
-        for (f <- env.nonNullaryFunctions;
-             if ((TheoryRegistry lookupSymbol f) match {
-                   case Some(t) => t.triggerRelevantFunctions contains f
-                   case None => !f.partial && !f.relational
-                 }))
-        yield f
+        ((for (f <- env.nonNullaryFunctions.iterator;
+               if (!f.partial && !f.relational)) yield f) ++ (
+          for (t <- signature.theories.iterator;
+               f <- t.triggerRelevantFunctions.iterator) yield f)).toSet
     }
   
   private def newParser = Param.INPUT_FORMAT(settings) match {
@@ -87,8 +85,29 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   val (inputFormulas, originalInputFormula,
        interpolantSpecs, signature, gcedFunctions, functionEncoder) = {
     val parser = newParser
-    val (f, interpolantSpecs, signature) = parser(reader)
+    val (preF, interpolantSpecs, preSignature) = parser(reader)
     reader.close
+
+
+    // HACK: currently the Groebner theories does not support interpolation,
+    // if necessary switch to bit-shift multiplication
+    val (f, signature) =
+      if ((preSignature.theories contains ap.theories.nia.GroebnerMultiplication) &&
+          (Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
+            case Param.ProofConstructionOptions.Never => false
+            case Param.ProofConstructionOptions.Always => true
+            case Param.ProofConstructionOptions.IfInterpolating => !interpolantSpecs.isEmpty
+           })) {
+        Console.withOut(Console.err) {
+          println("Warning: switching to " + ap.theories.BitShiftMultiplication +
+                  " for proof construction")
+        }
+        (ap.theories.BitShiftMultiplication convert preF,
+         preSignature addTheories List(ap.theories.BitShiftMultiplication))
+      } else {
+        (preF, preSignature)
+      }
+
     
     val preprocSettings =
        Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
@@ -126,25 +145,25 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc)
   }
   
+  protected val theories = signature.theories
+
   private val functionalPreds = 
     (for ((p, f) <- functionEncoder.predTranslation.iterator;
           if (!f.relational)) yield p).toSet
   
-  private val plugins = for (t <- signature.theories; p <- t.plugin.toSeq) yield p
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertInt(AbstractFileProver.AC, plugins.size <= 1)
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+  private val plugin =
+    PluginSequence(for (t <- theories; p <- t.plugin.toSeq) yield p)
 
   private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
     case Param.ProofConstructionOptions.Never => false
     case Param.ProofConstructionOptions.Always => true
     case Param.ProofConstructionOptions.IfInterpolating => !interpolantSpecs.isEmpty
   }
-    
+
   val order = signature.order
 
   private val theoryAxioms =
-    Conjunction.conj(for (t <- signature.theories) yield t.axioms, order).negate
+    Conjunction.conj(for (t <- theories) yield t.axioms, order).negate
 
   private val reducer =
     ReduceWithConjunction(Conjunction.TRUE, functionalPreds, false, order)
@@ -152,8 +171,29 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private val allPartNames =
     (List(PartName.NO_NAME) ++
      (for (INamedPart(n, _) <- inputFormulas) yield n)).distinct
-  
-  val (namedParts, formulas) =
+
+  val (namedParts, formulas, matchedTotalFunctions, ignoredQuantifiers) = {
+    var ignoredQuantifiers = false
+
+    /**
+     * In some cases, convert universal quantifiers to existential ones.
+     * At the moment, this is in particular necessary when constructing
+     * proof for interpolation.
+     */
+    def convertQuantifiers(c : Conjunction) : Conjunction =
+      if (constructProofs || Param.IGNORE_QUANTIFIERS(settings)) {
+        val withoutQuans =
+          IterativeClauseMatcher.convertQuantifiers(
+            c, signature.predicateMatchConfig)
+        if (!ignoredQuantifiers && !(withoutQuans eq c)) {
+          Console.err.println("Warning: ignoring some quantifiers")
+          ignoredQuantifiers = true
+        }
+        withoutQuans
+      } else {
+        c
+      }
+
     if (constructProofs) {
       // keep the different formula parts separate
       val rawNamedParts =
@@ -164,24 +204,30 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         for ((n, c) <- rawNamedParts) yield n match {
           case PartName.NO_NAME =>
             (PartName.NO_NAME ->
-             reducer(Conjunction.disj(List(theoryAxioms, c), order)))
+             convertQuantifiers(
+               reducer(Conjunction.disj(List(theoryAxioms, c), order))))
           case n =>
-            (n -> reducer(c))
+            (n -> convertQuantifiers(reducer(c)))
         }
 
       (reducedNamedParts,
-       for (n <- allPartNames) yield reducedNamedParts(n))
+       for (n <- allPartNames) yield reducedNamedParts(n),
+       checkMatchedTotalFunctions(rawNamedParts map (_._2)),
+       ignoredQuantifiers)
     } else {
       // merge everything into one formula
-      val f =
-        reducer(Conjunction.disjFor(
-               List(theoryAxioms,
-                    InputAbsy2Internal(
-                      IExpression.or(
-                         for (f <- inputFormulas.iterator)
-                         yield (IExpression removePartName f)), order)), order))
-      (Map(PartName.NO_NAME -> f), List(f))
+      val rawF =
+        InputAbsy2Internal(
+          IExpression.or(for (f <- inputFormulas.iterator)
+                         yield (IExpression removePartName f)), order)
+      val f = convertQuantifiers(
+                reducer(Conjunction.disjFor(List(theoryAxioms, rawF), order)))
+      (Map(PartName.NO_NAME -> f),
+       List(f),
+       checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))),
+       ignoredQuantifiers)
     }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -196,10 +242,10 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
-           (for (t <- signature.theories.iterator;
+           (for (t <- theories.iterator;
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
-    gs = Param.THEORY_PLUGIN.set(gs, plugins.headOption)
+    gs = Param.THEORY_PLUGIN.set(gs, plugin)
     gs
   }
   
@@ -213,6 +259,71 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                              Param.TRACE_CONSTRAINT_SIMPLIFIER(settings))
     }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected lazy val formulaConstants =
+    (for (f <- formulas.iterator; c <- f.constants.iterator) yield c).toSet
+  protected lazy val formulaQuantifiers =
+    (for (f <- formulas.iterator;
+          q <- Conjunction.collectQuantifiers(f).iterator) yield q).toSet
+
+  protected lazy val canUseModelSearchProver = {
+    val config = Param.PREDICATE_MATCH_CONFIG(goalSettings)
+
+    (formulas exists (_.isTrue)) ||
+    (Seqs.disjoint(formulaConstants, signature.existentialConstants) &&
+     (if (Param.POS_UNIT_RESOLUTION(goalSettings))
+       formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
+      else
+        (formulaQuantifiers subsetOf Set(Quantifier.ALL))))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def checkMatchedTotalFunctions(conjs : Iterable[Conjunction]) : Boolean =
+    Param.POS_UNIT_RESOLUTION(settings) && {
+      val config = signature.predicateMatchConfig
+      conjs exists { c =>
+        IterativeClauseMatcher.matchedPredicatesRec(c, config) exists {
+          p => (functionEncoder.predTranslation get p) match {
+                 case Some(f) => !f.partial
+                 case None => false
+               }
+        }
+      }
+    }
+
+  private lazy val getSatSoundnessConfig : Theory.SatSoundnessConfig.Value =
+    if (!canUseModelSearchProver || matchedTotalFunctions)
+      Theory.SatSoundnessConfig.General
+    else if (formulas forall (_.predicates.isEmpty))
+      Theory.SatSoundnessConfig.Elementary
+    else
+      Theory.SatSoundnessConfig.Existential
+
+  private lazy val theoriesAreSatComplete =
+    theories.isEmpty || {
+      val config = getSatSoundnessConfig
+      Param.POS_UNIT_RESOLUTION(goalSettings) &&
+      (theories exists (_.isSoundForSat(theories, config)))
+    }
+
+  private lazy val allFunctionsArePartial =
+    (formulas forall { f => f.predicates forall {
+       p => (functionEncoder.predTranslation get p) match {
+               case Some(f) => f.partial
+               case None => true
+             }
+     }}) &&
+    (theories forall { t => t.functions forall (_.partial) })
+
+  protected lazy val soundForSat =
+    !ignoredQuantifiers &&
+    theoriesAreSatComplete &&
+    (Param.GENERATE_TOTALITY_AXIOMS(settings) ||
+     !matchedTotalFunctions ||
+     allFunctionsArePartial)
+
   //////////////////////////////////////////////////////////////////////////////
 
   protected def findModelTimeout : Either[Conjunction, Certificate] = {

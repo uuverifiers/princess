@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -38,6 +38,17 @@ class LRUCache[K, V] (maxEntries : Int) {
     }
     case Some(res) => res
   }
+  
+  def cached(k : K)(otherwise : => V)(cachePostProcessing : V => V) : V =
+    (this get k) match {
+      case None => {
+        val res = otherwise
+        this += (k -> res)
+        res
+      }
+      case Some(res) =>
+        cachePostProcessing(res)
+    }
   
   def +=(pair : (K, V)) : Unit = synchronized {
     if (backend.size >= maxEntries) backend.clear

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010,2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2015 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -124,7 +124,8 @@ abstract class SoftwareInterpolationFramework {
   //////////////////////////////////////////////////////////////////////////////
 
   protected def parseProblem(reader : java.io.Reader) : (IFormula, Signature) = {
-    val (problem, _, sig) = new ApParser2InputAbsy(preludeEnv.clone)(reader)
+    val (problem, _, sig) =
+      new ApParser2InputAbsy(preludeEnv.clone, ParserSettings.DEFAULT)(reader)
     (problem, sig)
   }
 
@@ -337,81 +338,6 @@ object ResourceFiles {
   
   def preludeReader = toReader(resourceAsStream(preludeFile))
 //  def commOpsReader = toReader(resourceAsStream(commOpsFile))
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Extended version of the InputAbsy simplifier that also rewrites certain
- * array expressions:
- *    \exists int a; x = store(a, b, c)
- * is replaced with
- *    select(x, b) = c 
- */
-class InterpolantSimplifier(select : IFunction, store : IFunction)
-      extends ap.parser.Simplifier {
-  import IBinJunctor._
-  import IIntRelation._
-  import IExpression._
-  import Quantifier._
-
-  private class StoreRewriter(depth : Int) {
-    var foundProblem : Boolean = false
-    var storeArgs : Option[(ITerm, ITerm)] = None
-
-    def rewrite(t : ITerm) : ITerm = t match {
-      case IPlus(t1, t2) => rewrite(t1) +++ rewrite(t2)
-      case IFunApp(`store`, Seq(IVariable(`depth`), t1, t2)) => {
-        if (storeArgs != None)
-          foundProblem = true
-        storeArgs = Some(shiftVariables(t1), shiftVariables(t2))
-        0
-      }
-      case _ => shiftVariables(t)
-    }
-    
-    private def shiftVariables(t : ITerm) : ITerm = {
-      if ((SymbolCollector variables t) contains IVariable(depth))
-        foundProblem = true
-      VariableShiftVisitor(t, depth + 1, -1)
-    }
-  }
-  
-  private def rewriteEquation(t : ITerm, depth : Int) : Option[IFormula] = {
-    val rewriter = new StoreRewriter(depth)
-    val newT = rewriter rewrite t
-
-    rewriter.storeArgs match {
-      case Some((t1, t2)) if (!rewriter.foundProblem) =>
-        Some(select(-newT, t1) === t2)
-      case _ =>
-        None
-    }
-  }
-  
-  private def translate(f : IFormula,
-                        negated : Boolean,
-                        depth : Int) : Option[IFormula] = f match {
-      
-    case IQuantified(q, subF) if (q == Quantifier(negated)) =>
-      for (res <- translate(subF, negated, depth + 1)) yield IQuantified(q, res)
-        
-    case IIntFormula(EqZero, t) if (!negated) =>
-      rewriteEquation(t, depth)
-    
-    case INot(IIntFormula(EqZero, t)) if (negated) =>
-      for (f <- rewriteEquation(t, depth)) yield !f
-        
-    case _ => None
-  }
-  
-  private def elimStore(expr : IExpression) : IExpression = expr match {
-    case IQuantified(EX, f) =>  translate(f, false, 0) getOrElse expr
-    case IQuantified(ALL, f) => translate(f, true, 0) getOrElse expr
-    case _ => expr
-  }
-
-  protected override def furtherSimplifications(expr : IExpression) = elimStore(expr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

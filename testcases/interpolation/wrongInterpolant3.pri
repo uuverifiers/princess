@@ -1,6 +1,5 @@
 /**
- * This problem causes wrong interpolants to be generated in some versions
- * The bug does not seem to occur right now, but is probably not fixed yet ...
+ * This problem caused wrong interpolants to be generated in some versions
  */
 
 \functions {

@@ -36,9 +36,20 @@ scala -cp ../../bin:. SimpleAPITest9
 scalac $OPTIONS SimpleAPITest10.scala
 scala -cp ../../bin:. SimpleAPITest10
 
+scalac $OPTIONS SimpleAPITest11.scala
+scala -cp ../../bin:. SimpleAPITest11
+
 scala $OPTIONS interpolation-bug.scala
 scala $OPTIONS scope-bug.scala
 
 scala $OPTIONS TheoryTest.scala
 scala $OPTIONS TheoryTest2.scala
 scala $OPTIONS TheoryTest3.scala
+
+scala $OPTIONS nonlinear.scala
+scala $OPTIONS nonlinearInterpolation.scala
+scala $OPTIONS division.scala
+
+OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
+
+scala $OPTIONS readSMTLIB.scala

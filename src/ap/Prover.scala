@@ -47,6 +47,7 @@ object Prover {
   // can be instantiated so that the formula evaluates to false
   abstract sealed class CounterModelResult extends Result
   case class CounterModel(counterModel : IFormula) extends CounterModelResult
+  case class MaybeCounterModel(counterModel : IFormula) extends CounterModelResult
   case object NoCounterModel extends CounterModelResult
   case class NoCounterModelCert(certificate : Certificate) extends CounterModelResult
   case class NoCounterModelCertInter(certificate : Certificate,

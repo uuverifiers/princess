@@ -18,3 +18,5 @@ TESTS="arrays0.pri arrays1.pri arrays2.pri \
        mulTermination.pri"
 
 $PRI "$@" $TESTS
+
+$PRI "$@" -mulProcedure=bitShift mulTermination.pri

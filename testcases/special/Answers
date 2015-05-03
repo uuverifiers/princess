@@ -35,28 +35,26 @@ VALID
 
 Constraint: true
 Loading ricart-agrawala7.smt2 ...
-Checking satisfiability ...
-Warning: ignoring (set-logic AUFLIA)
-Warning: ignoring (set-info :source | An Optimal Algorithm for Mutual Exclusion in Computer Networks. Glenn Ricart and Ashok K. Agrawala. Communications of the ACM Vol.: 24 Number: 1. This is a benchmark of the haRVey theorem prover. It was translated to SMT-LIB by Leonardo  de Moura |)
-Warning: ignoring (set-info :smt-lib-version 2.0)
-Warning: ignoring (set-info :category "industrial")
-Warning: ignoring (set-info :status unsat)
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
-sat
+unknown
 
-Model:
-(and (and (and (= 0 (+ (- 1) time ) ) (= 0 q ) ) (= 0 (+ (- 1) p ) ) ) (and (and (and (and (and (and (and (and (and (and (and (= 0 (+ (- 1) (s3 1 ) ) ) (= 0 (+ (- 1) (ro 1 0 ) ) ) ) (= 0 (+ (- 1) (rd 1 0 ) ) ) ) (= 0 (+ (- 1) (rd 0 1 ) ) ) ) (= 0 (s4 1 ) ) ) (= 0 (s4 0 ) ) ) (= 0 (+ 1 (sn 1 ) ) ) ) (= 0 (sn 0 ) ) ) (= 0 (s6 1 ) ) ) (= 0 (rcs2 1 ) ) ) (= 0 (+ (- 1) (x 1 0 ) ) ) ) (= 0 (+ (- 1) (x 0 1 ) ) ) ) ) 
+Possible model:
+(and (and (and (= time 1 ) (= q 0 ) ) (= p 1 ) ) (and (and (and (and (and (and (and (and (and (and (and (= (s3 1 ) 1 ) (= (ro 1 0 ) 1 ) ) (= (rd 1 0 ) 1 ) ) (= (rd 0 1 ) 1 ) ) (= (s4 1 ) 0 ) ) (= (s4 0 ) 0 ) ) (= (sn 1 ) (- 1) ) ) (= (sn 0 ) 0 ) ) (= (s6 1 ) 0 ) ) (= (rcs2 1 ) 0 ) ) (= (x 1 0 ) 1 ) ) (= (x 0 1 ) 1 ) ) ) 
 
 Loading proofBug.pri ...
 Preprocessing ...
 Constructing countermodel ...
 
-CANCELLED/TIMEOUT
+INVALID
+
+Countermodel:
+empty = 6 & B = 7 & A = 8 & complement(8) = 2 & complement(7) = 5 & complement(5) = 7 & complement(2) = 8 & intersect(8, 7) = 3 & intersect(8, 5) = 4 & intersect(7, 8) = 3 & intersect(7, 2) = 0 & intersect(5, 8) = 4 & intersect(5, 2) = 1 & intersect(2, 7) = 0 & intersect(2, 5) = 1 & size(8) = 3 & size(7) = 6 & size(6) = 0 & size(5) = 8 & size(4) = 1 & size(3) = 2 & size(2) = 11 & size(1) = 7 & size(0) = 4 & !(complement(8) = 7) & !(complement(8) = 5) & !(complement(7) = 8) & !(complement(5) = 8) & !(intersect(8, 8) = 3) & !(intersect(8, 8) = 1) & !(intersect(8, 8) = 0) & !(intersect(8, 7) = 8) & !(intersect(8, 7) = 7) & !(intersect(8, 7) = 6) & !(intersect(8, 7) = 4) & !(intersect(8, 7) = 1) & !(intersect(8, 7) = 0) & !(intersect(8, 5) = 6) & !(intersect(8, 5) = 5) & !(intersect(8, 5) = 1) & !(intersect(8, 5) = 0) & !(intersect(8, 2) = 1) & !(intersect(8, 2) = 0) & !(intersect(7, 8) = 8) & !(intersect(7, 8) = 7) & !(intersect(7, 8) = 6) & !(intersect(7, 8) = 4) & !(intersect(7, 8) = 1) & !(intersect(7, 8) = 0) & !(intersect(7, 7) = 0) & !(intersect(7, 5) = 1) & !(intersect(7, 5) = 0) & !(intersect(7, 2) = 7) & !(intersect(7, 2) = 6) & !(intersect(7, 2) = 4) & !(intersect(7, 2) = 2) & !(intersect(7, 2) = 1) & !(intersect(5, 8) = 6) & !(intersect(5, 8) = 5) & !(intersect(5, 8) = 1) & !(intersect(5, 8) = 0) & !(intersect(5, 7) = 1) & !(intersect(5, 7) = 0) & !(intersect(5, 2) = 5) & !(intersect(2, 8) = 1) & !(intersect(2, 8) = 0) & !(intersect(2, 7) = 7) & !(intersect(2, 7) = 6) & !(intersect(2, 7) = 4) & !(intersect(2, 7) = 2) & !(intersect(2, 7) = 1) & !(intersect(2, 5) = 5) & !(size(8) = 11) & !(size(8) = 8) & !(size(8) = 7) & !(size(8) = 6) & !(size(8) = 4) & !(size(8) = 2) & !(size(8) = 1) & !(size(8) = 0) & !(size(7) = 11) & !(size(7) = 8) & !(size(7) = 7) & !(size(7) = 4) & !(size(7) = 2) & !(size(7) = 1) & !(size(7) = 0) & !(size(6) = 11) & !(size(6) = 8) & !(size(6) = 7) & !(size(6) = 4) & !(size(6) = 2) & !(size(6) = 1) & !(size(5) = 11) & !(size(5) = 7) & !(size(5) = 4) & !(size(5) = 2) & !(size(5) = 1) & !(size(4) = 11) & !(size(4) = 7) & !(size(4) = 4) & !(size(4) = 2) & !(size(3) = 11) & !(size(3) = 7) & !(size(3) = 4) & !(size(2) = 7) & !(size(2) = 4) & !(size(1) = 4)
 
 Loading multiplication3.pri ...
-Warning: using theory to encode multiplication: BitShiftMultiplication
+Warning: using theory to encode multiplication: GroebnerMultiplication
 Preprocessing ...
 Proving ...
 

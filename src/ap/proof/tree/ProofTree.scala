@@ -46,10 +46,13 @@ trait ProofTree {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
 //  Debug.assertCtor(ProofTree.AC,
-//                   (order isSortingOf closingConstraint) &&
 //                   (constantFreedom freeConstsAreUniversal bindingContext) &&
 //                   (closingConstantFreedom freeConstsAreUniversal bindingContext) &&
 //                   closingConstantFreedom <= constantFreedom)
+// The following condition sometimes takes very long to check, since
+// it will trigger computation of the actual constraint; so it has been
+// moved to the lazy val's actually computing the constraint
+//                   (order isSortingOf closingConstraint) &&
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   val subtrees : Seq[ProofTree]
