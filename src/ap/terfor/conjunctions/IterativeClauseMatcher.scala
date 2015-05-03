@@ -712,6 +712,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
     if (currentFacts == newFacts) {
       (List(), this)
     } else {
+      implicit val _ = order
       val (oldFacts, addedFacts) = newFacts diff currentFacts
     
       val instances = new scala.collection.mutable.LinkedHashSet[Conjunction]
