@@ -363,7 +363,8 @@ List(
                                                        to min 50000)
                   val options = toOptionList(str)
                   Configuration(s,
-                    Param.GENERATE_TOTALITY_AXIOMS(s),
+                    Param.GENERATE_TOTALITY_AXIOMS(s) &&
+                      !Param.IGNORE_QUANTIFIERS(s),
                     options, to, seq)
                 }
                 
