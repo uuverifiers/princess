@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -379,17 +379,19 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
    * <code>oldConj</code>, as well as the subset of literals that do not occur
    * in <code>oldConj</code>.
    */
-  def diff(oldConj : PredConj) : (PredConj, PredConj) =
+  def diff(oldConj : PredConj)
+          (implicit fullOrder : TermOrder) : (PredConj, PredConj) =
     if (this.isTrue) {
       (this, this)
     } else {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(PredConj.AC, oldConj isSortedBy order)
+      Debug.assertPre(PredConj.AC, (this isSortedBy fullOrder) &&
+                                   (oldConj isSortedBy fullOrder))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
   
       implicit val orderAtom = new Ordering[Atom] {
         def compare(thisA : Atom, thatA : Atom) : Int =
-          order.compare(thisA, thatA)
+          fullOrder.compare(thisA, thatA)
       }
   
       val (unchangedPosLits, changedPosLits) =
@@ -397,8 +399,8 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
       val (unchangedNegLits, changedNegLits) =
         Seqs.diff(this.negativeLits, oldConj.negativeLits)
       
-      (this.updateLitsSubset(unchangedPosLits, unchangedNegLits, order),
-       this.updateLitsSubset(changedPosLits, changedNegLits, order))
+      (this.updateLitsSubset(unchangedPosLits, unchangedNegLits, fullOrder),
+       this.updateLitsSubset(changedPosLits, changedNegLits, fullOrder))
     }
   
   def partition(pred : (Atom) => Boolean) : (PredConj, PredConj) = {
