@@ -77,7 +77,9 @@ def handleOutput(str : String,
   } else if ((str contains "Error") || (str contains "ERROR")) {
     resMap += (curFile -> "ERROR")
     timeMap += (curFile -> 0)
-    lock.release()
+    done += 1
+    if (done == 2)
+      lock.release()
   }
 }
 
