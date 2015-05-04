@@ -64,19 +64,20 @@ def handleOutput(str : String,
   writer : PrintWriter) = {
   writer.println(str)
   writer.flush()
-  if (str contains "SZS") {
+  if ((str contains "Error") || (str contains "ERROR")) {
+    resMap += (curFile -> "ERROR")
+    timeMap += (curFile -> 0)
+    done += 1
+    println("ERROR -> DONE = " + done)
+    if (done == 2)
+      lock.release()
+  } else if (str contains "SZS") {
     val split = str.split(" ")
     val status = split(3)
     val name = (split(5).split('.'))(0)
     resMap += name -> status
   } else if (str matches "[0-9]*ms") {
     timeMap += curFile -> str.substring(0, str.length - 2).toInt
-    done += 1
-    if (done == 2)
-      lock.release()
-  } else if ((str contains "Error") || (str contains "ERROR")) {
-    resMap += (curFile -> "ERROR")
-    timeMap += (curFile -> 0)
     done += 1
     if (done == 2)
       lock.release()
