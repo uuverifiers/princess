@@ -56,7 +56,6 @@ def makeRow(problem : String, maps : Seq[Map[String, (String, String)]]) = {
   output.mkString("\n")
 }
 
-
 val tableMaps = 
   (for (f <- getLogFiles) yield parseFile("logs/" + f + ".table.log"))
 
@@ -76,7 +75,7 @@ val problems =
 println("<html>")
 println("<table border=1 align=center cellpadding=3 cellspacing=2>")
 println(makeInitRow(getLogFiles))
-for (p <- problems) {
+for (p <- problems.sorted) {
   println(makeRow(p, maps.map(_._2)))
 }
 println("</table>")

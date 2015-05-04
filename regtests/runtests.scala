@@ -68,13 +68,16 @@ def handleOutput(str : String,
     val split = str.split(" ")
     val status = split(3)
     val name = (split(5).split('.'))(0)
-    curFile = name
     resMap += name -> status
   } else if (str matches "[0-9]*ms") {
     timeMap += curFile -> str.substring(0, str.length - 2).toInt
     done += 1
     if (done == 2)
       lock.release()
+  } else if ((str contains "Error") || (str contains "ERROR")) {
+    resMap += (curFile -> "ERROR")
+    timeMap += (curFile -> 0)
+    lock.release()
   }
 }
 
@@ -108,8 +111,10 @@ val newResults = Map() : Map[String, String]
 
 var lazyFail = 0
 var lazyTOs = 0
+var lazyErrors = 0
 var tableFail = 0
 var tableTOs = 0
+var tableErrors = 0
 
 val diffs = ListBuffer() : ListBuffer[String]
 
@@ -120,12 +125,17 @@ def verify(problem : String) = {
   // Timeouts
   val lazyTO = lazyResults(problem) == "Timeout"
   val tableTO = tableResults(problem) == "Timeout"
+  val lazyError = lazyResults(problem) == "ERROR"
+  val tableError = tableResults(problem) == "ERROR"
 
   if (lazyTO) {
     lazyTOs += 1
     println("\tLAZY:\tT/O")
     lazyWriter.println("REGRESSION:LAZY:" + problem + ":UNKNOWN:T/O")
-    
+  } else if (lazyError) {
+    lazyErrors += 1
+    println("\tLAZY:\tERROR")
+    lazyWriter.println("REGRESSION:LAZY:" + problem + ":ERROR:ERROR")
   } else if (old) {
     val lt = "(" + lazyTimes(problem) + " ms)"
     if (lazyResults(problem) == realResults(problem)) {
@@ -142,6 +152,10 @@ def verify(problem : String) = {
     tableTOs += 1
     println("\tTABLE:\tT/O")
     tableWriter.println("REGRESSION:TABLE:" + problem + ":UNKNOWN:T/O")
+  } else if (tableError) {
+    tableErrors += 1
+    println("\tTABLE:\tERROR")
+    tableWriter.println("REGRESSION:TABLE:" + problem + ":ERROR:ERROR")
   } else if (old) {
     val tt = "(" + tableTimes(problem) + " ms)"
     if (tableResults(problem) == realResults(problem)) {
@@ -154,7 +168,9 @@ def verify(problem : String) = {
     }
   }
 
-  if (!lazyTO && !tableTO && lazyResults(problem) != tableResults(problem)) {
+  if (!lazyTO && !tableTO && 
+    !lazyError && !tableError &&
+    lazyResults(problem) != tableResults(problem)) {
     println("------->DIFF")
     diffs += problem
   }
@@ -175,7 +191,8 @@ def verify(problem : String) = {
   lock.acquire()
 // File-by-file
 for (f <- files) {
-  curFile = f
+  val split = f.split('/')
+  curFile = (split(1).split('.'))(0)
   val tableCmd = cmd + " -CCU=table " + f
   tableCmd ! tableLogger
 
