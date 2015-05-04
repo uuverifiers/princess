@@ -17,3 +17,4 @@ TESTS="bad-predicate-performance.pri \
 
 $PRI "$@" $TESTS
 
+$PRI "$@" -timeout=30000 +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +boolFunsAsPreds -triggerStrategy=allMaximal +ignoreQuantifiers -generateTriggers=all GEO212+3-complete.p

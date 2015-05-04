@@ -71,3 +71,13 @@ Proving ...
 
 % SZS status Theorem for tarskiGeometry.pri
 
+Loading GEO212+3-complete.p ...
+Preprocessing ...
+Warning: ignoring some quantifiers
+Constructing countermodel ...
+
+UNKNOWN
+
+Possible countermodel:
+not_orthogonal_lines(1, 0) & unorthogonal_lines(0, 0) & convergent_lines(0, 1) & !not_orthogonal_lines(0, 0) & !convergent_lines(1, 0)
+

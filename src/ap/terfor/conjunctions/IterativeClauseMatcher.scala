@@ -579,7 +579,10 @@ object IterativeClauseMatcher {
       (for (// Seq((IdealInt.ONE, VariableTerm(ind)), _*) <- quantVarEqs.iterator;
             lc <- quantVarEqs.iterator;
             if (!lc.isEmpty && lc.leadingCoeff.isOne &&
-                lc.leadingTerm.isInstanceOf[VariableTerm]))
+                (lc.leadingTerm match {
+                   case VariableTerm(ind) => ind <= maxVarIndex
+                   case _ => false
+                 })))
        yield lc.leadingTerm.asInstanceOf[VariableTerm].index).toSet
     }
   
