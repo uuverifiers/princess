@@ -14,3 +14,4 @@ $PRI "$@" -timeout=15000 proofBug.pri
 $PRI "$@" -timeout=15000 multiplication3.pri
 $PRI "$@" -generateTriggers=total -timeout=60000 vstte-problem-2-vc.pri
 $PRI "$@" -timeout=30000 -generateTriggers=all +mostGeneralConstraint soldiers.pri
+$PRI "$@" -timeout=30000 +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +boolFunsAsPreds -triggerStrategy=allMaximal +ignoreQuantifiers -generateTriggers=all GEO212+3-complete.p
