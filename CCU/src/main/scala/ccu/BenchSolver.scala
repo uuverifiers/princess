@@ -13,7 +13,7 @@ import scala.collection.mutable.{Set => MSet}
 case class BenchTimeoutException(msg : String) extends RuntimeException(msg)
 
 object BenchSolver {
-  val TIMEOUT = 60000 : Long
+  val TIMEOUT = 10000 : Long
   var startTime = System.currentTimeMillis()
   def customTimeoutChecker(timeout : Long)() = {
     if (System.currentTimeMillis() - startTime >= timeout) {

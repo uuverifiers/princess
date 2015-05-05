@@ -108,7 +108,7 @@ class LazySolver(timeoutChecker : () => Unit,
             DQ.cascadeRemoveDQ(s, t)
 
           // Now we minimize DI to only contain "relevant" inequalities
-          DQ.minimise(cp.goal.subGoals)
+          DQ.minimise(cp.goal.subGoals, cp.baseDI)
           val minDI = DQ.getINEQ()
           val noBaseDQ = for ((s,t) <- DQ.getINEQ(); if cp.baseDI(s)(t) != 0) yield (s, t)
 

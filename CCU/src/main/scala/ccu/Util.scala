@@ -17,7 +17,7 @@ class Disequalities(
 
   // Stores the actual disequalities 
   // TODO: change to (size*size-1)/2
-  var DQarr = Array.ofDim[Int](size * size)
+  val DQmap = MMap() : MMap[(Int, Int), Int]
 
   // Buffer to store change to allow backtracking (old, s, t)
   var changes = ListBuffer() : ListBuffer[(Int, Int, Int)]
@@ -51,10 +51,14 @@ class Disequalities(
   def pos(i : Int, j : Int) = if (i < j) size*i + j else size*j + i
 
   def getDQ(i : Int, j : Int) = {
-    DQarr(pos(i,j))
+    val (x, y) = (i min j, i max j)
+    DQmap getOrElse ((x, y), 0)
   }
 
-  def setDQ(i : Int, j : Int, v : Int) = DQarr(pos(i,j)) = v
+  def setDQ(i : Int, j : Int, v : Int) = {
+    val (x, y) = (i min j, i max j)
+    DQmap += (x, y) -> v
+  }
  
   def apply(i : Int, j : Int) : Boolean = getDQ(i, j) != 0
 
@@ -180,12 +184,12 @@ class Disequalities(
     }).toSet
   }
 
-  def cascadeRemoveDQ(s : Int, t : Int) : Unit = {
+  def cascadeRemoveDQ(s : Int, t : Int) : Unit = Timer.measure("cascadeRemoveDQ") {
   // Timer.measure("cascadeRemove") {
     val todo = Queue() : Queue[(Int, Int)]
     val inQueue = Array.ofDim[Boolean](size, size)
 
-    def addTodo(newEq : (Int, Int), fun : Boolean) = {
+    def addTodo(newEq : (Int, Int), fun : Boolean) = Timer.measure("addTodo") {
       val (ss, tt) = newEq
       val s = ss min tt
       val t = ss max tt
@@ -238,7 +242,7 @@ class Disequalities(
       }
 
       // Find all s, s.t. s = lhs and add s = rhs
-      def transitivity(lhs : Int, rhs : Int) = {
+      def transitivity(lhs : Int, rhs : Int) = Timer.measure("transitivity") {
         for ((fun1, eq1) <- funRes getOrElse (lhs, List())) {
           val (_, args_i, _) = funEqs(eq1)
 
@@ -263,14 +267,14 @@ class Disequalities(
     }
   }
 
-  def minimise(goals : Seq[Seq[(Int, Int)]]) = {
+  def minimise(goals : Seq[Seq[(Int, Int)]], baseDI : Array[Array[Int]]) = {
     // Go through all disequalities
     // We try to remove disequalities one by one
     // TODO: make it smarter
     this.setBase
     val ineqs = getINEQ()
 
-    for ((s, t) <- ineqs) {
+    for ((s, t) <- ineqs; if (baseDI(s)(t) != 0)) {
       timeoutChecker()
       // println("Removing inequality: " + s + " ~= " + t)
       this.cascadeRemoveDQ(s, t)

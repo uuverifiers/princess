@@ -421,7 +421,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
 
   def createBaseDI(terms : Seq[Int], domains : Map[Int, Set[Int]], 
     functions : Seq[(Int, Seq[Int], Int)]) = {
-    val size = terms.max + 1
+    val size = if (terms.isEmpty) 0 else (terms.max + 1)
     val arr = Array.ofDim[Int](size, size)
       
     for (t <- terms) {
@@ -450,7 +450,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
 
   def createDQ(terms : Seq[Int], domains : Map[Int, Set[Int]], 
     functions : Seq[(Int, Seq[Int], Int)]) = {
-    val size = terms.max + 1
+    val size = if (terms.isEmpty) 0 else (terms.max + 1)
     val arr = Array.ofDim[Int](size, size)
       
     for (t <- terms) {
@@ -480,7 +480,6 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
 
       // val deq = util.disequalityCheck(c, newFunctions(p))
       // deq
-    println("CreatedDQ")
     DQ
   }
 
@@ -611,11 +610,12 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
 
       val baseDI = (for (p <- 0 until problemCount)
       yield {
-        val c = Array.ofDim[Int](newTerms.length, newTerms.length)
+        val size = if (newTerms.isEmpty) 0 else newTerms.max+1
+        val c = Array.ofDim[Int](size, size)
         for (t <- newTerms; tt <- newTerms)
           c(t)(tt) = arr(t)(tt)
 
-        arr
+        c
         // val deq = util.disequalityCheck(c, newFunctions(p))
         // deq-
       })
@@ -826,16 +826,16 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     val problem = json.decodeOption[CCUSimProblem].get
 
 
-    // for (p <- 0 until problem.size) {
-    //   val uf = util.CCunionFind(problem.terms, problem(p).funEqs, List())
-    //   val c = Array.ofDim[Int](problem.terms.length, problem.terms.length)
-    //   for (t <- problem.terms; tt <- problem.terms)
-    //     if (uf(t) == uf(tt)) {
-    //       c(t)(tt) = 1
-    //     } else
-    //       c(t)(tt) = 0
-    //   problem(p).baseDI = c
-    // }
+    for (p <- 0 until problem.size) {
+      val uf = util.CCunionFind(problem.terms, problem(p).funEqs, List())
+      val c = Array.ofDim[Int](problem.terms.length, problem.terms.length)
+      for (t <- problem.terms; tt <- problem.terms)
+        if (uf(t) == uf(tt)) {
+          c(t)(tt) = 1
+        } else
+          c(t)(tt) = 0
+      problem(p).baseDI = c
+    }
 
     new CCUInstance[Term, Fun](curId, this, problem, Map())
   }
