@@ -41,7 +41,7 @@ def makeRow(problem : String, maps : Seq[Map[String, (String, String)]]) = {
   output += "<tr>"
   output += "<td>" + problem + "</td>"
   for (map <- maps) {
-    val (result, time) = map getOrElse (problem, ("-", ""))
+    val (result, time) = map getOrElse (problem, ("", ""))
     val nresult = result match {
       case "OK" => "&#10004;"
       case "FAIL" => "&#10007;"
@@ -73,6 +73,8 @@ val problems =
 
 
 println("<html>")
+val format = new java.text.SimpleDateFormat("dd/MM-hh:mm")
+println(format.format(new java.util.Date()))
 println("<table border=1 align=center cellpadding=3 cellspacing=2>")
 println(makeInitRow(getLogFiles))
 for (p <- problems.sorted) {

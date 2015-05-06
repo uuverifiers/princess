@@ -29,7 +29,7 @@ for (line <- answers) {
 
 val files =
   for (file <- new File("problems/").listFiles) yield file.toString
-val cmd = "../princess -timeout=60000"
+val cmd = "../princess  +triggersInConjecture +genTotalityAxioms -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -resolutionMethod=nonUnifying -timeout=30000"
 
 def newLogNumber = {
   val f = new File("logs/")
@@ -62,9 +62,10 @@ def handleOutput(str : String,
   resMap : Map[String, String], 
   timeMap : Map[String, Int],
   writer : PrintWriter) = {
+  println(str)
   writer.println(str)
   writer.flush()
-  if ((str contains "Error") || (str contains "ERROR")) {
+  if ((str contains "Error") || (str contains "ERROR") || (str contains "GaveUp")) {
     resMap += (curFile -> "ERROR")
     timeMap += (curFile -> 0)
     done += 1
