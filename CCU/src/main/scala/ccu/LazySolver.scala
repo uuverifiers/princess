@@ -105,12 +105,17 @@ class LazySolver(timeoutChecker : () => Unit,
 
           for (s <- problem.terms; t <- problem.terms;
             if (s <= t); if (uf(s) == uf(t)))
-            DQ.cascadeRemoveDQ(s, t)
+            DQ.cascadeRemove(s, t)
+
+          def heuristic(dq : (Int, Int)) = {
+            val (s, t) = dq
+            domains(s).size
+          }
 
           // Now we minimize DI to only contain "relevant" inequalities
-          DQ.minimise(cp.goal.subGoals, cp.baseDI)
+          DQ.minimise(cp.goal.subGoals, cp.baseDQ, heuristic)
           val minDI = DQ.getINEQ()
-          val noBaseDQ = for ((s,t) <- DQ.getINEQ(); if cp.baseDI(s)(t) != 0) yield (s, t)
+          val noBaseDQ = for ((s,t) <- DQ.getINEQ(); if cp.baseDQ(s, t) != 1) yield (s, t)
 
           // The blocking clause states that one of the inequalities
           // in minDI must be false (i.e. equality must hold)

@@ -26,7 +26,8 @@ def newLogNumber = {
 
 val files =
   for (file <- new File("problems/").listFiles) yield file.toString
-val cmd = "../princess  +triggersInConjecture +genTotalityAxioms -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -resolutionMethod=nonUnifying -timeout=30000 " + files.mkString(" ")
+// val cmd = "../princess  +triggersInConjecture +genTotalityAxioms -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -resolutionMethod=nonUnifying -timeout=30000 " + files.mkString(" ")
+val cmd = "../princess -timeout=30000 " + files.mkString(" ")
 println("cmd: " + cmd)
 val lazycmd = cmd + " -CCU=lazy"
 val tablecmd = cmd + " -CCU=table"

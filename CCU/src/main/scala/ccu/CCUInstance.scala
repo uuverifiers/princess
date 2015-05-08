@@ -47,7 +47,7 @@ class CCUInstance[Term, Fun](
     // TODO: Does this work?
     (for (i <- termMap get s;
           j <- termMap get t)
-     yield (!problem(prob).DQ(i, j))) getOrElse (s != t)
+     yield (!problem(prob).baseDQ(i, j))) getOrElse (s != t)
 
   }
 

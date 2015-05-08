@@ -24,8 +24,8 @@ case class CCUSubProblem(
   val domains : Map[Int, Set[Int]],
   val funEqs : Seq[CCUEq],
   val goal : CCUGoal,
-  @transient var baseDI : Array[Array[Int]],
-  @transient val DQ : Disequalities) 
+  // @transient var DQ : Disequalities,
+  @transient val baseDQ : Disequalities) 
     extends Serializable {
 
   override def toString = {

@@ -56,7 +56,7 @@ class TableSolver(timeoutChecker : () => Unit,
 
     tmpTables(0) = Some(new Table(problem.bits, alloc, gt, solver,
       problem(0).terms, problem(0).domains,
-      problem(0).funEqs.map(_.eq), ZEROBIT, ONEBIT, problem(0).DQ,
+      problem(0).funEqs.map(_.eq), ZEROBIT, ONEBIT, problem(0).baseDQ,
       problem(0).goal.subGoals))
 
     for (t <- tmpTables; if t.isDefined) {
@@ -101,7 +101,7 @@ class TableSolver(timeoutChecker : () => Unit,
             tmpTables(p) = Some(new Table(problem.bits, alloc, gt, solver,
               problem(p).terms, problem(p).domains,
               problem(p).funEqs.map(_.eq), ZEROBIT, ONEBIT, 
-              problem(p).DQ, problem(p).goal.subGoals))
+              problem(p).baseDQ, problem(p).goal.subGoals))
 
             (tmpTables(p).get).addInitialColumn(assignments)
             (tmpTables(p).get).addDerivedColumn(timeoutChecker)

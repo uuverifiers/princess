@@ -48,8 +48,6 @@ class Disequalities(
     }
   }
 
-  def pos(i : Int, j : Int) = if (i < j) size*i + j else size*j + i
-
   def getDQ(i : Int, j : Int) = {
     val (x, y) = (i min j, i max j)
     DQmap getOrElse ((x, y), 0)
@@ -184,7 +182,7 @@ class Disequalities(
     }).toSet
   }
 
-  def cascadeRemoveDQ(s : Int, t : Int) : Unit = Timer.measure("cascadeRemoveDQ") {
+  def cascadeRemove(s : Int, t : Int) : Unit = Timer.measure("cascadeRemove") {
   // Timer.measure("cascadeRemove") {
     val todo = Queue() : Queue[(Int, Int)]
     val inQueue = Array.ofDim[Boolean](size, size)
@@ -267,17 +265,24 @@ class Disequalities(
     }
   }
 
-  def minimise(goals : Seq[Seq[(Int, Int)]], baseDI : Array[Array[Int]]) = {
+  def minimise(goals : Seq[Seq[(Int, Int)]], baseDI : Disequalities, 
+  heuristic : (((Int, Int)) => Int)) = {
     // Go through all disequalities
     // We try to remove disequalities one by one
     // TODO: make it smarter
     this.setBase
-    val ineqs = getINEQ()
+    val ineqs = 
+      (for ((s, t) <- getINEQ(); if (baseDI(s,t) != 0))
+      yield ((s, t)))
+    // val ineqsSort = ineqs.sortBy(x => heuristic(x))
 
-    for ((s, t) <- ineqs; if (baseDI(s)(t) != 0)) {
+    // println("INEQS: " + ineqs)
+    // println("INEQS_SORTED: " + ineqsSort)
+
+    for ((s, t) <- ineqs) {
       timeoutChecker()
       // println("Removing inequality: " + s + " ~= " + t)
-      this.cascadeRemoveDQ(s, t)
+      this.cascadeRemove(s, t)
 
       val sat = this.satisfies(goals)
       if (!sat) {
