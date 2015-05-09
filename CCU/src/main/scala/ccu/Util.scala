@@ -274,12 +274,14 @@ class Disequalities(
     val ineqs = 
       (for ((s, t) <- getINEQ(); if (baseDI(s,t) != 0))
       yield ((s, t)))
-    // val ineqsSort = ineqs.sortBy(x => heuristic(x))
+    val ineqsSort = ineqs.sortBy(x => heuristic(x)).reverse
 
-    // println("INEQS: " + ineqs)
-    // println("INEQS_SORTED: " + ineqsSort)
+    // if (ineqs != ineqsSort) {
+    //   println("INEQS: " + ineqs)
+    //   println("INEQS_SORTED: " + ineqsSort)
+    // }
 
-    for ((s, t) <- ineqs) {
+    for ((s, t) <- ineqsSort) {
       timeoutChecker()
       // println("Removing inequality: " + s + " ~= " + t)
       this.cascadeRemove(s, t)
