@@ -1,10 +1,15 @@
 #!/bin/sh
 
+<<<<<<< .mine
+./rundir nia "" -logo +assert -timeout=5000 -clausifier=none +posUnitResolution
+
+=======
 ./rundir ccu "" -logo +assert -multiStrategy -CCU=table -timeout=30000
 ./rundir ccu "" -logo +assert -multiStrategy -CCU=lazy -timeout=30000
 
 ./rundir nia "" -logo +assert -timeout=5000 -clausifier=none +posUnitResolution
 
+>>>>>>> .r2272
 ./rundir api ""
 
 ./rundir smtlib-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution

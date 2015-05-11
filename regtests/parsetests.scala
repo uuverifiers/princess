@@ -26,19 +26,23 @@ for (line <- answerFile) {
   answers += split(0) -> split(1)
 }
 
-def isCorrect(problem : String, answer : String) = {
-  if (answers contains problem) {
-    answers(problem) == answer
+def isCorrect(problem : String, answer : String) : String = {
+    if (answer == "Timeout" || answer == "TIMEOUT") {
+       "t/o"
+    } else if (answer == "ERROR" || answer == "Error") {
+      "err"
+    } else if (answers contains problem) {
+       if (answers(problem) == answer)	 
+       	  ""
+       else
+          "wrong"
   } else {
     answers += problem -> answer
-    if (answer != "Timeout" && answer != "TIMEOUT") {
-      println("UPDATING ANSWER!")
       val fout = "regtests.out"
       val fw = new FileWriter(fout, true)
       fw.write(problem + "\t" + answer + "\n")
       fw.close()
-    }
-    true
+    ""
   }
 }
 
@@ -47,10 +51,6 @@ def isCorrect(problem : String, answer : String) = {
 //
 
 val (tableLogs, lazyLogs) = logFiles
-println("Parsing: ")
-println("\tTable: " + tableLogs.mkString(", "))
-println("\tLazy: " + lazyLogs.mkString(", "))
-
 
 val lazyResults = Map() : Map[String, String]
 val lazyTimes = Map() : Map[String, Int]
@@ -78,6 +78,10 @@ def handleFile(filename : String) = {
       curResult = "ERROR"
       curTime = "n/a"
       done = true
+    } else if ((str contains "timeout")) {
+      curResult = "Timeout"
+      curTime = "n/a"
+      done = true
     } else if (str contains "SZS") {
       val split = str.split(" ")
       curResult = split(3)
@@ -87,10 +91,23 @@ def handleFile(filename : String) = {
     }
 
     if (done) {
+       if (curResult == "") {
+              println("UNDEFINED RESULT AT: " + curFile)
+	      curResult == "UNKOWNW"
+      }
+      if (curTime == "") {
+              println("UNDEFINED TIME AT: " + curFile)
+	      curResult == "UNKOWNW"	
+	      }
       val correct = isCorrect(curFile, curResult)
-      results += curFile -> ((curResult, curTime, correct))
+      if (correct == "")
+            results += curFile -> ((curResult, curTime, true))
+      else       
+            results += curFile -> ((curResult, correct, false))      
       done = false
       curFile = ""
+      curResult = ""
+      curTime = ""
     }
   }
 
@@ -128,7 +145,7 @@ def makeRow(problem : String, maps : Seq[Map[String, (String, String, Boolean)]]
       "&#10004;"
     else
       "&#10007;"
-    output += "<td>" + p + " " + time + "</td>"
+    output += "<td>" + p + " (" + time + ")</td>"
   }
 
   output += "</tr>"
@@ -146,7 +163,6 @@ val problems =
   for (file <- new File("problems/").listFiles) 
   yield (file.toString.split("/")(1)).split('.')(0)
 
-
 println("<html>")
 val format = new java.text.SimpleDateFormat("dd/MM-hh:mm")
 println(format.format(new java.util.Date()))
@@ -157,7 +173,22 @@ for (p <- problems.sorted) {
   println(makeRow(p, maps.map(_._2)))
 }
 println("</table>")
+
+// Calculate tests done!
+
+val lastTable = files(0)
+val lastLazy = files(1)
+val tableDone : String = "./testsleft.sh logs/" + lastTable !!
+val lazyDone : String = "./testsleft.sh logs/" + lastLazy !!
+val allProblems = problems.length
+
+println("Table: " + tableDone.trim + "/" + allProblems + " (" + ( "%.0f" format (tableDone.trim.toInt / allProblems.toDouble)*100) + "%)")
+println("Lazy: " + lazyDone.trim + "/" + allProblems + " (" + ( "%.0f" format (lazyDone.trim.toInt / allProblems.toDouble)*100) + "%)")
+
+
 println("</html>")
+
+
 
 
 
