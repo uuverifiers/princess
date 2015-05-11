@@ -33,6 +33,14 @@ case class CCUSubProblem(
      // str += baseDI.map(x => x.mkString(" - ")).mkString("\n")
     str
   }
+
+  def solvable = {
+    // subgoalsat(0) = true of subgoal(0) is solvable
+    val subgoalsat = for (subgoal <- goal.subGoals) yield
+      (for ((s, t) <- subgoal) yield baseDQ(s, t)).foldRight(true)(_ && _)
+
+    subgoalsat.foldRight(false)(_ || _)
+  }
 }
 
 @SerialVersionUID(15L)
@@ -65,4 +73,6 @@ case class CCUSimProblem(
   }
 
   def apply(i : Int) = subProblems(i)
+
+  def solvable = subProblems.map(_.solvable).foldRight(true)(_ && _)
 }

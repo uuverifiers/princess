@@ -11,11 +11,6 @@ class CCUInstance[Term, Fun](
   val problem : CCUSimProblem,
   termMap : Map[Term, Int]) {
 
-  // var origTerms = List() : Seq[Term]
-  // var origDomains = Map() : Map[Term, Set[Term]]
-  // var origFunctions = List() : Seq[Seq[(Fun, Seq[Term], Term)]]
-  // var origGoals = List() : Seq[Seq[Seq[(Term, Term)]]]
-
   var model = None : Option[Map[Term, Term]]
 
 
@@ -26,12 +21,17 @@ class CCUInstance[Term, Fun](
 
   def solve : Result.Result = {
     confirmActive
+
     val retval = 
-      try {
-        solver.solve(problem, true)
-      } catch {
-        case to : org.sat4j.specs.TimeoutException => {
-          ccu.Result.UNKNOWN
+      if (problem.solvable == false) {
+        ccu.Result.UNSAT
+      } else {
+        try {
+          solver.solve(problem, true)
+        } catch {
+          case to : org.sat4j.specs.TimeoutException => {
+            ccu.Result.UNKNOWN
+          }
         }
       }
     retval
@@ -63,9 +63,6 @@ class CCUInstance[Term, Fun](
       }
     core
   }
-
-  def print = println("SOMETHING SHOULD BE PRINTED")
-     // solver.problem.print
 
   // TODO: fix previous solution fix
   def checkPreviousSolution = {
