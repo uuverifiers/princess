@@ -86,7 +86,6 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
             println("Model: " + model)
             throw new Exception("False SAT")
           } else {
-            println("SAT asserted")
             ccu.Result.SAT
           }
         }
