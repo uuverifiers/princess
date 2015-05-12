@@ -76,7 +76,13 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
   def statistics = S.toString
 
   def solve(problem : CCUSimProblem, asserted : Boolean) = {
-    val result = solveaux(problem)
+
+    val result =
+      if (problem.solvable == false) {
+        (ccu.Result.UNSAT, None)
+      } else {
+        solveaux(problem)
+      }
 
     if (asserted) {
       result match {

@@ -23,15 +23,11 @@ class CCUInstance[Term, Fun](
     confirmActive
 
     val retval = 
-      if (problem.solvable == false) {
-        ccu.Result.UNSAT
-      } else {
-        try {
-          solver.solve(problem, true)
-        } catch {
-          case to : org.sat4j.specs.TimeoutException => {
-            ccu.Result.UNKNOWN
-          }
+      try {
+        solver.solve(problem, true)
+      } catch {
+        case to : org.sat4j.specs.TimeoutException => {
+          ccu.Result.UNKNOWN
         }
       }
     retval
