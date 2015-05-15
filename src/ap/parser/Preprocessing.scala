@@ -124,7 +124,8 @@ object Preprocessing {
                 f2 <- LineariseVisitor(Transform2NNF(f), IBinJunctor.Or).iterator)
            yield (INamedPart(n, f2))).toArray
   
-        val coll = new TotalFunctionCollector(functionEncoder.predTranslation)
+        val coll = new TotalFunctionCollector(functionEncoder.predTranslation,
+                                              signature.domainPredicates)
   
         val impliedTotalFunctions =
           for (d@INamedPart(n, f) <- disjuncts) yield
@@ -162,6 +163,9 @@ object Preprocessing {
         for (f <- fors2a)
           triggerGenerator setup f
 
+        val triggerInjector =
+          new EmptyTriggerInjector(signature.domainPredicates)
+
         val newDisjuncts =
           for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
 //println(functionOccurrences.toList)
@@ -177,7 +181,7 @@ object Preprocessing {
               } else {
                 // cannot introduce triggers on top-level, since this disjunct
                 // is needed to demonstrate totality of some function
-                triggerGenerator(EmptyTriggerInjector(disjunct))
+                triggerGenerator(triggerInjector(disjunct))
               }
  
 //println(res)
@@ -329,7 +333,8 @@ import ap.terfor.conjunctions.Quantifier
  * quantified formula.
  */
 private class TotalFunctionCollector(
-        predTranslation : scala.collection.Map[IExpression.Predicate, IFunction])
+        predTranslation : scala.collection.Map[IExpression.Predicate, IFunction],
+        domainPredicates : Set[IExpression.Predicate])
               extends ContextAwareVisitor[Unit, Unit] {
 
   private val collectedFunctions = new MHashSet[IFunction]
@@ -345,6 +350,9 @@ private class TotalFunctionCollector(
                         ctxt : Context[Unit]) : PreVisitResult = t match {
     case _ : IQuantified | _ : INot =>
       super.preVisit(t, ctxt)
+    case IBinFormula(IBinJunctor.And, IAtom(dp, _), _)
+      if (ctxt.polarity > 0 && (domainPredicates contains dp)) =>
+        super.preVisit(t, ctxt)
     case IBinFormula(IBinJunctor.And, _, _)
       if (ctxt.polarity < 0) =>
         super.preVisit(t, ctxt)
@@ -384,7 +392,7 @@ private class TotalFunctionCollector(
  * Visitor to add an empty trigger set for every top-level existential
  * quantifier. This assumes that the given formula is in NNF.
  */
-private object EmptyTriggerInjector
+private class EmptyTriggerInjector(domainPredicates : Set[IExpression.Predicate])
         extends CollectingVisitor[Boolean, IExpression] {
 
   def apply(f : IFormula) : IFormula =
@@ -394,6 +402,9 @@ private object EmptyTriggerInjector
                         underEx : Boolean) : PreVisitResult = t match {
     case IQuantified(Quantifier.EX, _) =>
       UniSubArgs(true)
+    case IBinFormula(IBinJunctor.And, IAtom(dp, _), _)
+      if (domainPredicates contains dp) =>
+        UniSubArgs(false)
     case _ : IQuantified |
          IBinFormula(IBinJunctor.Or, _, _) |
          _ : ITrigger =>
