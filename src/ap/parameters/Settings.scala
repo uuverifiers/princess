@@ -125,6 +125,9 @@ object GlobalSettings {
         case ValueOpt("generateTriggers", "all") =>
           Param.TRIGGER_GENERATION.set(settings,
                                        Param.TriggerGenerationOptions.All)
+        case ValueOpt("generateTriggers", "completenessPreserving") =>
+          Param.TRIGGER_GENERATION.set(settings,
+                   Param.TriggerGenerationOptions.CompletenessPreserving)
         case ValueOpt("functionGC", "none") =>
           Param.FUNCTION_GC.set(settings, Param.FunctionGCOptions.None)
         case ValueOpt("functionGC", "total") =>
@@ -229,8 +232,8 @@ object ParserSettings {
 object PreprocessingSettings {
 
   val allParams = List(Param.CLAUSIFIER,
-                       Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS,
                        Param.TIGHT_FUNCTION_SCOPES, Param.TRIGGER_STRATEGY,
+                       Param.TRIGGER_GENERATION,
                        Param.GENERATE_TOTALITY_AXIOMS)
 
   val DEFAULT =
