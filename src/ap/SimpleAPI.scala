@@ -459,8 +459,10 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   private val basicPreprocSettings =
+    Param.TRIGGER_GENERATION.set(
     Param.TIGHT_FUNCTION_SCOPES.set(PreprocessingSettings.DEFAULT,
-                                    tightFunctionScopes)
+                                    tightFunctionScopes),
+                                 Param.TriggerGenerationOptions.All)
 
   private def closeAllScopes = {
     for (_ <- 0 until storedStates.size)
@@ -3078,7 +3080,8 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   // TODO: correct setting even if Theories are used?
-  private def preprocSettings =
+  private def preprocSettings = basicPreprocSettings
+/*
     Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
             basicPreprocSettings,
             (for (f <- functionEnc.relations.keysIterator;
@@ -3087,6 +3090,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         case None => true
                       }))
              yield f).toSet)
+*/
 
   private def exhaustiveProverGoalSettings = {
     var gs = goalSettings

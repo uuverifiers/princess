@@ -58,24 +58,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   protected def println(str : => String) : Unit = (if (output) Predef.println(str))
   
-  private def determineTriggerGenFunctions[CT,VT,PT,FT]
-                                          (settings : GlobalSettings,
-                                           env : Environment[CT,VT,PT,FT],
-                                           signature : Signature)
-                                          : Set[IFunction] =
-    Param.TRIGGER_GENERATION(settings) match {
-      case Param.TriggerGenerationOptions.None => Set()
-      case Param.TriggerGenerationOptions.All =>
-        env.nonNullaryFunctions ++ (
-          for (t <- signature.theories.iterator;
-               f <- t.triggerRelevantFunctions.iterator) yield f)
-      case Param.TriggerGenerationOptions.Total =>
-        ((for (f <- env.nonNullaryFunctions.iterator;
-               if (!f.partial && !f.relational)) yield f) ++ (
-          for (t <- signature.theories.iterator;
-               f <- t.triggerRelevantFunctions.iterator) yield f)).toSet
-    }
-  
   private def newParser = Param.INPUT_FORMAT(preSettings) match {
     case Param.InputFormat.Princess => ApParser2InputAbsy(preSettings.toParserSettings)
     case Param.InputFormat.SMTLIB => SMTParser2InputAbsy(preSettings.toParserSettings)
@@ -137,13 +119,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         preSignature2
     }
     
-    val preprocSettings = {
-      var ps = settings.toPreprocessingSettings
-      ps = Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(ps,
-             determineTriggerGenFunctions(settings, parser.env, signature))
-      ps = Param.DOMAIN_PREDICATES.set(ps, signature.domainPredicates)
-      ps
-    }
+    val preprocSettings =
+      Param.DOMAIN_PREDICATES.set(settings.toPreprocessingSettings,
+                                  signature.domainPredicates)
     
     Console.withOut(Console.err) {
       println("Preprocessing ...")
@@ -307,7 +285,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     (formulas exists (_.isTrue)) ||
     (Seqs.disjoint(formulaConstants, signature.existentialConstants) &&
      (if (Param.POS_UNIT_RESOLUTION(goalSettings))
-       formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
+        formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
       else
         (formulaQuantifiers subsetOf Set(Quantifier.ALL))))
   }
@@ -354,8 +332,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected lazy val soundForSat =
     !ignoredQuantifiers &&
     theoriesAreSatComplete &&
-    (Param.GENERATE_TOTALITY_AXIOMS(settings) == Param.TotalityAxiomOptions.All ||
-     !matchedTotalFunctions ||
+    (!matchedTotalFunctions ||
+     Param.GENERATE_TOTALITY_AXIOMS(settings) == Param.TotalityAxiomOptions.All ||
+// not quite clear yet how this trigger strategy should be integrated
+//     Param.TRIGGER_GENERATION(settings) ==
+//       Param.TriggerGenerationOptions.CompletenessPreserving ||
      allFunctionsArePartial)
 
   //////////////////////////////////////////////////////////////////////////////

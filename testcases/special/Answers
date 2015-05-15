@@ -78,3 +78,19 @@ Under the most-general constraint:
 Concrete witness:
 MinNum = 10
 
+Loading GEO212+3-complete.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
+Preprocessing ...
+Warning: ignoring some quantifiers
+Constructing countermodel ...
+
+UNKNOWN
+
+Possible countermodel:
+not_orthogonal_lines(1, 0) & unorthogonal_lines(0, 0) & convergent_lines(0, 1) & !not_orthogonal_lines(0, 0) & !convergent_lines(1, 0)
+

@@ -27,6 +27,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
+import ap.terfor.substitutions.VariableShiftSubst
 import ap.Signature.{PredicateMatchStatus, PredicateMatchConfig}
 import ap.util.{Debug, FilterIt, Seqs, UnionSet, Timeout}
 import ap.PresburgerTools
@@ -465,7 +466,10 @@ object IterativeClauseMatcher {
       (for (// Seq((IdealInt.ONE, VariableTerm(ind)), _*) <- quantVarEqs.iterator;
             lc <- quantVarEqs.iterator;
             if (!lc.isEmpty && lc.leadingCoeff.isOne &&
-                lc.leadingTerm.isInstanceOf[VariableTerm]))
+                (lc.leadingTerm match {
+                   case VariableTerm(ind) => ind <= maxVarIndex
+                   case _ => false
+                 })))
        yield lc.leadingTerm.asInstanceOf[VariableTerm].index).toSet
     }
   
@@ -513,14 +517,6 @@ object IterativeClauseMatcher {
       val newQuans = c.quans.toArray
       var changed = !(newNegConjs eq c.negatedConjs)
 
-      def newC =
-        if (changed)
-          Conjunction.createFromNormalised(newQuans,
-                                           c.arithConj, c.predConj, newNegConjs,
-                                           c.order)
-        else
-          c
-
       val firstExQuantifier = (newQuans indexOf EX) match {
         case -1 => newQuans.size
         case x => x
@@ -536,15 +532,41 @@ object IterativeClauseMatcher {
       }
 
       val matchedVariables = determineMatchedVariables(c, negated, config)
-      var contained = true
-      for (i <- 0 until firstExQuantifier) {
-        contained = contained && (matchedVariables contains i)
-        if (!contained) {
-          newQuans(i) = EX
-          changed = true
-        }
+
+      val (matched, unmatched) =
+        (0 until firstExQuantifier) partition matchedVariables
+
+      if (unmatched.isEmpty) {
+        if (changed)
+          Conjunction.createFromNormalised(newQuans,
+                                           c.arithConj, c.predConj, newNegConjs,
+                                           c.order)
+        else
+          c
+      } else {
+        // reorder variables
+        var nextMatchedIndex = 0
+        var nextUnmatchedIndex = matched.size
+
+        val shifts =
+          for (i <- 0 until firstExQuantifier) yield
+            if (matchedVariables contains i) {
+              newQuans(nextMatchedIndex) = ALL
+              nextMatchedIndex = nextMatchedIndex + 1
+              nextMatchedIndex - 1 - i
+            } else {
+              newQuans(nextUnmatchedIndex) = EX
+              nextUnmatchedIndex = nextUnmatchedIndex + 1
+              nextUnmatchedIndex - 1 - i
+            }
+
+        val subst = VariableShiftSubst(shifts, 0, c.order)
+        Conjunction(newQuans,
+                    subst(c.arithConj),
+                    subst(c.predConj),
+                    subst(newNegConjs),
+                    c.order)
       }
-      newC
     }
   }
 
