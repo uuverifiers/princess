@@ -84,6 +84,8 @@ object Preprocessing {
     ////////////////////////////////////////////////////////////////////////////
     // Handling of triggers
 
+    var order3 = signature.order
+
     val theoryTriggerFunctions =
       (for (t <- signature.theories.iterator;
             f <- t.triggerRelevantFunctions.iterator) yield f).toSet
@@ -103,11 +105,14 @@ object Preprocessing {
   
         val impliedTotalFunctions =
           for (d@INamedPart(n, f) <- disjuncts) yield
-            if (f.isInstanceOf[IQuantified])
+            if (f.isInstanceOf[IQuantified]) {
               // translation without triggers
-              (d, coll(functionEncoder(f, signature.order)._1) & problemFunctions)
-            else
+              val (g, o) = functionEncoder(f, order3)
+              order3 = o
+              (d, coll(g) & problemFunctions)
+            } else {
               (d, Set())
+            }
   
         val functionOccurrences = new MHashMap[IFunction, Int]
         for ((_, s) <- impliedTotalFunctions.iterator; f <- s.iterator)
@@ -181,7 +186,6 @@ object Preprocessing {
     }
 
     // translate functions to relations
-    var order3 = signature.order
     val fors3 = for (INamedPart(n, f) <- fors2c) yield INamedPart(n, {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
