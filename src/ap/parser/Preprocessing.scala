@@ -85,6 +85,11 @@ object Preprocessing {
     // Handling of triggers
 
     var order3 = signature.order
+    def encodeFunctions(f : IFormula) : IFormula = {
+      val (g, o) = functionEncoder(f, order3)
+      order3 = o
+      g
+    }
 
     val theoryTriggerFunctions =
       (for (t <- signature.theories.iterator;
@@ -94,7 +99,7 @@ object Preprocessing {
            if (!(TheoryRegistry lookupSymbol f).isDefined))
       yield f
 
-    val fors2c = Param.TRIGGER_GENERATION(settings) match {
+    val fors3 = Param.TRIGGER_GENERATION(settings) match {
       case Param.TriggerGenerationOptions.CompletenessPreserving => {
         val disjuncts =
           (for (INamedPart(n, f) <- fors2a.iterator;
@@ -105,14 +110,11 @@ object Preprocessing {
   
         val impliedTotalFunctions =
           for (d@INamedPart(n, f) <- disjuncts) yield
-            if (f.isInstanceOf[IQuantified]) {
+            if (f.isInstanceOf[IQuantified])
               // translation without triggers
-              val (g, o) = functionEncoder(f, order3)
-              order3 = o
-              (d, coll(g) & problemFunctions)
-            } else {
+              (d, coll(encodeFunctions(f)) & problemFunctions)
+            else
               (d, Set())
-            }
   
         val functionOccurrences = new MHashMap[IFunction, Int]
         for ((_, s) <- impliedTotalFunctions.iterator; f <- s.iterator)
@@ -140,24 +142,34 @@ object Preprocessing {
 
         val newDisjuncts =
           for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
-//println(functionOccurrences.toList)
-//println((INamedPart(n, disjunct), funs))
-            val res =
+            val withTriggers =
               if (!disjunct.isInstanceOf[IQuantified] ||
                   !(funs exists { f => functionOccurrences(f) == 1 })) {
                 // can generate triggers for all functions that were identified
                 // as total
-                for (f <- funs)
-                  functionOccurrences.put(f, functionOccurrences(f) - 1)
                 triggerGenerator(disjunct)
               } else {
                 // cannot introduce triggers on top-level, since this disjunct
                 // is needed to demonstrate totality of some function
                 triggerGenerator(EmptyTriggerInjector(disjunct))
               }
- 
-//println(res)
-            INamedPart(n, res)
+
+            val encoded = encodeFunctions(withTriggers)
+            for (f <- funs)
+              functionOccurrences.put(f, functionOccurrences(f) - 1)
+            for (f <- coll(encoded))
+              if (problemFunctions contains f)
+                functionOccurrences.put(f, functionOccurrences(f) + 1)
+
+/*
+println(functionOccurrences.toList)
+println((INamedPart(n, disjunct), funs))
+println(withTriggers)
+println(encoded)
+println
+*/
+
+            INamedPart(n, encoded)
           }
   
         PartExtractor(IExpression.or(newDisjuncts))
@@ -181,18 +193,16 @@ object Preprocessing {
         for (f <- fors2a)
           triggerGenerator setup f
 
-        for (f <- fors2a) yield triggerGenerator(f)
+        val withTriggers = for (f <- fors2a) yield triggerGenerator(f)
+
+        for (INamedPart(n, f) <- withTriggers)
+        yield INamedPart(n, encodeFunctions(f))
       }
     }
 
-    // translate functions to relations
-    val fors3 = for (INamedPart(n, f) <- fors2c) yield INamedPart(n, {
-      val (g, o) = functionEncoder(f, order3)
-      order3 = o
-      g
-    })
-    
-    // add the function axioms
+    ////////////////////////////////////////////////////////////////////////////
+    // Add the function axioms
+
     val fors4 = functionEncoder.axioms match {
       case IBoolLit(true) => fors3
       case x => {
