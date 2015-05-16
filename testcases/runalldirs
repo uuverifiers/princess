@@ -17,14 +17,17 @@
 ./rundir allSettings "4" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
 ./rundir allSettings "5" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
 ./rundir allSettings "6" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
-./rundir allSettings "7" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=completenessPreserving -genTotalityAxioms
+./rundir allSettings "7" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=complete -genTotalityAxioms
+./rundir allSettings "7" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=completeFrugal -genTotalityAxioms
 
 ./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
 ./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
 ./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=all
 ./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=all
-./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=completenessPreserving -genTotalityAxioms
-./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=completenessPreserving -genTotalityAxioms
+./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=complete -genTotalityAxioms
+./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=complete -genTotalityAxioms
+./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
+./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
 
 ./rundir onlyClausification "" -logo +assert -timeout=60000 -clausifier=simple +posUnitResolution -generateTriggers=none
 

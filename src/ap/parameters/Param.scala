@@ -133,7 +133,10 @@ object Param {
   }
 
   object TriggerGenerationOptions extends Enumeration {
-    val None, Total, All, CompletenessPreserving = Value
+    val None, Total, All,
+        // Modes that generate triggers in such a way that a
+        // complete FOL prover is obtained
+        Complete, CompleteFrugal = Value
   }
   case object TRIGGER_GENERATION extends Param {
     type Value = TriggerGenerationOptions.Value

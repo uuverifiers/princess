@@ -94,13 +94,34 @@ object Preprocessing {
     val theoryTriggerFunctions =
       (for (t <- signature.theories.iterator;
             f <- t.triggerRelevantFunctions.iterator) yield f).toSet
+    // all uninterpreted functions occurring in the problem
     val problemFunctions =
       for (f <- FunctionCollector(fors2a);
            if (!(TheoryRegistry lookupSymbol f).isDefined))
       yield f
 
+    lazy val allTriggeredFunctions = Param.TRIGGER_GENERATION(settings) match {
+      case Param.TriggerGenerationOptions.None =>
+        theoryTriggerFunctions
+      case Param.TriggerGenerationOptions.Total =>
+        theoryTriggerFunctions ++
+        (for (g <- problemFunctions.iterator;
+              if (!g.partial && !g.relational)) yield g)
+      case _ =>
+        theoryTriggerFunctions ++ problemFunctions
+    }
+    lazy val stdTriggerGenerator = {
+      val gen = new TriggerGenerator (allTriggeredFunctions,
+                                      Param.TRIGGER_STRATEGY(settings))
+      for (f <- fors2a)
+        gen setup f
+      gen
+    }
+
     val fors3 = Param.TRIGGER_GENERATION(settings) match {
-      case Param.TriggerGenerationOptions.CompletenessPreserving => {
+      case Param.TriggerGenerationOptions.Complete |
+           Param.TriggerGenerationOptions.CompleteFrugal => {
+
         val disjuncts =
           (for (INamedPart(n, f) <- fors2a.iterator;
                 f2 <- LineariseVisitor(Transform2NNF(f), IBinJunctor.Or).iterator)
@@ -114,11 +135,20 @@ object Preprocessing {
               // translation without triggers
               (d, coll(encodeFunctions(f)) & problemFunctions)
             else
-              (d, Set())
+              (d, Set[IFunction]())
   
         val functionOccurrences = new MHashMap[IFunction, Int]
         for ((_, s) <- impliedTotalFunctions.iterator; f <- s.iterator)
           functionOccurrences.put(f, functionOccurrences.getOrElse(f, 0) + 1)
+
+        def updateFunctionOccurrences(oldFuns : Set[IFunction],
+                                      newDisjunct : IFormula) = {
+          for (f <- oldFuns)
+            functionOccurrences.put(f, functionOccurrences(f) - 1)
+          for (f <- coll(newDisjunct))
+            if (problemFunctions contains f)
+              functionOccurrences.put(f, functionOccurrences(f) + 1)
+        }
 
         // add the functions for which explicit totality axioms will be created
         if (Param.GENERATE_TOTALITY_AXIOMS(settings))
@@ -126,7 +156,7 @@ object Preprocessing {
             if (!f.partial)
               functionOccurrences.put(f, functionOccurrences.getOrElse(f, 0) + 1)
 
-        val triggeredFunctions =
+        val totalFunctions =
           theoryTriggerFunctions ++
           (for (f <- problemFunctions.iterator;
                 if ((functionOccurrences get f) match {
@@ -134,32 +164,64 @@ object Preprocessing {
                       case None => false
                     }))
            yield f)
-        val triggerGenerator =
-          new TriggerGenerator (triggeredFunctions,
-                                Param.TRIGGER_STRATEGY(settings))
-        for (f <- fors2a)
-          triggerGenerator setup f
 
-        val newDisjuncts =
-          for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
-            val withTriggers =
-              if (!disjunct.isInstanceOf[IQuantified] ||
-                  !(funs exists { f => functionOccurrences(f) == 1 })) {
-                // can generate triggers for all functions that were identified
-                // as total
-                triggerGenerator(disjunct)
-              } else {
-                // cannot introduce triggers on top-level, since this disjunct
-                // is needed to demonstrate totality of some function
-                triggerGenerator(EmptyTriggerInjector(disjunct))
-              }
+        val newDisjuncts = Param.TRIGGER_GENERATION(settings) match {
+          case Param.TriggerGenerationOptions.Complete => {
+            val triggeredNonTotal = allTriggeredFunctions -- totalFunctions
 
-            val encoded = encodeFunctions(withTriggers)
-            for (f <- funs)
-              functionOccurrences.put(f, functionOccurrences(f) - 1)
-            for (f <- coll(encoded))
-              if (problemFunctions contains f)
-                functionOccurrences.put(f, functionOccurrences(f) + 1)
+            for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
+              val withTriggers =
+                if (!disjunct.isInstanceOf[IQuantified] ||
+                    (!ContainsSymbol(disjunct, (f:IExpression) => f match {
+                        case IFunApp(f, _) => triggeredNonTotal contains f
+                        case _ => false
+                      }) &&
+                     !(funs exists { f => functionOccurrences(f) == 1 }))) {
+                  // can generate triggers for all functions that were identified
+                  // as total
+                  stdTriggerGenerator(disjunct)
+                } else {
+                  // add a version of this formula without triggers
+                  stdTriggerGenerator(disjunct) | disjunct
+                }
+
+/*
+println(functionOccurrences.toList)
+println((INamedPart(n, disjunct), funs))
+println(withTriggers)
+println
+*/
+
+              val encoded = encodeFunctions(withTriggers)
+              updateFunctionOccurrences(funs, encoded)
+
+              INamedPart(n, encoded)
+            }
+          }
+
+          case Param.TriggerGenerationOptions.CompleteFrugal => {
+            // only use total functions in triggers
+            val triggerGenerator =
+              new TriggerGenerator (totalFunctions,
+                                    Param.TRIGGER_STRATEGY(settings))
+            for (f <- fors2a)
+              triggerGenerator setup f
+
+            for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
+              val withTriggers =
+                if (!disjunct.isInstanceOf[IQuantified] ||
+                    !(funs exists { f => functionOccurrences(f) == 1 })) {
+                  // can generate triggers for all functions that were identified
+                  // as total
+                  triggerGenerator(disjunct)
+                } else {
+                  // cannot introduce triggers on top-level, since this disjunct
+                  // is needed to demonstrate totality of some function
+                  triggerGenerator(EmptyTriggerInjector(disjunct))
+                }
+
+              val encoded = encodeFunctions(withTriggers)
+              updateFunctionOccurrences(funs, encoded)
 
 /*
 println(functionOccurrences.toList)
@@ -169,31 +231,16 @@ println(encoded)
 println
 */
 
-            INamedPart(n, encoded)
+              INamedPart(n, encoded)
+            }
           }
-  
+        }
+
         PartExtractor(IExpression.or(newDisjuncts))
       }
 
-      case gen => {
-        val triggeredFunctions = gen match {
-          case Param.TriggerGenerationOptions.None =>
-            theoryTriggerFunctions
-          case Param.TriggerGenerationOptions.All =>
-            theoryTriggerFunctions ++ problemFunctions
-          case Param.TriggerGenerationOptions.Total =>
-            theoryTriggerFunctions ++
-            (for (g <- problemFunctions.iterator;
-                  if (!g.partial && !g.relational)) yield g)
-        }
-
-        val triggerGenerator =
-          new TriggerGenerator (triggeredFunctions,
-                                Param.TRIGGER_STRATEGY(settings))
-        for (f <- fors2a)
-          triggerGenerator setup f
-
-        val withTriggers = for (f <- fors2a) yield triggerGenerator(f)
+      case _ => {
+        val withTriggers = for (f <- fors2a) yield stdTriggerGenerator(f)
 
         for (INamedPart(n, f) <- withTriggers)
         yield INamedPart(n, encodeFunctions(f))
