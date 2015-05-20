@@ -309,7 +309,7 @@ Found proof (size 65), simplifying (108), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; \forall int v1; (-1*h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
+\forall int v0; \forall int v1; (v1 - v0 >= 1 | -1 >= v1 | v0 - n >= 1 | -1*h'(f(v1)) + h'(f(v0)) >= 0)
 \exists int v0; \exists int v1; (h'(f(v1)) + -1*h'(f(v0)) >= 1 & n >= v0 & v0 >= v1 & v1 >= 0)
 
 Loading quan.pri ...
@@ -466,7 +466,7 @@ Found proof (size 34), simplifying (93), interpolating ...
 VALID
 
 Interpolants:
-value(c) >= 42 & -1*value(right(left(a))) + value(right(a)) >= 34
+value(c) = 42 & right(a) = c & -1*value(right(left(a))) >= -8
 
 Loading axiom-instantiation-bug.pri ...
 Preprocessing ...
@@ -488,7 +488,7 @@ Found proof (size 32), simplifying (39), interpolating ...
 VALID
 
 Interpolants:
-x = 1
+!(x * 3 = 2)
 !(y = 3)
 
 Loading function-bug.smt2 ...
@@ -546,6 +546,7 @@ unsat
 Loading simplifier.smt2 ...
 Warning: treating sort Real as Int
 unsat
+Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
 (true
 true
 (= main_~a~4.offset_2 0 ) 
@@ -553,16 +554,17 @@ true
 (and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
 (and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
 (and (= main_~p~4.base_3 main_~a~4.base_2 ) (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) (and (and (= main_~p~4.offset_3 0 ) (= main_~a~4.offset_2 0 ) ) (not (= (select (select |#memory_int_6| main_~a~4.base_2 ) 0 ) 1 ) ) ) ) ) 
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) (and (= main_~p~4.offset_7 0 ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) 0 ) 1 ) ) ) ) 
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) (and (= main_~p~4.offset_7 0 ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) 0 ) 1 ) ) ) ) 
+(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) main_~p~4.offset_7 ) 1 ) ) ) 
+(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) main_~p~4.offset_7 ) 1 ) ) ) 
 (or (or (not (= |main_#t~mem15_9| 1 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
 (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
 (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) )
 Loading smtTyping.smt2 ...
 Warning: treating sort Real as Int
 unsat
-((and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
-(and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
+Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
+((and (and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (= (store |old(#valid)_-1| |cstpncpy_~#dst.base_0| true ) |#valid_0| ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) 
+(and (and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (= (store |old(#valid)_-1| |cstpncpy_~#dst.base_0| true ) |#valid_0| ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) 
 (and (forall ((var0 Int)) (or (not (select |#valid_2| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0 ) ) (and (not (= var0 0 ) ) (forall ((var1 Int)) (or (= var1 var0 ) (= (select |old(#valid)_-1| var1 ) (select |#valid_2| var1 ) ) ) ) ) ) ) ) )
 Loading matchCheckBug.smt2 ...
 Warning: treating sort Real as Int

@@ -806,18 +806,14 @@ object Interpolator
                  atomsIterator(resConj.predConj, true)).toList
 
             (instAtoms exists (iContext isRewrittenLeftLit _),
-             instAtoms exists (iContext isRewrittenRightLit _)) match {
-               case (true, false) => true
-               case (false, true) => false
-               case _ =>
-                 // This makes the interpolator prefer left formulae if we can
-                 // choose; it should be considered whether this is meaningful
-                 !(termConsts subsetOf iContext.leftLocalConstants)
-                 
-                 //Comment the previous line and uncomment the following to 
-                 //violate the assertion I_i & T_(i+1) => I_(i+1) in
-                 //WolverineInterface.scala:285
-                 //Seqs.disjoint(termConsts, iContext.rightLocalConstants)
+             instAtoms exists (iContext isRewrittenRightLit _),
+             termConsts exists iContext.leftLocalConstants,
+             termConsts exists iContext.rightLocalConstants) match {
+               case (true,  _,     true,  _    ) => true
+               case (_,     true,  _,     true ) => false
+               case (false, true,  false, false) => false
+               case (false, false, false, true ) => false
+               case _                            => true
             }
           }
 

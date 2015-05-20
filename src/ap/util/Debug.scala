@@ -109,6 +109,17 @@ object Debug {
   def withoutAssertions[A](comp : => A) : A =
     enabledAssertions.withValue(everythingDisabled) { comp }
   
+  def withDisabledAssertions[A](disabledAssertions : Set[ASSERTION_CATEGORY])
+                               (comp : => A) : A = {
+    val oldEnabled = enabledAssertions.value
+    enabledAssertions.withValue(
+      (at : ASSERTION_TYPE, ac : ASSERTION_CATEGORY) =>
+        if (disabledAssertions contains ac) false else oldEnabled(at, ac)
+    ) {
+      comp
+    }
+  }
+  
   /** Preconditions of methods */
   def assertPre(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_PRE, ac, assertion)

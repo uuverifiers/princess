@@ -27,13 +27,13 @@ VALID
 .
 Found proof (size 14), simplifying (26)
 VALID
-(>= (select (sym ar) (sym x) ) (lit 1) ) 
+(= (select (sym ar) (sym x) ) (lit 1) ) 
 (>= (select (sym ar) (sym y) ) (lit 1) ) 
 (>= (sym z) (lit 2) ) 
 .
 Found proof (size 20), simplifying (44)
 VALID
-(forall (| (forall (| (= (boundVar x1) (boundVar x0) ) (= (select (sym M) (boundVar x1) ) (select (sym M') (boundVar x1) ) ) ) ) (= (select (sym M) (boundVar x0) ) (select (sym M') (boundVar x0) ) ) ) ) 
+(forall (| (= (select (sym M) (boundVar x0) ) (select (sym M') (boundVar x0) ) ) (forall (| (= (boundVar x1) (boundVar x0) ) (= (select (sym M) (boundVar x1) ) (select (sym M') (boundVar x1) ) ) ) ) ) ) 
 .
 Found proof (size 40), simplifying (46)
 VALID
@@ -48,7 +48,7 @@ VALID
 (>= (lit 0) (and (lit 0) (lit 0) ) ) 
 (& (= (sym sym2) (sym sym1) ) (| (= (sym sym1) (lit 0)) (& (>= (sym sym1) (lit 1) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (& (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) (& (= (sym sym1) (lit 4) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) ) ) ) ) ) 
 (& (& (= (sym sym2) (sym sym1) ) (>= (sym sym1) (lit 1) ) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (& (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) (& (= (sym sym1) (lit 4) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) ) ) ) 
-(| (>= (+ (* (lit -1) (sym sym3) ) (sym sym1) ) (lit 2) ) (| (>= (+ (* (lit 2) (and (lit 0) (lit 0) ) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 1) ) (| (& (exists (>= (+ (* (lit -2) (boundVar x0) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 3) ) ) (= (+ (sym sym3) (* (lit -1) (sym sym1) ) ) (lit -1) ) ) (>= (+ (* (lit 2) (and (lit 0) (lit 0) ) ) (+ (* (lit -1) (sym sym3) ) (sym sym1) ) ) (lit 1) ) ) ) ) 
+(>= (+ (* (lit -1) (sym sym3) ) (sym sym1) ) (lit 1) ) 
 .
 Found proof (size 60), simplifying (78)
 VALID
@@ -79,10 +79,10 @@ VALID
 .
 Found proof (size 10), simplifying (22)
 VALID
-(forall (= (select (sym b) (boundVar x0) ) (select (sym a) (boundVar x0) ) ) ) 
+(= (eqArrays (sym a) (sym b) ) (lit 0)) 
 .
 Found proof (size 20), simplifying (41)
 VALID
-(forall (= (select (sym b) (boundVar x0) ) (select (sym a) (boundVar x0) ) ) ) 
+(= (eqArrays (sym a) (sym b) ) (lit 0)) 
 (forall (= (select (sym a) (boundVar x0) ) (select (sym c) (boundVar x0) ) ) ) 
 .
