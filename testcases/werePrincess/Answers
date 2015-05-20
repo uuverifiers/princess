@@ -44,10 +44,10 @@ VALID
 Found proof (size 207), simplifying (254)
 VALID
 (true) 
-(>= (lit 0) (and (lit 0) (lit 0) ) ) 
-(>= (lit 0) (and (lit 0) (lit 0) ) ) 
-(& (= (sym sym2) (sym sym1) ) (| (= (sym sym1) (lit 0)) (& (>= (sym sym1) (lit 1) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (& (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) (& (= (sym sym1) (lit 4) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) ) ) ) ) ) 
-(& (& (= (sym sym2) (sym sym1) ) (>= (sym sym1) (lit 1) ) ) (& (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (| (& (& (forall (| (| (= (boundVar x0) (lit -1) ) (>= (+ (boundVar x0) (sym sym1) ) (lit 1) ) ) (| (| (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) (forall (! (= (and (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) (+ (lit -1) (+ (* (lit -1) (boundVar x1) ) (* (lit -1) (boundVar x0) ) ) ) ) (boundVar x1) ) ) ) ) (= (sym sym1) (lit 1) ) ) ) ) (| (| (= (lit 0) (and (lit 0) (lit 0) ) ) (>= (+ (* (lit -1) (and (lit 0) (lit 0) ) ) (sym sym1) ) (lit 2) ) ) (| (= (sym sym1) (lit 3) ) (= (sym sym1) (lit 2) ) ) ) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) (& (= (sym sym1) (lit 4) ) (>= (lit 0) (and (lit 0) (lit 0) ) ) ) ) ) ) 
+(true) 
+(true) 
+(& (= (sym sym2) (sym sym1) ) (| (| (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 3) ) ) (= (sym sym1) (lit 2) ) ) (= (sym sym1) (lit 1) ) ) (= (sym sym1) (lit 0)) ) ) 
+(& (= (sym sym2) (sym sym1) ) (| (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 3) ) ) (= (sym sym1) (lit 2) ) ) (= (sym sym1) (lit 1) ) ) ) 
 (>= (+ (* (lit -1) (sym sym3) ) (sym sym1) ) (lit 1) ) 
 .
 Found proof (size 60), simplifying (78)

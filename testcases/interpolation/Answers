@@ -309,7 +309,7 @@ Found proof (size 65), simplifying (108), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; \forall int v1; (v1 - v0 >= 1 | -1 >= v1 | v0 - n >= 1 | -1*h'(f(v1)) + h'(f(v0)) >= 0)
+\forall int v0; \forall int v1; (-1*h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
 \exists int v0; \exists int v1; (h'(f(v1)) + -1*h'(f(v0)) >= 1 & n >= v0 & v0 >= v1 & v1 >= 0)
 
 Loading quan.pri ...
@@ -488,7 +488,7 @@ Found proof (size 32), simplifying (39), interpolating ...
 VALID
 
 Interpolants:
-!(x * 3 = 2)
+x = 1
 !(y = 3)
 
 Loading function-bug.smt2 ...
