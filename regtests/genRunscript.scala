@@ -16,7 +16,7 @@ def newLogNumber = {
 // OPEN FILES
 //
 
-val timeout = 1000
+val timeout = 60000
 val cmd = "../princess"
 val input = " problems/*"
 val tableOut = " &> logs/" + newLogNumber + ".table.log"
