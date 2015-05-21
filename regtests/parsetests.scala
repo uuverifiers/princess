@@ -15,6 +15,11 @@ def logFiles = {
     lazyFiles.sortBy(x => x.split("/")(1).split('.')(0).toInt).reverse)
 }
 
+def printToFile(f : java.io.File)(op : java.io.PrintWriter => Unit) {
+  val p = new java.io.PrintWriter(f)
+  try { op(p) } finally { p.close() }
+}
+
 //
 //  READ ANSWERS
 //
@@ -58,7 +63,6 @@ val tableResults = Map() : Map[String, String]
 val tableTimes = Map() : Map[String, Int]
 
 def handleFile(filename : String) = {
-
   val lines = scala.io.Source.fromFile(filename).getLines
   var curFile = ""
   var curResult = ""
@@ -92,18 +96,17 @@ def handleFile(filename : String) = {
 
     if (done) {
        if (curResult == "") {
-              println("UNDEFINED RESULT AT: " + curFile)
-	      curResult == "UNKOWNW"
+	 curResult == "UNKNOWN"
       }
       if (curTime == "") {
-              println("UNDEFINED TIME AT: " + curFile)
-	      curResult == "UNKOWNW"	
-	      }
+	curResult == "UNKNOWN"
+      }
       val correct = isCorrect(curFile, curResult)
       if (correct == "")
             results += curFile -> ((curResult, curTime, true))
       else       
             results += curFile -> ((curResult, correct, false))      
+
       done = false
       curFile = ""
       curResult = ""
@@ -120,7 +123,7 @@ val lazyMaps = lazyLogs.map(handleFile(_))
 val tableMaps = tableLogs.map(handleFile(_))
 
 //
-//   UPDATE TABLE
+//   MAKE HTML
 //
 
 def makeInitRow(numbers : Seq[String]) = {
@@ -163,16 +166,21 @@ val problems =
   for (file <- new File("problems/").listFiles) 
   yield (file.toString.split("/")(1)).split('.')(0)
 
-println("<html>")
+
+val html = new ListBuffer() : ListBuffer[String]
+
+html += "<html>"
 val format = new java.text.SimpleDateFormat("dd/MM-hh:mm")
-println(format.format(new java.util.Date()))
-println("<table border=1 align=center cellpadding=3 cellspacing=2>")
+html += format.format(new java.util.Date())
+html += "<table border=1 align=center cellpadding=3 cellspacing=2>"
 val files = (for ((f, _) <- maps) yield f)
-println(makeInitRow(files))
+html += makeInitRow(files)
 for (p <- problems.sorted) {
-  println(makeRow(p, maps.map(_._2)))
+  html += makeRow(p, maps.map(_._2))
 }
-println("</table>")
+html += "</table>"
+
+
 
 // Calculate tests done!
 
@@ -182,11 +190,48 @@ val tableDone : String = "./testsleft.sh logs/" + lastTable !!
 val lazyDone : String = "./testsleft.sh logs/" + lastLazy !!
 val allProblems = problems.length
 
-println("Table: " + tableDone.trim + "/" + allProblems + " (" + ( "%.0f" format (tableDone.trim.toInt / allProblems.toDouble)*100) + "%)")
-println("Lazy: " + lazyDone.trim + "/" + allProblems + " (" + ( "%.0f" format (lazyDone.trim.toInt / allProblems.toDouble)*100) + "%)")
+val testsLeft = new ListBuffer() : ListBuffer[String]
+
+html += "Table: " + tableDone.trim + "/" + allProblems + " (" + ( "%.0f" format (tableDone.trim.toInt / allProblems.toDouble)*100) + "%)" + "<br>"
+html += "Lazy: " + lazyDone.trim + "/" + allProblems + " (" + ( "%.0f" format (lazyDone.trim.toInt / allProblems.toDouble)*100) + "%)"
 
 
-println("</html>")
+
+html += "</html>"
+
+
+printToFile(new File("results.html")) {
+  p => html.foreach(p.println)
+}
+
+
+//
+// EXTRACT TRIVIAL FILES
+//
+
+val (_, lazyMap) = lazyMaps.head
+val (_, tableMap) = tableMaps.head
+
+val THRESHOLD = 900
+
+val trivial = new ListBuffer() : ListBuffer[String]
+
+for ((name, (lazyStatus, lazyTime, lazyCorrect)) <- lazyMap) {
+  val (tableStatus, tableTime, tableCorrect) = tableMap(name)
+  if (lazyCorrect && tableCorrect &&
+    lazyTime.toInt <= THRESHOLD && tableTime.toInt <= THRESHOLD)
+    trivial += "problems/" + name + ".p"
+}
+
+printToFile(new File("trivial.txt")) {
+  p => trivial.foreach(p.println)
+}
+
+
+
+
+
+
 
 
 
