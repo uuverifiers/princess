@@ -216,11 +216,17 @@ val THRESHOLD = 900
 
 val trivial = new ListBuffer() : ListBuffer[String]
 
-for ((name, (lazyStatus, lazyTime, lazyCorrect)) <- lazyMap) {
-  val (tableStatus, tableTime, tableCorrect) = tableMap(name)
+for (p <- problems) {
+  val (lazyStatus, lazyTime, lazyCorrect) = tableMap(p)
+  val (tableStatus, tableTime, tableCorrect) = tableMap(p)
+
   if (lazyCorrect && tableCorrect &&
     lazyTime.toInt <= THRESHOLD && tableTime.toInt <= THRESHOLD)
-    trivial += "problems/" + name + ".p"
+    trivial += "problems/" + p + ".p"
+  else if (lazyStatus == "Timeout" && tableStatus == "Timeout")
+    trivial += "problems/" + p + ".p"
+  else if (lazyStatus == "ERROR" && tableStatus == "ERROR")
+    trivial += "problems/" + p + ".p"
 }
 
 printToFile(new File("trivial.txt")) {
