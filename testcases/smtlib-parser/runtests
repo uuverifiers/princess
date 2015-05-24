@@ -18,7 +18,8 @@ TESTS="bignum_quant.smt2 \
        define-fun-interpolation.smt2 \
        seconds.smt2 \
        quotes.smt2 extensions.smt2 boolean-quant.smt2 \
-       define-fun-bug.smt2 boolean-array.smt2 distinctBug.smt2"
+       define-fun-bug.smt2 boolean-array.smt2 distinctBug.smt2 \
+       reductionBug.smt2"
 
 $PRI "$@" $TESTS
 
