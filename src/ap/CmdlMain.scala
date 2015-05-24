@@ -35,7 +35,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "build 2015-04-30"
+  val version = "build 2015-05-25"
 
   def printGreeting = {
     println("________       _____")                                 
@@ -385,7 +385,7 @@ object CmdlMain {
 	} else {
           println("ERROR: " + e.getMessage)
         }
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }
@@ -435,7 +435,7 @@ object CmdlMain {
       case e : Throwable => {
         println("error")
 	Console.err.println(e.getMessage)
-//         e.printStackTrace
+         e.printStackTrace
       }
   }
   
