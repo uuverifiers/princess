@@ -800,20 +800,32 @@ object Interpolator
 
             val resConj = result.toConj
             val instAtoms =
-              (if (resConj.isNegatedConjunction)
-                 atomsIterator(resConj.negatedConjs(0).predConj, false)
-               else
-                 atomsIterator(resConj.predConj, true)).toList
+              if (resConj.isNegatedConjunction)
+                atomsIterator(resConj.negatedConjs(0).predConj, false)
+              else
+                atomsIterator(resConj.predConj, true)
 
-            (instAtoms exists (iContext isRewrittenLeftLit _),
-             instAtoms exists (iContext isRewrittenRightLit _),
-             termConsts exists iContext.leftLocalConstants,
-             termConsts exists iContext.rightLocalConstants) match {
-               case (true,  _,     true,  _    ) => true
-               case (_,     true,  _,     true ) => false
-               case (false, true,  false, false) => false
-               case (false, false, false, true ) => false
-               case _                            => true
+            val atomLRValue =
+              for (a <- instAtoms;
+                   left = iContext isRewrittenLeftLit a;
+                   right = iContext isRewrittenRightLit a;
+                   if (left != right))
+              yield left
+
+            if (atomLRValue.hasNext) {
+              atomLRValue.next
+            } else {
+              val constLRValue =
+                for (c <- (extOrder sort termConsts).iterator;
+                     left = iContext.leftLocalConstants contains c;
+                     right = iContext.rightLocalConstants contains c;
+                     if (left != right))
+                yield left
+              
+              if (constLRValue.hasNext)
+                constLRValue.next
+              else
+                throw new Exception("Cannot map instance to left or right")
             }
           }
 

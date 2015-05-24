@@ -79,10 +79,10 @@ VALID
 .
 Found proof (size 10), simplifying (22)
 VALID
-(= (eqArrays (sym a) (sym b) ) (lit 0)) 
+(forall (= (select (sym b) (boundVar x0) ) (select (sym a) (boundVar x0) ) ) ) 
 .
 Found proof (size 20), simplifying (41)
 VALID
-(= (eqArrays (sym a) (sym b) ) (lit 0)) 
+(forall (= (select (sym b) (boundVar x0) ) (select (sym a) (boundVar x0) ) ) ) 
 (forall (= (select (sym a) (boundVar x0) ) (select (sym c) (boundVar x0) ) ) ) 
 .

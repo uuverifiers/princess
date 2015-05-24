@@ -342,9 +342,9 @@ VALID
 Interpolants:
 true
 b1'1 = 0
-!(prob_index'2 = 1) | !(select(prres0'1, 1) = 1)
-!(prob_index'2 = 1) | !(select(prres0'1, 1) = 1)
-!(prob_index'2 = 1) | !(select(prres0'1, 1) = 1)
+!(prob_index'2 = 1) | select(prres0'1, 1) = 0
+!(prob_index'2 = 1) | select(prres0'1, 1) = 0
+!(prob_index'2 = 1) | select(prres0'1, 1) = 0
 !(prob_index'2 = 1)
 !(prob_index'2 = 1)
 !(prob_index'2 = 1)
@@ -466,7 +466,7 @@ Found proof (size 34), simplifying (93), interpolating ...
 VALID
 
 Interpolants:
-value(c) = 42 & right(a) = c & -1*value(right(left(a))) >= -8
+value(c) = 42 & right(a) = c & value(right(left(a))) = 8
 
 Loading axiom-instantiation-bug.pri ...
 Preprocessing ...
@@ -525,7 +525,7 @@ Warning: accepting command echo, which is not SMT-LIB 2
 starting trace check
 unsat
 interpolants-3
-((<= 0 (+ (- 8) (select |#length_13| main_~p~4.base_18 ) ) ) )
+((= (select |#length_13| main_~p~4.base_18 ) 8 ) )
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
 Warning: treating sort Real as Int
 unsat
@@ -563,12 +563,22 @@ Loading smtTyping.smt2 ...
 Warning: treating sort Real as Int
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (= (store |old(#valid)_-1| |cstpncpy_~#dst.base_0| true ) |#valid_0| ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) 
-(and (and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (= (store |old(#valid)_-1| |cstpncpy_~#dst.base_0| true ) |#valid_0| ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) 
+((and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
+(and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
 (and (forall ((var0 Int)) (or (not (select |#valid_2| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0 ) ) (and (not (= var0 0 ) ) (forall ((var1 Int)) (or (= var1 var0 ) (= (select |old(#valid)_-1| var1 ) (select |#valid_2| var1 ) ) ) ) ) ) ) ) )
 Loading matchCheckBug.smt2 ...
 Warning: treating sort Real as Int
 unsat
+Loading treeInterpolation1.smt2 ...
+Warning: accepting command declare-const, which is not SMT-LIB 2
+unsat
+((<= 0 (f x ) ) 
+(<= 0 (+ (- 1) (* (- 1) (f y ) ) ) ) )
+Loading treeInterpolation2.smt2 ...
+unsat
+Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
+((and (= |#valid_4| |old(#valid)_4| ) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0 ) ) (or (= var0 0 ) (or (select |#valid_4| var0 ) (not (select |old(#valid)_4| var0 ) ) ) ) ) ) ) 
+false)
 Loading prp-2-17.pri ...
 Preprocessing ...
 Constructing countermodel ...

@@ -1800,8 +1800,15 @@ class SimpleAPI private (enableAssert : Boolean,
   private def interpolantImpIsValid(f : Conjunction) : Boolean = {
     implicit val o = f.order
     val closedF = Conjunction.quantify(Quantifier.ALL, o sort f.constants, f, o)
-    assertionProver(ReduceWithConjunction(Conjunction.TRUE, f.order)(closedF), f.order)
-                   .closingConstraint.isTrue
+    val reducedF = ReduceWithConjunction(Conjunction.TRUE, f.order)(closedF)
+    Timeout.withTimeoutMillis(60000) {
+      assertionProver(reducedF, f.order).closingConstraint.isTrue
+    } {
+      // if a timeout occurs, we assume that the formula was valid ...
+      Console.err.println(
+        "Warning: could not fully verify correctness of interpolant due to timeout")
+      true
+    }
   }
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
 

@@ -134,7 +134,7 @@ Vector(!(c = 3))
 
 -- Interpolation with arrays
 Unsat
-Vector(!(select(b, 0) = 2))
+Vector(select(b, 0) = 1)
 
 -- Generating a larger amount of constraints
 Sat
