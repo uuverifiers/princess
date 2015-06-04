@@ -35,7 +35,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "build 2015-05-25"
+  val version = "build 2015-06-04"
 
   def printGreeting = {
     println("________       _____")                                 
