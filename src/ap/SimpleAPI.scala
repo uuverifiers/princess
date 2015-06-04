@@ -3313,21 +3313,21 @@ class SimpleAPI private (enableAssert : Boolean,
         
         Timeout.catchTimeout {
           
-          (new ExhaustiveProver (!mgc, goalSettings))(formula, formula.order)
+          val prover = new ExhaustiveProver (!mgc, goalSettings)
+          val tree = prover(formula, formula.order)
+          tree.closingConstraint
           
         } { case _ => null } match {
           
           case null =>
             proverRes set StoppedResult
-          case tree => {
-            val constraint = tree.closingConstraint
+          case constraint =>
             if (constraint.isFalse) {
               proverRes set InvalidResult
             } else {
               val solution = ModelSearchProver(constraint.negate, constraint.order)
               proverRes set FoundConstraintResult(constraint, solution)
             }
-          }
             
         }
         
