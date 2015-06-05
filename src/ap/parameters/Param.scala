@@ -150,7 +150,10 @@ object Param {
   }
 
   object TriggerGenerationOptions extends Enumeration {
-    val None, Total, All = Value
+    val None, Total, All,
+        // Modes that generate triggers in such a way that a
+        // complete FOL prover is obtained
+        Complete, CompleteFrugal = Value
   }
   case object TRIGGER_GENERATION extends Param {
     type Value = TriggerGenerationOptions.Value
@@ -175,11 +178,6 @@ object Param {
   case object TRIGGERS_IN_CONJECTURE extends Param {
     type Value = Boolean
     val defau : Boolean = true
-  }
-  
-  case object TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS extends Param {
-    type Value = Set[ap.parser.IFunction]
-    val defau : Set[ap.parser.IFunction] = Set()
   }
   
   case object BOOLEAN_FUNCTIONS_AS_PREDICATES extends Param {

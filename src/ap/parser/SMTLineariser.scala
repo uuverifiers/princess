@@ -312,6 +312,21 @@ class SMTLineariser(benchmarkName : String,
       variableTypes(pos) = t
     }
 
+    private def equalTypes(t1 : ITerm, t2 : ITerm) : Unit = (t1, t2) match {
+      case (IVariable(ind1), IVariable(ind2)) =>
+        (getVariableType(ind1), getVariableType(ind2)) match {
+          case (Some(t), None) => setVariableType(ind2, t)
+          case (None, Some(t)) => setVariableType(ind1, t)
+          case _ => // nothing
+        }
+      case (IVariable(ind), t) =>
+        for (s <- getTermType(t)) setVariableType(ind, s)
+      case (t, IVariable(ind)) =>
+        for (s <- getTermType(t)) setVariableType(ind, s)
+      case _ =>
+        // nothing
+    }
+
     implicit val getVariableType : Int => Option[SMTType] = (ind:Int) => {
       val pos = variableTypes.size - ind - 1
       variableTypes(pos) match {
@@ -327,16 +342,10 @@ class SMTLineariser(benchmarkName : String,
           variableTypes += null
         case TypePredicate(IVariable(ind), s) =>
           setVariableType(ind, s)
-        case IExpression.Eq(IVariable(ind1), IVariable(ind2)) =>
-          (getVariableType(ind1), getVariableType(ind2)) match {
-            case (Some(t), None) => setVariableType(ind2, t)
-            case (None, Some(t)) => setVariableType(ind1, t)
-            case _ => // nothing
-          }
-        case IExpression.Eq(IVariable(ind), t) =>
-          for (s <- getTermType(t)) setVariableType(ind, s)
-        case IExpression.Eq(t, IVariable(ind)) =>
-          for (s <- getTermType(t)) setVariableType(ind, s)
+        case IExpression.Eq(s, t) =>
+          equalTypes(s, t)
+        case ITermITE(_, s, t) =>
+          equalTypes(s, t)
         case t@IFunApp(_, args) =>
           for (argTypes <- getArgTypes(t)) {
             for ((IVariable(ind), s) <- args.iterator zip argTypes.iterator)

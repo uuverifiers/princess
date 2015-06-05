@@ -624,6 +624,33 @@ class SymbolCollector(variables : scala.collection.mutable.Set[IVariable],
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object FunctionCollector {
+  def apply(t : IExpression) : scala.collection.Set[IFunction] = {
+    val functions = new MHashSet[IFunction]
+    val c = new FunctionCollector (functions)
+    c.visitWithoutResult(t, 0)
+    functions
+  }
+  def apply(ts : Iterable[IExpression]) : scala.collection.Set[IFunction] = {
+    val functions = new MHashSet[IFunction]
+    val c = new FunctionCollector (functions)
+    for (t <- ts)
+      c.visitWithoutResult(t, 0)
+    functions
+  }
+}
+
+class FunctionCollector(functions : scala.collection.mutable.Set[IFunction])
+      extends CollectingVisitor[Int, Unit] {
+  def postVisit(t : IExpression, boundVars : Int, subres : Seq[Unit]) : Unit =
+    t match {
+      case IFunApp(f, _) => functions += f
+      case _ => // nothing
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 object VariableIndexCollector
        extends CollectingVisitor[(Int, Int => Unit), Unit] {
 

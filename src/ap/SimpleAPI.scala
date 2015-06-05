@@ -459,8 +459,10 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   private val basicPreprocSettings =
+    Param.TRIGGER_GENERATION.set(
     Param.TIGHT_FUNCTION_SCOPES.set(PreprocessingSettings.DEFAULT,
-                                    tightFunctionScopes)
+                                    tightFunctionScopes),
+                                 Param.TriggerGenerationOptions.All)
 
   private def closeAllScopes = {
     for (_ <- 0 until storedStates.size)
@@ -1792,11 +1794,30 @@ class SimpleAPI private (enableAssert : Boolean,
     proverRecreationNecessary
   }
 
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  // some functions used to verify interpolants
+  private lazy val assertionProver = new ExhaustiveProver(true, GoalSettings.DEFAULT)
+  private def interpolantImpIsValid(f : Conjunction) : Boolean = {
+    implicit val o = f.order
+    val closedF = Conjunction.quantify(Quantifier.ALL, o sort f.constants, f, o)
+    val reducedF = ReduceWithConjunction(Conjunction.TRUE, f.order)(closedF)
+    Timeout.withTimeoutMillis(60000) {
+      assertionProver(reducedF, f.order).closingConstraint.isTrue
+    } {
+      // if a timeout occurs, we assume that the formula was valid ...
+      Console.err.println(
+        "Warning: could not fully verify correctness of interpolant due to timeout")
+      true
+    }
+  }
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+
   /**
    * Compute an inductive sequence of interpolants, for the given
    * partitioning of the input problem.
    */
-  def getInterpolants(partitions : Seq[Set[Int]]) : Seq[IFormula] = {
+  def getInterpolants(partitions : Seq[Set[Int]],
+                      maxQETime : Long = Long.MaxValue) : Seq[IFormula] = {
     doDumpSMT {
       println("; (get-interpolants)")
     }
@@ -1807,9 +1828,16 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, (Set(ProverStatus.Unsat,
-                             ProverStatus.Valid) contains getStatusHelp(false)) &&
-                        currentCertificate != null)
+    Debug.assertPre(AC,
+                    (Set(ProverStatus.Unsat,
+                         ProverStatus.Valid) contains getStatusHelp(false)) &&
+                    currentCertificate != null && {
+                      val allNames = (for (s <- partitions.iterator;
+                                           n <- s.iterator) yield n).toSet
+                      formulaeInProver forall {
+                        case (n, _) => n < 0 || (allNames contains n)
+                      }
+                    })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
   
     if (currentSimpCertificate == null)
@@ -1820,21 +1848,46 @@ class SimpleAPI private (enableAssert : Boolean,
     val commonFors =
       for ((n, f) <- formulaeInProver; if (n < 0)) yield f
 
-    Timeout.withChecker(checkTimeout _) {
-      for (i <- 1 to (partitions.size - 1)) yield {
-        val leftNums = (partitions take i).flatten.toSet
+    val interpolants =
+      Debug.withDisabledAssertions(
+            Set(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS)) {
+        for (i <- 1 to (partitions.size - 1)) yield {
+          val leftNums = (partitions take i).flatten.toSet
       
-        val leftFors =   for ((n, f) <- formulaeInProver;
-                              if (n >= 0 && (leftNums contains n))) yield f
-        val rightFors =  for ((n, f) <- formulaeInProver;
-                              if (n >= 0 && !(leftNums contains n))) yield f
+          val leftFors =   for ((n, f) <- formulaeInProver;
+                                if (n >= 0 && (leftNums contains n))) yield f
+          val rightFors =  for ((n, f) <- formulaeInProver;
+                                if (n >= 0 && !(leftNums contains n))) yield f
 
-        val iContext =
-          InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
-        val internalInt = Interpolator(currentSimpCertificate, iContext)
-        simp(Internal2InputAbsy(internalInt, functionEnc.predTranslation))
+          val iContext =
+            InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
+          Timeout.withTimeoutMillis(maxQETime) {
+            Interpolator(currentSimpCertificate, iContext)
+          } {
+            Interpolator(currentSimpCertificate, iContext, false)
+          }
+        }
       }
-    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
+      ((List(Conjunction.TRUE) ++ interpolants ++ List(Conjunction.FALSE))
+          .sliding(2) zip partitions.iterator) forall {
+        case (Seq(left, right), names) => {
+          val transitionFors =
+            for ((n, f) <- formulaeInProver;
+                 if (n < 0 || (names contains n))) yield f.negate
+          val condition =
+            Conjunction.implies(Conjunction.conj(transitionFors ++ List(left),
+                                                 currentOrder),
+                                right, currentOrder)
+          interpolantImpIsValid(condition)
+        }
+      })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    for (c <- interpolants)
+    yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
   }
 
   /**
@@ -1859,9 +1912,16 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, (Set(ProverStatus.Unsat,
-                             ProverStatus.Valid) contains getStatusHelp(false)) &&
-                        currentCertificate != null)
+    Debug.assertPre(AC,
+                    (Set(ProverStatus.Unsat,
+                         ProverStatus.Valid) contains getStatusHelp(false)) &&
+                    currentCertificate != null && {
+                      val allNames = (for (s <- partitions.iterator;
+                                           n <- s.iterator) yield n).toSet
+                      formulaeInProver forall {
+                        case (n, _) => n < 0 || (allNames contains n)
+                      }
+                    })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
   
     if (currentSimpCertificate == null)
@@ -1900,9 +1960,32 @@ class SimpleAPI private (enableAssert : Boolean,
     val simp = interpolantSimplifier
 
     val interpolants =
-      Tree(Conjunction.FALSE,
-           for (n <- partitions.children) yield computeInts(n))
-    
+      Debug.withDisabledAssertions(
+            Set(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS)) {
+        Tree(Conjunction.FALSE,
+             for (n <- partitions.children) yield computeInts(n))
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    def verifyInts(names : Tree[Set[Int]],
+                   ints : Tree[Conjunction]) : Boolean = {
+      val transitionFors =
+        for ((n, f) <- formulaeInProver;
+             if (n < 0 || (names.d contains n))) yield f.negate
+      val subInts = for (c <- ints.children) yield c.d
+      val condition =
+        Conjunction.implies(Conjunction.conj(transitionFors ++ subInts,
+                                             currentOrder),
+                            ints.d, currentOrder)
+      interpolantImpIsValid(condition) &&
+      ((names.children.iterator zip ints.children.iterator) forall {
+         case (n, c) => verifyInts(n, c)
+       })
+    }
+    Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
+                         verifyInts(partitions, interpolants))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     for (c <- interpolants)
     yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
   }
@@ -3079,7 +3162,8 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   // TODO: correct setting even if Theories are used?
-  private def preprocSettings =
+  private def preprocSettings = basicPreprocSettings
+/*
     Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(
             basicPreprocSettings,
             (for (f <- functionEnc.relations.keysIterator;
@@ -3088,6 +3172,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         case None => true
                       }))
              yield f).toSet)
+*/
 
   private def exhaustiveProverGoalSettings = {
     var gs = goalSettings
@@ -3228,21 +3313,21 @@ class SimpleAPI private (enableAssert : Boolean,
         
         Timeout.catchTimeout {
           
-          (new ExhaustiveProver (!mgc, goalSettings))(formula, formula.order)
+          val prover = new ExhaustiveProver (!mgc, goalSettings)
+          val tree = prover(formula, formula.order)
+          tree.closingConstraint
           
         } { case _ => null } match {
           
           case null =>
             proverRes set StoppedResult
-          case tree => {
-            val constraint = tree.closingConstraint
+          case constraint =>
             if (constraint.isFalse) {
               proverRes set InvalidResult
             } else {
               val solution = ModelSearchProver(constraint.negate, constraint.order)
               proverRes set FoundConstraintResult(constraint, solution)
             }
-          }
             
         }
         

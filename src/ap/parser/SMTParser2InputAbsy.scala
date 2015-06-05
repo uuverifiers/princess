@@ -1233,8 +1233,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                 } else translateTreeInterpolantSpec(cmd.listsexpr_) match {
 
                   case List(tree) => {
+                    val allMentionedNames =
+                      (for (t <- tree.iterator; n <- t.iterator) yield n).toSet
+                    val remainingNames =
+                      ((0 until nextPartitionNumber).iterator filterNot
+                         allMentionedNames).toList
+
+                    val finalTree =
+                      if (!remainingNames.isEmpty) {
+                        warn("not all asserted formulas are mentioned in interpolant specification, " +
+                             "putting remaining formulas in the last/root partition")
+                        Tree(tree.d ++ remainingNames, tree.children)
+                      } else {
+                        tree
+                      }
+
                     val interpolants =
-                      prover.getTreeInterpolant(tree,
+                      prover.getTreeInterpolant(finalTree,
                                                 (timeoutPer / tree.size) min 3000)
 
                     print("(")

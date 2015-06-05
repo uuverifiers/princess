@@ -93,8 +93,9 @@ abstract class SoftwareInterpolationFramework {
   //////////////////////////////////////////////////////////////////////////////
 
   private val preprocSettings =
-    Param.TRIGGER_GENERATOR_CONSIDERED_FUNCTIONS.set(PreprocessingSettings.DEFAULT,
-                                                     Set(select, store))
+    Param.TRIGGER_GENERATION.set(PreprocessingSettings.DEFAULT,
+                                 Param.TriggerGenerationOptions.All)
+
   private val interpolationSettings =
     Param.PROOF_CONSTRUCTION.set(GoalSettings.DEFAULT, true)
   private val validityCheckSettings =

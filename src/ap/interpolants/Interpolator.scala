@@ -800,24 +800,32 @@ object Interpolator
 
             val resConj = result.toConj
             val instAtoms =
-              (if (resConj.isNegatedConjunction)
-                 atomsIterator(resConj.negatedConjs(0).predConj, false)
-               else
-                 atomsIterator(resConj.predConj, true)).toList
+              if (resConj.isNegatedConjunction)
+                atomsIterator(resConj.negatedConjs(0).predConj, false)
+              else
+                atomsIterator(resConj.predConj, true)
 
-            (instAtoms exists (iContext isRewrittenLeftLit _),
-             instAtoms exists (iContext isRewrittenRightLit _)) match {
-               case (true, false) => true
-               case (false, true) => false
-               case _ =>
-                 // This makes the interpolator prefer left formulae if we can
-                 // choose; it should be considered whether this is meaningful
-                 !(termConsts subsetOf iContext.leftLocalConstants)
-                 
-                 //Comment the previous line and uncomment the following to 
-                 //violate the assertion I_i & T_(i+1) => I_(i+1) in
-                 //WolverineInterface.scala:285
-                 //Seqs.disjoint(termConsts, iContext.rightLocalConstants)
+            val atomLRValue =
+              for (a <- instAtoms;
+                   left = iContext isRewrittenLeftLit a;
+                   right = iContext isRewrittenRightLit a;
+                   if (left != right))
+              yield left
+
+            if (atomLRValue.hasNext) {
+              atomLRValue.next
+            } else {
+              val constLRValue =
+                for (c <- (extOrder sort termConsts).iterator;
+                     left = iContext.leftLocalConstants contains c;
+                     right = iContext.rightLocalConstants contains c;
+                     if (left != right))
+                yield left
+              
+              if (constLRValue.hasNext)
+                constLRValue.next
+              else
+                throw new Exception("Cannot map instance to left or right")
             }
           }
 
