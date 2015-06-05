@@ -14,8 +14,6 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
                               maxSolverRuntime : Long)  
     extends CCUSolver[Term, Fun](timeoutChecker, maxSolverRuntime) {
 
-  // println("Creating TableSolver...")
-
   var tables = Array() : Array[Option[Table]]
   var lastUnsatCore = List() : Seq[Int]
   def addStat(result : String) = {
@@ -87,13 +85,6 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
           val cp = problem(p)
           if (!cp.verifySolution(intAss)) {
             if (tmpTables(p).isDefined) {
-              for (t <- 0 until tmpTables.length) {
-                if (tmpTables(t).isDefined) {
-                  // println(t + ") is defined")
-                  // println("\tgoal: " + tmpTables(t).get.goal)
-                }
-              }
-              // println("WHAT? " + p)
               throw new Exception("Table should not be defined!")
             }
             tmpTables(p) = Some(new Table(problem.bits, alloc, gt, solver,
