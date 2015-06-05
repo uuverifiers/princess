@@ -84,15 +84,15 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     gs = Param.CCU_SOLVER.set(gs,
            Param.CCU_STRATEGY(gs) match {
              case Param.CCUStrategyOptions.Table =>
-               Some(new ccu.TableSolver(
+               Some(new ccu.TableSolver[ConstantTerm, Predicate](
                       () => Timeout.check,
                       Param.CLAUSIFIER_TIMEOUT(gs)))
              case Param.CCUStrategyOptions.Lazy =>
-               Some(new ccu.LazySolver(
+               Some(new ccu.LazySolver[ConstantTerm, Predicate](
                       () => Timeout.check,
                       Param.CLAUSIFIER_TIMEOUT(gs)))
              case Param.CCUStrategyOptions.Bench =>
-               Some(new ccu.BenchSolver(
+               Some(new ccu.BenchSolver[ConstantTerm, Predicate](
                       () => Timeout.check,
                       Param.CLAUSIFIER_TIMEOUT(gs)))
            })

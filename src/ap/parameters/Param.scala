@@ -23,6 +23,9 @@ package ap.parameters;
 
 import ap.Signature.PredicateMatchConfig
 
+import ap.terfor.ConstantTerm
+import ap.terfor.preds.Predicate
+
 object Param {
   
   case object VERSION extends Param {
@@ -364,8 +367,8 @@ object Param {
   }
 
   case object CCU_SOLVER extends Param {
-    type Value = Option[ccu.CCUSolver]
-    val defau : Option[ccu.CCUSolver] = None
+    type Value = Option[ccu.CCUSolver[ConstantTerm, Predicate]]
+    val defau : Option[ccu.CCUSolver[ConstantTerm, Predicate]] = None
   }
 
 }

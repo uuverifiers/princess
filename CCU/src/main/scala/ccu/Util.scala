@@ -9,11 +9,31 @@ import scala.collection.mutable.{HashMap => MHashMap}
 
 class Disequalities(
   val size : Int,
-  funEqsAux : Array[CCUEq],
-  timeoutChecker : () => Unit) {
+  val funEqsAux : Array[CCUEq],
+  val timeoutChecker : () => Unit) {
+
+  def this(that : Disequalities) {
+    this(that.size, Array(), that.timeoutChecker)
+    funArgs ++= that.funArgs
+    funRes ++= that.funRes
+    funFuns ++= that.funFuns
+    funEqs = that.funEqs
+    // DQmap ++= that.DQmap
+  }
+
+  override def toString = {
+    "<---Disequality--->" + "\n" +
+    (for ((k, v) <- DQmap) yield {
+      k + " = " + v
+    }).mkString(", ") + "\n" + 
+    "funArgs: " + funArgs.size + "\n" +
+    "funRes: " + funRes.size + "\n" +
+    "funFuns: " + funFuns.size + "\n" +
+    "funEqs: " + funEqs.size + "\n"
+  }
 
   // TODO: Fix!
-  val funEqs = funEqsAux.map(_.eq)
+  var funEqs = funEqsAux.map(_.eq)
 
   // Stores the actual disequalities 
   // TODO: change to (size*size-1)/2
@@ -34,6 +54,33 @@ class Disequalities(
   // Maps function symbols to funEqs with given function symbol 
   // | Function -> List(funEqs)
   var funFuns = MMap() : MMap[Int, ListBuffer[Int]]
+
+  // if (DQ(i)(j) == 0)
+  //   diseqCount += 1
+
+  for (f <- 0 until funEqs.length) {
+    val (fun, args, res) = funEqs(f)
+
+    // Argument map
+    for (i <- 0 until args.length) {
+      if (funArgs contains (args(i)))
+        funArgs.get(args(i)).get += ((fun, i, f))
+      else
+        funArgs += (args(i) -> ListBuffer((fun, i, f)))
+    }
+
+    // Result map
+    if (funRes contains(res))
+      funRes.get(res).get += ((fun, f))
+    else
+      funRes += (res -> ListBuffer((fun, f)))
+
+    // Function symbol map
+    if (funFuns contains(fun))
+      funFuns.get(fun).get += f
+    else
+      funFuns += (fun -> ListBuffer(f))
+  }
 
   // TODO: diseqCount
   // var diseqCount = 0
@@ -64,36 +111,15 @@ class Disequalities(
     for (s <- 0 until size; if getDQ(s, t) >= 1) yield s
   }
 
-  // if (DQ(i)(j) == 0)
-  //   diseqCount += 1
-
-  for (f <- 0 until funEqs.length) {
-    val (fun, args, res) = funEqs(f)
-
-    // Argument map
-    for (i <- 0 until args.length) {
-      if (funArgs contains (args(i)))
-        funArgs.get(args(i)).get += ((fun, i, f))
-      else
-        funArgs += (args(i) -> ListBuffer((fun, i, f)))
-    }
-
-    // Result map
-    if (funRes contains(res))
-      funRes.get(res).get += ((fun, f))
-    else
-      funRes += (res -> ListBuffer((fun, f)))
-
-    // Function symbol map
-    if (funFuns contains(fun))
-      funFuns.get(fun).get += f
-    else
-      funFuns += (fun -> ListBuffer(f))
-  }
-
   def getINEQ() = {
     (for (i <- 0 until size; j <- 0 until size;
       if (i < j); if (0 == getDQ(i, j))) yield
+      (i,j))
+  }
+
+  def inequalities(terms : Seq[Int]) = {
+    (for (i <- terms; j <- terms;
+      if (i < j); if (!this(i, j))) yield
       (i,j))
   }
 
@@ -122,17 +148,18 @@ class Disequalities(
     }
   }
 
-  // TODO: Restore check
   def check(pairs : Seq[(Int, Int)]) : Boolean = {
+    var primitiveCheck = true
     for ((s, t) <- pairs; if !this(s,t))
-      return false
+      primitiveCheck = false
+    primitiveCheck
 
-    true
+    // var advancedCheck = true
 
     // if (pairs.isEmpty) {
-    //   true
+    //   // true
     // } else {
-    //   var equal = true
+    //   // var equal = true
 
     //   val uf = new UnionFind[Int]
 
@@ -143,13 +170,13 @@ class Disequalities(
     //       uf.makeSet(t)
 
     //     if (!this(s, t))
-    //       equal = false
+    //       advancedCheck = false
     //     else
     //       uf.union(s,t)
     //   }
 
 
-    //   if (equal) {
+    //   if (advancedCheck) {
     //     for (set <- uf.getSets) {
     //       if (set.size > 2) {
     //         // println("check(" + pairs + ")")
@@ -158,7 +185,7 @@ class Disequalities(
 
     //         for (s <- set; t <- set; if s < t) {
     //           if (!this(s,t)) {
-    //             equal = false
+    //             advancedCheck = false
     //             // println("\t\tChecking " + s + " != " + t)
     //             // throw new Exception("Transitivity CHECK!")
     //           }
@@ -166,8 +193,13 @@ class Disequalities(
     //       }
     //     }
     //   }
-    //   equal
+    //   // equal
     // }
+
+    // if (advancedCheck != primitiveCheck) {
+    //   println("advancedCheck != primitiveCheck!")
+    // } 
+    // advancedCheck
   }
 
 
@@ -180,6 +212,10 @@ class Disequalities(
     (for (i <- sEq; j <- tEq; if i != j; if !this(i,j)) yield {
       (i min j, i max j)
     }).toSet
+  }
+
+  def remove(s : Int, t : Int) = {
+    setDQ(s, t, 1)
   }
 
   def cascadeRemove(s : Int, t : Int) : Unit = Timer.measure("cascadeRemove") {
@@ -265,35 +301,25 @@ class Disequalities(
     }
   }
 
-  def minimise(goals : Seq[Seq[(Int, Int)]], baseDI : Disequalities, 
-  heuristic : (((Int, Int)) => Int)) = {
+  def minimise(
+    terms : Seq[Int],
+    goals : Seq[Seq[(Int, Int)]], 
+    baseDI : Disequalities,
+    heuristic : (((Int, Int)) => Int)) = {
     // Go through all disequalities
     // We try to remove disequalities one by one
     // TODO: make it smarter
     this.setBase
-    val ineqs = 
-      (for ((s, t) <- getINEQ(); if (baseDI(s,t) != 0))
-      yield ((s, t)))
+    val ineqs = inequalities(terms)
     val ineqsSort = ineqs.sortBy(x => heuristic(x)).reverse
-
-    // if (ineqs != ineqsSort) {
-    //   println("INEQS: " + ineqs)
-    //   println("INEQS_SORTED: " + ineqsSort)
-    // }
 
     for ((s, t) <- ineqsSort) {
       timeoutChecker()
-      // println("Removing inequality: " + s + " ~= " + t)
       this.cascadeRemove(s, t)
 
       val sat = this.satisfies(goals)
-      if (!sat) {
-        // println("Still UNSAT - remove")
-        this.setBase
-      } else {
-        // println("Removed one too much - 
-        this.restore
-      }
+      if (!sat) this.setBase
+      else this.restore
     }
   }
 
@@ -383,7 +409,7 @@ class UnionFind[D] {
   override def toString : String = parent.toString
 }
 
-class Util (timeoutChecker : () => Unit) {
+object Util {
   // Calculating log_2 (b)
   // Used for cacluating number of bits needed
   def binlog(b : Int) : Int = {
@@ -429,7 +455,7 @@ class Util (timeoutChecker : () => Unit) {
       uf.makeSet(t)
 
     // First merge assigned terms
-    for ((s, t) <- assignments)
+    for ((s, t) <- assignments; if ((terms contains s) && (terms contains t)))
       uf.union(s, t)
 
     // Fix-point calculation
@@ -453,88 +479,6 @@ class Util (timeoutChecker : () => Unit) {
     }
 
     uf
-  }
-
-  def dummyTimeout() = ()
-
-  def solveFile(fname : String) = {
-    // val Solver = new TableSolver[Int,Int](dummyTimeout, 1000000)
-
-    // val lines = scala.io.Source.fromFile(fname).getLines
-    // println("Read file " + fname)
-    // if (lines.isEmpty)
-    //   throw new Exception("Empty File!")
-
-    // def parseDomains(d : String) = {
-    //   val termData = d.split(" ")
-    //   val map =
-    //     (for (td <- termData) yield {
-    //       val split = td.split(":")
-    //       val term = split(0).toInt
-    //       val domain = split(1).split(",").map(_.toInt).toSet
-
-    //       term -> domain
-    //     }).toMap
-    //   map
-    // }
-
-
-    // val count = lines.next.toInt
-    // val domains = parseDomains(lines.next)
-
-    // val lists = (for (i <- 0 until count) yield {
-    //   val funEqs = lines.next
-    //   val goals = lines.next
-
-    //   def parseFunEqs(f : String) = {
-    //     val funData = f.split(",")
-    //     val list =
-    //       (for (fd <- funData) yield {
-    //         val split = fd.split(":")
-    //         val fun = split.head.toInt
-    //         val res = split.last.toInt
-    //         val args = split.slice(1, split.size - 1)
-    //         val mapArgs = 
-    //           if (args.size == 1 && args(0) == "")
-    //             List()
-    //           else
-    //             args.map(_.toInt).toList
-    //         (fun, mapArgs, res)
-    //       }).toList
-    //     list
-    //   }
-
-    //   def parseGoals(g : String) = {
-    //     val goalData = g.split(",")
-    //     val list =
-    //       (for (gd <- goalData) yield {
-    //         val split = gd.split(":")
-    //           (for (s <- split) yield {
-    //             val ssplit = s.split('.')
-    //             (ssplit(0).toInt, ssplit(1).toInt)
-    //           }).toList
-    //       }).toList
-    //     list
-    //   }
-
-    //   println("parsing fun: " + funEqs)
-    //   val fun = parseFunEqs(funEqs)
-    //   println("parsing goal: " + goals)
-    //   val goal = parseGoals(goals)
-
-    //   (fun, goal)
-    // })
-
-    // val funs = lists.map(x => x._1)
-    // val goals = lists.map(x => x._2)
-
-    // TODO: Fix output
-    // Solver.debug = true
-    // val instance = Solver.createProblem(domains, goals, funs)
-    // println(instance)
-    // println("Trying to solve...")
-    // println("RESULT: " + instance.solve)
-    // val a = 10/0
   }
 }
 

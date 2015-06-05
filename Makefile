@@ -50,6 +50,8 @@ copy-jars-to-dist:
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
+	$(shell cp $(EXTLIBSDIR)/ccu.jar dist/)
+	$(shell cp $(EXTLIBSDIR)/org.sat4j.core.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors-2*.jar ] && cp $(SCALALIBDIR)/scala-actors-2*.jar dist/scala-actors.jar)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors.jar ] && cp $(SCALALIBDIR)/scala-actors.jar dist/scala-actors.jar)

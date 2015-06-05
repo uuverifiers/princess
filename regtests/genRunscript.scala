@@ -17,7 +17,8 @@ def newLogNumber = {
 //
 
 val timeout = 60000
-val cmd = "../princess"
+val tableCmd = "../princess -CCU=bench"
+val lazyCmd = "../princess -CCU=lazy"
 val input = " problems/*"
 val tableOut = " &> logs/" + newLogNumber + ".table.log"
 val lazyOut = " &> logs/" + newLogNumber + ".lazy.log"
@@ -27,6 +28,6 @@ val args =
     " -triggerStrategy=allUni -resolutionMethod=nonUnifying" +
     " -timeout=" + timeout
 println("echo Running Tablesolver...")
-println(cmd + args + input + tableOut)
+println(tableCmd + args + input + tableOut)
 println("echo Running Lazysolver...")
-println(cmd + args + input + lazyOut)
+println(lazyCmd + args + input + lazyOut)

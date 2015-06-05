@@ -140,15 +140,52 @@ def makeInitRow(numbers : Seq[String]) = {
 
 def makeRow(problem : String, maps : Seq[Map[String, (String, String, Boolean)]]) = {
   val output = ListBuffer() : ListBuffer[String]
+
+  var col = 0
+  var colorstr = ""
+  var tablestr = "#FFFFFF"
+  var lazystr = "#FFFFFF"
+
+  // result, time, pass
+  val stats = maps map (_.getOrElse(problem, ("", "", true)))
+
+  val diff = 2500
+
+  if (stats.length > 2) {
+    if (stats(0)._3 && stats(2)._3 && stats(0)._2.toInt > stats(2)._2.toInt + diff)
+      tablestr = "#FF0000"
+    if (stats(0)._3 && stats(2)._3 && stats(0)._2.toInt < stats(2)._2.toInt - diff)
+      tablestr = "#00FF00"
+  }
+
+  if (stats.length > 2) {
+    if (stats(1)._3 && stats(3)._3 && stats(1)._2.toInt > stats(3)._2.toInt + diff)
+      lazystr = "#FF0000"
+    if (stats(1)._3 && stats(3)._3 && stats(1)._2.toInt < stats(3)._2.toInt - diff)
+      lazystr = "#00FF00"
+  }
+
   output += "<tr>"
   output += "<td>" + problem + "</td>"
   for (map <- maps) {
+    if (col == 0)
+      colorstr = tablestr
+    else if (col == 1)
+      colorstr = lazystr
+    else 
+      colorstr = ""
+
+    col = col + 1
+
+
     val (result, time, pass) = map getOrElse (problem, ("", "", true))
     val p = if (pass)
       "&#10004;"
     else
       "&#10007;"
-    output += "<td>" + p + " (" + time + ")</td>"
+    output += "<td bgcolor=\"" + colorstr + "\">" + " " + p + " (" + time + ")</td>"
+    if (col == 0)
+      colorstr = ""
   }
 
   output += "</tr>"

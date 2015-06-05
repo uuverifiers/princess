@@ -49,8 +49,6 @@ object Result extends Enumeration {
 }
 
 
-
-
 class Stats {
   val stats = ListBuffer() : ListBuffer[String]
 
@@ -65,73 +63,84 @@ class Stats {
   }
 }
 
+
 // A superclass for every BREU-solver
-abstract class CCUSolver(val timeoutChecker : () => Unit,
+abstract class CCUSolver[Term, Fun](
+  val timeoutChecker : () => Unit,
   val maxSolverRuntime : Long) {
-  var debug = false
+
+  //
+  //   CONSTRUCTOR METHOD BEGIN
+  //
+
+  val alloc = new Allocator
+  val ZEROBIT = 1
+  val ONEBIT = 2
+
+  // TODO: Make real bound?
+  val solver = SolverFactory.newDefault()
+  val MAXVAR = 1000000;
+  solver.newVar(MAXVAR);
+  solver.setTimeoutMs(maxSolverRuntime)
+  val gt = new GateTranslator(solver)
+
   val S = new Stats
+  var curId = 0
+  var previousInstance = None : Option[CCUInstance[Term, Fun]]
 
   def getStat(result : ccu.Result.Result) : String
 
-  def statistics = S.toString
+  def solve(problem : CCUSimProblem, asserted : Boolean) = 
+  Timer.measure("CCUSolver.solve") {
+    // println("CCUSolver.solve")
 
-  def solve(problem : CCUSimProblem, asserted : Boolean) = {
 
     val result =
       if (problem.solvable == false) {
+        // println("\tDisequality check")
+        // println(problem)
         (ccu.Result.UNSAT, None)
-      } else {
+      } else { 
         solveaux(problem)
       }
 
+    // println("\tChecking solution")
     if (asserted) {
       result match {
         case (ccu.Result.SAT, Some(model)) => {
-          if (!checkSAT(problem, model)) {
-            println(problem)
-            println("Model: " + model)
+          if (!problem.verifySolution(model)) {
+            // println(problem)
+            // println("Model: " + model)
+            // println(problem.JSON)
             throw new Exception("False SAT")
           } else {
-            ccu.Result.SAT
+            // println("\t\tSAT asserted")
+            (ccu.Result.SAT, Some(model))
           }
         }
         case (ccu.Result.UNSAT, _) => {
-          ccu.Result.UNSAT
+          // println("\t\tUNSAT *not* asserted")
+          (ccu.Result.UNSAT, None)
         }
         case _ => throw new Exception("Strange result from solve!")
       }
     } else {
-      result._1
+      result
     }
   }
 
-  // The actual solvefunction
-  protected def solveaux(problem : CCUSimProblem) : 
-      (Result.Result, Option[Map[Int, Int]])
-
-  // Can we reuse a previous solution?
-  def checkAndSolve(problem : CCUSimProblem) = {
-    // if (checkPreviousSolution) {
-    //   ccu.Result.SAT
-    // } else {
-    solveaux(problem)
-    // }
-  }
-
-  def unsatCoreAux(problem : CCUSimProblem, timeout : Int) : Seq[Int]
-
-  // We need to reorder the core
   def unsatCore(problem : CCUSimProblem, timeout : Int) = {
     val core =
       unsatCoreAux(problem, timeout)
-
-    val retval =
-      (for (p <- core) yield (problem.order(p)))
-
-    retval
+    assert(!core.isEmpty)
+    (for (p <- core) yield (problem.order(p)))
   }
 
-  var curId = 0
+  // Asbtract functions
+  protected def solveaux(problem : CCUSimProblem) : 
+      (Result.Result, Option[Map[Int, Int]])
+
+  def unsatCoreAux(problem : CCUSimProblem, timeout : Int) : Seq[Int]
 
   def reset = {
     solver.reset()
@@ -142,18 +151,9 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     S.clear
   }
 
-
   def assignmentsToSolution[Term](assignments : Map[Int, Seq[Int]]) = {
-    val model = solver.model
-
-    // Convert the model to a more convenient format
-    var intAss = Map() : Map[Int, Int]
-
     // If bit B is true, bitArray(bitMap(B)) should be true
     var bitMap = Map() : Map[Int, List[Int]]
-
-    // Term T can find its bits in resultMap(T)
-    var resultMap = Map() : Map[Int, Seq[Int]]
 
     // Prune all bits that are not with var ass and put in bitArray
     // (assuming all terms are represented by the same number of bits)
@@ -163,16 +163,18 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     // Current position in bitArray
     var curPos = 0
 
-    for ((term, bits) <- assignments) {
-      val newResult =
-        (for (i <- 0 until bits.length) yield {
-          val newList = curPos :: (bitMap.getOrElse(bits(i), List()))
-          bitMap += (bits(i) -> newList)
-          curPos += 1
-          (curPos - 1)
-        })
-      resultMap += term -> newResult
-    }
+    // Term T can find its bits in resultMap(T)
+    val resultMap = 
+      (for ((term, bits) <- assignments) yield {
+        val newResult =
+          (for (i <- 0 until bits.length) yield {
+            val newList = curPos :: (bitMap.getOrElse(bits(i), List()))
+            bitMap += (bits(i) -> newList)
+            curPos += 1
+            (curPos - 1)
+          })
+        term -> newResult
+      })    
 
     for (i <- solver.model) {
       val newVal = i >= 0
@@ -191,42 +193,38 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
       curVal
     }
 
-    for (t <- assignments.keys) {
-      val iVal = bitToInt2(resultMap(t))
-      intAss += (t -> iVal)
-    }
-    intAss
+    (for (t <- assignments.keys) yield t -> bitToInt2(resultMap(t))).toMap
   }
 
-  def verifySolution(
-    terms : Seq[Int],
-    assignment : Map[Int,Int],
-    functions : Seq[CCUEq],
-    goal : CCUGoal)
-      : Boolean = {
+  // def verifySolution(
+  //   terms : Seq[Int],
+  //   assignment : Map[Int,Int],
+  //   functions : Seq[CCUEq],
+  //   goal : CCUGoal)
+  //     : Boolean = {
 
-    val uf = util.CCunionFind(terms, functions, assignment.toList)
+  //   val uf = Util.CCunionFind(terms, functions, assignment.toList)
 
-    var satisfiable = false
+  //   var satisfiable = false
 
-    for (subGoal <- goal.subGoals) {
-      var subGoalSat = true
+  //   for (subGoal <- goal.subGoals) {
+  //     var subGoalSat = true
 
-      var allPairsTrue = true
-      for ((s,t) <- subGoal) {
-        if (uf(s) != uf(t)) {
-          allPairsTrue = false
-        }
+  //     var allPairsTrue = true
+  //     for ((s,t) <- subGoal) {
+  //       if (uf(s) != uf(t)) {
+  //         allPairsTrue = false
+  //       }
 
-        if (!allPairsTrue)
-          subGoalSat = false
-      }
-      if (subGoalSat) {
-        satisfiable = true
-      }
-    }
-    satisfiable
-  }
+  //       if (!allPairsTrue)
+  //         subGoalSat = false
+  //     }
+  //     if (subGoalSat) {
+  //       satisfiable = true
+  //     }
+  //   }
+  //   satisfiable
+  // }
 
   def bitToInt(bits : Seq[Int]) : Int = {
     var curMul = 1
@@ -333,15 +331,77 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     assignments
   }
 
-  def reorderProblems(goals : Seq[Seq[Seq[(Int, Int)]]]) : Seq[Int] = {
+  def reorderProblems(terms : Seq[Seq[Int]], domains : Seq[Map[Int,Set[Int]]],
+    functions : Seq[Seq[(Int, Seq[Int], Int)]], goals : Seq[Seq[Seq[(Int, Int)]]]) : Seq[Int] = {
     val count = goals.length
+
+    // 
+    // Order by goals length (Increasing)
+    //
+    // val order  =
+    //   (for (i <- 0 until count) yield
+    //     (i, goals(i).length)).sortBy(_._2).map(_._1)
+
+    // 
+    // Order by goals length (Decreasing)
+    //
+    // BEST SO FAR?
+    //
+
     val order  =
       (for (i <- 0 until count) yield
-        (i, goals(i).length)).sortBy(_._2).map(_._1)
+        (i, goals(i).length)).sortBy(_._2).map(_._1).reverse
+
+    //
+    // Order by function count (Increasing)
+    //
+    // val order = 
+    //   (for (i <- 0 until count) yield
+    //     (i, functions(i).length)).sortBy(_._2).map(_._1).reverse
+
+    //
+    // Order by total domain size (Increasing)
+    //
+    // val order = 
+    //   (for (i <- 0 until count) yield
+    //     (i, ((for ((t, d) <- domains(i)) yield d.size).sum))).sortBy(_._2).map(_._1)
+
+    //
+    // Order by term count (Increasing)
+    //
+    // val order = 
+    //   (for (i <- 0 until count) yield
+    //     (i, terms(i).length)).sortBy(_._2).map(_._1)
+
 
     order
   }
 
+  def createDQ(terms : Seq[Int],
+    domains : Map[Int, Set[Int]],
+    functions : Seq[(Int, Seq[Int], Int)]) = {
+
+    val size = if (terms.isEmpty) 0 else (terms.max + 1)
+    // Store all disequalities that always must hold!
+
+    val DQ = new Disequalities(size, functions.map(x => CCUEq(x)).toArray, timeoutChecker)
+    for (t <- terms) {
+      val domain = domains.getOrElse(t, List(t))
+
+      for (d <- domain) {
+        DQ.cascadeRemove(t, d)
+      }
+
+      for (tt <- terms; if t != tt) {
+        val ttDomain = domains.getOrElse(tt, Set(tt))
+        if (domain exists ttDomain) {
+          DQ.cascadeRemove(t, tt)
+        }
+      }
+   }
+
+    DQ
+  }
 
   def createBaseDQ(
     terms : Seq[Int],
@@ -350,50 +410,50 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     val size = if (terms.isEmpty) 0 else (terms.max + 1)
     // Store all disequalities that always must hold!
 
-    val baseDQ = new Disequalities(size, functions.toArray.map(x => new CCUEq(x)), timeoutChecker)
+    val baseDQ = new Disequalities(size, functions.map(x => CCUEq(x)).toArray, timeoutChecker)
     for (t <- terms) {
       val domain = domains.getOrElse(t, List(t))
 
       for (d <- domain) {
-        baseDQ.cascadeRemove(t, d)
+        baseDQ.remove(t, d)
       }
 
       for (tt <- terms; if t != tt) {
         val ttDomain = domains.getOrElse(tt, Set(tt))
         if (domain exists ttDomain)
-          baseDQ.cascadeRemove(t, tt)
+          baseDQ.remove(t, tt)
       }
     }
 
     baseDQ
   }
 
-  def createProblem[Term, Fun](
-    domains : Map[Term, Set[Term]],
-    goals : Seq[Seq[Seq[(Term, Term)]]],
-    functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : CCUInstance[Term, Fun] = {
-    // Timer.measure("createProblem") {
-    curId += 1
+  private def extractTerms(domains : Map[Term, Set[Term]],
+    functions : Seq[(Fun, Seq[Term], Term)],
+    goals : Seq[Seq[(Term, Term)]]) = {
 
     val termSet = MSet() : MSet[Term]
     for ((_, d) <- domains)
       for (t <- d)
         termSet += t
-    for ((s,t) <- goals.flatten.flatten) {
+    for ((s,t) <- goals.flatten) {
       termSet += s
       termSet += t
     }
-    for ((_, args, r) <- functions.flatten) {
+    for ((_, args, r) <- functions) {
       for (t <- args)
         termSet += t
       termSet += r
     }
     
-    val terms = termSet.toList
-    val bits = util.binlog(terms.length)
+    termSet.toSet
+  }
 
-    // HACK?
-    val problemCount = goals.length
+
+  private def createTermMapping(
+    terms : Seq[Term],
+    domains : Map[Term, Set[Term]])
+      : (Map[Term, Int], Map[Int, Term]) = {
 
     // Convert to Int representation
     val termToInt = MMap() : MMap[Term, Int]
@@ -403,12 +463,10 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     while (assigned < terms.length) {
       for (t <- terms) {
         if (!(termToInt contains t)) {
-          var domainAssigned = true
-          for (tt <- (domains.getOrElse(t, Set())); if (t != tt)) {
-            if (!(termToInt contains tt))
-              domainAssigned = false
-          }
-          if (domainAssigned) {
+          // Assign term after its domain is assigned (well-ordering)
+          val d = domains.getOrElse(t, Set()).filter(_ != t)
+          val dass = d.map(termToInt contains _)
+          if (dass.forall(_ == true)) {
             termToInt += (t -> assigned)
             intToTerm += (assigned -> t)
             assigned += 1
@@ -417,27 +475,55 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
       }
     }
 
+    (termToInt.toMap, intToTerm.toMap)
+  }
+
+
+  private def createFunMapping(
+    functions : Seq[Seq[(Fun, Seq[Term], Term)]]
+  ) : Map[Fun, Int] = {
+    var assigned = 0
     var funMap = Map() : Map[Fun, Int]
-    assigned = 0
     for ((f, _, _) <- functions.flatten) {
       if (!(funMap contains f)) {
         funMap += (f -> assigned)
         assigned += 1
       }
     }
+    funMap
+  }
+
+
+  def createProblem(
+    domains : Map[Term, Set[Term]],
+    goals : Seq[Seq[Seq[(Term, Term)]]],
+    functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : CCUInstance[Term, Fun] = {
+    curId += 1
+
+    val problemCount = goals.length
+    val termSets = 
+      for (p <- 0 until problemCount) yield
+        extractTerms(domains, functions(p), goals(p))
+
+    val allTerms = (termSets.:\(Set() : Set[Term])(_ ++ _)).toList
+    val terms = for (p <- 0 until problemCount) yield allTerms
+    val bits = Util.binlog(allTerms.length)
+
+    // Convert to Int representation
+    val (termToInt, intToTerm) = createTermMapping(allTerms, domains)
+    val funMap = createFunMapping(functions)
 
     // Adjust to new representation
+    val newAllTerms = allTerms.map(termToInt)
+    val newTerms = terms.map(_.map(termToInt).toList)
 
-    val newTerms = terms.map(termToInt)
-
-    var newDomains = Map() : Map[Int, Set[Int]]
-    for (t <- terms) {
-      val oldDomain = domains.getOrElse(t, Set())
-      if (oldDomain.isEmpty)
-        newDomains += (termToInt(t) -> Set(termToInt(t)))
-      else
-        newDomains += (termToInt(t) -> oldDomain.map(termToInt))
-    }
+    // Each term is added to its own domain
+    // TODO: http://stackoverflow.com/questions/1715681/scala-2-8-breakout/1716558#1716558
+    val newDomains = 
+      (for (t <- allTerms) yield {
+        val oldDomain = domains.getOrElse(t, Set(t))
+        (termToInt(t) -> oldDomain.map(termToInt))
+      }).toMap
 
     val newGoals =
       for (g <- goals)
@@ -448,62 +534,9 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
       for (funs <- functions)
       yield (for ((f, args, r) <- funs)
       yield (funMap(f), args.map(termToInt), termToInt(r)))
-    
-    val baseDQ =
-      for (p <- 0 until problemCount)
-      yield {
-        createBaseDQ(
-          newTerms,
-          (for ((k, v) <- newDomains) yield (k, v.toSet)).toMap,
-          newFunctions(p))}
+   
 
-    // val DQ = (for (p <- 0 until problemCount)
-    // yield {
-    //   // TODO: Length of disequalities
-    //   val tmpDQ = new Disequalities(newTerms.length, newFunctions(p).toArray.map(x => new CCUEq(x)), timeoutChecker)
-    
-    //   // val c = Array.ofDim[Int](newTerms.length, newTerms.length)
-    //   for (t <- newTerms; tt <- newTerms)
-    //     if (arr(t)(tt) == 1) {
-    //       tmpDQ.cascadeRemove(t,tt)
-    //     }
-
-    //   // val deq = util.disequalityCheck(c, newFunctions(p))
-    //   // deq
-    //   tmpDQ
-    // })
-
-    val arr = Array.ofDim[Int](newTerms.length, newTerms.length)
-
-    for (t <- newTerms) {
-      val domain = newDomains.getOrElse(t, List(t))
-      for (d <- domain) {
-        arr(t)(d) = 1
-        arr(d)(t) = 1
-      }
-
-      for (tt <- newTerms; if t != tt) {
-        val ttDomain = newDomains.getOrElse(tt, Set(tt))
-        if (domain exists ttDomain) {
-          arr(t)(tt) = 1
-          arr(tt)(t) = 1
-        }
-      }
-    }
-
-
-
-    val baseDI = (for (p <- 0 until problemCount)
-    yield {
-      val size = if (newTerms.isEmpty) 0 else newTerms.max+1
-      val c = Array.ofDim[Int](size, size)
-      for (t <- newTerms; tt <- newTerms)
-        c(t)(tt) = arr(t)(tt)
-
-      c
-      // val deq = util.disequalityCheck(c, newFunctions(p))
-      // deq-
-    })
+    val arr = Array.ofDim[Int](newAllTerms.length, newAllTerms.length)
 
     val ffs =
       (for (p <- 0 until problemCount) yield {
@@ -526,30 +559,11 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
           false
         }
 
-        def matchable(funs : Seq[(Int, Seq[Int], Int)],
-          fun : (Int, Seq[Int], Int)) : Boolean = {
-          val (f1, args1, s1) = fun
-          for ((f2, args2, s2) <- funs) {
-            if (f1 == f2 && s1 != s2) {
-              var m = true
-              for ((a1, a2) <- args1 zip args2)
-                if (!baseDQ(p)(a1, a2))
-                  m = false
-
-              if (m)
-                return true
-            }
-          }
-
-          false
-        }
-
-        val ff =
-          newFunctions(p).filter(x => (matchable(newFunctions(p), x)))
+        val ff = newFunctions(p)
 
 
         val tmpFt = ListBuffer() : ListBuffer[Int]
-        for (t <- (newTerms.filter(x => isUsed(x, ff, newGoals(p)))))
+        for (t <- (newAllTerms.filter(x => isUsed(x, ff, newGoals(p)))))
           tmpFt += t
 
         // We have to add all terms that are in the domains of ft
@@ -582,67 +596,55 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
     val filterDomains = for ((_, _, fd) <- ffs) yield fd
     val filterFunctions = for ((ff, _, _) <- ffs) yield ff
 
-    val order = reorderProblems(newGoals)
+    val DQ =
+      for (p <- 0 until problemCount)
+      yield createDQ(
+          filterTerms(p),
+          filterDomains(p),
+          filterFunctions(p))
 
-    for (fd <- filterDomains) {
-      for ((k, v) <- fd) {
-        if (v.isEmpty) {
-          println("domains: " + domains)
-          println("goals: " + goals)
-          println("functions: " + functions)
-          println("ffs: " + ffs)
-          println("filterDomains: " + filterDomains)
-          throw new Exception("CreateProblem, empty domain")
-        }
-      }
-    }
+    val baseDQ =
+      for (p <- 0 until problemCount)
+      yield createBaseDQ(
+          filterTerms(p),
+          filterDomains(p),
+          filterFunctions(p))
 
-    // TODO: FIX!
+    val order = reorderProblems(filterTerms, filterDomains, filterFunctions, newGoals)
 
     val reorderTerms = (for (i <- order) yield filterTerms(i))
     val reorderDomains = (for (i <- order) yield filterDomains(i))
     val reorderGoals = (for (i <- order) yield newGoals(i))
     val reorderFunctions =
       (for (i <- order) yield filterFunctions(i).map(x => new CCUEq(x)))
+    val reorderDQ = (for (i <- order) yield DQ(i))
     val reorderBaseDQ = (for (i <- order) yield baseDQ(i))
+
 
     val problems =
       for (i <- 0 until problemCount) yield
         new CCUSubProblem(reorderTerms(i), reorderDomains(i),
           reorderFunctions(i), new CCUGoal(reorderGoals(i)),
-          reorderBaseDQ(i))
-
-    // val newDiseq =
-    //   for (d <- reorderDiseq) yield {
-    //     val newD = Array.ofDim[Int](d.length * d.length)
-    //     for (i <- 0 until d.length; j <- 0 until d.length) {
-    //       newD(i * d.length + j) = d(i)(j)
-    //     }
-    //     newD
-    //   }
+          reorderDQ(i), reorderBaseDQ(i))
 
     val problem =
       new CCUSimProblem(
-        newTerms,
+        newAllTerms,
         newDomains,
         bits,
-        // reorderDiseq,
-        // newDiseq,
-        // reorderBaseDI,
         order,
         problems)
 
-    // TODO: Fix immutable map
     new CCUInstance[Term, Fun](curId, this, problem, termToInt.toMap)
-    // }
   }
+
+
 
   def createInstanceFromJson[Fun, Term](filename : String) = {
     curId += 1
 
     val lines = scala.io.Source.fromFile(filename).getLines
     val json = lines.next
-
 
     implicit def CCUGoalDecodeJson: DecodeJson[CCUGoal] =
       DecodeJson(c => for {
@@ -668,6 +670,7 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
         (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
         funEqs,
         goal,
+        createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq)),
         createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq))))
 
     implicit def CCUSimProblemDecodeJson: DecodeJson[CCUSimProblem] =
@@ -681,57 +684,9 @@ abstract class CCUSolver(val timeoutChecker : () => Unit,
         (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
         bits, order, subProblems))
 
-    // TODO: error handling
-    val res = json.decodeEither[CCUSimProblem]
-    // println(res)
-
     val problem = json.decodeOption[CCUSimProblem].get
 
-    new CCUInstance[Term, Fun](curId, this, problem, Map())
+    new CCUInstance(curId, this, problem, Map())
   }
-
-  def checkSAT(
-    problem : CCUSimProblem,
-    solution : Map[Int, Int]) : Boolean = {
-
-    val terms = problem.terms
-    val domains = problem.domains
-    val goals = for (sp <- problem.subProblems) yield sp.goal
-    val functions = for (sp <- problem.subProblems) yield sp.funEqs
-
-    val sets = MSet() : MSet[Set[Int]]
-    for (t <- terms)
-      sets += Set(t)
-
-    def set(t : Int) : Set[Int] = {
-      for (s <- sets)
-        if (s contains t)
-          return s
-      throw new Exception("No set contains t?")
-    }
-
-    for (p <- 0 until goals.length)
-      if (!verifySolution(terms, solution, functions(p), goals(p)))
-        return false
-
-    true
-  }
-
-
-  //
-  //   CONSTRUCTOR METHOD BEGIN
-  //
-
-  val util = new Util(timeoutChecker)
-  val alloc = new Allocator
-  val ZEROBIT = 1
-  val ONEBIT = 2
-
-  // TODO: Make real bound?
-  val solver = SolverFactory.newDefault()
-  val MAXVAR = 1000000;
-  solver.newVar (MAXVAR);
-  solver.setTimeoutMs(maxSolverRuntime)
-  val gt = new GateTranslator(solver)
 }
 

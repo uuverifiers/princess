@@ -119,7 +119,7 @@ trait ProofTree {
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
 
-  private lazy val ccuSolver : CCUSolver =
+  private lazy val ccuSolver : CCUSolver[ConstantTerm, Predicate] =
     this match {
       case goal : Goal =>
         Param.CCU_SOLVER(goal.settings) match {

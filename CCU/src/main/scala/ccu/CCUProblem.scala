@@ -1,5 +1,8 @@
 package ccu;
 
+import argonaut._, Argonaut._
+import scalaz._, Scalaz._
+
 @SerialVersionUID(15L)
 case class CCUGoal(val subGoals : Seq[Seq[(Int, Int)]]) extends Serializable {
   override def toString = {
@@ -24,22 +27,43 @@ case class CCUSubProblem(
   val domains : Map[Int, Set[Int]],
   val funEqs : Seq[CCUEq],
   val goal : CCUGoal,
-  // @transient var DQ : Disequalities,
+  @transient val DQ : Disequalities,
   @transient val baseDQ : Disequalities) 
     extends Serializable {
 
   override def toString = {
-    var str = ""
-     // str += baseDI.map(x => x.mkString(" - ")).mkString("\n")
-    str
+    "CCUSubProblem"
   }
 
   def solvable = {
     // subgoalsat(0) = true of subgoal(0) is solvable
     val subgoalsat = for (subgoal <- goal.subGoals) yield
-      (for ((s, t) <- subgoal) yield baseDQ(s, t)).foldRight(true)(_ && _)
+      (for ((s, t) <- subgoal) yield DQ(s, t)).foldRight(true)(_ && _)
 
     subgoalsat.foldRight(false)(_ || _)
+  }
+
+  def verifySolution(solution : Map[Int, Int]) = {
+    val uf = Util.CCunionFind(terms, funEqs, solution.toList)
+    var satisfiable = false
+
+    for (subGoal <- goal.subGoals) {
+      var subGoalSat = true
+
+      var allPairsTrue = true
+      for ((s,t) <- subGoal) {
+        if (uf(s) != uf(t)) {
+          allPairsTrue = false
+        }
+
+        if (!allPairsTrue)
+          subGoalSat = false
+      }
+      if (subGoalSat) {
+        satisfiable = true
+      }
+    }
+    satisfiable    
   }
 }
 
@@ -64,8 +88,12 @@ case class CCUSimProblem(
     str += "| Order: " + order + "\n"
     for (p <- 0 until size) {
       str += "+--------\n"
+      str += "| terms: " + subProblems(p).terms + "\n"
+      str += "| domains: " + subProblems(p).domains + "\n"
       str += "| funEqs: " + subProblems(p).funEqs + "\n"
       str += "| goal: " + subProblems(p).goal + "\n"
+      str += "| DQ: " + subProblems(p).DQ + "\n"
+      str += "| baseDQ: " + subProblems(p).baseDQ + "\n"
       str += subProblems(p).toString + "\n"
     }
     str += "\\\\-------------\n"
@@ -75,4 +103,34 @@ case class CCUSimProblem(
   def apply(i : Int) = subProblems(i)
 
   def solvable = subProblems.map(_.solvable).foldRight(true)(_ && _)
+
+
+  implicit def CCUGoalEncodeJson: EncodeJson[CCUGoal] =
+    EncodeJson((g : CCUGoal) =>
+      ("subGoals" := g.subGoals.map(_.toList).toList) ->: jEmptyObject)
+
+  implicit def CCUEqEncodeJson: EncodeJson[CCUEq] =
+    EncodeJson((eq : CCUEq) =>
+      ("fun" := eq.eq._1) ->: ("args" := eq.eq._2.toList) ->:
+        ("res" := eq.eq._3) ->: jEmptyObject)
+
+  implicit def CCUSubProblemEncodeJson: EncodeJson[CCUSubProblem] =
+    EncodeJson((sp: CCUSubProblem) =>
+      ("terms" := sp.terms.toList) ->: ("domains" := sp.domains.toList) ->:
+        ("funEqs" := sp.funEqs.toList) ->: ("goal" := sp.goal) ->: jEmptyObject)
+
+  implicit def CCUSimProblemEncodeJson: EncodeJson[CCUSimProblem] =
+    EncodeJson((p: CCUSimProblem) =>
+      ("terms" := p.terms.toList) ->: ("domains" := p.domains.toList) ->:
+        ("bits" := p.bits) ->: ("order" := p.order.toList) ->:
+        ("subProblem" := p.subProblems.toList) ->: jEmptyObject)
+
+  def JSON : String = {
+    this.asJson.toString
+  }
+
+  def verifySolution(solution : Map[Int, Int]) = {
+    subProblems.forall(_.verifySolution(solution))
+  }
+
 }
