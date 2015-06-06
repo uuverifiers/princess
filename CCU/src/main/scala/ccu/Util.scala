@@ -304,7 +304,6 @@ class Disequalities(
   def minimise(
     terms : Seq[Int],
     goals : Seq[Seq[(Int, Int)]], 
-    baseDI : Disequalities,
     heuristic : (((Int, Int)) => Int)) = {
     // Go through all disequalities
     // We try to remove disequalities one by one
@@ -318,9 +317,18 @@ class Disequalities(
       this.cascadeRemove(s, t)
 
       val sat = this.satisfies(goals)
-      if (!sat) this.setBase
-      else this.restore
+      if (!sat) {
+        this.setBase
+      } else {
+        this.restore
+      }
     }
+
+    if (this.satisfies(goals)) {
+      println("okey...")
+      10/0
+    }
+      
   }
 
   def setBase = changes = ListBuffer()

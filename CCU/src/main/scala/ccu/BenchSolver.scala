@@ -60,6 +60,7 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
   override def solveaux(problem : CCUSimProblem) : (ccu.Result.Result, Option[Map[Int, Int]]) = {
     reset
 
+    println("Solving")
     val (tresult, ttime) = 
       try {
         println("Running Tablesolver...")
@@ -105,10 +106,12 @@ class BenchSolver[Term, Fun](timeoutChecker : () => Unit,
     lsolver.unsatCore(problem, timeout)
   }
 
-  println("Creating BenchSolver...")
+  // println("Creating BenchSolver...")
   BenchSolver.startTime = System.currentTimeMillis()
   val tsolver = new TableSolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
+  // println("\ttable solver")
   BenchSolver.startTime = System.currentTimeMillis()
   val lsolver = new LazySolver(BenchSolver.customTimeoutChecker(BenchSolver.TIMEOUT), maxSolverRuntime)
+  // println("\tlazy solver")
 
 }

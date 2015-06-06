@@ -39,7 +39,7 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
   def handleBlockingProblem(cp : CCUSubProblem, solution : Map[Int, Int],
   teqt : Array[Array[Int]], assignments : Map[Int, Seq[Int]]) = 
   Timer.measure("handleBlockingProblem") {
-    // val DQ = new Disequalities(cp.baseDQ)
+    // val DQ = new Disequalities(cp.DQ) 
     val DQ = new Disequalities(cp.terms.max+1, cp.funEqs.toArray, timeoutChecker)
 
     // Could we replace this by just doing cascade-remove on the assignments?
@@ -56,16 +56,25 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
     }
 
     // Now we minimize DI to only contain "relevant" inequalities
-    DQ.minimise(cp.terms, cp.goal.subGoals, cp.baseDQ, heuristic)
+    DQ.minimise(cp.terms, cp.goal.subGoals, heuristic)
 
     // Remove all "base" inequalities, since they will always be there
-
     val ineqs = DQ.inequalities(cp.terms)
+
+    // println("INEQS: " + ineqs.mkString(", "))
 
     val finalDQ = for ((s,t) <- ineqs; if cp.baseDQ(s, t)) yield (s, t)
 
+    // println("finalDQ: " + finalDQ.mkString(", "))
+
+    // println("baseDQ: " + cp.baseDQ)
+
     // println("Blocking clause size: " + finalDQ.length)
 
+    if (DQ.satisfies(cp.goal.subGoals)) {
+      println("minimisation failed")
+      10/0
+    }
     val blockingClause =
       (for ((s,t) <- finalDQ) yield {
         if (teqt(s min t)(s max t) == -1)
@@ -80,7 +89,6 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
       false
     } catch {
       case e : org.sat4j.specs.ContradictionException => {
-        println("contradict")
         true
       }
     }
@@ -119,8 +127,8 @@ class LazySolver[Term, Fun](timeoutChecker : () => Unit,
 
       trySolution(problemOrder, problem, intAss) match {
         case Some(p) => {
-          blockingProblem(problemOrder(p)) = true
-          if (handleBlockingProblem(problem(problemOrder(p)), intAss,
+          blockingProblem(p) = true
+          if (handleBlockingProblem(problem(p), intAss,
             teqt, assignments))
             infeasible = true
           problemOrder = p::problemOrder.filter(_ != p)

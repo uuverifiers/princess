@@ -96,13 +96,13 @@ abstract class CCUSolver[Term, Fun](
 
 
     val result =
-      if (problem.solvable == false) {
-        // println("\tDisequality check")
-        // println(problem)
-        (ccu.Result.UNSAT, None)
-      } else { 
+      // if (problem.solvable == false) {
+      //   println("\tDisequality check")
+      //   // println(problem)
+      //   (ccu.Result.UNSAT, None)
+      // } else { 
         solveaux(problem)
-      }
+      // }
 
     // println("\tChecking solution")
     if (asserted) {
