@@ -1810,7 +1810,7 @@ class SimpleAPI private (enableAssert : Boolean,
       true
     }
   }
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   /**
    * Compute an inductive sequence of interpolants, for the given
@@ -2356,12 +2356,12 @@ class SimpleAPI private (enableAssert : Boolean,
                                   reduced)
           }
         
-        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC,
                         finalReduced.isLiteral &&
                         finalReduced.arithConj.positiveEqs.size == 1 &&
                         finalReduced.constants.size == 1)
-        //-END-ASSERTION-/////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         
         -finalReduced.arithConj.positiveEqs.head.constant
       }
@@ -2393,10 +2393,10 @@ class SimpleAPI private (enableAssert : Boolean,
             (extendedProver checkValidity true) match {
               case Left(m) if (!m.isFalse) => {
                 val pAtoms = m.predConj.positiveLitsWithPred(p)
-                //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 Debug.assertInt(AC, pAtoms.size == 1 &&
                                     pAtoms.head.constants.isEmpty)
-                //-END-ASSERTION-///////////////////////////////////////////////////////
+                //-END-ASSERTION-///////////////////////////////////////////////
 
                 val pAtom = pAtoms.head
                 val result = pAtom(0).constant
@@ -2432,9 +2432,9 @@ class SimpleAPI private (enableAssert : Boolean,
             (extendedProver checkValidity true) match {
               case Left(m) if (!m.isFalse) => {
                 val reduced = ReduceWithEqs(m.arithConj.positiveEqs, extendedOrder)(l(c))
-                //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 Debug.assertInt(AC, reduced.constants.isEmpty)
-                //-END-ASSERTION-///////////////////////////////////////////////////////
+                //-END-ASSERTION-///////////////////////////////////////////////
                 val result = reduced.constant
                 currentModel = ConstantSubst(c, result, extendedOrder)(m)
                 lastPartialModel = null
