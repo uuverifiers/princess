@@ -414,7 +414,7 @@ List(
 */
 
                    
-          Console.err.println
+          //Console.err.println
             // Console.err.println(ap.util.Timer)
             // Console.err.println("ccu.Timer:")
             // Console.err.println(ccu.Timer)
