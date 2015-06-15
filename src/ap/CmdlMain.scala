@@ -730,7 +730,7 @@ List(
                 println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.MaybeCounterModel(model) =>  {
-                println("UNKNOWN")
+                Console.withOut(Console.err) {
                 model match {
                   case IBoolLit(true) => // nothing
                   case _ => {
@@ -739,11 +739,13 @@ List(
                     printFormula(model)
                   }
                 }
+                }
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("false")
                 }
+                println("% SZS status GaveUp for " + lastFilename)
               }
               case Prover.NoCounterModel =>  {
                 Console.err.println("No countermodel exists, formula is valid")
