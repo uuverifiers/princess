@@ -382,6 +382,11 @@ object IterativeClauseMatcher {
   
 ////////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Turn quantifiers that are normally handled via e-matching
+   * into existential quantifiers that use free variables,
+   * exploiting the totality of some functions.
+   */
   private def simpClause(clause : Conjunction,
                          totalFuns : Set[Predicate]) : Conjunction = {
     implicit val order = clause.order

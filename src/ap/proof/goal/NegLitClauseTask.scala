@@ -132,7 +132,11 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int,
       else
         (for (t <- goal.formulaTasks(Conjunction.disj(instances, order)))
          yield t) ++
-        (for (f <- quantifiedInstances) yield new ExQuantifierTask(f, goal.age))
+        (for (f <- quantifiedInstances;
+              t <- if (ExQuantifierTask isCoveredFormula f)
+                     List(new ExQuantifierTask(f, goal.age))
+                   else
+                     goal formulaTasks f) yield t)
           
     (newCF, newTasks)
   }

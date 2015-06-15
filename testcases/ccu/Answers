@@ -81,3 +81,9 @@ UNKNOWN
 Possible countermodel:
 not_orthogonal_lines(1, 0) & unorthogonal_lines(0, 0) & convergent_lines(0, 1) & !not_orthogonal_lines(0, 0) & !convergent_lines(1, 0)
 
+Loading SEU219+2.p ...
+Preprocessing ...
+Proving ...
+
+% SZS status Theorem for SEU219+2
+
