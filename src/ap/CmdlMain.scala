@@ -272,8 +272,13 @@ object CmdlMain {
       case '4' => Param.TriggerStrategyOptions.AllUni
       case '5' => Param.TriggerStrategyOptions.MaximalOutermost
     })
-    if (str.size > 7)
-      s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
+    s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
+    s = Param.IGNORE_QUANTIFIERS.set(s, str(8) == '1')
+    s = Param.TRIGGER_GENERATION.set(s, str(9) match {
+      case '0' => Param.TriggerGenerationOptions.All
+      case '1' => Param.TriggerGenerationOptions.Complete
+      case '2' => Param.TriggerGenerationOptions.CompleteFrugal
+    })
     s
   }
               
@@ -305,8 +310,16 @@ object CmdlMain {
          "maximalOutermost"
     )
 
-    if (strategy.size > 7)
-      s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
+    s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
+    s = s + " " + (if (strategy.charAt(8)=='0') "-" else "+") + "ignoreQuantifiers"
+    s = s + " -generateTriggers=" + (
+      if (strategy.charAt(9)=='0')
+        "all"
+      else if (strategy.charAt(9)=='1')
+        "complete"
+      else
+        "completeFrugal"
+    )
     
     s
   }
@@ -337,6 +350,29 @@ object CmdlMain {
             
             var rawStrategies =
 List(
+("1010004000",45000,600),
+("1001001010",13000,3000),
+("1000112010",4000,3000),
+("0101002000",21000,200),
+("1000005001",1000,1000),
+("1001000000",2000,2000),
+("0011005000",37000,2200),
+("1011110001",3000,3000),
+("1001015000",41000,2200),
+("1001001002",36000,32000),
+("1101003000",23000,23000),
+("1200113000",13000,200),
+("1111113000",5000,5000),
+("0111002000",42000,17000),
+("0110004000",33000,22000),
+("1010004010",15000,12000),
+("0010004000",33000,6000),
+("1001005000",43000,4000),
+("1110004000",16000,16000),
+("0000105000",35000,10000)
+)
+/*
+List(
 ("10010010",31000,2400), 
 ("11001031",15000,600), 
 ("12100100",5000,2400), 
@@ -357,6 +393,7 @@ List(
 ("12100040",19000,3000), 
 ("02101011",45000,3000), 
 ("11010010",45000,2600))
+*/
 
       /*
               List(("1010002", 15000, 3000),
