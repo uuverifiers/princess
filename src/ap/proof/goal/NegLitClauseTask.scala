@@ -107,33 +107,35 @@ class NegLitClauseTask(_formula : Conjunction, _age : Int,
     if (addedClauses.isEmpty) {
       (cf, List())
     } else {
-    val order = goal.order
-    val voc = goal.vocabulary
+      val order = goal.order
+      val voc = goal.vocabulary
     
-    val oldMatcher = cf.quantifierClauses(eager)
+      val oldMatcher = cf.quantifierClauses(eager)
     
-    val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
-    val (instances, newMatcher) =
-      oldMatcher.addClauses(addedClauses,
-                            goal.mayAlias,
-                            goal.reduceWithFacts,
-                            (MatchFunctions.isIrrelevantInstance(_, voc, _, reverseProp)),
-                            reverseProp,
-                            collector, order)
+      val reverseProp = Param.REVERSE_FUNCTIONALITY_PROPAGATION(goal.settings)
+      val (instances, newMatcher) =
+        oldMatcher.addClauses(goal.facts.predConj,
+                              addedClauses,
+                              goal.mayAlias,
+                              goal.reduceWithFacts,
+                              (MatchFunctions.isIrrelevantInstance(_, voc, _,
+                                                                   reverseProp)),
+                              reverseProp,
+                              collector, order)
     
-    val newCF = cf.updateQuantifierClauses(eager, newMatcher)
+      val newCF = cf.updateQuantifierClauses(eager, newMatcher)
     
-    val newTasks =
-      if (collector.isLogging)
-        // if we are producing proofs, we have to treat the instances
-        // separately (to log all performed simplifications)
-        for (f <- instances; t <- goal formulaTasks f) yield t
-      else
-        for (t <- goal.formulaTasks(Conjunction.disj(instances, order)))
-          yield t
+      val newTasks =
+        if (collector.isLogging)
+          // if we are producing proofs, we have to treat the instances
+          // separately (to log all performed simplifications)
+          for (f <- instances; t <- goal formulaTasks f) yield t
+        else
+          for (t <- goal.formulaTasks(Conjunction.disj(instances, order)))
+            yield t
           
-    (newCF, newTasks)
-  }
+      (newCF, newTasks)
+    }
   
   /**
    * Create a new <code>FormulaTask</code> by updating the value of
