@@ -17,6 +17,8 @@ TESTS="bad-predicate-performance.pri \
 
 $PRI "$@" $TESTS
 
-$PRI "$@" -timeout=30000 +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +boolFunsAsPreds -triggerStrategy=allMaximal +ignoreQuantifiers -generateTriggers=all GEO212+3-complete.p
+$PRI "$@" +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=none +boolFunsAsPreds -triggerStrategy=allMaximal +ignoreQuantifiers -generateTriggers=all GEO212+3-complete.p
 
-$PRI "$@"  -timeout=30000 SEU219+2.p -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -resolutionMethod=nonUnifying
+$PRI "$@"  SEU219+2.p -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -resolutionMethod=nonUnifying
+
+$PRI "$@" GEO337+1.p -triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal -resolutionMethod=normal +ignoreQuantifiers -generateTriggers=completeFrugal

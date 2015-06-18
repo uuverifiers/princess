@@ -1,7 +1,7 @@
 #!/bin/sh
 
-./rundir ccu "" -logo +assert -multiStrategy -CCU=table -timeout=30000
-./rundir ccu "" -logo +assert -multiStrategy -CCU=lazy -timeout=30000
+./rundir ccu "1" -logo +assert -multiStrategy -CCU=table -timeout=30000
+./rundir ccu "2" -logo +assert -multiStrategy -CCU=lazy -timeout=30000
 
 ./rundir nia "" -logo +assert -timeout=5000 -clausifier=none +posUnitResolution
 

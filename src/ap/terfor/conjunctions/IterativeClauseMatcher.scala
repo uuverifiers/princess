@@ -950,7 +950,8 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
     }
 */
 
-  def addClauses(addedClauses : Iterable[Conjunction],
+  def addClauses(newFacts : PredConj,
+                 addedClauses : Iterable[Conjunction],
                  mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
                  contextReducer : ReduceWithConjunction,
                  // predicate to distinguish the relevant matches
@@ -965,6 +966,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
     if (addedClauses.isEmpty) {
       (List(), List(), this)
     } else {
+      implicit val _ = order
       val newClauses =
         NegatedConjunctions(clauses.iterator ++ addedClauses.iterator, order)
 
@@ -973,14 +975,15 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                NegatedConjunctions(addedClauses, order),
                                false, totalFuns, generatedInstances)
     
+      val (persistentFacts, _) = newFacts diff currentFacts
       val (instances, quantifiedInstances, _) =
-        tempMatcher.updateFacts(currentFacts,
+        tempMatcher.updateFacts(persistentFacts,
                                 mayAlias, contextReducer, isIrrelevantMatch,
                                 allowConditionalInstances, logger, order, method)
     
       (instances,
        quantifiedInstances,
-       IterativeClauseMatcher(currentFacts, newClauses, matchAxioms,
+       IterativeClauseMatcher(persistentFacts, newClauses, matchAxioms,
                               totalFuns,
                               generatedInstances ++ instances))
     }

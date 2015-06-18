@@ -734,7 +734,7 @@ List(
                 model match {
                   case IBoolLit(true) => // nothing
                   case _ => {
-                    println
+//                    println
                     println("Possible countermodel:")
                     printFormula(model)
                   }
