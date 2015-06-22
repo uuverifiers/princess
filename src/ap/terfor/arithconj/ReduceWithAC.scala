@@ -228,22 +228,35 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithAC.AC, ies isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    if (ies.isTrue) {
-      ies
-    } else {
-      val preInEqs = negativeEqs(positiveEqs(ies, logger), logger)
-      if (preInEqs.equalityInfs.isEmpty) {
-        val redInEqs = inEqs reduceNoEqualityInfs preInEqs
-        if (redInEqs.isFalse) throw FALSE_EXCEPTION_STD
-        redInEqs
+
+    val res =
+      if (ies.isTrue) {
+        ies
       } else {
-        // if the inequalities imply equations, we first have
-        // to include those in the equations of the overall
-        // ArithConj
-        if (preInEqs.isFalse) throw FALSE_EXCEPTION_STD
-        preInEqs
+        val preInEqs = negativeEqs(positiveEqs(ies, logger), logger)
+        if (preInEqs.equalityInfs.isEmpty) {
+          val redInEqs = inEqs reduceNoEqualityInfs preInEqs
+          if (redInEqs.isFalse) throw FALSE_EXCEPTION_STD
+          // it can happen that the last reduction step leads to a conjunction
+          // that coincides with the original one
+          if (!(redInEqs eq preInEqs) && redInEqs == ies)
+            ies
+          else
+            redInEqs
+        } else {
+          // if the inequalities imply equations, we first have
+          // to include those in the equations of the overall
+          // ArithConj
+          if (preInEqs.isFalse) throw FALSE_EXCEPTION_STD
+          preInEqs
+        }
       }
-    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(ReduceWithAC.AC, (res eq ies) || (res != ies))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    res
   }
 
   private def reduce(conj : PredConj, logger : ComputationLogger) : PredConj = {

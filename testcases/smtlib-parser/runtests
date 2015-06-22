@@ -18,14 +18,15 @@ TESTS="bignum_quant.smt2 \
        define-fun-interpolation.smt2 \
        seconds.smt2 \
        quotes.smt2 extensions.smt2 boolean-quant.smt2 \
-       define-fun-bug.smt2 boolean-array.smt2 distinctBug.smt2"
+       define-fun-bug.smt2 boolean-array.smt2 distinctBug.smt2 \
+       reductionBug.smt2"
 
 $PRI "$@" $TESTS
 
 TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        named-interpolation.smt2 LockingExample.bpl.smt2 \
        let3.smt2 BugBooleanFunction.smt2 Typedef-safe.bpl.smt2 \
-       missingLazyMatch.smt2"
+       missingLazyMatch.smt2 4BitCounterStruct-safe.c.smt2"
 
 $PRI "$@" +incremental $TESTS
 

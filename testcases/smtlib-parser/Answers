@@ -213,6 +213,16 @@ Constructing countermodel ...
 
 unsat
 
+Loading reductionBug.smt2 ...
+Warning: treating sort Real as Int
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+
+Model:
+(and (and (and (= c_gcd_~y2 1 ) (= c_gcd_~y1 3 ) ) (= |c_gcd_#in~y2| 0 ) ) (= |c_gcd_#in~y1| 0 ) ) 
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat
@@ -285,15 +295,15 @@ unsat
 unsat
 unsat
 unsat
-((myFunc proc_x_0 ) )
+((and (= proc_x_0 7 ) (myFunc 7 ) ) )
 unsat
 ((and proc_x_0_2 (myFunc2 true ) ) )
 unsat
-((select ar proc_x_0 ) )
+((and (= proc_x_0 7 ) (select ar 7 ) ) )
 unsat
-((and proc_x_0_2 (select ar true ) ) )
+((and (select ar true ) proc_x_0_2 ) )
 unsat
-((and (not proc_x_0_2 ) (select ar false ) ) )
+((and (select ar false ) (not proc_x_0_2 ) ) )
 Loading Typedef-safe.bpl.smt2 ...
 success
 success
@@ -305,6 +315,25 @@ success
 unsupported
 Loading missingLazyMatch.smt2 ...
 unknown
+Loading 4BitCounterStruct-safe.c.smt2 ...
+unsat
+((= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12 ) 
+(= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12 ) 
+(= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12 ) 
+(= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12 ) 
+(= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12 ) 
+(= |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| 12 ) 
+(= (+ |main_#t~malloc0.offset_5| |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) 12 ) 
+(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) 12 ) 
+(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) 12 ) 
+(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) 12 ) 
+(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) 12 ) 
+(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) 12 ) 
+(= (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) 12 ) 
+(or (= |main_#t~mem5_12| 0 ) (not (= (select (select |#memory_int_10| main_~fb~1.base_6 ) (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) ) 0 ) ) ) 
+(not (= (select (select |#memory_int_10| main_~fb~1.base_6 ) (+ main_~fb~1.offset_6 |#offset~STRUCT#?zero~INT?one~INT?two~INT?three~INT#~three| ) ) 0 ) ) 
+(not (= |main_#t~mem16_14| 0 ) ) 
+(not (= main_~x3Value~1_15 0 ) ) )
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
 Preprocessing ...
 Proving ...

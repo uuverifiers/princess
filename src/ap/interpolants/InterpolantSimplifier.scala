@@ -213,6 +213,7 @@ class ArraySimplifier extends ap.parser.Simplifier {
           extends ContextAwareVisitor[Unit, Unit] {
     def apply(t : IFormula) : Boolean =
       try {
+        uniqueArgs = null
         visitWithoutResult(t, Context(()))
         true
       } catch {

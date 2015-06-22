@@ -609,7 +609,7 @@ List(
       case e : Throwable => {
         println("error")
 	Console.err.println(e.getMessage)
-//         e.printStackTrace
+         e.printStackTrace
       }
   }
   
