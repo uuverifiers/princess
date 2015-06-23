@@ -75,7 +75,6 @@ object ParallelFileProver {
   //////////////////////////////////////////////////////////////////////////////
 
   case class Configuration(settings : GlobalSettings,
-                           complete : Boolean,
                            name : String,
                            timeout : Long,
                            initialSeqRuntime : Long)
@@ -288,9 +287,6 @@ object ParallelFileProver {
  * Prover that tries to solve a given problem using a number of different
  * strategies in parallel. Each individual strategy is run using the
  * <code>IntelliFileProver</code> class.
- * 
- * For each setting, there is a flag specifying whether the setting should be
- * considered as complete (i.e., whether a sat-result should be trusted)
  */
 class ParallelFileProver(createReader : () => java.io.Reader,
                          // a timeout in milliseconds
@@ -318,9 +314,6 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     case Prover.NoProof(_) |
          Prover.Invalid(_) |
          Prover.MaybeCounterModel(_) => true
-    case Prover.NoModel |
-         Prover.CounterModel(_)
-      if (!settings(num).complete) => true
     case _ => false
   }
   

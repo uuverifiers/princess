@@ -428,10 +428,7 @@ List(
                 val strategies = for ((str, to, seq) <- rawStrategies) yield {
                   val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
                                                        to min 50000)
-                  val options = toOptionList(str)
-                  Configuration(s,
-                    Param.GENERATE_TOTALITY_AXIOMS(s) == Param.TotalityAxiomOptions.All,
-                    options, to, seq)
+                  Configuration(s, toOptionList(str), to, seq)
                 }
                 
                 new ParallelFileProver(reader,
