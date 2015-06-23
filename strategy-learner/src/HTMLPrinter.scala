@@ -5,7 +5,7 @@ object HTMLPrinter extends App {
 
   import Status._
 
-  val baseDir    = "/home/philipp/tptp-nightly/"
+  val baseDir = "/home/ptr/Princess/unification-modulo/strategy-learner/src/"
   val logFileDir = new File(baseDir + "logs/")
   val benchmarkDir = baseDir + "benchmarks/"
   val benchFile  = new File(baseDir + "bench.list")

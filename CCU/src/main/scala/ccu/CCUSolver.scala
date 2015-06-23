@@ -514,8 +514,8 @@ abstract class CCUSolver[Term, Fun](
     val funMap = createFunMapping(functions)
 
     // Adjust to new representation
-    val newAllTerms = allTerms.map(termToInt)
-    val newTerms = terms.map(_.map(termToInt).toList)
+    val newAllTerms = allTerms.map(termToInt).sorted
+    val newTerms = terms.map(_.map(termToInt).toList).sortWith((x, y) => x < y)
 
     // Each term is added to its own domain
     // TODO: http://stackoverflow.com/questions/1715681/scala-2-8-breakout/1716558#1716558

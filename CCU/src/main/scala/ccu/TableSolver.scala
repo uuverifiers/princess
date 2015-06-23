@@ -52,15 +52,18 @@ class TableSolver[Term, Fun](timeoutChecker : () => Unit,
     val tmpTables = 
       (for (p <- problem.subProblems) yield None).toArray : Array[Option[Table]]
 
-    tmpTables(0) = Some(new Table(problem.bits, alloc, gt, solver,
-      problem(0).terms, problem(0).domains,
-      problem(0).funEqs.map(_.eq), ZEROBIT, ONEBIT, problem(0).baseDQ,
-      problem(0).goal.subGoals))
 
-    for (t <- tmpTables; if t.isDefined) {
-      (t.get).addInitialColumn(assignments)
-      (t.get).addDerivedColumn(timeoutChecker)
+    def addTable(index : Int) = {
+      tmpTables(index) = Some(new Table(problem.bits, alloc, gt, solver,
+        problem(index).terms, problem(index).domains,
+        problem(index).funEqs.map(_.eq), ZEROBIT, ONEBIT, problem(index).DQ,
+        problem(index).goal.subGoals))
+
+      (tmpTables(index).get).addInitialColumn(assignments)
+      (tmpTables(index).get).addDerivedColumn(timeoutChecker)
     }
+
+    addTable(0)
 
     // MAIN SOLVE LOOP
     var cont = true
@@ -332,11 +335,6 @@ class Table(val bits : Int, alloc : Allocator,
     currentColumn += 1
 
     val startBit = alloc.alloc(terms.length * bits)
-
-    // val newColumn =
-    //   MMap() ++ (List.tabulate(terms.length)(x => {
-    //     (terms(x), List.tabulate(bits)(y => startBit + x*bits + y))
-    //   })).toMap
 
     val newColumn = MMap() : MMap[Int, Seq[Int]]
     for (t <- 0 until terms.length) {

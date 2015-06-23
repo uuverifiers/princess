@@ -7,6 +7,7 @@ import scala.collection.mutable.{HashMap => MHashMap}
 
 object CCUSimulatingMetaStrategyLearner extends App {
   
+
   import SAnnealing._
   import CCUPortfolios.{selStrategies, selPortfolios}
   
@@ -364,7 +365,8 @@ object StrategyPortfolioLearner extends App {
 
 object Learner extends App {
 
-  val baseDir = "/home/philipp/tmp/newbeans/princess/strategy-learner/scripts"
+  println("Learner")
+  val baseDir = "/home/ptr/Princess/unification-modulo/strategy-learner/scripts"
 //  val baseDir = "/tmp/cluster-results"
   
   //////////////////////////////////////////////////////////////////////////////
