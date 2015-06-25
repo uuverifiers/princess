@@ -17,7 +17,7 @@ class CCUInstance[Term, Fun](
 
   def confirmActive = {
     if (solver.curId != id)
-      throw new Exception("New instance has been created by solver")
+      throw new Exception("New instance has been created by the solver")
   }
 
   def solve : Result.Result = {
