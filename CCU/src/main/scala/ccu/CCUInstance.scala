@@ -72,6 +72,17 @@ class CCUInstance[Term, Fun](
 
   }
 
+  def getModel = {
+    if (!model.isDefined)
+      throw new Exception("Trying to get undefined model")
+
+    val b = termMap.map(_.swap)
+
+    (for ((k, v) <- model.get) yield {
+      (b(k), b(v))
+    }).toMap
+  }
+
   def unsatCore(timeout : Int) = {
     // println("unsatCore...")
     confirmActive
