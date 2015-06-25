@@ -25,13 +25,15 @@ JAVA_FLAGS:=
 # enough memory for the compiler on 64-bit architectures
 JAVA_OPTS=-Xmx1G
 
-SCALABASEDIR:=/usr/local/scala
+# SCALABASEDIR:=/usr/local/scala
+SCALABASEDIR:=/home/ptr/scala-2.11.7
 SCALALIBDIR:=$(SCALABASEDIR)/lib
 
 JARSIGNERCMD:=jarsigner -keystore ../myKeys -storepass ../myPass -keypass ../myPass
 JARSIGNERALIAS:=mykey2015
 
-PROGUARDJAR:=/home/philipp/tmp/proguard/lib/proguard.jar
+# PROGUARDJAR:=/home/philipp/tmp/proguard/lib/proguard.jar
+PROGUARDJAR:=/usr/share/java/proguard.jar
 
 
 export SCALAC SCALAC_OPTIONS SCALADOC SCALADOC_OPTIONS JAVAC JAVAC_FLAGS JAVA JAVA_FLAGS CLASSPATH JLEX_PATH JAVA_OPTS
@@ -51,8 +53,11 @@ copy-jars-to-dist:
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/ccu.jar dist/)
-	$(shell cp $(EXTLIBSDIR)/org.sat4j.core.jar dist/)
+#	$(shell cp $(EXTLIBSDIR)/org.sat4j.core.jar dist/)
+#	$(shell cp $(EXTLIBSDIR)/scalaz.jar dist/)
+#	$(shell cp $(EXTLIBSDIR)/argonaut.jar dist/)
 	$(shell cp $(SCALALIBDIR)/scala-library.jar dist/)
+	$(shell [ -f $(SCALALIBDIR)/scala-xml*.jar ] && cp $(SCALALIBDIR)/scala-xml*.jar dist/scala-xml.jar)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors-2*.jar ] && cp $(SCALALIBDIR)/scala-actors-2*.jar dist/scala-actors.jar)
 	$(shell [ -f $(SCALALIBDIR)/scala-actors.jar ] && cp $(SCALALIBDIR)/scala-actors.jar dist/scala-actors.jar)
 	$(shell [ -f $(SCALALIBDIR)/scala-parser-combinators*.jar ] && cp $(SCALALIBDIR)/scala-parser-combinators*.jar dist/scala-parser-combinators.jar)

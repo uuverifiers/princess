@@ -1,7 +1,7 @@
 package ccu;
 
-import argonaut._, Argonaut._
-import scalaz._, Scalaz._
+// import argonaut._, Argonaut._
+// import scalaz._, Scalaz._
 
 @SerialVersionUID(15L)
 case class CCUGoal(val subGoals : Seq[Seq[(Int, Int)]]) extends Serializable {
@@ -105,28 +105,29 @@ case class CCUSimProblem(
   def solvable = subProblems.map(_.solvable).foldRight(true)(_ && _)
 
 
-  implicit def CCUGoalEncodeJson: EncodeJson[CCUGoal] =
-    EncodeJson((g : CCUGoal) =>
-      ("subGoals" := g.subGoals.map(_.toList).toList) ->: jEmptyObject)
+  // implicit def CCUGoalEncodeJson: EncodeJson[CCUGoal] =
+  //   EncodeJson((g : CCUGoal) =>
+  //     ("subGoals" := g.subGoals.map(_.toList).toList) ->: jEmptyObject)
 
-  implicit def CCUEqEncodeJson: EncodeJson[CCUEq] =
-    EncodeJson((eq : CCUEq) =>
-      ("fun" := eq.eq._1) ->: ("args" := eq.eq._2.toList) ->:
-        ("res" := eq.eq._3) ->: jEmptyObject)
+  // implicit def CCUEqEncodeJson: EncodeJson[CCUEq] =
+  //   EncodeJson((eq : CCUEq) =>
+  //     ("fun" := eq.eq._1) ->: ("args" := eq.eq._2.toList) ->:
+  //       ("res" := eq.eq._3) ->: jEmptyObject)
 
-  implicit def CCUSubProblemEncodeJson: EncodeJson[CCUSubProblem] =
-    EncodeJson((sp: CCUSubProblem) =>
-      ("terms" := sp.terms.toList) ->: ("domains" := sp.domains.toList) ->:
-        ("funEqs" := sp.funEqs.toList) ->: ("goal" := sp.goal) ->: jEmptyObject)
+  // implicit def CCUSubProblemEncodeJson: EncodeJson[CCUSubProblem] =
+  //   EncodeJson((sp: CCUSubProblem) =>
+  //     ("terms" := sp.terms.toList) ->: ("domains" := sp.domains.toList) ->:
+  //       ("funEqs" := sp.funEqs.toList) ->: ("goal" := sp.goal) ->: jEmptyObject)
 
-  implicit def CCUSimProblemEncodeJson: EncodeJson[CCUSimProblem] =
-    EncodeJson((p: CCUSimProblem) =>
-      ("terms" := p.terms.toList) ->: ("domains" := p.domains.toList) ->:
-        ("bits" := p.bits) ->: ("order" := p.order.toList) ->:
-        ("subProblem" := p.subProblems.toList) ->: jEmptyObject)
+  // implicit def CCUSimProblemEncodeJson: EncodeJson[CCUSimProblem] =
+  //   EncodeJson((p: CCUSimProblem) =>
+  //     ("terms" := p.terms.toList) ->: ("domains" := p.domains.toList) ->:
+  //       ("bits" := p.bits) ->: ("order" := p.order.toList) ->:
+  //       ("subProblem" := p.subProblems.toList) ->: jEmptyObject)
 
   def JSON : String = {
-    this.asJson.toString
+    // this.asJson.toString
+    "JSON DISABLED"
   }
 
   def verifySolution(solution : Map[Int, Int]) = {

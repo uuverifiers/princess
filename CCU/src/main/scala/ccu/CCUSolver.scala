@@ -9,8 +9,8 @@ import java.io.FileInputStream
 import java.io.ObjectInputStream
 import java.io.File
 
-import argonaut._, Argonaut._
-import scalaz._, Scalaz._
+// import argonaut._, Argonaut._
+// import scalaz._, Scalaz._
 
 
 import Timer._
@@ -515,7 +515,7 @@ abstract class CCUSolver[Term, Fun](
 
     // Adjust to new representation
     val newAllTerms = allTerms.map(termToInt).sorted
-    val newTerms = terms.map(_.map(termToInt).toList).sortWith((x, y) => x < y)
+    val newTerms = terms.map(_.map(termToInt).toList.sorted)
 
     // Each term is added to its own domain
     // TODO: http://stackoverflow.com/questions/1715681/scala-2-8-breakout/1716558#1716558
@@ -640,53 +640,53 @@ abstract class CCUSolver[Term, Fun](
 
 
 
-  def createInstanceFromJson[Fun, Term](filename : String) = {
-    curId += 1
+  // def createInstanceFromJson[Fun, Term](filename : String) = {
+  //   curId += 1
 
-    val lines = scala.io.Source.fromFile(filename).getLines
-    val json = lines.next
+  //   val lines = scala.io.Source.fromFile(filename).getLines
+  //   val json = lines.next
 
-    implicit def CCUGoalDecodeJson: DecodeJson[CCUGoal] =
-      DecodeJson(c => for {
-        subGoals <- (c --\ "subGoals").as[List[List[(Int,Int)]]]
-      } yield new CCUGoal(subGoals))
+  //   implicit def CCUGoalDecodeJson: DecodeJson[CCUGoal] =
+  //     DecodeJson(c => for {
+  //       subGoals <- (c --\ "subGoals").as[List[List[(Int,Int)]]]
+  //     } yield new CCUGoal(subGoals))
 
-    implicit def CCUEqDecodeJson: DecodeJson[CCUEq] =
-      DecodeJson(c => for {
-        fun <- (c --\ "fun").as[Int]
-        args <- (c --\ "args").as[List[Int]]
-        res <- (c --\ "res").as[Int]
-      } yield new CCUEq((fun, args, res)))
+  //   implicit def CCUEqDecodeJson: DecodeJson[CCUEq] =
+  //     DecodeJson(c => for {
+  //       fun <- (c --\ "fun").as[Int]
+  //       args <- (c --\ "args").as[List[Int]]
+  //       res <- (c --\ "res").as[Int]
+  //     } yield new CCUEq((fun, args, res)))
 
-    // HERE IS THE PROBLEM, need SUPERCLASS lenght of terms!
+  //   // HERE IS THE PROBLEM, need SUPERCLASS lenght of terms!
 
-    implicit def CCUSubProblemDecodeJson: DecodeJson[CCUSubProblem] =
-      DecodeJson(c => for {
-        terms <- (c --\ "terms").as[List[Int]]
-        domains <- (c --\ "domains").as[List[(Int,List[Int])]]
-        funEqs <- (c --\ "funEqs").as[List[CCUEq]]
-        goal <- (c --\ "goal").as[CCUGoal]
-      } yield new CCUSubProblem(terms,
-        (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
-        funEqs,
-        goal,
-        createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq)),
-        createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq))))
+  //   implicit def CCUSubProblemDecodeJson: DecodeJson[CCUSubProblem] =
+  //     DecodeJson(c => for {
+  //       terms <- (c --\ "terms").as[List[Int]]
+  //       domains <- (c --\ "domains").as[List[(Int,List[Int])]]
+  //       funEqs <- (c --\ "funEqs").as[List[CCUEq]]
+  //       goal <- (c --\ "goal").as[CCUGoal]
+  //     } yield new CCUSubProblem(terms,
+  //       (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
+  //       funEqs,
+  //       goal,
+  //       createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq)),
+  //       createBaseDQ(terms, (for ((k, v) <- domains) yield (k, v.toSet)).toMap, funEqs.map(_.eq))))
 
-    implicit def CCUSimProblemDecodeJson: DecodeJson[CCUSimProblem] =
-      DecodeJson(c => for {
-        terms <- (c --\ "terms").as[List[Int]]
-        domains <- (c --\ "domains").as[List[(Int,List[Int])]]
-        bits <- (c --\ "bits").as[Int]
-        order <- (c --\ "order").as[List[Int]]
-        subProblems <- (c --\ "subProblem").as[List[CCUSubProblem]]
-      } yield new CCUSimProblem(terms,
-        (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
-        bits, order, subProblems))
+  //   implicit def CCUSimProblemDecodeJson: DecodeJson[CCUSimProblem] =
+  //     DecodeJson(c => for {
+  //       terms <- (c --\ "terms").as[List[Int]]
+  //       domains <- (c --\ "domains").as[List[(Int,List[Int])]]
+  //       bits <- (c --\ "bits").as[Int]
+  //       order <- (c --\ "order").as[List[Int]]
+  //       subProblems <- (c --\ "subProblem").as[List[CCUSubProblem]]
+  //     } yield new CCUSimProblem(terms,
+  //       (for ((k, v) <- domains) yield (k, v.toSet)).toMap,
+  //       bits, order, subProblems))
 
-    val problem = json.decodeOption[CCUSimProblem].get
+  //   val problem = json.decodeOption[CCUSimProblem].get
 
-    new CCUInstance(curId, this, problem, Map())
-  }
+  //   new CCUInstance(curId, this, problem, Map())
+  // }
 }
 
