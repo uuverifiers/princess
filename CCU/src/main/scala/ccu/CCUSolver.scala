@@ -635,7 +635,8 @@ abstract class CCUSolver[Term, Fun](
         order,
         problems)
 
-    new CCUInstance[Term, Fun](curId, this, problem, termToInt.toMap)
+    new CCUInstance[Term, Fun](curId, this, problem, termToInt.toMap,
+                               domains)
   }
 
 

@@ -11,7 +11,8 @@ class CCUInstance[Term, Fun](
   id : Int, 
   solver : CCUSolver[Term, Fun],
   val problem : CCUSimProblem,
-  val termMap : Map[Term, Int]) {
+  val termMap : Map[Term, Int],
+  originalDomains : Map[Term, Set[Term]]) {
 
   var model = None : Option[Map[Int, Int]]
 
@@ -78,9 +79,16 @@ class CCUInstance[Term, Fun](
 
     val b = termMap.map(_.swap)
 
-    (for ((k, v) <- model.get) yield {
-      (b(k), b(v))
-    }).toMap
+    val res =
+      (for ((k, v) <- model.get) yield {
+        (b(k), b(v))
+      }).toMap
+
+    assert(originalDomains forall {
+             case (x, dom) => dom contains res.getOrElse(x, x)
+           })
+
+    res
   }
 
   def unsatCore(timeout : Int) = {
