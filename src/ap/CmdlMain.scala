@@ -274,7 +274,7 @@ object CmdlMain {
       case '5' => Param.TriggerStrategyOptions.MaximalOutermost
     })
     s = Param.POS_UNIT_RESOLUTION_METHOD.set(s, str(7) match {
-      case '0' => Param.PosUnitResolutionMethod.Normal
+      case '0' => Param.PosUnitResolutionMethod.NoFunctionality
       case '1' => Param.PosUnitResolutionMethod.NonUnifying
     })
     s

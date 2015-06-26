@@ -55,7 +55,8 @@ object IterativeClauseMatcher {
                              allowConditionalInstances : Boolean,
                              logger : ComputationLogger,
                              order : TermOrder,
-                             method : Param.PosUnitResolutionMethod.Value)
+                             method : Param.PosUnitResolutionMethod.Value,
+                             totalFuns : Set[Predicate])
                             : (Iterator[Conjunction], Iterator[Conjunction]) = {
     
     val selectedLits = new ArrayBuffer[Atom]
@@ -64,6 +65,19 @@ object IterativeClauseMatcher {
 
     var selectionCounter = 0
     
+    ////////////////////////////////////////////////////////////////////////////
+
+    def isFunctionalityAxiom(formula : Conjunction) : Boolean =
+      formula.negatedConjs.isEmpty &&
+      formula.predConj.negativeLits.isEmpty &&
+      (formula.predConj.positiveLits match {
+         case Seq(a, b) =>
+           a.pred == b.pred && (totalFuns contains a.pred) && a.init == b.init
+         case Seq(a) =>
+           (totalFuns contains a.pred)
+         case _ => false
+       })
+
     ////////////////////////////////////////////////////////////////////////////
     
     /**
@@ -158,7 +172,8 @@ object IterativeClauseMatcher {
                                          negConjs, order))
 
             if (!reducedInstance.isFalse) {
-              if (logger.isLogging) {
+
+              def addNormalInstance = if (logger.isLogging) {
                 // If we are logging, we avoid simplifications (which would not
                 // be captured in the proof) and rather just substitute terms for
                 // the quantified variables. Hopefully this is possible ...
@@ -210,41 +225,35 @@ object IterativeClauseMatcher {
                 }
                 
               } else {
+                if (isNotRedundant(reducedInstance, allOriConstants))
+                  instances += reducedInstance
+              }
 
-                method match {
-                  case Param.PosUnitResolutionMethod.NonUnifying => {
-                    val doesUnification =
-                      (newEqs exists { lc => !lc.isEmpty &&
-                                             !lc.leadingTerm.isInstanceOf[VariableTerm] &&
-                                             lc.leadingCoeff.isUnit }) &&
-                      (reducedInstance.size > 1)
-  
-                    // if we would have to unify arguments of some match
-                    // predicate, we rather just add the whole quantified formula
-                    if (doesUnification) {
-                      if (isNotRedundant(simpOriginalClause, allOriConstants)) {
-         //        println("=== quantified instance")
-         //        println(newEqs)
-         //        println(simpOriginalClause)
+              method match {
+                case Param.PosUnitResolutionMethod.Normal =>
+                  addNormalInstance
+
+                case _ => {
+                  val isFunctionality = isFunctionalityAxiom(originalClause)
+                  val doesUnification =
+                    (reducedInstance.size > 1) &&
+                    (newEqs exists { lc => !lc.isEmpty &&
+                                           !lc.leadingTerm.isInstanceOf[VariableTerm] &&
+                                           lc.leadingCoeff.isUnit })
+
+                  (method, doesUnification, isFunctionality) match {
+                    case (Param.PosUnitResolutionMethod.NonUnifying,     false, _) |
+                         (Param.PosUnitResolutionMethod.NoFunctionality, false, _) |
+                         (Param.PosUnitResolutionMethod.NoFunctionality, true,  false) =>
+                      addNormalInstance
+                    case (Param.PosUnitResolutionMethod.NonUnifying,     true,  false)
+                      if (isNotRedundant(simpOriginalClause, allOriConstants)) =>
                         quantifiedInstances += simpOriginalClause
-                      }
-                    } else {
-                      if (isNotRedundant(reducedInstance, allOriConstants)) {
-         //        println("=== normal instance")
-         //        println(reducedInstance)
-                        instances += reducedInstance
-                      }
-                    }
+
+                    case _ =>
+                      // println("dropping")
                   }
-
-                  case Param.PosUnitResolutionMethod.Normal =>
-                    if (isNotRedundant(reducedInstance, allOriConstants))
-                      instances += reducedInstance
                 }
-
-
-//                if (isNotRedundant(reducedInstance, allOriConstants))
-//                  instances += reducedInstance
               }
             }
           }
@@ -909,7 +918,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                   allowConditionalInstances,
                                                   logger,
                                                   order,
-                                                  method)
+                                                  method, totalFuns)
 
           instances ++= i1
           quantifiedInstances ++= i2

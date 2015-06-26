@@ -133,12 +133,12 @@ object Param {
   }
   
   object PosUnitResolutionMethod extends Enumeration {
-    val Normal, NonUnifying = Value
+    val Normal, NoFunctionality, NonUnifying = Value
   }
 
   case object POS_UNIT_RESOLUTION_METHOD extends Param {
     type Value = PosUnitResolutionMethod.Value
-    val defau : PosUnitResolutionMethod.Value = PosUnitResolutionMethod.Normal
+    val defau : PosUnitResolutionMethod.Value = PosUnitResolutionMethod.NoFunctionality
   }
 
   object ClausifierOptions extends Enumeration {

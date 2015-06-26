@@ -99,7 +99,7 @@ object GlobalSettings {
           Param.POS_UNIT_RESOLUTION.set(settings, value)
         case ValueOpt("resolutionMethod", "normal") =>
           Param.POS_UNIT_RESOLUTION_METHOD.set(settings,
-            Param.PosUnitResolutionMethod.Normal)
+            Param.PosUnitResolutionMethod.NoFunctionality)
         case ValueOpt("resolutionMethod", "nonUnifying") =>
           Param.POS_UNIT_RESOLUTION_METHOD.set(settings,
             Param.PosUnitResolutionMethod.NonUnifying)

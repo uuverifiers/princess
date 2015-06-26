@@ -21,4 +21,4 @@ $PRI "$@" +triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausif
 
 $PRI "$@"  SEU219+2.p -triggersInConjecture -genTotalityAxioms +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -resolutionMethod=nonUnifying
 
-$PRI "$@" GEO337+1.p -triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal -resolutionMethod=normal +ignoreQuantifiers -generateTriggers=completeFrugal
+$PRI "$@" GEO337+1.p -triggersInConjecture -genTotalityAxioms -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal -resolutionMethod=normal +ignoreQuantifiers -generateTriggers=completeFrugal -assert
