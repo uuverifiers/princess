@@ -31,7 +31,6 @@ class CCUInstance[Term, Fun](
         (false, None)
 
     if (solved) {
-      // println("Reused previous solution!")
       model = newModel
 
       assert(problem.verifySolution(model.get))
@@ -134,14 +133,16 @@ class CCUInstance[Term, Fun](
           (t, newAss)
         }).toMap
 
-      ss = problem.verifySolution(newModel)
+      // Check if newModel is valid
+      val valid = 
+        (newModel forall {
+          case (t, v) => problem.domains(t) contains v
+        })
 
-      // Update model
-      if (ss) (true, Some(newModel))
+      if (valid && problem.verifySolution(newModel)) (true, Some(newModel))
       else (false, None)
-    } else {
-      (false, None)
     }
+    else (false, None)
   }
 
 
