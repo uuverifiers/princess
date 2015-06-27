@@ -24,6 +24,7 @@ package ap.proof.tree;
 import ap.basetypes.IdealInt
 import ap.proof._
 import ap.proof.goal._
+import ap.proof.certificates.Certificate
 import ap.parameters.Param
 import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
@@ -96,6 +97,14 @@ trait ProofTree {
   def constantFreedom : ConstantFreedom = vocabulary.constantFreedom
 
   val goalCount : Int
+
+  /**
+   * If proof construction is switched on, a certificate
+   * can be extracted. This certificate will still contain
+   * free variables, not the terms that should be substituted
+   * for them.
+   */
+  def getCertificate : Certificate
   
   /**
    * <code>true</code> if this proof tree can be closed using some
@@ -115,6 +124,75 @@ trait ProofTree {
    * a minimal set of goals that cannot be closed together.
    */
   lazy val ccMinUnsolvableGoalSet : Seq[Int] = unifiabilityStatus._3()
+
+  /**
+   * If <code>ccUnifiable</code>, this field can be used to obtain
+   * a unifier.
+   */
+  lazy val ccUnifier : Map[ConstantTerm, ConstantTerm] =
+    unifiabilityStatus._4.get
+
+  /**
+   * Determine all CCU variables occurring in the proof.
+   */
+  lazy val allCCUVariables : Set[ConstantTerm] = this match {
+    case QuantifiedTree(Quantifier.EX, consts, subtree) =>
+      subtree.allCCUVariables ++ consts
+    case t =>
+      (for (s <- t.subtrees.iterator;
+            c <- s.allCCUVariables.iterator)
+       yield c).toSet
+  }
+
+  /**
+   * If <code>ccUnifiable</code>, this field can be used to obtain
+   * a unifier. The unifier will also include local assignments made in
+   * subtrees.
+   */
+  lazy val completeCCUnifier = {
+    var res : Map[ConstantTerm, ConstantTerm] = ccUnifier
+    for (t <- subtrees)
+      res = t augmentUnifier res
+
+    // make the unifier idempotent
+    var cont = true
+    while (cont) {
+      cont = false
+      val oldRes = res
+      res = res mapValues { c =>
+        val newC = oldRes.getOrElse(c, c)
+        if (c != newC)
+          cont = true
+        newC
+      }
+    }
+
+    // make the unifier ground, assuming that we have at least
+    // one constant available
+    val variables = allCCUVariables
+    if (order.orderedConstants.isEmpty)
+      throw new UnsupportedOperationException(
+        "Need at least one declared constant to generate a proof")
+    val someConst = (order sort order.orderedConstants).head
+
+    res = res mapValues { c =>
+      if (variables contains c) someConst else c
+    }
+
+    res
+  }
+
+  protected def augmentUnifier(partialUnifier : Map[ConstantTerm, ConstantTerm])
+                              : Map[ConstantTerm, ConstantTerm] = {
+    var res =
+      if (unifiabilityChecked && ccUnifiableLocally)
+        partialUnifier ++ ccUnifier
+      else
+        partialUnifier
+    for (t <- subtrees)
+      res = t augmentUnifier res
+    res
+  }
 
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
@@ -533,7 +611,10 @@ trait ProofTree {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private lazy val unifiabilityStatus = ap.util.Timer.measure("unification") {
+  private lazy val unifiabilityStatus
+     : (Boolean, Boolean, () => Seq[Int],
+        Option[Map[ConstantTerm, ConstantTerm]]) =
+            ap.util.Timer.measure("unification") {
 //    println
     Console.err.print("Trying to close subtree ")
 //    println(this)
@@ -544,33 +625,35 @@ trait ProofTree {
 //    println(unificationProblems)
     Console.err.print("(" + unificationProblems.size + " parallel problems) ... ")
 
-    val res =
+    val res : (Boolean, Boolean, () => Seq[Int],
+               Option[Map[ConstantTerm, ConstantTerm]]) =
     if (unificationProblems.isEmpty) {
-      (true, true, () => throw new UnsupportedOperationException)
+      (true, true, () => throw new UnsupportedOperationException, Some(Map()))
     } else if (unificationProblems exists {
                  case (_, goals, _, _) => goals.isEmpty
                }) {
       (false, false,
        () => (for ((_, goals, _, num) <- unificationProblems.iterator;
                    if (goals.isEmpty))
-              yield num).toList)
+              yield num).toList,
+       None)
     } else {
       val (fullDomains, restrictedDomains, globalConsts, _) =
         ccuContextDomains
 
-      if ({
-            val preInstance =
-              createCCUInstance(restrictedDomains, unificationProblems)
-            ap.util.Timer.measure("CCUSolver_solve") {
-              preInstance.solve
-            }
+      val preInstance =
+        createCCUInstance(restrictedDomains, unificationProblems)
+      if (ap.util.Timer.measure("CCUSolver_solve") {
+            preInstance.solve
           } == ccu.Result.SAT)
-        (true, true, () => throw new UnsupportedOperationException)
+        (true, true, () => throw new UnsupportedOperationException,
+         Some(preInstance.getModel))
       else {
         val instance = createCCUInstance(fullDomains, unificationProblems)
-        (ap.util.Timer.measure("CCUSolver_solve") {
-           instance.solve == ccu.Result.SAT
-         }, false,
+        val solvable = ap.util.Timer.measure("CCUSolver_solve") {
+          instance.solve == ccu.Result.SAT
+        }
+        (solvable, false,
          () => try {
            val allGoals = (unificationProblems map (_._4)).toArray
            for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") { instance.unsatCore(1000) })
@@ -580,7 +663,8 @@ trait ProofTree {
              Console.err.println("Warning: " + t.getMessage)
              unificationProblems map (_._4)
            }
-         })
+         },
+         if (solvable) Some(instance.getModel) else None)
       }
 
     }

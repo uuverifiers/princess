@@ -24,6 +24,7 @@ package ap.proof.tree;
 import ap.proof._
 import ap.terfor.TermOrder
 import ap.util.Debug
+import ap.proof.certificates.Certificate
 
 object ProofTreeOneChild {
   
@@ -70,5 +71,7 @@ trait ProofTreeOneChild extends ProofTree {
   def newConstantFreedomForSubtree(cf : ConstantFreedom) : ConstantFreedom
   
   protected val subtreeOrder : TermOrder
+
+  def getCertificate : Certificate = subtree.getCertificate
   
 }

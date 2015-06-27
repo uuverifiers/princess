@@ -148,6 +148,17 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         if (tptpType == TPTPType.TFF && (containsRat || containsReal))
           fileProperties.negativeResult = "GaveUp"
 
+        if (!(env.symbols exists {
+                case Environment.Constant(_, Environment.NullaryFunction, _) =>
+                  true
+                case _ =>
+                  false
+            })) {
+          // add a constant to make sure that the universe is inhabited
+          val constName = "arbitrary_constant"
+          declareSym(constName, Rank0(IType))
+        }
+
         val conjecture : IFormula =
           or(conjectureFors)
 /*          if (conjectureFors.isEmpty)

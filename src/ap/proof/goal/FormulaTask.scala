@@ -30,8 +30,8 @@ object FormulaTask {
 
   private val AC = Debug.AC_COMPLEX_FORMULAS_TASK
   
-  private def isFunctionalityAxiom(formula : Conjunction,
-                                   settings : GoalSettings) : Boolean =
+  def isFunctionalityAxiom(formula : Conjunction,
+                           settings : GoalSettings) : Boolean =
     formula.negatedConjs.isEmpty &&
     formula.predConj.negativeLits.isEmpty &&
     (formula.predConj.positiveLits match {

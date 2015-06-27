@@ -27,6 +27,7 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.substitutions.VariableSubst
 import ap.util.{Debug, PlainRange}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
+import ap.parameters.Param
 
 object QuantifierTask {
   
@@ -56,7 +57,9 @@ abstract class QuantifierTask(_formula : Conjunction, _age : Int)
                                            BindingContext) = {
     val (quan, num) = firstQuans(formula)
     val constants = for (i <- PlainRange(num))
-                    yield new ConstantTerm (constantNameBase + goal.age + "_" + i)
+                    yield new ConstantTerm (constantNameBase + goal.age + "_" +
+                       i + "_" +
+                       Param.NAME_PROVIDER(goal.settings).uniqueVariableNumber)
 
     val newOrder = goal.order extend constants.reverse
     val newBindingContext = goal.bindingContext.addAndContract(constants, quan)

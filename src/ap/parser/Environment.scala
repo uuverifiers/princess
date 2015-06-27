@@ -195,4 +195,6 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
   def toSignature =
     Signature (universalConstants, existentialConstants,
                nullaryFunctions, predicateMatchConfig, order)
+
+  def symbols : Iterator[DSym] = signature.valuesIterator
 }

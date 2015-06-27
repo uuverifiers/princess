@@ -282,6 +282,20 @@ object Param {
     val defau : FileProperties = null
   }
 
+  class NameProvider {
+    var variableCounter : Int = 0
+    def uniqueVariableNumber : Int = {
+      val res = variableCounter
+      variableCounter = variableCounter + 1
+      res
+    }
+  }
+
+  case object NAME_PROVIDER extends Param {
+    type Value = NameProvider
+    val defau : NameProvider = new NameProvider
+  }
+
   object MulProcedure extends Enumeration {
     val BitShift, Native = Value
   }

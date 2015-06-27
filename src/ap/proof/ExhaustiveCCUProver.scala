@@ -27,12 +27,15 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.preds.Predicate
 import ap.terfor.equations.EquationConj
 import ap.terfor.arithconj.{ModelElement, EqModelElement}
+import ap.terfor.substitutions.ConstantSubst
+import ap.terfor.linearcombination.LinearCombination
 import ap.proof.goal._
+import ap.proof.certificates._
 import ap.util.{Logic, Debug, Seqs, Timeout}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 
-import scala.collection.mutable.Stack
+import scala.collection.mutable.{Stack, ArrayBuffer}
 
 object ExhaustiveCCUProver {
   
@@ -163,6 +166,20 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
       case None => goal
       case x => x
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def extractCertificate(tree : ProofTree) : Certificate = {
+    val grounder = new ProofGrounder(tree.completeCCUnifier, settings)
+    val cert = tree.getCertificate
+    println(cert)
+    println(cert.inferenceCount)
+    val gCert = grounder(cert)
+    println(gCert)
+    println(gCert.inferenceCount)
+    println(gCert.assumedFormulas)
+    cert
   }
 
   /**
@@ -514,4 +531,156 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
       }
     }
       
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class to replace free variables in a proof with constants.
+ */
+class ProofGrounder(rawSubstition : Map[ConstantTerm, ConstantTerm],
+                    settings : GoalSettings) {
+
+  def apply(cert : Certificate) : Certificate = translate(cert)
+
+  private def substitution(order : TermOrder) =
+    ConstantSubst(rawSubstition filterKeys order.orderedConstants, order)
+
+  private def certSubstitution(order : TermOrder) = new Object {
+    val subst = substitution(order)
+    def apply(f : CertEquation) : CertEquation =
+      f update subst(f.lhs)
+    def apply(f : CertArithLiteral) : CertArithLiteral =
+      f update subst(f.lhs)
+    def apply(f : CertPredLiteral) : CertPredLiteral =
+      CertPredLiteral(f.negated, subst(f.atom))
+    def apply(f : CertCompoundFormula) : CertCompoundFormula =
+      CertCompoundFormula(subst(f.f))
+    def apply(f : CertFormula) : CertFormula = f match {
+      case f : CertArithLiteral    => apply(f)
+      case f : CertPredLiteral     => apply(f)
+      case f : CertCompoundFormula => apply(f)
+    }
+    def apply(lc : LinearCombination) : LinearCombination =
+      subst(lc)
+  }
+
+  private val functionalityAxioms = new ArrayBuffer[Conjunction]
+
+  private def translate(cert : Certificate) : Certificate = cert match {
+    case BranchInferenceCertificate(infs, child, o) => {
+      val (newInfs, newChild) = translate(infs.toList, child, o)
+      BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
+    }
+    
+    case BetaCertificate(leftForm, rightForm, lemma,
+                         leftChild, rightChild, o) => {
+      val subst = certSubstitution(o)
+      val newLeft = translate(leftChild)
+      val newRight = translate(rightChild)
+      BetaCertificate(subst(leftForm), subst(rightForm), lemma,
+                      newLeft, newRight, o)
+    }
+
+    case CloseCertificate(assumed, o) => {
+      val subst = certSubstitution(o)
+      CloseCertificate(for (f <- assumed) yield subst(f), o)
+    }
+
+    case CCUCloseCertificate(assumed, o) => {
+      val subst = substitution(o)
+      // we should be able to find a simple proof using the
+      // ModelSearchProver
+      val factDisjuncts = 
+        (for (l <- assumed.toList) yield subst(l.toConj).negate) ++
+        functionalityAxioms
+      ModelSearchProver(factDisjuncts, o, settings).right.get
+    }
+  }
+
+  private def translate(infs : List[BranchInference], child : Certificate,
+                        order : TermOrder)
+                       : (List[BranchInference], Certificate) = infs match {
+    case List() => {
+      val newCert = translate(child)
+      (List(), newCert)
+    }
+
+    case inf :: otherInfs => {
+      def recurse(newInf : BranchInference, newOrder : TermOrder) = {
+        val (newOtherInfs, newChild) = translate(otherInfs, child, newOrder)
+        (newInf :: newOtherInfs, newChild)
+      }
+
+      inf match {
+        case AlphaInference(splitFormula, providedFormulas) => {
+          val subst = certSubstitution(order)
+          val newProvidedFormulas =
+            for (f <- providedFormulas) yield subst(f)
+          for (f <- newProvidedFormulas) f match {
+            case f : CertCompoundFormula => {
+              val negF = f.f.negate
+              if (ap.proof.goal.FormulaTask.isFunctionalityAxiom(
+                    negF, settings))
+                functionalityAxioms += negF
+            }
+            case _ => // nothing
+          }
+          recurse(AlphaInference(subst(splitFormula), newProvidedFormulas),
+                  order)
+        }
+        case QuantifierInference(qFormula, newConstants, result, o)
+            if (qFormula.f.quans.last == Quantifier.EX) => {
+          val subst = certSubstitution(o)
+          recurse(QuantifierInference(subst(qFormula),
+                    newConstants, subst(result), o), o)
+        }
+        case QuantifierInference(qFormula, newConstants, result, o)
+            if (qFormula.f.quans.last == Quantifier.ALL) => {
+          val subst = certSubstitution(o)
+          val instTerms =
+            for (c <- newConstants)
+            yield LinearCombination(rawSubstition(c), order)
+          val instance = subst(result)
+          recurse(GroundInstInference(subst(qFormula),
+                    instTerms, instance, List(), instance, order), o)
+        }
+        case GroundInstInference(qFormula, instanceTerms, instance,
+                                 dischargedAtoms, result, o) => {
+          val subst = certSubstitution(o)
+          recurse(GroundInstInference(subst(qFormula),
+                    for (t <- instanceTerms) yield subst(t),
+                    subst(instance),
+                    for (a <- dischargedAtoms) yield subst(a),
+                    subst(result), o), o)
+        }
+        case ReduceInference(equations, targetLit, result, o) => {
+          val subst = certSubstitution(o)
+          val newEquations =
+            (for ((coeff, eq) <- equations.iterator;
+                  newEq = subst(eq);
+                  if (!newEq.lhs.isZero))
+             yield (coeff, newEq)).toList
+          recurse(ReduceInference(newEquations,
+                                  subst(targetLit), subst(result), o), o)
+        }
+        case ReducePredInference(equations, targetLit, result, o) => {
+          val subst = certSubstitution(o)
+          val newEquations = for (eqs <- equations) yield {
+            (for ((coeff, eq) <- eqs.iterator;
+                  newEq = subst(eq);
+                  if (!newEq.lhs.isZero))
+             yield (coeff, newEq)).toList
+          }
+          recurse(ReducePredInference(newEquations,
+                                      subst(targetLit), subst(result), o), o)
+        }
+        case SimpInference(targetLit, result, o) => {
+          val subst = certSubstitution(o)
+          recurse(SimpInference(subst(targetLit), subst(result), o), o)
+        }
+      }
+    }
+  }
+
 }

@@ -22,7 +22,7 @@
 package ap.proof.tree;
 
 import ap.proof._
-import ap.proof.certificates.PartialCertificate
+import ap.proof.certificates.{Certificate, PartialCertificate}
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.{Debug, Logic}
@@ -157,6 +157,14 @@ object AndTree {
     case _ =>
       (null, t)
   }
+
+  private def getSubCertificates(t : ProofTree) : Seq[Certificate] = t match {
+    case AndTree(left, right, _) =>
+      getSubCertificates(left) ++ getSubCertificates(right)
+    case t =>
+      List(t.getCertificate)
+  }
+
 }
 
 class AndTree private (val left : ProofTree, val right : ProofTree,
@@ -164,7 +172,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
                        val partialCertificate : PartialCertificate,
                        simplifier : ConstraintSimplifier) extends ProofTree {
 
-  import AndTree.{heightOf, certificateArityOf}
+  import AndTree.{heightOf, certificateArityOf, getSubCertificates}
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AndTree.AC,
@@ -256,13 +264,20 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
    */
   def newConstantFreedomForSubtrees(cf : ConstantFreedom) = (cf, cf)
 
+  def getCertificate : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AndTree.AC, partialCertificate != null)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    partialCertificate(getSubCertificates(this))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def indent(str : String, prefix : String) =
     prefix + str.replaceAll("\n", "\n" + prefix)
     
   override def toString : String =
-    "^ " + unifiabilityString /* closingConstraint */ + " (/\\)\n" +
+    "^ " + unifiabilityString /* closingConstraint */ + " (/\\) " + partialCertificate + "\n" +
       (for (t <- subtrees) yield indent("" + t, "  ")).mkString("\n/\\\n")
 
 }

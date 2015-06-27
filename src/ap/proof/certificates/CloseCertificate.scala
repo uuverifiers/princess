@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -47,13 +47,47 @@ case class CloseCertificate(localAssumedFormulas : Set[CertFormula],
   def iterator = Iterator.empty
 
   def update(newSubCerts : Seq[Certificate]) : Certificate = {
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(CloseCertificate.AC, newSubCerts.isEmpty)
-    //-END-ASSERTION-/////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     this
   }
 
   override def toString : String =
     "Close(" + (localAssumedFormulas mkString ", ") + ")"
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object CCUCloseCertificate {
+  private val AC = Debug.AC_CERTIFICATES
+}
+
+/**
+ * Certificate corresponding to closure of a goal using the
+ * BREU unification rule.
+ */
+case class CCUCloseCertificate(localAssumedFormulas : Set[CertFormula],
+                               order : TermOrder) extends {
+
+  val closingConstraint = Conjunction.TRUE
+  val localProvidedFormulas = List()
+  
+} with Certificate {
+
+  def length = 0
+  def apply(i : Int) : Certificate = throw new NoSuchElementException
+  def iterator = Iterator.empty
+
+  def update(newSubCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(CCUCloseCertificate.AC, newSubCerts.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    this
+  }
+
+  override def toString : String =
+    "CCUClose(" + (localAssumedFormulas mkString ", ") + ")"
 
 }

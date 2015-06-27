@@ -93,9 +93,16 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
           val instantiatedConjTask =
             Goal.formulaTasks(instantiatedConj, goal.age,
                               Set.empty, newVocabulary, goal.settings)
+
+          val collector = goal.getInferenceCollector
+          if (collector.isLogging)
+            collector.instantiateQuantifier(formula.negate, constants,
+                                            instantiatedConj.negate, newOrder)
+
           ptf.updateGoal(Set.empty.asInstanceOf[Set[ConstantTerm]],
                          newVocabulary,
                          instantiatedConjTask ++ goal.formulaTasks(formula),
+                         collector.getCollection,
                          goal)
 //        }
 
@@ -104,9 +111,14 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
         val instantiatedConjTask =
             Goal.formulaTasks(instantiatedConj, goal.age,
                               Set.empty, newVocabulary, goal.settings)
+        val collector = goal.getInferenceCollector
+        if (collector.isLogging)
+          collector.instantiateQuantifier(formula.negate, constants,
+                                          instantiatedConj.negate, newOrder)
         ptf.updateGoal(Set.empty.asInstanceOf[Set[ConstantTerm]],
                        newVocabulary,
                        instantiatedConjTask,
+                       collector.getCollection,
                        goal)
 
     }

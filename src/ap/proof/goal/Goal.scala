@@ -39,6 +39,7 @@ import ap.util.{Debug, FilterIt, Logic, Seqs}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, CloseCertificate,
+                              CCUCloseCertificate,
                               BranchInferenceCollection,
                               BranchInferenceCollector,
                               NonLoggingBranchInferenceCollector,
@@ -490,6 +491,10 @@ class Goal private (val facts : Conjunction,
           branchInferences.findFalseFormula
                           .getOrElse(CertCompoundFormula(Conjunction.FALSE))
         CloseCertificate(Set(contradFor), order)
+      } else if (Param.CCU_SOLVER(settings).isDefined) {
+        // if we are using CCU, just return the facts of this goal
+        val factLits = (for (l <- facts.iterator) yield CertFormula(l)).toSet
+        CCUCloseCertificate(factLits, order)
       } else {
         // In the presence of predicates, it can happen that a sub-proof was used
         // to show the inconsistency of the arithmetic facts. We currently just

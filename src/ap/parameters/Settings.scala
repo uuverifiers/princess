@@ -231,7 +231,8 @@ object GoalSettings {
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
                        Param.CCU_STRATEGY, Param.CCU_SOLVER,
-                       Param.CLAUSIFIER_TIMEOUT, Param.NONLINEAR_SPLITTING)
+                       Param.CLAUSIFIER_TIMEOUT, Param.NONLINEAR_SPLITTING,
+                       Param.NAME_PROVIDER)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

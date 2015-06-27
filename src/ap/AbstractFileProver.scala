@@ -160,7 +160,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
      * proof for interpolation.
      */
     def convertQuantifiers(c : Conjunction) : Conjunction =
-      if (constructProofs || Param.IGNORE_QUANTIFIERS(settings)) {
+      if (/* constructProofs || */ Param.IGNORE_QUANTIFIERS(settings)) {
         val withoutQuans =
           IterativeClauseMatcher.convertQuantifiers(
             c, signature.predicateMatchConfig, false)
@@ -225,6 +225,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, plugin)
+    gs = Param.NAME_PROVIDER.set(gs, new Param.NameProvider)
     gs
   }
   
@@ -350,6 +351,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
       val validConstraint = tree.ccUnifiable
          // prover.isValidConstraint(tree.closingConstraint, signature)
+//      if (validConstraint)
+//        println("" + (prover extractCertificate tree))
       (tree, validConstraint)
     }
   }
