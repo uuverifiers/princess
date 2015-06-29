@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,6 +32,7 @@ object Prover {
   abstract sealed class ProofResult extends Result
   case class Proof(tree : ProofTree) extends ProofResult
   case class ProofWithModel(tree : ProofTree, model : IFormula) extends ProofResult
+  case class ProofWithCert(tree : ProofTree, certificate : Certificate) extends ProofResult
   case class NoProof(unsatisfiableTree : ProofTree) extends ProofResult
   case class Invalid(unsatisfiableTree : ProofTree) extends ProofResult
   case class TimeoutProof(unfinishedTree : ProofTree) extends ProofResult

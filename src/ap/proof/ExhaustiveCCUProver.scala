@@ -171,15 +171,9 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
   //////////////////////////////////////////////////////////////////////////////
 
   def extractCertificate(tree : ProofTree) : Certificate = {
-    val grounder = new ProofGrounder(tree.completeCCUnifier, settings)
     val cert = tree.getCertificate
-    println(cert)
-    println(cert.inferenceCount)
-    val gCert = grounder(cert)
-    println(gCert)
-    println(gCert.inferenceCount)
-    println(gCert.assumedFormulas)
-    cert
+    val grounder = new ProofGrounder(tree.completeCCUnifier, settings)
+    ProofMinimiser(grounder(cert))
   }
 
   /**
@@ -682,5 +676,108 @@ class ProofGrounder(rawSubstition : Map[ConstantTerm, ConstantTerm],
       }
     }
   }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class to eliminate useless steps in a proof
+ */
+object ProofMinimiser {
+
+  def apply(cert : Certificate) : Certificate =
+    minimise(cert, cert.assumedFormulas)
+
+  private def minimise(cert : Certificate,
+                       availableFors : Set[CertFormula])
+                      : Certificate = cert match {
+    case cert@BranchInferenceCertificate(infs, child, o) => {
+      val (newInfs, newChild, _) = minimiseInfs(infs.toList, child, availableFors)
+      if (newInfs == infs)
+        cert update List(newChild)
+      else
+        BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
+    }
+
+    case cert@BetaCertificate(leftForm, _, lemma, leftChild, rightChild, _) => {
+      // check whether we might be able to remove the generated lemma
+      
+      val newLeftChild =
+        minimise(leftChild, availableFors ++ (cert localProvidedFormulas 0))
+        
+      if (uselessFormulas(cert localProvidedFormulas 0,
+                          availableFors,
+                          newLeftChild.assumedFormulas)) {
+        newLeftChild
+      } else {
+        val newRightChild =
+          minimise(rightChild, availableFors ++ (cert localProvidedFormulas 1))
+    
+        if (uselessFormulas(cert localProvidedFormulas 1,
+                            availableFors,
+                            newRightChild.assumedFormulas))
+          newRightChild
+        else
+          cert.update(Seq(newLeftChild, newRightChild),
+                      lemma && !uselessFormulas(List(!leftForm),
+                                                availableFors,
+                                                newRightChild.assumedFormulas))
+      }
+    }
+
+    case cert => {
+      val newSubCerts =
+        for ((c, fs) <- cert.subCertificates zip cert.localProvidedFormulas)
+        yield minimise(c, availableFors ++ fs)
+      updateCert(cert, availableFors, newSubCerts, cert update newSubCerts)
+    }
+  }
+
+  private def minimiseInfs(infs : List[BranchInference], child : Certificate,
+                           availableFors : Set[CertFormula])
+                          : (List[BranchInference], Certificate,
+                             Set[CertFormula]) = infs match {
+
+    case List() => {
+      val newCert = minimise(child, availableFors)
+      (List(), newCert, newCert.assumedFormulas)
+    }
+    
+    case inf :: otherInfs => {
+      val (newOtherInfs, newChild, newAssumedFors) =
+        minimiseInfs(otherInfs, child, availableFors ++ inf.providedFormulas)
+    
+      if (uselessFormulas(inf.providedFormulas, availableFors, newAssumedFors)) {
+        // then the formulas produced by this inference are not actually needed
+        (newOtherInfs, newChild, newAssumedFors)
+      } else {
+        (inf :: newOtherInfs, newChild,
+         (newAssumedFors -- inf.providedFormulas) ++ inf.assumedFormulas)
+      }
+    }
+  }
+
+  private def uselessFormulas(fs : Iterable[CertFormula],
+                              availableFors : Set[CertFormula],
+                              assumedFors : Set[CertFormula]) : Boolean =
+    fs forall { case f => (availableFors contains f) || !(assumedFors contains f) }
+
+  private def updateCert(cert : Certificate,
+                         availableFors : Set[CertFormula],
+                         newSubCerts : Seq[Certificate],
+                         newCert : => Certificate) : Certificate =
+    (0 until cert.length) indexWhere { case i =>
+        uselessFormulas(cert.localProvidedFormulas(i),
+                        availableFors,
+                        newSubCerts(i).assumedFormulas)
+       } match {
+        case -1 =>
+          newCert
+        case i =>
+          // then we can remove this rule application, potentially pruning away
+          // whole sub-proofs
+          newSubCerts(i)
+      }
 
 }

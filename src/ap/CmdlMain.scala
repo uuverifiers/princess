@@ -688,6 +688,29 @@ List(
                 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
+              case Prover.ProofWithCert(tree, cert) =>  {
+                Console.err.println("No countermodel exists, formula is valid")
+                if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  println
+                  println("Most-general constraint:")
+                  println("true")
+                }
+                if (Param.PRINT_TREE(settings)) {
+                  println
+                  println("Proof tree:")
+                  println(tree)
+                }
+
+                Console.withOut(Console.err) {
+                  println
+                  println("Certificate: " + cert)
+                  println("Assumed formulae: " + cert.assumedFormulas)
+                }
+                
+                printDOTCertificate(cert, settings)
+
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
+              }
               case Prover.NoProof(tree) => {
                 Console.err.println("UNKNOWN")
 //                Console.err.println("Number of existential constants: " +
@@ -768,8 +791,6 @@ List(
                   println
                   println("Certificate: " + cert)
                   println("Assumed formulae: " + cert.assumedFormulas)
-                  print("Constraint: ")
-                  printFormula(cert.closingConstraint)
                 }
                 
                 printDOTCertificate(cert, settings)

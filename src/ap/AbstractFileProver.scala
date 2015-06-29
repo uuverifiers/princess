@@ -334,7 +334,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected def findModel(f : Conjunction) : Conjunction =
     ModelSearchProver(f.negate, f.order)
   
-  protected def constructProofTree : (ProofTree, Boolean) = {
+  protected def constructProofTree : (ProofTree, Boolean, Certificate) = {
     // explicitly quantify all universal variables
     
     val closedFor = Conjunction.quantify(Quantifier.ALL,
@@ -351,9 +351,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
       val validConstraint = tree.ccUnifiable
          // prover.isValidConstraint(tree.closingConstraint, signature)
-//      if (validConstraint)
-//        println("" + (prover extractCertificate tree))
-      (tree, validConstraint)
+      (tree, validConstraint,
+       if (validConstraint && constructProofs)
+         prover extractCertificate tree
+       else
+         null)
     }
   }
 }

@@ -54,8 +54,10 @@ class IntelliFileProver(reader : java.io.Reader,
 
   lazy val proofResult : ProofResult =
     Timeout.catchTimeout[ProofResult] {
-      val (tree, validConstraint) = constructProofTree
-      if (validConstraint) {
+      val (tree, validConstraint, cert) = constructProofTree
+      if (cert != null) {
+        ProofWithCert(tree, cert)
+      } else if (validConstraint) {
         if (Seqs.disjoint(tree.closingConstraint.constants,
                           signature.universalConstants))
           ProofWithModel(tree, toIFormula(findModel(tree.closingConstraint)))

@@ -257,6 +257,7 @@ object ParallelFileProver {
                   Console.err.println(prover.result match {
                     case _ : Prover.Proof |
                          _ : Prover.ProofWithModel |
+                         _ : Prover.ProofWithCert |
                          _ : Prover.Model |
                              Prover.NoCounterModel |
                          _ : Prover.NoCounterModelCert | 
