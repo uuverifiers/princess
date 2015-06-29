@@ -25,7 +25,7 @@ import ap.basetypes.IdealInt
 import ap.proof._
 import ap.proof.goal._
 import ap.proof.certificates.Certificate
-import ap.parameters.Param
+import ap.parameters.{Param, GoalSettings}
 import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.preds.Predicate
@@ -210,6 +210,16 @@ trait ProofTree {
       }
       case ProofTreeOneChild(subtree) => subtree.ccuSolver
     }
+
+  protected[proof] lazy val usesCCU = ccuSolver != null
+  protected[proof] lazy val constructingProofs : Boolean = this match {
+    case goal : Goal =>
+      Param.PROOF_CONSTRUCTION(goal.settings)
+    case AndTree(left, right, _) =>
+      left.constructingProofs || right.constructingProofs
+    case ProofTreeOneChild(subtree) =>
+      subtree.constructingProofs
+  }
 
   // private lazy val ccuSolvers : List[CCUSolver[ConstantTerm, Predicate]] =
   //   List(new ccu.TableSolver[ConstantTerm, Predicate], 

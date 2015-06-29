@@ -116,6 +116,8 @@ object GlobalSettings {
         case ValueOpt("constructProofs", "ifInterpolating") =>
           Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
                                               Param.ProofConstructionOptions.IfInterpolating)
+        case Opt("delayedProof", value) =>
+          Param.DELAYED_PROOF.set(settings, value)
         case Opt("simplifyProofs", value) =>
           Param.PROOF_SIMPLIFICATION.set(settings, value)
         case Opt("elimInterpolantQuants", value) =>
@@ -209,7 +211,7 @@ object GlobalSettings {
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
          Param.MUL_PROCEDURE, Param.REAL_RAT_SATURATION_ROUNDS,
-         Param.CCU_STRATEGY, Param.FILE_PROPERTIES)
+         Param.CCU_STRATEGY, Param.FILE_PROPERTIES, Param.DELAYED_PROOF)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())

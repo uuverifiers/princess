@@ -143,7 +143,7 @@ object IExpression {
    * to <code>1</code>.
    */
   class BooleanFunApplier(val fun : IFunction) {
-    def apply(args : ITerm*) = geqZero(IFunApp(fun, args))
+    def apply(args : ITerm*) = eqZero(IFunApp(fun, args))
   }
 
   /**

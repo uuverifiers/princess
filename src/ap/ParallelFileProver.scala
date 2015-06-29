@@ -21,6 +21,8 @@
 
 package ap
 
+import ap.parameters.Param
+import ap.proof.certificates.Certificate
 import ap.parameters.GlobalSettings
 import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
 
@@ -517,6 +519,32 @@ class ParallelFileProver(createReader : () => java.io.Reader,
           (Prover.NoProof(null), -1)
       case (null, t) => throw t
       case (res, _) => (res, successfulProver)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  lazy val certificate : Option[Certificate] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(AC, successfulProver >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    // re-run the successful prover, with proof generation enabled
+    val proofSettings =
+      Param.PROOF_CONSTRUCTION_GLOBAL.set(settings(successfulProver).settings,
+                                          Param.ProofConstructionOptions.Always)
+    val prover =
+      new IntelliFileProver(createReader(),
+                            Int.MaxValue,
+                            false, false,
+                            proofSettings)
+    prover.result match {
+      case Prover.ProofWithCert(tree, cert)        => Some(cert)
+      case Prover.NoCounterModelCert(cert)         => Some(cert)
+      case Prover.NoCounterModelCertInter(cert, _) => Some(cert)
+      case _ =>
+        // proof reconstruction failed
+        None
     }
   }
 }

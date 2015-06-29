@@ -1380,6 +1380,12 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def store(args : ITerm*) : ITerm = IFunApp(storeFun(args.size - 2), args)
 
+  /**
+   * Return the value of an array as a map
+   */
+  def arrayAsMap(t : IdealInt, arity : Int) : Map[Seq[IdealInt], IdealInt] =
+    SimpleArray(arity).asMap(t)(decoderContext)
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**

@@ -324,6 +324,11 @@ object Param {
     val defau : Boolean = false
   }
 
+  case object DELAYED_PROOF extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
   // globally, we can also choose to construct proofs depending on whether
   // interpolation specs were given (the default)
   object ProofConstructionOptions extends Enumeration {

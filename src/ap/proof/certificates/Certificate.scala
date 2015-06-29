@@ -151,14 +151,15 @@ class PartialCertificate private (comb : Seq[Certificate] => Certificate,
     Debug.assertPre(PartialCertificate.AC, arity == that.size)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    val newArity = (0 /: (that.iterator map (_.arity)))(_ + _)
+    val newArity = (that.iterator map (_.arity)).sum
     
     val newComb = (certs : Seq[Certificate]) => {
       val subRes = new ArrayBuffer[Certificate]
       var offset : Int = 0
       for (pc <- that) {
-        subRes += pc(certs.slice(offset, offset + pc.arity))
-        offset = offset + arity
+        val newOffset = offset + pc.arity
+        subRes += pc(certs.slice(offset, newOffset))
+        offset = newOffset
       }
       apply(subRes)
     }

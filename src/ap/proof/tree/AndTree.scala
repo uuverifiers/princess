@@ -26,6 +26,7 @@ import ap.proof.certificates.{Certificate, PartialCertificate}
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.{Debug, Logic}
+import ap.parameters.{GoalSettings, Param}
 
 object AndTree {
   
@@ -34,7 +35,13 @@ object AndTree {
   def apply(left : ProofTree, right : ProofTree,
             vocabulary : Vocabulary,
             partialCert : PartialCertificate,
-            simplifier : ConstraintSimplifier) : ProofTree = {
+            simplifier : ConstraintSimplifier) : ProofTree =
+    if ((left.usesCCU || right.usesCCU) &&
+        (left.constructingProofs || right.constructingProofs)) {
+      // no balancing in this case, since we could otherwise
+      // not update proof trees and keep certificates consistent
+      new AndTree(left, right, vocabulary, partialCert, simplifier)
+    } else {
     val heightDiff = heightOf(right) - heightOf(left)
     if (heightDiff > 1) {
       // then right is an <code>AndTree</code> that is very deep
@@ -68,7 +75,10 @@ object AndTree {
                 vocabulary, rootCert, simplifier)
       }
     } else {
-      new AndTree(left, right, vocabulary, partialCert, simplifier)
+      val (leftCert, newLeft) = collectCertificates(left)
+      val (rightCert, newRight) = collectCertificates(right)
+      val rootCert = combineCertificates(partialCert, leftCert, rightCert)
+      new AndTree(newLeft, newRight, vocabulary, rootCert, simplifier)
     }
   }
 
@@ -159,7 +169,7 @@ object AndTree {
   }
 
   private def getSubCertificates(t : ProofTree) : Seq[Certificate] = t match {
-    case AndTree(left, right, _) =>
+    case AndTree(left, right, null) =>
       getSubCertificates(left) ++ getSubCertificates(right)
     case t =>
       List(t.getCertificate)
@@ -176,13 +186,14 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AndTree.AC,
-                   // Branching points in proof trees are represented as
-                   // balanced binary trees
-                   (heightOf(left) - heightOf(right)).abs <= 1 &&
                    // The arities of partial certificates have to be consistent
                    (partialCertificate == null ||
                     partialCertificate.arity ==
                       certificateArityOf(left) + certificateArityOf(right)) &&
+                   ((usesCCU && constructingProofs) || (
+                   // Branching points in proof trees are represented as
+                   // balanced binary trees
+                   (heightOf(left) - heightOf(right)).abs <= 1 &&
                    // partial certificates are always collected at the root
                    (partialCertificate != null ||
                    (left match {
@@ -192,7 +203,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
                    (right match {
                       case t : AndTree => t.partialCertificate == null
                       case _ => true
-                    })))
+                    })))))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   lazy val height : Int = 1 + (heightOf(left) max heightOf(right))
@@ -268,7 +279,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AndTree.AC, partialCertificate != null)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    partialCertificate(getSubCertificates(this))
+    partialCertificate(getSubCertificates(left) ++ getSubCertificates(right))
   }
 
   //////////////////////////////////////////////////////////////////////////////

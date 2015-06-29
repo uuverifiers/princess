@@ -206,6 +206,33 @@ object CmdlMain {
         DotLineariser(cert)
       }
     }
+
+  private def computeDelayedProof(prover : Prover,
+                                  settings : GlobalSettings) : Unit =
+   prover match {
+      case prover : ParallelFileProver if (Param.DELAYED_PROOF(settings)) => {
+        println
+        print("Generating proof ... ")
+        prover.certificate match {
+          case Some(cert) => {
+            println("found it (size " + cert.inferenceCount + ")")
+            println
+            outputTPTPProof(cert, settings)
+          }
+          case None =>
+            println("proof generation failed")
+        }
+      }
+      case _ => // nothing
+   }
+
+  private def outputTPTPProof(cert : Certificate,
+                              settings : GlobalSettings) : Unit = {
+            println(cert)
+            println("Assumed formulae (" + cert.assumedFormulas.size + "): " +
+                    cert.assumedFormulas)
+            printDOTCertificate(cert, settings)
+  }
   
   private def determineInputFormat(filename : String,
                                    settings : GlobalSettings)
@@ -394,6 +421,15 @@ List(
             }
 
             printResult(prover.result, settings2, lastFilename)
+
+            prover.result match {
+              case _ : Prover.Proof |
+                   _ : Prover.ProofWithModel |
+                   _ : Prover.Model |
+                       Prover.NoCounterModel =>
+                computeDelayedProof(prover, settings2)
+              case _ => // nothing
+            }
             
             val timeAfter = System.currentTimeMillis
             
@@ -474,7 +510,7 @@ List(
             println("ERROR: " + e.getMessage)
           }
         }
-        e.printStackTrace
+//         e.printStackTrace
         None
       }
     }
@@ -689,12 +725,14 @@ List(
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.ProofWithCert(tree, cert) =>  {
-                Console.err.println("No countermodel exists, formula is valid")
+//                Console.err.println("No countermodel exists, formula is valid")
+/*
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("true")
                 }
+*/
                 if (Param.PRINT_TREE(settings)) {
                   println
                   println("Proof tree:")
@@ -703,12 +741,9 @@ List(
 
                 Console.withOut(Console.err) {
                   println
-                  println("Certificate: " + cert)
-                  println("Assumed formulae: " + cert.assumedFormulas)
+                  outputTPTPProof(cert, settings)
                 }
                 
-                printDOTCertificate(cert, settings)
-
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoProof(tree) => {
@@ -789,11 +824,8 @@ List(
                 }
                 Console.withOut(Console.err) {
                   println
-                  println("Certificate: " + cert)
-                  println("Assumed formulae: " + cert.assumedFormulas)
+                  outputTPTPProof(cert, settings)
                 }
-                
-                printDOTCertificate(cert, settings)
 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
