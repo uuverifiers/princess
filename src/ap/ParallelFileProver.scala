@@ -531,12 +531,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
     // re-run the successful prover, with proof generation enabled
     val proofSettings =
+      Param.PROOF_SIMPLIFICATION.set(
       Param.PROOF_CONSTRUCTION_GLOBAL.set(settings(successfulProver).settings,
-                                          Param.ProofConstructionOptions.Always)
+                                     Param.ProofConstructionOptions.Always),
+                                     false)
     val prover =
       new IntelliFileProver(createReader(),
-                            Int.MaxValue,
-                            false, false,
+                            timeout -
+                              (System.currentTimeMillis - startTime).toInt,
+                            false, userDefStoppingCond,
                             proofSettings)
     prover.result match {
       case Prover.ProofWithCert(tree, cert)        => Some(cert)

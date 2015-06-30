@@ -56,7 +56,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       Timeout.raise
   }
 
-  protected def println(str : => String) : Unit = (if (output) Predef.println(str))
+  protected def println(str : => String) : Unit =
+    if (output) Predef.println(str)
+  
+  protected def print(str : => String) : Unit =
+    if (output) Predef.print(str)
   
   private def newParser = Param.INPUT_FORMAT(settings) match {
     case Param.InputFormat.Princess => ApParser2InputAbsy(settings.toParserSettings)
