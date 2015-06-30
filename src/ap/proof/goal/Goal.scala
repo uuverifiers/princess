@@ -43,7 +43,7 @@ import ap.proof.certificates.{Certificate, CloseCertificate,
                               BranchInferenceCollection,
                               BranchInferenceCollector,
                               NonLoggingBranchInferenceCollector,
-                              CertCompoundFormula, CertFormula}
+                              CertCompoundFormula, CertFormula, CertEquation}
 
 object Goal {
   
@@ -493,7 +493,11 @@ class Goal private (val facts : Conjunction,
         CloseCertificate(Set(contradFor), order)
       } else if (Param.CCU_SOLVER(settings).isDefined) {
         // if we are using CCU, just return the facts of this goal
-        val factLits = (for (l <- facts.iterator) yield CertFormula(l)).toSet
+        val factLits =
+          ((for (l <- facts.iterator)
+            yield CertFormula(l)) ++
+           (for (eqs <- eliminatedEquations.iterator; lc <- eqs.iterator)
+            yield CertEquation(lc))).toSet
         CCUCloseCertificate(factLits, order)
       } else {
         // In the presence of predicates, it can happen that a sub-proof was used

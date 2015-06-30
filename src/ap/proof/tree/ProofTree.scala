@@ -186,7 +186,10 @@ trait ProofTree {
                               : Map[ConstantTerm, ConstantTerm] = {
     var res =
       if (unifiabilityChecked && ccUnifiableLocally)
-        partialUnifier ++ ccUnifier
+        partialUnifier ++ (
+          for ((c, d) <- ccUnifier.iterator;
+               if (c != d || !(partialUnifier contains c)))
+          yield (c -> d))
       else
         partialUnifier
     for (t <- subtrees)
