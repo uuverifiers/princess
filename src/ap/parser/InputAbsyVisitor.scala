@@ -882,6 +882,15 @@ class QuantifierCountVisitor extends CollectingVisitor[Unit, Unit] {
   }
 }
 
+object SelectiveQuantifierCountVisitor {
+  def apply(t: IExpression,
+            consideredQuantifiers : Set[Quantifier]) : Int = {
+    val visitor = new SelectiveQuantifierCountVisitor(consideredQuantifiers)
+    visitor.visitWithoutResult(t, Context(()))
+    visitor.count
+  }
+}
+
 /**
  * Count the number of quantifiers in a formula
  */

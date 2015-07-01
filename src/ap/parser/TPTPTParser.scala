@@ -199,9 +199,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           }
         }
 
-        if (tptpType == TPTPType.TFF && (containsRat || containsReal))
-          fileProperties.negativeResult = "GaveUp"
-
         val conjecture = Param.CONJECTURE_TO_PROVE(settings) match {
           case None =>
             or(conjectureFors)
@@ -213,6 +210,17 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         }
 
         val problem = or(axiomFors) ||| conjecture
+
+        val usesRatOps = usesRROps(problem, "rat")
+        val usesRealOps = usesRROps(problem, "real")
+        val containsExQuantifiers =
+          SelectiveQuantifierCountVisitor(problem, Set(Quantifier.EX)) > 0
+
+        if (tptpType == TPTPType.TFF &&
+            (containsRat || containsReal) &&
+            (usesRatOps || usesRealOps || containsExQuantifiers))
+          // then we know that our procedure is not sound for satisfiability
+          fileProperties.negativeResult = "GaveUp"
 
         chosenFiniteConstraintMethod = tptpType match {
           case TPTPType.FOF | TPTPType.CNF =>
@@ -377,7 +385,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         ////////////////////////////////////////////////////////////////////////
 
         val completeFor =
-          (getAxioms &&& stringConstantAxioms &&& genRRAxioms &&&
+          (getAxioms &&& stringConstantAxioms &&&
+             genRRAxioms(usesRatOps, usesRealOps) &&&
              domainPredAxioms) ===>
           (problem ||| domainAxioms)
 
@@ -476,6 +485,19 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case TPTPType.TFF =>
       Rank(((for (_ <- 0 until f.arity) yield IntType).toList, IntType))
   } */
+
+  private def usesRROps(problem : IFormula,
+                        prefix : String) : Boolean =
+    ContainsSymbol(problem, (t:IExpression) => t match {
+      case IAtom(p, _) =>
+        (p.name startsWith prefix) &&
+        (arithmeticPreds contains (p.name substring (prefix.size+1)))
+      case IFunApp(f, _) =>
+        ((f.name startsWith prefix) &&
+         (arithmeticOps contains (f.name substring (prefix.size+1)))) ||
+        (f.name endsWith ("$to_" + prefix))
+      case _ => false
+    })
 
   private val arithmeticPreds = Set(
     "$less",
@@ -606,45 +628,41 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private def genRRAxioms = {
-    if (tptpType == TPTPType.TFF && (containsRat || containsReal))
+  private def genRRAxioms(needRatOps : Boolean, needRealOps : Boolean) = {
+    if (tptpType == TPTPType.TFF &&
+        (containsRat || containsReal) &&
+        (needRatOps || needRealOps))
       saturateRR
 
     val allLits = ratLiterals.toMap
     
-    val res = tptpType match {
-      case TPTPType.TFF => connect(
-        // add full axioms
-        (if (containsRat)
-           generalRatAxioms("rat_", RatType, allLits mapValues (_._1)) ++
-           (for ((value, (const, _)) <- allLits; if (value.denom.isOne))
-            yield (checkUnintFunTerm("int_$to_rat", List(i(value.num)), List(IntType))._1 ===
-                     const))
-         else
-           List()) ++
-        (if (containsReal)
-           generalRatAxioms("real_", RealType, allLits mapValues (_._2)) ++
-           (for ((value, (_, const)) <- allLits; if (value.denom.isOne))
-            yield (checkUnintFunTerm("int_$to_real", List(i(value.num)), List(IntType))._1 ===
-                     const))
-         else
-           List())
-        , IBinJunctor.And)
-      case _ => connect(
-        // only add information that numerals have distinct values
-        (if (containsRat)
-           distinctRatConstants(allLits.valuesIterator map (_._1))
-         else
-           List()) ++
-        (if (containsReal)
-           distinctRatConstants(allLits.valuesIterator map (_._2))
-         else
-           List())
-        , IBinJunctor.And)
-    }
-    
-//    println(res)
-    res
+    val ratAxioms =
+      if (containsRat) {
+        if (tptpType == TPTPType.TFF && needRatOps)
+          generalRatAxioms("rat_", RatType, allLits mapValues (_._1)) ++
+          (for ((value, (const, _)) <- allLits; if (value.denom.isOne))
+           yield (checkUnintFunTerm("int_$to_rat",
+                    List(i(value.num)), List(IntType))._1 === const))
+        else
+          distinctRatConstants(allLits.valuesIterator map (_._1))
+      } else {
+        List()
+      }
+
+    val realAxioms =
+      if (containsReal) {
+        if (tptpType == TPTPType.TFF && needRealOps)
+          generalRatAxioms("real_", RealType, allLits mapValues (_._2)) ++
+          (for ((value, (_, const)) <- allLits; if (value.denom.isOne))
+           yield (checkUnintFunTerm("int_$to_real",
+                    List(i(value.num)), List(IntType))._1 === const))
+        else
+          distinctRatConstants(allLits.valuesIterator map (_._2))
+      } else {
+        List()
+      }
+
+    and(ratAxioms) &&& and(realAxioms)
   }
   
   private def saturateRR : Unit =
