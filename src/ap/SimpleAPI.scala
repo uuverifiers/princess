@@ -102,8 +102,9 @@ object SimpleAPI {
 
   def spawnWithScalaLog : SimpleAPI = apply(dumpScala = true)
 
-  def spawnWithScalaLog(basename : String) : SimpleAPI =
-    apply(dumpScala = true, scalaDumpBasename = basename)
+  def spawnWithScalaLogNoSanitise(basename : String) : SimpleAPI =
+    apply(dumpScala = true, scalaDumpBasename = basename,
+          sanitiseNames = false)
   
   /**
    * Run the given function with a fresh prover, and shut down the prover
