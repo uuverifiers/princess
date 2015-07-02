@@ -48,6 +48,8 @@ import scala.actors.{Actor, DaemonActor, TIMEOUT}
 import scala.actors.Actor._
 import scala.concurrent.SyncVar
 
+import java.io.File
+
 object SimpleAPI {
   
   private val AC = Debug.AC_SIMPLE_API
@@ -65,12 +67,14 @@ object SimpleAPI {
             smtDumpBasename : String = SMTDumpBasename,
             dumpScala : Boolean = false,
             scalaDumpBasename : String = ScalaDumpBasename,
+            dumpDirectory : File = null,
             tightFunctionScopes : Boolean = true,
             genTotalityAxioms : Boolean = false) : SimpleAPI =
     new SimpleAPI (enableAssert,
                    sanitiseNames,
                    if (dumpSMT) Some(smtDumpBasename) else None,
                    if (dumpScala) Some(scalaDumpBasename) else None,
+                   dumpDirectory,
                    tightFunctionScopes,
                    genTotalityAxioms)
 
@@ -85,14 +89,22 @@ object SimpleAPI {
   def spawnWithLog(basename : String) : SimpleAPI =
     apply(dumpSMT = true, smtDumpBasename = basename)
 
-  def spawnWithLogNoSanitise(basename : String) : SimpleAPI =
+  def spawnWithLog(basename : String,
+                   directory : File) : SimpleAPI =
+    apply(dumpSMT = true,
+          smtDumpBasename = basename,
+          dumpDirectory = directory)
+
+  def spawnWithLogNoSanitise(basename : String,
+                             directory : File) : SimpleAPI =
     apply(dumpSMT = true, smtDumpBasename = basename,
-          sanitiseNames = false)
+          dumpDirectory = directory, sanitiseNames = false)
 
   def spawnWithScalaLog : SimpleAPI = apply(dumpScala = true)
 
-  def spawnWithScalaLog(basename : String) : SimpleAPI =
-    apply(dumpScala = true, scalaDumpBasename = basename)
+  def spawnWithScalaLogNoSanitise(basename : String) : SimpleAPI =
+    apply(dumpScala = true, scalaDumpBasename = basename,
+          sanitiseNames = false)
   
   /**
    * Run the given function with a fresh prover, and shut down the prover
@@ -117,12 +129,13 @@ object SimpleAPI {
                     smtDumpBasename : String = SMTDumpBasename,
                     dumpScala : Boolean = false,
                     scalaDumpBasename : String = ScalaDumpBasename,
+                    dumpDirectory : File = null,
                     tightFunctionScopes : Boolean = true,
                     genTotalityAxioms : Boolean = false)
                    (f : SimpleAPI => A) : A = {
     val p = apply(enableAssert, sanitiseNames,
                   dumpSMT, smtDumpBasename,
-                  dumpScala, scalaDumpBasename,
+                  dumpScala, scalaDumpBasename, dumpDirectory,
                   tightFunctionScopes, genTotalityAxioms)
     try {
       f(p)
@@ -375,6 +388,7 @@ class SimpleAPI private (enableAssert : Boolean,
                          sanitiseNames : Boolean,
                          dumpSMT : Option[String],
                          dumpScala : Option[String],
+                         dumpDirectory : File,
                          tightFunctionScopes : Boolean,
                          genTotalityAxioms : Boolean = false) {
 
@@ -404,7 +418,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private val dumpSMTStream = dumpSMT match {
     case Some(basename) => {
-      val dumpSMTFile = java.io.File.createTempFile(basename, ".smt2")
+      val dumpSMTFile =
+        java.io.File.createTempFile(basename, ".smt2", dumpDirectory)
       new java.io.FileOutputStream(dumpSMTFile)
     }
     case None => null
@@ -417,7 +432,8 @@ class SimpleAPI private (enableAssert : Boolean,
   
   private val dumpScalaStream = dumpScala match {
     case Some(basename) => {
-      val dumpScalaFile = java.io.File.createTempFile(basename, ".scala")
+      val dumpScalaFile =
+        java.io.File.createTempFile(basename, ".scala", dumpDirectory)
       new java.io.FileOutputStream(dumpScalaFile)
     }
     case None => null
@@ -1378,6 +1394,12 @@ class SimpleAPI private (enableAssert : Boolean,
    * Generate a <code>store</code> expression in the theory of arrays.
    */
   def store(args : ITerm*) : ITerm = IFunApp(storeFun(args.size - 2), args)
+
+  /**
+   * Return the value of an array as a map
+   */
+  def arrayAsMap(t : IdealInt, arity : Int) : Map[Seq[IdealInt], IdealInt] =
+    SimpleArray(arity).asMap(t)(decoderContext)
 
   //////////////////////////////////////////////////////////////////////////////
 
