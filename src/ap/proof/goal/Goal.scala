@@ -371,8 +371,7 @@ class Goal private (val facts : Conjunction,
     // apply the first task to the goal and then stop immediately
     val task = tasks.max
 
-    println(task)
-    println(this)
+//    println(task)
     
 //    task match {
 //      case WrappedFormulaTask(t, Seq(simpTask)) => println("" + simpTask + " <- " + t)
