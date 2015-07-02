@@ -33,12 +33,7 @@ import ap.parameters.Param
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
 
-trait MulTheory extends Theory {
-
-  /**
-   * Symbol representing proper (non-linear) multiplication
-   */
-  val mul : IFunction
+object MulTheory {
 
   /**
    * Extractor recognising the <code>mul</code> function of
@@ -51,6 +46,15 @@ trait MulTheory extends Theory {
         case _ => false
       }
   }
+
+}
+
+trait MulTheory extends Theory {
+
+  /**
+   * Symbol representing proper (non-linear) multiplication
+   */
+  val mul : IFunction
 
   /**
    * Multiply two terms, using the <code>mul</code> function if necessary;

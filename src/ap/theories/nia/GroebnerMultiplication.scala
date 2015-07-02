@@ -34,7 +34,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
 import ap.terfor.conjunctions.Conjunction
 import ap.basetypes.IdealInt
-import ap.util.Timeout
+import ap.util.{Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
@@ -516,7 +516,7 @@ println(unprocessed)
   
         // An order is needed to construct polynomials, since Buchberger isn't used,
         // the order shouldn't matter.
-        implicit val _ = goal.order
+        implicit val order = goal.order
         implicit val monOrder = new GrevlexOrdering(new StringOrdering)
         implicit val ctOrder = monOrder.termOrdering
   
@@ -557,10 +557,10 @@ println(unprocessed)
             yield
               (p(0).constants, p(1).constants)
   
-          val allConsts =
-            (for ((_, consts) <- goal.bindingContext.constantSeq.iterator;
-                  c <- consts.toSeq.sortBy(_.name).iterator)
-             yield c).toSeq
+          val allConsts = order sort order.orderedConstants
+//            (for ((_, consts) <- goal.bindingContext.constantSeq.iterator;
+//                  c <- consts.toSeq.sortBy(_.name).iterator)
+//             yield c).toSeq
 
           val allConstsSet = new MHashSet[ConstantTerm]
           allConstsSet ++= allConsts
@@ -654,25 +654,18 @@ println(unprocessed)
         /**
          * Takes negative equations (i.e. x+y+... != 0) and splits them around zero
          */
-        def negeqSplit(negeqs : ap.terfor.equations.NegEquationConj)
-                      : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
-          var alternatives = List[(ap.terfor.Formula, ap.terfor.Formula, String)]()
-  
-          for (negeq <- negeqs.toList) {
-            val negeq = negeqs.head
-            val opt1 = (negeq > 0)
-            val opt2 = (negeq < 0)
-  
-            val opt1reduced = goal reduceWithFacts(opt1.negate)
-            val opt2reduced = goal reduceWithFacts(opt2.negate)
-  
-            if (!opt1reduced.isFalse && !opt2reduced.isFalse)
-              alternatives = (opt1.negate, opt2.negate,
-                              "Negeq split on: " + negeq) :: alternatives
-          }
-  
-          alternatives.iterator
-        }
+        def negeqSplit(negeqs : ap.terfor.equations.NegEquationConj,
+                       targetSet : Set[ConstantTerm])
+              : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+          for (negeq <- negeqs.iterator;
+               if (!Seqs.disjoint(negeq.constants, targetSet));
+               opt1 = (negeq > 0);
+               opt2 = (negeq < 0);
+               opt1reduced = goal reduceWithFacts(opt1.negate);
+               opt2reduced = goal reduceWithFacts(opt2.negate);
+               if (!opt1reduced.isFalse && !opt2reduced.isFalse))
+          yield
+            (opt1.negate, opt2.negate, "Negeq split on: " + negeq)
   
         /**
          * Utilizes any gaps in an interval (i.e. x = [lb, -a] U [a, ub]) 
@@ -704,8 +697,8 @@ println(unprocessed)
         def doSplit(splitparams : (ap.terfor.Formula, ap.terfor.Formula, String))
                    : List[Plugin.Action] = {
           val (opt1, opt2, msg) = splitparams
-          val opt1act = Conjunction.conj(opt1, goal.order)
-          val opt2act = Conjunction.conj(opt2, goal.order)
+          val opt1act = Conjunction.conj(opt1, order)
+          val opt2act = Conjunction.conj(opt2, order)
           val splitgoal =
             Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)),
                                   List(Plugin.AddFormula(opt2act))))
@@ -726,8 +719,9 @@ println(unprocessed)
         // predicates are made linear
         val targetSet = linearizers(predicates.toList).toList
                            .sortWith((s1, s2) => s1.size > s2.size).head
-  
-        val alternatives = negeqSplit(negeqs) ++ gapSplit(intervalSet, targetSet) ++ 
+
+        val alternatives = negeqSplit(negeqs, targetSet) ++
+                           gapSplit(intervalSet, targetSet) ++ 
           (Param.NONLINEAR_SPLITTING(goal.settings) match {
             case Param.NonLinearSplitting.Sign =>
               infinitySplit(intervalSet, targetSet) ++

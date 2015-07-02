@@ -406,3 +406,13 @@ Constructing countermodel ...
 
 VALID
 
+Loading simpleTermination.pri ...
+Warning: using theory to encode multiplication: GroebnerMultiplication
+Preprocessing ...
+Proving ...
+
+VALID
+
+Under the constraint:
+X = 0
+

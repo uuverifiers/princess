@@ -155,7 +155,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
     (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc, settings)
   }
-
+println("" + inputFormulas)
   protected val theories = signature.theories
 
   private val functionalPreds = 
