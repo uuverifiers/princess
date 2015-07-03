@@ -298,7 +298,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       conjs exists { c =>
         IterativeClauseMatcher.matchedPredicatesRec(c, config) exists {
           p => (functionEncoder.predTranslation get p) match {
-                 case Some(f) => !f.partial
+                 case Some(f) => true // in TPTP we consider all functions as total     !f.partial
                  case None => false
                }
         }
@@ -321,12 +321,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     }
 
   private lazy val allFunctionsArePartial =
-    (formulas forall { f => f.predicates forall {
+    (formulas forall { f => f.predicates.isEmpty }) &&
+/*    (formulas forall { f => f.predicates forall {
        p => (functionEncoder.predTranslation get p) match {
                case Some(f) => f.partial
                case None => true
              }
-     }}) &&
+     }}) && */
     (theories forall { t => t.functions forall (_.partial) })
 
   protected lazy val soundForSat =
