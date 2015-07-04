@@ -38,7 +38,7 @@ object CmdlMain {
 
   class GaveUpException(_msg : String) extends Exception(_msg)
 
-  val version = "CASC version 2014-07-04"
+  val version = "CASC version 2015-07-06"
 
   def printGreeting = {
     println("________       _____")                                 
