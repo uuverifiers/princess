@@ -130,7 +130,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   protected val theories = signature.theories
 
-  private val functionalPreds = 
+  val functionalPreds = 
     (for ((p, f) <- functionEncoder.predTranslation.iterator;
           if (!f.relational)) yield p).toSet
   
@@ -174,7 +174,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         }
         withoutQuans
       } else {
-        c
+        IterativeClauseMatcher.pullOutTriggers(
+          c, signature.predicateMatchConfig)
       }
 
     if (constructProofs) {

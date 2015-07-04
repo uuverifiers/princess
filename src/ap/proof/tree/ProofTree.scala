@@ -217,8 +217,10 @@ trait ProofTree {
   protected[proof] lazy val usesCCU = ccuSolver != null
   protected[proof] lazy val constructingProofs : Boolean = this match {
     case goal : Goal =>
-      Param.PROOF_CONSTRUCTION(goal.settings)
-    case AndTree(left, right, _) =>
+      Param.PROOF_CONSTRUCTION(goal.settings) ||
+      !goal.branchInferences.isEmpty
+    case AndTree(left, right, cert) =>
+      cert != null ||
       left.constructingProofs || right.constructingProofs
     case ProofTreeOneChild(subtree) =>
       subtree.constructingProofs

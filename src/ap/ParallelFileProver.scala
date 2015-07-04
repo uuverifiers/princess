@@ -24,6 +24,7 @@ package ap
 import ap.parameters.Param
 import ap.proof.certificates.Certificate
 import ap.parameters.GlobalSettings
+import ap.terfor.preds.Predicate
 import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
 
 import scala.actors.Actor._
@@ -524,7 +525,10 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  lazy val certificate : Option[Certificate] = {
+  lazy val certificate : Option[Certificate]             = certificatePair._1
+  lazy val functionalPredicates : Option[Set[Predicate]] = certificatePair._2
+
+  private lazy val certificatePair = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, successfulProver >= 0)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -542,12 +546,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
                             false, userDefStoppingCond,
                             proofSettings)
     prover.result match {
-      case Prover.ProofWithCert(tree, cert)        => Some(cert)
-      case Prover.NoCounterModelCert(cert)         => Some(cert)
-      case Prover.NoCounterModelCertInter(cert, _) => Some(cert)
+      case Prover.ProofWithCert(tree, cert) =>
+        (Some(cert), Some(prover.functionalPreds))
+      case Prover.NoCounterModelCert(cert) =>
+        (Some(cert), Some(prover.functionalPreds))
+      case Prover.NoCounterModelCertInter(cert, _) =>
+        (Some(cert), Some(prover.functionalPreds))
       case _ =>
         // proof reconstruction failed
-        None
+        (None, None)
     }
   }
 }

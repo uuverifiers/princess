@@ -60,6 +60,7 @@ TESTS="division.pri \
        simplify7.pri \
        simplify8.pri \
        simplify9.pri \
-       subsumptionExample.pri"
+       subsumptionExample.pri \
+       simpleTermination.pri"
 
 $PRI "$@" $TESTS 2>&1

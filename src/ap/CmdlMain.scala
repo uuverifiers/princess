@@ -304,12 +304,14 @@ object CmdlMain {
       case '0' => Param.PosUnitResolutionMethod.NoFunctionality
       case '1' => Param.PosUnitResolutionMethod.NonUnifying
     })
+    if (str.size > 8) {
     s = Param.IGNORE_QUANTIFIERS.set(s, str(8) == '1')
     s = Param.TRIGGER_GENERATION.set(s, str(9) match {
       case '0' => Param.TriggerGenerationOptions.All
       case '1' => Param.TriggerGenerationOptions.Complete
       case '2' => Param.TriggerGenerationOptions.CompleteFrugal
     })
+    }
     s
   }
               
@@ -339,6 +341,7 @@ object CmdlMain {
 
     s = s + " -resolutionMethod=" + (if (strategy.charAt(7)=='0') "normal" else "nonUnifying")
 
+    if (strategy.size > 8) {
     s = s + " " + (if (strategy.charAt(8)=='0') "-" else "+") + "ignoreQuantifiers"
     s = s + " -generateTriggers=" + (
       if (strategy.charAt(9)=='0')
@@ -348,6 +351,7 @@ object CmdlMain {
       else
         "completeFrugal"
     )
+    }
     
     s
   }

@@ -114,6 +114,8 @@ object BranchInferenceCollection {
  */
 class BranchInferenceCollection private (val inferences : List[BranchInference]) {
 
+  def isEmpty : Boolean = inferences.isEmpty
+
   def getCollector : BranchInferenceCollector =
     LoggingBranchInferenceCollector(inferences)
   

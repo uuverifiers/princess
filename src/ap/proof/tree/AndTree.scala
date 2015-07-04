@@ -36,8 +36,7 @@ object AndTree {
             vocabulary : Vocabulary,
             partialCert : PartialCertificate,
             simplifier : ConstraintSimplifier) : ProofTree =
-    if ((left.usesCCU || right.usesCCU) &&
-        (left.constructingProofs || right.constructingProofs)) {
+    if ((left.constructingProofs || right.constructingProofs)) {
       // no balancing in this case, since we could otherwise
       // not update proof trees and keep certificates consistent
       new AndTree(left, right, vocabulary, partialCert, simplifier)
@@ -190,7 +189,7 @@ class AndTree private (val left : ProofTree, val right : ProofTree,
                    (partialCertificate == null ||
                     partialCertificate.arity ==
                       certificateArityOf(left) + certificateArityOf(right)) &&
-                   ((usesCCU && constructingProofs) || (
+                   (constructingProofs || (
                    // Branching points in proof trees are represented as
                    // balanced binary trees
                    (heightOf(left) - heightOf(right)).abs <= 1 &&
