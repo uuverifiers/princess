@@ -481,13 +481,16 @@ object IterativeClauseMatcher {
    * introduced)
    */
   def convertQuantifiers(c : Conjunction, config : PredicateMatchConfig,
+                         domainPredicates : Set[Predicate],
                          assumeInfiniteDomain : Boolean = true)
                         : Conjunction =
-    convertQuantifiersHelp(c, false, config, assumeInfiniteDomain)
+    convertQuantifiersHelp(c, false, config, domainPredicates,
+                           assumeInfiniteDomain)
 
   private def convertQuantifiersHelp(c : Conjunction,
                                      negated : Boolean,
                                      config : PredicateMatchConfig,
+                                     domainPredicates : Set[Predicate],
                                      assumeInfiniteDomain : Boolean)
                                     : Conjunction = {
     val ALL = Quantifier(negated)
@@ -500,6 +503,7 @@ object IterativeClauseMatcher {
       val newNegConjs = c.negatedConjs.update(
                           for (d <- c.negatedConjs)
                           yield convertQuantifiersHelp(d, !negated, config,
+                                                       domainPredicates,
                                                        assumeInfiniteDomain),
                           c.order)
       c.updateNegatedConjs(newNegConjs)(c.order)
@@ -517,6 +521,7 @@ object IterativeClauseMatcher {
       val newNegConjs = c.negatedConjs.update(
                           for (d <- c.negatedConjs)
                           yield convertQuantifiersHelp(d, !negated, config,
+                                                       domainPredicates,
                                                        assumeInfiniteDomain),
                           c.order)
       val newQuans = c.quans.toArray
@@ -566,11 +571,36 @@ object IterativeClauseMatcher {
             }
 
         val subst = VariableShiftSubst(shifts, 0, c.order)
-        Conjunction(newQuans,
-                    subst(c.arithConj),
-                    subst(c.predConj),
-                    subst(newNegConjs),
-                    c.order)
+        val newPredConj = subst(c.predConj)
+
+        // check whether some domain predicates should change sign
+        val (guards, otherPreds) = newPredConj.positiveLits partition {
+          a => (domainPredicates contains a.pred) &&
+               (a.variables forall { v => v.index >= matched.size })
+        }
+
+        if (guards.isEmpty) {
+          Conjunction(newQuans,
+                      subst(c.arithConj),
+                      newPredConj,
+                      subst(newNegConjs),
+                      c.order) 
+        } else {
+          val guardsConj =
+            VariableShiftSubst.downShifter(matched.size, c.order)(
+                                           Conjunction.conj(guards, c.order))
+          val remainingConj =
+            newPredConj.updateLitsSubset(otherPreds, newPredConj.negativeLits,
+                                         c.order)
+          val conj = Conjunction(newQuans takeWhile (_ == ALL),
+                                 subst(c.arithConj),
+                                 remainingConj,
+                                 subst(newNegConjs),
+                                 c.order)
+          val newMatrix = Conjunction.implies(guardsConj, conj, c.order)
+          Conjunction.quantify(newQuans dropWhile (_ == ALL), newMatrix,
+                               c.order)
+        }
       }
     }
   }

@@ -198,6 +198,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         val withoutQuans =
           IterativeClauseMatcher.convertQuantifiers(
             c, signature.predicateMatchConfig,
+            signature.domainPredicates,
             Param.FINITE_DOMAIN_CONSTRAINTS.assumeInfiniteDomain(settings))
         if (!ignoredQuantifiers && !(withoutQuans eq c)) {
           Console.err.println("Warning: ignoring some quantifiers")

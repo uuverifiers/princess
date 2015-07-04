@@ -3073,7 +3073,7 @@ class SimpleAPI private (enableAssert : Boolean,
     if (constructProofs) {
       val withoutQuans =
         IterativeClauseMatcher.convertQuantifiers(
-          c, Param.PREDICATE_MATCH_CONFIG(goalSettings))
+          c, Param.PREDICATE_MATCH_CONFIG(goalSettings), null)
       if (!ignoredQuantifiers && !(withoutQuans eq c)) {
         Console.err.println(
           "Warning: ignoring some quantifiers due to interpolation")
