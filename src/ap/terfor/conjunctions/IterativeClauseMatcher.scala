@@ -466,6 +466,11 @@ object IterativeClauseMatcher {
   
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Convert all quantifiers that cannot be handled using e-matching
+   * to existential quantifiers (for which Skolem symbols can be
+   * introduced)
+   */
   def convertQuantifiers(c : Conjunction, config : PredicateMatchConfig)
                         : Conjunction =
     convertQuantifiersHelp(c, false, config)
@@ -553,6 +558,105 @@ object IterativeClauseMatcher {
                     subst(c.predConj),
                     subst(newNegConjs),
                     c.order)
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Make sure that, when applying e-matching, either all or none
+   * of the quantifiers in a quantified expressions are instantiated.
+   */
+  def pullOutTriggers(c : Conjunction, config : PredicateMatchConfig)
+                     : Conjunction =
+    pullOutTriggersHelp(c, false, config)
+
+  private def pullOutTriggersHelp(c : Conjunction,
+                                  negated : Boolean,
+                                  config : PredicateMatchConfig)
+                                  : Conjunction = {
+
+    val ALL = Quantifier(negated)
+    if (c.predicates.isEmpty) {
+
+      // no need to change anything
+      c
+
+    } else if (c.quans.isEmpty ||
+               (!(c.quans.tail contains ALL) &&
+                (c.quans.head != ALL ||
+                 c.isQuantifiedDivisibility ||
+                 c.isQuantifiedNonDivisibility))) {
+
+      val newNegConjs = c.negatedConjs.update(
+                          for (d <- c.negatedConjs)
+                          yield pullOutTriggersHelp(d, !negated, config),
+                          c.order)
+      c.updateNegatedConjs(newNegConjs)(c.order)
+
+    } else {
+
+      val EX = ALL.dual
+      implicit val order = c.order
+
+      val newNegConjs = c.negatedConjs.update(
+                          for (d <- c.negatedConjs)
+                          yield pullOutTriggersHelp(d, !negated, config),
+                          c.order)
+      var changed = !(newNegConjs eq c.negatedConjs)
+      val firstExQuantifier = (c.quans indexOf EX) match {
+        case -1 => c.quans.size
+        case x => x
+      }
+
+      val matchedVariables = determineMatchedVariables(c, negated, config)
+      val (matched, unmatched) =
+        (0 until firstExQuantifier) partition matchedVariables
+
+      if (matched.isEmpty || unmatched.isEmpty) {
+        c.updateNegatedConjs(newNegConjs)
+      } else {
+        // reorder variables, and isolate all parts that can be
+        // instantiated using e-matching
+
+        var nextMatchedIndex = unmatched.size
+        var nextUnmatchedIndex = 0
+
+        val shifts =
+          for (i <- 0 until firstExQuantifier) yield
+            if (matchedVariables contains i) {
+              nextMatchedIndex = nextMatchedIndex + 1
+              nextMatchedIndex - 1 - i
+            } else {
+              nextUnmatchedIndex = nextUnmatchedIndex + 1
+              nextUnmatchedIndex - 1 - i
+            }
+
+        val subst = VariableShiftSubst(shifts, 0, order)
+        val newC = Conjunction(List(),
+                               subst(c.arithConj),
+                               subst(c.predConj),
+                               subst(newNegConjs),
+                               order)
+
+        val unmatchedNum = unmatched.size
+        val (matchedParts, unmatchedParts) =
+          newC.iterator.toSeq partition {
+            f => f.variables forall { v => v.index >= unmatchedNum }
+          }
+
+        val matchedPartConj = 
+          VariableShiftSubst.downShifter(unmatchedNum, order)(
+            Conjunction.conj(matchedParts, order))
+        val unmatchedPartConj =
+          Conjunction.quantify(for (_ <- 0 until unmatchedNum) yield ALL,
+                               Conjunction.conj(unmatchedParts, order),
+                               order)
+        Conjunction.quantify(
+          c.quans drop unmatchedNum,
+          Conjunction.conj(List(matchedPartConj, unmatchedPartConj), order),
+          order)
       }
     }
   }
