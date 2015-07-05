@@ -100,7 +100,10 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
-    "BranchInferences(" + (inferences mkString ", ") + ", " + child + ")"
+    "BranchInferences:\n" +
+      (inferences mkString "\n") + "\n" +
+      "Child:\n" +
+      child
   
   override def inferenceCount : Int = super.inferenceCount - 1 + inferences.size
 
@@ -175,7 +178,7 @@ case class AlphaInference(splitFormula : CertCompoundFormula,
   def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
 
   override def toString : String =
-    "Alpha(" + splitFormula + " -> " + (providedFormulas mkString ", ") + ")"
+    "A(" + splitFormula + " -> " + (providedFormulas mkString ", ") + ")"
 }
 
 ////////////////////////////////////////////////////////////////////////////////

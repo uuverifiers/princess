@@ -26,12 +26,13 @@ import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
-import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
+import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser, ProofLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
                   SMTParser2InputAbsy}
 import ap.util.{Debug, Seqs, Timeout}
+import ap.terfor.preds.Predicate
 
 object CmdlMain {
 
@@ -217,7 +218,7 @@ object CmdlMain {
           case Some(cert) => {
             println("found it (size " + cert.inferenceCount + ")")
             println
-            outputTPTPProof(cert, settings)
+            outputTPTPProof(cert, prover.functionalPredicates, settings)
           }
           case None =>
             println("proof generation failed")
@@ -226,12 +227,171 @@ object CmdlMain {
       case _ => // nothing
    }
 
-  private def outputTPTPProof(cert : Certificate,
-                              settings : GlobalSettings) : Unit = {
-            println(cert)
-            println("Assumed formulae (" + cert.assumedFormulas.size + "): " +
-                    cert.assumedFormulas)
-            printDOTCertificate(cert, settings)
+  import ap.proof.certificates._
+
+  import scala.collection.mutable.ListBuffer
+  val orderedFormulas = ListBuffer() : ListBuffer[CertFormula]
+
+  def findIndex(cf : CertFormula) = {
+    val res = orderedFormulas indexOf cf
+
+    if (res == -1) {
+      println("<<<<<<<<<<<<<<<<<<<")
+      println("COULDNT MATCH FORMULA: " + cf)
+      println(">>>>>>>>>>>>>>>>>>>>")
+      println("AGAINST: " + orderedFormulas)
+      println("<<<<<<<<<<<<<<<<<<<<<")
+    }
+    res
+  }
+
+  def addIndex(cf : CertFormula) = {
+    orderedFormulas += cf
+    findIndex(cf)
+  }
+
+  def printIndex(cf : CertFormula, indent : String, pl : ProofLineariser) = {
+    orderedFormulas += cf
+
+    print(indent + "| (" + findIndex(cf) + ") ")
+    pl.printFormula(Internal2InputAbsy(cf.toConj))
+    println("")
+  }
+
+  def outputInference(inference : BranchInference, indent : String, pl : ProofLineariser) = {
+    inference match {
+      case QuantifierInference(quantifiedFormula, newConstants, result, _) => {
+        // println(indent +"QUANTIFIER")
+        println(indent +"| By taking formula (" + findIndex(quantifiedFormula) + ") and instatiating the " +
+          "quantifiers with " + newConstants + " we get:")
+        printIndex(result, indent, pl)
+      }
+      case AlphaInference(splitFormula, providedFormulas) => {
+        // println(indent +"ALPHA INFERENCE")
+        println(indent +"| By taking formula (" + findIndex(splitFormula) + ") and applying alpha-rule " +
+          "we get new formulas:")
+        for (pf <- providedFormulas)
+          printIndex(pf, indent, pl)
+      }
+      case GroundInstInference(quantifiedFormula,instanceTerms,instance,
+        dischargedAtoms,result,order) => {
+        // println(indent +"GROUND INSTANCE INFERENCE")
+        print(indent +"| Instantiating formula (" + findIndex(quantifiedFormula) + ") with " + instanceTerms)
+        if (!dischargedAtoms.isEmpty) print(" and discharging atoms " + dischargedAtoms)
+        println(" yields:")
+        printIndex(result, indent, pl)
+      }
+
+      case ColumnReduceInference(oldSymbol, newSymbol, definingEquation, 
+        subst, order) => {
+        // println(indent +"COLUMN REDUCE INFERENCE")
+        println(indent +"| We rename " + oldSymbol + " to " + newSymbol + " by the following equation:")
+        printIndex(definingEquation, indent, pl)
+      }
+
+        // Remember equations is of IdealInt * Equation
+      case ReduceInference(equations, targetLit, result,order) => {
+        // println(indent +"REDUCE INFERENCE")
+        println(indent +"| Equations " + equations.map(x => findIndex(x._2)).mkString("(", ",", ")") + " can reduce " + findIndex(targetLit) + " to:")
+        printIndex(result, indent, pl)
+      }
+
+      case CombineEquationsInference(equations, result, order) => {
+        // println(indent +"COMBINE EQUATIONS INFERENCE")
+        println(indent +"| Combining equations " + equations.map(x => findIndex(x._2)).mkString("(", ",", ")") + " yields a new equation:")
+        printIndex(result, indent, pl)
+      }
+
+      case SimpInference(targetLit, result, order) => {
+        // println(indent +"SIMPLIFICATION INFERENCE")
+        println(indent +"| By simplifying equation " + findIndex(targetLit) + " we can form the equation:")
+        printIndex(result, indent, pl)
+      }
+
+      case ReducePredInference(equations, targetLit, result, order) => {
+        // println(indent +"REDUCE PREDICATE INFERENCE")
+        print(indent+"| From ")
+        for (ae <- equations) {
+          if (!ae.isEmpty)
+            print("(" + ae.map(x => findIndex(x._2)).mkString(" , ") + ")")
+        }
+        println(" and (" + findIndex(targetLit) + ") we can conclude:")
+        printIndex(result, indent, pl)
+      }
+
+      case PredUnifyInference(leftAtom, rightAtom, result, order) => {
+        // println(indent +"PREDICATE UNIFY INFERENCE")
+        println(indent +"| By using atoms: (" + leftAtom + ") and (" + rightAtom + ") we can achieve:")
+        printIndex(result, indent, pl)
+      }
+
+    }
+    println(indent + "|")
+  }
+
+  def outputBranch(cert : Certificate, indent : String, pl : ProofLineariser) : Unit = {
+    cert match {
+      case ap.proof.certificates.BranchInferenceCertificate(inferences, child, order) => {
+        for (i <- inferences) {
+          outputInference(i, indent, pl)
+        }
+
+        outputBranch(child, indent, pl)
+      }
+
+      case BetaCertificate(leftFormula, rightFormula, lemma, 
+        _leftChild, _rightChild, _order) => {
+        // println(indent + "BETA RULE")
+        val f = findIndex(cert.localAssumedFormulas.head)
+        println(indent + "+-Formula (" + f + ") is split into two cases." )
+
+        println(indent + "|-Branch one:")
+        printIndex(leftFormula, indent, pl)
+        println(indent + "|")
+        outputBranch(_leftChild, indent + "\t", pl)
+
+
+        println(indent + "|-Branch two:")
+        printIndex(rightFormula, indent, pl)
+        println(indent + "|")
+        outputBranch(_rightChild, indent + "\t", pl)
+
+        val f1 = findIndex(leftFormula)
+        val f2 = findIndex(rightFormula)
+
+        println(indent + "+-Since both of these branches (" + f1 + ", " + f2 + 
+          ") are unsatisfiable, the formula (" + f + ") is unsatisfiable.")
+      }
+
+      case CloseCertificate(localAssumedFormulas, order) => {
+        val formulas = 
+          for (f <- localAssumedFormulas; if !f.isFalse) yield findIndex(f)
+        
+        if (formulas.isEmpty)
+          println(indent + "|-The branch is then unsatisfiable")
+        else
+          println(indent + "|-This branch is unsatisfiable by virtue of " +
+            formulas.mkString("(", ",", ")"))
+
+        }
+
+    }
+  }
+
+  // Predikat till 
+
+  private def outputTPTPProof(cert : Certificate, 
+    funPreds : Option[Set[Predicate]],
+    settings : GlobalSettings) : Unit = {
+
+    val pl = new ProofLineariser(if (funPreds.isDefined) funPreds.get else Set())
+
+    println("Assumed formulae (" + cert.assumedFormulas.size + "): ")
+    for (f <- cert.orderedAssumedFormulas) {
+      printIndex(f, "", pl)
+    }
+    outputBranch(cert, "", pl)
+    // printDOTCertificate(cert, settings)
   }
   
   private def determineInputFormat(filename : String,
@@ -247,7 +407,7 @@ object CmdlMain {
         else if (filename endsWith ".p")
           Param.InputFormat.TPTP
         else
-          throw new Exception ("could not figure out the input format (recognised types: .pri, .smt2, .p)")
+          throw new Exception ("could not figure out the input format (recognised types: .pri, .smt2, .p)")    
       case f => f
   }
   
@@ -380,27 +540,50 @@ object CmdlMain {
             
             var rawStrategies =
 List(
-("10100151",1000,400),
-("10011041",1000,600),
-("10000010",36000,2000),
-("00101111",44000,200),
-("11100130",3000,1000),
-("10100040",17000,17000),
-("11101100",9000,9000),
-("10011001",35000,8000),
-("01000121",26000,26000),
-("00100051",26000,25000),
-("10011100",14000,200),
-("01001110",25000,18000),
-("11010020",6000,6000),
-("01100100",9000,600),
-("10101011",1000,200),
-("11000101",14000,14000),
-("00011010",30000,4000),
-("01100020",36000,3000),
-("10000121",37000,16000),
-("01011111",22000,8000)
+("0000010110",1000,800), 
+("1000101010",14000,600), 
+("1110004110",15000,400), 
+("0010111110",27000,27000), 
+("1000004111",26000,200), 
+("1001102110",7000,7000), 
+("1110004010",40000,12000), 
+("1011115000",39000,4000), 
+("1001001000",23000,11000), 
+("0000012002",13000,12000), 
+("0110110010",32000,24000), 
+("1110111110",22000,21000), 
+("1010001000",2000,2000), 
+("0101004010",45000,42000), 
+("0110110110",11000,800), 
+("1010101000",42000,37000), 
+("1000001000",13000,5000), 
+("0010110110",39000,10000), 
+("1011015010",18000,12000), 
+("1000001110",43000,1200)
 )
+
+// List(
+// ("10100151",1000,400),
+// ("10011041",1000,600),
+// ("10000010",36000,2000),
+// ("00101111",44000,200),
+// ("11100130",3000,1000),
+// ("10100040",17000,17000),
+// ("11101100",9000,9000),
+// ("10011001",35000,8000),
+// ("01000121",26000,26000),
+// ("00100051",26000,25000),
+// ("10011100",14000,200),
+// ("01001110",25000,18000),
+// ("11010020",6000,6000),
+// ("01100100",9000,600),
+// ("10101011",1000,200),
+// ("11000101",14000,14000),
+// ("00011010",30000,4000),
+// ("01100020",36000,3000),
+// ("10000121",37000,16000),
+// ("01011111",22000,8000)
+// )
 
               val baseSettings =
                 Param.CLAUSIFIER_TIMEOUT.set(settings2,
@@ -530,7 +713,7 @@ List(
             println("ERROR: " + e.getMessage)
           }
         }
-//         e.printStackTrace
+        e.printStackTrace
         None
       }
     }
@@ -761,7 +944,7 @@ List(
 
                 Console.withOut(Console.err) {
                   println
-                  outputTPTPProof(cert, settings)
+                  outputTPTPProof(cert, None, settings)
                 }
                 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
@@ -844,7 +1027,7 @@ List(
                 }
                 Console.withOut(Console.err) {
                   println
-                  outputTPTPProof(cert, settings)
+                  outputTPTPProof(cert, None, settings)
                 }
 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)

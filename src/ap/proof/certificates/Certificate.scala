@@ -75,6 +75,12 @@ abstract class Certificate {
    */
   val localProvidedFormulas : Seq[Set[CertFormula]]
 
+  /**
+    * Generate a numbering of assumedFormulas
+    * 
+    */
+  lazy val orderedAssumedFormulas : List[CertFormula] = assumedFormulas.toList
+
   val order : TermOrder
 
   def inferenceCount : Int =
