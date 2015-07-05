@@ -92,7 +92,7 @@ object GlobalSettings {
         case Opt("dnfConstraints", value) =>
           Param.DNF_CONSTRAINTS.set(settings, value)
         case ValueOpt("timeout", IntVal(value)) =>
-          Param.TIMEOUT.set(settings, value)
+          Param.TIMEOUT.set(settings, value*1000)
         case ValueOpt("timeoutPer", IntVal(value)) =>
           Param.TIMEOUT_PER.set(settings, value)
         case Opt("posUnitResolution", value) =>

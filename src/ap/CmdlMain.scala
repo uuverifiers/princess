@@ -213,15 +213,15 @@ object CmdlMain {
    prover match {
       case prover : ParallelFileProver if (Param.DELAYED_PROOF(settings)) => {
         println
-        print("Generating proof ... ")
+        Console.err.print("Generating proof ... ")
         prover.certificate match {
           case Some(cert) => {
-            println("found it (size " + cert.inferenceCount + ")")
-            println
+            Console.err.println("found it (size " + cert.inferenceCount + ")")
+            Console.err.println
             outputTPTPProof(cert, prover.functionalPredicates, settings)
           }
           case None =>
-            println("proof generation failed")
+            Console.err.println("proof generation failed")
         }
       }
       case _ => // nothing

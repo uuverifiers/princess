@@ -539,22 +539,30 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       Param.PROOF_CONSTRUCTION_GLOBAL.set(settings(successfulProver).settings,
                                      Param.ProofConstructionOptions.Always),
                                      false)
-    val prover =
-      new IntelliFileProver(createReader(),
-                            timeout -
-                              (System.currentTimeMillis - startTime).toInt,
-                            false, userDefStoppingCond,
-                            proofSettings)
-    prover.result match {
-      case Prover.ProofWithCert(tree, cert) =>
-        (Some(cert), Some(prover.functionalPreds))
-      case Prover.NoCounterModelCert(cert) =>
-        (Some(cert), Some(prover.functionalPreds))
-      case Prover.NoCounterModelCertInter(cert, _) =>
-        (Some(cert), Some(prover.functionalPreds))
-      case _ =>
-        // proof reconstruction failed
+    try {
+      val prover =
+        new IntelliFileProver(createReader(),
+                              timeout -
+                                (System.currentTimeMillis - startTime).toInt,
+                              false, userDefStoppingCond,
+                              proofSettings)
+
+      prover.result match {
+        case Prover.ProofWithCert(tree, cert) =>
+          (Some(cert), Some(prover.functionalPreds))
+        case Prover.NoCounterModelCert(cert) =>
+          (Some(cert), Some(prover.functionalPreds))
+        case Prover.NoCounterModelCertInter(cert, _) =>
+          (Some(cert), Some(prover.functionalPreds))
+        case _ =>
+          // proof reconstruction failed
+          (None, None)
+      }
+    } catch {
+      case t : Throwable => {
+//        t.printStackTrace
         (None, None)
+      }
     }
   }
 }
