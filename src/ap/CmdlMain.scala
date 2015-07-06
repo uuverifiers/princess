@@ -272,7 +272,7 @@ object CmdlMain {
       }
       case AlphaInference(splitFormula, providedFormulas) => {
         // println(indent +"ALPHA INFERENCE")
-        println(indent +"| Applying alpha-rule on (" + findIndex(splitFormula) + ") yields:"))
+        println(indent +"| Applying alpha-rule on (" + findIndex(splitFormula) + ") yields:")
         for (pf <- providedFormulas)
           printIndex(pf, indent, pl)
       }
