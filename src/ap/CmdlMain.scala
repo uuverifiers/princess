@@ -83,7 +83,7 @@ object CmdlMain {
     println(" [+-]assert                Enable runtime assertions                (default: -)")
     println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
     println(" -timeoutPer=val           Set a timeout per SMT-LIB query (ms) (default: infty)")
-    println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: -)")
+    println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: +)")
     println(" -simplifyConstraints=val  How to simplify constraints:")
     println("                             none:   not at all")
     println("                             fair:   fair construction of a proof")
@@ -272,16 +272,15 @@ object CmdlMain {
       }
       case AlphaInference(splitFormula, providedFormulas) => {
         // println(indent +"ALPHA INFERENCE")
-        println(indent +"| By taking formula (" + findIndex(splitFormula) + ") and applying alpha-rule " +
-          "yields new formulas:")
+        println(indent +"| Applying alpha-rule on (" + findIndex(splitFormula) + ") yields:"))
         for (pf <- providedFormulas)
           printIndex(pf, indent, pl)
       }
       case GroundInstInference(quantifiedFormula,instanceTerms,instance,
         dischargedAtoms,result,order) => {
         // println(indent +"GROUND INSTANCE INFERENCE")
-        print(indent +"| Instantiating formula (" + findIndex(quantifiedFormula) + ") with " + instanceTerms)
-        if (!dischargedAtoms.isEmpty) print(" and discharging atoms " + dischargedAtoms)
+        print(indent +"| Instantiating formula (" + findIndex(quantifiedFormula) + ") with " + instanceTerms.mkString(","))
+        if (!dischargedAtoms.isEmpty) print(" and discharging atoms " + dischargedAtoms.mkString(","))
         println(" yields:")
         printIndex(result, indent, pl)
       }
@@ -289,7 +288,7 @@ object CmdlMain {
       case ColumnReduceInference(oldSymbol, newSymbol, definingEquation, 
         subst, order) => {
         // println(indent +"COLUMN REDUCE INFERENCE")
-        println(indent +"| Renaming " + oldSymbol + " to " + newSymbol + " yields:")
+        println(indent +"| Introducing new symbol " + newSymbol + " defined by:")
         printIndex(definingEquation, indent, pl)
       }
 
@@ -308,7 +307,7 @@ object CmdlMain {
 
       case SimpInference(targetLit, result, order) => {
         // println(indent +"SIMPLIFICATION INFERENCE")
-        println(indent +"| By simplifying equation " + findIndex(targetLit) + " we can form the equation:")
+        println(indent +"| Simplifying " + findIndex(targetLit) + " yields:")
         printIndex(result, indent, pl)
       }
 
@@ -319,14 +318,14 @@ object CmdlMain {
           if (!ae.isEmpty)
             print("(" + ae.map(x => findIndex(x._2)).mkString(" , ") + ")")
         }
-        println(" and (" + findIndex(targetLit) + ") we can conclude:")
+        println(" and (" + findIndex(targetLit) + ") follows:")
         printIndex(result, indent, pl)
       }
 
       case PredUnifyInference(leftAtom, rightAtom, result, order) => {
         // println(indent +"PREDICATE UNIFY INFERENCE")
         println(indent +"| Using atoms: (" + leftAtom + ") and (" + rightAtom + ") yields:")
-        printIndex(result, indent, pl)
+        printIndex(!result, indent, pl)
       }
 
     }

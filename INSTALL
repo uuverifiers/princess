@@ -1,3 +1,6 @@
 All installation instructions are given on the following webpage:
 
 http://www.philipp.ruemmer.org/princess.shtml
+
+Note! To recompile the CCU-module, SBT (simple build-tool) is
+required. When installed enter directory "CCU/" and write make.

@@ -200,7 +200,7 @@ object Param {
 
   case object MULTI_STRATEGY extends Param {
     type Value = Boolean
-    val defau : Boolean = false
+    val defau : Boolean = true
   }
   
   case object SYMBOL_WEIGHTS extends Param {
@@ -326,7 +326,7 @@ object Param {
 
   case object DELAYED_PROOF extends Param {
     type Value = Boolean
-    val defau : Boolean = false
+    val defau : Boolean = true
   }
 
   // globally, we can also choose to construct proofs depending on whether
