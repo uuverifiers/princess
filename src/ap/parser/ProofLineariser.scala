@@ -108,42 +108,43 @@ class ProofLineariser(funPredicates : Set[Predicate]) {
     DeclarationVisitor.visitWithoutResult(f, ())
 
   def conPred(f : IFormula) : IFormula = {
-    f match {
-      case INot(f1) => INot(conPred(f1))
-      case IBinFormula(j, f1, f2) => IBinFormula(j, conPred(f1), conPred(f2))
-      case IAtom(pred : Predicate, args : Seq[ITerm]) => {
-        if (funPredicates contains pred) {
-          val newPred = new Predicate(pred.name, pred.arity-1)
-          val hackPred = new Predicate(args.last.toString, 0)
-          IBinFormula(IBinJunctor.EqualitySign, IAtom(newPred, args.init), IAtom(hackPred, List()))
-        } else {
-          f
-        }
-      }
-      case IIntFormula(rel, t) => IIntFormula(rel, t)
-      case IQuantified(quan, subformula) => 
-        IQuantified(quan, conPred(subformula))
-      case IFormulaITE(cond, left, right) => 
-        IFormulaITE(conPred(cond), conPred(left), conPred(right))
-      case ITrigger(patterns, subformula) =>
-        ITrigger(patterns, conPred(subformula))
-      case INamedPart(name, subformula) => 
-        INamedPart(name, conPred(subformula))
-      case _ =>
-        f
+    f
+    // f match {
+    //   case INot(f1) => INot(conPred(f1))
+    //   case IBinFormula(j, f1, f2) => IBinFormula(j, conPred(f1), conPred(f2))
+    //   case IAtom(pred : Predicate, args : Seq[ITerm]) => {
+    //     if (funPredicates contains pred) {
+    //       val newPred = new Predicate(pred.name, pred.arity-1)
+    //       val hackPred = new Predicate(args.last.toString, 0)
+    //       IBinFormula(IBinJunctor.EqualitySign, IAtom(newPred, args.init), IAtom(hackPred, List()))
+    //     } else {
+    //       f
+    //     }
+    //   }
+    //   case IIntFormula(rel, t) => IIntFormula(rel, t)
+    //   case IQuantified(quan, subformula) => 
+    //     IQuantified(quan, conPred(subformula))
+    //   case IFormulaITE(cond, left, right) => 
+    //     IFormulaITE(conPred(cond), conPred(left), conPred(right))
+    //   case ITrigger(patterns, subformula) =>
+    //     ITrigger(patterns, conPred(subformula))
+    //   case INamedPart(name, subformula) => 
+    //     INamedPart(name, conPred(subformula))
+    //   case _ =>
+    //     f
 
 
-    }
+    // }
   }
 
   def printConjecture(name : String, f : IFormula) {
     println("tff(" + name + ", conjecture, (")
-    printFormula(conPred(f))
+    printFormula(f)
     println(")).")
   }
 
   def printFormula(formula : IFormula) =
-    AbsyPrinter.visit(conPred(formula), PrintContext(List(), "", 0))
+    AbsyPrinter.visit(formula, PrintContext(List(), "", 0))
   
   //////////////////////////////////////////////////////////////////////////////
   

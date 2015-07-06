@@ -27,12 +27,13 @@ import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser, ProofLineariser,
-                  IFormula, IExpression, Transform2NNF,
+                  IFormula, IExpression, Transform2NNF, IFunction,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
                   SMTParser2InputAbsy}
 import ap.util.{Debug, Seqs, Timeout}
 import ap.terfor.preds.Predicate
+import scala.collection.mutable.{Map => MMap}
 
 object CmdlMain {
 
@@ -222,8 +223,11 @@ object CmdlMain {
           case Some(cert) => {
             Console.err.println("found it (size " + cert.inferenceCount + ")")
             Console.err.println
-            println("% SZS output start Proof for SYN075+1" + lastFilename)
-            outputTPTPProof(cert, prover.functionalPredicates, settings)
+            println("% SZS output start Proof for " + lastFilename)
+            val m = 
+              if (prover.predicateTranslation.isDefined) prover.predicateTranslation.get
+              else Map() : Map[Predicate, IFunction]
+            outputTPTPProof(cert, prover.functionalPredicates, settings, m)
             println("% SZS output end Proof for " + lastFilename)
           }
           case None =>
@@ -256,60 +260,66 @@ object CmdlMain {
     findIndex(cf)
   }
 
-  def printIndex(cf : CertFormula, indent : String, pl : ProofLineariser) = {
+  def printIndex(cf : CertFormula, indent : String, predMap : MMap[Predicate, IFunction], pl : ProofLineariser) = {
     orderedFormulas += cf
 
     print(indent + "| (" + findIndex(cf) + ") ")
-    pl.printFormula(Transform2NNF(Internal2InputAbsy(cf.toConj)))
+    pl.printFormula(Transform2NNF(Internal2InputAbsy(cf.toConj, predMap)))
     println("")
   }
 
-  def outputInference(inference : BranchInference, indent : String, pl : ProofLineariser) = {
+  def outputInference(inference : BranchInference, indent : String, predMap : MMap[Predicate, IFunction], pl : ProofLineariser) = {
     inference match {
       case QuantifierInference(quantifiedFormula, newConstants, result, _) => {
         // println(indent +"QUANTIFIER")
         println(indent +"| Instantiating (" + findIndex(quantifiedFormula) + ") with " + newConstants + " yields:")
-        printIndex(result, indent, pl)
+        printIndex(result, indent, predMap, pl)
       }
       case AlphaInference(splitFormula, providedFormulas) => {
         // println(indent +"ALPHA INFERENCE")
         println(indent +"| Applying alpha-rule on (" + findIndex(splitFormula) + ") yields:")
         for (pf <- providedFormulas)
-          printIndex(pf, indent, pl)
+          printIndex(pf, indent, predMap, pl)
       }
       case GroundInstInference(quantifiedFormula,instanceTerms,instance,
         dischargedAtoms,result,order) => {
         // println(indent +"GROUND INSTANCE INFERENCE")
-        print(indent +"| Instantiating formula (" + findIndex(quantifiedFormula) + ") with " + instanceTerms.mkString(","))
-        if (!dischargedAtoms.isEmpty) print(" and discharging atoms " + dischargedAtoms.mkString(","))
-        println(" yields:")
-        printIndex(result, indent, pl)
+        print(indent +"| Instantiating formula (" + findIndex(quantifiedFormula) + ") with " + instanceTerms.mkString(", "))
+        if (!dischargedAtoms.isEmpty) {
+          print(" and discharging atoms ")
+          for (da <- dischargedAtoms) {
+            pl.printFormula(Internal2InputAbsy(da.toConj, predMap))
+            print(", ")
+          }
+        }
+        println("yields:")
+        printIndex(result, indent, predMap, pl)
       }
 
       case ColumnReduceInference(oldSymbol, newSymbol, definingEquation, 
         subst, order) => {
         // println(indent +"COLUMN REDUCE INFERENCE")
         println(indent +"| Introducing new symbol " + newSymbol + " defined by:")
-        printIndex(definingEquation, indent, pl)
+        printIndex(definingEquation, indent, predMap, pl)
       }
 
         // Remember equations is of IdealInt * Equation
       case ReduceInference(equations, targetLit, result,order) => {
         // println(indent +"REDUCE INFERENCE")
         println(indent +"| Equations " + equations.map(x => findIndex(x._2)).mkString("(", ",", ")") + " can reduce " + findIndex(targetLit) + " to:")
-        printIndex(result, indent, pl)
+        printIndex(result, indent, predMap, pl)
       }
 
       case CombineEquationsInference(equations, result, order) => {
         // println(indent +"COMBINE EQUATIONS INFERENCE")
         println(indent +"| Combining equations " + equations.map(x => findIndex(x._2)).mkString("(", ",", ")") + " yields a new equation:")
-        printIndex(result, indent, pl)
+        printIndex(result, indent, predMap, pl)
       }
 
       case SimpInference(targetLit, result, order) => {
         // println(indent +"SIMPLIFICATION INFERENCE")
         println(indent +"| Simplifying " + findIndex(targetLit) + " yields:")
-        printIndex(result, indent, pl)
+        printIndex(result, indent, predMap, pl)
       }
 
       case ReducePredInference(equations, targetLit, result, order) => {
@@ -320,27 +330,27 @@ object CmdlMain {
             print("(" + ae.map(x => findIndex(x._2)).mkString(" , ") + ")")
         }
         println(" and (" + findIndex(targetLit) + ") follows:")
-        printIndex(result, indent, pl)
+        printIndex(result, indent, predMap, pl)
       }
 
       case PredUnifyInference(leftAtom, rightAtom, result, order) => {
         // println(indent +"PREDICATE UNIFY INFERENCE")
         println(indent +"| Using atoms: (" + leftAtom + ") and (" + rightAtom + ") yields:")
-        printIndex(!result, indent, pl)
+        printIndex(!result, indent, predMap, pl)
       }
 
     }
     println(indent + "|")
   }
 
-  def outputBranch(cert : Certificate, indent : String, pl : ProofLineariser) : Unit = {
+  def outputBranch(cert : Certificate, indent : String, predMap : MMap[Predicate, IFunction], pl : ProofLineariser) : Unit = {
     cert match {
       case ap.proof.certificates.BranchInferenceCertificate(inferences, child, order) => {
         for (i <- inferences) {
-          outputInference(i, indent, pl)
+          outputInference(i, indent, predMap, pl)
         }
 
-        outputBranch(child, indent, pl)
+        outputBranch(child, indent, predMap, pl)
       }
 
       case BetaCertificate(leftFormula, rightFormula, lemma, 
@@ -350,18 +360,18 @@ object CmdlMain {
         println(indent + "+-Formula (" + f + ") is split into two cases." )
 
         println(indent + "|-Branch one:")
-        printIndex(leftFormula, indent, pl)
+        printIndex(leftFormula, indent, predMap, pl)
         println(indent + "|")
-        outputBranch(_leftChild, indent + "\t", pl)
+        outputBranch(_leftChild, indent + "\t", predMap, pl)
 
         println(indent + "|-Branch two:")
 
         if (lemma)
-          printIndex(!leftFormula, indent, pl)
+          printIndex(!leftFormula, indent, predMap, pl)
 
-        printIndex(rightFormula, indent, pl)
+        printIndex(rightFormula, indent, predMap, pl)
         println(indent + "|")
-        outputBranch(_rightChild, indent + "\t", pl)
+        outputBranch(_rightChild, indent + "\t", predMap, pl)
 
         val f1 = findIndex(leftFormula)
         val f2 = findIndex(rightFormula)
@@ -386,15 +396,17 @@ object CmdlMain {
 
   private def outputTPTPProof(cert : Certificate, 
     funPreds : Option[Set[Predicate]],
-    settings : GlobalSettings) : Unit = {
+    settings : GlobalSettings,
+    m : Map[Predicate, IFunction]) : Unit = {
 
+    val predMap = MMap() ++ m
     val pl = new ProofLineariser(if (funPreds.isDefined) funPreds.get else Set())
 
     println("Assumed formulas after preprocessing and simplification: ")
     for (f <- cert.orderedAssumedFormulas) {
-      printIndex(f, "", pl)
+      printIndex(f, "", predMap, pl)
     }
-    outputBranch(cert, "", pl)
+    outputBranch(cert, "", predMap, pl)
     // printDOTCertificate(cert, settings)
 
   }
@@ -949,8 +961,8 @@ List(
 
                 Console.withOut(Console.err) {
                   println
-                  println("% SZS output start Proof for SYN075+1" + lastFilename)
-                  outputTPTPProof(cert, None, settings)
+                  println("% SZS output start Proof for " + lastFilename)
+                  outputTPTPProof(cert, None, settings, Map() : Map[Predicate, IFunction])
                   println("% SZS output end Proof for " + lastFilename)
                 }
                 
@@ -1034,8 +1046,8 @@ List(
                 }
                 Console.withOut(Console.err) {
                   println
-                  println("% SZS output start Proof for SYN075+1" + lastFilename)
-                  outputTPTPProof(cert, None, settings)
+                  println("% SZS output start Proof for " + lastFilename)
+                  outputTPTPProof(cert, None, settings, Map() : Map[Predicate, IFunction])
                   println("% SZS output end Proof for " + lastFilename)
                 }
 
