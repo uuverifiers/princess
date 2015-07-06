@@ -298,6 +298,20 @@ class SMTLineariser(benchmarkName : String,
     }
   }
 
+  object TypedTerm {
+    def unapply(t : ITerm)
+               (implicit variableType : Int => Option[SMTType])
+              : Option[(ITerm, Option[SMTType])] =
+      Some((t, getTermType(t)))
+  }
+
+  object TypedTermSeq {
+    def unapplySeq(ts : Seq[ITerm])
+                  (implicit variableType : Int => Option[SMTType])
+                 : Option[Seq[(ITerm, Option[SMTType])]] =
+      Some(for (t <- ts) yield (t, getTermType(t)))
+  }
+
   private object VariableTypeInferenceVisitor
                  extends CollectingVisitor[Unit, IExpression] {
 
@@ -342,6 +356,24 @@ class SMTLineariser(benchmarkName : String,
           variableTypes += null
         case TypePredicate(IVariable(ind), s) =>
           setVariableType(ind, s)
+        case IExpression.Eq(IFunApp(SimpleArray.Select(),
+                            TypedTermSeq((IVariable(ind), None), indexes @ _*)),
+                            TypedTerm((_, Some(resT))))
+          if (indexes forall { case (_, s) => s.isDefined }) =>
+            setVariableType(ind,
+              SMTArray(indexes.toList map {
+                         case (_, Some(t)) => t
+                         case _ => null // cannot happen
+                       }, resT))
+        case IExpression.Eq(TypedTerm((_, Some(resT))),
+                            IFunApp(SimpleArray.Select(),
+                            TypedTermSeq((IVariable(ind), None), indexes @ _*)))
+          if (indexes forall { case (_, s) => s.isDefined }) =>
+            setVariableType(ind,
+              SMTArray(indexes.toList map {
+                         case (_, Some(t)) => t
+                         case _ => null // cannot happen
+                       }, resT))
         case IExpression.Eq(s, t) =>
           equalTypes(s, t)
         case ITermITE(_, s, t) =>
