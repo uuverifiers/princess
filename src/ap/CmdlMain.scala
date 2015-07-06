@@ -38,15 +38,17 @@ object CmdlMain {
 
   class GaveUpException(_msg : String) extends Exception(_msg)
 
-  val version = "ccu development version"
+  val version = "ePrincess v.1.0"
 
   def printGreeting = {
-    println("________       _____")                                 
-    println("___  __ \\_________(_)________________________________")
-    println("__  /_/ /_  ___/_  /__  __ \\  ___/  _ \\_  ___/_  ___/")
-    println("_  ____/_  /   _  / _  / / / /__ /  __/(__  )_(__  )")
-    println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")  
+    println("        ____       _                          ")
+    println("  ___  / __ \\_____(_)___  ________  __________")
+    println(" / _ \\/ /_/ / ___/ / __ \\/ ___/ _ \\/ ___/ ___/")
+    println("/  __/ ____/ /  / / / / / /__/  __(__  |__  ) ")
+    println("\\___/_/   /_/  /_/_/ /_/\\___/\\___/____/____/  ")
     println
+
+
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println
@@ -55,7 +57,7 @@ object CmdlMain {
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to ph_r@gmx.net")
     println
-    println("For more information, visit http://www.philipp.ruemmer.org/princess.shtml")
+    println("For more information, visit http://user.uu.se/~petba168/breu/")
   }
   
   def printUsage = {
@@ -97,8 +99,8 @@ object CmdlMain {
     println("                             normal:                              (default)")
     println("                             nonUnifying: do not unify variables")
     println(" -CCU=val                  Method for bounded rigid E-unification")
-    println("                             table                                (default)")
-    println("                             lazy")
+    println("                             lazy                                (default)")
+    println("                             table")
     println(" -generateTriggers=val     Automatically choose triggers for quant. formulae")
     println("                             none:  not at all")
     println("                             total: for all total functions         (default)")

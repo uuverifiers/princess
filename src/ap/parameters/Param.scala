@@ -380,7 +380,7 @@ object Param {
 
   case object CCU_STRATEGY extends Param {
     type Value = CCUStrategyOptions.Value
-    val defau : CCUStrategyOptions.Value = CCUStrategyOptions.Table
+    val defau : CCUStrategyOptions.Value = CCUStrategyOptions.Lazy
   }
 
   case object CCU_SOLVER extends Param {
