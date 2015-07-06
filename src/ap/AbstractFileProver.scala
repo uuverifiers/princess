@@ -134,6 +134,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     (for ((p, f) <- functionEncoder.predTranslation.iterator;
           if (!f.relational)) yield p).toSet
   
+  val predicateTranslation =
+    functionEncoder.predTranslation.toMap
+
   private val plugin =
     PluginSequence(for (t <- theories; p <- t.plugin.toSeq) yield p)
 

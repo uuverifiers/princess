@@ -49,13 +49,14 @@ object CmdlMain {
     println
 
 
-    println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
+    println("A Theorem Prover for First-Order Logic")
     println("(" + version + ")")
     println
     println("(c) Philipp Rümmer, 2009-2015")
-    println("(contributions by Peter Backeman, Angelo Brillout, Peter Baumgartner)")
+    println("(c) Peter Backeman, 2014-2015")
+    println("(contributions by Angelo Brillout, Peter Baumgartner)")
     println("Free software under GNU Lesser General Public License (LGPL).")
-    println("Bug reports to ph_r@gmx.net")
+    println("Bug reports to peter@backeman.se")
     println
     println("For more information, visit http://user.uu.se/~petba168/breu/")
   }

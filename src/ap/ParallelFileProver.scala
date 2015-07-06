@@ -21,6 +21,7 @@
 
 package ap
 
+import ap.parser.IFunction
 import ap.parameters.Param
 import ap.proof.certificates.Certificate
 import ap.parameters.GlobalSettings
@@ -525,8 +526,12 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  lazy val certificate : Option[Certificate]             = certificatePair._1
-  lazy val functionalPredicates : Option[Set[Predicate]] = certificatePair._2
+  lazy val certificate : Option[Certificate]             =
+    certificatePair._1
+  lazy val functionalPredicates : Option[Set[Predicate]] =
+    certificatePair._2
+  lazy val predicateTranslation : Option[Map[Predicate, IFunction]] =
+    certificatePair._3
 
   private lazy val certificatePair = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -549,19 +554,22 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
       prover.result match {
         case Prover.ProofWithCert(tree, cert) =>
-          (Some(cert), Some(prover.functionalPreds))
+          (Some(cert), Some(prover.functionalPreds),
+           Some(prover.predicateTranslation))
         case Prover.NoCounterModelCert(cert) =>
-          (Some(cert), Some(prover.functionalPreds))
+          (Some(cert), Some(prover.functionalPreds),
+           Some(prover.predicateTranslation))
         case Prover.NoCounterModelCertInter(cert, _) =>
-          (Some(cert), Some(prover.functionalPreds))
+          (Some(cert), Some(prover.functionalPreds),
+           Some(prover.predicateTranslation))
         case _ =>
           // proof reconstruction failed
-          (None, None)
+          (None, None, None)
       }
     } catch {
       case t : Throwable => {
 //        t.printStackTrace
-        (None, None)
+        (None, None, None)
       }
     }
   }
