@@ -1110,7 +1110,7 @@ case class INot(subformula : IFormula) extends IFormula {
  * Binary Boolean connectives.
  */
 object IBinJunctor extends Enumeration {
-  val And, Or, Eqv = Value
+  val And, Or, Eqv, EqualitySign = Value
 }
 
 /**
@@ -1352,6 +1352,7 @@ class PartName(override val toString : String)
  * A labelled formula with name <code>name</code>.
  */
 case class INamedPart(name : PartName, subformula : IFormula) extends IFormula {
+
   override def apply(i : Int) : IFormula = i match {
     case 0 => subformula
     case _ => throw new IndexOutOfBoundsException

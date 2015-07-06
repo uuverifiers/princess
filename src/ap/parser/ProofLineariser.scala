@@ -107,14 +107,43 @@ class ProofLineariser(funPredicates : Set[Predicate]) {
   def declareSymbols(f : IFormula) : Unit =
     DeclarationVisitor.visitWithoutResult(f, ())
 
+  def conPred(f : IFormula) : IFormula = {
+    f match {
+      case INot(f1) => INot(conPred(f1))
+      case IBinFormula(j, f1, f2) => IBinFormula(j, conPred(f1), conPred(f2))
+      case IAtom(pred : Predicate, args : Seq[ITerm]) => {
+        if (funPredicates contains pred) {
+          val newPred = new Predicate(pred.name, pred.arity-1)
+          val hackPred = new Predicate(args.last.toString, 0)
+          IBinFormula(IBinJunctor.EqualitySign, IAtom(newPred, args.init), IAtom(hackPred, List()))
+        } else {
+          f
+        }
+      }
+      case IIntFormula(rel, t) => IIntFormula(rel, t)
+      case IQuantified(quan, subformula) => 
+        IQuantified(quan, conPred(subformula))
+      case IFormulaITE(cond, left, right) => 
+        IFormulaITE(conPred(cond), conPred(left), conPred(right))
+      case ITrigger(patterns, subformula) =>
+        ITrigger(patterns, conPred(subformula))
+      case INamedPart(name, subformula) => 
+        INamedPart(name, conPred(subformula))
+      case _ =>
+        f
+
+
+    }
+  }
+
   def printConjecture(name : String, f : IFormula) {
     println("tff(" + name + ", conjecture, (")
-    printFormula(f)
+    printFormula(conPred(f))
     println(")).")
   }
-  
+
   def printFormula(formula : IFormula) =
-    AbsyPrinter.visit(formula, PrintContext(List(), "", 0))
+    AbsyPrinter.visit(conPred(formula), PrintContext(List(), "", 0))
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -152,6 +181,7 @@ class ProofLineariser(funPredicates : Set[Predicate]) {
     case IBinFormula(IBinJunctor.Eqv, _, _)             => 0
     case IBinFormula(IBinJunctor.Or, _, _)              => 0
     case IBinFormula(IBinJunctor.And, _, _)             => 0
+    case IBinFormula(IBinJunctor.EqualitySign, _, _)    => 0
     case _ : ITermITE | _ : IFormulaITE                 => 1
     case _ : INot | _ : IQuantified | _ : INamedPart |
          _ : ITrigger | _ : IEpsilon                    => 3
@@ -274,19 +304,18 @@ class ProofLineariser(funPredicates : Set[Predicate]) {
         // Formulae
         case IAtom(pred, args) => {
           print(pred.name)
-          if (funPredicates contains pred) {
-            print(args.init.mkString("(", ",", ")"))
-            print(" = ")
-            print(args.last)
-            shortCut(ctxt)
+          // if (funPredicates contains pred) {
+          //   print(args.init.mkString("(", ",", ")"))
+          //   print(" = ")
+          //   print(args.last)
+          // } else {
+          if (pred.arity > 0) {
+            print("(")
+            prefixNotation(ctxt, pred.arity)
           } else {
-            if (pred.arity > 0) {
-              print("(")
-              prefixNotation(ctxt, pred.arity)
-            } else {
-              noParentOp(ctxt)
-            }
+            noParentOp(ctxt)
           }
+          // }
         }
         
         case IBinFormula(junctor, left, right) => {
@@ -294,6 +323,7 @@ class ProofLineariser(funPredicates : Set[Predicate]) {
             case IBinJunctor.And => " & "
             case IBinJunctor.Or => " | "
             case IBinJunctor.Eqv => " <=> "
+            case IBinJunctor.EqualitySign => " = "
           }
           
           val newLeftCtxt = left match {

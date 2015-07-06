@@ -27,7 +27,7 @@ import ap.proof.certificates.{Certificate, DotLineariser}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser, ProofLineariser,
-                  IFormula, IExpression,
+                  IFormula, IExpression, Transform2NNF,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
                   SMTParser2InputAbsy}
@@ -209,7 +209,8 @@ object CmdlMain {
     }
 
   private def computeDelayedProof(prover : Prover,
-                                  settings : GlobalSettings) : Unit =
+                                  settings : GlobalSettings, 
+                                  lastFilename : String) : Unit =
    prover match {
       case prover : ParallelFileProver if (Param.DELAYED_PROOF(settings)) => {
         println
@@ -218,7 +219,9 @@ object CmdlMain {
           case Some(cert) => {
             Console.err.println("found it (size " + cert.inferenceCount + ")")
             Console.err.println
+            println("% SZS output start Proof for SYN075+1" + lastFilename)
             outputTPTPProof(cert, prover.functionalPredicates, settings)
+            println("% SZS output end Proof for " + lastFilename)
           }
           case None =>
             Console.err.println("proof generation failed")
@@ -254,7 +257,7 @@ object CmdlMain {
     orderedFormulas += cf
 
     print(indent + "| (" + findIndex(cf) + ") ")
-    pl.printFormula(Internal2InputAbsy(cf.toConj))
+    pl.printFormula(Transform2NNF(Internal2InputAbsy(cf.toConj)))
     println("")
   }
 
@@ -262,14 +265,13 @@ object CmdlMain {
     inference match {
       case QuantifierInference(quantifiedFormula, newConstants, result, _) => {
         // println(indent +"QUANTIFIER")
-        println(indent +"| By taking formula (" + findIndex(quantifiedFormula) + ") and instatiating the " +
-          "quantifiers with " + newConstants + " we get:")
+        println(indent +"| Instantiating (" + findIndex(quantifiedFormula) + ") with " + newConstants + " yields:")
         printIndex(result, indent, pl)
       }
       case AlphaInference(splitFormula, providedFormulas) => {
         // println(indent +"ALPHA INFERENCE")
         println(indent +"| By taking formula (" + findIndex(splitFormula) + ") and applying alpha-rule " +
-          "we get new formulas:")
+          "yields new formulas:")
         for (pf <- providedFormulas)
           printIndex(pf, indent, pl)
       }
@@ -285,7 +287,7 @@ object CmdlMain {
       case ColumnReduceInference(oldSymbol, newSymbol, definingEquation, 
         subst, order) => {
         // println(indent +"COLUMN REDUCE INFERENCE")
-        println(indent +"| We rename " + oldSymbol + " to " + newSymbol + " by the following equation:")
+        println(indent +"| Renaming " + oldSymbol + " to " + newSymbol + " yields:")
         printIndex(definingEquation, indent, pl)
       }
 
@@ -321,7 +323,7 @@ object CmdlMain {
 
       case PredUnifyInference(leftAtom, rightAtom, result, order) => {
         // println(indent +"PREDICATE UNIFY INFERENCE")
-        println(indent +"| By using atoms: (" + leftAtom + ") and (" + rightAtom + ") we can achieve:")
+        println(indent +"| Using atoms: (" + leftAtom + ") and (" + rightAtom + ") yields:")
         printIndex(result, indent, pl)
       }
 
@@ -350,17 +352,17 @@ object CmdlMain {
         println(indent + "|")
         outputBranch(_leftChild, indent + "\t", pl)
 
-
         println(indent + "|-Branch two:")
+
+        if (lemma)
+          printIndex(!leftFormula, indent, pl)
+
         printIndex(rightFormula, indent, pl)
         println(indent + "|")
         outputBranch(_rightChild, indent + "\t", pl)
 
         val f1 = findIndex(leftFormula)
         val f2 = findIndex(rightFormula)
-
-        println(indent + "+-Since both of these branches (" + f1 + ", " + f2 + 
-          ") are unsatisfiable, the formula (" + f + ") is unsatisfiable.")
       }
 
       case CloseCertificate(localAssumedFormulas, order) => {
@@ -386,12 +388,13 @@ object CmdlMain {
 
     val pl = new ProofLineariser(if (funPreds.isDefined) funPreds.get else Set())
 
-    println("Assumed formulae (" + cert.assumedFormulas.size + "): ")
+    println("Assumed formulas after preprocessing and simplification: ")
     for (f <- cert.orderedAssumedFormulas) {
       printIndex(f, "", pl)
     }
     outputBranch(cert, "", pl)
     // printDOTCertificate(cert, settings)
+
   }
   
   private def determineInputFormat(filename : String,
@@ -630,7 +633,7 @@ List(
                    _ : Prover.ProofWithModel |
                    _ : Prover.Model |
                        Prover.NoCounterModel =>
-                computeDelayedProof(prover, settings2)
+                computeDelayedProof(prover, settings2, lastFilename)
               case _ => // nothing
             }
             
@@ -944,7 +947,9 @@ List(
 
                 Console.withOut(Console.err) {
                   println
+                  println("% SZS output start Proof for SYN075+1" + lastFilename)
                   outputTPTPProof(cert, None, settings)
+                  println("% SZS output end Proof for " + lastFilename)
                 }
                 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
@@ -1027,7 +1032,9 @@ List(
                 }
                 Console.withOut(Console.err) {
                   println
+                  println("% SZS output start Proof for SYN075+1" + lastFilename)
                   outputTPTPProof(cert, None, settings)
+                  println("% SZS output end Proof for " + lastFilename)
                 }
 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
