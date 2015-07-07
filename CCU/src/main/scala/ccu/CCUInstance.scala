@@ -50,7 +50,7 @@ class CCUInstance[Term, Fun](
 
       val retval =
         try {
-          solver.solve(problem, true)
+          solver.solve(problem, false)
         } catch {
           case to : org.sat4j.specs.TimeoutException => {
             (ccu.Result.UNKNOWN, None)

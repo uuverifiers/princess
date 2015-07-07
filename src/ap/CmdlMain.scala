@@ -272,7 +272,7 @@ object CmdlMain {
     inference match {
       case QuantifierInference(quantifiedFormula, newConstants, result, _) => {
         // println(indent +"QUANTIFIER")
-        println(indent +"| Instantiating (" + findIndex(quantifiedFormula) + ") with " + newConstants + " yields:")
+        println(indent +"| Instantiating (" + findIndex(quantifiedFormula) + ") with " + newConstants.mkString(", ") + " yields:")
         printIndex(result, indent, predMap, pl)
       }
       case AlphaInference(splitFormula, providedFormulas) => {
@@ -284,9 +284,9 @@ object CmdlMain {
       case GroundInstInference(quantifiedFormula,instanceTerms,instance,
         dischargedAtoms,result,order) => {
         // println(indent +"GROUND INSTANCE INFERENCE")
-        print(indent +"| Instantiating formula (" + findIndex(quantifiedFormula) + ") with " + instanceTerms.mkString(", "))
+        print(indent +"| Instantiating formula (" + findIndex(quantifiedFormula) + ") with " + instanceTerms.mkString(", ") + " ")
         if (!dischargedAtoms.isEmpty) {
-          print(" and discharging atoms ")
+          print("and discharging atoms ")
           for (da <- dischargedAtoms) {
             pl.printFormula(Internal2InputAbsy(da.toConj, predMap))
             print(", ")
@@ -335,7 +335,7 @@ object CmdlMain {
 
       case PredUnifyInference(leftAtom, rightAtom, result, order) => {
         // println(indent +"PREDICATE UNIFY INFERENCE")
-        println(indent +"| Using atoms: (" + leftAtom + ") and (" + rightAtom + ") yields:")
+        println(indent +"| Using (" + findIndex(CertPredLiteral(false, leftAtom)) + ") and (" + findIndex(CertPredLiteral(true, rightAtom)) + ") yields:")
         printIndex(!result, indent, predMap, pl)
       }
 
@@ -357,7 +357,7 @@ object CmdlMain {
         _leftChild, _rightChild, _order) => {
         // println(indent + "BETA RULE")
         val f = findIndex(cert.localAssumedFormulas.head)
-        println(indent + "+-Formula (" + f + ") is split into two cases." )
+        println(indent + "+-Applying beta-rule and splitting (" + f + "), into two cases." )
 
         println(indent + "|-Branch one:")
         printIndex(leftFormula, indent, predMap, pl)
