@@ -174,7 +174,7 @@ object SimpleAPI {
      * or because a timeout occurred.
      */
     val Unknown = Value
-    val Running, Error = Value
+    val Running, Error, OutOfMemory = Value
   }
 
   class SimpleAPIException(msg : String) extends Exception(msg)
@@ -352,6 +352,7 @@ object SimpleAPI {
   private case class SatPartialResult(model : Conjunction) extends ProverResult
   private case object StoppedResult extends ProverResult
   private case class ExceptionResult(msg : String) extends ProverResult
+  private case object OutOfMemoryResult extends ProverResult
 
   private val badStringChar = """[^a-zA-Z_0-9']""".r
   
@@ -1708,6 +1709,8 @@ class SimpleAPI private (enableAssert : Boolean,
           lastStatus = getSatStatus
         case StoppedResult =>
           lastStatus = ProverStatus.Unknown
+        case OutOfMemoryResult =>
+          lastStatus = ProverStatus.OutOfMemory
         case ExceptionResult(msg) => {
           lastStatus = ProverStatus.Error
           throw new SimpleAPIException(msg)
@@ -3383,6 +3386,9 @@ class SimpleAPI private (enableAssert : Boolean,
           case t : Timeout =>
             // just forward
             throw t
+          case _ : StackOverflowError | _ : OutOfMemoryError =>
+            // hope that we are able to continue
+            proverRes set OutOfMemoryResult
           case t : Throwable =>
             // hope that we are able to continue
             proverRes set ExceptionResult(t.toString)
