@@ -1955,40 +1955,61 @@ class SimpleAPI private (enableAssert : Boolean,
     val commonFors =
       for ((n, f) <- formulaeInProver; if (n < 0)) yield f
 
-    def computeInts(names : Tree[Set[Int]]) : Tree[Conjunction] = {
-      val thisInt = {
-        val subNames =
-          (for (s <- names.iterator; n <- s.iterator) yield n).toSet
-
-        val leftFors =   for ((n, f) <- formulaeInProver;
-                              if (n >= 0 && (subNames contains n))) yield f
-        val rightFors =  for ((n, f) <- formulaeInProver;
-                              if (n >= 0 && !(subNames contains n))) yield f
-
-        val iContext =
-          InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
-
-        Timeout.withTimeoutMillis(maxQETime) {
-          Interpolator(currentSimpCertificate, iContext)
-        } {
-          Interpolator(currentSimpCertificate, iContext, false)
-        }
-      }
-
-      if (thisInt.isTrue)
-        // interpolants in the whole subtree can be assumed to be true
-        for (_ <- names) yield Conjunction.TRUE
-      else
-        Tree(thisInt, for (s <- names.children) yield computeInts(s))
-    }
-
     val simp = interpolantSimplifier
 
-    val interpolants =
+    def computeInts(names : Tree[Set[Int]],
+                    intKnown : Option[(Conjunction, IFormula)])
+                   : Tree[(Conjunction, IFormula)] = {
+      val thisInt =
+        if (intKnown.isDefined) {
+          intKnown.get
+        } else {
+          val subNames =
+            (for (s <- names.iterator; n <- s.iterator) yield n).toSet
+
+          val leftFors =   for ((n, f) <- formulaeInProver;
+                                if (n >= 0 && (subNames contains n))) yield f
+          val rightFors =  for ((n, f) <- formulaeInProver;
+                                if (n >= 0 && !(subNames contains n))) yield f
+
+          val iContext =
+            InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
+
+          val rawInt =
+            Timeout.withTimeoutMillis(maxQETime) {
+              Interpolator(currentSimpCertificate, iContext)
+            } {
+              Interpolator(currentSimpCertificate, iContext, false)
+            }
+
+          (rawInt,
+           simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
+        }
+
+      if (thisInt._1.isTrue) {
+        // interpolants in the whole subtree can be assumed to be true
+        for (_ <- names) yield thisInt
+      } else {
+        val rootNames = names.d
+        val kI =
+          if (names.children.size == 1 &&
+              (rootNames.isEmpty ||
+               (formulaeInProver forall {
+                  case (n, f) =>
+                    !(n >= 0 && (rootNames contains n)) || f.isFalse
+                })))
+            Some(thisInt)
+          else
+            None
+        Tree(thisInt, for (s <- names.children) yield computeInts(s, kI))
+      }
+    }
+
+    val (rawInterpolants, interpolants) =
       Debug.withDisabledAssertions(
             Set(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS)) {
-        Tree(Conjunction.FALSE,
-             for (n <- partitions.children) yield computeInts(n))
+        Tree((Conjunction.FALSE, IBoolLit(false)),
+             for (n <- partitions.children) yield computeInts(n, None)).unzip
       }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -2008,11 +2029,10 @@ class SimpleAPI private (enableAssert : Boolean,
        })
     }
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS,
-                         verifyInts(partitions, interpolants))
+                         verifyInts(partitions, rawInterpolants))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    for (c <- interpolants)
-    yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
+    interpolants
   }
   
   private def interpolantSimplifier = new ArraySimplifier
