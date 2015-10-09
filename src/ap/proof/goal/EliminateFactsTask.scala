@@ -133,9 +133,10 @@ private class Eliminator(oriFacts : Conjunction,
     case _ => false
   }
 
-  protected def eliminationCandidates(facts : Conjunction) : Iterator[Term] =
-    FilterIt((goal.order sort facts.constants).iterator,
-             (c:ConstantTerm) => !(taskInfoConstants contains c) &&
-                                 !(compoundFormulaConstants contains c))
+  private val fullElimCandidates =
+    goal.order sort (
+      oriFacts.constants -- taskInfoConstants -- compoundFormulaConstants)
 
+  protected def eliminationCandidates(facts : Conjunction) : Iterator[Term] =
+    FilterIt(fullElimCandidates.iterator, facts.constants)
 }
