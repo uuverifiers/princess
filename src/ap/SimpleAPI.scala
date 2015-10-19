@@ -936,8 +936,22 @@ class SimpleAPI private (enableAssert : Boolean,
    * of this prover.
    */
   def addBooleanVariable(f : IFormula) : Unit = f match {
-    case IAtom(p, _) => addRelationHelp(p)
-    case f => addRelationsHelp(SymbolCollector nullaryPredicates f)
+    case IAtom(p, _) => {
+      doDumpSMT {
+        println("(declare-fun " + SMTLineariser.quoteIdentifier(p.name) +
+                " () Bool)")
+      }
+      doDumpScala {
+        println("val " + p.name + " = " +
+                "createBooleanVariable(\"" + p.name + "\") " +
+                "// addBooleanVariable(" + p.name + ")")
+      }
+
+      addRelationHelp(p)
+    }
+
+    case f =>
+      addRelations(SymbolCollector nullaryPredicates f)
   }
 
   /**
