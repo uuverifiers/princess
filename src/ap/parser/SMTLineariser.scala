@@ -70,6 +70,9 @@ object SMTLineariser {
   def apply(formula : IFormula) : Unit =
     apply(formula, emptyConstantType, emptyFunctionType)
 
+  def asString(formula : IFormula) : String =
+    ap.DialogUtil.asString { apply(formula) }
+
   def apply(formula : IFormula,
             constantType :
               ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
