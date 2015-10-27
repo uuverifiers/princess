@@ -28,6 +28,7 @@ import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
 import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
+import ap.proof.goal.SymbolWeights
 import ap.proof.certificates.Certificate
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
                         ArraySimplifier}
@@ -532,6 +533,7 @@ class SimpleAPI private (enableAssert : Boolean,
     theoryPlugin = None
     theoryCollector = new TheoryCollector
     abbrevFunctions = Set()
+    abbrevPredicates = Map()
   }
 
   private var currentDeadline : Option[Long] = None
@@ -1242,6 +1244,8 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def abbrevHelp(a : IExpression.Predicate, f : IFormula) = {
+    abbrevPredicates = abbrevPredicates + (a -> abbrevPredicates.size)
+
     import IExpression._
     // ensure that nested application of abbreviations are contained in
     // the definition and do not escape, using the AbbrevVariableVisitor
@@ -2911,7 +2915,7 @@ class SimpleAPI private (enableAssert : Boolean,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
                        theoryPlugin, theoryCollector.clone,
-                       abbrevFunctions)
+                       abbrevFunctions, abbrevPredicates)
     
     doDumpSMT {
       println("(push 1)")
@@ -2943,7 +2947,8 @@ class SimpleAPI private (enableAssert : Boolean,
          oldFunctionalPreds, oldFunctionEnc,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
          oldMGCs, oldValidityMode, oldStatus,
-         oldTheoryPlugin, oldTheories, oldAbbrevFunctions) =
+         oldTheoryPlugin, oldTheories,
+         oldAbbrevFunctions, oldAbbrevPredicates) =
       storedStates.pop
     currentProver = oldProver
     needExhaustiveProver = oldNeedExhaustiveProver
@@ -2966,6 +2971,7 @@ class SimpleAPI private (enableAssert : Boolean,
     theoryPlugin = oldTheoryPlugin
     theoryCollector = oldTheories
     abbrevFunctions = oldAbbrevFunctions
+    abbrevPredicates = oldAbbrevPredicates
     currentModel = null
     lastPartialModel = null
     currentConstraint = null
@@ -3222,6 +3228,17 @@ class SimpleAPI private (enableAssert : Boolean,
     var gs = GoalSettings.DEFAULT
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
 //    gs = Param.SYMBOL_WEIGHTS.set(gs, SymbolWeights.normSymbolFrequencies(formulas, 1000))
+
+    gs = Param.SYMBOL_WEIGHTS.set(gs, new SymbolWeights {
+      def apply(c : IExpression.ConstantTerm) : Int = 0
+      def apply(p : IExpression.Predicate) : Int = 0
+      def abbrevWeight(p : IExpression.Predicate) : Option[Int] =
+        (abbrevPredicates get p) match {
+          case Some(w) => Some(abbrevPredicates.size - w - 1)
+          case None => None
+        }
+    })
+
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
     // currently done for all predicates encoding functions; should this be
     // restricted?
@@ -3277,6 +3294,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var theoryPlugin : Option[Plugin] = None
   private var theoryCollector : TheoryCollector = _
   private var abbrevFunctions : Set[IFunction] = Set()
+  private var abbrevPredicates : Map[IExpression.Predicate, Int] = Map()
 
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
                                              Boolean,
@@ -3294,7 +3312,8 @@ class SimpleAPI private (enableAssert : Boolean,
                                              ProverStatus.Value,
                                              Option[Plugin],
                                              TheoryCollector,
-                                             Set[IFunction])]
+                                             Set[IFunction],
+                                             Map[IExpression.Predicate, Int])]
   
   private def proverRecreationNecessary = {
     currentProver = null

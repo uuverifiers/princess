@@ -170,6 +170,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
        -10000
      else
        -400 - (symbolWeights maxWeight formula) / 100 +
+       (symbolWeights minAbbrevWeight formula).getOrElse(0) * 10 +
        formula.arithConj.size * 5 +
        formula.predConj.size * 1 +
        formula.negatedConjs.size * 5) + age
