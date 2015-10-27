@@ -1232,10 +1232,24 @@ class SimpleAPI private (enableAssert : Boolean,
                     !ContainsSymbol(f, (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), f)
+//    abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), f)
+
+    import IExpression._
+    
+    val p = new Predicate(name, 0)
+    addRelationHelp(p)
+    abbrevHelp(p, f)
   }
 
-  private def abbrevHelp(a : IFunction, f : IFormula) = {
+  private def abbrevHelp(a : IExpression.Predicate, f : IFormula) = {
+    import IExpression._
+    // ensure that nested application of abbreviations are contained in
+    // the definition and do not escape, using the AbbrevVariableVisitor
+    addFormulaHelp(a() </> f)
+    a()
+  }
+  
+  private def abbrevHelpX(a : IFunction, f : IFormula) = {
     abbrevFunctions = abbrevFunctions + a
 
     import IExpression._
@@ -1250,16 +1264,16 @@ class SimpleAPI private (enableAssert : Boolean,
   
   private def abbrevLog(f : IFormula, rawName : String, name : String) = {
     doDumpScala {
-      print("val IIntFormula(_, IFunApp(" + name + ", _)) = abbrev(")
+      print("val " + name + " = abbrev(")
       PrettyScalaLineariser(getFunctionNames)(f)
       println(", \"" + rawName + "\")")
     }
     doDumpSMT {
       print("(define-fun " +
             SMTLineariser.quoteIdentifier(name) +
-            " ((abbrev_arg Int)) Int (ite ")
+            " () Bool ")
       SMTLineariser(f)
-      println(" 0 1))")
+      println(")")
     }
   }
 
@@ -1275,9 +1289,9 @@ class SimpleAPI private (enableAssert : Boolean,
       println("; addAbbrev")
     }
 
-    val IIntFormula(_, IFunApp(a, _)) = abbrevFor
+    val IAtom(a, _) = abbrevFor
     abbrevLog(fullFor, a.name, a.name)
-    addFunctionHelp(a, FunctionalityMode.NoUnification)
+    addRelationHelp(a)
     abbrevHelp(a, fullFor)
   }
   
