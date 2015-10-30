@@ -73,6 +73,14 @@ object SMTLineariser {
   def asString(formula : IFormula) : String =
     ap.DialogUtil.asString { apply(formula) }
 
+  def asString(t : ITerm) : String =
+    ap.DialogUtil.asString { apply(t) }
+
+  def asString(t : IExpression) : String = t match {
+    case t : IFormula => asString(t)
+    case t : ITerm => asString(t)
+  }
+
   def apply(formula : IFormula,
             constantType :
               ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
