@@ -26,7 +26,8 @@ import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
-                                 LinkedHashSet, HashSet => MHashSet}
+                                 LinkedHashSet, HashSet => MHashSet,
+                                 HashMap => MHashMap}
 import scala.collection.{Map => CMap}
 
 
@@ -1016,3 +1017,87 @@ object SizeVisitor {
     size
   }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Visitor that is able to detect shared sub-expression (i.e., sub-expressions
+ * with object identity) and replace them with abbreviations.
+ */
+object SubExprAbbreviator {
+  private val AC = Debug.AC_INPUT_ABSY
+
+  def apply(t : IExpression,
+            abbreviator : IExpression => IExpression) : IExpression = {
+    val exprOccurrences = new MHashMap[Int, Int]
+
+    val countingVisitor = new Counter(exprOccurrences)
+    countingVisitor.visitWithoutResult(t, ())
+
+    val abbrevVisitor = new Abbreviator(exprOccurrences, abbreviator)
+
+    abbrevVisitor.visit(t, ())
+  }
+
+  private class Counter(exprOccurrences : MHashMap[Int, Int])
+          extends CollectingVisitor[Unit, Unit] {
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = {
+      val id = t.uniqueId
+      (exprOccurrences get id) match {
+        case Some(num) => {
+          exprOccurrences.put(id, num + 1)
+          ShortCutResult(())
+        }
+        case None => {
+          exprOccurrences.put(id, 1)
+          KeepArg
+        }
+      }
+    }
+
+    def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
+  }
+
+  private class Abbreviator(exprOccurrences : MHashMap[Int, Int],
+                            abbreviator : IExpression => IExpression)
+          extends CollectingVisitor[Unit, IExpression] {
+    private val abbrevs, abbreviatedExprs = new MHashMap[Int, IExpression]
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = {
+      val id = t.uniqueId
+      (abbrevs get id) match {
+        case Some(newExpr) => {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, t eq abbreviatedExprs(id))
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          ShortCutResult(newExpr)
+        }
+        case None =>
+          KeepArg
+      }
+    }
+
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = {
+      val newT = t update subres
+      val id = t.uniqueId
+      if (exprOccurrences(id) > 1) {
+        val abbrev = abbreviator(newT)
+        if (abbrev == null) {
+          newT
+        } else {
+          abbrevs.put(id, abbrev)
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, !abbreviatedExprs.put(id, t).isDefined)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          abbrev
+        }
+      } else {
+        newT
+      }
+    }
+  }
+
+}
+

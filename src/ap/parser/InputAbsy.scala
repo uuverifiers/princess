@@ -71,6 +71,8 @@ abstract class IExpression {
     def length : Int = IExpression.this.length
     override def iterator = IExpression.this.iterator
   }
+
+  protected[parser] def uniqueId : Int = super.hashCode
 }
 
 object IExpression {

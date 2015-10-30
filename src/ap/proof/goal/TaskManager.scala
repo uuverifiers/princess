@@ -200,7 +200,29 @@ class TaskManager private (// the regular tasks that have a priority
     
     new TaskManager (newPrioTasks, eagerTasks)
   }
-   
+
+  /**
+   * Eliminate all prioritised tasks for which the given predicate is false.
+   */
+  def filter(p : PrioritisedTask => Boolean) : TaskManager = {
+
+    var changed = false
+
+    val newPrioTasks = prioTasks.flatMap({ t =>
+      if (p(t)) {
+        Iterator single t
+      } else {
+        changed = true
+        Iterator.empty
+      }
+    }, (_) => false)
+
+    if (changed)
+      new TaskManager(newPrioTasks, eagerTasks)
+    else
+      this
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   def isEmpty : Boolean = prioTasks.isEmpty && nextEagerTask.isEmpty

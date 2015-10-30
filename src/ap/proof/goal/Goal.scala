@@ -419,6 +419,19 @@ class Goal private (val facts : Conjunction,
            settings)
     }
   
+  /**
+   * Eliminate all prioritised tasks for which the given predicate is false.
+   */
+  def filterTasks(p : PrioritisedTask => Boolean) : Goal = {
+    val newTasks = tasks filter p
+    if (newTasks eq tasks)
+      this
+    else
+      Goal(facts, compoundFormulas, newTasks, age,
+           eliminatedConstants, vocabulary, definedSyms, branchInferences,
+           settings)
+  }
+
   def getInferenceCollector : BranchInferenceCollector =
     if (Param.PROOF_CONSTRUCTION(settings))
       branchInferences.getCollector
