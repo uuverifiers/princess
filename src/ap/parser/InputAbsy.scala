@@ -810,7 +810,7 @@ abstract class ITerm extends IExpression {
  */
 case class IIntLit(value : IdealInt) extends ITerm {
   override def toString = value.toString
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -818,7 +818,7 @@ case class IIntLit(value : IdealInt) extends ITerm {
  */
 case class IConstant(c : ConstantTerm) extends ITerm {
   override def toString = c.toString
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -829,7 +829,7 @@ case class IVariable(index : Int) extends ITerm {
   Debug.assertCtor(IExpression.AC, index >= 0)
   //-END-ASSERTION-///////////////////////////////////////////////////////////
   override def toString = "_" + index
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -851,7 +851,7 @@ case class ITimes(coeff : IdealInt, subterm : ITerm) extends ITerm {
   }
 
   override def toString = "" + coeff + " * " + subterm
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -875,7 +875,7 @@ case class IPlus(t1 : ITerm, t2 : ITerm) extends ITerm {
   }
 
   override def toString = "(" + t1 + " + " + t2 + ")"
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -914,7 +914,7 @@ case class IFunApp(fun : IFunction, args : Seq[ITerm]) extends ITerm {
     case _ => false
   }
   
-  override lazy val hashCode : Int =
+  override val hashCode : Int =
     fun.hashCode + Seqs.computeHashCode(args, 17, 3)
 
   override def toString =
@@ -953,7 +953,7 @@ case class ITermITE(cond : IFormula, left : ITerm, right : ITerm) extends ITerm 
 
   override def toString =
     "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -978,7 +978,7 @@ case class IEpsilon(cond : IFormula) extends ITerm {
   }
 
   override def toString = "EPS " + cond
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 
@@ -1091,7 +1091,7 @@ abstract class IFormula extends IExpression {
  */
 case class IBoolLit(value : Boolean) extends IFormula {
   override def toString = value.toString
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -1113,7 +1113,7 @@ case class INot(subformula : IFormula) extends IFormula {
   }
   
   override def toString = "!" + subformula
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -1156,7 +1156,7 @@ case class IBinFormula(j : IBinJunctor.Value,
     }
     "(" + f1 + sym + f2 + ")"
   }
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -1181,7 +1181,7 @@ case class IAtom(pred : Predicate, args : Seq[ITerm]) extends IFormula {
     case _ => false
   }
   
-  override lazy val hashCode : Int =
+  override val hashCode : Int =
     pred.hashCode + Seqs.computeHashCode(args, 17, 3)
   
   override def toString =
@@ -1226,7 +1226,7 @@ case class IIntFormula(rel : IIntRelation.Value, t : ITerm) extends IFormula {
     }
     "(" + t + sym + ")"
   }
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -1249,7 +1249,7 @@ case class IQuantified(quan : Quantifier, subformula : IFormula) extends IFormul
   }
 
   override def toString = "" + quan + " " + subformula
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -1281,7 +1281,7 @@ case class IFormulaITE(cond : IFormula,
 
   override def toString =
     "\\if (" + cond + ") \\then (" + left + ") \\else (" + right + ")"
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 object ITrigger {
@@ -1348,7 +1348,7 @@ case class ITrigger(patterns : Seq[ITerm], subformula : IFormula) extends IFormu
   }
 
   override def toString = "{" + patterns.mkString(", ") + " } " + subformula
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1383,7 +1383,7 @@ case class INamedPart(name : PartName, subformula : IFormula) extends IFormula {
   }
 
   override def toString = "\\part[" + name + "] " + subformula 
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
 
 /**
@@ -1391,5 +1391,5 @@ case class INamedPart(name : PartName, subformula : IFormula) extends IFormula {
  * of formula names.
  */
 case class IInterpolantSpec(left : List[PartName], right : List[PartName]) {
-  override lazy val hashCode : Int = ScalaRunTime._hashCode(this)
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 }
