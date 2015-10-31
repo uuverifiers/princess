@@ -534,7 +534,7 @@ class SimpleAPI private (enableAssert : Boolean,
     theoryCollector = new TheoryCollector
     abbrevFunctions = Set()
     abbrevPredicates = Map()
-    assAbbrevPredicates = Set()
+    assertedAbbrevPredicates = Set()
   }
 
   private var currentDeadline : Option[Long] = None
@@ -1268,7 +1268,7 @@ class SimpleAPI private (enableAssert : Boolean,
                               yield q)
     }
 
-    assAbbrevPredicates = assAbbrevPredicates ++ depPreds
+    assertedAbbrevPredicates = assertedAbbrevPredicates ++ depPreds
   }
 
   private def abbrevLog(f : IFormula, rawName : String, name : String) = {
@@ -1303,6 +1303,35 @@ class SimpleAPI private (enableAssert : Boolean,
     addRelationHelp(a)
     abbrevHelp(a, fullFor)
   }
+
+  /**
+   * Abbreviate (large) shared sub-expressions. This method
+   * avoids the worst-case exponential blow-up resulting from
+   * expressions with nested shared sub-expressions.
+   */
+  def abbrevSharedExpressions(t : IExpression) : IExpression =
+    SubExprAbbreviator(t, { s =>
+      if (s.isInstanceOf[IFormula] && SizeVisitor(s) > 100)
+        abbrev(s.asInstanceOf[IFormula])
+      else
+        s
+    })
+
+  /**
+   * Abbreviate (large) shared sub-expressions. This method
+   * avoids the worst-case exponential blow-up resulting from
+   * expressions with nested shared sub-expressions.
+   */
+  def abbrevSharedExpressions(t : ITerm) : ITerm =
+    abbrevSharedExpressions(t.asInstanceOf[IExpression]).asInstanceOf[ITerm]
+  
+  /**
+   * Abbreviate (large) shared sub-expressions. This method
+   * avoids the worst-case exponential blow-up resulting from
+   * expressions with nested shared sub-expressions.
+   */
+  def abbrevSharedExpressions(t : IFormula) : IFormula =
+    abbrevSharedExpressions(t.asInstanceOf[IExpression]).asInstanceOf[IFormula]
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1630,7 +1659,7 @@ class SimpleAPI private (enableAssert : Boolean,
                   // not actually used
 
                   val badPredicates =
-                    abbrevPredicates.keySet -- assAbbrevPredicates
+                    abbrevPredicates.keySet -- assertedAbbrevPredicates
 
                   if (badPredicates.isEmpty) {
                     currentProver
@@ -2951,7 +2980,7 @@ class SimpleAPI private (enableAssert : Boolean,
                        validityMode, lastStatus,
                        theoryPlugin, theoryCollector.clone,
                        abbrevFunctions,
-                       abbrevPredicates, assAbbrevPredicates)
+                       abbrevPredicates, assertedAbbrevPredicates)
     
     doDumpSMT {
       println("(push 1)")
@@ -3008,7 +3037,7 @@ class SimpleAPI private (enableAssert : Boolean,
     theoryCollector = oldTheories
     abbrevFunctions = oldAbbrevFunctions
     abbrevPredicates = oldAbbrevPredicates
-    assAbbrevPredicates = oldAssAbbrevPredicates
+    assertedAbbrevPredicates = oldAssAbbrevPredicates
     currentModel = null
     lastPartialModel = null
     currentConstraint = null
@@ -3339,7 +3368,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var abbrevFunctions : Set[IFunction] = Set()
   private var abbrevPredicates : Map[IExpression.Predicate,
                                      (Int, Set[IExpression.Predicate])] = Map()
-  private var assAbbrevPredicates : Set[IExpression.Predicate] = Set()
+  private var assertedAbbrevPredicates : Set[IExpression.Predicate] = Set()
 
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
                                              Boolean,

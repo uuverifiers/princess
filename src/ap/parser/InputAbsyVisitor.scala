@@ -1029,7 +1029,7 @@ object SubExprAbbreviator {
 
   def apply(t : IExpression,
             abbreviator : IExpression => IExpression) : IExpression = {
-    val exprOccurrences = new MHashMap[Int, Int]
+    val exprOccurrences = new MHashMap[IExpression, Int]
 
     val countingVisitor = new Counter(exprOccurrences)
     countingVisitor.visitWithoutResult(t, ())
@@ -1039,58 +1039,47 @@ object SubExprAbbreviator {
     abbrevVisitor.visit(t, ())
   }
 
-  private class Counter(exprOccurrences : MHashMap[Int, Int])
+  private class Counter(exprOccurrences : MHashMap[IExpression, Int])
           extends CollectingVisitor[Unit, Unit] {
 
-    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = {
-      val id = t.uniqueId
-      (exprOccurrences get id) match {
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      (exprOccurrences get t) match {
         case Some(num) => {
-          exprOccurrences.put(id, num + 1)
+          exprOccurrences.put(t, num + 1)
           ShortCutResult(())
         }
         case None => {
-          exprOccurrences.put(id, 1)
+          exprOccurrences.put(t, 1)
           KeepArg
         }
       }
-    }
 
     def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
   }
 
-  private class Abbreviator(exprOccurrences : MHashMap[Int, Int],
+  private class Abbreviator(exprOccurrences : MHashMap[IExpression, Int],
                             abbreviator : IExpression => IExpression)
           extends CollectingVisitor[Unit, IExpression] {
-    private val abbrevs, abbreviatedExprs = new MHashMap[Int, IExpression]
+    private val abbrevs = new MHashMap[IExpression, IExpression]
 
-    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult = {
-      val id = t.uniqueId
-      (abbrevs get id) match {
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      (abbrevs get t) match {
         case Some(newExpr) => {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, t eq abbreviatedExprs(id))
-          //-END-ASSERTION-/////////////////////////////////////////////////////
           ShortCutResult(newExpr)
         }
         case None =>
           KeepArg
       }
-    }
 
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = {
       val newT = t update subres
-      val id = t.uniqueId
-      if (exprOccurrences(id) > 1) {
+      if (exprOccurrences(t) > 1) {
         val abbrev = abbreviator(newT)
-        if (abbrev == null) {
+        if (abbrev eq newT) {
           newT
         } else {
-          abbrevs.put(id, abbrev)
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, !abbreviatedExprs.put(id, t).isDefined)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
+          abbrevs.put(t, abbrev)
           abbrev
         }
       } else {
