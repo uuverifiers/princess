@@ -1311,7 +1311,9 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def abbrevSharedExpressions(t : IExpression) : IExpression =
     SubExprAbbreviator(t, { s =>
-      if (s.isInstanceOf[IFormula] && SizeVisitor(s) > 100)
+      if (s.isInstanceOf[IFormula] &&
+          SizeVisitor(s) > 100 &&
+          (ContainsSymbol isClosed s))
         abbrev(s.asInstanceOf[IFormula])
       else
         s
