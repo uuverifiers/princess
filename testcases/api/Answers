@@ -231,3 +231,8 @@ Vector(!((-3 + c1) = 0))
 x - y + -1 >= 0 & y + -1*50 + -1 >= 0
 Sat
 Unsat
+starting
+Sat
+getting model ...
+{}
+finished

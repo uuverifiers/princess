@@ -53,3 +53,4 @@ scala $OPTIONS division.scala
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
 scala $OPTIONS readSMTLIB.scala
+scala $OPTIONS deadlock.scala

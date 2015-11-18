@@ -517,7 +517,7 @@ class SimpleAPI private (enableAssert : Boolean,
     ignoredQuantifiers = false
     formulaeInProver = List()
     formulaeTodo = false
-    currentModel = Conjunction.TRUE
+    currentModel = null
     decoderDataCache.clear
     lastPartialModel = null
     currentConstraint = null
