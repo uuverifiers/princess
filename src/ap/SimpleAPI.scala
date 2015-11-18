@@ -3312,7 +3312,7 @@ class SimpleAPI private (enableAssert : Boolean,
     var cont = true
     var nextCommand : ProverCommand = null
     
-    def directorWaitForNextCmd(model : Conjunction) = {
+    def directorWaitForNextCmd(order : TermOrder) = {
       var res : ModelSearchProver.SearchDirection = null
       var forsToAdd = List[Conjunction]()
               
@@ -3323,7 +3323,7 @@ class SimpleAPI private (enableAssert : Boolean,
           res = ModelSearchProver.NextModelDir
         case RecheckCommand =>
           res = ModelSearchProver.AddFormulaDir(
-                 Conjunction.disj(forsToAdd, model.order))
+                 Conjunction.disj(forsToAdd, order))
         case AddFormulaCommand(formula) =>
           forsToAdd = formula :: forsToAdd
         case c : ProverCommand => {
@@ -3340,10 +3340,12 @@ class SimpleAPI private (enableAssert : Boolean,
       case CheckSatCommand(p) =>
           
         Timeout.catchTimeout {
+          val order = p.order
+
           p.checkValidityDir {
             case (model, false) => {
               proverRes set SatPartialResult(model)
-              directorWaitForNextCmd(model)
+              directorWaitForNextCmd(order)
             }
             
             case (model, true) => {
@@ -3352,7 +3354,7 @@ class SimpleAPI private (enableAssert : Boolean,
               //-END-ASSERTION-/////////////////////////////////////////////////
               
               proverRes set SatResult(model)
-              directorWaitForNextCmd(model)
+              directorWaitForNextCmd(order)
             }
           }
         } { case _ => null } match {

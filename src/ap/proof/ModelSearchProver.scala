@@ -645,6 +645,8 @@ object ModelSearchProver {
   
   class IncProver protected[proof] (goal : Goal,
                                     settings : GoalSettings) {
+
+    def order : TermOrder = goal.order
     
     def assert(f : Conjunction, newOrder : TermOrder) : IncProver =
       conclude(f.negate, newOrder)
