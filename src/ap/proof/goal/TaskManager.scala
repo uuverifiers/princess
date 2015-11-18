@@ -24,7 +24,9 @@ package ap.proof.goal;
 import ap.util.Debug
 import ap.basetypes.{LeftistHeap, HeapCollector}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.preds.Predicate
 import ap.proof.theoryPlugins.Plugin
+import ap.parameters.{GoalSettings, Param}
 
 object TaskManager {
   
@@ -41,15 +43,16 @@ object TaskManager {
     
   //////////////////////////////////////////////////////////////////////////////
   
-  private val EMPTY_HEAP : TaskHeap =
-    LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY)
+  private def EMPTY_HEAP(abbrevLabels : Map[Predicate, Predicate]) : TaskHeap =
+    LeftistHeap.EMPTY_HEAP(TaskInfoCollector.EMPTY(abbrevLabels))
+
+  def EMPTY(settings : GoalSettings) : TaskManager =
+    new TaskManager (EMPTY_HEAP(Param.ABBREV_LABELS(settings)),
+                     (new EagerTaskAutomaton(
+                        Param.THEORY_PLUGIN(settings))).INITIAL)
     
-  def EMPTY(plugin : Plugin) : TaskManager =
-    new TaskManager (EMPTY_HEAP, (new EagerTaskAutomaton(Some(plugin))).INITIAL)
-  
-  val EMPTY : TaskManager =
-    new TaskManager (EMPTY_HEAP, (new EagerTaskAutomaton(None)).INITIAL)
-  
+  val EMPTY : TaskManager = EMPTY(GoalSettings.DEFAULT)
+
   private object TRUE_EXCEPTION extends Exception
    
 }
@@ -194,7 +197,7 @@ class TaskManager private (// the regular tasks that have a priority
           tasks ++ (goal formulaTasks Conjunction.disj(facts, goal.order))
       } catch {
         case TRUE_EXCEPTION =>
-          TaskManager.EMPTY_HEAP ++ (goal formulaTasks Conjunction.TRUE)
+          prioTasks ++ (goal formulaTasks Conjunction.TRUE)
       }
   //    println(newPrioTasks.size)
     

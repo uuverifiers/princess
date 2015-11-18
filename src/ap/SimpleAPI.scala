@@ -518,7 +518,7 @@ class SimpleAPI private (enableAssert : Boolean,
     ignoredQuantifiers = false
     formulaeInProver = List()
     formulaeTodo = false
-    currentModel = Conjunction.TRUE
+    currentModel = null
     decoderDataCache.clear
     lastPartialModel = null
     currentConstraint = null
@@ -534,7 +534,6 @@ class SimpleAPI private (enableAssert : Boolean,
     theoryCollector = new TheoryCollector
     abbrevFunctions = Set()
     abbrevPredicates = Map()
-    assertedAbbrevPredicates = Set()
   }
 
   private var currentDeadline : Option[Long] = None
@@ -1245,32 +1244,23 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def abbrevHelp(a : IExpression.Predicate, f : IFormula) = {
+    import IExpression._
+
+    val defLabel = new Predicate(a.name + "_def", 0)
+    addRelationHelp(defLabel)
+
     val depPreds =
       (SymbolCollector nullaryPredicates f).toSet & abbrevPredicates.keySet
     abbrevPredicates =
-      abbrevPredicates + (a -> ((abbrevPredicates.size, depPreds)))
+      abbrevPredicates + (a -> ((abbrevPredicates.size, defLabel)))
 
-    import IExpression._
-    // ensure that nested application of abbreviations are contained in
-    // the definition and do not escape, using the AbbrevVariableVisitor
-    addFormulaHelp(a() </> f)
-    a()
+    val aAtom = a()
+    val defAtom = defLabel()
+
+    addFormulaHelp((aAtom | defAtom | f) & (!aAtom | !defAtom | !f))
+    aAtom
   }
   
-  private def addAbbrevDependencies(ps : Set[IExpression.Predicate]) : Unit = {
-    var depPreds = ps
-
-    var oldDepPredsSize = 0
-    while (oldDepPredsSize != depPreds.size) {
-      oldDepPredsSize = depPreds.size
-      depPreds = depPreds ++ (for (p <- depPreds.iterator;
-                                   q <- abbrevPredicates(p)._2.iterator)
-                              yield q)
-    }
-
-    assertedAbbrevPredicates = assertedAbbrevPredicates ++ depPreds
-  }
-
   private def abbrevLog(f : IFormula, rawName : String, name : String) = {
     doDumpScala {
       print("val " + name + " = abbrev(")
@@ -1500,9 +1490,6 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
     checkQuantifierOccurrences(assertion)
-    if (!abbrevPredicates.isEmpty)
-      addAbbrevDependencies(assertion.predicates & abbrevPredicates.keySet)
-
     addFormula(!LazyConjunction(assertion)(currentOrder))
   }
     
@@ -1544,9 +1531,6 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
     checkQuantifierOccurrences(conc)
-    if (!abbrevPredicates.isEmpty)
-      addAbbrevDependencies(conc.predicates & abbrevPredicates.keySet)
-
     addFormula(LazyConjunction(conc)(currentOrder))
   }
   
@@ -1652,29 +1636,7 @@ class SimpleAPI private (enableAssert : Boolean,
               return lastStatus
             } else {
               // use a ModelCheckProver
-
-              val relProver =
-                if (abbrevPredicates.isEmpty) {
-                  currentProver
-                } else {
-                  // filter out predicates that belong to abbreviations that were
-                  // not actually used
-
-                  val badPredicates =
-                    abbrevPredicates.keySet -- assertedAbbrevPredicates
-
-                  if (badPredicates.isEmpty) {
-                    currentProver
-                  } else {
-                    currentProver filterTasks {
-                      case t : FormulaTask =>
-                        !(t.formula.predicates exists badPredicates)
-                      case _ => true
-                    }
-                  }
-                }
-
-              proofActor ! CheckSatCommand(relProver)
+              proofActor ! CheckSatCommand(currentProver)
             }
             
         }
@@ -2982,7 +2944,7 @@ class SimpleAPI private (enableAssert : Boolean,
                        validityMode, lastStatus,
                        theoryPlugin, theoryCollector.clone,
                        abbrevFunctions,
-                       abbrevPredicates, assertedAbbrevPredicates)
+                       abbrevPredicates)
     
     doDumpSMT {
       println("(push 1)")
@@ -3015,7 +2977,7 @@ class SimpleAPI private (enableAssert : Boolean,
          oldFormulaeInProver, oldPartitionNum, oldConstructProofs,
          oldMGCs, oldValidityMode, oldStatus,
          oldTheoryPlugin, oldTheories,
-         oldAbbrevFunctions, oldAbbrevPredicates, oldAssAbbrevPredicates) =
+         oldAbbrevFunctions, oldAbbrevPredicates) =
       storedStates.pop
     currentProver = oldProver
     needExhaustiveProver = oldNeedExhaustiveProver
@@ -3039,7 +3001,6 @@ class SimpleAPI private (enableAssert : Boolean,
     theoryCollector = oldTheories
     abbrevFunctions = oldAbbrevFunctions
     abbrevPredicates = oldAbbrevPredicates
-    assertedAbbrevPredicates = oldAssAbbrevPredicates
     currentModel = null
     lastPartialModel = null
     currentConstraint = null
@@ -3145,10 +3106,6 @@ class SimpleAPI private (enableAssert : Boolean,
         }
       }
     }
-
-    if (!abbrevPredicates.isEmpty)
-      addAbbrevDependencies(
-        (SymbolCollector nullaryPredicates f).toSet & abbrevPredicates.keySet)
 
     addFormulaHelp(f)
   }
@@ -3313,6 +3270,8 @@ class SimpleAPI private (enableAssert : Boolean,
         }
     })
 
+    gs = Param.ABBREV_LABELS.set(gs, abbrevPredicates mapValues (_._2))
+
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
     // currently done for all predicates encoding functions; should this be
     // restricted?
@@ -3369,8 +3328,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var theoryCollector : TheoryCollector = _
   private var abbrevFunctions : Set[IFunction] = Set()
   private var abbrevPredicates : Map[IExpression.Predicate,
-                                     (Int, Set[IExpression.Predicate])] = Map()
-  private var assertedAbbrevPredicates : Set[IExpression.Predicate] = Set()
+                                     (Int, IExpression.Predicate)] = Map()
 
   private val storedStates = new ArrayStack[(ModelSearchProver.IncProver,
                                              Boolean,
@@ -3390,8 +3348,7 @@ class SimpleAPI private (enableAssert : Boolean,
                                              TheoryCollector,
                                              Set[IFunction],
                                              Map[IExpression.Predicate,
-                                                 (Int, Set[IExpression.Predicate])],
-                                             Set[IExpression.Predicate])]
+                                                 (Int, IExpression.Predicate)])]
   
   private def proverRecreationNecessary = {
     currentProver = null
@@ -3423,7 +3380,7 @@ class SimpleAPI private (enableAssert : Boolean,
     var cont = true
     var nextCommand : ProverCommand = null
     
-    def directorWaitForNextCmd(model : Conjunction) = {
+    def directorWaitForNextCmd(order : TermOrder) = {
       var res : ModelSearchProver.SearchDirection = null
       var forsToAdd = List[Conjunction]()
               
@@ -3434,7 +3391,7 @@ class SimpleAPI private (enableAssert : Boolean,
           res = ModelSearchProver.NextModelDir
         case RecheckCommand =>
           res = ModelSearchProver.AddFormulaDir(
-                 Conjunction.disj(forsToAdd, model.order))
+                 Conjunction.disj(forsToAdd, order))
         case AddFormulaCommand(formula) =>
           forsToAdd = formula :: forsToAdd
         case c : ProverCommand => {
@@ -3451,10 +3408,12 @@ class SimpleAPI private (enableAssert : Boolean,
       case CheckSatCommand(p) =>
           
         Timeout.catchTimeout {
+          val order = p.order
+
           p.checkValidityDir {
             case (model, false) => {
               proverRes set SatPartialResult(model)
-              directorWaitForNextCmd(model)
+              directorWaitForNextCmd(order)
             }
             
             case (model, true) => {
@@ -3463,7 +3422,7 @@ class SimpleAPI private (enableAssert : Boolean,
               //-END-ASSERTION-/////////////////////////////////////////////////
               
               proverRes set SatResult(model)
-              directorWaitForNextCmd(model)
+              directorWaitForNextCmd(order)
             }
           }
         } { case _ => null } match {
