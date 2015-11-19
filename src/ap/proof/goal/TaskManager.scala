@@ -183,7 +183,8 @@ class TaskManager private (// the regular tasks that have a priority
           if (f.isTrue) throw TRUE_EXCEPTION else (facts += f)
         var foundFactsTask : Boolean = false
         
-        def updateTask(prioTask : PrioritisedTask) : Iterator[PrioritisedTask] = {
+        def updateTask(prioTask : PrioritisedTask)
+                         : Iterator[PrioritisedTask] = {
           val res = prioTask.updateTask(goal, factCollector _)
           if (res exists stopUpdating)
             foundFactsTask = true
@@ -208,7 +209,6 @@ class TaskManager private (// the regular tasks that have a priority
    * Eliminate all prioritised tasks for which the given predicate is false.
    */
   def filter(p : PrioritisedTask => Boolean) : TaskManager = {
-
     var changed = false
 
     val newPrioTasks = prioTasks.flatMap({ t =>

@@ -23,6 +23,7 @@ package ap.proof.goal;
 
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.parameters.Param
+import ap.terfor.preds.Predicate
 import ap.util.{Debug, Seqs}
 
 /**
@@ -34,12 +35,15 @@ case object UpdateTasksTask extends EagerTask {
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
     val oldTasks = goal.tasks
+    val criticalPreds = goal.facts.predicates
 
     // we might have to remove ourself from the task-manager
     val remTasks = if (oldTasks.max == this)
                      oldTasks.removeFirst
                    else
                      oldTasks
+
+    val newTasks = elimUnneededDefs(remTasks, criticalPreds)
     
     def stopUpdating(task : Task) = task match {
       case _ : AddFactsTask => true
@@ -50,27 +54,35 @@ case object UpdateTasksTask extends EagerTask {
       case _ => false
     }
     
-    val newTasks = remTasks.updateTasks(goal, stopUpdating _)
+    val newTasks2 = newTasks.updateTasks(goal, stopUpdating _)
+    val newTasks3 = elimUnneededDefs(newTasks2, criticalPreds)
     
-    // possibly remove abbreviations that are not needed anymore
+    ptf.updateGoal(newTasks3, goal)
+  }
+
+  /**
+   * Possibly remove abbreviations that are not needed anymore
+   */
+  private def elimUnneededDefs(tasks : TaskManager,
+                               criticalPreds : Set[Predicate]) : TaskManager = {
     val danglingAbbrevDefs = 
-      newTasks.taskInfos.occurringAbbrevDefs filterNot {
-        p => (newTasks.taskInfos.occurringAbbrevs contains p) ||
-             (goal.facts.predicates contains p)
+      tasks.taskInfos.occurringAbbrevDefs filterNot {
+        p => (tasks.taskInfos.occurringAbbrevs contains p) ||
+             (criticalPreds contains p)
       }
     
-    val newTasks2 =
-      if (danglingAbbrevDefs.isEmpty)
-        newTasks
-      else
-        newTasks filter {
-          case t : FormulaTask =>
-            Seqs.disjoint(danglingAbbrevDefs, t.formula.predicates)
-          case _ =>
-            true
-        }
+    if (danglingAbbrevDefs.isEmpty) {
+      tasks
+    } else {
+      val newTasks = tasks filter {
+        case t : FormulaTask =>
+          Seqs.disjoint(danglingAbbrevDefs, t.formula.predicates)
+        case _ =>
+          true
+      }
 
-    ptf.updateGoal(newTasks2, goal)
+      elimUnneededDefs(newTasks, criticalPreds)
+    }
   }
 
 }
