@@ -30,8 +30,8 @@ object FormulaTask {
 
   private val AC = Debug.AC_COMPLEX_FORMULAS_TASK
   
-  private def isFunctionalityAxiom(formula : Conjunction,
-                                   settings : GoalSettings) : Boolean =
+  protected[goal] def isFunctionalityAxiom(formula : Conjunction,
+                                           settings : GoalSettings) : Boolean =
     formula.negatedConjs.isEmpty &&
     formula.predConj.negativeLits.isEmpty &&
     (formula.predConj.positiveLits match {
@@ -73,7 +73,7 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
    * Create a new <code>FormulaTask</code> by updating the value of
    * <code>formula</code>
    */
-  protected def updateFormula(f : Conjunction, goal : Goal) : FormulaTask
+  protected[goal] def updateFormula(f : Conjunction, goal : Goal) : FormulaTask
 
   /**
    * Update the task with possibly new information from the goal
@@ -126,7 +126,7 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
       List(new WrappedFormulaTask (this, simplifiedTasks))
     }
   }
-  
+
   val name : String
    
   override def toString : String = name + "(" + priority + ", " + formula + ")"

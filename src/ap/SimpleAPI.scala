@@ -1300,9 +1300,18 @@ class SimpleAPI private (enableAssert : Boolean,
    * expressions with nested shared sub-expressions.
    */
   def abbrevSharedExpressions(t : IExpression) : IExpression =
+    abbrevSharedExpressions(t, 500)
+
+  /**
+   * Abbreviate (large) shared sub-expressions. This method
+   * avoids the worst-case exponential blow-up resulting from
+   * expressions with nested shared sub-expressions.
+   */
+  def abbrevSharedExpressions(t : IExpression,
+                              sizeThreshold : Int) : IExpression =
     SubExprAbbreviator(t, { s =>
       if (s.isInstanceOf[IFormula] &&
-          SizeVisitor(s) > 100 &&
+          SizeVisitor(s) > sizeThreshold &&
           (ContainsSymbol isClosed s))
         abbrev(s.asInstanceOf[IFormula])
       else
@@ -1324,6 +1333,26 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def abbrevSharedExpressions(t : IFormula) : IFormula =
     abbrevSharedExpressions(t.asInstanceOf[IExpression]).asInstanceOf[IFormula]
+  
+  /**
+   * Abbreviate (large) shared sub-expressions. This method
+   * avoids the worst-case exponential blow-up resulting from
+   * expressions with nested shared sub-expressions.
+   */
+  def abbrevSharedExpressions(t : ITerm,
+                              sizeThreshold : Int) : ITerm =
+    abbrevSharedExpressions(t.asInstanceOf[IExpression],
+                            sizeThreshold).asInstanceOf[ITerm]
+
+  /**
+   * Abbreviate (large) shared sub-expressions. This method
+   * avoids the worst-case exponential blow-up resulting from
+   * expressions with nested shared sub-expressions.
+   */
+  def abbrevSharedExpressions(t : IFormula,
+                              sizeThreshold : Int) : IFormula =
+    abbrevSharedExpressions(t.asInstanceOf[IExpression],
+                            sizeThreshold).asInstanceOf[IFormula]
   
   //////////////////////////////////////////////////////////////////////////////
 
