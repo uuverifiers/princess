@@ -52,14 +52,22 @@ class TaskInfoCollector private (val constants : Set[ConstantTerm],
         (Set.empty, Set.empty)
     }
 
-    val newDefs : Set[Predicate] = task match {
-      case task : BetaFormulaTask if (!newAbbrevs.isEmpty) =>
-        newAbbrevs filter {
-          p => task.formula.predicates contains abbrevLabels(p)
-        }
-      case _ =>
+    val newDefs : Set[Predicate] =
+      if (newAbbrevs.isEmpty)
         Set.empty
-    }
+      else task match {
+        case task : BetaFormulaTask =>
+          newAbbrevs filter {
+            p => task.formula.predicates contains abbrevLabels(p)
+          }
+        case task : WrappedFormulaTask
+                        if (task.realTask.isInstanceOf[BetaFormulaTask]) =>
+          newAbbrevs filter {
+            p => task.formula.predicates contains abbrevLabels(p)
+          }
+        case _ =>
+          Set.empty
+      }
 
     new TaskInfoCollector(this.constants ++
                             taskConstants ++
