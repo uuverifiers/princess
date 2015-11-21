@@ -89,10 +89,7 @@ object Goal {
     else
       BranchInferenceCollection.EMPTY
 
-    val emptyTaskManager = Param.THEORY_PLUGIN(settings) match {
-      case Some(plugin) => TaskManager EMPTY plugin
-      case None         => TaskManager.EMPTY
-    }
+    val emptyTaskManager = TaskManager EMPTY settings
 
     apply(Conjunction.TRUE,
           CompoundFormulas.EMPTY(Param.PREDICATE_MATCH_CONFIG(settings)),
@@ -419,6 +416,19 @@ class Goal private (val facts : Conjunction,
            settings)
     }
   
+  /**
+   * Eliminate all prioritised tasks for which the given predicate is false.
+   */
+  def filterTasks(p : PrioritisedTask => Boolean) : Goal = {
+    val newTasks = tasks filter p
+    if (newTasks eq tasks)
+      this
+    else
+      Goal(facts, compoundFormulas, newTasks, age,
+           eliminatedConstants, vocabulary, definedSyms, branchInferences,
+           settings)
+  }
+
   def getInferenceCollector : BranchInferenceCollector =
     if (Param.PROOF_CONSTRUCTION(settings))
       branchInferences.getCollector

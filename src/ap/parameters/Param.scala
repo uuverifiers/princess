@@ -195,6 +195,12 @@ object Param {
     val defau : Set[ap.terfor.preds.Predicate] = Set()
   }
   
+  case object ABBREV_LABELS extends Param {
+    type Value = Map[ap.terfor.preds.Predicate, ap.terfor.preds.Predicate]
+    val defau : Map[ap.terfor.preds.Predicate, ap.terfor.preds.Predicate] =
+      Map()
+  }
+
   object FunctionGCOptions extends Enumeration {
     val None, Total, All = Value
   }

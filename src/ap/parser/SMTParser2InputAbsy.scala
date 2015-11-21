@@ -993,15 +993,30 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         // use a real function
         val f = new IFunction(name, argNum, true, true)
         env.addFunction(f, SMTFunctionType(args.toList, resType))
-        if (incremental)
-          prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
-  
-        if (inlineDefinedFuns) {
+    
+        if (inlineDefinedFuns && SizeVisitor(body._1) <= 100) {
           functionDefs = functionDefs + (f -> body) 
+        } else if (incremental && args.isEmpty) {
+          // use the SimpleAPI abbreviation feature
+          resType match {
+            case SMTBool =>
+              functionDefs =
+                functionDefs + (f -> (prover abbrev asFormula(body), SMTBool))
+            case t =>
+              functionDefs =
+                functionDefs + (f -> (prover abbrev asTerm(body), t))
+          }
         } else {
           // set up a defining equation and formula
+          if (incremental)
+            prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
+
           val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
-          val matrix = ITrigger(List(lhs), lhs === asTerm(body))
+          val matrix =
+            if (argNum == 0)
+              lhs === asTerm(body)
+            else
+              ITrigger(List(lhs), lhs === asTerm(body))
           addAxiom(quan(Array.fill(argNum){Quantifier.ALL}, matrix))
         }
 
@@ -1650,14 +1665,24 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       for ((name, t, s) <- bindings)
         // directly substitute small expressions, unless the user
         // has chosen otherwise
-        if (inlineLetExpressions && SizeVisitor(s) <= 1000) {
+        if (inlineLetExpressions && SizeVisitor(s) <= 100) {
           env.pushVar(name, SubstExpression(s, t))
+        } else if (incremental) {
+          // use the SimpleAPI abbreviation feature
+          t match {
+            case SMTBool =>
+              env.pushVar(name,
+                          SubstExpression(prover.abbrev(asFormula((s, t))),
+                                          SMTBool))
+            case _ =>
+              env.pushVar(name,
+                          SubstExpression(prover.abbrev(asTerm((s, t))), t))
+          }
         } else addAxiom(t match {
           case SMTBool => {
             val f = new IFunction(letVarName(name), 1, true, false)
             env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTInteger))
-            if (incremental)
-              prover.addFunction(f)
+
             env.pushVar(name, SubstExpression(all(eqZero(v(0)) ==> eqZero(f(v(0)))),
                                               SMTBool))
             all(ITrigger(List(f(v(0))),
@@ -1673,39 +1698,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           }
         })
       
-      /*
-      val definingEqs = connect(
-        for ((v, t, s) <- bindings.iterator) yield
-             if (SizeVisitor(s) <= 20) {
-               env.pushVar(v, SubstExpression(s, t))
-               i(true)
-             } else t match {
-               case SMTBool => {
-                 val p = new Predicate(letVarName(v), 0)
-                 env.addPredicate(p, ())
-                 env.pushVar(v, SubstExpression(p(), SMTBool))
-                 asFormula((s, t)) <=> p()
-               }
-               case SMTInteger => {
-                 val c = new ConstantTerm(letVarName(v))
-                 env.addConstant(c, Environment.NullaryFunction, ())
-                 env.pushVar(v, SubstExpression(c, SMTInteger))
-                 asTerm((s, t)) === c
-               }
-             }, IBinJunctor.And)
-      */
-      
       val wholeBody = translateTerm(t.term_, polarity)
-      
-/*      val definingEqs =
-        connect(for ((v, t, s) <- bindings.reverseIterator) yield {
-          (env lookupSym v) match {
-            case Environment.Variable(_, IntConstant(c)) =>
-              asTerm((s, t)) === c
-            case Environment.Variable(_, BooleanConstant(p)) =>
-              asFormula((s, t)) <=> p()
-          }}, IBinJunctor.And) */
-      
+
       for (_ <- bindings) env.popVar
 
       wholeBody

@@ -31,7 +31,7 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas,
-                      TaskManager}
+                      TaskManager, PrioritisedTask}
 import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
@@ -762,6 +762,17 @@ object ModelSearchProver {
          }) &&
         Seqs.disjoint(facts.predConj.constants, inEqConsts)
       }
+
+    /**
+     * Eliminate all prioritised tasks for which the given predicate is false.
+     */
+    def filterTasks(p : PrioritisedTask => Boolean) : IncProver = {
+      val newGoal = goal filterTasks p
+      if (newGoal eq goal)
+        this
+      else
+        new IncProver(newGoal, settings)
+    }
   }
   
 }

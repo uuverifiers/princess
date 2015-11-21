@@ -26,7 +26,8 @@ import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
-                                 LinkedHashSet, HashSet => MHashSet}
+                                 LinkedHashSet, HashSet => MHashSet,
+                                 HashMap => MHashMap}
 import scala.collection.{Map => CMap}
 
 
@@ -690,6 +691,12 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
        case _ => false
      })
   
+  def isClosed(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case v : IVariable => true
+       case _ => false
+     })
+
   def apply(t : IExpression, pred : IExpression => Boolean) : Boolean = try {
     visitWithoutResult(t, Context(pred))
     false
@@ -1016,3 +1023,76 @@ object SizeVisitor {
     size
   }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Visitor that is able to detect shared sub-expression (i.e., sub-expressions
+ * with object identity) and replace them with abbreviations.
+ */
+object SubExprAbbreviator {
+  private val AC = Debug.AC_INPUT_ABSY
+
+  def apply(t : IExpression,
+            abbreviator : IExpression => IExpression) : IExpression = {
+    val exprOccurrences = new MHashMap[IExpression, Int]
+
+    val countingVisitor = new Counter(exprOccurrences)
+    countingVisitor.visitWithoutResult(t, ())
+
+    val abbrevVisitor = new Abbreviator(exprOccurrences, abbreviator)
+
+    abbrevVisitor.visit(t, ())
+  }
+
+  private class Counter(exprOccurrences : MHashMap[IExpression, Int])
+          extends CollectingVisitor[Unit, Unit] {
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      (exprOccurrences get t) match {
+        case Some(num) => {
+          exprOccurrences.put(t, num + 1)
+          ShortCutResult(())
+        }
+        case None => {
+          exprOccurrences.put(t, 1)
+          KeepArg
+        }
+      }
+
+    def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
+  }
+
+  private class Abbreviator(exprOccurrences : MHashMap[IExpression, Int],
+                            abbreviator : IExpression => IExpression)
+          extends CollectingVisitor[Unit, IExpression] {
+    private val abbrevs = new MHashMap[IExpression, IExpression]
+
+    override def preVisit(t : IExpression, arg : Unit) : PreVisitResult =
+      (abbrevs get t) match {
+        case Some(newExpr) => {
+          ShortCutResult(newExpr)
+        }
+        case None =>
+          KeepArg
+      }
+
+    def postVisit(t : IExpression, arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = {
+      val newT = t update subres
+      if (exprOccurrences(t) > 1) {
+        val abbrev = abbreviator(newT)
+        if (abbrev eq newT) {
+          newT
+        } else {
+          abbrevs.put(t, abbrev)
+          abbrev
+        }
+      } else {
+        newT
+      }
+    }
+  }
+
+}
+
