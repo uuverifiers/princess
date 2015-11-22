@@ -1880,6 +1880,9 @@ class SimpleAPI private (enableAssert : Boolean,
    * formulae belonging to all partitions (e.g., theory axioms).
    */
   def setPartitionNumber(num : Int) : Unit = {
+    doDumpSMT {
+      println("; setPartitionNumber(" + num + ")")
+    }
     doDumpScala {
       println("setPartitionNumber(" + num + ")")
     }
@@ -1897,6 +1900,9 @@ class SimpleAPI private (enableAssert : Boolean,
    * needed for extract interpolants.
    */
   def setConstructProofs(b : Boolean) : Unit = if (constructProofs != b) {
+    doDumpSMT {
+      println("; setConstructProofs(" + b + ")")
+    }
     doDumpScala {
       println("setConstructProofs(" + b + ")")
     }
