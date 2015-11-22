@@ -1935,7 +1935,10 @@ class SimpleAPI private (enableAssert : Boolean,
   def getInterpolants(partitions : Seq[Set[Int]],
                       maxQETime : Long = Long.MaxValue) : Seq[IFormula] = {
     doDumpSMT {
-      println("; (get-interpolants)")
+//      println("; (get-interpolants)")
+      println("; getInterpolants(List(" + (
+        for (s <- partitions.iterator)
+        yield ("Set(" + s.mkString(", ") + ")")).mkString(", ") + "))")
     }
     doDumpScala {
       println("println(\"" + getScalaNum + ": \" + getInterpolants(List(" + (
@@ -2016,14 +2019,14 @@ class SimpleAPI private (enableAssert : Boolean,
   def getTreeInterpolant(partitions : Tree[Set[Int]],
                          maxQETime : Long = Long.MaxValue) : Tree[IFormula] = {
     doDumpSMT {
-      println("; (get-tree-interpolant)")
+//      println("; (get-tree-interpolant)")
+      println("; getTreeInterpolant(" +
+          partitions +
+        ")")
     }
     doDumpScala {
       println("println(\"" + getScalaNum + ": \" + getTreeInterpolant(" +
           partitions +
-//        List(" + (
-//        for (s <- partitions.iterator)
-//        yield ("Set(" + s.mkString(", ") + ")")).mkString(", ") + "))"
         "))")
     }
 
