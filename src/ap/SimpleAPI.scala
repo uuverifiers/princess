@@ -44,7 +44,7 @@ import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
-                                 LinkedHashMap}
+                                 LinkedHashMap, ArrayBuffer}
 import scala.actors.{Actor, DaemonActor, TIMEOUT}
 import scala.actors.Actor._
 import scala.concurrent.SyncVar
@@ -1315,6 +1315,31 @@ class SimpleAPI private (enableAssert : Boolean,
       else
         s
     })
+
+  /**
+   * Abbreviate (large) shared sub-expressions. This method
+   * avoids the worst-case exponential blow-up resulting from
+   * expressions with nested shared sub-expressions. This method
+   * also returns a map with the created abbreviations.
+   */
+  def abbrevSharedExpressionsWithMap(t : IExpression, sizeThreshold : Int)
+                              : (IExpression, Map[IExpression, IExpression]) = {
+    val abbrevs = new ArrayBuffer[(IExpression, IExpression)]
+
+    val res = SubExprAbbreviator(t, { s =>
+      if (s.isInstanceOf[IFormula] &&
+          SizeVisitor(s) > sizeThreshold &&
+          (ContainsSymbol isClosed s)) {
+        val a = abbrev(s.asInstanceOf[IFormula])
+        abbrevs += ((a, s))
+        a
+      } else {
+        s
+      }
+    })
+
+    (res, abbrevs.toMap)
+  }
 
   /**
    * Abbreviate (large) shared sub-expressions. This method
