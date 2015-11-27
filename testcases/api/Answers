@@ -241,3 +241,12 @@ x
 {}
 y
 finished
+starting
+Sat
+{z -> 3, y -> -1, x -> 0, a -> false}
+Sat
+{z -> 5, y -> 1, x -> 2, a -> true}
+Sat
+Sat
+{z -> 5, y -> 1, x -> 2, a -> true}
+finished

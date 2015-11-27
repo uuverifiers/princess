@@ -131,6 +131,9 @@ object ModelSearchProver {
         //-END-ASSERTION-///////////////////////////////////////////////////////
         Left(Conjunction.FALSE)
       }
+      case EFRerunResult(_) =>
+        // this should never happen
+        throw new IllegalArgumentException
       case UnsatCertResult(cert) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(ModelSearchProver.AC, Param.PROOF_CONSTRUCTION(settings))
@@ -171,11 +174,15 @@ object ModelSearchProver {
   //////////////////////////////////////////////////////////////////////////////
   
   private sealed abstract class FindModelResult
-  private case object SatResult                                    extends FindModelResult
-  private case object UnsatResult                                  extends FindModelResult
-  private case class  UnsatEFResult(extraFFors : Seq[Conjunction]) extends FindModelResult
-  private case class  UnsatCertResult(cert : Certificate)          extends FindModelResult
-  private case class  ModelResult(model : Conjunction)             extends FindModelResult
+  private case object SatResult                         extends FindModelResult
+  private case object UnsatResult                       extends FindModelResult
+  private case class  UnsatEFResult(extraFFors : Seq[Conjunction])
+                                                        extends FindModelResult
+  private case class  EFRerunResult(extraFFors : Seq[Conjunction])
+                                                        extends FindModelResult
+  private case class  UnsatCertResult(cert : Certificate)
+                                                        extends FindModelResult
+  private case class  ModelResult(model : Conjunction)  extends FindModelResult
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -253,13 +260,28 @@ object ModelSearchProver {
             else
               goal
           
-          if (uGoal.stepPossible)
-            findModel(uGoal step ptf, extraFormulae, witnesses, constsToIgnore,
-                      depth, settings, searchDirector)
-          else
-            handleSatGoal(uGoal, witnesses, constsToIgnore, depth,
-                          settings, searchDirector)
+          val res =
+            if (uGoal.stepPossible)
+              findModel(uGoal step ptf, extraFormulae, witnesses,
+                        constsToIgnore, depth, settings, searchDirector)
+            else
+              handleSatGoal(uGoal, witnesses, constsToIgnore, depth,
+                            settings, searchDirector)
           
+          res match {
+            case EFRerunResult(formulas)
+              if (!ModelElement.containAffectedSymbols(formulas, witnesses)) =>
+              // we have to start over from this point
+              findModel(uGoal, formulas, witnesses,
+                        constsToIgnore, depth, settings, searchDirector) match {
+                case UnsatResult =>         UnsatEFResult(formulas)
+                case UnsatEFResult(fors) => UnsatEFResult(formulas ++ fors)
+                case EFRerunResult(fors) => EFRerunResult(formulas ++ fors)
+                case UnsatCertResult(_) =>  throw new IllegalArgumentException
+                case r =>                   r
+              }
+            case r => r
+          }
         }
         
       case tree : WitnessTree =>
@@ -296,6 +318,7 @@ object ModelSearchProver {
           case lr@UnsatEFResult(formulae) =>
             handleAnds(rightTree) match {
               case UnsatEFResult(formulae2) => UnsatEFResult(formulae ++ formulae2)
+              case EFRerunResult(formulae2) => EFRerunResult(formulae ++ formulae2)
               case UnsatResult => lr
               case r => r
             }
@@ -318,6 +341,10 @@ object ModelSearchProver {
                 }
               }
               case r@UnsatEFResult(formulae) => {
+                ef = ef ++ formulae
+                r
+              }
+              case r@EFRerunResult(formulae) => {
                 ef = ef ++ formulae
                 r
               }
@@ -385,13 +412,19 @@ object ModelSearchProver {
     // resetting the constant freeness stored in the goal
 
     def addFormula(formula : Conjunction) =
-      findModel(goal, List(formula), witnesses, constsToIgnore, depth,
-                settings, searchDirector) match {
-        case UnsatResult =>         UnsatEFResult(List(formula))
-        case UnsatEFResult(fors) => UnsatEFResult(List(formula) ++ fors)
-        case r =>                   r
-      }
+      if (ModelElement.containAffectedSymbols(List(formula), witnesses))
+        EFRerunResult(List(formula))
+      else
+        findModel(goal, List(formula), witnesses, constsToIgnore, depth,
+                  settings, searchDirector) match {
+          case UnsatResult =>         UnsatEFResult(List(formula))
+          case UnsatEFResult(fors) => UnsatEFResult(List(formula) ++ fors)
+          case UnsatCertResult(_) =>  throw new IllegalArgumentException
+          case r =>                   r
+        }
     
+    ////////////////////////////////////////////////////////////////////////////
+
     def extractModel = searchDirector(goal.facts, false) match {
       case AcceptModelDir => {
         // should never happen
@@ -438,9 +471,7 @@ object ModelSearchProver {
           // we have already found a model
         
           val order = goal.order
-
-          val arithModel = ModelElement.constructModel(witnesses, order)
-          assembleModel(Conjunction.conj(arithModel, order),
+          assembleModel(ModelElement.constructModel(witnesses, order),
                         goal.facts.predConj, constsToIgnore, order)
         } else {
           // We have to lower the constant freedom, to make sure that
@@ -724,6 +755,8 @@ object ModelSearchProver {
         case ModelResult(model)             => Left(model)
         case UnsatResult | UnsatEFResult(_) => Left(Conjunction.FALSE)
         case UnsatCertResult(cert)          => Right(cert)
+        case EFRerunResult(_)               => // should never happen
+                                               throw new IllegalArgumentException
       }
 
     /**

@@ -25,21 +25,33 @@ import ap.basetypes.HeapCollector
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
 
+import scala.collection.{Map => GMap}
+import scala.collection.mutable.{HashMap => MHashMap}
+
 object TaskInfoCollector {
   
   def EMPTY(abbrevLabels : Map[Predicate, Predicate]) : TaskInfoCollector =
-    new TaskInfoCollector(Set.empty, false, abbrevLabels, Set(), Set())
+    new TaskInfoCollector(Set.empty, false, abbrevLabels, Set(), Set(), Map())
   
 }
 
-class TaskInfoCollector private (val constants : Set[ConstantTerm],
-                                 val containsLazyMatchTask : Boolean,
-                                 abbrevLabels : Map[Predicate, Predicate],
-                                 val occurringAbbrevs : Set[Predicate],
-                                 val occurringAbbrevDefs : Set[Predicate])
+class TaskInfoCollector private
+             (val constants : Set[ConstantTerm],
+              val containsLazyMatchTask : Boolean,
+              abbrevLabels : Map[Predicate, Predicate],
+              val occurringAbbrevs : Set[Predicate],
+              val occurringAbbrevDefs : Set[Predicate],
+              val occurringBooleanVars : GMap[Predicate, Int])
       extends HeapCollector[Task, TaskInfoCollector] {
 
   def +(task : Task, otherInfos : TaskInfoCollector) : TaskInfoCollector = {
+    val booleanVars : Set[Predicate] = task match {
+      case task : FormulaTask =>
+        task.formula.predicates filter (_.arity == 0)
+      case _ =>
+        Set.empty
+    }
+
     val (taskConstants, newAbbrevs)
             : (Set[ConstantTerm], Set[Predicate]) = task match {
       case task : FormulaTask =>
@@ -47,7 +59,7 @@ class TaskInfoCollector private (val constants : Set[ConstantTerm],
          if (abbrevLabels.isEmpty)
            Set.empty
          else
-           task.formula.predicates & abbrevLabels.keySet)
+           booleanVars & abbrevLabels.keySet)
       case _ =>
         (Set.empty, Set.empty)
     }
@@ -58,16 +70,23 @@ class TaskInfoCollector private (val constants : Set[ConstantTerm],
       else task match {
         case task : BetaFormulaTask =>
           newAbbrevs filter {
-            p => task.formula.predicates contains abbrevLabels(p)
+            p => booleanVars contains abbrevLabels(p)
           }
         case task : WrappedFormulaTask
                         if (task.realTask.isInstanceOf[BetaFormulaTask]) =>
           newAbbrevs filter {
-            p => task.formula.predicates contains abbrevLabels(p)
+            p => booleanVars contains abbrevLabels(p)
           }
         case _ =>
           Set.empty
       }
+
+    val newBooleanVarNums = new MHashMap[Predicate, Int]
+    newBooleanVarNums ++= this.occurringBooleanVars
+    for ((q, n) <- otherInfos.occurringBooleanVars)
+      newBooleanVarNums.put(q, n + newBooleanVarNums.getOrElse(q, 0))
+    for (q <- booleanVars)
+      newBooleanVarNums.put(q, 1 + newBooleanVarNums.getOrElse(q, 0))
 
     new TaskInfoCollector(this.constants ++
                             taskConstants ++
@@ -81,7 +100,8 @@ class TaskInfoCollector private (val constants : Set[ConstantTerm],
                             otherInfos.occurringAbbrevs,
                           this.occurringAbbrevDefs ++
                             newDefs ++
-                            otherInfos.occurringAbbrevDefs)
+                            otherInfos.occurringAbbrevDefs,
+                          newBooleanVarNums)
   }
   
 }

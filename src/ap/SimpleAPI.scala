@@ -2907,18 +2907,22 @@ class SimpleAPI private (enableAssert : Boolean,
     
     f match {
       case IAtom(p, args) if (args forall (_.isInstanceOf[IIntLit])) => {
-        if (args.isEmpty)
-          ensurePartialModel
-        else
-          ensureFullModel
-        
+        ensurePartialModel
         val a = Atom(p, for (IIntLit(value) <- args) yield l(value), currentOrder)
-        
+
         if (currentModel.predConj.positiveLitsAsSet contains a)
           Left(true)
         else if (currentModel.predConj.negativeLitsAsSet contains a)
           Left(false)
-        else
+        else if (proofActorStatus != ProofActorStatus.AtFullModel) {
+          ensureFullModel
+          if (currentModel.predConj.positiveLitsAsSet contains a)
+            Left(true)
+          else if (currentModel.predConj.negativeLitsAsSet contains a)
+            Left(false)
+          else
+            Right(a)
+        } else
           Right(a)
       }
       case _ => {
@@ -3093,8 +3097,10 @@ class SimpleAPI private (enableAssert : Boolean,
       case ProofActorStatus.Init =>
         // nothing
       case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
-        if (completeFor.constants.isEmpty && axioms.isFalse &&
-            Seqs.disjoint(completeFor.predicates, abbrevPredicates.keySet)) {
+        if (axioms.isFalse
+            // completeFor.constants.isEmpty && axioms.isFalse &&
+            // Seqs.disjoint(completeFor.predicates, abbrevPredicates.keySet)
+            ) {
           // then we should be able to add this formula to the running prover
           proofActor ! AddFormulaCommand(completeFor)
         } else {

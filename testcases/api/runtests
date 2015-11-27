@@ -55,3 +55,4 @@ OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../.
 scala $OPTIONS readSMTLIB.scala
 scala $OPTIONS deadlock.scala
 scala $OPTIONS exception.scala
+scala $OPTIONS incremental.scala
