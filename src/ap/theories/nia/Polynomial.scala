@@ -488,8 +488,8 @@ case class Polynomial(val terms : Polynomial.TermList)
   import Polynomial._
 
   def isZero = terms.isEmpty
-  lazy val isLinear = !terms.exists(t => !t.isLinear)
-  lazy val isConstant = !terms.exists(t => !t.isConstant)
+  lazy val isLinear = terms.forall(t => t.isLinear)
+  lazy val isConstant = terms.forall(t => t.isConstant)
 
   def containsTerm(term : Term) : Boolean = terms contains term
 

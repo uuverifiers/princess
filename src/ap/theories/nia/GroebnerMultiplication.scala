@@ -33,10 +33,12 @@ import ap.terfor.TerForConvenience._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.Atom
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.arithconj.ArithConj
 import ap.basetypes.IdealInt
 import ap.util.{Timeout, Seqs}
 
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
+                                 ArrayBuffer}
 
 
 /**
@@ -386,23 +388,28 @@ println(unprocessed)
         retPoly
       }
 
-      // Did we find any linear formulas that can be propagated back
+      // Did we find any linear formulas that can be propagated back?
       val linearEq = simplifiedGB.toList
       if (!linearEq.isEmpty) {
-        val map = makeMap(linearEq)
-        val m = makeMatrix(linearEq)
-        val gaussian = new Gaussian(m)
-
         val linearConj =
-          conj(for (r <- gaussian.getRows;
-                    poly = rowToPolynomial(map, r);
-                    if (poly.isLinear))
-               yield polynomialToAtom(poly))
+          if (linearEq forall (_.isLinear)) {
+            conj(linearEq map (polynomialToAtom _))
+          } else if (linearEq.size > 1) {
+            val map = makeMap(linearEq)
+            val m = makeMatrix(linearEq)
+            val gaussian = new Gaussian(m)
+
+            conj(for (r <- gaussian.getRows.iterator;
+                      poly = rowToPolynomial(map, r);
+                      if (poly.isLinear))
+                 yield polynomialToAtom(poly))
+          } else {
+            Conjunction.TRUE
+          }
 
         if (!linearConj.isTrue)
           return removeFactsActions ::: List(Plugin.AddFormula(linearConj.negate))
       }
-
 
       //////////////////////////////////////////////////////////////////////////
       // If Gröbner basis calculation does nothing
@@ -410,37 +417,63 @@ println(unprocessed)
 
       val preds = ((predicates.map(atomToPolynomial).toList).filter(
                      x => !x.isZero) ++ simplifiedGB.toSet).toList
-      val ineqs = goal.facts.arithConj.inEqs
-      val negeqs = goal.facts.arithConj.negativeEqs
       val intervalSet = new IntervalSet(
         preds,
-        ineqs.map(lcToPolynomial).toList,
-        negeqs.map(lcToPolynomial).toList)
+        goal.facts.arithConj.inEqs.map(lcToPolynomial).toList,
+        goal.facts.arithConj.negativeEqs.map(lcToPolynomial).toList)
 
-      if (intervalSet.propagate)
+      if (ap.util.Timer.measure("intervals"){intervalSet.propagate})
         throw new Exception("Interval propagation error, abort!")
 
-      val intervals = intervalSet.getIntervals
+      val allFormulas = intervals2Formula(intervalSet, predicates, goal)
+      if (!allFormulas.isFalse)
+        return removeFactsActions ::: List(Plugin.AddFormula(allFormulas))
 
-      var intervalAtoms = List[ap.terfor.inequalities.InEqConj]()
-      for ((ct, i, (ul, uu, gu)) <- intervals) {
+      // Do splitting
+      if (calledFromSplitter)
+        return List()
+
+      goalState(goal) match {
+        case Plugin.GoalState.Final =>
+          // Split directly!
+          removeFactsActions ::: (Splitter handleGoal goal).toList
+        case _ =>
+          val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
+          removeFactsActions ::: List(scheduleAction)
+      }
+
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    private def intervals2Formula(intervalSet : IntervalSet,
+                                  predicates : IndexedSeq[Atom],
+                                  goal : Goal) : Conjunction = {
+      implicit val _ = goal.order
+
+      val intervalAtoms = new ArrayBuffer[ap.terfor.inequalities.InEqConj]
+      for ((ct, i, (ul, uu, gu)) <- intervalSet.getIntervals) {
         // Generate inequalities according to intervals
         if (ul) {
           i.lower match {
             case IntervalNegInf =>
-            case IntervalPosInf =>
-              intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
+            case IntervalPosInf => {
+              intervalAtoms += (ct > 0)
+              intervalAtoms += (ct < 0)
+            }
             case IntervalVal(v) =>
-              intervalAtoms = (ct >= v) :: intervalAtoms
+              intervalAtoms += (ct >= v)
           }
         }
 
         if (uu) {
           i.upper match {
-            case IntervalNegInf =>
-              intervalAtoms = (ct > 0) :: (ct < 0) :: intervalAtoms
+            case IntervalNegInf => {
+              intervalAtoms += (ct > 0)
+              intervalAtoms += (ct < 0)
+            }
             case IntervalVal(v) =>
-              intervalAtoms = (ct <= v) :: intervalAtoms
+              intervalAtoms += (ct <= v)
             case IntervalPosInf =>
           }
         }
@@ -462,38 +495,22 @@ println(unprocessed)
          })
 
       val crossInEqs =
-        (for (a <- predicates.iterator;
-              if (a(0).size == 1 && a(0).constants.size == 1 &&
-                  a(1).size == 1 && a(1).constants.size == 1);
-              i0 = intervalSet getTermInterval a(0).leadingTerm.asInstanceOf[ConstantTerm];
-              (coeff0, bound0) <- enumBounds(i0 * a(0).leadingCoeff);
-              i1 = intervalSet getTermInterval a(1).leadingTerm.asInstanceOf[ConstantTerm];
-              (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff)) yield {
-           (a(2) * coeff0 * coeff1) -
-             (a(0) * coeff0 * bound1) -
-             (a(1) * coeff1 * bound0) +
-             (bound0 * bound1) >= 0
-         }).toList
+        for (a <- predicates.iterator;
+             if (a(0).size == 1 && a(0).constants.size == 1 &&
+                 a(1).size == 1 && a(1).constants.size == 1);
+             i0 = intervalSet getTermInterval a(0).leadingTerm.asInstanceOf[ConstantTerm];
+             (coeff0, bound0) <- enumBounds(i0 * a(0).leadingCoeff);
+             i1 = intervalSet getTermInterval a(1).leadingTerm.asInstanceOf[ConstantTerm];
+             (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff)) yield {
+          (a(2) * coeff0 * coeff1) -
+            (a(0) * coeff0 * bound1) -
+            (a(1) * coeff1 * bound0) +
+            (bound0 * bound1) >= 0
+        }
 
       //////////////////////////////////////////////////////////////////////////
 
-      val allFormulas = goal reduceWithFacts conj(intervalAtoms ++ crossInEqs).negate
-      if (!allFormulas.isFalse)
-        return removeFactsActions ::: List(Plugin.AddFormula(allFormulas))
-
-      // Do splitting
-      if (calledFromSplitter)
-        return List()
-
-      goalState(goal) match {
-        case Plugin.GoalState.Final =>
-          // Split directly!
-          removeFactsActions ::: (Splitter handleGoal goal).toList
-        case _ =>
-          val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
-          removeFactsActions ::: List(scheduleAction)
-      }
-
+      goal reduceWithFacts conj(intervalAtoms.iterator ++ crossInEqs).negate
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -523,8 +540,6 @@ println(unprocessed)
 //   println("Splitter: " + goal.facts)
   
         val preds = (predicates.map(atomToPolynomial).toList).filter(x => !x.isZero)
-        val ineqs = goal.facts.arithConj.inEqs
-        val negeqs = goal.facts.arithConj.negativeEqs
   
         /**
           * Here follows the different splitting strategies
@@ -585,8 +600,7 @@ println(unprocessed)
   
         def sphericalSplit(predicates : List[ap.terfor.preds.Atom],
                            intervalSet : IntervalSet)
-                          : Iterator[(ap.terfor.Formula,
-                                      ap.terfor.Formula, String)] =  {
+                          : Iterator[(ArithConj, ArithConj, String)] =  {
           throw new Exception("sphericalSplit not enabled!")
         }
   
@@ -597,73 +611,72 @@ println(unprocessed)
   
         def infinitySplit(intervalSet : IntervalSet,
                           targetSet : Set[ConstantTerm])
-                         : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
+                         : Iterator[(ArithConj, ArithConj, String)] = {
           (intervalSet.getAllIntervals.iterator.collect {
             case (c, i) if ((targetSet contains c) &&
-                            i.lower == IntervalNegInf && i.upper == IntervalPosInf) => {
+                            i.lower == IntervalNegInf &&
+                            i.upper == IntervalPosInf) => {
               val opt1 = (c >= 0)
               val opt2 = (c < 0)
-              (opt1.negate, opt2.negate, "[-Inf, +Inf] split: " + opt1 + ", " + opt2)
+              (opt1.negate, opt2.negate,
+               "[-Inf, +Inf] split: " + opt1 + ", " + opt2)
             }
           })
         }
   
         /**
-         * Finds any possible split by finding a lower (upper) bound b on any variable x
-         * and the form the split x = b V x > b (x = b V x < b)
+         * Finds any possible split by finding a lower (upper) bound b on
+         * any variable x and the form the split x = b V x > b (x = b V x < b)
          */ 
         def desperateSplit(intervalSet : IntervalSet,
                            targetSet : Set[ConstantTerm])
-                          : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
-          val symbols = targetSet.toList.sortBy(_.name) // intervalSet.symbols.toList
-  
-          var alternatives = List[(ap.terfor.Formula, ap.terfor.Formula, String)]()
-  
-          (for (x <- symbols)
-          yield {
-            (PresburgerTools.lowerBound(l(x), goal.facts.arithConj),
-              PresburgerTools.lowerBound(l(-x), goal.facts.arithConj)) match {
-              case (Some(ll), Some(ul)) if (ll < ul) => {
-                val opt1 = (x === ll)
-                val opt2 = (x > ll)
-                alternatives = (opt1.negate, opt2.negate,
-                                "LowerBound split: " + opt1 + ", " + opt2) :: alternatives
-              }
-              case (Some(ll), _) => {
-                val opt1 = (x === ll)
-                val opt2 = (x > ll)
-                alternatives = (opt1.negate, opt2.negate,
-                                "LowerBound split: " + opt1 + ", " + opt2) :: alternatives
-              }
-              case (_, Some(ul)) => {
-                val opt1 = (x === -ul)
-                val opt2 = (x < -ul)
-  
-                alternatives = (opt1.negate, opt2.negate,
-                                "UpperBound split: " + opt1 + ", " + opt2 ) :: alternatives
-              }
-              case (None, None) =>
-            }
-          })
-  
-          alternatives.iterator
+                          : Iterator[(ArithConj, ArithConj, String)] = {
+          val symbols = targetSet.toList.sortBy(_.name)
+          val ac = goal.facts.arithConj
+
+          for (x <- symbols.iterator;
+               res <- (intervalSet getTermInterval x) match {
+                 case Interval(IntervalVal(ll),
+                               IntervalVal(ul), _) if (ll < ul) => {
+                   val mid = (ll + ul) / 2
+                   val opt1 = ArithConj.conj(x <= mid, order)
+                   val opt2 = ArithConj.conj(x > mid, order)
+                   Iterator single ((opt1.negate, opt2.negate,
+                                     "Interval split: " + opt1 + ", " + opt2))
+                 }
+                 case Interval(IntervalVal(ll), IntervalPosInf, _) => {
+                   val opt1 = ArithConj.conj(x === ll, order)
+                   val opt2 = ArithConj.conj(x > ll, order)
+                   Iterator single ((opt1.negate, opt2.negate,
+                                     "LowerBound split: " + opt1 + ", " + opt2))
+                 }
+                 case Interval(IntervalNegInf, IntervalVal(ul), _) => {
+                   val opt1 = ArithConj.conj(x === ul, order)
+                   val opt2 = ArithConj.conj(x < ul, order)
+                   Iterator single ((opt1.negate, opt2.negate,
+                                     "UpperBound split: " + opt1 + ", " + opt2))
+                 }
+                 case _ =>
+                   Iterator.empty
+               })
+          yield res
         }
   
-  
-  
         /**
-         * Takes negative equations (i.e. x+y+... != 0) and splits them around zero
+         * Takes negative equations (i.e. x+y+... != 0) and splits them around
+         * zero
          */
-        def negeqSplit(negeqs : ap.terfor.equations.NegEquationConj,
+        def negeqSplit(intervalSet : IntervalSet,
+                       negeqs : ap.terfor.equations.NegEquationConj,
                        targetSet : Set[ConstantTerm])
-              : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] =
+                      : Iterator[(ArithConj, ArithConj, String)] =
           for (negeq <- negeqs.iterator;
-               if (!Seqs.disjoint(negeq.constants, targetSet));
+               if (negeq.constants.size == 1);
+               c = negeq.constants.iterator.next;
+               if ((targetSet contains c) &&
+                   (intervalSet getTermInterval c).containsInt(-negeq.constant));
                opt1 = (negeq > 0);
-               opt2 = (negeq < 0);
-               opt1reduced = goal reduceWithFacts(opt1.negate);
-               opt2reduced = goal reduceWithFacts(opt2.negate);
-               if (!opt1reduced.isFalse && !opt2reduced.isFalse))
+               opt2 = (negeq < 0))
           yield
             (opt1.negate, opt2.negate, "Negeq split on: " + negeq)
   
@@ -674,72 +687,112 @@ println(unprocessed)
          */
         def gapSplit(intervalSet : IntervalSet,
                      targetSet : Set[ConstantTerm])
-                    : Iterator[(ap.terfor.Formula, ap.terfor.Formula, String)] = {
+                    : Iterator[(ArithConj, ArithConj, String)] = {
           val gaps = intervalSet.getGaps
           (for ((term, interval) <- gaps.iterator;
                 if (targetSet contains term))
           yield {
             val opt1 = (term < interval.gap.get._1)
             val opt2 = (term > interval.gap.get._2)
-            (opt1.negate, opt2.negate, "Gap split on " + term + " using " + interval)
+            (opt1.negate, opt2.negate,
+             "Gap split on " + term + " using " + interval)
           })
         }
-  
-  
-        /**
-          * 
-          * END OF SPLITTING STRATEGIES
-          * 
-          */
-  
+
+        ////////////////////////////////////////////////////////////////////////  
   
         // Converts a split alternative to a Plugin.SplitGoal
-        def doSplit(splitparams : (ap.terfor.Formula, ap.terfor.Formula, String))
+        def doSplit(splitparams : (ArithConj, ArithConj, String))
                    : List[Plugin.Action] = {
-          val (opt1, opt2, msg) = splitparams
+          val (opt1, opt2, _) = splitparams
           val opt1act = Conjunction.conj(opt1, order)
           val opt2act = Conjunction.conj(opt2, order)
-          val splitgoal =
-            Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)),
-                                  List(Plugin.AddFormula(opt2act))))
-          List(splitgoal)
-        }
-  
-        val intervalSet = new IntervalSet(
-          preds,
-          ineqs.map(lcToPolynomial).toList,
-          negeqs.map(lcToPolynomial).toList)
-  
-        intervalSet.propagate
-        if (!intervalSet.getInconsistency.isEmpty) {
-          return List(Plugin.AddFormula(Conjunction.TRUE))
+          List(Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)),
+                                     List(Plugin.AddFormula(opt2act)))))
         }
 
-        // Let the target set be the smallest set such that all
-        // predicates are made linear
-        val targetSet = linearizers(predicates.toList).toList
-                           .sortWith((s1, s2) => s1.size > s2.size).head
+        ////////////////////////////////////////////////////////////////////////
+  
+        val ineqPolys, negeqPolys = new ArrayBuffer[Polynomial]
 
-        val alternatives = negeqSplit(negeqs, targetSet) ++
-                           gapSplit(intervalSet, targetSet) ++ 
-          (Param.NONLINEAR_SPLITTING(goal.settings) match {
-            case Param.NonLinearSplitting.Sign =>
-              infinitySplit(intervalSet, targetSet) ++
-              desperateSplit(intervalSet, targetSet)
-            case Param.NonLinearSplitting.Spherical =>
-              sphericalSplit(predicates.toList, intervalSet)
-          })
-  
-        if (!alternatives.isEmpty) {
-          val s = alternatives.next
-//          println("Splitting: " + s)
-          return doSplit(s)
+        def addFacts(conj : ArithConj) : Unit = {
+          for (lc <- conj.inEqs)
+            ineqPolys += lcToPolynomial(lc)
+          for (lc <- conj.positiveEqs) {
+            ineqPolys += lcToPolynomial(lc)
+            ineqPolys += lcToPolynomial(-lc)
+          }
+          for (lc <- conj.negativeEqs)
+            negeqPolys += lcToPolynomial(lc)
         }
+
+        addFacts(goal.facts.arithConj)
+
+        var contPropLoop = true
+        while (contPropLoop) {
+          contPropLoop = false
+
+          val intervalSet =
+            new IntervalSet(preds, ineqPolys.toList, negeqPolys.toList)
   
+          if (intervalSet.propagate)
+            throw new Exception("Interval propagation error, abort!")
+          if (!intervalSet.getInconsistency.isEmpty)
+            return List(Plugin.AddFormula(Conjunction.TRUE))
+
+          // Let the target set be the smallest set such that all
+          // predicates are made linear
+          val targetSet = linearizers(predicates.toList).toList
+                             .sortWith((s1, s2) => s1.size > s2.size).head
+
+          val alternatives =
+            negeqSplit(intervalSet,
+                       goal.facts.arithConj.negativeEqs, targetSet) ++
+            gapSplit(intervalSet, targetSet) ++ 
+            (Param.NONLINEAR_SPLITTING(goal.settings) match {
+              case Param.NonLinearSplitting.Sign =>
+                infinitySplit(intervalSet, targetSet) ++
+                desperateSplit(intervalSet, targetSet)
+              case Param.NonLinearSplitting.Spherical =>
+                sphericalSplit(predicates.toList, intervalSet)
+            })
+
+          if (alternatives.hasNext) {
+            val s@(opt1, opt2, _) = alternatives.next
+            if ((goal reduceWithFacts opt1).isFalse) {
+              addFacts(opt1.negate)
+//              println("one further iteration, adding " + opt1.negate)
+              contPropLoop = true
+            } else if ((goal reduceWithFacts opt2).isFalse) {
+              addFacts(opt2.negate)
+//              println("one further iteration, adding " + opt2.negate)
+              contPropLoop = true
+            } else {
+//              println("Splitting: " + s)
+
+              val opt1act = Conjunction.conj(opt1, order)
+              val opt2act = Conjunction.conj(opt2, order)
+              val res =
+                List(Plugin.AddFormula(intervals2Formula(intervalSet,
+                                                         predicates, goal)),
+                     Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)),
+                                           List(Plugin.AddFormula(opt2act)))))
+//              println(res)
+              return res
+            }
+
+          } else {
+
+            val allFormulas = intervals2Formula(intervalSet, predicates, goal)
+            if (!allFormulas.isFalse)
+              return List(Plugin.AddFormula(allFormulas))
+
+          }
+        }
+
         val retList = handleGoalAux(goal, true)
         if (retList.isEmpty)
-          throw new Exception("ERROR: No splitting alternatives found: " +
-                              intervalSet)
+          throw new Exception("ERROR: No splitting alternatives found")
   
         retList
       }
