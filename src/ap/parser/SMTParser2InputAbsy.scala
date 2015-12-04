@@ -488,9 +488,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var justStoreAssertions = false
 
   def extractAssertions(input : java.io.Reader) : Seq[IFormula] = {
-    justStoreAssertions = true
-    processIncrementally(input, Int.MaxValue, Int.MaxValue, false)
-    justStoreAssertions = false
+    try {
+      justStoreAssertions = true
+      processIncrementally(input, Int.MaxValue, Int.MaxValue, false)
+    } finally {
+      justStoreAssertions = false
+    }
     val res = assumptions.toList
     assumptions.clear
     res
