@@ -499,6 +499,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     res
   }
 
+  def functionTypeMap : Map[IFunction, SMTFunctionType] =
+    (for (Environment.Function(f, t) <- env.symbols) yield (f -> t)).toMap
+
+  def constantTypeMap : Map[ConstantTerm, SMTType] =
+    (for (Environment.Constant(c, _, t) <- env.symbols) yield (c -> t)).toMap
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
