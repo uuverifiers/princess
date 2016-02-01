@@ -12,4 +12,6 @@ TESTS="ARI120=1.p ARI496=1.p ARI595=1.p ARI616=1.p ARI620=1.p \
 
 $PRI "$@" $TESTS
 
+$PRI "$@" +unsatCore unsat-core.p
+
 $PRI "$@" -realRatSaturationRounds=1 -assert ARI495\=1.p
