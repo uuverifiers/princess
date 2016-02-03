@@ -548,6 +548,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     " is only supported in incremental mode (option +incremental)" +
     (if (warnOnly) ", ignoring it" else "")
 
+  /**
+   * Check whether the given expression should never be inline,
+   * e.g., because it is too big. This method is meant to be
+   * redefinable in subclasses
+   */
+  protected def neverInline(expr : IExpression) : Boolean =
+    SizeVisitor(expr) > 100
+
   private def checkIncremental(thing : String) =
     if (!incremental)
       throw new Parser2InputAbsy.TranslationException(
@@ -1003,7 +1011,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         val f = new IFunction(name, argNum, true, true)
         env.addFunction(f, SMTFunctionType(args.toList, resType))
     
-        if (inlineDefinedFuns && SizeVisitor(body._1) <= 100) {
+        if (inlineDefinedFuns && !neverInline(body._1)) {
           functionDefs = functionDefs + (f -> body) 
         } else if (incremental && args.isEmpty) {
           // use the SimpleAPI abbreviation feature
@@ -1674,7 +1682,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       for ((name, t, s) <- bindings)
         // directly substitute small expressions, unless the user
         // has chosen otherwise
-        if (inlineLetExpressions && SizeVisitor(s) <= 100) {
+        if (inlineLetExpressions && !neverInline(s)) {
           env.pushVar(name, SubstExpression(s, t))
         } else if (incremental) {
           // use the SimpleAPI abbreviation feature
