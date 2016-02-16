@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -37,7 +37,6 @@ import ap.util.{Debug, Seqs, Timeout}
 object CmdlMain {
 
   class GaveUpException(_msg : String) extends Exception(_msg)
-
   val version = "CASC version 2015-07-06"
 
   def printGreeting = {
@@ -50,7 +49,7 @@ object CmdlMain {
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println
-    println("(c) Philipp Rümmer, 2009-2015")
+    println("(c) Philipp Rümmer, 2009-2016")
     println("(contributions by Peter Backeman, Peter Baumgartner,")
     println("                  Angelo Brillout, Aleksandar Zeljic)")
     println("Free software under GNU Lesser General Public License (LGPL).")
@@ -66,34 +65,41 @@ object CmdlMain {
   }
   
   def printOptions = {
-    println("Options:")
+    println("Standard options:")
     println(" [+-]logo                  Print logo and elapsed time              (default: +)")
+    println(" [+-]fullHelp              Print detailed help and exit             (default: -)")
     println(" [+-]version               Print version and exit                   (default: -)")
     println(" [+-]quiet                 Suppress all output to stderr            (default: -)")
-    println(" [+-]printTree             Output the constructed proof tree        (default: -)")
+    println(" [+-]assert                Enable runtime assertions                (default: -)")
     println(" -inputFormat=val          Specify format of problem file:       (default: auto)")
     println("                             auto, pri, smtlib, tptp")
     println(" [+-]stdin                 Read SMT-LIB 2 problems from stdin       (default: -)")
     println(" [+-]incremental           Incremental SMT-LIB 2 interpreter        (default: -)")
     println("                             (+incremental implies -genTotalityAxioms)")
+    println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
+    println(" -timeoutPer=val           Set a timeout per SMT-LIB query (ms) (default: infty)")
+    println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
+    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
+    println("                           (quantifier elimination for PA formulae) (default: -)")
+    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
+    println(" [+-]unsatCore             Compute unsatisfiable cores              (default: -)")
+  }
+
+  def printExoticOptions = {
+    println("Exotic options:")
+    println(" [+-]printTree             Output the constructed proof tree        (default: -)")
     println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
     println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
-    println(" [+-]assert                Enable runtime assertions                (default: -)")
-    println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
-    println(" -timeoutPer=val           Set a timeout per SMT-LIB query (ms) (default: infty)")
     println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: -)")
     println(" -simplifyConstraints=val  How to simplify constraints:")
     println("                             none:   not at all")
     println("                             fair:   fair construction of a proof")
     println("                             lemmas: proof construction with lemmas (default)")
     println(" [+-]traceConstraintSimplifier  Show constraint simplifications     (default: -)")
-    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
-    println("                           (quantifier elimination for PA formulae) (default: -)")
     println(" [+-]dnfConstraints        Turn ground constraints into DNF         (default: +)")
-    println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
     println(" [+-]posUnitResolution     Resolution of clauses with literals in   (default: +)")
-    println("                           the antecedent")
+    println("                             the antecedent")
     println(" -generateTriggers=val     Automatically choose triggers for quant. formulae")
     println("                             none:  not at all")
     println("                             total: for all total functions")
@@ -103,7 +109,6 @@ object CmdlMain {
     println("                             total: for all total functions")
     println("                             all:   for all functions               (default)")
     println(" [+-]tightFunctionScopes   Keep function application defs. local    (default: +)")
-    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
     println(" -genTotalityAxioms=val    Generation of totality axioms for functions")
     println("                             none:  no totality axioms at all")
     println("                             ctors: axioms only for constructors")
@@ -119,8 +124,8 @@ object CmdlMain {
     println("                             never")
     println("                             ifInterpolating: if \\interpolant occurs (default)")
     println("                             always")
-    println(" [+-]simplifyProofs        Simplify extracted proofs                (default: +)")
     println(" [+-]elimInterpolantQuants Eliminate quantifiers from interpolants  (default: +)")
+//    println(" [+-]simplifyProofs        Simplify extracted proofs                (default: +)")
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -411,6 +416,7 @@ List(
         */
         
             var conjNum = 0
+	    var prover : Prover = null
             var result : Prover.Result = null
 
             while (result == null) {
@@ -422,7 +428,7 @@ List(
                              else
                                None), 15000)
               
-              val prover = if (Param.MULTI_STRATEGY(settings)) {
+              prover = if (Param.MULTI_STRATEGY(settings)) {
                 import ParallelFileProver._
                 
                 val strategies = for ((str, to, seq) <- rawStrategies) yield {
@@ -466,9 +472,9 @@ List(
                       // reorder strategies, to start with the one that
                       // worked last time
                       rawStrategies =
-                        rawStrategies(prover.successfulProver) ::
-                        (rawStrategies take prover.successfulProver) :::
-                        (rawStrategies drop (prover.successfulProver + 1))
+                        rawStrategies(prover.successfulProverNum) ::
+                        (rawStrategies take prover.successfulProverNum) :::
+                        (rawStrategies drop (prover.successfulProverNum + 1))
                     case _ => // nothing
                   }
                 }
@@ -477,7 +483,7 @@ List(
               }
             }
 
-            printResult(result, settings2, lastFilename)
+            printResult(prover, settings2, lastFilename)
             
             val timeAfter = System.currentTimeMillis
             
@@ -627,11 +633,11 @@ List(
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def printResult(res : Prover.Result,
+  def printResult(prover : Prover,
                   settings : GlobalSettings,
                   lastFilename : String)
                  (implicit format : Param.InputFormat.Value) = format match {
-    case Param.InputFormat.SMTLIB => res match {
+    case Param.InputFormat.SMTLIB => prover.result match {
               case Prover.Proof(tree) => {
                 println("unsat")
                 if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
@@ -707,7 +713,7 @@ List(
 
     case Param.InputFormat.TPTP | Param.InputFormat.Princess => {
             val fileProperties = Param.FILE_PROPERTIES(settings)
-            res match {
+            prover.result match {
               case Prover.Proof(tree) => {
                 Console.err.println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
@@ -829,7 +835,18 @@ List(
                   println("Most-general constraint:")
                   println("true")
                 }
-                Console.withOut(Console.err) {
+
+                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
+
+                if (Param.COMPUTE_UNSAT_CORE(settings)) {
+                  Console.err.println
+                  println("Unsatisfiable core:")
+                  val usedNames = prover getAssumedFormulaParts cert
+                  println("{" +
+                          (((usedNames - PartName.NO_NAME)
+                               map (_.toString)).toArray.sorted mkString ", ") +
+                          "}")
+                } else Console.withOut(Console.err) {
                   println
                   println("Certificate: " + cert)
                   println("Assumed formulae: " + cert.assumedFormulas)
@@ -838,8 +855,6 @@ List(
                 }
                 
                 printDOTCertificate(cert, settings)
-
-                println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -848,14 +863,21 @@ List(
                   println("Most-general constraint:")
                   println("true")
                 }
-//                println
-//                println("Certificate: " + cert)
-//                println("Assumed formulae: " + cert.assumedFormulas)
-//                println("Constraint: " + cert.closingConstraint)
+
                 Console.withOut(Console.err) {
                   println
                   println("Interpolants:")
                   for (i <- inters) printFormula(i)
+                }
+
+                if (Param.COMPUTE_UNSAT_CORE(settings)) {
+                  println
+                  println("Unsatisfiable core:")
+                  val usedNames = prover getAssumedFormulaParts cert
+                  println("{" +
+                          (((usedNames - PartName.NO_NAME)
+                               map (_.toString)).toArray.sorted mkString ", ") +
+                          "}")
                 }
 
                 printDOTCertificate(cert, settings)
@@ -924,12 +946,24 @@ List(
         println(e.getMessage)
         println
         printUsage
+        println
         return
       }
     }
 
     if (Param.VERSION(settings)) {
       println(version)
+      return
+    }
+          
+    if (Param.FULL_HELP(settings)) {
+      println(version)
+      println
+      printUsage
+      println
+      println
+      printExoticOptions
+      println
       return
     }
           

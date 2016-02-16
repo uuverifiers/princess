@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -189,7 +189,7 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
    * Create a new <code>FormulaTask</code> by updating the value of
    * <code>formula</code>
    */
-  protected def updateFormula(f : Conjunction, goal : Goal) : FormulaTask =
+  protected[goal] def updateFormula(f : Conjunction, goal : Goal) : FormulaTask =
     new ExQuantifierTask(f, age)
 
   /**

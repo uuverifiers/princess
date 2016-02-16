@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -22,6 +22,8 @@
 package ap
 
 import ap.parameters.GlobalSettings
+import ap.proof.certificates.Certificate
+import ap.parser.PartName
 import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
 
 import scala.actors.Actor._
@@ -52,7 +54,7 @@ object ParallelFileProver {
   private abstract sealed class SubProverResult(_num : Int)
                extends SubProverMessage(_num)
   
-  private case class SubProverFinished(_num : Int, result : Prover.Result)
+  private case class SubProverFinished(_num : Int, prover : Option[Prover])
                extends SubProverResult(_num)
   private case class SubProverKilled(_num : Int, result : Prover.Result)
                extends SubProverResult(_num)
@@ -235,7 +237,7 @@ object ParallelFileProver {
             try {
               if (userDefStoppingCond) {
 //                Console.err.println("no time to start")
-                mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
+                mainActor ! SubProverFinished(num, None)
               } else {
                 startTime = System.currentTimeMillis
 
@@ -267,7 +269,7 @@ object ParallelFileProver {
                          _ : Prover.MaybeCounterModel => "gave up"
                     case _ => "terminated"
                   })
-                  mainActor ! SubProverFinished(num, prover.result)
+                  mainActor ! SubProverFinished(num, Some(prover))
                 }
               }
             } catch {
@@ -319,7 +321,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   //////////////////////////////////////////////////////////////////////////////
   
-  val (result, successfulProver) = {
+  val (result, successfulProverNum, successfulProver) = {
     
     val subProversToSpawn =
       for ((s, num) <- settings.iterator.zipWithIndex)
@@ -330,7 +332,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     val spawnedProvers = new ArrayBuffer[SubProverManager]
     
     var completeResult : Prover.Result = null
-    var successfulProver : Int = -1
+    var successfulProverNum : Int = -1
+    var successfulProver : Option[Prover] = None
     var exceptionResult : Throwable = null
 //    var incompleteResult : Prover.Result = null
     
@@ -412,10 +415,13 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       }
     }
     
-    def addCompleteResult(res : Prover.Result, proverNum : Int) =
+    def addCompleteResult(res : Prover.Result,
+                          prover : Option[Prover],
+                          proverNum : Int) =
       if (completeResult == null) {
         completeResult = res
-        successfulProver = proverNum
+        successfulProverNum = proverNum
+        successfulProver = prover
         stopAllProvers
       }
     
@@ -441,15 +447,20 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     
     // the main loop of the controller    
     while (runningProverNum > 0) receive {
-      case r @ SubProverFinished(num, res) => {
+      case r @ SubProverFinished(num, prover) => {
         spawnedProvers(num).recordRuntime
         retireProver(num, r)
+
+        val res = prover match {
+          case Some(p) => p.result
+          case None => Prover.TimeoutCounterModel
+        }
         if (inconclusiveResult(num, res)) {
 //          if (incompleteResult == null)
 //            incompleteResult = res
           activateNextProver
         } else {
-          addCompleteResult(res, num)
+          addCompleteResult(res, prover, num)
         }
       }
       
@@ -504,11 +515,15 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         // no conclusive result could be derived, return something inconclusive
 //        incompleteResult
         if (overallTimeout)
-          (Prover.TimeoutCounterModel, -1)
+          (Prover.TimeoutCounterModel, -1, None)
         else
-          (Prover.NoProof(null), -1)
+          (Prover.NoProof(null), -1, None)
       case (null, t) => throw t
-      case (res, _) => (res, successfulProver)
+      case (res, _) => (res, successfulProverNum, successfulProver)
     }
   }
+
+  override def getAssumedFormulaParts(certificate : Certificate)
+                                     : Set[PartName] =
+    successfulProver.get getAssumedFormulaParts certificate
 }

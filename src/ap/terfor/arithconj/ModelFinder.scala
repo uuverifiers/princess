@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -21,50 +21,84 @@
 
 package ap.terfor.arithconj;
 
+import ap.PresburgerTools
 import ap.terfor._
 import ap.terfor.equations.EquationConj
+import ap.terfor.preds.{Predicate, Atom, PredConj}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.basetypes.IdealInt
 import ap.terfor.substitutions.{Substitution, ConstantSubst, ComposeSubsts}
 import ap.terfor.linearcombination.LinearCombination
-import ap.util.{Debug, LazyMappedMap}
+import ap.util.{Debug, LazyMappedMap, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
 object ModelElement {
   
   protected[arithconj] val AC = Debug.AC_MODEL_FINDER
-  
+
   /**
    * Construct a model from a set of model elements, starting with the first
    * element.
    */
   def constructModel(modelElements : Seq[ModelElement],
                      order : TermOrder,
-                     initialModel : Map[ConstantTerm, IdealInt] = Map())
-                    : EquationConj = {
-    val model = new MHashMap[ConstantTerm, IdealInt]
-    model ++= initialModel
-    for (m <- modelElements) m.extendModel(model, order)
-    EquationConj(for ((c, value) <- model.iterator)
-                   yield LinearCombination(IdealInt.ONE, c, -value, order),
-                 order)
+                     initialConstModel : Map[ConstantTerm, IdealInt] = Map(),
+                     initialPredModel : Map[Atom, Boolean] = Map())
+                    : Conjunction = {
+    val constModel = new MHashMap[ConstantTerm, IdealInt]
+    constModel ++= initialConstModel
+    val predModel = new MHashMap[Atom, Boolean]
+    predModel ++= initialPredModel
+    for (m <- modelElements) m.extendModel(constModel, predModel, order)
+    val eqs =
+      EquationConj(for ((c, value) <- constModel.iterator)
+                     yield LinearCombination(IdealInt.ONE, c, -value, order),
+                   order)
+    Conjunction.conj(Array(eqs, toPredConj(predModel, order)), order)
   }
+
+  /**
+   * Check whether any of the given formulas contains symbols that are
+   * assigned by the model elements.
+   */
+  def containAffectedSymbols(formulas : Iterable[Formula],
+                             modelElements : Seq[ModelElement]) : Boolean =
+    !modelElements.isEmpty && {
+      val allConsts =
+        (for (c <- formulas.iterator; d <- c.constants.iterator) yield d).toSet
+      val allPreds =
+        (for (c <- formulas.iterator; p <- c.predicates.iterator) yield p).toSet
+      modelElements exists { me => !Seqs.disjoint(me.cs, allConsts) ||
+                                   !Seqs.disjoint(me.preds, allPreds) }
+    }
   
+  protected[arithconj]
+    def toPredConj(predModel : MHashMap[Atom, Boolean],
+                   order : TermOrder) : PredConj =
+      PredConj(for ((a, true) <- predModel.iterator) yield a,
+               for ((a, false) <- predModel.iterator) yield a,
+               order)
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Class for creating models (assignments of
- * integer literals to constants) of <code>Formula</code>, for certain
+ * integer literals to constants, and boolean variables to truth values)
+ * of <code>Formula</code>, for certain
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
-abstract sealed class ModelElement(val cs : scala.collection.Set[ConstantTerm]) {
+abstract sealed class ModelElement(
+                        val cs : scala.collection.Set[ConstantTerm],
+                        val preds : scala.collection.Set[Predicate]) {
   /**
    * Extend the given model, in such a way that the conditions of this model
    * element are satisfied.
    */
-  def extendModel(model : MHashMap[ConstantTerm, IdealInt],
+  def extendModel(constModel : MHashMap[ConstantTerm, IdealInt],
+                  predModel : MHashMap[Atom, Boolean],
                   order : TermOrder) : Unit
 }
 
@@ -77,9 +111,10 @@ abstract sealed class ModelElement(val cs : scala.collection.Set[ConstantTerm]) 
  */
 case class EqModelElement(eqs : EquationConj,
                           _cs : scala.collection.Set[ConstantTerm])
-           extends ModelElement(_cs) {
+           extends ModelElement(_cs, Set()) {
   
   def extendModel(model : MHashMap[ConstantTerm, IdealInt],
+                  predModel : MHashMap[Atom, Boolean],
                   order : TermOrder) : Unit =
     for (lc <- eqs) {
       var constant = IdealInt.ZERO
@@ -132,13 +167,14 @@ case class EqModelElement(eqs : EquationConj,
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
 case class InNegEqModelElement(ac : ArithConj, c : ConstantTerm)
-           extends ModelElement(Set(c)) {
+           extends ModelElement(Set(c), Set()) {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // The handled case: a conjunction of negated equations and inequalities
   Debug.assertCtor(ModelElement.AC, ac.positiveEqs.isEmpty && cs.size == 1)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def extendModel(model : MHashMap[ConstantTerm, IdealInt],
+                  predModel : MHashMap[Atom, Boolean],
                   order : TermOrder) : Unit = {
     val replacement =
       new LazyMappedMap[ConstantTerm, IdealInt, ConstantTerm, Term](
@@ -181,4 +217,72 @@ case class InNegEqModelElement(ac : ArithConj, c : ConstantTerm)
     Debug.assertPost(ModelElement.AC, ConstantSubst(replacement, order)(ac).isTrue)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class for creating models that assign truth values to Boolean variables.
+ */
+case class EquivModelElement(booleanAssignments : Seq[(Atom, Conjunction)])
+     extends ModelElement(Set(), (booleanAssignments map (_._1.pred)).toSet) {
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(ModelElement.AC,
+    (booleanAssignments forall {
+      case (a, c) => a.isEmpty && c.variables.isEmpty &&
+                     !(c.predicates contains a.pred)
+     }) &&
+    ((0 until booleanAssignments.size) forall {
+       i => (0 until i) forall {
+         j => booleanAssignments(i)._1 != booleanAssignments(j)._1 &&
+              !(booleanAssignments(j)._2.predicates contains
+                  booleanAssignments(i)._1.pred)
+       }
+     }))
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  def extendModel(constModel : MHashMap[ConstantTerm, IdealInt],
+                  predModel : MHashMap[Atom, Boolean],
+                  order : TermOrder) : Unit = {
+    // assign some arbitrary value to all constants that do not occur in the
+    // model yet
+    for (a <- booleanAssignments)
+      for (c <- a._2.constants)
+        constModel.getOrElseUpdate(c, IdealInt.ZERO)
+
+    val eqs =
+      EquationConj(for ((c, value) <- constModel.iterator)
+                     yield LinearCombination(IdealInt.ONE, c, -value, order),
+                   order)
+
+    for ((a, c) <- booleanAssignments) {
+      // assign some arbitrary value to predicates that do not occur in the
+      // model yet
+      for (p <- c.predicates)
+        predModel.getOrElseUpdate(Atom(p, List(), order), false)
+
+      val preds = ModelElement.toPredConj(predModel, order)
+      val assumptions = Conjunction.conj(Array(eqs, preds), order)
+      val simpC = ReduceWithConjunction(assumptions, order)(c)
+      predModel.put(a, PresburgerTools isValid simpC)
+    }
+  }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class for storing information about eliminated predicates, without
+ * giving a precise description how their value can be reconstructed.
+ * This is currently used for "abbreviations", which are eliminated from
+ * proof branches when it becomes clear that they will never be expanded.
+ */
+case class ElimPredModelElement(_preds : Set[Predicate])
+     extends ModelElement(Set(), _preds) {
+
+  def extendModel(constModel : MHashMap[ConstantTerm, IdealInt],
+                  predModel : MHashMap[Atom, Boolean],
+                  order : TermOrder) : Unit = {}
+
 }

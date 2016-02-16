@@ -8,7 +8,7 @@
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -488,8 +488,8 @@ case class Polynomial(val terms : Polynomial.TermList)
   import Polynomial._
 
   def isZero = terms.isEmpty
-  lazy val isLinear = !terms.exists(t => !t.isLinear)
-  lazy val isConstant = !terms.exists(t => !t.isConstant)
+  lazy val isLinear = terms.forall(t => t.isLinear)
+  lazy val isConstant = terms.forall(t => t.isConstant)
 
   def containsTerm(term : Term) : Boolean = terms contains term
 

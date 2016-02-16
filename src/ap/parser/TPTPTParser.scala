@@ -3,12 +3,12 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2016 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -121,6 +121,10 @@ object TPTPTParser {
       case ITrigger(patterns, f1) => {
         val (n1, fors1) = splitHelp(f1)
         (n1, for (g <- fors1) yield ITrigger(patterns, g))
+      }
+      case INamedPart(name, f1) => {
+        val (n1, fors1) = splitHelp(f1)
+        (n1, for (g <- fors1) yield INamedPart(name, g))
       }
       case f =>
         (1, Iterator single f)
@@ -955,9 +959,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     case name ~ "," ~ role ~ "," ~ f => 
 	role match {
 	  case "conjecture" =>
-            (true, f)
-          case _ =>
-            (false, !f) // Assume f sits on the premise side
+            (true, INamedPart(env lookupPartName name, f))
+          case _ => // Assume f sits on the premise side
+            (false, INamedPart(env lookupPartName name, !f))
 	}
   } 
 
@@ -980,7 +984,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
           res = all(res)
           env.popVar
         }
-        (false, !res)
+        (false, INamedPart(env lookupPartName name, !res))
       }
     }
   } 
@@ -993,7 +997,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   // Slightly rewritten version of the BNF rule in the TPTP report, to discrimate
   // between type and non-type very early, thus helping the parser.
   private lazy val tff_annotated_type_formula =
-    (("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~
+    (("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~>
      (atomic_word | wholeNumber) ~ "," ~ "type" ~ "," ~> tff_typed_atom ~
        opt("," ~> formula_source ~ opt("," ~> formula_useful_info)) <~ ")" ~ ".") ^^ {
        case declarator ~ None           => declarator()
@@ -1035,15 +1039,15 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       f
       
   private lazy val tff_annotated_logic_formula =
-    ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~
+    ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~>
     (atomic_word | wholeNumber) ~ "," ~ 
     formula_role_other_than_type ~ "," ~ tff_logic_formula <~ ")" ~ "." ^^ {
       case name ~ "," ~ role ~ "," ~ f => 
 	  role match {
             case "conjecture" =>
-              (true, f)
-            case _ =>
-              (false, !f) // Assume f sits on the premise side
+              (true, INamedPart(env lookupPartName name, f))
+            case _ => // Assume f sits on the premise side
+              (false, INamedPart(env lookupPartName name, !f))
 	  }
     } 
 

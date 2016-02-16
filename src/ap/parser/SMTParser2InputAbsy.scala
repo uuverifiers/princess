@@ -7,7 +7,7 @@
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -488,13 +488,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var justStoreAssertions = false
 
   def extractAssertions(input : java.io.Reader) : Seq[IFormula] = {
-    justStoreAssertions = true
-    processIncrementally(input, Int.MaxValue, Int.MaxValue, false)
-    justStoreAssertions = false
+    try {
+      justStoreAssertions = true
+      processIncrementally(input, Int.MaxValue, Int.MaxValue, false)
+    } finally {
+      justStoreAssertions = false
+    }
     val res = assumptions.toList
     assumptions.clear
     res
   }
+
+  def functionTypeMap : Map[IFunction, SMTFunctionType] =
+    (for (Environment.Function(f, t) <- env.symbols) yield (f -> t)).toMap
+
+  def constantTypeMap : Map[ConstantTerm, SMTType] =
+    (for (Environment.Constant(c, _, t) <- env.symbols) yield (c -> t)).toMap
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -538,6 +547,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     thing +
     " is only supported in incremental mode (option +incremental)" +
     (if (warnOnly) ", ignoring it" else "")
+
+  /**
+   * Check whether the given expression should never be inline,
+   * e.g., because it is too big. This method is meant to be
+   * redefinable in subclasses
+   */
+  protected def neverInline(expr : IExpression) : Boolean =
+    SizeVisitor(expr) > 100
 
   private def checkIncremental(thing : String) =
     if (!incremental)
@@ -993,15 +1010,30 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         // use a real function
         val f = new IFunction(name, argNum, true, true)
         env.addFunction(f, SMTFunctionType(args.toList, resType))
-        if (incremental)
-          prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
-  
-        if (inlineDefinedFuns) {
+    
+        if (inlineDefinedFuns && !neverInline(body._1)) {
           functionDefs = functionDefs + (f -> body) 
+        } else if (incremental && args.isEmpty) {
+          // use the SimpleAPI abbreviation feature
+          resType match {
+            case SMTBool =>
+              functionDefs =
+                functionDefs + (f -> (prover abbrev asFormula(body), SMTBool))
+            case t =>
+              functionDefs =
+                functionDefs + (f -> (prover abbrev asTerm(body), t))
+          }
         } else {
           // set up a defining equation and formula
+          if (incremental)
+            prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
+
           val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
-          val matrix = ITrigger(List(lhs), lhs === asTerm(body))
+          val matrix =
+            if (argNum == 0)
+              lhs === asTerm(body)
+            else
+              ITrigger(List(lhs), lhs === asTerm(body))
           addAxiom(quan(Array.fill(argNum){Quantifier.ALL}, matrix))
         }
 
@@ -1650,14 +1682,24 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       for ((name, t, s) <- bindings)
         // directly substitute small expressions, unless the user
         // has chosen otherwise
-        if (inlineLetExpressions && SizeVisitor(s) <= 1000) {
+        if (inlineLetExpressions && !neverInline(s)) {
           env.pushVar(name, SubstExpression(s, t))
+        } else if (incremental) {
+          // use the SimpleAPI abbreviation feature
+          t match {
+            case SMTBool =>
+              env.pushVar(name,
+                          SubstExpression(prover.abbrev(asFormula((s, t))),
+                                          SMTBool))
+            case _ =>
+              env.pushVar(name,
+                          SubstExpression(prover.abbrev(asTerm((s, t))), t))
+          }
         } else addAxiom(t match {
           case SMTBool => {
             val f = new IFunction(letVarName(name), 1, true, false)
             env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTInteger))
-            if (incremental)
-              prover.addFunction(f)
+
             env.pushVar(name, SubstExpression(all(eqZero(v(0)) ==> eqZero(f(v(0)))),
                                               SMTBool))
             all(ITrigger(List(f(v(0))),
@@ -1673,39 +1715,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           }
         })
       
-      /*
-      val definingEqs = connect(
-        for ((v, t, s) <- bindings.iterator) yield
-             if (SizeVisitor(s) <= 20) {
-               env.pushVar(v, SubstExpression(s, t))
-               i(true)
-             } else t match {
-               case SMTBool => {
-                 val p = new Predicate(letVarName(v), 0)
-                 env.addPredicate(p, ())
-                 env.pushVar(v, SubstExpression(p(), SMTBool))
-                 asFormula((s, t)) <=> p()
-               }
-               case SMTInteger => {
-                 val c = new ConstantTerm(letVarName(v))
-                 env.addConstant(c, Environment.NullaryFunction, ())
-                 env.pushVar(v, SubstExpression(c, SMTInteger))
-                 asTerm((s, t)) === c
-               }
-             }, IBinJunctor.And)
-      */
-      
       val wholeBody = translateTerm(t.term_, polarity)
-      
-/*      val definingEqs =
-        connect(for ((v, t, s) <- bindings.reverseIterator) yield {
-          (env lookupSym v) match {
-            case Environment.Variable(_, IntConstant(c)) =>
-              asTerm((s, t)) === c
-            case Environment.Variable(_, BooleanConstant(p)) =>
-              asFormula((s, t)) <=> p()
-          }}, IBinJunctor.And) */
-      
+
       for (_ <- bindings) env.popVar
 
       wholeBody

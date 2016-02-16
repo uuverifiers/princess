@@ -7,7 +7,7 @@
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -68,18 +68,22 @@ case object EliminateFactsTask extends EagerTask {
       // after elimination, or that new inequalities occur. In this case, we
       // have to ensure that facts are normalised again, etc. This is done 
       // simply by generating a task to add the new equations or inequalities
-      
-      // TODO: this check can probably be optimised
+
       val factTasks =
         if (newFacts.isFalse ||
-            newFacts.arithConj.inEqs.equalityInfs.isTrue &&
-            (newFacts.arithConj.inEqs.toSet subsetOf
-                oldFacts.arithConj.inEqs.toSet)) {
+            (newFacts.arithConj.inEqs eq oldFacts.arithConj.inEqs)) {
           List()
         } else {
+          val newInEqs =
+            newFacts.arithConj.inEqs --
+            oldFacts.arithConj.inEqs
+          val newEqs =
+            newFacts.arithConj.inEqs.equalityInfs --
+            oldFacts.arithConj.inEqs.equalityInfs
           goal formulaTasks
-            Conjunction.conj(newFacts.arithConj.inEqs, goal.order).negate
+            Conjunction.conj(List(newInEqs, newEqs), goal.order).negate
         }
+
       val divTasks =
         for (f <- eliminator.divJudgements; t <- goal formulaTasks f) yield t
       eliminator.postProcessor(ptf.updateGoal(newFacts, factTasks ++ divTasks,
@@ -134,9 +138,10 @@ private class Eliminator(oriFacts : Conjunction,
     case _ => false
   }
 
-  protected def eliminationCandidates(facts : Conjunction) : Iterator[Term] =
-    FilterIt((goal.order sort facts.constants).iterator,
-             (c:ConstantTerm) => !(taskInfoConstants contains c) &&
-                                 !(compoundFormulaConstants contains c))
+  private val fullElimCandidates =
+    goal.order sort (
+      oriFacts.constants -- taskInfoConstants -- compoundFormulaConstants)
 
+  protected def eliminationCandidates(facts : Conjunction) : Iterator[Term] =
+    FilterIt(fullElimCandidates.iterator, facts.constants)
 }

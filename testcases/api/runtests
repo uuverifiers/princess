@@ -5,39 +5,40 @@ unset CLASSPATH
 rm -f *.class
 
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin"
+RUNOPTIONS="-cp `pwd`/../../bin:."
 
 scalac $OPTIONS SimpleAPITest.scala
-scala -cp ../../bin:. SimpleAPITest
+scala $RUNOPTIONS SimpleAPITest
 
 scalac $OPTIONS SimpleAPITest2.scala
-scala -cp ../../bin:. SimpleAPITest2
+scala $RUNOPTIONS SimpleAPITest2
 
 scalac $OPTIONS SimpleAPITest3.scala
-scala -cp ../../bin:. SimpleAPITest3
+scala $RUNOPTIONS SimpleAPITest3
 
 scalac $OPTIONS SimpleAPITest4.scala
-scala -cp ../../bin:. SimpleAPITest4
+scala $RUNOPTIONS SimpleAPITest4
 
 scalac $OPTIONS SimpleAPITest5.scala
-scala -cp ../../bin:. SimpleAPITest5
+scala $RUNOPTIONS SimpleAPITest5
 
 scalac $OPTIONS SimpleAPITest6.scala
-scala -cp ../../bin:. SimpleAPITest6
+scala $RUNOPTIONS SimpleAPITest6
 
 scalac $OPTIONS SimpleAPITest7.scala
-scala -cp ../../bin:. SimpleAPITest7
+scala $RUNOPTIONS SimpleAPITest7
 
 scalac $OPTIONS SimpleAPITest8.scala
-scala -cp ../../bin:. SimpleAPITest8
+scala $RUNOPTIONS SimpleAPITest8
 
 scalac $OPTIONS SimpleAPITest9.scala
-scala -cp ../../bin:. SimpleAPITest9
+scala $RUNOPTIONS SimpleAPITest9
 
 scalac $OPTIONS SimpleAPITest10.scala
-scala -cp ../../bin:. SimpleAPITest10
+scala $RUNOPTIONS SimpleAPITest10
 
 scalac $OPTIONS SimpleAPITest11.scala
-scala -cp ../../bin:. SimpleAPITest11
+scala $RUNOPTIONS SimpleAPITest11
 
 scala $OPTIONS interpolation-bug.scala
 scala $OPTIONS scope-bug.scala
@@ -53,3 +54,6 @@ scala $OPTIONS division.scala
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
 scala $OPTIONS readSMTLIB.scala
+scala $OPTIONS deadlock.scala
+scala $OPTIONS exception.scala
+scala $OPTIONS incremental.scala

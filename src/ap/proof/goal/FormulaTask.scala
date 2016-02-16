@@ -7,7 +7,7 @@
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -30,8 +30,8 @@ object FormulaTask {
 
   private val AC = Debug.AC_COMPLEX_FORMULAS_TASK
   
-  private def isFunctionalityAxiom(formula : Conjunction,
-                                   settings : GoalSettings) : Boolean =
+  protected[goal] def isFunctionalityAxiom(formula : Conjunction,
+                                           settings : GoalSettings) : Boolean =
     formula.negatedConjs.isEmpty &&
     formula.predConj.negativeLits.isEmpty &&
     (formula.predConj.positiveLits match {
@@ -73,7 +73,7 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
    * Create a new <code>FormulaTask</code> by updating the value of
    * <code>formula</code>
    */
-  protected def updateFormula(f : Conjunction, goal : Goal) : FormulaTask
+  protected[goal] def updateFormula(f : Conjunction, goal : Goal) : FormulaTask
 
   /**
    * Update the task with possibly new information from the goal
@@ -126,7 +126,7 @@ abstract class FormulaTask(val formula : Conjunction, val age : Int)
       List(new WrappedFormulaTask (this, simplifiedTasks))
     }
   }
-  
+
   val name : String
    
   override def toString : String = name + "(" + priority + ", " + formula + ")"

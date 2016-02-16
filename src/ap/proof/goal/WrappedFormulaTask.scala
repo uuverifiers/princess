@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -71,10 +71,45 @@ case class WrappedFormulaTask(realTask : FormulaTask, simplifiedTasks : Seq[Form
   override def updateTask(goal : Goal, factCollector : Conjunction => Unit)
                                                    : Seq[FormulaTask] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertCtor(WrappedFormulaTask.AC, Param.PROOF_CONSTRUCTION(goal.settings))
+    Debug.assertCtor(WrappedFormulaTask.AC,
+                     Param.PROOF_CONSTRUCTION(goal.settings))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    realTask.updateTask(goal, factCollector)
+
+    // Reduce the simplified tasks, instead of reducing the original
+    // formula again
+
+    var changed = false
+    val newSimplifiedTasks =
+      for (t <- simplifiedTasks;
+           newT <- {
+             val reducedFormula =
+               goal.reduceWithFacts.tentativeReduce(t.formula)
+             if (reducedFormula eq t.formula) {
+               List(t)
+             } else {
+               changed = true
+               if (t isCoveredFormula reducedFormula)
+                 List(t.updateFormula(reducedFormula, goal))
+               else
+                 goal formulaTasks reducedFormula
+             }
+           })
+      yield newT
+
+    if (changed) {
+      if (newSimplifiedTasks.isEmpty) {
+        if (FormulaTask.isFunctionalityAxiom(formula, goal.settings))
+          // we have to be careful to not remove functionality axioms,
+          // since those might be reduced to false during reduction
+          return List(this)
+        else
+          List()
+      } else {
+        List(new WrappedFormulaTask (realTask, newSimplifiedTasks))
+      }
+    } else {
+      List(this)
+    }
   }
 
   /**
@@ -84,7 +119,7 @@ case class WrappedFormulaTask(realTask : FormulaTask, simplifiedTasks : Seq[Form
   protected[goal] def isCoveredFormula(f : Conjunction) : Boolean =
     realTask isCoveredFormula f
 
-  protected def updateFormula(f : Conjunction, goal : Goal) : FormulaTask =
+  protected[goal] def updateFormula(f : Conjunction, goal : Goal) : FormulaTask =
     throw new UnsupportedOperationException
 
   val name : String = realTask.name

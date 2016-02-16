@@ -7,7 +7,7 @@
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -90,10 +90,7 @@ object Goal {
     else
       BranchInferenceCollection.EMPTY
 
-    val emptyTaskManager = Param.THEORY_PLUGIN(settings) match {
-      case Some(plugin) => TaskManager EMPTY plugin
-      case None         => TaskManager.EMPTY
-    }
+    val emptyTaskManager = TaskManager EMPTY settings
 
     apply(Conjunction.TRUE,
           CompoundFormulas.EMPTY(Param.PREDICATE_MATCH_CONFIG(settings)),
@@ -425,6 +422,19 @@ class Goal private (val facts : Conjunction,
            settings)
     }
   
+  /**
+   * Eliminate all prioritised tasks for which the given predicate is false.
+   */
+  def filterTasks(p : PrioritisedTask => Boolean) : Goal = {
+    val newTasks = tasks filter p
+    if (newTasks eq tasks)
+      this
+    else
+      Goal(facts, compoundFormulas, newTasks, age,
+           eliminatedConstants, vocabulary, definedSyms, branchInferences,
+           settings)
+  }
+
   def getInferenceCollector : BranchInferenceCollector =
     if (Param.PROOF_CONSTRUCTION(settings))
       branchInferences.getCollector

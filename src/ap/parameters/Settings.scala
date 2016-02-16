@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -47,6 +47,8 @@ object GlobalSettings {
           Param.VERSION.set(settings, value)
         case Opt("logo", value) =>
           Param.LOGO.set(settings, value)
+        case Opt("fullHelp", value) =>
+          Param.FULL_HELP.set(settings, value)
         case Opt("quiet", value) =>
           Param.QUIET.set(settings, value)
         case ValueOpt("inputFormat", "auto") =>
@@ -112,6 +114,8 @@ object GlobalSettings {
                                               Param.ProofConstructionOptions.IfInterpolating)
         case Opt("simplifyProofs", value) =>
           Param.PROOF_SIMPLIFICATION.set(settings, value)
+        case Opt("unsatCore", value) =>
+          Param.COMPUTE_UNSAT_CORE.set(settings, value)
         case Opt("elimInterpolantQuants", value) =>
           Param.ELIMINATE_INTERPOLANT_QUANTIFIERS.set(settings, value)
         case Opt("ignoreQuantifiers", value) =>
@@ -184,7 +188,8 @@ object GlobalSettings {
   }
   
   val allParams =
-    List(Param.VERSION, Param.LOGO, Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
+    List(Param.VERSION, Param.LOGO, Param.FULL_HELP,
+         Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
          Param.INCREMENTAL, Param.ASSERTIONS, Param.PRINT_TREE,
          Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE,
@@ -192,7 +197,8 @@ object GlobalSettings {
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.TIMEOUT_PER,
          Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
-         Param.PROOF_CONSTRUCTION_GLOBAL, Param.PROOF_SIMPLIFICATION,
+         Param.PROOF_CONSTRUCTION_GLOBAL, Param.COMPUTE_UNSAT_CORE,
+         Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
          Param.GENERATE_TOTALITY_AXIOMS,
@@ -221,7 +227,7 @@ object GoalSettings {
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.FINITE_DOMAIN_CONSTRAINTS, Param.DOMAIN_PREDICATES,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
-                       Param.NONLINEAR_SPLITTING)
+                       Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())

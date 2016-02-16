@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -34,6 +34,7 @@ object SymbolWeights {
   val DEFAULT : SymbolWeights = new SymbolWeights {
     def apply(c : ConstantTerm) : Int = 0
     def apply(p : Predicate) : Int = 0
+    def abbrevWeight(p : Predicate) : Option[Int] = None
   }
   
   def symbolFrequencies(t : TerFor) : SymbolWeights = {
@@ -43,6 +44,7 @@ object SymbolWeights {
     new SymbolWeights {
       def apply(c : ConstantTerm) : Int = consts(c)
       def apply(p : Predicate) : Int = preds(p)
+      def abbrevWeight(p : Predicate) : Option[Int] = None
       override def toString : String = consts.toString + "\n" + preds.toString
     }
   }
@@ -57,6 +59,7 @@ object SymbolWeights {
     new SymbolWeights {
       def apply(c : ConstantTerm) : Int = nConsts.getOrElse(c, maxW/2)
       def apply(p : Predicate) : Int = nPreds.getOrElse(p, maxW/2)
+      def abbrevWeight(p : Predicate) : Option[Int] = None
       override def toString : String = nConsts.toString + "\n" + nPreds.toString
     }
   }
@@ -111,9 +114,23 @@ trait SymbolWeights {
 
   def apply(c : ConstantTerm) : Int
   def apply(p : Predicate) : Int
+  def abbrevWeight(p : Predicate) : Option[Int]
 
   def maxWeight(t : TerFor) : Int =
     Seqs.max(for (c <- t.constants.iterator) yield apply(c)) max
         Seqs.max(for (p <- t.predicates.iterator) yield apply(p))
+
+  def minAbbrevWeight(f : TerFor) : Option[Int] = {
+    val weights =
+      for (p <- f.predicates.iterator;
+           w = abbrevWeight(p);
+           if (w.isDefined))
+      yield w.get
+
+    if (weights.hasNext)
+      Some(weights.min)
+    else
+      None
+  }
   
 }

@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -35,7 +35,7 @@ import ap.theories.{Theory, TheoryRegistry}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
-import ap.proof.certificates.Certificate
+import ap.proof.certificates.{Certificate, CertFormula}
 import ap.proof.theoryPlugins.PluginSequence
 import ap.util.{Debug, Timeout, Seqs}
 
@@ -74,7 +74,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   val (inputFormulas, originalInputFormula,
        interpolantSpecs, signature, gcedFunctions, functionEncoder,
-       settings) = {
+       constructProofs, settings) = {
     val parser = newParser
     val (preF, interpolantSpecs, preSignature) = parser(reader)
     reader.close
@@ -87,15 +87,20 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         preSettings
     }
 
+    val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
+      case Param.ProofConstructionOptions.Never =>
+        false
+      case Param.ProofConstructionOptions.Always =>
+        true
+      case Param.ProofConstructionOptions.IfInterpolating =>
+        !interpolantSpecs.isEmpty || Param.COMPUTE_UNSAT_CORE(settings)
+    }
+
     // HACK: currently the Groebner theories does not support interpolation,
     // if necessary switch to bit-shift multiplication
     val (f, preSignature2) =
       if ((preSignature.theories contains ap.theories.nia.GroebnerMultiplication) &&
-          (Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
-            case Param.ProofConstructionOptions.Never => false
-            case Param.ProofConstructionOptions.Always => true
-            case Param.ProofConstructionOptions.IfInterpolating => !interpolantSpecs.isEmpty
-           })) {
+          constructProofs) {
         Console.withOut(Console.err) {
           println("Warning: switching to " + ap.theories.BitShiftMultiplication +
                   " for proof construction")
@@ -105,7 +110,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       } else {
         (preF, preSignature)
       }
-
     val signature = Param.FINITE_DOMAIN_CONSTRAINTS(settings) match {
       case Param.FiniteDomainConstraints.DomainSize =>
         Signature(preSignature2.universalConstants + domain_size,
@@ -153,7 +157,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       if (Param.PRINT_SMT_FILE(settings) != "" ||
           Param.PRINT_TPTP_FILE(settings) != "")  f else null
 
-    (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc, settings)
+    (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc,
+     constructProofs, settings)
   }
 
   protected val theories = signature.theories
@@ -164,12 +169,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   private val plugin =
     PluginSequence(for (t <- theories; p <- t.plugin.toSeq) yield p)
-
-  private val constructProofs = Param.PROOF_CONSTRUCTION_GLOBAL(settings) match {
-    case Param.ProofConstructionOptions.Never => false
-    case Param.ProofConstructionOptions.Always => true
-    case Param.ProofConstructionOptions.IfInterpolating => !interpolantSpecs.isEmpty
-  }
 
   val order = signature.order
 
@@ -242,6 +241,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
        checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))),
        ignoredQuantifiers)
     }
+  }
+
+  override def getAssumedFormulaParts(cert : Certificate) : Set[PartName] = {
+    val assumed = cert.assumedFormulas
+    (for ((n, f) <- namedParts.iterator;
+          if (assumed contains CertFormula(f.negate)))
+     yield n).toSet
   }
 
   //////////////////////////////////////////////////////////////////////////////

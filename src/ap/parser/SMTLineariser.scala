@@ -7,7 +7,7 @@
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -69,6 +69,17 @@ object SMTLineariser {
 
   def apply(formula : IFormula) : Unit =
     apply(formula, emptyConstantType, emptyFunctionType)
+
+  def asString(formula : IFormula) : String =
+    ap.DialogUtil.asString { apply(formula) }
+
+  def asString(t : ITerm) : String =
+    ap.DialogUtil.asString { apply(t) }
+
+  def asString(t : IExpression) : String = t match {
+    case t : IFormula => asString(t)
+    case t : ITerm => asString(t)
+  }
 
   def apply(formula : IFormula,
             constantType :
@@ -298,6 +309,20 @@ class SMTLineariser(benchmarkName : String,
     }
   }
 
+  object TypedTerm {
+    def unapply(t : ITerm)
+               (implicit variableType : Int => Option[SMTType])
+              : Option[(ITerm, Option[SMTType])] =
+      Some((t, getTermType(t)))
+  }
+
+  object TypedTermSeq {
+    def unapplySeq(ts : Seq[ITerm])
+                  (implicit variableType : Int => Option[SMTType])
+                 : Option[Seq[(ITerm, Option[SMTType])]] =
+      Some(for (t <- ts) yield (t, getTermType(t)))
+  }
+
   private object VariableTypeInferenceVisitor
                  extends CollectingVisitor[Unit, IExpression] {
 
@@ -342,6 +367,24 @@ class SMTLineariser(benchmarkName : String,
           variableTypes += null
         case TypePredicate(IVariable(ind), s) =>
           setVariableType(ind, s)
+        case IExpression.Eq(IFunApp(SimpleArray.Select(),
+                            TypedTermSeq((IVariable(ind), None), indexes @ _*)),
+                            TypedTerm((_, Some(resT))))
+          if (indexes forall { case (_, s) => s.isDefined }) =>
+            setVariableType(ind,
+              SMTArray(indexes.toList map {
+                         case (_, Some(t)) => t
+                         case _ => null // cannot happen
+                       }, resT))
+        case IExpression.Eq(TypedTerm((_, Some(resT))),
+                            IFunApp(SimpleArray.Select(),
+                            TypedTermSeq((IVariable(ind), None), indexes @ _*)))
+          if (indexes forall { case (_, s) => s.isDefined }) =>
+            setVariableType(ind,
+              SMTArray(indexes.toList map {
+                         case (_, Some(t)) => t
+                         case _ => null // cannot happen
+                       }, resT))
         case IExpression.Eq(s, t) =>
           equalTypes(s, t)
         case ITermITE(_, s, t) =>

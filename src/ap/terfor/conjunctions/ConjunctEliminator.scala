@@ -7,7 +7,7 @@
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -21,7 +21,8 @@
 
 package ap.terfor.conjunctions;
 
-import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
+                                 LinkedHashSet, HashMap => MHashMap}
 import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.{TerFor, Term, Formula, ConstantTerm, TermOrder}
@@ -492,52 +493,68 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   // Determine best possible Fourier-Motzkin application
   
   private def bestExactShadow(inEqs : Seq[LinearCombination]) : Option[Term] = {
-    val candidates =
-      FilterIt(eliminationCandidates(conj),
-               (c:Term) =>
-                 (universalSymbols contains c) &&
-                 (inEqs exists (occursIn(_, c))) &&
-                 !occursInPreds(c) && !occursInPositiveEqs(c) && !occursInNegativeEqs(c))
-    
-    Seqs.minOption(candidates, (c:Term) => countFMInferences(inEqs, c))
-  }
-  
-  /**
-   * Count how many Fourier-Motzkin inferences are necessary to eliminate
-   * the given term (more precisely, the number of additional inequalities
-   * required). If exact elimination is not possible, <code>None</code>
-   * is returned
-   */
-  private def countFMInferences(inEqs : Seq[LinearCombination],
-                                c : Term) : Option[Int] = {
-    // we check that either all lower or all upper bounds have the leading
-    // coefficient one; otherwise, Fourier-Motzkin is not precise
-    var lowerNonUnit : Boolean = false
-    var upperNonUnit : Boolean = false
-    var lowerCount : Int = 0
-    var upperCount : Int = 0
-    
-    val lcIt = inEqs.iterator
-    while (lcIt.hasNext) {
-      val lc = lcIt.next
-      if (!lc.isEmpty) {
-        val coeff = lc get c
-        coeff.signum match {
-          case 0 => // nothing
-          case 1 => {
-            lowerCount = lowerCount + 1
-            if (coeff > IdealInt.ONE) lowerNonUnit = true
-          }
-          case -1 => {
-            upperCount = upperCount + 1
-            if (coeff < IdealInt.MINUS_ONE) upperNonUnit = true
+    val candidates = new LinkedHashSet[Term]
+
+    val candIt = eliminationCandidates(conj)
+    while (candIt.hasNext) {
+      val c = candIt.next
+      if ((universalSymbols contains c) &&
+          !occursInPreds(c) &&
+          !occursInPositiveEqs(c) &&
+          !occursInNegativeEqs(c))
+        candidates += c
+    }
+
+    if (candidates.isEmpty)
+      return None
+
+    val lowerBounds, upperBounds =
+      new MHashMap[Term, Int] { override def default(t:Term) = 0 }
+    val lowerNonUnits, upperNonUnits =
+      new MHashSet[Term]
+
+    for (lc <- inEqs) {
+      var i = 0
+      val N = lc.lcSize
+      while (i < N) {
+        val t = lc getTerm i
+        if (candidates contains t) {
+          val coeff = lc getCoeff i
+          coeff.signum match {
+            case 0 => // nothing
+            case 1 => {
+              lowerBounds.put(t, lowerBounds(t) + 1)
+              if (!coeff.isOne) {
+                if (upperNonUnits contains t)
+                  candidates -= t
+                else
+                  lowerNonUnits += t
+              }
+            }
+            case -1 => {
+              upperBounds.put(t, upperBounds(t) + 1)
+              if (!coeff.isMinusOne) {
+                if (lowerNonUnits contains t)
+                  candidates -= t
+                else
+                  upperNonUnits += t
+              }
+            }
           }
         }
-        if (lowerNonUnit && upperNonUnit) return None
+        i = i + 1
       }
     }
-    
-    Some(lowerCount * upperCount - lowerCount - upperCount)
+
+    Seqs.minOption(candidates.iterator,
+                   (c:Term) => {
+                     val l = lowerBounds(c)
+                     val u = upperBounds(c)
+                     if (l == 0 && u == 0)
+                       None
+                     else
+                       Some(l*u - l - u)
+                   })
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -552,7 +569,11 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   do {
     oldconj = conj
 
-    for (c <- eliminationCandidates(conj)) {
+    val elimCandidates = eliminationCandidates(conj)
+    if (!elimCandidates.hasNext)
+      return conj
+
+    for (c <- elimCandidates) {
       (occursInPositiveEqs(c),
        occursInNegativeEqs(c),
        occursInInEqs(c),
@@ -600,7 +621,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       }
     }
     
-    if (oldconj == conj) {
+    if (oldconj eq conj) {
       // check for possible Fourier-Motzkin eliminations
       
       def exactShadow(inEqs : Seq[LinearCombination]) : Seq[LinearCombination] =
@@ -633,9 +654,12 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
         }
 
       try {
+        val rawInEqs = exactShadow(conj.arithConj.inEqs)
         val newInEqs =
-          conj.arithConj.inEqs.updateGeqZero(exactShadow(conj.arithConj.inEqs),
-                                             logger)(order)
+          if (rawInEqs eq conj.arithConj.inEqs)
+            conj.arithConj.inEqs
+          else
+            InEqConj(rawInEqs.iterator, logger, order)
         conj = conj.updateInEqs(newInEqs)(order)
       } catch {
         case InEqConj.UNSATISFIABLE_INEQ_EXCEPTION =>
@@ -643,7 +667,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       }
     }
     
-  } while (oldconj != conj)
+  } while (!(oldconj eq conj))
 
   conj
   }

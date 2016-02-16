@@ -3,11 +3,11 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
+ * the Free Software Foundation, either version 2.1 of the License, or
  * (at your option) any later version.
  *
  * Princess is distributed in the hope that it will be useful,
@@ -139,12 +139,15 @@ class IntelliFileProver(reader : java.io.Reader,
         }
 
         case Right(cert) => {
+          Console.err.println("Found proof (size " + cert.inferenceCount + ")")
+/*
           val finalCert = Console.withOut(Console.err) {
             val c = processCert(cert)
             println("")
             c
           }
-          NoCounterModelCert(finalCert)
+ */
+          NoCounterModelCert(cert)
         }
       }
     } {
