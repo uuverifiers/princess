@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -1549,11 +1549,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                  : (IExpression, SMTType) = {
     val quant : Quantifier = t.quantifier_ match {
       case _ : AllQuantifier => Quantifier.ALL
-      case _ : ExQuantifier => Quantifier.EX
+      case _ : ExQuantifier  => Quantifier.EX
+      case _ : EpsQuantifier => { // epsilon terms
+        if (t.listsortedvariablec_.size != 1)
+          throw new ParseException("_eps has to bind exactly one variable")
+        null
+      }
     }
 
     val quantNum = pushVariables(t.listsortedvariablec_)
-    
     val body = asFormula(translateTerm(t.term_, polarity))
 
     // we might need guards 0 <= x <= 1 for quantifiers ranging over booleans
@@ -1582,21 +1586,25 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           case ITrigger(pats, subF) =>
             ITrigger(pats, insertGuard(subF))
           case _ => quant match {
+            case null           => guard &&& f
             case Quantifier.ALL => guard ===> f
-            case Quantifier.EX => guard &&& f
+            case Quantifier.EX  => guard &&& f
           }
         }
         
         insertGuard(body)
       }
     }
-      
-    val res = quan(Array.fill(quantNum){quant}, matrix)
 
     // pop the variables from the environment
     for (_ <- PlainRange(quantNum)) env.popVar
     
-    (res, SMTBool)
+    if (quant == null) { // epsilon term
+      val binder = t.listsortedvariablec_.head.asInstanceOf[SortedVariable]
+      (eps(matrix), translateSort(binder.sort_))
+    } else {             // proper quantifier
+      (quan(Array.fill(quantNum){quant}, matrix), SMTBool)
+    }
   }
   
   //////////////////////////////////////////////////////////////////////////////
