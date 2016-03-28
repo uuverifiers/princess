@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,7 @@
 
 package ap.proof.certificates
 
-import ap.terfor.{TermOrder, SortedWithOrder}
+import ap.terfor.{TermOrder, SortedWithOrder, ConstantTerm}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.{Debug, FilterIt, Seqs}
 
@@ -62,9 +62,11 @@ abstract class Certificate {
    */
   lazy val assumedFormulas : Set[CertFormula] =
     localAssumedFormulas ++
-    (for ((cert, providedFormulas) <- iterator zip localProvidedFormulas.iterator;
+    (for ((cert, providedFormulas) <-
+            iterator zip localProvidedFormulas.iterator;
           f <- FilterIt(cert.assumedFormulas.iterator,
-                        (f : CertFormula) => !(providedFormulas contains f))) yield f)
+                        (f : CertFormula) => !(providedFormulas contains f)))
+     yield f)
   
   val localAssumedFormulas : Set[CertFormula]
   
@@ -76,6 +78,22 @@ abstract class Certificate {
   val localProvidedFormulas : Seq[Set[CertFormula]]
 
   val order : TermOrder
+
+  /**
+   * Set of constants occurring in this certificate. By default this will
+   * contain the set of all constants in sub-certificates, as well as
+   * constants in assumed formulas.
+   */
+  lazy val constants : Set[ConstantTerm] =
+    Seqs.union((for (cert <- subCertificates.iterator)
+                yield cert.constants) ++
+               (for (f <- localAssumedFormulas.iterator)
+                yield f.constants)) -- localBoundConstants
+
+  /**
+   * Constants bound by the root operator of the certificate.
+   */
+  val localBoundConstants : Set[ConstantTerm] = Set()
 
   def inferenceCount : Int =
     (1 /: this.subCertificates) { case (num, cert) => num + cert.inferenceCount }
@@ -130,7 +148,8 @@ object PartialCertificate {
  * sub-certificate
  */
 class PartialCertificate private (comb : Seq[Certificate] => Certificate,
-                                  providedFormulas : Seq[Option[Set[CertFormula]]],
+                                  providedFormulas
+                                          : Seq[Option[Set[CertFormula]]],
                                   alt : Certificate => Certificate,
                                   val arity : Int)
       extends (Seq[Certificate] => Certificate) {

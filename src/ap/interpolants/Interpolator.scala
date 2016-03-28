@@ -3,8 +3,8 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
- *                    Angelo Brillout <bangelo@inf.ethz.ch>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -624,6 +624,10 @@ object Interpolator
                if (proofOrder.compare(c, newSymb) > 0)) yield c
 
         val extendedOrder = iContext.order.extend(newSymb, largerConsts)
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(AC, eq isSortedBy extendedOrder)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
 
         val newContext =
           if (eq.constants forall (iContext.leftConstants + newSymb)) {

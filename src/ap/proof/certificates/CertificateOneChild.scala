@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,7 +31,7 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.substitutions.ConstantSubst
-import ap.util.Debug
+import ap.util.{Debug, Seqs}
 
 /**
  * Abstract superclass of all certificate nodes that only have a single subtree
@@ -91,12 +91,17 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
   val closingConstraint =
     (inferences :\ _child.closingConstraint)(_ propagateConstraint _)
   
+  override val localBoundConstants : Set[ConstantTerm] =
+    Seqs.union(for (inf <- inferences.iterator)
+               yield inf.localBoundConstants)
+
 } with CertificateOneChild(_child) {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInferenceCertificate.AC,
                    !inferences.isEmpty &&
-                   (uniqueLocalProvidedFormulas forall (child.order isSortingOf _)))
+                   (uniqueLocalProvidedFormulas forall (
+                                                   child.order isSortingOf _)))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
@@ -105,12 +110,18 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
   override def inferenceCount : Int = super.inferenceCount - 1 + inferences.size
 
   def update(newSubCerts : Seq[Certificate]) : Certificate = {
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(BranchInferenceCertificate.AC, newSubCerts.size == 1)
-    //-END-ASSERTION-/////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     val newChild = newSubCerts.head
     if (newChild eq child) this else copy(_child = newChild)
   }
+
+  override lazy val constants : Set[ConstantTerm] =
+    (inferences :\ child.constants) {
+      case (inf, consts) =>
+        (consts ++ inf.constants) -- inf.localBoundConstants
+    }
 
 }
 
@@ -147,6 +158,18 @@ abstract class BranchInference {
    */
   def propagateConstraint(closingConstraint : Conjunction) : Conjunction
   
+  /**
+   * Set of constants occurring in this inference.
+   */
+  lazy val constants : Set[ConstantTerm] =
+    Seqs.union(for (f <- providedFormulas.iterator ++ assumedFormulas.iterator)
+               yield f.constants)
+
+  /**
+   * Constants bound by the inference.
+   */
+  val localBoundConstants : Set[ConstantTerm] = Set()
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -199,6 +222,8 @@ case class QuantifierInference(quantifiedFormula : CertCompoundFormula,
 
   val assumedFormulas = Set[CertFormula](quantifiedFormula)
   val providedFormulas = Set(result)
+
+  override val localBoundConstants : Set[ConstantTerm] = newConstants.toSet
 
 } with BranchInference {
 
@@ -478,6 +503,8 @@ case class ColumnReduceInference(oldSymbol : ConstantTerm, newSymbol : ConstantT
   val assumedFormulas = Set[CertFormula]()
   val providedFormulas = Set[CertFormula](definingEquation)
 
+  override val localBoundConstants : Set[ConstantTerm] = Set(newSymbol)
+
 } with BranchInference {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
@@ -490,9 +517,10 @@ case class ColumnReduceInference(oldSymbol : ConstantTerm, newSymbol : ConstantT
 
   private lazy val constraintSubst = {
     implicit val o = order
-    ConstantSubst(newSymbol,
-                  newSymbol - definingEquation.lhs scale (definingEquation.lhs get newSymbol),
-                  order)
+    ConstantSubst(
+              newSymbol,
+              newSymbol - definingEquation.lhs scale (definingEquation.lhs get newSymbol),
+              order)
   }
   
   def propagateConstraint(closingConstraint : Conjunction) = {

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,7 +27,8 @@ import ap.basetypes.IdealInt
 import ap.proof.certificates._
 import ap.terfor.TerForConvenience._
 import ap.terfor.conjunctions.Conjunction
-import ap.util.Debug
+import ap.terfor.ConstantTerm
+import ap.util.{Debug, Seqs}
 
 /**
  * Module for simplifying a proof (certificate) by eliminating as many
@@ -53,7 +54,9 @@ object ProofSimplifier {
                      availableFors : Set[CertFormula]) : Certificate = cert match {
     
     case cert@BranchInferenceCertificate(infs, child, o) => {
-      val (newInfs, newChild, _) = encodeInfs(infs.toList, child, availableFors)
+      val (newInfs, newChild, _, _) =
+        encodeInfs(infs.toList, child, availableFors)
+
       if (newInfs == infs)
         cert update List(newChild)
       else
@@ -151,22 +154,26 @@ object ProofSimplifier {
 
   private def encodeInfs(infs : List[BranchInference], child : Certificate,
                          availableFors : Set[CertFormula])
-                        : (List[BranchInference], Certificate,
-                           Set[CertFormula]) = infs match {
+                        : (List[BranchInference], // new inferences
+                           Certificate,           // new child certificate
+                           Set[CertFormula],      // assumed formulas
+                           Set[ConstantTerm]) =   // contained constants
+                                                infs match {
 
     case List() => {
       val newCert = encode(child, availableFors)
-      (List(), newCert, newCert.assumedFormulas)
+      (List(), newCert, newCert.assumedFormulas, newCert.constants)
     }
     
     case inf :: otherInfs => {
         
-      val (newOtherInfs, newChild, newAssumedFors) =
+      val (newOtherInfs, newChild, newAssumedFors, newContainedConstants) =
         encodeInfs(otherInfs, child, availableFors ++ inf.providedFormulas)
     
-      if (uselessFormulas(inf.providedFormulas, availableFors, newAssumedFors)) {
+      if (Seqs.disjoint(inf.localBoundConstants, newContainedConstants) &&
+          uselessFormulas(inf.providedFormulas, availableFors, newAssumedFors)) {
         // then the formulas produced by this inference are not actually needed
-        (newOtherInfs, newChild, newAssumedFors)
+        (newOtherInfs, newChild, newAssumedFors, newContainedConstants)
       } else
         
       inf match {
@@ -198,7 +205,8 @@ object ProofSimplifier {
           val strengthenCert =
             StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), o)
         
-          (List(), strengthenCert, strengthenCert.assumedFormulas)
+          (List(), strengthenCert,
+           strengthenCert.assumedFormulas, strengthenCert.constants)
         }
 
         case AntiSymmetryInference(left, right, _, order) => {
@@ -221,7 +229,8 @@ object ProofSimplifier {
           val strengthenCert =
             StrengthenCertificate(left, 1, List(eqCaseCert, inEqCaseCert), o)
         
-          (List(), strengthenCert, strengthenCert.assumedFormulas)
+          (List(), strengthenCert,
+           strengthenCert.assumedFormulas, strengthenCert.constants)
         }
 
         case GroundInstInference(quantifiedFormula, instanceTerms, instance,
@@ -261,12 +270,14 @@ object ProofSimplifier {
 
           (List(instInf), splitCert,
            (splitCert.assumedFormulas -- instInf.providedFormulas) ++
-                                                    instInf.assumedFormulas)
+                                                    instInf.assumedFormulas,
+           splitCert.constants ++ instInf.constants)
         }
 
         case inf =>
           (inf :: newOtherInfs, newChild,
-           (newAssumedFors -- inf.providedFormulas) ++ inf.assumedFormulas)
+           (newAssumedFors -- inf.providedFormulas) ++ inf.assumedFormulas,
+           (newContainedConstants ++ inf.constants) -- inf.localBoundConstants)
       }
     }
   }
@@ -280,7 +291,8 @@ object ProofSimplifier {
     (0 until cert.length) indexWhere { case i =>
         uselessFormulas(cert.localProvidedFormulas(i),
                         availableFors,
-                        newSubCerts(i).assumedFormulas)
+                        newSubCerts(i).assumedFormulas) &&
+        Seqs.disjoint(cert.localBoundConstants, newSubCerts(i).constants)
        } match {
         case -1 =>
           newCert
