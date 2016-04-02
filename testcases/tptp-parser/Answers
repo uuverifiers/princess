@@ -211,6 +211,23 @@ Constructing countermodel ...
 
 VALID
 
+Loading unsat-core.p ...
+Warning: You are using the normal version of Princess to solve TPTP problems.
+         Note that this version assumes a non-standard semantics
+         of uninterpreted sorts, defining all domains to be infinite.
+         For full support of TPTP please download the dedicated
+         CASC/TPTP of Princess from
+         http://www.philipp.ruemmer.org/princess.shtml#tptp
+Preprocessing ...
+Warning: ignoring some quantifiers
+Constructing countermodel ...
+Found proof (size 110)
+
+VALID
+
+Unsatisfiable core:
+{DIFF-row1-row2, DIFF-row1-row3, DIFF-row2-row3, DIFF-tempty-tcons, EQ-tcons, rawDifference-INV, rawDifference2, rawDifference4, rawDifference5, rowIn-true-INV, rowIn0, rowIn1, test-4}
+
 Loading ARI495=1.p ...
 Warning: You are using the normal version of Princess to solve TPTP problems.
          Note that this version assumes a non-standard semantics

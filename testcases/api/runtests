@@ -57,3 +57,5 @@ scala $OPTIONS readSMTLIB.scala
 scala $OPTIONS deadlock.scala
 scala $OPTIONS exception.scala
 scala $OPTIONS incremental.scala
+scala $OPTIONS divmodprint.scala
+

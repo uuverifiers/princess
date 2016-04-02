@@ -223,6 +223,13 @@ sat
 Model:
 (and (and (and (= c_gcd_~y2 1 ) (= c_gcd_~y1 3 ) ) (= |c_gcd_#in~y2| 0 ) ) (= |c_gcd_#in~y1| 0 ) ) 
 
+Loading epsilon.smt2 ...
+Warning: accepting command declare-const, which is not SMT-LIB 2
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat

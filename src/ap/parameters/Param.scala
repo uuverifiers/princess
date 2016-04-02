@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,6 +33,11 @@ object Param {
   case object LOGO extends Param {
     type Value = Boolean
     val defau : Boolean = true
+  }
+
+  case object FULL_HELP extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
 
   case object QUIET extends Param {
@@ -282,6 +287,11 @@ object Param {
     type Value = ProofConstructionOptions.Value
     val defau : ProofConstructionOptions.Value =
       ProofConstructionOptions.IfInterpolating
+  }
+
+  case object COMPUTE_UNSAT_CORE extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
   
   case object PROOF_SIMPLIFICATION extends Param {

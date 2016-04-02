@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,7 +23,7 @@ package ap
 
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
-import ap.parser.IFormula
+import ap.parser.{IFormula, PartName}
 
 object Prover {
   
@@ -64,5 +64,8 @@ object Prover {
 trait Prover {
 
   val result : Prover.Result
+
+  def getAssumedFormulaParts(certificate : Certificate) : Set[PartName] =
+    throw new UnsupportedOperationException
 
 }

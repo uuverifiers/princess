@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -150,6 +150,11 @@ object SimpleAPI {
    */
   def pp(f : IExpression) : String =
     DialogUtil asString { PrincessLineariser printExpression f }
+  
+  /**
+   * Pretty-print a formula or term in SMT-LIB format.
+   */
+  def smtPP(f : IExpression) : String = SMTLineariser asString f
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -1411,6 +1416,11 @@ class SimpleAPI private (enableAssert : Boolean,
    * Pretty-print a formula or term.
    */
   def pp(f : IExpression) : String = SimpleAPI.pp(f)
+
+  /**
+   * Pretty-print a formula or term in SMT-LIB format.
+   */
+  def smtPP(f : IExpression) : String = SimpleAPI.smtPP(f)
   
   //////////////////////////////////////////////////////////////////////////////
 

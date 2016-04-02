@@ -7,9 +7,10 @@ CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-p
 
 SCALAC:=scalac
 SCALAC_OPTIONS:=-optimise -Yinline-warnings \
-                -deprecation -unchecked \
                 -feature -language:implicitConversions,postfixOps,reflectiveCalls \
                 -d $(BASEDIR)/bin -classpath $(CLASSPATH)
+
+#                -deprecation -unchecked
 
 SCALADOC:=scaladoc
 SCALADOC_OPTIONS:=-doc-title Princess -d $(BASEDIR)/doc -classpath $(CLASSPATH)
