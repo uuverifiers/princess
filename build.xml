@@ -12,7 +12,7 @@
     <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar" />
     <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect.jar"/>
     <property name="scala-actors.jar" value="${scala.home}/lib/scala-actors-2.11.0.jar"/>
-    <property name="scala-parser-combinators.jar" value="${scala.home}/lib/scala-parser-combinators_2.11-1.0.3.jar"/>
+    <property name="scala-parser-combinators.jar" value="${scala.home}/lib/scala-parser-combinators_2.11-1.0.4.jar"/>
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scalac.default.params" value="-deprecation -unchecked" />
 
@@ -45,11 +45,10 @@
                         <pathelement location="${scala-actors.jar}"  />
                         <pathelement location="${scala-parser-combinators.jar}"  />
 			<pathelement location="parser/parser.jar" />
-			<pathelement location="${scala.home}/lib/scala-parser-combinators_2.11-1.0.2.jar" />
+			<pathelement location="${scala.home}/lib/scala-parser-combinators_2.11-1.0.4.jar" />
 			<pathelement location="smt-parser/smt-parser.jar" />
 			<pathelement location="extlibs/java-cup-11a.jar" />
 			<pathelement location="extlibs/ccu.jar" />
-			<pathelement location="extlibs/argonaut.jar" />
 			<pathelement location="extlibs/org.sat4j.core.jar" />
                         <pathelement location="${bin}" />
 		</path>

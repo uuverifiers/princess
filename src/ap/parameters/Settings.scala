@@ -59,6 +59,8 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
         case Opt("stdin", value) =>
           Param.STDIN.set(settings, value)
+        case Opt("connection", value) =>
+          Param.CONNECTION_STRATEGY.set(settings, true)
         case Opt("incremental", value) => {
           val settings2 = Param.INCREMENTAL.set(settings, value)
           if (value)
@@ -211,7 +213,8 @@ object GlobalSettings {
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
          Param.MUL_PROCEDURE, Param.REAL_RAT_SATURATION_ROUNDS,
-         Param.CCU_STRATEGY, Param.FILE_PROPERTIES, Param.DELAYED_PROOF)
+         Param.CCU_STRATEGY, Param.FILE_PROPERTIES, Param.DELAYED_PROOF,
+         Param.CONNECTION_STRATEGY)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())

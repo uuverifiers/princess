@@ -32,7 +32,8 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
-import ap.proof.{ModelSearchProver, ExhaustiveCCUProver, ConstraintSimplifier}
+import ap.connection.ConnectionProver
+import ap.proof.{ModelSearchProver, ExhaustiveCCUProver, ConstraintSimplifier, Vocabulary}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.Certificate
@@ -349,21 +350,36 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                                          order sort signature.nullaryFunctions,
                                          Conjunction.disj(formulas, order), order)
     
+
+    for (f <- formulas)
+      println(f.toString())
     Console.withOut(Console.err) {
       println("Proving ...")
     }
     
     Timeout.withChecker(stoppingCond) {
-      val prover =
-        new ExhaustiveCCUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-      val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
-      val validConstraint = tree.ccUnifiable
-         // prover.isValidConstraint(tree.closingConstraint, signature)
-      (tree, validConstraint,
-       if (validConstraint && constructProofs)
-         prover extractCertificate tree
-       else
-         null)
+      println("Things are happening")
+      if(Param.CONNECTION_STRATEGY(settings)) {
+        val prover =
+          new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
+        val tree = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
+        // val validConstraint = tree.ccUnifiable
+
+        (tree, false, null)
+        // prover.isValidConstraint(tree.closingConstraint, signature)
+
+      } else {
+        val prover =
+          new ExhaustiveCCUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
+        val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
+        val validConstraint = tree.ccUnifiable
+        // prover.isValidConstraint(tree.closingConstraint, signature)
+        (tree, validConstraint,
+          if (validConstraint && constructProofs)
+            prover extractCertificate tree
+          else
+            null)
+      }
     }
   }
 }

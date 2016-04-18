@@ -1,5 +1,5 @@
 /**
- * This file is part of Princess, a theorem prover for Presburger
+x * This file is part of Princess, a theorem prover for Presburger
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
@@ -84,6 +84,7 @@ object Debug {
   case object AC_INTERPOLATION_IMPLICATION_CHECKS extends ASSERTION_CATEGORY
   case object AC_PLUGIN extends ASSERTION_CATEGORY
   case object AC_NIA extends ASSERTION_CATEGORY
+  case object AC_CONNECTION_PROVER extends ASSERTION_CATEGORY
 
   private val everythingEnabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => true

@@ -388,6 +388,11 @@ object Param {
     val defau : Option[ccu.CCUSolver[ConstantTerm, Predicate]] = None
   }
 
+  case object CONNECTION_STRATEGY extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+
 }
 
 abstract class Param {

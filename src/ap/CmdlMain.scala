@@ -59,7 +59,7 @@ object CmdlMain {
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to peter@backeman.se")
     println
-    println("For more information, visit http://user.uu.se/~petba168/breu/")
+    println("For more information, visit http://user.it.uu.se/~petba168/breu/")
   }
   
   def printUsage = {
@@ -100,6 +100,7 @@ object CmdlMain {
     println(" -resolutionMethod=val     Method for positive unit resolution")
     println("                             normal:                              (default)")
     println("                             nonUnifying: do not unify variables")
+    println(" [+-]connection            Use Connection Tableaux  (default: -)")
     println(" -CCU=val                  Method for bounded rigid E-unification")
     println("                             lazy                                (default)")
     println("                             table")
