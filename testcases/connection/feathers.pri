@@ -12,5 +12,5 @@
    ->
    feathers(t)
    ->
-   !bird(t)
+   bird(t)
 }
