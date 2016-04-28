@@ -1,9 +1,6 @@
 //
 // Todo:
-//
-//
-// Fix backtracking
-// Now when backtracking to previous table, step is forgotten!___
+// PUZ001+1.p, Missing quantifiers??
 //
 // TODO: Fix terms vs order (BREUterms?)
 
@@ -159,7 +156,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
         (newConj, allTerms.toList, norder)
       }
 
-    // println("fullInst(" + conj + ") => " + retVal)
+    println("fullInst(" + conj + ") => " + retVal)
     retVal
   }
 
@@ -348,12 +345,16 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     // println("\tPredicate-compatible")
 
     // Unify each argument
+    println("pred1atom (" + pred1atom.getClass + ") : " + pred1atom )
+    println("pred2atom (" + pred2atom.getClass + ") : " + pred2atom)
+
     val argGoals = 
       for ((arg1, arg2) <- pred1atom zip pred2atom) yield {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
         Debug.assertPre(ConnectionProver.AC, arg1.termIterator.size == 1 && arg2.termIterator.size == 1)
         //-END-ASSERTION-//////////////////////////////////////////////////////////
-        // println("\t" + arg1 + "\t?=\t" + arg2)
+        println("\t" + arg1 + "\t?=\t" + arg2)
+        println("\t" + arg1.getClass + " \t?=\t" + arg2.getClass)
         (arg1.lastTerm.constants.head, arg2.lastTerm.constants.head)
       }
 
