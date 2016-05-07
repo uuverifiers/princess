@@ -42,6 +42,7 @@ scala $RUNOPTIONS SimpleAPITest11
 
 scala $OPTIONS interpolation-bug.scala
 scala $OPTIONS scope-bug.scala
+scala $OPTIONS incrementality-bug.scala
 
 scala $OPTIONS TheoryTest.scala
 scala $OPTIONS TheoryTest2.scala

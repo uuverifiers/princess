@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -411,7 +411,10 @@ object ModelSearchProver {
     // The following functions are used to extract full models, possibly
     // resetting the constant freeness stored in the goal
 
-    def addFormula(formula : Conjunction) =
+    def addFormula(formula : Conjunction) = {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(ModelSearchProver.AC, formula isSortedBy goal.order)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       if (ModelElement.containAffectedSymbols(List(formula), witnesses))
         EFRerunResult(List(formula))
       else
@@ -422,6 +425,7 @@ object ModelSearchProver {
           case UnsatCertResult(_) =>  throw new IllegalArgumentException
           case r =>                   r
         }
+    }
     
     ////////////////////////////////////////////////////////////////////////////
 
@@ -523,9 +527,9 @@ object ModelSearchProver {
       // does not have any consequences for the created instantiations
       // of quantified formulae
     	
-      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(ModelSearchProver.AC, Param.PROOF_CONSTRUCTION(settings))
-      //-END-ASSERTION-///////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       val lowerConstantFreedom =
         goal.constantFreedom.findNonFreeness(

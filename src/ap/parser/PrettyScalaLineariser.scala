@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -88,10 +88,10 @@ class PrettyScalaLineariser private (
         atomicTermNoWrap(t, ctxt)
 
     private def atomicTermWrap(t : ITerm,
-                                 ctxt : PrintContext) : String = t match {
+                               ctxt : PrintContext) : String = t match {
       case IConstant(c)     => c.name
       case IVariable(index) => ctxt vars index
-      case IIntLit(value)   => "i(" + int2String(value) + ")"
+      case IIntLit(value)   => "IIntLit(IdealInt(\"" + int2String(value) + "\"))"
     }
 
     private def atomicTermNoWrap(t : ITerm,
@@ -202,7 +202,7 @@ class PrettyScalaLineariser private (
         
         case IBoolLit(value) => {
           if (ctxt.requireWrapping)
-            print("i(" + value + ")")
+            print("IBoolLit(" + value + ")")
           else
             print(value)
           noOp(ctxt)
