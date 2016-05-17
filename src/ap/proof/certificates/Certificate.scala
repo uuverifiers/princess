@@ -117,23 +117,244 @@ abstract class Certificate {
 
 object PartialCertificate {
   
-  private val AC = Debug.AC_CERTIFICATES
+  protected[certificates] val AC = Debug.AC_CERTIFICATES
   
-  val IDENTITY =
-    new PartialCertificate((x : Seq[Certificate]) => x.head, List(None), null, 1)
-  
-  def apply(comb : Seq[Certificate] => Certificate, arity : Int) =
-    new PartialCertificate(comb, Array.fill(arity)(None), null, arity)
+  val IDENTITY = PartialIdentityCertificate
+
+  def apply(inferences : BranchInferenceCollection,
+            order : TermOrder) : PartialCertificate =
+    if (inferences.inferences.isEmpty)
+      IDENTITY
+    else
+      new PartialInferenceCertificate(inferences, order)
+ 
+  def apply(comb : Seq[Certificate] => Certificate,
+            providedFormulas : Seq[Set[CertFormula]]) : PartialCertificate =
+    new PartialCombCertificate(comb, providedFormulas)
   
   def apply(comb : Seq[Certificate] => Certificate,
             providedFormulas : Seq[Set[CertFormula]],
-            alt : Certificate => Certificate,
-            arity : Int) =
-    new PartialCertificate(comb,
-                           for (pf <- providedFormulas) yield Some(pf),
-                           alt, arity)
+            inferences : BranchInferenceCollection,
+            order : TermOrder) : PartialCertificate =
+    (new PartialCombCertificate(comb,
+                                providedFormulas)).andThen(inferences, order)
   
 }
+
+/**
+ * Class representing a mapping from a vector of certificates to a single
+ * new certificate. This is used to handle certificate extraction in branching
+ * proofs.
+ */
+abstract class PartialCertificate {
+
+  val arity : Int
+
+  def apply(subCerts : Seq[Certificate]) : Certificate
+
+  def after(those : Seq[PartialCertificate]) : PartialCertificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(PartialCertificate.AC, this.arity == those.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (those forall (_ == PartialIdentityCertificate))
+      this
+    else
+      PartialCompositionCertificate(those, this)
+  }
+
+  def andThen(inferences : BranchInferenceCollection,
+              order : TermOrder) : PartialCertificate =
+    if (inferences.inferences.isEmpty)
+      this
+    else
+      (new PartialInferenceCertificate(inferences, order)) after List(this)
+
+  /**
+   * Bind the first argument of the partial certificate, resulting in a
+   * partial certificate with one fewer free arguments, or (in case proof
+   * pruning can be performed) a complete certificate
+   */
+  def bindFirst(cert : Certificate)
+               : Either[PartialCertificate, Certificate]
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Partial certificate that represents the identify function.
+ */
+case object PartialIdentityCertificate extends PartialCertificate {
+
+  val arity : Int = 1
+
+  def apply(subCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(PartialCertificate.AC, subCerts.size == 1)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    subCerts.head
+  }
+
+  override def after(those : Seq[PartialCertificate]) : PartialCertificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(PartialCertificate.AC, those.size == 1)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    those.head
+  }
+
+  def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
+    Right(cert)
+
+}
+
+/**
+ * Composition of a partial certificate and a sequence of partial certificates.
+ */
+case class PartialCompositionCertificate(first : Seq[PartialCertificate],
+                                         second : PartialCertificate)
+           extends PartialCertificate {
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(PartialCertificate.AC,
+                   first.size == second.arity && !first.isEmpty &&
+                   !(second.isInstanceOf[PartialCompositionCertificate]))
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+    
+  val arity = (first.iterator map (_.arity)).sum
+  
+  def apply(subCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(PartialCertificate.AC, subCerts.size == arity)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val subRes = new ArrayBuffer[Certificate]
+    var offset : Int = 0
+    for (pc <- first) {
+      val newOffset = offset + pc.arity
+      subRes += pc(subCerts.slice(offset, newOffset))
+      offset = newOffset
+    }
+
+    second(subRes)
+  }
+
+  override def after(those : Seq[PartialCertificate]) : PartialCertificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(PartialCertificate.AC, those.size == arity)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val newFirst = new ArrayBuffer[PartialCertificate]
+    var offset : Int = 0
+    for (pc <- first) {
+      val newOffset = offset + pc.arity
+      newFirst += pc after those.slice(offset, newOffset)
+      offset = newOffset
+    }
+
+    PartialCompositionCertificate(newFirst, second)
+  }
+
+  def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] = {
+    (first.head bindFirst cert) match {
+      case Left(pCertFirst) =>
+        Left(PartialCompositionCertificate(first.updated(0, pCertFirst), second))
+      case Right(certFirst) =>
+        (second bindFirst certFirst) match {
+          case Left(pCertSecond) =>
+            if (first.head.arity > 1)
+              Left(PartialCompositionCertificate(first.updated(0,
+                     new PartialFixedCertificate(certFirst, first.head.arity - 1)),
+                     second))
+            else
+              Left(PartialCompositionCertificate(first.tail, pCertSecond))
+          case x@Right(_) =>
+            x
+        }
+    }
+  }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * A partial certificate with a fixed result.
+ */
+class PartialFixedCertificate protected[certificates]
+                              (result : Certificate,
+                               val arity : Int) extends PartialCertificate {
+
+  def apply(subCerts : Seq[Certificate]) : Certificate = result
+  
+  def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
+    if (arity == 1)
+      Right(result)
+    else
+      Left(new PartialFixedCertificate(result, arity - 1))
+  
+}
+
+/**
+ * Partial certificate prepending given inferences to some certificate.
+ */
+class PartialInferenceCertificate protected[certificates]
+                                  (inferences : BranchInferenceCollection,
+                                   order : TermOrder)
+      extends PartialCertificate {
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(PartialCertificate.AC, !inferences.inferences.isEmpty)
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  val arity : Int = 1
+
+  def apply(subCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(PartialCertificate.AC, subCerts.size == 1)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    inferences.getCertificate(subCerts.head, order)
+  }
+
+  def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
+    Right(apply(List(cert)))
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Partial certificate representing branching proof nodes.
+ */
+class PartialCombCertificate protected[certificates]
+                             (comb : Seq[Certificate] => Certificate,
+                              providedFormulas : Seq[Set[CertFormula]])
+      extends PartialCertificate {
+
+  val arity : Int = providedFormulas.size
+
+  def apply(subCerts : Seq[Certificate]) : Certificate = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(PartialCertificate.AC, subCerts.size == arity)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    comb(subCerts)
+  }
+
+  def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
+    if (Seqs.disjoint(cert.assumedFormulas, providedFormulas.head))
+      // Then the formulas generated by the rule application in the first
+      // branch are not actually needed, and we just just take the
+      // sub-certificate as certificate altogether
+      Right(cert)
+    else if (arity == 1)
+      Right(comb(List(cert)))
+    else
+      Left(new PartialCombCertificate(certs => comb(List(cert) ++ certs),
+                                      providedFormulas.tail))
+
+}
+
 
 /**
  * Class to store fragments of certificates. Such fragments can be seen as
@@ -147,12 +368,13 @@ object PartialCertificate {
  * sub-certificate, only <code>alt</code> is applied to a selected
  * sub-certificate
  */
+/*
 class PartialCertificate private (comb : Seq[Certificate] => Certificate,
                                   providedFormulas
                                           : Seq[Option[Set[CertFormula]]],
                                   alt : Certificate => Certificate,
                                   val arity : Int)
-      extends (Seq[Certificate] => Certificate) {
+      extends ... {
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(PartialCertificate.AC, providedFormulas.size == arity)
@@ -207,3 +429,4 @@ class PartialCertificate private (comb : Seq[Certificate] => Certificate,
                                   arity - 1))
   }
 }
+*/

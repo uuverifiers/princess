@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,7 +31,39 @@ import ap.util.{Debug, IdealRange}
 object OmegaCertificate {
   
   private val AC = Debug.AC_CERTIFICATES
+
+  def strengthenCases(elimConst : ConstantTerm,
+                      boundsA : Seq[CertInequality],
+                      boundsB : Seq[CertInequality]) : Seq[IdealInt] = {
+    val m = IdealInt.max(for (ineq <- boundsB.iterator)
+                         yield (ineq.lhs get elimConst).abs)
+    for (ineq <- boundsA; coeff = (ineq.lhs get elimConst).abs)
+      yield (((m - IdealInt.ONE) * coeff - m) / m + 1)
+  }
   
+  def providedFormulas(elimConst : ConstantTerm,
+                       boundsA : Seq[CertInequality],
+                       boundsB : Seq[CertInequality],
+                       order : TermOrder,
+                       sCases : Seq[IdealInt]) : Seq[Set[CertFormula]] = {
+    implicit val o = order
+
+    val darkShadow : Seq[CertInequality] =
+      (for ((geq, cases) <- boundsA.iterator zip sCases.iterator;
+            geqCoeff = (geq.lhs get elimConst).abs;
+            leq <- boundsB.iterator) yield {
+         val leqCoeff = (leq.lhs get elimConst).abs
+         CertInequality((geq.lhs scale leqCoeff) +
+                        (leq.lhs scale geqCoeff) -
+                        cases * leqCoeff)
+       }).toList
+  
+    (for ((conj, cases) <- boundsA.iterator zip sCases.iterator;
+          i <- IdealRange(cases).iterator)
+       yield Set[CertFormula](CertEquation(conj.lhs - i))).toList ++
+    List(Set[CertFormula]() ++ darkShadow)
+  }
+
 }
 
 /**
@@ -59,30 +91,12 @@ case class OmegaCertificate(elimConst : ConstantTerm,
   val localAssumedFormulas : Set[CertFormula] =
     Set[CertFormula]() ++ boundsA.iterator ++ boundsB.iterator
   
-  val strengthenCases : Seq[IdealInt] = {
-    val m = IdealInt.max(for (ineq <- boundsB.iterator)
-                         yield (ineq.lhs get elimConst).abs)
-    for (ineq <- boundsA; coeff = (ineq.lhs get elimConst).abs)
-      yield (((m - IdealInt.ONE) * coeff - m) / m + 1)
-  }
+  val strengthenCases : Seq[IdealInt] =
+    OmegaCertificate.strengthenCases(elimConst, boundsA, boundsB)
 
-  val darkShadow : Seq[CertInequality] = {
-    implicit val o = order
-    (for ((geq, cases) <- boundsA.iterator zip strengthenCases.iterator;
-          geqCoeff = (geq.lhs get elimConst).abs;
-          leq <- boundsB.iterator) yield {
-       val leqCoeff = (leq.lhs get elimConst).abs
-       CertInequality((geq.lhs scale leqCoeff) + (leq.lhs scale geqCoeff) - cases * leqCoeff)
-     }).toList
-  }
-  
-  val localProvidedFormulas : Seq[Set[CertFormula]] = {
-    implicit val o = order
-    (for ((conj, cases) <- boundsA.iterator zip strengthenCases.iterator;
-          i <- IdealRange(cases).iterator)
-       yield Set[CertFormula](CertEquation(conj.lhs - i))).toList ++
-    List(Set[CertFormula]() ++ darkShadow)
-  }
+  val localProvidedFormulas : Seq[Set[CertFormula]] =
+    OmegaCertificate.providedFormulas(elimConst, boundsA, boundsB,
+                                      order, strengthenCases)
 
 } with Certificate {
   
