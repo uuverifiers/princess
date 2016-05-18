@@ -178,6 +178,15 @@ abstract class PartialCertificate {
   def bindFirst(cert : Certificate)
                : Either[PartialCertificate, Certificate]
 
+  /**
+   * Construct a full certificate, by creating the required child certificates
+   * on demand. The given functions are supposed to produce either a certificate
+   * for a certain subtree, or <code>null</code> in case no certificate exists.
+   * The method as a whole will also return <code>null</code> if no complete
+   * certificate could be constructed.
+   */
+  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -207,6 +216,9 @@ case object PartialIdentityCertificate extends PartialCertificate {
   def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
     Right(cert)
 
+  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate =
+    certBuilder.next()()
+
 }
 
 /**
@@ -219,7 +231,8 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(PartialCertificate.AC,
                    first.size == second.arity && !first.isEmpty &&
-                   !(second.isInstanceOf[PartialCompositionCertificate]))
+                   !(second.isInstanceOf[PartialCompositionCertificate]) &&
+                   second != PartialIdentityCertificate)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
     
   val arity = (first.iterator map (_.arity)).sum
@@ -275,6 +288,42 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
     }
   }
 
+  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate =
+    // we assume that the root certificate can only be of a certain form
+    second match {
+
+      case second : PartialInferenceCertificate => {
+        val sub = first.head.dfExplore(certBuilder)
+        if (sub == null)
+          null
+        else
+          second(List(sub))
+      }
+
+      case second : PartialCombCertificate => {
+        val subRes = new ArrayBuffer[Certificate]
+        val firstIt = first.iterator
+        val providedForsIt = second.providedFormulas.iterator
+
+        while (firstIt.hasNext) {
+          val sub = firstIt.next.dfExplore(certBuilder)
+          if (sub == null)
+            return null
+
+          val providedFors = providedForsIt.next
+          if (Seqs.disjoint(sub.assumedFormulas, providedFors)) {
+            for (f <- firstIt)
+              for (_ <- 0 until f.arity)
+                certBuilder.next
+            return sub
+          }
+
+          subRes += sub
+        }
+
+        second(subRes)
+      }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -293,6 +342,12 @@ class PartialFixedCertificate protected[certificates]
       Right(result)
     else
       Left(new PartialFixedCertificate(result, arity - 1))
+
+  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate = {
+    for (_ <- 0 until arity)
+      certBuilder.next
+    result
+  }
   
 }
 
@@ -320,6 +375,14 @@ class PartialInferenceCertificate protected[certificates]
   def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
     Right(apply(List(cert)))
 
+  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate = {
+    val sub = certBuilder.next()()
+    if (sub == null)
+      null
+    else
+      inferences.getCertificate(sub, order)
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -329,7 +392,7 @@ class PartialInferenceCertificate protected[certificates]
  */
 class PartialCombCertificate protected[certificates]
                              (comb : Seq[Certificate] => Certificate,
-                              providedFormulas : Seq[Set[CertFormula]])
+                              val providedFormulas : Seq[Set[CertFormula]])
       extends PartialCertificate {
 
   val arity : Int = providedFormulas.size
@@ -353,80 +416,27 @@ class PartialCombCertificate protected[certificates]
       Left(new PartialCombCertificate(certs => comb(List(cert) ++ certs),
                                       providedFormulas.tail))
 
-}
+  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate = {
+    val subRes = new ArrayBuffer[Certificate]
+    val providedForsIt = providedFormulas.iterator
 
+    while (providedForsIt.hasNext) {
+      val sub = certBuilder.next()()
+      if (sub == null)
+        return null
 
-/**
- * Class to store fragments of certificates. Such fragments can be seen as
- * functions from sequences of certificates (the certificates derived from
- * some subproofs) to certificates. In this sense, every rule application
- * is justified by a partial certificate.
- * 
- * The class also offers the possibility of proof pruning, applied when a 
- * sub-certificate does not actually use any of the formulae generated by a
- * rule application. In this case, instead of applying <code>comb</code> to all
- * sub-certificate, only <code>alt</code> is applied to a selected
- * sub-certificate
- */
-/*
-class PartialCertificate private (comb : Seq[Certificate] => Certificate,
-                                  providedFormulas
-                                          : Seq[Option[Set[CertFormula]]],
-                                  alt : Certificate => Certificate,
-                                  val arity : Int)
-      extends ... {
-
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertCtor(PartialCertificate.AC, providedFormulas.size == arity)
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////
-
-  def apply(subCerts : Seq[Certificate]) : Certificate = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(PartialCertificate.AC, arity == subCerts.size)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    comb(subCerts)
-  }
-
-  def compose(that : Seq[PartialCertificate]) : PartialCertificate = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(PartialCertificate.AC, arity == that.size)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    val newArity = (that.iterator map (_.arity)).sum
-    
-    val newComb = (certs : Seq[Certificate]) => {
-      val subRes = new ArrayBuffer[Certificate]
-      var offset : Int = 0
-      for (pc <- that) {
-        val newOffset = offset + pc.arity
-        subRes += pc(certs.slice(offset, newOffset))
-        offset = newOffset
+      val providedFors = providedForsIt.next
+      if (Seqs.disjoint(sub.assumedFormulas, providedFors)) {
+        for (_ <- (subRes.size + 1) until arity)
+          certBuilder.next
+        return sub
       }
-      apply(subRes)
+
+      subRes += sub
     }
-    
-    PartialCertificate(newComb, newArity)
+
+    comb(subRes)
   }
-  
-  /**
-   * Bind the first argument of the partial certificate, resulting in a
-   * partial certificate with one fewer free arguments, or (in case proof
-   * pruning can be performed) a complete certificate
-   */
-  def bindFirst(cert : Certificate)
-               : Either[PartialCertificate, Certificate] = providedFormulas.head match {
-    case Some(fors) if (Seqs.disjoint(cert.assumedFormulas, fors)) =>
-      // Then the formulas generated by the rule application in the first
-      // branch are not actually needed, and we just just take the
-      // sub-certificate as certificate altogether
-      Right(alt(cert))
-    case _ if (arity == 1) =>
-      Right(comb(List(cert))) 
-    case _ =>
-      Left(new PartialCertificate(certs => comb(List(cert) ++ certs),
-                                  providedFormulas.tail,
-                                  alt,
-                                  arity - 1))
-  }
+
 }
-*/
+

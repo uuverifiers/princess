@@ -304,6 +304,51 @@ object ModelSearchProver {
         findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore, depth,
                   settings, searchDirector)
       }
+
+      case tree@AndTree(left, right, partialCert) if (partialCert != null) => {
+        var nonCertResult : FindModelResult = null
+
+        val subCertIt = new Iterator[() => Certificate] {
+          var treeStack = List(left, right)
+
+          private def extractNextChild : Unit = treeStack match {
+            case AndTree(l, r, null) :: tail => {
+              treeStack = l :: r :: tail
+              extractNextChild
+            }
+            case _ => // nothing
+          }
+
+          def hasNext = !treeStack.isEmpty
+
+          def next = {
+            extractNextChild
+            val child = treeStack.head
+            treeStack = treeStack.tail
+
+            () => {
+              findModel(child, extraFormulae, witnesses, constsToIgnore,
+                        depth + 1, settings, searchDirector) match {
+              case UnsatCertResult(cert) => cert
+//              case UnsatEFResult(fors)   => ef = ef ++ fors
+              case UnsatEFResult(_)      => throw new IllegalArgumentException
+              case EFRerunResult(_)      => throw new IllegalArgumentException
+              case UnsatResult           => throw new IllegalArgumentException
+              case r => {
+                nonCertResult = r
+                null
+              }
+            }
+          }}
+        }
+
+        partialCert.dfExplore(subCertIt) match {
+          case null =>
+            nonCertResult
+          case res =>
+            UnsatCertResult(res)
+        }
+      }
      
       case tree@AndTree(left, right, partialCert) => {
         // we use a local recursive function at this point to implement pruning 
