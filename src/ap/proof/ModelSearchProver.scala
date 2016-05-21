@@ -32,7 +32,8 @@ import ap.terfor.substitutions.{Substitution, IdentitySubst}
 import ap.terfor.preds.PredConj
 import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas,
                       TaskManager, PrioritisedTask}
-import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate}
+import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate,
+                              LemmaBase}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}
@@ -118,9 +119,18 @@ object ModelSearchProver {
                  BindingContext.EMPTY.addAndContract(elimConstants, Quantifier.ALL),
                  ConstantFreedom.BOTTOM addTopStatus elimConstants)
     val goal = Goal(disjuncts, elimConstants, vocabulary, settings)
+    val lemmaBase : LemmaBase =
+      if (Param.PROOF_CONSTRUCTION(settings)) {
+        val base = new LemmaBase
+        base assumeFormulas (for (c <- disjuncts.iterator)
+                             yield CertFormula(c.negate))
+        base
+      } else {
+        null
+      }
 
-    //    val model = findModelFair(goal, 500)
-    findModel(goal, List(), List(), Set(), 0, settings, searchDirector) match {
+    findModel(goal, List(), List(), Set(), 0, settings, searchDirector,
+              lemmaBase, 0) match {
       case SatResult =>
         Left(Conjunction.TRUE)
       case ModelResult(model) =>
@@ -224,7 +234,11 @@ object ModelSearchProver {
                         // is partial (only the facts of the current goal) or has
                         // been completed using all information available, decide
                         // how to continue search
-                        searchDirector : (Conjunction, Boolean) => SearchDirection)
+                        searchDirector : (Conjunction, Boolean) => SearchDirection,
+                        // lemma base used for storing certificates, or
+                        // <code>null</code>
+                        lemmaBase : LemmaBase,
+                        lemmaBaseAssumedInferences : Int)
                        : FindModelResult = {
     Timeout.check
     
@@ -234,9 +248,11 @@ object ModelSearchProver {
           // we have to backtrack
           
 //          println("backtracking " + depth)
-          if (Param.PROOF_CONSTRUCTION(settings))
-            UnsatCertResult(goal.getCertificate)
-          else
+          if (Param.PROOF_CONSTRUCTION(settings)) {
+            val cert = goal.getCertificate
+          println("inconsistent: " + cert.assumedFormulas)
+            UnsatCertResult(cert)
+          } else
             UnsatResult
 
         } else if (!extraFormulae.isEmpty) {
@@ -246,7 +262,8 @@ object ModelSearchProver {
           findModel(goal addTasksFor (
                       for (f <- extraFormulae) yield (goal reduceWithFacts f)),
                     List(), witnesses,
-                    constsToIgnore, depth, settings, searchDirector)
+                    constsToIgnore, depth, settings, searchDirector,
+                    lemmaBase, lemmaBaseAssumedInferences)
           
         } else {
 
@@ -260,20 +277,33 @@ object ModelSearchProver {
             else
               goal
           
+          val newLemmaBaseAssumedInferences =
+            if (lemmaBase == null) {
+              lemmaBaseAssumedInferences
+            } else {
+              val (formulaIt, newSize) = uGoal.branchInferences newProvidedFormulas
+                                                       lemmaBaseAssumedInferences
+              lemmaBase assumeFormulas formulaIt
+              newSize
+            }
+
           val res =
             if (uGoal.stepPossible)
               findModel(uGoal step ptf, extraFormulae, witnesses,
-                        constsToIgnore, depth, settings, searchDirector)
+                        constsToIgnore, depth, settings, searchDirector,
+                        lemmaBase, newLemmaBaseAssumedInferences)
             else
               handleSatGoal(uGoal, witnesses, constsToIgnore, depth,
-                            settings, searchDirector)
+                            settings, searchDirector,
+                            lemmaBase, newLemmaBaseAssumedInferences)
           
           res match {
             case EFRerunResult(formulas)
               if (!ModelElement.containAffectedSymbols(formulas, witnesses)) =>
               // we have to start over from this point
               findModel(uGoal, formulas, witnesses,
-                        constsToIgnore, depth, settings, searchDirector) match {
+                        constsToIgnore, depth, settings, searchDirector,
+                        lemmaBase, newLemmaBaseAssumedInferences) match {
                 case UnsatResult =>         UnsatEFResult(formulas)
                 case UnsatEFResult(fors) => UnsatEFResult(formulas ++ fors)
                 case EFRerunResult(fors) => EFRerunResult(formulas ++ fors)
@@ -287,7 +317,8 @@ object ModelSearchProver {
       case tree : WitnessTree =>
         findModel(tree.subtree, extraFormulae,
                   tree.modelElement :: witnesses, constsToIgnore,
-                  depth, settings, searchDirector)
+                  depth, settings, searchDirector,
+                  lemmaBase, lemmaBaseAssumedInferences)
 
       case tree : ProofTreeOneChild => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -302,14 +333,15 @@ object ModelSearchProver {
           case _ => constsToIgnore
         }
         findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore, depth,
-                  settings, searchDirector)
+                  settings, searchDirector,
+                  lemmaBase, lemmaBaseAssumedInferences)
       }
 
       case tree@AndTree(left, right, partialCert) if (partialCert != null) => {
         var nonCertResult : FindModelResult = null
 
-        val subCertIt = new Iterator[() => Certificate] {
-          var treeStack = List(left, right)
+        val subCertBuilder = new PartialCertificate.CertBuilder {
+          private var treeStack = List(left, right)
 
           private def extractNextChild : Unit = treeStack match {
             case AndTree(l, r, null) :: tail => {
@@ -319,16 +351,13 @@ object ModelSearchProver {
             case _ => // nothing
           }
 
-          def hasNext = !treeStack.isEmpty
-
           def next = {
             extractNextChild
             val child = treeStack.head
             treeStack = treeStack.tail
 
-            () => {
-              findModel(child, extraFormulae, witnesses, constsToIgnore,
-                        depth + 1, settings, searchDirector) match {
+            findModel(child, extraFormulae, witnesses, constsToIgnore,
+                      depth + 1, settings, searchDirector, lemmaBase, 0) match {
               case UnsatCertResult(cert) => cert
 //              case UnsatEFResult(fors)   => ef = ef ++ fors
               case UnsatEFResult(_)      => throw new IllegalArgumentException
@@ -339,10 +368,16 @@ object ModelSearchProver {
                 null
               }
             }
-          }}
+          }
+
+          def skipNext = {
+            extractNextChild
+            treeStack = treeStack.tail
+          }
         }
 
-        partialCert.dfExplore(subCertIt) match {
+        partialCert.dfExplore(subCertBuilder,
+                              lemmaBase, lemmaBaseAssumedInferences) match {
           case null =>
             nonCertResult
           case res =>
@@ -375,7 +410,8 @@ object ModelSearchProver {
             combineResults(left, right)
           case tree =>
             findModel(tree, ef, witnesses, constsToIgnore, depth + 1,
-                      settings, searchDirector) match {
+                      settings, searchDirector,
+                      null, 0) match {
               case UnsatCertResult(subCert) => (pCert bindFirst subCert) match {
                 case Left(newPCert) => {
                   pCert = newPCert
@@ -450,7 +486,10 @@ object ModelSearchProver {
                             constsToIgnore : Set[ConstantTerm],
                             depth : Int,
                             settings : GoalSettings,
-                            searchDirector : (Conjunction, Boolean) => SearchDirection)
+                            searchDirector
+                               : (Conjunction, Boolean) => SearchDirection,
+                            lemmaBase : LemmaBase,
+                            lemmaBaseAssumedInferences : Int)
                            : FindModelResult = {
 
     // The following functions are used to extract full models, possibly
@@ -464,7 +503,8 @@ object ModelSearchProver {
         EFRerunResult(List(formula))
       else
         findModel(goal, List(formula), witnesses, constsToIgnore, depth,
-                  settings, searchDirector) match {
+                  settings, searchDirector,
+                  lemmaBase, lemmaBaseAssumedInferences) match {
           case UnsatResult =>         UnsatEFResult(List(formula))
           case UnsatEFResult(fors) => UnsatEFResult(List(formula) ++ fors)
           case UnsatCertResult(_) =>  throw new IllegalArgumentException
@@ -506,7 +546,7 @@ object ModelSearchProver {
                              newSettings)
           val res = findModel(newGoal,
                               List(), witnesses, constsToIgnore, depth,
-                              newSettings, FullModelDirector)
+                              newSettings, FullModelDirector, null, 0)
 
           //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
           // We should be able to derive a counterexample
@@ -532,7 +572,7 @@ object ModelSearchProver {
         
           val res = findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
                               List(), witnesses, constsToIgnore, depth,
-                              settings, FullModelDirector)
+                              settings, FullModelDirector, null, 0)
 
           //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
           // We should be able to derive a counterexample
@@ -582,7 +622,8 @@ object ModelSearchProver {
           goal.bindingContext)
 
       findModel(goal updateConstantFreedom lowerConstantFreedom, List(),
-   	            witnesses, constsToIgnore, depth, settings, searchDirector)
+   	        witnesses, constsToIgnore, depth, settings, searchDirector,
+                lemmaBase, lemmaBaseAssumedInferences)
 
     } else if (goal.facts.arithConj.isTrue) {
       
@@ -687,7 +728,7 @@ object ModelSearchProver {
           }
         }
         
-      }) match {
+      }, lemmaBase, lemmaBaseAssumedInferences) match {
         
         case SatResult =>
           if (doExtractModel) {
@@ -799,7 +840,7 @@ object ModelSearchProver {
     def checkValidityDir(searchDirector : (Conjunction, Boolean) => SearchDirection)
                      : Either[Conjunction, Certificate] =
       findModel(goal, List(), List(), Set(), 0, settings,
-                searchDirector) match {
+                searchDirector, null, 0) match {
         case SatResult                      => Left(Conjunction.TRUE)
         case ModelResult(model)             => Left(model)
         case UnsatResult | UnsatEFResult(_) => Left(Conjunction.FALSE)

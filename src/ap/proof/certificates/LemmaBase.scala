@@ -21,7 +21,8 @@
 
 package ap.proof.certificates
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 ArrayStack}
 
 object LemmaBase {
 
@@ -45,7 +46,17 @@ class LemmaBase {
   private val literals2Certs = new MHashMap[CertFormula, List[Certificate]]
   private var assumedFormulas : Set[CertFormula] = Set()
 
+  private val assumedFormulaStack = new ArrayStack[Set[CertFormula]]
+
+  private val pendingCertificates = new ArrayBuffer[Certificate]
+
+  /**
+   * Assume the given literal, and return a certificate in case
+   * the resulting combination of assumed literals is known to be unsat.
+   */
   def assumeFormula(l : CertFormula) : Option[Certificate] = {
+    println("now know: " + l)
+
     val oldAssumed = assumedFormulas
     assumedFormulas = assumedFormulas + l
 
@@ -53,18 +64,17 @@ class LemmaBase {
       case Some(certs) => {
         literals2Certs -= l
 
-        val it = certs.iterator
-        while (it.hasNext) {
-          val c = it.next
+        var remCerts = certs
+        while (!remCerts.isEmpty) {
+          val c = remCerts.head
           if (!registerCertificate(c)) {
             // found a lemma/certificate that proves that the
             // assumed formulas are inconsistent
             assumedFormulas = oldAssumed
-            registerCertificate(c)
-            for (d <- it)
-              registerCertificate(d)
+            literals2Certs.put(l, remCerts)
             return Some(c)
           }
+          remCerts = remCerts.tail
         }
 
         None
@@ -75,13 +85,49 @@ class LemmaBase {
   }
 
   /**
+   * Assume the given literals, and return a certificate in case
+   * the resulting combination of assumed literals is known to be unsat.
+   */
+  def assumeFormulas(ls : Iterator[CertFormula]) : Option[Certificate] = {
+    while (ls.hasNext)
+      assumeFormula(ls.next) match {
+        case None => // nothing
+        case x => return x
+      }
+    None
+  }
+
+  def push : Unit = {
+    println("push " + assumedFormulaStack.size)
+    assumedFormulaStack push assumedFormulas
+  }
+
+  def pop : Unit = {
+    assumedFormulas = assumedFormulaStack.pop
+    println("pop " + assumedFormulaStack.size)
+//    println(assumedFormulas)
+
+    for (i <- (pendingCertificates.size - 1) to 0 by -1)
+      if (registerCertificate(pendingCertificates(i)))
+        pendingCertificates remove i
+  }
+
+  /**
+   * Add a certificate to the database.
+   */
+  def addCertificate(cert : Certificate) : Unit = {
+println("learning certificate")
+println(cert.assumedFormulas)
+//println(cert)
+    if (!registerCertificate(cert))
+      pendingCertificates += cert
+ }
+
+  /**
    * Add a certificate to the database. The method returns
    * <code>true</code> if some assumed literal of the certificate
    * is not yet known, false otherwise.
    */
-  def addCertificate(cert : Certificate) : Boolean =
-    registerCertificate(cert)
-
   private def registerCertificate(cert : Certificate) : Boolean = {
     val notAssumed =
       for (f <- cert.assumedFormulas.iterator;
@@ -91,6 +137,7 @@ class LemmaBase {
     if (notAssumed.hasNext) {
       val key = randomPick(notAssumed)
       literals2Certs.put(key, cert :: literals2Certs.getOrElse(key, List()))
+println("assigning new watched literal")
       true
     } else {
       false

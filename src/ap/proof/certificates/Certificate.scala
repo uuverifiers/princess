@@ -138,6 +138,23 @@ object PartialCertificate {
             order : TermOrder) : PartialCertificate =
     (new PartialCombCertificate(comb,
                                 providedFormulas)).andThen(inferences, order)
+
+  /**
+   * Class for lazily providing the child certificates for a partial certificate
+   */
+  abstract class CertBuilder {
+    def next : Certificate
+    def skipNext : Unit
+//    def close : Unit
+
+    def skipNext(num : Int) : Unit = {
+      var i = 0
+      while (i < num) {
+        skipNext
+        i = i + 1
+      }
+    }
+  }
   
 }
 
@@ -185,7 +202,9 @@ abstract class PartialCertificate {
    * The method as a whole will also return <code>null</code> if no complete
    * certificate could be constructed.
    */
-  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate
+  def dfExplore(certBuilder : PartialCertificate.CertBuilder,
+                lemmaBase : LemmaBase,
+                lemmaBaseAssumedInferences : Int) : Certificate
 
 }
 
@@ -216,8 +235,10 @@ case object PartialIdentityCertificate extends PartialCertificate {
   def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
     Right(cert)
 
-  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate =
-    certBuilder.next()()
+  def dfExplore(certBuilder : PartialCertificate.CertBuilder,
+                lemmaBase : LemmaBase,
+                lemmaBaseAssumedInferences : Int) : Certificate =
+    certBuilder.next
 
 }
 
@@ -288,42 +309,21 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
     }
   }
 
-  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate =
-    // we assume that the root certificate can only be of a certain form
-    second match {
+  def dfExplore(certBuilder : PartialCertificate.CertBuilder,
+                lemmaBase : LemmaBase,
+                lemmaBaseAssumedInferences : Int) : Certificate = {
+    val newBuilder = new PartialCertificate.CertBuilder {
+      private val firstIt = first.iterator
 
-      case second : PartialInferenceCertificate => {
-        val sub = first.head.dfExplore(certBuilder)
-        if (sub == null)
-          null
-        else
-          second(List(sub))
-      }
+      def next : Certificate =
+        firstIt.next.dfExplore(certBuilder, lemmaBase, 0)
 
-      case second : PartialCombCertificate => {
-        val subRes = new ArrayBuffer[Certificate]
-        val firstIt = first.iterator
-        val providedForsIt = second.providedFormulas.iterator
-
-        while (firstIt.hasNext) {
-          val sub = firstIt.next.dfExplore(certBuilder)
-          if (sub == null)
-            return null
-
-          val providedFors = providedForsIt.next
-          if (Seqs.disjoint(sub.assumedFormulas, providedFors)) {
-            for (f <- firstIt)
-              for (_ <- 0 until f.arity)
-                certBuilder.next
-            return sub
-          }
-
-          subRes += sub
-        }
-
-        second(subRes)
-      }
+      def skipNext : Unit =
+        certBuilder skipNext firstIt.next.arity
     }
+
+    second.dfExplore(newBuilder, lemmaBase, lemmaBaseAssumedInferences)
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -343,9 +343,10 @@ class PartialFixedCertificate protected[certificates]
     else
       Left(new PartialFixedCertificate(result, arity - 1))
 
-  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate = {
-    for (_ <- 0 until arity)
-      certBuilder.next
+  def dfExplore(certBuilder : PartialCertificate.CertBuilder,
+                lemmaBase : LemmaBase,
+                lemmaBaseAssumedInferences : Int) : Certificate = {
+    certBuilder skipNext arity
     result
   }
   
@@ -355,7 +356,7 @@ class PartialFixedCertificate protected[certificates]
  * Partial certificate prepending given inferences to some certificate.
  */
 class PartialInferenceCertificate protected[certificates]
-                                  (inferences : BranchInferenceCollection,
+                                  (val inferences : BranchInferenceCollection,
                                    order : TermOrder)
       extends PartialCertificate {
 
@@ -375,12 +376,25 @@ class PartialInferenceCertificate protected[certificates]
   def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] =
     Right(apply(List(cert)))
 
-  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate = {
-    val sub = certBuilder.next()()
-    if (sub == null)
-      null
-    else
-      inferences.getCertificate(sub, order)
+  def dfExplore(certBuilder : PartialCertificate.CertBuilder,
+                lemmaBase : LemmaBase,
+                lemmaBaseAssumedInferences : Int) : Certificate = {
+    val (formulaIt, _) =
+      inferences newProvidedFormulas lemmaBaseAssumedInferences
+
+    (lemmaBase assumeFormulas formulaIt) match {
+      case Some(cert) => {
+        certBuilder.skipNext
+println("reusing certificate")
+println(cert.assumedFormulas)
+        inferences.getCertificate(cert, order)
+      }
+      case None =>
+        certBuilder.next match {
+          case null => null
+          case sub => inferences.getCertificate(sub, order)
+        }
+    }
   }
 
 }
@@ -416,26 +430,50 @@ class PartialCombCertificate protected[certificates]
       Left(new PartialCombCertificate(certs => comb(List(cert) ++ certs),
                                       providedFormulas.tail))
 
-  def dfExplore(certBuilder : Iterator[() => Certificate]) : Certificate = {
+  def dfExplore(certBuilder : PartialCertificate.CertBuilder,
+                lemmaBase : LemmaBase,
+                lemmaBaseAssumedInferences : Int) : Certificate = {
     val subRes = new ArrayBuffer[Certificate]
     val providedForsIt = providedFormulas.iterator
 
     while (providedForsIt.hasNext) {
-      val sub = certBuilder.next()()
-      if (sub == null)
-        return null
-
       val providedFors = providedForsIt.next
-      if (Seqs.disjoint(sub.assumedFormulas, providedFors)) {
-        for (_ <- (subRes.size + 1) until arity)
-          certBuilder.next
-        return sub
+
+      lemmaBase.push
+      val sub : Certificate = try {
+        (lemmaBase assumeFormulas providedFors.iterator) match {
+          case Some(cert) => {
+            certBuilder.skipNext
+println("reusing certificate")
+println(cert.assumedFormulas)
+            cert
+          }
+          case None => {
+            val sub = certBuilder.next
+
+            if (sub == null)
+              return null
+
+            if (Seqs.disjoint(sub.assumedFormulas, providedFors)) {
+println("pruning")
+              certBuilder skipNext (arity - subRes.size - 1)
+              return sub
+            }
+
+            sub
+          }
+        }
+      } finally {
+        lemmaBase.pop
       }
 
       subRes += sub
     }
 
-    comb(subRes)
+    val res = comb(subRes)
+          println("inconsistent: " + res.assumedFormulas)
+lemmaBase addCertificate res
+    res
   }
 
 }
