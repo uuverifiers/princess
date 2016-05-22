@@ -239,7 +239,7 @@ object ModelSearchProver {
                         // <code>null</code>
                         lemmaBase : LemmaBase,
                         lemmaBaseAssumedInferences : Int)
-                       : FindModelResult = {
+                       : FindModelResult = ap.util.Timer.measure("findModel"){
     Timeout.check
     
     tree match {
@@ -251,6 +251,8 @@ object ModelSearchProver {
           if (Param.PROOF_CONSTRUCTION(settings)) {
             val cert = goal.getCertificate
           println("inconsistent: " + cert.assumedFormulas)
+            if (lemmaBase != null)
+              lemmaBase assertAllKnown cert.assumedFormulas
             UnsatCertResult(cert)
           } else
             UnsatResult
@@ -281,9 +283,18 @@ object ModelSearchProver {
             if (lemmaBase == null) {
               lemmaBaseAssumedInferences
             } else {
-              val (formulaIt, newSize) = uGoal.branchInferences newProvidedFormulas
-                                                       lemmaBaseAssumedInferences
-              lemmaBase assumeFormulas formulaIt
+              val (formulaIt, newSize) =
+                uGoal.branchInferences newProvidedFormulas
+                                         lemmaBaseAssumedInferences
+              (lemmaBase assumeFormulas formulaIt) match {
+                case Some(cert) => {
+println("reusing certificate (2)")
+println(cert.assumedFormulas)
+                  return UnsatCertResult(uGoal.branchInferences.getCertificate(
+                                           cert, uGoal.order))
+                }
+                case None => // nothing
+              }
               newSize
             }
 

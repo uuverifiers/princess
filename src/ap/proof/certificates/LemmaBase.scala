@@ -23,8 +23,11 @@ package ap.proof.certificates
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
                                  ArrayStack}
+import ap.util.Debug
 
 object LemmaBase {
+
+  private val AC = Debug.AC_CERTIFICATES
 
   private def randomPick[A](it : Iterator[A]) : A = {
     val x = it.next
@@ -49,6 +52,12 @@ class LemmaBase {
   private val assumedFormulaStack = new ArrayStack[Set[CertFormula]]
 
   private val pendingCertificates = new ArrayBuffer[Certificate]
+
+  def assertAllKnown(fors : Iterable[CertFormula]) : Unit = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(LemmaBase.AC, fors forall assumedFormulas)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+  }
 
   /**
    * Assume the given literal, and return a certificate in case

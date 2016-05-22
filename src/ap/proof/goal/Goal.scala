@@ -369,9 +369,9 @@ class Goal private (val facts : Conjunction,
 //      case t => println(t)
 //   }
     
-//    ap.util.Timer.measure((WrappedFormulaTask unwrapReal task).getClass.getName) {
+    ap.util.Timer.measure((WrappedFormulaTask unwrapReal task).getClass.getName) {
       task(this, ptf)
-//    }
+    }
   }
 
   /**

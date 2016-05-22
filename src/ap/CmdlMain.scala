@@ -363,9 +363,9 @@ object CmdlMain {
               case _ => // nothing
             }
             
-            /* println
+             println
             println(ap.util.Timer)
-            ap.util.Timer.reset */
+            ap.util.Timer.reset 
             
             Some(prover.result)
           } catch {
