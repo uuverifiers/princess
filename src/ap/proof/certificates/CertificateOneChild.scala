@@ -67,6 +67,10 @@ object BranchInferenceCertificate {
     if (inferences.isEmpty)
       child
     else child match {
+      case BranchInferenceCertificate(
+             subInfs : List[BranchInference], subChild, _) =>
+        BranchInferenceCertificate(
+             Seqs.prepend(inferences, subInfs), subChild, order)
       case BranchInferenceCertificate(subInfs, subChild, _) =>
         BranchInferenceCertificate(inferences ++ subInfs, subChild, order)
       case child =>
@@ -143,8 +147,7 @@ abstract class BranchInference {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInference.AC,
-                   (assumedFormulas forall ((c:CertFormula) => !c.isTrue)) &&
-                   !(providedFormulas forall ((c:CertFormula) => c.isTrue)))
+                   assumedFormulas forall ((c:CertFormula) => !c.isTrue))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   val assumedFormulas : Set[CertFormula]
@@ -173,6 +176,26 @@ abstract class BranchInference {
    * Constants bound by the inference.
    */
   val localBoundConstants : Set[ConstantTerm] = Set()
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Inference marking that the following sub-proof has been reused from a
+ * previous point.
+ */
+object ReusedProofMarker extends {
+
+  val assumedFormulas : Set[CertFormula] = Set()
+  val providedFormulas : Set[CertFormula] = Set()
+
+} with BranchInference {
+
+  def propagateConstraint(closingConstraint : Conjunction) : Conjunction =
+    closingConstraint
+
+  override def toString : String = "ReusedProofMarker"
 
 }
 

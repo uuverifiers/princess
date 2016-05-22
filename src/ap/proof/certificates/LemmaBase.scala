@@ -37,6 +37,47 @@ object LemmaBase {
       x
   }
 
+  def prepareCert(cert : Certificate) : Option[Certificate] = {
+    if (isReuseMarked(cert))
+      return None
+
+    val simp = cert match {
+      case BranchInferenceCertificate(inferences, child, order) => {
+        val simpInfs = inferences dropWhile {
+          case _ : AlphaInference |
+               _ : ReduceInference |
+               _ : ReducePredInference |
+               _ : CombineEquationsInference |
+               _ : SimpInference |
+               _ : AntiSymmetryInference |
+               _ : DirectStrengthenInference => true
+          case _ => false
+        }
+        BranchInferenceCertificate.prepend(simpInfs, child, order)
+      }
+      case cert => cert
+    }
+
+    if (isNonTrivial(simp))
+      Some(BranchInferenceCertificate.prepend(List(ReusedProofMarker),
+                                              simp, simp.order))
+    else
+      None
+  }
+
+  private def isReuseMarked(cert : Certificate) : Boolean = cert match {
+    case BranchInferenceCertificate(inferences, child, order) =>
+      inferences contains ReusedProofMarker
+    case _ => false
+  }
+
+  private def isNonTrivial(cert : Certificate) : Boolean = cert match {
+    case BranchInferenceCertificate(inferences, child, _) =>
+      inferences.size > 3 || isNonTrivial(child)
+    case _ : CloseCertificate => false
+    case _ => true
+  }
+
 }
 
 /**

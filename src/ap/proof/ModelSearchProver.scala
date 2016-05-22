@@ -152,11 +152,15 @@ object ModelSearchProver {
           /*
            * Some code to identify dangling formulae (assumed formulae that were
            * never provided) in a certificate
-           * 
-          val badFormula =
-            (cert.assumedFormulas --
-             (Set() ++ (for (d <- disjuncts.iterator) yield CertFormula(d.negate)))).iterator.next
-          println(badFormula)
+           *
+          val badFormulas =
+            cert.assumedFormulas --
+            (for (d <- disjuncts.iterator) yield CertFormula(d.negate)).toSet
+          if (!badFormulas.isEmpty) {
+            println("FINISHED, but certificate makes incorrect assumptions:")
+            println(badFormulas)
+            throw new IllegalArgumentException
+          }
 
           def traceBF(c : Certificate) : Unit = {
             println(c)

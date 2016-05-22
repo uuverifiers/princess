@@ -460,6 +460,9 @@ println("pruning")
               return sub
             }
 
+            for (cert <- LemmaBase prepareCert sub)
+              lemmaBase addCertificate cert
+
             sub
           }
         }
@@ -470,10 +473,7 @@ println("pruning")
       subRes += sub
     }
 
-    val res = comb(subRes)
-          println("inconsistent: " + res.assumedFormulas)
-lemmaBase addCertificate res
-    res
+    comb(subRes)
   }
 
 }
