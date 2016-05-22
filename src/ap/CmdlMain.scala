@@ -669,8 +669,8 @@ object CmdlMain {
                                map (_.toString)).toArray.sorted mkString ", ") +
                           "}")
                 } else {
-                  println("Certificate: " + cert)
-                  println("Assumed formulae: " + cert.assumedFormulas)
+                  //println("Certificate: " + cert)
+                  //println("Assumed formulae: " + cert.assumedFormulas)
                   print("Constraint: ")
                   printFormula(cert.closingConstraint)
                 }
