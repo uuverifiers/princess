@@ -874,6 +874,13 @@ object Seqs {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Prepend some elements in front of a list
+   */
+  def prepend[A](els : Iterable[A], l : List[A]) : List[A] = (els :\ l) (_ :: _)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Lazily convert a function (over naturals) to a stream
    */
   def toStream[A](f : Int => A) : Stream[A] =

@@ -139,10 +139,7 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
           selectedInferences = inf :: selectedInferences
         }
     
-      if (selectedInferences.isEmpty)
-        child
-      else
-        BranchInferenceCertificate(selectedInferences, child, order)
+      BranchInferenceCertificate.prepend(selectedInferences, child, order)
     }
   
   /**

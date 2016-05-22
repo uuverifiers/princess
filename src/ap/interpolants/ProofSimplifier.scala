@@ -56,11 +56,7 @@ object ProofSimplifier {
     case cert@BranchInferenceCertificate(infs, child, o) => {
       val (newInfs, newChild, _, _) =
         encodeInfs(infs.toList, child, availableFors)
-
-      if (newInfs == infs)
-        cert update List(newChild)
-      else
-        BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
+      BranchInferenceCertificate.prepend(newInfs, newChild, o)
     }
     
     case cert@OmegaCertificate(elimConst, boundsA, boundsB, children, order) => {
@@ -90,8 +86,8 @@ object ProofSimplifier {
              ).toList
 
           val darkShadow =
-            BranchInferenceCertificate.checkEmptiness(ineqResolutions,
-                                                      newChildren.last, order)
+            BranchInferenceCertificate.prepend(ineqResolutions,
+                                               newChildren.last, order)
          
           def setupStrengthenCerts(i : Int, childrenStart : Int) : Certificate =
             if (i == boundsA.size) {
@@ -200,7 +196,7 @@ object ProofSimplifier {
             BranchInferenceCertificate(List(redInf), closeCert, o)
         
           val inEqCaseCert =
-            BranchInferenceCertificate.checkEmptiness(newOtherInfs, newChild, o)
+            BranchInferenceCertificate.prepend(newOtherInfs, newChild, o)
         
           val strengthenCert =
             StrengthenCertificate(inEq, 1, List(eqCaseCert, inEqCaseCert), o)
@@ -221,7 +217,7 @@ object ProofSimplifier {
                                          right, CertInequality(-1), o)
         
           val eqCaseCert =
-            BranchInferenceCertificate.checkEmptiness(newOtherInfs, newChild, o)
+            BranchInferenceCertificate.prepend(newOtherInfs, newChild, o)
         
           val inEqCaseCert =
             BranchInferenceCertificate(List(combineInEqInf), closeCert, o)
@@ -254,7 +250,7 @@ object ProofSimplifier {
             if (result.isFalse) {
               dischargedCases
             } else {
-              val resultCert = BranchInferenceCertificate.checkEmptiness(
+              val resultCert = BranchInferenceCertificate.prepend(
                                  newOtherInfs, newChild, o)
               dischargedCases ++ List((result, resultCert))
             }
@@ -426,10 +422,7 @@ object ProofSimplifier {
     
     case cert@BranchInferenceCertificate(infs, child, o) => {
       val (newInfs, newChild, wr) = weakenInfs(infs.toList, child)
-      if (newInfs == infs)
-        (cert update List(newChild), wr)
-      else
-        (BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o), wr)
+      (BranchInferenceCertificate.prepend(newInfs, newChild, o), wr)
     }
     
     case cert@StrengthenCertificate(inEq, eqCases, children, o) => {
@@ -599,7 +592,7 @@ object ProofSimplifier {
 
     case cert@BranchInferenceCertificate(infs, child, o) => {
       val (newInfs, newChild) = elimSimpInfs(infs.toList, child, replacement)
-      BranchInferenceCertificate.checkEmptiness(newInfs, newChild, o)
+      BranchInferenceCertificate.prepend(newInfs, newChild, o)
     }
 
     case cert => {

@@ -61,13 +61,17 @@ abstract class CertificateOneChild(val child : Certificate)
 object BranchInferenceCertificate {
   private val AC = Debug.AC_CERTIFICATES
 
-  def checkEmptiness(inferences : Seq[BranchInference],
-                     child : Certificate,
-                     order : TermOrder) =
+  def prepend(inferences : Seq[BranchInference],
+              child : Certificate,
+              order : TermOrder) =
     if (inferences.isEmpty)
       child
-    else
-      BranchInferenceCertificate(inferences, child, order)
+    else child match {
+      case BranchInferenceCertificate(subInfs, subChild, _) =>
+        BranchInferenceCertificate(inferences ++ subInfs, subChild, order)
+      case child =>
+        BranchInferenceCertificate(inferences, child, order)
+    }
 }
 
 /**

@@ -63,7 +63,7 @@ class LemmaBase {
    * Assume the given literal, and return a certificate in case
    * the resulting combination of assumed literals is known to be unsat.
    */
-  def assumeFormula(l : CertFormula) : Option[Certificate] = {
+  def assumeFormula(l : CertFormula) : Option[Certificate] = ap.util.Timer.measure("assumeFormula"){
     println("now know: " + l)
 
     val oldAssumed = assumedFormulas
@@ -106,12 +106,12 @@ class LemmaBase {
     None
   }
 
-  def push : Unit = {
+  def push : Unit = ap.util.Timer.measure("push"){
     println("push " + assumedFormulaStack.size)
     assumedFormulaStack push assumedFormulas
   }
 
-  def pop : Unit = {
+  def pop : Unit = ap.util.Timer.measure("pop"){
     assumedFormulas = assumedFormulaStack.pop
     println("pop " + assumedFormulaStack.size)
 //    println(assumedFormulas)
@@ -124,7 +124,7 @@ class LemmaBase {
   /**
    * Add a certificate to the database.
    */
-  def addCertificate(cert : Certificate) : Unit = {
+  def addCertificate(cert : Certificate) : Unit = ap.util.Timer.measure("addCertificate"){
 println("learning certificate")
 println(cert.assumedFormulas)
 //println(cert)
