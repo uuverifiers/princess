@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -45,7 +45,7 @@ object NegatedConjunctions {
       compareCnt = compareCnt + 1
       if (compareCnt % 100 == 0)
         Timeout.check
-      compare(c1, c2, order) > 0
+      Conjunction.compare(c1, c2, order) > 0
     }
 
     Seqs.filterAndSort[Conjunction](conjs, c => c.isFalse, c => c.isTrue,
@@ -58,48 +58,6 @@ object NegatedConjunctions {
     }
   }
 
-  /**
-   * Rudimentary sorting of the contained conjunctions to achieve a somewhat
-   * normal form. TODO: improve this (a lot)
-   */
-  private def compare(c1 : Conjunction, c2 : Conjunction,
-                      order : TermOrder) : Int = {
-    Seqs.lexCombineInts(compare(c1.quans, c2.quans),
-                        order.compare(c1.arithConj, c2.arithConj),
-                        compare(c1.predConj, c2.predConj, order),
-                        compare(c1.negatedConjs, c2.negatedConjs, order))
-  }
-
-  private val quanOrdering = new Ordering[Quantifier] {
-    def compare(a : Quantifier, b : Quantifier) = (a, b) match {
-      case (Quantifier.ALL, Quantifier.EX) => -1          
-      case (Quantifier.EX, Quantifier.ALL) => 1
-      case _ => 0
-    }
-  }
-  
-  private def compare(quans1 : Seq[Quantifier], quans2 : Seq[Quantifier]) : Int =
-    Seqs.lexCompare(quans1.iterator, quans2.iterator)(quanOrdering)
-  
-  private def compare(c1 : PredConj, c2 : PredConj, order : TermOrder) = {
-    implicit val ord = order.atomOrdering
-    
-    Seqs.lexCombineInts(Seqs.lexCompare(c1.positiveLits.iterator,
-                                        c2.positiveLits.iterator),
-                        Seqs.lexCompare(c1.negativeLits.iterator,
-                                        c2.negativeLits.iterator))
-  }
-  
-  private def compare(c1 : NegatedConjunctions, c2 : NegatedConjunctions,
-                      order : TermOrder) : Int = {
-    implicit val conjOrdering = new Ordering[Conjunction] {
-      def compare(a : Conjunction, b : Conjunction) =
-        NegatedConjunctions.compare(a, b, order)
-    }
-    
-    Seqs.lexCompare(c1.iterator, c2.iterator)
-  }
-  
   val TRUE : NegatedConjunctions =
     new NegatedConjunctions (Array(), TermOrder.EMPTY)
 
@@ -130,7 +88,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
                    )
                    &&
                    Logic.forall(0, conjs.size - 1,
-                                (i) => NegatedConjunctions.compare
+                                (i) => Conjunction.compare
                                         (conjs(i), conjs(i+1), order) > 0)
                  )
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
@@ -207,10 +165,7 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
     Debug.assertPre(NegatedConjunctions.AC, oldConj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    implicit val orderConjunctions = new Ordering[Conjunction] {
-      def compare(thisC : Conjunction, thatC : Conjunction) =
-        NegatedConjunctions.compare(thisC, thatC, order)
-    }
+    implicit val orderConjunctions = Conjunction.conjOrdering(order)
 
     val (unchanged, changed) = Seqs.diff(this, oldConj)
     (this.updateSubset(unchanged, order), this.updateSubset(changed, order))

@@ -255,8 +255,11 @@ object ModelSearchProver {
           if (Param.PROOF_CONSTRUCTION(settings)) {
             val cert = goal.getCertificate
           println("inconsistent: " + cert.assumedFormulas)
-            if (lemmaBase != null)
-              lemmaBase assertAllKnown cert.assumedFormulas
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(ModelSearchProver.AC,
+                            lemmaBase == null ||
+                            (lemmaBase allKnown cert.assumedFormulas))
+            //-END-ASSERTION-///////////////////////////////////////////////////
             UnsatCertResult(cert)
           } else
             UnsatResult

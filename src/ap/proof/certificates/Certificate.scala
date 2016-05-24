@@ -385,8 +385,6 @@ class PartialInferenceCertificate protected[certificates]
     (lemmaBase assumeFormulas formulaIt) match {
       case Some(cert) => {
         certBuilder.skipNext
-println("reusing certificate")
-println(cert.assumedFormulas)
         inferences.getCertificate(cert, order)
       }
       case None =>
@@ -440,35 +438,39 @@ class PartialCombCertificate protected[certificates]
       val providedFors = providedForsIt.next
 
       lemmaBase.push
-      val sub : Certificate = try {
+      val sub : Certificate =
         (lemmaBase assumeFormulas providedFors.iterator) match {
           case Some(cert) => {
             certBuilder.skipNext
-println("reusing certificate")
-println(cert.assumedFormulas)
+            lemmaBase.pop
             cert
           }
-          case None => {
-            val sub = certBuilder.next
-
-            if (sub == null)
+          case None => certBuilder.next match {
+            case null => {
+              lemmaBase.pop
               return null
-
-            if (Seqs.disjoint(sub.assumedFormulas, providedFors)) {
-println("pruning")
-              certBuilder skipNext (arity - subRes.size - 1)
-              return sub
             }
+            case sub => {
+              for (cert <- LemmaBase prepareCert sub)
+                lemmaBase addCertificate cert
 
-            for (cert <- LemmaBase prepareCert sub)
-              lemmaBase addCertificate cert
-
-            sub
+              lemmaBase.pop match {
+                case Some(cert) => {
+                  // then we can directly backtrack one level
+println("pruning")
+                  return cert
+                }
+                case None => {
+                  //-BEGIN-ASSERTION-///////////////////////////////////////////
+                  Debug.assertInt(PartialCertificate.AC,
+                                  !(lemmaBase allKnown sub.assumedFormulas))
+                  //-END-ASSERTION-/////////////////////////////////////////////
+                  sub
+                }
+              }
+            }
           }
         }
-      } finally {
-        lemmaBase.pop
-      }
 
       subRes += sub
     }
