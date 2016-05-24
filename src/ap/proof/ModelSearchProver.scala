@@ -254,7 +254,6 @@ object ModelSearchProver {
 //          println("backtracking " + depth)
           if (Param.PROOF_CONSTRUCTION(settings)) {
             val cert = goal.getCertificate
-          println("inconsistent: " + cert.assumedFormulas)
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(ModelSearchProver.AC,
                             lemmaBase == null ||
@@ -294,12 +293,9 @@ object ModelSearchProver {
                 uGoal.branchInferences newProvidedFormulas
                                          lemmaBaseAssumedInferences
               (lemmaBase assumeFormulas formulaIt) match {
-                case Some(cert) => {
-println("reusing certificate (2)")
-println(cert.assumedFormulas)
+                case Some(cert) =>
                   return UnsatCertResult(uGoal.branchInferences.getCertificate(
                                            cert, uGoal.order))
-                }
                 case None => // nothing
               }
               newSize

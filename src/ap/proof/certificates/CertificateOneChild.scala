@@ -115,7 +115,8 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
   override def toString : String =
     "BranchInferences(" + (inferences mkString ", ") + ", " + child + ")"
   
-  override def inferenceCount : Int = super.inferenceCount - 1 + inferences.size
+  override lazy val inferenceCount : Int =
+    child.inferenceCount + inferences.size
 
   def update(newSubCerts : Seq[Certificate]) : Certificate = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
