@@ -399,65 +399,19 @@ object ModelSearchProver {
         }
       }
      
-      case tree@AndTree(left, right, partialCert) => {
-        // we use a local recursive function at this point to implement pruning 
-
-        var pCert = partialCert
-        var ef = extraFormulae
-
-        def combineResults(leftTree : ProofTree,
-                           rightTree : ProofTree) = handleAnds(leftTree) match {
+      case tree@AndTree(left, right, _) =>
+        findModel(left, extraFormulae, witnesses, constsToIgnore, depth + 1,
+                  settings, searchDirector, null, 0) match {
           case UnsatResult =>
-            handleAnds(rightTree)
-          case lr@UnsatEFResult(formulae) =>
-            handleAnds(rightTree) match {
-              case UnsatEFResult(formulae2) => UnsatEFResult(formulae ++ formulae2)
-              case EFRerunResult(formulae2) => EFRerunResult(formulae ++ formulae2)
-              case UnsatResult => lr
-              case r => r
-            }
+            findModel(right, extraFormulae, witnesses, constsToIgnore,
+                      depth + 1, settings, searchDirector, null, 0)
+          case UnsatEFResult(ef) =>
+            findModel(right, extraFormulae ++ ef, witnesses, constsToIgnore,
+                      depth + 1, settings, searchDirector, null, 0)
+          case _ : UnsatCertResult =>
+            throw new IllegalArgumentException
           case lr => lr
         }
-        
-        def handleAnds(tree : ProofTree) : FindModelResult = tree match {
-          case tree@AndTree(left, right, null) =>
-            combineResults(left, right)
-          case tree =>
-            findModel(tree, ef, witnesses, constsToIgnore, depth + 1,
-                      settings, searchDirector,
-                      null, 0) match {
-              case UnsatCertResult(subCert) => (pCert bindFirst subCert) match {
-                case Left(newPCert) => {
-                  pCert = newPCert
-                  UnsatResult
-                }
-                case Right(totalCert) => {
-                  UnsatCertResult(totalCert)
-                }
-              }
-              case r@UnsatEFResult(formulae) => {
-                ef = ef ++ formulae
-                r
-              }
-              case r@EFRerunResult(formulae) => {
-                ef = ef ++ formulae
-                r
-              }
-              case r =>
-                r
-            }
-        }
-        
-        combineResults(left, right) match {
-          case UnsatResult => {
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-            Debug.assertInt(ModelSearchProver.AC, pCert == null)
-            //-END-ASSERTION-///////////////////////////////////////////////////////
-            UnsatResult
-          }
-          case r => r
-        }
-      }
     }
   }
 
