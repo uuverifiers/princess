@@ -28,7 +28,7 @@ import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.equations.EquationConj
 import ap.terfor.TerForConvenience._
-import ap.util.Debug
+import ap.util.{Debug, Seqs}
 
 object CertFormula {
   private val AC = Debug.AC_CERTIFICATES
@@ -61,32 +61,38 @@ object CertFormula {
       
     }
 
+  /**
+   * Total ordering of <code>CertFormula</code> objects.
+   */
   def certFormulaOrdering(order : TermOrder) = new Ordering[CertFormula] {
+    private val co = Conjunction conjOrdering order
+
     def compare(a : CertFormula, b : CertFormula) = (a, b) match {
-      case (_ : CertEquation, _ : CertEquation) =>
-      case (_ : CertEquation, _ : CertNegEquation |
-                              _ : CertInequality |
-                              _ : CertPredLiteral |
-                              _ : CertCompoundFormula) => -1
+      case (CertEquation(aLC), CertEquation(bLC)) =>
+        order.compare(aLC, bLC)
+      case (CertNegEquation(aLC), CertNegEquation(bLC)) =>
+        order.compare(aLC, bLC)
+      case (CertInequality(aLC), CertInequality(bLC)) =>
+        order.compare(aLC, bLC)
+      case (CertPredLiteral(aNeg, aAtom), CertPredLiteral(bNeg, bAtom)) =>
+        Seqs.lexCombineInts((if (aNeg) 0 else 1) - (if (bNeg) 0 else 1),
+                            order.compare(aAtom, bAtom))
+      case (CertCompoundFormula(aFor), CertCompoundFormula(bFor)) =>
+        co.compare(aFor, bFor)
 
-      case (_ : CertNegEquation, _ : CertEquation) => 1
-      case (_ : CertNegEquation, _ : CertNegEquation) =>
-      case (_ : CertNegEquation, _ : CertInequality |
-                                 _ : CertPredLiteral |
-                                 _ : CertCompoundFormula) => -1
+      case (_ : CertEquation, _) =>                          -1
 
-      case (_ : CertInequality, _ : CertEquation |
-                                _ : CertNegEquation) => 1
-      case (_ : CertInequality, _ : CertInequality) =>
-      case (_ : CertInequality, _ : CertPredLiteral |
-                                _ : CertCompoundFormula) => -1
+      case (_ : CertNegEquation, _ : CertEquation) =>         1
+      case (_ : CertNegEquation, _) =>                       -1
 
-      case (_ : CertPredLiteral, _ : CertEquation |
-                                 _ : CertNegEquation |
-                                 _ : CertInequality) => 1
-      case (_ : CertPredLiteral, _ : CertPredLiteral) =>
+      case (_ : CertInequality,  _ : CertEquation |
+                                 _ : CertNegEquation) =>      1
+      case (_ : CertInequality,  _) =>                       -1
+
       case (_ : CertPredLiteral, _ : CertCompoundFormula) => -1
-      
+      case (_ : CertPredLiteral, _) =>                        1
+
+      case (_ : CertCompoundFormula, _) =>                    1
     }
   }
 
@@ -120,8 +126,8 @@ abstract sealed class CertFormula(underlying : SortedWithOrder[TerFor]) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-abstract class CertArithLiteral(val lhs : LinearCombination)
-               extends CertFormula(lhs) {
+abstract sealed class CertArithLiteral(val lhs : LinearCombination)
+                      extends CertFormula(lhs) {
   
   def update(newLhs : LinearCombination) : CertArithLiteral
   

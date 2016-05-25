@@ -23,6 +23,7 @@ package ap.proof.certificates
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
                                  ArrayStack, HashSet => MHashSet}
+import scala.util.Sorting
 
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
@@ -223,13 +224,11 @@ println("matching certificate #" + c.id)
 println("learning certificate #" + certNum)
 
     val order = cert.order
-    implicit val ordering = new Ordering[CertFormula] {
-      def compare(a : CertFormula, b : CertFormula) =
-        Conjunction.compare(a.toConj, b.toConj, order)
-    }
+    implicit val co = CertFormula certFormulaOrdering order
 
     val watchable =
-      (cert.assumedFormulas filterNot assumedFormulasL0).toIndexedSeq.sorted
+      (cert.assumedFormulas.iterator filterNot assumedFormulasL0).toArray
+    Sorting stableSort watchable
 
     val record = new LemmaRecord(cert, watchable, certNum)
     certNum = certNum + 1
