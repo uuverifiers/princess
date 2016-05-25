@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -363,7 +363,7 @@ class SMTLineariser(benchmarkName : String,
     override def preVisit(t : IExpression,
                           arg : Unit) : PreVisitResult = {
       t match {
-        case t : IQuantified =>
+        case _ : IQuantified | _ : IEpsilon =>
           variableTypes += null
         case TypePredicate(IVariable(ind), s) =>
           setVariableType(ind, s)
@@ -410,7 +410,10 @@ class SMTLineariser(benchmarkName : String,
            IQuantified(Quantifier.EX,
                        IBinFormula(IBinJunctor.And,
                                    TypePredicate(IVariable(0), _),
-                                   _)) => {
+                                   _)) |
+           IEpsilon(IBinFormula(IBinJunctor.And,
+                                TypePredicate(IVariable(0), _),
+                                _)) => {
         variableTypes reduceToSize (variableTypes.size - 1)
         t update subres
       }
@@ -424,6 +427,16 @@ class SMTLineariser(benchmarkName : String,
             case Quantifier.EX =>
               ex(getTypePredicate(t)(v(0)) & subF)
           }
+          case None => f
+        }
+        variableTypes reduceToSize (variableTypes.size - 1)
+        res
+      }
+      case _ : IEpsilon => {
+        val f@IEpsilon(subF) = t update subres
+        import IExpression._
+        val res = getVariableType(0) match {
+          case Some(t) => eps(getTypePredicate(t)(v(0)) & subF)
           case None => f
         }
         variableTypes reduceToSize (variableTypes.size - 1)
@@ -579,6 +592,10 @@ class SMTLineariser(benchmarkName : String,
                                    TypePredicate(IVariable(0), t),
                                    subF)) =>
         TryAgain(IExpression.ex(subF), ctxt addPendingType t)
+      case IEpsilon(IBinFormula(IBinJunctor.And,
+                                TypePredicate(IVariable(0), t),
+                                subF)) =>
+        TryAgain(IExpression.eps(subF), ctxt addPendingType t)
       case IQuantified(quan, _) => {
         val varName = "var" + ctxt.vars.size
         print("(")
@@ -587,6 +604,45 @@ class SMTLineariser(benchmarkName : String,
           case Quantifier.EX => "exists"
         })
         print(" ((" + varName + " ")
+        printSMTType(ctxt.pendingType.getOrElse(SMTInteger))
+        print(")) ")
+        UniSubArgs(ctxt pushVar varName)
+      }
+
+      // Euclidian integer division can be translated to "div"
+      case IEpsilon(IExpression.Conj(
+           IExpression.Geq(num1, ITimes(denom1, IVariable(0))),
+           IExpression.Geq(IExpression.Difference(ITimes(denom2, IVariable(0)),
+                             IExpression.Difference(num2, IIntLit(denom3))),
+               IIntLit(IdealInt.ONE))
+           ))
+         if (num1 == num2 && denom1 == denom2 && denom2.abs == denom3 &&
+             ContainsSymbol.freeFrom(num1, Set(IVariable(0)))) => {
+        print("(div ")
+        visit(VariableShiftVisitor(num1, 1, -1), ctxt)
+        print(" " + toSMTExpr(denom1) + ")")
+        ShortCutResult(())
+      }
+
+      // Euclidian modulo can be translated to "mod"
+      case IEpsilon(IExpression.Conj(IExpression.Conj(
+           IExpression.GeqZ(IVariable(0)),
+           IExpression.Geq(IExpression.Difference(IIntLit(denom1),IVariable(0)),
+                           IIntLit(IdealInt.ONE))),
+           IQuantified(Quantifier.EX,
+                       IExpression.Eq(num, IPlus(
+                              ITimes(denom2, IVariable(0)), IVariable(1))))))
+         if (ContainsSymbol.freeFrom(num, Set(IVariable(0), IVariable(1))) &&
+             denom1 == denom2.abs) => {
+        print("(mod ")
+        visit(VariableShiftVisitor(num, 2, -2), ctxt)
+        print(" " + toSMTExpr(denom2) + ")")
+        ShortCutResult(())
+      }
+
+      case _ : IEpsilon => {
+        val varName = "var" + ctxt.vars.size
+        print("(_eps ((" + varName + " ")
         printSMTType(ctxt.pendingType.getOrElse(SMTInteger))
         print(")) ")
         UniSubArgs(ctxt pushVar varName)
@@ -611,7 +667,8 @@ class SMTLineariser(benchmarkName : String,
                   arg : PrintContext, subres : Seq[Unit]) : Unit = t match {
       case IPlus(_, _) | ITimes(_, _) | IAtom(_, Seq(_, _*)) | IFunApp(_, Seq(_, _*)) |
            IBinFormula(_, _, _) | IIntFormula(_, _) | INot(_) |
-           IQuantified(_, _) | ITermITE(_, _, _) | IFormulaITE(_, _, _) =>
+           IQuantified(_, _) | IEpsilon(_) |
+           ITermITE(_, _, _) | IFormulaITE(_, _, _) =>
         print(") ")
       case IAtom(_, _) | IFunApp(_, _) =>
         // nothing

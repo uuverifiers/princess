@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -150,6 +150,11 @@ object SimpleAPI {
    */
   def pp(f : IExpression) : String =
     DialogUtil asString { PrincessLineariser printExpression f }
+  
+  /**
+   * Pretty-print a formula or term in SMT-LIB format.
+   */
+  def smtPP(f : IExpression) : String = SMTLineariser asString f
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -1410,6 +1415,11 @@ class SimpleAPI private (enableAssert : Boolean,
    * Pretty-print a formula or term.
    */
   def pp(f : IExpression) : String = SimpleAPI.pp(f)
+
+  /**
+   * Pretty-print a formula or term in SMT-LIB format.
+   */
+  def smtPP(f : IExpression) : String = SimpleAPI.smtPP(f)
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2801,7 +2811,8 @@ class SimpleAPI private (enableAssert : Boolean,
     evalPartialHelp(c)
   }
 
-  private def evalPartialHelp(c : IExpression.ConstantTerm) : Option[IdealInt] = {
+  private def evalPartialHelp(c : IExpression.ConstantTerm)
+                             : Option[IdealInt] = {
     val existential = setupTermEval
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -2810,7 +2821,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
     // find an equation that determines the value of c
         
-    for (lc <- currentModel.arithConj.positiveEqs.toMap get c) yield -lc.constant
+    for (lc <- currentModel.arithConj.positiveEqs.toMap get c)
+    yield -lc.constant
   }
   
   /**
@@ -2840,10 +2852,10 @@ class SimpleAPI private (enableAssert : Boolean,
             // then we can just set default values for all irreducible constants
             // and Boolean variables
   
-            //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(AC, Seqs.disjoint(reducedF.constants,
                                               currentModel.constants))
-            //-END-ASSERTION-/////////////////////////////////////////////////////
+            //-END-ASSERTION-///////////////////////////////////////////////////
   
             implicit val order =
               currentOrder
@@ -2854,9 +2866,9 @@ class SimpleAPI private (enableAssert : Boolean,
             val reduced =
               ReduceWithConjunction(implicitAssumptions, currentOrder)(reducedF)
   
-            //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
-            //-END-ASSERTION-/////////////////////////////////////////////////////
+            //-END-ASSERTION-///////////////////////////////////////////////////
   
             reduced.isTrue
           }
@@ -2877,7 +2889,8 @@ class SimpleAPI private (enableAssert : Boolean,
             val p = new IExpression.Predicate("p", 0)
             implicit val extendedOrder = order extendPred p
             val pAssertion =
-              ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+              ReduceWithConjunction(currentModel, functionalPreds,
+                                    extendedOrder)(
                 toInternalNoAxioms(IAtom(p, Seq()) </> f, extendedOrder))
             val extendedProver =
               currentProver.assert(currentModel, extendedOrder)
@@ -2885,23 +2898,25 @@ class SimpleAPI private (enableAssert : Boolean,
   
             (extendedProver checkValidity true) match {
               case Left(m) if (!m.isFalse) => {
-                val (reduced, _) = ReduceWithPredLits(m.predConj, Set(), extendedOrder)(p)
-                //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+                val (reduced, _) =
+                  ReduceWithPredLits(m.predConj, Set(), extendedOrder)(p)
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
                 Debug.assertInt(AC, reduced.isTrue || reduced.isFalse)
-                //-END-ASSERTION-///////////////////////////////////////////////////
+                //-END-ASSERTION-///////////////////////////////////////////////
                 val result = reduced.isTrue
                 val pf : Conjunction = p
           
-                currentModel = ReduceWithConjunction(if (result) pf else !pf, extendedOrder)(m)
+                currentModel = ReduceWithConjunction(if (result) pf else !pf,
+                                                     extendedOrder)(m)
                 lastPartialModel = null        
   
                 result
               }
               case _ =>
                 throw new SimpleAPIException (
-                            "Model extension failed.\n" +
-                            "This is probably caused by badly chosen triggers,\n" +
-                            "preventing complete application of axioms.")
+                      "Model extension failed.\n" +
+                      "This is probably caused by badly chosen triggers,\n" +
+                      "preventing complete application of axioms.")
             }
           }
         }
@@ -2910,8 +2925,9 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
-   * Evaluate the given formula in the current model, returning <code>None</code>
-   * in case the model does not completely determine the value of the formula.
+   * Evaluate the given formula in the current model, returning
+   * <code>None</code> in case the model does not completely determine the
+   * value of the formula.
    * This method can only be called after receiving the result
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
    * or <code>ProverStatus.Inconclusive</code>.
@@ -3136,7 +3152,7 @@ class SimpleAPI private (enableAssert : Boolean,
       case ProofActorStatus.Init =>
         // nothing
       case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
-        if (axioms.isFalse
+        if (axioms.isFalse && (currentOrder eq currentProver.order)
             // completeFor.constants.isEmpty && axioms.isFalse &&
             // Seqs.disjoint(completeFor.predicates, abbrevPredicates.keySet)
             ) {

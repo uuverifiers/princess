@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -348,7 +348,7 @@ object IExpression {
         None
     }
   }
-  
+
   def connect(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
     connect(fors.iterator, op)
 
@@ -377,6 +377,28 @@ object IExpression {
    */
   def or(fors : Iterable[IFormula]) = connect(fors, IBinJunctor.Or)
   
+  /**
+   * Generate or match a binary conjunction <code>phi & psi</code>.
+   */
+  object Conj {
+    def apply(a : IFormula, b : IFormula) = a & b
+    def unapply(f : IFormula) : Option[(IFormula, IFormula)] = f match {
+      case IBinFormula(IBinJunctor.And, a, b) => Some((a, b))
+      case _ => None
+    }
+  }
+
+  /**
+   * Generate or match a binary disjunction <code>phi | psi</code>.
+   */
+  object Disj {
+    def apply(a : IFormula, b : IFormula) = a | b
+    def unapply(f : IFormula) : Option[(IFormula, IFormula)] = f match {
+      case IBinFormula(IBinJunctor.Or, a, b) => Some((a, b))
+      case _ => None
+    }
+  }
+
   /**
    * Generate the sum of the given terms.
    */

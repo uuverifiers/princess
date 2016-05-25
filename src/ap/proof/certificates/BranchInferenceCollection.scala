@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -122,14 +122,20 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
       child
     } else {
       val requiredFormulas = new MHashSet[CertFormula]
+      val containedConstants = new MHashSet[ConstantTerm]
+
       requiredFormulas ++= child.assumedFormulas
+      containedConstants ++= child.constants
     
       var selectedInferences : List[BranchInference] = List()
     
       for (inf <- inferences)
-        if (!Seqs.disjoint(inf.providedFormulas, requiredFormulas)) {
+        if (!Seqs.disjoint(inf.providedFormulas, requiredFormulas) ||
+            !Seqs.disjoint(inf.localBoundConstants, containedConstants)) {
           requiredFormulas --= inf.providedFormulas
           requiredFormulas ++= inf.assumedFormulas
+          containedConstants ++= inf.constants
+          containedConstants --= inf.localBoundConstants
           selectedInferences = inf :: selectedInferences
         }
     

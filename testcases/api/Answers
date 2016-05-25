@@ -196,6 +196,9 @@ Inconclusive
 11: 1
 12: 3
 13: -5
+59: Sat
+72: 0
+73: Invalid
 Sat
 List((Vector(0, 1),2), (Vector(1, 2),3))
 Sat
@@ -249,4 +252,15 @@ Sat
 Sat
 Sat
 {z -> 5, y -> 1, x -> 2, a -> true}
+finished
+starting
+(div x  5)
+(div x  (- 5))
+(div (* (- 1) x )  5)
+(div (* (- 1) x )  (- 5))
+(mod x  5)
+(mod x  (- 5))
+(mod (* (- 1) x )  5)
+(mod (* (- 1) x )  (- 5))
+(_eps ((var0 Int)) (and (<= 0 var0 ) (or (= var0 x ) (= (* (- 1) var0 ) x ) ) ) ) 
 finished

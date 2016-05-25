@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -881,4 +881,26 @@ object Seqs {
   
   private def toStreamHelp[A](n : Int, f : Int => A) : Stream[A] =
     f(n) #:: toStreamHelp(n + 1, f)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Compute union of a sequence of sets.
+   */
+  def union[A](sets : Iterable[Set[A]]) : Set[A] = union(sets.iterator)
+
+  /**
+   * Compute union of a sequence of sets.
+   */
+  def union[A](sets : Iterator[Set[A]]) : Set[A] =
+    if (sets.hasNext) {
+      var first = sets.next
+      while (first.isEmpty && sets.hasNext)
+        first = sets.next
+
+      first ++ (for (s <- sets; x <- s.iterator) yield x)
+    } else {
+      Set()
+    }
+
 }
