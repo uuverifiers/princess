@@ -152,7 +152,7 @@ object ModelSearchProver {
           /*
            * Some code to identify dangling formulae (assumed formulae that were
            * never provided) in a certificate
-           *
+           */
           val badFormulas =
             cert.assumedFormulas --
             (for (d <- disjuncts.iterator) yield CertFormula(d.negate)).toSet
@@ -161,7 +161,7 @@ object ModelSearchProver {
             println(badFormulas)
             throw new IllegalArgumentException
           }
-
+/*
           def traceBF(c : Certificate) : Unit = {
             println(c)
             for (d <- c.subCertificates) {
@@ -342,13 +342,22 @@ object ModelSearchProver {
                           case _ => true
                         })
         //-END-ASSERTION-///////////////////////////////////////////////////////
-        val newConstsToIgnore = tree match {
-          case tree : QuantifiedTree => constsToIgnore ++ tree.quantifiedConstants
-          case _ => constsToIgnore
+
+        val quanConsts = tree match {
+          case tree : QuantifiedTree => tree.quantifiedConstants
+          case _ => List()
         }
-        findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore, depth,
-                  settings, searchDirector,
-                  lemmaBase, lemmaBaseAssumedInferences)
+        val newConstsToIgnore = constsToIgnore ++ quanConsts
+
+        val res =
+          findModel(tree.subtree, extraFormulae, witnesses, newConstsToIgnore,
+                    depth, settings, searchDirector,
+                    lemmaBase, lemmaBaseAssumedInferences)
+
+        if (lemmaBase != null)
+          lemmaBase addObsoleteConstants quanConsts
+
+        res
       }
 
       case tree@AndTree(left, right, partialCert) if (partialCert != null) => {

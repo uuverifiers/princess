@@ -26,7 +26,8 @@ import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
 import scala.util.Sorting
 
 import ap.terfor.conjunctions.Conjunction
-import ap.util.Debug
+import ap.terfor.ConstantTerm
+import ap.util.{Debug, Seqs}
 
 object LemmaBase {
 
@@ -117,8 +118,15 @@ class LemmaBase {
   // with asserted formulas
   private val pendingCertificates = new ArrayBuffer[LemmaRecord]
 
+  // Obsolete constants; certificates containing those constants
+  // should no longer be used
+  private val obsoleteConstants = new MHashSet[ConstantTerm]
+
   private var certNum = 0
 
+  /**
+   * Check whether all of the given formulas have been asserted.
+   */
   def allKnown(fors : Iterable[CertFormula]) : Boolean =
     fors forall { x => assumedFormulasL0(x) || assumedFormulas(x) }
 
@@ -220,6 +228,9 @@ println("matching certificate #" + c.id)
    * Add a certificate to the database.
    */
   def addCertificate(cert : Certificate) : Unit = ap.util.Timer.measure("addCertificate"){
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(LemmaBase.AC, allKnown(cert.assumedFormulas))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
 println("learning certificate #" + certNum)
 
@@ -236,8 +247,22 @@ println("learning certificate #" + certNum)
 println("watchable (" + watchable.size + "/" + cert.assumedFormulas.size + ")")
 record.printWatchable
 
-    if (!registerCertificate(record))
-      pendingCertificates += record
+    pendingCertificates += record
+  }
+
+  /**
+   * Notify that the given constants have to be invalidated, since they
+   * were only used in a certain sub-proof that has now been left.
+   */
+  def addObsoleteConstants(consts : Iterable[ConstantTerm]) : Unit = {
+    val constsSet = consts.toSet
+    obsoleteConstants ++= consts
+
+    val oldSize = literals2Certs.size
+    literals2Certs retain {
+      case (a, _) => Seqs.disjoint(a.constants, constsSet)
+    }
+    println("" + oldSize + " -> " + literals2Certs.size)
   }
 
   /**
@@ -250,17 +275,22 @@ record.printWatchable
     Debug.assertPre(LemmaBase.AC, !(record.watchable exists assumedFormulasL0))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val notAssumed =
-      for (f <- record.watchable.iterator; if (!(assumedFormulas contains f)))
-      yield f
+    val notAssumed = record.watchable.iterator filterNot assumedFormulas
 
     if (notAssumed.hasNext) {
       val key = randomPick(notAssumed)
-      literals2Certs.put(key, record :: literals2Certs.getOrElse(key, List()))
+      if (obsoleteConstants.isEmpty ||
+          Seqs.disjoint(key.constants, obsoleteConstants)) {
+        literals2Certs.put(key, record :: literals2Certs.getOrElse(key, List()))
 println("assigning new watched literal")
+      } else {
+println("dropping obsolete certificate")
+      }
       true
     } else {
-      false
+      // if the certificates contains obsolete constants, it can be dropped
+      !(obsoleteConstants.isEmpty ||
+        Seqs.disjoint(record.cert.constants, obsoleteConstants))
     }
   }
 
