@@ -60,6 +60,36 @@ object CertFormula {
       CertCompoundFormula(f)
       
     }
+
+  def certFormulaOrdering(order : TermOrder) = new Ordering[CertFormula] {
+    def compare(a : CertFormula, b : CertFormula) = (a, b) match {
+      case (_ : CertEquation, _ : CertEquation) =>
+      case (_ : CertEquation, _ : CertNegEquation |
+                              _ : CertInequality |
+                              _ : CertPredLiteral |
+                              _ : CertCompoundFormula) => -1
+
+      case (_ : CertNegEquation, _ : CertEquation) => 1
+      case (_ : CertNegEquation, _ : CertNegEquation) =>
+      case (_ : CertNegEquation, _ : CertInequality |
+                                 _ : CertPredLiteral |
+                                 _ : CertCompoundFormula) => -1
+
+      case (_ : CertInequality, _ : CertEquation |
+                                _ : CertNegEquation) => 1
+      case (_ : CertInequality, _ : CertInequality) =>
+      case (_ : CertInequality, _ : CertPredLiteral |
+                                _ : CertCompoundFormula) => -1
+
+      case (_ : CertPredLiteral, _ : CertEquation |
+                                 _ : CertNegEquation |
+                                 _ : CertInequality) => 1
+      case (_ : CertPredLiteral, _ : CertPredLiteral) =>
+      case (_ : CertPredLiteral, _ : CertCompoundFormula) => -1
+      
+    }
+  }
+
 }
 
 /**
