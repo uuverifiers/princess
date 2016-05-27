@@ -339,30 +339,36 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         
         ////////////////////////////////////////////////////////////////////////
 
-        val finiteDomainSorts : Set[Predicate] = chosenFiniteConstraintMethod match {
-          case Param.FiniteDomainConstraints.TypeGuards => {
-            val finiteSorts = new MHashSet[Predicate]
-            val disjuncts = LineariseVisitor(Transform2NNF(problem), IBinJunctor.Or)
-            val V0Sum = SymbolSum(v(0))
+        val finiteDomainSorts : Set[Predicate] =
+          chosenFiniteConstraintMethod match {
+            case Param.FiniteDomainConstraints.TypeGuards => {
+              val finiteSorts = new MHashSet[Predicate]
+              val disjuncts =
+                LineariseVisitor(Transform2NNF(problem), IBinJunctor.Or)
+              val V0Sum = SymbolSum(v(0))
 
-            for (IQuantified(Quantifier.EX, f) <- disjuncts.iterator)
-              (LineariseVisitor(f, IBinJunctor.And) partition (_.isInstanceOf[IAtom])) match {
-                case (Seq(IAtom(p, Seq(IVariable(0)))), cases)
-                  if (cases forall {
-                        case INot(IIntFormula(IIntRelation.EqZero,
-                                              V0Sum(coeff, rest)))
-                          if (coeff.isUnit) => true
-                        case _ => false
-                      }) =>
-                  finiteSorts += p
-                case _ =>
-                  // nothing
-              }
+              for (f1 <- disjuncts.iterator;
+                   f2 = IExpression removePartName f1;
+                   disjs = LineariseVisitor(f2, IBinJunctor.Or);
+                   IQuantified(Quantifier.EX, f) <- disjs.iterator)
+                (LineariseVisitor(f, IBinJunctor.And) partition
+                                        (_.isInstanceOf[IAtom])) match {
+                  case (Seq(IAtom(p, Seq(IVariable(0)))), cases)
+                    if (cases forall {
+                          case INot(IIntFormula(IIntRelation.EqZero,
+                                                V0Sum(coeff, rest)))
+                            if (coeff.isUnit) => true
+                          case _ => false
+                        }) =>
+                    finiteSorts += p
+                  case _ =>
+                    // nothing
+                }
 
-            finiteSorts.toSet
+              finiteSorts.toSet
+            }
+            case _ => Set()
           }
-          case _ => Set()
-        }
 
 //        if (!finiteDomainSorts.isEmpty)
 //          warn("Finite sorts: " + (finiteDomainSorts map (_.name) mkString ", "))
