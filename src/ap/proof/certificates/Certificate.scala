@@ -463,9 +463,11 @@ println("pruning")
                   return cert
                 }
                 case None => {
+                  if (lemmaBase allKnown sub.assumedFormulas)
+                    println("Warning: missed a pruning opportunity (Certificate.scala)")
                   //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  Debug.assertInt(PartialCertificate.AC,
-                                  !(lemmaBase allKnown sub.assumedFormulas))
+                  //Debug.assertInt(PartialCertificate.AC,
+                  //                !(lemmaBase allKnown sub.assumedFormulas))
                   //-END-ASSERTION-/////////////////////////////////////////////
                   sub
                 }

@@ -107,9 +107,15 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInferenceCertificate.AC,
-                   !inferences.isEmpty &&
+                   !inferences.isEmpty
+                  /* Not a property that is actually necessary, since
+                     some provided formulas might not be used by the child
+                     certificate.
+                   &&
                    (uniqueLocalProvidedFormulas forall (
-                                                   child.order isSortingOf _)))
+                                                   child.order isSortingOf _))
+                   */
+                   )
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
