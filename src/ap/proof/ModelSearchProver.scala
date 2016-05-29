@@ -418,9 +418,14 @@ object ModelSearchProver {
           case UnsatResult =>
             findModel(right, extraFormulae, witnesses, constsToIgnore,
                       depth + 1, settings, searchDirector, null, 0)
-          case UnsatEFResult(ef) =>
+          case r@UnsatEFResult(ef) =>
             findModel(right, extraFormulae ++ ef, witnesses, constsToIgnore,
-                      depth + 1, settings, searchDirector, null, 0)
+                      depth + 1, settings, searchDirector, null, 0) match {
+              case UnsatResult =>         r
+              case UnsatEFResult(ef2) =>  UnsatEFResult(ef ++ ef2)
+              case _ : UnsatCertResult => throw new IllegalArgumentException
+              case r2 =>                  r2
+            }
           case _ : UnsatCertResult =>
             throw new IllegalArgumentException
           case lr => lr
