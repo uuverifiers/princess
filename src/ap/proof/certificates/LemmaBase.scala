@@ -156,6 +156,10 @@ println("now know on L0 (" + assumedFormulasL0.size + "): " + l)
     } else {
       val oldAssumed = assumedFormulas
       assumedFormulas = assumedFormulas + l
+
+      if (oldAssumed eq assumedFormulas)
+        return None
+
 println("now know (" + assumedFormulas.size + "): " + l)
 
       (literals2Certs get l) match {
@@ -228,9 +232,6 @@ println("matching certificate #" + c.id)
    * Add a certificate to the database.
    */
   def addCertificate(cert : Certificate) : Unit = ap.util.Timer.measure("addCertificate"){
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(LemmaBase.AC, allKnown(cert.assumedFormulas))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
 println("learning certificate #" + certNum)
 
@@ -247,7 +248,8 @@ println("learning certificate #" + certNum)
 println("watchable (" + watchable.size + "/" + cert.assumedFormulas.size + ")")
 record.printWatchable
 
-    pendingCertificates += record
+    if (!registerCertificate(record))
+      pendingCertificates += record
   }
 
   /**
@@ -289,12 +291,17 @@ println("dropping obsolete certificate")
       true
     } else {
       // if the certificates contains obsolete constants, it can be dropped
-      !(obsoleteConstants.isEmpty ||
-        Seqs.disjoint(record.cert.constants, obsoleteConstants))
+      val res =
+         !(obsoleteConstants.isEmpty ||
+           Seqs.disjoint(record.cert.constants, obsoleteConstants))
+      if (res) {
+println("dropping obsolete certificate 2")
+      }
+      res
     }
   }
 
-  private val rand = new scala.util.Random
+  private val rand = new scala.util.Random(654321)
 
   private def randomPick[A](it : Iterator[A]) : A = {
     val x = it.next

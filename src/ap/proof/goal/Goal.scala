@@ -72,35 +72,47 @@ object Goal {
     apply(List(reducer(Conjunction.conj(f, order))),
           eliminatedConstants, Vocabulary(order), settings)
   }
-  
-  def apply(initialConjs : Seq[Conjunction],
-            eliminatedConstants : Set[ConstantTerm],
-            vocabulary : Vocabulary,
-            settings : GoalSettings) : Goal = {
 
+  def createWithCertFormulas(initialConjs : Seq[Conjunction],
+                             eliminatedConstants : Set[ConstantTerm],
+                             vocabulary : Vocabulary,
+                             settings : GoalSettings)
+                            : (Goal, Seq[CertFormula]) = {
     val tasks =
       (for (c <- initialConjs.iterator;
             t <- formulaTasks(c, 0, eliminatedConstants,
                               vocabulary, settings).iterator) yield t).toList
 
-      // TODO: this has to be done in a more systematic manner
-    val initialInfCollection = if (Param.PROOF_CONSTRUCTION(settings))
-      BranchInferenceCollection(for (c <- initialConjs) yield c.negate)
-    else
-      BranchInferenceCollection.EMPTY
+    val (certFormulas, initialInfCollection) =
+      if (Param.PROOF_CONSTRUCTION(settings)) {
+        val certFormulas = for (c <- initialConjs) yield CertFormula(c.negate)
+        (certFormulas, BranchInferenceCollection applyCert certFormulas)
+      } else {
+        (null, BranchInferenceCollection.EMPTY)
+      }
 
     val emptyTaskManager = TaskManager EMPTY settings
 
-    apply(Conjunction.TRUE,
-          CompoundFormulas.EMPTY(Param.PREDICATE_MATCH_CONFIG(settings)),
-          emptyTaskManager ++ tasks,
-          0,
-          eliminatedConstants,
-          vocabulary,
-          new IdentitySubst (vocabulary.order),
-          initialInfCollection,
-          settings)
+    val goal =
+      apply(Conjunction.TRUE,
+            CompoundFormulas.EMPTY(Param.PREDICATE_MATCH_CONFIG(settings)),
+            emptyTaskManager ++ tasks,
+            0,
+            eliminatedConstants,
+            vocabulary,
+            new IdentitySubst (vocabulary.order),
+            initialInfCollection,
+            settings)
+
+    (goal, certFormulas)
   }
+
+  def apply(initialConjs : Seq[Conjunction],
+            eliminatedConstants : Set[ConstantTerm],
+            vocabulary : Vocabulary,
+            settings : GoalSettings) : Goal =
+    createWithCertFormulas(initialConjs, eliminatedConstants,
+                           vocabulary, settings)._1
   
   def TRUE(vocabulary : Vocabulary,
            branchInferences : BranchInferenceCollection) : Goal =

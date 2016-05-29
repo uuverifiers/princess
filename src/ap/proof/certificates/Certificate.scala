@@ -459,17 +459,15 @@ class PartialCombCertificate protected[certificates]
               lemmaBase.pop match {
                 case Some(cert) => {
                   // then we can directly backtrack one level
-println("pruning")
                   return cert
                 }
                 case None => {
-                  if (lemmaBase allKnown sub.assumedFormulas)
-                    println("Warning: missed a pruning opportunity (Certificate.scala)")
-                  //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  //Debug.assertInt(PartialCertificate.AC,
-                  //                !(lemmaBase allKnown sub.assumedFormulas))
-                  //-END-ASSERTION-/////////////////////////////////////////////
-                  sub
+                  if (providedForsIt.hasNext &&
+                      (lemmaBase allKnown sub.assumedFormulas))
+                    // then we can directly backtrack one level as well
+                    return sub
+                  else
+                    sub
                 }
               }
             }

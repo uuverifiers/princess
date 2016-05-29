@@ -118,12 +118,13 @@ object ModelSearchProver {
       Vocabulary(order,
                  BindingContext.EMPTY.addAndContract(elimConstants, Quantifier.ALL),
                  ConstantFreedom.BOTTOM addTopStatus elimConstants)
-    val goal = Goal(disjuncts, elimConstants, vocabulary, settings)
+    val (goal, certFormulas) =
+      Goal.createWithCertFormulas(disjuncts, elimConstants,
+                                  vocabulary, settings)
     val lemmaBase : LemmaBase =
       if (Param.PROOF_CONSTRUCTION(settings)) {
         val base = new LemmaBase
-        base assumeFormulas (for (c <- disjuncts.iterator)
-                             yield CertFormula(c.negate))
+        base assumeFormulas certFormulas.iterator
         base
       } else {
         null
