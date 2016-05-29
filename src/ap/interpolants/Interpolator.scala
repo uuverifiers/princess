@@ -893,6 +893,12 @@ object Interpolator
       }
       
       //////////////////////////////////////////////////////////////////////////
+
+      case ReusedProofMarker =>
+        // inference with no effect
+        processBranchInferences(remInferences, child, iContext)
+
+      //////////////////////////////////////////////////////////////////////////
       
       case _ => throw new Error("Unsuported Inference :" + inference)
      

@@ -268,8 +268,11 @@ object ModelSearchProver {
           // there are some further formulae to be added to be goal before
           // we continue with the proof
           
-          findModel(goal addTasksFor (
-                      for (f <- extraFormulae) yield (goal reduceWithFacts f)),
+          val (uGoal, _) =
+            goal addTasksFor (
+                      for (f <- extraFormulae) yield (goal reduceWithFacts f))
+
+          findModel(uGoal,
                     List(), witnesses,
                     constsToIgnore, depth, settings, searchDirector,
                     lemmaBase, lemmaBaseAssumedInferences)
@@ -738,11 +741,16 @@ object ModelSearchProver {
   
   def emptyIncProver(rawSettings : GoalSettings) : IncProver = {
     val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
-    new IncProver(Goal(List(), Set(), Vocabulary(TermOrder.EMPTY), settings),
-                  settings)
+    val (goal, certFormulas) =
+      Goal.createWithCertFormulas(List(), Set(),
+                                  Vocabulary(TermOrder.EMPTY), settings)
+    new IncProver(goal, certFormulas, settings)
   }
   
   class IncProver protected[proof] (goal : Goal,
+                                    // certFormulas are needed for setting
+                                    // up the <code>LemmaBase</code>
+                                    certFormulas : Seq[CertFormula],
                                     settings : GoalSettings) {
 
     def order : TermOrder = goal.order
@@ -785,7 +793,8 @@ object ModelSearchProver {
             
           val newVocabulary =
             Vocabulary(newOrder,
-                       goal.bindingContext.addAndContract(newConsts, Quantifier.ALL),
+                       goal.bindingContext.addAndContract(
+                                                 newConsts, Quantifier.ALL),
                        goal.constantFreedom addTopStatus newConsts)
 
           nonRemovingPTF.updateGoal(goal.eliminatedConstants ++ newConsts,
@@ -793,7 +802,7 @@ object ModelSearchProver {
                                     goal).asInstanceOf[Goal]
         }
       
-      var resGoal = newOrderGoal addTasksFor fors
+      var (resGoal, additionalCertFormulas) = newOrderGoal addTasksFor fors
 
       // apply the most simple tasks right away
       var cont = true
@@ -806,26 +815,43 @@ object ModelSearchProver {
           resGoal = (resGoal step ptf).asInstanceOf[Goal]
       }
       
-      new IncProver(resGoal, settings)
+      val newCertFormulas =
+        if (certFormulas == null)
+          null
+        else
+          certFormulas ++ additionalCertFormulas
+
+      new IncProver(resGoal, newCertFormulas, settings)
     }
 
-    def checkValidity(constructModel : Boolean) : Either[Conjunction, Certificate] =
+    def checkValidity(constructModel : Boolean)
+                     : Either[Conjunction, Certificate] =
       if (constructModel)
         checkValidityDir(FullModelDirector)
       else
         checkValidityDir(SatOnlyDirector)
 
-    def checkValidityDir(searchDirector : (Conjunction, Boolean) => SearchDirection)
-                     : Either[Conjunction, Certificate] =
+    def checkValidityDir(searchDirector
+                          : (Conjunction, Boolean) => SearchDirection)
+                     : Either[Conjunction, Certificate] = {
+      val lemmaBase =
+        if (certFormulas == null) {
+          null
+        } else {
+          val base = new LemmaBase
+          base assumeFormulas certFormulas.iterator
+          base
+        }
       findModel(goal, List(), List(), Set(), 0, settings,
-                searchDirector, null, 0) match {
+                searchDirector, lemmaBase, 0) match {
         case SatResult                      => Left(Conjunction.TRUE)
         case ModelResult(model)             => Left(model)
         case UnsatResult | UnsatEFResult(_) => Left(Conjunction.FALSE)
         case UnsatCertResult(cert)          => Right(cert)
         case EFRerunResult(_)               => // should never happen
-                                               throw new IllegalArgumentException
+                                              throw new IllegalArgumentException
       }
+    }
 
     /**
      * Apply a simple criterion to check whether the formulas so far
@@ -872,7 +898,7 @@ object ModelSearchProver {
       if (newGoal eq goal)
         this
       else
-        new IncProver(newGoal, settings)
+        new IncProver(newGoal, certFormulas, settings)
     }
   }
   
