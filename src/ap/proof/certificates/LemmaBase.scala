@@ -134,7 +134,7 @@ class LemmaBase {
    * Assume the given literal, and return a certificate in case
    * the resulting combination of assumed literals is known to be unsat.
    */
-  def assumeFormula(l : CertFormula) : Option[Certificate] = ap.util.Timer.measure("assumeFormula"){
+  def assumeFormula(l : CertFormula) : Option[Certificate] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(LemmaBase.AC, pendingCertificates.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -144,7 +144,7 @@ class LemmaBase {
 
     if (assumedFormulaStack.isEmpty) {
       assumedFormulasL0 += l
-println("now know on L0 (" + assumedFormulasL0.size + "): " + l)
+//println("now know on L0 (" + assumedFormulasL0.size + "): " + l)
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // at the moment we assume that no L0 formulas are added after
@@ -160,7 +160,7 @@ println("now know on L0 (" + assumedFormulasL0.size + "): " + l)
       if (oldAssumed eq assumedFormulas)
         return None
 
-println("now know (" + assumedFormulas.size + "): " + l)
+//println("now know (" + assumedFormulas.size + "): " + l)
 
       (literals2Certs get l) match {
         case Some(certs) => {
@@ -172,7 +172,7 @@ println("now know (" + assumedFormulas.size + "): " + l)
             if (!registerCertificate(c)) {
               // found a lemma/certificate that proves that the
               // assumed formulas are inconsistent
-println("matching certificate #" + c.id)
+//println("matching certificate #" + c.id)
               assumedFormulas = oldAssumed
               literals2Certs.put(l, remCerts)
               return Some(c.cert)
@@ -201,8 +201,8 @@ println("matching certificate #" + c.id)
     None
   }
 
-  def push : Unit = ap.util.Timer.measure("push"){
-    println("push " + assumedFormulaStack.size)
+  def push : Unit = {
+//println("push " + assumedFormulaStack.size)
     assumedFormulaStack push assumedFormulas
   }
 
@@ -211,10 +211,9 @@ println("matching certificate #" + c.id)
    * pop are still inconsistent with some stored certificate, such a certificate
    * is returned.
    */
-  def pop : Option[Certificate] = ap.util.Timer.measure("pop"){
+  def pop : Option[Certificate] = {
     assumedFormulas = assumedFormulaStack.pop
-    println("pop " + assumedFormulaStack.size)
-//    println(assumedFormulas)
+//println("pop " + assumedFormulaStack.size)
 
     var i = pendingCertificates.size
     while (i > 0) {
@@ -231,9 +230,8 @@ println("matching certificate #" + c.id)
   /**
    * Add a certificate to the database.
    */
-  def addCertificate(cert : Certificate) : Unit = ap.util.Timer.measure("addCertificate"){
-
-println("learning certificate #" + certNum)
+  def addCertificate(cert : Certificate) : Unit = {
+//println("learning certificate #" + certNum)
 
     val order = cert.order
     implicit val co = CertFormula certFormulaOrdering order
@@ -245,8 +243,8 @@ println("learning certificate #" + certNum)
     val record = new LemmaRecord(cert, watchable, certNum)
     certNum = certNum + 1
 
-println("watchable (" + watchable.size + "/" + cert.assumedFormulas.size + ")")
-record.printWatchable
+//println("watchable (" + watchable.size + "/" + cert.assumedFormulas.size + ")")
+//record.printWatchable
 
     if (!registerCertificate(record))
       pendingCertificates += record
@@ -260,11 +258,9 @@ record.printWatchable
     val constsSet = consts.toSet
     obsoleteConstants ++= consts
 
-    val oldSize = literals2Certs.size
     literals2Certs retain {
       case (a, _) => Seqs.disjoint(a.constants, constsSet)
     }
-    println("" + oldSize + " -> " + literals2Certs.size)
   }
 
   /**
@@ -284,20 +280,13 @@ record.printWatchable
       if (obsoleteConstants.isEmpty ||
           Seqs.disjoint(key.constants, obsoleteConstants)) {
         literals2Certs.put(key, record :: literals2Certs.getOrElse(key, List()))
-println("assigning new watched literal")
-      } else {
-println("dropping obsolete certificate")
+//println("assigning new watched literal")
       }
       true
     } else {
       // if the certificates contains obsolete constants, it can be dropped
-      val res =
-         !(obsoleteConstants.isEmpty ||
-           Seqs.disjoint(record.cert.constants, obsoleteConstants))
-      if (res) {
-println("dropping obsolete certificate 2")
-      }
-      res
+      !(obsoleteConstants.isEmpty ||
+        Seqs.disjoint(record.cert.constants, obsoleteConstants))
     }
   }
 

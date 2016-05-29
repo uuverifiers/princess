@@ -558,7 +558,8 @@ object ModelSearchProver {
         
           val res = findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
                               List(), witnesses, constsToIgnore, depth,
-                              settings, FullModelDirector, null, 0)
+                              settings, FullModelDirector,
+                              lemmaBase, lemmaBaseAssumedInferences)
 
           //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
           // We should be able to derive a counterexample

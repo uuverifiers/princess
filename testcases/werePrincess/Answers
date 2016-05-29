@@ -41,7 +41,7 @@ VALID
 (| (& (>= (lit 7) (sym y) ) (>= (sym y) (lit -2147483648) ) ) (& (>= (lit -3) (sym y) ) (>= (sym y) (lit -2147483648) ) ) ) 
 (>= (lit 20) (sym z) ) 
 .
-Found proof (size 207), simplifying (254)
+Found proof (size 208), simplifying (254)
 VALID
 (true) 
 (true) 
