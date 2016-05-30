@@ -552,10 +552,15 @@ object ModelSearchProver {
               yield (a -> true)) ++
              (for (a <- predConj.negativeLits.iterator; if a.constants.isEmpty)
               yield (a -> false))).toMap
-            
-          assembleModel(ModelElement.constructModel(witnesses, order,
-                                                    Map(), initialPredModel),
-                        predConj, constsToIgnore, order)
+          
+          val initialModel =
+            ModelElement.constructModel(witnesses, order,
+                                        Map(), initialPredModel)
+ 
+          println(predConj)
+          println(initialModel)
+ 
+          assembleModel(initialModel, predConj, constsToIgnore, order)
         } else {
           // We have to lower the constant freedom, to make sure that
           // quantified formulae are fully taken into account when building
