@@ -61,13 +61,21 @@ abstract class CertificateOneChild(val child : Certificate)
 object BranchInferenceCertificate {
   private val AC = Debug.AC_CERTIFICATES
 
-  def checkEmptiness(inferences : Seq[BranchInference],
-                     child : Certificate,
-                     order : TermOrder) =
+  def prepend(inferences : Seq[BranchInference],
+              child : Certificate,
+              order : TermOrder) =
     if (inferences.isEmpty)
       child
-    else
-      BranchInferenceCertificate(inferences, child, order)
+    else child match {
+      case BranchInferenceCertificate(
+             subInfs : List[BranchInference], subChild, _) =>
+        BranchInferenceCertificate(
+             Seqs.prepend(inferences, subInfs), subChild, order)
+      case BranchInferenceCertificate(subInfs, subChild, _) =>
+        BranchInferenceCertificate(inferences ++ subInfs, subChild, order)
+      case child =>
+        BranchInferenceCertificate(inferences, child, order)
+    }
 }
 
 /**
@@ -99,15 +107,22 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInferenceCertificate.AC,
-                   !inferences.isEmpty &&
+                   !inferences.isEmpty
+                  /* Not a property that is actually necessary, since
+                     some provided formulas might not be used by the child
+                     certificate.
+                   &&
                    (uniqueLocalProvidedFormulas forall (
-                                                   child.order isSortingOf _)))
+                                                   child.order isSortingOf _))
+                   */
+                   )
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override def toString : String =
     "BranchInferences(" + (inferences mkString ", ") + ", " + child + ")"
   
-  override def inferenceCount : Int = super.inferenceCount - 1 + inferences.size
+  override lazy val inferenceCount : Int =
+    child.inferenceCount + inferences.size
 
   def update(newSubCerts : Seq[Certificate]) : Certificate = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -139,8 +154,7 @@ abstract class BranchInference {
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(BranchInference.AC,
-                   (assumedFormulas forall ((c:CertFormula) => !c.isTrue)) &&
-                   !(providedFormulas forall ((c:CertFormula) => c.isTrue)))
+                   assumedFormulas forall ((c:CertFormula) => !c.isTrue))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   val assumedFormulas : Set[CertFormula]
@@ -169,6 +183,26 @@ abstract class BranchInference {
    * Constants bound by the inference.
    */
   val localBoundConstants : Set[ConstantTerm] = Set()
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Inference marking that the following sub-proof has been reused from a
+ * previous point.
+ */
+object ReusedProofMarker extends {
+
+  val assumedFormulas : Set[CertFormula] = Set()
+  val providedFormulas : Set[CertFormula] = Set()
+
+} with BranchInference {
+
+  def propagateConstraint(closingConstraint : Conjunction) : Conjunction =
+    closingConstraint
+
+  override def toString : String = "ReusedProofMarker"
 
 }
 

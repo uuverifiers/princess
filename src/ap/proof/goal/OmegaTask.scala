@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,8 +34,9 @@ import ap.util.{Debug, Seqs, PlainRange, FilterIt, IdealRange, Timeout}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificate,
                               AntiSymmetryInference, BranchInferenceCertificate,
-                              StrengthenCertificate, OmegaCertificate, CertInequality,
-                              CertEquation, CertFormula}
+                              StrengthenCertificate, StrengthenCertificateHelper,
+                              OmegaCertificate, CertInequality,
+                              CertEquation, CertFormula, BranchInferenceCollection}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -304,19 +305,25 @@ case object OmegaTask extends EagerTask {
                                              
         if (Param.PROOF_CONSTRUCTION(goal.settings)) {
           val order = goal.order
-          val branchInferences = goal.branchInferences
-    
-          def pCertFunction(children : Seq[Certificate]) : Certificate = {
-            val betaCert =
-              OmegaCertificate(elimConst,
-                               for (b <- boundsA) yield CertInequality(b),
-                               for (b <- boundsB) yield CertInequality(b),
-                               children, order)
-            branchInferences.getCertificate(betaCert, order)
-          }
+
+          val boundsAInEqs = for (b <- boundsA) yield CertInequality(b)
+          val boundsBInEqs = for (b <- boundsB) yield CertInequality(b)
+
+          def pCertFunction(children : Seq[Certificate]) : Certificate =
+            OmegaCertificate(elimConst, boundsAInEqs, boundsBInEqs,
+                             children, order)
       
-          ptf.and(newGoals, PartialCertificate(pCertFunction _, newGoals.size),
-                  goal.vocabulary)
+          def pCert =
+            PartialCertificate(pCertFunction _,
+                               OmegaCertificate.providedFormulas(
+                                 elimConst,
+                                 boundsAInEqs, boundsBInEqs, order,
+                                 OmegaCertificate.strengthenCases(
+                                   elimConst, boundsAInEqs, boundsBInEqs)),
+                               goal.branchInferences,
+                               order)
+
+          ptf.and(newGoals, pCert, goal.vocabulary)
         } else {
           ptf.and(newGoals, goal.vocabulary)
         }
@@ -486,23 +493,22 @@ case object OmegaTask extends EagerTask {
     
     if (Param.PROOF_CONSTRUCTION(goal.settings)) {
       val order = goal.order
-      val branchInferences = goal.branchInferences
     
       val leftFormula = CertInequality(lowerBoundInEq.negate(0))
       val rightFormula = CertInequality(upperBoundInEq.negate(0))
       
-      def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert = SplitEqCertificate(leftFormula, rightFormula,
-                                          children(0), children(1), order)
-        branchInferences.getCertificate(betaCert, order)
-      }
+      def pCertFunction(children : Seq[Certificate]) : Certificate =
+        SplitEqCertificate(leftFormula, rightFormula,
+                           children(0), children(1), order)
       
       ptf.and(Array(goal1, goal2),
               PartialCertificate(pCertFunction _,
-                                 Array(Set(leftFormula).asInstanceOf[Set[CertFormula]],
-                                       Set(rightFormula).asInstanceOf[Set[CertFormula]]),
-                                 (branchInferences.getCertificate(_, order)),
-                                 2),
+                                 Array(Set(leftFormula)
+                                         .asInstanceOf[Set[CertFormula]],
+                                       Set(rightFormula)
+                                         .asInstanceOf[Set[CertFormula]]),
+                                 goal.branchInferences,
+                                 order),
               goal.vocabulary)
     } else {
       ptf.and(Array(goal1, goal2), goal.vocabulary)
@@ -544,31 +550,37 @@ case object OmegaTask extends EagerTask {
 
               if (Param.PROOF_CONSTRUCTION(goal.settings)) {
                 val order = goal.order
-                val branchInferences = goal.branchInferences
     
                 val weakInEq = CertInequality(lc)
+
+                def strengthenPCertFun(children : Seq[Certificate]) : Certificate =
+                  StrengthenCertificate(weakInEq, -negDistance, children, order)
+
+                val strengthenPCert =
+                  PartialCertificate(strengthenPCertFun _,
+                                     StrengthenCertificateHelper.providedFormulas(
+                                       weakInEq, -negDistance, order),
+                                     goal.branchInferences,
+                                     order)
+
+                // in the last goal, we have to infer an equation from two
+                // complementary inequalities
+                val lastLC = lc + negDistance
+                val lastInf =
+                  AntiSymmetryInference(CertInequality(lastLC),
+                                        CertInequality(-lastLC),
+                                        order)
+                val lastInfColl =
+                  BranchInferenceCollection(List(lastInf))
                 
-                def pCertFunction(children : Seq[Certificate]) : Certificate = {
-                  // in the last goal, we have to infer an equation from two
-                  // complementary inequalities
-                  val lastLC = lc + negDistance
-                  val lastInf =
-                    AntiSymmetryInference(CertInequality(lastLC),
-                                          CertInequality(-lastLC),
-                                          order)
-                  val lastCert =
-                    BranchInferenceCertificate(List(lastInf), children.last, order)
-                  val allCerts =
-                    children.take(children.size - 1) ++ List(lastCert)
-                  val strengthenCert =
-                    StrengthenCertificate(weakInEq, -negDistance,
-                                          allCerts, order)
-                  branchInferences.getCertificate(strengthenCert, order)
-                }
-      
-                ptf.and(goals,
-                        PartialCertificate(pCertFunction _, cases.intValueSafe),
-                        goal.vocabulary)
+                val pCert =
+                  strengthenPCert after {
+                    (for (_ <- 1 until strengthenPCert.arity)
+                     yield PartialCertificate.IDENTITY) ++
+                    List(PartialCertificate(lastInfColl, order))
+                  }
+
+                ptf.and(goals, pCert, goal.vocabulary)
               } else {
                   ptf.and(goals, goal.vocabulary)
               }

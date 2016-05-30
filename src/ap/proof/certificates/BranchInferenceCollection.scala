@@ -139,10 +139,7 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
           selectedInferences = inf :: selectedInferences
         }
     
-      if (selectedInferences.isEmpty)
-        child
-      else
-        BranchInferenceCertificate(selectedInferences, child, order)
+      BranchInferenceCertificate.prepend(selectedInferences, child, order)
     }
   
   /**
@@ -152,6 +149,22 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
   def findFalseFormula : Option[CertFormula] =
     (for (inf <- inferences.iterator;
           f <- inf.providedFormulas.iterator) yield f) find (_.isFalse)
+
+  /**
+   * Determine new provided formulas since the point when the collection
+   * had size <code>oldSize</code>; return those formulas together with the
+   * new size.
+   */
+  def newProvidedFormulas(oldSize : Int) : (Iterator[CertFormula], Int) = {
+    val newSize = inferences.size
+    if (newSize > oldSize)
+      (for (inf <- inferences.iterator take (newSize - oldSize);
+            f <- inf.providedFormulas.iterator)
+       yield f,
+       newSize)
+    else
+      (Iterator.empty, newSize)
+  }
   
   override def toString : String = inferences.toString
   
@@ -167,6 +180,12 @@ trait BranchInferenceCollector extends ComputationLogger {
    * (important for alpha-rules)
    */
   def newFormula(f : Conjunction) : Unit
+
+  /**
+   * Inform the collector that a new formula has occurred on the branch
+   * (important for alpha-rules)
+   */
+  def newCertFormula(f : CertFormula) : Unit
 
   /**
    * Inference corresponding to an application of the <code>col-red</code> or
@@ -204,6 +223,7 @@ trait BranchInferenceCollector extends ComputationLogger {
 object NonLoggingBranchInferenceCollector
        extends ComputationLogger.NonLoggingLogger with BranchInferenceCollector {
   def newFormula(f : Conjunction) : Unit = {}
+  def newCertFormula(f : CertFormula) : Unit = {}
   def getCollection : BranchInferenceCollection = BranchInferenceCollection.EMPTY
   def columnReduce(oldSymbol : ConstantTerm, newSymbol : ConstantTerm,
                    newSymbolDef : LinearCombination, subst : Boolean,
@@ -249,7 +269,7 @@ class LoggingBranchInferenceCollector private
   
   def newFormula(f : Conjunction) : Unit = newCertFormula(CertFormula(f))
   
-  private def newCertFormula(f : CertFormula) : Unit =
+  def newCertFormula(f : CertFormula) : Unit =
     for (alphaInf <- BranchInferenceCollection genDefaultInferences f)
       addDirectly(alphaInf)
   

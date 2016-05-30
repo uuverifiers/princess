@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -105,18 +105,15 @@ object BetaFormulaTask {
       val leftFormula = CertFormula(selectedConjunct.negate)
       val rightFormula = CertFormula(otherConjuncts.negate)
       
-      def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert = BetaCertificate(leftFormula, rightFormula, true,
-                                       children(0), children(1), order)
-        branchInferences.getCertificate(betaCert, order)
-      }
+      def pCertFunction(children : Seq[Certificate]) : Certificate =
+        BetaCertificate(leftFormula, rightFormula, true,
+                        children(0), children(1), order)
       
       ptf.and(Array(secondTree, firstTree),
               PartialCertificate(pCertFunction _,
                                  BetaCertificate.providedFormulas(
                                      leftFormula, rightFormula, true),
-                                 (branchInferences.getCertificate(_, order)),
-                                 2),
+                                 branchInferences, order),
               goal.vocabulary)
     } else {
       ptf.and(Array(secondTree, firstTree), goal.vocabulary)
@@ -214,19 +211,15 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
       val branchInferences = goal.branchInferences
       val negatedConjs = formula.negatedConjs
     
-      def pCertFunction(children : Seq[Certificate]) : Certificate = {
-        val betaCert =
-          BetaCertificate((for ((f, c) <- negatedConjs.iterator zip children.iterator)
-                             yield (CertFormula(f), c)).toList,
-                          order)
-        branchInferences.getCertificate(betaCert, order)
-      }
+      def pCertFunction(children : Seq[Certificate]) : Certificate =
+        BetaCertificate((for ((f, c) <- negatedConjs.iterator zip children.iterator)
+                           yield (CertFormula(f), c)).toList,
+                        order)
       
       ptf.and(subtrees,
               PartialCertificate(pCertFunction _,
                                  for (f <- negatedConjs) yield Set(CertFormula(f)),
-                                 (branchInferences.getCertificate(_, order)),
-                                 negatedConjs.size),
+                                 branchInferences, order),
               goal.vocabulary)
     } else {
       ptf.and(subtrees, goal.vocabulary)

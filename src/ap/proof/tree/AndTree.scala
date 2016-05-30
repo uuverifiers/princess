@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -131,15 +131,15 @@ object AndTree {
       case (null, null) =>
         rootCert
       case (leftCert, null) =>
-        rootCert compose (List(leftCert) ++
+        rootCert after (List(leftCert) ++
                           Array.fill(rootCert.arity - 1){
                                      PartialCertificate.IDENTITY})
       case (null, rightCert) =>
-        rootCert compose (Array.fill(rootCert.arity - 1){
+        rootCert after (Array.fill(rootCert.arity - 1){
                                      PartialCertificate.IDENTITY} ++
                           List(rightCert))
       case (leftCert, rightCert) =>
-        rootCert compose Array(leftCert, rightCert)
+        rootCert after Array(leftCert, rightCert)
     }
   }
   

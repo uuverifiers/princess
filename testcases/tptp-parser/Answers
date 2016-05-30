@@ -121,13 +121,13 @@ Loading unsat-core.p ...
 Preprocessing ...
 Warning: ignoring some quantifiers
 Constructing countermodel ...
-Found proof (size 110)
+Found proof (size 89)
 
 No countermodel exists, formula is valid
 % SZS status Theorem for unsat-core
 
 Unsatisfiable core:
-{DIFF-row1-row2, DIFF-row1-row3, DIFF-row2-row3, DIFF-tempty-tcons, EQ-tcons, rawDifference-INV, rawDifference2, rawDifference4, rawDifference5, rowIn-true-INV, rowIn0, rowIn1, test-4}
+{DIFF-row1-row2, DIFF-row1-row3, DIFF-row2-row3, DIFF-tempty-tcons, EQ-tcons, rawDifference-INV, rawDifference2, rawDifference5, rowIn-true-INV, rowIn0, rowIn1, test-4}
 
 Loading SWV032+1.p ...
 

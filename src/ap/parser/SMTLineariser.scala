@@ -148,6 +148,26 @@ object SMTLineariser {
       lineariser.printFormula("assert", f)
     lineariser.close
   }
+
+  def apply(benchmarkName : String,
+            logic : String,
+            status : String,
+            constsToDeclare : Seq[ConstantTerm],
+            predsToDeclare : Seq[Predicate],
+            formulas : Seq[IFormula]) : Unit = {
+    val lineariser = new SMTLineariser(benchmarkName,
+                                       logic, status,
+                                       constsToDeclare,
+                                       predsToDeclare,
+                                       "", "", "",
+                                       emptyConstantType, emptyFunctionType)
+   
+    lineariser.open
+    for (f <- formulas)
+      lineariser.printFormula("assert", f)
+    lineariser.close
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

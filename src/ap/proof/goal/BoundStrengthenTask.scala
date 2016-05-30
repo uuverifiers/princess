@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,6 +21,7 @@
 
 package ap.proof.goal
 
+import ap.terfor.TermOrder
 import ap.basetypes.IdealInt
 import ap.parameters.Param
 import ap.proof.tree.{ProofTreeFactory, ProofTree}
@@ -30,6 +31,7 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.proof.certificates.{Certificate,
                               PartialCertificate, StrengthenCertificate,
+                              StrengthenCertificateHelper,
                               CertInequality, CertEquation, CertFormula}
 import ap.util.Debug
 
@@ -105,24 +107,13 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
                                    goal)
 
         if (Param.PROOF_CONSTRUCTION(goal.settings)) {
-          val branchInferences = goal.branchInferences
-    
-          def pCertFunction(children : Seq[Certificate]) : Certificate = {
-            val strengthenCert =
-              StrengthenCertificate(weakInEq, IdealInt.ONE, children, order)
-            branchInferences.getCertificate(strengthenCert, order)
-          }
-          
           ptf.and(Array(goal1, goal2),
-                  PartialCertificate(pCertFunction _, 2),
+                  strengthenPCert(weakInEq, order).andThen(goal.branchInferences, order),
                   goal.vocabulary)
-
         } else {
-
           val goal1 = ptf.updateGoal(goal formulaTasks eq.negate, goal)
           val goal2 = ptf.updateGoal(goal formulaTasks eq, goal)
           ptf.and(Array(goal1, goal2), goal.vocabulary)
-
         }
       }
 
@@ -153,22 +144,15 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
                                                  CertInequality(newUpperInEqLC)),
                                      goal)
 
-          val branchInferences = goal.branchInferences
-    
-          def pCertFunction(children : Seq[Certificate]) : Certificate = {
-            val upperStrengthenCert =
-              StrengthenCertificate(CertInequality(negUpperBoundLC),
-                                    IdealInt.ONE, children.tail, order)
-            val lowerStrengthenCert =
-              StrengthenCertificate(CertInequality(lowerBoundLC),
-                                    IdealInt.ONE,
-                                    List(children.head, upperStrengthenCert),
-                                    order)
-            branchInferences.getCertificate(lowerStrengthenCert, order)
-          }
-          
+          val upperPCert =
+            strengthenPCert(CertInequality(negUpperBoundLC), order)
+          val lowerPCert =
+            strengthenPCert(CertInequality(lowerBoundLC), order)
+          val combinedPCert =
+            lowerPCert after List(PartialCertificate.IDENTITY, upperPCert)
+
           ptf.and(Array(goal1, goal2, goal3),
-                  PartialCertificate(pCertFunction _, 3),
+                  combinedPCert.andThen(goal.branchInferences, order),
                   goal.vocabulary)
 
         } else {
@@ -185,6 +169,15 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
     }
   }
 
+  private def strengthenPCert(weakInEq : CertInequality, order : TermOrder) = {
+    def pCertFunction(children : Seq[Certificate]) : Certificate =
+      StrengthenCertificate(weakInEq, IdealInt.ONE, children, order)
+          
+    PartialCertificate(pCertFunction _,
+                       StrengthenCertificateHelper.providedFormulas(
+                         weakInEq, IdealInt.ONE, order))
+  }
+
   /**
    * Update the task with possibly new information from the goal. If new facts
    * can be derived, these are put into <code>factCollector</code>
@@ -195,7 +188,6 @@ class BoundStrengthenTask(lc : LinearCombination, age : Int)
     // specified linear combination occur in the goal anymore, we will just
     // ignore the task when it is to be applied
     List(this)
-
   
   override def toString : String =
     "BoundStrengthenTask(" + priority + ", " + lc  + ")"

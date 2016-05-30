@@ -561,7 +561,7 @@ List(
             println("ERROR: " + e.getMessage)
           }
         }
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }
@@ -848,8 +848,8 @@ List(
                           "}")
                 } else Console.withOut(Console.err) {
                   println
-                  println("Certificate: " + cert)
-                  println("Assumed formulae: " + cert.assumedFormulas)
+                  //println("Certificate: " + cert)
+                  //println("Assumed formulae: " + cert.assumedFormulas)
                   print("Constraint: ")
                   printFormula(cert.closingConstraint)
                 }
