@@ -435,12 +435,12 @@ object ModelSearchProver {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def assembleModel(arithModel : Conjunction,
+  private def assembleModel(basicModel : Conjunction,
                             literals : PredConj,
                             constsToIgnore : Set[ConstantTerm],
                             order : TermOrder) : Conjunction = {
-    // assign constants not defined in the arithmetic model to zero
-    val defConsts = arithModel.constants
+    // assign constants not defined in the basic model to zero
+    val defConsts = basicModel.constants
     val addEqs =
       EquationConj(for (c <- literals.constants.iterator;
                         if (!(defConsts contains c)))
@@ -448,7 +448,7 @@ object ModelSearchProver {
                    order)
 
     val modelWithPreds =
-      Conjunction.conj(Array(arithModel, addEqs, literals), order)
+      Conjunction.conj(Array(basicModel, addEqs, literals), order)
 
     // quantify constants that we don't need
     val quantifiedModel = Conjunction.quantify(Quantifier.EX,
@@ -546,8 +546,16 @@ object ModelSearchProver {
           // we have already found a model
         
           val order = goal.order
-          assembleModel(ModelElement.constructModel(witnesses, order),
-                        goal.facts.predConj, constsToIgnore, order)
+          val predConj = goal.facts.predConj
+          val initialPredModel =
+            ((for (a <- predConj.positiveLits.iterator; if a.constants.isEmpty)
+              yield (a -> true)) ++
+             (for (a <- predConj.negativeLits.iterator; if a.constants.isEmpty)
+              yield (a -> false))).toMap
+            
+          assembleModel(ModelElement.constructModel(witnesses, order,
+                                                    Map(), initialPredModel),
+                        predConj, constsToIgnore, order)
         } else {
           // We have to lower the constant freedom, to make sure that
           // quantified formulae are fully taken into account when building
@@ -628,10 +636,11 @@ object ModelSearchProver {
             
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(ModelSearchProver.AC,
-    		          (!goal.facts.predConj.isTrue || !goal.compoundFormulas.isEmpty))
+                      !goal.facts.predConj.isTrue ||
+                      !goal.compoundFormulas.isEmpty)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      // First continue proving only on the arithmetic facts
+      // First continue proving only on arithmetic facts
 
       val order = goal.order
 
