@@ -546,21 +546,8 @@ object ModelSearchProver {
           // we have already found a model
         
           val order = goal.order
-          val predConj = goal.facts.predConj
-          val initialPredModel =
-            ((for (a <- predConj.positiveLits.iterator; if a.constants.isEmpty)
-              yield (a -> true)) ++
-             (for (a <- predConj.negativeLits.iterator; if a.constants.isEmpty)
-              yield (a -> false))).toMap
-          
-          val initialModel =
-            ModelElement.constructModel(witnesses, order,
-                                        Map(), initialPredModel)
- 
-          println(predConj)
-          println(initialModel)
- 
-          assembleModel(initialModel, predConj, constsToIgnore, order)
+          assembleModel(ModelElement.constructModel(witnesses, order),
+                        goal.facts.predConj, constsToIgnore, order)
         } else {
           // We have to lower the constant freedom, to make sure that
           // quantified formulae are fully taken into account when building
@@ -645,11 +632,12 @@ object ModelSearchProver {
                       !goal.compoundFormulas.isEmpty)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      // First continue proving only on arithmetic facts
+      // First continue proving only on arithmetic and basic propositional facts
 
       val order = goal.order
 
-      val newFacts = goal.facts.updatePredConj(PredConj.TRUE)(order)
+      val basicPredConj = goal.facts.predConj filter (_.constants.isEmpty)
+      val newFacts = goal.facts.updatePredConj(basicPredConj)(order)
 
       // for the time being, just disable possible theory plugins at this point
       val newSettings = Param.THEORY_PLUGIN.set(settings, None)
@@ -701,8 +689,8 @@ object ModelSearchProver {
             }
           }
         
-        case (arithModel, true) => {
-          val model = assembleModel(arithModel, goal.facts.predConj,
+        case (basicModel, true) => {
+          val model = assembleModel(basicModel, goal.facts.predConj,
                                     constsToIgnore, goal.order)
           searchDirector(model, true) match {
             case DeriveFullModelDir => {
