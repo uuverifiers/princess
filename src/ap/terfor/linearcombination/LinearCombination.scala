@@ -767,6 +767,16 @@ abstract sealed class LinearCombination (val order : TermOrder)
   def sameNonConstantTerms(that : LinearCombination) : Boolean
   
   /**
+   * Return whether the <code>this</code> and
+   * <code>that</code> agree on the non-constant terms, but with
+   * inverted sign. I.e., whether   
+   * the sum of <code>this</code> and
+   * <code>that</code> is some integer constant <code>d</code>
+   * (<code>this + that = d</code>).
+   */
+  def inverseNonConstantTerms(that : LinearCombination) : Boolean
+  
+  /**
    * Return <code>Some(d)</code> if the difference between <code>this</code> and
    * <code>that</code> is only an integer constant <code>d</code>
    * (<code>this = that + d</code>), and <code>None</code> otherwise.
@@ -1037,25 +1047,11 @@ final class ArrayLinearCombination private[linearcombination]
 
   def sameNonConstantTerms(that : LinearCombination) : Boolean = that match {
     case that : ArrayLinearCombination => {
-       val lengthDiff = this.lcSize - that.lcSize
-       var i : Int = 0
-     
        // determine the point to start the comparison. we assume that constant
        // terms only occur as last term in a linear combination
-       if (lengthDiff == -1) {
-         if (that.lastTerm != OneTerm) return false
-         i = this.lcSize - 1
-       } else if (lengthDiff == 0) {
-         if (this.lastTerm == OneTerm && that.lastTerm == OneTerm)
-           i = this.lcSize - 2
-         else
-           i = this.lcSize - 1
-       } else if (lengthDiff == 1) {
-         if (this.lastTerm != OneTerm) return false
-         i = that.lcSize - 1
-       } else {
-         return false
-       }
+       var i : Int = sameNonConstStartingPoint(that)
+
+       if (i < 0) return false
      
        while (i >= 0) {
          if (this.getPair(i) != that.getPair(i)) return false
@@ -1066,6 +1062,46 @@ final class ArrayLinearCombination private[linearcombination]
     }
     case _ => false
   }
+
+  def inverseNonConstantTerms(that : LinearCombination) : Boolean = that match {
+    case that : ArrayLinearCombination => {
+       // determine the point to start the comparison. we assume that constant
+       // terms only occur as last term in a linear combination
+       var i : Int = sameNonConstStartingPoint(that)
+
+       if (i < 0) return false
+     
+       while (i >= 0) {
+         if ((this getTerm i) != (that getTerm i) ||
+             !((this getCoeff i) + (that getCoeff i)).isZero) return false
+         i = i - 1
+       }
+     
+       true
+    }
+    case _ => false
+  }
+
+  private def sameNonConstStartingPoint(that : ArrayLinearCombination) : Int =
+    (this.lcSize - that.lcSize) match {
+      case -1 =>
+        if (that.lastTerm != OneTerm)
+          -1
+        else
+          this.lcSize - 1
+      case 0 =>
+        if (this.lastTerm == OneTerm && that.lastTerm == OneTerm)
+          this.lcSize - 2
+        else
+          this.lcSize - 1
+      case 1 =>
+        if (this.lastTerm != OneTerm)
+          -1
+        else
+          that.lcSize - 1
+      case _ =>
+        -1
+    }
 
   def leadingCoeff : IdealInt = terms.head._1
 
@@ -1201,6 +1237,9 @@ final class LinearCombination0 private[linearcombination]
   }
 
   def sameNonConstantTerms(that : LinearCombination) : Boolean =
+    that.isInstanceOf[LinearCombination0]
+    
+  def inverseNonConstantTerms(that : LinearCombination) : Boolean =
     that.isInstanceOf[LinearCombination0]
     
   def leadingCoeff : IdealInt = constant
@@ -1408,6 +1447,13 @@ final class LinearCombination1 private[linearcombination]
   def sameNonConstantTerms(that : LinearCombination) : Boolean = that match {
     case that : LinearCombination1 =>
       this.coeff0 == that.coeff0 && this.term0 == that.term0
+    case _ =>
+      false
+  }
+    
+  def inverseNonConstantTerms(that : LinearCombination) : Boolean = that match {
+    case that : LinearCombination1 =>
+      (this.coeff0 + that.coeff0).isZero && this.term0 == that.term0
     case _ =>
       false
   }
@@ -1646,6 +1692,14 @@ final class LinearCombination2 private[linearcombination]
     case that : LinearCombination2 =>
       this.coeff0 == that.coeff0 && this.term0 == that.term0 &&
       this.coeff1 == that.coeff1 && this.term1 == that.term1
+    case _ =>
+      false
+  }
+    
+  def inverseNonConstantTerms(that : LinearCombination) : Boolean = that match {
+    case that : LinearCombination2 =>
+      (this.coeff0 + that.coeff0).isZero && this.term0 == that.term0 &&
+      (this.coeff1 + that.coeff1).isZero && this.term1 == that.term1
     case _ =>
       false
   }

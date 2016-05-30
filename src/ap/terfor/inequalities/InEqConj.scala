@@ -740,25 +740,27 @@ private class FMInfsComputer(infThrottleThreshold : Int,
       if (geq inferenceNecessary leq) {
         val geqLC = geq.lc
         val leqLC = leq.lc
-        val gcd = geqLC.leadingCoeff gcd leqLC.leadingCoeff
-        val leqCoeff = leqLC.leadingCoeff / -gcd
-        val geqCoeff = geqLC.leadingCoeff / gcd
-        
-        val inf = LinearCombination.sum(leqCoeff, geqLC, geqCoeff, leqLC, order)
-        
-        logger.cieScope.start((leqCoeff, geqLC, geqCoeff, leqLC, order)) {
-          addGeqTodo(inf, true, -1)
-        }
-        
-        if (inf.isZero) {
-          // an implied equation has been found
-          logger.antiSymmetry(geqLC, leqLC, order)
-          equalityInfs += geqLC
-        }
-        
-        if (infsLocalTodoCount > infStopThreshold)
-          return
 
+        if (infsLocalTodoCount <= infStopThreshold ||
+            (geqLC inverseNonConstantTerms leqLC)) {
+          val gcd = geqLC.leadingCoeff gcd leqLC.leadingCoeff
+          val leqCoeff = leqLC.leadingCoeff / -gcd
+          val geqCoeff = geqLC.leadingCoeff / gcd
+        
+          val inf =
+            LinearCombination.sum(leqCoeff, geqLC, geqCoeff, leqLC, order)
+        
+          logger.cieScope.start((leqCoeff, geqLC, geqCoeff, leqLC, order)) {
+            addGeqTodo(inf, true, -1)
+          }
+        
+          if (inf.isZero) {
+            // an implied equation has been found
+            logger.antiSymmetry(geqLC, leqLC, order)
+            equalityInfs += geqLC
+          }
+        }
+        
         if (infsTodoCount % 1000 == 0 & infsLocalTodoCount > 0)
           Timeout.check
       }
