@@ -147,33 +147,34 @@ object ModelSearchProver {
         throw new IllegalArgumentException
       case UnsatCertResult(cert) => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(ModelSearchProver.AC, Param.PROOF_CONSTRUCTION(settings))
+        Debug.assertInt(ModelSearchProver.AC,
+                        Param.PROOF_CONSTRUCTION(settings))
         //-END-ASSERTION-///////////////////////////////////////////////////////
 
-          /*
-           * Some code to identify dangling formulae (assumed formulae that were
-           * never provided) in a certificate
-           *
+        /*
+         * Some code to identify dangling formulae (assumed formulae that were
+         * never provided) in a certificate
+         *
 
-          val badFormulas =
-            cert.assumedFormulas --
-            (for (d <- disjuncts.iterator) yield CertFormula(d.negate)).toSet
-          if (!badFormulas.isEmpty) {
-            println("FINISHED, but certificate makes incorrect assumptions:")
-            println(badFormulas)
-            throw new IllegalArgumentException
-          }
+        val badFormulas =
+          cert.assumedFormulas --
+          (for (d <- disjuncts.iterator) yield CertFormula(d.negate)).toSet
+        if (!badFormulas.isEmpty) {
+          println("FINISHED, but certificate makes incorrect assumptions:")
+          println(badFormulas)
+          throw new IllegalArgumentException
+        }
 
-          def traceBF(c : Certificate) : Unit = {
-            println(c)
-            for (d <- c.subCertificates) {
-              if (d.assumedFormulas contains badFormula)
-                traceBF(d)
-            }
+        def traceBF(c : Certificate) : Unit = {
+          println(c)
+          for (d <- c.subCertificates) {
+            if (d.assumedFormulas contains badFormula)
+              traceBF(d)
           }
+        }
           
-          traceBF(cert)
-          */
+        traceBF(cert)
+        */
           
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(ModelSearchProver.AC,
