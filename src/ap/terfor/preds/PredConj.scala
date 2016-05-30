@@ -402,6 +402,11 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
       (this.updateLitsSubset(unchangedPosLits, unchangedNegLits, fullOrder),
        this.updateLitsSubset(changedPosLits, changedNegLits, fullOrder))
     }
+
+  def filter(pred : (Atom) => Boolean) : PredConj =
+    this.updateLitsSubset(this.positiveLits filter pred,
+                          this.negativeLits filter pred,
+                          order)
   
   def partition(pred : (Atom) => Boolean) : (PredConj, PredConj) = {
     val (posLeft, posRight) = this.positiveLits partition pred

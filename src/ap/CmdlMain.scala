@@ -391,7 +391,7 @@ object CmdlMain {
 	} else {
           println("ERROR: " + e.getMessage)
         }
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }
@@ -669,8 +669,8 @@ object CmdlMain {
                                map (_.toString)).toArray.sorted mkString ", ") +
                           "}")
                 } else {
-                  println("Certificate: " + cert)
-                  println("Assumed formulae: " + cert.assumedFormulas)
+                  //println("Certificate: " + cert)
+                  //println("Assumed formulae: " + cert.assumedFormulas)
                   print("Constraint: ")
                   printFormula(cert.closingConstraint)
                 }
