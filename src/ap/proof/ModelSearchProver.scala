@@ -546,8 +546,16 @@ object ModelSearchProver {
           // we have already found a model
         
           val order = goal.order
-          assembleModel(ModelElement.constructModel(witnesses, order),
-                        goal.facts.predConj, constsToIgnore, order)
+          val predConj = goal.facts.predConj
+          val initialPredModel =
+            ((for (a <- predConj.positiveLits.iterator; if a.constants.isEmpty)
+              yield (a -> true)) ++
+             (for (a <- predConj.negativeLits.iterator; if a.constants.isEmpty)
+              yield (a -> false))).toMap
+            
+          assembleModel(ModelElement.constructModel(witnesses, order,
+                                                    Map(), initialPredModel),
+                        predConj, constsToIgnore, order)
         } else {
           // We have to lower the constant freedom, to make sure that
           // quantified formulae are fully taken into account when building
