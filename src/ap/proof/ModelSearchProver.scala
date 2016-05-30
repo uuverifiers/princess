@@ -244,7 +244,7 @@ object ModelSearchProver {
                         // <code>null</code>
                         lemmaBase : LemmaBase,
                         lemmaBaseAssumedInferences : Int)
-                       : FindModelResult = ap.util.Timer.measure("findModel"){
+                       : FindModelResult = {
     Timeout.check
     
     tree match {
