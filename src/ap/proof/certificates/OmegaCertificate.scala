@@ -28,6 +28,8 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.TerForConvenience._
 import ap.util.{Debug, IdealRange}
 
+import scala.runtime.ScalaRunTime
+
 object OmegaCertificate {
   
   private val AC = Debug.AC_CERTIFICATES
@@ -130,5 +132,7 @@ case class OmegaCertificate(elimConst : ConstantTerm,
     "Omega(" + elimConst + ", {" +
     ((boundsA.iterator zip strengthenCases.iterator) mkString ", ") + "}, {" +
     (boundsB mkString ", ") + "} -> " + (children mkString ", ") + ")"
+
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 
 }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,8 @@ import ap.terfor.TerForConvenience._
 import ap.terfor.TermOrder
 import ap.util.Debug
 
+import scala.runtime.ScalaRunTime
+
 object CloseCertificate {
   private val AC = Debug.AC_CERTIFICATES
 }
@@ -47,13 +49,15 @@ case class CloseCertificate(localAssumedFormulas : Set[CertFormula],
   def iterator = Iterator.empty
 
   def update(newSubCerts : Seq[Certificate]) : Certificate = {
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(CloseCertificate.AC, newSubCerts.isEmpty)
-    //-END-ASSERTION-/////////////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     this
   }
 
   override def toString : String =
     "Close(" + (localAssumedFormulas mkString ", ") + ")"
+
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 
 }

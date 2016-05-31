@@ -33,6 +33,8 @@ import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.substitutions.ConstantSubst
 import ap.util.{Debug, Seqs}
 
+import scala.runtime.ScalaRunTime
+
 /**
  * Abstract superclass of all certificate nodes that only have a single subtree
  */
@@ -120,6 +122,8 @@ case class BranchInferenceCertificate(inferences : Seq[BranchInference],
 
   override def toString : String =
     "BranchInferences(" + (inferences mkString ", ") + ", " + child + ")"
+
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
   
   override lazy val inferenceCount : Int =
     child.inferenceCount + inferences.size
