@@ -214,6 +214,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
      yield n).toSet
   }
 
+  override def getFormulaParts : Map[PartName, Conjunction] = namedParts
+
   //////////////////////////////////////////////////////////////////////////////
   
   protected val goalSettings = {

@@ -21,6 +21,7 @@
 
 package ap
 
+import ap.terfor.conjunctions.Conjunction
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
 import ap.parser.{IFormula, PartName}
@@ -64,6 +65,9 @@ object Prover {
 trait Prover {
 
   val result : Prover.Result
+
+  def getFormulaParts : Map[PartName, Conjunction] =
+    throw new UnsupportedOperationException
 
   def getAssumedFormulaParts(certificate : Certificate) : Set[PartName] =
     throw new UnsupportedOperationException

@@ -33,6 +33,13 @@ object DagCertificateConverter {
 
   private val AC = Debug.AC_CERTIFICATES
 
+  /**
+   * Convert the given certificate to a DAG. The resulting vector
+   * contains all relevant sub-certificates, with instances of
+   * <code>ReferenceCertificate</code> to refer to some certificate
+   * in the vector. The root certificate is the last entry of the
+   * vector.
+   */
   def apply(cert : Certificate) : Seq[Certificate] = {
     val daggifier = new DagCertificateConverter
     daggifier(cert)
@@ -77,6 +84,10 @@ object DagCertificateConverter {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Class for converting a given certificate to a DAG, by factoring out
+ * shared sub-certificates.
+ */
 class DagCertificateConverter {
 
   import DagCertificateConverter._

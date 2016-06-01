@@ -23,7 +23,9 @@ package ap;
 
 import ap.proof.ConstraintSimplifier
 import ap.proof.tree.{ProofTree, QuantifiedTree}
-import ap.proof.certificates.{Certificate, DotLineariser}
+import ap.proof.certificates.{Certificate, DotLineariser,
+                              DagCertificateConverter, CertificatePrettyPrinter,
+                              CertFormula}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
@@ -669,6 +671,18 @@ object CmdlMain {
                                map (_.toString)).toArray.sorted mkString ", ") +
                           "}")
                 } else {
+/*
+                  val dagCert = DagCertificateConverter(cert)
+                  println("Size of DAG certificate: " +
+                          (dagCert map (_.inferenceCount)).sum)
+
+                  val printer = new CertificatePrettyPrinter(
+                                  new CertificatePrettyPrinter.TPTPFormulaPrinter)
+                  val formulaParts = prover.getFormulaParts mapValues {
+                    f => CertFormula(f.negate)
+                  }
+                  printer(dagCert, formulaParts)
+*/
                   //println("Certificate: " + cert)
                   //println("Assumed formulae: " + cert.assumedFormulas)
                   print("Constraint: ")
