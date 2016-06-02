@@ -30,19 +30,25 @@ import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
 object CertificatePrettyPrinter {
 
   abstract class FormulaPrinter {
-    def printFor(f : CertFormula) : Unit
+    def for2String(f : CertFormula) : String
     def term2String(t : LinearCombination) : String
   }
 
   class TPTPFormulaPrinter extends FormulaPrinter {
-    def printFor(f : CertFormula) : Unit = println(f)
+    def for2String(f : CertFormula) : String = f.toString
     def term2String(t : LinearCombination) : String = t.toString
   }
+
+  private val LINE_WIDTH = 80
+
+  private val NUMERIC_LABEL = """\(([0-9]+)\)""".r
 
 }
 
 class CertificatePrettyPrinter(
         formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
+
+  import CertificatePrettyPrinter._
 
   def apply(dagCertificate : Seq[Certificate],
             initialFormulas : Map[PartName, CertFormula]) : Unit = {
@@ -63,38 +69,62 @@ class CertificatePrettyPrinter(
     println("Assumptions after simplification:")
     println("---------------------------------")
 
-    for (name <- usedNames) {
-      println
-      val label = name match {
-        case PartName.NO_NAME =>
-          "axioms"
-        case _ =>
-          "" + name
+    push
+    try {
+      for (name <- usedNames) {
+        println
+        val label = name match {
+          case PartName.NO_NAME => "axioms"
+          case _ =>                "" + name
+        }
+        introduceFormula(initialFormulas(name), label)
       }
-      introduceFormula(initialFormulas(name), label)
-    }
 
-    if (unusedNames exists (_ != PartName.NO_NAME)) {
+      if (unusedNames exists (_ != PartName.NO_NAME)) {
+        println
+        println("Further assumptions not needed in the proof:")
+        println("--------------------------------------------")
+        printlnPrefBreaking("",
+             (unusedNames filterNot (_ == PartName.NO_NAME)) mkString ", ")
+      }
+
       println
-      println("Further assumptions not needed in the proof:")
-      println("--------------------------------------------")
-      println((unusedNames filterNot (_ == PartName.NO_NAME)) mkString ", ")
+      println("Those formulas are unsatisfiable:")
+      println("---------------------------------")
+
+      println
+      println("Begin of proof")
+      addPrefix("| ")
+      printCertificate(dagCertificate.last)
+      printlnPref
+    } finally {
+      reset
     }
+    println("End of proof")
 
-    println
-    println("Those formulas are unsatisfiable:")
-    println("---------------------------------")
-
-    printCertificate(dagCertificate.last)
-
-/*
     for (id <- (certificateNum - 2) to 0 by -1) {
+      val cert = dagCertificate(id)
+
       println
-      println("Sub-proof #" + (certificateNum - id - 1) + ":")
-      println("-------------")
-      printCertificate(dagCertificate(id))
+      println("Sub-proof #" + (certificateNum - id - 1) +
+              " shows that the following formulas are inconsistent:")
+      println("----------------------------------------------------------------")
+
+      push
+      try {
+        for (f <- cert.assumedFormulas)
+          introduceFormula(f)
+
+        println
+        println("Begin of proof")
+        addPrefix("| ")
+        printCertificate(cert)
+        printlnPref
+      } finally {
+        reset
+      }
+      println("End of proof")
     }
-*/
   }
 
   private var certificateNum = 0
@@ -122,25 +152,66 @@ class CertificatePrettyPrinter(
     print(o)
   }
 
+  private def printlnPrefBreaking(label : String, o : Any) : Unit = {
+    val remLineWidth = (LINE_WIDTH - prefix.size - label.size) max 50
+    val text = "" + o
+
+    printPref(label)
+
+    if (text.size <= remLineWidth) {
+      println(text)
+    } else {
+      var cnt = 0
+      var parenNum = 0
+
+      var lastSplitPos = 0
+      var curSplitPos = 0
+      var curSplitParenNum = 0
+
+      while (cnt < text.size) {
+        text(cnt) match {
+          case '(' | '{' | '[' => parenNum = parenNum + 1
+          case ')' | '}' | ']' => parenNum = parenNum - 1
+          case ' ' => {
+            // this is where we might split
+            curSplitPos = cnt
+            curSplitParenNum = parenNum
+          }
+          case _ => // nothing
+        }
+
+        if (cnt - lastSplitPos > remLineWidth &&
+          curSplitPos > lastSplitPos) {
+          println(text.substring(lastSplitPos, curSplitPos))
+          printPref(" " * label.size + "  " * curSplitParenNum)
+          lastSplitPos = curSplitPos + 1
+        }
+
+        cnt = cnt + 1
+      }
+
+      if (lastSplitPos < cnt)
+        println(text.substring(lastSplitPos, cnt))
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val formulaLabel = new LinkedHashMap[CertFormula, String]
   private var formulaCounter : Int = 1
 
-  private def introduceFormula(f : CertFormula, label : String = "") : Unit = {
+  private def introduceFormula(f : CertFormula, label : String = "") : Unit =
     if (label == "") {
-      printPref("  (" + formulaCounter + ")  ")
+      printlnPrefBreaking("  (" + formulaCounter + ")  ",
+                          formulaPrinter for2String f)
       formulaLabel.put(f, "" + formulaCounter)
       formulaCounter = formulaCounter + 1
     } else {
       printlnPref("  (" + label + ")")
+      printlnPrefBreaking("  ", formulaPrinter for2String f)
       formulaLabel.put(f, label)
       printPref
     }
-
-    print("  ")
-    formulaPrinter printFor f
-  }
 
   private def introduceFormulaIfNeeded
                 (f : CertFormula, assumedFormulas : Set[CertFormula]) : Unit = {
@@ -150,7 +221,11 @@ class CertificatePrettyPrinter(
 
   private def l(f : CertFormula) : String = "(" + formulaLabel(f) + ")"
 
-  private def l(fs : Seq[CertFormula]) : String = (fs map (l(_))) mkString ", "
+  private def l(fs : Iterable[CertFormula]) : String =
+    ((fs.toSeq map (l(_))).sortBy {
+      case NUMERIC_LABEL(num) => "(" + ("0" * (9 - num.size)) + num + ")"
+      case label => label
+    }) mkString ", "
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -164,6 +239,13 @@ class CertificatePrettyPrinter(
     while (formulaLabel.size > oldFormulaLabelSize)
       formulaLabel -= formulaLabel.last._1
     prefix = oldPrefix
+  }
+
+  private def reset : Unit = {
+    branchStack.clear
+    formulaLabel.clear
+    prefix = ""
+    formulaCounter = 1
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -183,13 +265,14 @@ class CertificatePrettyPrinter(
     case cert : BetaCertificate => {
       printlnPref
       printlnPref("BETA: splitting " +
-                  l(cert.localAssumedFormulas.toSeq) + " gives:")
+                  l(cert.localAssumedFormulas) + " gives:")
       printCases(cert)
     }
 
     case cert : CloseCertificate => {
       printlnPref
-      printlnPref("CLOSE: " + l(cert.localAssumedFormulas.toSeq) + " " +
+      printlnPrefBreaking("CLOSE: ",
+                  l(cert.localAssumedFormulas) + " " +
                   (if (cert.localAssumedFormulas.size == 1) "is" else "are") +
                   " inconsistent.")
     }
@@ -197,10 +280,11 @@ class CertificatePrettyPrinter(
     case DagCertificateConverter.ReferenceCertificate(id, localAssumed,
                                                       _, _, _) => {
       printlnPref
-      printlnPref("REF_CLOSE: " + l(localAssumed.toSeq) + " " +
-                  (if (localAssumed.size == 1) "is" else "are") +
-                  " inconsistent by sub-proof #" +
-                  (certificateNum - id - 1) + ".")
+      printlnPrefBreaking("REF_CLOSE: ",
+                          l(localAssumed) + " " +
+                          (if (localAssumed.size == 1) "is" else "are") +
+                          " inconsistent by sub-proof #" +
+                          (certificateNum - id - 1) + ".")
     }
   }
 
@@ -212,6 +296,7 @@ class CertificatePrettyPrinter(
       try {
         printlnPref("Case " + (num + 1) + ":")
         addPrefix("| ")
+        printlnPref
         for (f <- cert localProvidedFormulas num)
           introduceFormulaIfNeeded(f, subCert.assumedFormulas)
         printCertificate(subCert)
@@ -237,7 +322,11 @@ class CertificatePrettyPrinter(
 
   private def printInference(inf : BranchInference,
                              nextAssumedFormulas : Set[CertFormula]) : Unit = {
-    if (inf == ReusedProofMarker)
+    if (inf == ReusedProofMarker ||
+        (inf.localBoundConstants.isEmpty &&
+         (inf.providedFormulas forall {
+           f => (formulaLabel contains f) || !(nextAssumedFormulas contains f)
+         })))
       return
 
     printlnPref
@@ -255,23 +344,31 @@ class CertificatePrettyPrinter(
         printRewritingRule("COMBINE_EQS", inf)
       case _ : CombineInequalitiesInference =>
         printRewritingRule("COMBINE_INEQS", inf)
+      case _ : DirectStrengthenInference =>
+        printRewritingRule("STRENGTHEN", inf)
+      case _ : AntiSymmetryInference =>
+        printRewritingRule("ANTI_SYMM", inf)
       case QuantifierInference(quantifiedFormula, newConstants, _, _) =>
-        printlnPref("DELTA: instantiating " +  l(quantifiedFormula) +
+        printlnPrefBreaking("DELTA: ",
+                    "instantiating " +  l(quantifiedFormula) +
                     " with fresh " +
                     (if (newConstants.size > 1) "symbols" else "symbol") + " " +
                     (newConstants mkString ", ") + " gives:")
       case GroundInstInference(quantifiedFormula, instanceTerms,
-                               _, dischargedAtoms, _, _) => {
-        printPref("GROUND_INST: instantiating " +  l(quantifiedFormula) +
-                  " with " +
-                  ((for (t <- instanceTerms) yield (formulaPrinter term2String t))
-                  mkString ", "))
-        if (!dischargedAtoms.isEmpty) {
-          println(",")
-          printPref("             simplifying with " + l(dischargedAtoms))
-        }
-        println(" gives:")
-      }
+                               _, dischargedAtoms, _, _) =>
+        printlnPrefBreaking("GROUND_INST: ",
+                    "instantiating " +  l(quantifiedFormula) + " with " +
+                    ((for (t <- instanceTerms)
+                    yield (formulaPrinter term2String t)) mkString ", ") +
+                    (if (!dischargedAtoms.isEmpty)
+                       ", simplifying with " + l(dischargedAtoms)
+                     else
+                       "") +
+                    " gives:")
+      case ColumnReduceInference(_, newSymbol, definingEq, _, _) =>
+        printlnPrefBreaking("COL_REDUCE: ",
+                    "introducing fresh symbol " + newSymbol +
+                    " defined by:")
     }
 
     for (f <- inf.providedFormulas)
@@ -279,11 +376,12 @@ class CertificatePrettyPrinter(
   }
 
   private def printRewritingRule(name : String, inf : BranchInference) : Unit =
-    printlnPref(name + ": " + l(inf.assumedFormulas.toSeq) + " " +
-                (inf.assumedFormulas.size match {
-                  case 0 => "have:"
-                  case 1 => "implies:"
-                  case _ => "imply:"
-                 }))
+    printlnPrefBreaking(name + ": ",
+                        l(inf.assumedFormulas) + " " +
+                        (inf.assumedFormulas.size match {
+                          case 0 => "have:"
+                          case 1 => "implies:"
+                          case _ => "imply:"
+                         }))
 
 }
