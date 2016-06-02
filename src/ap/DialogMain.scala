@@ -837,7 +837,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private val optionToolTipLocation = new Point (0, -760)
+  private val optionToolTipLocation = new Point (0, -400)
 
   leftPanel add Box.createRigidArea(new Dimension (8, 0))
   private val optionLabel = new JLabel("Options: ") {
