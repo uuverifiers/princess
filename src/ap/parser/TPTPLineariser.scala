@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -138,6 +138,9 @@ class TPTPLineariser(benchmarkName : String) {
   
   def printFormula(formula : IFormula) =
     AbsyPrinter.visit(formula, PrintContext(List(), "", 0))
+  
+  def printTerm(t : ITerm) =
+    AbsyPrinter.visit(t, PrintContext(List(), "", 0))
   
   def close {
     println("%------------------------------------------------------------------------------")
@@ -336,11 +339,18 @@ class TPTPLineariser(benchmarkName : String) {
           print("$" + value)
           noParentOp(ctxt)
         }
-      
+
+/*      
         case IIntFormula(IIntRelation.EqZero,
                          ITimes(IdealInt.MINUS_ONE, t)) => {
           print("0 = ")
           TryAgain(t, ctxt)
+        }
+*/
+        case IIntFormula(IIntRelation.GeqZero,
+                         ITimes(IdealInt.MINUS_ONE, t)) => {
+          print("$lesseq(")
+          TryAgain(t, ctxt setParentOp (", 0)"))
         }
         case IIntFormula(IIntRelation.EqZero,
                          IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)))) => {
@@ -371,10 +381,16 @@ class TPTPLineariser(benchmarkName : String) {
                                         atomicTerm(t, ctxt) + ctxt.parentOp))
         }
         case IIntFormula(IIntRelation.EqZero, IPlus(IIntLit(value), s)) => {
-          TryAgain(s, ctxt setParentOp (" = " + (-value) +
-                                        ctxt.parentOp))
+          TryAgain(s, ctxt setParentOp (" = " + (-value) + ctxt.parentOp))
         }
         case IIntFormula(IIntRelation.GeqZero, IPlus(IIntLit(value), s)) => {
+          print("$lesseq(" + (-value) + ", ")
+          TryAgain(s, addClosingParen(ctxt))
+        }
+        case IIntFormula(IIntRelation.EqZero, IPlus(s, IIntLit(value))) => {
+          TryAgain(s, ctxt setParentOp (" = " + (-value) + ctxt.parentOp))
+        }
+        case IIntFormula(IIntRelation.GeqZero, IPlus(s, IIntLit(value))) => {
           print("$lesseq(" + (-value) + ", ")
           TryAgain(s, addClosingParen(ctxt))
         }

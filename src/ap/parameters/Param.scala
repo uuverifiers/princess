@@ -89,6 +89,11 @@ object Param {
     val defau : String = ""
   }
   
+  case object PRINT_CERTIFICATE extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
   object ConstraintSimplifierOptions extends Enumeration {
     val None, Fair, Lemmas = Value
   }

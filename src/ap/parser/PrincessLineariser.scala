@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,8 +34,6 @@ import java.io.PrintStream
 
 /**
  * Class for printing <code>IFormula</code>s in the Princess format
- * 
- * Currently, functions are not handled in this class
  */
 object PrincessLineariser {
 

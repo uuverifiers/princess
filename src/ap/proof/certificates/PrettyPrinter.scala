@@ -21,7 +21,10 @@
 
 package ap.proof.certificates;
 
-import ap.parser.PartName
+import ap.DialogUtil
+import ap.terfor.preds.Predicate
+import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
+                  Internal2InputAbsy, IFunction, Transform2NNF}
 import ap.terfor.linearcombination.LinearCombination
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
@@ -34,9 +37,40 @@ object CertificatePrettyPrinter {
     def term2String(t : LinearCombination) : String
   }
 
-  class TPTPFormulaPrinter extends FormulaPrinter {
-    def for2String(f : CertFormula) : String = f.toString
-    def term2String(t : LinearCombination) : String = t.toString
+  class PrincessFormulaPrinter(predTranslation : Map[Predicate, IFunction])
+        extends FormulaPrinter {
+    private val translator = new Internal2InputAbsy(predTranslation)
+
+    def for2String(f : CertFormula) : String = DialogUtil.asString {
+      PrincessLineariser printExpression Transform2NNF(translator(f.toFormula))
+    }
+    def term2String(t : LinearCombination) : String = DialogUtil.asString {
+      PrincessLineariser printExpression translator(t)
+    }
+  }
+
+  class TPTPFormulaPrinter(predTranslation : Map[Predicate, IFunction])
+        extends FormulaPrinter {
+    private val lin = new TPTPLineariser("")
+    private val translator = new Internal2InputAbsy(predTranslation)
+
+    def for2String(f : CertFormula) : String = DialogUtil.asString {
+      lin printFormula Transform2NNF(translator(f.toFormula))
+    }
+    def term2String(t : LinearCombination) : String = DialogUtil.asString {
+      lin printTerm translator(t)
+    }
+  }
+
+  class SMTLIBFormulaPrinter(predTranslation : Map[Predicate, IFunction])
+        extends FormulaPrinter {
+    private val translator = new Internal2InputAbsy(predTranslation)
+
+    def for2String(f : CertFormula) : String =
+      SMTLineariser asString Transform2NNF(translator(f.toFormula))
+
+    def term2String(t : LinearCombination) : String =
+      SMTLineariser asString translator(t)
   }
 
   private val LINE_WIDTH = 80
@@ -44,6 +78,8 @@ object CertificatePrettyPrinter {
   private val NUMERIC_LABEL = """\(([0-9]+)\)""".r
 
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 class CertificatePrettyPrinter(
         formulaPrinter : CertificatePrettyPrinter.FormulaPrinter) {
@@ -183,8 +219,9 @@ class CertificatePrettyPrinter(
         if (cnt - lastSplitPos > remLineWidth &&
           curSplitPos > lastSplitPos) {
           println(text.substring(lastSplitPos, curSplitPos))
-          printPref(" " * label.size + "  " * curSplitParenNum)
           lastSplitPos = curSplitPos + 1
+          if (lastSplitPos < text.size)
+            printPref(" " * label.size + "  " * curSplitParenNum)
         }
 
         cnt = cnt + 1
@@ -269,6 +306,13 @@ class CertificatePrettyPrinter(
       printCases(cert)
     }
 
+    case StrengthenCertificate(ineq, _, _, _) => {
+      printlnPref
+      printlnPrefBreaking("STRENGTHEN: ",
+                    "tightening of inequality " + l(ineq) + " gives:")
+      printCases(cert)
+    }
+
     case cert : CloseCertificate => {
       printlnPref
       printlnPrefBreaking("CLOSE: ",
@@ -348,6 +392,8 @@ class CertificatePrettyPrinter(
         printRewritingRule("STRENGTHEN", inf)
       case _ : AntiSymmetryInference =>
         printRewritingRule("ANTI_SYMM", inf)
+      case _ : DivRightInference =>
+        printRewritingRule("DIV_RIGHT", inf)
       case QuantifierInference(quantifiedFormula, newConstants, _, _) =>
         printlnPrefBreaking("DELTA: ",
                     "instantiating " +  l(quantifiedFormula) +

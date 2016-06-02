@@ -82,11 +82,12 @@ object CmdlMain {
     println("                           (quantifier elimination for PA formulae) (default: -)")
     println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
     println(" [+-]unsatCore             Compute unsatisfiable cores              (default: -)")
+    println(" [+-]printProof            Output the constructed proof             (default: -)")
   }
 
   def printExoticOptions = {
     println("Exotic options:")
-    println(" [+-]printTree             Output the constructed proof tree        (default: -)")
+    println(" [+-]printTree             Output the internal constraint tree     (default: -)")
     println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
     println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
@@ -187,21 +188,72 @@ object CmdlMain {
   
   //////////////////////////////////////////////////////////////////////////////
 
-  private def printDOTCertificate(cert : Certificate, settings : GlobalSettings) =
-    if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "") {
-      println
-      
-      if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "-") {
-        println("Saving certificate in GraphViz format to " +
-                Param.PRINT_DOT_CERTIFICATE_FILE(settings) + " ...")
-        val out =
-          new java.io.FileOutputStream(Param.PRINT_DOT_CERTIFICATE_FILE(settings))
-        Console.withOut(out) { DotLineariser(cert) }
-        out.close
-      } else {
-        DotLineariser(cert)
-      }
+  private def printCertificate(cert : Certificate,
+                               settings : GlobalSettings,
+                               prover : Prover)
+                              (implicit format : Param.InputFormat.Value) = {
+    if (Param.COMPUTE_UNSAT_CORE(settings)) {
+      Console.err.println
+      Console.err.println("Unsatisfiable core:")
+      val usedNames = prover getAssumedFormulaParts cert
+      println("{" +
+              (((usedNames - PartName.NO_NAME)
+                   map (_.toString)).toArray.sorted mkString ", ") +
+              "}")
     }
+
+    if (Param.PRINT_CERTIFICATE(settings))
+      printTextCertificate(cert, settings, prover)
+
+    if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "")
+      printDOTCertificate(cert, settings)
+  }
+
+  private def printTextCertificate(cert : Certificate,
+                                   settings : GlobalSettings,
+                                   prover : Prover)
+                                 (implicit format : Param.InputFormat.Value) = {
+    Console.err.println
+
+    val dagCert = DagCertificateConverter(cert)
+    val formulaParts = prover.getFormulaParts mapValues {
+      f => CertFormula(f.negate)
+    }
+
+    val formulaPrinter = format match {
+      case Param.InputFormat.Princess =>
+        new CertificatePrettyPrinter.PrincessFormulaPrinter (
+          prover.getPredTranslation
+        )
+      case Param.InputFormat.TPTP =>
+        new CertificatePrettyPrinter.TPTPFormulaPrinter (
+          prover.getPredTranslation
+        )
+      case Param.InputFormat.SMTLIB =>
+        new CertificatePrettyPrinter.SMTLIBFormulaPrinter (
+          prover.getPredTranslation
+        )
+    }
+
+    val printer = new CertificatePrettyPrinter(formulaPrinter)
+    printer(dagCert, formulaParts)
+  }
+
+  private def printDOTCertificate(cert : Certificate,
+                                  settings : GlobalSettings) = {
+    Console.err.println
+     
+    if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "-") {
+      Console.err.println("Saving certificate in GraphViz format to " +
+                          Param.PRINT_DOT_CERTIFICATE_FILE(settings) + " ...")
+      val out =
+        new java.io.FileOutputStream(Param.PRINT_DOT_CERTIFICATE_FILE(settings))
+      Console.withOut(out) { DotLineariser(cert) }
+      out.close
+    } else {
+      DotLineariser(cert)
+    }
+  }
   
   private def determineInputFormat(filename : String,
                                    settings : GlobalSettings)
@@ -393,7 +445,7 @@ object CmdlMain {
 	} else {
           println("ERROR: " + e.getMessage)
         }
-         e.printStackTrace
+//         e.printStackTrace
         None
       }
     }
@@ -511,11 +563,11 @@ object CmdlMain {
               }
               case Prover.NoCounterModelCert(cert) =>  {
                 println("unsat")
-                printDOTCertificate(cert, settings)
+                printCertificate(cert, settings, prover)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("unsat")
-                printDOTCertificate(cert, settings)
+                printCertificate(cert, settings, prover)
                 Console.err.println
                 Console.err.println("Interpolants:")
                 for (i <- inters) printFormula(i)
@@ -662,34 +714,7 @@ object CmdlMain {
                   println("true")
                 }
 
-                println
-                if (Param.COMPUTE_UNSAT_CORE(settings)) {
-                  println("Unsatisfiable core:")
-                  val usedNames = prover getAssumedFormulaParts cert
-                  println("{" +
-                          (((usedNames - PartName.NO_NAME)
-                               map (_.toString)).toArray.sorted mkString ", ") +
-                          "}")
-                } else {
-/*
-                  val dagCert = DagCertificateConverter(cert)
-                  println("Size of DAG certificate: " +
-                          (dagCert map (_.inferenceCount)).sum)
-
-                  val printer = new CertificatePrettyPrinter(
-                                  new CertificatePrettyPrinter.TPTPFormulaPrinter)
-                  val formulaParts = prover.getFormulaParts mapValues {
-                    f => CertFormula(f.negate)
-                  }
-                  printer(dagCert, formulaParts)
-*/
-                  //println("Certificate: " + cert)
-                  //println("Assumed formulae: " + cert.assumedFormulas)
-                  print("Constraint: ")
-                  printFormula(cert.closingConstraint)
-                }
-                
-                printDOTCertificate(cert, settings)
+                printCertificate(cert, settings, prover)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("VALID")
@@ -703,17 +728,7 @@ object CmdlMain {
                 println("Interpolants:")
                 for (i <- inters) printFormula(i)
 
-                if (Param.COMPUTE_UNSAT_CORE(settings)) {
-                  println
-                  println("Unsatisfiable core:")
-                  val usedNames = prover getAssumedFormulaParts cert
-                  println("{" +
-                          (((usedNames - PartName.NO_NAME)
-                               map (_.toString)).toArray.sorted mkString ", ") +
-                          "}")
-                }
-
-                printDOTCertificate(cert, settings)
+                printCertificate(cert, settings, prover)
               }
               case Prover.Model(model) =>  {
                 println("VALID")

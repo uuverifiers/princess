@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010,2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,11 +22,13 @@
 package ap.proof.certificates
 
 import ap.basetypes.IdealInt
-import ap.terfor.{ConstantTerm, SortedWithOrder, TermOrder, TerFor}
+import ap.terfor.{ConstantTerm, SortedWithOrder, TermOrder, TerFor,
+                  Formula}
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.preds.{Predicate, Atom}
+import ap.terfor.preds.{Predicate, Atom, PredConj}
 import ap.terfor.conjunctions.Conjunction
-import ap.terfor.equations.EquationConj
+import ap.terfor.equations.{EquationConj, NegEquationConj}
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.TerForConvenience._
 import ap.util.{Debug, Seqs}
 
@@ -122,6 +124,10 @@ abstract sealed class CertFormula(underlying : SortedWithOrder[TerFor]) {
    *  representation */
   def toConj : Conjunction
   
+  /** Convert this formula to the corresponding formula in internal
+   *  representation */
+  def toFormula : Formula
+  
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +153,9 @@ case class CertEquation(_lhs : LinearCombination)
   def isTrue : Boolean = lhs.isZero
   def isFalse : Boolean = lhs.isNonZero
 
-  def toConj : Conjunction = {
+  def toConj : Conjunction = toFormula
+
+  def toFormula : EquationConj = {
     implicit val o = order
     lhs === 0
   }
@@ -171,7 +179,9 @@ case class CertNegEquation(_lhs : LinearCombination)
   def isTrue : Boolean = lhs.isNonZero
   def isFalse : Boolean = lhs.isZero
 
-  def toConj : Conjunction = {
+  def toConj : Conjunction = toFormula
+
+  def toFormula : NegEquationConj = {
     implicit val o = order
     lhs =/= 0
   }
@@ -195,7 +205,9 @@ case class CertInequality(_lhs : LinearCombination)
   def isTrue : Boolean = lhs.isConstant && lhs.constant.signum >= 0
   def isFalse : Boolean = lhs.isConstant && lhs.constant.signum < 0
 
-  def toConj : Conjunction = {
+  def toConj : Conjunction = toFormula
+
+  def toFormula : InEqConj = {
     implicit val o = order
     lhs >= 0
   }
@@ -218,9 +230,11 @@ case class CertPredLiteral(negated : Boolean, atom : Atom)
   def isTrue : Boolean = false
   def isFalse : Boolean = false
 
-  def toConj : Conjunction = {
+  def toConj : Conjunction = toFormula
+
+  def toFormula : PredConj = {
     implicit val o = order
-    if (negated) !atom2Conj(atom) else atom
+    if (negated) !atom2PredConj(atom) else atom
   }
 
   def unary_! : CertPredLiteral = CertPredLiteral(!negated, atom)
@@ -250,6 +264,8 @@ case class CertCompoundFormula(f : Conjunction)
   def isFalse : Boolean = f.isFalse
 
   def toConj : Conjunction = f
+
+  def toFormula : Conjunction = f
 
   def unary_! : CertCompoundFormula = CertCompoundFormula(!f)
 
