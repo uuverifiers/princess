@@ -28,8 +28,7 @@ No countermodel exists, formula is valid
 
 Loading ARI620=1.p ...
 
-Formula is valid, resulting constraint:
-true
+No countermodel exists, formula is valid
 % SZS status Theorem for ARI620=1
 
 Loading ARI526=1.p ...
@@ -130,6 +129,618 @@ No countermodel exists, formula is valid
 Unsatisfiable core:
 {DIFF-row1-row2, DIFF-row1-row3, DIFF-row2-row3, DIFF-tempty-tcons, EQ-tcons, rawDifference-INV, rawDifference2, rawDifference5, rowIn-true-INV, rowIn0, rowIn1, test-4}
 
+Loading unsat-core.p ...
+Preprocessing ...
+Warning: ignoring some quantifiers
+Constructing countermodel ...
+Found proof (size 89)
+
+No countermodel exists, formula is valid
+% SZS status Theorem for unsat-core
+
+% SZS output start Proof for unsat-core
+Assumptions after simplification:
+---------------------------------
+
+  (DIFF-row1-row2)
+   ~ (vrow1 = vrow2)
+
+  (DIFF-row1-row3)
+   ~ (vrow3 = vrow1)
+
+  (DIFF-row2-row3)
+   ~ (vrow3 = vrow2)
+
+  (DIFF-tempty-tcons)
+   ! [v0: $int] :  ! [v1: $int] :  ~ (vtcons(v0, v1) = vtempty)
+
+  (EQ-tcons)
+   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4: $int] :
+  ( ~ (vtcons(v1, v3) = v4) |  ~ (vtcons(v0, v2) = v4) | (v3 = v2 & v1 = v0)) & 
+  ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] : (v3 = v2 |  ~
+    (vtcons(v0, v1) = v3) |  ~ (vtcons(v0, v1) = v2))
+
+  (rawDifference-INV)
+   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] : ( ~ (vrawDifference(v0, v1) =
+      v2) |  ? [v3: $int] :  ? [v4: $int] :  ? [v5: $int] :  ? [v6: $int] : ( ~ (v6 =
+        0) &  ~ (v4 = vtempty) & vrawDifference(v4, v1) = v3 & vrowIn(v5, v1) = v6 &
+      vtcons(v5, v4) = v0 & vtcons(v5, v3) = v2) |  ? [v3: $int] :  ? [v4: $int] :
+    (v2 = v0 &  ~ (v4 = 0) & vrowIn(v3, v1) = v4 & vtcons(v3, vtempty) = v0) |  ?
+    [v3: $int] :  ? [v4: $int] : ( ~ (v3 = vtempty) & vrawDifference(v3, v1) = v2 &
+      vrowIn(v4, v1) = 0 & vtcons(v4, v3) = v0) |  ? [v3: $int] : (v2 = vtempty &
+      vrowIn(v3, v1) = 0 & vtcons(v3, vtempty) = v0) | (v2 = v0 & v1 = vtempty) | (v2
+      = vtempty & v0 = vtempty))
+
+  (rawDifference2)
+   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] : (v3 = v2 |  ~
+    (vrawDifference(v2, v1) = v3) |  ~ (vtcons(v0, vtempty) = v2) | vrowIn(v0, v1)
+    = 0)
+
+  (rawDifference5)
+   ? [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4: $int] :
+   ! [v5: $int] : (v5 = v0 | v1 = vtempty |  ~ (vrawDifference(v4, v2) = v5) |  ~
+    (vtcons(v3, v1) = v4) |  ? [v6: $int] :  ? [v7: $int] : (( ~ (v7 = 0) &
+        vrowIn(v3, v2) = v7) | ( ~ (v6 = v0) & vrawDifference(v1, v2) = v6)))
+
+  (rowIn-true-INV)
+   ! [v0: $int] :  ! [v1: $int] : ( ~ (vrowIn(v0, v1) = 0) |  ? [v2: $int] :  ?
+    [v3: $int] :  ? [v4: $int] : (vtcons(v2, v3) = v1 & (v2 = v0 | (v4 = 0 &
+          vrowIn(v0, v3) = 0))))
+
+  (rowIn0)
+   ! [v0: $int] :  ~ (vrowIn(v0, vtempty) = 0)
+
+  (rowIn1)
+   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4: $int] :
+  (v4 = 0 |  ~ (vrowIn(v0, v3) = v4) |  ~ (vtcons(v1, v2) = v3) | ( ~ (v1 = v0) &
+       ? [v5: $int] : ( ~ (v5 = 0) & vrowIn(v0, v2) = v5))) &  ! [v0: $int] :  ! [v1:
+    $int] :  ! [v2: $int] :  ! [v3: $int] : (v1 = v0 |  ~ (vrowIn(v0, v3) = 0) |  ~
+    (vtcons(v1, v2) = v3) | vrowIn(v0, v2) = 0)
+
+  (test-4)
+   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : (vtcons(vrow3,
+      v2) = v3 & vtcons(vrow1, v0) = v1 & vtcons(vrow1, vtempty) = v2 & vtcons(vrow2,
+      vtempty) = v0 &  ? [v4: $int] : ( ~ (v4 = v0) & vrawDifference(v1, v3) = v4))
+
+Further assumptions not needed in the proof:
+--------------------------------------------
+DIFF-Intersection-Difference, DIFF-SelectAllFrom-Difference,
+DIFF-SelectAllFrom-Intersection, DIFF-SelectAllFrom-SelectAllFromWhere,
+DIFF-SelectAllFrom-SelectSomeFrom, DIFF-SelectAllFrom-SelectSomeFromWhere,
+DIFF-SelectAllFrom-Union, DIFF-SelectAllFromWhere-Difference,
+DIFF-SelectAllFromWhere-Intersection,
+DIFF-SelectAllFromWhere-SelectSomeFromWhere, DIFF-SelectAllFromWhere-Union,
+DIFF-SelectSomeFrom-Difference, DIFF-SelectSomeFrom-Intersection,
+DIFF-SelectSomeFrom-SelectAllFromWhere, DIFF-SelectSomeFrom-SelectSomeFromWhere,
+DIFF-SelectSomeFrom-Union, DIFF-SelectSomeFromWhere-Difference,
+DIFF-SelectSomeFromWhere-Intersection, DIFF-SelectSomeFromWhere-Union,
+DIFF-Tvalue-Difference, DIFF-Tvalue-Intersection, DIFF-Tvalue-SelectAllFrom,
+DIFF-Tvalue-SelectAllFromWhere, DIFF-Tvalue-SelectSomeFrom,
+DIFF-Tvalue-SelectSomeFromWhere, DIFF-Tvalue-Union, DIFF-Union-Difference,
+DIFF-Union-Intersection, DIFF-VEquals-VGreater, DIFF-VEquals-VSmaller,
+DIFF-VGreater-VSmaller, DIFF-aempty-acons, DIFF-emptyContext-bindContext,
+DIFF-emptyStore-bindStore, DIFF-error-isFalse, DIFF-error-isTrue,
+DIFF-isTrue-isFalse, DIFF-noConf-someConf, DIFF-noFType-someFType,
+DIFF-noRawTable-someRawTable, DIFF-noTType-someTType, DIFF-noTable-someTable,
+DIFF-rempty-rcons, DIFF-rtempty-rtcons, DIFF-ttempty-ttcons, EQ-Difference,
+EQ-Intersection, EQ-Ref, EQ-SelectAllFrom, EQ-SelectAllFromWhere,
+EQ-SelectSomeFrom, EQ-SelectSomeFromWhere, EQ-Tvalue, EQ-Union, EQ-VEquals,
+EQ-VGreater, EQ-VSmaller, EQ-acons, EQ-bindContext, EQ-bindStore, EQ-conf,
+EQ-ctype, EQ-rcons, EQ-rtcons, EQ-someConf, EQ-someFType, EQ-someRawTable,
+EQ-someTType, EQ-someTable, EQ-table, EQ-ttcons, StoreContext-Lookup-WT,
+StoreContextConsistent-false-INV, StoreContextConsistent-true-INV,
+StoreContextConsistent0, StoreContextConsistent1, StoreContextConsistent2,
+T-Difference, T-Intersection, T-SelectAllFrom, T-SelectAllFromWhere,
+T-SelectSomeFrom, T-SelectSomeFromWhere, T-TTContext-Duplicate, T-TTContext-Swap,
+T-Tvalue, T-Union, append-INV, append0, append1, attachColToFrontRaw-INV,
+attachColToFrontRaw0, attachColToFrontRaw1, attachColToFrontRaw2,
+attachColToFrontRaw3, checkPValidity-false-INV, checkPValidity-true-INV,
+checkPValidity0, checkPValidity1, checkPValidity2, ctypeIn-false-INV,
+ctypeIn-true-INV, ctypeIn0, ctypeIn1, difference-INV, difference0, difference1,
+dropFirstColRaw-INV, dropFirstColRaw0, dropFirstColRaw1, dropFirstColRaw2,
+findCol-INV, findCol0, findCol1, findCol2, findColType0, findColType1,
+findColType2, getAL0, getQuery0, getRaw0, getSomeConf0, getSomeFType0,
+getSomeRawTable0, getSomeTType0, getSomeTable0, intersect-INV, intersect0,
+intersect1, isSomeConf-false-INV, isSomeConf-true-INV, isSomeConf0, isSomeConf1,
+isSomeFType-false-INV, isSomeFType-true-INV, isSomeFType0, isSomeFType1,
+isSomeRawTable-false-INV, isSomeRawTable-true-INV, isSomeRawTable0,
+isSomeRawTable1, isSomeTType-false-INV, isSomeTType-true-INV, isSomeTType0,
+isSomeTType1, isSomeTable-false-INV, isSomeTable-true-INV, isSomeTable0,
+isSomeTable1, isValue-false-INV, isValue-true-INV, isValue0, isValue1, isValue2,
+isValue3, isValue4, isValue5, isValue6, isValue7, lookupContext-INV,
+lookupContext0, lookupContext1, lookupContext2, lookupStore-INV, lookupStore0,
+lookupStore1, lookupStore2, matchingAList-false-INV, matchingAList-true-INV,
+matchingAList0, matchingAList1, matchingAList2, project-INV, project0, project1,
+project2, projectEmptyCol0, projectEmptyCol1, projectFirstRaw0, projectFirstRaw1,
+projectFirstRaw2, projectType0, projectType1, projectType2, rawDifference0,
+rawDifference1, rawDifference3, rawDifference4, rawIntersection-INV,
+rawIntersection0, rawIntersection1, rawIntersection2, rawIntersection3,
+rawIntersection4, rawIntersection5, rawType-INV, rawType0, rawType1,
+rawUnion-INV, rawUnion0, rawUnion1, rawUnion2, rawUnion3, reduce-INV, reduce0,
+reduce1, reduce10, reduce11, reduce12, reduce13, reduce14, reduce15, reduce16,
+reduce17, reduce18, reduce19, reduce2, reduce20, reduce21, reduce22, reduce23,
+reduce24, reduce25, reduce26, reduce27, reduce28, reduce29, reduce3, reduce30,
+reduce4, reduce5, reduce6, reduce7, reduce8, reduce9, rowIn-false-INV,
+select-INV, select0, select1, select2, select3, singleRowSelect-INV,
+singleRowSelect0, singleRowSelect1, singleRowSelect10, singleRowSelect11,
+singleRowSelect12, singleRowSelect13, singleRowSelect14, singleRowSelect15,
+singleRowSelect16, singleRowSelect17, singleRowSelect2, singleRowSelect3,
+singleRowSelect4, singleRowSelect5, singleRowSelect6, singleRowSelect7,
+singleRowSelect8, singleRowSelect9, union-INV, union0, union1,
+welltypedRawtable-false-INV, welltypedRawtable-true-INV, welltypedRawtable0,
+welltypedRawtable1, welltypedRow-false-INV, welltypedRow-true-INV, welltypedRow0,
+welltypedRow1, welltypedRow2, welltypedtable-false-INV, welltypedtable-true-INV,
+welltypedtable0
+
+Those formulas are unsatisfiable:
+---------------------------------
+
+Begin of proof
+| 
+| ALPHA: (EQ-tcons) implies:
+|   (1)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4:
+|          $int] : ( ~ (vtcons(v1, v3) = v4) |  ~ (vtcons(v0, v2) = v4) | (v3 = v2
+|            & v1 = v0))
+| 
+| ALPHA: (rowIn1) implies:
+|   (2)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] : (v1 = v0
+|          |  ~ (vrowIn(v0, v3) = 0) |  ~ (vtcons(v1, v2) = v3) | vrowIn(v0, v2) =
+|          0)
+|   (3)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4:
+|          $int] : (v4 = 0 |  ~ (vrowIn(v0, v3) = v4) |  ~ (vtcons(v1, v2) = v3) |
+|          ( ~ (v1 = v0) &  ? [v5: $int] : ( ~ (v5 = 0) & vrowIn(v0, v2) = v5)))
+| 
+| DELTA: instantiating (rawDifference5) with fresh symbol all_304_0 gives:
+|   (4)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4:
+|          $int] : (v4 = all_304_0 | v0 = vtempty |  ~ (vrawDifference(v3, v1) =
+|            v4) |  ~ (vtcons(v2, v0) = v3) |  ? [v5: $int] :  ? [v6: $int] : (( ~
+|              (v6 = 0) & vrowIn(v2, v1) = v6) | ( ~ (v5 = all_304_0) &
+|              vrawDifference(v0, v1) = v5)))
+| 
+| DELTA: instantiating (test-4) with fresh symbols all_396_0, all_396_1,
+|        all_396_2, all_396_3 gives:
+|   (5)  vtcons(vrow3, all_396_1) = all_396_0 & vtcons(vrow1, all_396_3) =
+|        all_396_2 & vtcons(vrow1, vtempty) = all_396_1 & vtcons(vrow2, vtempty)
+|        = all_396_3 &  ? [v0: $int] : ( ~ (v0 = all_396_3) &
+|          vrawDifference(all_396_2, all_396_0) = v0)
+| 
+| ALPHA: (5) implies:
+|   (6)  vtcons(vrow2, vtempty) = all_396_3
+|   (7)  vtcons(vrow1, vtempty) = all_396_1
+|   (8)  vtcons(vrow1, all_396_3) = all_396_2
+|   (9)  vtcons(vrow3, all_396_1) = all_396_0
+|   (10)   ? [v0: $int] : ( ~ (v0 = all_396_3) & vrawDifference(all_396_2,
+|             all_396_0) = v0)
+| 
+| DELTA: instantiating (10) with fresh symbol all_440_0 gives:
+|   (11)   ~ (all_440_0 = all_396_3) & vrawDifference(all_396_2, all_396_0) =
+|         all_440_0
+| 
+| ALPHA: (11) implies:
+|   (12)   ~ (all_440_0 = all_396_3)
+|   (13)  vrawDifference(all_396_2, all_396_0) = all_440_0
+| 
+| GROUND_INST: instantiating (rawDifference-INV) with all_440_0, all_396_0,
+|              all_396_2, simplifying with (13) gives:
+|   (14)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : ( ~ (v3
+|             = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0) = v0 &
+|           vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2 & vtcons(v2,
+|             v0) = all_440_0) |  ? [v0: $int] :  ? [v1: $int] : (all_440_0 =
+|           all_396_2 &  ~ (v1 = 0) & vrowIn(v0, all_396_0) = v1 & vtcons(v0,
+|             vtempty) = all_396_2) |  ? [v0: $int] :  ? [v1: $int] : ( ~ (v0 =
+|             vtempty) & vrawDifference(v0, all_396_0) = all_440_0 & vrowIn(v1,
+|             all_396_0) = 0 & vtcons(v1, v0) = all_396_2) |  ? [v0: $int] :
+|         (all_440_0 = vtempty & vrowIn(v0, all_396_0) = 0 & vtcons(v0, vtempty)
+|           = all_396_2) | (all_440_0 = all_396_2 & all_396_0 = vtempty) |
+|         (all_440_0 = vtempty & all_396_2 = vtempty)
+| 
+| GROUND_INST: instantiating (4) with all_440_0, all_396_2, vrow1, all_396_0,
+|              all_396_3, simplifying with (8), (13) gives:
+|   (15)  all_440_0 = all_304_0 | all_396_3 = vtempty |  ? [v0: $int] :  ? [v1:
+|           $int] : (( ~ (v1 = 0) & vrowIn(vrow1, all_396_0) = v1) | ( ~ (v0 =
+|               all_304_0) & vrawDifference(all_396_3, all_396_0) = v0))
+| 
+| BETA: splitting (15) gives:
+| 
+| Case 1:
+| | 
+| |   (16)  all_396_3 = vtempty
+| | 
+| | REDUCE: (6), (16) imply:
+| |   (17)  vtcons(vrow2, vtempty) = vtempty
+| | 
+| | GROUND_INST: instantiating (DIFF-tempty-tcons) with vtempty, vrow2,
+| |              simplifying with (17) gives:
+| |   (18)  $false
+| | 
+| | CLOSE: (18) is inconsistent.
+| | 
+| Case 2:
+| | 
+| |   (19)   ~ (all_396_3 = vtempty)
+| | 
+| | BETA: splitting (14) gives:
+| | 
+| | Case 1:
+| | | 
+| | |   (20)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : ( ~
+| | |           (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0) = v0 &
+| | |           vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2 &
+| | |           vtcons(v2, v0) = all_440_0) |  ? [v0: $int] :  ? [v1: $int] :
+| | |         (all_440_0 = all_396_2 &  ~ (v1 = 0) & vrowIn(v0, all_396_0) = v1 &
+| | |           vtcons(v0, vtempty) = all_396_2) |  ? [v0: $int] :  ? [v1: $int] :
+| | |         ( ~ (v0 = vtempty) & vrawDifference(v0, all_396_0) = all_440_0 &
+| | |           vrowIn(v1, all_396_0) = 0 & vtcons(v1, v0) = all_396_2) |  ? [v0:
+| | |           $int] : (all_440_0 = vtempty & vrowIn(v0, all_396_0) = 0 &
+| | |           vtcons(v0, vtempty) = all_396_2) | (all_440_0 = all_396_2 &
+| | |           all_396_0 = vtempty)
+| | | 
+| | | BETA: splitting (20) gives:
+| | | 
+| | | Case 1:
+| | | | 
+| | | |   (21)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : (
+| | | |           ~ (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0) =
+| | | |           v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2 &
+| | | |           vtcons(v2, v0) = all_440_0) |  ? [v0: $int] :  ? [v1: $int] :
+| | | |         (all_440_0 = all_396_2 &  ~ (v1 = 0) & vrowIn(v0, all_396_0) = v1
+| | | |           & vtcons(v0, vtempty) = all_396_2) |  ? [v0: $int] :  ? [v1:
+| | | |           $int] : ( ~ (v0 = vtempty) & vrawDifference(v0, all_396_0) =
+| | | |           all_440_0 & vrowIn(v1, all_396_0) = 0 & vtcons(v1, v0) =
+| | | |           all_396_2) |  ? [v0: $int] : (all_440_0 = vtempty & vrowIn(v0,
+| | | |             all_396_0) = 0 & vtcons(v0, vtempty) = all_396_2)
+| | | | 
+| | | | BETA: splitting (21) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (22)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] :
+| | | | |         ( ~ (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1,
+| | | | |             all_396_0) = v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) =
+| | | | |           all_396_2 & vtcons(v2, v0) = all_440_0) |  ? [v0: $int] :  ?
+| | | | |         [v1: $int] : (all_440_0 = all_396_2 &  ~ (v1 = 0) & vrowIn(v0,
+| | | | |             all_396_0) = v1 & vtcons(v0, vtempty) = all_396_2) |  ? [v0:
+| | | | |           $int] :  ? [v1: $int] : ( ~ (v0 = vtempty) & vrawDifference(v0,
+| | | | |             all_396_0) = all_440_0 & vrowIn(v1, all_396_0) = 0 & vtcons(v1,
+| | | | |             v0) = all_396_2)
+| | | | | 
+| | | | | BETA: splitting (22) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (23)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int]
+| | | | | |         : ( ~ (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1,
+| | | | | |             all_396_0) = v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1)
+| | | | | |           = all_396_2 & vtcons(v2, v0) = all_440_0) |  ? [v0: $int] : 
+| | | | | |         ? [v1: $int] : (all_440_0 = all_396_2 &  ~ (v1 = 0) &
+| | | | | |           vrowIn(v0, all_396_0) = v1 & vtcons(v0, vtempty) = all_396_2)
+| | | | | | 
+| | | | | | BETA: splitting (23) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (24)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3:
+| | | | | | |           $int] : ( ~ (v3 = 0) &  ~ (v1 = vtempty) &
+| | | | | | |           vrawDifference(v1, all_396_0) = v0 & vrowIn(v2, all_396_0)
+| | | | | | |           = v3 & vtcons(v2, v1) = all_396_2 & vtcons(v2, v0) =
+| | | | | | |           all_440_0)
+| | | | | | | 
+| | | | | | | DELTA: instantiating (24) with fresh symbols all_601_0, all_601_1,
+| | | | | | |        all_601_2, all_601_3 gives:
+| | | | | | |   (25)   ~ (all_601_0 = 0) &  ~ (all_601_2 = vtempty) &
+| | | | | | |         vrawDifference(all_601_2, all_396_0) = all_601_3 &
+| | | | | | |         vrowIn(all_601_1, all_396_0) = all_601_0 &
+| | | | | | |         vtcons(all_601_1, all_601_2) = all_396_2 &
+| | | | | | |         vtcons(all_601_1, all_601_3) = all_440_0
+| | | | | | | 
+| | | | | | | ALPHA: (25) implies:
+| | | | | | |   (26)   ~ (all_601_0 = 0)
+| | | | | | |   (27)  vtcons(all_601_1, all_601_2) = all_396_2
+| | | | | | |   (28)  vrowIn(all_601_1, all_396_0) = all_601_0
+| | | | | | | 
+| | | | | | | GROUND_INST: instantiating (1) with all_396_2, all_601_2,
+| | | | | | |              all_396_3, all_601_1, vrow1, simplifying with (8),
+| | | | | | |              (27) gives:
+| | | | | | |   (29)  all_601_1 = vrow1 & all_601_2 = all_396_3
+| | | | | | | 
+| | | | | | | ALPHA: (29) implies:
+| | | | | | |   (30)  all_601_1 = vrow1
+| | | | | | | 
+| | | | | | | REDUCE: (28), (30) imply:
+| | | | | | |   (31)  vrowIn(vrow1, all_396_0) = all_601_0
+| | | | | | | 
+| | | | | | | GROUND_INST: instantiating (3) with all_601_0, all_396_0,
+| | | | | | |              all_396_1, vrow3, vrow1, simplifying with (9), (31)
+| | | | | | |              gives:
+| | | | | | |   (32)  all_601_0 = 0 | ( ~ (vrow3 = vrow1) &  ? [v0: $int] : ( ~
+| | | | | | |             (v0 = 0) & vrowIn(vrow1, all_396_1) = v0))
+| | | | | | | 
+| | | | | | | BETA: splitting (32) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (33)  all_601_0 = 0
+| | | | | | | | 
+| | | | | | | | REDUCE: (26), (33) imply:
+| | | | | | | |   (34)   ~ (0 = 0)
+| | | | | | | | 
+| | | | | | | | CLOSE: (34) is inconsistent.
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (35)   ~ (vrow3 = vrow1) &  ? [v0: $int] : ( ~ (v0 = 0) &
+| | | | | | | |           vrowIn(vrow1, all_396_1) = v0)
+| | | | | | | | 
+| | | | | | | | ALPHA: (35) implies:
+| | | | | | | |   (36)   ? [v0: $int] : ( ~ (v0 = 0) & vrowIn(vrow1, all_396_1) =
+| | | | | | | |           v0)
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (36) with fresh symbol all_619_0 gives:
+| | | | | | | |   (37)   ~ (all_619_0 = 0) & vrowIn(vrow1, all_396_1) = all_619_0
+| | | | | | | | 
+| | | | | | | | ALPHA: (37) implies:
+| | | | | | | |   (38)   ~ (all_619_0 = 0)
+| | | | | | | |   (39)  vrowIn(vrow1, all_396_1) = all_619_0
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (3) with all_619_0, all_396_1,
+| | | | | | | |              vtempty, vrow1, vrow1, simplifying with (7), (39)
+| | | | | | | |              gives:
+| | | | | | | |   (40)  all_619_0 = 0
+| | | | | | | | 
+| | | | | | | | REDUCE: (38), (40) imply:
+| | | | | | | |   (41)   ~ (0 = 0)
+| | | | | | | | 
+| | | | | | | | CLOSE: (41) is inconsistent.
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+| | | | | | |   (42)   ? [v0: $int] :  ? [v1: $int] : (all_440_0 = all_396_2 &  ~
+| | | | | | |           (v1 = 0) & vrowIn(v0, all_396_0) = v1 & vtcons(v0, vtempty)
+| | | | | | |           = all_396_2)
+| | | | | | | 
+| | | | | | | DELTA: instantiating (42) with fresh symbols all_601_0, all_601_1
+| | | | | | |        gives:
+| | | | | | |   (43)  all_440_0 = all_396_2 &  ~ (all_601_0 = 0) &
+| | | | | | |         vrowIn(all_601_1, all_396_0) = all_601_0 &
+| | | | | | |         vtcons(all_601_1, vtempty) = all_396_2
+| | | | | | | 
+| | | | | | | ALPHA: (43) implies:
+| | | | | | |   (44)  vtcons(all_601_1, vtempty) = all_396_2
+| | | | | | | 
+| | | | | | | GROUND_INST: instantiating (1) with all_396_2, vtempty, all_396_3,
+| | | | | | |              all_601_1, vrow1, simplifying with (8), (44) gives:
+| | | | | | |   (45)  all_601_1 = vrow1 & all_396_3 = vtempty
+| | | | | | | 
+| | | | | | | ALPHA: (45) implies:
+| | | | | | |   (46)  all_396_3 = vtempty
+| | | | | | | 
+| | | | | | | REDUCE: (19), (46) imply:
+| | | | | | |   (47)   ~ (0 = 0)
+| | | | | | | 
+| | | | | | | CLOSE: (47) is inconsistent.
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | Case 2:
+| | | | | | 
+| | | | | |   (48)   ? [v0: $int] :  ? [v1: $int] : ( ~ (v0 = vtempty) &
+| | | | | |           vrawDifference(v0, all_396_0) = all_440_0 & vrowIn(v1,
+| | | | | |             all_396_0) = 0 & vtcons(v1, v0) = all_396_2)
+| | | | | | 
+| | | | | | DELTA: instantiating (48) with fresh symbols all_601_0, all_601_1
+| | | | | |        gives:
+| | | | | |   (49)   ~ (all_601_1 = vtempty) & vrawDifference(all_601_1,
+| | | | | |           all_396_0) = all_440_0 & vrowIn(all_601_0, all_396_0) = 0 &
+| | | | | |         vtcons(all_601_0, all_601_1) = all_396_2
+| | | | | | 
+| | | | | | ALPHA: (49) implies:
+| | | | | |   (50)  vtcons(all_601_0, all_601_1) = all_396_2
+| | | | | |   (51)  vrowIn(all_601_0, all_396_0) = 0
+| | | | | |   (52)  vrawDifference(all_601_1, all_396_0) = all_440_0
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (1) with all_396_2, all_601_1, all_396_3,
+| | | | | |              all_601_0, vrow1, simplifying with (8), (50) gives:
+| | | | | |   (53)  all_601_0 = vrow1 & all_601_1 = all_396_3
+| | | | | | 
+| | | | | | ALPHA: (53) implies:
+| | | | | |   (54)  all_601_1 = all_396_3
+| | | | | |   (55)  all_601_0 = vrow1
+| | | | | | 
+| | | | | | REDUCE: (52), (54) imply:
+| | | | | |   (56)  vrawDifference(all_396_3, all_396_0) = all_440_0
+| | | | | | 
+| | | | | | REDUCE: (51), (55) imply:
+| | | | | |   (57)  vrowIn(vrow1, all_396_0) = 0
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (rawDifference2) with all_440_0,
+| | | | | |              all_396_3, all_396_0, vrow2, simplifying with (6), (56)
+| | | | | |              gives:
+| | | | | |   (58)  all_440_0 = all_396_3 | vrowIn(vrow2, all_396_0) = 0
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (2) with all_396_0, all_396_1, vrow3,
+| | | | | |              vrow1, simplifying with (9), (57) gives:
+| | | | | |   (59)  vrow3 = vrow1 | vrowIn(vrow1, all_396_1) = 0
+| | | | | | 
+| | | | | | BETA: splitting (59) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (60)  vrowIn(vrow1, all_396_1) = 0
+| | | | | | | 
+| | | | | | | BETA: splitting (58) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (61)  vrowIn(vrow2, all_396_0) = 0
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (rowIn-true-INV) with all_396_1,
+| | | | | | | |              vrow1, simplifying with (60) gives:
+| | | | | | | |   (62)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :
+| | | | | | | |         (vtcons(v0, v1) = all_396_1 & (v0 = vrow1 | (v2 = 0 &
+| | | | | | | |               vrowIn(vrow1, v1) = 0)))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (2) with all_396_0, all_396_1, vrow3,
+| | | | | | | |              vrow2, simplifying with (9), (61) gives:
+| | | | | | | |   (63)  vrow3 = vrow2 | vrowIn(vrow2, all_396_1) = 0
+| | | | | | | | 
+| | | | | | | | DELTA: instantiating (62) with fresh symbols all_642_0,
+| | | | | | | |        all_642_1, all_642_2 gives:
+| | | | | | | |   (64)  vtcons(all_642_2, all_642_1) = all_396_1 & (all_642_2 =
+| | | | | | | |           vrow1 | (all_642_0 = 0 & vrowIn(vrow1, all_642_1) = 0))
+| | | | | | | | 
+| | | | | | | | ALPHA: (64) implies:
+| | | | | | | |   (65)  vtcons(all_642_2, all_642_1) = all_396_1
+| | | | | | | | 
+| | | | | | | | BETA: splitting (63) gives:
+| | | | | | | | 
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (66)  vrowIn(vrow2, all_396_1) = 0
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (1) with all_396_1, all_642_1,
+| | | | | | | | |              vtempty, all_642_2, vrow1, simplifying with (7),
+| | | | | | | | |              (65) gives:
+| | | | | | | | |   (67)  all_642_1 = vtempty & all_642_2 = vrow1
+| | | | | | | | | 
+| | | | | | | | | ALPHA: (67) implies:
+| | | | | | | | |   (68)  all_642_2 = vrow1
+| | | | | | | | |   (69)  all_642_1 = vtempty
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (2) with all_396_1, vtempty, vrow1,
+| | | | | | | | |              vrow2, simplifying with (7), (66) gives:
+| | | | | | | | |   (70)  vrow1 = vrow2 | vrowIn(vrow2, vtempty) = 0
+| | | | | | | | | 
+| | | | | | | | | BETA: splitting (70) gives:
+| | | | | | | | | 
+| | | | | | | | | Case 1:
+| | | | | | | | | | 
+| | | | | | | | | |   (71)  vrowIn(vrow2, vtempty) = 0
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (rowIn0) with vrow2, simplifying with
+| | | | | | | | | |              (71) gives:
+| | | | | | | | | |   (72)  $false
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (72) is inconsistent.
+| | | | | | | | | | 
+| | | | | | | | | Case 2:
+| | | | | | | | | | 
+| | | | | | | | | |   (73)  vrow1 = vrow2
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (73), (DIFF-row1-row2) imply:
+| | | | | | | | | |   (74)   ~ (0 = 0)
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (74) is inconsistent.
+| | | | | | | | | | 
+| | | | | | | | | End of split
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | |   (75)  vrow3 = vrow2
+| | | | | | | | | 
+| | | | | | | | | REDUCE: (75), (DIFF-row2-row3) imply:
+| | | | | | | | |   (76)   ~ (0 = 0)
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (76) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | End of split
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (77)  all_440_0 = all_396_3
+| | | | | | | | 
+| | | | | | | | REDUCE: (12), (77) imply:
+| | | | | | | |   (78)   ~ (0 = 0)
+| | | | | | | | 
+| | | | | | | | CLOSE: (78) is inconsistent.
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+| | | | | | |   (79)  vrow3 = vrow1
+| | | | | | | 
+| | | | | | | REDUCE: (79), (DIFF-row1-row3) imply:
+| | | | | | |   (80)   ~ (0 = 0)
+| | | | | | | 
+| | | | | | | CLOSE: (80) is inconsistent.
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (81)   ? [v0: $int] : (all_440_0 = vtempty & vrowIn(v0, all_396_0) =
+| | | | |           0 & vtcons(v0, vtempty) = all_396_2)
+| | | | | 
+| | | | | DELTA: instantiating (81) with fresh symbol all_601_0 gives:
+| | | | |   (82)  all_440_0 = vtempty & vrowIn(all_601_0, all_396_0) = 0 &
+| | | | |         vtcons(all_601_0, vtempty) = all_396_2
+| | | | | 
+| | | | | ALPHA: (82) implies:
+| | | | |   (83)  all_440_0 = vtempty
+| | | | |   (84)  vtcons(all_601_0, vtempty) = all_396_2
+| | | | | 
+| | | | | REDUCE: (12), (83) imply:
+| | | | |   (85)   ~ (all_396_3 = vtempty)
+| | | | | 
+| | | | | GROUND_INST: instantiating (1) with all_396_2, vtempty, all_396_3,
+| | | | |              all_601_0, vrow1, simplifying with (8), (84) gives:
+| | | | |   (86)  all_601_0 = vrow1 & all_396_3 = vtempty
+| | | | | 
+| | | | | ALPHA: (86) implies:
+| | | | |   (87)  all_396_3 = vtempty
+| | | | | 
+| | | | | REDUCE: (19), (87) imply:
+| | | | |   (88)   ~ (0 = 0)
+| | | | | 
+| | | | | CLOSE: (88) is inconsistent.
+| | | | | 
+| | | | End of split
+| | | | 
+| | | Case 2:
+| | | | 
+| | | |   (89)  all_440_0 = all_396_2 & all_396_0 = vtempty
+| | | | 
+| | | | ALPHA: (89) implies:
+| | | |   (90)  all_396_0 = vtempty
+| | | | 
+| | | | REDUCE: (9), (90) imply:
+| | | |   (91)  vtcons(vrow3, all_396_1) = vtempty
+| | | | 
+| | | | GROUND_INST: instantiating (DIFF-tempty-tcons) with all_396_1, vrow3,
+| | | |              simplifying with (91) gives:
+| | | |   (92)  $false
+| | | | 
+| | | | CLOSE: (92) is inconsistent.
+| | | | 
+| | | End of split
+| | | 
+| | Case 2:
+| | | 
+| | |   (93)  all_440_0 = vtempty & all_396_2 = vtempty
+| | | 
+| | | ALPHA: (93) implies:
+| | |   (94)  all_396_2 = vtempty
+| | | 
+| | | REDUCE: (8), (94) imply:
+| | |   (95)  vtcons(vrow1, all_396_3) = vtempty
+| | | 
+| | | GROUND_INST: instantiating (DIFF-tempty-tcons) with all_396_3, vrow1,
+| | |              simplifying with (95) gives:
+| | |   (96)  $false
+| | | 
+| | | CLOSE: (96) is inconsistent.
+| | | 
+| | End of split
+| | 
+| End of split
+| 
+End of proof
+% SZS output end Proof for unsat-core
+
 Loading SWV032+1.p ...
 
 10 conjectures left
@@ -172,121 +783,121 @@ constant_in_array = 0 & in_array(0)
 % SZS status GaveUp for DAT078=1
 
 Loading SYN000_2.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -generateTriggers=all
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all
 Prover 0: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 0: 
 Prover 0:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 0: 
 Prover 0:         ^
-Prover 1: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -generateTriggers=all
+Prover 1: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 1: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 1: 
 Prover 1:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 1: 
 Prover 1:         ^
-Prover 2: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=complete
+Prover 2: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete
 Prover 2: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 2: 
 Prover 2:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 2: 
 Prover 2:         ^
-Prover 3: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=all
+Prover 3: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 3: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 3: 
 Prover 3:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 3: 
 Prover 3:         ^
-Prover 4: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -generateTriggers=all
+Prover 4: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 4: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 4: 
 Prover 4:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 4: 
 Prover 4:         ^
-Prover 5: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 +ignoreQuantifiers -generateTriggers=all
+Prover 5: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all
 Prover 5: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 5: 
 Prover 5:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 5: 
 Prover 5:         ^
-Prover 6: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 +ignoreQuantifiers -generateTriggers=all
+Prover 6: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all
 Prover 6: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 6: 
 Prover 6:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 6: 
 Prover 6:         ^
-Prover 7: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=0 -ignoreQuantifiers -generateTriggers=all
+Prover 7: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 7: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 7: 
 Prover 7:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 7: 
 Prover 7:         ^
-Prover 8: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=all
+Prover 8: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 8: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 8: 
 Prover 8:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 8: 
 Prover 8:         ^
-Prover 9: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=complete
+Prover 9: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete
 Prover 9: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 9: 
 Prover 9:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 9: 
 Prover 9:         ^
-Prover 10: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=0 -ignoreQuantifiers -generateTriggers=all
+Prover 10: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 10: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 10: 
 Prover 10:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 10: 
 Prover 10:         ^
-Prover 11: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 -ignoreQuantifiers -generateTriggers=all
+Prover 11: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 11: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 11: 
 Prover 11:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 11: 
 Prover 11:         ^
-Prover 12: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=complete
+Prover 12: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete
 Prover 12: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 12: 
 Prover 12:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 12: 
 Prover 12:         ^
-Prover 13: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=all
+Prover 13: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 13: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 13: 
 Prover 13:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 13: 
 Prover 13:         ^
-Prover 14: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=all
+Prover 14: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 14: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 14: 
 Prover 14:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 14: 
 Prover 14:         ^
-Prover 15: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 +ignoreQuantifiers -generateTriggers=all
+Prover 15: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 15: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 15: 
 Prover 15:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 15: 
 Prover 15:         ^
-Prover 16: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=0 +ignoreQuantifiers -generateTriggers=all
+Prover 16: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 16: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 16: 
 Prover 16:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 16: 
 Prover 16:         ^
-Prover 17: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=complete
+Prover 17: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete
 Prover 17: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 17: 
 Prover 17:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 17: 
 Prover 17:         ^
-Prover 18: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -generateTriggers=all
+Prover 18: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 18: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 18: 
 Prover 18:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 18: 
 Prover 18:         ^
-Prover 19: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -generateTriggers=all
+Prover 19: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all
 Prover 19: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 19: 
 Prover 19:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
@@ -298,3 +909,97 @@ Prover 19:         ^
         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 
         ^
+Loading DAT013=1.p ...
+
+No countermodel exists, formula is valid
+% SZS status Theorem for DAT013=1
+
+% SZS output start Proof for DAT013=1
+Assumptions after simplification:
+---------------------------------
+
+  (co1)
+   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] : (in_array(v0) &  ! [v3: $int] :
+     ! [v4: $int] : ( ~ ($lesseq(v4, 0) |  ~ ($lesseq(v3, v2)) |  ~ ($lesseq(v1,
+            v3)) |  ~ (read(v0, v3) = v4)) &  ? [v3: $int] :  ? [v4: $int] : ($lesseq(v4,
+          0)$lesseq(v3, v2) & $lesseq(3, $difference(v3, v1)) & read(v0, v3) = v4))
+
+Further assumptions not needed in the proof:
+--------------------------------------------
+ax1, ax2
+
+Those formulas are unsatisfiable:
+---------------------------------
+
+Begin of proof
+| 
+| DELTA: instantiating (co1) with fresh symbols all_4_0, all_4_1, all_4_2 gives:
+|   (1)  in_array(all_4_2) &  ! [v0: $int] :  ! [v1: $int] : ( ~ ($lesseq(v1, 0)
+|            |  ~ ($lesseq(v0, all_4_0)) |  ~ ($lesseq(all_4_1, v0)) |  ~
+|            (read(all_4_2, v0) = v1)) &  ? [v0: $int] :  ? [v1: $int] : ($lesseq(v1,
+|              0)$lesseq(v0, all_4_0) & $lesseq(3, $difference(v0, all_4_1)) &
+|            read(all_4_2, v0) = v1)
+| 
+| ALPHA: (1) implies:
+|   (2)   ! [v0: $int] :  ! [v1: $int] : ( ~ ($lesseq(v1, 0) |  ~ ($lesseq(v0,
+|                all_4_0)) |  ~ ($lesseq(all_4_1, v0)) |  ~ (read(all_4_2, v0) = v1))
+|   (3)   ? [v0: $int] :  ? [v1: $int] : ($lesseq(v1, 0)$lesseq(v0, all_4_0) &
+|          $lesseq(3, $difference(v0, all_4_1)) & read(all_4_2, v0) = v1)
+| 
+| DELTA: instantiating (3) with fresh symbols all_7_0, all_7_1 gives:
+|   (4)  $lesseq(all_7_0, 0)$lesseq(all_7_1, all_4_0) & $lesseq(3,
+|          $difference(all_7_1, all_4_1)) & read(all_4_2, all_7_1) = all_7_0
+| 
+| ALPHA: (4) implies:
+|   (5)  $lesseq(3, $difference(all_7_1, all_4_1))
+|   (6)  $lesseq(all_7_1, all_4_0)
+|   (7)  $lesseq(all_7_0, 0)
+|   (8)  read(all_4_2, all_7_1) = all_7_0
+| 
+| GROUND_INST: instantiating (2) with all_7_0, all_7_1, simplifying with (8)
+|              gives:
+|   (9)   ~ ($lesseq(all_7_0, 0) |  ~ ($lesseq(all_7_1, all_4_0)) |  ~
+|          ($lesseq(all_4_1, all_7_1))
+| 
+| BETA: splitting (9) gives:
+| 
+| Case 1:
+| | 
+| |   (10)  $lesseq(1, all_7_0)
+| | 
+| | COMBINE_INEQS: (7), (10) imply:
+| |   (11)  $lesseq(0, -1)
+| | 
+| | CLOSE: (11) is inconsistent.
+| | 
+| Case 2:
+| | 
+| |   (12)   ~ ($lesseq(all_7_1, all_4_0)) |  ~ ($lesseq(all_4_1, all_7_1))
+| | 
+| | BETA: splitting (12) gives:
+| | 
+| | Case 1:
+| | | 
+| | |   (13)  $lesseq(1, $difference(all_7_1, all_4_0))
+| | | 
+| | | COMBINE_INEQS: (6), (13) imply:
+| | |   (14)  $lesseq(0, -1)
+| | | 
+| | | CLOSE: (14) is inconsistent.
+| | | 
+| | Case 2:
+| | | 
+| | |   (15)  $lesseq(1, $difference(all_4_1, all_7_1))
+| | | 
+| | | COMBINE_INEQS: (5), (15) imply:
+| | |   (16)  $lesseq(0, -1)
+| | | 
+| | | CLOSE: (16) is inconsistent.
+| | | 
+| | End of split
+| | 
+| End of split
+| 
+End of proof
+% SZS output end Proof for DAT013=1
+

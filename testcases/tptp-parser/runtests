@@ -16,6 +16,7 @@ $PRI "$@" $TESTS 2>&1 | grep -v '^Prover'
 $PRI "$@" -timeout=60 PUZ001+1.p 2>&1 | grep -v '^Prover'
 
 $PRI "$@" +unsatCore -multiStrategy unsat-core.p
+$PRI "$@" +printProof -multiStrategy unsat-core.p
 
 $PRI "$@" SWV032+1.p -assert +splitConjectures 2>&1 | grep -v '^Prover'
 $PRI "$@" -assert ARI495\=1.p 2>&1 | grep -v '^Prover'
@@ -24,4 +25,6 @@ $PRI "$@" DAT078\=1.p -multiStrategy +triggersInConjecture -genTotalityAxioms=no
 
 # will exit with an exception
 $PRI "$@" SYN000_2.p
+
+$PRI "$@" +printProof DAT013=1.p 2>&1 | grep -v '^Prover'
 

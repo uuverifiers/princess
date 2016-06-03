@@ -199,7 +199,8 @@ object CmdlMain {
 
   private def printCertificate(cert : Certificate,
                                settings : GlobalSettings,
-                               prover : Prover)
+                               prover : Prover,
+                               lastFilename : String)
                               (implicit format : Param.InputFormat.Value) = {
     if (Param.COMPUTE_UNSAT_CORE(settings)) {
       Console.err.println
@@ -212,7 +213,7 @@ object CmdlMain {
     }
 
     if (Param.PRINT_CERTIFICATE(settings))
-      printTextCertificate(cert, settings, prover)
+      printTextCertificate(cert, settings, prover, lastFilename)
 
     if (Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "")
       printDOTCertificate(cert, settings)
@@ -220,7 +221,8 @@ object CmdlMain {
 
   private def printTextCertificate(cert : Certificate,
                                    settings : GlobalSettings,
-                                   prover : Prover)
+                                   prover : Prover,
+                                   lastFilename : String)
                                  (implicit format : Param.InputFormat.Value) = {
     Console.err.println
 
@@ -245,7 +247,14 @@ object CmdlMain {
     }
 
     val printer = new CertificatePrettyPrinter(formulaPrinter)
+
+    if (format == Param.InputFormat.TPTP)
+      println("% SZS output start Proof for " + lastFilename)
+
     printer(dagCert, formulaParts)
+
+    if (format == Param.InputFormat.TPTP)
+      println("% SZS output end Proof for " + lastFilename)
   }
 
   private def printDOTCertificate(cert : Certificate,
@@ -416,7 +425,7 @@ object CmdlMain {
             
             var rawStrategies =
 List(
-("1001001010",13000,4000),
+("1001001020",13000,4000),
 ("1010004000",60000,800),
 ("1011110101",2000,1600),
 ("0100102100",55000,200),
@@ -562,9 +571,9 @@ List(
               printResult(result, prover, settings2, lastFilename)
             } else result match {
               case Prover.NoCounterModelCert(cert) => 
-                printCertificate(cert, settings, prover)
+                printCertificate(cert, settings, prover, lastFilename)
               case Prover.NoCounterModelCertInter(cert, inters) =>
-                printCertificate(cert, settings, prover)
+                printCertificate(cert, settings, prover, lastFilename)
               case _ =>
                 // nothing
             }
@@ -645,7 +654,7 @@ List(
             println("ERROR: " + e.getMessage)
           }
         }
-         e.printStackTrace
+//         e.printStackTrace
         None
       }
     }
@@ -696,7 +705,7 @@ List(
       case e : Throwable => {
         println("error")
 	Console.err.println(e.getMessage)
-         e.printStackTrace
+//         e.printStackTrace
       }
   }
   
@@ -766,11 +775,11 @@ List(
               }
               case Prover.NoCounterModelCert(cert) =>  {
                 println("unsat")
-                printCertificate(cert, settings, prover)
+                printCertificate(cert, settings, prover, lastFilename)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("unsat")
-                printCertificate(cert, settings, prover)
+                printCertificate(cert, settings, prover, lastFilename)
                 Console.err.println
                 Console.err.println("Interpolants:")
                 for (i <- inters) printFormula(i)
@@ -922,7 +931,7 @@ List(
                 }
 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
-                printCertificate(cert, settings, prover)
+                printCertificate(cert, settings, prover, lastFilename)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 Console.err.println("No countermodel exists, formula is valid")
@@ -938,7 +947,7 @@ List(
                   for (i <- inters) printFormula(i)
                 }
 
-                printCertificate(cert, settings, prover)
+                printCertificate(cert, settings, prover, lastFilename)
                 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }

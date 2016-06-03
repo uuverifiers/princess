@@ -26,9 +26,11 @@ import ap.terfor.preds.Predicate
 import ap.parser.{PartName, TPTPLineariser, SMTLineariser, PrincessLineariser,
                   Internal2InputAbsy, IFunction, Transform2NNF}
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.TermOrder
 
 import scala.collection.mutable.{HashMap => MHashMap, LinkedHashMap,
                                  ArrayStack}
+import scala.util.Sorting
 
 object CertificatePrettyPrinter {
 
@@ -256,6 +258,23 @@ class CertificatePrettyPrinter(
       introduceFormula(f)
   }
 
+  private def introduceFormulasIfNeeded
+                (fs : Iterable[CertFormula],
+                 assumedFormulas : Set[CertFormula],
+                 order : TermOrder) : Unit = {
+    var neededFors = 
+      (for (f <- fs.iterator;
+            if (!(formulaLabel contains f) && (assumedFormulas contains f)))
+       yield f).toArray
+
+    if (!neededFors.isEmpty) {
+      implicit val o = CertFormula certFormulaOrdering order
+      Sorting stableSort neededFors
+      for (f <- neededFors)
+        introduceFormula(f)
+    }
+  }
+
   private def l(f : CertFormula) : String = "(" + formulaLabel(f) + ")"
 
   private def l(fs : Iterable[CertFormula]) : String =
@@ -294,7 +313,7 @@ class CertificatePrettyPrinter(
         computeAssumptions(inferences.toList.tail, child.assumedFormulas)
 
       for ((inf, assumptions) <- inferences.iterator zip assumptions.iterator)
-        printInference(inf, assumptions)
+        printInference(inf, assumptions, child.order)
 
       printCertificate(child)
     }
@@ -341,8 +360,9 @@ class CertificatePrettyPrinter(
         printlnPref("Case " + (num + 1) + ":")
         addPrefix("| ")
         printlnPref
-        for (f <- cert localProvidedFormulas num)
-          introduceFormulaIfNeeded(f, subCert.assumedFormulas)
+        introduceFormulasIfNeeded(cert localProvidedFormulas num,
+                                  subCert.assumedFormulas,
+                                  subCert.order)
         printCertificate(subCert)
         printlnPref
       } finally {
@@ -365,7 +385,8 @@ class CertificatePrettyPrinter(
   }
 
   private def printInference(inf : BranchInference,
-                             nextAssumedFormulas : Set[CertFormula]) : Unit = {
+                             nextAssumedFormulas : Set[CertFormula],
+                             childOrder : TermOrder) : Unit = {
     if (inf == ReusedProofMarker ||
         (inf.localBoundConstants.isEmpty &&
          (inf.providedFormulas forall {
@@ -417,8 +438,9 @@ class CertificatePrettyPrinter(
                     " defined by:")
     }
 
-    for (f <- inf.providedFormulas)
-      introduceFormulaIfNeeded(f, nextAssumedFormulas)
+    introduceFormulasIfNeeded(inf.providedFormulas,
+                              nextAssumedFormulas,
+                              childOrder)
   }
 
   private def printRewritingRule(name : String, inf : BranchInference) : Unit =
