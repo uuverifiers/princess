@@ -21,9 +21,11 @@
 
 package ap
 
-import ap.parameters.GlobalSettings
+import ap.parameters.{GlobalSettings, Param}
 import ap.proof.certificates.Certificate
-import ap.parser.PartName
+import ap.parser.{PartName, IFunction}
+import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.Predicate
 import ap.util.{Seqs, Debug, Timeout, RuntimeStatistics}
 
 import scala.actors.Actor._
@@ -98,6 +100,10 @@ object ParallelFileProver {
       var lastStartTime : Long = 0
       var targetedSuspendTime : Long = 0
       var activationCount : Int = 0
+
+      def producesProofs : Boolean =
+        Param.PROOF_CONSTRUCTION_GLOBAL(config.settings) ==
+          Param.ProofConstructionOptions.Always
 
       def resumeTO(maxNextPeriod : Long) : Unit = {
         // First let each prover run for a while by itself,
@@ -296,7 +302,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
                          output : Boolean,
                          userDefStoppingCond : => Boolean,
                          settings : Seq[ParallelFileProver.Configuration],
-                         maxParallelProvers : Int) extends Prover {
+                         maxParallelProvers : Int,
+                         runUntilProof : Boolean,
+                         prelResultPrinter : Prover => Unit) extends Prover {
 
   import ParallelFileProver._
   
@@ -337,6 +345,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     var exceptionResult : Throwable = null
 //    var incompleteResult : Prover.Result = null
     
+    var foundPrelResult : Boolean = false
+
     var runningProverNum = 0
 
     def remainingTime =
@@ -523,7 +533,13 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     }
   }
 
+  override def getFormulaParts : Map[PartName, Conjunction] =
+    successfulProver.get.getFormulaParts
+
   override def getAssumedFormulaParts(certificate : Certificate)
                                      : Set[PartName] =
     successfulProver.get getAssumedFormulaParts certificate
+
+  override def getPredTranslation : Map[Predicate, IFunction] =
+    successfulProver.get.getPredTranslation
 }

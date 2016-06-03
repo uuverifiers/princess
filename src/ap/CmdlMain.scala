@@ -332,7 +332,12 @@ object CmdlMain {
       case '5' => Param.TriggerStrategyOptions.MaximalOutermost
     })
     s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
-    s = Param.IGNORE_QUANTIFIERS.set(s, str(8) == '1')
+    s = Param.IGNORE_QUANTIFIERS.set(s, str(8) == '1' || str(8) == '2')
+    s = Param.PROOF_CONSTRUCTION_GLOBAL.set(s,
+          if (str(8) == '2')
+            Param.ProofConstructionOptions.Always
+          else
+            Param.ProofConstructionOptions.Never)
     s = Param.TRIGGER_GENERATION.set(s, str(9) match {
       case '0' => Param.TriggerGenerationOptions.All
       case '1' => Param.TriggerGenerationOptions.Complete
@@ -340,7 +345,7 @@ object CmdlMain {
     })
     s
   }
-              
+
   def toOptionList(strategy : String) : String = {
     var s = ""
     s = s + " " + (if (strategy.charAt(0)=='0') "-" else "+") + "triggersInConjecture"
@@ -371,6 +376,8 @@ object CmdlMain {
 
     s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
     s = s + " " + (if (strategy.charAt(8)=='0') "-" else "+") + "ignoreQuantifiers"
+    s = s + " -proofConstruction=" +
+              (if (strategy.charAt(8)=='2') "always" else "never")
     s = s + " -generateTriggers=" + (
       if (strategy.charAt(9)=='0')
         "all"
@@ -409,12 +416,12 @@ object CmdlMain {
             
             var rawStrategies =
 List(
-("1001001010",13000,4000),
+("1001001020",13000,4000),
 ("1010004000",60000,800),
 ("1011110101",2000,1600),
 ("0100102100",55000,200),
 ("0000105000",1000,1000),
-("1000112010",1000,400),
+("1000112020",1000,400),
 ("1001000110",3000,2800),
 ("1200113000",1000,1000),
 ("0011105100",6000,6000),
@@ -496,7 +503,11 @@ List(
                                        true,
                                        userDefStoppingCond,
                                        strategies,
-                                       3)
+                                       3,
+                                       Param.COMPUTE_UNSAT_CORE(settings) ||
+                                       Param.PRINT_CERTIFICATE(settings) ||
+                                       Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
+                                       { p => println("Preliminary: " + p.result) })
   
               } else {
                 new IntelliFileProver(reader(),
@@ -537,7 +548,7 @@ List(
               }
             }
 
-            printResult(prover, settings2, lastFilename)
+            printResult(prover.result, prover, settings2, lastFilename)
             
             val timeAfter = System.currentTimeMillis
             
@@ -615,7 +626,7 @@ List(
             println("ERROR: " + e.getMessage)
           }
         }
-//         e.printStackTrace
+         e.printStackTrace
         None
       }
     }
@@ -687,11 +698,12 @@ List(
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def printResult(prover : Prover,
+  def printResult(result : Prover.Result,
+                  prover : Prover,
                   settings : GlobalSettings,
                   lastFilename : String)
                  (implicit format : Param.InputFormat.Value) = format match {
-    case Param.InputFormat.SMTLIB => prover.result match {
+    case Param.InputFormat.SMTLIB => result match {
               case Prover.Proof(tree) => {
                 println("unsat")
                 if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
@@ -767,7 +779,7 @@ List(
 
     case Param.InputFormat.TPTP | Param.InputFormat.Princess => {
             val fileProperties = Param.FILE_PROPERTIES(settings)
-            prover.result match {
+            result match {
               case Prover.Proof(tree) => {
                 Console.err.println("Formula is valid, resulting " +
                         (if (Param.MOST_GENERAL_CONSTRAINT(settings))
