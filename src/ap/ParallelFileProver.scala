@@ -317,7 +317,14 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   //////////////////////////////////////////////////////////////////////////////
 
-  def inconclusiveResult(num : Int, res : Prover.Result) = res match {
+  def isPreliminaryResult(res : Prover.Result) = res match {
+    case Prover.NoCounterModel |
+         Prover.Proof(_) |
+         Prover.ProofWithModel(_, _) => true
+    case _ => false
+  }
+
+  def isInconclusiveResult(res : Prover.Result) = res match {
     // we currently ignore the NoProof result, since the way in which
     // finite domain guards are introduced destroys completeness in some
     // rare cases
@@ -340,13 +347,11 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     val spawnedProvers = new ArrayBuffer[SubProverManager]
     
     var completeResult : Prover.Result = null
+    var preliminaryResult : Prover.Result = null
     var successfulProverNum : Int = -1
     var successfulProver : Option[Prover] = None
     var exceptionResult : Throwable = null
-//    var incompleteResult : Prover.Result = null
     
-    var foundPrelResult : Boolean = false
-
     var runningProverNum = 0
 
     def remainingTime =
@@ -381,21 +386,22 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         (b.runtime - b.runtimeOffset) compare (a.runtime - a.runtimeOffset)
     }
 
-    def spawnNewProver : SubProverManager = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, subProversToSpawn.hasNext)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      updateOffset
-      val nextProver = subProversToSpawn.next
-      nextProver.proofActor   // start the actual prover
-      spawnedProvers += nextProver
-      runningProverNum = runningProverNum + 1
-      nextProver
-    }
-
-    def spawnNewProverIfPossible =
+    def spawnNewProverIfPossible : Boolean =
       if (runningProverNum < maxParallelProvers && subProversToSpawn.hasNext) {
-        val newProver = spawnNewProver
+        updateOffset
+        val newProver = subProversToSpawn.next
+        spawnedProvers += newProver
+
+        if (preliminaryResult != null && !newProver.producesProofs) {
+          // provers that do not generate certificates are useless at
+          // this point; take the next one
+          newProver.result =
+            SubProverKilled(spawnedProvers.size - 1, Prover.TimeoutCounterModel)
+          return spawnNewProverIfPossible
+        }
+
+        newProver.proofActor   // start the actual prover
+        runningProverNum = runningProverNum + 1
         exclusiveRun = newProver.num
         newProver resumeTO remainingTime
         true
@@ -425,14 +431,28 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       }
     }
     
-    def addCompleteResult(res : Prover.Result,
-                          prover : Option[Prover],
-                          proverNum : Int) =
+    def addResult(res : Prover.Result,
+                  prover : Option[Prover],
+                  proverNum : Int) : Boolean =
       if (completeResult == null) {
-        completeResult = res
-        successfulProverNum = proverNum
-        successfulProver = prover
-        stopAllProvers
+        if (isInconclusiveResult(res)) {
+          true
+        } else if (runUntilProof && isPreliminaryResult(res)) {
+          preliminaryResult = res
+          successfulProverNum = proverNum
+          successfulProver = prover
+          stopNonProofProducingProvers
+          prelResultPrinter(prover.get)
+          true
+        } else {
+          completeResult = res
+          successfulProverNum = proverNum
+          successfulProver = prover
+          stopAllProvers
+          false
+        }
+      } else {
+        false
       }
     
     def addExceptionResult(res : Throwable) =
@@ -442,6 +462,11 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     def stopAllProvers =
       for (manager <- spawnedProvers)
         if (manager.unfinished)
+          manager.proofActor ! SubProverStop
+
+    def stopNonProofProducingProvers =
+      for (manager <- spawnedProvers)
+        if (manager.unfinished && !manager.producesProofs)
           manager.proofActor ! SubProverStop
 
     def activateNextProver =
@@ -465,13 +490,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
           case Some(p) => p.result
           case None => Prover.TimeoutCounterModel
         }
-        if (inconclusiveResult(num, res)) {
-//          if (incompleteResult == null)
-//            incompleteResult = res
+        if (addResult(res, prover, num))
           activateNextProver
-        } else {
-          addCompleteResult(res, prover, num)
-        }
       }
       
       case r @ SubProverException(num, t) => {
@@ -485,8 +505,6 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       case r @ SubProverKilled(num, res) => {
         spawnedProvers(num).recordRuntime
         retireProver(num, r)
-//        if (incompleteResult == null)
-//          incompleteResult = res
       }
       
       case SubProverSuspended(num) => {
@@ -520,16 +538,18 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         Console.err.println("Prover " + num + ": " + line)
     }
     
-    (completeResult, exceptionResult) match {
-      case (null, null) =>
+    (completeResult, preliminaryResult, exceptionResult) match {
+      case (null, null, null) =>
         // no conclusive result could be derived, return something inconclusive
-//        incompleteResult
         if (overallTimeout)
           (Prover.TimeoutCounterModel, -1, None)
         else
           (Prover.NoProof(null), -1, None)
-      case (null, t) => throw t
-      case (res, _) => (res, successfulProverNum, successfulProver)
+      case (null, null, t) => throw t
+      case (null, res, _)  =>
+        (res, successfulProverNum, successfulProver)
+      case (res, _, _) =>
+        (res, successfulProverNum, successfulProver)
     }
   }
 

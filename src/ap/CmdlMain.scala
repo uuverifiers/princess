@@ -416,13 +416,13 @@ object CmdlMain {
             
             var rawStrategies =
 List(
-("1001001020",13000,4000),
+("1001001010",13000,4000),
 ("1010004000",60000,800),
 ("1011110101",2000,1600),
 ("0100102100",55000,200),
 ("0000105000",1000,1000),
 ("1000112020",1000,400),
-("1001000110",3000,2800),
+("1001000120",3000,2800),
 ("1200113000",1000,1000),
 ("0011105100",6000,6000),
 ("1001111101",9000,2200),
@@ -479,6 +479,7 @@ List(
             var conjNum = 0
 	    var prover : Prover = null
             var result : Prover.Result = null
+            var prelResultPrinted : Prover.Result = null
 
             while (result == null) {
               val baseSettings =
@@ -498,6 +499,13 @@ List(
                   Configuration(s, toOptionList(str), to, seq)
                 }
                 
+                def prelPrinter(p : Prover) : Unit = {
+                  prelResultPrinted = p.result
+                  Console.err.println
+                  printResult(prelResultPrinted, p, settings2, lastFilename)
+                  Console.err.println
+                }
+
                 new ParallelFileProver(reader,
                                        Param.TIMEOUT(settings),
                                        true,
@@ -505,9 +513,9 @@ List(
                                        strategies,
                                        3,
                                        Param.COMPUTE_UNSAT_CORE(settings) ||
-                                       Param.PRINT_CERTIFICATE(settings) ||
-                                       Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
-                                       { p => println("Preliminary: " + p.result) })
+                                         Param.PRINT_CERTIFICATE(settings) ||
+                                         Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
+                                       prelPrinter _)
   
               } else {
                 new IntelliFileProver(reader(),
@@ -548,7 +556,18 @@ List(
               }
             }
 
-            printResult(prover.result, prover, settings2, lastFilename)
+            // if we have already printed a preliminary result, we
+            // only check whether we know have a certificate to show
+            if (prelResultPrinted == null) {
+              printResult(result, prover, settings2, lastFilename)
+            } else result match {
+              case Prover.NoCounterModelCert(cert) => 
+                printCertificate(cert, settings, prover)
+              case Prover.NoCounterModelCertInter(cert, inters) =>
+                printCertificate(cert, settings, prover)
+              case _ =>
+                // nothing
+            }
             
             val timeAfter = System.currentTimeMillis
             
