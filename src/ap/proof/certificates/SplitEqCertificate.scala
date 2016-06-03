@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,8 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.TerForConvenience._
 import ap.util.Debug
+
+import scala.runtime.ScalaRunTime
 
 object SplitEqCertificate {
   
@@ -72,5 +74,7 @@ case class SplitEqCertificate(leftInEq : CertInequality, rightInEq : CertInequal
 
   override def toString : String =
     "SplitEq(" + localAssumedFormulas.head + ", " + leftChild + ", " + rightChild + ")"
+
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 
 }

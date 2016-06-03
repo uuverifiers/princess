@@ -21,9 +21,11 @@
 
 package ap
 
+import ap.terfor.preds.Predicate
+import ap.terfor.conjunctions.Conjunction
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.Certificate
-import ap.parser.{IFormula, PartName}
+import ap.parser.{IFormula, IFunction, PartName}
 
 object Prover {
   
@@ -65,7 +67,13 @@ trait Prover {
 
   val result : Prover.Result
 
+  def getFormulaParts : Map[PartName, Conjunction] =
+    throw new UnsupportedOperationException
+
   def getAssumedFormulaParts(certificate : Certificate) : Set[PartName] =
+    throw new UnsupportedOperationException
+
+  def getPredTranslation : Map[Predicate, IFunction] =
     throw new UnsupportedOperationException
 
 }

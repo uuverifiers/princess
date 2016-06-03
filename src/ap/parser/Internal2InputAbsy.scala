@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -56,14 +56,22 @@ object Internal2InputAbsy {
 class Internal2InputAbsy(predTranslation : MMap[IExpression.Predicate, IFunction]) {
   
   import IExpression._
-  
+
+  def apply(t : Term) : ITerm = convert(t)
+  def apply(f : Formula) : IFormula = convert(f)
+
   private def convert(t : Term) : ITerm = t match {
     case OneTerm => i(1)
     case c : ConstantTerm => c
     case VariableTerm(index) => v(index)
     case lc : LinearCombination =>
       sum(for ((c, t) <- lc.pairIterator) yield {
-        if (c.isOne) convert(t) else (convert(t) * c)
+        if (c.isOne)
+          convert(t)
+        else if (t == OneTerm)
+          i(c)
+        else
+          (convert(t) * c)
       })
   }
 
@@ -91,13 +99,18 @@ class Internal2InputAbsy(predTranslation : MMap[IExpression.Predicate, IFunction
     convert(ac.positiveEqs) &&& convert(ac.negativeEqs) &&& convert(ac.inEqs)
   
   private def convert(eqs : EquationConj) : IFormula =
-    connect(for (lc <- eqs.iterator) yield eqZero(convert(lc)), IBinJunctor.And)
+    connect(for (lc <- eqs.iterator)
+            yield eqZero(convert(lc)), IBinJunctor.And)
 
   private def convert(eqs : NegEquationConj) : IFormula =
-    connect(for (lc <- eqs.iterator) yield !eqZero(convert(lc)), IBinJunctor.And)
+    connect(for (lc <- eqs.iterator)
+            yield !eqZero(convert(lc)),
+            IBinJunctor.And)
   
   private def convert(eqs : InEqConj) : IFormula =
-    connect(for (lc <- eqs.iterator) yield geqZero(convert(lc)), IBinJunctor.And)
+    connect(for (lc <- eqs.iterator)
+            yield geqZero(convert(lc)),
+            IBinJunctor.And)
   
   private def convert(preds : PredConj) : IFormula =
     convert(preds.positiveLits, false) &&& convert(preds.negativeLits, true)
@@ -106,7 +119,8 @@ class Internal2InputAbsy(predTranslation : MMap[IExpression.Predicate, IFunction
     for (a <- lits.iterator) yield {
       val ifor = (predTranslation get a.pred) match {
         case Some(f) =>
-          IFunApp(f, for (t <- a take f.arity) yield convert(t)) === convert(a.last)
+          IFunApp(f, for (t <- a take f.arity) yield convert(t)) ===
+            convert(a.last)
         case None =>
           IAtom(a.pred, for (t <- a) yield convert(t))
       }

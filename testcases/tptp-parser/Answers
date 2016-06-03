@@ -28,7 +28,8 @@ No countermodel exists, formula is valid
 
 Loading ARI620=1.p ...
 
-No countermodel exists, formula is valid
+Formula is valid, resulting constraint:
+true
 % SZS status Theorem for ARI620=1
 
 Loading ARI526=1.p ...

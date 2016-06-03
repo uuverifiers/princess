@@ -93,7 +93,10 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       case Param.ProofConstructionOptions.Always =>
         true
       case Param.ProofConstructionOptions.IfInterpolating =>
-        !interpolantSpecs.isEmpty || Param.COMPUTE_UNSAT_CORE(settings)
+        !interpolantSpecs.isEmpty ||
+        Param.COMPUTE_UNSAT_CORE(settings) ||
+        Param.PRINT_CERTIFICATE(settings) ||
+        Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
     }
 
     // HACK: currently the Groebner theories does not support interpolation,
@@ -249,6 +252,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           if (assumed contains CertFormula(f.negate)))
      yield n).toSet
   }
+
+  override def getFormulaParts : Map[PartName, Conjunction] =
+    namedParts
+
+  override def getPredTranslation : Map[Predicate, IFunction] =
+    functionEncoder.predTranslation.toMap
 
   //////////////////////////////////////////////////////////////////////////////
   

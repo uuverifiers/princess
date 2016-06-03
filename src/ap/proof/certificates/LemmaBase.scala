@@ -162,7 +162,7 @@ class LemmaBase {
 
 //println("now know (" + assumedFormulas.size + "): " + l)
 
-      (literals2Certs get l) match {
+      val res = (literals2Certs get l) match {
         case Some(certs) => {
           literals2Certs -= l
 
@@ -185,6 +185,39 @@ class LemmaBase {
         case None =>
           None
       }
+
+      /*
+      // naive test, whether any lemma can be applied
+      try {
+        import ap.terfor.conjunctions.ReduceWithConjunction
+        val allAssumptions =
+          Conjunction.conj(
+          (for (f <- assumedFormulasL0.iterator;
+                if (!f.isInstanceOf[CertCompoundFormula]))
+           yield f.toConj) ++
+          (for (f <- assumedFormulas.iterator;
+                if (!f.isInstanceOf[CertCompoundFormula]))
+           yield f.toConj),
+          l.order)
+
+        if (!allAssumptions.isFalse) {
+          val reducer = ReduceWithConjunction(allAssumptions, l.order)
+
+          for ((_, certs) <- literals2Certs; cert <- certs)
+            if (cert.watchable forall { f => reducer(f.toConj).isTrue }) {
+              println("applicable certificate #" + cert.id + ": ")
+              cert.printWatchable
+            }
+        }
+
+      } catch {
+        case _ : Throwable => // ignore, since the considered orders
+                              // might not always be correct, which can
+                              // lead to exceptions
+      }
+      */
+
+      res
     }
   }
 

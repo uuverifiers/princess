@@ -44,7 +44,7 @@ object GlobalSettings {
     for (arg <- args)
       settings = arg match {
         case Opt("version", value) =>
-          Param.VERSION.set(settings, value)
+         Param.VERSION.set(settings, value)
         case Opt("logo", value) =>
           Param.LOGO.set(settings, value)
         case Opt("fullHelp", value) =>
@@ -74,6 +74,8 @@ object GlobalSettings {
           Param.PRINT_SMT_FILE.set(settings, value)
         case ValueOpt("printTPTP", value) =>
           Param.PRINT_TPTP_FILE.set(settings, value)
+        case Opt("printProof", value) =>
+          Param.PRINT_CERTIFICATE.set(settings, value)
         case ValueOpt("printDOT", value) =>
           Param.PRINT_DOT_CERTIFICATE_FILE.set(settings, value)
         case Opt("assert", value) =>
@@ -192,7 +194,7 @@ object GlobalSettings {
          Param.QUIET, Param.INPUT_FORMAT, Param.STDIN,
          Param.INCREMENTAL, Param.ASSERTIONS, Param.PRINT_TREE,
          Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,
-         Param.PRINT_DOT_CERTIFICATE_FILE,
+         Param.PRINT_DOT_CERTIFICATE_FILE, Param.PRINT_CERTIFICATE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.TIMEOUT_PER,

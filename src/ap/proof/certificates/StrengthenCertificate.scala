@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,8 @@ import ap.terfor.TermOrder
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.TerForConvenience._
 import ap.util.{Debug, IdealRange}
+
+import scala.runtime.ScalaRunTime
 
 object StrengthenCertificateHelper {
   
@@ -92,5 +94,7 @@ case class StrengthenCertificate(weakInEq : CertInequality, eqCases : IdealInt,
     "Strengthen(" + weakInEq + " -> " + "[" +
     ((for (s <- localProvidedFormulas.iterator) yield s.head) mkString ", ") +
     "]" + ", " + (children mkString ", ") + ")"
+
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
 
 }

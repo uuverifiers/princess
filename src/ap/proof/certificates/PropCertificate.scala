@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,6 +25,8 @@ import ap.terfor.TermOrder
 import ap.terfor.TerForConvenience._
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
+
+import scala.runtime.ScalaRunTime
 
 object BetaCertificateHelper {
   
@@ -111,4 +113,6 @@ case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula
   override def toString : String =
     "Beta(" + localAssumedFormulas.head + ", " + leftChild + ", " + rightChild + ")"
   
+  override val hashCode : Int = ScalaRunTime._hashCode(this)
+
 }
