@@ -236,7 +236,14 @@ object CmdlMain {
     }
 
     val printer = new CertificatePrettyPrinter(formulaPrinter)
+
+    if (format == Param.InputFormat.TPTP)
+      println("% SZS output start Proof for theBenchmark")
+
     printer(dagCert, formulaParts)
+
+    if (format == Param.InputFormat.TPTP)
+      println("% SZS output end Proof for theBenchmark")
   }
 
   private def printDOTCertificate(cert : Certificate,
