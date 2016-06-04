@@ -202,9 +202,10 @@ class CertificatePrettyPrinter(
       var cnt = 0
       var parenNum = 0
 
-      var lastSplitPos = 0
       var curSplitPos = 0
       var curSplitParenNum = 0
+      var lastSplitPos = 0
+      var lastSplitParenNum = 0
 
       while (cnt < text.size) {
         text(cnt) match {
@@ -218,10 +219,13 @@ class CertificatePrettyPrinter(
           case _ => // nothing
         }
 
-        if (cnt - lastSplitPos > remLineWidth &&
-          curSplitPos > lastSplitPos) {
+        if (cnt - lastSplitPos > remLineWidth - 2*lastSplitParenNum &&
+            curSplitPos > lastSplitPos) {
           println(text.substring(lastSplitPos, curSplitPos))
+
           lastSplitPos = curSplitPos + 1
+          lastSplitParenNum = curSplitParenNum
+
           if (lastSplitPos < text.size)
             printPref(" " * label.size + "  " * curSplitParenNum)
         }
