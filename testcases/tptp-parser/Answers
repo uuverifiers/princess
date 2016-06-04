@@ -162,19 +162,19 @@ Assumptions after simplification:
 
   (rawDifference-INV)
    ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] : ( ~ (vrawDifference(v0, v1) =
-      v2) |  ? [v3: $int] :  ? [v4: $int] :  ? [v5: $int] :  ? [v6: $int] : ( ~ (v6 =
-        0) &  ~ (v4 = vtempty) & vrawDifference(v4, v1) = v3 & vrowIn(v5, v1) = v6 &
-      vtcons(v5, v4) = v0 & vtcons(v5, v3) = v2) |  ? [v3: $int] :  ? [v4: $int] :
-    (v2 = v0 &  ~ (v4 = 0) & vrowIn(v3, v1) = v4 & vtcons(v3, vtempty) = v0) |  ?
-    [v3: $int] :  ? [v4: $int] : ( ~ (v3 = vtempty) & vrawDifference(v3, v1) = v2 &
-      vrowIn(v4, v1) = 0 & vtcons(v4, v3) = v0) |  ? [v3: $int] : (v2 = vtempty &
-      vrowIn(v3, v1) = 0 & vtcons(v3, vtempty) = v0) | (v2 = v0 & v1 = vtempty) | (v2
-      = vtempty & v0 = vtempty))
+      v2) |  ? [v3: $int] :  ? [v4: $int] :  ? [v5: $int] :  ? [v6: $int] : ( ~
+      (v6 = 0) &  ~ (v4 = vtempty) & vrawDifference(v4, v1) = v3 & vrowIn(v5, v1)
+      = v6 & vtcons(v5, v4) = v0 & vtcons(v5, v3) = v2) |  ? [v3: $int] :  ? [v4:
+      $int] : (v2 = v0 &  ~ (v4 = 0) & vrowIn(v3, v1) = v4 & vtcons(v3, vtempty)
+      = v0) |  ? [v3: $int] :  ? [v4: $int] : ( ~ (v3 = vtempty) &
+      vrawDifference(v3, v1) = v2 & vrowIn(v4, v1) = 0 & vtcons(v4, v3) = v0) | 
+    ? [v3: $int] : (v2 = vtempty & vrowIn(v3, v1) = 0 & vtcons(v3, vtempty) = v0)
+    | (v2 = v0 & v1 = vtempty) | (v2 = vtempty & v0 = vtempty))
 
   (rawDifference2)
    ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] : (v3 = v2 |  ~
-    (vrawDifference(v2, v1) = v3) |  ~ (vtcons(v0, vtempty) = v2) | vrowIn(v0, v1)
-    = 0)
+    (vrawDifference(v2, v1) = v3) |  ~ (vtcons(v0, vtempty) = v2) | vrowIn(v0,
+      v1) = 0)
 
   (rawDifference5)
    ? [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4: $int] :
@@ -193,14 +193,15 @@ Assumptions after simplification:
   (rowIn1)
    ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4: $int] :
   (v4 = 0 |  ~ (vrowIn(v0, v3) = v4) |  ~ (vtcons(v1, v2) = v3) | ( ~ (v1 = v0) &
-       ? [v5: $int] : ( ~ (v5 = 0) & vrowIn(v0, v2) = v5))) &  ! [v0: $int] :  ! [v1:
-    $int] :  ! [v2: $int] :  ! [v3: $int] : (v1 = v0 |  ~ (vrowIn(v0, v3) = 0) |  ~
-    (vtcons(v1, v2) = v3) | vrowIn(v0, v2) = 0)
+       ? [v5: $int] : ( ~ (v5 = 0) & vrowIn(v0, v2) = v5))) &  ! [v0: $int] :  !
+  [v1: $int] :  ! [v2: $int] :  ! [v3: $int] : (v1 = v0 |  ~ (vrowIn(v0, v3) = 0)
+    |  ~ (vtcons(v1, v2) = v3) | vrowIn(v0, v2) = 0)
 
   (test-4)
    ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : (vtcons(vrow3,
-      v2) = v3 & vtcons(vrow1, v0) = v1 & vtcons(vrow1, vtempty) = v2 & vtcons(vrow2,
-      vtempty) = v0 &  ? [v4: $int] : ( ~ (v4 = v0) & vrawDifference(v1, v3) = v4))
+      v2) = v3 & vtcons(vrow1, v0) = v1 & vtcons(vrow1, vtempty) = v2 &
+    vtcons(vrow2, vtempty) = v0 &  ? [v4: $int] : ( ~ (v4 = v0) &
+      vrawDifference(v1, v3) = v4))
 
 Further assumptions not needed in the proof:
 --------------------------------------------
@@ -279,22 +280,23 @@ Begin of proof
 | 
 | ALPHA: (EQ-tcons) implies:
 |   (1)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4:
-|          $int] : ( ~ (vtcons(v1, v3) = v4) |  ~ (vtcons(v0, v2) = v4) | (v3 = v2
-|            & v1 = v0))
+|          $int] : ( ~ (vtcons(v1, v3) = v4) |  ~ (vtcons(v0, v2) = v4) | (v3 =
+|            v2 & v1 = v0))
 | 
 | ALPHA: (rowIn1) implies:
 |   (2)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] : (v1 = v0
-|          |  ~ (vrowIn(v0, v3) = 0) |  ~ (vtcons(v1, v2) = v3) | vrowIn(v0, v2) =
-|          0)
+|          |  ~ (vrowIn(v0, v3) = 0) |  ~ (vtcons(v1, v2) = v3) | vrowIn(v0, v2)
+|          = 0)
 |   (3)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4:
-|          $int] : (v4 = 0 |  ~ (vrowIn(v0, v3) = v4) |  ~ (vtcons(v1, v2) = v3) |
-|          ( ~ (v1 = v0) &  ? [v5: $int] : ( ~ (v5 = 0) & vrowIn(v0, v2) = v5)))
+|          $int] : (v4 = 0 |  ~ (vrowIn(v0, v3) = v4) |  ~ (vtcons(v1, v2) = v3)
+|          | ( ~ (v1 = v0) &  ? [v5: $int] : ( ~ (v5 = 0) & vrowIn(v0, v2) =
+|              v5)))
 | 
 | DELTA: instantiating (rawDifference5) with fresh symbol all_304_0 gives:
 |   (4)   ! [v0: $int] :  ! [v1: $int] :  ! [v2: $int] :  ! [v3: $int] :  ! [v4:
 |          $int] : (v4 = all_304_0 | v0 = vtempty |  ~ (vrawDifference(v3, v1) =
-|            v4) |  ~ (vtcons(v2, v0) = v3) |  ? [v5: $int] :  ? [v6: $int] : (( ~
-|              (v6 = 0) & vrowIn(v2, v1) = v6) | ( ~ (v5 = all_304_0) &
+|            v4) |  ~ (vtcons(v2, v0) = v3) |  ? [v5: $int] :  ? [v6: $int] : ((
+|              ~ (v6 = 0) & vrowIn(v2, v1) = v6) | ( ~ (v5 = all_304_0) &
 |              vrawDifference(v0, v1) = v5)))
 | 
 | DELTA: instantiating (test-4) with fresh symbols all_396_0, all_396_1,
@@ -364,12 +366,12 @@ Begin of proof
 | | Case 1:
 | | | 
 | | |   (20)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : ( ~
-| | |           (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0) = v0 &
-| | |           vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2 &
+| | |           (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0) = v0
+| | |           & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2 &
 | | |           vtcons(v2, v0) = all_440_0) |  ? [v0: $int] :  ? [v1: $int] :
 | | |         (all_440_0 = all_396_2 &  ~ (v1 = 0) & vrowIn(v0, all_396_0) = v1 &
-| | |           vtcons(v0, vtempty) = all_396_2) |  ? [v0: $int] :  ? [v1: $int] :
-| | |         ( ~ (v0 = vtempty) & vrawDifference(v0, all_396_0) = all_440_0 &
+| | |           vtcons(v0, vtempty) = all_396_2) |  ? [v0: $int] :  ? [v1: $int]
+| | |         : ( ~ (v0 = vtempty) & vrawDifference(v0, all_396_0) = all_440_0 &
 | | |           vrowIn(v1, all_396_0) = 0 & vtcons(v1, v0) = all_396_2) |  ? [v0:
 | | |           $int] : (all_440_0 = vtempty & vrowIn(v0, all_396_0) = 0 &
 | | |           vtcons(v0, vtempty) = all_396_2) | (all_440_0 = all_396_2 &
@@ -380,9 +382,9 @@ Begin of proof
 | | | Case 1:
 | | | | 
 | | | |   (21)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : (
-| | | |           ~ (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0) =
-| | | |           v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2 &
-| | | |           vtcons(v2, v0) = all_440_0) |  ? [v0: $int] :  ? [v1: $int] :
+| | | |           ~ (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0)
+| | | |           = v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2
+| | | |           & vtcons(v2, v0) = all_440_0) |  ? [v0: $int] :  ? [v1: $int] :
 | | | |         (all_440_0 = all_396_2 &  ~ (v1 = 0) & vrowIn(v0, all_396_0) = v1
 | | | |           & vtcons(v0, vtempty) = all_396_2) |  ? [v0: $int] :  ? [v1:
 | | | |           $int] : ( ~ (v0 = vtempty) & vrawDifference(v0, all_396_0) =
@@ -396,13 +398,13 @@ Begin of proof
 | | | | | 
 | | | | |   (22)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] :
 | | | | |         ( ~ (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1,
-| | | | |             all_396_0) = v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) =
-| | | | |           all_396_2 & vtcons(v2, v0) = all_440_0) |  ? [v0: $int] :  ?
-| | | | |         [v1: $int] : (all_440_0 = all_396_2 &  ~ (v1 = 0) & vrowIn(v0,
-| | | | |             all_396_0) = v1 & vtcons(v0, vtempty) = all_396_2) |  ? [v0:
-| | | | |           $int] :  ? [v1: $int] : ( ~ (v0 = vtempty) & vrawDifference(v0,
-| | | | |             all_396_0) = all_440_0 & vrowIn(v1, all_396_0) = 0 & vtcons(v1,
-| | | | |             v0) = all_396_2)
+| | | | |             all_396_0) = v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2,
+| | | | |             v1) = all_396_2 & vtcons(v2, v0) = all_440_0) |  ? [v0:
+| | | | |           $int] :  ? [v1: $int] : (all_440_0 = all_396_2 &  ~ (v1 = 0)
+| | | | |           & vrowIn(v0, all_396_0) = v1 & vtcons(v0, vtempty) =
+| | | | |           all_396_2) |  ? [v0: $int] :  ? [v1: $int] : ( ~ (v0 =
+| | | | |             vtempty) & vrawDifference(v0, all_396_0) = all_440_0 &
+| | | | |           vrowIn(v1, all_396_0) = 0 & vtcons(v1, v0) = all_396_2)
 | | | | | 
 | | | | | BETA: splitting (22) gives:
 | | | | | 
@@ -410,10 +412,11 @@ Begin of proof
 | | | | | | 
 | | | | | |   (23)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int]
 | | | | | |         : ( ~ (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1,
-| | | | | |             all_396_0) = v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1)
-| | | | | |           = all_396_2 & vtcons(v2, v0) = all_440_0) |  ? [v0: $int] : 
-| | | | | |         ? [v1: $int] : (all_440_0 = all_396_2 &  ~ (v1 = 0) &
-| | | | | |           vrowIn(v0, all_396_0) = v1 & vtcons(v0, vtempty) = all_396_2)
+| | | | | |             all_396_0) = v0 & vrowIn(v2, all_396_0) = v3 & vtcons(v2,
+| | | | | |             v1) = all_396_2 & vtcons(v2, v0) = all_440_0) |  ? [v0:
+| | | | | |           $int] :  ? [v1: $int] : (all_440_0 = all_396_2 &  ~ (v1 =
+| | | | | |             0) & vrowIn(v0, all_396_0) = v1 & vtcons(v0, vtempty) =
+| | | | | |           all_396_2)
 | | | | | | 
 | | | | | | BETA: splitting (23) gives:
 | | | | | | 
@@ -421,9 +424,9 @@ Begin of proof
 | | | | | | | 
 | | | | | | |   (24)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3:
 | | | | | | |           $int] : ( ~ (v3 = 0) &  ~ (v1 = vtempty) &
-| | | | | | |           vrawDifference(v1, all_396_0) = v0 & vrowIn(v2, all_396_0)
-| | | | | | |           = v3 & vtcons(v2, v1) = all_396_2 & vtcons(v2, v0) =
-| | | | | | |           all_440_0)
+| | | | | | |           vrawDifference(v1, all_396_0) = v0 & vrowIn(v2,
+| | | | | | |             all_396_0) = v3 & vtcons(v2, v1) = all_396_2 &
+| | | | | | |           vtcons(v2, v0) = all_440_0)
 | | | | | | | 
 | | | | | | | DELTA: instantiating (24) with fresh symbols all_601_0, all_601_1,
 | | | | | | |        all_601_2, all_601_3 gives:
@@ -497,8 +500,8 @@ Begin of proof
 | | | | | | Case 2:
 | | | | | | | 
 | | | | | | |   (42)   ? [v0: $int] :  ? [v1: $int] : (all_440_0 = all_396_2 &  ~
-| | | | | | |           (v1 = 0) & vrowIn(v0, all_396_0) = v1 & vtcons(v0, vtempty)
-| | | | | | |           = all_396_2)
+| | | | | | |           (v1 = 0) & vrowIn(v0, all_396_0) = v1 & vtcons(v0,
+| | | | | | |             vtempty) = all_396_2)
 | | | | | | | 
 | | | | | | | DELTA: instantiating (42) with fresh symbols all_601_0, all_601_1
 | | | | | | |        gives:
@@ -921,8 +924,9 @@ Assumptions after simplification:
   (co1)
    ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] : (in_array(v0) &  ! [v3: $int] :
      ! [v4: $int] : ( ~ ($lesseq(v4, 0) |  ~ ($lesseq(v3, v2)) |  ~ ($lesseq(v1,
-            v3)) |  ~ (read(v0, v3) = v4)) &  ? [v3: $int] :  ? [v4: $int] : ($lesseq(v4,
-          0)$lesseq(v3, v2) & $lesseq(3, $difference(v3, v1)) & read(v0, v3) = v4))
+            v3)) |  ~ (read(v0, v3) = v4)) &  ? [v3: $int] :  ? [v4: $int] :
+      ($lesseq(v4, 0)$lesseq(v3, v2) & $lesseq(3, $difference(v3, v1)) & read(v0,
+          v3) = v4))
 
 Further assumptions not needed in the proof:
 --------------------------------------------
@@ -936,36 +940,37 @@ Begin of proof
 | DELTA: instantiating (co1) with fresh symbols all_4_0, all_4_1, all_4_2 gives:
 |   (1)  in_array(all_4_2) &  ! [v0: $int] :  ! [v1: $int] : ( ~ ($lesseq(v1, 0)
 |            |  ~ ($lesseq(v0, all_4_0)) |  ~ ($lesseq(all_4_1, v0)) |  ~
-|            (read(all_4_2, v0) = v1)) &  ? [v0: $int] :  ? [v1: $int] : ($lesseq(v1,
-|              0)$lesseq(v0, all_4_0) & $lesseq(3, $difference(v0, all_4_1)) &
-|            read(all_4_2, v0) = v1)
+|            (read(all_4_2, v0) = v1)) &  ? [v0: $int] :  ? [v1: $int] :
+|          ($lesseq(v1, 0)$lesseq(v0, all_4_0) & $lesseq(3, $difference(v0,
+|                all_4_1)) & read(all_4_2, v0) = v1)
 | 
 | ALPHA: (1) implies:
 |   (2)   ! [v0: $int] :  ! [v1: $int] : ( ~ ($lesseq(v1, 0) |  ~ ($lesseq(v0,
-|                all_4_0)) |  ~ ($lesseq(all_4_1, v0)) |  ~ (read(all_4_2, v0) = v1))
+|                all_4_0)) |  ~ ($lesseq(all_4_1, v0)) |  ~ (read(all_4_2, v0) =
+|              v1))
 |   (3)   ? [v0: $int] :  ? [v1: $int] : ($lesseq(v1, 0)$lesseq(v0, all_4_0) &
 |          $lesseq(3, $difference(v0, all_4_1)) & read(all_4_2, v0) = v1)
 | 
-| DELTA: instantiating (3) with fresh symbols all_7_0, all_7_1 gives:
-|   (4)  $lesseq(all_7_0, 0)$lesseq(all_7_1, all_4_0) & $lesseq(3,
-|          $difference(all_7_1, all_4_1)) & read(all_4_2, all_7_1) = all_7_0
+| DELTA: instantiating (3) with fresh symbols all_9_0, all_9_1 gives:
+|   (4)  $lesseq(all_9_0, 0)$lesseq(all_9_1, all_4_0) & $lesseq(3,
+|          $difference(all_9_1, all_4_1)) & read(all_4_2, all_9_1) = all_9_0
 | 
 | ALPHA: (4) implies:
-|   (5)  $lesseq(3, $difference(all_7_1, all_4_1))
-|   (6)  $lesseq(all_7_1, all_4_0)
-|   (7)  $lesseq(all_7_0, 0)
-|   (8)  read(all_4_2, all_7_1) = all_7_0
+|   (5)  $lesseq(3, $difference(all_9_1, all_4_1))
+|   (6)  $lesseq(all_9_1, all_4_0)
+|   (7)  $lesseq(all_9_0, 0)
+|   (8)  read(all_4_2, all_9_1) = all_9_0
 | 
-| GROUND_INST: instantiating (2) with all_7_0, all_7_1, simplifying with (8)
+| GROUND_INST: instantiating (2) with all_9_0, all_9_1, simplifying with (8)
 |              gives:
-|   (9)   ~ ($lesseq(all_7_0, 0) |  ~ ($lesseq(all_7_1, all_4_0)) |  ~
-|          ($lesseq(all_4_1, all_7_1))
+|   (9)   ~ ($lesseq(all_9_0, 0) |  ~ ($lesseq(all_9_1, all_4_0)) |  ~
+|          ($lesseq(all_4_1, all_9_1))
 | 
 | BETA: splitting (9) gives:
 | 
 | Case 1:
 | | 
-| |   (10)  $lesseq(1, all_7_0)
+| |   (10)  $lesseq(1, all_9_0)
 | | 
 | | COMBINE_INEQS: (7), (10) imply:
 | |   (11)  $lesseq(0, -1)
@@ -974,13 +979,13 @@ Begin of proof
 | | 
 | Case 2:
 | | 
-| |   (12)   ~ ($lesseq(all_7_1, all_4_0)) |  ~ ($lesseq(all_4_1, all_7_1))
+| |   (12)   ~ ($lesseq(all_9_1, all_4_0)) |  ~ ($lesseq(all_4_1, all_9_1))
 | | 
 | | BETA: splitting (12) gives:
 | | 
 | | Case 1:
 | | | 
-| | |   (13)  $lesseq(1, $difference(all_7_1, all_4_0))
+| | |   (13)  $lesseq(1, $difference(all_9_1, all_4_0))
 | | | 
 | | | COMBINE_INEQS: (6), (13) imply:
 | | |   (14)  $lesseq(0, -1)
@@ -989,7 +994,7 @@ Begin of proof
 | | | 
 | | Case 2:
 | | | 
-| | |   (15)  $lesseq(1, $difference(all_4_1, all_7_1))
+| | |   (15)  $lesseq(1, $difference(all_4_1, all_9_1))
 | | | 
 | | | COMBINE_INEQS: (5), (15) imply:
 | | |   (16)  $lesseq(0, -1)
