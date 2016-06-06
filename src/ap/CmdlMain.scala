@@ -39,7 +39,7 @@ import ap.util.{Debug, Seqs, Timeout}
 object CmdlMain {
 
   class GaveUpException(_msg : String) extends Exception(_msg)
-  val version = "CASC build 2016-02-18"
+  val version = "CASC build 2016-06-06"
 
   def printGreeting = {
     println("________       _____")                                 
