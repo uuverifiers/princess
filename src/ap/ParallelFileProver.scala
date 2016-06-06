@@ -419,17 +419,19 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     
     val pendingProvers = new PriorityQueue[SubProverManager]
 
-    def resumeProver = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, pendingProvers.isEmpty || pendingProvers.head.unfinished)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+    def resumeProver : Boolean =
       if (!pendingProvers.isEmpty) {
-        pendingProvers.dequeue resumeTO remainingTime
-        true
+        val p = pendingProvers.dequeue
+        if (p.unfinished) {
+          p resumeTO remainingTime
+          true
+        } else {
+          // discard the head element of the queue and go on
+          resumeProver
+        }
       } else {
         false
       }
-    }
     
     def addResult(res : Prover.Result,
                   prover : Option[Prover],
