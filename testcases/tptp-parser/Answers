@@ -108,8 +108,7 @@ true
 
 Loading set-Bidule-Inter.p ...
 
-Formula is valid, resulting constraint:
-true
+No countermodel exists, formula is valid
 % SZS status Theorem for set-Bidule-Inter
 
 Loading PUZ001+1.p ...
