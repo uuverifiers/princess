@@ -329,10 +329,24 @@ class CertificatePrettyPrinter(
       printCases(cert)
     }
 
+    case cert : SplitEqCertificate => {
+      printlnPref
+      printlnPref("SPLIT-EQ: splitting " +
+                  l(cert.localAssumedFormulas) + " gives:")
+      printCases(cert)
+    }
+
     case StrengthenCertificate(ineq, _, _, _) => {
       printlnPref
       printlnPrefBreaking("STRENGTHEN: ",
                     "tightening of inequality " + l(ineq) + " gives:")
+      printCases(cert)
+    }
+
+    case cert : OmegaCertificate => {
+      printlnPref
+      printlnPref("OMEGA: resolving " +
+                  l(cert.localAssumedFormulas) + " by considering:")
       printCases(cert)
     }
 
