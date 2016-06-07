@@ -367,7 +367,10 @@ class TermOrder private (
 
     var lastWeight = Int.MaxValue
     while (constantIt.hasNext) {
-      val ConstantWeight(newWeight) = that.constantWeight(constantIt.next)
+      val newWeight = (that.constantWeight get constantIt.next) match {
+        case Some(ConstantWeight(w)) => w
+        case _ => return false
+      }
       if (newWeight >= lastWeight)
         return false
       lastWeight = newWeight
@@ -381,7 +384,10 @@ class TermOrder private (
 
     lastWeight = Int.MaxValue
     while (predicateIt.hasNext) {
-      val newWeight = that.predicateWeight(predicateIt.next)
+      val newWeight = (that.predicateWeight get predicateIt.next) match {
+        case Some(w) => w
+        case None => return false
+      }
       if (newWeight >= lastWeight)
         return false
       lastWeight = newWeight

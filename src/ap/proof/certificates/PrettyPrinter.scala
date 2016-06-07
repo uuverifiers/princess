@@ -271,12 +271,14 @@ class CertificatePrettyPrinter(
             if (!(formulaLabel contains f) && (assumedFormulas contains f)))
        yield f).toArray
 
-    if (!neededFors.isEmpty) {
+    // if possible (and necessary), sort the list of formulas
+    if (neededFors.size > 1 &&
+        (neededFors forall (order isSortingOf _))) {
       implicit val o = CertFormula certFormulaOrdering order
       Sorting stableSort neededFors
-      for (f <- neededFors)
-        introduceFormula(f)
     }
+
+    for (f <- neededFors) introduceFormula(f)
   }
 
   private def l(f : CertFormula) : String = "(" + formulaLabel(f) + ")"
