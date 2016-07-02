@@ -3259,8 +3259,13 @@ class SimpleAPI private (enableAssert : Boolean,
         IterativeClauseMatcher.convertQuantifiers(
           c, Param.PREDICATE_MATCH_CONFIG(goalSettings))
       if (!ignoredQuantifiers && !(withoutQuans eq c)) {
-        Console.err.println(
-          "Warning: ignoring some quantifiers due to interpolation")
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(AC, {
+          Console.err.println(
+            "Warning: ignoring some quantifiers due to interpolation")
+          true
+        })
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         ignoredQuantifiers = true
       }
       withoutQuans
