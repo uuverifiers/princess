@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -490,6 +490,41 @@ object ConstantSubstVisitor
   def postVisit(t : IExpression,
                 subst : (CMap[ConstantTerm, ITerm], Int),
                 subres : Seq[IExpression]) : IExpression = t update subres
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Substitute some of the constants in an expression with arbitrary terms,
+ * and immediately simplify the resulting expression if possible.
+ */
+object SimplifyingConstantSubstVisitor
+       extends CollectingVisitor[(CMap[ConstantTerm, ITerm], Int), IExpression] {
+  import IExpression.i
+         
+  def apply(t : IExpression, subst : CMap[ConstantTerm, ITerm]) : IExpression =
+    SimplifyingConstantSubstVisitor.visit(t, (subst, 0))
+  def apply(t : ITerm, subst : CMap[ConstantTerm, ITerm]) : ITerm =
+    apply(t.asInstanceOf[IExpression], subst).asInstanceOf[ITerm]
+  def apply(t : IFormula, subst : CMap[ConstantTerm, ITerm]) : IFormula =
+    apply(t.asInstanceOf[IExpression], subst).asInstanceOf[IFormula]
+
+  override def preVisit(t : IExpression,
+                        subst : (CMap[ConstantTerm, ITerm], Int)) : PreVisitResult =
+    t match {
+      case IConstant(c) => ShortCutResult((subst._1 get c) match {
+        case Some(replacement) => VariableShiftVisitor(replacement, 0, subst._2)
+        case None => t
+      })
+      case _ : IQuantified | _ : IEpsilon =>
+        UniSubArgs((subst._1, subst._2 + 1))
+      case _ => KeepArg
+    }
+
+  def postVisit(t : IExpression,
+                subst : (CMap[ConstantTerm, ITerm], Int),
+                subres : Seq[IExpression]) : IExpression =
+    IExpression.updateAndSimplifyLazily(t, subres)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

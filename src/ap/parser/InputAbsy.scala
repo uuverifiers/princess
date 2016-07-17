@@ -645,12 +645,64 @@ object IExpression {
   
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Update sub-expressions; if the expression changed as a result of the
+   * update, check whether simplifications are possible.
+   */
+  def updateAndSimplifyLazily(e : IExpression,
+                              newSubExpr : Seq[IExpression]) : IExpression = {
+    val newE = e update newSubExpr
+    if (newE eq e) {
+      e
+    } else {
+      updateAndSimplify(e, newSubExpr)
+    }
+  }
+
+  /**
+   * Update sub-expressions; if the expression changed as a result of the
+   * update, check whether simplifications are possible.
+   */
+  def updateAndSimplifyLazily(e : IFormula,
+                              newSubExpr : Seq[IExpression]) : IFormula = {
+    val newE = e update newSubExpr
+    if (newE eq e) {
+      e
+    } else {
+      updateAndSimplify(e, newSubExpr)
+    }
+  }
+
+  /**
+   * Update sub-expressions; if the expression changed as a result of the
+   * update, check whether simplifications are possible.
+   */
+  def updateAndSimplifyLazily(e : ITerm,
+                              newSubExpr : Seq[IExpression]) : ITerm = {
+    val newE = e update newSubExpr
+    if (newE eq e) {
+      e
+    } else {
+      updateAndSimplify(e, newSubExpr)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Update sub-expressions, and directly check whether simplifications
+   * are possible.
+   */
   def updateAndSimplify(e : IExpression,
                         newSubExpr : Seq[IExpression]) : IExpression = e match {
     case e : IFormula => updateAndSimplify(e, newSubExpr)
     case e : ITerm =>    updateAndSimplify(e, newSubExpr)
   }
   
+  /**
+   * Update sub-expressions, and directly check whether simplifications
+   * are possible.
+   */
   def updateAndSimplify(t : IFormula,
                         newSubExpr : Seq[IExpression]) : IFormula = t match {
         case t@IIntFormula(IIntRelation.EqZero, _) => newSubExpr match {
@@ -709,6 +761,10 @@ object IExpression {
           t update newSubExpr
   }
   
+  /**
+   * Update sub-expressions, and directly check whether simplifications
+   * are possible.
+   */
   def updateAndSimplify(e : ITerm,
                         newSubExpr : Seq[IExpression]) : ITerm = e match {
         case t@ITimes(coeff, _) => newSubExpr(0) match {
@@ -1096,6 +1152,22 @@ abstract class IFormula extends IExpression {
    * Equivalence operator that directly simplify expressions involving true/false.
    */
   def eqvSimplify(that : IFormula) = this <===> that
+
+  /**
+   * Incomplete check whether the given formula is valid.
+   */
+  def isTrue : Boolean = this match {
+    case IBoolLit(true) => true
+    case _ => false
+  }
+
+  /**
+   * Incomplete check whether the given formula is unsatisfiable.
+   */
+  def isFalse : Boolean = this match {
+    case IBoolLit(false) => true
+    case _ => false
+  }
 
   /**
    * Replace the subexpressions of this node with new expressions
