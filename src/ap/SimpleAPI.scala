@@ -588,12 +588,19 @@ class SimpleAPI private (enableAssert : Boolean,
     createConstant("c" + currentOrder.orderedConstants.size)
   
   /**
-   * Create <code>num</code> new symbolic constant with predefined name.
+   * Create <code>num</code> new symbolic constants with predefined name.
    */
   def createConstants(num : Int) : IndexedSeq[ITerm] = {
     val start = currentOrder.orderedConstants.size
-    for (c <- createConstantsRaw("c", start until (start + num))) yield IConstant(c)
+    createConstants("c", start until (start + num))
   }
+
+  /**
+   * Create a sequence of new symbolic constants, with name starting with the
+   * given prefix.
+   */
+  def createConstants(prefix : String, nums : Range) : IndexedSeq[ITerm] =
+    for (c <- createConstantsRaw(prefix, nums)) yield IConstant(c)
 
   /**
    * Create a new symbolic constant, without directly turning it into an
@@ -2286,8 +2293,11 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(AC, Set(ProverStatus.Unsat,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    asIFormula(currentConstraint)
+
+    if (needExhaustiveProver)
+      asIFormula(currentConstraint)
+    else
+      IBoolLit(true)
   }
 
   /**
@@ -2334,7 +2344,10 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    currentConstraint
+    if (needExhaustiveProver)
+      currentConstraint
+    else
+      Conjunction.TRUE
   }
 
   /**
