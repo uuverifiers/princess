@@ -199,6 +199,8 @@ Inconclusive
 59: Sat
 72: 0
 73: Invalid
+39: Valid
+40: true
 Sat
 List((Vector(0, 1),2), (Vector(1, 2),3))
 Sat
