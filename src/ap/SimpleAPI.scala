@@ -473,6 +473,7 @@ class SimpleAPI private (enableAssert : Boolean,
   doDumpScala {
     println("import ap._")
     println("import ap.parser._")
+    println("import ap.basetypes.IdealInt")
     println
     println("SimpleAPI.withProver { p =>")
     println("import p._")
