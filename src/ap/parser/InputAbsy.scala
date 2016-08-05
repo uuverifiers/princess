@@ -707,6 +707,10 @@ object IExpression {
                         newSubExpr : Seq[IExpression]) : IFormula = t match {
         case t@IIntFormula(IIntRelation.EqZero, _) => newSubExpr match {
           case Seq(IIntLit(value)) => IBoolLit(value.isZero)
+          case Seq(ITermITE(cond, IIntLit(value1), t2)) if (!value1.isZero) =>
+            ~cond &&& updateAndSimplify(t, List(t2))
+          case Seq(ITermITE(cond, t1, IIntLit(value2))) if (!value2.isZero) =>
+            cond &&& updateAndSimplify(t, List(t1))
           case _ => t update newSubExpr
         }
         
