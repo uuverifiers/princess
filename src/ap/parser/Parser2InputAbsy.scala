@@ -42,7 +42,7 @@ object Parser2InputAbsy {
   class ParseException(msg : String) extends Exception(msg)
   class TranslationException(msg : String) extends Exception(msg)
   
-  def warn(msg : String) : Unit = Console.withOut(Console.err) {
+  def warn(msg : String) : Unit = {
     println("Warning: " + msg)
   }
 

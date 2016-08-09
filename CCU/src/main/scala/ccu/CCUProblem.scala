@@ -92,8 +92,8 @@ case class CCUSimProblem(
       str += "| domains: " + subProblems(p).domains + "\n"
       str += "| funEqs: " + subProblems(p).funEqs + "\n"
       str += "| goal: " + subProblems(p).goal + "\n"
-      str += "| DQ: " + subProblems(p).DQ + "\n"
-      str += "| baseDQ: " + subProblems(p).baseDQ + "\n"
+      // str += "| DQ: " + subProblems(p).DQ + "\n"
+      // str += "| baseDQ: " + subProblems(p).baseDQ + "\n"
       str += subProblems(p).toString + "\n"
     }
     str += "\\\\-------------\n"

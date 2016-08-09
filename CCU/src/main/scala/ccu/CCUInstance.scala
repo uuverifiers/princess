@@ -16,6 +16,11 @@ class CCUInstance[Term, Fun](
 
   var model = None : Option[Map[Int, Int]]
 
+  override def toString = {
+    termMap.toString + "\n" +
+    problem.toString + "\n"
+  }
+
   def confirmActive = {
     if (solver.curId != id)
       throw new Exception("New instance has been created by the solver")

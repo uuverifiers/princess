@@ -69,6 +69,13 @@ abstract class CCUSolver[Term, Fun](
   val timeoutChecker : () => Unit,
   val maxSolverRuntime : Long) {
 
+  type FunApp = (Fun, Seq[Term], Term)
+  type Goal = (Term, Term)
+
+  type IntFunApp = (Int, Seq[Int], Int)
+  type IntGoal = (Int, Int)
+
+  
   //
   //   CONSTRUCTOR METHOD BEGIN
   //
@@ -429,10 +436,31 @@ abstract class CCUSolver[Term, Fun](
   }
 
   private def extractTerms(domains : Map[Term, Set[Term]],
-    functions : Seq[(Fun, Seq[Term], Term)],
-    goals : Seq[Seq[(Term, Term)]]) = {
+    functions : Seq[FunApp],
+    goals : Seq[Seq[Goal]]) = {
 
     val termSet = MSet() : MSet[Term]
+    for ((_, d) <- domains)
+      for (t <- d)
+        termSet += t
+    for ((s,t) <- goals.flatten) {
+      termSet += s
+      termSet += t
+    }
+    for ((_, args, r) <- functions) {
+      for (t <- args)
+        termSet += t
+      termSet += r
+    }
+    
+    termSet.toSet
+  }
+
+  private def intExtractTerms(domains : Map[Int, Set[Int]],
+    functions : Seq[IntFunApp],
+    goals : Seq[Seq[IntGoal]]) : Set[Int] = {
+
+    val termSet = MSet() : MSet[Int]
     for ((_, d) <- domains)
       for (t <- d)
         termSet += t
@@ -480,7 +508,7 @@ abstract class CCUSolver[Term, Fun](
 
 
   private def createFunMapping(
-    functions : Seq[Seq[(Fun, Seq[Term], Term)]]
+    functions : Seq[Seq[FunApp]]
   ) : Map[Fun, Int] = {
     var assigned = 0
     var funMap = Map() : Map[Fun, Int]
@@ -493,57 +521,28 @@ abstract class CCUSolver[Term, Fun](
     funMap
   }
 
+  // Create a problem from internal (Integer) representation
+  def intCreateProblem(
+    domains : Map[Int, Set[Int]],
+    subProblems : Seq[(Seq[Seq[IntGoal]], Seq[IntFunApp])]) : CCUSimProblem = {
 
-  def createProblem(
-    domains : Map[Term, Set[Term]],
-    goals : Seq[Seq[Seq[(Term, Term)]]],
-    functions : Seq[Seq[(Fun, Seq[Term], Term)]]) : CCUInstance[Term, Fun] = {
-    curId += 1
-
-    val problemCount = goals.length
+    val problemCount = subProblems.length
     val termSets = 
       for (p <- 0 until problemCount) yield
-        extractTerms(domains, functions(p), goals(p))
+        intExtractTerms(domains, subProblems(p)._2, subProblems(p)._1)
 
-    val allTerms = (termSets.:\(Set() : Set[Term])(_ ++ _)).toList
-    val terms = for (p <- 0 until problemCount) yield allTerms
+    val allTerms = (termSets.:\(Set() : Set[Int])(_ ++ _)).toList
     val bits = Util.binlog(allTerms.length)
 
-    // Convert to Int representation
-    val (termToInt, intToTerm) = createTermMapping(allTerms, domains)
-    val funMap = createFunMapping(functions)
-
-    // Adjust to new representation
-    val newAllTerms = allTerms.map(termToInt).sorted
-    val newTerms = terms.map(_.map(termToInt).toList.sorted)
-
-    // Each term is added to its own domain
-    // TODO: http://stackoverflow.com/questions/1715681/scala-2-8-breakout/1716558#1716558
-    val newDomains = 
-      (for (t <- allTerms) yield {
-        val oldDomain = domains.getOrElse(t, Set(t))
-        (termToInt(t) -> oldDomain.map(termToInt))
-      }).toMap
-
-    val newGoals =
-      for (g <- goals)
-      yield (for (eqs <- g)
-      yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t)))
-
-    val newFunctions =
-      for (funs <- functions)
-      yield (for ((f, args, r) <- funs)
-      yield (funMap(f), args.map(termToInt), termToInt(r)))
-   
-
-    val arr = Array.ofDim[Int](newAllTerms.length, newAllTerms.length)
+    val arr = Array.ofDim[Int](allTerms.length, allTerms.length)
 
     val ffs =
       (for (p <- 0 until problemCount) yield {
+        val (goals, functions) = subProblems(p)
         // Filter terms per table
-        def isUsed(term : Int, functions : Seq[(Int, Seq[Int], Int)],
+        def isUsed(term : Int, funs : Seq[(Int, Seq[Int], Int)],
           goals : Seq[Seq[(Int, Int)]]) : Boolean = {
-          for ((_, args, s) <- functions) {
+          for ((_, args, s) <- funs) {
             if (s == term)
               return true
             for (a <- args)
@@ -559,11 +558,11 @@ abstract class CCUSolver[Term, Fun](
           false
         }
 
-        val ff = newFunctions(p)
+        val ff = functions
 
 
         val tmpFt = ListBuffer() : ListBuffer[Int]
-        for (t <- (newAllTerms.filter(x => isUsed(x, ff, newGoals(p)))))
+        for (t <- (allTerms.filter(x => isUsed(x, ff, goals))))
           tmpFt += t
 
         // We have to add all terms that are in the domains of ft
@@ -571,7 +570,7 @@ abstract class CCUSolver[Term, Fun](
         while (ftChanged) {
           ftChanged = false
           for (t <- tmpFt) {
-            for (tt <- newDomains(t)) {
+            for (tt <- domains(t)) {
               if (!(tmpFt contains tt)) {
                 tmpFt += tt
                 ftChanged = true
@@ -585,36 +584,38 @@ abstract class CCUSolver[Term, Fun](
         // val ft = newTerms
 
         val fd =
-          (for ((t, d) <- newDomains; if (ft contains t)) yield {
+          (for ((t, d) <- domains; if (ft contains t)) yield {
             (t, d.filter(x => ft contains x))
           }).toMap
         // val fd = newDomains
-        (ff, ft, fd)
-      }) : Seq[(Seq[(Int, Seq[Int], Int)], Seq[Int], Map[Int, Set[Int]])]
+        val fg = goals
+        (ff, ft, fd, fg)
+      }) : Seq[(Seq[(Int, Seq[Int], Int)], Seq[Int], Map[Int, Set[Int]], Seq[Seq[IntGoal]])]
 
-    val filterTerms = for ((_, ft, _) <- ffs) yield ft
-    val filterDomains = for ((_, _, fd) <- ffs) yield fd
-    val filterFunctions = for ((ff, _, _) <- ffs) yield ff
+    val filterTerms = for ((_, ft, _, _) <- ffs) yield ft
+    val filterDomains = for ((_, _, fd, _) <- ffs) yield fd
+    val filterFunctions = for ((ff, _, _, _) <- ffs) yield ff
+    val filterGoals = for ((_, _, _, fg) <- ffs) yield fg
 
     val DQ =
       for (p <- 0 until problemCount)
       yield createDQ(
-          filterTerms(p),
-          filterDomains(p),
-          filterFunctions(p))
+        filterTerms(p),
+        filterDomains(p),
+        filterFunctions(p))
 
     val baseDQ =
       for (p <- 0 until problemCount)
       yield createBaseDQ(
-          filterTerms(p),
-          filterDomains(p),
-          filterFunctions(p))
+        filterTerms(p),
+        filterDomains(p),
+        filterFunctions(p))
 
-    val order = reorderProblems(filterTerms, filterDomains, filterFunctions, newGoals)
+    val order = reorderProblems(filterTerms, filterDomains, filterFunctions, filterGoals)
 
     val reorderTerms = (for (i <- order) yield filterTerms(i))
     val reorderDomains = (for (i <- order) yield filterDomains(i))
-    val reorderGoals = (for (i <- order) yield newGoals(i))
+    val reorderGoals = (for (i <- order) yield filterGoals(i))
     val reorderFunctions =
       (for (i <- order) yield filterFunctions(i).map(x => new CCUEq(x)))
     val reorderDQ = (for (i <- order) yield DQ(i))
@@ -627,18 +628,100 @@ abstract class CCUSolver[Term, Fun](
           reorderFunctions(i), new CCUGoal(reorderGoals(i)),
           reorderDQ(i), reorderBaseDQ(i))
 
-    val problem =
-      new CCUSimProblem(
-        newAllTerms,
-        newDomains,
-        bits,
-        order,
-        problems)
+    new CCUSimProblem(
+      allTerms,
+      domains,
+      bits,
+      order,
+      problems)
+  }
+
+
+  def createProblem(
+    domains : Map[Term, Set[Term]],
+    goals : Seq[Seq[Seq[Goal]]],
+    functions : Seq[Seq[FunApp]],
+    negFunctions : Seq[Seq[FunApp]]) : CCUInstance[Term, Fun] = {
+
+    curId += 1
+    val problemCount = goals.length
+    val triplets = for (i <- 0 until problemCount) yield { (goals(i), functions(i), negFunctions(i)) }
+
+    //
+    // Convert to Int representation
+    //
+    val termSets = 
+      for (p <- 0 until problemCount) yield
+        extractTerms(domains, functions(p) ++ negFunctions(p), goals(p))
+
+    val allTerms = (termSets.:\(Set() : Set[Term])(_ ++ _)).toList
+    val terms = for (p <- 0 until problemCount) yield allTerms
+    val bits = Util.binlog(allTerms.length)
+
+
+    val (termToInt, intToTerm) = createTermMapping(allTerms, domains)
+    val funMap = createFunMapping(functions ++ negFunctions)
+    val intAllTerms = allTerms.map(termToInt)
+
+    // Each term is added to its own domain
+    // TODO: http://stackoverflow.com/questions/1715681/scala-2-8-breakout/1716558#1716558
+    val newDomains = 
+      (for (t <- allTerms) yield {
+        val oldDomain = domains.getOrElse(t, Set(t))
+        (termToInt(t) -> oldDomain.map(termToInt))
+      }).toMap
+
+
+    // 
+    // Convert each subproblem
+    // + to integer representation
+    // + change NegFunEquations to goals
+
+    // Conversion might introduce new terms, nextTerm shows next available term
+    // Increasing by one allocates one new term (which is added to domain, etc.)
+    var nextTerm = if (intAllTerms.length > 0) intAllTerms.max + 1 else 0
+
+    val subProblems = 
+      for ((goals, funs, negFuns) <- triplets) yield {
+
+        val extraFunctions = ListBuffer() : ListBuffer[IntFunApp]
+        val extraGoals = ListBuffer() : ListBuffer[Seq[IntGoal]]
+
+        val negFunGoals = for (nf <- negFuns) yield {
+          // Convert f(args) != r to new FunEq f(args) = t and new Goal (t = r) where t is a fresh term
+          val (f, args, r) = nf
+
+          val t = nextTerm
+          nextTerm += 1
+          val newFun = (funMap(f), args.map(termToInt), t)
+          val newGoal = (t, termToInt(r))
+
+          extraFunctions += newFun
+          extraGoals += List(newGoal)
+
+          println("NegativeFunApp " + nf + " converted to " + newFun + " and " + newGoal)
+        }
+
+        val newGoals = (for (eqs <- goals) yield for ((s, t) <- eqs) yield (termToInt(s), termToInt(t))) ++ extraGoals
+        val newFunctions = (for ((f, args, r) <- funs) yield (funMap(f), args.map(termToInt), termToInt(r))) ++ extraFunctions
+
+        // val newNegFunctions =
+        //   for (negFuns <- negFunctions)    
+        //   yield (for ((f, args, r) <- negFuns)
+        //   yield (funMap(f), args.map(termToInt), termToInt(r)))
+        (newGoals, newFunctions)
+      }
+
+    val problem = intCreateProblem(newDomains, subProblems)
 
     new CCUInstance[Term, Fun](curId, this, problem, termToInt.toMap,
                                domains)
   }
 
+  def createProblem(
+    domains : Map[Term, Set[Term]],
+    goals : Seq[Seq[Seq[Goal]]],
+    functions : Seq[Seq[FunApp]]) : CCUInstance[Term, Fun] = createProblem(domains, goals, functions, for (_ <- goals) yield List())
 
 
   // def createInstanceFromJson[Fun, Term](filename : String) = {

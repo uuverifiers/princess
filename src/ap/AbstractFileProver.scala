@@ -362,10 +362,10 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       if(Param.CONNECTION_STRATEGY(settings)) {
         val prover =
           new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-        val tree = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
+        val (solved, tree) = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
         // val validConstraint = tree.ccUnifiable
 
-        (tree, false, null)
+        (tree, solved, null)
         // prover.isValidConstraint(tree.closingConstraint, signature)
 
       } else {

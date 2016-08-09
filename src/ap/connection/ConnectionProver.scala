@@ -1,8 +1,8 @@
 //
 // Todo:
-// Fix ArithConj! How do we use these?
-//
-// We have to use CloserPair in some cases but other times we use CloseEnd!
+// 
+// Make NegFunEquation just Equation with polarity?
+// Line 705 fix on geo118+1.p
 // TODO: Fix terms vs order (BREUterms?)
 
 
@@ -57,48 +57,366 @@ object ConnectionProver {
 
 class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
+  def orderToMap(order : BREUOrder) = {
+      val domain = scala.collection.mutable.Map() : scala.collection.mutable.Map[ConstantTerm,Set[ConstantTerm]]
+      for ((t, uni) <- order.reverse) {
+        domain += (t -> Set(t))
+        if (uni) {
+          for (k <- domain.keys) {
+            domain += (t -> (domain(t) + k))
+          }
+        }
+      }
+    domain
+  }
+
+  def combineOrders(orders : Seq[BREUOrder]) = {
+    val maps = orders.map(orderToMap)
+    val keys : Set[ConstantTerm] = (for (m <- maps) yield m.keys).foldLeft(Set() : Set[ConstantTerm])(_ ++ _)
+    val domains = 
+      for (k <- keys) yield {
+        val allVals : Set[ConstantTerm] = (for (m <- maps) yield { m.getOrElse(k, Set() : Set[ConstantTerm]) }).foldLeft(Set() : Set[ConstantTerm])(_ ++ _)
+        (k -> allVals)
+      }
+    domains
+  }
+
+
+  class ConnectionBranch(val nodes : List[Node], val closer : Closer, step : Int, val order : BREUOrder) {
+
+    override def toString = {
+      closer match {
+        case Open => 
+          "||\t(" + step + ") " + nodes.mkString(", ")
+        case CloserPair(n1, n2) => 
+          "||\t(" + step + ") " + nodes.mkString(", ") + " closed using " + (n1, n2)
+        case CloserNegEq(n) => 
+          "||\t(" + step + ") " + nodes.mkString(", ") + " closed using inequality (" + nodes(n) + ")"
+      }
+    }
+
+    def isOpen = {
+      closer match {
+        case Open => true
+        case _ => false
+      }
+    }
+
+    def close(newCloser : Closer, newStep : Int) = {
+      new ConnectionBranch(nodes, newCloser, newStep, order)
+    }
+
+    // TODO: Extra order, yuck...
+    def extend(newOrderNode : OrderNode, extraOrder : BREUOrder) = {
+      val (newNodes, newOrder) = newOrderNode
+      val mergeOrder = order ++ extraOrder ++ newOrder
+      new ConnectionBranch(newNodes ++ nodes, closer, step, mergeOrder)
+    }
+
+    def depth = (for (n <- nodes if isLiteral(n)) yield 1).sum
+
+
+    def length = nodes.length
+
+    def apply(idx : Int) = {
+      nodes(idx)
+    }
+
+
+    // DONE
+    def extractEquations : List[Equation] = {
+      
+      def extractEquationsAux(nodes : List[Node]) : List[Equation] = {
+        if (nodes.isEmpty)
+          List()
+        else
+          nodes.head match {
+            case Equation(lhs, rhs) => Equation(lhs, rhs) :: extractEquationsAux(nodes.tail)
+            case _ => extractEquationsAux(nodes.tail)
+          }
+      }
+      extractEquationsAux(nodes)
+    }
+
+    def extractFunEquations : List[FunEquation] = {
+      def extractFunEquationsAux(nodes : List[Node]) : List[FunEquation] = {
+        if (nodes.isEmpty)
+          List()
+        else
+          nodes.head match {
+            case FunEquation(eq) => FunEquation(eq) :: extractFunEquationsAux(nodes.tail)
+            case _ => extractFunEquationsAux(nodes.tail)
+          }
+      }
+      extractFunEquationsAux(nodes)
+    }
+
+    def extractNegEquations : List[NegEquation] = {
+      def extractNegEquationsAux(nodes : List[Node]) : List[NegEquation] = {
+        if (nodes.isEmpty)
+          List()
+        else
+          nodes.head match {
+            case NegEquation(t1, t2) => NegEquation(t1, t2) :: extractNegEquationsAux(nodes.tail)
+            case _ => extractNegEquationsAux(nodes.tail)
+          }
+      }
+      extractNegEquationsAux(nodes)
+    }
+
+    def extractNegFunEquations : List[NegFunEquation] = {
+      def extractNegFunEquationsAux(nodes : List[Node]) : List[NegFunEquation] = {
+        if (nodes.isEmpty)
+          List()
+        else
+          nodes.head match {
+            case NegFunEquation(eq) => NegFunEquation(eq) :: extractNegFunEquationsAux(nodes.tail)
+            case _ => extractNegFunEquationsAux(nodes.tail)
+          }
+      }
+      extractNegFunEquationsAux(nodes)
+    }
+
+
+    // DONE
+    def extractLiterals : List[Literal] = {
+      def extractLiteralsAux(nodes : List[Node]) : List[Literal] = {
+        if (nodes.isEmpty)
+          List()
+        else
+          nodes.head match {
+            case Literal(f) => Literal(f) :: extractLiteralsAux(nodes.tail)
+            case _ => extractLiteralsAux(nodes.tail)
+          }
+      }
+      extractLiteralsAux(nodes)
+    }
+
+    // DONE!
+    // Checks whether the branch can be closed structurally
+    // (i.e., contains predicates of opposite polarity or inequalites)
+    def structuralClosable : Boolean = {
+      closer match {
+        case Open =>  false
+        case CloserPair(cp1, cp2) => {
+          val node1 = nodes(cp1)
+          val node2 = nodes(cp2)
+            (node1, node2) match {
+            case (lit1 : Literal, lit2 : Literal) => structuralUnifiable(lit1, lit2)
+            case _ => false
+          }
+        }
+        case CloserNegEq(n) => {
+          nodes.head match {
+            case NegEquation(_, _) => true
+            case _ => false
+          }
+        }
+      }
+    }
+  }
+
+  // TODO branches should probably be private
+  class ConnectionTable(val branches : Seq[ConnectionBranch]) {
+
+    override def toString =  branches.mkString("\n")
+    def width = branches.length
+
+    // Extend branch branchIdx with clause(idx) and add new branches to the right
+    def extendBranch(branchIdx : Int, orderClause : OrderClause, idx : Int, newOrder : BREUOrder) = {
+      val preBranches = branches.take(branchIdx)
+      val postBranches = branches.drop(branchIdx + 1)
+      val newBranches = for (c <- orderClause) yield branches(branchIdx).extend(c, newOrder)
+      new ConnectionTable(preBranches ++ (newBranches(idx) :: newBranches.filter(_ != newBranches(idx)))  ++ postBranches)
+    }
+
+    def close(idx : Int, closer : Closer, step : Int) = {
+      val newBranches = 
+        for (i <- 0 until branches.length) yield {
+          if (i == idx) {
+            branches(i).close(closer, step)
+          } else {
+            branches(i)
+          }
+        }
+      new ConnectionTable(newBranches)
+    }
+
+
+    def unifyBranches(selected : List[Int]) 
+        : (Boolean, Option[Map[ConstantTerm, ConstantTerm]]) = {
+      println("unifyBranches(" + selected.mkString(", "))
+      val ccuSolver = new ccu.LazySolver[ConstantTerm, Predicate](
+        () => Timeout.check, 
+        Param.CLAUSIFIER_TIMEOUT(preSettings))
+
+      val problem = branchToBreu(selected, ccuSolver)
+
+      println("problem: " + problem)
+
+      val result = problem.solve
+      if (result == ccu.Result.SAT)
+        (true, Some(problem.getModel))
+      else
+        (false, None)
+    }
+
+    def unifyBranches() 
+        : (Boolean, Option[Map[ConstantTerm, ConstantTerm]]) = 
+      unifyBranches((0 until branches.length).toList)
+
+    def closable(selected : List[Int]) : Boolean = {
+      println("Closable(" + selected.mkString(", ") + ")")
+      for (i <- selected)
+        if (!branches(i).structuralClosable)
+          return false
+
+      println("\tStructural closable!")
+
+      val (closed, _) = unifyBranches(selected)
+      if (closed)
+        println("\tUnifiable!")
+      else
+        println("\tNot closable")
+      closed
+    }
+
+    def firstOpen = {
+      val first = branches.find(_.isOpen)
+      val idx = if (!first.isEmpty) (branches indexOf first.get) else -1
+      (first, idx)
+    }
+
+    def branchToBreu(selected : List[Int], solver : ccu.CCUSolver[ConstantTerm, Predicate]) 
+        : ccu.CCUInstance[ConstantTerm, Predicate] = {
+      val res = branchToBreuAux(selected, solver)
+      // println("<---branchToBreu--->")
+      // for (b <- branches)
+      //   println("\t" + b + "\n" + "  >>>")
+      // println("   ----   ")
+      // println(res)
+      res
+    }
+
+    def branchToBreu(solver : ccu.CCUSolver[ConstantTerm, Predicate]) 
+        : ccu.CCUInstance[ConstantTerm, Predicate] =
+      branchToBreu((0 to branches.length).toList, solver)
+
+    def branchToBreuAux(selected : List[Int], ccuSolver : ccu.CCUSolver[ConstantTerm, Predicate])
+        : ccu.CCUInstance[ConstantTerm, Predicate]  = {
+      // We need to keep track of domains
+      val domains = combineOrders(for (s <- selected) yield branches(s).order)
+
+      val subProblems =
+        for (i <- selected) yield {
+          val branch = branches(i)
+          if (!branch.structuralClosable) {
+            throw new Exception("Trying to create BREU-problem from structural open branch!")
+          } else {
+            val nodes = branch.nodes
+            val closer = branch.closer
+
+            val funEqs = branch.extractFunEquations.map(convertFunEquation(_))
+            val eqs = branch.extractEquations.map(convertEquation(_)).flatten
+            val negFunEqs = branch.extractNegFunEquations.map(convertNegFunEquation(_))
+
+            // println("BRANCH: " + branch)
+            // println("\tfunEqs: " + funEqs)
+            // println("\teqs: " + eqs)
+            // println("\tnegFunEqs: " + negFunEqs)
+
+            val argGoals : List[(ConstantTerm, ConstantTerm)] =
+              closer match {
+                case (CloserPair(n1, n2)) => {
+                  // TODO: How do we order
+                  (nodes(n1), nodes(n2)) match {
+                    case (Literal(pred1), Literal(pred2)) => {
+                      val pred1atom = (pred1.negativeLits ++ pred1.positiveLits).head
+                      val pred2atom = (pred2.negativeLits ++ pred2.positiveLits).head
+
+                      for ((arg1, arg2) <- (pred1atom zip pred2atom).toList) yield {
+                        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+                        Debug.assertPre(ConnectionProver.AC, arg1.termIterator.size == 1 && arg2.termIterator.size == 1)
+                        //-END-ASSERTION-//////////////////////////////////////////////////////////
+                        // println("\t" + arg1 + "\t?=\t" + arg2)
+                        // println("\t" + arg1.getClass + " \t?=\t" + arg2.getClass)
+                        (arg1.lastTerm.constants.head, arg2.lastTerm.constants.head)
+                      }
+                    }
+                    case _ => throw new Exception("Closer Pair is pointing wrong!")
+                  }
+                }
+                case CloserNegEq(n) => {
+                  (nodes(n)) match {
+                    case (NegEquation(t1, t2)) => {
+                      List((t1, t2))
+                    }
+                    case _ => throw new Exception("Closer NegEq is pointing wrong!")
+                  }
+                }
+                case _ => throw new Exception("Implement: argGoals for Negeqs!")
+              }
+            (List(argGoals.toList), funEqs ++ eqs, negFunEqs)
+          }
+        }
+      ccuSolver.createProblem(domains.toMap, subProblems.map(_._1), subProblems.map(_._2), subProblems.map(_._3))
+    }
+  }
+
+
   // A branch is its list of formulas, an optional pair of nodes
   // closing the branch and a number describing what steps have been
-  // tried .The steps are in range 
-  // [0 .. branch.length - 1 .. branch.length - 1 + |Input Clauses*Clause length|]. 
+  // tried .The steps are in range
+  // [0 .. branch.length - 1 .. branch.length - 1 + |Input Clauses*Clause length|].
   // I.e., first we try the nodes on the branch, then the input clauses.
   abstract class Node
   case class Literal(formula : PredConj) extends Node
   case class FunEquation(eq : PredConj) extends Node
+  case class NegFunEquation(eq : PredConj) extends Node
+  case class Equation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
   case class NegEquation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
+
+  def isLiteral(n : Node) = {
+    n match {
+      case Literal(_) => true
+      case _ => false
+    }
+  }
+
+  def isEquation(n : Node) = {
+    !isLiteral(n)
+  }
 
   abstract class Closer
   case class CloserPair(node1 : Int, node2 : Int) extends Closer
   case class  CloserNegEq(node : Int) extends Closer
   case object Open extends Closer
 
-
-  type Branch = (List[Node], Closer, Int)
-  type Table = List[Branch]
-
-  // Branch isOpen
-  // TODO: Make Branch a class?
-  def isOpen(branch : Branch) = {
-    val (_, closer, _) = branch
-    closer match {
-      case Open => true
-      case _ => false
-    }
-  }
-
-
+  // TODO: How to make this nicer?
+  var nextPredicate = 0
+  var nextTerm = 0
 
 
   // A term in a BREUOrder which is (_, false) is a constant while
   // (_, true) is a variable which can take the value of any variable or
   // constant earlier in the order.
   type BREUOrder = List[(ConstantTerm, Boolean)]
+    // We use a special kind of clause where each literal can actually be a list of literals (to allow equations)
+  type Clause = List[List[Node]]
+  type OrderNode = (List[Node], BREUOrder)
+  type OrderClause = List[OrderNode]
+
+  def clauseToString(clause : OrderClause) : String = 
+    (for ((nodes, _) <- clause) yield {
+      nodes.mkString("^") + ")"
+      }).mkString(" v ")
+
 
   // Convert a conjunction to a list of clauses (with each node being a formula followed by assumptions)
   // DONE!
   def convertConjunction(conj : Conjunction) = {
     val singlePredicates = for (p <- conj.predConj.iterator) yield (p, List())
-    val predicatesWithFacts = 
+    val predicatesWithFacts =
       for (pwf <- conj.negatedConjs) yield {
         val assumptions = ListBuffer() : ListBuffer[PredConj]
         val formulas = ListBuffer() : ListBuffer[PredConj]
@@ -115,7 +433,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
         Debug.assertInt(ConnectionProver.AC, formulas.length == 1)
-        //-END-ASSERTION-//////////////////////////////////////////////////////////        
+        //-END-ASSERTION-//////////////////////////////////////////////////////////
 
         (formulas.head, assumptions.toList)
       }
@@ -129,7 +447,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     var allCount = -1
     var exCount = -1
 
-    val quants = 
+    val quants =
       for (q <- conj.quans) yield {
         q match {
           case Quantifier.ALL => {
@@ -158,7 +476,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     allTerms ++= nt
 
 
-    val retVal = 
+    val retVal =
       if (newConj.negatedConjs.size == 1) {
         val disjunction = newConj.negatedConjs(0)
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -188,26 +506,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     retVal
   }
 
-  // DONE
-  def unifyBranches(branches : List[Branch], order : BREUOrder) : (Boolean, Option[Map[ConstantTerm, ConstantTerm]]) = {
-    val problems = for (b <- branches) yield branchToBreu(b, order)
 
-    val ccuSolver = new ccu.LazySolver[ConstantTerm, Predicate](() => Timeout.check, Param.CLAUSIFIER_TIMEOUT(preSettings))
-    val domains = problems.head.get._1
-    // TODO: Should we really do .head here?
-    val argGoals = problems.map(_.get._2.head)
-    val eqs = problems.map(_.get._3.head)
-    val problem = ccuSolver.createProblem(domains, argGoals, eqs)
-    val result =  problem.solve
-    if (result == ccu.Result.SAT)
-      (true, Some(problem.getModel))
-    else
-      (false, None)
-  }
 
   // Converts a pc representing a conjunction to a triple
   // DONE!
-  def convertEquation(funEq : FunEquation) = {
+  def convertFunEquation(funEq : FunEquation) = {
     val pc = funEq.eq
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, pc.isLiteral && pc.positiveLits.length == 1)
@@ -219,73 +522,97 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     (fun, args.toList, res)
   }
 
-  // Returns true if pred1 and pred2 can be unified, given the equations and order
-  // DONE
-  def checkUnifiability(lit1 : Literal, lit2 : Literal, equations : List[FunEquation], order : BREUOrder) : Boolean = {
-    val (pred1, pred2) = (lit1.formula, lit2.formula)
-
-    val ccuSolver = new ccu.LazySolver[ConstantTerm, Predicate](() => Timeout.check, Param.CLAUSIFIER_TIMEOUT(preSettings))
-    
-    // We need to keep track of domains
-    val domain = scala.collection.mutable.Map() : scala.collection.mutable.Map[ConstantTerm,Set[ConstantTerm]]
-    for ((t, uni) <- order.reverse) {
-      domain += (t -> Set(t))
-      if (uni) {
-        for (k <- domain.keys) {
-          domain += (t -> (domain(t) + k))
-        }
-      }
-    }
-
-    // println("order: " + order)
-    // println("domain: "+  domain)
-
+  def convertNegFunEquation(negFunEq : NegFunEquation) = {
+    val pc = negFunEq.eq
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, pred1.isLiteral && pred2.isLiteral)
+    Debug.assertInt(ConnectionProver.AC, pc.isLiteral && pc.positiveLits.length == 1)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
+    val atom = pc.positiveLits(0)
+    val fun = atom.pred
+    val args = atom.take(atom.length-1).map(x => x.lastTerm.constants.head)
+    val res = atom(atom.length-1).lastTerm.constants.head
+    (fun, args.toList, res)
+  }
 
-    // Two cases, either pred1 and !pred2 or !pred1 and pred2
-    if (!((pred1.negativeLits.length == 1 && pred2.positiveLits.length == 1) ||
-      (pred2.negativeLits.length == 1 && pred1.positiveLits.length == 1))) {
-      return false
-    }
 
-    // println("\tNegation-compatible")
 
-    // They have to share predicate symbol
-    val pred1atom = (pred1.negativeLits ++ pred1.positiveLits).head
-    val pred2atom = (pred2.negativeLits ++ pred2.positiveLits).head
-
-    if (pred1atom.pred != pred2atom.pred)
-      return false
-
-    // println("\tPredicate-compatible")
-
-    // Unify each argument
-    val argGoals = 
-      for ((arg1, arg2) <- pred1atom zip pred2atom) yield {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-        Debug.assertPre(ConnectionProver.AC, arg1.termIterator.size == 1 && arg2.termIterator.size == 1)
-        //-END-ASSERTION-//////////////////////////////////////////////////////////
-        // println("\t" + arg1 + "\t?=\t" + arg2)
-        (arg1.lastTerm.constants.head, arg2.lastTerm.constants.head)
+  def convertEquation(eq : Equation) = {
+    eq match {
+      case Equation(lhs, rhs) => {
+        val p = new Predicate("DummyPredicate" + nextPredicate, 0)
+        nextPredicate += 1
+        List((p, List(), lhs), (p, List(), rhs))
       }
-
-    // Convert functions
-    val eqs = 
-      for (e <- equations) yield {
-        convertEquation(e)
-      }
-    val problem = ccuSolver.createProblem(domain.toMap, List(List(argGoals)), List(eqs))
-    val result =  problem.solve
-    // println(result)
-    if (result == ccu.Result.SAT) {
-      // println(problem.getModel)
-      true
-    } else {
-      false
     }
   }
+
+  // Returns true if pred1 and pred2 can be unified, given the equations and order
+  // DONE
+  // def checkUnifiability(lit1 : Literal, lit2 : Literal, equations : List[FunEquation], order : BREUOrder) : Boolean = {
+  //   val (pred1, pred2) = (lit1.formula, lit2.formula)
+
+  //   val ccuSolver = new ccu.LazySolver[ConstantTerm, Predicate](() => Timeout.check, Param.CLAUSIFIER_TIMEOUT(preSettings))
+    
+  //   // We need to keep track of domains
+  //   val domain = scala.collection.mutable.Map() : scala.collection.mutable.Map[ConstantTerm,Set[ConstantTerm]]
+  //   for ((t, uni) <- order.reverse) {
+  //     domain += (t -> Set(t))
+  //     if (uni) {
+  //       for (k <- domain.keys) {
+  //         domain += (t -> (domain(t) + k))
+  //       }
+  //     }
+  //   }
+
+  //   // println("order: " + order)
+  //   // println("domain: "+  domain)
+
+  //   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+  //   Debug.assertInt(ConnectionProver.AC, pred1.isLiteral && pred2.isLiteral)
+  //   //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+  //   // Two cases, either pred1 and !pred2 or !pred1 and pred2
+  //   if (!((pred1.negativeLits.length == 1 && pred2.positiveLits.length == 1) ||
+  //     (pred2.negativeLits.length == 1 && pred1.positiveLits.length == 1))) {
+  //     return false
+  //   }
+
+  //   // println("\tNegation-compatible")
+
+  //   // They have to share predicate symbol
+  //   val pred1atom = (pred1.negativeLits ++ pred1.positiveLits).head
+  //   val pred2atom = (pred2.negativeLits ++ pred2.positiveLits).head
+
+  //   if (pred1atom.pred != pred2atom.pred)
+  //     return false
+
+  //   // println("\tPredicate-compatible")
+
+  //   // Unify each argument
+  //   val argGoals = 
+  //     for ((arg1, arg2) <- pred1atom zip pred2atom) yield {
+  //       //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+  //       Debug.assertPre(ConnectionProver.AC, arg1.termIterator.size == 1 && arg2.termIterator.size == 1)
+  //       //-END-ASSERTION-//////////////////////////////////////////////////////////
+  //       // println("\t" + arg1 + "\t?=\t" + arg2)
+  //       (arg1.lastTerm.constants.head, arg2.lastTerm.constants.head)
+  //     }
+
+  //   // Convert functions
+  //   val eqs = 
+  //     for (e <- equations) yield {
+  //       convertEquation(e)
+  //     }
+  //   val problem = ccuSolver.createProblem(domain.toMap, List(List(argGoals)), List(eqs))
+  //   val result =  problem.solve
+  //   // println(result)
+  //   if (result == ccu.Result.SAT) {
+  //     // println(problem.getModel)
+  //     true
+  //   } else {
+  //     false
+  //   }
+  // }
 
   // Returns true if pred1 and pred2 can be unified, given the equations and order
   // DONE
@@ -317,147 +644,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
   }
 
 
-  // DONE!
-  // Checks whether the branch can be closed structurally
-  // (i.e., contains predicates of opposite polarity or inequalites)
-  def structuralClosable(branch : Branch) : Boolean = {
-    val (b, cp, step) = branch
-    cp match {
-      case Open =>  false
-      case CloserPair(cp1, cp2) => {
-        val node1 = b(cp1)
-        val node2 = b(cp2)
-        (node1, node2) match {
-          case (lit1 : Literal, lit2 : Literal) => structuralUnifiable(lit1, lit2)
-          case _ => false
-        }
-      }
-      case CloserNegEq(n) => {
-        b.head match {
-          case NegEquation(_, _) => true
-          case _ => false
-        }
-      }
-    }
-  }
 
 
-  def branchToBreu(branch : Branch, order : BREUOrder) = {
-    val res = branchToBreuAux(branch, order)
-    // println("<---branchToBreu--->")
-    // println(branch)
-    // println("   ----   ")
-    // if (res.isEmpty)
-    //   println("NONE")
-    // else {
-    //   val (a, b, c) = res.get
-    //   println(a)
-    //   println("---")
-    //   println(b)
-    //   println("---")
-    //   println(c)
-    //   println("$$$$")
-    // }
-    res
-  }
-
-  def branchToBreuAux(branch : Branch, order : BREUOrder) : 
-      Option[(Map[ConstantTerm,Set[ConstantTerm]], List[List[List[(ConstantTerm, ConstantTerm)]]], List[List[(Predicate, List[ConstantTerm], ConstantTerm)]])] = {
-
-    // We need to keep track of domains
-    val domain = scala.collection.mutable.Map() : scala.collection.mutable.Map[ConstantTerm,Set[ConstantTerm]]
-    for ((t, uni) <- order.reverse) {
-      domain += (t -> Set(t))
-      if (uni) {
-        for (k <- domain.keys) {
-          domain += (t -> (domain(t) + k))
-        }
-      }
-    }
-
-    if (!structuralClosable(branch)) {
-      None
-    } else {
-      val (nodes, closer, _) = branch
-
-      val eqs = extractEquations(branch).map(convertEquation(_))
-
-      val argGoals : List[(ConstantTerm, ConstantTerm)] =
-        closer match {
-          case (CloserPair(n1, n2)) => {
-            // TODO: How do we order
-            (nodes(n1), nodes(n2)) match {
-              case (Literal(pred1), Literal(pred2)) => {
-                val pred1atom = (pred1.negativeLits ++ pred1.positiveLits).head
-                val pred2atom = (pred2.negativeLits ++ pred2.positiveLits).head
-
-                for ((arg1, arg2) <- (pred1atom zip pred2atom).toList) yield {
-                  //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-                  Debug.assertPre(ConnectionProver.AC, arg1.termIterator.size == 1 && arg2.termIterator.size == 1)
-                  //-END-ASSERTION-//////////////////////////////////////////////////////////
-                  // println("\t" + arg1 + "\t?=\t" + arg2)
-                  // println("\t" + arg1.getClass + " \t?=\t" + arg2.getClass)
-                  (arg1.lastTerm.constants.head, arg2.lastTerm.constants.head)
-                }
-              }
-              case _ => throw new Exception("Closer Pair is pointing wrong!")
-            }
-          }
-          case CloserNegEq(n) => {
-            (nodes(n)) match {
-              case (NegEquation(t1, t2)) => {
-                List((t1, t2))
-              }
-              case _ => throw new Exception("Closer NegEq is pointing wrong!")
-            }
-          }
-          case _ => throw new Exception("Implement: argGoals for Negeqs!")
-        }
-      Some((domain.toMap, List(List(argGoals.toList)), List(eqs)))
-    }
-  }
-
-  // DONE
-  def extractEquations(branch : Branch) : List[FunEquation] = {
-    def extractEquationsAux(nodes : List[Node]) : List[FunEquation] = {
-      if (nodes.isEmpty)
-        List()
-      else
-        nodes.head match {
-          case FunEquation(eq) => FunEquation(eq) :: extractEquationsAux(nodes.tail)
-          case _ => extractEquationsAux(nodes.tail)
-        }
-    }
-    extractEquationsAux(branch._1)
-  }
-
-  def extractNegEquations(branch : Branch) : List[NegEquation] = {
-    def extractNegEquationsAux(nodes : List[Node]) : List[NegEquation] = {
-      if (nodes.isEmpty)
-        List()
-      else
-        nodes.head match {
-          case NegEquation(t1, t2) => NegEquation(t1, t2) :: extractNegEquationsAux(nodes.tail)
-          case _ => extractNegEquationsAux(nodes.tail)
-        }
-    }
-    extractNegEquationsAux(branch._1)
-  }
 
 
-  // DONE
-  def extractLiterals(branch : Branch) : List[Literal] = {
-    def extractLiteralsAux(nodes : List[Node]) : List[Literal] = {
-      if (nodes.isEmpty)
-        List()
-      else
-        nodes.head match {
-          case Literal(f) => Literal(f) :: extractLiteralsAux(nodes.tail)
-          case _ => extractLiteralsAux(nodes.tail)
-        }
-    }
-    extractLiteralsAux(branch._1)
-  }
+
 
 
   // DONE
@@ -469,116 +660,114 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
       (inputClauses.head, step)
   }
 
+  var maxDepthReached = false
+  var maxWidthReached = false
+
   def solveTable(
-    table : Table,
-    terms : BREUOrder,
+    table : ConnectionTable,
     inputClauses : List[Conjunction],
     maxDepth : Int,
     maxWidth : Int,
     iteration : Int) :
-      Option[(List[Branch], BREUOrder)] = {
+      Option[ConnectionTable] = {
 
     println("//-------------------------")
     println("|| Starting recursive iteration " + iteration)
     println("|| Branches: ")
-    for ((nodes, closer, step) <- table) {
-      closer match {
-        case Open => println("||\t(" + step + ") " + nodes.mkString(", "))
-        case CloserPair(n1, n2) => println("||\t(" + step + ") " + nodes.mkString(", ") + " closed using " + (n1, n2))
-        case CloserNegEq(n) => println("||\t(" + step + ") " + nodes.mkString(", ") + " closed using inequality (" + nodes(n) + ")")
-      }
-    }
+    println(table)
+
     // println("|| Current terms:")
     // println("||\t" + terms)
 
     // Pick a branch -- Always pick first open branch
     // TODO: Any way of making branch a val and branchStep a var?
-    val extendingBranch = table.find(x => x._2 match { case Open => { true } case _ => { false }})
-    if (extendingBranch.isEmpty)
-      return Some((table, terms))
+    val (extendingBranch, extendingBranchIdx) = table.firstOpen
 
-    var (branch, _, _) = extendingBranch.get
-    val branchIdx = table.indexOf(extendingBranch.get)
+    // If no open branch, we are done
+    if (extendingBranch.isEmpty)
+      return Some(table)
+
+    var branch = extendingBranch.get
+    val branchIdx = extendingBranchIdx
     val branchAtom = branch(0)
-    val branchEqs = extractEquations(extendingBranch.get)
 
     println("|| Extending branch (" + branchIdx + "): ")
     println("||\t" + branch)
 
     // If branch is too long, stop
-    if (branch.length >= maxDepth) {
+    if (branch.depth > maxDepth) {
       println("|| MAX DEPTH REACHED")
+      maxDepthReached = true
       return None
     }
 
-    if (table.length >= maxWidth) {
+    if (table.width > maxWidth) {
       println("|| MAX WIDTH REACHED")
+      maxWidthReached = true
       return None
     }
 
-    def tryStep(step : Int) = {
-      val (closeB, otherB, tmpOrder) : (Branch, List[Branch], BREUOrder) =
+    def tryStep(step : Int) : Option[ConnectionTable] = {
+      println("// -- Trying step: " + step)
+      val closedTable = 
         if (step == 0) {
-          val closingBranch = (branch, CloserNegEq(0), step)
-          (closingBranch, List(), List())
+          val closedTable = table.close(branchIdx, CloserNegEq(0), step)
+          closedTable
         } else if (step < branch.length) {
           // Try unifying with node on branch
-          val closingBranch = (branch, CloserPair(0, step), step)
-          (closingBranch, List(), List())
+          val closedTable = table.close(branchIdx, CloserPair(0, step), step)
+          // val closingBranch = (branch, CloserPair(0, step), step)
+          closedTable
         } else {
           // Try unifying with input clause, first we try first clause, first statement,
           // then first clause, second statement, ...
           val (clause, idx) = findStatement(inputClauses, step - branch.length)
           val (instClause, newOrder, _) = fullInst(clause, "branch_" + iteration)
+
           // TODO: This should not be here, negatedConjs should probably be used somewhere else...
-          val stmts = conjToClause(instClause, false)
-          val allBranches = (for (s <- stmts) yield (s ++ branch).toList).toList
-          val closingPair = CloserPair(0, stmts(idx).length)
-          val closingBranch = (allBranches(idx), closingPair, step)
-          val otherBranches =  
-            (allBranches.take(idx) ++ allBranches.drop(idx + 1)).map((_, Open, 0))
-          (closingBranch, otherBranches, newOrder)
+          val orderClause = conjToClause(instClause, false)
+          val extendedTable = table.extendBranch(branchIdx, orderClause, idx, newOrder)
+
+          val closingPair = CloserPair(0, orderClause(idx)._1.length)
+          val closedTable = extendedTable.close(branchIdx, closingPair, step)
+          closedTable
+          // val allBranches = (for (s <- stmts) yield (s ++ branch).toList).toList
+
+          // val closingBranch = (allBranches(idx), closingPair, step)
+          // val otherBranches =
+          //   (allBranches.take(idx) ++ allBranches.drop(idx + 1)).map((_, Open, 0))
+          // (closingBranch, otherBranches, newOrder)
+          
         }
 
-      val checkOrder = (tmpOrder ++ terms).toList
-      val checkBranches =
-        closeB :: (for (i <- 0 until table.length; if (i != branchIdx); if (!isOpen(table(i)))) yield table(i)).toList
-      lazy val (unifiable, model) = unifyBranches(checkBranches, checkOrder)
-      if (structuralClosable(closeB) && unifiable) {
-        val newTable =
-          (for (i <- 0 until branchIdx) yield table(i)) ++
-        (closeB :: otherB) ++
-        (for (i <- (branchIdx + 1) until table.length) yield table(i))
-        Some((newTable.toList, checkOrder))
+      val selected = (0 to branchIdx).toList
+
+      // println("Selected: " + selected.mkString(", "))
+      // println("closedOrder: " + closedOrder)
+      if (closedTable.closable(selected)) {
+        println("Closable!\n----")
+        Some(closedTable)
       } else {
+        println("Not closable...\n---")
         None
       }
+      // val checkOrder = (tmpOrder ++ terms).toList
+      // val checkBranches =
+      //   closeB :: (for (i <- 0 until table.length; if (i != branchIdx); if (!isOpen(table(i)))) yield table(i)).toList
+      // lazy val (unifiable, model) = checkBranches.unifyBranches(checkOrder)
+
+
+      // if (structuralClosable(closeB) && unifiable) {
+      //   val newTable =
+      //     (for (i <- 0 until branchIdx) yield table(i)) ++
+      //   (closeB :: otherB) ++
+      //   (for (i <- (branchIdx + 1) until table.length) yield table(i))
+      //   Some((newTable.toList, checkOrder))
+      // } else {
+      //   None
+      // }
+
     }
-
-    // def candidateStep(step : Int) = {
-    //   val closeB =
-    //     if (step < branch.length) {
-    //       // Try unifying with node on branch
-    //       val closingBranch = (branch, Some(0, step), step)
-    //       (closingBranch)
-    //     } else {
-    //       // Try unifying with input clause, first we try first clause, first statement,
-    //       // then first clause, second statement, ...
-    //       val (clause, idx) = findStatement(inputClauses, step - branch.length)
-    //       val (instClause, newOrder, _) = fullInst(clause, "branch_" + iteration)
-    //       // TODO: This should not be here, negatedConjs should probably be used somewhere else...
-    //       // val stmts = newConvertConjunction(instClause.negatedConjs(0))
-    //       val stmts = conjToClause(instClause, false)
-    //       val allBranches = (for (i <- 0 until stmts.length) yield (stmts(i)._1 :: stmts(i)._2 ++ branch).toList).toList
-    //       // Close this node with node above (ignoring the added equations)
-    //       // TODO: Here we have a bug
-    //       val closingPair = Some((0, 1 + stmts(idx)._2.length))
-    //       val closingBranch = (allBranches(idx), closingPair, step)
-    //       closingBranch
-    //     }
-
-    //   structuralClosable(closeB)
-    // }
 
     // We use the branchStep to decide where to search for the new candidate
     // TODO: Once again, negatedConjs(0), also, -1?
@@ -590,58 +779,103 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     var branchStep = 0
 
 
-    // val candidateSteps =
-    //   for (i <- 0 until maxStep; if candidateStep(i)) yield i
-    // println("|| Candidate Steps: " + candidateSteps)
-
-    // TODO: Should this be <=
-    // TODO: We can check only candidate steps instead (or just stop the candidate steps)
+    // TODO: Should this be <=?
     while (branchStep < maxStep) {
-      // Try this step
       val res = tryStep(branchStep)
       if (!res.isEmpty) {
-        // If actualy closed branch, recurse!
+        // If actually closed branch, recurse!
         println("Applying step: " + branchStep)
         val (clause, idx) = findStatement(inputClauses, branchStep - branch.length)
         println("\t" + clause + " (" + idx + ")")
-        val (newTable, newOrder) = res.get
-        val rec = solveTable(newTable, newOrder, inputClauses, maxDepth, maxWidth, iteration + 1)
-        if (!rec.isEmpty) {
-          println("Success(" + branchStep + ")")
+        val newTable = res.get
+        val rec = solveTable(newTable, inputClauses, maxDepth, maxWidth, iteration + 1)
+        if (!rec.isEmpty)
           return rec
-        } else {
-          println("Fail(" + branchStep + ")")
-        }
       }
       branchStep += 1
     }
+    println("|| No applicable formula found...")
+    println("|| Couldn't close table: ")
+    println(table)
+    println("\n\n\n")
     None
   }
 
-
-
-  def predToNodes(predConj : PredConj, negated : Boolean) : List[Node] = {
-    val funEqs = ListBuffer() : ListBuffer[Node]
-    val literals = ListBuffer() : ListBuffer[Node]
+  def predToNodes(predConj : PredConj, negated : Boolean) : OrderClause = {
+    // println("predToNodes(" + predConj + ", " + negated + ")")
+    
+    val newNodes = ListBuffer() : ListBuffer[OrderNode]
 
     for (p <- predConj.iterator) {
       if ((p.predicates.size == 1) && (p.predicates subsetOf Param.FUNCTIONAL_PREDICATES(preSettings))) {
-        funEqs += FunEquation(p)
+        if (negated) {
+          // Convert to a funeq and a negeq
+          val (_, _, res2) = convertNegFunEquation(NegFunEquation(p))
+          // println("fun: " + fun)
+          // println("args: " + args)
+          // println("res: " + res)
+          // funEqs += NegFunEquation(p)
+
+          val pc = p
+          val atom = pc.positiveLits(0)
+          val fun = atom.pred
+          val args = atom.take(atom.length-1)
+          val res = atom(atom.length-1)
+          val newTerm = new ConstantTerm("DUMMY_TERM_" + nextTerm)
+          val newOrder = List((newTerm, false))
+          val no = p.order.extend(newTerm)
+
+          nextTerm += 1
+          val lc = LinearCombination(newTerm, no)
+          val newFunEq = Atom(fun, args ++ List(lc), no)
+          // println("Converting " + p + " to:")
+          // println("\tnewFunEq: " + newFunEq)
+
+          val newEq = NegEquation(res2, newTerm)
+          // println("\tnewEq = " + newEq)	ALL (! (!R(_0) & ! EX (f(_1, _0) & R(_0)))) => List(List(Literal(R(convALL0))), List(FunEquation(f(convALL0, conv_disjEX0))), List(Literal(R(conv_disjEX0))))
+
+          // TODO: Fix this!
+          val asd1 : List[Node] = List(newEq, FunEquation(PredConj(List(newFunEq), List(), no)))
+          val asd2 : BREUOrder = newOrder
+          val asd3 : OrderNode = (asd1, asd2)
+          newNodes += asd3
+
+        } else {
+          val asd1 = List(FunEquation(p)) : List[Node]
+          val asd2 = List() : BREUOrder
+          newNodes += ((asd1, asd2) )
+        }
       } else if (p.predicates.size == 1) {
         if (negated)
-          literals += Literal(!p)
+          newNodes += ((List(Literal(!p)), List()))
         else
-          literals += Literal(p)
+          newNodes += ((List(Literal(p)), List()))
       } else {
         throw new Exception("More than one predicate in predConj!")
       }
     }
 
-    literals.toList ++ funEqs.toList
+    val finalNodes = 
+      if (newNodes.isEmpty) {
+        List()
+      } else {
+        // TODO: Not sure about this one
+        if (negated) {
+          newNodes.toList
+        } else { 
+          // TODO: Do we have to place the orders in some kind of order (no pun intended)
+          val newEq : List[Node] = for (n <- newNodes.map(_._1).flatten.toList if isEquation(n)) yield n
+          val newLits : List[Node] = for (n <- newNodes.map(_._1).flatten.toList if isLiteral(n)) yield n
+          val newOrder : BREUOrder = newNodes.map(_._2).flatten.toList
+          List((newLits ++ newEq, newOrder))
+        }
+      }
+    // println("\t" + finalNodes)
+    finalNodes
   }
 
   // Can only be used on instatiated clauses!
-  def arithToNodes(arithConj : ArithConj, negated : Boolean) : List[Node] = {
+  def arithToNodes(arithConj : ArithConj, negated : Boolean) : OrderClause = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, arithConj.inEqs.size == 0 && arithConj.positiveEqs.size == 0)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
@@ -649,85 +883,105 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
       List()
     } else {
       // println("arithToLiteral(" + arithConj + ")")
-      for (eq <- arithConj.negativeEqs.toList) yield {
-        // println("\t" + eq)
-        val pairs = eq.pairSeq.toList
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-        Debug.assertInt(ConnectionProver.AC, pairs.length == 2)
-        //-END-ASSERTION-//////////////////////////////////////////////////////////
-        val (c1, t1) = pairs(0)
-        val (c2, t2) = pairs(1)
-        // println("\t\t" + (c1, t1) + " ... " + (c2, t2))
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-        Debug.assertInt(ConnectionProver.AC, (c1.intValue == 1 && c2.intValue == -1) || (c1.intValue == -1 && c2.intValue == 1) )
-        //-END-ASSERTION-//////////////////////////////////////////////////////////
-        // println(arithConj + " => " + t1 + " != " + t2)
-        // println("t1: " + t1 + " (" + t1.getClass + ")")
-        // println("t2: " + t2 + " (" + t2.getClass + ")")
-        (t1, t2) match {
-          case (ct1 : ConstantTerm, ct2 : ConstantTerm) => NegEquation(ct1, ct2)
-          case _ => throw new Exception("Non ConstantTerm in arithConj.negativeEqs (" + t1 + " : " + t1.getClass + ") (" + t2 + " : " + t2.getClass + ")")
+      val nodes : OrderClause =
+        for (eq <- arithConj.negativeEqs.toList) yield {
+          // println("\t" + eq)
+          val pairs = eq.pairSeq.toList
+          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+          Debug.assertInt(ConnectionProver.AC, pairs.length == 2)
+          //-END-ASSERTION-//////////////////////////////////////////////////////////
+          val (c1, t1) = pairs(0)
+          val (c2, t2) = pairs(1)
+          // println("\t\t" + (c1, t1) + " ... " + (c2, t2))
+          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+          Debug.assertInt(ConnectionProver.AC, (c1.intValue == 1 && c2.intValue == -1) || (c1.intValue == -1 && c2.intValue == 1) )
+          //-END-ASSERTION-//////////////////////////////////////////////////////////
+          // println(arithConj + " => " + t1 + " != " + t2)
+          // println("t1: " + t1 + " (" + t1.getClass + ")")
+          // println("t2: " + t2 + " (" + t2.getClass + ")")
+            (t1, t2) match {
+            case (ct1 : ConstantTerm, ct2 : ConstantTerm) => 
+              if (negated) 
+                (List(Equation(ct1, ct2)), List()) : OrderNode
+              else 
+                (List(NegEquation(ct1, ct2)), List()) : OrderNode
+            case _ => 
+              throw new Exception("Non ConstantTerm in arithConj.negativeEqs (" + t1 + " : " + t1.getClass + ") (" + t2 + " : " + t2.getClass + ")")
+          }
         }
-      }
+      nodes
     }
   }
 
-  def conjToList(conj : Conjunction, negated : Boolean) : List[Node] = {
+  def conjToList(conj : Conjunction, negated : Boolean) : List[OrderNode] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 0)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
+
     val predLiterals = predToNodes(conj.predConj, negated)
     val eqLiterals = arithToNodes(conj.arithConj, negated)
     predLiterals ++ eqLiterals
   }
 
 
-  def subConjToClause(conj : Conjunction, negated : Boolean) : List[List[Node]] = {
+  def subConjToClause(conj : Conjunction, negated : Boolean) : List[OrderNode] = {
     // println("subConjToClause(" + conj + ", " + negated + ")")
     val predLiterals = predToNodes(conj.predConj, negated)
     val eqLiterals = arithToNodes(conj.arithConj, negated)
-    val singleLiterals = (predLiterals ++ eqLiterals).map(List(_))
+    val singleLiterals = (predLiterals ++ eqLiterals)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 0 || conj.negatedConjs.length == 1)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
+    // println("\tpredLiterals: " + predLiterals)
+    // println("\teqLiterals: " + eqLiterals)
+    // println("\tconj.negatedConjs: " + conj.negatedConjs)
     if (conj.negatedConjs.isEmpty) {
       // Only one literals
       singleLiterals
     } else {
       val negLiterals = conjToList(conj.negatedConjs.head, !negated)
-      negLiterals :: singleLiterals
+      // println("\tnegLiterals: " + negLiterals)
+      singleLiterals ++ negLiterals
     }
   }
 
-  def conjToClause(conj : Conjunction, negated : Boolean) : List[List[Node]] = {
+  def conjToClause(conj : Conjunction, negated : Boolean) : OrderClause = {
     // println("conjToClause(" + conj + ", " + negated + ")")
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 0 || conj.negatedConjs.length == 1)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+    // println("predConj: " + conj.predConj)
     val predLiterals = predToNodes(conj.predConj, negated)
     val eqLiterals = arithToNodes(conj.arithConj, negated)
-    // println("\tpredLiterals: " + conj.predConj)
-    // println("\tarithLiters: " + conj.arithConj)
-    // println("\tnegLiterals: " + conj.negatedConjs)
+    // println("\tpredLiterals: " + predLiterals)
+    // println("\tarithLiters: " + eqLiterals)
 
-
-    // TODO: Is this correct?
-    val thisNode = predLiterals ++ eqLiterals
-
+    // The negative literals should be returned as one List of list of nodes
     val negLiterals =
       if (conj.negatedConjs.length == 0)
         List()
       else
         subConjToClause(conj.negatedConjs(0), !negated)
 
-    val res: List[List[Node]] = 
-      if (negLiterals.isEmpty)
-        List(thisNode)
-      else if (thisNode.isEmpty)
-        negLiterals
-      else
-        thisNode :: negLiterals
 
+
+    // println("\tnegLiterals: " + negLiterals)
+
+    // TODO: If a conj has both arith and pred (or several of one/both) is that one node or several?
+    // val res: List[List[Node]] = 
+    //   if (negLiterals.isEmpty)
+    //     List(thisNode)
+    //   else if (thisNode.isEmpty)
+    //     negLiterals
+    //   else
+    //     thisNode :: negLiterals
+    
+    // Now we combine both the top-level literals as well as the multi-part literals
+    val res : OrderClause = predLiterals ++ eqLiterals ++ negLiterals
+
+    // println("conjToClause(" + conj + ", " + negated + ")")
+    // println("\t" + res)
     res
   }
 
@@ -739,99 +993,114 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
   def solve(givenFor : Conjunction, termOrder : TermOrder) = {
     // Since the formula is in CNF, everything should be in the negated conjunctions
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ConnectionProver.AC, givenFor.predConj.size == 0 && givenFor.arithConj.isEmpty)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
     println("\n\nSolving Table")
-    println("givenFor: " + givenFor)
     val quans = givenFor.quans
     val tmpConstants = for (i <- 0 until givenFor.quans.length) yield (new ConstantTerm("CONSTANT_" + i))
     val tmpOrder = givenFor.order.extend(tmpConstants)
     val closedFor = givenFor.instantiate(tmpConstants)(tmpOrder)
-
-    println("closedFor: " + closedFor)
-
-    println("negate.quans: " + closedFor.negate.quans)
     val negQuans = closedFor.negate.quans
     val inputClauses = closedFor.negate.iterator.toList.reverse
 
-    println("Input Clauses (before conversion)")
-    for (c <- inputClauses) // 
-      println("\t" + c)
-
-    println("Input Clauses (after conversion)")
-    for (c <- inputClauses) // 
+    println("Input Clauses (DEBUG)")
+    for (c <- inputClauses) 
       println("\t" + c + " => " + (conjToClause(fullInst(c, "conv")._1, false)))
 
-    val clauses = 
-      for (c <- inputClauses) yield {
-        // println("\nOriginal clause: " + c)
-        // println("\t" + c.quans)
+    val clauses = for (c <- inputClauses) yield { Conjunction.quantify(negQuans, c, c.order) }
 
-        // println("Creating New clause")
 
-        val newC = Conjunction.quantify(negQuans, c, c.order)
-        // println("New clause: " + newC)
-        // println("\t" + newC.quans)
-        newC
-      }
+    println("Input Clauses: ")
+    for (c <- inputClauses) 
+      println("\t" + clauseToString((conjToClause(fullInst(c, "conv")._1, false))))
 
     val baseOrder = extractConstants(clauses) ++ List((new ConstantTerm("MIN"), false))
     println("Base Order: " + baseOrder)
 
-    var maxDepth = 10
-    var maxWidth = 10
-
-    def tryFirstClause(idx : Int) = {
+    def tryFirstClause(idx : Int, maxDepth : Int, maxWidth : Int) :
+        (Option[ConnectionTable], Boolean, Boolean) = {
 
       val (firstClause, terms, newOrder) = fullInst(clauses(idx), "base")
 
       println("\n\nTrying with inital clause: " + firstClause)
 
-      val initTable  =
-        for (nodes <- conjToClause(firstClause, false)) yield {
-          (nodes, Open, 0) : Branch
-        }
-
       // We have to extract all terms in the problem
       val initOrder = (terms ++ baseOrder)
 
-      val result = solveTable(initTable, initOrder, clauses, maxDepth, maxWidth, 0)
+      // TODO: initOrder2!?, come on ...
+      val initTable  =
+        new ConnectionTable(for ((nodes, extraOrder) <- conjToClause(firstClause, false)) yield {
+          val initOrder2 = initOrder ++  extraOrder
+          new ConnectionBranch(nodes, Open, 0, initOrder2)
+        })
+
+
+
+      maxDepthReached = false
+      maxWidthReached = false
+      val result = solveTable(initTable, clauses, maxDepth, maxWidth, 0)
       if (result.isEmpty) {
         println("Could not close table")
-        None
+        (None, maxDepthReached, maxWidthReached)
       } else {
-        val (finalTable, finalOrder) = result.get
-        // println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        // println("Final Order: " + finalOrder)
-        // println("---------------------------")
-        // println("Final Table:")
-        // for (b <- finalTable)
-        //   println("\t" + b)
-        Some(finalTable, finalOrder)
+        val finalTable = result.get
+        (Some(finalTable), false, false)
       }
     }
 
 
-    var table = None : Option[(Table, BREUOrder)]
-    var tryIdx = 0
-    while (table.isEmpty && tryIdx < clauses.length) {
-      table = tryFirstClause(tryIdx)
-      tryIdx += 1
+    var table = None : Option[ConnectionTable]
+
+    var maxDepth = 6
+    var maxWidth = 10
+    var reachedMaxDepth = true
+    var reachedMaxWidth = true
+
+    while (table.isEmpty && (reachedMaxDepth || reachedMaxWidth)) {
+      var tryIdx = 0
+      reachedMaxDepth = false
+      reachedMaxWidth = false
+      println("//-----------------------------")
+      println("||  TRYING maxDepth: " + maxDepth)
+      println("||  TRYING maxWidth: " + maxWidth)
+      println("||")
+      println("||")
+      while (table.isEmpty && tryIdx < clauses.length) {
+        val (resTable, rMaxDepth, rMaxWidth) = tryFirstClause(tryIdx, maxDepth, maxWidth)
+        table = resTable
+        if (rMaxDepth)
+          reachedMaxDepth = true
+        if (rMaxWidth)
+          reachedMaxWidth = true
+        tryIdx += 1
+      }
+
+      println("Increasing depths:")
+      if (reachedMaxDepth) {
+        maxDepth *=2
+        println("\tmaxDepth = " + maxDepth)
+      }
+      if (reachedMaxWidth) {
+        maxWidth *=2
+        println("\tmaxWidth = " + maxWidth)
+      }
     }
 
     if (!table.isEmpty) {
-      val (finalTable, finalOrder) = table.get
-      val (unifiable, finalMap) = unifyBranches(finalTable, finalOrder)
+      val finalTable = table.get
+      val (unifiable, finalMap) = finalTable.unifyBranches()
       println("CLOSED TABLE:")
-      for (b <- finalTable)
+      // println("with order: " + finalOrder.mkString(", "))
+      for (b <- finalTable.branches)
         println("\t" + b)
       println("Using: " + finalMap)
+      (true, Goal(List(closedFor), Set(), Vocabulary(termOrder), preSettings))
     } else {
       println("Could not close table")
+      (false, Goal(List(closedFor), Set(), Vocabulary(termOrder), preSettings))
     }
-
-    Goal(List(closedFor), Set(), Vocabulary(termOrder), preSettings)
   }
 }
