@@ -85,14 +85,25 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
   class ConnectionBranch(val nodes : List[Node], val closer : Closer, step : Int, val order : BREUOrder) {
 
     override def toString = {
-      closer match {
+      val nodeString = 
+        for (n <- nodes) yield {
+          n match {
+            case Literal(formula) => formula
+            case FunEquation(eq) => eq
+            case NegFunEquation(eq) => eq
+            case Equation(lhs, rhs) => lhs + " = " + rhs
+            case NegEquation(lhs, rhs) => lhs + " != " + rhs
+          }
+        }
+
+      (closer match {
         case Open => 
-          "||\t(" + step + ") " + nodes.mkString(", ")
+          "||\t (---) " + nodeString
         case CloserPair(n1, n2) => 
-          "||\t(" + step + ") " + nodes.mkString(", ") + " closed using " + (n1, n2)
+          "||\t(" + n1 + ", " + n2 + ") " + nodeString
         case CloserNegEq(n) => 
-          "||\t(" + step + ") " + nodes.mkString(", ") + " closed using inequality (" + nodes(n) + ")"
-      }
+          "||\t(" + n + ") " + nodes.mkString(", ") + nodeString
+      }) // + " with order " + orderToMap
     }
 
     def isOpen = {
@@ -109,7 +120,8 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     // TODO: Extra order, yuck...
     def extend(newOrderNode : OrderNode, extraOrder : BREUOrder) = {
       val (newNodes, newOrder) = newOrderNode
-      val mergeOrder = order ++ extraOrder ++ newOrder
+      // TODO: Correct combination order?
+      val mergeOrder = newOrder ++ extraOrder ++ order
       new ConnectionBranch(newNodes ++ nodes, closer, step, mergeOrder)
     }
 
@@ -249,6 +261,8 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
       val ccuSolver = new ccu.LazySolver[ConstantTerm, Predicate](
         () => Timeout.check, 
         Param.CLAUSIFIER_TIMEOUT(preSettings))
+
+      println("branches: \n" + branches.mkString("\n"))
 
       val problem = branchToBreu(selected, ccuSolver)
 
@@ -708,7 +722,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     }
 
     def tryStep(step : Int) : Option[ConnectionTable] = {
-      println("// -- Trying step: " + step)
       val closedTable = 
         if (step == 0) {
           val closedTable = table.close(branchIdx, CloserNegEq(0), step)
@@ -781,12 +794,13 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
     // TODO: Should this be <=?
     while (branchStep < maxStep) {
+      println("Trying step (" + iteration + ", " + branchStep + ")")
       val res = tryStep(branchStep)
       if (!res.isEmpty) {
         // If actually closed branch, recurse!
-        println("Applying step: " + branchStep)
+        // println("Applying step: " + branchStep)
         val (clause, idx) = findStatement(inputClauses, branchStep - branch.length)
-        println("\t" + clause + " (" + idx + ")")
+        // println("\t" + clause + " (" + idx + ")")
         val newTable = res.get
         val rec = solveTable(newTable, inputClauses, maxDepth, maxWidth, iteration + 1)
         if (!rec.isEmpty)
