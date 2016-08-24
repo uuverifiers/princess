@@ -99,7 +99,20 @@ object PrincessLineariser {
   private def atomicTerm(t : ITerm,
                          ctxt : PrintContext) : String = t match {
     case IConstant(c)     => c.name
-    case IVariable(index) => ctxt vars index
+    case IVariable(index) => {
+      var vs = ctxt.vars
+      var ind = index
+
+      while (ind > 0 && !vs.isEmpty) {
+        vs = vs.tail
+        ind = ind - 1
+      }
+
+      if (vs.isEmpty)
+        "_" + ind
+      else
+        vs.head
+    }
   }
     
   private def relation(rel : IIntRelation.Value) = rel match {
