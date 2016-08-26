@@ -1,43 +1,30 @@
-//
-// Todo:
-// 
-
-
-// Make NegFunEquation just Equation with polarity?
-// Line 705 fix on geo118+1.p
-// TODO: Fix terms vs order (BREUterms?)
-
-
-//
-// CURRENT:
-// Fix finding all closing pairs on a branch!
-//
-// Remove STEP
-// Change tryStep to just adding one clause and then close
-// Make function that searches for all structuralClosable nodes/pairs
-// Make branch to breu find all nodes/pairs and make a disjunctive goal
-
 /**
- * This file is part of Princess, a theorem prover for Presburger
- * arithmetic with uninterpreted predicates.
+ * This file is part of ePrincess, a theorem prover based on 
+ * Bounded Rigid E-Unification (http://user.it.uu.se/~petba168/breu/) 
+ * incoporated into the Princess theorem prover
  * <http://www.philipp.ruemmer.org/princess.shtml>
+ * 
+ * Copyright (C) 2009-2016 Peter Backeman <peter@backeman.se>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
- * Copyright (C) 2009-2016 Peter Backeman <peter.backeman@it.uu.se>
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
- *
- * Princess is free software: you can redistribute it and/or modify
+ * ePrincess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Princess is distributed in the hope that it will be useful,
+ * ePrincess is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
- * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ * along with ePrincess.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+
+// Make NegFunEquation just Equation with polarity?
+// Line 705 fix on geo118+1.p
+// TODO: Fix terms vs order (BREUterms?)
 
 package ap.connection;
 
@@ -58,6 +45,8 @@ object ConnectionProver {
   // Not private?
   val AC = Debug.AC_CONNECTION_PROVER
 }
+
+
 class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
   // TODO: How to make this nicer?
@@ -65,7 +54,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
   var nextTerm = 0
 
   // Instantiate first level conj with new variables added to order with prefix
-  // DONE
   def inst(conj : Conjunction, prefix : String, order : TermOrder) : (Conjunction, BREUOrder, TermOrder) = {
     var allCount = -1
     var exCount = -1
@@ -90,14 +78,12 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
 
   // Fully instantiate conj with prefix
-  // DONE
   def fullInst(conj : Conjunction, prefix : String) = {
     // Instantiate top-level
     val allTerms : ListBuffer[(ConstantTerm, Boolean)] = ListBuffer()
 
     val (newConj, nt, norder) = inst(conj, prefix, conj.order)
     allTerms ++= nt
-
 
     val retVal =
       if (newConj.negatedConjs.size == 1) {
@@ -125,7 +111,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
         (newConj, allTerms.toList, norder)
       }
 
-    // println("fullInst(" + conj + ") => " + retVal)
     retVal
   }
 
@@ -162,8 +147,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     iteration : Int) :
       Option[ConnectionTable] = {
 
-
-
     if (!table.isOpen)
       return Some(table)
 
@@ -172,94 +155,62 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     val branchIdx = extendingBranchIdx
     val branchAtom = branch(0)
 
-    // If branch is too long, stop
     if (branch.depth > maxDepth) {
-      // println("|| MAX DEPTH REACHED")
       maxDepthReached = true
-      return None
-    }
-
-    if (table.width > maxWidth) {
-      // println("|| MAX WIDTH REACHED")
+      None
+    } else if (table.width > maxWidth) {
       maxWidthReached = true
-      return None
-    }
+      None
+    } else {
 
-    // println("|| Current terms:")
-    // println("||\t" + terms)
+      // TODO: Any way of making branch a val and branchStep a var?
+      println("//--------- " + iteration + " -------------")
+      println("|| Branches: (" + table.width + ") extending (" + branchIdx + ")")
+      println(table)
 
-    // Pick a branch -- Always pick first open branch
-    // TODO: Any way of making branch a val and branchStep a var?
+      // STEP 0: Try closing as-is
+      // STEP 1+: Where (x, y) is input clause x with literal y:
+      //          try (0,0), (0,1), ... (1,0) ...
 
+      def tryStep(step : Int) : Option[ConnectionTable] = {
+        val closedTable =
+          if (step == 0) {
+            table.close(branchIdx)
+          } else {
+            val (clause, idx) = findStatement(inputClauses, step - 1)
+            val (instClause, newOrder, _) = fullInst(clause, "branch_" + iteration)
+            val orderClause = conjToClause(instClause, false)
+            val extendedTable = table.extendBranch(branchIdx, orderClause, idx, newOrder)
+            extendedTable.close(branchIdx)
+          }
 
-
-
-    println("//-------------------------")
-    println("|| Starting recursive iteration " + iteration)
-    println("|| Branches: (" + table.branches.length + ")")
-    println(table)
-    println("|| Extending branch (" + branchIdx + ") ")
-
-
-
-    // STEP 0: Try closing as-is
-    // STEP 1+: Where (x, y) is input clause x with literal y:
-    //          try (0,0), (0,1), ... (1,0) ...
-    def tryStep(step : Int) : Option[ConnectionTable] = {
-      val closedTable = 
-        if (step == 0) {
-          table.close(branchIdx)
-        } else {
-          // Try unifying with input clause, first we try first clause, first statement,
-          // then first clause, second statement, ...
-          val (clause, idx) = findStatement(inputClauses, step - 1)
-          val (instClause, newOrder, _) = fullInst(clause, "branch_" + iteration)
-
-          // TODO: This should not be here, negatedConjs should probably be used somewhere else...
-          val orderClause = conjToClause(instClause, false)
-          val extendedTable = table.extendBranch(branchIdx, orderClause, idx, newOrder)
-
-          extendedTable.close(branchIdx)
-        }
-
-      if (closedTable.closable) {
-        Some(closedTable)
-      } else {
-        None
-      }
-    }
-
-    // We use the branchStep to decide where to search for the new candidate
-    val maxStep = (inputClauses.map(clauseWidth(_)).sum)
-    var branchStep = 0
-
-    // TODO: Should this be <=?
-    while (branchStep <= maxStep) {
-      val res = tryStep(branchStep)
-      if (branchStep == 0) {
-        if (res.isEmpty)
-          println("Trying close table right away, but failed")
+        if (closedTable.closable)
+          Some(closedTable)
         else
-          println("Trying close table right away, success!")
+          None
       }
-      if (!res.isEmpty) {
-        val rec = solveTable(res.get, inputClauses, maxDepth, maxWidth, iteration + 1)
-        if (!rec.isEmpty)
-          return rec
-      } 
-      branchStep += 1
-    }
 
-    println("|| No applicable formula found...")
-    println("|| Couldn't close table: ")
-    println(table)
-    println("\n\n\n")
-    None
+      // We use the branchStep to decide where to search for the new candidate
+      val maxStep = (inputClauses.map(clauseWidth(_)).sum)
+      var branchStep = 0
+
+      while (branchStep <= maxStep) {
+        val res = tryStep(branchStep)
+        if (res.isDefined) {
+          val rec = solveTable(res.get, inputClauses, maxDepth, maxWidth, iteration + 1)
+          if (!rec.isEmpty)
+            return rec
+        }
+        branchStep += 1
+      }
+
+      println("\\\\---------     -------------")
+      println("\n\n\n")
+      None
+    }
   }
 
   def predToNodes(predConj : PredConj, negated : Boolean) : OrderClause = {
-    // println("predToNodes(" + predConj + ", " + negated + ")")
-    
     val newNodes = ListBuffer() : ListBuffer[OrderNode]
 
     for (p <- predConj.iterator) {
@@ -267,13 +218,8 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
         if (negated) {
           // Convert to a funeq and a negeq
           val (_, _, res2) = convertNegFunEquation(NegFunEquation(p))
-          // println("fun: " + fun)
-          // println("args: " + args)
-          // println("res: " + res)
-          // funEqs += NegFunEquation(p)
 
-          val pc = p
-          val atom = pc.positiveLits(0)
+          val atom = p.positiveLits(0)
           val fun = atom.pred
           val args = atom.take(atom.length-1)
           val res = atom(atom.length-1)
@@ -284,22 +230,12 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
           nextTerm += 1
           val lc = LinearCombination(newTerm, no)
           val newFunEq = Atom(fun, args ++ List(lc), no)
-          // println("Converting " + p + " to:")
-          // println("\tnewFunEq: " + newFunEq)
-
           val newEq = NegEquation(res2, newTerm)
-          // println("\tnewEq = " + newEq)	ALL (! (!R(_0) & ! EX (f(_1, _0) & R(_0)))) => List(List(Literal(R(convALL0))), List(FunEquation(f(convALL0, conv_disjEX0))), List(Literal(R(conv_disjEX0))))
 
-          // TODO: Fix this!
-          val asd1 : List[Node] = List(newEq, FunEquation(PredConj(List(newFunEq), List(), no)))
-          val asd2 : BREUOrder = newOrder
-          val asd3 : OrderNode = (asd1, asd2)
-          newNodes += asd3
+          newNodes += ((List(newEq, FunEquation(PredConj(List(newFunEq), List(), no))), newOrder))
 
         } else {
-          val asd1 = List(FunEquation(p)) : List[Node]
-          val asd2 = List() : BREUOrder
-          newNodes += ((asd1, asd2) )
+          newNodes += ((List(FunEquation(p)) : List[Node], List() : BREUOrder))
         }
       } else if (p.predicates.size == 1) {
         if (negated)
@@ -311,23 +247,20 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
       }
     }
 
-    val finalNodes = 
-      if (newNodes.isEmpty) {
-        List()
+    if (newNodes.isEmpty) {
+      List()
+    } else {
+      // TODO: Not sure about this one
+      if (negated) {
+        newNodes.toList
       } else {
-        // TODO: Not sure about this one
-        if (negated) {
-          newNodes.toList
-        } else { 
-          // TODO: Do we have to place the orders in some kind of order (no pun intended)
-          val newEq : List[Node] = for (n <- newNodes.map(_._1).flatten.toList if n.isEquation) yield n
-          val newLits : List[Node] = for (n <- newNodes.map(_._1).flatten.toList if n.isLiteral) yield n
-          val newOrder : BREUOrder = newNodes.map(_._2).flatten.toList
-          List((newLits ++ newEq, newOrder))
-        }
+        // TODO: Do we have to place the orders in some kind of order (no pun intended)
+        val newEqs : List[Node] = for (n <- newNodes.map(_._1).flatten.toList if !n.isLiteral) yield n
+        val newLits : List[Node] = for (n <- newNodes.map(_._1).flatten.toList if n.isLiteral) yield n
+        val newOrder : BREUOrder = newNodes.map(_._2).flatten.toList
+        List((newLits ++ newEqs, newOrder))
       }
-    // println("\t" + finalNodes)
-    finalNodes
+    }
   }
 
   // Can only be used on instatiated clauses!
@@ -338,30 +271,24 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     if (arithConj.isTrue) { 
       List()
     } else {
-      // println("arithToLiteral(" + arithConj + ")")
       val nodes : OrderClause =
         for (eq <- arithConj.negativeEqs.toList) yield {
-          // println("\t" + eq)
           val pairs = eq.pairSeq.toList
           //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
           Debug.assertInt(ConnectionProver.AC, pairs.length == 2)
           //-END-ASSERTION-//////////////////////////////////////////////////////////
           val (c1, t1) = pairs(0)
           val (c2, t2) = pairs(1)
-          // println("\t\t" + (c1, t1) + " ... " + (c2, t2))
           //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
           Debug.assertInt(ConnectionProver.AC, (c1.intValue == 1 && c2.intValue == -1) || (c1.intValue == -1 && c2.intValue == 1) )
           //-END-ASSERTION-//////////////////////////////////////////////////////////
-          // println(arithConj + " => " + t1 + " != " + t2)
-          // println("t1: " + t1 + " (" + t1.getClass + ")")
-          // println("t2: " + t2 + " (" + t2.getClass + ")")
             (t1, t2) match {
-            case (ct1 : ConstantTerm, ct2 : ConstantTerm) => 
-              if (negated) 
+            case (ct1 : ConstantTerm, ct2 : ConstantTerm) =>
+              if (negated)
                 (List(Equation(ct1, ct2)), List()) : OrderNode
-              else 
+              else
                 (List(NegEquation(ct1, ct2)), List()) : OrderNode
-            case _ => 
+            case _ =>
               throw new Exception("Non ConstantTerm in arithConj.negativeEqs (" + t1 + " : " + t1.getClass + ") (" + t2 + " : " + t2.getClass + ")")
           }
         }
@@ -381,37 +308,24 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
 
   def subConjToClause(conj : Conjunction, negated : Boolean) : List[OrderNode] = {
-    // println("subConjToClause(" + conj + ", " + negated + ")")
     val predLiterals = predToNodes(conj.predConj, negated)
     val eqLiterals = arithToNodes(conj.arithConj, negated)
     val singleLiterals = (predLiterals ++ eqLiterals)
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 0 || conj.negatedConjs.length == 1)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
-    // println("\tpredLiterals: " + predLiterals)
-    // println("\teqLiterals: " + eqLiterals)
-    // println("\tconj.negatedConjs: " + conj.negatedConjs)
-    if (conj.negatedConjs.isEmpty) {
-      // Only one literals
+    if (conj.negatedConjs.isEmpty)
       singleLiterals
-    } else {
-      val negLiterals = conjToList(conj.negatedConjs.head, !negated)
-      // println("\tnegLiterals: " + negLiterals)
-      singleLiterals ++ negLiterals
-    }
+    else
+      singleLiterals ++ conjToList(conj.negatedConjs.head, !negated)
   }
 
   def conjToClause(conj : Conjunction, negated : Boolean) : OrderClause = {
-    // println("conjToClause(" + conj + ", " + negated + ")")
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 0 || conj.negatedConjs.length == 1)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
-
-    // println("predConj: " + conj.predConj)
     val predLiterals = predToNodes(conj.predConj, negated)
     val eqLiterals = arithToNodes(conj.arithConj, negated)
-    // println("\tpredLiterals: " + predLiterals)
-    // println("\tarithLiters: " + eqLiterals)
 
     // The negative literals should be returned as one List of list of nodes
     val negLiterals =
@@ -421,18 +335,13 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
         subConjToClause(conj.negatedConjs(0), !negated)
 
     // Now we combine both the top-level literals as well as the multi-part literals
-    val res : OrderClause = predLiterals ++ eqLiterals ++ negLiterals
-
-    // println("conjToClause(" + conj + ", " + negated + ")")
-    // println("\t" + res)
-    res
+    predLiterals ++ eqLiterals ++ negLiterals
   }
 
   def clauseWidth(conj : Conjunction) = conjToClause(fullInst(conj, "clauseWidth")._1, false).length
 
     // TODO: Is this sound, ask Philipp!
   def isUnitClause(conj : Conjunction) : Boolean = conj.boundVariables.size == 0
-
 
   def extractConstants(conjs : List[Conjunction]) : BREUOrder = {
     (for (c <- conjs) yield c.constants).toSet.flatten.toList.map((_, false))
@@ -488,8 +397,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
       // TODO: initOrder2!?, come on ...
       val initTable  =
         new ConnectionTable(for ((nodes, extraOrder) <- conjToClause(firstClause, false)) yield {
-          val initOrder2 = initOrder ++  extraOrder
-          new ConnectionBranch(nodes ++ unitNodes, true, initOrder2)
+          new ConnectionBranch(nodes ++ unitNodes, true, initOrder ++  extraOrder)
         }, preSettings)
 
       maxDepthReached = false
@@ -546,12 +454,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     if (!table.isEmpty) {
       println("\n\n\n\tTable closed\n\n\n")
       val finalTable = table.get
-      val (unifiable, finalMap) = finalTable.unifyBranches()
+      val finalMap = finalTable.unifyBranches()
       println("CLOSED TABLE:")
       // println("with order: " + finalOrder.mkString(", "))
-      for (b <- finalTable.branches)
-        println("\t" + b)
-      println("Using: " + finalMap)
+      println(finalTable)
+      println("Using: " + finalMap.get)
       (true, Goal(List(closedFor), Set(), Vocabulary(termOrder), preSettings))
     } else {
       println("Could not close table")

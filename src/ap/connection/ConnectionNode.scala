@@ -38,9 +38,28 @@ import ap.util.Debug
 // (_, true) is a variable which can take the value of any variable or
 // constant earlier in the order.
 abstract class Node {
-  def isLiteral = this.isInstanceOf[Literal]
-  def isEquation = !this.isLiteral
+  override def toString = {
+    this match {
+      case Literal(formula) => formula.toString
+      case FunEquation(eq) => eq.toString
+      case NegFunEquation(eq) => eq.toString
+      case Equation(lhs, rhs) => lhs + " = " + rhs
+      case NegEquation(lhs, rhs) => lhs + " != " + rhs
+    }
+  }
 
+  def isLiteral = this.isInstanceOf[Literal]
+  def isEquation = this.isInstanceOf[Equation]
+  def isNegEquation = this.isInstanceOf[NegEquation]
+  def isFunEquation = this.isInstanceOf[FunEquation]
+  def isNegFunEquation = this.isInstanceOf[NegFunEquation]
+
+  // TODO: Is this the correct way?
+  def asLiteral = this.asInstanceOf[Literal]
+  def asEquation = this.asInstanceOf[Equation]
+  def asNegEquation = this.asInstanceOf[NegEquation]
+  def asFunEquation = this.asInstanceOf[FunEquation]
+  def asNegFunEquation = this.asInstanceOf[NegFunEquation]
 
   // TODO: Cleanup
   def structuralUnifiable(that : Node) : Boolean = {
