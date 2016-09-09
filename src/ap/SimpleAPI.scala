@@ -195,7 +195,9 @@ object SimpleAPI {
   class SimpleAPIException(msg : String) extends Exception(msg)
 
   class SimpleAPIForwardedException(cause : Throwable)
-        extends SimpleAPIException("Internal exception: " + cause)
+        extends SimpleAPIException("Internal exception: " + cause) {
+    initCause(cause)
+  }
 
   object TimeoutException
          extends SimpleAPIException("Timeout during ap.SimpleAPI call")
