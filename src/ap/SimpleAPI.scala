@@ -101,6 +101,12 @@ object SimpleAPI {
     apply(dumpSMT = true, smtDumpBasename = basename,
           dumpDirectory = directory, sanitiseNames = false)
 
+  def spawnWithAssertionsLogNoSanitise(basename : String,
+                                       directory : File) : SimpleAPI =
+    apply(dumpSMT = true, smtDumpBasename = basename,
+          dumpDirectory = directory, sanitiseNames = false,
+          enableAssert = true)
+
   def spawnWithScalaLog : SimpleAPI = apply(dumpScala = true)
 
   def spawnWithScalaLogNoSanitise(basename : String) : SimpleAPI =
