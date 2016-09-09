@@ -185,6 +185,9 @@ object SimpleAPI {
 
   class SimpleAPIException(msg : String) extends Exception(msg)
 
+  class SimpleAPIForwardedException(cause : Throwable)
+        extends SimpleAPIException("Internal exception: " + cause)
+
   object TimeoutException
          extends SimpleAPIException("Timeout during ap.SimpleAPI call")
   object NoModelException
@@ -357,7 +360,7 @@ object SimpleAPI {
   private case class SatResult(model : Conjunction) extends ProverResult
   private case class SatPartialResult(model : Conjunction) extends ProverResult
   private case object StoppedResult extends ProverResult
-  private case class ExceptionResult(msg : String) extends ProverResult
+  private case class ExceptionResult(t : Throwable) extends ProverResult
   private case object OutOfMemoryResult extends ProverResult
 
   private val badStringChar = """[^a-zA-Z_0-9']""".r
@@ -1854,9 +1857,9 @@ class SimpleAPI private (enableAssert : Boolean,
           lastStatus = ProverStatus.Unknown
         case OutOfMemoryResult =>
           lastStatus = ProverStatus.OutOfMemory
-        case ExceptionResult(msg) => {
+        case ExceptionResult(t) => {
           lastStatus = ProverStatus.Error
-          throw new SimpleAPIException(msg)
+          throw new SimpleAPIForwardedException(t)
         }
         case _ =>
           lastStatus = ProverStatus.Error
@@ -3607,9 +3610,13 @@ class SimpleAPI private (enableAssert : Boolean,
           case _ : StackOverflowError | _ : OutOfMemoryError =>
             // hope that we are able to continue
             proverRes set OutOfMemoryResult
+          case _ : NoClassDefFoundError =>
+            // this exception indicates a stack overflow as well,
+            // but probably the system has to be restarted at this point
+            proverRes set OutOfMemoryResult
           case t : Throwable =>
             // hope that we are able to continue
-            proverRes set ExceptionResult(t.toString)
+            proverRes set ExceptionResult(t)
         }
       
     }

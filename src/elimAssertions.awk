@@ -2,18 +2,18 @@ BEGIN {
     inAssertion = 0;
 }
 
-/\/\/-BEGIN-ASSERTION-/ {
-    inAssertion = 1;
-    next;
-}
-
 /\/\/-END-ASSERTION-/ {
     inAssertion = 0;
-    next;
 }
 
 {
-    if (!inAssertion) {
+    if (inAssertion) {
+        printf("// %s\n", $0);
+    } else {
         print $0;
     }
+}
+
+/\/\/-BEGIN-ASSERTION-/ {
+    inAssertion = 1;
 }
