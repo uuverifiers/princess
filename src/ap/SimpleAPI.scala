@@ -85,6 +85,9 @@ object SimpleAPI {
 
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
 
+  def spawnWithAssertionsNoSanitise : SimpleAPI =
+    apply(sanitiseNames = false, enableAssert = true)
+
   def spawnWithLog : SimpleAPI = apply(dumpSMT = true)
 
   def spawnWithLog(basename : String) : SimpleAPI =
