@@ -503,11 +503,9 @@ object ModelSearchProver {
     ////////////////////////////////////////////////////////////////////////////
 
     def extractModel = searchDirector(goal.facts, false) match {
-      case AcceptModelDir => {
+      case AcceptModelDir =>
         // should never happen
-        assert(false)
-        null
-      }
+        throw new IllegalStateException
       case DeriveFullModelDir => {
         // Check whether the theory plugin can give us a model
         val theoryModel =
@@ -582,11 +580,9 @@ object ModelSearchProver {
         }
         
         searchDirector(model, true) match {
-          case DeriveFullModelDir => {
+          case DeriveFullModelDir =>
             // should never happen
-            assert(false)
-            null
-          }
+            throw new IllegalStateException
           case ReturnSatDir =>           SatResult
           case NextModelDir =>           UnsatResult
           case AcceptModelDir =>         ModelResult(model)
@@ -673,11 +669,9 @@ object ModelSearchProver {
           // now we can actually be sure that we have found a genuine model,
           // let's ask the search director
           searchDirector(goal.facts, false) match {
-            case AcceptModelDir => {
+            case AcceptModelDir =>
               // should never happen
-              assert(false)
-              null
-            }
+              throw new IllegalStateException
             case DeriveFullModelDir =>
               if (goal.constantFreedom.isBottom) {
                 DeriveFullModelDir
@@ -703,11 +697,9 @@ object ModelSearchProver {
           val model = assembleModel(basicModel, goal.facts.predConj,
                                     constsToIgnore, goal.order)
           searchDirector(model, true) match {
-            case DeriveFullModelDir => {
+            case DeriveFullModelDir =>
               // should never happen
-              assert(false)
-              null
-            }
+              throw new IllegalStateException
             case ReturnSatDir => {
               outerResult = SatResult
               ReturnSatDir
@@ -853,13 +845,20 @@ object ModelSearchProver {
                           : (Conjunction, Boolean) => SearchDirection)
                      : Either[Conjunction, Certificate] = {
       val lemmaBase =
-        if (certFormulas == null) {
+        if (certFormulas == null)
           null
-        } else {
-          val base = new LemmaBase
-          base assumeFormulas certFormulas.iterator
-          base
-        }
+        else
+          new LemmaBase
+      checkValidityDir(searchDirector, lemmaBase)
+    }
+
+    def checkValidityDir(searchDirector
+                          : (Conjunction, Boolean) => SearchDirection,
+                         lemmaBase : LemmaBase)
+                     : Either[Conjunction, Certificate] = {
+      if (lemmaBase != null)
+        lemmaBase assumeFormulas certFormulas.iterator
+
       findModel(goal, List(), List(), Set(), 0, settings,
                 searchDirector, lemmaBase, 0) match {
         case SatResult                      => Left(Conjunction.TRUE)

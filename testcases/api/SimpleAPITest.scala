@@ -365,8 +365,8 @@ object SimpleAPITest extends App {
     case ProverStatus.Unknown |   // was already finished when calling "stop")
          ProverStatus.Sat =>
       println("expected result")
-    case _ =>
-      println("oops")
+    case x =>
+      println("oops: " + x)
   }  
 
   part("Stopping computation after a while")
@@ -376,8 +376,8 @@ object SimpleAPITest extends App {
     case ProverStatus.Running |
          ProverStatus.Sat =>
       println("expected result")
-    case _ =>
-      println("oops")
+    case x =>
+      println("oops: " + x)
   }
 
   {
