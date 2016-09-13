@@ -82,7 +82,7 @@ case object UpdateTasksTask extends EagerTask {
                               : Option[(Atom, Conjunction)] = task match {
     case task : BetaFormulaTask =>
       eliminableEquiv(task.formula, eliminablePreds)
-    case WrappedFormulaTask(_, Seq(task : BetaFormulaTask)) =>
+    case WrappedFormulaTask(task : BetaFormulaTask, _) =>
       eliminableEquiv(task.formula, eliminablePreds)
     case _ => None
   }
