@@ -29,7 +29,7 @@ import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.goal.{SymbolWeights, FormulaTask}
-import ap.proof.certificates.Certificate
+import ap.proof.certificates.{Certificate, LemmaBase}
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
                         ArraySimplifier}
 import ap.terfor.equations.ReduceWithEqs
@@ -348,7 +348,9 @@ object SimpleAPI {
   
   private abstract class ProverCommand
 
-  private case class CheckSatCommand(prover : ModelSearchProver.IncProver)
+  private case class CheckSatCommand(prover : ModelSearchProver.IncProver,
+                                     needLemmaBase : Boolean,
+                                     reuseLemmaBase : Boolean)
           extends ProverCommand
   private case class CheckValidityCommand(formula : Conjunction,
                                           goalSettings : GoalSettings,
@@ -1685,13 +1687,16 @@ class SimpleAPI private (enableAssert : Boolean,
         proofActorStatus match {
 
           case ProofActorStatus.AtPartialModel |
-               ProofActorStatus.AtFullModel
-               if (!constructProofs) => {
-            // We can just add new formulas to the running proof actor,
-            // without a complete restart
-            // TODO: can this case also be used when constructing proofs?
-            restartProofActor // just mark that we are running again
-            proofActor ! RecheckCommand
+               ProofActorStatus.AtFullModel => {
+            restartProofActor // mark that we are running again
+
+            if (constructProofs)
+              // Restart, but keep lemmas that have been derived previously
+              proofActor ! CheckSatCommand(currentProver, true, true)
+            else
+              // We can just add new formulas to the running proof actor,
+              // without a complete restart
+              proofActor ! RecheckCommand
           }
 
           case _ =>
@@ -1733,7 +1738,7 @@ class SimpleAPI private (enableAssert : Boolean,
               return lastStatus
             } else {
               // use a ModelCheckProver
-              proofActor ! CheckSatCommand(currentProver)
+              proofActor ! CheckSatCommand(currentProver, constructProofs, false)
             }
             
         }
@@ -3507,6 +3512,7 @@ class SimpleAPI private (enableAssert : Boolean,
     
     var cont = true
     var nextCommand : ProverCommand = null
+    var lemmaBase : LemmaBase = null
     
     def directorWaitForNextCmd(order : TermOrder) = {
       var res : ModelSearchProver.SearchDirection = null
@@ -3533,12 +3539,24 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     
     val commandParser : PartialFunction[Any, Unit] = {
-      case CheckSatCommand(p) =>
-          
+      case CheckSatCommand(p, needLemmaBase, reuseLemmaBase) => {
+
+        if (needLemmaBase) {
+          if (lemmaBase == null || !reuseLemmaBase) {
+            lemmaBase = new LemmaBase
+          } else {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(AC, lemmaBase.hasEmptyStack)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+          }
+        } else {
+          lemmaBase = null
+        }
+
         Timeout.catchTimeout {
           val order = p.order
 
-          p.checkValidityDir {
+          p.checkValidityDir({
             case (model, false) => {
               proverRes set SatPartialResult(model)
               directorWaitForNextCmd(order)
@@ -3552,7 +3570,7 @@ class SimpleAPI private (enableAssert : Boolean,
               proverRes set SatResult(model)
               directorWaitForNextCmd(order)
             }
-          }
+          }, lemmaBase)
         } { case _ => null } match {
 
           case null =>
@@ -3565,9 +3583,12 @@ class SimpleAPI private (enableAssert : Boolean,
             proverRes set UnsatCertResult(cert)
               
         }
+      }
 
-      case CheckValidityCommand(formula, goalSettings, mgc) =>
+      case CheckValidityCommand(formula, goalSettings, mgc) => {
         
+        lemmaBase = null
+
         Timeout.catchTimeout {
           
           val prover = new ExhaustiveProver (!mgc, goalSettings)
@@ -3587,6 +3608,7 @@ class SimpleAPI private (enableAssert : Boolean,
             }
             
         }
+      }
         
       case StopCommand =>
         proverRes set StoppedResult

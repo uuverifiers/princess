@@ -92,3 +92,10 @@ UNKNOWN
 Possible countermodel:
 not_orthogonal_lines(1, 0) & unorthogonal_lines(0, 0) & convergent_lines(0, 1) & !not_orthogonal_lines(0, 0) & !convergent_lines(1, 0)
 
+Loading diamonds.10.2-no-interpolant.i.a.u.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 1344314558)
+
+VALID
+
