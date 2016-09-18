@@ -1,3 +1,6 @@
+// 	convALL0 != DUMMY_TERM_0^every_one_but(convALL1, DUMMY_TERM_0)) v !hates(convALL1, convALL0))
+// Maybe use triple-disjunction instead?
+
 /**
  * This file is part of ePrincess, a theorem prover based on 
  * Bounded Rigid E-Unification (http://user.it.uu.se/~petba168/breu/) 
@@ -22,6 +25,9 @@
  */
 
 
+// TODO RIGHT NOW:
+// Fix output of trees
+//
 // Make NegFunEquation just Equation with polarity?
 // Line 705 fix on geo118+1.p
 // TODO: Fix terms vs order (BREUterms?)
@@ -34,7 +40,7 @@ import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.proof.goal.Goal
-import ap.util.Debug
+import ap.util.{Debug, Timer}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.Vocabulary
 import ap.connection.connection.{BREUOrder, OrderClause, OrderNode, clauseToString}
@@ -49,6 +55,9 @@ object ConnectionProver {
 
 class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
+
+  // Performance counters
+  var safeSKIP = 0
   // TODO: How to make this nicer?
   var nextPredicate = 0
   var nextTerm = 0
@@ -60,7 +69,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
     val quants =
       for (q <- conj.quans) yield {
-        q match {
+        q match { // 
           case Quantifier.ALL => {
             allCount += 1
             (new ConstantTerm(prefix + "ALL" + allCount), true)
@@ -106,9 +115,10 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
         val finalDisjunction = disjunction.updateNegatedConjs(tmp)(negOrder)
         val tmp2 = newConj.negatedConjs.update(List(finalDisjunction), negOrder)
         val finalConj = newConj.updateNegatedConjs(tmp2)(negOrder)
-        (finalConj, allTerms.toList, negOrder)
+        (finalConj, allTerms.toList.reverse, negOrder)
       } else {
-        (newConj, allTerms.toList, norder)
+        // TODO: This and above, really reverse?
+        (newConj, allTerms.toList.reverse, norder)
       }
 
     retVal
@@ -136,77 +146,91 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
       (inputClauses.head, step)
   }
 
-  var maxDepthReached = false
-  var maxWidthReached = false
-
   def solveTable(
     table : ConnectionTable,
     inputClauses : List[Conjunction],
-    maxDepth : Int,
-    maxWidth : Int,
+    maxIteration : Int,
     iteration : Int) :
-      Option[ConnectionTable] = {
+      (Option[ConnectionTable], Boolean) = ap.util.Timer.measure("solveTable") {
 
-    if (!table.isOpen)
-      return Some(table)
+    // println(ap.util.Timer)
 
-    val (extendingBranch, extendingBranchIdx) = table.firstOpen
-    var branch = extendingBranch.get
-    val branchIdx = extendingBranchIdx
-    val branchAtom = branch(0)
-
-    if (branch.depth > maxDepth) {
-      maxDepthReached = true
-      None
-    } else if (table.width > maxWidth) {
-      maxWidthReached = true
-      None
+    if (table.openBranches == 0) {
+      // No closed branches - we are done
+      return (Some(table), false)
+    } else if (table.openBranches > maxIteration - iteration) {
+      // We can't close n branches with <n iterations
+      return (None, true)
     } else {
+      // Let's try one more step...
+      // val (extendingBranch, extendingBranchIdx) = table.firstOpen
+      val (branch, branchIdx) = table.shortestOpen
 
-      // TODO: Any way of making branch a val and branchStep a var?
-      println("//--------- " + iteration + " -------------")
-      println("|| Branches: (" + table.width + ") extending (" + branchIdx + ")")
-      println(table)
+      if (iteration > maxIteration) {
+        println("|| Max iteration (" + iteration + " > " + maxIteration + " )")
+        (None, true)
+      } else {
 
-      // STEP 0: Try closing as-is
-      // STEP 1+: Where (x, y) is input clause x with literal y:
-      //          try (0,0), (0,1), ... (1,0) ...
+        // TODO: Any way of making branch a val and branchStep a var?
+        println("//--------- " + iteration + " -------------")
+        println("|| Branches: (" + table.width + ") extending (" + branchIdx + ")")
+        println((for (l <- table.toString.split("\n").toList) yield ("|| " + l)).mkString("\n"))
 
-      def tryStep(step : Int) : Option[ConnectionTable] = {
-        val closedTable =
-          if (step == 0) {
-            table.close(branchIdx)
+        // STEP 0: Try closing as-is
+        // STEP 1+: Where (x, y) is input clause x with literal y:
+        //          try (0,0), (0,1), ... (1,0) ...
+
+        def tryStep(step : Int) : Option[ConnectionTable] = {
+
+          val closedTable =
+            if (step == 0) {
+              Some(table.close(branchIdx, false))
+            } else ap.util.Timer.measure("Extending Table") {
+              val (clause, idx) = findStatement(inputClauses, step - 1)
+              val (instClause, newOrder, _) = fullInst(clause, "branch_" + iteration)
+              val orderClause = conjToClause(instClause, false)
+              val extendedTable = table.extendBranch(branchIdx, orderClause, idx, newOrder)
+              extendedTable.closeSafe(branchIdx, true)
+            }
+
+          if (closedTable.isEmpty) {
+            safeSKIP += 1
+            None
+          } else ap.util.Timer.measure("Checking closable") {
+            if (closedTable.get.closable) {
+              Some(closedTable.get)
+            } else {
+              None
+            }
+          }
+        }
+
+        // We use the branchStep to decide where to search for the new candidate
+        var maxReached = false
+        // If this is the last iteration, only relevant action to close table right away
+        val maxStep = 
+          if (iteration == maxIteration) {
+            maxReached = true
+            0
           } else {
-            val (clause, idx) = findStatement(inputClauses, step - 1)
-            val (instClause, newOrder, _) = fullInst(clause, "branch_" + iteration)
-            val orderClause = conjToClause(instClause, false)
-            val extendedTable = table.extendBranch(branchIdx, orderClause, idx, newOrder)
-            extendedTable.close(branchIdx)
+            inputClauses.map(clauseWidth(_)).sum
           }
 
-        if (closedTable.closable)
-          Some(closedTable)
-        else
-          None
-      }
-
-      // We use the branchStep to decide where to search for the new candidate
-      val maxStep = (inputClauses.map(clauseWidth(_)).sum)
-      var branchStep = 0
-
-      while (branchStep <= maxStep) {
-        val res = tryStep(branchStep)
-        if (res.isDefined) {
-          val rec = solveTable(res.get, inputClauses, maxDepth, maxWidth, iteration + 1)
-          if (!rec.isEmpty)
-            return rec
+        var branchStep = 0
+        while (branchStep <= maxStep) {
+          val res = tryStep(branchStep)
+          if (res.isDefined) {
+            val (t, mr) = solveTable(res.get, inputClauses, maxIteration, iteration + 1)
+            if (!t.isEmpty)
+              return (t, mr)
+            maxReached |= mr
+          }
+          branchStep += 1
         }
-        branchStep += 1
-      }
 
-      println("\\\\---------     -------------")
-      println("\n\n\n")
-      None
+        println("\\\\---------     -------------")
+        (None, maxReached)
+      }
     }
   }
 
@@ -347,7 +371,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     (for (c <- conjs) yield c.constants).toSet.flatten.toList.map((_, false))
   }
 
-  def solve(givenFor : Conjunction, termOrder : TermOrder) = {
+  def solve(givenFor : Conjunction, termOrder : TermOrder) = ap.util.Timer.measure("Solve") {
 
     // Since the formula is in CNF, everything should be in the negated conjunctions
 
@@ -355,7 +379,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     Debug.assertPre(ConnectionProver.AC, givenFor.predConj.size == 0 && givenFor.arithConj.isEmpty)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
-    println("\n\nSolving Table")
     val quans = givenFor.quans
     val tmpConstants = for (i <- 0 until givenFor.quans.length) yield (new ConstantTerm("CONSTANT_" + i))
     val tmpOrder = givenFor.order.extend(tmpConstants)
@@ -382,12 +405,12 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
     val baseOrder = extractConstants(clauses) ++ List((new ConstantTerm("MIN"), false))
     println("Base Order: " + baseOrder)
 
-    def tryFirstClause(idx : Int, maxDepth : Int, maxWidth : Int) :
-        (Option[ConnectionTable], Boolean, Boolean) = {
+    def tryFirstClause(idx : Int, maxIterations : Int) :
+        (Option[ConnectionTable], Boolean) = {
 
       val (firstClause, terms, newOrder) = fullInst(clauses(idx), "base")
 
-      println("\n\nTrying with inital clause: " + firstClause)
+      println("||\n||Trying with initial clause: " + firstClause)
 
       // We have to extract all terms in the problem
       val initOrder = (terms ++ baseOrder)
@@ -397,60 +420,40 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
       // TODO: initOrder2!?, come on ...
       val initTable  =
         new ConnectionTable(for ((nodes, extraOrder) <- conjToClause(firstClause, false)) yield {
-          new ConnectionBranch(nodes ++ unitNodes, true, initOrder ++  extraOrder)
+          new ConnectionBranch(nodes ++ unitNodes, ClosedStyle.Open, initOrder ++  extraOrder)
         }, preSettings)
 
-      maxDepthReached = false
-      maxWidthReached = false
-      val result = solveTable(initTable, clauses, maxDepth, maxWidth, 0)
-      if (result.isEmpty) {
-        println("Could not close table")
-        (None, maxDepthReached, maxWidthReached)
-      } else {
-        val finalTable = result.get
-        (Some(finalTable), false, false)
-      }
+      solveTable(initTable, clauses, maxIterations, 0)
     }
 
     var table = None : Option[ConnectionTable]
 
-    var maxDepth = 8
-    var maxWidth = 8
-    var reachedMaxDepth = true
-    var reachedMaxWidth = true
+    var maxIteration = 1
+    var maxReached = true
 
-    while (table.isEmpty && (reachedMaxDepth || reachedMaxWidth)) {
+    while (table.isEmpty && maxReached) {
       var tryIdx = 0
-      reachedMaxDepth = false
-      reachedMaxWidth = false
+      maxReached = false
       println("//-----------------------------")
-      println("||  TRYING maxDepth: " + maxDepth)
-      println("||  TRYING maxWidth: " + maxWidth)
+      println("||  TRYING maxIteration: " + maxIteration)
+      println(ap.util.Timer)
       println("||")
+      println("|| safeSKIPs: " +safeSKIP)
       println("||")
       while (table.isEmpty && tryIdx < clauses.length) {
-        val (resTable, rMaxDepth, rMaxWidth) = tryFirstClause(tryIdx, maxDepth, maxWidth)
-        table = resTable
-        if (rMaxDepth)
-          reachedMaxDepth = true
-        if (rMaxWidth)
-          reachedMaxWidth = true
+        val (t, mr) = tryFirstClause(tryIdx, maxIteration)
+        table = t
+        maxReached |= mr
         tryIdx += 1
       }
 
-      if (reachedMaxDepth || reachedMaxWidth) {
-        println("Increasing depths:")
-        if (reachedMaxDepth) {
-          maxDepth *=2
-          println("\tmaxDepth = " + maxDepth)
-        }
-        if (reachedMaxWidth) {
-          maxWidth *=2
-          println("\tmaxWidth = " + maxWidth)
-        }
+      if (maxReached) {
+        println("Increasing max iteration:")
+        maxIteration += 1
       }
     }
 
+    println(ap.util.Timer)
     if (!table.isEmpty) {
       println("\n\n\n\tTable closed\n\n\n")
       val finalTable = table.get

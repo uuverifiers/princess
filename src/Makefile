@@ -22,7 +22,6 @@ all:
 		ap/interpolants/*.scala \
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
-		ap/connection/*.scala \
 		ap/*.scala
 
 doc:
@@ -47,5 +46,4 @@ doc:
 		ap/interpolants/*.scala \
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
-		ap/connection/*.scala \
 		ap/*.scala

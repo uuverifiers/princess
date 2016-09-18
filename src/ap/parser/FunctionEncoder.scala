@@ -362,7 +362,8 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
     relations.getOrElseUpdate(fun, {
       val pred = new Predicate(fun.name, fun.arity + 1)
       if (!fun.relational)
-        axiomsVar = axiomsVar &&& functionality(pred)
+        // Trying to remove the functionality axioms!
+        axiomsVar = axiomsVar // &&& functionality(pred)
       if (!fun.partial && genTotalityAxioms)
         axiomsVar = axiomsVar &&& totality(pred)
       predTranslation += (pred -> fun)
