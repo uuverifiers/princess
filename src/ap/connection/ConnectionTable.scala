@@ -124,7 +124,7 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   }
 
   def closeSafe(idx : Int, strong : Boolean) : Option[ConnectionTable] = {
-    val ccuSolver = new ccu.LazySolver[ConstantTerm, Predicate](
+    val breuSolver = new breu.LazySolver[ConstantTerm, Predicate](
       () => Timeout.check,
       Param.CLAUSIFIER_TIMEOUT(preSettings))
 
@@ -132,9 +132,9 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
     if (closeBranch.isEmpty) {
       None
     } else {
-      val problem = branchToBREU(ccuSolver, List(closeBranch.get))
+      val problem = branchToBREU(breuSolver, List(closeBranch.get))
       ap.util.Timer.measure("BREU") {
-        if (problem.solve == ccu.Result.SAT) {
+        if (problem.solve == breu.Result.SAT) {
           Some(close(idx, strong))
         } else {
           None
@@ -145,13 +145,13 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
 
   def unifyBranches() 
       : (Option[Map[ConstantTerm, ConstantTerm]]) = {
-    val ccuSolver = new ccu.LazySolver[ConstantTerm, Predicate](
+    val breuSolver = new breu.LazySolver[ConstantTerm, Predicate](
       () => Timeout.check,
       Param.CLAUSIFIER_TIMEOUT(preSettings))
 
-    val problem = branchToBREU(ccuSolver)
+    val problem = branchToBREU(breuSolver)
     ap.util.Timer.measure("BREU") {
-      if (problem.solve == ccu.Result.SAT) {
+      if (problem.solve == breu.Result.SAT) {
         Some(problem.getModel)
       } else {
         None
@@ -238,8 +238,8 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   }
 
 
-  def branchToBREU(ccuSolver : ccu.CCUSolver[ConstantTerm, Predicate], breuBranches : Seq[ConnectionBranch])
-      : ccu.CCUInstance[ConstantTerm, Predicate]  = {
+  def branchToBREU(breuSolver : breu.BREUSolver[ConstantTerm, Predicate], breuBranches : Seq[ConnectionBranch])
+      : breu.BREUInstance[ConstantTerm, Predicate]  = {
     // We need to keep track of domains
 
     val domains = combineOrders(for (branch <- breuBranches) yield branch.order)
@@ -261,12 +261,12 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
           (argGoals.toList, funEqs ++ eqs, negFunEqs)
         }
       }
-    ccuSolver.createProblem(domains.toMap, subProblems.map(_._1), subProblems.map(_._2), subProblems.map(_._3))
+    breuSolver.createProblem(domains.toMap, subProblems.map(_._1), subProblems.map(_._2), subProblems.map(_._3))
   }
 
-  def branchToBREU(ccuSolver : ccu.CCUSolver[ConstantTerm, Predicate]) 
-      : ccu.CCUInstance[ConstantTerm, Predicate]  = {
+  def branchToBREU(breuSolver : breu.BREUSolver[ConstantTerm, Predicate]) 
+      : breu.BREUInstance[ConstantTerm, Predicate]  = {
     val closedBranches = branches.filter(!_.isOpen)
-    branchToBREU(ccuSolver, closedBranches)
+    branchToBREU(breuSolver, closedBranches)
   }
 }

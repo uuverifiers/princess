@@ -39,7 +39,7 @@ import ap.util.{Debug, FilterIt, Logic, Seqs}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{Certificate, CloseCertificate,
-                              CCUCloseCertificate,
+                              BREUCloseCertificate,
                               BranchInferenceCollection,
                               BranchInferenceCollector,
                               NonLoggingBranchInferenceCollector,
@@ -110,7 +110,7 @@ object Goal {
     apply(Conjunction.TRUE,
           CompoundFormulas.EMPTY(Param.FUNCTIONAL_PREDICATES(settings),
                                  Param.PREDICATE_MATCH_CONFIG(settings),
-                                 !Param.CCU_SOLVER(settings).isDefined),
+                                 !Param.BREU_SOLVER(settings).isDefined),
           emptyTaskManager ++ tasks,
           0,
           eliminatedConstants,
@@ -344,18 +344,18 @@ class Goal private (val facts : Conjunction,
     constantFreedom == closingConstantFreedom
 
   /**
-   * For the CCU case, constant freedom is calculated using
+   * For the BREU case, constant freedom is calculated using
    * the disequality propagation method.
    */
-  lazy val ccuClosingConstantFreedom : ConstantFreedom =
+  lazy val breuClosingConstantFreedom : ConstantFreedom =
     if (facts.isFalse)
       constantFreedom
     else
-      ccuDiseqConstantFreedom
+      breuDiseqConstantFreedom
 //    ConstantFreedom.BOTTOM
 
-  lazy val ccuFixedConstantFreedom : Boolean =
-    constantFreedom == ccuClosingConstantFreedom
+  lazy val breuFixedConstantFreedom : Boolean =
+    constantFreedom == breuClosingConstantFreedom
 
   lazy val mayAlias : ((LinearCombination, LinearCombination) => AliasStatus.Value) =
     new AliasAnalyser (reduceWithFacts,
@@ -491,14 +491,14 @@ class Goal private (val facts : Conjunction,
           branchInferences.findFalseFormula
                           .getOrElse(CertCompoundFormula(Conjunction.FALSE))
         CloseCertificate(Set(contradFor), order)
-      } else if (Param.CCU_SOLVER(settings).isDefined) {
-        // if we are using CCU, just return the facts of this goal
+      } else if (Param.BREU_SOLVER(settings).isDefined) {
+        // if we are using BREU, just return the facts of this goal
         val factLits =
           ((for (l <- facts.iterator)
             yield CertFormula(l)) ++
            (for (eqs <- eliminatedEquations.iterator; lc <- eqs.iterator)
             yield CertEquation(lc))).toSet
-        CCUCloseCertificate(factLits, order)
+        BREUCloseCertificate(factLits, order)
       } else {
         // In the presence of predicates, it can happen that a sub-proof was used
         // to show the inconsistency of the arithmetic facts. We currently just

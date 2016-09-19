@@ -101,7 +101,7 @@ object CmdlMain {
     println("                             normal:                              (default)")
     println("                             nonUnifying: do not unify variables")
     println(" [+-]connection            Use Connection Tableaux  (default: -)")
-    println(" -CCU=val                  Method for bounded rigid E-unification")
+    println(" -BREU=val                  Method for bounded rigid E-unification")
     println("                             lazy                                (default)")
     println("                             table")
     println(" -generateTriggers=val     Automatically choose triggers for quant. formulae")
@@ -673,8 +673,8 @@ List(
                    
           //Console.err.println
             // Console.err.println(ap.util.Timer)
-            // Console.err.println("ccu.Timer:")
-            // Console.err.println(ccu.Timer)
+            // Console.err.println("breu.Timer:")
+            // Console.err.println(breu.Timer)
             ap.util.Timer.reset
             
             Some(prover.result)

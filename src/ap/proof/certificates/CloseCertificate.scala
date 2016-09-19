@@ -60,7 +60,7 @@ case class CloseCertificate(localAssumedFormulas : Set[CertFormula],
 
 ////////////////////////////////////////////////////////////////////////////////
 
-object CCUCloseCertificate {
+object BREUCloseCertificate {
   private val AC = Debug.AC_CERTIFICATES
 }
 
@@ -68,7 +68,7 @@ object CCUCloseCertificate {
  * Certificate corresponding to closure of a goal using the
  * BREU unification rule.
  */
-case class CCUCloseCertificate(localAssumedFormulas : Set[CertFormula],
+case class BREUCloseCertificate(localAssumedFormulas : Set[CertFormula],
                                order : TermOrder) extends {
 
   val closingConstraint = Conjunction.TRUE
@@ -82,12 +82,12 @@ case class CCUCloseCertificate(localAssumedFormulas : Set[CertFormula],
 
   def update(newSubCerts : Seq[Certificate]) : Certificate = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(CCUCloseCertificate.AC, newSubCerts.isEmpty)
+    Debug.assertPre(BREUCloseCertificate.AC, newSubCerts.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     this
   }
 
   override def toString : String =
-    "CCUClose(" + (localAssumedFormulas mkString ", ") + ")"
+    "BREUClose(" + (localAssumedFormulas mkString ", ") + ")"
 
 }
