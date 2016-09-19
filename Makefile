@@ -3,7 +3,8 @@
 BASEDIR:=$(shell pwd)
 EXTLIBSDIR:=$(BASEDIR)/extlibs
 
-CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar:$(EXTLIBSDIR)/ccu.jar:$(EXTLIBSDIR)/org.sat4j.core.jar:$(EXTLIBSDIR)/argonaut.jar
+CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar:$(EXTLIBSDIR)/breu.jar
+# :$(EXTLIBSDIR)/org.sat4j.core.jar
 
 SCALAC:=scalac
 SCALAC_OPTIONS:=-optimise -Yinline-warnings \
@@ -52,7 +53,7 @@ copy-jars-to-dist:
 	$(shell cp parser/parser.jar dist/)
 	$(shell cp smt-parser/smt-parser.jar dist/)
 	$(shell cp $(EXTLIBSDIR)/java-cup-11a.jar dist/)
-	$(shell cp $(EXTLIBSDIR)/ccu.jar dist/)
+	$(shell cp $(EXTLIBSDIR)/breu.jar dist/)
 #	$(shell cp $(EXTLIBSDIR)/org.sat4j.core.jar dist/)
 #	$(shell cp $(EXTLIBSDIR)/scalaz.jar dist/)
 #	$(shell cp $(EXTLIBSDIR)/argonaut.jar dist/)
