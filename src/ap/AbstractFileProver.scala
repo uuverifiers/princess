@@ -32,7 +32,6 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
-import ap.connection.ConnectionProver
 import ap.proof.{ModelSearchProver, ExhaustiveBREUProver, ConstraintSimplifier, Vocabulary}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -359,27 +358,16 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
     Timeout.withChecker(stoppingCond) {
       println("Things are happening")
-      if(Param.CONNECTION_STRATEGY(settings)) {
-        val prover =
-          new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-        val (solved, tree) = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
-        // val validConstraint = tree.breunifiable
-
-        (tree, solved, null)
-        // prover.isValidConstraint(tree.closingConstraint, signature)
-
-      } else {
-        val prover =
-          new ExhaustiveBREUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-        val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
-        val validConstraint = tree.breunifiable
-        // prover.isValidConstraint(tree.closingConstraint, signature)
-        (tree, validConstraint,
-          if (validConstraint && constructProofs)
-            prover extractCertificate tree
-          else
-            null)
-      }
+      val prover =
+        new ExhaustiveBREUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
+      val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
+      val validConstraint = tree.breunifiable
+      // prover.isValidConstraint(tree.closingConstraint, signature)
+      (tree, validConstraint,
+        if (validConstraint && constructProofs)
+          prover extractCertificate tree
+        else
+          null)
     }
   }
 }

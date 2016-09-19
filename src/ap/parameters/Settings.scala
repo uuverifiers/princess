@@ -59,8 +59,6 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
         case Opt("stdin", value) =>
           Param.STDIN.set(settings, value)
-        case Opt("connection", value) =>
-          Param.CONNECTION_STRATEGY.set(settings, true)
         case Opt("incremental", value) => {
           val settings2 = Param.INCREMENTAL.set(settings, value)
           if (value)

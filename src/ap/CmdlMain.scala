@@ -100,7 +100,6 @@ object CmdlMain {
     println(" -resolutionMethod=val     Method for positive unit resolution")
     println("                             normal:                              (default)")
     println("                             nonUnifying: do not unify variables")
-    println(" [+-]connection            Use Connection Tableaux  (default: -)")
     println(" -BREU=val                  Method for bounded rigid E-unification")
     println("                             lazy                                (default)")
     println("                             table")
