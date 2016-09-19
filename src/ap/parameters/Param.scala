@@ -374,18 +374,18 @@ object Param {
     val defau : Option[ap.proof.theoryPlugins.Plugin] = None
   }
 
-  object CCUStrategyOptions extends Enumeration {
+  object BREUStrategyOptions extends Enumeration {
     val Table, Lazy, Bench = Value
   }
 
-  case object CCU_STRATEGY extends Param {
-    type Value = CCUStrategyOptions.Value
-    val defau : CCUStrategyOptions.Value = CCUStrategyOptions.Lazy
+  case object BREU_STRATEGY extends Param {
+    type Value = BREUStrategyOptions.Value
+    val defau : BREUStrategyOptions.Value = BREUStrategyOptions.Lazy
   }
 
-  case object CCU_SOLVER extends Param {
-    type Value = Option[ccu.CCUSolver[ConstantTerm, Predicate]]
-    val defau : Option[ccu.CCUSolver[ConstantTerm, Predicate]] = None
+  case object BREU_SOLVER extends Param {
+    type Value = Option[breu.BREUSolver[ConstantTerm, Predicate]]
+    val defau : Option[breu.BREUSolver[ConstantTerm, Predicate]] = None
   }
 
   case object CONNECTION_STRATEGY extends Param {

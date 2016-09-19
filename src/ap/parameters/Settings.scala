@@ -180,12 +180,12 @@ object GlobalSettings {
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
-        case ValueOpt("CCU", "table") =>
-          Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Table)
-        case ValueOpt("CCU", "lazy") =>
-          Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Lazy)
-        case ValueOpt("CCU", "bench") =>
-          Param.CCU_STRATEGY.set(settings, Param.CCUStrategyOptions.Bench)
+        case ValueOpt("BREU", "table") =>
+          Param.BREU_STRATEGY.set(settings, Param.BREUStrategyOptions.Table)
+        case ValueOpt("BREU", "lazy") =>
+          Param.BREU_STRATEGY.set(settings, Param.BREUStrategyOptions.Lazy)
+        case ValueOpt("BREU", "bench") =>
+          Param.BREU_STRATEGY.set(settings, Param.BREUStrategyOptions.Bench)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -213,7 +213,7 @@ object GlobalSettings {
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
          Param.MUL_PROCEDURE, Param.REAL_RAT_SATURATION_ROUNDS,
-         Param.CCU_STRATEGY, Param.FILE_PROPERTIES, Param.DELAYED_PROOF,
+         Param.BREU_STRATEGY, Param.FILE_PROPERTIES, Param.DELAYED_PROOF,
          Param.CONNECTION_STRATEGY)
 
   val DEFAULT =
@@ -235,7 +235,7 @@ object GoalSettings {
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
-                       Param.CCU_STRATEGY, Param.CCU_SOLVER,
+                       Param.BREU_STRATEGY, Param.BREU_SOLVER,
                        Param.CLAUSIFIER_TIMEOUT, Param.NONLINEAR_SPLITTING,
                        Param.NAME_PROVIDER)
 

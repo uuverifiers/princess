@@ -32,7 +32,7 @@ import ap.terfor.preds.Predicate
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Seqs, Timeout}
 
-import ccu.{CCUSolver, LazySolver, TableSolver, CCUInstance}
+import breu.{BREUSolver, LazySolver, TableSolver, BREUInstance}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  Map => MMap, LinkedHashMap}
@@ -108,49 +108,49 @@ trait ProofTree {
   
   /**
    * <code>true</code> if this proof tree can be closed using some
-   * CCU unifier
+   * BREU unifier
    */
-  lazy val ccUnifiable : Boolean = unifiabilityStatus._1
+  lazy val breunifiable : Boolean = unifiabilityStatus._1
 
   /**
    * <code>true</code> if this proof tree can be closed using some
-   * CCU unifier, only assigning variables that were locally introduced
+   * BREU unifier, only assigning variables that were locally introduced
    * in this tree
    */
-  lazy val ccUnifiableLocally : Boolean = unifiabilityStatus._2
+  lazy val breunifiableLocally : Boolean = unifiabilityStatus._2
 
   /**
-   * If not <code>ccUnifiable</code>, this field can be used to compute
+   * If not <code>breunifiable</code>, this field can be used to compute
    * a minimal set of goals that cannot be closed together.
    */
   lazy val ccMinUnsolvableGoalSet : Seq[Int] = unifiabilityStatus._3()
 
   /**
-   * If <code>ccUnifiable</code>, this field can be used to obtain
+   * If <code>breunifiable</code>, this field can be used to obtain
    * a unifier.
    */
-  lazy val ccUnifier : Map[ConstantTerm, ConstantTerm] =
+  lazy val breunifier : Map[ConstantTerm, ConstantTerm] =
     unifiabilityStatus._4.get
 
   /**
-   * Determine all CCU variables occurring in the proof.
+   * Determine all BREU variables occurring in the proof.
    */
-  lazy val allCCUVariables : Set[ConstantTerm] = this match {
+  lazy val allBREUVariables : Set[ConstantTerm] = this match {
     case QuantifiedTree(Quantifier.EX, consts, subtree) =>
-      subtree.allCCUVariables ++ consts
+      subtree.allBREUVariables ++ consts
     case t =>
       (for (s <- t.subtrees.iterator;
-            c <- s.allCCUVariables.iterator)
+            c <- s.allBREUVariables.iterator)
        yield c).toSet
   }
 
   /**
-   * If <code>ccUnifiable</code>, this field can be used to obtain
+   * If <code>breunifiable</code>, this field can be used to obtain
    * a unifier. The unifier will also include local assignments made in
    * subtrees.
    */
-  lazy val completeCCUnifier = {
-    var res : Map[ConstantTerm, ConstantTerm] = ccUnifier
+  lazy val completeBREUnifier = {
+    var res : Map[ConstantTerm, ConstantTerm] = breunifier
     for (t <- subtrees)
       res = t augmentUnifier res
 
@@ -169,7 +169,7 @@ trait ProofTree {
 
     // make the unifier ground, assuming that we have at least
     // one constant available
-    val variables = allCCUVariables
+    val variables = allBREUVariables
     if (order.orderedConstants.isEmpty)
       throw new UnsupportedOperationException(
         "Need at least one declared constant to generate a proof")
@@ -185,9 +185,9 @@ trait ProofTree {
   protected def augmentUnifier(partialUnifier : Map[ConstantTerm, ConstantTerm])
                               : Map[ConstantTerm, ConstantTerm] = {
     var res =
-      if (unifiabilityChecked && ccUnifiableLocally)
+      if (unifiabilityChecked && breunifiableLocally)
         partialUnifier ++ (
-          for ((c, d) <- ccUnifier.iterator;
+          for ((c, d) <- breunifier.iterator;
                if (c != d || !(partialUnifier contains c)))
           yield (c -> d))
       else
@@ -200,21 +200,21 @@ trait ProofTree {
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
 
-  private lazy val ccuSolver : CCUSolver[ConstantTerm, Predicate] =
+  private lazy val breuSolver : BREUSolver[ConstantTerm, Predicate] =
     this match {
       case goal : Goal =>
-        Param.CCU_SOLVER(goal.settings) match {
+        Param.BREU_SOLVER(goal.settings) match {
           case Some(s) => s
           case None => null
         }
       case AndTree(left, right, _) => {
-        val s = left.ccuSolver
-        if (s == null) right.ccuSolver else s
+        val s = left.breuSolver
+        if (s == null) right.breuSolver else s
       }
-      case ProofTreeOneChild(subtree) => subtree.ccuSolver
+      case ProofTreeOneChild(subtree) => subtree.breuSolver
     }
 
-  protected[proof] lazy val usesCCU = ccuSolver != null
+  protected[proof] lazy val usesBREU = breuSolver != null
   protected[proof] lazy val constructingProofs : Boolean = this match {
     case goal : Goal =>
       Param.PROOF_CONSTRUCTION(goal.settings) ||
@@ -226,29 +226,29 @@ trait ProofTree {
       subtree.constructingProofs
   }
 
-  // private lazy val ccuSolvers : List[CCUSolver[ConstantTerm, Predicate]] =
-  //   List(new ccu.TableSolver[ConstantTerm, Predicate], 
-  //     new ccu.LazySolver[ConstantTerm, Predicate])
+  // private lazy val breuSolvers : List[BREUSolver[ConstantTerm, Predicate]] =
+  //   List(new breu.TableSolver[ConstantTerm, Predicate], 
+  //     new breu.LazySolver[ConstantTerm, Predicate])
 
   protected def unifiabilityString : String =
-    if (unifiabilityChecked && ccUnifiableLocally)
+    if (unifiabilityChecked && breunifiableLocally)
       "(unconditionally closable)"
-    else if (unifiabilityChecked && ccUnifiable)
+    else if (unifiabilityChecked && breunifiable)
       "(closable)"
     else
       "(unknown)"
 
-  protected lazy val ccuDiseqConstantFreedom : ConstantFreedom = {
+  protected lazy val breuDiseqConstantFreedom : ConstantFreedom = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ProofTree.AC, this.isInstanceOf[Goal])
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val (fullDomains, _, _, _) = ccuContextDomains
+    val (fullDomains, _, _, _) = breuContextDomains
     val goalProblem =
       constructUnificationProblem(this.asInstanceOf[Goal], fullDomains,
                                   new LinkedHashMap[IdealInt, ConstantTerm],
                                   0, true)
-    val instance = createCCUInstance(fullDomains, List(goalProblem))
+    val instance = createBREUInstance(fullDomains, List(goalProblem))
     
     val freeConstants = new MHashSet[ConstantTerm]
 
@@ -318,12 +318,12 @@ trait ProofTree {
     }
   }
 
-  private lazy val ccuContextDomains =
+  private lazy val breuContextDomains =
     domainsFromContext(bindingContext.constantSeq)
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private type CCUProblem =
+  private type BREUProblem =
     (Map[ConstantTerm, Set[ConstantTerm]],                 // domains
      List[List[(ConstantTerm, ConstantTerm)]],             // goals
      List[(Predicate, List[ConstantTerm], ConstantTerm)],  // function apps
@@ -378,12 +378,12 @@ trait ProofTree {
                     uniConsts : Set[ConstantTerm],
                     intLiteralConsts : MMap[IdealInt, ConstantTerm],
                     proofGoalStartIndex : Int)
-                   : (List[CCUProblem], Int) =
-    if (tree.unifiabilityChecked && tree.ccUnifiableLocally) {
+                   : (List[BREUProblem], Int) =
+    if (tree.unifiabilityChecked && tree.breunifiableLocally) {
       // then this subtree can be ignored, we have already
       // shown that it can be closed
       (List(), proofGoalStartIndex + tree.goalCount)
-    } else if (tree.unifiabilityChecked && !tree.ccUnifiable &&
+    } else if (tree.unifiabilityChecked && !tree.breunifiable &&
                ((0 until tree.goalCount) forall {
                   i => consideredGoals contains (proofGoalStartIndex + i) })) {
       // then there is a subtree that cannot be closed, and
@@ -391,7 +391,7 @@ trait ProofTree {
       // any solutions.
       // return problem with empty goal, which cannot be closed
       ((for (i <- 0 until tree.goalCount)
-        yield ((Map(), List(), List(), proofGoalStartIndex + i) : CCUProblem)).toList,
+        yield ((Map(), List(), List(), proofGoalStartIndex + i) : BREUProblem)).toList,
        proofGoalStartIndex + tree.goalCount)
     } else tree match {
 
@@ -447,7 +447,7 @@ trait ProofTree {
                     intLiteralConsts : MMap[IdealInt, ConstantTerm],
                     proofGoalStartIndex : Int,
                     skipGoals : Boolean)
-                   : CCUProblem = {
+                   : BREUProblem = {
         val funPreds = Param.FUNCTIONAL_PREDICATES(goal.settings)
         val predConj = goal.facts.predConj
 
@@ -508,10 +508,10 @@ trait ProofTree {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def createCCUInstance(
+  private def createBREUInstance(
                  globalDomains : Map[ConstantTerm, Set[ConstantTerm]],
-                 unificationProblems : List[CCUProblem])
-               : CCUInstance[ConstantTerm, Predicate] = {
+                 unificationProblems : List[BREUProblem])
+               : BREUInstance[ConstantTerm, Predicate] = {
 
     val domains = unificationProblems map (_._1)
     val goals =   unificationProblems map (_._2)
@@ -533,9 +533,9 @@ trait ProofTree {
       allDomains.put(c, consts)
     }
 
-    ap.util.Timer.measure("CCUSolver_createProblem") {
+    ap.util.Timer.measure("BREUSolver_createProblem") {
    // Console.withOut(ap.CmdlMain.NullStream) {
-      ccuSolver.createProblem(allDomains.toMap, goals, funApps)
+      breuSolver.createProblem(allDomains.toMap, goals, funApps)
        // }
     }
   }
@@ -543,7 +543,7 @@ trait ProofTree {
   //////////////////////////////////////////////////////////////////////////////
 
   private def constructUnificationProblems(consideredGoals : Set[Int])
-                : (List[CCUProblem], Iterable[ConstantTerm]) = {
+                : (List[BREUProblem], Iterable[ConstantTerm]) = {
     val intLiteralConstMap = new LinkedHashMap[IdealInt, ConstantTerm]
     val uniConsts =
       if (this.order.orderedConstants.isEmpty)
@@ -571,11 +571,11 @@ trait ProofTree {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def goalsAreCCUnifiable(consideredGoals : Set[Int])
+  def goalsAreBREUnifiable(consideredGoals : Set[Int])
                          : (Boolean, () => Seq[Int]) =
     if (consideredGoals.size == goalCount) {
       // then all goals are considered
-      (ccUnifiable, () => ccMinUnsolvableGoalSet)
+      (breunifiable, () => ccMinUnsolvableGoalSet)
     } else {
       Console.err.print("Trying to close goals ")
       
@@ -596,16 +596,16 @@ trait ProofTree {
                      if (goals.isEmpty))
                 yield num).toList)
       } else {
-        val (fullDomains, _, globalConsts, _) = ccuContextDomains
+        val (fullDomains, _, globalConsts, _) = breuContextDomains
 
 //      println("restricted domains:")
 //      println(restrictedDomains)
 
-        val instance = createCCUInstance(fullDomains, unificationProblems)
-        val res = ap.util.Timer.measure("CCUSolver_solve") {
+        val instance = createBREUInstance(fullDomains, unificationProblems)
+        val res = ap.util.Timer.measure("BREUSolver_solve") {
           instance.solve match {
-            case ccu.Result.UNKNOWN => throw new Exception("CCUsolver timeout!")
-            case result => result == ccu.Result.SAT
+            case breu.Result.UNKNOWN => throw new Exception("BREUsolver timeout!")
+            case result => result == breu.Result.SAT
           }
         }
         Console.err.println(res)
@@ -613,7 +613,7 @@ trait ProofTree {
         (res,
          () => try {
            val allGoals = (unificationProblems map (_._4)).toArray
-           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") {instance.unsatCore(1000)})
+           for (ind <- ap.util.Timer.measure("BREUSolver_unsatCore") {instance.unsatCore(1000)})
            yield allGoals(ind)
          } catch {
            case t : Throwable => {
@@ -654,24 +654,24 @@ trait ProofTree {
        None)
     } else {
       val (fullDomains, restrictedDomains, globalConsts, _) =
-        ccuContextDomains
+        breuContextDomains
 
       val preInstance =
-        createCCUInstance(restrictedDomains, unificationProblems)
-      if (ap.util.Timer.measure("CCUSolver_solve") {
+        createBREUInstance(restrictedDomains, unificationProblems)
+      if (ap.util.Timer.measure("BREUSolver_solve") {
             preInstance.solve
-          } == ccu.Result.SAT)
+          } == breu.Result.SAT)
         (true, true, () => throw new UnsupportedOperationException,
          Some(preInstance.getModel))
       else {
-        val instance = createCCUInstance(fullDomains, unificationProblems)
-        val solvable = ap.util.Timer.measure("CCUSolver_solve") {
-          instance.solve == ccu.Result.SAT
+        val instance = createBREUInstance(fullDomains, unificationProblems)
+        val solvable = ap.util.Timer.measure("BREUSolver_solve") {
+          instance.solve == breu.Result.SAT
         }
         (solvable, false,
          () => try {
            val allGoals = (unificationProblems map (_._4)).toArray
-           for (ind <- ap.util.Timer.measure("CCUSolver_unsatCore") { instance.unsatCore(1000) })
+           for (ind <- ap.util.Timer.measure("BREUSolver_unsatCore") { instance.unsatCore(1000) })
            yield allGoals(ind)
          } catch {
            case t : Throwable => {
