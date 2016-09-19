@@ -38,7 +38,7 @@ import ap.proof.tree._
 
 import scala.collection.mutable.{Stack, ArrayBuffer}
 
-object ExhaustiveCCUProver {
+object ExhaustiveBREUProver {
   
   private def AC = Debug.AC_PROVER
   
@@ -77,7 +77,7 @@ object ExhaustiveCCUProver {
  * the tree is expanded depth-first until it is exhaustive (which terminates
  * in the case of PA formulae, but not in general).
  */
-class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
+class ExhaustiveBREUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
   def this(preSettings : GoalSettings) = this(false, preSettings)
 
@@ -85,18 +85,18 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     var gs = preSettings
     gs = Param.USE_WEAKEN_TREE.set(gs, false)
     gs = Param.FULL_SPLITTING.set(gs, true)
-    gs = Param.CCU_SOLVER.set(gs,
-           Param.CCU_STRATEGY(gs) match {
-             case Param.CCUStrategyOptions.Table =>
-               Some(new ccu.TableSolver[ConstantTerm, Predicate](
+    gs = Param.BREU_SOLVER.set(gs,
+           Param.BREU_STRATEGY(gs) match {
+             case Param.BREUStrategyOptions.Table =>
+               Some(new breu.TableSolver[ConstantTerm, Predicate](
                       () => Timeout.check,
                       Param.CLAUSIFIER_TIMEOUT(gs)))
-             case Param.CCUStrategyOptions.Lazy =>
-               Some(new ccu.LazySolver[ConstantTerm, Predicate](
+             case Param.BREUStrategyOptions.Lazy =>
+               Some(new breu.LazySolver[ConstantTerm, Predicate](
                       () => Timeout.check,
                       Param.CLAUSIFIER_TIMEOUT(gs)))
-             case Param.CCUStrategyOptions.Bench =>
-               Some(new ccu.BenchSolver[ConstantTerm, Predicate](
+             case Param.BREUStrategyOptions.Bench =>
+               Some(new breu.BenchSolver[ConstantTerm, Predicate](
                       () => Timeout.check,
                       Param.CLAUSIFIER_TIMEOUT(gs)))
            })
@@ -107,7 +107,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
   
   private def ptfStoppingCond(goal : Goal) = {
     Timeout.check
-    ExhaustiveCCUProver ruleApplicationYield goal
+    ExhaustiveBREUProver ruleApplicationYield goal
   }
 
   private def addEliminatedEquations(t : ProofTree,
@@ -147,7 +147,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
   def apply(inputFor : Formula, signature : Signature) : ProofTree = {
     val order = signature.order
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ExhaustiveCCUProver.AC,
+    Debug.assertPre(ExhaustiveBREUProver.AC,
                     inputFor.variables.isEmpty &&
                     (order isSortingOf inputFor) &&
                     Seqs.disjoint(inputFor.constants, signature.nullaryFunctions))
@@ -172,7 +172,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 
   def extractCertificate(tree : ProofTree) : Certificate = {
     val cert = tree.getCertificate
-    val grounder = new ProofGrounder(tree.completeCCUnifier, settings)
+    val grounder = new ProofGrounder(tree.completeBREUnifier, settings)
     ProofMinimiser(grounder(cert))
   }
 
@@ -183,7 +183,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
    */
   def isValidConstraint(constraint : Conjunction, signature : Signature) : Boolean = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ExhaustiveCCUProver.AC,
+    Debug.assertPre(ExhaustiveBREUProver.AC,
                     Seqs.disjoint(constraint.constants, signature.nullaryFunctions))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
@@ -215,7 +215,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
 //    (tree.stepMeaningful || !tree.fixedConstantFreedom) &&
     // when proving in depth-first mode, a tree is expanded only as long as
     // its constraint is not satisfiable
-    (!depthFirst || !tree.ccUnifiable
+    (!depthFirst || !tree.breunifiable
 /*     (if (underConstraintWeakener)
         !(PresburgerTools isSatisfiable tree.closingConstraint)
       else
@@ -244,7 +244,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     Console.err.println("====== Entering fair expansion")
     
     Timeout.unfinished {
-      var cont : Boolean = !tree.ccUnifiable
+      var cont : Boolean = !tree.breunifiable
       if (cont) {
         val expansionStack = new Stack[ExpansionStackItem]
 
@@ -271,7 +271,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
               (for ((a, b) <- goalNumMapping.iterator; if (goalCore contains b))
                yield a).toSet
 
-            val (unifiable, newMinCore) = tree.goalsAreCCUnifiable(newGoalCore)
+            val (unifiable, newMinCore) = tree.goalsAreBREUnifiable(newGoalCore)
             if (unifiable) {
 
               // search in the stack for the next group of goals to be
@@ -283,7 +283,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
                 if (expansionStack.isEmpty) {
                   // then the whole subtree must be closable
                   //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  Debug.assertInt(ExhaustiveCCUProver.AC, tree.ccUnifiable)
+                  Debug.assertInt(ExhaustiveBREUProver.AC, tree.breunifiable)
                   //-END-ASSERTION-/////////////////////////////////////////////
                   cont = false
                   cont2 = false
@@ -295,7 +295,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
                                               if (core contains b))
                                          yield a).toSet
                     val (unifiable, newMinCore) =
-                      tree.goalsAreCCUnifiable(coreCandidate)
+                      tree.goalsAreBREUnifiable(coreCandidate)
                     if (!unifiable) {
                       cont2 = false
                       expansionStack push GoalMappingItem(cumGoalNumMapping)
@@ -314,8 +314,8 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
                 goalCore = newMinCore().toSet
 
                 //-BEGIN-ASSERTION-/////////////////////////////////////////////
-                Debug.assertInt(ExhaustiveCCUProver.AC,
-                                !tree.goalsAreCCUnifiable(goalCore)._1)
+                Debug.assertInt(ExhaustiveBREUProver.AC,
+                                !tree.goalsAreBREUnifiable(goalCore)._1)
                 //-END-ASSERTION-///////////////////////////////////////////////
 
                 if (goalCore.size != newGoalCore.size)
@@ -363,7 +363,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
     tree match {
 
       case PrefixedTree(_, _ : Goal) =>
-        if (tree.ccUnifiable) {
+        if (tree.breunifiable) {
           // we are finished here
           tree
         } else {
@@ -396,7 +396,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
                                     ConstantFreedom.BOTTOM))
           }
 
-        if (newLeft.ccUnifiable) {
+        if (newLeft.breunifiable) {
           val newRight =
             Timeout.unfinished {
             Console.err.println("depth " + (depth + 1))
@@ -410,7 +410,7 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
           val newTree =
             prefix(subtree.update(newLeft, newRight, ConstantFreedom.BOTTOM))
 
-          if (newRight.ccUnifiable)
+          if (newRight.breunifiable)
             expandFairUntilSat(newTree, false, signature, true)._1
           else
             newTree
@@ -454,17 +454,17 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
    */
   private def expandProofGoals(tree : ProofTree) : (ProofTree, Boolean) =
     if ((//tree.stepMeaningful && 
-         (!depthFirst || !tree.ccUnifiableLocally)))
+         (!depthFirst || !tree.breunifiableLocally)))
       tree match {
       
       case PrefixedTree(prefix, goal : Goal) => {
-        val freedomFixed = goal.ccuFixedConstantFreedom
+        val freedomFixed = goal.breuFixedConstantFreedom
         if (goal.stepPossible || !freedomFixed) {
           val newGoal =
             if (freedomFixed)
               goal
             else
-              goal updateConstantFreedom goal.ccuClosingConstantFreedom
+              goal updateConstantFreedom goal.breuClosingConstantFreedom
           (prefix(newGoal.step(ptf)), true)
         } else {
           (tree, false)
@@ -494,12 +494,12 @@ class ExhaustiveCCUProver(depthFirst : Boolean, preSettings : GoalSettings) {
       
       case PrefixedTree(prefix, goal : Goal) =>
         if ((goals contains oldStartIndex) &&
-            (goal.stepPossible || !goal.ccuFixedConstantFreedom)) {
+            (goal.stepPossible || !goal.breuFixedConstantFreedom)) {
           val newGoal =
-            if (goal.ccuFixedConstantFreedom)
+            if (goal.breuFixedConstantFreedom)
               goal
             else
-              goal updateConstantFreedom goal.ccuClosingConstantFreedom
+              goal updateConstantFreedom goal.breuClosingConstantFreedom
           val newTree = prefix(newGoal.step(ptf))
           val goalIndexMap =
             (for (i <- 0 until newTree.goalCount)
@@ -555,7 +555,7 @@ class ProofGrounder(rawSubstition : Map[ConstantTerm, ConstantTerm],
     case cert : CloseCertificate =>
       cert
 
-    case CCUCloseCertificate(assumed, o) => {
+    case BREUCloseCertificate(assumed, o) => {
       // we should be able to find a simple proof using the
       // ModelSearchProver
       val factDisjuncts = 
