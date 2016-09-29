@@ -38,9 +38,24 @@ object ProofSimplifier {
 
   private val AC = Debug.AC_INTERPOLATION
 
+  /**
+   * Simplify a tree-shaped certificate.
+   */
   def apply(cert : Certificate) : Certificate =
     weaken(mergeStrengthen(encode(cert, cert.assumedFormulas)) _1) _1
 //    weaken(encode(cert, cert.assumedFormulas)) _1
+
+  /**
+   * Simplify a dag certificate, as created by
+   * <code>DagCertificateConverter</code>
+   */
+  def apply(dagCert : Seq[Certificate]) : Seq[Certificate] = {
+    val cert1 = DagCertificateConverter inline dagCert
+    val cert2 = encode(cert1, cert1.assumedFormulas)
+    val cert3 = mergeStrengthen(cert2)._1
+    val cert4 = weaken(cert3)._1
+    List(cert4)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -370,7 +385,11 @@ object ProofSimplifier {
       subCert update newSubCerts
     }
   }
-  
+
+  /**
+   * Determine the inequalities that do not occur as assumed formulas of
+   * other sub-certificates.
+   */
   private def propagatedSubInEqs(subCerts : Seq[Certificate],
                                  subInEqs : Seq[Set[CertInequality]])
                                 : Set[CertInequality] = {

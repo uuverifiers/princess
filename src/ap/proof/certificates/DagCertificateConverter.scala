@@ -21,6 +21,7 @@
 
 package ap.proof.certificates;
 
+import ap.basetypes.IdealInt
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.util.Debug
@@ -44,6 +45,33 @@ object DagCertificateConverter {
     val daggifier = new DagCertificateConverter
     daggifier(cert)
   }
+
+  /**
+   * Convert an explicit dag certificate back to a normal tree-shaped
+   * certificate. Common sub-certificates will still be shared, so
+   * no exponential explosion occurs at this point.
+   */
+  def inline(dagCert : Seq[Certificate]) : Certificate = {
+    val inlinedCerts = new Array[Certificate] (dagCert.size)
+
+    def inlineHelp(cert : Certificate) : Certificate = cert match {
+      case ReferenceCertificate(id, _, _, _, _) =>
+        inlinedCerts(id)
+      case cert =>
+        cert update (cert.subCertificates map (inlineHelp _))
+    }
+
+    for (i <- 0 until dagCert.size)
+      inlinedCerts(i) = inlineHelp(dagCert(i))
+
+    inlinedCerts.last
+  }
+
+  /**
+   * Cumulative size of the certificate.
+   */
+  def size(dagCert : Seq[Certificate]) : IdealInt =
+    (for (c <- dagCert.iterator) yield c.inferenceCount).sum
 
   /**
    * Certificate representing a sub-proof that is stored at index

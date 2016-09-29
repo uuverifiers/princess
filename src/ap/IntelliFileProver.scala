@@ -21,10 +21,11 @@
 
 package ap;
 
+import ap.basetypes.IdealInt
 import ap.parser.Internal2InputAbsy
 import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
-import ap.proof.certificates.Certificate
+import ap.proof.certificates.{Certificate, DagCertificateConverter}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.{Seqs, Debug, Timeout}
@@ -105,7 +106,28 @@ class IntelliFileProver(reader : java.io.Reader,
       cert
     }
   }
-    
+
+/*
+  private def processCert(cert : Certificate) : Certificate = {
+    print("Found proof (size " + cert.inferenceCount)
+    val dagCert = DagCertificateConverter(cert)
+    print(", dag-size " + (DagCertificateConverter size dagCert) + ")")
+    if (Param.PROOF_SIMPLIFICATION(settings)) {
+      print(", simplifying ")
+      val simpDagCert = ProofSimplifier(dagCert)
+      print("(dag-size " + (DagCertificateConverter size simpDagCert) + ")")
+      val res = DagCertificateConverter inline simpDagCert
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(IntelliFileProver.AC,
+                      res.assumedFormulas subsetOf cert.assumedFormulas)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      res
+    } else {
+      cert
+    }
+  }
+  */
+  
   private def toIFormula(c : Conjunction) = {
     val raw = Internal2InputAbsy(c, functionEncoder.predTranslation)
     (new ArraySimplifier)(raw)
