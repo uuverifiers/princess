@@ -778,7 +778,17 @@ object IExpression {
         }
         
         case t@IPlus(_, _) => newSubExpr match {
+          case Seq(t : ITerm, IIntLit(IdealInt.ZERO)) => t
+          case Seq(IIntLit(IdealInt.ZERO), t : ITerm) => t
           case Seq(IIntLit(value1), IIntLit(value2)) => IIntLit(value1 + value2)
+          case Seq(s : IConstant, ITimes(IdealInt.MINUS_ONE, t : IConstant))
+            if (s == t) => IIntLit(IdealInt.ZERO)
+          case Seq(ITimes(IdealInt.MINUS_ONE, t : IConstant), s : IConstant)
+            if (s == t) => IIntLit(IdealInt.ZERO)
+          case Seq(s : IVariable, ITimes(IdealInt.MINUS_ONE, t : IVariable))
+            if (s == t) => IIntLit(IdealInt.ZERO)
+          case Seq(ITimes(IdealInt.MINUS_ONE, t : IVariable), s : IVariable)
+            if (s == t) => IIntLit(IdealInt.ZERO)
           case _ => t update newSubExpr
         }
     
