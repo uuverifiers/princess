@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2016 Philipp Ruemmer <ph_r@gmx.net>
  *               2010,2011 Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -22,8 +22,10 @@
 
 package ap.interpolants
 
-import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
+import scala.concurrent.{Future, ExecutionContext, Await}
+import scala.concurrent.duration.Duration
+import java.util.concurrent.Executors
+
 import scala.util.Sorting
 import scala.collection.mutable.ArrayBuffer
 
@@ -89,13 +91,14 @@ object WolverineInterfaceMain extends {
     println("-> Specify options using the environment variable \"WERE_PRINCESS_OPTIONS\"")
     println("-> Stop Princess with a \"quit.\" in a separate line")
 
-    val mainActor = Actor.self
+    implicit val ec =
+      ExecutionContext fromExecutor Executors.newCachedThreadPool
     
     while (true) {
       val stdinOutputStream = new java.io.PipedOutputStream
       val stdinInputStream = new java.io.PipedInputStream(stdinOutputStream)
 
-      actor {
+      val lastLine = Future {
         // Read from the standard input in a separate thread, so that
         // parsing can start simultaneously
         try {
@@ -106,25 +109,27 @@ object WolverineInterfaceMain extends {
               line = Console.in.readLine
             }
           }
+
+          stdinOutputStream.close
           
           line match {
-            case null | "quit." => java.lang.System.exit(0);
-            case _              => mainActor ! line
+            case null | "quit." => java.lang.System.exit(0); ""
+            case _              => line
           }
         } catch {
           case e : java.io.IOException => {
             println(e.getMessage)
             java.lang.System.exit(1)
+            ""
           }
         }
-        stdinOutputStream.close
       }
 
       val (transitionParts, sig) =
         parseAndSimplify(new java.io.BufferedReader (
                          new java.io.InputStreamReader(stdinInputStream)))
 
-      receive {
+      Await.result(lastLine, Duration.Inf) match {
         case "interpolate."   => doInterpolation(transitionParts, sig)
         case "checkValidity." => doCheckValidity(transitionParts, sig)
         case x : String       => {

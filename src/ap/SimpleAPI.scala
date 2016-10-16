@@ -45,8 +45,6 @@ import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
                                  LinkedHashMap, ArrayBuffer}
-import scala.actors.{Actor, DaemonActor, TIMEOUT}
-import scala.actors.Actor._
 import scala.concurrent.SyncVar
 
 import java.io.File
@@ -342,7 +340,7 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private object ProofActorStatus extends Enumeration {
+  private object ProofThreadStatus extends Enumeration {
     val Init, AtPartialModel, AtFullModel = Value
   }
   
@@ -361,7 +359,6 @@ object SimpleAPI {
   private case object RecheckCommand extends ProverCommand
   private case object DeriveFullModelCommand extends ProverCommand
   private case object ShutdownCommand extends ProverCommand
-  private case object StopCommand extends ProverCommand
 
   private abstract class ProverResult
   private case object UnsatResult extends ProverResult
@@ -476,7 +473,8 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   def shutDown : Unit = {
-    proofActor ! ShutdownCommand
+    proverCmd put ShutdownCommand
+    stopProofTask = true
     doDumpSMT {
       println("(exit)")
     }
@@ -548,7 +546,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentSimpCertificate = null
     lastStatus = ProverStatus.Sat
     validityMode = false
-    proofActorStatus = ProofActorStatus.Init
+    proofThreadStatus = ProofThreadStatus.Init
     currentPartitionNum = -1
     constructProofs = false
     mostGeneralConstraints = false
@@ -633,7 +631,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
     val c = new ConstantTerm(name)
     currentOrder = currentOrder extend c
-    restartProofActor
+    restartProofThread
     doDumpSMT {
       println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Int)")
     }
@@ -669,7 +667,7 @@ class SimpleAPI private (enableAssert : Boolean,
                 new ConstantTerm (prefix + i)
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
-    restartProofActor
+    restartProofThread
     cs
   }
 
@@ -845,7 +843,7 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
     currentOrder = currentOrder extend c
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -865,7 +863,7 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
     currentOrder = currentOrder extend cs.toSeq
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -907,7 +905,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addRelationHelp(p : IExpression.Predicate) : Unit = {
     currentOrder = currentOrder extendPred p
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -930,7 +928,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addRelationsHelp(ps : Iterable[IExpression.Predicate]) : Unit = {
     currentOrder = currentOrder extendPred ps.toSeq
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -1679,24 +1677,26 @@ class SimpleAPI private (enableAssert : Boolean,
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
         lastStatus = ProverStatus.Running
-        proverRes.unset
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
     
         flushTodo
         initProver
     
-        proofActorStatus match {
+        proofThreadStatus match {
 
-          case ProofActorStatus.AtPartialModel |
-               ProofActorStatus.AtFullModel => {
-            restartProofActor // mark that we are running again
+          case ProofThreadStatus.AtPartialModel |
+               ProofThreadStatus.AtFullModel => {
+            restartProofThread // mark that we are running again
 
             if (constructProofs)
               // Restart, but keep lemmas that have been derived previously
-              proofActor ! CheckSatCommand(currentProver, true, true)
+              proverCmd put CheckSatCommand(currentProver, true, true)
             else
-              // We can just add new formulas to the running proof actor,
+              // We can just add new formulas to the running proof thread,
               // without a complete restart
-              proofActor ! RecheckCommand
+              proverCmd put RecheckCommand
           }
 
           case _ =>
@@ -1723,9 +1723,9 @@ class SimpleAPI private (enableAssert : Boolean,
                                                    currentOrder sort uniConstants,
                                                    completeFor, currentOrder)
 
-              proofActor ! CheckValidityCommand(closedFor,
-                                                exhaustiveProverGoalSettings,
-                                                mostGeneralConstraints)
+              proverCmd put CheckValidityCommand(closedFor,
+                                                 exhaustiveProverGoalSettings,
+                                                 mostGeneralConstraints)
             } else if (allowShortCut && !constructProofs &&
                        currentProver.isObviouslyValid) {
               // no need to actually run the prover
@@ -1738,18 +1738,17 @@ class SimpleAPI private (enableAssert : Boolean,
               return lastStatus
             } else {
               // use a ModelCheckProver
-              proofActor ! CheckSatCommand(currentProver, constructProofs, false)
+              proverCmd put CheckSatCommand(currentProver, constructProofs,
+                                            false)
             }
             
         }
     
-        getStatusWithDeadline(block)    
+        getStatusWithDeadline(block)
       }
       
-      case ProverStatus.Running => {
-        assert(false)
-        ProverStatus.Error
-      }
+      case ProverStatus.Running =>
+        throw new IllegalStateException
         
       case s => s
     }
@@ -1779,9 +1778,11 @@ class SimpleAPI private (enableAssert : Boolean,
       checkTimeout
 
     lastStatus = ProverStatus.Running
-    proverRes.unset
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    proofActor ! NextModelCommand
+    proverCmd put NextModelCommand
     getStatusWithDeadline(block)
   }
 
@@ -1815,7 +1816,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def getStatusHelp(block : Boolean) : ProverStatus.Value = {
     if (lastStatus == ProverStatus.Running && (block || proverRes.isSet))
-      evalProverResult(proverRes.get)
+      evalProverResult(proverRes.take)
     lastStatus
   }
   
@@ -1832,9 +1833,13 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   private def getStatusHelp(timeout : Long) : ProverStatus.Value = {
-    if (lastStatus == ProverStatus.Running)
-      for (r <- proverRes.get(timeout))
-        evalProverResult(r)
+    if (lastStatus == ProverStatus.Running &&
+        // behaviour of SyncVar for timeout 0 is unclear
+        (if (timeout <= 0)
+           proverRes.isSet
+         else
+           (proverRes get timeout).isDefined))
+      evalProverResult(proverRes.take)
     lastStatus
   }
 
@@ -1859,12 +1864,12 @@ class SimpleAPI private (enableAssert : Boolean,
         case SatResult(m) => {
           currentModel = m
           lastStatus = getSatStatus
-          proofActorStatus = ProofActorStatus.AtFullModel
+          proofThreadStatus = ProofThreadStatus.AtFullModel
         }
         case SatPartialResult(m) => {
           currentModel = m
           lastStatus = getSatStatus
-          proofActorStatus = ProofActorStatus.AtPartialModel
+          proofThreadStatus = ProofThreadStatus.AtPartialModel
         }
         case InvalidResult =>
           // no model is available in this case
@@ -1941,8 +1946,15 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     getStatusHelp(false) match {
       case ProverStatus.Running => {
-        proofActor ! StopCommand
-        getStatusHelp(block)
+        // proverCmd put StopCommand
+        stopProofTask = true
+        if (block) {
+          val res = getStatusHelp(true)
+          stopProofTask = false
+          res
+        } else {
+          ProverStatus.Running
+        }
       }
       case res =>
         res
@@ -2420,11 +2432,15 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def ensureFullModel = {
     ensurePartialModel
-    while (proofActorStatus != ProofActorStatus.AtFullModel) {
+    while (proofThreadStatus != ProofThreadStatus.AtFullModel) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
       // let's get a complete model
       lastStatus = ProverStatus.Running
-      proverRes.unset
-      proofActor ! DeriveFullModelCommand
+      proofThreadStatus = ProofThreadStatus.Init
+      proverCmd put DeriveFullModelCommand
       getStatusWithDeadline(true)
     }
   }
@@ -2908,7 +2924,7 @@ class SimpleAPI private (enableAssert : Boolean,
           }
           
           case IAtom(p, Seq())
-            if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
+            if (proofThreadStatus == ProofThreadStatus.AtPartialModel) => {
             // then we will just extend the partial model with a default value
           
             implicit val o = order
@@ -3003,7 +3019,7 @@ class SimpleAPI private (enableAssert : Boolean,
           Left(true)
         else if (currentModel.predConj.negativeLitsAsSet contains a)
           Left(false)
-        else if (proofActorStatus != ProofActorStatus.AtFullModel) {
+        else if (proofThreadStatus != ProofThreadStatus.AtFullModel) {
           ensureFullModel
           if (currentModel.predConj.positiveLitsAsSet contains a)
             Left(true)
@@ -3046,7 +3062,8 @@ class SimpleAPI private (enableAssert : Boolean,
       if (getStatusHelp(false) == ProverStatus.Running) {
         // then something really bad happened, and we are in an inconsistent
         // state
-        proofActor ! ShutdownCommand
+        proverCmd put ShutdownCommand
+        stopProofTask = true
       } else {
         pop
       }
@@ -3123,7 +3140,7 @@ class SimpleAPI private (enableAssert : Boolean,
     validityMode = oldValidityMode
     lastStatus = oldStatus
     decoderDataCache.clear
-    proofActorStatus = ProofActorStatus.Init
+    proofThreadStatus = ProofThreadStatus.Init
     theoryPlugin = oldTheoryPlugin
     theoryCollector = oldTheories
     abbrevFunctions = oldAbbrevFunctions
@@ -3182,18 +3199,18 @@ class SimpleAPI private (enableAssert : Boolean,
     if (!axioms.isFalse)
       formulaeInProver = (-1, axioms) :: formulaeInProver
 
-    proofActorStatus match {
-      case ProofActorStatus.Init =>
+    proofThreadStatus match {
+      case ProofThreadStatus.Init =>
         // nothing
-      case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
+      case ProofThreadStatus.AtPartialModel | ProofThreadStatus.AtFullModel =>
         if (axioms.isFalse && (currentOrder eq currentProver.order)
             // completeFor.constants.isEmpty && axioms.isFalse &&
             // Seqs.disjoint(completeFor.predicates, abbrevPredicates.keySet)
             ) {
           // then we should be able to add this formula to the running prover
-          proofActor ! AddFormulaCommand(completeFor)
+          proverCmd put AddFormulaCommand(completeFor)
         } else {
-          restartProofActor
+          restartProofThread
         }
     }
       
@@ -3486,7 +3503,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def proverRecreationNecessary = {
     currentProver = null
     resetModel
-    restartProofActor
+    restartProofThread
   }
 
   private def initProver =
@@ -3494,20 +3511,22 @@ class SimpleAPI private (enableAssert : Boolean,
       currentProver = (ModelSearchProver emptyIncProver goalSettings)
                           .conclude(formulaeInProver.unzip._2, currentOrder)
   
-  private def restartProofActor =
-    (proofActorStatus = ProofActorStatus.Init)
+  private def restartProofThread =
+    (proofThreadStatus = ProofThreadStatus.Init)
   
   //////////////////////////////////////////////////////////////////////////////
   //
-  // Prover actor, for the hard work
+  // Prover thread, for the hard work
   
   private val proverRes = new SyncVar[ProverResult]
+  private val proverCmd = new SyncVar[ProverCommand]
+  private var stopProofTask = false
   private var lastStatus : ProverStatus.Value = _
   private var validityMode : Boolean = _
   
-  private var proofActorStatus : ProofActorStatus.Value = _
+  private var proofThreadStatus : ProofThreadStatus.Value = _
   
-  private val proofActor = new DaemonActor { def act : Unit = {
+  private val proofThread = new Thread(new Runnable { def run : Unit = {
     Debug enableAllAssertions enableAssert
     
     var cont = true
@@ -3518,7 +3537,7 @@ class SimpleAPI private (enableAssert : Boolean,
       var res : ModelSearchProver.SearchDirection = null
       var forsToAdd = List[Conjunction]()
               
-      while (res == null) receive {
+      while (res == null) proverCmd.take match {
         case DeriveFullModelCommand =>
           res = ModelSearchProver.DeriveFullModelDir
         case NextModelCommand =>
@@ -3529,7 +3548,7 @@ class SimpleAPI private (enableAssert : Boolean,
         case AddFormulaCommand(formula) =>
           forsToAdd = formula :: forsToAdd
         case c : ProverCommand => {
-          // get out of here
+          // get out of here, terminate the <code>ModelSearchProver</code> run
           nextCommand = c
           res = ModelSearchProver.ReturnSatDir
         }
@@ -3558,7 +3577,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
           p.checkValidityDir({
             case (model, false) => {
-              proverRes set SatPartialResult(model)
+              proverRes put SatPartialResult(model)
               directorWaitForNextCmd(order)
             }
             
@@ -3567,20 +3586,20 @@ class SimpleAPI private (enableAssert : Boolean,
               Debug.assertPre(AC, !model.isFalse)
               //-END-ASSERTION-/////////////////////////////////////////////////
               
-              proverRes set SatResult(model)
+              proverRes put SatResult(model)
               directorWaitForNextCmd(order)
             }
           }, lemmaBase)
         } { case _ => null } match {
 
           case null =>
-            proverRes set StoppedResult
+            proverRes put StoppedResult
           case Left(m) if (nextCommand == null) =>
-            proverRes set UnsatResult
+            proverRes put UnsatResult
           case Left(_) =>
             // nothing
           case Right(cert) =>
-            proverRes set UnsatCertResult(cert)
+            proverRes put UnsatCertResult(cert)
               
         }
       }
@@ -3598,43 +3617,35 @@ class SimpleAPI private (enableAssert : Boolean,
         } { case _ => null } match {
           
           case null =>
-            proverRes set StoppedResult
+            proverRes put StoppedResult
           case constraint =>
             if (constraint.isFalse) {
-              proverRes set InvalidResult
+              proverRes put InvalidResult
             } else {
-              val solution = ModelSearchProver(constraint.negate, constraint.order)
-              proverRes set FoundConstraintResult(constraint, solution)
+              val solution =
+                ModelSearchProver(constraint.negate, constraint.order)
+              proverRes put FoundConstraintResult(constraint, solution)
             }
             
         }
       }
-        
-      case StopCommand =>
-        proverRes set StoppedResult
+
       case ShutdownCommand =>
         cont = false
     }
     
-    Timeout.withChecker(() => receiveWithin(0) {
-      case StopCommand =>
-        Timeout.raise
-      case ShutdownCommand => {
-        cont = false
-        Timeout.raise
-      }
-      case TIMEOUT => // nothing
-    }) {
-            
+    Timeout.withChecker(() => if (stopProofTask) Timeout.raise) {
       while (cont)
         try {
+          stopProofTask = false
+
           // wait for a command on what to do next
           if (nextCommand != null) {
             val c = nextCommand
             nextCommand = null
             commandParser(c)
           } else {
-            receive(commandParser)
+            commandParser(proverCmd.take)
           }
         } catch {
           case t : Timeout =>
@@ -3642,20 +3653,22 @@ class SimpleAPI private (enableAssert : Boolean,
             throw t
           case _ : StackOverflowError | _ : OutOfMemoryError =>
             // hope that we are able to continue
-            proverRes set OutOfMemoryResult
+            proverRes put OutOfMemoryResult
           case _ : NoClassDefFoundError =>
             // this exception indicates a stack overflow as well,
             // but probably the system has to be restarted at this point
-            proverRes set OutOfMemoryResult
+            proverRes put OutOfMemoryResult
           case t : Throwable =>
             // hope that we are able to continue
-            proverRes set ExceptionResult(t)
+            proverRes put ExceptionResult(t)
         }
       
     }
-  }}
+  }})
 
-  proofActor.start
+  // the prover thread is not supposed to keep the whole system running
+  proofThread setDaemon true
+  proofThread.start
 
   //////////////////////////////////////////////////////////////////////////////
 

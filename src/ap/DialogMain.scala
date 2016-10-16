@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,8 +25,8 @@ import ap.parameters.{GlobalSettings, Param}
 import ap.util.CmdlParser
 
 import scala.collection.mutable.ArrayBuffer
-import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
+import scala.concurrent.{Future, ExecutionContext}
+import java.util.concurrent.Executors
 
 import java.io.File
 import javax.swing._
@@ -38,9 +38,6 @@ import javax.swing.event.{DocumentListener, DocumentEvent}
 object DialogMain {
   
   def main(args : Array[String]) : Unit = {
-    // since some of the actors in the dialog class use blocking file operations,
-    // we have to disable the actor-fork-join stuff to prevent deadlocks
-    sys.props += ("actors.enableForkJoin" -> "false")
     val dialog = new InputDialog
     // we assume that given arguments are files to be loaded
     for (s <- args)
@@ -85,8 +82,9 @@ object DialogUtil {
       def actionPerformed(e : ActionEvent) = action
     })
 
-  def updateTextField(outputField : JTextArea, stream : java.io.InputStream) =
-    actor {
+  def updateTextField(outputField : JTextArea, stream : java.io.InputStream)
+                     (implicit ec : ExecutionContext) =
+    Future {
       val buf = new StringBuffer
       var c = stream.read
       while (c != -1) {
@@ -129,6 +127,9 @@ object DialogUtil {
 class InputDialog extends JPanel {
 
   import DialogUtil._
+
+  private implicit val ec =
+    ExecutionContext fromExecutor Executors.newCachedThreadPool
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -724,7 +725,8 @@ class InputDialog extends JPanel {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
+abstract class PrincessPanel(menu : JPopupMenu)
+                            (implicit ec : ExecutionContext) extends JPanel {
 
   import DialogUtil._
 
@@ -881,7 +883,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
 
   optionField addActionListener (new ActionListener {
     def actionPerformed(e : ActionEvent) = {
-      if (currentProver == null)
+      if (!proverRunning)
         startProver
       }
     })
@@ -899,11 +901,11 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     goButton setToolTipText "Start proving (F1)"
   }
   
-  private var currentProver : Actor = null
+  private var proverRunning : Boolean = false
   private var proverStopRequested : Boolean = false
   
   def stopProver =
-    if (currentProver != null) {
+    if (proverRunning) {
       proverStopRequested = true
       goButton setEnabled false
       goButton setText "Stopping ..."
@@ -911,7 +913,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     }
   
   def startOrStopProver = 
-    if (currentProver == null) startProver else stopProver
+    if (!proverRunning) startProver else stopProver
   
   addActionListener(goButton) { startOrStopProver }
 
@@ -945,7 +947,8 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
     val logInputStream = new java.io.PipedInputStream(proverOutputStream)
     
     // start one thread for proving the problem
-    currentProver = actor {
+    proverRunning = true
+    Future {
       proverStopRequested = false
       
       Console.withOut(proverOutputStream) {
@@ -959,7 +962,7 @@ abstract class PrincessPanel(menu : JPopupMenu) extends JPanel {
       
       proverOutputStream.close
       doLater {
-        currentProver = null
+        proverRunning = false
         setGoButtonGo
         setFinished
       }

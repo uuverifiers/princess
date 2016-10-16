@@ -336,15 +336,17 @@ object SimpleAPITest extends App {
   part("Asynchronous interface")
   
   !! (true)
-  println(p checkSat false)  // non-blocking, Running
-  println(p getStatus false) // non-blocking, Running
-  println(p getStatus true)  // blocking, equivalent to println(??), Sat
+  println(p checkSat false)        // non-blocking, Running
+  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
+              ProverStatus.Running) contains (p getStatus false))
+  println(p getStatus true)        // blocking, equivalent to println(???), Sat
   
   part("Asynchronous interface, timeouts")
   
   !! (true)
   println(p checkSat false)  // non-blocking, Running
-  println(p getStatus false) // non-blocking, Running
+  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
+              ProverStatus.Running) contains (p getStatus false))
   println(p getStatus 30)    // blocking for up to 30ms, Sat
   p getStatus true
   

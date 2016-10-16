@@ -102,12 +102,12 @@ Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
 
 -- Asynchronous interface
 Running
-Running
+true
 Sat
 
 -- Asynchronous interface, timeouts
 Running
-Running
+true
 Sat
 
 -- Asynchronous interface, busy waiting
