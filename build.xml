@@ -11,7 +11,6 @@
     <property name="java.home" value="${env.JAVA_HOME}" />
     <property name="scala-library.jar" value="${scala.home}/lib/scala-library.jar" />
     <property name="scala-reflect.jar" value="${scala.home}/lib/scala-reflect.jar"/>
-    <property name="scala-actors.jar" value="${scala.home}/lib/scala-actors-2.11.0.jar"/>
     <property name="scala-parser-combinators.jar" value="${scala.home}/lib/scala-parser-combinators_2.11-1.0.4.jar"/>
     <property name="scala-compiler.jar" value="${scala.home}/lib/scala-compiler.jar" />
     <property name="scalac.default.params" value="-deprecation -unchecked" />
@@ -42,7 +41,6 @@
 		<path id="compile.classpath">
 			<pathelement location="${scala-library.jar}" />
                         <pathelement location="${scala-reflect.jar}"  />
-                        <pathelement location="${scala-actors.jar}"  />
                         <pathelement location="${scala-parser-combinators.jar}"  />
 			<pathelement location="parser/parser.jar" />
 			<pathelement location="smt-parser/smt-parser.jar" />

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,9 +24,9 @@ package ap
 import ap.parameters.GlobalSettings
 import ap.util.{Seqs, Debug, Timeout}
 
-import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
+import scala.concurrent.SyncVar
 import scala.collection.mutable.{PriorityQueue, ArrayBuffer}
+import java.util.concurrent.LinkedBlockingQueue
 
 object ParallelFileProver {
 
@@ -80,7 +80,8 @@ object ParallelFileProver {
    private class SubProverManager(val num : Int,
                                   createReader : () => java.io.Reader,
                                   config : Configuration,
-                                  mainActor : Actor,
+                                  messageQueue :
+                                    LinkedBlockingQueue[SubProverMessage],
                                   userDefStoppingCond : => Boolean) {
       var result : SubProverResult = null
       
@@ -92,6 +93,8 @@ object ParallelFileProver {
       var lastStartTime : Long = 0
       var targetedSuspendTime : Long = 0
       var activationCount : Int = 0
+
+      val subProverCommands = new SyncVar[SubProverCommand]
       
       def resume(nextDiff : Long) = {
         // First let each prover run for 3s, to solve simple problems without
@@ -101,7 +104,7 @@ object ParallelFileProver {
         lastStartTime = System.currentTimeMillis
         targetedSuspendTime = lastStartTime + nextPeriod
         activationCount = activationCount + 1
-        proofActor ! SubProverResume(targetedSuspendTime)
+        subProverCommands put SubProverResume(targetedSuspendTime)
       }
       
       /**
@@ -118,18 +121,21 @@ object ParallelFileProver {
           resume(currentTime - targetedSuspendTime)
           SuspensionIgnored
         } else if (runtime > localTimeout) {
-          proofActor ! SubProverStop
+          stopSubProver
           SuspensionTimeout
         } else {
           SuspensionGranted
         }
       }
-    
+
+      def stopSubProver : Unit =
+        subProverCommands put SubProverStop
+
       //////////////////////////////////////////////////////////////////////////
       
       private val enabledAssertions = Debug.enabledAssertions.value
 
-      lazy val proofActor = actor {
+      val proofThread = new Thread(new Runnable { def run : Unit = {
         Debug.enabledAssertions.value = enabledAssertions
     
         class MessageOutputStream(stream : Int) extends java.io.OutputStream {
@@ -137,7 +143,7 @@ object ParallelFileProver {
       
           def write(b : Int) =
             if (b == '\n') {
-              mainActor ! SubProverPrintln(num, line.toString, stream)
+              messageQueue put SubProverPrintln(num, line.toString, stream)
               line setLength 0
             } else {
               line append b.toChar
@@ -148,19 +154,18 @@ object ParallelFileProver {
           var runUntil : Long = 0
     
           def localStoppingCond : Boolean = actorStopped || {
-            receiveWithin(0) {
+            if (subProverCommands.isSet) subProverCommands.take match {
               case SubProverStop => actorStopped = true
               case SubProverResume(u) => runUntil = u
-              case TIMEOUT => // nothing
             }
       
             actorStopped || userDefStoppingCond || {
               if (System.currentTimeMillis > runUntil) {
 //              Console.err.println("suspending")
-              mainActor ! SubProverSuspended(num)
+              messageQueue put SubProverSuspended(num)
           
               var suspended = true
-              while (!actorStopped && suspended) receive {
+              while (!actorStopped && suspended) subProverCommands.take match {
                 case SubProverStop =>
                   actorStopped = true
                 case SubProverResume(u) => {
@@ -180,10 +185,10 @@ object ParallelFileProver {
         Console.setOut(new MessageOutputStream(1))
         Console.setErr(new MessageOutputStream(2))
       
-        receive {
+        subProverCommands.take match {
           case SubProverStop => {
 //            Console.err.println("killed right away")
-            mainActor ! SubProverKilled(num, Prover.TimeoutCounterModel)
+            messageQueue put SubProverKilled(num, Prover.TimeoutCounterModel)
           }
 
           case SubProverResume(u) => {
@@ -193,7 +198,8 @@ object ParallelFileProver {
             try {
               if (userDefStoppingCond) {
 //                Console.err.println("no time to start")
-                mainActor ! SubProverFinished(num, Prover.TimeoutCounterModel)
+                messageQueue put SubProverFinished(num,
+                                                   Prover.TimeoutCounterModel)
               } else {
                 val prover =
                   Timeout.withChecker({case x => ()}) {
@@ -205,21 +211,23 @@ object ParallelFileProver {
     
                 if (actorStopped) {
                   Console.err.println("stopped")
-                  mainActor ! SubProverKilled(num, prover.result)
+                  messageQueue put SubProverKilled(num, prover.result)
                 } else {
                   Console.err.println("found result")
-                  mainActor ! SubProverFinished(num, prover.result)
+                  messageQueue put SubProverFinished(num, prover.result)
                 }
               }
             } catch {
               case t : Throwable => {
                 Console.err.println("exception")
-                mainActor ! SubProverException(num, t)
+                messageQueue put SubProverException(num, t)
               }
             }
           }
         }
-      }
+      }})
+
+      def startSubProver : Unit = proofThread.start
     }
   
 }
@@ -262,10 +270,12 @@ class ParallelFileProver(createReader : () => java.io.Reader,
   
   val result : Prover.Result = {
     
+    val messageQueue = new LinkedBlockingQueue[SubProverMessage]
+
     val subProverManagers =
       (for ((s, num) <- settings.iterator.zipWithIndex)
        yield new SubProverManager(num, createReader, s,
-                                  Actor.self, userDefStoppingCond)).toArray
+                                  messageQueue, userDefStoppingCond)).toArray
     
     val subProversToSpawn = subProverManagers.iterator
     
@@ -303,7 +313,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       updateOffset
       val nextProver = subProversToSpawn.next
-      nextProver.proofActor   // start the actual prover
+      nextProver.startSubProver   // start the actual prover
       pendingProvers += nextProver
       spawnedProvers += nextProver
       runningProverNum = runningProverNum + 1
@@ -325,7 +335,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
     def resumeProver = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, !pendingProvers.isEmpty && pendingProvers.head.unfinished)
+      Debug.assertInt(AC, !pendingProvers.isEmpty &&
+                          pendingProvers.head.unfinished)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       pendingProvers.dequeue resume 1000
     }
@@ -339,14 +350,14 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     def stopAllProvers =
       for (manager <- spawnedProvers)
         if (manager.unfinished)
-          manager.proofActor ! SubProverStop
+          manager.stopSubProver
     
     ////////////////////////////////////////////////////////////////////////////
     
     resumeProver
     
     // the main loop of the controller    
-    while (runningProverNum > 0) receive {
+    while (runningProverNum > 0) messageQueue.take match {
       case r @ SubProverFinished(num, res) => {
         retireProver(num, r)
         if (inconclusiveResult(num, res)) {
@@ -397,7 +408,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
       case SubProverPrintln(num, line, 1) =>
         Console.out.println("Prover " + num + ": " + line)
-      case SubProverPrintln(num, line, 2) =>
+      case SubProverPrintln(num, line, _) =>
         Console.err.println("Prover " + num + ": " + line)
     }
     
