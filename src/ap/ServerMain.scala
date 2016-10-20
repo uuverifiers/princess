@@ -24,9 +24,6 @@ package ap;
 import ap.util.CmdlParser
 
 import scala.collection.mutable.ArrayBuffer
-import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
-
 import java.util.concurrent.Semaphore
 
 import java.net._
@@ -45,11 +42,6 @@ object ServerMain {
   //////////////////////////////////////////////////////////////////////////////
 
   def main(args : Array[String]) : Unit = {
-
-    // since some of the actors in the class use blocking file operations,
-    // we have to disable the actor-fork-join stuff to prevent deadlocks
-    sys.props += ("actors.enableForkJoin" -> "false")
-
     val predefPort = args match {
       case Array(CmdlParser.IntVal(v)) => Some(v)
       case _ => None
