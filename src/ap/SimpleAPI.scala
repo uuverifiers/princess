@@ -1676,8 +1676,7 @@ class SimpleAPI private (enableAssert : Boolean,
                            allowShortCut : Boolean) : ProverStatus.Value =
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
-        lastStatus = ProverStatus.Running
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
         //-END-ASSERTION-///////////////////////////////////////////////////////
     
@@ -1689,6 +1688,7 @@ class SimpleAPI private (enableAssert : Boolean,
           case ProofThreadStatus.AtPartialModel |
                ProofThreadStatus.AtFullModel => {
             restartProofThread // mark that we are running again
+            lastStatus = ProverStatus.Running
 
             if (constructProofs)
               // Restart, but keep lemmas that have been derived previously
@@ -1723,6 +1723,7 @@ class SimpleAPI private (enableAssert : Boolean,
                                                    currentOrder sort uniConstants,
                                                    completeFor, currentOrder)
 
+              lastStatus = ProverStatus.Running
               proverCmd put CheckValidityCommand(closedFor,
                                                  exhaustiveProverGoalSettings,
                                                  mostGeneralConstraints)
@@ -1738,6 +1739,7 @@ class SimpleAPI private (enableAssert : Boolean,
               return lastStatus
             } else {
               // use a ModelCheckProver
+              lastStatus = ProverStatus.Running
               proverCmd put CheckSatCommand(currentProver, constructProofs,
                                             false)
             }
@@ -1777,11 +1779,11 @@ class SimpleAPI private (enableAssert : Boolean,
     if (block)
       checkTimeout
 
-    lastStatus = ProverStatus.Running
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
+    lastStatus = ProverStatus.Running
     proverCmd put NextModelCommand
     getStatusWithDeadline(block)
   }
