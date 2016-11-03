@@ -1709,24 +1709,7 @@ class SimpleAPI private (enableAssert : Boolean,
                             "off proof construction and interpolation.")
               }
 
-              val completeFor = formulaeInProver match {
-                case List((_, f)) => f
-                case formulae => 
-                  ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-                    Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
-                                     currentOrder))
-              }
-
-              // explicitly quantify all universal variables
-              val uniConstants = completeFor.constants -- existentialConstants
-              val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                                   currentOrder sort uniConstants,
-                                                   completeFor, currentOrder)
-
-              lastStatus = ProverStatus.Running
-              proverCmd put CheckValidityCommand(closedFor,
-                                                 exhaustiveProverGoalSettings,
-                                                 mostGeneralConstraints)
+              startExhaustiveProver
             } else if (allowShortCut && !constructProofs &&
                        currentProver.isObviouslyValid) {
               // no need to actually run the prover
@@ -1754,6 +1737,27 @@ class SimpleAPI private (enableAssert : Boolean,
         
       case s => s
     }
+
+  private def startExhaustiveProver = {
+    val completeFor = formulaeInProver match {
+      case List((_, f)) => f
+      case formulae => 
+        ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+              Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
+                               currentOrder))
+    }
+
+    // explicitly quantify all universal variables
+    val uniConstants = completeFor.constants -- existentialConstants
+    val closedFor = Conjunction.quantify(Quantifier.ALL,
+                                         currentOrder sort uniConstants,
+                                         completeFor, currentOrder)
+
+    lastStatus = ProverStatus.Running
+    proverCmd put CheckValidityCommand(closedFor,
+                                       exhaustiveProverGoalSettings,
+                                       mostGeneralConstraints)
+  }
 
   /**
    * After a <code>Sat</code> result, continue searching for the next model.
@@ -2426,13 +2430,13 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
 
   private def ensurePartialModel =
-    if (currentModel == null) {
+    if (currentModel == null && !needExhaustiveProver) {
       // then we have to completely re-run the prover
       lastStatus = ProverStatus.Unknown
       checkSatHelp(true, false)
     }
 
-  private def ensureFullModel = {
+  private def ensureFullModel = if (!needExhaustiveProver) {
     ensurePartialModel
     while (proofThreadStatus != ProofThreadStatus.AtFullModel) {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -2898,8 +2902,48 @@ class SimpleAPI private (enableAssert : Boolean,
         // then we have to extend the model
   
         import TerForConvenience._
-  
-        f match {
+
+        if (needExhaustiveProver) {
+          // then we have to re-run the prover to check whether the
+          // given formula is consistent with our assertions
+
+          if (!Seqs.disjoint(reducedF.predicates, functionalPreds))
+            // to be on the safe side
+            throw NoModelException
+
+          pushHelp
+          val res = try {
+            if (currentModel != null)
+              addFormula(!LazyConjunction(currentModel)(currentOrder))
+            addFormula(!LazyConjunction(reducedF)(currentOrder))
+
+            flushTodo
+            startExhaustiveProver
+
+            getStatusHelp(true) match {
+              case ProverStatus.Sat | ProverStatus.Invalid =>
+                // then we can assume that the queried formula holds in
+                // the model
+                true
+              case ProverStatus.Unsat | ProverStatus.Valid =>
+                false
+              case _ =>
+                throw NoModelException
+            }
+          } finally {
+            popHelp
+          }
+
+          val modelComp =
+            if (res) reducedF else reducedF.negate
+          currentModel =
+            if (currentModel == null)
+              modelComp
+            else
+              Conjunction.conj(Array(currentModel, modelComp), currentOrder)
+
+          res
+        } else f match {
           case f if (currentOrder.orderedPredicates forall (_.arity == 0)) => {
             // then we can just set default values for all irreducible constants
             // and Boolean variables
@@ -3015,9 +3059,12 @@ class SimpleAPI private (enableAssert : Boolean,
     f match {
       case IAtom(p, args) if (args forall (_.isInstanceOf[IIntLit])) => {
         ensurePartialModel
-        val a = Atom(p, for (IIntLit(value) <- args) yield l(value), currentOrder)
+        val a = Atom(p, for (IIntLit(value) <- args)
+                        yield l(value), currentOrder)
 
-        if (currentModel.predConj.positiveLitsAsSet contains a)
+        if (currentModel == null)
+          Right(a)
+        else if (currentModel.predConj.positiveLitsAsSet contains a)
           Left(true)
         else if (currentModel.predConj.negativeLitsAsSet contains a)
           Left(false)
@@ -3035,17 +3082,22 @@ class SimpleAPI private (enableAssert : Boolean,
       case _ => {
         // more complex check by reducing the expression via the model
         ensureFullModel
+        val intF = toInternalNoAxioms(f, currentOrder)
 
-        val reduced =
-          ReduceWithConjunction(currentModel, functionalPreds, currentModel.order)(
-                                  toInternalNoAxioms(f, currentOrder))
+        if (currentModel == null) {
+          Right(intF)
+        } else {
+          val reduced =
+            ReduceWithConjunction(currentModel, functionalPreds,
+                                  currentModel.order)(intF)
 
-        if (reduced.isTrue)
-          Left(true)
-        else if (reduced.isFalse)
-          Left(false)
-        else
-          Right(reduced)
+          if (reduced.isTrue)
+            Left(true)
+          else if (reduced.isFalse)
+            Left(false)
+          else
+            Right(reduced)
+        }
       }
     }
   }
@@ -3076,6 +3128,18 @@ class SimpleAPI private (enableAssert : Boolean,
    * Add a new frame to the assertion stack.
    */
   def push : Unit = {
+    doDumpSMT {
+      println("(push 1)")
+    }
+    doDumpScala {
+      println
+      println("scope {")
+    }
+
+    pushHelp
+  }
+  
+  private def pushHelp : Unit = {
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
     initProver
@@ -3091,14 +3155,6 @@ class SimpleAPI private (enableAssert : Boolean,
                        theoryPlugin, theoryCollector.clone,
                        abbrevFunctions,
                        abbrevPredicates)
-    
-    doDumpSMT {
-      println("(push 1)")
-    }
-    doDumpScala {
-      println
-      println("scope {")
-    }
   }
   
   /**
@@ -3113,6 +3169,10 @@ class SimpleAPI private (enableAssert : Boolean,
       println
     }
 
+    popHelp
+  }
+
+  private def popHelp : Unit = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
