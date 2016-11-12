@@ -266,3 +266,23 @@ starting
 (mod (* (- 1) x )  (- 5))
 (_eps ((var0 Int)) (and (<= 0 var0 ) (or (= var0 x ) (= (* (- 1) var0 ) x ) ) ) ) 
 finished
+Vector(nil)
+Sat
+{c2 -> 2, c1 -> 0, c0 -> 42, list_depth(2) -> 1, list_depth(1) -> -1, list_depth(0) -> 0, list_ctor(2) -> 1, list_ctor(1) -> 0, list_ctor(0) -> 1, cons_1(2) -> 0, cons_1(0) -> 1, cons_0(2) -> 42, cons_0(0) -> 0, cons(42, 0) -> 2, cons(0, 1) -> 0, nil -> 1}
+Unsat
+Unsat
+Valid
+Valid
+Unsat
+Valid
+Valid
+Valid
+Invalid
+Unsat
+Vector(!(list_ctor(x) = 0))
+Unsat
+Vector(!(cons_0(x) = 0))
+Unsat
+Vector(((-42 + cons_0(x)) = 0))
+Unsat
+Vector(((-42 + cons_0(x)) = 0), !((-43 + cons_0(a)) = 0))

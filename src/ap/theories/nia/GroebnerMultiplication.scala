@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2016 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -31,7 +31,7 @@ import ap.proof.goal.Goal
 import ap.terfor.{TermOrder, ConstantTerm, OneTerm}
 import ap.terfor.TerForConvenience._
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.preds.Atom
+import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.arithconj.ArithConj
 import ap.basetypes.IdealInt
@@ -49,23 +49,12 @@ import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
 object GroebnerMultiplication extends MulTheory {
 
   val mul = new IFunction("mul", 2, true, false)
+  val _mul = new Predicate("mul", 3)
   val functions = List(mul)
+  val predicates = List(_mul)
 
-  val (predicates, axioms, totalityAxioms, _mul) = {
-    val functionEnc = new FunctionEncoder (true, false)
-    val predicates =
-      for (f <- functions) yield (functionEnc addFunction f)
-
-    val (axioms, _, functionTranslation) =
-      Theory.toInternal(true,
-        false,
-        TermOrder.EMPTY extendPred predicates,
-        functionEnc)
-
-    (predicates,
-      Conjunction.TRUE, /* axioms, */ Conjunction.TRUE,
-      functionTranslation(mul))
-  }
+  val axioms = Conjunction.TRUE
+  val totalityAxioms = Conjunction.TRUE
 
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val functionalPredicates = predicates.toSet

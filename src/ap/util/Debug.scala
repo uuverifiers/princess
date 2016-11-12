@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -82,8 +82,10 @@ object Debug {
   case object AC_COMPUTATION_LOGGER extends ASSERTION_CATEGORY
   case object AC_INTERPOLATION extends ASSERTION_CATEGORY
   case object AC_INTERPOLATION_IMPLICATION_CHECKS extends ASSERTION_CATEGORY
+  case object AC_THEORY extends ASSERTION_CATEGORY
   case object AC_PLUGIN extends ASSERTION_CATEGORY
   case object AC_NIA extends ASSERTION_CATEGORY
+  case object AC_ADT extends ASSERTION_CATEGORY
 
   private val everythingEnabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => true

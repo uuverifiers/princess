@@ -1,0 +1,413 @@
+/**
+ * This file is part of Princess, a theorem prover for Presburger
+ * arithmetic with uninterpreted predicates.
+ * <http://www.philipp.ruemmer.org/princess.shtml>
+ *
+ * Copyright (C) 2016 Philipp Ruemmer <ph_r@gmx.net>
+ *
+ * Princess is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Princess is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package ap.theories
+
+import ap.parser._
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
+                               NegatedConjunctions}
+import ap.terfor.{TermOrder, TerForConvenience, Formula}
+import ap.terfor.preds.Atom
+import ap.terfor.substitutions.VariableShiftSubst
+import ap.{SimpleAPI, PresburgerTools}
+import SimpleAPI.ProverStatus
+import ap.util.Debug
+
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
+
+object ADT {
+
+  private val AC = Debug.AC_ADT
+
+  abstract sealed class Sort
+  case object IntSort extends Sort
+  case class ADTSort(num : Int) extends Sort
+
+  case class CtorSignature(arguments : Seq[Sort], result : ADTSort)
+
+  class ADTException(m : String) extends Exception(m)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private abstract sealed class ADTPred
+  private case class ADTCtorPred(totalNum : Int,
+                                 sortNum : Int,
+                                 ctorInSortNum : Int) extends ADTPred
+  private case class ADTCtorIdPred(sortNum : Int) extends ADTPred
+
+}
+
+/**
+ * General theory solver for algebraic data-types.
+ */
+class ADT (sortNames : Seq[String],
+           ctorSignatures : Seq[(String, ADT.CtorSignature)]) extends Theory {
+
+  import ADT._
+  import IExpression.Predicate
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(AC,
+                   ctorSignatures forall {
+                     case (_, sig) =>
+                       (sig.arguments ++ List(sig.result)) forall {
+                         case ADTSort(id) => id >= 0 && id < sortNames.size
+                         case IntSort => true
+                       }
+                   })
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  val constructors : Seq[IFunction] =
+    for ((name, sig) <- ctorSignatures)
+    yield new IFunction(name, sig.arguments.size, true, false)
+
+  val selectors : Seq[Seq[IFunction]] =
+    for (ctor <- constructors) yield {
+      for (i <- 0 until ctor.arity)
+      yield new IFunction(ctor.name + "_" + i, 1, true, false)
+    }
+
+  val ctorIds =
+    for (name <- sortNames)
+    yield new IFunction(name + "_ctor", 1, true, false)
+
+  val termDepth =
+    for (name <- sortNames)
+    yield new IFunction(name + "_depth", 1, true, false)
+
+  private val ctorId2PerSortId : IndexedSeq[Int] = {
+    val adtCtorNums = Array.fill[Int](sortNames.size)(0)
+    (for ((_, CtorSignature(_, ADTSort(sortNum))) <- ctorSignatures)
+     yield {
+       val id = adtCtorNums(sortNum)
+       adtCtorNums(sortNum) = id + 1
+       id
+     }).toIndexedSeq
+  }
+
+  /**
+   * Query the constructor type of a term; the given <code>id</code>
+   * is the position of a constructor in the sequence
+   * <code>ctorSignatures</code>.
+   */
+  def hasCtor(t : ITerm, id : Int) : IFormula = {
+    import IExpression._
+    val (_, CtorSignature(_, ADTSort(sortNum))) = ctorSignatures(id)
+
+    ctorIds(sortNum)(t) === ctorId2PerSortId(id)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val functions: Seq[ap.parser.IFunction] =
+    constructors ++ selectors.flatten ++ ctorIds ++ termDepth
+
+  val (predicates, axioms, _, functionTranslation) =
+    Theory.genAxioms(theoryFunctions = functions)
+
+  val totalityAxioms = Conjunction.TRUE
+
+  val functionPredicateMapping =
+    functions zip (functions map functionTranslation)
+
+  val functionalPredicates: Set[ap.parser.IExpression.Predicate] =
+    predicates.toSet
+
+  def plugin: Option[ap.proof.theoryPlugins.Plugin] = None
+
+  val predicateMatchConfig: ap.Signature.PredicateMatchConfig = Map()
+  val triggerRelevantFunctions: Set[ap.parser.IFunction] = Set()
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  val constructorPreds =
+    constructors map functionTranslation
+
+  private val constructorPredsPerSort : IndexedSeq[Seq[Predicate]] = {
+    val map =
+      (constructorPreds zip ctorSignatures) groupBy {
+        case (_, (_, CtorSignature(_, ADTSort(sortNum)))) => sortNum
+      }
+    (for (i <- 0 until sortNames.size) yield (map get i) match {
+       case Some(ctors) => ctors map (_._1)
+       case None => List()
+     }).toIndexedSeq
+  }
+
+  private val globalCtorIdsPerSort : IndexedSeq[Seq[Int]] = {
+    val map =
+      ctorSignatures.zipWithIndex groupBy {
+        case ((_, CtorSignature(_, ADTSort(sortNum))), n) => sortNum
+      }
+    (for (i <- 0 until sortNames.size) yield (map get i) match {
+       case Some(ctors) => ctors map (_._2)
+       case None => List()
+     }).toIndexedSeq
+  }
+
+  val selectorPreds =
+    for (sels <- selectors) yield {
+      sels map functionTranslation
+    }
+
+  val ctorIdPreds =
+    ctorIds map functionTranslation
+
+  val termDepthPreds =
+    termDepth map functionTranslation
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Verify that all of the sorts are inhabited, and compute witness terms
+
+  val witnesses : Seq[ITerm] = {
+    val witnesses = Array.fill[ITerm](sortNames.size)(null)
+
+    val sortedCtors = (constructors zip ctorSignatures) sortBy (_._1.arity)
+
+    var changed = true
+    while (changed) {
+      changed = false
+      for ((ctor, (_, CtorSignature(argSorts, ADTSort(resNum)))) <- sortedCtors)
+        if (witnesses(resNum) == null &&
+            (argSorts forall {
+               case ADTSort(n) => witnesses(n) != null
+               case IntSort => true
+             })) {
+          witnesses(resNum) = IFunApp(ctor, for (s <- argSorts) yield s match {
+                                              case ADTSort(n) => witnesses(n)
+                                              case IntSort => IExpression.i(0)
+                                            })
+          changed = true
+        }
+    }
+
+    (witnesses indexOf null) match {
+      case -1 => // nothing
+      case n =>
+        throw new ADTException("ADT " + sortNames(n) + " is uninhabited")
+    }
+
+    witnesses.toVector
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Compute cardinality of domains, to handle finite ADTs
+  // ...
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def toString =
+    "ADT(" + (ctorSignatures map (_._1)).mkString(", ") + ")"
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val adtPreds = new MHashMap[Predicate, ADTPred]
+  private val adtCtorNums = Array.fill[Int](sortNames.size)(0)
+
+  for ((p, i) <- ctorIdPreds.iterator.zipWithIndex)
+    adtPreds.put(p, ADTCtorIdPred(i))
+
+  for ((p, i) <- constructorPreds.iterator.zipWithIndex) {
+    val (_, CtorSignature(_, ADTSort(sortNum))) = ctorSignatures(i)
+    val ctorInSortNum = adtCtorNums(sortNum)
+    adtCtorNums(sortNum) = ctorInSortNum + 1
+    adtPreds.put(p, ADTCtorPred(i, sortNum, ctorInSortNum))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def preprocess(f : Conjunction,
+                          order : TermOrder) : Conjunction = {
+//println
+//println("Preprocessing:")
+//println(f)
+    implicit val _ = order
+    val after = preprocessHelp(f, false)
+//println(" -> " + after)
+    val after2 = ReduceWithConjunction(Conjunction.TRUE,
+                                       functionalPredicates,
+                                       order)(after)
+//println(" -> " + after2)
+//println
+   after2
+  }
+
+  private def fullCtorConjunction(ctorNum : Int,
+                                  sortNum : Int,
+                                  ctorInSortNum : Int,
+                                  arguments : Seq[LinearCombination],
+                                  node : LinearCombination)
+                                 (implicit order : TermOrder)
+                               : (Seq[Atom],
+                                  Seq[Formula]) = {
+    import TerForConvenience._
+
+    val ctorRel = constructorPreds(ctorNum)(arguments ++ List(node))
+    val ctorId = ctorIdPreds(sortNum)(List(node, l(ctorInSortNum)))
+
+    val selectorRels =
+      for ((sel, arg) <- selectorPreds(ctorNum).iterator zip arguments.iterator)
+      yield sel(List(node, arg))
+
+    val adtArgs =
+      for ((arg, ADTSort(sortN)) <-
+           arguments zip ctorSignatures(ctorNum)._2.arguments)
+      yield (arg, sortN)
+
+    val depthRels =
+      if (adtArgs.isEmpty) {
+        List()
+      } else {
+        val subst = VariableShiftSubst(0, adtArgs.size + 1, order)
+
+        val nodeDepth =
+          termDepthPreds(sortNum)(List(subst(node), l(v(0))))
+        val argDepths =
+          for (((a, n), i) <- adtArgs.zipWithIndex)
+          yield termDepthPreds(n)(List(subst(a), l(v(i+1))))
+        val depthRels =
+          for (i <- 1 to adtArgs.size) yield (v(i) < v(0))
+        val matrix =
+          conj(List(nodeDepth) ++ argDepths ++ depthRels)
+        List(exists(adtArgs.size + 1, matrix))
+      }
+            
+    (List(ctorRel, ctorId) ++ selectorRels, depthRels)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def preprocessHelp(f : Conjunction,
+                             negated : Boolean)
+                            (implicit order : TermOrder) : Conjunction = {
+    import TerForConvenience._
+
+    val newNegConj =
+      f.negatedConjs.update(for (c <- f.negatedConjs)
+                              yield preprocessHelp(c, !negated),
+                            order)
+
+    if (negated) {
+      val newConjuncts = new ArrayBuffer[Formula]
+
+      val newPosLits =
+        (for (a <- f.predConj.positiveLits.iterator;
+              b <- (adtPreds get a.pred) match {
+
+                case Some(ADTCtorPred(i, sortNum, ctorInSortNum)) => {
+                  val (atoms, fors) =
+                    fullCtorConjunction(i, sortNum, ctorInSortNum,
+                                        a dropRight 1, a.last)
+                  newConjuncts ++= fors
+                  atoms.iterator
+                }
+
+                case Some(ADTCtorIdPred(sortNum)) => {
+                  val node = a.head
+                  val id = a.last
+
+                  newConjuncts +=
+                    disj(for ((ctorNum, n) <- globalCtorIdsPerSort(sortNum)
+                                                .iterator.zipWithIndex) yield {
+                      val varNum = constructors(ctorNum).arity
+                      val shiftSubst = VariableShiftSubst(0, varNum, order)
+
+                      val (a, b) = fullCtorConjunction(
+                                     ctorNum,
+                                     sortNum,
+                                     n,
+                                     for (i <- 0 until varNum) yield l(v(i)),
+                                     shiftSubst(node))
+
+                      exists(varNum, conj(a ++ b ++ List(shiftSubst(id) === n)))
+                    })
+
+                  Iterator single a
+                }
+
+                case None =>
+                  Iterator single a
+
+              })
+         yield b).toVector
+
+      val newPredConj =
+        f.predConj.updateLits(newPosLits, f.predConj.negativeLits)
+
+      if (newConjuncts.isEmpty) {
+        Conjunction(f.quans, f.arithConj, newPredConj, newNegConj, order)
+      } else {
+        val quantifiedParts =
+          PresburgerTools toPrenex conj(newConjuncts)
+        val newQuanNum = quantifiedParts.quans.size
+
+        val unquantifiedParts =
+          VariableShiftSubst(0, newQuanNum, order)(
+            Conjunction(List(), f.arithConj, newPredConj, newNegConj, order))
+
+        Conjunction.quantify(
+          quantifiedParts.quans ++ f.quans,
+          conj(List(quantifiedParts unquantify newQuanNum, unquantifiedParts)),
+          order)
+      }
+
+    } else {
+
+      val newDisjuncts = new ArrayBuffer[Conjunction]
+
+      val newNegLits =
+        f.predConj.negativeLits filter { a =>
+          if (adtPreds contains a.pred) {
+            newDisjuncts += preprocessHelp(a, true)
+            false
+          } else {
+            // keep this literal
+            true
+          }
+        }
+
+      val newPredConj =
+        f.predConj.updateLits(f.predConj.positiveLits, newNegLits)
+
+      val finalNegConj =
+        if (newDisjuncts.isEmpty)
+          newNegConj
+        else
+          NegatedConjunctions(newNegConj ++ newDisjuncts, order)
+
+      Conjunction(f.quans, f.arithConj, newPredConj, finalNegConj, order)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def isSoundForSat(
+         theories : Seq[Theory],
+         config : Theory.SatSoundnessConfig.Value) : Boolean =
+    theories.size == 1 &&
+    (Set(Theory.SatSoundnessConfig.Elementary,
+         Theory.SatSoundnessConfig.Existential) contains config)
+
+  //////////////////////////////////////////////////////////////////////////////
+  TheoryRegistry register this
+
+}

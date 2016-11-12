@@ -60,4 +60,6 @@ scala $OPTIONS deadlock.scala
 scala $OPTIONS exception.scala
 scala $OPTIONS incremental.scala
 scala $OPTIONS divmodprint.scala
+scala $OPTIONS ADTTest.scala
+scala $OPTIONS ADTTest2.scala
 

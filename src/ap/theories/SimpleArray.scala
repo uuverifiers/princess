@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -81,15 +81,13 @@ class SimpleArray private (arity : Int) extends Theory {
   
   val functions = List(select, store)
 
-  val (predicates, axioms, totalityAxioms) = {
-    val (axioms, _, functionTranslation) =
-      Theory.toInternal(Parser2InputAbsy.arrayAxioms(arity, select, store),
-                        false,
-                        TermOrder.EMPTY)
-    (List(functionTranslation(select), functionTranslation(store)),
-     axioms,
-     Conjunction.TRUE)
-  }
+  val (predicates, axioms, _, _) =
+    Theory.genAxioms(theoryFunctions = functions,
+                     theoryAxioms =
+                       Parser2InputAbsy.arrayAxioms(arity, select, store))
+
+  val functionPredicateMapping = functions zip predicates
+  val totalityAxioms = Conjunction.TRUE
 
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
@@ -97,9 +95,6 @@ class SimpleArray private (arity : Int) extends Theory {
   val triggerRelevantFunctions : Set[IFunction] = functions.toSet
 
   val functionalPredicates = predicates.toSet
-
-  val functionPredicateMapping =
-    List((select, predicates(0)), (store, predicates(1)))
 
   val plugin = None
 

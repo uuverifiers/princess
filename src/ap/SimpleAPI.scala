@@ -2277,11 +2277,19 @@ class SimpleAPI private (enableAssert : Boolean,
   private def addTheoryAxioms = {
     val theoryAxioms = checkNewTheories
     if (!theoryAxioms.isEmpty) {
+      // directly add the axioms to the prover, to avoid
+      // further processing
+
+      for (f <- theoryAxioms)
+        addToProver(Conjunction.FALSE, f)
+
+/*
       val oldPartitionNum = currentPartitionNum
       setPartitionNumberHelp(-1)
       for (f <- theoryAxioms)
         addFormulaHelp(LazyConjunction(f)(currentOrder))
       setPartitionNumberHelp(oldPartitionNum)
+*/
     }
   }
 
@@ -3253,8 +3261,11 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addToProver(preCompleteFor : Conjunction,
                           preAxioms : Conjunction) : Unit = {
-    val completeFor = convertQuantifiers(preCompleteFor)
-    val axioms = convertQuantifiers(preAxioms)
+    val completeFor =
+      convertQuantifiers(Theory.preprocess(preCompleteFor, theories,
+                                           currentOrder))
+    val axioms =
+      convertQuantifiers(preAxioms)
 
     if (!completeFor.isFalse)
       formulaeInProver = (currentPartitionNum, completeFor) :: formulaeInProver

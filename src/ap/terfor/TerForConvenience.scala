@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -148,6 +148,13 @@ object TerForConvenience {
   def forall(f : Formula)(implicit order : TermOrder) : Conjunction =
     Conjunction.quantify(List(Quantifier.ALL), f, order)
 
+  /**
+   * Quantify the variables with De Brujin-index [0, ..., n)
+   */
+  def forall(n : Int, f : Formula)(implicit order : TermOrder) : Conjunction =
+    Conjunction.quantify(for (_ <- 0 until n) yield Quantifier.ALL,
+                         f, order)
+
   def exists(constants : Seq[ConstantTerm], f : Formula)
             (implicit order : TermOrder) : Conjunction =
     Conjunction.quantify(Quantifier.EX, constants, f, order)
@@ -161,6 +168,13 @@ object TerForConvenience {
    */
   def exists(f : Formula)(implicit order : TermOrder) : Conjunction =
     Conjunction.quantify(List(Quantifier.EX), f, order)
+
+  /**
+   * Quantify the variables with De Brujin-index [0, ..., n)
+   */
+  def exists(n : Int, f : Formula)(implicit order : TermOrder) : Conjunction =
+    Conjunction.quantify(for (_ <- 0 until n) yield Quantifier.EX,
+                         f, order)
 
   //////////////////////////////////////////////////////////////////////////////
 
