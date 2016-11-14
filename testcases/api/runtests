@@ -7,6 +7,8 @@ rm -f *.class
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin"
 RUNOPTIONS="-cp `pwd`/../../bin:."
 
+export JAVA_OPTS="-Xss20000k -Xmx1500m"
+
 scalac $OPTIONS SimpleAPITest.scala
 scala $RUNOPTIONS SimpleAPITest
 

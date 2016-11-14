@@ -2455,7 +2455,16 @@ class SimpleAPI private (enableAssert : Boolean,
       lastStatus = ProverStatus.Running
       proofThreadStatus = ProofThreadStatus.Init
       proverCmd put DeriveFullModelCommand
-      getStatusWithDeadline(true)
+      getStatusWithDeadline(true) match {
+        case ProverStatus.Error =>
+          throw new SimpleAPIException(
+            "Error while building full model")
+        case ProverStatus.OutOfMemory =>
+          throw new SimpleAPIException(
+            "Out-of-memory error while building full model")
+        case _ =>
+          // nothing
+      }
     }
   }
 

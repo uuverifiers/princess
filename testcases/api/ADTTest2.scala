@@ -44,8 +44,9 @@
     import p._
 
     val x = createConstant("x")
+    val y = createConstant("y")
     val a = createConstant("a")
-    val y, z, b, c, d = createConstant
+    val z, b, c, d = createConstant
 
     import IExpression._
 
@@ -94,6 +95,30 @@
       !! (a === cons(c, d))
       !! (c === 43)
 
+      println(???)
+      println(getInterpolants(List(Set(1), Set(2), Set(3))))
+    }
+
+    scope {
+      setPartitionNumber(1)
+      !! (x === nil())
+      setPartitionNumber(2)
+      !! (y === nil())
+      setPartitionNumber(3)
+      ?? (x === y)
+      
+      println(???)
+      println(getInterpolants(List(Set(1), Set(2), Set(3))))
+    }
+
+    scope {
+      setPartitionNumber(1)
+      !! (x === cons(1, cons(2, nil())))
+      setPartitionNumber(2)
+      !! (y === cons(1, cons(2, nil())))
+      setPartitionNumber(3)
+      ?? (x === y)
+      
       println(???)
       println(getInterpolants(List(Set(1), Set(2), Set(3))))
     }
