@@ -42,7 +42,7 @@ object ADT {
   case object IntSort extends Sort
   case class ADTSort(num : Int) extends Sort
 
-  case class CtorSignature(arguments : Seq[Sort], result : ADTSort)
+  case class CtorSignature(arguments : Seq[(String, Sort)], result : ADTSort)
 
   class ADTException(m : String) extends Exception(m)
 
@@ -56,8 +56,10 @@ object ADT {
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 /**
- * General theory solver for algebraic data-types.
+ * Theory solver for algebraic data-types.
  */
 class ADT (sortNames : Seq[String],
            ctorSignatures : Seq[(String, ADT.CtorSignature)]) extends Theory {
@@ -69,7 +71,7 @@ class ADT (sortNames : Seq[String],
   Debug.assertCtor(AC,
                    ctorSignatures forall {
                      case (_, sig) =>
-                       (sig.arguments ++ List(sig.result)) forall {
+                       ((sig.arguments map (_._2)) ++ List(sig.result)) forall {
                          case ADTSort(id) => id >= 0 && id < sortNames.size
                          case IntSort => true
                        }
@@ -81,9 +83,9 @@ class ADT (sortNames : Seq[String],
     yield new IFunction(name, sig.arguments.size, true, false)
 
   val selectors : Seq[Seq[IFunction]] =
-    for (ctor <- constructors) yield {
-      for (i <- 0 until ctor.arity)
-      yield new IFunction(ctor.name + "_" + i, 1, true, false)
+    for ((_, sig) <- ctorSignatures) yield {
+      for ((name, _) <- sig.arguments)
+      yield new IFunction(name, 1, true, false)
     }
 
   val ctorIds =
@@ -189,13 +191,14 @@ class ADT (sortNames : Seq[String],
       for ((ctor, (_, CtorSignature(argSorts, ADTSort(resNum)))) <- sortedCtors)
         if (witnesses(resNum) == null &&
             (argSorts forall {
-               case ADTSort(n) => witnesses(n) != null
-               case IntSort => true
+               case (_, ADTSort(n)) => witnesses(n) != null
+               case (_, IntSort) => true
              })) {
-          witnesses(resNum) = IFunApp(ctor, for (s <- argSorts) yield s match {
-                                              case ADTSort(n) => witnesses(n)
-                                              case IntSort => IExpression.i(0)
-                                            })
+          witnesses(resNum) =
+            IFunApp(ctor, for (s <- argSorts) yield s match {
+                            case (_, ADTSort(n)) => witnesses(n)
+                            case (_, IntSort) => IExpression.i(0)
+                          })
           changed = true
         }
     }
@@ -269,7 +272,7 @@ class ADT (sortNames : Seq[String],
       yield sel(List(node, arg))
 
     val adtArgs =
-      for ((arg, ADTSort(sortN)) <-
+      for ((arg, (_, ADTSort(sortN))) <-
            arguments zip ctorSignatures(ctorNum)._2.arguments)
       yield (arg, sortN)
 

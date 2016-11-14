@@ -268,7 +268,7 @@ starting
 finished
 Vector(nil)
 Sat
-{c2 -> 2, c1 -> 0, c0 -> 42, list_depth(2) -> 1, list_depth(1) -> -1, list_depth(0) -> 0, list_ctor(2) -> 1, list_ctor(1) -> 0, list_ctor(0) -> 1, cons_1(2) -> 0, cons_1(0) -> 1, cons_0(2) -> 42, cons_0(0) -> 0, cons(42, 0) -> 2, cons(0, 1) -> 0, nil -> 1}
+{c2 -> 2, c1 -> 0, c0 -> 42, list_depth(2) -> 1, list_depth(1) -> -1, list_depth(0) -> 0, list_ctor(2) -> 1, list_ctor(1) -> 0, list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 42, head(0) -> 0, cons(42, 0) -> 2, cons(0, 1) -> 0, nil -> 1}
 Unsat
 Unsat
 Valid
@@ -281,11 +281,11 @@ Invalid
 Unsat
 Vector(!(list_ctor(x) = 0))
 Unsat
-Vector(!(cons_0(x) = 0))
+Vector(!(head(x) = 0))
 Unsat
-Vector(((-42 + cons_0(x)) = 0))
+Vector(((-42 + head(x)) = 0))
 Unsat
-Vector(((-42 + cons_0(x)) = 0), !((-43 + cons_0(a)) = 0))
+Vector(((-42 + head(x)) = 0), !((-43 + head(a)) = 0))
 Valid
 Vector(((nil + -1 * x) = 0), ((y + -1 * x) = 0))
 Valid

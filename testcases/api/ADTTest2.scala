@@ -34,11 +34,13 @@
 
   val listADT =
     new ADT (List("list"),
-             List(("nil", CtorSignature(List(), ADTSort(0))),
-                  ("cons", CtorSignature(List(IntSort, ADTSort(0)), ADTSort(0)))))
+             List(("nil",  CtorSignature(List(), ADTSort(0))),
+                  ("cons", CtorSignature(List(("head", IntSort),
+                                              ("tail", ADTSort(0))),
+                  ADTSort(0)))))
 
   val Seq(nil, cons) = listADT.constructors
-  val Seq(_, Seq(cons_0, cons_1)) = listADT.selectors
+  val Seq(_, Seq(head, tail)) = listADT.selectors
 
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
@@ -67,7 +69,7 @@
       !! (x === cons(y, z))
       !! (y > 0)
       setPartitionNumber(2)
-      !! (cons_0(x) === 0)
+      !! (head(x) === 0)
 
       println(???)
       println(getInterpolants(List(Set(1), Set(2))))
@@ -90,7 +92,7 @@
       !! (x === cons(y, z))
       !! (y === 42)
       setPartitionNumber(2)
-      !! (a === cons(cons_0(x) - 1, x))
+      !! (a === cons(head(x) - 1, x))
       setPartitionNumber(3)
       !! (a === cons(c, d))
       !! (c === 43)

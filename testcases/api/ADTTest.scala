@@ -33,11 +33,13 @@
 
   val listADT =
     new ADT (List("list"),
-             List(("nil", CtorSignature(List(), ADTSort(0))),
-                  ("cons", CtorSignature(List(IntSort, ADTSort(0)), ADTSort(0)))))
+             List(("nil",  CtorSignature(List(), ADTSort(0))),
+                  ("cons", CtorSignature(List(("head", IntSort),
+                                              ("tail", ADTSort(0))),
+                  ADTSort(0)))))
 
   val Seq(nil, cons) = listADT.constructors
-  val Seq(_, Seq(cons_0, cons_1)) = listADT.selectors
+  val Seq(_, Seq(head, tail)) = listADT.selectors
 
   println(listADT.witnesses)
 
@@ -55,7 +57,7 @@
     import IExpression._
     scope {
       !! (cons(x, cons(y, nil())) === z)
-      !! (cons_0(z) === 42)
+      !! (head(z) === 42)
 
       println(expect(???, ProverStatus.Sat))
       println(partialModel)
@@ -74,7 +76,7 @@
 
     scope {
       !! (listADT.hasCtor(x, 1))
-      ?? (x === cons(cons_0(x), cons_1(x)))
+      ?? (x === cons(head(x), tail(x)))
       println(expect(???, ProverStatus.Valid))
     }
 
