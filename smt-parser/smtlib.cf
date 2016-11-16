@@ -37,6 +37,11 @@ SetInfoCommand.         Command         ::= "(" "set-info" Annotation ")";
 SortDeclCommand. 	Command	        ::= "(" "declare-sort" Symbol Numeral ")";
 SortDefCommand. 	Command	        ::= "(" "define-sort" Symbol
                                                 "(" [Symbol] ")" Sort ")";
+DataDeclsCommand.       Command         ::= "(" "declare-datatypes"
+                                                "(" [PolySortC] ")"
+                                                "(" [MaybeParDataDecl] ")" ")";
+DataDeclCommand.        Command         ::= "(" "declare-datatype" Symbol
+                                                "(" [ConstructorDeclC] ")" ")";
 FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
                                                 "(" MESorts ")" Sort ")";
 ConstDeclCommand.	Command	        ::= "(" "declare-const" Symbol Sort ")";
@@ -80,6 +85,23 @@ separator nonempty Sort "";
 
 SomeSorts.      MESorts         ::= [Sort];
 NoSorts.        MESorts         ::= ;
+
+--------------------------------------------------------------------------------
+-- Algebraic data-types and their declarations
+
+ConstructorDecl.   ConstructorDeclC ::= "(" Symbol [SelectorDeclC] ")";
+separator nonempty ConstructorDeclC "";
+
+SelectorDecl.      SelectorDeclC    ::= "(" Symbol Sort ")";
+separator SelectorDeclC "";
+
+PolySort.          PolySortC        ::= "(" Symbol Numeral ")";
+separator nonempty PolySortC "";
+
+MonoDataDecl.      MaybeParDataDecl ::= "(" [ConstructorDeclC] ")";
+ParDataDecl.       MaybeParDataDecl ::= "(" "par" "(" [Symbol] ")"
+                                            "(" [ConstructorDeclC] ")" ")";
+separator nonempty MaybeParDataDecl "";
 
 --------------------------------------------------------------------------------
 -- Terms

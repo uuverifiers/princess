@@ -182,27 +182,36 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         (for (INamedPart(n, f) <- inputFormulas.iterator)
          yield (n -> Conjunction.conj(InputAbsy2Internal(f, order), order)))
       val reducedNamedParts =
-        for ((n, c) <- rawNamedParts) yield n match {
-          case PartName.NO_NAME =>
-            (PartName.NO_NAME ->
-             convertQuantifiers(
-               reducer(Conjunction.disj(List(theoryAxioms, c), order))))
-          case n =>
-            (n -> convertQuantifiers(reducer(c)))
+        for ((n, c) <- rawNamedParts) yield {
+          val redC = Theory.preprocess(reducer(c), signature.theories, order)
+          n match {
+            case PartName.NO_NAME =>
+              (PartName.NO_NAME ->
+                convertQuantifiers(
+                  Conjunction.disj(List(theoryAxioms, redC), order)))
+            case n =>
+              (n -> convertQuantifiers(redC))
+          }
         }
 
       (reducedNamedParts,
        for (n <- allPartNames) yield reducedNamedParts(n),
        checkMatchedTotalFunctions(rawNamedParts map (_._2)),
        ignoredQuantifiers)
+       
     } else {
+    
       // merge everything into one formula
       val rawF =
         InputAbsy2Internal(
           IExpression.or(for (f <- inputFormulas.iterator)
                          yield (IExpression removePartName f)), order)
-      val f = convertQuantifiers(
-                reducer(Conjunction.disjFor(List(theoryAxioms, rawF), order)))
+      val redF = Theory.preprocess(reducer(Conjunction.conj(rawF, order)),
+                                   signature.theories, order)
+      
+      val f =
+        convertQuantifiers(Conjunction.disj(List(theoryAxioms, redF), order))
+
       (Map(PartName.NO_NAME -> f),
        List(f),
        checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))),

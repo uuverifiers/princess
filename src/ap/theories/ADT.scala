@@ -30,9 +30,10 @@ import ap.terfor.preds.Atom
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
-import ap.util.Debug
+import ap.util.{Debug, UnionSet, LazyMappedSet}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
+import scala.collection.{Set => GSet}
 
 object ADT {
 
@@ -49,9 +50,12 @@ object ADT {
   //////////////////////////////////////////////////////////////////////////////
 
   private abstract sealed class ADTPred
-  private case class ADTCtorPred(totalNum : Int,
-                                 sortNum : Int,
-                                 ctorInSortNum : Int) extends ADTPred
+  private case class ADTCtorPred  (totalNum : Int,
+                                   sortNum : Int,
+                                   ctorInSortNum : Int) extends ADTPred
+  private case class ADTSelPred   (ctorNum : Int,
+                                   selNum : Int,
+                                   sortNum : Int) extends ADTPred
   private case class ADTCtorIdPred(sortNum : Int) extends ADTPred
 
 }
@@ -236,6 +240,12 @@ class ADT (sortNames : Seq[String],
     adtPreds.put(p, ADTCtorPred(i, sortNum, ctorInSortNum))
   }
 
+  for ((preds, ctorNum) <- selectorPreds.iterator.zipWithIndex) {
+    val (_, CtorSignature(_, ADTSort(sortNum))) = ctorSignatures(ctorNum)
+    for ((p, selNum) <- preds.iterator.zipWithIndex)
+      adtPreds.put(p, ADTSelPred(ctorNum, selNum, sortNum))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   override def preprocess(f : Conjunction,
@@ -244,7 +254,7 @@ class ADT (sortNames : Seq[String],
 //println("Preprocessing:")
 //println(f)
     implicit val _ = order
-    val after = preprocessHelp(f, false)
+    val after = preprocessHelp(f, false, Set())
 //println(" -> " + after)
     val after2 = ReduceWithConjunction(Conjunction.TRUE,
                                        functionalPredicates,
@@ -297,16 +307,71 @@ class ADT (sortNames : Seq[String],
     (List(ctorRel, ctorId) ++ selectorRels, depthRels)
   }
 
+  private def ctorDisjunction(sortNum : Int,
+                              node : LinearCombination,
+                              id : LinearCombination)
+                             (implicit order : TermOrder) : Conjunction = {
+    import TerForConvenience._
+
+    disj(for ((ctorNum, n) <- globalCtorIdsPerSort(sortNum)
+                                          .iterator.zipWithIndex) yield {
+      val varNum = constructors(ctorNum).arity
+      val shiftSubst = VariableShiftSubst(0, varNum, order)
+
+      val (a, b) = fullCtorConjunction(
+                             ctorNum,
+                             sortNum,
+                             n,
+                             for (i <- 0 until varNum) yield l(v(i)),
+                             shiftSubst(node))
+
+      exists(varNum, conj(a ++ b ++ List(shiftSubst(id) === n)))
+    })
+  }
+  
   //////////////////////////////////////////////////////////////////////////////
 
   private def preprocessHelp(f : Conjunction,
-                             negated : Boolean)
+                             negated : Boolean,
+                             guardedNodes : GSet[LinearCombination])
                             (implicit order : TermOrder) : Conjunction = {
     import TerForConvenience._
 
+    val quanNum = f.quans.size
+    val shiftedGuardedNodes =
+      if (quanNum == 0)
+        guardedNodes
+      else
+        new LazyMappedSet(
+          guardedNodes,
+          VariableShiftSubst.upShifter[LinearCombination](quanNum, order),
+          VariableShiftSubst.downShifter[LinearCombination](quanNum, order))
+
+    val newGuardedNodes : Set[LinearCombination] =
+      if (negated)
+        (for (a <- f.predConj.positiveLits.iterator;
+              b <- (adtPreds get a.pred) match {
+                case Some(_ : ADTCtorPred) =>
+                  Iterator single a.last
+                case Some(_ : ADTCtorIdPred) =>
+                  Iterator single a.head
+                case _ =>
+                  Iterator.empty
+              })
+         yield b).toSet
+      else
+        Set()
+
+    val allGuardedNodes =
+      if (newGuardedNodes.isEmpty)
+        shiftedGuardedNodes
+      else
+        UnionSet(shiftedGuardedNodes, newGuardedNodes)
+
     val newNegConj =
       f.negatedConjs.update(for (c <- f.negatedConjs)
-                              yield preprocessHelp(c, !negated),
+                              yield preprocessHelp(c, !negated,
+                                                   allGuardedNodes),
                             order)
 
     if (negated) {
@@ -325,24 +390,21 @@ class ADT (sortNames : Seq[String],
                 }
 
                 case Some(ADTCtorIdPred(sortNum)) => {
-                  val node = a.head
-                  val id = a.last
+                  newConjuncts += ctorDisjunction(sortNum, a.head, a.last)
+                  Iterator single a
+                }
 
-                  newConjuncts +=
-                    disj(for ((ctorNum, n) <- globalCtorIdsPerSort(sortNum)
-                                                .iterator.zipWithIndex) yield {
-                      val varNum = constructors(ctorNum).arity
-                      val shiftSubst = VariableShiftSubst(0, varNum, order)
+                case Some(ADTSelPred(ctorNum, selNum, sortNum)) => {
+                  if (!(allGuardedNodes contains a.head)) {
+                    // for completeness, we need to add a predicate about
+                    // the possible constructors of the considered term
 
-                      val (a, b) = fullCtorConjunction(
-                                     ctorNum,
-                                     sortNum,
-                                     n,
-                                     for (i <- 0 until varNum) yield l(v(i)),
-                                     shiftSubst(node))
-
-                      exists(varNum, conj(a ++ b ++ List(shiftSubst(id) === n)))
-                    })
+                    val ctorDisj =
+                      ctorDisjunction(sortNum,
+                                      VariableShiftSubst(0, 1, order)(a.head),
+                                      l(v(0)))
+                    newConjuncts += exists(ctorDisj)
+                  }
 
                   Iterator single a
                 }
@@ -380,7 +442,7 @@ class ADT (sortNames : Seq[String],
       val newNegLits =
         f.predConj.negativeLits filter { a =>
           if (adtPreds contains a.pred) {
-            newDisjuncts += preprocessHelp(a, true)
+            newDisjuncts += preprocessHelp(a, true, allGuardedNodes)
             false
           } else {
             // keep this literal

@@ -101,6 +101,12 @@
       ?? (x =/= nil())
       println(expect(???, ProverStatus.Valid))
     }
+
+    scope {
+      !! (x =/= nil())
+      !! (x =/= cons(head(x), tail(x)))
+      println(expect(???, ProverStatus.Unsat))
+    }
     }
 
     scope {

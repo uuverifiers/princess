@@ -30,7 +30,7 @@ import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
-import ap.theories.SimpleArray
+import ap.theories.{SimpleArray, ADT}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import smtlib._
 import smtlib.Absyn._
@@ -895,6 +895,52 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case cmd : SortDeclCommand if (incremental) =>
         unsupported
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : DataDeclCommand => {
+        ensureEnvironmentCopy
+
+        val name = asString(cmd.symbol_)
+        val smtDataSort = SMTInteger // TODO
+
+        val (adtCtors, smtCtorArgs) =
+          (for (ctor <- cmd.listconstructordeclc_) yield {
+             val ctorDecl = ctor.asInstanceOf[ConstructorDecl]
+             val ctorName = asString(ctorDecl.symbol_)
+
+             val (adtArgs, smtArgs) =
+               (for (s <- ctorDecl.listselectordeclc_) yield {
+                  val selDecl = s.asInstanceOf[SelectorDecl]
+                  val selName = asString(selDecl.symbol_)
+
+                  val (adtSort, smtSort) =
+                    if ((printer print selDecl.sort_) == name)
+                      (ADT.ADTSort(0), smtDataSort)
+                    else
+                      (ADT.IntSort, translateSort(selDecl.sort_))
+
+                  ((selName, adtSort), smtSort)
+                }).unzip
+
+             ((ctorName, ADT.CtorSignature(adtArgs, ADT.ADTSort(0))),
+              smtArgs)
+           }).unzip
+
+        val datatype = new ADT (List(name), adtCtors)
+
+        // add adt symbols to the environment
+        for ((f, args) <-
+             datatype.constructors.iterator zip smtCtorArgs.iterator)
+          env.addFunction(f, SMTFunctionType(args.toList, smtDataSort))
+
+        for ((sels, args) <-
+             datatype.selectors.iterator zip smtCtorArgs.iterator)
+          for ((f, arg) <- sels.iterator zip args.iterator)
+            env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
+
+        success
+      }
 
       //////////////////////////////////////////////////////////////////////////
 

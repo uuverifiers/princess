@@ -230,6 +230,14 @@ Constructing countermodel ...
 
 unsat
 
+Loading datatype.smt2 ...
+Warning: treating sort Color as Int
+Warning: treating sort Color as Int
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat
@@ -386,6 +394,28 @@ Loading eval-exhaustive.smt2 ...
 sat
 ((PRED2 true))
 (((not PRED2) false))
+Loading datatype2.smt2 ...
+Warning: treating sort List as Int
+Warning: treating sort List as Int
+unsat
+unsat
+sat
+((y 2) (y2 1))
+sat
+unsat
+Loading datatype3.smt2 ...
+Warning: treating sort Tree as Int
+Warning: treating sort Tree as Int
+sat
+sat
+(((data (right x)) 42))
+unsat
+sat
+((y 43) (y2 43))
+unsat
+((= (data x ) 1 ) )
+unsat
+((not (= leaf (right x ) ) ) )
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
 Preprocessing ...
 Proving ...
