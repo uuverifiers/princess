@@ -416,6 +416,32 @@ unsat
 ((= (data x ) 1 ) )
 unsat
 ((not (= leaf (right x ) ) ) )
+Loading datatype3b.smt2 ...
+Warning: treating sort Tree as Int
+Warning: treating sort Tree as Int
+sat
+sat
+(((data (right x)) 42))
+unsat
+sat
+((y 43) (y2 43))
+unsat
+((= (data x ) 1 ) )
+unsat
+((not (= leaf (right x ) ) ) )
+Loading datatype3c.smt2 ...
+Warning: treating sort Tree as Int
+Warning: treating sort Tree as Int
+Warning: treating sort Tree as Int
+sat
+sat
+(((data (head (children x))) 42))
+unsat
+unsat
+sat
+((y2 42))
+unsat
+((not (= (tail (children x ) ) nil ) ) )
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
 Preprocessing ...
 Proving ...

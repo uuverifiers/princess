@@ -905,28 +905,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         val smtDataSort = SMTInteger // TODO
 
         val (adtCtors, smtCtorArgs) =
-          (for (ctor <- cmd.listconstructordeclc_) yield {
-             val ctorDecl = ctor.asInstanceOf[ConstructorDecl]
-             val ctorName = asString(ctorDecl.symbol_)
-
-             val (adtArgs, smtArgs) =
-               (for (s <- ctorDecl.listselectordeclc_) yield {
-                  val selDecl = s.asInstanceOf[SelectorDecl]
-                  val selName = asString(selDecl.symbol_)
-
-                  val (adtSort, smtSort) =
-                    if ((printer print selDecl.sort_) == name)
-                      (ADT.ADTSort(0), smtDataSort)
-                    else
-                      (ADT.IntSort, translateSort(selDecl.sort_))
-
-                  ((selName, adtSort), smtSort)
-                }).unzip
-
-             ((ctorName, ADT.CtorSignature(adtArgs, ADT.ADTSort(0))),
-              smtArgs)
-           }).unzip
-
+          translateDataCtorList(List(name), 0, cmd.listconstructordeclc_)
         val datatype = new ADT (List(name), adtCtors)
 
         // add adt symbols to the environment
@@ -935,9 +914,61 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           env.addFunction(f, SMTFunctionType(args.toList, smtDataSort))
 
         for ((sels, args) <-
-             datatype.selectors.iterator zip smtCtorArgs.iterator)
-          for ((f, arg) <- sels.iterator zip args.iterator)
-            env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
+               datatype.selectors.iterator zip smtCtorArgs.iterator;
+             (f, arg) <-
+               sels.iterator zip args.iterator)
+          env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
+
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : DataDeclsCommand => {
+        ensureEnvironmentCopy
+
+        val smtDataSort = SMTInteger // TODO
+
+        val sortNames =
+          for (sortc <- cmd.listpolysortc_) yield {
+            val sort = sortc.asInstanceOf[PolySort]
+            if (sort.numeral_.toInt != 0)
+              throw new Parser2InputAbsy.TranslationException(
+                "Polymorphic algebraic data-types are not supported yet")
+            asString(sort.symbol_)
+          }
+
+        val allCtors =
+          for ((maybedecl, sortNum) <-
+                 cmd.listmaybepardatadecl_.zipWithIndex) yield {
+            val decl = maybedecl match {
+              case d : MonoDataDecl => d
+              case _ : ParDataDecl =>
+                throw new Parser2InputAbsy.TranslationException(
+                  "Polymorphic algebraic data-types are not supported yet")
+            }
+            translateDataCtorList(sortNames, sortNum,
+                                  decl.listconstructordeclc_)  
+          }
+
+        val adtCtors = (allCtors map (_._1)).flatten
+        val datatype = new ADT (sortNames, adtCtors)
+
+        // add adt symbols to the environment
+        val smtCtorFunctionTypes =
+          for (((_, args), num) <- allCtors.zipWithIndex;
+               args2 <- args.iterator)
+          yield SMTFunctionType(args2.toList, smtDataSort)
+
+        for ((f, smtType) <-
+             datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
+          env.addFunction(f, smtType)
+
+        for ((sels, smtType) <-
+               datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
+             (f, arg) <-
+               sels.iterator zip smtType.arguments.iterator)
+          env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
 
         success
       }
@@ -2227,7 +2258,37 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  private def translateDataCtorList(sortNames : Seq[String],
+                                    resultSortNum : Int,
+                                    constructorDecls : Seq[ConstructorDeclC])
+                : (Seq[(String, ADT.CtorSignature)], Seq[Seq[SMTType]]) =
+    (for (ctor <- constructorDecls) yield {
+       val ctorDecl = ctor.asInstanceOf[ConstructorDecl]
+       val ctorName = asString(ctorDecl.symbol_)
+
+       val (adtArgs, smtArgs) =
+         (for (s <- ctorDecl.listselectordeclc_) yield {
+            val selDecl = s.asInstanceOf[SelectorDecl]
+            val selName = asString(selDecl.symbol_)
+
+            val (adtSort, smtSort) =
+              (sortNames indexOf (printer print selDecl.sort_)) match {
+                case -1 =>
+                  (ADT.IntSort, translateSort(selDecl.sort_))
+                case ind =>
+                  (ADT.ADTSort(ind), SMTInteger)
+              }
+
+            ((selName, adtSort), smtSort)
+          }).unzip
+
+        ((ctorName, ADT.CtorSignature(adtArgs, ADT.ADTSort(resultSortNum))),
+         smtArgs)
+     }).unzip
   
+  //////////////////////////////////////////////////////////////////////////////
+
   protected def asFormula(expr : (IExpression, SMTType)) : IFormula = expr match {
     case (expr : IFormula, SMTBool) =>
       expr
