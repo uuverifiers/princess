@@ -549,7 +549,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     (if (warnOnly) ", ignoring it" else "")
 
   /**
-   * Check whether the given expression should never be inline,
+   * Check whether the given expression should never be inlined,
    * e.g., because it is too big. This method is meant to be
    * redefinable in subclasses
    */
@@ -904,20 +904,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         val name = asString(cmd.symbol_)
         val smtDataSort = SMTInteger // TODO
 
+        val sortNames = List(name)
         val (adtCtors, smtCtorArgs) =
-          translateDataCtorList(List(name), 0, cmd.listconstructordeclc_)
-        val datatype = new ADT (List(name), adtCtors)
+          translateDataCtorList(sortNames, 0, cmd.listconstructordeclc_)
 
-        // add adt symbols to the environment
-        for ((f, args) <-
-             datatype.constructors.iterator zip smtCtorArgs.iterator)
-          env.addFunction(f, SMTFunctionType(args.toList, smtDataSort))
-
-        for ((sels, args) <-
-               datatype.selectors.iterator zip smtCtorArgs.iterator;
-             (f, arg) <-
-               sels.iterator zip args.iterator)
-          env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
+        setupADT(sortNames, List((adtCtors, smtCtorArgs)))
 
         success
       }
@@ -951,24 +942,36 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                   decl.listconstructordeclc_)  
           }
 
-        val adtCtors = (allCtors map (_._1)).flatten
-        val datatype = new ADT (sortNames, adtCtors)
+        setupADT(sortNames, allCtors)
 
-        // add adt symbols to the environment
-        val smtCtorFunctionTypes =
-          for (((_, args), num) <- allCtors.zipWithIndex;
-               args2 <- args.iterator)
-          yield SMTFunctionType(args2.toList, smtDataSort)
+        success
+      }
 
-        for ((f, smtType) <-
-             datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
-          env.addFunction(f, smtType)
+      //////////////////////////////////////////////////////////////////////////
 
-        for ((sels, smtType) <-
-               datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
-             (f, arg) <-
-               sels.iterator zip smtType.arguments.iterator)
-          env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
+      case cmd : DataDeclsOldCommand => {
+        ensureEnvironmentCopy
+
+        val smtDataSort = SMTInteger // TODO
+
+        if (!cmd.listsymbol_.isEmpty)
+          throw new Parser2InputAbsy.TranslationException(
+            "Polymorphic algebraic data-types are not supported yet")
+
+        val sortNames =
+          for (declc <- cmd.listolddatadeclc_) yield {
+            val decl = declc.asInstanceOf[OldDataDecl]
+            asString(decl.symbol_)
+          }
+
+        val allCtors =
+          for ((declc, sortNum) <- cmd.listolddatadeclc_.zipWithIndex) yield {
+            val decl = declc.asInstanceOf[OldDataDecl]
+            translateDataCtorList(sortNames, sortNum,
+                                  decl.listconstructordeclc_)
+          }
+
+        setupADT(sortNames, allCtors)
 
         success
       }
@@ -2287,6 +2290,42 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          smtArgs)
      }).unzip
   
+  private def setupADT(sortNames : Seq[String],
+                       allCtors : Seq[(Seq[(String, ADT.CtorSignature)],
+                                       Seq[Seq[SMTType]])]) : Unit = {
+        val smtDataSort = SMTInteger // TODO
+
+        val adtCtors = (allCtors map (_._1)).flatten
+        val datatype = new ADT (sortNames, adtCtors)
+
+        // add adt symbols to the environment
+        val smtCtorFunctionTypes =
+          for (((_, args), num) <- allCtors.zipWithIndex;
+               args2 <- args.iterator)
+          yield SMTFunctionType(args2.toList, smtDataSort)
+
+        for ((f, smtType) <-
+             datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
+          env.addFunction(f, smtType)
+
+        for ((sels, smtType) <-
+               datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
+             (f, arg) <-
+               sels.iterator zip smtType.arguments.iterator)
+          env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
+
+        // generate the is- queries as inlined functions
+        for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
+             ctorIdFun = datatype ctorIds adtNum;
+             ctorIdTerm = ctorIdFun(v(0));
+             ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
+          val query = new IFunction("is-" + name, 1, true, true)
+          env.addFunction(query, SMTFunctionType(List(smtDataSort), SMTBool))
+          val body = ctorIdTerm === ctorNum
+          functionDefs = functionDefs + (query -> (body, SMTBool))
+        }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   protected def asFormula(expr : (IExpression, SMTType)) : IFormula = expr match {

@@ -40,6 +40,9 @@ SortDefCommand. 	Command	        ::= "(" "define-sort" Symbol
 DataDeclsCommand.       Command         ::= "(" "declare-datatypes"
                                                 "(" [PolySortC] ")"
                                                 "(" [MaybeParDataDecl] ")" ")";
+DataDeclsOldCommand.    Command         ::= "(" "declare-datatypes"
+                                                "(" [Symbol] ")"
+                                                "(" [OldDataDeclC] ")" ")";
 DataDeclCommand.        Command         ::= "(" "declare-datatype" Symbol
                                                 "(" [ConstructorDeclC] ")" ")";
 FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
@@ -102,6 +105,10 @@ MonoDataDecl.      MaybeParDataDecl ::= "(" [ConstructorDeclC] ")";
 ParDataDecl.       MaybeParDataDecl ::= "(" "par" "(" [Symbol] ")"
                                             "(" [ConstructorDeclC] ")" ")";
 separator nonempty MaybeParDataDecl "";
+
+OldDataDecl.       OldDataDeclC     ::= "(" Symbol [ConstructorDeclC] ")";
+
+separator nonempty OldDataDeclC "";
 
 --------------------------------------------------------------------------------
 -- Terms

@@ -238,6 +238,24 @@ Constructing countermodel ...
 
 unsat
 
+Loading cvc-datatype-1.smt2 ...
+Warning: treating sort nat as Int
+Warning: treating sort list as Int
+Warning: treating sort tree as Int
+Warning: treating sort nat as Int
+Warning: treating sort nat as Int
+Warning: treating sort tree as Int
+Warning: treating sort nat as Int
+Warning: treating sort list as Int
+Warning: treating sort tree as Int
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+
+Model:
+(and (and (and (and (= _let_3_0 0 ) (= x3 1 ) ) (= x2 0 ) ) (= x1 2 ) ) (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (= (tree_depth 1 ) 0 ) (= (tree_depth 0 ) 0 ) ) (= (nat_depth 2 ) 0 ) ) (= (nat_depth 1 ) (- 1) ) ) (= (nat_depth 0 ) (- 1) ) ) (= (tree_ctor 1 ) 1 ) ) (= (tree_ctor 0 ) 1 ) ) (= (list_ctor 0 ) 1 ) ) (= (nat_ctor 2 ) 0 ) ) (= (nat_ctor 0 ) 1 ) ) (= (data 1 ) 1 ) ) (= (data 0 ) 0 ) ) (= (pred 2 ) 1 ) ) (= (leaf 1 ) 1 ) ) (= (leaf 0 ) 0 ) ) (= null 0 ) ) (= zero 0 ) ) (= (succ 1 ) 2 ) ) ) 
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat
@@ -442,6 +460,17 @@ sat
 ((y2 42))
 unsat
 ((not (= (tail (children x ) ) nil ) ) )
+Loading cvc-datatype-1.smt2 ...
+Warning: treating sort nat as Int
+Warning: treating sort list as Int
+Warning: treating sort tree as Int
+Warning: treating sort nat as Int
+Warning: treating sort nat as Int
+Warning: treating sort tree as Int
+Warning: treating sort nat as Int
+Warning: treating sort list as Int
+Warning: treating sort tree as Int
+sat
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...
 Preprocessing ...
 Proving ...

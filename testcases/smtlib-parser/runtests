@@ -19,7 +19,7 @@ TESTS="bignum_quant.smt2 \
        seconds.smt2 \
        quotes.smt2 extensions.smt2 boolean-quant.smt2 \
        define-fun-bug.smt2 boolean-array.smt2 distinctBug.smt2 \
-       reductionBug.smt2 epsilon.smt2 datatype.smt2"
+       reductionBug.smt2 epsilon.smt2 datatype.smt2 cvc-datatype-1.smt2"
 
 $PRI "$@" $TESTS
 
@@ -29,7 +29,8 @@ TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        missingLazyMatch.smt2 4BitCounterStruct-safe.c.smt2 \
        interpolant-typing-bug.smt2 modelConstructionBug.smt2 \
        incremental-interpolants.smt2 eval-exhaustive.smt2 \
-       datatype2.smt2 datatype3.smt2 datatype3b.smt2 datatype3c.smt2"
+       datatype2.smt2 datatype3.smt2 datatype3b.smt2 datatype3c.smt2 \
+       cvc-datatype-1.smt2"
 
 $PRI "$@" +incremental $TESTS
 

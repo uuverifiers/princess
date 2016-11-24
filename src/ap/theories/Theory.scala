@@ -88,7 +88,9 @@ object Theory {
   def preprocess(f : Conjunction,
                  theories : Seq[Theory],
                  order : TermOrder) : Conjunction =
+//  ap.util.Timer.measure("theory preprocessing") {
     (f /: theories) { case (f, t) => t.preprocess(f, order) }
+//  }
 
   //////////////////////////////////////////////////////////////////////////////
 

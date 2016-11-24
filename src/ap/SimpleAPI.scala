@@ -1183,7 +1183,8 @@ class SimpleAPI private (enableAssert : Boolean,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // Currently only supported for terms without free variables
     Debug.assertPre(SimpleAPI.AC,
-                    !ContainsSymbol(t, (x:IExpression) => x.isInstanceOf[IVariable]))
+                    !ContainsSymbol(t,
+                      (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), t)
@@ -1196,7 +1197,9 @@ class SimpleAPI private (enableAssert : Boolean,
     // ensure that nested application of abbreviations are contained in
     // the definition and do not escape, using the AbbrevVariableVisitor
     addFormulaHelp(
-      !all(trig(a(v(0)) === AbbrevVariableVisitor(t, abbrevFunctions), a(v(0)))))
+      !all(all(trig((a(v(0)) === v(1)) ==>
+                    (v(1) === AbbrevVariableVisitor(t, abbrevFunctions)),
+               a(v(0))))))
     a(0)
   }
 
