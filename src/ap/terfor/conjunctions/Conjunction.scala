@@ -502,6 +502,9 @@ class Conjunction private (val quans : Seq[Quantifier],
   def isFalse : Boolean = arithConj.isFalse
 
   def size : Int = arithConj.size + predConj.size + negatedConjs.size
+
+  def opCount : Int =
+    (negatedConjs map (_.opCount)).sum + arithConj.size + predConj.size
   
   def iterator : Iterator[Conjunction] =
     (for (c <- arithConj.iterator)
