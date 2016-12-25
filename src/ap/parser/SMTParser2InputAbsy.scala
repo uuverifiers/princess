@@ -32,8 +32,8 @@ import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
 import ap.theories.{SimpleArray, ADT}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
-import smtlib._
-import smtlib.Absyn._
+import ap.parser.smtlib._
+import ap.parser.smtlib.Absyn._
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 

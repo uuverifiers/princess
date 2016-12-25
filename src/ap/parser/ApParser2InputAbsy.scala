@@ -31,8 +31,8 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
-import ApInput._
-import ApInput.Absyn._
+import ap.parser.ApInput._
+import ap.parser.ApInput.Absyn._
 
 object ApParser2InputAbsy {
 
