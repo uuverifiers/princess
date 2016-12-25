@@ -53,6 +53,8 @@ object SimpleAPI {
   
   private val AC = Debug.AC_SIMPLE_API
 
+  val version = CmdlMain.version
+
   private val SMTDumpBasename = "smt-queries-"
   private val ScalaDumpBasename = "princess-queries-"
   
