@@ -4,6 +4,7 @@ lazy val commonSettings = Seq(
     organization := "uuverifiers",
     version := "2016-12-26",
     scalaVersion := "2.11.8",
+    crossScalaVersions := Seq("2.11.8", "2.12.1"),
     publishTo := Some(Resolver.file("file",  new File( "/tmp/shared-repo" )) )
 )
 
@@ -45,9 +46,12 @@ lazy val root = (project in file(".")).
     mainClass in Compile := Some("ap.CmdlMain"),
 //
     scalacOptions in Compile ++=
-      List("-optimise",
-           "-feature",
+      List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
+    scalacOptions <+= scalaVersion map { sv => sv match {
+      case "2.11.8" => "-optimise"
+      case "2.12.1" => "-opt:l:classpath"
+    }},
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
