@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -640,9 +640,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   private var functionalityAxiom = true
   /**
-   * Set up things for interpolant generation?
+   * Set up interpolant generation?
    */
   private var genInterpolants = false
+  /**
+   * Set up unsat-core generation?
+   */
+  private var genUnsatCores = false
   /**
    * Timeout per query, in incremental mode
    */
@@ -671,8 +675,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
 
-  private var declareConstWarning = false
-  private var echoWarning = false
   private var getModelWarning = false
 
   private var lastReasonUnknown = ""
@@ -707,7 +709,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // make sure that the prover generates proofs; this setting
     // is handled via the stack in the prover, but is global
     // in SMT-LIB scripts
-    prover.setConstructProofs(genInterpolants)
+    prover.setConstructProofs(genInterpolants || genUnsatCores)
   }
 
   /**
@@ -725,6 +727,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     totalityAxiom        = true
     functionalityAxiom   = true
     genInterpolants      = false
+    genUnsatCores        = false
     assumptions.clear
     functionDefs         = Map()
     sortDefs             = Map()
@@ -869,7 +872,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           value => {
             genInterpolants = value
             if (incremental)
-              prover.setConstructProofs(value)
+              prover.setConstructProofs(genInterpolants || genUnsatCores)
+          }
+        } ||
+        handleBooleanAnnot(":produce-unsat-cores", annot) {
+          value => {
+            genUnsatCores = value
+            if (incremental)
+              prover.setConstructProofs(genInterpolants || genUnsatCores)
           }
         } ||
         handleNumAnnot(":timeout-per", annot) {
@@ -1040,11 +1050,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : ConstDeclCommand => {
-        if (!declareConstWarning) {
-          warn("accepting command declare-const, which is not SMT-LIB 2")
-          declareConstWarning = true
-        }
-
         val name = asString(cmd.symbol_)
         val res = translateSort(cmd.sort_)
 
@@ -1139,7 +1144,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
         if (incremental && !justStoreAssertions) {
-          if (genInterpolants) {
+          if (genInterpolants || genUnsatCores) {
             PartExtractor(f, false) match {
               case List(INamedPart(PartName.NO_NAME, g)) => {
                 // generate consecutive partition numbers
@@ -1261,8 +1266,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : GetUnsatCoreCommand =>
-        error("get-unsat-core not supported")
+      case cmd : GetUnsatCoreCommand => {
+        checkIncremental("get-unsat-core")
+        prover.getStatus(false) match {
+          case SimpleAPI.ProverStatus.Unsat |
+               SimpleAPI.ProverStatus.Valid => {
+            val core = prover.getUnsatCore
+            val names =
+              (for ((name, n) <- partNameIndexes.iterator;
+                    if (core contains n))
+               yield name.toString).toVector.sorted
+            println("(" + (names mkString " ") + ")")
+            success
+          }
+          case _ =>
+            error("no unsatisfiable core available")
+        }
+      }
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -1273,7 +1293,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case cmd : GetModelCommand => if (checkIncrementalWarn("get-model")) {
         if (!getModelWarning) {
-          warn("accepting command get-model, which is not SMT-LIB 2.")
+//          warn("accepting command get-model, which is not SMT-LIB 2.")
           warn("only values of integer constants or Boolean variables will be shown.")
           getModelWarning = true
         }
@@ -1444,12 +1464,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
       
       case cmd : EchoCommand => if (checkIncrementalWarn("echo")) {
-        if (!echoWarning) {
-          warn("accepting command echo, which is not SMT-LIB 2")
-          echoWarning = true
-        }
-        val str = cmd.smtstring_
-        println(str.substring(1, str.size - 1))
+        println(cmd.smtstring_)
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -1548,7 +1563,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
 
       val baseExpr =
-        if (genInterpolants) {
+        if (genInterpolants || genUnsatCores) {
           val names = for (annot <- t.listannotation_;
                            a = annot.asInstanceOf[AttrAnnotation];
                            if (a.annotattribute_ == ":named")) yield {

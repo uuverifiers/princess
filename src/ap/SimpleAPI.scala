@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,7 +29,7 @@ import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.goal.{SymbolWeights, FormulaTask}
-import ap.proof.certificates.{Certificate, LemmaBase}
+import ap.proof.certificates.{Certificate, LemmaBase, CertFormula}
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
                         ArraySimplifier}
 import ap.terfor.equations.ReduceWithEqs
@@ -43,8 +43,8 @@ import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import ap.util.{Debug, Timeout, Seqs}
 
-import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
-                                 LinkedHashMap, ArrayBuffer}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
+                                 ArrayStack, LinkedHashMap, ArrayBuffer}
 import scala.concurrent.SyncVar
 
 import java.io.File
@@ -57,7 +57,16 @@ object SimpleAPI {
 
   private val SMTDumpBasename = "smt-queries-"
   private val ScalaDumpBasename = "princess-queries-"
-  
+
+  private def warn(msg : String) : Unit = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(AC, {
+      Console.err.println("Warning: " + msg)
+      true
+    })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+  }
+
   /**
    * Create a new prover. Note that the prover has to be shut down explicitly
    * by calling the method <code>SimpleAPI.shutDown</code> after use.
@@ -1976,8 +1985,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Add subsequent formulae to partition <code>num</code>.
-   *  Index <code>-1</code> represents
-   * formulae belonging to all partitions (e.g., theory axioms).
+   * Index <code>-1</code> represents formulae belonging to all partitions
+   * (e.g., theory axioms).
    */
   def setPartitionNumber(num : Int) : Unit = {
     doDumpSMT {
@@ -2010,6 +2019,19 @@ class SimpleAPI private (enableAssert : Boolean,
     proverRecreationNecessary
   }
 
+  def getUnsatCore : Set[Int] =
+    if (currentCertificate == null) {
+      warn("call setConstructProofs(true) for more precise unsatisfiable cores")
+      (formulaeInProver.iterator map (_._1)).toSet
+    } else {
+      val res = new MHashSet[Int]
+      val af = currentCertificate.assumedFormulas
+      for ((n, f) <- formulaeInProver)
+        if (!(res contains n) && (af contains CertFormula(f.negate)))
+          res += n
+      res.toSet
+    }
+
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // some functions used to verify interpolants
   private lazy val assertionProver = new ExhaustiveProver(true, GoalSettings.DEFAULT)
@@ -2021,8 +2043,7 @@ class SimpleAPI private (enableAssert : Boolean,
       assertionProver(reducedF, f.order).closingConstraint.isTrue
     } {
       // if a timeout occurs, we assume that the formula was valid ...
-      Console.err.println(
-        "Warning: could not fully verify correctness of interpolant due to timeout")
+      warn("could not fully verify correctness of interpolant due to timeout")
       true
     }
   }
@@ -3396,13 +3417,7 @@ class SimpleAPI private (enableAssert : Boolean,
         IterativeClauseMatcher.convertQuantifiers(
           c, Param.PREDICATE_MATCH_CONFIG(goalSettings))
       if (!ignoredQuantifiers && !(withoutQuans eq c)) {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(AC, {
-          Console.err.println(
-            "Warning: ignoring some quantifiers due to interpolation")
-          true
-        })
-        //-END-ASSERTION-///////////////////////////////////////////////////////
+        warn("ignoring some quantifiers due to interpolation")
         ignoredQuantifiers = true
       }
       withoutQuans
