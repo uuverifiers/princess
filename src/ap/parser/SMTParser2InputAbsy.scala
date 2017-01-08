@@ -1266,23 +1266,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : GetUnsatCoreCommand => {
-        checkIncremental("get-unsat-core")
-        prover.getStatus(false) match {
-          case SimpleAPI.ProverStatus.Unsat |
-               SimpleAPI.ProverStatus.Valid => {
-            val core = prover.getUnsatCore
-            val names =
-              (for ((name, n) <- partNameIndexes.iterator;
-                    if (core contains n))
-               yield name.toString).toVector.sorted
-            println("(" + (names mkString " ") + ")")
-            success
+      case cmd : GetUnsatCoreCommand =>
+        if (checkIncrementalWarn("get-unsat-core")) {
+          prover.getStatus(false) match {
+            case SimpleAPI.ProverStatus.Unsat |
+                 SimpleAPI.ProverStatus.Valid => {
+              val core = prover.getUnsatCore
+              val names =
+                (for ((name, n) <- partNameIndexes.iterator;
+                      if (core contains n))
+                 yield name.toString).toVector.sorted
+              println("(" + (names mkString " ") + ")")
+              success
+            }
+            case _ =>
+              error("no unsatisfiable core available")
           }
-          case _ =>
-            error("no unsatisfiable core available")
         }
-      }
 
       //////////////////////////////////////////////////////////////////////////
 
