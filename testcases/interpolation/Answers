@@ -521,27 +521,25 @@ Interpolants:
 
 Loading pred-unify-bug.smt2 ...
 Warning: treating sort Real as Int
-Warning: accepting command echo, which is not SMT-LIB 2
-starting trace check
+"starting trace check"
 unsat
-interpolants-3
+"interpolants-3"
 ((= (select |#length_13| main_~p~4.base_18 ) 8 ) )
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
 Warning: treating sort Real as Int
 unsat
 ((forall ((var0 Int)) (not (= (+ (* 4294967296 var0 ) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42 ) ) ) 0 ) ) ) )
 Loading function-bug3.smt2 ...
-Warning: accepting command echo, which is not SMT-LIB 2
-Start declaration of constants
-Finished declaration of constants
-Start declaration of functions
+"Start declaration of constants"
+"Finished declaration of constants"
+"Start declaration of functions"
 Warning: treating sort Real as Int
-Finished declaration of functions
-Start declaration of global variables
-Finished declaration global variables
-Start declaration of local variables
-Finished declaration local variables
-starting trace check
+"Finished declaration of functions"
+"Start declaration of global variables"
+"Finished declaration global variables"
+"Start declaration of local variables"
+"Finished declaration local variables"
+"starting trace check"
 unsat
 Loading simplifier.smt2 ...
 Warning: treating sort Real as Int
@@ -570,7 +568,6 @@ Loading matchCheckBug.smt2 ...
 Warning: treating sort Real as Int
 unsat
 Loading treeInterpolation1.smt2 ...
-Warning: accepting command declare-const, which is not SMT-LIB 2
 unsat
 ((<= 0 (f x ) ) 
 (<= 0 (+ (- 1) (* (- 1) (f y ) ) ) ) )
