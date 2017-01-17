@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -258,7 +258,14 @@ object IExpression {
       case ((q, _), f) => IQuantified(q, f)
     }
   }
-  
+
+  /**
+   * When encoding functions using predicates, make sure that
+   * no functions escape.
+   */
+  def containFunctionApplications(f : IFormula) : IFormula =
+    all(ITrigger(List(0), VariableShiftVisitor(f, 0, 1)))
+
   /**
    * Substitute terms for the variables with de Bruijn index
    * <code>0, ..., replacement.size - 1</code>, and increment all other

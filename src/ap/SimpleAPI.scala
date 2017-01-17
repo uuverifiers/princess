@@ -1207,10 +1207,12 @@ class SimpleAPI private (enableAssert : Boolean,
     import IExpression._
     // ensure that nested application of abbreviations are contained in
     // the definition and do not escape, using the AbbrevVariableVisitor
-    addFormulaHelp(
-      !all(all(trig((a(v(0)) === v(1)) ==>
-                    (v(1) === AbbrevVariableVisitor(t, abbrevFunctions)),
-               a(v(0))))))
+    withPartitionNumber(-1) {
+      addFormulaHelp(
+        !all(all(trig((a(v(0)) === v(1)) ==>
+                      (v(1) === AbbrevVariableVisitor(t, abbrevFunctions)),
+                 a(v(0))))))
+    }
     a(0)
   }
 
@@ -1296,7 +1298,10 @@ class SimpleAPI private (enableAssert : Boolean,
     val aAtom = a()
     val defAtom = defLabel()
 
-    addFormulaHelp((aAtom | defAtom | f) & (!aAtom | !defAtom | !f))
+    withPartitionNumber(-1) {
+      addFormulaHelp((aAtom | defAtom | containFunctionApplications(f)) &
+                     (!aAtom | !defAtom | containFunctionApplications(!f)))
+    }
     aAtom
   }
   
@@ -2003,7 +2008,21 @@ class SimpleAPI private (enableAssert : Boolean,
       flushTodo
       currentPartitionNum = num
     }
-  
+
+  /**
+   * Execute the given code block with partition number set to
+   * <code>num</code>.
+   */
+  def withPartitionNumber[A](num : Int)(comp : => A) : A = {
+    val oldPartitionNum = currentPartitionNum
+    setPartitionNumberHelp(-1)
+    try {
+      comp
+    } finally {
+      setPartitionNumberHelp(oldPartitionNum)
+    }
+  }
+
   /**
    * Construct proofs in subsequent <code>checkSat</code> calls. Proofs are
    * needed for extract interpolants.
@@ -2019,7 +2038,91 @@ class SimpleAPI private (enableAssert : Boolean,
     proverRecreationNecessary
   }
 
-  def getUnsatCore : Set[Int] =
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
+   * produce an (unsimplified) certificate.
+   */
+  def getCertificate : Certificate = {
+    doDumpSMT {
+      println("(get-proof)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getCertificate")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                    (Set(ProverStatus.Unsat,
+                         ProverStatus.Valid) contains getStatusHelp(false)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    currentCertificate
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
+   * produce a certificate in textual/readable format.
+   */
+  def certificateAsString(partNames : Map[Int, PartName],
+                          format : Param.InputFormat.Value) : String = {
+    doDumpSMT {
+      println("(get-proof)")
+    }
+    doDumpScala {
+      println(
+        "println(\"" + getScalaNum +
+                 ": \" + certificateAsString(ap.parameters.Param.InputFormat." +
+                 format + ")")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                    (Set(ProverStatus.Unsat,
+                         ProverStatus.Valid) contains getStatusHelp(false)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val formulaParts = new MHashMap[PartName, Conjunction]
+    for (((n, f), num) <- formulaeInProver.iterator.zipWithIndex) {
+      val name = (partNames get n) match {
+        case Some(name) =>
+          if (formulaParts contains name)
+            new PartName ("" + name + "_" + num)
+          else
+            name
+        case None if (n < 0 && !(formulaParts contains PartName.NO_NAME)) =>
+          PartName.NO_NAME
+        case _ =>
+          new PartName ("#" + n + "_" + num)
+      }
+
+      formulaParts.put(name, f)
+    }
+
+    DialogUtil asString {
+      CmdlMain.doPrintTextCertificate(currentCertificate,
+                                      formulaParts.toMap,
+                                      functionEnc.predTranslation.toMap,
+                                      format)
+    }
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
+   * produce a core of assertions/conclusions that are already
+   * unsatisfiable or valid. This requires proof construction to be enabled
+   * (<code>setConstructProofs(true)</code>), otherwise the set of all
+   * assertions/conclusions is returned.
+   */
+  def getUnsatCore : Set[Int] = {
+    doDumpSMT {
+      println("(get-unsat-core)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getUnsatCore")
+    }
     if (currentCertificate == null) {
       warn("call setConstructProofs(true) for more precise unsatisfiable cores")
       (formulaeInProver.iterator map (_._1)).toSet
@@ -2031,6 +2134,7 @@ class SimpleAPI private (enableAssert : Boolean,
           res += n
       res.toSet
     }
+  }
 
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // some functions used to verify interpolants

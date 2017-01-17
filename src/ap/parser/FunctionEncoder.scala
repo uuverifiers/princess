@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,6 +23,7 @@ package ap.parser
 
 import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet, PriorityQueue}
 
+import ap.basetypes.IdealInt
 import ap.terfor.TermOrder
 //import ap.terfor.preds.Predicate
 //import ap.terfor.conjunctions.Quantifier
@@ -544,18 +545,31 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
         //-END-ASSERTION-///////////////////////////////////////////////////////
         super.preVisit(t, toNormal(c))
       }
+
       case IQuantified(q1, IQuantified(q2, _)) if (q1 == q2) =>
         // do not push an abstraction frame if two quantifiers of the same
         // kind directly follow after each other
         super.preVisit(t, toNormal(c))
-      case IQuantified(q, _) => {
+
+      case IQuantified(q, subFor) => {
         // otherwise, push an abstraction frame and tell the
         // <code>postVisit</code> method to define function abstractions at
         // this point
+
         val quantifierNum = c.binders.length - c.a.frame.depth + 1
-        val newFrame = new AbstractionFrame (c.a.frame, quantifierNum)
+
+        // flag to add a catch-all frame
+        val catchAll = subFor match {
+          case ITrigger(Seq(IIntLit(IdealInt.ZERO)), _) => true
+          case _ => false
+        }
+
+        val newFrame =
+          new AbstractionFrame (if (catchAll) null else c.a.frame,
+                                quantifierNum)
         super.preVisit(t, c(AddDefinitions(newFrame, List())))
       }
+
       case ITrigger(exprs, body) => (c.a, c.binders) match {
         case (AddDefinitions(frame, triggers), Context.EX :: _) =>
           TryAgain(body, c(AddDefinitions(frame, exprs :: triggers)))

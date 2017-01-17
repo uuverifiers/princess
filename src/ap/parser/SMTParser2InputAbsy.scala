@@ -29,11 +29,13 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
-import ap.util.{Debug, Logic, PlainRange}
+import ap.proof.certificates.{Certificate, DagCertificateConverter,
+                              CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
+import ap.util.{Debug, Logic, PlainRange}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -640,6 +642,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   private var functionalityAxiom = true
   /**
+   * Set up proof generation?
+   */
+  private var genProofs = false
+  /**
    * Set up interpolant generation?
    */
   private var genInterpolants = false
@@ -652,6 +658,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   private var timeoutPer = Int.MaxValue
   
+  private def needCertificates : Boolean =
+    genProofs || genInterpolants || genUnsatCores
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val assumptions = new ArrayBuffer[IFormula]
@@ -709,7 +718,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // make sure that the prover generates proofs; this setting
     // is handled via the stack in the prover, but is global
     // in SMT-LIB scripts
-    prover.setConstructProofs(genInterpolants || genUnsatCores)
+    prover.setConstructProofs(needCertificates)
   }
 
   /**
@@ -726,6 +735,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     inlineDefinedFuns    = true
     totalityAxiom        = true
     functionalityAxiom   = true
+    genProofs            = false
     genInterpolants      = false
     genUnsatCores        = false
     assumptions.clear
@@ -868,18 +878,25 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         handleBooleanAnnot(":functionality-axiom", annot) {
           value => functionalityAxiom = value
         } ||
+        handleBooleanAnnot(":produce-proofs", annot) {
+          value => {
+            genProofs = value
+            if (incremental)
+              prover.setConstructProofs(needCertificates)
+          }
+        } ||
         handleBooleanAnnot(":produce-interpolants", annot) {
           value => {
             genInterpolants = value
             if (incremental)
-              prover.setConstructProofs(genInterpolants || genUnsatCores)
+              prover.setConstructProofs(needCertificates)
           }
         } ||
         handleBooleanAnnot(":produce-unsat-cores", annot) {
           value => {
             genUnsatCores = value
             if (incremental)
-              prover.setConstructProofs(genInterpolants || genUnsatCores)
+              prover.setConstructProofs(needCertificates)
           }
         } ||
         handleNumAnnot(":timeout-per", annot) {
@@ -1144,7 +1161,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
         if (incremental && !justStoreAssertions) {
-          if (genInterpolants || genUnsatCores) {
+          if (needCertificates) {
             PartExtractor(f, false) match {
               case List(INamedPart(PartName.NO_NAME, g)) => {
                 // generate consecutive partition numbers
@@ -1262,7 +1279,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : GetProofCommand =>
-        error("get-proof not supported")
+        if (checkIncrementalWarn("get-proof")) {
+          prover.getStatus(false) match {
+            case SimpleAPI.ProverStatus.Unsat |
+                 SimpleAPI.ProverStatus.Valid
+                 if genProofs => {
+              println("(proof \"")
+              val nameMapping =
+                (for ((n, i) <- partNameIndexes.iterator)
+                 yield (i, n)).toMap
+              println(prover.certificateAsString(nameMapping,
+                                                 Param.InputFormat.SMTLIB))
+              println("\")")
+            }
+            case _ =>
+              error("no proof available")
+          }
+        }
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -1563,7 +1596,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
 
       val baseExpr =
-        if (genInterpolants || genUnsatCores) {
+        if (needCertificates) {
           val names = for (annot <- t.listannotation_;
                            a = annot.asInstanceOf[AttrAnnotation];
                            if (a.annotattribute_ == ":named")) yield {

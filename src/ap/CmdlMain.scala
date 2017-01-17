@@ -26,13 +26,14 @@ import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser,
                               DagCertificateConverter, CertificatePrettyPrinter,
                               CertFormula}
+import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
                   Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
-                  SMTParser2InputAbsy}
+                  SMTParser2InputAbsy, IFunction}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -214,24 +215,34 @@ object CmdlMain {
                                    prover : Prover)
                                  (implicit format : Param.InputFormat.Value) = {
     Console.err.println
+    doPrintTextCertificate(cert,
+                           prover.getFormulaParts,
+                           prover.getPredTranslation,
+                           format)
+  }
 
-    val dagCert = DagCertificateConverter(cert)
-    val formulaParts = prover.getFormulaParts mapValues {
+  protected[ap] def doPrintTextCertificate(
+                      cert : Certificate,
+                      rawFormulaParts : Map[PartName, Conjunction],
+                      predTranslation : Map[Predicate, IFunction],
+                      format : Param.InputFormat.Value) : Unit = {
+    val formulaParts = rawFormulaParts mapValues {
       f => CertFormula(f.negate)
     }
+    val dagCert = DagCertificateConverter(cert)
 
     val formulaPrinter = format match {
       case Param.InputFormat.Princess =>
         new CertificatePrettyPrinter.PrincessFormulaPrinter (
-          prover.getPredTranslation
+          predTranslation
         )
       case Param.InputFormat.TPTP =>
         new CertificatePrettyPrinter.TPTPFormulaPrinter (
-          prover.getPredTranslation
+          predTranslation
         )
       case Param.InputFormat.SMTLIB =>
         new CertificatePrettyPrinter.SMTLIBFormulaPrinter (
-          prover.getPredTranslation
+          predTranslation
         )
     }
 

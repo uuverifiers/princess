@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -164,8 +164,29 @@ object Interpolator
         implicit val o = iContext.order
         val originalForm = cert.localAssumedFormulas.head
       
-        if (iContext isFromLeft originalForm) {
-          
+        val fromLeft =
+          (iContext isFromLeft originalForm) ||
+          (iContext isCommon originalForm) && {
+            // check whether any of the predicate literals of the formula can be
+            // unified with known literals (from left or right)
+
+            val conj = originalForm.toConj
+            val conjAtoms =
+              if (conj.isNegatedConjunction) {
+                val negConj = conj.negatedConjs(0)
+                atomsIterator(negConj.predConj, false) ++
+                (for (c <- negConj.negatedConjs.iterator;
+                      a <- atomsIterator(c.predConj, true)) yield a)
+              } else {
+                atomsIterator(conj.predConj, true)
+              }
+
+            canMapCommonFormulaToLeft(conjAtoms, originalForm.constants,
+                                      iContext)
+          }
+
+        if (fromLeft) {
+
           val firstRes = applyHelp(leftChild, iContext addLeft leftForm)
           
           if (firstRes.isTrue)
@@ -179,11 +200,7 @@ object Interpolator
                          iContext addLeft rightForm))
             
         } else {
-          
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, iContext isFromRight originalForm)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          
+
           val firstRes = applyHelp(leftChild, iContext addRight leftForm)
           
           if (firstRes.isFalse)
@@ -430,8 +447,10 @@ object Interpolator
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Interpolator.AC, {
                        val f = res.toConjunction
-                       (f.constants subsetOf (iContext.leftConstants ++ iContext.parameters)) &&
-                       (f.constants subsetOf (iContext.rightConstants ++ iContext.parameters)) &&
+                       val commonConsts =
+                         iContext.parameters ++ iContext.commonFormulaConstants
+                       (f.constants subsetOf (iContext.leftConstants ++ commonConsts)) &&
+                       (f.constants subsetOf (iContext.rightConstants ++ commonConsts)) &&
                        Seqs.disjoint(f.constants, iContext.doubleConstants.keySet)
                      })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -809,28 +828,7 @@ object Interpolator
               else
                 atomsIterator(resConj.predConj, true)
 
-            val atomLRValue =
-              for (a <- instAtoms;
-                   left = iContext isRewrittenLeftLit a;
-                   right = iContext isRewrittenRightLit a;
-                   if (left != right))
-              yield left
-
-            if (atomLRValue.hasNext) {
-              atomLRValue.next
-            } else {
-              val constLRValue =
-                for (c <- (extOrder sort termConsts).iterator;
-                     left = iContext.leftLocalConstants contains c;
-                     right = iContext.rightLocalConstants contains c;
-                     if (left != right))
-                yield left
-              
-              if (constLRValue.hasNext)
-                constLRValue.next
-              else
-                throw new Exception("Cannot map instance to left or right")
-            }
+            canMapCommonFormulaToLeft(instAtoms, termConsts, iContext)
           }
 
         val newContext =
@@ -911,13 +909,52 @@ object Interpolator
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(Interpolator.AC, {
                        val f = res.toConjunction
-                       (f.constants subsetOf (iContext.leftConstants ++ iContext.parameters)) &&
-                       (f.constants subsetOf (iContext.rightConstants ++ iContext.parameters)) &&
+                       val commonConsts =
+                         iContext.parameters ++ iContext.commonFormulaConstants
+                       (f.constants subsetOf (iContext.leftConstants ++ commonConsts)) &&
+                       (f.constants subsetOf (iContext.rightConstants ++ commonConsts)) &&
                        Seqs.disjoint(f.constants, iContext.doubleConstants.keySet)
                      })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     res
+  }
+
+  private def canMapCommonFormulaToLeft
+                (forAtoms : Iterator[CertPredLiteral],
+                 consts : Set[ConstantTerm],
+                 iContext : InterpolationContext) : Boolean = {
+    val atomLRValue =
+      for (a <- forAtoms;
+           left = iContext isRewrittenLeftLit a;
+           right = iContext isRewrittenRightLit a;
+           if (left != right))
+      yield left
+
+    if (atomLRValue.hasNext) {
+      atomLRValue.next
+    } else {
+      val extOrder = iContext.order
+
+      val constLRValue =
+        for (c <- (extOrder sort consts).iterator;
+             left = iContext.leftLocalConstants contains c;
+             right = iContext.rightLocalConstants contains c;
+             if (left != right))
+        yield left
+              
+      if (constLRValue.hasNext)
+        constLRValue.next
+      else {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(Interpolator.AC, {
+            Console.err.println("Warning: cannot map formula to left or right")
+            true
+          })
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        true
+      }
+    }
   }
   
   private def derivePredModifier(equations : Seq[(IdealInt, CertEquation)],
