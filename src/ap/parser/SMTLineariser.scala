@@ -140,7 +140,8 @@ object SMTLineariser {
                                        logic, status,
                                        constsToDeclare.toList,
                                        order.orderedPredicates.toList,
-                                       "fun", "pred", "const",
+//                                       "fun", "pred", "const",
+                                       "", "", "",
                                        emptyConstantType, emptyFunctionType)
    
     lineariser.open
@@ -203,7 +204,11 @@ class SMTLineariser(benchmarkName : String,
     }
 
   private def pred2Identifier(pred : Predicate) =
-    quoteIdentifier(predPrefix + pred.name)
+    if (pred == eqPredicate)
+       "="
+    else
+       quoteIdentifier(predPrefix + pred.name)
+
   private def const2Identifier(const : ConstantTerm) =
     quoteIdentifier(constPrefix + const.name)
   
