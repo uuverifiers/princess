@@ -31,14 +31,10 @@ import Quantifier._
 
 import scala.collection.mutable.ArrayBuffer
 
-object Simplifier {
-  private val SPLITTING_LIMIT = 20
-}
-
 /**
  * Class to simplify input formulas using various rewritings
  */
-class Simplifier {
+class Simplifier(SPLITTING_LIMIT : Int = 20) {
 
   /**
    * Transformation to negation normal form
@@ -68,7 +64,7 @@ class Simplifier {
         VariableShiftVisitor(f1, 1, -1) | all(f2)
       else if (!ContainsSymbol(f2, IVariable(0)))
         all(f1) | VariableShiftVisitor(f2, 1, -1)
-      else if (splitNum < Simplifier.SPLITTING_LIMIT) f match {
+      else if (splitNum < SPLITTING_LIMIT) f match {
         case AndSplitter(f1, f2) => {
           splitNum = splitNum + 1
           all(f1) & all(f2)
@@ -83,7 +79,7 @@ class Simplifier {
         VariableShiftVisitor(f1, 1, -1) & ex(f2)
       else if (!ContainsSymbol(f2, IVariable(0)))
         ex(f1) & VariableShiftVisitor(f2, 1, -1)
-      else if (splitNum < Simplifier.SPLITTING_LIMIT) f match {
+      else if (splitNum < SPLITTING_LIMIT) f match {
         case OrSplitter(f1, f2) => {
           splitNum = splitNum + 1
           ex(f1) | ex(f2)
