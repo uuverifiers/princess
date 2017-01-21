@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,6 +33,8 @@ import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 import ap.parser.ApInput._
 import ap.parser.ApInput.Absyn._
+
+import scala.collection.mutable.{HashMap => MHashMap}
 
 object ApParser2InputAbsy {
 
@@ -110,6 +112,7 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
   private def translateAPI(api : API)
               : (IFormula, List[IInterpolantSpec], Signature) = {
     collectDeclarations(api)
+    collectFunPredDefs(api)
     val formula = translateProblem(api)
     val interSpecs = translateInterpolantSpecs(api)
 
@@ -249,8 +252,11 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
     case args : FormalArgs => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertInt(ApParser2InputAbsy.AC,
-                      Logic.forall(for (at <- args.listargtypec_.iterator)
-                                   yield (at.asInstanceOf[ArgType].type_.isInstanceOf[TypeInt])))
+        Logic.forall(for (at <- args.listargtypec_.iterator)
+                     yield (at match {
+                              case at : ArgType => at.type_.isInstanceOf[TypeInt]
+                              case at : NamedArgType => at.type_.isInstanceOf[TypeInt]
+                            })))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       args.listargtypec_.size
     }
@@ -343,6 +349,53 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
       env.pushVar(decl.ident_, ())
       binderType2Guard(decl.bindertype_, v(0))
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val predicateDefs = new MHashMap[Predicate, IFormula]
+  private val functionDefs  = new MHashMap[IFunction, ITerm]
+
+  private def collectFunPredDefs(api : API) : Unit = api match {
+    case api : BlockList =>
+      for (block <- api.listblock_.iterator) block match {
+/*        case block : FunctionDecls =>
+          for (decl <- block.listdeclfunc_.iterator)
+            collectDeclFunC(decl,
+                            (id) => env.addConstant(new ConstantTerm(id),
+                                                    Environment.NullaryFunction,
+                                                    ())) */
+        case block : PredDecls =>
+          for (decl <- block.listdeclpredc_.iterator) decl match {
+            case decl : DeclPred if (decl.optbody_.isInstanceOf[SomeBody]) => {
+              val Environment.Predicate(pred, _, _) = env.lookupSym(decl.ident_)
+
+              // declare arguments
+              decl.optformalargs_ match {
+                case _ : NoFormalArgs =>
+                  // nothing
+                case args : WithFormalArgs =>
+                  for (arg <- args.formalargsc_.asInstanceOf[FormalArgs]
+                                  .listargtypec_)
+                    arg match {
+                      case arg : NamedArgType =>
+                        env.pushVar(arg.ident_, ())
+                      case _ : ArgType =>
+                        throw new Parser2InputAbsy.TranslationException(
+                          "Argument name missing in definition of predicate " +
+                          decl.ident_)
+                    }
+              }
+
+              val body = decl.optbody_.asInstanceOf[SomeBody].expression_
+              predicateDefs.put(pred, asFormula(translateExpression(body)))
+
+              for (_ <- 0 until pred.arity) env.popVar
+            }
+            case _ => /* nothing */
+          }
+        case _ => /* nothing */
+      }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -522,7 +575,12 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
               "Predicate " + pred +
               " is applied to a wrong number of arguments: " + (args mkString ", "))
         
-        IAtom(pred, args)
+        (predicateDefs get pred) match {
+          case Some(body) =>
+            VariableSubstVisitor(body, (args.reverse.toList, 0))
+          case None => 
+            IAtom(pred, args)
+        }
       }
       
       case Environment.Function(fun, _) => {

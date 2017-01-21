@@ -2,7 +2,7 @@
 -- arithmetic with uninterpreted predicates.
 -- <http://www.philipp.ruemmer.org/princess.shtml>
 --
--- Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+-- Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
 --
 -- Princess is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Lesser General Public License as published by
@@ -114,7 +114,7 @@ separator nonempty DeclVarC ";";
 -- Function declarations
 
 DeclFunConstant.DeclFunC	::= [FunOption] DeclConstC;
-DeclFun.	DeclFunC	::= [FunOption] Type Ident FormalArgsC;
+DeclFun.	DeclFunC	::= [FunOption] Type Ident FormalArgsC OptBody;
 terminator DeclFunC ";";
 
 Partial.        FunOption       ::= "\\partial";
@@ -130,18 +130,22 @@ terminator DeclConstantC ";";
 --------------------------------------------------------------------------------
 -- Predicate declarations
 
-DeclPred.	DeclPredC	::= [PredOption] Ident OptFormalArgs;
+DeclPred.	DeclPredC	::= [PredOption] Ident OptFormalArgs OptBody;
 terminator DeclPredC ";";
 
 NoFormalArgs.	OptFormalArgs	::= ;
 WithFormalArgs.	OptFormalArgs	::= FormalArgsC;
 FormalArgs.	FormalArgsC	::= "(" [ArgTypeC] ")";
 ArgType.	ArgTypeC	::= Type;
+NamedArgType.	ArgTypeC	::= Type Ident;
 separator nonempty ArgTypeC ",";
 
 NegMatch.       PredOption      ::= "\\negMatch";
 NoMatch.        PredOption      ::= "\\noMatch";
 separator PredOption "";
+
+SomeBody.	OptBody 	::= "{" Expression "}";
+NoBody.		OptBody 	::= ;
 
 --------------------------------------------------------------------------------
 -- Base types (there is only one type, int)
