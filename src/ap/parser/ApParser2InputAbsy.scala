@@ -34,7 +34,7 @@ import ap.basetypes.IdealInt
 import ap.parser.ApInput._
 import ap.parser.ApInput.Absyn._
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
 object ApParser2InputAbsy {
 
@@ -113,6 +113,8 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
               : (IFormula, List[IInterpolantSpec], Signature) = {
     collectDeclarations(api)
     collectFunPredDefs(api)
+    inlineFunPredDefs
+
     val formula = translateProblem(api)
     val interSpecs = translateInterpolantSpecs(api)
 
@@ -359,12 +361,31 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
   private def collectFunPredDefs(api : API) : Unit = api match {
     case api : BlockList =>
       for (block <- api.listblock_.iterator) block match {
-/*        case block : FunctionDecls =>
-          for (decl <- block.listdeclfunc_.iterator)
-            collectDeclFunC(decl,
-                            (id) => env.addConstant(new ConstantTerm(id),
-                                                    Environment.NullaryFunction,
-                                                    ())) */
+        case block : FunctionDecls =>
+          for (decl <- block.listdeclfunc_.iterator) decl match {
+            case decl : DeclFun if (decl.optbody_.isInstanceOf[SomeBody]) => {
+              val Environment.Function(fun, _) = env.lookupSym(decl.ident_)
+              
+              // declare arguments
+              for (arg <- decl.formalargsc_.asInstanceOf[FormalArgs]
+                              .listargtypec_.reverse)
+                arg match {
+                  case arg : NamedArgType =>
+                    env.pushVar(arg.ident_, ())
+                  case _ : ArgType =>
+                    throw new Parser2InputAbsy.TranslationException(
+                      "Argument name missing in definition of function " +
+                      decl.ident_)
+                }
+
+              val body = decl.optbody_.asInstanceOf[SomeBody].expression_
+              functionDefs.put(fun, asTerm(translateExpression(body)))
+
+              for (_ <- 0 until fun.arity) env.popVar
+            }
+            case _ => // nothing
+          }
+
         case block : PredDecls =>
           for (decl <- block.listdeclpredc_.iterator) decl match {
             case decl : DeclPred if (decl.optbody_.isInstanceOf[SomeBody]) => {
@@ -376,7 +397,7 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
                   // nothing
                 case args : WithFormalArgs =>
                   for (arg <- args.formalargsc_.asInstanceOf[FormalArgs]
-                                  .listargtypec_)
+                                  .listargtypec_.reverse)
                     arg match {
                       case arg : NamedArgType =>
                         env.pushVar(arg.ident_, ())
@@ -396,6 +417,114 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
           }
         case _ => /* nothing */
       }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Make sure that defined functions and predicates are closed under
+   * inlining definitions.
+   */
+  private def inlineFunPredDefs : Unit = {
+    val closedPreds = new MHashSet[Predicate]
+    val closedFuns  = new MHashSet[IFunction]
+
+    val isDefinedFun = (expr : IExpression) => expr match {
+      case IAtom(pred, _) =>
+        predicateDefs contains pred
+      case IFunApp(fun, _) =>
+        functionDefs contains fun
+      case _ =>
+        false
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    var openPreds = List[Predicate]()
+    var openFuns  = List[IFunction]()
+
+    for ((pred, body) <- predicateDefs)
+      if (ContainsSymbol(body, isDefinedFun))
+        openPreds = pred :: openPreds
+      else
+        closedPreds += pred
+
+    for ((fun, body) <- functionDefs)
+      if (ContainsSymbol(body, isDefinedFun))
+        openFuns = fun :: openFuns
+      else
+        closedFuns += fun
+
+    if (openPreds.isEmpty && openFuns.isEmpty)
+      return
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    val cannotBeInlined = (expr : IExpression) => expr match {
+      case IAtom(pred, _) =>
+        (predicateDefs contains pred) && !(closedPreds contains pred)
+      case IFunApp(fun, _) =>
+        (functionDefs contains fun) && !(closedFuns contains fun)
+      case _ =>
+        false
+    }
+
+    object Inliner extends CollectingVisitor[Unit, IExpression] {
+      def postVisit(t : IExpression, arg : Unit,
+                    subres : Seq[IExpression]) : IExpression = t match {
+        case IAtom(pred, _) if (closedPreds contains pred) =>
+          VariableSubstVisitor(
+            predicateDefs(pred),
+            (subres.toList.map(_.asInstanceOf[ITerm]), 0))
+        case IFunApp(fun, _) if (closedFuns contains fun) =>
+          VariableSubstVisitor(
+            functionDefs(fun),
+            (subres.toList.map(_.asInstanceOf[ITerm]), 0))
+        case _ =>
+          t update subres
+      }
+    }
+
+    var changed = true
+    while (changed) {
+      changed = false
+
+      openPreds =
+        for (pred <- openPreds;
+             if {
+               val body = predicateDefs(pred)
+               if (ContainsSymbol(body, cannotBeInlined)) {
+                 true
+               } else {
+                 val newBody = Inliner.visit(body, ())
+                 predicateDefs.put(pred, newBody.asInstanceOf[IFormula])
+                 closedPreds += pred
+                 changed = true
+                 false
+               }
+             })
+        yield pred
+
+      openFuns =
+        for (fun <- openFuns;
+             if {
+               val body = functionDefs(fun)
+               if (ContainsSymbol(body, cannotBeInlined)) {
+                 true
+               } else {
+                 val newBody = Inliner.visit(body, ())
+                 functionDefs.put(fun, newBody.asInstanceOf[ITerm])
+                 closedFuns += fun
+                 changed = true
+                 false
+               }
+             })
+        yield fun
+    }
+
+    if (!openPreds.isEmpty || !openFuns.isEmpty)
+      throw new Parser2InputAbsy.TranslationException(
+        "Recursive function or predicate definitions are not supported yet")
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -577,7 +706,7 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
         
         (predicateDefs get pred) match {
           case Some(body) =>
-            VariableSubstVisitor(body, (args.reverse.toList, 0))
+            VariableSubstVisitor(body, (args.toList, 0))
           case None => 
             IAtom(pred, args)
         }
@@ -590,7 +719,12 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
               "Function " + fun +
               " is applied to a wrong number of arguments: " + (args mkString ", "))
         
-        IFunApp(fun, args)
+        (functionDefs get fun) match {
+          case Some(body) =>
+            VariableSubstVisitor(body, (args.toList, 0))
+          case None => 
+            IFunApp(fun, args)
+        }
       }
       
       case Environment.Constant(c, _, _) => {
