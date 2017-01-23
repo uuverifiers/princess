@@ -16,7 +16,7 @@ Found proof (size 303), simplifying (344), interpolating ...
 VALID
 
 Interpolants:
-!(D = O) & !(N = O) & !(U = O)
+D != O & N != O & U != O
 
 Loading eqProof2.pri ...
 Preprocessing ...
@@ -46,7 +46,7 @@ Found proof (size 5), simplifying (5), interpolating ...
 VALID
 
 Interpolants:
-!(y = 2*d)
+y != 2*d
 
 Loading eqProof5.pri ...
 Preprocessing ...
@@ -56,7 +56,7 @@ Found proof (size 5), simplifying (5), interpolating ...
 VALID
 
 Interpolants:
-!(y = 2*d)
+y != 2*d
 
 Loading eqProof6.pri ...
 Preprocessing ...
@@ -66,7 +66,7 @@ Found proof (size 6), simplifying (6), interpolating ...
 VALID
 
 Interpolants:
-!(c + b - a = 0)
+c + b - a != 0
 
 Loading eqProof.pri ...
 Preprocessing ...
@@ -208,7 +208,7 @@ Found proof (size 17), simplifying (15), interpolating ...
 VALID
 
 Interpolants:
-!p | q
+p -> q
 
 Loading prop1.pri ...
 Preprocessing ...
@@ -248,7 +248,7 @@ Found proof (size 7), simplifying (7), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; (!(2*v0 = y) | p(v0))
+\forall int v0; (2*v0 = y -> p(v0))
 
 Loading prop5.pri ...
 Preprocessing ...
@@ -309,8 +309,8 @@ Found proof (size 66), simplifying (108), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; \forall int v1; (-1*h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
-\exists int v0; \exists int v1; (h'(f(v1)) + -1*h'(f(v0)) >= 1 & n >= v0 & v0 >= v1 & v1 >= 0)
+\forall int v0, v1; (-1*h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
+\exists int v0, v1; (h'(f(v1)) + -1*h'(f(v0)) >= 1 & n >= v0 & v0 >= v1 & v1 >= 0)
 
 Loading quan.pri ...
 Preprocessing ...
@@ -342,13 +342,13 @@ VALID
 Interpolants:
 true
 b1'1 = 0
-!(prob_index'2 = 1) | select(prres0'1, 1) = 0
-!(prob_index'2 = 1) | select(prres0'1, 1) = 0
-!(prob_index'2 = 1) | select(prres0'1, 1) = 0
-!(prob_index'2 = 1)
-!(prob_index'2 = 1)
-!(prob_index'2 = 1)
-!(prob_index'2 = 1)
+prob_index'2 = 1 -> select(prres0'1, 1) = 0
+prob_index'2 = 1 -> select(prres0'1, 1) = 0
+prob_index'2 = 1 -> select(prres0'1, 1) = 0
+prob_index'2 != 1
+prob_index'2 != 1
+prob_index'2 != 1
+prob_index'2 != 1
 
 Loading constOrderBug.pri ...
 Preprocessing ...
@@ -367,7 +367,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-id1 = 0 & id0 = 2 & write1' = 33 & write0' = 16 & write1 = 33 & write0 = 32 & read1' = 33 & read0' = 16 & read1 = 33 & read0 = 32 & A4 = 0 & A3 = 1 & A2 = 2 & A1 = 3 & A0 = 4 & j2' = 0 & j1' = 33 & j0' = 16 & j2 = 2 & j1 = 1 & j0 = 0 & i2' = 0 & i1' = 0 & i0' = 0 & i2 = 32 & i1 = 32 & i0 = 32 & select(4, 33) = -1 & select(4, 32) = 0 & select(4, 16) = 1 & select(3, 33) = -1 & select(3, 16) = 1 & select(2, 33) = 0 & select(2, 16) = 1 & select(1, 33) = 0 & store(4, 32, 1) = 3 & store(3, 33, 0) = 2 & store(2, 16, 2) = 1 & store(1, 33, 1) = 0 & T(32, 32, 1, 2, 3, 2, 33, 33) & T(32, 32, 0, 1, 4, 3, 32, 32) & T(0, 0, 33, 0, 1, 0, 33, 33) & T(0, 0, 16, 33, 2, 1, 16, 16) & !(select(4, 33) = 0) & !(select(3, 33) = 1) & !(select(3, 33) = 0) & !(select(3, 32) = 1) & !(select(2, 33) = 1) & !(store(4, 32, 1) = 4) & !(store(3, 33, 0) = 4) & !(store(3, 33, 0) = 3) & !(store(2, 33, 2) = 1) & !(store(2, 16, 2) = 4) & !(store(2, 16, 2) = 3) & !(store(2, 16, 2) = 2) & !(store(1, 33, 1) = 4) & !(store(1, 33, 1) = 3) & !(store(1, 33, 1) = 2) & !(store(1, 33, 1) = 1)
+id1 = 0 & id0 = 2 & write1' = 33 & write0' = 16 & write1 = 33 & write0 = 32 & read1' = 33 & read0' = 16 & read1 = 33 & read0 = 32 & A4 = 0 & A3 = 1 & A2 = 2 & A1 = 3 & A0 = 4 & j2' = 0 & j1' = 33 & j0' = 16 & j2 = 2 & j1 = 1 & j0 = 0 & i2' = 0 & i1' = 0 & i0' = 0 & i2 = 32 & i1 = 32 & i0 = 32 & select(4, 33) = -1 & select(4, 32) = 0 & select(4, 16) = 1 & select(3, 33) = -1 & select(3, 16) = 1 & select(2, 33) = 0 & select(2, 16) = 1 & select(1, 33) = 0 & store(4, 32, 1) = 3 & store(3, 33, 0) = 2 & store(2, 16, 2) = 1 & store(1, 33, 1) = 0 & T(32, 32, 1, 2, 3, 2, 33, 33) & T(32, 32, 0, 1, 4, 3, 32, 32) & T(0, 0, 33, 0, 1, 0, 33, 33) & T(0, 0, 16, 33, 2, 1, 16, 16) & select(4, 33) != 0 & select(3, 33) != 1 & select(3, 33) != 0 & select(3, 32) != 1 & select(2, 33) != 1 & store(4, 32, 1) != 4 & store(3, 33, 0) != 4 & store(3, 33, 0) != 3 & store(2, 33, 2) != 1 & store(2, 16, 2) != 4 & store(2, 16, 2) != 3 & store(2, 16, 2) != 2 & store(1, 33, 1) != 4 & store(1, 33, 1) != 3 & store(1, 33, 1) != 2 & store(1, 33, 1) != 1
 
 Loading wrongInterpolant3.pri ...
 Preprocessing ...
@@ -386,7 +386,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-sym9 = 0 & sym8 = 0 & sym7 = 0 & sym6 = 0 & sym5 = 1 & sym4 = 2 & sym3 = 1 & sym2 = 1 & sym1 = 1 & sym0 = 268435456 & select(0, 1) = 12 & store(1, 1, 12) = 0 & store(0, 2, 3) = 0 & inUnsigned(32, 2) & inUnsigned(32, 1) & inUnsigned(32, 0) & inSigned(32, 268435456) & inArray(1) & inArray(0) & !(select(1, 1) = 12)
+sym9 = 0 & sym8 = 0 & sym7 = 0 & sym6 = 0 & sym5 = 1 & sym4 = 2 & sym3 = 1 & sym2 = 1 & sym1 = 1 & sym0 = 268435456 & select(0, 1) = 12 & store(1, 1, 12) = 0 & store(0, 2, 3) = 0 & inUnsigned(32, 2) & inUnsigned(32, 1) & inUnsigned(32, 0) & inSigned(32, 268435456) & inArray(1) & inArray(0) & select(1, 1) != 12
 
 Loading splitEq.pri ...
 Preprocessing ...
@@ -476,7 +476,7 @@ Found proof (size 11), simplifying (14), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; !(2*v0 + a = -1)
+\forall int v0; 2*v0 + a != -1
 
 Loading nonlin.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication
@@ -489,7 +489,7 @@ VALID
 
 Interpolants:
 x = 1
-!(y = 3)
+y != 3
 
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -584,7 +584,7 @@ Found proof (size 16727), simplifying (5666), interpolating ...
 VALID
 
 Interpolants:
-(v_princess_0 = 402 & !(i844 = 1)) | (v_princess_0 = 30 & !(i844 = 1)) | (!(v_princess_0 = 22) & !(i844 = 1))
+(v_princess_0 = 402 & i844 != 1) | (v_princess_0 = 30 & i844 != 1) | (v_princess_0 != 22 & i844 != 1)
 
 Loading prp-3-18.pri ...
 Preprocessing ...
@@ -594,7 +594,7 @@ Found proof (size 35693), simplifying (5200), interpolating ...
 VALID
 
 Interpolants:
-!(v_princess_0 = 22) & !(i844 = 1)
+v_princess_0 != 22 & i844 != 1
 
 Loading surprising25.pri ...
 Preprocessing ...

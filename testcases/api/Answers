@@ -129,8 +129,8 @@ Vector(d - c >= 1, d >= 1)
 
 -- Interpolation with functions
 Unsat
-Vector(!(c = 3) | f(3) = 5, f(3) = 5)
-Vector(!(c = 3))
+Vector(c = 3 -> f(3) = 5, f(3) = 5)
+Vector(c != 3)
 
 -- Interpolation with arrays
 Unsat

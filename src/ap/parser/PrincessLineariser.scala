@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -84,6 +84,7 @@ object PrincessLineariser {
                                   outerPrec : Int) {
     def pushVar(name : String)          = PrintContext(name :: vars, parentOp, outerPrec)
     def setParentOp(op : String)        = PrintContext(vars, op, outerPrec)
+    def addParentOp(op : String)        = PrintContext(vars, op + parentOp, outerPrec)
     def setOpPrec(op : String, l : Int) = PrintContext(vars, op, l)
     def setPrecLevel(l : Int)           = PrintContext(vars, parentOp, l)
   }
@@ -172,16 +173,16 @@ object PrincessLineariser {
       t match {
         // Terms
         case IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))) => {
-          TryAgain(s, ctxt setParentOp (" - " + atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt)))
         }
         case IPlus(s, ITimes(coeff, AtomicTerm(t))) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt setParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt)))
         }
         case IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s) => {
-          TryAgain(s, ctxt setParentOp (" - " + atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt)))
         }
         case IPlus(ITimes(coeff, AtomicTerm(t)), s) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt setParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt)))
         }
       
         case AtomicTerm(t) => {
@@ -232,6 +233,29 @@ object PrincessLineariser {
             noParentOp(ctxt)
           }
         }
+
+        case IBinFormula(IBinJunctor.Or,
+                         INot(left@(_ : IAtom | _ : IIntFormula)), right) => {
+          // In this special case, recursively print the antecedent
+          left match {
+            case IAtom(pred, Seq()) =>
+              print(pred.name)
+            case left =>
+              AbsyPrinter.visit(left, ctxt setParentOp "")
+          }
+
+          print(" -> ")
+
+          val newRightCtxt = right match {
+            case IBinFormula(IBinJunctor.Or,
+                             INot(_ : IAtom | _ : IIntFormula), _) =>
+              ctxt
+            case _ =>
+              ctxt setPrecLevel 1
+          }
+
+          TryAgain(right, newRightCtxt)
+        }
         
         case IBinFormula(junctor, left, right) => {
           val op = junctor match {
@@ -260,30 +284,59 @@ object PrincessLineariser {
           print(value)
           noParentOp(ctxt)
         }
+
+        // Negated equations
       
+        case INot(IIntFormula(IIntRelation.EqZero,
+                              ITimes(IdealInt.MINUS_ONE, t))) => {
+          print("0 != ")
+          TryAgain(t, ctxt)
+        }
+        case INot(IIntFormula(IIntRelation.EqZero,
+                              IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))))) => {
+          TryAgain(s, ctxt addParentOp (" != " + atomicTerm(t, ctxt)))
+        }
+        case INot(IIntFormula(IIntRelation.EqZero,
+                              IPlus(s, ITimes(coeff, AtomicTerm(t))))) if (coeff.signum < 0) => {
+          TryAgain(s, ctxt addParentOp (" != " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+        }
+        case INot(IIntFormula(IIntRelation.EqZero,
+                              IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s))) => {
+          TryAgain(s, ctxt addParentOp (" != " + atomicTerm(t, ctxt)))
+        }
+        case INot(IIntFormula(IIntRelation.EqZero,
+                              IPlus(ITimes(coeff, AtomicTerm(t)), s))) if (coeff.signum < 0) => {
+          TryAgain(s, ctxt addParentOp (" != " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+        }
+        case INot(IIntFormula(IIntRelation.EqZero,
+                              IPlus(IIntLit(value), s))) => {
+          TryAgain(s, ctxt addParentOp (" != " + (-value)))
+        }
+      
+        case INot(IIntFormula(IIntRelation.EqZero, s)) => {
+          TryAgain(s, ctxt addParentOp " != 0")
+        }
+
+        // Non-negated relations
+
         case IIntFormula(rel, ITimes(IdealInt.MINUS_ONE, t)) => {
           print("0 " + relation(rel) + " ")
           TryAgain(t, ctxt)
         }
         case IIntFormula(rel, IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)))) => {
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " +
-                                        atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + atomicTerm(t, ctxt)))
         }
         case IIntFormula(rel, IPlus(s, ITimes(coeff, AtomicTerm(t)))) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " + coeff.abs + "*" +
-                                        atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + coeff.abs + "*" + atomicTerm(t, ctxt)))
         }
         case IIntFormula(rel, IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s)) => {
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " +
-                                        atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + atomicTerm(t, ctxt)))
         }
         case IIntFormula(rel, IPlus(ITimes(coeff, AtomicTerm(t)), s)) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " + coeff.abs + "*" +
-                                        atomicTerm(t, ctxt) + ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + coeff.abs + "*" + atomicTerm(t, ctxt)))
         }
         case IIntFormula(rel, IPlus(IIntLit(value), s)) => {
-          TryAgain(s, ctxt setParentOp (" " + relation(rel) + " " + (-value) +
-                                        ctxt.parentOp))
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + (-value)))
         }
       
         case IIntFormula(rel, _) => {
@@ -300,15 +353,31 @@ object PrincessLineariser {
                 ctxt
             })
         }
-        case IQuantified(quan, _) => {
+
+        case IQuantified(quan, subF) => {
           val varName = "v" + ctxt.vars.size
           print(quan match {
             case Quantifier.ALL => "\\forall"
             case Quantifier.EX => "\\exists"
           })
-          print(" int " + varName + "; ")
-          noParentOp(ctxt pushVar varName)
+          print(" int " + varName)
+
+          var newCtxt = ctxt pushVar varName
+
+          var sub = subF
+          while (sub.isInstanceOf[IQuantified] &&
+                 sub.asInstanceOf[IQuantified].quan == quan) {
+            val varName2 = "v" + newCtxt.vars.size
+            newCtxt = newCtxt pushVar varName2
+            print(", " + varName2)
+            val IQuantified(_, newSub) = sub
+            sub = newSub
+          }
+
+          print("; ")
+          TryAgain(sub, newCtxt)
         }
+
         case IEpsilon(_) => {
           val varName = "v" + ctxt.vars.size
           print("\\eps int " + varName + "; ")

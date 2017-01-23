@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,7 +34,8 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Class to simplify input formulas using various rewritings
  */
-class Simplifier(SPLITTING_LIMIT : Int = 20) {
+class Simplifier(splittingLimit : Int = 20,
+                 doMiniScoping : Boolean = true) {
 
   /**
    * Transformation to negation normal form
@@ -64,7 +65,7 @@ class Simplifier(SPLITTING_LIMIT : Int = 20) {
         VariableShiftVisitor(f1, 1, -1) | all(f2)
       else if (!ContainsSymbol(f2, IVariable(0)))
         all(f1) | VariableShiftVisitor(f2, 1, -1)
-      else if (splitNum < SPLITTING_LIMIT) f match {
+      else if (splitNum < splittingLimit) f match {
         case AndSplitter(f1, f2) => {
           splitNum = splitNum + 1
           all(f1) & all(f2)
@@ -79,7 +80,7 @@ class Simplifier(SPLITTING_LIMIT : Int = 20) {
         VariableShiftVisitor(f1, 1, -1) & ex(f2)
       else if (!ContainsSymbol(f2, IVariable(0)))
         ex(f1) & VariableShiftVisitor(f2, 1, -1)
-      else if (splitNum < SPLITTING_LIMIT) f match {
+      else if (splitNum < splittingLimit) f match {
         case OrSplitter(f1, f2) => {
           splitNum = splitNum + 1
           ex(f1) | ex(f2)
@@ -430,8 +431,9 @@ class Simplifier(SPLITTING_LIMIT : Int = 20) {
   protected def furtherSimplifications(expr : IExpression) = expr
   
   private val defaultRewritings =
-    Array(toNNF _, elimSimpleLiterals _, elimQuantifier _, miniScope _,
-          splitITEs _, furtherSimplifications _)
+    (List(toNNF _, elimSimpleLiterals _, elimQuantifier _) ++
+     (if (doMiniScoping) List(miniScope _) else List()) ++
+     List(splitITEs _, furtherSimplifications _)).toArray
   
   /**
    * Perform various kinds of simplification to the given formula, in particular

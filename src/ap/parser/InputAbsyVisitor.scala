@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -603,6 +603,12 @@ object SymbolCollector {
     val c = new SymbolCollector (variables, null, null)
     c.visitWithoutResult(t, 0)
     variables
+  }
+  def variablesSorted(t : IExpression) : scala.collection.Seq[IVariable] = {
+    val variables = new LinkedHashSet[IVariable]
+    val c = new SymbolCollector (variables, null, null)
+    c.visitWithoutResult(t, 0)
+    variables.toSeq
   }
   def constants(t : IExpression) : scala.collection.Set[ConstantTerm] = {
     val constants = new MHashSet[ConstantTerm]
