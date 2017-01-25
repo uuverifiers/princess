@@ -738,6 +738,12 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
        case _ => false
      })
 
+  def isPresburger(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case _ : IFunApp | _ : IAtom => true
+       case _ => false
+     })
+
   def apply(t : IExpression, pred : IExpression => Boolean) : Boolean = try {
     visitWithoutResult(t, Context(pred))
     false

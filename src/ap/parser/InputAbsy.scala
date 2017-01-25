@@ -232,16 +232,44 @@ object IExpression {
     (f /: quans)((f, q) => IQuantified(q, f))
 
   /**
+   * Quantify some of the variables occurring in a formula.
+   */
+  def quanVars(quan : Quantifier, vars : Iterable[IVariable],
+               f : IFormula) : IFormula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IExpression.AC, vars.toSet.size == vars.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (vars.isEmpty) {
+      f
+    } else {
+      // First need to reorder the variables
+      val shifts =
+        (for ((IVariable(v), n) <- vars.iterator.zipWithIndex)
+         yield (v, n - v)).toMap
+      val shiftedF =
+        VariablePermVisitor(f, IVarShift(shifts, vars.size))
+
+      // then add quantifiers
+      (vars :\ shiftedF) ((_, g) => IQuantified(quan, g))
+    }
+  }
+
+  /**
    * Replace <code>consts</code> with bound variables, and quantify them.
    */
   def quanConsts(quan : Quantifier,
                  consts : Iterable[ConstantTerm],
                  f : IFormula) : IFormula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IExpression.AC, consts.toSet.size == consts.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     val fWithShiftedVars = VariableShiftVisitor(f, 0, consts.size)
     val subst = (for ((c, i) <- consts.iterator.zipWithIndex)
                  yield (c, v(i))).toMap
     val fWithSubstitutedConsts = ConstantSubstVisitor(fWithShiftedVars, subst)
-    (consts :\ fWithSubstitutedConsts) ((c, f) => IQuantified(quan, f))
+    (consts :\ fWithSubstitutedConsts) ((_, f) => IQuantified(quan, f))
   }
   
   /**

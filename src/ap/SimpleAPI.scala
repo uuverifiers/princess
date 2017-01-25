@@ -1451,7 +1451,7 @@ class SimpleAPI private (enableAssert : Boolean,
    * Convert a formula from the internal prover format to input syntax.
    */
   def asIFormula(c : Conjunction) : IFormula =
-    (new Simplifier)(Internal2InputAbsy(c, Map()))
+    (new Simplifier (0))(Internal2InputAbsy(c, Map()))
 
   /**
    * Pretty-print a formula or term.
@@ -2531,13 +2531,26 @@ class SimpleAPI private (enableAssert : Boolean,
    * Note that this will also return all formulas that have previously
    * been asserted in this prover.
    */
-  def projectAll(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = scope {
-    makeExistential(toConsts)
-    setMostGeneralConstraints(true)
-    ?? (f)
-    ??? match {
-      case ProverStatus.Valid   => getConstraint
-      case ProverStatus.Invalid => IBoolLit(false)
+  def projectAll(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (ContainsSymbol isPresburger f) scope {
+      makeExistential(toConsts)
+      setMostGeneralConstraints(true)
+      ?? (f)
+      ??? match {
+        case ProverStatus.Valid   => getConstraint
+        case ProverStatus.Invalid => IBoolLit(false)
+      }
+    } else {
+      // formula that we cannot project at the moment
+      val toConstsSet =
+        (for (IConstant(c) <- toConsts.iterator) yield c).toSet
+      val otherConsts =
+        (SymbolCollector constantsSorted f) filterNot toConstsSet
+      IExpression.quanConsts(Quantifier.ALL, otherConsts, f)
     }
   }
   
@@ -2547,13 +2560,26 @@ class SimpleAPI private (enableAssert : Boolean,
    * Note that this will also return all formulas that have previously
    * been asserted in this prover.
    */
-  def projectEx(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = scope {
-    makeExistential(toConsts)
-    setMostGeneralConstraints(true)
-    ?? (~f)
-    ??? match {
-      case ProverStatus.Valid   => ~getConstraint
-      case ProverStatus.Invalid => IBoolLit(true)
+  def projectEx(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (ContainsSymbol isPresburger f) scope {
+      makeExistential(toConsts)
+      setMostGeneralConstraints(true)
+      ?? (~f)
+      ??? match {
+        case ProverStatus.Valid   => ~getConstraint
+        case ProverStatus.Invalid => IBoolLit(true)
+      }
+    } else {
+      // formula that we cannot project at the moment
+      val toConstsSet =
+        (for (IConstant(c) <- toConsts.iterator) yield c).toSet
+      val otherConsts =
+        (SymbolCollector constantsSorted f) filterNot toConstsSet
+      IExpression.quanConsts(Quantifier.EX, otherConsts, f)
     }
   }
   
@@ -2563,7 +2589,33 @@ class SimpleAPI private (enableAssert : Boolean,
    * been asserted in this prover.
    */
   def simplify(f : IFormula) : IFormula =
-    projectAll(f, for (c <- SymbolCollector constants f) yield IConstant(c))
+    if (!(ContainsSymbol isPresburger f)) {
+      // formula that we cannot simplify at the moment
+      f
+    } else if (ContainsSymbol isClosed f) {
+      val consts =
+        for (c <- SymbolCollector constantsSorted f) yield IConstant(c)
+      projectAll(f, consts)
+    } else scope {
+      import IExpression._
+
+      // Need to replace free variables in the formula with constants
+      val maxInd =
+        (for (IVariable(v) <- (SymbolCollector variables f).iterator)
+         yield v).max
+      val subst = createConstants("X", 0 until (maxInd + 1)).toList
+
+      val substF = VariableSubstVisitor(f, (subst, 0))
+      val allConsts =
+        for (c <- SymbolCollector constantsSorted substF) yield IConstant(c)
+      val res = projectAll(substF, allConsts)
+
+      // substitute back variables
+      val backSubst =
+        (for ((IConstant(c), n) <- subst.iterator.zipWithIndex)
+         yield (c, IVariable(n))).toMap
+      ConstantSubstVisitor(res, backSubst)
+    }
   
   //////////////////////////////////////////////////////////////////////////////
 
