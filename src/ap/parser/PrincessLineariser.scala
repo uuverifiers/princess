@@ -172,6 +172,14 @@ object PrincessLineariser {
                             
       t match {
         // Terms
+        case IPlus(IIntLit(value), s) => {
+          val offset =
+            if (value.signum >= 0)
+              " + " + value
+            else
+              " - " + (-value)
+          TryAgain(s, ctxt addParentOp offset)
+        }
         case IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))) => {
           TryAgain(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt)))
         }
