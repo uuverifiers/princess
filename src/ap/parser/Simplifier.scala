@@ -74,7 +74,7 @@ class Simplifier(splittingLimit : Int = 20,
       } else
         expr
     }
-                                        
+
     case IQuantified(EX, f@IBinFormula(And, f1, f2)) => {
       if (!ContainsSymbol(f1, IVariable(0)))
         VariableShiftVisitor(f1, 1, -1) & ex(f2)
@@ -121,6 +121,20 @@ class Simplifier(splittingLimit : Int = 20,
   private val AndSplitter = new FormulaSplitter (IBinJunctor.And, IBinJunctor.Or)
   private val OrSplitter =  new FormulaSplitter (IBinJunctor.Or, IBinJunctor.And)
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Elimination of quantifiers binding variables that are not actually used
+   */
+  private def elimUnusedQuantifier(expr : IExpression)
+                                  : IExpression = expr match {
+    case IQuantified(_, t)
+      if (!ContainsSymbol(t, IVariable(0))) =>
+        VariableShiftVisitor(t, 1, -1)
+    case _ =>
+      expr
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def iteSplitter(t : ITerm)
@@ -432,7 +446,10 @@ class Simplifier(splittingLimit : Int = 20,
   
   private val defaultRewritings =
     (List(toNNF _, elimSimpleLiterals _, elimQuantifier _) ++
-     (if (doMiniScoping) List(miniScope _) else List()) ++
+     (if (doMiniScoping)
+        List(miniScope _)
+      else
+        List(elimUnusedQuantifier _)) ++
      List(splitITEs _, furtherSimplifications _)).toArray
   
   /**
