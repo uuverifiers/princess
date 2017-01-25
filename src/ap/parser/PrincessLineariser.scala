@@ -234,21 +234,19 @@ object PrincessLineariser {
           }
         }
 
-        case IBinFormula(IBinJunctor.Or,
-                         INot(left@(_ : IAtom | _ : IIntFormula)), right) => {
+        case IBinFormula(IBinJunctor.Or, INot(left), right) => {
           // In this special case, recursively print the antecedent
           left match {
             case IAtom(pred, Seq()) =>
               print(pred.name)
             case left =>
-              AbsyPrinter.visit(left, ctxt setParentOp "")
+              AbsyPrinter.visit(left, ctxt.setOpPrec("", 1))
           }
 
           print(" -> ")
 
           val newRightCtxt = right match {
-            case IBinFormula(IBinJunctor.Or,
-                             INot(_ : IAtom | _ : IIntFormula), _) =>
+            case IBinFormula(IBinJunctor.Or, INot(_), _) =>
               ctxt
             case _ =>
               ctxt setPrecLevel 1
