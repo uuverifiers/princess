@@ -51,6 +51,12 @@ ConstDeclCommand.	Command	        ::= "(" "declare-const" Symbol Sort ")";
 FunctionDefCommand.	Command	        ::= "(" "define-fun" Symbol
                                                 "(" [ESortedVarC] ")"
                                                 Sort Term ")";
+RecFunctionDefCommand.	Command	        ::= "(" "define-fun-rec" Symbol
+                                                "(" [ESortedVarC] ")"
+                                                Sort Term ")";
+RecFunctionDefsCommand.	Command	        ::= "(" "define-funs-rec"
+                                                "(" [FunSignatureC] ")"
+                                                "(" [Term] ")" ")";
 PushCommand.            Command         ::= "(" "push" Numeral ")";
 PopCommand.             Command         ::= "(" "pop" Numeral ")";
 AssertCommand.          Command	        ::= "(" "assert" Term ")";
@@ -141,6 +147,10 @@ EpsQuantifier.	Quantifier	::= "_eps";
 -- functions
 IdentifierRef.	SymbolRef	::= Identifier;
 CastIdentifierRef.SymbolRef	::= "(" "as" Identifier Sort ")";
+
+FunSignature.   FunSignatureC   ::= "(" Symbol "(" [ESortedVarC] ")" Sort ")";
+
+separator nonempty FunSignatureC "";
 
 --------------------------------------------------------------------------------
 -- Variables
