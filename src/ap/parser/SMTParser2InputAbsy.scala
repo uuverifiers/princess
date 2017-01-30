@@ -1129,16 +1129,85 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           // set up a defining equation and formula
           if (incremental)
             prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
-
-          val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
-          val matrix =
-            if (argNum == 0)
-              lhs === asTerm(body)
-            else
-              ITrigger(List(lhs), lhs === asTerm(body))
-          addAxiom(quan(Array.fill(argNum){Quantifier.ALL}, matrix))
+          addAxiomEquation(f, body)
         }
 
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : RecFunctionDefCommand => {
+        val name = asString(cmd.symbol_)
+        val args : Seq[SMTType] = 
+          for (sortedVar <- cmd.listesortedvarc_)
+          yield translateSort(sortedVar.asInstanceOf[ESortedVar].sort_)
+        val argNum = pushVariables(cmd.listesortedvarc_)
+        val resType = translateSort(cmd.sort_)
+
+        // use a real function
+        val f = new IFunction(name, argNum, true, true)
+        env.addFunction(f, SMTFunctionType(args.toList, resType))
+
+        if (incremental)
+          prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
+        
+        // parse the definition of the function
+        val body@(_, bodyType) = translateTerm(cmd.term_, 0)
+
+        if (bodyType != resType)
+          throw new Parser2InputAbsy.TranslationException(
+              "Body of function definition has wrong type")
+
+        // pop the variables from the environment
+        for (_ <- PlainRange(argNum)) env.popVar
+
+        registerRecFunctions(List((f, body)))
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : RecFunctionDefsCommand => {
+        // create functions
+        val functions = for (sigc <- cmd.listfunsignaturec_) yield {
+          val sig = sigc.asInstanceOf[FunSignature]
+          val name = asString(sig.symbol_)
+          val args : Seq[SMTType] = 
+            for (sortedVar <- sig.listesortedvarc_)
+            yield translateSort(sortedVar.asInstanceOf[ESortedVar].sort_)
+          val resType = translateSort(sig.sort_)
+
+          // use a real function
+          val f = new IFunction(name, args.size, true, true)
+          env.addFunction(f, SMTFunctionType(args.toList, resType))
+
+          if (incremental)
+            prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
+
+          f
+        }
+
+        // parse bodies
+        val funDefs =
+          for (((sigc, bodyExpr), f) <-
+                 (cmd.listfunsignaturec_ zip cmd.listterm_) zip functions) yield {
+            val sig = sigc.asInstanceOf[FunSignature]
+            val argNum = pushVariables(sig.listesortedvarc_)
+            val resType = translateSort(sig.sort_)
+
+            val body@(_, bodyType) = translateTerm(bodyExpr, 0)
+            if (bodyType != resType)
+              throw new Parser2InputAbsy.TranslationException(
+                "Body of function definition has wrong type")
+            
+            // pop the variables from the environment
+            for (_ <- PlainRange(argNum)) env.popVar
+
+            (f, body)
+          }
+
+        registerRecFunctions(funDefs)
         success
       }
 
@@ -2372,6 +2441,31 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           val body = ctorIdTerm === ctorNum
           functionDefs = functionDefs + (query -> (body, SMTBool))
         }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected def registerRecFunctions(
+                  funs : Seq[(IFunction, (IExpression, SMTType))]) : Unit =
+    for ((f, body) <- funs) {
+      // set up a defining equation and formula
+      addAxiomEquation(f, body)
+    }
+
+  private def addAxiomEquation(f : IFunction,
+                               body : (IExpression, SMTType)) : Unit = {
+    val argNum = f.arity
+
+    val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
+    val axiom =
+      if (argNum == 0)
+        lhs === asTerm(body)
+      else
+        quan(Array.fill(argNum + 1){Quantifier.ALL}, 
+          ITrigger(List(lhs),
+            (lhs === v(argNum)) ==> (asTerm(body) === v(argNum))))
+
+    addAxiom(axiom)
   }
 
   //////////////////////////////////////////////////////////////////////////////
