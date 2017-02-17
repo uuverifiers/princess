@@ -738,9 +738,24 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
        case _ => false
      })
 
+  /**
+   * Check whether given formula is in Presburger arithmetic.
+   */
   def isPresburger(t : IExpression) : Boolean =
     !apply(t, (x:IExpression) => x match {
        case _ : IFunApp | _ : IAtom => true
+       case _ => false
+     })
+
+  /**
+   * Check whether given formula is in Presburger arithmetic, but
+   * possibly including predicate atoms in which all arguments
+   * are concrete numbers.
+   */
+  def isPresburgerWithPreds(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case _ : IFunApp => true
+       case IAtom(_, args) => !(args forall (_.isInstanceOf[IIntLit]))
        case _ => false
      })
 

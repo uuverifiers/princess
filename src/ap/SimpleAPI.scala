@@ -2589,32 +2589,67 @@ class SimpleAPI private (enableAssert : Boolean,
    * been asserted in this prover.
    */
   def simplify(f : IFormula) : IFormula =
-    if (!(ContainsSymbol isPresburger f)) {
-      // formula that we cannot simplify at the moment
-      f
-    } else if (ContainsSymbol isClosed f) {
+    if (!(ContainsSymbol isPresburgerWithPreds f)) {
+      // Formula that we cannot fully simplify at the moment;
+      // just run the heuristic simplifier
+
+      asIFormula(asConjunction(f))
+
+    } else if ((ContainsSymbol isPresburger f) &&
+               (ContainsSymbol isClosed f)) {
+      // Simplest case, pure Presburger formula
+
       val consts =
         for (c <- SymbolCollector constantsSorted f) yield IConstant(c)
       projectAll(f, consts)
+
     } else scope {
       import IExpression._
 
       // Need to replace free variables in the formula with constants
       val maxInd =
-        (for (IVariable(v) <- (SymbolCollector variables f).iterator)
-         yield v).max
+        ((Iterator single -1) ++
+         (for (IVariable(v) <- (SymbolCollector variables f).iterator)
+          yield v)).max
       val subst = createConstants("X", 0 until (maxInd + 1)).toList
 
       val substF = VariableSubstVisitor(f, (subst, 0))
+
+      // Replace remaining predicates in the formula with new constants
+      val replacedAtoms = new MHashMap[IAtom, ConstantTerm]
+
+      object AtomAbstractingVisitor
+             extends CollectingVisitor[Unit, IExpression] {
+        override def preVisit(t : IExpression,
+                              arg : Unit) : PreVisitResult = t match {
+          case a : IAtom => {
+            val c = replacedAtoms.getOrElseUpdate(a, createConstantRaw("Y"))
+            ShortCutResult(eqZero(c))
+          }
+          case t =>
+            KeepArg
+        }
+        def postVisit(t : IExpression, arg : Unit,
+                      subres : Seq[IExpression]) : IExpression = t update subres
+      }
+
+      val substF2 =
+        AtomAbstractingVisitor.visit(substF, ()).asInstanceOf[IFormula]
+
       val allConsts =
-        for (c <- SymbolCollector constantsSorted substF) yield IConstant(c)
-      val res = projectAll(substF, allConsts)
+        for (c <- SymbolCollector constantsSorted substF2) yield IConstant(c)
+      val res = projectAll(substF2, allConsts)
+
+      // substitute back predicates
+      val backSubst =
+        (for ((f, c) <- replacedAtoms.iterator) yield (c -> ite(f, 0, 1))).toMap
+      val res2 = SimplifyingConstantSubstVisitor(res, backSubst)
 
       // substitute back variables
-      val backSubst =
+      val backSubst2 =
         (for ((IConstant(c), n) <- subst.iterator.zipWithIndex)
          yield (c, IVariable(n))).toMap
-      ConstantSubstVisitor(res, backSubst)
+      ConstantSubstVisitor(res2, backSubst2)
     }
   
   //////////////////////////////////////////////////////////////////////////////
