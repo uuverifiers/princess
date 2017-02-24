@@ -1,52 +1,52 @@
 #!/bin/sh
 
-./rundir nia "" -logo +assert -timeout=5000 -clausifier=none +posUnitResolution
+./rundir nia "" -logo +assert +model -timeout=5000 -clausifier=none +posUnitResolution
 
 ./rundir api ""
 
-./rundir smtlib-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution
-./rundir tptp-parser "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution
+./rundir smtlib-parser "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
+./rundir tptp-parser "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
 
-./rundir interpolation "" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
+./rundir interpolation "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
 
 ./rundir werePrincess ""
 
-./rundir allSettings "1" -logo +assert -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "2" -logo +assert -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "3" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "4" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "5" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
-./rundir allSettings "6" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
-./rundir allSettings "7" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=complete -genTotalityAxioms
-./rundir allSettings "7" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=completeFrugal -genTotalityAxioms
+./rundir allSettings "1" -logo +assert +model -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2" -logo +assert +model -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "3" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "4" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "5" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
+./rundir allSettings "6" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
+./rundir allSettings "7" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=complete -genTotalityAxioms
+./rundir allSettings "7" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=completeFrugal -genTotalityAxioms
 
-./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
-./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
-./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=all
-./rundir onlyUnitResolution "1" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=all
-./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=complete -genTotalityAxioms
-./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=complete -genTotalityAxioms
-./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
-./rundir onlyUnitResolution "2" -logo +assert -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
+./rundir onlyUnitResolution "1" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir onlyUnitResolution "1" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir onlyUnitResolution "1" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=all
+./rundir onlyUnitResolution "1" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=all
+./rundir onlyUnitResolution "2" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=complete -genTotalityAxioms
+./rundir onlyUnitResolution "2" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=complete -genTotalityAxioms
+./rundir onlyUnitResolution "2" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
+./rundir onlyUnitResolution "2" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=completeFrugal -genTotalityAxioms
 
-./rundir onlyClausification "" -logo +assert -timeout=60000 -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir onlyClausification "" -logo +assert +model -timeout=60000 -clausifier=simple +posUnitResolution -generateTriggers=none
 
-./rundir mostGeneralConstraint "" -logo +assert -timeout=30000 +posUnitResolution +mostGeneralConstraint -generateTriggers=none
+./rundir mostGeneralConstraint "" -logo +assert +model -timeout=30000 +posUnitResolution +mostGeneralConstraint -generateTriggers=none
 
-./rundir special "" -logo +assert -generateTriggers=none
+./rundir special "" -logo +assert +model -generateTriggers=none
 
-./rundir lira "" -logo +assert -timeout=120000 -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -generateTriggers=none
+./rundir lira "" -logo +assert +model -timeout=120000 -clausifier=none -posUnitResolution -simplifyConstraints=lemmas -generateTriggers=none
 
 echo
 echo "Running soundness checks (this will take a while)"
 echo
 
-./rundir unprovable "1" -logo +assert -timeout=30000 -simplifyConstraints=fair -clausifier=none -posUnitResolution -generateTriggers=none
-./rundir unprovable "2" -logo +assert -timeout=30000 -simplifyConstraints=fair -clausifier=simple -posUnitResolution -generateTriggers=none
-./rundir unprovable "3" -logo +assert -timeout=30000 -simplifyConstraints=fair -clausifier=none +posUnitResolution -generateTriggers=none
-./rundir unprovable "4" -logo +assert -timeout=30000 -simplifyConstraints=fair -clausifier=simple +posUnitResolution -generateTriggers=none
-./rundir unprovable "5" -logo +assert -timeout=30000 -simplifyConstraints=lemmas -clausifier=none -posUnitResolution -generateTriggers=none
-./rundir unprovable "6" -logo +assert -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple -posUnitResolution -generateTriggers=none
-./rundir unprovable "7" -logo +assert -timeout=30000 -simplifyConstraints=lemmas -clausifier=none +posUnitResolution -generateTriggers=none
-./rundir unprovable "8" -logo +assert -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir unprovable "1" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=none -posUnitResolution -generateTriggers=none
+./rundir unprovable "2" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=simple -posUnitResolution -generateTriggers=none
+./rundir unprovable "3" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir unprovable "4" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir unprovable "5" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=none -posUnitResolution -generateTriggers=none
+./rundir unprovable "6" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple -posUnitResolution -generateTriggers=none
+./rundir unprovable "7" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir unprovable "8" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple +posUnitResolution -generateTriggers=none
 

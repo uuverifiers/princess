@@ -348,7 +348,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   protected def findCounterModelTimeout(f : Seq[Conjunction]) =
     Timeout.withChecker(stoppingCond) {
-      ModelSearchProver(f, order, goalSettings)
+      ModelSearchProver(f, order, goalSettings, Param.COMPUTE_MODEL(settings))
     }
   
   protected def findModel(f : Conjunction) : Conjunction =

@@ -90,8 +90,10 @@ object ModelSearchProver {
    * validity (<code>Right</code>). In case proof construction is disabled,
    * the validity result will be <code>Left(FALSE)</code>.
    */
-  def apply(inputDisjuncts : Seq[Conjunction], order : TermOrder,
-            settings : GoalSettings) : Either[Conjunction, Certificate] = {
+  def apply(inputDisjuncts : Seq[Conjunction],
+            order : TermOrder,
+            settings : GoalSettings,
+            withFullModel : Boolean = true) : Either[Conjunction, Certificate] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ModelSearchProver.AC,
                     inputDisjuncts forall ((inputFor) =>
@@ -99,7 +101,7 @@ object ModelSearchProver {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     applyHelp(inputDisjuncts, order,
               Param.CONSTRAINT_SIMPLIFIER.set(settings, simplifier),
-              FullModelDirector)
+              if (withFullModel) FullModelDirector else SatOnlyDirector)
   }
    
   /**

@@ -299,6 +299,11 @@ object Param {
     val defau : Boolean = false
   }
   
+  case object COMPUTE_MODEL extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
   case object PROOF_SIMPLIFICATION extends Param {
     type Value = Boolean
     val defau : Boolean = true

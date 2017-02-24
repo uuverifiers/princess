@@ -32,8 +32,7 @@ import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
-                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
-                  SMTParser2InputAbsy, IFunction}
+                  Internal2InputAbsy, Simplifier, SMTParser2InputAbsy, IFunction}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -78,12 +77,13 @@ object CmdlMain {
     println("                             (+incremental implies -genTotalityAxioms)")
     println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
     println(" -timeoutPer=val           Set a timeout per SMT-LIB query (ms) (default: infty)")
-    println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
-    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
-    println("                           (quantifier elimination for PA formulae) (default: -)")
-    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
+    println(" [+-]model                 Compute models or countermodels          (default: -)")
     println(" [+-]unsatCore             Compute unsatisfiable cores              (default: -)")
     println(" [+-]printProof            Output the constructed proof             (default: -)")
+    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
+    println("                           (quantifier elimination for PA formulae) (default: -)")
+    println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
+    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
   }
 
   def printExoticOptions = {
@@ -486,20 +486,6 @@ object CmdlMain {
                                   Param.TIMEOUT_PER(settings),
                                   userDefStoppingCond)
     }
-
-/*
-    implicit val format = Param.InputFormat.SMTLIB
-    val interface = new IncrementalSMTLIBInterface {
-      protected def solve(input : String) : Option[Prover.Result] = {
-        Console.err.println("Checking satisfiability ...")
-        proveProblem(settings,
-                     "SMT-LIB 2 input",
-                     () => new java.io.StringReader(input),
-                     userDefStoppingCond)
-      }
-    }
-    interface.readInputs(input, settings)
-*/
   } catch {
       case _ : StackOverflowError => {
         println("unknown")
@@ -560,17 +546,17 @@ object CmdlMain {
               case Prover.Invalid(_) =>  {
                 println("sat")
               }
-              case Prover.CounterModel(model) =>  {
+              case Prover.CounterModel(optModel) =>  {
                 println("sat")
-                Console.withOut(Console.err) {
+                for (model <- optModel) Console.withOut(Console.err) {
                   println
                   println("Model:")
                   printFormula(model)
                 }
               }
-              case Prover.MaybeCounterModel(model) =>  {
+              case Prover.MaybeCounterModel(optModel) =>  {
                 println("unknown")
-                Console.withOut(Console.err) {
+                for (model <- optModel) Console.withOut(Console.err) {
                   println
                   println("Possible model:")
                   printFormula(model)
@@ -605,7 +591,7 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
+              case Prover.TimeoutResult() =>  {
                 println("unknown")
                 Console.err.println("Cancelled or timeout")
               }
@@ -684,11 +670,11 @@ object CmdlMain {
                   println("false")
                 }
               }
-              case Prover.CounterModel(model) =>  {
+              case Prover.CounterModel(optModel) =>  {
                 println("INVALID")
-                model match {
-                  case IBoolLit(true) => // nothing
-                  case _ => {
+                optModel match {
+                  case None | Some(IBoolLit(true)) => // nothing
+                  case Some(model) => {
                     println
                     println("Countermodel:")
                     printFormula(model)
@@ -700,11 +686,11 @@ object CmdlMain {
                   println("false")
                 }
               }
-              case Prover.MaybeCounterModel(model) =>  {
+              case Prover.MaybeCounterModel(optModel) =>  {
                 println("UNKNOWN")
-                model match {
-                  case IBoolLit(true) => // nothing
-                  case _ => {
+                optModel match {
+                  case None | Some(IBoolLit(true)) => // nothing
+                  case Some(model) => {
                     println
                     println("Possible countermodel:")
                     printFormula(model)
@@ -748,11 +734,13 @@ object CmdlMain {
 
                 printCertificate(cert, settings, prover)
               }
-              case Prover.Model(model) =>  {
+              case Prover.Model(optModel) =>  {
                 println("VALID")
-                println
-                println("Under the assignment:")
-                printFormula(model)
+                for (model <- optModel) {
+                  println
+                  println("Under the assignment:")
+                  printFormula(model)
+                }
               }
               case Prover.NoModel =>  {
                 println("INVALID")
@@ -776,7 +764,7 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
+              case Prover.TimeoutResult() =>  {
                 println("CANCELLED/TIMEOUT")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println

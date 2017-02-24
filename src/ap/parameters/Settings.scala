@@ -118,6 +118,8 @@ object GlobalSettings {
           Param.PROOF_SIMPLIFICATION.set(settings, value)
         case Opt("unsatCore", value) =>
           Param.COMPUTE_UNSAT_CORE.set(settings, value)
+        case Opt("model", value) =>
+          Param.COMPUTE_MODEL.set(settings, value)
         case Opt("elimInterpolantQuants", value) =>
           Param.ELIMINATE_INTERPOLANT_QUANTIFIERS.set(settings, value)
         case Opt("ignoreQuantifiers", value) =>
@@ -194,7 +196,7 @@ object GlobalSettings {
          Param.TIMEOUT, Param.TIMEOUT_PER,
          Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
          Param.PROOF_CONSTRUCTION_GLOBAL, Param.COMPUTE_UNSAT_CORE,
-         Param.PROOF_SIMPLIFICATION,
+         Param.COMPUTE_MODEL, Param.PROOF_SIMPLIFICATION,
          Param.TRIGGER_GENERATION, Param.FUNCTION_GC,
          Param.TIGHT_FUNCTION_SCOPES, Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
          Param.GENERATE_TOTALITY_AXIOMS,

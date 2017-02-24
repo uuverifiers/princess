@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -47,6 +47,7 @@ object Debug {
   case object AC_SEQ_UTILS extends ASSERTION_CATEGORY
   case object AC_MAP_UTILS extends ASSERTION_CATEGORY
   case object AC_SET_UTILS extends ASSERTION_CATEGORY
+  case object AC_PO_GRAPH extends ASSERTION_CATEGORY
   case object AC_QUEUE_WITH_ITERATORS extends ASSERTION_CATEGORY  
   case object AC_TERM_ORDER extends ASSERTION_CATEGORY
   case object AC_LINEAR_COMB extends ASSERTION_CATEGORY
