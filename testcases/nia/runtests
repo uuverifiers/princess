@@ -61,7 +61,8 @@ TESTS="division.pri \
        simplify8.pri \
        simplify9.pri \
        subsumptionExample.pri \
-       simpleTermination.pri"
+       simpleTermination.pri \
+       aproveSMT809443464904014753.smt2"
 
 $PRI "$@" $TESTS 2>&1
 

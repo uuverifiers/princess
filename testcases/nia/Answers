@@ -134,7 +134,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-b = 0 & a = -2
+b = 0
 
 Loading quadraticInEq12.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication
@@ -415,6 +415,16 @@ VALID
 
 Under the constraint:
 X = 0
+
+Loading aproveSMT809443464904014753.smt2 ...
+Warning: using theory to encode multiplication: GroebnerMultiplication
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+
+Model:
+(and (and (and (and (and (and (and (= a__5 1 ) (= a__8 0 ) ) (= a__4 1 ) ) (= a__9 0 ) ) (= a__6 0 ) ) (= a__7 1 ) ) (= a__2 1 ) ) (= b__10 1 ) ) 
 
 Loading splittingBug.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication

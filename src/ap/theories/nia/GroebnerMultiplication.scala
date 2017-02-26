@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -411,8 +411,7 @@ println(unprocessed)
         goal.facts.arithConj.inEqs.map(lcToPolynomial).toList,
         goal.facts.arithConj.negativeEqs.map(lcToPolynomial).toList)
 
-      if (ap.util.Timer.measure("intervals"){intervalSet.propagate})
-        throw new Exception("Interval propagation error, abort!")
+      intervalSet.propagate
 
       val allFormulas = intervals2Formula(intervalSet, predicates, goal)
       if (!allFormulas.isFalse)
@@ -724,8 +723,8 @@ println(unprocessed)
           val intervalSet =
             new IntervalSet(preds, ineqPolys.toList, negeqPolys.toList)
   
-          if (intervalSet.propagate)
-            throw new Exception("Interval propagation error, abort!")
+          intervalSet.propagate
+
           if (!intervalSet.getInconsistency.isEmpty)
             return List(Plugin.AddFormula(Conjunction.TRUE))
 
