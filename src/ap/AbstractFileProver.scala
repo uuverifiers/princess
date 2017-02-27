@@ -322,9 +322,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     theoriesAreSatComplete &&
     (!matchedTotalFunctions ||
      Param.GENERATE_TOTALITY_AXIOMS(settings) ||
-// not quite clear yet how this trigger strategy should be integrated
-//     Param.TRIGGER_GENERATION(settings) ==
-//       Param.TriggerGenerationOptions.CompletenessPreserving ||
+     (Set(Param.TriggerGenerationOptions.Complete,
+          Param.TriggerGenerationOptions.CompleteFrugal) contains
+      Param.TRIGGER_GENERATION(settings)) ||
      allFunctionsArePartial)
 
   //////////////////////////////////////////////////////////////////////////////

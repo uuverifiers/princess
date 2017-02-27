@@ -1924,7 +1924,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             val f = new IFunction(letVarName(name), 1, true, false)
             env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTInteger))
 
-            env.pushVar(name, SubstExpression(all(eqZero(v(0)) ==> eqZero(f(v(0)))),
+            env.pushVar(name, SubstExpression(containFunctionApplications(eqZero(f(0))),
                                               SMTBool))
             all(ITrigger(List(f(v(0))),
                          eqZero(v(0)) ==>
