@@ -967,12 +967,51 @@ class SelectiveQuantifierCountVisitor(consideredQuantifiers : Set[Quantifier])
       val realQuan = if (ctxt.polarity > 0) q else q.dual
       if (consideredQuantifiers contains realQuan) {
         count = count + 1
-        KeepArg
+        super.preVisit(t, ctxt)
       } else {
         ShortCutResult(())
       }
     }
-    case _ => KeepArg
+    case _ => super.preVisit(t, ctxt)
+  }
+
+  def postVisit(t : IExpression, ctxt : Context[Unit],
+                subres : Seq[Unit]) : Unit = ()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Visitor for checking whether a formula contains any existential quantifiers.
+ */
+object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
+
+  private object FoundQuantifier extends Exception
+  private val v0Set = Set(IVariable(0))
+
+  def apply(f : IExpression) : Boolean = try {
+    this.visitWithoutResult(f, Context({}))
+    true
+  } catch {
+    case FoundQuantifier => false
+  }
+
+  override def preVisit(t : IExpression,
+                        ctxt : Context[Unit]) : PreVisitResult = t match {
+    case IQuantified(q, body) => {
+      if (ctxt.polarity > 0) {
+        if (q == Quantifier.EX)
+          throw FoundQuantifier
+      } else if (ctxt.polarity < 0) {
+        if (q == Quantifier.ALL)
+          throw FoundQuantifier
+      } else {
+        if (!ContainsSymbol.freeFrom(body, v0Set))
+          throw FoundQuantifier
+      }
+      super.preVisit(t, ctxt)
+    }
+    case _ => super.preVisit(t, ctxt)
   }
 
   def postVisit(t : IExpression, ctxt : Context[Unit],

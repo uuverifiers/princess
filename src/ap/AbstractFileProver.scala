@@ -24,7 +24,7 @@ package ap;
 import ap.parameters._
 import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
-                  Preprocessing,
+                  Preprocessing, IsUniversalFormulaVisitor,
                   FunctionEncoder, IExpression, INamedPart, PartName,
                   IFunction, IInterpolantSpec, IBinJunctor, Environment}
 import ap.terfor.{Formula, TermOrder}
@@ -104,9 +104,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       println("Preprocessing ...")
     }
     
+    val genTotality =
+      Param.GENERATE_TOTALITY_AXIOMS(settings) && !IsUniversalFormulaVisitor(f)
+
     val functionEnc =
-      new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                           Param.GENERATE_TOTALITY_AXIOMS(settings))
+      new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings), genTotality)
     for (t <- signature.theories)
       functionEnc addTheory t
 
@@ -320,12 +322,20 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected lazy val soundForSat =
     !ignoredQuantifiers &&
     theoriesAreSatComplete &&
-    (!matchedTotalFunctions ||
-     Param.GENERATE_TOTALITY_AXIOMS(settings) ||
+    (!matchedTotalFunctions || allFunctionsArePartial ||
+     Param.GENERATE_TOTALITY_AXIOMS(settings)
+     /*
+      Enabling this last case gives a wrong result for
+      testcases/onlyUnitResolution/functions5.pri
+      with options -generateTriggers=complete -genTotalityAxioms
+      Need a better criterion for when this trigger strategy
+      is complete
+     ||
      (Set(Param.TriggerGenerationOptions.Complete,
           Param.TriggerGenerationOptions.CompleteFrugal) contains
-      Param.TRIGGER_GENERATION(settings)) ||
-     allFunctionsArePartial)
+      Param.TRIGGER_GENERATION(settings))
+      */
+     )
 
   //////////////////////////////////////////////////////////////////////////////
 
