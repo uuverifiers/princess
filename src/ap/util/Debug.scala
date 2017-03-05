@@ -73,6 +73,7 @@ object Debug {
   case object AC_PARSER extends ASSERTION_CATEGORY
   case object AC_ENVIRONMENT extends ASSERTION_CATEGORY
   case object AC_INPUT_ABSY extends ASSERTION_CATEGORY
+  case object AC_TYPES extends ASSERTION_CATEGORY
   case object AC_PARAMETERS extends ASSERTION_CATEGORY
   case object AC_CLAUSE_MATCHER extends ASSERTION_CATEGORY
   case object AC_CONSTANT_FREEDOM extends ASSERTION_CATEGORY
