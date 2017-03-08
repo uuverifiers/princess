@@ -21,7 +21,7 @@
 
 package ap.types
 
-import ap.parser.IFunction
+import ap.parser.{IFunction, ITerm}
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
 
@@ -29,6 +29,39 @@ import ap.terfor.preds.Predicate
  * Sorted version of constants.
  */
 class SortedConstantTerm(_name : String, val sort : Sort)
-      extends ConstantTerm(_name)
+      extends ConstantTerm(_name) {
+  override def clone : SortedConstantTerm =
+    new SortedConstantTerm(name, sort)
+}
 
 ////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * General class representing sorted functions; sub-classes can model
+ * both monomorphic and polymorphic functions.
+ */
+abstract class SortedIFunction(_name : String, _arity : Int,
+                               _partial : Boolean, _relational : Boolean)
+         extends IFunction(_name, _arity, _partial, _relational) {
+  /**
+   * Method to determine the argument and result types of the function.
+   */
+  def functionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort)
+
+  /**
+   * Method to determine the sort of function results.
+   */
+  def resultSort(arguments : Seq[ITerm]) : Sort
+}
+
+class MonoSortedIFunction(_name : String,
+                          val argTypes : Seq[Sort],
+                          val resSort : Sort,
+                          _partial : Boolean, _relational : Boolean)
+      extends SortedIFunction(_name, argTypes.size, _partial, _relational) {
+
+  def functionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) =
+    (argTypes, resSort)
+
+  def resultSort(arguments : Seq[ITerm]) : Sort = resSort
+}

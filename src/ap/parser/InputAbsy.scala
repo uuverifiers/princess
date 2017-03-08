@@ -25,6 +25,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.terfor.preds.Predicate
+import ap.types.Sort
 import ap.util.{Debug, Seqs}
 
 import scala.collection.mutable.ArrayBuffer
@@ -110,6 +111,18 @@ object IExpression {
   def i(value : Boolean) : IFormula = IBoolLit(value)
   /** Implicit conversion from Booleans to formulas */
   implicit def Boolean2IFormula(value : Boolean) : IFormula = IBoolLit(value)
+
+  /** Implicit conversion from Scala ranges to interval sorts */
+  implicit def Range2Interval(range : Range) : Sort.Interval = {
+    if (range.step != 1)
+      throw new IllegalArgumentException(
+        "Only ranges with step 1 can be converted to a sort")
+    val upper = if (range.isInclusive) range.end else (range.end - 1)
+    if (upper < range.start)
+      throw new IllegalArgumentException(
+        "Sorts have to be non-empty")
+    Sort.Interval(Some(range.start), Some(upper))
+  }
 
   /**
    * Implicit conversion, to enable the application of a predicate

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,6 +27,7 @@ import ap.theories._
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
+import ap.types.Sort
 import ap.util.Seqs
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
@@ -64,6 +65,34 @@ object SMTLineariser {
   private val trueConstant  = IConstant(new ConstantTerm("true"))
   private val falseConstant = IConstant(new ConstantTerm("false"))
   private val eqPredicate   = new Predicate ("=", 2)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger,
+                              SMTFunctionType}
+
+  def printSMTType(t : SMTType) : Unit = t match {
+    case SMTInteger => print("Int")
+    case SMTBool    => print("Bool")
+    case SMTArray(args, res) => {
+      print("(Array")
+      for (s <- args) {
+        print(" ")
+        printSMTType(s)
+      }
+      print(" ")
+      printSMTType(res)
+      print(")")
+    }
+  }
+
+  def sort2SMTType(sort : Sort) : (SMTType,
+                                   Option[ITerm => IFormula]) = sort match {
+    case Sort.Integer =>
+      (SMTInteger, None)
+    case Sort.Nat | _ : Sort.Interval =>
+      (SMTInteger, Some(sort.membershipConstraint _))
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -188,7 +217,8 @@ class SMTLineariser(benchmarkName : String,
                            IFunction => Option[SMTParser2InputAbsy.SMTFunctionType]) {
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr,
-                        trueConstant, falseConstant, eqPredicate}
+                        trueConstant, falseConstant, eqPredicate,
+                        printSMTType}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -468,23 +498,6 @@ class SMTLineariser(benchmarkName : String,
         res
       }
       case _ => t update subres
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
-  private def printSMTType(t : SMTType) : Unit = t match {
-    case SMTInteger => print("Int")
-    case SMTBool    => print("Bool")
-    case SMTArray(args, res) => {
-      print("(Array")
-      for (s <- args) {
-        print(" ")
-        printSMTType(s)
-      }
-      print(" ")
-      printSMTType(res)
-      print(")")
     }
   }
 

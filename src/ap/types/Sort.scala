@@ -23,7 +23,7 @@ package ap.types
 
 import ap.basetypes.IdealInt
 import ap.parser._
-import ap.terfor.{Term, Formula, TermOrder, OneTerm}
+import ap.terfor.{Term, Formula, TermOrder, OneTerm, ConstantTerm}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
@@ -37,13 +37,15 @@ object Sort {
    * The sort of integers, which is also the default sort whenever
    * no sort is specified.
    */
-  object Int extends Sort {
+  object Integer extends Sort {
     val name : String = "Int"
     def membershipConstraint(t : ITerm) : IFormula =
       IExpression.i(true)
     def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
       Conjunction.TRUE
     val cardinality : Option[IdealInt] = None
+    override def newConstant(name : String) : ConstantTerm =
+      new ConstantTerm(name)
   }
 
   /**
@@ -117,6 +119,9 @@ trait Sort {
   //////////////////////////////////////////////////////////////////////////////
 
   override def toString : String = name
+
+  def newConstant(name : String) : ConstantTerm =
+    new SortedConstantTerm(name, this)
 
   //////////////////////////////////////////////////////////////////////////////
 

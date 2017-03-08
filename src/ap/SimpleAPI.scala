@@ -41,6 +41,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
+import ap.types.{Sort, SortedConstantTerm, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
@@ -498,6 +499,7 @@ class SimpleAPI private (enableAssert : Boolean,
   doDumpScala {
     println("import ap._")
     println("import ap.parser._")
+    println("import ap.types.Sort")
     println("import ap.basetypes.IdealInt")
     println
     println("SimpleAPI.withProver { p =>")
@@ -601,9 +603,15 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Create a new symbolic constant.
    */
-  def createConstant(rawName : String) : ITerm = {
+  def createConstant(rawName : String) : ITerm =
+    createConstant(rawName, Sort.Integer)
+
+  /**
+   * Create a new symbolic constant with given sort.
+   */
+  def createConstant(rawName : String, sort : Sort) : ITerm = {
     import IExpression._
-    createConstantRaw(rawName)
+    createConstantRaw(rawName, sort)
   }
 
   /**
@@ -611,6 +619,12 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def createConstant : ITerm =
     createConstant("c" + currentOrder.orderedConstants.size)
+  
+  /**
+   * Create a new symbolic constant with predefined name and given sort.
+   */
+  def createConstant(sort : Sort) : ITerm =
+    createConstant("c" + currentOrder.orderedConstants.size, sort)
   
   /**
    * Create <code>num</code> new symbolic constants with predefined name.
@@ -625,7 +639,15 @@ class SimpleAPI private (enableAssert : Boolean,
    * given prefix.
    */
   def createConstants(prefix : String, nums : Range) : IndexedSeq[ITerm] =
-    for (c <- createConstantsRaw(prefix, nums)) yield IConstant(c)
+    createConstants(prefix, nums, Sort.Integer)
+
+  /**
+   * Create a sequence of new symbolic constants, with name starting with the
+   * given prefix and the given sort.
+   */
+  def createConstants(prefix : String, nums : Range,
+                      sort : Sort) : IndexedSeq[ITerm] =
+    for (c <- createConstantsRaw(prefix, nums, sort)) yield IConstant(c)
 
   /**
    * Create a new symbolic constant, without directly turning it into an
@@ -633,51 +655,94 @@ class SimpleAPI private (enableAssert : Boolean,
    * only useful when working with formulae in the internal prover format.
    */
   def createConstantRaw(rawName : String) : IExpression.ConstantTerm =
-    createConstantRaw(rawName, "createConstant")
+    createConstantRaw(rawName, "createConstant", Sort.Integer)
+
+  /**
+   * Create a new symbolic constant, without directly turning it into an
+   * <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def createConstantRaw(rawName : String,
+                        sort : Sort) : IExpression.ConstantTerm =
+    createConstantRaw(rawName, "createConstant", sort)
 
   private def createConstantRaw(rawName : String,
-                                scalaCmd : String) : IExpression.ConstantTerm = {
+                                scalaCmd : String,
+                                sort : Sort) : IExpression.ConstantTerm = {
     import IExpression._
     
     val name = sanitise(rawName)
-    val c = new ConstantTerm(name)
+    val c = sort newConstant name
     currentOrder = currentOrder extend c
+
+    addTypeTheory
     restartProofThread
-    doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Int)")
-    }
-    doDumpScala {
-      println("val " + name + " = " + scalaCmd + "(\"" + rawName + "\")")
-    }
+    dumpCreateConstant(c, rawName, scalaCmd, sort)
+    
     c
   }
 
+  private def dumpCreateConstant(c : IExpression.ConstantTerm,
+                                 rawName : String,
+                                 scalaCmd : String,
+                                 sort : Sort) : Unit = {
+    import IExpression._
+
+    doDumpSMT {
+      val (smtType, optConstr) = SMTLineariser sort2SMTType sort
+      print("(declare-fun " + SMTLineariser.quoteIdentifier(c.name) + " () ")
+      SMTLineariser printSMTType smtType
+      println(")")
+      
+      for (constr <- optConstr) {
+        print("(assert ")
+        SMTLineariser(constr(i(c)))
+        println(")")
+      }        
+    }
+    
+    doDumpScala {
+      print("val " + c.name + " = " + scalaCmd + "(\"" + rawName + "\"")
+      if (sort != Sort.Integer) {
+        print(", ")
+        PrettyScalaLineariser printSort sort
+      }
+      println(")")
+    }
+  }
+
   /**
-   * Create a sequence of new symbolic constants, without directly turning them into an
-   * <code>ITerm</code>. This method is
+   * Create a sequence of new symbolic constants, without directly turning
+   * them into an <code>ITerm</code>. This method is
    * only useful when working with formulae in the internal prover format.
    */
   def createConstantsRaw(prefix : String, nums : Range)
                         : IndexedSeq[IExpression.ConstantTerm] =
-    createConstantsRaw(prefix, nums, "createConstant")
+    createConstantsRaw(prefix, nums, "createConstant", Sort.Integer)
 
-  def createConstantsRaw(prefix : String, nums : Range, scalaCmd : String)
-                        : IndexedSeq[IExpression.ConstantTerm] = {
+  /**
+   * Create a sequence of new symbolic constants, without directly turning
+   * them into an <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def createConstantsRaw(prefix : String, nums : Range, sort : Sort)
+                        : IndexedSeq[IExpression.ConstantTerm] =
+    createConstantsRaw(prefix, nums, "createConstant", sort)
+
+  private def createConstantsRaw(prefix : String,
+                                 nums : Range,
+                                 scalaCmd : String,
+                                 sort : Sort)
+                                : IndexedSeq[IExpression.ConstantTerm] = {
     import IExpression._
     val cs = (for (i <- nums)
               yield {
-                doDumpSMT {
-                  println("(declare-fun " +
-                          SMTLineariser.quoteIdentifier(prefix + i) +
-                          " () Int)")
-                }
-                doDumpScala {
-                  println("val " + prefix + i +
-                          " = " + scalaCmd + "(\"" + prefix + i + "\")")
-                }
-                new ConstantTerm (prefix + i)
+                val c = sort newConstant (prefix + i)
+                dumpCreateConstant(c, c.name, scalaCmd, sort)
+                c
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
+    addTypeTheory
     restartProofThread
     cs
   }
@@ -687,7 +752,8 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def createExistentialConstant(rawName : String) : ITerm = {
     import IExpression._
-    val c = createConstantRaw(rawName, "createExistentialConstant")
+    val c = createConstantRaw(rawName, "createExistentialConstant",
+                              Sort.Integer)
     existentialConstants = existentialConstants + c
     c
   }
@@ -706,7 +772,8 @@ class SimpleAPI private (enableAssert : Boolean,
   def createExistentialConstants(num : Int) : IndexedSeq[ITerm] = {
     val start = currentOrder.orderedConstants.size
     val cs = createConstantsRaw("X", start until (start + num),
-                                "createExistentialConstant")
+                                "createExistentialConstant",
+                                Sort.Integer)
     existentialConstants = existentialConstants ++ cs
     for (c <- cs) yield IConstant(c)
   }
@@ -2429,6 +2496,11 @@ class SimpleAPI private (enableAssert : Boolean,
   def addTheoriesFor(order : TermOrder) : Unit = {
     theoryCollector(order)
     addTheoryAxioms
+  }
+
+  private def addTypeTheory : Unit = {
+    if (!(theories contains TypeTheory))
+      addTheory(TypeTheory)
   }
 
   //////////////////////////////////////////////////////////////////////////////
