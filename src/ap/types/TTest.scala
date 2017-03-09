@@ -73,6 +73,13 @@ object TTest extends App {
     }
   }
 
+  scope {
+    val X = createExistentialConstant("X", Sort.Nat)
+    ?? (X > 10 & 2*X < 30)
+    println(???)
+    println(pp(getMinimisedConstraint))
+  }
+
   p.shutDown
 
   println("Finished")

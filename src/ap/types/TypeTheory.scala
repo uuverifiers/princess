@@ -22,7 +22,7 @@
 package ap.types
 
 import ap.theories.Theory
-import ap.terfor.TermOrder
+import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.Conjunction
 
 /**
@@ -39,11 +39,29 @@ object TypeTheory extends Theory {
            if c.isInstanceOf[SortedConstantTerm])
       yield (c.asInstanceOf[SortedConstantTerm].sort membershipConstraint c)
 
-    if (membershipConstraints.hasNext) {
+    if (membershipConstraints.hasNext)
       Conjunction.conj(membershipConstraints, order) ==> f
-    } else {
+    else
       f
-    }
+  }
+
+  /**
+   * Add constraints about implicitly existentially quantified constants.
+   */
+  def addExConstraints(f : Conjunction,
+                       exConstants : Set[ConstantTerm],
+                       order : TermOrder) : Conjunction = {
+    implicit val _ = order
+
+    val membershipConstraints =
+      for (c <- f.constants.iterator;
+           if c.isInstanceOf[SortedConstantTerm] && (exConstants contains c))
+      yield (c.asInstanceOf[SortedConstantTerm].sort membershipConstraint c)
+
+    if (membershipConstraints.hasNext)
+      Conjunction.conj((Iterator single f) ++ membershipConstraints, order)
+    else
+      f
   }
 
   override def isSoundForSat(

@@ -635,6 +635,15 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
+   * Create <code>num</code> new symbolic constants with predefined name and
+   * given sort.
+   */
+  def createConstants(num : Int, sort : Sort) : IndexedSeq[ITerm] = {
+    val start = currentOrder.orderedConstants.size
+    createConstants("c", start until (start + num), sort)
+  }
+
+  /**
    * Create a sequence of new symbolic constants, with name starting with the
    * given prefix.
    */
@@ -675,7 +684,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val c = sort newConstant name
     currentOrder = currentOrder extend c
 
-    addTypeTheory
+    addTypeTheoryIfNeeded(sort)
     restartProofThread
     dumpCreateConstant(c, rawName, scalaCmd, sort)
     
@@ -742,7 +751,7 @@ class SimpleAPI private (enableAssert : Boolean,
                 c
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
-    addTypeTheory
+    addTypeTheoryIfNeeded(sort)
     restartProofThread
     cs
   }
@@ -750,10 +759,16 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Create a new symbolic constant that is implicitly existentially quantified.
    */
-  def createExistentialConstant(rawName : String) : ITerm = {
+  def createExistentialConstant(rawName : String) : ITerm =
+    createExistentialConstant(rawName, Sort.Integer)
+  
+  /**
+   * Create a new symbolic constant with given sort that is implicitly
+   * existentially quantified.
+   */
+  def createExistentialConstant(rawName : String, sort : Sort) : ITerm = {
     import IExpression._
-    val c = createConstantRaw(rawName, "createExistentialConstant",
-                              Sort.Integer)
+    val c = createConstantRaw(rawName, "createExistentialConstant", sort)
     existentialConstants = existentialConstants + c
     c
   }
@@ -763,17 +778,31 @@ class SimpleAPI private (enableAssert : Boolean,
    * existentially quantified.
    */
   def createExistentialConstant : ITerm =
-    createExistentialConstant("X" + currentOrder.orderedConstants.size)
+    createExistentialConstant(Sort.Integer)
+  
+  /**
+   * Create a new symbolic constant with predefined name and given sort
+   * that is implicitly existentially quantified.
+   */
+  def createExistentialConstant(sort : Sort) : ITerm =
+    createExistentialConstant("X" + currentOrder.orderedConstants.size, sort)
   
   /**
    * Create <code>num</code> new symbolic constant with predefined name that is
    * implicitly existentially quantified.
    */
-  def createExistentialConstants(num : Int) : IndexedSeq[ITerm] = {
+  def createExistentialConstants(num : Int) : IndexedSeq[ITerm] =
+    createExistentialConstants(num, Sort.Integer)
+
+  /**
+   * Create <code>num</code> new symbolic constant with predefined name that is
+   * implicitly existentially quantified.
+   */
+  def createExistentialConstants(num : Int, sort : Sort) : IndexedSeq[ITerm] = {
     val start = currentOrder.orderedConstants.size
     val cs = createConstantsRaw("X", start until (start + num),
                                 "createExistentialConstant",
-                                Sort.Integer)
+                                sort)
     existentialConstants = existentialConstants ++ cs
     for (c <- cs) yield IConstant(c)
   }
@@ -809,7 +838,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly existentially quantified.
    */
-  def makeExistentialRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+  def makeExistentialRaw(constants : Iterable[IExpression.ConstantTerm])
+                        : Unit = {
     doDumpSMT {
       println("; (make-existential-raw " + (constants mkString ", ") + ")")
     }
@@ -822,7 +852,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly existentially quantified.
    */
-  def makeExistentialRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+  def makeExistentialRaw(constants : Iterator[IExpression.ConstantTerm])
+                       : Unit = {
     doDumpSMT {
       println("; (make-existential-raw ...)")
     }
@@ -863,7 +894,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly universally quantified.
    */
-  def makeUniversalRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+  def makeUniversalRaw(constants : Iterable[IExpression.ConstantTerm])
+                      : Unit = {
     doDumpSMT {
       println("; (make-universal-raw " + (constants mkString ", ") + ")")
     }
@@ -876,7 +908,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly universally quantified.
    */
-  def makeUniversalRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+  def makeUniversalRaw(constants : Iterator[IExpression.ConstantTerm])
+                      : Unit = {
     doDumpSMT {
       println("; (make-universal-raw ...)")
     }
@@ -911,17 +944,20 @@ class SimpleAPI private (enableAssert : Boolean,
    * Add an externally defined constant to the environment of this prover.
    */
   def addConstantRaw(c : IExpression.ConstantTerm) : Unit = {
-    doDumpSMT {
-      println("(declare-fun " +
-              SMTLineariser.quoteIdentifier(c.name) + " () Int)")
-    }
     doDumpScala {
-      println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-              "// addConstantRaw(" + c.name + ")")
+      println("// addConstantRaw(" + c.name + ")")
     }
+    val sort = constantSort(c)
+    dumpCreateConstant(c, c.name, "createConstant", sort)
 
     currentOrder = currentOrder extend c
+    addTypeTheoryIfNeeded(sort)
     restartProofThread
+  }
+
+  private def constantSort(c : IExpression.ConstantTerm) : Sort = c match {
+    case c : SortedConstantTerm => c.sort
+    case _ => Sort.Integer
   }
 
   /**
@@ -929,15 +965,13 @@ class SimpleAPI private (enableAssert : Boolean,
    * this prover.
    */
   def addConstantsRaw(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
-    doDumpSMT {
-      for (c <- cs)
-        println("(declare-fun " +
-                SMTLineariser.quoteIdentifier(c.name) + " () Int)")
-    }
-    doDumpScala {
-      for (c <- cs)
-        println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-                "// addConstantRaw(" + c.name + ")")
+    for (c <- cs) {
+      doDumpScala {
+        println("// addConstantRaw(" + c.name + ")")
+      }
+      val sort = constantSort(c)
+      dumpCreateConstant(c, c.name, "createConstant", sort)
+      addTypeTheoryIfNeeded(sort)
     }
 
     currentOrder = currentOrder extend cs.toSeq
@@ -951,7 +985,8 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
 
     doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Bool)")
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) +
+              " () Bool)")
     }
     doDumpScala {
       println("val " + name + " = " +
@@ -1838,9 +1873,11 @@ class SimpleAPI private (enableAssert : Boolean,
     val closedFor = Conjunction.quantify(Quantifier.ALL,
                                          currentOrder sort uniConstants,
                                          completeFor, currentOrder)
+    val closedExFor =
+      TypeTheory.addExConstraints(closedFor, existentialConstants, order)
 
     lastStatus = ProverStatus.Running
-    proverCmd put CheckValidityCommand(closedFor,
+    proverCmd put CheckValidityCommand(closedExFor,
                                        exhaustiveProverGoalSettings,
                                        mostGeneralConstraints)
   }
@@ -2498,9 +2535,12 @@ class SimpleAPI private (enableAssert : Boolean,
     addTheoryAxioms
   }
 
-  private def addTypeTheory : Unit = {
-    if (!(theories contains TypeTheory))
-      addTheory(TypeTheory)
+  private def addTypeTheoryIfNeeded(sort : Sort) : Unit = sort match {
+    case Sort.Integer =>
+      // nothing
+    case _ =>
+      if (!(theories contains TypeTheory))
+        addTheory(TypeTheory)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -3560,7 +3600,8 @@ class SimpleAPI private (enableAssert : Boolean,
   private def addToProver(preCompleteFor : Conjunction,
                           preAxioms : Conjunction) : Unit = {
     val completeFor =
-      convertQuantifiers(Theory.preprocess(preCompleteFor, theories,
+      convertQuantifiers(Theory.preprocess(preCompleteFor,
+                                           theories,
                                            currentOrder))
     val axioms =
       convertQuantifiers(preAxioms)
@@ -3697,7 +3738,8 @@ class SimpleAPI private (enableAssert : Boolean,
                         order,
                         theoryCollector.theories)
     val (fors, _, newSig) =
-      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
+      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
+                    functionEnc)
     functionEnc.clearAxioms
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
