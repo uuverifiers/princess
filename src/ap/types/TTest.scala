@@ -80,6 +80,15 @@ object TTest extends App {
     println(pp(getMinimisedConstraint))
   }
 
+  scope {
+    val c = createConstant(10 until 20)
+    !! (c**c < 10000)
+    println(???)
+    println(eval(c))
+    !! (c**c > 1000)
+    println(???)
+  }
+
   p.shutDown
 
   println("Finished")
