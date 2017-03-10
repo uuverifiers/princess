@@ -1107,6 +1107,8 @@ class SimpleAPI private (enableAssert : Boolean,
                         case f => SymbolCollector nullaryPredicates f
                       }) yield p)
 
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Create a new uninterpreted function with fixed arity.
    */
@@ -1120,50 +1122,39 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def createFunction(rawName : String, arity : Int,
                      functionalityMode : FunctionalityMode.Value)
-                    : IFunction = {
-    doDumpScala {
-      println("val " + sanitise(rawName) + " = " +
-              "createFunction(\"" + rawName + "\", " + arity +
-                   printFunctionalityMode(functionalityMode) + ")")
-    }
-    createFunctionSMTDump(sanitise(rawName), arity)
-    createFunctionHelp(rawName, arity, functionalityMode)
-  }
-
-  /**
-   * Create a new uninterpreted function with given sorts.
-   */
-  def createFunction(rawName : String,
-                     argSorts : Seq[Sort], resSort : Sort)
-                    : MonoSortedIFunction =
-    createFunction(rawName, argSorts, resSort, FunctionalityMode.Full)
+                    : IFunction =
+    createFunction(rawName,
+                   for (_ <- 0 until arity) yield Sort.Integer,
+                   Sort.Integer,
+                   false,
+                   functionalityMode)
 
   /**
    * Create a new uninterpreted function with given sorts,
-   * and chose to which degree functionality axioms should be
-   * generated.
+   * and chose whether the function is partial, and to which degree
+   * functionality axioms should be generated.
    */
   def createFunction(rawName : String,
-                     argSorts : Seq[Sort], resSort : Sort,
-                     functionalityMode : FunctionalityMode.Value)
-                    : MonoSortedIFunction = {
-    doDumpScala {
-      println(
-        "val " + sanitise(rawName) +
-        " = createFunction(\"" + rawName + "\", List(" +
-        (argSorts map (PrettyScalaLineariser sort2String _)).mkString(", ") +
-        "), " + (PrettyScalaLineariser sort2String resSort) +
-        printFunctionalityMode(functionalityMode) + ")")
-    }
-    val f = createFunctionHelp(rawName, argSorts, resSort, functionalityMode)
+                     argSorts : Seq[Sort],
+                     resSort : Sort,
+                     partial : Boolean = false,
+                     functionalityMode : FunctionalityMode.Value =
+                       FunctionalityMode.Full)
+                    : IFunction = {
+    val f = createFunctionHelp(rawName, argSorts, resSort,
+                               partial, functionalityMode)
+    createFunctionScalaDump(f, rawName, argSorts, resSort, functionalityMode)
     createFunctionSMTDump(f, argSorts, resSort)
     f
   }
 
+  private def printPartiality(partial : Boolean) =
+    if (partial) ", partial = true" else ""
+
   private def printFunctionalityMode(m : FunctionalityMode.Value) =
     m match {
       case FunctionalityMode.Full => ""
-      case m => ", FunctionalityMode." + m
+      case m => ", functionalityMode = FunctionalityMode." + m
     }
 
   private def createFunctionHelp(rawName : String, arity : Int,
@@ -1178,20 +1169,38 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def createFunctionHelp(rawName : String,
                                  argSorts : Seq[Sort], resSort : Sort,
+                                 partial : Boolean,
                                  functionalityMode : FunctionalityMode.Value)
-                                : MonoSortedIFunction = {
+                                : IFunction = {
     val name = sanitise(rawName)
-    val f = new MonoSortedIFunction(name, argSorts, resSort, false,
-                                    functionalityMode != FunctionalityMode.Full)
-    addTypeTheoryIfNeeded(argSorts)
-    addTypeTheoryIfNeeded(resSort)
+    val sorted = (argSorts ++ List(resSort)) exists (_ != Sort.Integer)
+    val f =
+      if (sorted)
+        new MonoSortedIFunction(name, argSorts, resSort, partial,
+                                functionalityMode != FunctionalityMode.Full)
+      else
+        new IFunction(name, argSorts.size, partial,
+                      functionalityMode != FunctionalityMode.Full)
+
+    addTypeTheoryIfNeeded(argSorts ++ List(resSort))
+    
     addFunctionHelp(f, functionalityMode)
     f
   }
 
-  private def createFunctionSMTDump(name : String, arity : Int) = doDumpSMT {
-    println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
-        (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
+  private def createFunctionScalaDump(f : IFunction,
+                                      rawName : String,
+                                      argSorts : Seq[Sort],
+                                      resSort : Sort,
+                                      functionalityMode
+                                      : FunctionalityMode.Value) = doDumpScala {
+      println(
+        "val " + f.name +
+        " = createFunction(\"" + rawName + "\", List(" +
+        (argSorts map (PrettyScalaLineariser sort2String _)).mkString(", ") +
+        "), " + (PrettyScalaLineariser sort2String resSort) + ", " +
+        printPartiality(f.partial) +
+        printFunctionalityMode(functionalityMode) + ")")
   }
 
   private def createFunctionSMTDump(f : IFunction,
@@ -1219,6 +1228,8 @@ class SimpleAPI private (enableAssert : Boolean,
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Add an externally defined function to the environment of this prover.
    */
@@ -1231,15 +1242,28 @@ class SimpleAPI private (enableAssert : Boolean,
   def addFunction(f : IFunction,
                   functionalityMode : FunctionalityMode.Value) : Unit = {
     doDumpScala {
-      println("val " + f.name +
-              " = createFunction(" + f.name + ", " + f.arity +
-              printFunctionalityMode(functionalityMode) + ")" +
-              "// addFunction(" + f.name +
+      println("// addFunction(" + f.name +
               printFunctionalityMode(functionalityMode) + ")")
+      f match {
+        case f : MonoSortedIFunction =>
+          createFunctionScalaDump(f, f.name, f.argSorts, f.resSort,
+                                  functionalityMode)
+        case _ =>
+          createFunctionScalaDump(f, f.name,
+                                  for (_ <- 0 until f.arity) yield Sort.Integer,
+                                  Sort.Integer,
+                                  functionalityMode)
+      }
     }
     doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
-          (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
+      f match {
+        case f : MonoSortedIFunction =>
+          createFunctionSMTDump(f, f.argSorts, f.resSort)
+        case _ =>
+          createFunctionSMTDump(f,
+                                for (_ <- 0 until f.arity) yield Sort.Integer,
+                                Sort.Integer)
+      }
     }
     addFunctionHelp(f, functionalityMode)
   }
