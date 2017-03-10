@@ -29,6 +29,7 @@ import ap.terfor.TermOrder
 //import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
 import ap.theories.Theory
+import ap.types.SortedIFunction
 
 object FunctionEncoder {
   
@@ -361,7 +362,10 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
 
   def addFunction(fun : IFunction) : Predicate = 
     relations.getOrElseUpdate(fun, {
-      val pred = new Predicate(fun.name, fun.arity + 1)
+      val pred = fun match {
+        case fun : SortedIFunction => fun.toPredicate
+        case _ =>                     new Predicate(fun.name, fun.arity + 1)
+      }
       if (!fun.relational)
         axiomsVar = axiomsVar &&& functionality(pred)
       if (!fun.partial && genTotalityAxioms)

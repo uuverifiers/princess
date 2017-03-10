@@ -21,6 +21,7 @@
 
 package ap.parser
 
+import ap.DialogUtil
 import ap.basetypes.IdealInt
 import ap.terfor.preds.Predicate
 import ap.terfor.ConstantTerm
@@ -45,6 +46,9 @@ object PrettyScalaLineariser {
             (for (l <- lower) yield int2String(l)) + ", " +
             (for (u <- upper) yield int2String(u)) + ")")
   }
+
+  def sort2String(sort : Sort) : String =
+    DialogUtil asString { printSort(sort) }
 
   private def int2String(value : IdealInt) : String = {
     val intValue = value.intValue

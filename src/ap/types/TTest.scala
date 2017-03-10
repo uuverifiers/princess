@@ -5,7 +5,7 @@ import ap.SimpleAPI
 
 object TTest extends App {
 
-  val p = SimpleAPI.spawnWithLog
+  val p = SimpleAPI(genTotalityAxioms = true)
   import p._
   import IExpression._
 
@@ -61,7 +61,7 @@ object TTest extends App {
 
   scope {
     val x1 = createConstant("x1", 0 until 10)
-    val x2 = createConstant("x1", 10 until 20)
+    val x2 = createConstant("x2", 10 until 20)
     scope {
       println(pp(x1 === x2))
       !! (x1 === x2)
@@ -87,6 +87,19 @@ object TTest extends App {
     println(eval(c))
     !! (c**c > 1000)
     println(???)
+  }
+
+  scope {
+    val f = createFunction("f", List(Sort.Nat), 0 until 10)
+    scope {
+      !! (f(z) > 100)
+      println(???)
+    }
+    scope {
+      !! (Sort.Nat all { x => trig(f(x+1) > f(x), f(x)) })
+//      !! (f(15) === x)
+      println(???)
+    }
   }
 
   p.shutDown

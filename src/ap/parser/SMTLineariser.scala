@@ -94,6 +94,9 @@ object SMTLineariser {
       (SMTInteger, Some(sort.membershipConstraint _))
   }
 
+  def sort2SMTString(sort : Sort) : String =
+    DialogUtil asString { printSMTType(sort2SMTType(sort)._1) }
+
   //////////////////////////////////////////////////////////////////////////////
 
   def apply(formula : IFormula) : Unit =

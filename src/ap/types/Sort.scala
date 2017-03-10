@@ -110,16 +110,28 @@ object Sort {
 trait Sort {
   val name : String
 
+  /**
+   * Constraints defining the range of the sort.
+   */
   def membershipConstraint(t : ITerm) : IFormula
 
+  /**
+   * Constraints defining the range of the sort.
+   */
   def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula
 
+  /**
+   * The cardinality of sorts with fixed-size, finite domain.
+   */
   val cardinality : Option[IdealInt]
 
   //////////////////////////////////////////////////////////////////////////////
 
   override def toString : String = name
 
+  /**
+   * Allocation of a new constant with <code>this</code> sort.
+   */
   def newConstant(name : String) : ConstantTerm =
     new SortedConstantTerm(name, this)
 

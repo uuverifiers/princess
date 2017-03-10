@@ -22,8 +22,10 @@
 package ap.types
 
 import ap.theories.Theory
-import ap.terfor.{TermOrder, ConstantTerm}
+import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.Conjunction
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Theory taking care of types of declared symbols.
@@ -39,10 +41,13 @@ object TypeTheory extends Theory {
            if c.isInstanceOf[SortedConstantTerm])
       yield (c.asInstanceOf[SortedConstantTerm].sort membershipConstraint c)
 
+    val fWithFunctionConstraints = addResultConstraints(f, false)
+
     if (membershipConstraints.hasNext)
-      Conjunction.conj(membershipConstraints, order) ==> f
+      Conjunction.conj(membershipConstraints, order) ==>
+        fWithFunctionConstraints
     else
-      f
+      fWithFunctionConstraints
   }
 
   /**
@@ -62,6 +67,39 @@ object TypeTheory extends Theory {
       Conjunction.conj((Iterator single f) ++ membershipConstraints, order)
     else
       f
+  }
+
+  private def addResultConstraints(f : Conjunction, negated : Boolean)
+                                  (implicit order : TermOrder) : Conjunction = {
+    val newNegConj =
+      f.negatedConjs.update(for (c <- f.negatedConjs)
+                              yield addResultConstraints(c, !negated),
+                            order)
+    val updatedF = f updateNegatedConjs newNegConj
+
+    if (negated) {
+      val newConjuncts = new ArrayBuffer[Formula]
+      for (a <- f.predConj.positiveLits) a.pred match {
+        case p : SortedPredicate =>
+          newConjuncts += p sortConstraints a
+        case _ =>
+          // nothing
+      }
+
+      if (newConjuncts.isEmpty) {
+        updatedF
+      } else if (updatedF.quans.isEmpty) {
+        newConjuncts += updatedF
+        Conjunction.conj(newConjuncts, order)
+      } else {
+        val woQuans = updatedF unquantify updatedF.quans.size
+        newConjuncts += woQuans
+        val matrix = Conjunction.conj(newConjuncts, order)
+        Conjunction.quantify(updatedF.quans, matrix, order)
+      }
+    } else {
+      updatedF
+    }
   }
 
   override def isSoundForSat(

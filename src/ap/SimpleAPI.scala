@@ -41,7 +41,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import ap.types.{Sort, SortedConstantTerm, TypeTheory}
+import ap.types.{Sort, SortedConstantTerm, MonoSortedIFunction, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
@@ -707,7 +707,7 @@ class SimpleAPI private (enableAssert : Boolean,
         print("(assert ")
         SMTLineariser(constr(i(c)))
         println(")")
-      }        
+      }
     }
     
     doDumpScala {
@@ -949,9 +949,9 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     val sort = constantSort(c)
     dumpCreateConstant(c, c.name, "createConstant", sort)
+    addTypeTheoryIfNeeded(sort)
 
     currentOrder = currentOrder extend c
-    addTypeTheoryIfNeeded(sort)
     restartProofThread
   }
 
@@ -1130,6 +1130,36 @@ class SimpleAPI private (enableAssert : Boolean,
     createFunctionHelp(rawName, arity, functionalityMode)
   }
 
+  /**
+   * Create a new uninterpreted function with given sorts.
+   */
+  def createFunction(rawName : String,
+                     argSorts : Seq[Sort], resSort : Sort)
+                    : MonoSortedIFunction =
+    createFunction(rawName, argSorts, resSort, FunctionalityMode.Full)
+
+  /**
+   * Create a new uninterpreted function with given sorts,
+   * and chose to which degree functionality axioms should be
+   * generated.
+   */
+  def createFunction(rawName : String,
+                     argSorts : Seq[Sort], resSort : Sort,
+                     functionalityMode : FunctionalityMode.Value)
+                    : MonoSortedIFunction = {
+    doDumpScala {
+      println(
+        "val " + sanitise(rawName) +
+        " = createFunction(\"" + rawName + "\", List(" +
+        (argSorts map (PrettyScalaLineariser sort2String _)).mkString(", ") +
+        "), " + (PrettyScalaLineariser sort2String resSort) +
+        printFunctionalityMode(functionalityMode) + ")")
+    }
+    val f = createFunctionHelp(rawName, argSorts, resSort, functionalityMode)
+    createFunctionSMTDump(f, argSorts, resSort)
+    f
+  }
+
   private def printFunctionalityMode(m : FunctionalityMode.Value) =
     m match {
       case FunctionalityMode.Full => ""
@@ -1137,12 +1167,24 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
   private def createFunctionHelp(rawName : String, arity : Int,
-                                 functionalityMode : FunctionalityMode.Value =
-                                   FunctionalityMode.Full)
+                                 functionalityMode : FunctionalityMode.Value)
                                 : IFunction = {
     val name = sanitise(rawName)
-    val f = new IFunction(name, arity, true,
+    val f = new IFunction(name, arity, false,
                           functionalityMode != FunctionalityMode.Full)
+    addFunctionHelp(f, functionalityMode)
+    f
+  }
+
+  private def createFunctionHelp(rawName : String,
+                                 argSorts : Seq[Sort], resSort : Sort,
+                                 functionalityMode : FunctionalityMode.Value)
+                                : MonoSortedIFunction = {
+    val name = sanitise(rawName)
+    val f = new MonoSortedIFunction(name, argSorts, resSort, false,
+                                    functionalityMode != FunctionalityMode.Full)
+    addTypeTheoryIfNeeded(argSorts)
+    addTypeTheoryIfNeeded(resSort)
     addFunctionHelp(f, functionalityMode)
     f
   }
@@ -1150,6 +1192,31 @@ class SimpleAPI private (enableAssert : Boolean,
   private def createFunctionSMTDump(name : String, arity : Int) = doDumpSMT {
     println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
         (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
+  }
+
+  private def createFunctionSMTDump(f : IFunction,
+                                    argSorts : Seq[Sort],
+                                    resSort : Sort) = doDumpSMT {
+    val (smtType, optConstr) = SMTLineariser sort2SMTType resSort
+    print("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
+        (for (s <- argSorts)
+         yield SMTLineariser.sort2SMTString(s)).mkString(" ") + ") ")
+    SMTLineariser printSMTType smtType
+    println(")")
+    
+    for (constr <- optConstr) {
+      import IExpression._
+      
+      val args = for ((s, n) <- argSorts.zipWithIndex)
+                 yield (s newConstant ("x!" + n))
+      print("(assert (forall (")
+      print((for ((s, n) <- argSorts.iterator.zipWithIndex)
+             yield ("(x!" + n + " " +
+                    SMTLineariser.sort2SMTString(s) + ")")) mkString " ")
+      print(") ")
+      SMTLineariser(constr(IFunApp(f, args)))
+      println("))")
+    }
   }
 
   /**
@@ -1873,6 +1940,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val closedFor = Conjunction.quantify(Quantifier.ALL,
                                          currentOrder sort uniConstants,
                                          completeFor, currentOrder)
+
     val closedExFor =
       TypeTheory.addExConstraints(closedFor, existentialConstants, order)
 
@@ -2534,6 +2602,9 @@ class SimpleAPI private (enableAssert : Boolean,
     theoryCollector(order)
     addTheoryAxioms
   }
+
+  private def addTypeTheoryIfNeeded(sorts : Iterable[Sort]) : Unit =
+    sorts map (addTypeTheoryIfNeeded _)
 
   private def addTypeTheoryIfNeeded(sort : Sort) : Unit = sort match {
     case Sort.Integer =>
@@ -3628,6 +3699,8 @@ class SimpleAPI private (enableAssert : Boolean,
       
     if (!needExhaustiveProver &&
         !(IterativeClauseMatcher.isMatchableRec(completeFor,
+            Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
+          IterativeClauseMatcher.isMatchableRec(axioms,
             Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
           Seqs.disjoint(completeFor.constants, existentialConstants))) {
       currentProver = null

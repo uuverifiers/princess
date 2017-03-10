@@ -22,8 +22,9 @@
 package ap.types
 
 import ap.parser.{IFunction, ITerm}
-import ap.terfor.ConstantTerm
+import ap.terfor.{ConstantTerm, Term, Formula, TermOrder}
 import ap.terfor.preds.Predicate
+import ap.terfor.conjunctions.Conjunction
 
 /**
  * Sorted version of constants.
@@ -44,24 +45,128 @@ abstract class SortedIFunction(_name : String, _arity : Int,
                                _partial : Boolean, _relational : Boolean)
          extends IFunction(_name, _arity, _partial, _relational) {
   /**
-   * Method to determine the argument and result types of the function.
+   * Determine the argument and result types of the function.
    */
-  def functionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort)
+  def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort)
 
   /**
-   * Method to determine the sort of function results.
+   * Determine the argument and result types of the function.
    */
-  def resultSort(arguments : Seq[ITerm]) : Sort
+  def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort)
+
+  /**
+   * Determine the sort of function results.
+   */
+  def iResultSort(arguments : Seq[ITerm]) : Sort
+
+  /**
+   * Determine the sort of function results.
+   */
+  def resultSort(arguments : Seq[Term]) : Sort
+
+  /**
+   * Encode the function as a sorted predicate.
+   */
+  def toPredicate : SortedPredicate
 }
 
+/**
+ * Class for monomorphically sorted functions.
+ */
 class MonoSortedIFunction(_name : String,
-                          val argTypes : Seq[Sort],
+                          val argSorts : Seq[Sort],
                           val resSort : Sort,
                           _partial : Boolean, _relational : Boolean)
-      extends SortedIFunction(_name, argTypes.size, _partial, _relational) {
+      extends SortedIFunction(_name, argSorts.size, _partial, _relational) {
 
-  def functionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) =
-    (argTypes, resSort)
+  /**
+   * Determine the argument and result types of the function.
+   */
+  def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) =
+    (argSorts, resSort)
 
-  def resultSort(arguments : Seq[ITerm]) : Sort = resSort
+  /**
+   * Determine the argument and result types of the function.
+   */
+  def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) =
+    (argSorts, resSort)
+
+  /**
+   * Determine the sort of function results.
+   */
+  def iResultSort(arguments : Seq[ITerm]) : Sort = resSort
+
+  /**
+   * Determine the sort of function results.
+   */
+  def resultSort(arguments : Seq[Term]) : Sort = resSort
+
+  /**
+   * Encode the function as a sorted predicate.
+   */
+  def toPredicate : SortedPredicate =
+    new MonoSortedPredicate(name, argSorts ++ List(resSort)) {
+      override def sortConstraints(arguments : Seq[Term])
+                                  (implicit order : TermOrder) : Formula =
+        resSort membershipConstraint arguments.last
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * General class representing sorted predicates; sub-classes can model
+ * both monomorphic and polymorphic predicates.
+ */
+abstract class SortedPredicate(_name : String, _arity : Int)
+         extends Predicate(_name, _arity) {
+
+  /**
+   * Determine the argument types of the predicate.
+   */
+  def iArgumentTypes(arguments : Seq[ITerm]) : Seq[Sort]
+
+  /**
+   * Determine the argument types of the predicate.
+   */
+  def argumentTypes(arguments : Seq[Term]) : Seq[Sort]
+
+  /**
+   * Given argument terms of the predicate, determine constraints on the
+   * range of the arguments that are implied by the predicate. E.g., for a
+   * predicate encoding a function, such constraints would be derived from
+   * the sort of the result sort.
+   */
+  def sortConstraints(arguments : Seq[Term])
+                     (implicit order : TermOrder) : Formula
+
+}
+
+/**
+ * Class for monomorphically sorted predicates
+ */
+class MonoSortedPredicate(_name : String,
+                          val argSorts : Seq[Sort])
+         extends SortedPredicate(_name, argSorts.size) {
+
+  /**
+   * Determine the argument types of the predicate.
+   */
+  def iArgumentTypes(arguments : Seq[ITerm]) : Seq[Sort] = argSorts
+
+  /**
+   * Determine the argument types of the predicate.
+   */
+  def argumentTypes(arguments : Seq[Term]) : Seq[Sort] = argSorts
+
+  /**
+   * Given argument terms of the predicate, determine constraints on the
+   * range of the arguments that are implied by the predicate. E.g., for a
+   * predicate encoding a function, such constraints would be derived from
+   * the sort of the result sort.
+   */
+  def sortConstraints(arguments : Seq[Term])
+                     (implicit order : TermOrder) : Formula =
+    Conjunction.TRUE
+
 }
