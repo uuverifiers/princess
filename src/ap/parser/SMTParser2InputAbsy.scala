@@ -32,6 +32,7 @@ import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic}
+import ap.types.{Sort => TSort}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
@@ -2584,7 +2585,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             val (adtSort, smtSort) =
               (sortNames indexOf (printer print selDecl.sort_)) match {
                 case -1 =>
-                  (ADT.IntSort, translateSort(selDecl.sort_))
+                  (ADT.OtherSort(TSort.Integer), translateSort(selDecl.sort_))
                 case ind =>
                   (ADT.ADTSort(ind), SMTInteger)
               }

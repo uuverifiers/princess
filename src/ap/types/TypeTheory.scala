@@ -35,7 +35,7 @@ object TypeTheory extends Theory {
   override def preprocess(f : Conjunction,
                           order : TermOrder) : Conjunction = {
     implicit val _ = order
-
+println("type preprocess")
     val membershipConstraints =
       for (c <- f.constants.iterator;
            if c.isInstanceOf[SortedConstantTerm])
@@ -43,11 +43,15 @@ object TypeTheory extends Theory {
 
     val fWithFunctionConstraints = addResultConstraints(f, false)
 
+val res =
     if (membershipConstraints.hasNext)
       Conjunction.conj(membershipConstraints, order) ==>
         fWithFunctionConstraints
     else
       fWithFunctionConstraints
+      println(f)
+      println(" -> " + res)
+      res
   }
 
   /**

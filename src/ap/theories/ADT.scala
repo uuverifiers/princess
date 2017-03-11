@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,6 +22,7 @@
 package ap.theories
 
 import ap.parser._
+import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                NegatedConjunctions}
@@ -30,6 +31,7 @@ import ap.terfor.preds.Atom
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
+import ap.types.{Sort, ProxySort, MonoSortedIFunction}
 import ap.util.{Debug, UnionSet, LazyMappedSet}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
@@ -39,11 +41,12 @@ object ADT {
 
   private val AC = Debug.AC_ADT
 
-  abstract sealed class Sort
-  case object IntSort extends Sort
-  case class ADTSort(num : Int) extends Sort
+  abstract sealed class CtorArgSort
+  case class ADTSort(num : Int)     extends CtorArgSort
+  case class OtherSort(sort : Sort) extends CtorArgSort
 
-  case class CtorSignature(arguments : Seq[(String, Sort)], result : ADTSort)
+  case class CtorSignature(arguments : Seq[(String, CtorArgSort)],
+                           result : ADTSort)
 
   class ADTException(m : String) extends Exception(m)
 
@@ -76,20 +79,114 @@ class ADT (sortNames : Seq[String],
                    ctorSignatures forall {
                      case (_, sig) =>
                        ((sig.arguments map (_._2)) ++ List(sig.result)) forall {
-                         case ADTSort(id) => id >= 0 && id < sortNames.size
-                         case IntSort => true
+                         case ADTSort(id)   => id >= 0 && id < sortNames.size
+                         case _ : OtherSort => true
                        }
                    })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
+  private val globalCtorIdsPerSort : IndexedSeq[Seq[Int]] = {
+    val map =
+      ctorSignatures.zipWithIndex groupBy {
+        case ((_, CtorSignature(_, ADTSort(sortNum))), n) => sortNum
+      }
+    (for (i <- 0 until sortNames.size) yield (map get i) match {
+       case Some(ctors) => ctors map (_._2)
+       case None => List()
+     }).toIndexedSeq
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Compute cardinality of domains, to handle finite ADTs
+
+  val cardinalities : Seq[Option[IdealInt]] = {
+    val cardinalities = Array.fill[Option[IdealInt]](sortNames.size)(null)
+
+    var changed = true
+    while (changed) {
+      changed = false
+      for ((null, sortNum) <- cardinalities.iterator.zipWithIndex) {
+        if (globalCtorIdsPerSort(sortNum) exists { ctorId =>
+              val (_, sig) = ctorSignatures(ctorId)
+              sig.arguments exists {
+                case (_, ADTSort(num)) => cardinalities(num) == None
+                case (_, OtherSort(s)) => s.cardinality == None
+              }
+            }) {
+          cardinalities(sortNum) = None
+          changed = true
+        } else {
+          val childrenCards =
+            for (ctorId <- globalCtorIdsPerSort(sortNum);
+                 sig = ctorSignatures(ctorId)._2) yield {
+              for ((_, s) <- sig.arguments) yield s match {
+                case ADTSort(num) => cardinalities(num)
+                case OtherSort(sort) => sort.cardinality
+              }
+            }
+          if (childrenCards forall { cards => !(cards contains null) }) {
+            cardinalities(sortNum) = Some(
+              (childrenCards map { cards => (cards map (_.get)).product }).sum)
+            changed = true
+          }
+        }
+      }
+    }
+
+    // all other cardinalities have to be infinite (None), due to cycles
+
+    for (n <- 0 until sortNames.size)
+      if (cardinalities(n) == null)
+        cardinalities(n) = None
+
+    cardinalities.toVector
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Class representing the types/sorts defined by this ADT theory
+   */
+  class ADTProxySort(val sortNum : Int,
+                     underlying : Sort) extends ProxySort(underlying) {
+    val adtTheory : ADT = ADT.this
+    override lazy val witness = Some(witnesses(sortNum))
+  }
+
+  val sorts =
+    for (((sortName, card), sortNum) <-
+           (sortNames zip cardinalities).zipWithIndex) yield
+        new ADTProxySort(sortNum,
+                         card match {
+                           case None =>
+                             Sort.Integer
+                           case Some(card) =>
+                             Sort.Interval(Some(0), Some(card - 1))
+                         }) {
+          override val name = sortName
+        }
+
+  private val ctorArgSorts =
+    for ((_, sig) <- ctorSignatures) yield
+      for ((_, s) <- sig.arguments) yield s match {
+        case ADTSort(num)    => sorts(num)
+        case OtherSort(sort) => sort
+      }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   val constructors : Seq[IFunction] =
-    for ((name, sig) <- ctorSignatures)
-    yield new IFunction(name, sig.arguments.size, true, false)
+    for (((name, sig), argSorts) <- ctorSignatures zip ctorArgSorts)
+    yield new MonoSortedIFunction(name, argSorts, sorts(sig.result.num),
+                                  true, false)
 
   val selectors : Seq[Seq[IFunction]] =
-    for ((_, sig) <- ctorSignatures) yield {
-      for ((name, _) <- sig.arguments)
-      yield new IFunction(name, 1, true, false)
+    for (((_, sig), argSorts) <- ctorSignatures zip ctorArgSorts) yield {
+      for (((name, _), argSort) <- sig.arguments zip argSorts)
+      yield new MonoSortedIFunction(name,
+                                    List(sorts(sig.result.num)),
+                                    argSort,
+                                    true, false)
     }
 
   val ctorIds =
@@ -159,17 +256,6 @@ class ADT (sortNames : Seq[String],
      }).toIndexedSeq
   }
 
-  private val globalCtorIdsPerSort : IndexedSeq[Seq[Int]] = {
-    val map =
-      ctorSignatures.zipWithIndex groupBy {
-        case ((_, CtorSignature(_, ADTSort(sortNum))), n) => sortNum
-      }
-    (for (i <- 0 until sortNames.size) yield (map get i) match {
-       case Some(ctors) => ctors map (_._2)
-       case None => List()
-     }).toIndexedSeq
-  }
-
   val selectorPreds =
     for (sels <- selectors) yield {
       sels map functionTranslation
@@ -195,13 +281,13 @@ class ADT (sortNames : Seq[String],
       for ((ctor, (_, CtorSignature(argSorts, ADTSort(resNum)))) <- sortedCtors)
         if (witnesses(resNum) == null &&
             (argSorts forall {
-               case (_, ADTSort(n)) => witnesses(n) != null
-               case (_, IntSort) => true
+               case (_, ADTSort(n))    => witnesses(n) != null
+               case (_, _ : OtherSort) => true
              })) {
           witnesses(resNum) =
             IFunApp(ctor, for (s <- argSorts) yield s match {
-                            case (_, ADTSort(n)) => witnesses(n)
-                            case (_, IntSort) => IExpression.i(0)
+                            case (_, ADTSort(n))      => witnesses(n)
+                            case (_, OtherSort(sort)) => sort.witness.get
                           })
           changed = true
         }
@@ -215,10 +301,6 @@ class ADT (sortNames : Seq[String],
 
     witnesses.toVector
   }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Compute cardinality of domains, to handle finite ADTs
-  // ...
 
   //////////////////////////////////////////////////////////////////////////////
 

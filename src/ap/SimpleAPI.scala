@@ -41,7 +41,8 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import ap.types.{Sort, SortedConstantTerm, MonoSortedIFunction, TypeTheory}
+import ap.types.{Sort, SortedConstantTerm,
+                 MonoSortedIFunction, SortedPredicate, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
@@ -3883,13 +3884,22 @@ class SimpleAPI private (enableAssert : Boolean,
     if (theoryCollector.newTheories.isEmpty) {
       List()
     } else {
+      // add type theory if any of the added theories uses sorted symbols
+      if (!(theories contains TypeTheory) &&
+          (theoryCollector.newTheories exists {
+             t => t.predicates exists (_.isInstanceOf[SortedPredicate])
+           })) {
+        addTheory(TypeTheory)
+        return checkNewTheories
+      }
+
       val theoryAxioms =
         for (t <- theoryCollector.newTheories) yield {
           currentOrder = t extend currentOrder
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, (currentOrder isSortingOf t.axioms) &&
                               (currentOrder isSortingOf t.totalityAxioms))
-          //-END-ASSERTION-/////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
   
           functionEnc addTheory t
   

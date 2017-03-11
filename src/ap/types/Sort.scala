@@ -44,6 +44,7 @@ object Sort {
     def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
       Conjunction.TRUE
     val cardinality : Option[IdealInt] = None
+    def witness : Option[ITerm] = Some(IExpression.i(0))
     override def newConstant(name : String) : ConstantTerm =
       new ConstantTerm(name)
   }
@@ -98,6 +99,10 @@ object Sort {
     val cardinality =
       for (l <- lower; u <- upper) yield (u - l + 1)
 
+    def witness : Option[ITerm] =
+      (for (l <- lower) yield IExpression.i(l)) orElse
+      (for (u <- upper) yield IExpression.i(u)) orElse
+      Some(IExpression.i(0))
   }
 
 }
@@ -124,6 +129,11 @@ trait Sort {
    * The cardinality of sorts with fixed-size, finite domain.
    */
   val cardinality : Option[IdealInt]
+
+  /**
+   * A witness term proving that the sort is inhabited.
+   */
+  def witness : Option[ITerm]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -185,4 +195,6 @@ class ProxySort(underlying : Sort) extends Sort {
     underlying.membershipConstraint(t)
 
   val cardinality : Option[IdealInt] = underlying.cardinality
+
+  def witness : Option[ITerm] = underlying.witness
 }
