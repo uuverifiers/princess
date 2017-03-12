@@ -395,20 +395,38 @@ class ADT (sortNames : Seq[String],
                              (implicit order : TermOrder) : Conjunction = {
     import TerForConvenience._
 
-    disj(for ((ctorNum, n) <- globalCtorIdsPerSort(sortNum)
+    val sortConstraint = sorts(sortNum) membershipConstraint node
+
+    val regularDisjuncts =
+      for ((ctorNum, n) <- globalCtorIdsPerSort(sortNum)
                                           .iterator.zipWithIndex) yield {
-      val varNum = constructors(ctorNum).arity
-      val shiftSubst = VariableShiftSubst(0, varNum, order)
+        val varNum = constructors(ctorNum).arity
+        val shiftSubst = VariableShiftSubst(0, varNum, order)
 
-      val (a, b) = fullCtorConjunction(
-                             ctorNum,
-                             sortNum,
-                             n,
-                             for (i <- 0 until varNum) yield l(v(i)),
-                             shiftSubst(node))
+        val (a, b) = fullCtorConjunction(
+                               ctorNum,
+                               sortNum,
+                               n,
+                               for (i <- 0 until varNum) yield l(v(i)),
+                               shiftSubst(node))
 
-      exists(varNum, conj(a ++ b ++ List(shiftSubst(id) === n)))
-    })
+        exists(varNum, conj(a ++ b ++
+                            List(shiftSubst(id) === n,
+                                 shiftSubst(sortConstraint))))
+      }
+
+    // add a disjunct that applies to values outside of the data-type
+    // (for finite ADTs)
+    val irregularDisjuncts =
+      if (sortConstraint.isTrue)
+        Iterator.empty
+      else
+        Iterator single conj(List(
+           ctorIdPreds(sortNum)(List(node, l(-1))),
+           id === -1,
+           Conjunction.negate(sortConstraint, order)))
+
+    disj(regularDisjuncts ++ irregularDisjuncts)
   }
   
   //////////////////////////////////////////////////////////////////////////////

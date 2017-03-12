@@ -163,6 +163,18 @@ object ADTTest extends App {
       !! (x =/= cons(head(x), tail(x)))
       println(expect(???, ProverStatus.Unsat))
     }
+
+    println("Test 18")
+    scope {
+      val d = createConstant(colour)
+      val e = createConstant(colour_list)
+      !! (e =/= cons(red(), nil()))
+      !! (e =/= cons(blue(), nil()))
+      !! (e === cons(d, nil()))
+      println(expect(???, ProverStatus.Sat))
+      !! (e =/= cons(green(), nil()))
+      println(expect(???, ProverStatus.Unsat))
+    }
     }
 
     println("Test 20")
@@ -174,8 +186,8 @@ object ADTTest extends App {
       val IConstant(yc) = y
       val IConstant(zc) = z
       val IConstant(ac) = a
-      addAssertion(colADT.constructorPreds(1)(List(l(yc), l(zc), l(xc))) |
-                   colADT.constructorPreds(1)(List(l(ac), l(zc), l(xc))))
+      addAssertion(colADT.constructorPreds(4)(List(l(yc), l(zc), l(xc))) |
+                   colADT.constructorPreds(4)(List(l(ac), l(zc), l(xc))))
       scope {
         ?? (colADT.hasCtor(x, 4))
         println(expect(???, ProverStatus.Valid))
