@@ -335,18 +335,25 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     case _ : TypeInt => Sort.Integer
     case _ : TypeNat => Sort.Nat
 //    case _ : TypeBool => ...
-    case t : TypeInterval =>
-      Sort.Interval(
-        t.intervallower_ match {
-          case _ : InfLower =>      None
-          case iv : NumLower =>     Some(IdealInt(iv.intlit_))
-          case iv : NegNumLower =>  Some(-IdealInt(iv.intlit_))
-         },
-         t.intervalupper_ match {
-           case _ : InfUpper =>     None
-           case iv : NumUpper =>    Some(IdealInt(iv.intlit_))
-           case iv : NegNumUpper => Some(-IdealInt(iv.intlit_))
-         })
+    case t : TypeInterval => {
+      val lb = t.intervallower_ match {
+        case _ : InfLower =>      None
+        case iv : NumLower =>     Some(IdealInt(iv.intlit_))
+        case iv : NegNumLower =>  Some(-IdealInt(iv.intlit_))
+      }
+      val ub = t.intervalupper_ match {
+        case _ : InfUpper =>     None
+        case iv : NumUpper =>    Some(IdealInt(iv.intlit_))
+        case iv : NegNumUpper => Some(-IdealInt(iv.intlit_))
+      }
+
+      for (l <- lb; u <- ub)
+        if (l > u)
+          throw new Parser2InputAbsy.TranslationException(
+            "Interval types have to be non-empty")
+          
+      Sort.Interval(lb, ub)
+    }
 //    case t : TypeIdent => ...
   }
 

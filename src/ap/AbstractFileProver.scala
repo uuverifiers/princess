@@ -32,6 +32,7 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
+import ap.types.TypeTheory
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -377,9 +378,15 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected def constructProofTree : (ProofTree, Boolean) = {
     // explicitly quantify all universal variables
     
-    val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                         order sort signature.nullaryFunctions,
-                                         Conjunction.disj(formulas, order), order)
+    val closedFor =
+      Conjunction.quantify(Quantifier.ALL,
+                           order sort signature.nullaryFunctions,
+                           Conjunction.disj(formulas, order), order)
+
+    val closedExFor =
+      TypeTheory.addExConstraints(closedFor,
+                                  signature.existentialConstants,
+                                  order)
     
     Console.withOut(Console.err) {
       println("Proving ...")
@@ -388,7 +395,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Timeout.withChecker(stoppingCond) {
       val prover =
         new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-      val tree = prover(closedFor, signature)
+      val tree = prover(closedExFor, signature)
       val validConstraint = prover.isValidConstraint(tree.closingConstraint, signature)
       (tree, validConstraint)
     }
