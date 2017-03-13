@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2017 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -34,7 +34,7 @@ import scala.util.matching.Regex
 
 object TPTPTParser {
   
-  private type Env = Environment[Type, Type, Rank, Rank]
+  private type Env = Environment[Type, Type, Rank, Rank, Unit]
   
   def apply(settings : ParserSettings) =
     new TPTPTParser(new Env, settings)
@@ -98,12 +98,14 @@ object TPTPTParser {
 class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                      TPTPTParser.Type,
                                      TPTPTParser.Rank,
-                                     TPTPTParser.Rank],
+                                     TPTPTParser.Rank,
+                                     Unit],
                   settings : ParserSettings)
       extends Parser2InputAbsy[TPTPTParser.Type,
                                TPTPTParser.Type,
                                TPTPTParser.Rank,
                                TPTPTParser.Rank,
+                               Unit,
                                Unit](_env, settings)
       with JavaTokenParsers with PackratParsers {
 

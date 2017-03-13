@@ -83,19 +83,29 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
     }
 
+    val preSignature2 =
+      if (preSignature.isSorted) {
+        Console.withOut(Console.err) {
+          println("Warning: adding theory of types")
+        }
+        preSignature addTheories List(ap.types.TypeTheory)
+      } else {
+        preSignature
+      }
+
     // HACK: currently the Groebner theories does not support interpolation,
     // if necessary switch to bit-shift multiplication
     val (f, signature) =
-      if ((preSignature.theories contains ap.theories.nia.GroebnerMultiplication) &&
+      if ((preSignature2.theories contains ap.theories.nia.GroebnerMultiplication) &&
           constructProofs) {
         Console.withOut(Console.err) {
           println("Warning: switching to " + ap.theories.BitShiftMultiplication +
                   " for proof construction")
         }
         (ap.theories.BitShiftMultiplication convert preF,
-         preSignature addTheories List(ap.theories.BitShiftMultiplication))
+         preSignature2 addTheories List(ap.theories.BitShiftMultiplication))
       } else {
-        (preF, preSignature)
+        (preF, preSignature2)
       }
     
     val preprocSettings = settings.toPreprocessingSettings

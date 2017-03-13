@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -37,28 +37,32 @@ object Environment {
   abstract sealed class DeclaredSym[ConstantType,
                                     VariableType,
                                     PredicateType,
-                                    FunctionType]
-  case class Constant[CT,VT,PT,FT](c : ConstantTerm, k : SymKind, typ : CT)
-             extends DeclaredSym[CT,VT,PT,FT]
-  case class Variable[CT,VT,PT,FT](index : Int, typ : VT)
-             extends DeclaredSym[CT,VT,PT,FT]
-  case class Predicate[CT,VT,PT,FT](pred : ap.terfor.preds.Predicate,
-                                    matchStatus : Signature.PredicateMatchStatus.Value,
-                                    typ : PT)
-             extends DeclaredSym[CT,VT,PT,FT]
-  case class Function[CT,VT,PT,FT](fun : IFunction, typ : FT)
-             extends DeclaredSym[CT,VT,PT,FT]
+                                    FunctionType,
+                                    SortType]
+  case class Constant[CT,VT,PT,FT,ST](c : ConstantTerm, k : SymKind, typ : CT)
+             extends DeclaredSym[CT,VT,PT,FT,ST]
+  case class Variable[CT,VT,PT,FT,ST](index : Int, typ : VT)
+             extends DeclaredSym[CT,VT,PT,FT,ST]
+  case class Predicate[CT,VT,PT,FT,ST](pred : ap.terfor.preds.Predicate,
+                                       matchStatus : Signature.PredicateMatchStatus.Value,
+                                       typ : PT)
+             extends DeclaredSym[CT,VT,PT,FT,ST]
+  case class Function[CT,VT,PT,FT,ST](fun : IFunction, typ : FT)
+             extends DeclaredSym[CT,VT,PT,FT,ST]
+  case class Sort[CT,VT,PT,FT,ST](sort : ap.types.Sort, typ : ST)
+             extends DeclaredSym[CT,VT,PT,FT,ST]
 
   class EnvironmentException(msg : String) extends Exception(msg)
 
 }
 
-class Environment[ConstantType, VariableType, PredicateType, FunctionType]
+class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortType]
       extends Cloneable {
 
   import Environment._
   
-  type DSym = DeclaredSym[ConstantType, VariableType, PredicateType, FunctionType]
+  type DSym = DeclaredSym[ConstantType, VariableType, PredicateType,
+                          FunctionType, SortType]
   
   /** The declared symbols */
   private val signature = new scala.collection.mutable.HashMap[String, DSym]
@@ -77,9 +81,12 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Environment.AC,
                     signature.valuesIterator forall {
-                      case Constant(c, _, _) => newOrder.orderedConstants contains c
-                      case Predicate(pred, _, _) => newOrder.orderedPredicates contains pred
-                      case _ => true
+                      case Constant(c, _, _) =>
+                         newOrder.orderedConstants contains c
+                      case Predicate(pred, _, _) =>
+                        newOrder.orderedPredicates contains pred
+                      case _ =>
+                        true
                     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     orderVar = newOrder
@@ -88,8 +95,10 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
   override def clone : Environment[ConstantType,
                                    VariableType,
                                    PredicateType,
-                                   FunctionType] = {
-    val res = new Environment[ConstantType, VariableType, PredicateType, FunctionType]
+                                   FunctionType,
+                                   SortType] = {
+    val res = new Environment[ConstantType, VariableType, PredicateType,
+                              FunctionType, SortType]
     
     res.signature ++= this.signature
     res.context ++= this.context
@@ -175,12 +184,15 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
   def pushVar(name : String, typ : VariableType) : Unit =
     context += ((name, typ))
 
-  def popVar : Unit =
-    if (context isEmpty)
+  def popVar : VariableType =
+    if (context isEmpty) {
       throw new EnvironmentException("Trying to pop a non-existing variable")
-    else
+    } else {
+      val res = context.last._2
       context reduceToSize (context.size - 1)
-  
+      res
+    }
+
   def existsVar(pred : VariableType => Boolean) =
     context exists { case (_, t) => pred(t) }
   

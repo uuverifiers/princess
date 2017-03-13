@@ -465,6 +465,29 @@ object IExpression {
       VariableShiftVisitor(guard, 0, depth) ==> f
   }
 
+  /**
+   * Add sorted universal quantifiers for the variables with de Bruijn index
+   * <code>0, ..., sorts.size - 1</code>. The first sort in
+   * <code>sorts</code> will be the innermost quantifier and corresponds
+   * to index 0. 
+   */
+  def all(sorts : Seq[Sort], f : IFormula) : IFormula =
+    quan(Array.fill(sorts.size){Quantifier.ALL}, guardAll(f, sortGuards(sorts)))
+
+  /**
+   * Add sorted existential quantifiers for the variables with de Bruijn index
+   * <code>0, ..., sorts.size - 1</code>. The first sort in
+   * <code>sorts</code> will be the innermost quantifier and corresponds
+   * to index 0. 
+   */
+  def ex(sorts : Seq[Sort], f : IFormula) : IFormula =
+    quan(Array.fill(sorts.size){Quantifier.EX}, guardEx(f, sortGuards(sorts)))
+
+  private def sortGuards(sorts : Seq[Sort]) : IFormula =
+    connectSimplify(for ((s, n) <- sorts.iterator.zipWithIndex)
+                      yield (s membershipConstraint v(n)),
+                    IBinJunctor.And)
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -572,6 +595,19 @@ object IExpression {
   def connect(fors : Iterator[IFormula], op : IBinJunctor.Value) : IFormula =
     if (fors.hasNext) {
       fors reduceLeft (IBinFormula(op, _, _))
+    } else op match {
+      case IBinJunctor.And | IBinJunctor.Eqv => true
+      case IBinJunctor.Or => false
+    }
+
+  def connectSimplify(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
+    connectSimplify(fors.iterator, op)
+
+  def connectSimplify(fors : Iterator[IFormula], op : IBinJunctor.Value) : IFormula =
+    if (fors.hasNext) op match {
+      case IBinJunctor.And => fors reduceLeft (_ &&& _)
+      case IBinJunctor.Or  => fors reduceLeft (_ ||| _)
+      case IBinJunctor.Eqv => fors reduceLeft (_ <===> _)
     } else op match {
       case IBinJunctor.And | IBinJunctor.Eqv => true
       case IBinJunctor.Or => false

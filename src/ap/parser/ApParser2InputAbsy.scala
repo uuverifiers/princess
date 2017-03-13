@@ -33,6 +33,7 @@ import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 import ap.parser.ApInput._
 import ap.parser.ApInput.Absyn._
+import ap.types.Sort
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
@@ -41,13 +42,13 @@ object ApParser2InputAbsy {
   private val AC = Debug.AC_PARSER
   
   import Parser2InputAbsy._
+
+  type Env = Environment[Unit, Sort, Unit, Unit, Unit]
   
   def apply(settings : ParserSettings) =
-    new ApParser2InputAbsy(new Environment[Unit, Unit, Unit, Unit],
-                           settings)
+    new ApParser2InputAbsy(new Env, settings)
   
-  def parseExpression(input : java.io.Reader,
-                      env : Environment[Unit, Unit, Unit, Unit]) : IExpression = {
+  def parseExpression(input : java.io.Reader, env : Env) : IExpression = {
     def entry(parser : ApInput.parser) = {
       val parseTree = parser.pEntry
       parseTree match {
@@ -64,7 +65,7 @@ object ApParser2InputAbsy {
    * Parse starting at an arbitrarily specified entry point
    */
   private def parseWithEntry[T](input : java.io.Reader,
-                                env : Environment[Unit, Unit, Unit, Unit],
+                                env : Env,
                                 entry : (parser) => T) : T = {
     val l = new Yylex(new CRRemover2 (input))
     val p = new parser(l)
@@ -80,9 +81,9 @@ object ApParser2InputAbsy {
 
 }
 
-class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
+class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                          settings : ParserSettings)
-      extends Parser2InputAbsy[Unit, Unit, Unit, Unit, Unit](_env, settings) {
+      extends Parser2InputAbsy[Unit, Sort, Unit, Unit, Unit, Unit](_env, settings) {
   
   import IExpression._
   import Parser2InputAbsy._
@@ -157,21 +158,21 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
         case block : FunctionDecls =>
           for (decl <- block.listdeclfunc_.iterator)
             collectDeclFunC(decl,
-                            (id) => env.addConstant(new ConstantTerm(id),
-                                                    Environment.NullaryFunction,
-                                                    ()))
+                            (id, sort) => env.addConstant(sort newConstant id,
+                                                          Environment.NullaryFunction,
+                                                          ()))
         case block : ExConstants =>
           for (decl <- block.listdeclconstantc_.iterator)
             collectDeclConstantC(decl,
-                                 (id) => env.addConstant(new ConstantTerm(id),
-                                                         Environment.Existential,
-                                                         ()))
+                                 (id, sort) => env.addConstant(sort newConstant id,
+                                                               Environment.Existential,
+                                                               ()))
         case block : UniConstants =>
           for (decl <- block.listdeclconstantc_.iterator)
             collectDeclConstantC(decl,
-                                 (id) => env.addConstant(new ConstantTerm(id),
-                                                         Environment.Universal,
-                                                         ()))
+                                 (id, sort) => env.addConstant(sort newConstant id,
+                                                               Environment.Universal,
+                                                               ()))
         case block : PredDecls =>
           for (decl <- block.listdeclpredc_.iterator) decl match {
             case decl : DeclPred => {
@@ -217,15 +218,17 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def collectDeclFunC(decl : DeclFunC, addCmd : String => Unit) : Unit =
+  private def collectDeclFunC(decl : DeclFunC, addCmd : (String, Sort) => Unit) : Unit =
     decl match {
       case decl : DeclFun => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(ApParser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
         //-END-ASSERTION-///////////////////////////////////////////////////////
         val wrappedOpts = asScalaBuffer(decl.listfunoption_)
-        val (partialOpts, otherOpts1) = wrappedOpts partition (_.isInstanceOf[Partial])
-        val (relationalOpts, otherOpts2) = otherOpts1 partition (_.isInstanceOf[Relational])
+        val (partialOpts, otherOpts1) =
+          wrappedOpts partition (_.isInstanceOf[Partial])
+        val (relationalOpts, otherOpts2) =
+          otherOpts1 partition (_.isInstanceOf[Relational])
         
         val partial = !partialOpts.isEmpty
         val relational = !relationalOpts.isEmpty
@@ -275,11 +278,11 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
   }
   
   private def collectDeclConstantC(decl : DeclConstantC,
-                                   addCmd : String => Unit) : Unit =
+                                   addCmd : (String, Sort) => Unit) : Unit =
     collectConstDeclarations(decl.asInstanceOf[DeclConstant].declconstc_, addCmd)
 
   private def collectDeclBinder(decl : DeclBinder,
-                                addCmd : String => Unit) : Unit = decl match {
+                                addCmd : (String, Sort) => Unit) : Unit = decl match {
     case decl : DeclBinder1 =>
       collectVarDeclarations(decl.declvarc_, addCmd)
     case decl : DeclBinderM =>
@@ -288,11 +291,14 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
   }
   
   private def collectVarDeclarations(decl : DeclVarC,
-                                     addCmd : String => Unit) : Unit = decl match {
-    case decl : DeclVar =>
-      for (id <- decl.listident_.iterator) addCmd(id)
+                                     addCmd : (String, Sort) => Unit) : Unit = decl match {
+    case decl : DeclVar => {
+      val sort = type2Sort(decl.type_)
+      for (id <- decl.listident_.iterator) addCmd(id, sort)
+    }
   }
 
+/*
   private def genVarGuards(decl : DeclBinder,
                            totalVarNum : Int) : IFormula ={
     val varIterator =
@@ -314,17 +320,37 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
          yield binderType2Guard(decl.bindertype_,
                                 varIterator.next)) reduceLeft (_ &&& _)
   }
+*/
 
   private def collectConstDeclarations(decl : DeclConstC,
-                                       addCmd : String => Unit) : Unit = decl match {
-    case decl : DeclConst => { 
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(ApParser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      for (id <- decl.listident_.iterator) addCmd(id)
+                                       addCmd : (String, Sort) => Unit) : Unit =
+    decl match {
+      case decl : DeclConst => {
+        val sort = type2Sort(decl.type_)
+        for (id <- decl.listident_.iterator) addCmd(id, sort)
+      }
     }
+
+  private def type2Sort(t : Type) : Sort = t match {
+    case _ : TypeInt => Sort.Integer
+    case _ : TypeNat => Sort.Nat
+//    case _ : TypeBool => ...
+    case t : TypeInterval =>
+      Sort.Interval(
+        t.intervallower_ match {
+          case _ : InfLower =>      None
+          case iv : NumLower =>     Some(IdealInt(iv.intlit_))
+          case iv : NegNumLower =>  Some(-IdealInt(iv.intlit_))
+         },
+         t.intervalupper_ match {
+           case _ : InfUpper =>     None
+           case iv : NumUpper =>    Some(IdealInt(iv.intlit_))
+           case iv : NegNumUpper => Some(-IdealInt(iv.intlit_))
+         })
+//    case t : TypeIdent => ...
   }
 
+/*
   private def binderType2Guard(t : BinderType, v : ITerm) : IFormula = t match {
     case t : BTypeType => {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -345,11 +371,12 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
         case iv : NegNumUpper => v <= IIntLit(-IdealInt(iv.intlit_))
        })
   }
-  
-  private def collectSingleVarDecl(decl : DeclSingleVarC) : IFormula = decl match {
+  */
+
+  private def collectSingleVarDecl(decl : DeclSingleVarC) : Unit = decl match {
     case decl : DeclSingleVar => {
-      env.pushVar(decl.ident_, ())
-      binderType2Guard(decl.bindertype_, v(0))
+      env.pushVar(decl.ident_, type2Sort(decl.type_))
+//      binderType2Guard(decl.bindertype_, v(0))
     }
   }
 
@@ -371,7 +398,7 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
                               .listargtypec_.reverse)
                 arg match {
                   case arg : NamedArgType =>
-                    env.pushVar(arg.ident_, ())
+                    env.pushVar(arg.ident_, type2Sort(arg.type_))
                   case _ : ArgType =>
                     throw new Parser2InputAbsy.TranslationException(
                       "Argument name missing in definition of function " +
@@ -400,7 +427,7 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
                                   .listargtypec_.reverse)
                     arg match {
                       case arg : NamedArgType =>
-                        env.pushVar(arg.ident_, ())
+                        env.pushVar(arg.ident_, type2Sort(arg.type_))
                       case _ : ArgType =>
                         throw new Parser2InputAbsy.TranslationException(
                           "Argument name missing in definition of predicate " +
@@ -591,10 +618,9 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
     case t : ExprLit =>
       IIntLit(IdealInt(t.intlit_))
     case t : ExprEpsilon => {
-      val guard = collectSingleVarDecl(t.declsinglevarc_)
+      collectSingleVarDecl(t.declsinglevarc_)
       val cond = asFormula(translateExpression(t.expression_))
-      env.popVar
-      IEpsilon(guard &&& cond)
+      env.popVar eps cond
     }
     case t : ExprAbs =>
       translateUnTerConnective(t.expression_, abs _)
@@ -673,24 +699,17 @@ class ApParser2InputAbsy(_env : Environment[Unit, Unit, Unit, Unit],
     // add the bound variables to the environment and record their number
     var quantNum : Int = 0
     collectDeclBinder(f.declbinder_,
-                      (id) => { quantNum = quantNum + 1; env.pushVar(id, ()) })
+                      (id, sort) => { quantNum = quantNum + 1; env.pushVar(id, sort) })
 
-    // compute guards possibly needed for the bound variables
-    val guard = genVarGuards(f.declbinder_, quantNum)
-    
-    def body(matrix : IFormula) = f.quant_ match {
-      case _ : QuantAll =>
-        quan(Array.fill(quantNum){Quantifier.ALL}, guard ===> matrix)
-      case _ : QuantEx =>
-        quan(Array.fill(quantNum){Quantifier.EX}, guard &&& matrix)
+    def body(matrix : IFormula) = {
+      val sorts = for (_ <- 0 until quantNum) yield env.popVar
+      f.quant_ match {
+        case _ : QuantAll => all(sorts, matrix)
+        case _ : QuantEx  => ex(sorts, matrix)
+      }
     }
     
-    val res = translateUnForConnective(f.expression_, body _)
-
-    // pop the variables from the environment
-    for (_ <- PlainRange(quantNum)) env.popVar
-    
-    res.asInstanceOf[IFormula]
+    translateUnForConnective(f.expression_, body _).asInstanceOf[IFormula]
   }
 
   //////////////////////////////////////////////////////////////////////////////

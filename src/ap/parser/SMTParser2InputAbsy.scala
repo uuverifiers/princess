@@ -62,7 +62,7 @@ object SMTParser2InputAbsy {
   case class BoundVariable(varType : SMTType)              extends VariableType
   case class SubstExpression(e : IExpression, t : SMTType) extends VariableType
   
-  private type Env = Environment[SMTType, VariableType, Unit, SMTFunctionType]
+  private type Env = Environment[SMTType, VariableType, Unit, SMTFunctionType, Unit]
   
   def apply(settings : ParserSettings) =
     new SMTParser2InputAbsy (new Env, settings, null)
@@ -403,7 +403,8 @@ object SMTParser2InputAbsy {
 class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               SMTParser2InputAbsy.VariableType,
                                               Unit,
-                                              SMTParser2InputAbsy.SMTFunctionType],
+                                              SMTParser2InputAbsy.SMTFunctionType,
+                                              Unit],
                            settings : ParserSettings,
                            prover : SimpleAPI)
       extends Parser2InputAbsy
@@ -411,6 +412,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.VariableType,
            Unit,
            SMTParser2InputAbsy.SMTFunctionType,
+           Unit,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
             Map[String, SMTParser2InputAbsy.SMTType],                   // sortDefs
             Int,                                                        // nextPartitionNumber

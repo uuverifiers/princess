@@ -177,6 +177,19 @@ trait Sort {
   def all(f : ITerm => IFormula) =
     IExpression.all(x => IExpression.guardAll(f(x), membershipConstraint(x)))
 
+  /**
+   * Generate an epsilon-expression.
+   */
+  def eps(f : IFormula) =
+    IEpsilon(IExpression.guardEx(f, membershipConstraint(IExpression.v(0))))
+
+  /**
+   * Higher-order syntax for epsilon-expressions. This makes it possible
+   * to write things like <code>Sort.eps(a => phi(a))</code>.
+   */
+  def eps(f : ITerm => IFormula) =
+    IExpression.eps(x => IExpression.guardEx(f(x), membershipConstraint(x)))
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
