@@ -354,7 +354,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Console.withOut(Console.err) {
       println("Constructing satisfying assignment for the existential constants ...")
     }
-    findCounterModelTimeout(List(Conjunction.disj(formulas, order).negate))
+
+    val formula = Conjunction.disj(formulas, order)
+    val exConstraintFormula = 
+      TypeTheory.addExConstraints(formula,
+                                  signature.existentialConstants,
+                                  order)
+
+    findCounterModelTimeout(List(exConstraintFormula.negate))
   }
   
   protected def findCounterModelTimeout : Either[Conjunction, Certificate] = {

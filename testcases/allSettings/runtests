@@ -47,6 +47,7 @@ $PRI "$@" $TESTS
 # Tests where we have to suppress parts of the output because it is
 # too nondeterministic
 
-TESTS="linearRanking.pri linearRanking2-quantified.pri"
+TESTS="linearRanking.pri linearRanking-sorted.pri \
+       linearRanking2-quantified.pri"
 
 $PRI "$@" $TESTS 2>&1 | grep -v "^lowerBound"
