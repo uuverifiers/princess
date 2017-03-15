@@ -145,7 +145,15 @@ class ADT (sortNames : Seq[String],
   //////////////////////////////////////////////////////////////////////////////
   // Enumerations
 
-  
+  val isEnum : IndexedSeq[Boolean] = {
+    val isEnum = Array.fill[Boolean](sortNames.size)(true)
+
+    for ((_, CtorSignature(args, ADTSort(num))) <- ctorSignatures)
+      if (!args.isEmpty)
+        isEnum(num) = false
+
+    isEnum.toVector
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
