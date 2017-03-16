@@ -334,7 +334,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
   private def type2Sort(t : Type) : Sort = t match {
     case _ : TypeInt => Sort.Integer
     case _ : TypeNat => Sort.Nat
-//    case _ : TypeBool => ...
+    case _ : TypeBool => Sort.Bool
     case t : TypeInterval => {
       val lb = t.intervallower_ match {
         case _ : InfLower =>      None

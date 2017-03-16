@@ -57,6 +57,12 @@ object Sort {
   }
 
   /**
+   * The sort of Booleans. Booleans are encoded as an ADT.
+   * @see ap.theories.ADT.BoolADT
+   */
+  val Bool = ap.theories.ADT.BoolADT.boolSort
+
+  /**
    * Sort representing (possibly left- or right-open) intervals.
    */
   case class Interval(lower : Option[IdealInt], upper : Option[IdealInt])

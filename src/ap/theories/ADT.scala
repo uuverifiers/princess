@@ -61,6 +61,35 @@ object ADT {
                                    sortNum : Int) extends ADTPred
   private case class ADTCtorIdPred(sortNum : Int) extends ADTPred
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The ADT of Booleans, with truth values true, false as only constructors.
+   * The ADT is a simple enumeration, and preprocessing will map true to value
+   * 0, and false to value 1.
+   */
+  object BoolADT
+         extends ADT(List("bool"),
+                     List(("true",  CtorSignature(List(), ADTSort(0))),
+                          ("false", CtorSignature(List(), ADTSort(0))))) {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertCtor(AC, isEnum(0) && cardinalities(0) == Some(IdealInt(2)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val Seq(boolSort)          = sorts
+    val Seq(trueFun, falseFun) = constructors
+
+    /**
+     * Term representing the Boolean value true.
+     */
+    val True  = IFunApp(trueFun, List())
+
+    /**
+     * Term representing the Boolean value false.
+     */
+    val False = IFunApp(falseFun, List())
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -494,18 +523,29 @@ class ADT (sortNames : Seq[String],
         (for (a <- f.predConj.positiveLits.iterator;
               b <- (adtPreds get a.pred) match {
 
-                case Some(ADTCtorPred(i, sortNum, ctorInSortNum)) => {
-                  val (atoms, fors) =
-                    fullCtorConjunction(i, sortNum, ctorInSortNum,
-                                        a dropRight 1, a.last)
-                  newConjuncts ++= fors
-                  atoms.iterator
-                }
+                case Some(ADTCtorPred(i, sortNum, ctorInSortNum)) =>
+                  if (isEnum(sortNum)) {
+                    // enumeration ctors are simply mapped to integers
+                    newConjuncts += (a.last === ctorInSortNum)
+                    Iterator.empty
+                  } else {
+                    val (atoms, fors) =
+                      fullCtorConjunction(i, sortNum, ctorInSortNum,
+                                          a dropRight 1, a.last)
+                    newConjuncts ++= fors
+                    atoms.iterator
+                  }
 
-                case Some(ADTCtorIdPred(sortNum)) => {
-                  newConjuncts += ctorDisjunction(sortNum, a.head, a.last)
-                  Iterator single a
-                }
+                case Some(ADTCtorIdPred(sortNum)) =>
+                  if (isEnum(sortNum)) {
+                    // ids of enumeration ctors are the representing integers
+                    // themselves
+                    newConjuncts += (a.head === a.last)
+                    Iterator.empty
+                  } else {
+                    newConjuncts += ctorDisjunction(sortNum, a.head, a.last)
+                    Iterator single a
+                  }
 
                 case Some(ADTSelPred(ctorNum, selNum, sortNum)) => {
                   if (!(allGuardedNodes contains a.head)) {
