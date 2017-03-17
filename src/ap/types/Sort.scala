@@ -38,7 +38,7 @@ object Sort {
    * no sort is specified.
    */
   object Integer extends Sort {
-    val name : String = "Int"
+    val name : String = "int"
     def membershipConstraint(t : ITerm) : IFormula =
       IExpression.i(true)
     def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
@@ -53,14 +53,8 @@ object Sort {
    * The sort of natural numbers.
    */
   object Nat extends ProxySort(Interval(Some(IdealInt.ZERO), None)) {
-    override val name : String = "Nat"
+    override val name : String = "nat"
   }
-
-  /**
-   * The sort of Booleans. Booleans are encoded as an ADT.
-   * @see ap.theories.ADT.BoolADT
-   */
-  val Bool = ap.theories.ADT.BoolADT.boolSort
 
   /**
    * Sort representing (possibly left- or right-open) intervals.
@@ -76,6 +70,7 @@ object Sort {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val name : String =
+      "int" +
       (lower match { case Some(l) => "[" + l
                      case None    => "(-infty" }) + ", " +
       (upper match { case Some(u) => "" + u + "]"
@@ -110,6 +105,22 @@ object Sort {
       (for (u <- upper) yield IExpression.i(u)) orElse
       Some(IExpression.i(0))
   }
+
+  /**
+   * Extractor to recognise sorts that are subsets of the integers.
+   */
+  object Numeric {
+    def unapply(s : Sort) : Option[Sort] = s match {
+      case Sort.Integer | Sort.Nat | _ : Sort.Interval => Some(s)
+      case _ => None
+    }
+  }
+
+  /**
+   * The sort of Booleans. Booleans are encoded as an ADT.
+   * @see ap.theories.ADT.BoolADT
+   */
+  val Bool = ap.theories.ADT.BoolADT.boolSort
 
 }
 

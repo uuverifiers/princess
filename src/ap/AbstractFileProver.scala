@@ -84,29 +84,19 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
     }
 
-    val preSignature2 =
-      if (preSignature.isSorted) {
-        Console.withOut(Console.err) {
-          println("Warning: adding theory of types")
-        }
-        preSignature addTheories List(ap.types.TypeTheory)
-      } else {
-        preSignature
-      }
-
     // HACK: currently the Groebner theories does not support interpolation,
     // if necessary switch to bit-shift multiplication
     val (f, signature) =
-      if ((preSignature2.theories contains ap.theories.nia.GroebnerMultiplication) &&
+      if ((preSignature.theories contains ap.theories.nia.GroebnerMultiplication) &&
           constructProofs) {
         Console.withOut(Console.err) {
           println("Warning: switching to " + ap.theories.BitShiftMultiplication +
                   " for proof construction")
         }
         (ap.theories.BitShiftMultiplication convert preF,
-         preSignature2 addTheories List(ap.theories.BitShiftMultiplication))
+         preSignature addTheories List(ap.theories.BitShiftMultiplication))
       } else {
-        (preF, preSignature2)
+        (preF, preSignature)
       }
     
     val preprocSettings = settings.toPreprocessingSettings
@@ -126,6 +116,16 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     val (inputFormulas, interpolantS, sig) =
       Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)
     
+    val sig2 =
+      if (sig.isSorted) {
+        Console.withOut(Console.err) {
+          println("Warning: adding theory of types")
+        }
+        sig addTheories List(ap.types.TypeTheory)
+      } else {
+        sig
+      }
+
     val gcedFunctions = Param.FUNCTION_GC(settings) match {
       case Param.FunctionGCOptions.None =>
         Set[Predicate]()
@@ -141,7 +141,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       if (Param.PRINT_SMT_FILE(settings) != "" ||
           Param.PRINT_TPTP_FILE(settings) != "")  f else null
 
-    (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions,
+    (inputFormulas, oriFormula, interpolantS, sig2, gcedFunctions,
      functionEnc, constructProofs)
   }
   

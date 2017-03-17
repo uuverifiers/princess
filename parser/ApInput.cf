@@ -56,8 +56,6 @@ ExprQuant.	Expression4	::= Quant DeclBinder Expression4;
 ExprEpsilon.	Expression4	::= "\\eps" DeclSingleVarC ";" Expression4;
 ExprTrigger.	Expression4	::= "{" [ArgC] "}" Expression4;
 ExprPart.       Expression4     ::= "\\part" "[" Ident "]" Expression4;
-ExprTrue.	Expression5	::= "true";
-ExprFalse.	Expression5	::= "false";
 ExprRel.	Expression5	::= Expression6 RelSym Expression6;
 
 ExprPlus.	Expression6	::= Expression6 "+" Expression7;
@@ -77,6 +75,8 @@ ExprMin.	Expression10	::= "\\min" OptArgs;
 ExprDistinct.	Expression10	::= "\\distinct" OptArgs;
 ExprIdApp.	Expression10	::= Ident OptArgs;
 ExprDotAttr.    Expression10    ::= Expression10 "." Ident;
+ExprTrue.	Expression10	::= "true";
+ExprFalse.	Expression10	::= "false";
 ExprLit.	Expression10	::= IntLit;
 
 coercions Expression 10;

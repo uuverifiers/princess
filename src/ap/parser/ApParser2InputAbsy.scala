@@ -33,7 +33,8 @@ import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 import ap.parser.ApInput._
 import ap.parser.ApInput.Absyn._
-import ap.types.Sort
+import ap.types.{Sort, MonoSortedIFunction, SortedConstantTerm,
+                 MonoSortedPredicate}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
@@ -58,7 +59,7 @@ object ApParser2InputAbsy {
     }
     val expr = parseWithEntry(input, env, entry _)
     val t = new ApParser2InputAbsy (env, ParserSettings.DEFAULT)
-    t translateExpression expr
+    (t translateExpression expr)._1
   }
   
   /**
@@ -177,10 +178,13 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
           for (decl <- block.listdeclpredc_.iterator) decl match {
             case decl : DeclPred => {
               val name = decl.ident_
-              val arity = decl.optformalargs_ match {
-                case _ : NoFormalArgs => 0
-                case args : WithFormalArgs => determineArity(args.formalargsc_)
+              val argSorts : Seq[Sort] = decl.optformalargs_ match {
+                case _ : NoFormalArgs =>
+                  List()
+                case args : WithFormalArgs =>
+                  determineSorts(args.formalargsc_)
               }
+              val sorted = argSorts exists (_ != Sort.Integer)
 
               val wrappedOpts = asScalaBuffer(decl.listpredoption_)
               val (negMatchOpts, otherOpts1) =
@@ -201,7 +205,13 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                 throw new Parser2InputAbsy.TranslationException(
                        "Illegal options for predicate: both \\negMatch and \\noMatch")
 
-              env.addPredicate(new Predicate(name, arity),
+              val pred =
+                if (sorted)
+                  new MonoSortedPredicate(name, argSorts)
+                else
+                  new Predicate(name, argSorts.size)
+
+              env.addPredicate(pred,
                                if (negMatch)
                                  Signature.PredicateMatchStatus.Negative
                                else if (noMatch)
@@ -221,9 +231,10 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
   private def collectDeclFunC(decl : DeclFunC, addCmd : (String, Sort) => Unit) : Unit =
     decl match {
       case decl : DeclFun => {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(ApParser2InputAbsy.AC, decl.type_.isInstanceOf[TypeInt])
-        //-END-ASSERTION-///////////////////////////////////////////////////////
+        val resSort = type2Sort(decl.type_)
+        val argSorts = determineSorts(decl.formalargsc_)
+        val sorted = (List(resSort) ++ argSorts) exists (_ != Sort.Integer)
+
         val wrappedOpts = asScalaBuffer(decl.listfunoption_)
         val (partialOpts, otherOpts1) =
           wrappedOpts partition (_.isInstanceOf[Partial])
@@ -238,10 +249,17 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
           throw new Parser2InputAbsy.TranslationException(
                        "Illegal options for function: " + (strs mkString " "))
         }
-        env.addFunction(new IFunction (decl.ident_,
-                                       determineArity(decl.formalargsc_),
-                                       partial, relational),
-                        ())
+
+        val fun =
+          if (sorted)
+            new MonoSortedIFunction(decl.ident_,
+                                    argSorts, resSort,
+                                    partial, relational)
+          else
+            new IFunction(decl.ident_, argSorts.size,
+                          partial, relational)
+
+        env.addFunction(fun, ())
       }
       case decl : DeclFunConstant => {
         if (!decl.listfunoption_.isEmpty)
@@ -265,6 +283,14 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       args.listargtypec_.size
     }
+  }
+  
+  private def determineSorts(args : FormalArgsC) : Seq[Sort] = args match {
+    case args : FormalArgs =>
+      for (at <- args.listargtypec_) yield at match {
+        case at : ArgType      => type2Sort(at.type_)
+        case at : NamedArgType => type2Sort(at.type_)
+      }
   }
   
   private def funOption2String(option : FunOption) : String = option match {
@@ -297,30 +323,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       for (id <- decl.listident_.iterator) addCmd(id, sort)
     }
   }
-
-/*
-  private def genVarGuards(decl : DeclBinder,
-                           totalVarNum : Int) : IFormula ={
-    val varIterator =
-      for (i <- (0 until totalVarNum).iterator) yield v(totalVarNum - i - 1)
-    
-    decl match {
-      case decl : DeclBinder1 =>
-        genVarGuards(decl.declvarc_, varIterator)
-      case decl : DeclBinderM =>
-        (for (decl <- decl.listdeclvarc_.iterator)
-           yield genVarGuards(decl, varIterator)) reduceLeft (_ &&& _)
-    }
-  }
-
-  private def genVarGuards(decl : DeclVarC,
-                           varIterator : Iterator[ITerm]) : IFormula = decl match {
-    case decl : DeclVar =>
-      (for (_ <- decl.listident_.iterator)
-         yield binderType2Guard(decl.bindertype_,
-                                varIterator.next)) reduceLeft (_ &&& _)
-  }
-*/
 
   private def collectConstDeclarations(decl : DeclConstC,
                                        addCmd : (String, Sort) => Unit) : Unit =
@@ -356,29 +358,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     }
 //    case t : TypeIdent => ...
   }
-
-/*
-  private def binderType2Guard(t : BinderType, v : ITerm) : IFormula = t match {
-    case t : BTypeType => {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(ApParser2InputAbsy.AC, t.type_.isInstanceOf[TypeInt])
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      true
-    }
-    case t : BTypeNat =>
-      IIntFormula(IIntRelation.GeqZero, v)
-    case t : BTypeInterval =>
-      (t.intervallower_ match {
-        case _ : InfLower =>     i(true)
-        case iv : NumLower =>    IIntLit(IdealInt(iv.intlit_)) <= v
-        case iv : NegNumLower => IIntLit(-IdealInt(iv.intlit_)) <= v
-       }) &&& (t.intervalupper_ match {
-        case _ : InfUpper =>     i(true)
-        case iv : NumUpper =>    v <= IIntLit(IdealInt(iv.intlit_))
-        case iv : NegNumUpper => v <= IIntLit(-IdealInt(iv.intlit_))
-       })
-  }
-  */
 
   private def collectSingleVarDecl(decl : DeclSingleVarC) : Unit = decl match {
     case decl : DeclSingleVar => {
@@ -563,7 +542,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def translateExpression(f : Expression) : IExpression = f match {
+  private def translateExpression(f : Expression) : (IExpression, Sort) = f match {
     ////////////////////////////////////////////////////////////////////////////
     // Formulae
     case f : ExprEqv =>
@@ -574,76 +553,96 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       translateBinForConnective(f.expression_2, f.expression_1, _ ==> _)
     case f : ExprOr => {
       val subs = collectSubExpressions(f, _.isInstanceOf[ExprOr], ApConnective)
-      (for (f <- subs.iterator)
-         yield asFormula(translateExpression(f))) reduceLeft (_ | _)
+      ((for (f <- subs.iterator)
+          yield asFormula(translateExpression(f))) reduceLeft (_ | _),
+       Sort.Bool)
     }
     case f : ExprAnd => {
       val subs = collectSubExpressions(f, _.isInstanceOf[ExprAnd], ApConnective)
-      (for (f <- subs.iterator)
-         yield asFormula(translateExpression(f))) reduceLeft (_ & _)
+      ((for (f <- subs.iterator)
+          yield asFormula(translateExpression(f))) reduceLeft (_ & _),
+       Sort.Bool)
     }
     case f : ExprNot =>
       translateUnForConnective(f.expression_, ! _)
     case f : ExprQuant =>
-      translateQuant(f)
-    case _ : ExprTrue => i(true)
-    case _ : ExprFalse => i(false)
-    case f : ExprDistinct => distinct(translateOptArgs(f.optargs_))
-    case f : ExprIdApp => translateExprIdApp(f)
-    case f : ExprRel =>
-      translateBinTerConnective(f.expression_1, f.expression_2,
-                                f.relsym_ match {
-                                  case _ : RelEq => _ === _
-                                  case _ : RelNEq => _ =/= _
-                                  case _ : RelLeq => _ <= _
-                                  case _ : RelGeq => _ >= _
-                                  case _ : RelLt => _ < _
-                                  case _ : RelGt => _ > _
-                                })
-    case f : ExprTrigger => translateTrigger(f)
+      (translateQuant(f), Sort.Bool)
+    case _ : ExprTrue =>
+      (i(true), Sort.Bool)
+    case _ : ExprFalse =>
+      (i(false), Sort.Bool)
+    case f : ExprDistinct =>
+      // TODO: check sorts
+      (distinct(translateOptArgs(f.optargs_)), Sort.Bool)
+    case f : ExprIdApp =>
+      translateExprIdApp(f)
+    case f : ExprRel => f.relsym_ match {
+      case _ : RelEq =>
+        translateCompBinTerConnective("=", f.expression_1, f.expression_2,
+                                      _ === _)
+      case _ : RelNEq =>
+        translateCompBinTerConnective("!=", f.expression_1, f.expression_2,
+                                      _ =/= _)
+      case _ : RelLeq =>
+        translateNumBinTerConnective("<=", f.expression_1, f.expression_2,
+                                     _ <= _)
+      case _ : RelGeq =>
+        translateNumBinTerConnective(">=", f.expression_1, f.expression_2,
+                                     _ >= _)
+      case _ : RelLt =>
+        translateNumBinTerConnective("<", f.expression_1, f.expression_2,
+                                     _ < _)
+      case _ : RelGt =>
+        translateNumBinTerConnective(">", f.expression_1, f.expression_2,
+                                     _ > _)
+    }
+    case f : ExprTrigger =>
+      (translateTrigger(f), Sort.Bool)
     case f : ExprPart =>
-      INamedPart(env lookupPartName f.ident_,
-                 asFormula(translateExpression(f.expression_)))
+      (INamedPart(env lookupPartName f.ident_,
+                  asFormula(translateExpression(f.expression_))),
+       Sort.Bool)
     ////////////////////////////////////////////////////////////////////////////
     // Terms
     case t : ExprPlus =>
-      translateBinTerConnective(t.expression_1, t.expression_2, _ + _)
+      translateNumBinTerConnective("+", t.expression_1, t.expression_2, _ + _)
     case t : ExprMinus =>
-      translateBinTerConnective(t.expression_1, t.expression_2, _ - _)
+      translateNumBinTerConnective("-", t.expression_1, t.expression_2, _ - _)
     case t : ExprMult =>
-      translateBinTerConnective(t.expression_1, t.expression_2, mult _)
+      translateNumBinTerConnective("*", t.expression_1, t.expression_2, mult _)
     case t : ExprDiv =>
-      translateBinTerConnective(t.expression_1, t.expression_2, mulTheory.eDiv _)
+      translateNumBinTerConnective("/", t.expression_1, t.expression_2, mulTheory.eDiv _)
     case t : ExprMod =>
-      translateBinTerConnective(t.expression_1, t.expression_2, mulTheory.eMod _)
+      translateNumBinTerConnective("%", t.expression_1, t.expression_2, mulTheory.eMod _)
     case t : ExprUnPlus =>
-      translateUnTerConnective(t.expression_, (lc) => lc)
+      translateUnTerConnective("+", t.expression_, (lc) => lc)
     case t : ExprUnMinus =>
-      translateUnTerConnective(t.expression_, - _)
+      translateUnTerConnective("-", t.expression_, - _)
     case t : ExprExp =>
-      translateBinTerConnective(t.expression_1, t.expression_2, mulTheory.pow _)
+      translateNumBinTerConnective("^", t.expression_1, t.expression_2, mulTheory.pow _)
     case t : ExprLit =>
-      IIntLit(IdealInt(t.intlit_))
+      (IIntLit(IdealInt(t.intlit_)), Sort.Integer)
     case t : ExprEpsilon => {
       collectSingleVarDecl(t.declsinglevarc_)
       val cond = asFormula(translateExpression(t.expression_))
-      env.popVar eps cond
+      val sort = env.popVar
+      (sort eps cond, sort)
     }
     case t : ExprAbs =>
-      translateUnTerConnective(t.expression_, abs _)
+      translateUnTerConnective("\\abs", t.expression_, abs _)
     case t : ExprMax => {
-      val args = translateOptArgs(t.optargs_)
+      val args = translateNumOptArgs("\\max", t.optargs_)
       if (args.isEmpty)
         throw new Parser2InputAbsy.TranslationException(
             "Function max needs to receive at least one argument")
-      max(args)
+      (max(args), Sort.Integer)
     }
     case t : ExprMin => {
-      val args = translateOptArgs(t.optargs_)
+      val args = translateNumOptArgs("\\min", t.optargs_)
       if (args.isEmpty)
         throw new Parser2InputAbsy.TranslationException(
             "Function min needs to receive at least one argument")
-      min(args)
+      (min(args), Sort.Integer)
     }
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)
@@ -651,8 +650,19 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       val cond = asFormula(translateExpression(t.expression_1))
       (translateExpression(t.expression_2),
        translateExpression(t.expression_3)) match {
-        case (left : IFormula, right : IFormula) => IFormulaITE(cond, left, right)
-        case (left : ITerm, right : ITerm) =>       ITermITE(cond, left, right)
+        case ((left : ITerm, sortL), (right : ITerm, sortR)) => {
+          val resSort = compatibleSorts(sortL, sortR) match {
+            case Some(s) =>
+              s
+            case None =>
+              throw new Parser2InputAbsy.TranslationException(
+                "\\if ... \\then ... \\else cannot be applied with branches " +
+                sortL + ", " + sortR)
+          }
+          (ITermITE(cond, left, right), resSort)
+        }
+        case (left, right) =>
+          (IFormulaITE(cond, asFormula(left), asFormula(right)), Sort.Bool)
       }
     }
   }
@@ -664,43 +674,103 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     }
   }
   
-  private def asFormula(expr : IExpression) : IFormula = expr match {
-    case expr : IFormula =>
+  private def asFormula(expr : (IExpression, Sort)) : IFormula = expr match {
+    case (expr : IFormula, _) =>
       expr
-    case _ => 
+    case (t : ITerm, Sort.Bool) =>
+      eqZero(t)
+    case (expr, sort) => 
       throw new Parser2InputAbsy.TranslationException(
-                   "Expected a formula, not " + expr)
+                   "Expected a formula, not " + expr + " of sort " + sort)
   }
   
-  private def asTerm(expr : IExpression) : ITerm = expr match {
-    case expr : ITerm =>
+  private def asTerm(expr : (IExpression, Sort)) : ITerm = expr match {
+    case (expr : ITerm, _) =>
       expr
+    case (IBoolLit(true), _) =>
+      i(0)
+    case (IBoolLit(false), _) =>
+      i(1)
+    case (f : IFormula, _) =>
+      ite(f, i(0), i(1))
     case _ => 
       throw new Parser2InputAbsy.TranslationException(
                    "Expected a term, not " + expr)
   }
 
+  private def asNumTerm(opName : String,
+                        expr : (IExpression, Sort)) : ITerm = expr match {
+    case (expr : ITerm, Sort.Numeric(_)) =>
+      expr
+    case (_, s) => 
+      throw new Parser2InputAbsy.TranslationException(
+              opName + " expects a numeric term, not sort " + s)
+  }
   //////////////////////////////////////////////////////////////////////////////
 
   private def translateUnForConnective(f : Expression,
-                                       con : (IFormula) => IExpression)
-              : IExpression =
-    con(asFormula(translateExpression(f)))
+                                       con : (IFormula) => IFormula)
+              : (IExpression, Sort) =
+    (con(asFormula(translateExpression(f))), Sort.Bool)
   
-  private def translateUnTerConnective(f : Expression,
+  private def translateUnTerConnective(opName : String,
+                                       f : Expression,
                                        con : (ITerm) => IExpression)
-              : IExpression =
-    con(asTerm(translateExpression(f)))
-  
+              : (IExpression, Sort) =
+    (con(asNumTerm(opName, translateExpression(f))), Sort.Integer)
+
   private def translateBinForConnective(f1 : Expression, f2 : Expression,
-                                        con : (IFormula, IFormula) => IExpression)
-              : IExpression =
-    con(asFormula(translateExpression(f1)), asFormula(translateExpression(f2)))
+                                        con : (IFormula, IFormula) => IFormula)
+              : (IExpression, Sort) =
+    (con(asFormula(translateExpression(f1)),
+         asFormula(translateExpression(f2))),
+     Sort.Bool)
   
-  private def translateBinTerConnective(f1 : Expression, f2 : Expression,
-                                        con : (ITerm, ITerm) => IExpression)
-              : IExpression =
-    con(asTerm(translateExpression(f1)), asTerm(translateExpression(f2)))
+  private def translateNumBinTerConnective(opName : String,
+                                           f1 : Expression, f2 : Expression,
+                                           con : (ITerm, ITerm) => IExpression)
+                                          : (IExpression, Sort) =
+    translateBinTerConnective(opName, f1, f2, con,
+      (s1, s2) => (s1, s2) match {
+                    case (Sort.Numeric(_), Sort.Numeric(_)) =>
+                      Some(Sort.Integer)
+                    case _ =>
+                      None
+                  })
+
+  private def translateCompBinTerConnective(opName : String,
+                                            f1 : Expression, f2 : Expression,
+                                            con : (ITerm, ITerm) => IExpression)
+                                           : (IExpression, Sort) =
+    translateBinTerConnective(opName, f1, f2, con, compatibleSorts _)
+  
+  private def compatibleSorts(s1 : Sort, s2 : Sort) : Option[Sort] =
+    (s1, s2) match {
+      case (Sort.Numeric(_), Sort.Numeric(_)) =>
+        Some(Sort.Integer)
+      case (s1, s2) if s1 == s2 =>
+        Some(s1)
+      case _ =>
+        None
+    }
+
+  private def translateBinTerConnective(opName : String,
+                                        f1 : Expression, f2 : Expression,
+                                        con : (ITerm, ITerm) => IExpression,
+                                        coercer : (Sort, Sort) => Option[Sort])
+                                       : (IExpression, Sort) = {
+    val left  = translateExpression(f1)
+    val right = translateExpression(f2)
+    val resSort = coercer(left._2, right._2) match {
+      case Some(s) =>
+        s
+      case None =>
+        throw new Parser2InputAbsy.TranslationException(
+            "Operator " + opName + " cannot be applied to arguments of sort " +
+            left._2 + ", " + right._2)
+    }
+    (con(asTerm(left), asTerm(right)), resSort)
+  }
   
   private def translateQuant(f : ExprQuant) : IFormula = {
     // add the bound variables to the environment and record their number
@@ -716,26 +786,28 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       }
     }
     
-    translateUnForConnective(f.expression_, body _).asInstanceOf[IFormula]
+    asFormula(translateUnForConnective(f.expression_, body _))
   }
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private def translateExprIdApp(f : ExprIdApp) : IExpression =
+  private def translateExprIdApp(f : ExprIdApp) : (IExpression, Sort) =
     env.lookupSym(f.ident_) match {
       case Environment.Predicate(pred, _, _) => {
+        // TODO: check argument sorts
         val args = translateOptArgs(f.optargs_)
         if (pred.arity != args.size)
           throw new Parser2InputAbsy.TranslationException(
               "Predicate " + pred +
               " is applied to a wrong number of arguments: " + (args mkString ", "))
         
-        (predicateDefs get pred) match {
-          case Some(body) =>
-            VariableSubstVisitor(body, (args.toList, 0))
-          case None => 
-            IAtom(pred, args)
-        }
+        ((predicateDefs get pred) match {
+           case Some(body) =>
+             VariableSubstVisitor(body, (args.toList, 0))
+           case None => 
+             IAtom(pred, args)
+         },
+         Sort.Bool)
       }
       
       case Environment.Function(fun, _) => {
@@ -745,12 +817,13 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
               "Function " + fun +
               " is applied to a wrong number of arguments: " + (args mkString ", "))
         
-        (functionDefs get fun) match {
-          case Some(body) =>
-            VariableSubstVisitor(body, (args.toList, 0))
-          case None => 
-            IFunApp(fun, args)
-        }
+        ((functionDefs get fun) match {
+           case Some(body) =>
+             VariableSubstVisitor(body, (args.toList, 0))
+           case None => 
+             IFunApp(fun, args)
+         },
+         getResultSort(fun))
       }
       
       case Environment.Constant(c, _, _) => {
@@ -760,21 +833,31 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                                "Constant " + c + " does not have arguments")
           case _ : NoArgs => // nothing
         }
-        c
+        (c, getSort(c))
       }
       
-      case Environment.Variable(i, _) => {
+      case Environment.Variable(i, sort) => {
         f.optargs_ match {
           case _ : Args =>
             throw new Parser2InputAbsy.TranslationException(
                                "Variable " + f.ident_ + " does not have arguments")
           case _ : NoArgs => // nothing
         }
-        v(i)
+        (v(i), sort)
       }
     }
+
+  private def getResultSort(fun : IFunction) : Sort = fun match {
+    case fun : MonoSortedIFunction => fun.resSort
+    case _ => Sort.Integer
+  }
   
-  private def translateTrigger(trigger : ExprTrigger) :IFormula = {
+  private def getSort(c : ConstantTerm) : Sort = c match {
+    case c : SortedConstantTerm => c.sort
+    case _ => Sort.Integer
+  }
+
+  private def translateTrigger(trigger : ExprTrigger) : IFormula = {
     val patterns = translateExprArgs(trigger.listargc_)
     val body = asFormula(translateExpression(trigger.expression_))
     ITrigger(ITrigger.extractTerms(patterns), body)
@@ -790,9 +873,20 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       case arg : Arg => asTerm(translateExpression(arg.expression_))
     }
 
+  private def translateNumOptArgs(opName : String,
+                                  args : OptArgs) : Seq[ITerm] = args match {
+    case args : Args => translateNumArgs(opName, args.listargc_)
+    case _ : NoArgs => List()
+  }
+  
+  private def translateNumArgs(opName : String, args : ListArgC) =
+    for (arg <- args) yield arg match {
+      case arg : Arg => asNumTerm(opName, translateExpression(arg.expression_))
+    }
+
   private def translateExprArgs(args : ListArgC) =
     for (arg <- args) yield arg match {
-      case arg : Arg => translateExpression(arg.expression_)
+      case arg : Arg => translateExpression(arg.expression_)._1
     }
 
 }
