@@ -15,7 +15,7 @@ TESTS="arrays0.pri arrays1.pri arrays2.pri \
        arrayProperties.pri \
        eps1.pri eps2.pri eps3.pri eps4.pri \
        matchableCheckBug.pri negMatching.pri blockedOmegaBug.pri \
-       mulTermination.pri"
+       mulTermination.pri adt2.pri"
 
 $PRI "$@" $TESTS
 
