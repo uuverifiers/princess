@@ -224,6 +224,18 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       for (sels <- adt.selectors)
         for (sel <- sels)
           env.addFunction(sel, ())
+      for (f <- adt.ctorIds)
+        env.addFunction(f, ())
+
+      // generate the is_ queries as inlined functions
+      for (((name, ADT.CtorSignature(_, ADT.ADTSort(adtNum))), ctorNum) <-
+              ctors.iterator.zipWithIndex) {
+        val query =
+          new MonoSortedPredicate("is_" + name, List(adt sorts adtNum))
+        env.addPredicate(query, ())
+        val body = adt.hasCtor(v(0), ctorNum)
+        predicateDefs.put(query, body)
+      }
     }
   }
   
