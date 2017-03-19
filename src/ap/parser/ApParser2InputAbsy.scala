@@ -664,7 +664,10 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       // TODO: check sorts
       (distinct(translateOptArgs(f.optargs_)), Sort.Bool)
     case f : ExprIdApp =>
-      translateExprIdApp(f)
+      translateFunctionApp(f.ident_, translateOptArgs(f.optargs_))
+    case f : ExprDotAttr =>
+      translateFunctionApp(f.ident_,
+                           List(asTerm(translateExpression(f.expression_))))
     case f : ExprRel => f.relsym_ match {
       case _ : RelEq =>
         translateCompBinTerConnective("=", f.expression_1, f.expression_2,
@@ -880,15 +883,16 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private def translateExprIdApp(f : ExprIdApp) : (IExpression, Sort) =
-    env.lookupSym(f.ident_) match {
+  // TODO: check argument sorts
+  private def translateFunctionApp(name : String,
+                                   args : Seq[ITerm]) : (IExpression, Sort) =
+    env.lookupSym(name) match {
       case Environment.Predicate(pred, _, _) => {
-        // TODO: check argument sorts
-        val args = translateOptArgs(f.optargs_)
         if (pred.arity != args.size)
           throw new Parser2InputAbsy.TranslationException(
               "Predicate " + pred +
-              " is applied to a wrong number of arguments: " + (args mkString ", "))
+              " is applied to a wrong number of arguments: " +
+              (args mkString ", "))
         
         ((predicateDefs get pred) match {
            case Some(body) =>
@@ -900,11 +904,11 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       }
       
       case Environment.Function(fun, _) => {
-        val args = translateOptArgs(f.optargs_)
         if (fun.arity != args.size)
           throw new Parser2InputAbsy.TranslationException(
               "Function " + fun +
-              " is applied to a wrong number of arguments: " + (args mkString ", "))
+              " is applied to a wrong number of arguments: " +
+              (args mkString ", "))
         
         ((functionDefs get fun) match {
            case Some(body) =>
@@ -916,22 +920,16 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       }
       
       case Environment.Constant(c, _, _) => {
-        f.optargs_ match {
-          case _ : Args =>
+        if (!args.isEmpty)
             throw new Parser2InputAbsy.TranslationException(
                                "Constant " + c + " does not have arguments")
-          case _ : NoArgs => // nothing
-        }
         (c, getSort(c))
       }
       
       case Environment.Variable(i, sort) => {
-        f.optargs_ match {
-          case _ : Args =>
+        if (!args.isEmpty)
             throw new Parser2InputAbsy.TranslationException(
-                               "Variable " + f.ident_ + " does not have arguments")
-          case _ : NoArgs => // nothing
-        }
+                               "Variable " + name + " does not have arguments")
         (v(i), sort)
       }
     }
