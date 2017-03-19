@@ -37,20 +37,17 @@ object Environment {
   abstract sealed class DeclaredSym[ConstantType,
                                     VariableType,
                                     PredicateType,
-                                    FunctionType,
-                                    SortType]
-  case class Constant[CT,VT,PT,FT,ST](c : ConstantTerm, k : SymKind, typ : CT)
-             extends DeclaredSym[CT,VT,PT,FT,ST]
-  case class Variable[CT,VT,PT,FT,ST](index : Int, typ : VT)
-             extends DeclaredSym[CT,VT,PT,FT,ST]
-  case class Predicate[CT,VT,PT,FT,ST](pred : ap.terfor.preds.Predicate,
-                                       matchStatus : Signature.PredicateMatchStatus.Value,
-                                       typ : PT)
-             extends DeclaredSym[CT,VT,PT,FT,ST]
-  case class Function[CT,VT,PT,FT,ST](fun : IFunction, typ : FT)
-             extends DeclaredSym[CT,VT,PT,FT,ST]
-  case class Sort[CT,VT,PT,FT,ST](sort : ap.types.Sort, typ : ST)
-             extends DeclaredSym[CT,VT,PT,FT,ST]
+                                    FunctionType]
+  case class Constant[CT,VT,PT,FT](c : ConstantTerm, k : SymKind, typ : CT)
+             extends DeclaredSym[CT,VT,PT,FT]
+  case class Variable[CT,VT,PT,FT](index : Int, typ : VT)
+             extends DeclaredSym[CT,VT,PT,FT]
+  case class Predicate[CT,VT,PT,FT](pred : ap.terfor.preds.Predicate,
+                                    matchStatus : Signature.PredicateMatchStatus.Value,
+                                    typ : PT)
+             extends DeclaredSym[CT,VT,PT,FT]
+  case class Function[CT,VT,PT,FT](fun : IFunction, typ : FT)
+             extends DeclaredSym[CT,VT,PT,FT]
 
   class EnvironmentException(msg : String) extends Exception(msg)
 
@@ -62,15 +59,20 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
   import Environment._
   
   type DSym = DeclaredSym[ConstantType, VariableType, PredicateType,
-                          FunctionType, SortType]
+                          FunctionType]
   
   /** The declared symbols */
-  private val signature = new scala.collection.mutable.HashMap[String, DSym]
+  private val signature =
+    new scala.collection.mutable.HashMap[String, DSym]
   
   /** The variables bound at the present point, together with their type */
   private val context =
     new scala.collection.mutable.ArrayBuffer[(String, VariableType)]
   
+  /** The declared sorts */
+  private val sorts =
+    new scala.collection.mutable.HashMap[String, SortType]
+
   /** A <code>TermOrder</code> containing all declared constants */
   private var orderVar = TermOrder.EMPTY
   
@@ -102,6 +104,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
     
     res.signature ++= this.signature
     res.context ++= this.context
+    res.sorts ++= this.sorts
     res.partNames ++= this.partNames
     res.orderVar = this.orderVar
     
@@ -111,6 +114,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
   def clear : Unit = {
     signature.clear
     context.clear
+    sorts.clear
     partNames.clear
     orderVar = TermOrder.EMPTY
   }
@@ -179,7 +183,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
     if (signature contains name)
       throw new EnvironmentException("Symbol " + name + " is already declared")
     else
-      signature += (name -> t)
+      signature.put(name, t)
   
   def pushVar(name : String, typ : VariableType) : Unit =
     context += ((name, typ))
@@ -198,6 +202,20 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
   
   def declaredVariableNum = context.size
   
+  def addSort(name : String, s : SortType) : Unit =
+    if (sorts contains name)
+      throw new EnvironmentException("Sort " + name + " is already declared")
+    else
+      sorts.put(name, s)
+
+  def lookupSort(name : String) : SortType =
+    (sorts get name) match {
+      case Some(s) =>
+        s
+      case None =>
+        throw new EnvironmentException("Sort " + name + " not declared")
+    }
+
   def lookupPartName(name : String) : PartName =
     partNames.getOrElseUpdate(name, new PartName (name))
   

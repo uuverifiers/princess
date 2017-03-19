@@ -344,7 +344,7 @@ object ResourceFiles {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class FrameworkVocabulary(preludeEnv : Environment[Unit, Sort, Unit, Unit, Unit]) {
+class FrameworkVocabulary(preludeEnv : Environment[Unit, Sort, Unit, Unit, Sort]) {
   private def lookupFun(n : String) = preludeEnv.lookupSym(n) match {
     case Environment.Function(f, _) => f
     case _ => throw new Error("Expected " + n + " to be defined as a function");
