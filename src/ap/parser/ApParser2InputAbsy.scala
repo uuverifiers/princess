@@ -34,8 +34,9 @@ import ap.basetypes.IdealInt
 import ap.parser.ApInput._
 import ap.parser.ApInput.Absyn._
 import ap.theories.ADT
-import ap.types.{Sort, MonoSortedIFunction, SortedConstantTerm,
-                 MonoSortedPredicate}
+import ap.types.{Sort, MonoSortedIFunction, SortedIFunction,
+                 SortedConstantTerm,
+                 MonoSortedPredicate, SortedPredicate}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  ArrayBuffer}
@@ -449,10 +450,8 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
   }
 
   private def collectSingleVarDecl(decl : DeclSingleVarC) : Unit = decl match {
-    case decl : DeclSingleVar => {
+    case decl : DeclSingleVar =>
       env.pushVar(decl.ident_, type2Sort(decl.type_))
-//      binderType2Guard(decl.bindertype_, v(0))
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -662,12 +661,12 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       (i(false), Sort.Bool)
     case f : ExprDistinct =>
       // TODO: check sorts
-      (distinct(translateOptArgs(f.optargs_)), Sort.Bool)
+      (distinct(translateOptArgs(f.optargs_) map (asTerm _)), Sort.Bool)
     case f : ExprIdApp =>
       translateFunctionApp(f.ident_, translateOptArgs(f.optargs_))
     case f : ExprDotAttr =>
       translateFunctionApp(f.ident_,
-                           List(asTerm(translateExpression(f.expression_))))
+                           List(translateExpression(f.expression_)))
     case f : ExprRel => f.relsym_ match {
       case _ : RelEq =>
         translateCompBinTerConnective("=", f.expression_1, f.expression_2,
@@ -846,6 +845,12 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         None
     }
 
+  private def compatibleSorts(args : Seq[(IExpression, Sort)],
+                              sorts : Seq[Sort]) : Boolean =
+    (args.iterator zip sorts.iterator) forall {
+      case ((_, s), fs) => compatibleSorts(s, fs).isDefined
+    }
+
   private def translateBinTerConnective(opName : String,
                                         f1 : Expression, f2 : Expression,
                                         con : (ITerm, ITerm) => IExpression,
@@ -885,7 +890,8 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
   
   // TODO: check argument sorts
   private def translateFunctionApp(name : String,
-                                   args : Seq[ITerm]) : (IExpression, Sort) =
+                                   args : Seq[(IExpression, Sort)])
+                                  : (IExpression, Sort) =
     env.lookupSym(name) match {
       case Environment.Predicate(pred, _, _) => {
         if (pred.arity != args.size)
@@ -893,12 +899,25 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
               "Predicate " + pred +
               " is applied to a wrong number of arguments: " +
               (args mkString ", "))
-        
+
+        val argTerms = args map (asTerm _)
+        pred match {
+          case pred : SortedPredicate => {
+            val formalSorts = pred iArgumentTypes argTerms
+            if (!compatibleSorts(args, formalSorts))
+              throw new Parser2InputAbsy.TranslationException(
+                "Predicate " + pred.name +
+                " cannot be applied to arguments of sort " +
+                (args map (_._2) mkString ", "))
+          }
+          case _ => // nothing
+        }
+
         ((predicateDefs get pred) match {
            case Some(body) =>
-             VariableSubstVisitor(body, (args.toList, 0))
+             VariableSubstVisitor(body, (argTerms.toList, 0))
            case None => 
-             IAtom(pred, args)
+             IAtom(pred, argTerms)
          },
          Sort.Bool)
       }
@@ -909,14 +928,29 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
               "Function " + fun +
               " is applied to a wrong number of arguments: " +
               (args mkString ", "))
-        
+
+        val argTerms = args map (asTerm _)
+        val resSort = fun match {
+          case fun : SortedIFunction => {
+            val (formalSorts, resSort) = fun iFunctionType argTerms
+            if (!compatibleSorts(args, formalSorts))
+              throw new Parser2InputAbsy.TranslationException(
+                "Function " + fun.name +
+                " cannot be applied to arguments of sort " +
+                (args map (_._2) mkString ", "))
+            resSort
+          }
+          case _ =>
+            Sort.Integer
+        }
+
         ((functionDefs get fun) match {
            case Some(body) =>
-             VariableSubstVisitor(body, (args.toList, 0))
+             VariableSubstVisitor(body, (argTerms.toList, 0))
            case None => 
-             IFunApp(fun, args)
+             IFunApp(fun, argTerms)
          },
-         getResultSort(fun))
+         resSort)
       }
       
       case Environment.Constant(c, _, _) => {
@@ -934,11 +968,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       }
     }
 
-  private def getResultSort(fun : IFunction) : Sort = fun match {
-    case fun : MonoSortedIFunction => fun.resSort
-    case _ => Sort.Integer
-  }
-  
   private def getSort(c : ConstantTerm) : Sort = c match {
     case c : SortedConstantTerm => c.sort
     case _ => Sort.Integer
@@ -950,14 +979,15 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     ITrigger(ITrigger.extractTerms(patterns), body)
   }
   
-  private def translateOptArgs(args : OptArgs) : Seq[ITerm] = args match {
+  private def translateOptArgs(args : OptArgs)
+                              : Seq[(IExpression, Sort)] = args match {
     case args : Args => translateArgs(args.listargc_)
     case _ : NoArgs => List()
   }
   
   private def translateArgs(args : ListArgC) =
     for (arg <- args) yield arg match {
-      case arg : Arg => asTerm(translateExpression(arg.expression_))
+      case arg : Arg => translateExpression(arg.expression_)
     }
 
   private def translateNumOptArgs(opName : String,
