@@ -27,6 +27,7 @@ import ap.terfor.{Term, Formula, TermOrder, OneTerm, ConstantTerm}
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
+import ap.theories.Theory
 import ap.util.Debug
 
 object Sort {
@@ -39,12 +40,22 @@ object Sort {
    */
   object Integer extends Sort {
     val name : String = "int"
+
     def membershipConstraint(t : ITerm) : IFormula =
       IExpression.i(true)
+
     def membershipConstraint(t : Term)(implicit order : TermOrder) : Formula =
       Conjunction.TRUE
+
     val cardinality : Option[IdealInt] = None
+
     def witness : Option[ITerm] = Some(IExpression.i(0))
+
+    val asTerm : Theory.Decoder[ITerm] = new Theory.Decoder[ITerm] {
+      def apply(d : IdealInt)(implicit ctxt : Theory.DecoderContext) : ITerm =
+        IIntLit(d)
+    }
+
     override def newConstant(name : String) : ConstantTerm =
       new ConstantTerm(name)
   }
@@ -104,6 +115,11 @@ object Sort {
       (for (l <- lower) yield IExpression.i(l)) orElse
       (for (u <- upper) yield IExpression.i(u)) orElse
       Some(IExpression.i(0))
+
+    val asTerm : Theory.Decoder[ITerm] = new Theory.Decoder[ITerm] {
+      def apply(d : IdealInt)(implicit ctxt : Theory.DecoderContext) : ITerm =
+        IIntLit(d)
+    }
   }
 
   /**
@@ -161,6 +177,13 @@ trait Sort {
    */
   def newConstant(name : String) : ConstantTerm =
     new SortedConstantTerm(name, this)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Extract a term representation of some value in the sort.
+   */
+  val asTerm : Theory.Decoder[ITerm]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -227,4 +250,6 @@ class ProxySort(underlying : Sort) extends Sort {
   val cardinality : Option[IdealInt] = underlying.cardinality
 
   def witness : Option[ITerm] = underlying.witness
+
+  val asTerm : Theory.Decoder[ITerm] = underlying.asTerm
 }

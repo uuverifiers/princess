@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -119,6 +119,8 @@ object ADTTest extends App {
       println(expect(???, ProverStatus.Invalid))
       println(partialModel)
       println(eval(d))
+      implicit val _ = decoderContext
+      println(colour asTerm eval(d))
     }
 
     println("Test 13")
@@ -172,6 +174,11 @@ object ADTTest extends App {
       !! (e =/= cons(blue(), nil()))
       !! (e === cons(d, nil()))
       println(expect(???, ProverStatus.Sat))
+
+      implicit val _ = decoderContext
+      println(colour asTerm eval(d))
+      println(colour_list asTerm eval(e))
+
       !! (e =/= cons(green(), nil()))
       println(expect(???, ProverStatus.Unsat))
     }

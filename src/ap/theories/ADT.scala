@@ -186,13 +186,62 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private type ValueTrans = Map[(Int,             // sortNum
+                                 IdealInt),       // term identifier
+                                (Int,             // ctor ind. in ctorSignatures
+                                 Seq[IdealInt])]  // sub-expressions
+
+  private case class DecoderData(valueTranslation : ValueTrans)
+       extends Theory.TheoryDecoderData
+
+  override def generateDecoderData(model : Conjunction)
+                                  : Option[Theory.TheoryDecoderData] = {
+    val atoms = model.predConj.positiveLits filter {
+      a => constructorPredsSet contains a.pred
+    }
+
+    Some(DecoderData((for (a <- atoms.iterator) yield {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      val ADTCtorPred(ctorNum, sortNum, _) = adtPreds(a.pred)
+      ((sortNum, a.last.constant) -> (ctorNum, a.init map (_.constant)))
+    }).toMap))
+  }
+
   /**
    * Class representing the types/sorts defined by this ADT theory
    */
   class ADTProxySort(val sortNum : Int,
                      underlying : Sort) extends ProxySort(underlying) {
     val adtTheory : ADT = ADT.this
+
     override lazy val witness = Some(witnesses(sortNum))
+
+    override val asTerm : Theory.Decoder[ITerm] = new Theory.Decoder[ITerm] {
+      def apply(d : IdealInt)(implicit ctxt : Theory.DecoderContext) : ITerm =
+        if (isEnum(sortNum)) {
+          IFunApp(constructorsPerSort(sortNum)(d.intValueSafe), List())
+        } else {
+          (ctxt getDataFor ADT.this) match {
+            case DecoderData(valueTranslation) =>
+              (valueTranslation get (sortNum, d)) match {
+                case Some((ctorId, args)) => {
+                  val ctor =
+                    constructors(ctorId).asInstanceOf[MonoSortedIFunction]
+                  val children =
+                    for ((arg, sort) <- args zip ctor.argSorts)
+                    yield (sort asTerm arg)
+                  IFunApp(ctor, children)
+                }
+                case None => {
+                  Console.err.println("Warning: could not decode ADT value " + d)
+                  IIntLit(d)
+                }
+              }
+          }
+        }
+    }
   }
 
   val sorts =
@@ -286,6 +335,19 @@ class ADT (sortNames : Seq[String],
 
   val constructorPreds =
     constructors map functionTranslation
+
+  private val constructorPredsSet = constructorPreds.toSet
+
+  private val constructorsPerSort : IndexedSeq[IndexedSeq[IFunction]] = {
+    val map =
+      (constructors zip ctorSignatures) groupBy {
+        case (_, (_, CtorSignature(_, ADTSort(sortNum)))) => sortNum
+      }
+    (for (i <- 0 until sortNames.size) yield (map get i) match {
+       case Some(ctors) => (ctors map (_._1)).toIndexedSeq
+       case None => Vector()
+     }).toIndexedSeq
+  }
 
   private val constructorPredsPerSort : IndexedSeq[Seq[Predicate]] = {
     val map =
