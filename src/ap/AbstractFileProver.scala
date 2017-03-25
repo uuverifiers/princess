@@ -26,13 +26,15 @@ import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
                   Preprocessing, IsUniversalFormulaVisitor,
                   FunctionEncoder, IExpression, INamedPart, PartName,
-                  IFunction, IInterpolantSpec, IBinJunctor, Environment}
+                  IFunction, IInterpolantSpec, IBinJunctor, Environment,
+                  Internal2InputAbsy}
+import ap.interpolants.ArraySimplifier
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
-import ap.types.TypeTheory
+import ap.types.{TypeTheory, IntToTermTranslator}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -347,6 +349,25 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       Param.TRIGGER_GENERATION(settings))
       */
      )
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected def filterNonTheoryParts(model : Conjunction) : Conjunction = {
+    implicit val _ = model.order
+    val remainingPredConj = model.predConj filter {
+      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
+    }
+    model.updatePredConj(remainingPredConj)
+  }
+
+  protected def toIFormula(c : Conjunction,
+                           onlyNonTheory : Boolean = false) = {
+    val remaining = if (onlyNonTheory) filterNonTheoryParts(c) else c
+    val raw = Internal2InputAbsy(remaining, functionEncoder.predTranslation)
+    val simp = (new ArraySimplifier)(raw)
+    implicit val context = new Theory.DefaultDecoderContext(c)
+    IntToTermTranslator(simp)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

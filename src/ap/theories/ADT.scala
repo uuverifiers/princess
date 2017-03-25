@@ -218,10 +218,11 @@ class ADT (sortNames : Seq[String],
 
     override lazy val witness = Some(witnesses(sortNum))
 
-    override val asTerm : Theory.Decoder[ITerm] = new Theory.Decoder[ITerm] {
-      def apply(d : IdealInt)(implicit ctxt : Theory.DecoderContext) : ITerm =
+    override val asTerm = new Theory.Decoder[Option[ITerm]] {
+      def apply(d : IdealInt)
+               (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
         if (isEnum(sortNum)) {
-          IFunApp(constructorsPerSort(sortNum)(d.intValueSafe), List())
+          Some(IFunApp(constructorsPerSort(sortNum)(d.intValueSafe), List()))
         } else {
           (ctxt getDataFor ADT.this) match {
             case DecoderData(valueTranslation) =>
@@ -230,13 +231,17 @@ class ADT (sortNames : Seq[String],
                   val ctor =
                     constructors(ctorId).asInstanceOf[MonoSortedIFunction]
                   val children =
-                    for ((arg, sort) <- args zip ctor.argSorts)
-                    yield (sort asTerm arg)
-                  IFunApp(ctor, children)
+                    for ((arg, sort) <- args zip ctor.argSorts) yield {
+                      (sort asTerm arg) match {
+                        case Some(t) => t
+                        case None => IIntLit(arg)
+                      }
+                    }
+                  Some(IFunApp(ctor, children))
                 }
                 case None => {
                   Console.err.println("Warning: could not decode ADT value " + d)
-                  IIntLit(d)
+                  None
                 }
               }
           }

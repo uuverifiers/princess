@@ -93,6 +93,7 @@ object PrincessLineariser {
     def unapply(t : IExpression) : Option[ITerm] = t match {
       case t : IConstant => Some(t)
       case t : IVariable => Some(t)
+      case t@IFunApp(_, Seq()) => Some(t)
       case _ => None
     }
   }
@@ -114,6 +115,7 @@ object PrincessLineariser {
       else
         vs.head
     }
+    case IFunApp(f, Seq()) => f.name
   }
     
   private def relation(rel : IIntRelation.Value) = rel match {
@@ -215,12 +217,11 @@ object PrincessLineariser {
       
         case IFunApp(fun, _) => {
           print(fun.name)
-          print("(")
-          if (fun.arity == 0) {
-            print(")")
-            KeepArg
-          } else {
+          if (fun.arity > 0) {
+            print("(")
             allButLast(ctxt setPrecLevel 0, ", ", ")", fun.arity)
+          } else {
+            KeepArg
           }
         }
         

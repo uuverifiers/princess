@@ -51,9 +51,11 @@ object Sort {
 
     def witness : Option[ITerm] = Some(IExpression.i(0))
 
-    val asTerm : Theory.Decoder[ITerm] = new Theory.Decoder[ITerm] {
-      def apply(d : IdealInt)(implicit ctxt : Theory.DecoderContext) : ITerm =
-        IIntLit(d)
+    val asTerm : Theory.Decoder[Option[ITerm]] =
+      new Theory.Decoder[Option[ITerm]] {
+        def apply(d : IdealInt)
+                 (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
+          None
     }
 
     override def newConstant(name : String) : ConstantTerm =
@@ -116,9 +118,11 @@ object Sort {
       (for (u <- upper) yield IExpression.i(u)) orElse
       Some(IExpression.i(0))
 
-    val asTerm : Theory.Decoder[ITerm] = new Theory.Decoder[ITerm] {
-      def apply(d : IdealInt)(implicit ctxt : Theory.DecoderContext) : ITerm =
-        IIntLit(d)
+    val asTerm : Theory.Decoder[Option[ITerm]] =
+      new Theory.Decoder[Option[ITerm]] {
+        def apply(d : IdealInt)
+                 (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
+          None
     }
   }
 
@@ -133,10 +137,54 @@ object Sort {
   }
 
   /**
+   * Extractor to recognise non-numeric sorts.
+   */
+  object NonNumeric {
+    def unapply(s : Sort) : Option[Sort] = s match {
+      case Numeric(_) => None
+      case s =>          Some(s)
+    }
+  }
+
+  /**
    * The sort of Booleans. Booleans are encoded as an ADT.
    * @see ap.theories.ADT.BoolADT
    */
   val Bool = ap.theories.ADT.BoolADT.boolSort
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Extractor to identify terms with associated sort. This can be used for
+   * checks like <code>t match { case t ::: Sort.Bool => XXX }</code>.
+   */
+  object ::: {
+    def unapply(t : ITerm) : Option[(ITerm, Sort)] = t match {
+      case IConstant(c : SortedConstantTerm) =>
+        Some((t, c.sort))
+      case IFunApp(f : SortedIFunction, args) =>
+        Some((t, f iResultSort args))
+      case t =>
+        Some((t, Sort.Integer))
+    }
+  }
+
+  object NonNumericTerm {
+    def unapply(t : ITerm) : Option[(ITerm, Sort)] = t match {
+      case IConstant(c : SortedConstantTerm) =>
+        c.sort match {
+          case Numeric(_) => None
+          case sort =>       Some((t, sort))
+        }
+      case IFunApp(f : SortedIFunction, args) =>
+        (f iResultSort args) match {
+          case Numeric(_) => None
+          case sort =>       Some((t, sort))
+        }
+      case t =>
+        None
+    }
+  }
 
 }
 
@@ -183,9 +231,12 @@ trait Sort {
   /**
    * Extract a term representation of some value in the sort.
    */
-  val asTerm : Theory.Decoder[ITerm]
+  val asTerm : Theory.Decoder[Option[ITerm]]
 
   //////////////////////////////////////////////////////////////////////////////
+
+  // TODO: the following methods should use SortedConstantTerm for the bound
+  // symbol
 
   /**
    * Add an existential quantifier for the variable with de Bruijn index 0,
@@ -251,5 +302,81 @@ class ProxySort(underlying : Sort) extends Sort {
 
   def witness : Option[ITerm] = underlying.witness
 
-  val asTerm : Theory.Decoder[ITerm] = underlying.asTerm
+  val asTerm : Theory.Decoder[Option[ITerm]] = underlying.asTerm
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object IntToTermTranslator {
+  def apply(f : IFormula)
+           (implicit decoderContext : Theory.DecoderContext) : IFormula = {
+    val visitor = new IntToTermTranslator
+    visitor.visit(f, ()).asInstanceOf[IFormula]
+  }
+}
+
+/**
+ * Class to systematically replace integer literals in an expression with
+ * equivalent symbolic terms.
+ */
+class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
+      extends CollectingVisitor[Unit, IExpression] {
+  import IExpression._
+  import Sort.{NonNumericTerm, NonNumeric}
+
+  private def transformArgs(args : Seq[ITerm],
+                            sorts : Seq[Sort]) : Seq[ITerm] = {
+    var changed = false
+
+    val newArgs =
+      ((args.iterator zip sorts.iterator) map {
+         case (d@IIntLit(value), NonNumeric(sort)) =>
+           (sort asTerm value) match {
+             case Some(t) => {
+               changed = true
+               t
+             }
+             case None =>
+               d
+           }
+         case (arg, _) =>
+           arg
+       }).toVector
+
+    if (changed) newArgs else args
+  }
+
+  def postVisit(t : IExpression, arg : Unit,
+                subres : Seq[IExpression]) : IExpression = {
+    val nt = t update subres
+    nt match {
+
+      case IFunApp(f : SortedIFunction, args) => {
+        val (argTypes, _) = f iFunctionType args
+        val newArgs = transformArgs(args, argTypes)
+        if (newArgs eq args) nt else IFunApp(f, newArgs)
+      }
+
+      case IAtom(p : SortedPredicate, args) => {
+        val argTypes = p iArgumentTypes args
+        val newArgs = transformArgs(args, argTypes)
+        if (newArgs eq args) nt else IAtom(p, newArgs)
+      }
+
+      case Eq(NonNumericTerm(s, sSort), d@IIntLit(value)) =>
+        (sSort asTerm value) match {
+          case Some(sd) => s === sd
+          case None => nt
+        }
+
+      case Eq(d@IIntLit(value), NonNumericTerm(s, sSort)) =>
+        (sSort asTerm value) match {
+          case Some(sd) => s === sd
+          case None => nt
+        }
+
+      case _ =>
+        nt
+    }
+  }
 }
