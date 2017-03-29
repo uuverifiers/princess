@@ -21,14 +21,19 @@
 
 package ap.types
 
+import ap.basetypes.IdealInt
 import ap.theories.Theory
+import ap.parser.ITerm
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.Conjunction
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer,
+                                 HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Theory taking care of types of declared symbols.
+ *
+ * TODO: also need to add sort information to totality axioms
  */
 object TypeTheory extends Theory {
 
@@ -117,5 +122,41 @@ object TypeTheory extends Theory {
   val predicates = List()
   val totalityAxioms = Conjunction.TRUE
   val triggerRelevantFunctions : Set[ap.parser.IFunction] = Set()
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  case class DecoderData(valueTranslation : Map[(IdealInt, Sort), ITerm])
+     extends Theory.TheoryDecoderData
+
+  override def generateDecoderData(model : Conjunction)
+                                  : Option[Theory.TheoryDecoderData] = {
+    // find all relevant sorts
+    val sorts = new MHashSet[Sort]
+
+    for (c <- model.constants) c match {
+      case c : SortedConstantTerm =>
+        sorts += c.sort
+      case _ =>
+        // nothing
+    }
+
+    for (a <- model.groundAtoms) a.pred match {
+      case sortedPred : SortedPredicate =>
+        sorts ++= sortedPred argumentTypes a
+      case _ =>
+        // nothing
+    }
+
+    val terms = new MHashMap[(IdealInt, Sort), ITerm]
+
+    var size = -1
+    while (terms.size > size) {
+      size = terms.size
+      for (s <- sorts)
+        s.augmentModelTermSet(model, terms)
+    }
+
+    Some(DecoderData(terms.toMap))
+  }
 
 }

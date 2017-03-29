@@ -186,29 +186,6 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private type ValueTrans = Map[(Int,             // sortNum
-                                 IdealInt),       // term identifier
-                                (Int,             // ctor ind. in ctorSignatures
-                                 Seq[IdealInt])]  // sub-expressions
-
-  private case class DecoderData(valueTranslation : ValueTrans)
-       extends Theory.TheoryDecoderData
-
-  override def generateDecoderData(model : Conjunction)
-                                  : Option[Theory.TheoryDecoderData] = {
-    val atoms = model.predConj.positiveLits filter {
-      a => constructorPredsSet contains a.pred
-    }
-
-    Some(DecoderData((for (a <- atoms.iterator) yield {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val ADTCtorPred(ctorNum, sortNum, _) = adtPreds(a.pred)
-      ((sortNum, a.last.constant) -> (ctorNum, a.init map (_.constant)))
-    }).toMap))
-  }
-
   /**
    * Class representing the types/sorts defined by this ADT theory
    */
@@ -218,33 +195,27 @@ class ADT (sortNames : Seq[String],
 
     override lazy val witness = Some(witnesses(sortNum))
 
-    override val asTerm = new Theory.Decoder[Option[ITerm]] {
-      def apply(d : IdealInt)
-               (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
-        if (isEnum(sortNum)) {
-          Some(IFunApp(constructorsPerSort(sortNum)(d.intValueSafe), List()))
-        } else {
-          (ctxt getDataFor ADT.this) match {
-            case DecoderData(valueTranslation) =>
-              (valueTranslation get (sortNum, d)) match {
-                case Some((ctorId, args)) => {
-                  val ctor =
-                    constructors(ctorId).asInstanceOf[MonoSortedIFunction]
-                  val children =
-                    for ((arg, sort) <- args zip ctor.argSorts) yield {
-                      (sort asTerm arg) match {
-                        case Some(t) => t
-                        case None => IIntLit(arg)
-                      }
-                    }
-                  Some(IFunApp(ctor, children))
-                }
-                case None => {
-                  Console.err.println("Warning: could not decode ADT value " + d)
-                  None
-                }
-              }
-          }
+    override def augmentModelTermSet(
+                   model : Conjunction,
+                   terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =
+      if (isEnum(sortNum)) {
+        if (!(terms contains (IdealInt.ZERO, this)))
+          for ((f, num) <- constructorsPerSort(sortNum).iterator.zipWithIndex)
+            terms.put((IdealInt(num), this), IFunApp(f, List()))
+      } else {
+        val atoms = model.predConj.positiveLits filter {
+          a => constructorPredsSet contains a.pred
+        }
+
+        for (a <- atoms) {
+// TODO: don't add elements repeatedly to the terms map
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          val ADTCtorPred(ctorNum, sortNum, _) = adtPreds(a.pred)
+          val ctor = constructors(ctorNum).asInstanceOf[MonoSortedIFunction]
+          for (argTerms <- getSubTerms(a.init, ctor.argSorts, terms))
+            terms.put((a.last.constant, ctor.resSort), IFunApp(ctor, argTerms))
         }
     }
   }

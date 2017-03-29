@@ -30,6 +30,8 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.theories.Theory
 import ap.util.Debug
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 object Sort {
 
   private val AC = Debug.AC_TYPES
@@ -51,12 +53,9 @@ object Sort {
 
     def witness : Option[ITerm] = Some(IExpression.i(0))
 
-    val asTerm : Theory.Decoder[Option[ITerm]] =
-      new Theory.Decoder[Option[ITerm]] {
-        def apply(d : IdealInt)
-                 (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
-          None
-    }
+    def augmentModelTermSet(model : Conjunction,
+                            terms : MHashMap[(IdealInt, Sort), ITerm])
+                           : Unit = ()
 
     override def newConstant(name : String) : ConstantTerm =
       new ConstantTerm(name)
@@ -118,12 +117,9 @@ object Sort {
       (for (u <- upper) yield IExpression.i(u)) orElse
       Some(IExpression.i(0))
 
-    val asTerm : Theory.Decoder[Option[ITerm]] =
-      new Theory.Decoder[Option[ITerm]] {
-        def apply(d : IdealInt)
-                 (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
-          None
-    }
+    def augmentModelTermSet(model : Conjunction,
+                            terms : MHashMap[(IdealInt, Sort), ITerm])
+                           : Unit = ()
   }
 
   /**
@@ -231,7 +227,46 @@ trait Sort {
   /**
    * Extract a term representation of some value in the sort.
    */
-  val asTerm : Theory.Decoder[Option[ITerm]]
+  val asTerm = new Theory.Decoder[Option[ITerm]] {
+    def apply(d : IdealInt)
+             (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
+      (ctxt getDataFor TypeTheory) match {
+        case TypeTheory.DecoderData(transl) => transl get ((d, Sort.this))
+      }
+  }
+
+  /**
+   * Extract terms from a model. Such terms will always be encoded as
+   * integers, and integers can have different meaning depending on the
+   * considered sort.
+   */
+  def augmentModelTermSet(model : Conjunction,
+                          terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit
+
+  protected def getSubTerms(ids : Seq[Term],
+                            sorts : Seq[Sort],
+                            terms : MHashMap[(IdealInt, Sort), ITerm])
+                           : Option[Seq[ITerm]] = {
+    val subTerms =
+      for ((idTerm, sort) <- ids zip sorts) yield {
+        val id = idTerm match {
+          case idTerm : LinearCombination if idTerm.isConstant =>
+            idTerm.constant
+          case _ =>
+            throw new IllegalArgumentException
+        }
+
+        sort match {
+          case Sort.Numeric(_) =>  IIntLit(id)
+          case sort =>             terms.getOrElse((id, sort), null)
+        }
+      }
+
+    if (subTerms contains null)
+      None
+    else
+      Some(subTerms)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -302,7 +337,9 @@ class ProxySort(underlying : Sort) extends Sort {
 
   def witness : Option[ITerm] = underlying.witness
 
-  val asTerm : Theory.Decoder[Option[ITerm]] = underlying.asTerm
+  def augmentModelTermSet(model : Conjunction,
+                          terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =
+    underlying.augmentModelTermSet(model, terms)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
