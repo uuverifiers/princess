@@ -626,7 +626,7 @@ class ADT (sortNames : Seq[String],
           order)
       }
 
-    } else {
+    } else { // !negated
 
       val newDisjuncts = new ArrayBuffer[Conjunction]
 

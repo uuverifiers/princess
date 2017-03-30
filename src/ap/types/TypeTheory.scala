@@ -25,15 +25,13 @@ import ap.basetypes.IdealInt
 import ap.theories.Theory
 import ap.parser.ITerm
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
 
 import scala.collection.mutable.{ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet}
 
 /**
  * Theory taking care of types of declared symbols.
- *
- * TODO: also need to add sort information to totality axioms
  */
 object TypeTheory extends Theory {
 
@@ -80,10 +78,10 @@ object TypeTheory extends Theory {
       f.negatedConjs.update(for (c <- f.negatedConjs)
                               yield addResultConstraints(c, !negated),
                             order)
-    val updatedF = f updateNegatedConjs newNegConj
-
     if (negated) {
+
       val newConjuncts = new ArrayBuffer[Formula]
+
       for (a <- f.predConj.positiveLits) a.pred match {
         case p : SortedPredicate =>
           newConjuncts += p sortConstraints a
@@ -91,19 +89,50 @@ object TypeTheory extends Theory {
           // nothing
       }
 
+      val updatedF = f updateNegatedConjs newNegConj
+
       if (newConjuncts.isEmpty) {
         updatedF
       } else if (updatedF.quans.isEmpty) {
         newConjuncts += updatedF
         Conjunction.conj(newConjuncts, order)
       } else {
-        val woQuans = updatedF unquantify updatedF.quans.size
-        newConjuncts += woQuans
+        newConjuncts += updatedF unquantify updatedF.quans.size
         val matrix = Conjunction.conj(newConjuncts, order)
         Conjunction.quantify(updatedF.quans, matrix, order)
       }
-    } else {
-      updatedF
+
+    } else { // !negated
+
+      val newDisjuncts = new ArrayBuffer[Conjunction]
+
+      val newNegLits = f.predConj.negativeLits filter { a =>
+        a.pred match {
+          case p : SortedPredicate => {
+            val constr = p sortConstraints a
+            if (constr.isTrue) {
+              // just keep this literal
+              true
+            } else {
+              newDisjuncts += Conjunction.conj(List(a, constr), order)
+              false
+            }
+          }
+          case _ =>
+            // keep this literal
+            true
+        }
+      }
+
+      if (newDisjuncts.isEmpty) {
+        f updateNegatedConjs newNegConj
+      } else {
+        val newPredConj =
+          f.predConj.updateLits(f.predConj.positiveLits, newNegLits)
+        val finalNegConj =
+          NegatedConjunctions(newNegConj ++ newDisjuncts, order)
+        Conjunction(f.quans, f.arithConj, newPredConj, finalNegConj, order)
+      }
     }
   }
 
