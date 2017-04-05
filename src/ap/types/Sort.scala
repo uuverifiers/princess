@@ -51,7 +51,15 @@ object Sort {
 
     val cardinality : Option[IdealInt] = None
 
+    // TODO: remove witness field?
+
     def witness : Option[ITerm] = Some(IExpression.i(0))
+
+    val individuals : Stream[ITerm] =
+      for (n <- Stream.iterate(IdealInt.ZERO){
+                  n => if (n.signum < 0) (-n+1) else -n
+                })
+      yield IExpression.i(n)
 
     def augmentModelTermSet(model : Conjunction,
                             terms : MHashMap[(IdealInt, Sort), ITerm])
@@ -116,6 +124,21 @@ object Sort {
       (for (l <- lower) yield IExpression.i(l)) orElse
       (for (u <- upper) yield IExpression.i(u)) orElse
       Some(IExpression.i(0))
+
+    val individuals : Stream[ITerm] =
+      (lower, upper) match {
+        case (Some(l), Some(u)) =>
+          for (n <- ap.util.IdealRange(l, u+1).toStream)
+          yield IExpression.i(n)
+        case (Some(l), None) =>
+          for (n <- Stream.iterate(l){_ + 1})
+          yield IExpression.i(n)
+        case (None, Some(u)) =>
+          for (n <- Stream.iterate(u){_ - 1})
+          yield IExpression.i(n)
+        case (None, None) =>
+          Sort.Integer.individuals
+      }
 
     def augmentModelTermSet(model : Conjunction,
                             terms : MHashMap[(IdealInt, Sort), ITerm])
@@ -182,6 +205,19 @@ object Sort {
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Generate a stream of vectors of individuals in the given sort vector.
+   */
+  def individualsVectors(sorts : List[Sort]) : Stream[List[ITerm]] =
+    sorts match {
+      case List() =>
+        Stream(List())
+      case s :: sTail =>
+        for (ind <- s.individuals; v <- individualsVectors(sTail))
+        yield (ind :: v)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -211,6 +247,11 @@ trait Sort {
    * A witness term proving that the sort is inhabited.
    */
   def witness : Option[ITerm]
+
+  /**
+   * Terms representing elements of the sort.
+   */
+  def individuals : Stream[ITerm]
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -336,6 +377,8 @@ class ProxySort(underlying : Sort) extends Sort {
   val cardinality : Option[IdealInt] = underlying.cardinality
 
   def witness : Option[ITerm] = underlying.witness
+
+  def individuals : Stream[ITerm] = underlying.individuals
 
   def augmentModelTermSet(model : Conjunction,
                           terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =

@@ -114,6 +114,19 @@ class MonoSortedIFunction(_name : String,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object SortedPredicate {
+  /**
+   * Determine the argument types of any predicate.
+   */
+  def argumentTypes(pred : Predicate,
+                    arguments : Seq[Term]) : Seq[Sort] = pred match {
+    case pred : SortedPredicate =>
+      pred argumentTypes arguments
+    case _ =>
+      for (_ <- 0 until pred.arity) yield Sort.Integer
+  }
+}
+
 /**
  * General class representing sorted predicates; sub-classes can model
  * both monomorphic and polymorphic predicates.

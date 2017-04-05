@@ -176,6 +176,8 @@ object TypeTheory extends Theory {
         // nothing
     }
 
+    // reconstruct terms from definitions in the model
+
     val terms = new MHashMap[(IdealInt, Sort), ITerm]
 
     var size = -1
@@ -184,6 +186,37 @@ object TypeTheory extends Theory {
       for (s <- sorts)
         s.augmentModelTermSet(model, terms)
     }
+
+    // possibly add further terms to the map, for sorted constants
+    // that are mentioned but not further defined in the model
+
+    val allTerms = new MHashSet[(ITerm, Sort)]
+    for (((_, sort), term) <- terms.iterator)
+      allTerms += ((term, sort))
+
+    for (lc <- model.arithConj.positiveEqs)
+      lc.leadingTerm match {
+        case c : SortedConstantTerm => c.sort match {
+          case Sort.Numeric(_) =>
+            // nothing
+          case sort => {
+            val index = -lc.constant
+            if (!(terms contains ((index, sort)))) {
+              val chosedPair =
+                (for (ind <- sort.individuals;
+                      pair = (ind, sort);
+                      if !(allTerms contains pair))
+                 yield pair).headOption
+              for (p@(term, sort) <- chosedPair) {
+                terms.put((-lc.constant, sort), term)
+                allTerms += p
+              }
+            }
+          }
+        }
+
+        case _ => // nothing
+      }
 
     Some(DecoderData(terms.toMap))
   }

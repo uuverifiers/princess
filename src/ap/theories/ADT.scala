@@ -31,10 +31,14 @@ import ap.terfor.preds.Atom
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
-import ap.types.{Sort, ProxySort, MonoSortedIFunction}
+import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
+                 SortedConstantTerm}
 import ap.util.{Debug, UnionSet, LazyMappedSet}
+import ap.proof.theoryPlugins.Plugin
+import ap.proof.goal.Goal
 
-import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer}
+import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
+                                 HashSet => MHashSet}
 import scala.collection.{Set => GSet}
 
 object ADT {
@@ -125,6 +129,18 @@ class ADT (sortNames : Seq[String],
      }).toIndexedSeq
   }
 
+  /**
+   * Ctors for each sort, sorted by the number of arguments that are again
+   * ADTs.
+   */
+  private val sortedGlobalCtorIdsPerSort : IndexedSeq[Seq[Int]] =
+    for (ids <- globalCtorIdsPerSort) yield {
+      ids sortBy {
+        id => ctorSignatures(id)._2.arguments
+                                .filter(_._2.isInstanceOf[ADTSort]).size
+      }
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   // Compute cardinality of domains, to handle finite ADTs
 
@@ -195,6 +211,11 @@ class ADT (sortNames : Seq[String],
 
     override lazy val witness = Some(witnesses(sortNum))
 
+    override lazy val individuals : Stream[ITerm] =
+      for (f <- constructorsPerSort(sortNum).toStream;
+           args <- Sort.individualsVectors(f.argSorts.toList))
+      yield IFunApp(f, args)
+
     override def augmentModelTermSet(
                    model : Conjunction,
                    terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =
@@ -240,14 +261,17 @@ class ADT (sortNames : Seq[String],
         case OtherSort(sort) => sort
       }
 
+  private val nonEnumSorts : Set[Sort] =
+    (for (sort <- sorts.iterator; if !isEnum(sort.sortNum)) yield sort).toSet
+
   //////////////////////////////////////////////////////////////////////////////
 
-  val constructors : Seq[IFunction] =
+  val constructors : Seq[MonoSortedIFunction] =
     for (((name, sig), argSorts) <- ctorSignatures zip ctorArgSorts)
     yield new MonoSortedIFunction(name, argSorts, sorts(sig.result.num),
                                   true, false)
 
-  val selectors : Seq[Seq[IFunction]] =
+  val selectors : Seq[Seq[MonoSortedIFunction]] =
     for (((_, sig), argSorts) <- ctorSignatures zip ctorArgSorts) yield {
       for (((name, _), argSort) <- sig.arguments zip argSorts)
       yield new MonoSortedIFunction(name,
@@ -302,8 +326,6 @@ class ADT (sortNames : Seq[String],
   val functionalPredicates: Set[ap.parser.IExpression.Predicate] =
     predicates.toSet
 
-  def plugin: Option[ap.proof.theoryPlugins.Plugin] = None
-
   val predicateMatchConfig: ap.Signature.PredicateMatchConfig = Map()
   val triggerRelevantFunctions: Set[ap.parser.IFunction] = Set()
 
@@ -314,7 +336,8 @@ class ADT (sortNames : Seq[String],
 
   private val constructorPredsSet = constructorPreds.toSet
 
-  private val constructorsPerSort : IndexedSeq[IndexedSeq[IFunction]] = {
+  private val constructorsPerSort
+              : IndexedSeq[IndexedSeq[MonoSortedIFunction]] = {
     val map =
       (constructors zip ctorSignatures) groupBy {
         case (_, (_, CtorSignature(_, ADTSort(sortNum)))) => sortNum
@@ -467,6 +490,53 @@ class ADT (sortNames : Seq[String],
       }
             
     (List(ctorRel, ctorId) ++ selectorRels, depthRels)
+  }
+
+  private def quanCtorConjunction(ctorNum : Int, node : LinearCombination)
+                                 (implicit order : TermOrder) : Conjunction = {
+    import TerForConvenience._
+
+    val (_, CtorSignature(_, ADTSort(sortNum))) = ctorSignatures(ctorNum)
+    val varNum = constructors(ctorNum).arity
+    val shiftSubst = VariableShiftSubst(0, varNum, order)
+
+    val (a, b) = fullCtorConjunction(
+                           ctorNum,
+                           sortNum,
+                           ctorId2PerSortId(ctorNum),
+                           for (i <- 0 until varNum) yield l(v(i)),
+                           shiftSubst(node))
+
+    val sortConstraint = sorts(sortNum) membershipConstraint node
+    exists(varNum, conj(a ++ b ++ List(shiftSubst(sortConstraint))))
+  }
+
+  private def quanNonCtorConjunction(sortNum : Int, node : LinearCombination)
+                                    (implicit order : TermOrder)
+                                    : Conjunction = {
+    import TerForConvenience._
+
+    val sortConstraint = sorts(sortNum) membershipConstraint node
+
+    if (sortConstraint.isTrue)
+      Conjunction.FALSE
+    else
+      conj(List(ctorIdPreds(sortNum)(List(node, l(-1))),
+                Conjunction.negate(sortConstraint, order)))
+  }
+
+  private def quanCtorCases(sortNum : Int, node : LinearCombination)
+                           (implicit order : TermOrder) : Seq[Conjunction] = {
+    val regCases =
+      for (ctorNum <- sortedGlobalCtorIdsPerSort(sortNum))
+      yield quanCtorConjunction(ctorNum, node)
+    val irregCase =
+      quanNonCtorConjunction(sortNum, node)
+
+    if (irregCase.isFalse)
+      regCases
+    else
+      regCases ++ List(irregCase)
   }
 
   private def ctorDisjunction(sortNum : Int,
@@ -662,6 +732,59 @@ class ADT (sortNames : Seq[String],
     theories.size == 1 &&
     (Set(Theory.SatSoundnessConfig.Elementary,
          Theory.SatSoundnessConfig.Existential) contains config)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def plugin: Option[Plugin] =
+    if (isEnum contains false) Some(new Plugin {
+      // not used
+      def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
+        None
+  
+      override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+        if (goalState(goal) == Plugin.GoalState.Final) {
+          implicit val order = goal.order
+          val predFacts = goal.facts.predConj
+
+          val ctorDefinedCons = new MHashSet[LinearCombination]
+
+          for (a <- predFacts.positiveLits) (adtPreds get a.pred) match {
+            case Some(_ : ADTCtorPred) =>
+              ctorDefinedCons += a.last
+            case _ =>
+              // nothing
+          }
+  
+//          println("Defined: " + ctorDefinedCons)
+
+          val expCandidates : Iterator[(LinearCombination, Sort)] =
+            for (a <- predFacts.positiveLits.iterator ++
+                      predFacts.negativeLits.iterator;
+                 argSorts = SortedPredicate.argumentTypes(a.pred, a);
+                 (lc, sort) <- a.iterator zip argSorts.iterator;
+                 if !(ctorDefinedCons contains lc);
+                 if (nonEnumSorts contains sort))
+            yield (lc, sort)
+
+          if (expCandidates.hasNext) {
+            import TerForConvenience._
+
+            val (lc, sort) = expCandidates.next
+            val sortNum = sort.asInstanceOf[ADTProxySort].sortNum
+
+//            println("Expanding: " + lc + ", " + sort)
+
+            List(Plugin.SplitGoal(for (c <- quanCtorCases(sortNum, lc))
+                                  yield List(Plugin.AddFormula(!c))))
+          } else {
+            List()
+          }
+        } else {
+          List()
+        }
+    }) else {
+    None
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   TheoryRegistry register this
