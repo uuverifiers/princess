@@ -46,13 +46,26 @@ object SMTParser2InputAbsy {
   
   import Parser2InputAbsy._
 
-  abstract class SMTType
-  case object SMTBool                              extends SMTType
-  case object SMTInteger                           extends SMTType
+  abstract class SMTType {
+    def toSort : TSort
+  }
+  case object SMTBool                              extends SMTType {
+    def toSort = TSort.Bool
+  }
+  case object SMTInteger                           extends SMTType {
+    def toSort = TSort.Integer
+  }
   case class  SMTArray(arguments : List[SMTType],
-                       result : SMTType)           extends SMTType
+                       result : SMTType)           extends SMTType {
+    def toSort = TSort.Integer // TODO
+  }
   case class SMTBitVec(width : Int)                extends SMTType {
     val modulus = IdealInt(2) pow width
+    def toSort = TSort.Integer // TODO
+  }
+  case class SMTADT(adt : ADT, sortNum : Int)      extends SMTType {
+    def toSort = adt sorts sortNum
+    override def toString = (adt sorts sortNum).name
   }
 
   case class SMTFunctionType(arguments : List[SMTType],
@@ -62,7 +75,8 @@ object SMTParser2InputAbsy {
   case class BoundVariable(varType : SMTType)              extends VariableType
   case class SubstExpression(e : IExpression, t : SMTType) extends VariableType
   
-  private type Env = Environment[SMTType, VariableType, Unit, SMTFunctionType, Unit]
+  private type Env =
+    Environment[SMTType, VariableType, Unit, SMTFunctionType, SMTType]
   
   def apply(settings : ParserSettings) =
     new SMTParser2InputAbsy (new Env, settings, null)
@@ -404,7 +418,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               SMTParser2InputAbsy.VariableType,
                                               Unit,
                                               SMTParser2InputAbsy.SMTFunctionType,
-                                              Unit],
+                                              SMTParser2InputAbsy.SMTType],
                            settings : ParserSettings,
                            prover : SimpleAPI)
       extends Parser2InputAbsy
@@ -412,7 +426,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.VariableType,
            Unit,
            SMTParser2InputAbsy.SMTFunctionType,
-           Unit,
+           SMTParser2InputAbsy.SMTType,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
             Map[String, SMTParser2InputAbsy.SMTType],                   // sortDefs
             Int,                                                        // nextPartitionNumber
@@ -996,8 +1010,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : DataDeclsOldCommand => {
         ensureEnvironmentCopy
 
-        val smtDataSort = SMTInteger // TODO
-
         if (!cmd.listsymbol_.isEmpty)
           throw new Parser2InputAbsy.TranslationException(
             "Polymorphic algebraic data-types are not supported yet")
@@ -1068,7 +1080,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             }
           } else if (res != SMTBool) {
             // use a constant
-            addConstant(new ConstantTerm(name), res)
+            addConstant(res.toSort newConstant name, res)
           } else {
             // use a nullary predicate (propositional variable)
             val p = new Predicate(name, 0)
@@ -1617,10 +1629,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTInteger
       case PlainIdentifier("Bool") =>
         SMTBool
-      case PlainIdentifier(id) if (sortDefs contains id) =>
-        sortDefs(id)
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
+      case PlainIdentifier(id) if (sortDefs contains id) =>
+        sortDefs(id)
+      case PlainIdentifier(id) if ((env lookupSortPartial id).isDefined) =>
+        env lookupSort id
       case id => {
         warn("treating sort " + (printer print s) + " as Int")
         SMTInteger
@@ -2602,16 +2616,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def setupADT(sortNames : Seq[String],
                        allCtors : Seq[(Seq[(String, ADT.CtorSignature)],
                                        Seq[Seq[SMTType]])]) : Unit = {
-        val smtDataSort = SMTInteger // TODO
-
         val adtCtors = (allCtors map (_._1)).flatten
         val datatype = new ADT (sortNames, adtCtors)
+
+        val smtDataTypes =
+          for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)
+
+        // add types to environment
+        for (t <- smtDataTypes)
+          env.addSort(t.toString, t)
 
         // add adt symbols to the environment
         val smtCtorFunctionTypes =
           for (((_, args), num) <- allCtors.zipWithIndex;
                args2 <- args.iterator)
-          yield SMTFunctionType(args2.toList, smtDataSort)
+          yield SMTFunctionType(args2.toList, smtDataTypes(num))
 
         for ((f, smtType) <-
              datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
@@ -2621,7 +2640,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
              (f, arg) <-
                sels.iterator zip smtType.arguments.iterator)
-          env.addFunction(f, SMTFunctionType(List(smtDataSort), arg))
+          env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
 
         // generate the is- queries as inlined functions
         for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
@@ -2629,7 +2648,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
              ctorIdTerm = ctorIdFun(v(0));
              ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
           val query = new IFunction("is-" + name, 1, true, true)
-          env.addFunction(query, SMTFunctionType(List(smtDataSort), SMTBool))
+          env.addFunction(query,
+                          SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool))
           val body = ctorIdTerm === ctorNum
           functionDefs = functionDefs + (query -> (body, SMTBool))
         }

@@ -216,6 +216,8 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortT
         throw new EnvironmentException("Sort " + name + " not declared")
     }
 
+  def lookupSortPartial(name : String) : Option[SortType] = sorts get name
+
   def lookupPartName(name : String) : PartName =
     partNames.getOrElseUpdate(name, new PartName (name))
   
