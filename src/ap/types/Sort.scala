@@ -51,10 +51,6 @@ object Sort {
 
     val cardinality : Option[IdealInt] = None
 
-    // TODO: remove witness field?
-
-    def witness : Option[ITerm] = Some(IExpression.i(0))
-
     val individuals : Stream[ITerm] =
       for (n <- Stream.iterate(IdealInt.ZERO){
                   n => if (n.signum < 0) (-n+1) else -n
@@ -119,11 +115,6 @@ object Sort {
 
     val cardinality =
       for (l <- lower; u <- upper) yield (u - l + 1)
-
-    def witness : Option[ITerm] =
-      (for (l <- lower) yield IExpression.i(l)) orElse
-      (for (u <- upper) yield IExpression.i(u)) orElse
-      Some(IExpression.i(0))
 
     val individuals : Stream[ITerm] =
       (lower, upper) match {
@@ -246,7 +237,7 @@ trait Sort {
   /**
    * A witness term proving that the sort is inhabited.
    */
-  def witness : Option[ITerm]
+  def witness : Option[ITerm] = individuals.headOption
 
   /**
    * Terms representing elements of the sort.
@@ -375,8 +366,6 @@ class ProxySort(underlying : Sort) extends Sort {
     underlying.membershipConstraint(t)
 
   val cardinality : Option[IdealInt] = underlying.cardinality
-
-  def witness : Option[ITerm] = underlying.witness
 
   def individuals : Stream[ITerm] = underlying.individuals
 

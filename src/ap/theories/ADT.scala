@@ -209,10 +209,9 @@ class ADT (sortNames : Seq[String],
                      underlying : Sort) extends ProxySort(underlying) {
     val adtTheory : ADT = ADT.this
 
-    override lazy val witness = Some(witnesses(sortNum))
-
     override lazy val individuals : Stream[ITerm] =
-      for (f <- constructorsPerSort(sortNum).toStream;
+      for (ctorNum <- sortedGlobalCtorIdsPerSort(sortNum).toStream;
+           f = constructors(ctorNum);
            args <- Sort.individualsVectors(f.argSorts.toList))
       yield IFunApp(f, args)
 
