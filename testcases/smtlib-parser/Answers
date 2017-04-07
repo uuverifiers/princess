@@ -227,30 +227,21 @@ Constructing countermodel ...
 unsat
 
 Loading datatype.smt2 ...
-Warning: treating sort Color as Int
-Warning: treating sort Color as Int
 Preprocessing ...
+Warning: adding theory of types
 Constructing countermodel ...
 
 unsat
 
 Loading cvc-datatype-1.smt2 ...
-Warning: treating sort nat as Int
-Warning: treating sort list as Int
-Warning: treating sort tree as Int
-Warning: treating sort nat as Int
-Warning: treating sort nat as Int
-Warning: treating sort tree as Int
-Warning: treating sort nat as Int
-Warning: treating sort list as Int
-Warning: treating sort tree as Int
 Preprocessing ...
+Warning: adding theory of types
 Constructing countermodel ...
 
 sat
 
 Model:
-(and (and (and (and (= _let_3_0 0 ) (= x3 1 ) ) (= x2 0 ) ) (= x1 2 ) ) (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (= (tree_depth 1 ) 0 ) (= (tree_depth 0 ) 0 ) ) (= (nat_depth 2 ) 0 ) ) (= (nat_depth 1 ) (- 1) ) ) (= (nat_depth 0 ) (- 1) ) ) (= (tree_ctor 1 ) 1 ) ) (= (tree_ctor 0 ) 1 ) ) (= (list_ctor 0 ) 1 ) ) (= (nat_ctor 2 ) 0 ) ) (= (nat_ctor 0 ) 1 ) ) (= (data 1 ) 1 ) ) (= (data 0 ) 0 ) ) (= (pred 2 ) 1 ) ) (= (leaf 1 ) 1 ) ) (= (leaf 0 ) 0 ) ) (= null 0 ) ) (= zero 0 ) ) (= (succ 1 ) 2 ) ) ) 
+(and (and (and (= _let_3_0 0 ) (= x3 (leaf zero ) ) ) (= x2 null ) ) (= x1 (succ zero ) ) ) 
 
 Loading define-fun-rec.smt2 ...
 Preprocessing ...
@@ -419,8 +410,6 @@ sat
 ((PRED2 true))
 (((not PRED2) false))
 Loading datatype2.smt2 ...
-Warning: treating sort List as Int
-Warning: treating sort List as Int
 unsat
 unsat
 sat
@@ -428,8 +417,6 @@ sat
 sat
 unsat
 Loading datatype3.smt2 ...
-Warning: treating sort Tree as Int
-Warning: treating sort Tree as Int
 sat
 sat
 (((data (right x)) 42))
@@ -441,8 +428,6 @@ unsat
 unsat
 ((not (= leaf (right x ) ) ) )
 Loading datatype3b.smt2 ...
-Warning: treating sort Tree as Int
-Warning: treating sort Tree as Int
 sat
 sat
 (((data (right x)) 42))
@@ -454,9 +439,6 @@ unsat
 unsat
 ((not (= leaf (right x ) ) ) )
 Loading datatype3c.smt2 ...
-Warning: treating sort Tree as Int
-Warning: treating sort Tree as Int
-Warning: treating sort Tree as Int
 sat
 sat
 (((data (head (children x))) 42))
