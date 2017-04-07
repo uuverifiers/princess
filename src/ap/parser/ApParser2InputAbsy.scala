@@ -742,7 +742,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       (translateExpression(t.expression_2),
        translateExpression(t.expression_3)) match {
         case ((left : ITerm, sortL), (right : ITerm, sortR)) => {
-          val resSort = compatibleSorts(sortL, sortR) match {
+          val resSort = unifySorts(sortL, sortR) match {
             case Some(s) =>
               s
             case None =>
@@ -836,9 +836,9 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     translateBinTerConnective(opName, f1, f2, con, comparableSorts _)
 
   private def comparableSorts(s1 : Sort, s2 : Sort) : Option[Sort] =
-    for (s <- compatibleSorts(s1, s2)) yield Sort.Bool
+    for (s <- unifySorts(s1, s2)) yield Sort.Bool
 
-  private def compatibleSorts(s1 : Sort, s2 : Sort) : Option[Sort] =
+  private def unifySorts(s1 : Sort, s2 : Sort) : Option[Sort] =
     (s1, s2) match {
       case (Sort.Numeric(_), Sort.Numeric(_)) =>
         Some(Sort.Integer)
@@ -848,10 +848,10 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         None
     }
 
-  private def compatibleSorts(args : Seq[(IExpression, Sort)],
-                              sorts : Seq[Sort]) : Boolean =
+  private def unifySorts(args : Seq[(IExpression, Sort)],
+                         sorts : Seq[Sort]) : Boolean =
     (args.iterator zip sorts.iterator) forall {
-      case ((_, s), fs) => compatibleSorts(s, fs).isDefined
+      case ((_, s), fs) => unifySorts(s, fs).isDefined
     }
 
   private def translateBinTerConnective(opName : String,
@@ -909,7 +909,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         pred match {
           case pred : SortedPredicate => {
             val formalSorts = pred iArgumentTypes argTerms
-            if (!compatibleSorts(args, formalSorts))
+            if (!unifySorts(args, formalSorts))
               throw new Parser2InputAbsy.TranslationException(
                 "Predicate " + pred.name +
                 " cannot be applied to arguments of sort " +
@@ -938,7 +938,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         val resSort = fun match {
           case fun : SortedIFunction => {
             val (formalSorts, resSort) = fun iFunctionType argTerms
-            if (!compatibleSorts(args, formalSorts))
+            if (!unifySorts(args, formalSorts))
               throw new Parser2InputAbsy.TranslationException(
                 "Function " + fun.name +
                 " cannot be applied to arguments of sort " +
