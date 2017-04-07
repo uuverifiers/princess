@@ -76,11 +76,16 @@ class Signature private (val universalConstants : Set[ConstantTerm],
     new Signature(universalConstants, existentialConstants,
                   nullaryFunctions, predicateMatchConfig, newOrder, theories)
 
-  def addTheories(additionalTheories : Seq[Theory]) : Signature =
+  def addTheories(additionalTheories : Seq[Theory],
+                  front : Boolean = false) : Signature =
     if (additionalTheories.isEmpty) {
       this
     } else {
-      val newTheories = this.theories ++ additionalTheories
+      val newTheories =
+        if (front)
+          additionalTheories ++ this.theories
+        else
+          this.theories ++ additionalTheories
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(Signature.AC, newTheories.toSet.size == newTheories.size)

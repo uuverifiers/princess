@@ -123,7 +123,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         Console.withOut(Console.err) {
           println("Warning: adding theory of types")
         }
-        sig addTheories List(ap.types.TypeTheory)
+        sig.addTheories(List(ap.types.TypeTheory), true)
       } else {
         sig
       }

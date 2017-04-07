@@ -25,7 +25,8 @@ import ap.basetypes.IdealInt
 import ap.theories.Theory
 import ap.parser.ITerm
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
-import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
+import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
+                               ReduceWithConjunction}
 
 import scala.collection.mutable.{ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet}
@@ -46,11 +47,14 @@ object TypeTheory extends Theory {
 
     val fWithFunctionConstraints = addResultConstraints(f, false)
 
-    if (membershipConstraints.hasNext)
-      Conjunction.conj(membershipConstraints, order) ==>
+    val res =
+      if (membershipConstraints.hasNext)
+        Conjunction.conj(membershipConstraints, order) ==>
+          fWithFunctionConstraints
+      else
         fWithFunctionConstraints
-    else
-      fWithFunctionConstraints
+
+    ReduceWithConjunction(Conjunction.TRUE, order)(res)
   }
 
   /**

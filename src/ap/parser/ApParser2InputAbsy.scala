@@ -833,8 +833,11 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                                             f1 : Expression, f2 : Expression,
                                             con : (ITerm, ITerm) => IExpression)
                                            : (IExpression, Sort) =
-    translateBinTerConnective(opName, f1, f2, con, compatibleSorts _)
-  
+    translateBinTerConnective(opName, f1, f2, con, comparableSorts _)
+
+  private def comparableSorts(s1 : Sort, s2 : Sort) : Option[Sort] =
+    for (s <- compatibleSorts(s1, s2)) yield Sort.Bool
+
   private def compatibleSorts(s1 : Sort, s2 : Sort) : Option[Sort] =
     (s1, s2) match {
       case (Sort.Numeric(_), Sort.Numeric(_)) =>
@@ -862,6 +865,8 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       case Some(s) =>
         s
       case None =>
+      println(left)
+      println(right)
         throw new Parser2InputAbsy.TranslationException(
             "Operator " + opName + " cannot be applied to arguments of sort " +
             left._2 + ", " + right._2)

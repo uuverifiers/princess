@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -117,6 +117,7 @@ object RegularityBlockedTask {
             f.negatedConjs.isEmpty)
           f.arithConj.negativeEqs
         else if (f.arithConj.negativeEqs.isTrue && f.negatedConjs.size == 1 &&
+                 f.negatedConjs(0).quans.isEmpty &&
                  f.negatedConjs(0).size == f.negatedConjs(0).arithConj.positiveEqs.size)
           f.negatedConjs(0).arithConj.positiveEqs
         else
