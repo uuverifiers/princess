@@ -428,7 +428,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.SMTFunctionType,
            SMTParser2InputAbsy.SMTType,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
-            Map[String, SMTParser2InputAbsy.SMTType],                   // sortDefs
             Int,                                                        // nextPartitionNumber
             Map[PartName, Int]                                          // partNameIndexes
             )](_env, settings) {
@@ -697,7 +696,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private val assumptions = new ArrayBuffer[IFormula]
 
   private var functionDefs = Map[IFunction, (IExpression, SMTType)]()
-  private var sortDefs = Map[String, SMTType]()
 
   // Information about partitions used for interpolation
   private var nextPartitionNumber : Int = 0
@@ -727,8 +725,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   protected def push : Unit = {
     checkIncremental("push")
-    pushState((functionDefs, sortDefs,
-               nextPartitionNumber, partNameIndexes))
+    pushState((functionDefs, nextPartitionNumber, partNameIndexes))
     prover.push
   }
 
@@ -739,10 +736,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     checkIncremental("pop")
     prover.pop
 
-    val (oldFunctionDefs, oldSortDefs,
-         oldNextPartitionNumber, oldPartNameIndexes) = popState
+    val (oldFunctionDefs, oldNextPartitionNumber, oldPartNameIndexes) = popState
     functionDefs = oldFunctionDefs
-    sortDefs = oldSortDefs
     nextPartitionNumber = oldNextPartitionNumber
     partNameIndexes = oldPartNameIndexes
 
@@ -771,7 +766,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     genUnsatCores        = false
     assumptions.clear
     functionDefs         = Map()
-    sortDefs             = Map()
     nextPartitionNumber  = 0
     partNameIndexes      = Map()
   }
@@ -1038,7 +1032,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         if (!cmd.listsymbol_.isEmpty)        
           throw new Parser2InputAbsy.TranslationException(
               "Currently only define-sort with arity 0 is supported")
-        sortDefs = sortDefs + (asString(cmd.symbol_) -> translateSort(cmd.sort_))
+        env.addSort(asString(cmd.symbol_), translateSort(cmd.sort_))
         success
       }
 
@@ -1631,9 +1625,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTBool
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
-      case PlainIdentifier(id) if (sortDefs contains id) =>
-        sortDefs(id)
-      case PlainIdentifier(id) if ((env lookupSortPartial id).isDefined) =>
+      case PlainIdentifier(id) =>
         env lookupSort id
       case id => {
         warn("treating sort " + (printer print s) + " as Int")

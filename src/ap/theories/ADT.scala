@@ -467,7 +467,8 @@ class ADT (sortNames : Seq[String],
 
     val adtArgs =
       for ((arg, (_, ADTSort(sortN))) <-
-           arguments zip ctorSignatures(ctorNum)._2.arguments)
+             arguments zip ctorSignatures(ctorNum)._2.arguments;
+           if !isEnum(sortN))
       yield (arg, sortN)
 
     val depthRels =
@@ -549,7 +550,8 @@ class ADT (sortNames : Seq[String],
     val regularDisjuncts =
       for ((ctorNum, n) <- globalCtorIdsPerSort(sortNum)
                                           .iterator.zipWithIndex) yield {
-        val varNum = constructors(ctorNum).arity
+        val ctorArgSorts = constructors(ctorNum).argSorts
+        val varNum = ctorArgSorts.size
         val shiftSubst = VariableShiftSubst(0, varNum, order)
 
         val (a, b) = fullCtorConjunction(
@@ -559,9 +561,10 @@ class ADT (sortNames : Seq[String],
                                for (i <- 0 until varNum) yield l(v(i)),
                                shiftSubst(node))
 
-        exists(varNum, conj(a ++ b ++
-                            List(shiftSubst(id) === n,
-                                 shiftSubst(sortConstraint))))
+        existsSorted(ctorArgSorts,
+                     conj(a ++ b ++
+                          List(shiftSubst(id) === n,
+                               shiftSubst(sortConstraint))))
       }
 
     // add a disjunct that applies to values outside of the data-type
@@ -658,12 +661,8 @@ class ADT (sortNames : Seq[String],
                   if (!(allGuardedNodes contains a.head)) {
                     // for completeness, we need to add a predicate about
                     // the possible constructors of the considered term
-
-                    val ctorDisj =
-                      ctorDisjunction(sortNum,
-                                      VariableShiftSubst(0, 1, order)(a.head),
-                                      l(v(0)))
-                    newConjuncts += exists(ctorDisj)
+// TODO: pull out common depth predicates
+                    newConjuncts += disj(quanCtorCases(sortNum, a.head))
                   }
 
                   Iterator single a

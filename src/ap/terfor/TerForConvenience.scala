@@ -28,6 +28,7 @@ import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.preds.{PredConj, Predicate, Atom}
+import ap.types.Sort
 
 /**
  * Collection of functions that makes it easier to use the term/formula
@@ -155,6 +156,21 @@ object TerForConvenience {
     Conjunction.quantify(for (_ <- 0 until n) yield Quantifier.ALL,
                          f, order)
 
+  /**
+   * Quantify the variables with De Brujin-index
+   * <code>[0, ..., sorts.size)</code>, assuming they have the given sorts
+   */
+  def forallSorted(sorts : Seq[Sort], f : Formula)
+                  (implicit order : TermOrder) : Conjunction =
+    Conjunction.quantify(
+      for (_ <- sorts) yield Quantifier.ALL,
+      Conjunction.implies(
+        Conjunction.conj(for ((s, ind) <- sorts.iterator.zipWithIndex)
+                         yield (s membershipConstraint v(ind)),
+                         order),
+        f, order),
+      order)
+
   def exists(constants : Seq[ConstantTerm], f : Formula)
             (implicit order : TermOrder) : Conjunction =
     Conjunction.quantify(Quantifier.EX, constants, f, order)
@@ -170,11 +186,25 @@ object TerForConvenience {
     Conjunction.quantify(List(Quantifier.EX), f, order)
 
   /**
-   * Quantify the variables with De Brujin-index [0, ..., n)
+   * Quantify the variables with De Brujin-index <code>[0, ..., n)</code>
    */
   def exists(n : Int, f : Formula)(implicit order : TermOrder) : Conjunction =
     Conjunction.quantify(for (_ <- 0 until n) yield Quantifier.EX,
                          f, order)
+
+  /**
+   * Quantify the variables with De Brujin-index
+   * <code>[0, ..., sorts.size)</code>, assuming they have the given sorts
+   */
+  def existsSorted(sorts : Seq[Sort], f : Formula)
+                  (implicit order : TermOrder) : Conjunction =
+    Conjunction.quantify(
+      for (_ <- sorts) yield Quantifier.EX,
+      Conjunction.conj((for ((s, ind) <- sorts.iterator.zipWithIndex)
+                        yield (s membershipConstraint v(ind))) ++
+                       (Iterator single f),
+                       order),
+      order)
 
   //////////////////////////////////////////////////////////////////////////////
 
