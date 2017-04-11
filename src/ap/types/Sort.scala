@@ -136,6 +136,8 @@ object Sort {
                            : Unit = ()
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Extractor to recognise sorts that are subsets of the integers.
    */
@@ -177,6 +179,13 @@ object Sort {
       case t =>
         Some((t, Sort.Integer))
     }
+  }
+
+  /**
+   * Determine the sort of the given term.
+   */
+  def sortOf(t : ITerm) : Sort = t match {
+    case _ ::: sort => sort
   }
 
   object NonNumericTerm {

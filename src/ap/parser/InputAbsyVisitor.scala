@@ -982,7 +982,8 @@ class SelectiveQuantifierCountVisitor(consideredQuantifiers : Set[Quantifier])
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
- * Visitor for checking whether a formula contains any existential quantifiers.
+ * Visitor for checking whether a formula contains any existential
+ * quantifiers without explicitly specified triggers.
  */
 object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
 
@@ -996,22 +997,21 @@ object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
     case FoundQuantifier => false
   }
 
+  private def isEX(q : Quantifier, ctxt : Context[Unit]) = q match {
+    case Quantifier.EX  if ctxt.polarity >= 0 => true
+    case Quantifier.ALL if ctxt.polarity <= 0 => true
+    case _ => false
+  }
+
   override def preVisit(t : IExpression,
                         ctxt : Context[Unit]) : PreVisitResult = t match {
-    case IQuantified(q, body) => {
-      if (ctxt.polarity > 0) {
-        if (q == Quantifier.EX)
-          throw FoundQuantifier
-      } else if (ctxt.polarity < 0) {
-        if (q == Quantifier.ALL)
-          throw FoundQuantifier
-      } else {
-        if (!ContainsSymbol.freeFrom(body, v0Set))
-          throw FoundQuantifier
-      }
+    case IQuantified(q, ITrigger(Seq(IFunApp(f, _)), body)) if f.partial =>
       super.preVisit(t, ctxt)
-    }
-    case _ => super.preVisit(t, ctxt)
+    case IQuantified(q, body)
+      if (isEX(q, ctxt) && !ContainsSymbol.freeFrom(body, v0Set)) =>
+        throw FoundQuantifier
+    case _ =>
+      super.preVisit(t, ctxt)
   }
 
   def postVisit(t : IExpression, ctxt : Context[Unit],

@@ -10,7 +10,7 @@ TESTS="bignum_quant.smt2 \
        init-1.smt2 MULTIPLIER_2.msat.smt2 \
        ite.smt2 ite2.smt2 ite3.smt2 \
        for_in_term.smt2 for_in_term2.smt2 \
-       let.smt2 let2.smt2 \
+       let.smt2 let2.smt2 let3.smt2 \
        divmod.smt2 arrays.smt2 arrays2.smt2 arrays3.smt2 \
        patternBug.smt2 correct-eq.smt2 \
        array-interpolation.smt2 \

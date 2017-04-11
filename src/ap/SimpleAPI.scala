@@ -948,17 +948,12 @@ class SimpleAPI private (enableAssert : Boolean,
     doDumpScala {
       println("// addConstantRaw(" + c.name + ")")
     }
-    val sort = constantSort(c)
+    val sort = SortedConstantTerm sortOf c
     dumpCreateConstant(c, c.name, "createConstant", sort)
     addTypeTheoryIfNeeded(sort)
 
     currentOrder = currentOrder extend c
     restartProofThread
-  }
-
-  private def constantSort(c : IExpression.ConstantTerm) : Sort = c match {
-    case c : SortedConstantTerm => c.sort
-    case _ => Sort.Integer
   }
 
   /**
@@ -970,7 +965,7 @@ class SimpleAPI private (enableAssert : Boolean,
       doDumpScala {
         println("// addConstantRaw(" + c.name + ")")
       }
-      val sort = constantSort(c)
+      val sort = SortedConstantTerm sortOf c
       dumpCreateConstant(c, c.name, "createConstant", sort)
       addTypeTheoryIfNeeded(sort)
     }
@@ -1174,15 +1169,8 @@ class SimpleAPI private (enableAssert : Boolean,
                                  functionalityMode : FunctionalityMode.Value)
                                 : IFunction = {
     val name = sanitise(rawName)
-    val sorted = (argSorts ++ List(resSort)) exists (_ != Sort.Integer)
-    val f =
-      if (sorted)
-        new MonoSortedIFunction(name, argSorts, resSort, partial,
+    val f = MonoSortedIFunction(name, argSorts, resSort, partial,
                                 functionalityMode != FunctionalityMode.Full)
-      else
-        new IFunction(name, argSorts.size, partial,
-                      functionalityMode != FunctionalityMode.Full)
-
     addTypeTheoryIfNeeded(argSorts ++ List(resSort))
     
     addFunctionHelp(f, functionalityMode)
@@ -1392,7 +1380,8 @@ class SimpleAPI private (enableAssert : Boolean,
                       (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), t)
+    abbrevHelp(createFunctionHelp(name, List(Sort.Integer), Sort sortOf t,
+                                  true, FunctionalityMode.NoUnification), t)
   }
 
   private def abbrevHelp(a : IFunction, t : ITerm) = {

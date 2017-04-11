@@ -25,6 +25,14 @@ import ap.parser.{IFunction, ITerm}
 import ap.terfor.{ConstantTerm, Term, Formula, TermOrder}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.Conjunction
+import ap.util.Debug
+
+object SortedConstantTerm {
+  def sortOf(c : ConstantTerm) : Sort = c match {
+    case c : SortedConstantTerm => c.sort
+    case _ => Sort.Integer
+  }
+}
 
 /**
  * Sorted version of constants.
@@ -70,6 +78,40 @@ abstract class SortedIFunction(_name : String, _arity : Int,
   def toPredicate : SortedPredicate
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+object MonoSortedIFunction {
+  private val AC = Debug.AC_TYPES
+
+  def apply(name : String,
+            argSorts : Seq[Sort],
+            resSort : Sort,
+            partial : Boolean,
+            relational : Boolean) : IFunction =
+    if ((argSorts forall (_ == Sort.Integer)) && resSort == Sort.Integer)
+      new IFunction(name, argSorts.size, partial, relational)
+    else
+      new MonoSortedIFunction(name, argSorts, resSort, partial, relational)
+
+  /**
+   * Determine the argument and result type of any function.
+   */
+  def functionType(fun : IFunction,
+                   arguments : Seq[Term]) : (Seq[Sort], Sort) = fun match {
+    case fun : SortedIFunction =>
+      fun functionType arguments
+    case _ =>
+      (for (_ <- 0 until fun.arity) yield Sort.Integer, Sort.Integer)
+  }
+
+  /**
+   * Determine the argument types of any function.
+   */
+  def argumentTypes(fun : IFunction,
+                    arguments : Seq[Term]) : Seq[Sort] =
+    functionType(fun, arguments)._1
+}
+
 /**
  * Class for monomorphically sorted functions.
  */
@@ -78,6 +120,11 @@ class MonoSortedIFunction(_name : String,
                           val resSort : Sort,
                           _partial : Boolean, _relational : Boolean)
       extends SortedIFunction(_name, argSorts.size, _partial, _relational) {
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(MonoSortedIFunction.AC,
+                   (argSorts ++ List(resSort)) exists (_ != Sort.Integer))
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   /**
    * Determine the argument and result types of the function.
@@ -155,12 +202,28 @@ abstract class SortedPredicate(_name : String, _arity : Int)
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+object MonoSortedPredicate {
+  private val AC = Debug.AC_TYPES
+
+  def apply(name : String, argSorts : Seq[Sort]) : Predicate =
+    if (argSorts forall (_ == Sort.Integer))
+      new Predicate(name, argSorts.size)
+    else
+      new MonoSortedPredicate(name, argSorts)
+}
+
 /**
  * Class for monomorphically sorted predicates
  */
-class MonoSortedPredicate(_name : String,
-                          val argSorts : Seq[Sort])
+class MonoSortedPredicate(_name : String, val argSorts : Seq[Sort])
          extends SortedPredicate(_name, argSorts.size) {
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(MonoSortedPredicate.AC,
+                   argSorts exists (_ != Sort.Integer))
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   /**
    * Determine the argument types of the predicate.

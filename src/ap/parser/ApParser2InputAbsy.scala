@@ -231,8 +231,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       // generate the is_ queries as inlined functions
       for (((name, ADT.CtorSignature(_, ADT.ADTSort(adtNum))), ctorNum) <-
               ctors.iterator.zipWithIndex) {
-        val query =
-          new MonoSortedPredicate("is_" + name, List(adt sorts adtNum))
+        val query = MonoSortedPredicate("is_" + name, List(adt sorts adtNum))
         env.addPredicate(query, ())
         val body = adt.hasCtor(v(0), ctorNum)
         predicateDefs.put(query, body)
@@ -274,7 +273,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                 case args : WithFormalArgs =>
                   determineSorts(args.formalargsc_)
               }
-              val sorted = argSorts exists (_ != Sort.Integer)
 
               val wrappedOpts = asScalaBuffer(decl.listpredoption_)
               val (negMatchOpts, otherOpts1) =
@@ -295,11 +293,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                 throw new Parser2InputAbsy.TranslationException(
                  "Illegal options for predicate: both \\negMatch and \\noMatch")
 
-              val pred =
-                if (sorted)
-                  new MonoSortedPredicate(name, argSorts)
-                else
-                  new Predicate(name, argSorts.size)
+              val pred = MonoSortedPredicate(name, argSorts)
 
               env.addPredicate(pred,
                                if (negMatch)
@@ -322,7 +316,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       case decl : DeclFun => {
         val resSort = type2Sort(decl.type_)
         val argSorts = determineSorts(decl.formalargsc_)
-        val sorted = (List(resSort) ++ argSorts) exists (_ != Sort.Integer)
 
         val wrappedOpts = asScalaBuffer(decl.listfunoption_)
         val (partialOpts, otherOpts1) =
@@ -339,14 +332,8 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                        "Illegal options for function: " + (strs mkString " "))
         }
 
-        val fun =
-          if (sorted)
-            new MonoSortedIFunction(decl.ident_,
-                                    argSorts, resSort,
-                                    partial, relational)
-          else
-            new IFunction(decl.ident_, argSorts.size,
-                          partial, relational)
+        val fun = MonoSortedIFunction(decl.ident_, argSorts, resSort,
+                                      partial, relational)
 
         env.addFunction(fun, ())
       }
@@ -962,7 +949,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         if (!args.isEmpty)
             throw new Parser2InputAbsy.TranslationException(
                                "Constant " + c + " does not have arguments")
-        (c, getSort(c))
+        (c, SortedConstantTerm sortOf c)
       }
       
       case Environment.Variable(i, sort) => {
@@ -972,11 +959,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         (v(i), sort)
       }
     }
-
-  private def getSort(c : ConstantTerm) : Sort = c match {
-    case c : SortedConstantTerm => c.sort
-    case _ => Sort.Integer
-  }
 
   private def translateTrigger(trigger : ExprTrigger) : IFormula = {
     val patterns = translateExprArgs(trigger.listargc_)

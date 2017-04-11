@@ -32,7 +32,7 @@ import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic}
-import ap.types.{Sort => TSort}
+import ap.types.{Sort => TSort, MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
@@ -1057,8 +1057,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           if (args.length > 0) {
             if (!booleanFunctionsAsPredicates || res != SMTBool) {
               // use a real function
-              val f = new IFunction(name, args.length,
-                                    !totalityAxiom, !functionalityAxiom)
+              val f = MonoSortedIFunction(name,
+                                          args map (_.toSort),
+                                          res.toSort,
+                                          !totalityAxiom, !functionalityAxiom)
               env.addFunction(f, SMTFunctionType(args.toList, res))
               if (incremental)
                 prover.addFunction(f,
@@ -1068,7 +1070,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                      SimpleAPI.FunctionalityMode.None)
             } else {
               // use a predicate
-              val p = new Predicate(name, args.length)
+              val p = MonoSortedPredicate(name, args map (_.toSort))
               env.addPredicate(p, ())
               if (incremental)
                 prover.addRelation(p)
@@ -1134,7 +1136,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         for (_ <- PlainRange(argNum)) env.popVar
 
         // use a real function
-        val f = new IFunction(name, argNum, true, true)
+        val f = MonoSortedIFunction(name, args map (_.toSort), resType.toSort,
+                                    true, true)
         env.addFunction(f, SMTFunctionType(args.toList, resType))
     
         if (inlineDefinedFuns && !neverInline(body._1)) {
@@ -1170,7 +1173,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         val resType = translateSort(cmd.sort_)
 
         // use a real function
-        val f = new IFunction(name, argNum, true, true)
+        val f = MonoSortedIFunction(name, args map (_.toSort), resType.toSort,
+                                    true, true)
         env.addFunction(f, SMTFunctionType(args.toList, resType))
 
         if (incremental)
@@ -1203,7 +1207,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           val resType = translateSort(sig.sort_)
 
           // use a real function
-          val f = new IFunction(name, args.size, true, true)
+          val f = MonoSortedIFunction(name, args map (_.toSort), resType.toSort,
+                                      true, true)
           env.addFunction(f, SMTFunctionType(args.toList, resType))
 
           if (incremental)
@@ -1889,11 +1894,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       if (inlineLetExpressions) {
         // then we directly inline the bound formulae and terms
         
-        val subst = for ((_, t, s) <- bindings.toList.reverse) yield asTerm((s, t))
+        val subst =
+          for ((_, t, s) <- bindings.toList.reverse) yield asTerm((s, t))
         (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
       } else {
         val definingEqs =
-          connect(for (((_, t, s), num) <- bindings.iterator.zipWithIndex) yield {
+          connect(for (((_, t, s), num) <-
+                    bindings.iterator.zipWithIndex) yield {
             val shiftedS = VariableShiftVisitor(s, 0, bindings.size)
             val bv = v(bindings.length - num - 1)
             t match {        
@@ -1918,7 +1925,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
       
     } else {
-      // we introduce a boolean or integer variables to encode this let expression
+      // we introduce a boolean or integer variables to encode this
+      // let expression
 
       for ((name, t, s) <- bindings)
         // directly substitute small expressions, unless the user
@@ -1941,8 +1949,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             val f = new IFunction(letVarName(name), 1, true, false)
             env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTInteger))
 
-            env.pushVar(name, SubstExpression(containFunctionApplications(eqZero(f(0))),
-                                              SMTBool))
+            env.pushVar(name, SubstExpression(
+                                  containFunctionApplications(eqZero(f(0))),
+                                  SMTBool))
             all(ITrigger(List(f(v(0))),
                          eqZero(v(0)) ==>
                          ((eqZero(f(v(0))) & asFormula((s, t))) |
