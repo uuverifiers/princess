@@ -714,6 +714,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
 
   private var getModelWarning = false
+  private var realSortWarning = false
 
   private var lastReasonUnknown = ""
 
@@ -1623,6 +1624,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTInteger
       case PlainIdentifier("Bool") =>
         SMTBool
+      case PlainIdentifier("Real") => {
+        if (!realSortWarning) {
+          warn("treating sort Real as Int")
+          realSortWarning = true
+        }
+        SMTInteger
+      }
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
       case PlainIdentifier(id) =>
