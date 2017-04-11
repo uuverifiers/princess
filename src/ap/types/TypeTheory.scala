@@ -27,6 +27,7 @@ import ap.parser.ITerm
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                ReduceWithConjunction}
+import ap.terfor.preds.Atom
 
 import scala.collection.mutable.{ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet}
@@ -173,7 +174,7 @@ object TypeTheory extends Theory {
         // nothing
     }
 
-    for (a <- model.groundAtoms) a.pred match {
+    for (a <- atoms(model)) a.pred match {
       case sortedPred : SortedPredicate =>
         sorts ++= sortedPred argumentTypes a
       case _ =>
@@ -224,5 +225,10 @@ object TypeTheory extends Theory {
 
     Some(DecoderData(terms.toMap))
   }
+
+  private def atoms(c : Conjunction) : Iterator[Atom] =
+    c.predConj.positiveLits.iterator ++
+    c.predConj.negativeLits.iterator ++
+    (for (d <- c.negatedConjs.iterator; a <- atoms(d)) yield a)
 
 }

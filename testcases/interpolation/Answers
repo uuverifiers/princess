@@ -502,6 +502,17 @@ VALID
 Interpolants:
 List_ctor(l) != 0
 
+Loading bool-interpolation.pri ...
+Preprocessing ...
+Warning: adding theory of types
+Constructing countermodel ...
+Found proof (size 12), simplifying (19), interpolating ...
+
+VALID
+
+Interpolants:
+f(false) != true & f(true) != true
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
