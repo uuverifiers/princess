@@ -201,7 +201,7 @@ token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
 
 token QuotedSymbolT ('|' [" `^~<=>_,;:!?/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ\n"]* '|');
 
-token SMTString     ('"' ((char - ["\"\\"]) | ('\\' ["\"\\"]) | ["\n"])* '"');
+token SMTString     ('"' ((char - '"') | {"\"\""})* '"');
 
 separator Symbol "";
 
