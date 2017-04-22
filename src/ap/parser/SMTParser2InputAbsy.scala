@@ -2679,6 +2679,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                   funs : Seq[(IFunction, (IExpression, SMTType))]) : Unit =
     for ((f, body) <- funs) {
       // set up a defining equation and formula
+      warn("assuming that recursive function " + f.name + " is partial")
       addAxiomEquation(f, body)
     }
 
