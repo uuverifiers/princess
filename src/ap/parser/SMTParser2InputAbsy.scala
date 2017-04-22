@@ -1785,63 +1785,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   private def translateQuantifier(t : QuantifierTerm, polarity : Int)
                                  : (IExpression, SMTType) = {
-    val quant : Quantifier = t.quantifier_ match {
-      case _ : AllQuantifier => Quantifier.ALL
-      case _ : ExQuantifier  => Quantifier.EX
-      case _ : EpsQuantifier => { // epsilon terms
-        if (t.listsortedvariablec_.size != 1)
-          throw new ParseException("_eps has to bind exactly one variable")
-        null
-      }
-    }
-
     val quantNum = pushVariables(t.listsortedvariablec_)
-    val body = asFormula(translateTerm(t.term_, polarity))
-
-    // we might need guards 0 <= x <= 1 for quantifiers ranging over booleans
-    val guard = connect(
-        for (binderC <- t.listsortedvariablec_.iterator;
-             binder = binderC.asInstanceOf[SortedVariable];
-             if (translateSort(binder.sort_) == SMTBool)) yield {
-          (env lookupSym asString(binder.symbol_)) match {
-            case Environment.Variable(ind, _) => (v(ind) >= 0) & (v(ind) <= 1)
-            case _ => { // just prevent a compiler warning
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              Debug.assertInt(SMTParser2InputAbsy.AC, false)
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              null
-            }
-          }
-        },
-        IBinJunctor.And)
-      
-    val matrix = guard match {
-      case IBoolLit(true) =>
-        body
-      case _ => {
-        // we need to insert the guard underneath possible triggers
-        def insertGuard(f : IFormula) : IFormula = f match {
-          case ITrigger(pats, subF) =>
-            ITrigger(pats, insertGuard(subF))
-          case _ => quant match {
-            case null           => guard &&& f
-            case Quantifier.ALL => guard ===> f
-            case Quantifier.EX  => guard &&& f
-          }
-        }
-        
-        insertGuard(body)
-      }
-    }
+    val matrix = asFormula(translateTerm(t.term_, polarity))
 
     // pop the variables from the environment
-    for (_ <- PlainRange(quantNum)) env.popVar
-    
-    if (quant == null) { // epsilon term
-      val binder = t.listsortedvariablec_.head.asInstanceOf[SortedVariable]
-      (eps(matrix), translateSort(binder.sort_))
-    } else {             // proper quantifier
-      (quan(Array.fill(quantNum){quant}, matrix), SMTBool)
+    val types = for (_ <- 0 until quantNum)
+                yield env.popVar.asInstanceOf[BoundVariable].varType
+
+    t.quantifier_ match {
+      case _ : AllQuantifier =>
+        (all(types map (_.toSort), matrix), SMTBool)
+      case _ : ExQuantifier =>
+        (ex(types map (_.toSort), matrix), SMTBool)
+      case _ : EpsQuantifier => {
+        if (t.listsortedvariablec_.size != 1)
+          throw new ParseException("_eps has to bind exactly one variable")
+        (types.head.toSort eps matrix, types.head)
+      }
     }
   }
   
