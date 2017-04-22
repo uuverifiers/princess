@@ -1101,7 +1101,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         if (!importProverSymbol(name, List(), res)) {
           if (res != SMTBool) {
             // use a constant
-            addConstant(new ConstantTerm(name), res)
+            addConstant(res.toSort newConstant name, res)
           } else {
             // use a nullary predicate (propositional variable)
             val p = new Predicate(name, 0)
@@ -2609,10 +2609,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
             val (adtSort, smtSort) =
               (sortNames indexOf (printer print selDecl.sort_)) match {
-                case -1 =>
-                  (ADT.OtherSort(TSort.Integer), translateSort(selDecl.sort_))
+                case -1 => {
+                  val t = translateSort(selDecl.sort_)
+                  (ADT.OtherSort(t.toSort), t)
+                }
                 case ind =>
-                  (ADT.ADTSort(ind), SMTInteger)
+                  // we don't have the actual ADT yet, so just put
+                  // null for the moment
+                  (ADT.ADTSort(ind), SMTADT(null, ind))
               }
 
             ((selName, adtSort), smtSort)
@@ -2638,8 +2642,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         // add adt symbols to the environment
         val smtCtorFunctionTypes =
           for (((_, args), num) <- allCtors.zipWithIndex;
-               args2 <- args.iterator)
-          yield SMTFunctionType(args2.toList, smtDataTypes(num))
+               args2 <- args.iterator;
+               cleanedArgs = for (t <- args2) yield t match {
+                 case SMTADT(null, n) => smtDataTypes(n)
+                 case t => t
+               })
+          yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
 
         for ((f, smtType) <-
              datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
@@ -2648,8 +2656,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         for ((sels, smtType) <-
                datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
              (f, arg) <-
-               sels.iterator zip smtType.arguments.iterator)
+               sels.iterator zip smtType.arguments.iterator) {
           env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
+        }
 
         // generate the is- queries as inlined functions
         for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
