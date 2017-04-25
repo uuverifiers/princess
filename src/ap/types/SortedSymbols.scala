@@ -45,6 +45,60 @@ class SortedConstantTerm(_name : String, val sort : Sort)
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object SortedIFunction {
+
+  /**
+   * Determine the argument and result type of any function.
+   */
+  def functionType(fun : IFunction,
+                   arguments : Seq[Term]) : (Seq[Sort], Sort) = fun match {
+    case fun : SortedIFunction =>
+      fun functionType arguments
+    case _ =>
+      (for (_ <- 0 until fun.arity) yield Sort.Integer, Sort.Integer)
+  }
+
+  /**
+   * Determine the argument and result type of any function.
+   */
+  def iFunctionType(fun : IFunction,
+                    arguments : Seq[ITerm]) : (Seq[Sort], Sort) = fun match {
+    case fun : SortedIFunction =>
+      fun iFunctionType arguments
+    case _ =>
+      (for (_ <- 0 until fun.arity) yield Sort.Integer, Sort.Integer)
+  }
+
+  /**
+   * Determine the argument types of any function.
+   */
+  def argumentSorts(fun : IFunction,
+                    arguments : Seq[Term]) : Seq[Sort] =
+    functionType(fun, arguments)._1
+
+  /**
+   * Determine the argument types of any function.
+   */
+  def iArgumentSorts(fun : IFunction,
+                     arguments : Seq[ITerm]) : Seq[Sort] =
+    iFunctionType(fun, arguments)._1
+
+  /**
+   * Determine the sort of function results.
+   */
+  def resultSort(fun : IFunction,
+                 arguments : Seq[Term]) : Sort =
+    functionType(fun, arguments)._2
+
+  /**
+   * Determine the sort of function results.
+   */
+  def iResultSort(fun : IFunction,
+                  arguments : Seq[ITerm]) : Sort =
+    iFunctionType(fun, arguments)._2
+
+}
+
 /**
  * General class representing sorted functions; sub-classes can model
  * both monomorphic and polymorphic functions.
@@ -92,24 +146,6 @@ object MonoSortedIFunction {
       new IFunction(name, argSorts.size, partial, relational)
     else
       new MonoSortedIFunction(name, argSorts, resSort, partial, relational)
-
-  /**
-   * Determine the argument and result type of any function.
-   */
-  def functionType(fun : IFunction,
-                   arguments : Seq[Term]) : (Seq[Sort], Sort) = fun match {
-    case fun : SortedIFunction =>
-      fun functionType arguments
-    case _ =>
-      (for (_ <- 0 until fun.arity) yield Sort.Integer, Sort.Integer)
-  }
-
-  /**
-   * Determine the argument types of any function.
-   */
-  def argumentTypes(fun : IFunction,
-                    arguments : Seq[Term]) : Seq[Sort] =
-    functionType(fun, arguments)._1
 }
 
 /**
@@ -165,10 +201,21 @@ object SortedPredicate {
   /**
    * Determine the argument types of any predicate.
    */
-  def argumentTypes(pred : Predicate,
+  def argumentSorts(pred : Predicate,
                     arguments : Seq[Term]) : Seq[Sort] = pred match {
     case pred : SortedPredicate =>
-      pred argumentTypes arguments
+      pred argumentSorts arguments
+    case _ =>
+      for (_ <- 0 until pred.arity) yield Sort.Integer
+  }
+
+  /**
+   * Determine the argument types of any predicate.
+   */
+  def iArgumentSorts(pred : Predicate,
+                     arguments : Seq[ITerm]) : Seq[Sort] = pred match {
+    case pred : SortedPredicate =>
+      pred iArgumentSorts arguments
     case _ =>
       for (_ <- 0 until pred.arity) yield Sort.Integer
   }
@@ -184,12 +231,12 @@ abstract class SortedPredicate(_name : String, _arity : Int)
   /**
    * Determine the argument types of the predicate.
    */
-  def iArgumentTypes(arguments : Seq[ITerm]) : Seq[Sort]
+  def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort]
 
   /**
    * Determine the argument types of the predicate.
    */
-  def argumentTypes(arguments : Seq[Term]) : Seq[Sort]
+  def argumentSorts(arguments : Seq[Term]) : Seq[Sort]
 
   /**
    * Given argument terms of the predicate, determine constraints on the
@@ -228,12 +275,12 @@ class MonoSortedPredicate(_name : String, val argSorts : Seq[Sort])
   /**
    * Determine the argument types of the predicate.
    */
-  def iArgumentTypes(arguments : Seq[ITerm]) : Seq[Sort] = argSorts
+  def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = argSorts
 
   /**
    * Determine the argument types of the predicate.
    */
-  def argumentTypes(arguments : Seq[Term]) : Seq[Sort] = argSorts
+  def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = argSorts
 
   /**
    * Given argument terms of the predicate, determine constraints on the

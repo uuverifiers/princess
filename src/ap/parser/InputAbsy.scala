@@ -288,9 +288,6 @@ object IExpression {
    * <code>quan(Quantifier.ALL, (a, b) => phi(a, b))</code>.
    */
   def quan(q : Quantifier, f : (ITerm, ITerm) => IFormula) : IFormula = {
-    // first substitute a fresh constant, and later replace it with a
-    // bound variable (just applying <code>f</code> to a bound variable
-    // would not work in case of nested binders)
     val x1 = new ConstantTerm ("x1")
     val x2 = new ConstantTerm ("x2")
     quanConsts(q, List(x1, x2), f(x1, x2))
@@ -303,9 +300,6 @@ object IExpression {
    */
   def quan(q : Quantifier,
            f : (ITerm, ITerm, ITerm) => IFormula) : IFormula = {
-    // first substitute a fresh constant, and later replace it with a
-    // bound variable (just applying <code>f</code> to a bound variable
-    // would not work in case of nested binders)
     val x1 = new ConstantTerm ("x1")
     val x2 = new ConstantTerm ("x2")
     val x3 = new ConstantTerm ("x3")
@@ -319,9 +313,6 @@ object IExpression {
    */
   def quan(q : Quantifier,
            f : (ITerm, ITerm, ITerm, ITerm) => IFormula) : IFormula = {
-    // first substitute a fresh constant, and later replace it with a
-    // bound variable (just applying <code>f</code> to a bound variable
-    // would not work in case of nested binders)
     val x1 = new ConstantTerm ("x1")
     val x2 = new ConstantTerm ("x2")
     val x3 = new ConstantTerm ("x3")
@@ -336,9 +327,6 @@ object IExpression {
    */
   def quan(q : Quantifier,
            f : (ITerm, ITerm, ITerm, ITerm, ITerm) => IFormula) : IFormula = {
-    // first substitute a fresh constant, and later replace it with a
-    // bound variable (just applying <code>f</code> to a bound variable
-    // would not work in case of nested binders)
     val x1 = new ConstantTerm ("x1")
     val x2 = new ConstantTerm ("x2")
     val x3 = new ConstantTerm ("x3")

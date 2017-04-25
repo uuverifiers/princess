@@ -24,7 +24,7 @@ package ap.types
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.terfor.{Term, Formula, TermOrder, OneTerm, ConstantTerm}
-import ap.terfor.conjunctions.{Quantifier, Conjunction}
+import ap.terfor.conjunctions.Conjunction
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.theories.Theory
@@ -319,7 +319,7 @@ trait Sort {
    * together with a guard representing this sort.
    */
   def ex(f : IFormula) =
-    IQuantified(Quantifier.EX,
+    IQuantified(IExpression.Quantifier.EX,
                 IExpression.guardEx(f, membershipConstraint(IVariable(0))))
   
   /**
@@ -327,22 +327,166 @@ trait Sort {
    * together with a guard representing this sort.
    */
   def all(f : IFormula) =
-    IQuantified(Quantifier.ALL,
+    IQuantified(IExpression.Quantifier.ALL,
                 IExpression.guardAll(f, membershipConstraint(IVariable(0))))
 
   /**
    * Higher-order syntax for existential quantifiers. This makes it possible
    * to write a quantifier as <code>Sort.ex(a => phi(a))</code>.
    */
-  def ex(f : ITerm => IFormula) =
-    IExpression.ex(x => IExpression.guardEx(f(x), membershipConstraint(x)))
+  def ex(f : ITerm => IFormula) = {
+    import IExpression._
+    val x = newConstant("x")
+    quanConsts(Quantifier.EX, List(x),
+               guardEx(f(x), membershipConstraint(x)))
+  }
+
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as <code>Sort.ex((a, b) => phi(a, b))</code>.
+   */
+  def ex(f : (ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val guard = membershipConstraint(i(x1)) &&& membershipConstraint(i(x2))
+    quanConsts(Quantifier.EX, List(x1, x2), guardEx(f(x1, x2), guard))
+  }
+
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>Sort.ex((a, b, c) => phi(a, b, c))</code>.
+   */
+  def ex(f : (ITerm, ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val x3 = newConstant("x3")
+    val guard = membershipConstraint(i(x1)) &&&
+                membershipConstraint(i(x2)) &&&
+                membershipConstraint(i(x3))
+    quanConsts(Quantifier.EX, List(x1, x2, x3), guardEx(f(x1, x2, x3), guard))
+  }
+
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>Sort.ex((a, b, c, d) => phi(a, b, c, d))</code>.
+   */
+  def ex(f : (ITerm, ITerm, ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val x3 = newConstant("x3")
+    val x4 = newConstant("x4")
+    val guard = membershipConstraint(i(x1)) &&&
+                membershipConstraint(i(x2)) &&&
+                membershipConstraint(i(x3)) &&&
+                membershipConstraint(i(x4))
+    quanConsts(Quantifier.EX, List(x1, x2, x3, x4),
+               guardEx(f(x1, x2, x3, x4), guard))
+  }
+
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>Sort.ex((a, b, c, d, e) => phi(a, b, c, d, e))</code>.
+   */
+  def ex(f : (ITerm, ITerm, ITerm, ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val x3 = newConstant("x3")
+    val x4 = newConstant("x4")
+    val x5 = newConstant("x5")
+    val guard = membershipConstraint(i(x1)) &&&
+                membershipConstraint(i(x2)) &&&
+                membershipConstraint(i(x3)) &&&
+                membershipConstraint(i(x4)) &&&
+                membershipConstraint(i(x5))
+    quanConsts(Quantifier.EX, List(x1, x2, x3, x4, x5),
+               guardEx(f(x1, x2, x3, x4, x5), guard))
+  }
 
   /**
    * Higher-order syntax for universal quantifiers. This makes it possible
    * to write a quantifier as <code>Sort.all(a => phi(a))</code>.
    */
-  def all(f : ITerm => IFormula) =
-    IExpression.all(x => IExpression.guardAll(f(x), membershipConstraint(x)))
+  def all(f : ITerm => IFormula) = {
+    import IExpression._
+    val x = newConstant("x")
+    quanConsts(Quantifier.ALL, List(x),
+               guardAll(f(x), membershipConstraint(x)))
+  }
+
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as <code>Sort.all((a, b) => phi(a, b))</code>.
+   */
+  def all(f : (ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val guard = membershipConstraint(i(x1)) &&& membershipConstraint(i(x2))
+    quanConsts(Quantifier.ALL, List(x1, x2), guardAll(f(x1, x2), guard))
+  }
+
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>Sort.all((a, b, c) => phi(a, b, c))</code>.
+   */
+  def all(f : (ITerm, ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val x3 = newConstant("x3")
+    val guard = membershipConstraint(i(x1)) &&&
+                membershipConstraint(i(x2)) &&&
+                membershipConstraint(i(x3))
+    quanConsts(Quantifier.ALL, List(x1, x2, x3), guardAll(f(x1, x2, x3), guard))
+  }
+
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>Sort.all((a, b, c, d) => phi(a, b, c, d))</code>.
+   */
+  def all(f : (ITerm, ITerm, ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val x3 = newConstant("x3")
+    val x4 = newConstant("x4")
+    val guard = membershipConstraint(i(x1)) &&&
+                membershipConstraint(i(x2)) &&&
+                membershipConstraint(i(x3)) &&&
+                membershipConstraint(i(x4))
+    quanConsts(Quantifier.ALL, List(x1, x2, x3, x4),
+               guardAll(f(x1, x2, x3, x4), guard))
+  }
+
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>Sort.all((a, b, c, d, e) => phi(a, b, c, d, e))</code>.
+   */
+  def all(f : (ITerm, ITerm, ITerm, ITerm, ITerm) => IFormula) = {
+    import IExpression._
+    val x1 = newConstant("x1")
+    val x2 = newConstant("x2")
+    val x3 = newConstant("x3")
+    val x4 = newConstant("x4")
+    val x5 = newConstant("x5")
+    val guard = membershipConstraint(i(x1)) &&&
+                membershipConstraint(i(x2)) &&&
+                membershipConstraint(i(x3)) &&&
+                membershipConstraint(i(x4)) &&&
+                membershipConstraint(i(x5))
+    quanConsts(Quantifier.ALL, List(x1, x2, x3, x4, x5),
+               guardAll(f(x1, x2, x3, x4, x5), guard))
+  }
 
   /**
    * Generate an epsilon-expression.
@@ -354,8 +498,16 @@ trait Sort {
    * Higher-order syntax for epsilon-expressions. This makes it possible
    * to write things like <code>Sort.eps(a => phi(a))</code>.
    */
-  def eps(f : ITerm => IFormula) =
-    IExpression.eps(x => IExpression.guardEx(f(x), membershipConstraint(x)))
+  def eps(f : ITerm => IFormula) = {
+    import IExpression._
+    // first substitute a fresh constant, and later replace it with a
+    // bound variable (just applying <code>f</code> to a bound variable
+    // would not work in case of nested binders)
+    val x = newConstant("x")
+    val fWithShiftedVars =
+      VariableShiftVisitor(guardEx(f(x), membershipConstraint(x)), 0, 1)
+    IEpsilon(ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0))))
+  }
 
 }
 
@@ -436,7 +588,7 @@ class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
       }
 
       case IAtom(p : SortedPredicate, args) => {
-        val argTypes = p iArgumentTypes args
+        val argTypes = p iArgumentSorts args
         val newArgs = transformArgs(args, argTypes)
         if (newArgs eq args) nt else IAtom(p, newArgs)
       }

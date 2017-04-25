@@ -21,9 +21,7 @@
 
 // Unit tests for the decision procedure for algebraic data-types
 
-package ap.types
-
-object ADTTest extends App {
+//object ADTTest extends App {
   import ap.SimpleAPI
   import ap.terfor.TerForConvenience
   import SimpleAPI.ProverStatus
@@ -205,4 +203,4 @@ object ADTTest extends App {
       }
     }
   }
-}
+//}

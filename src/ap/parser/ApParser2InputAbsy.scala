@@ -895,7 +895,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         val argTerms = args map (asTerm _)
         pred match {
           case pred : SortedPredicate => {
-            val formalSorts = pred iArgumentTypes argTerms
+            val formalSorts = pred iArgumentSorts argTerms
             if (!unifySorts(args, formalSorts))
               throw new Parser2InputAbsy.TranslationException(
                 "Predicate " + pred.name +

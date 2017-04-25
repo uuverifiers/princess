@@ -176,7 +176,7 @@ object TypeTheory extends Theory {
 
     for (a <- atoms(model)) a.pred match {
       case sortedPred : SortedPredicate =>
-        sorts ++= sortedPred argumentTypes a
+        sorts ++= sortedPred argumentSorts a
       case _ =>
         // nothing
     }

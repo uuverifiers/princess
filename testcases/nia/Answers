@@ -424,7 +424,14 @@ Constructing countermodel ...
 sat
 
 Model:
-(and (and (and (and (and (and (and (= a__5 1 ) (= a__8 0 ) ) (= a__4 1 ) ) (= a__9 0 ) ) (= a__6 0 ) ) (= a__7 1 ) ) (= a__2 1 ) ) (= b__10 1 ) ) 
+(define-const a__5 Int 1)
+(define-const a__8 Int 0)
+(define-const a__4 Int 1)
+(define-const a__9 Int 0)
+(define-const a__6 Int 0)
+(define-const a__7 Int 1)
+(define-const a__2 Int 1)
+(define-const b__10 Int 1)
 
 Loading splittingBug.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication

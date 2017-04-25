@@ -68,6 +68,49 @@ object ADT {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Class representing the types/sorts defined by this ADT theory
+   */
+  class ADTProxySort(val sortNum : Int,
+                     underlying : Sort,
+                     val adtTheory : ADT) extends ProxySort(underlying) {
+
+    override lazy val individuals : Stream[ITerm] =
+      for (ctorNum <- adtTheory.sortedGlobalCtorIdsPerSort(sortNum).toStream;
+           f = adtTheory.constructors(ctorNum);
+           args <- Sort.individualsVectors(f.argSorts.toList))
+      yield IFunApp(f, args)
+
+    override def augmentModelTermSet(
+                   model : Conjunction,
+                   terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =
+      if (adtTheory.isEnum(sortNum)) {
+        if (!(terms contains (IdealInt.ZERO, this)))
+          for ((f, num) <-
+                 adtTheory.constructorsPerSort(sortNum).iterator.zipWithIndex)
+            terms.put((IdealInt(num), this), IFunApp(f, List()))
+      } else {
+        val atoms = model.predConj.positiveLits filter {
+          a => adtTheory.constructorPredsSet contains a.pred
+        }
+
+        for (a <- atoms) {
+// TODO: don't add elements repeatedly to the terms map
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          val ADTCtorPred(ctorNum, sortNum, _) =
+            adtTheory.adtPreds(a.pred)
+          val ctor =
+            adtTheory.constructors(ctorNum).asInstanceOf[MonoSortedIFunction]
+          for (argTerms <- getSubTerms(a.init, ctor.argSorts, terms))
+            terms.put((a.last.constant, ctor.resSort), IFunApp(ctor, argTerms))
+        }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * The ADT of Booleans, with truth values true, false as only constructors.
    * The ADT is a simple enumeration, and preprocessing will map true to value
    * 0, and false to value 1.
@@ -202,44 +245,6 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  /**
-   * Class representing the types/sorts defined by this ADT theory
-   */
-  class ADTProxySort(val sortNum : Int,
-                     underlying : Sort) extends ProxySort(underlying) {
-    val adtTheory : ADT = ADT.this
-
-    override lazy val individuals : Stream[ITerm] =
-      for (ctorNum <- sortedGlobalCtorIdsPerSort(sortNum).toStream;
-           f = constructors(ctorNum);
-           args <- Sort.individualsVectors(f.argSorts.toList))
-      yield IFunApp(f, args)
-
-    override def augmentModelTermSet(
-                   model : Conjunction,
-                   terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =
-      if (isEnum(sortNum)) {
-        if (!(terms contains (IdealInt.ZERO, this)))
-          for ((f, num) <- constructorsPerSort(sortNum).iterator.zipWithIndex)
-            terms.put((IdealInt(num), this), IFunApp(f, List()))
-      } else {
-        val atoms = model.predConj.positiveLits filter {
-          a => constructorPredsSet contains a.pred
-        }
-
-        for (a <- atoms) {
-// TODO: don't add elements repeatedly to the terms map
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          val ADTCtorPred(ctorNum, sortNum, _) = adtPreds(a.pred)
-          val ctor = constructors(ctorNum).asInstanceOf[MonoSortedIFunction]
-          for (argTerms <- getSubTerms(a.init, ctor.argSorts, terms))
-            terms.put((a.last.constant, ctor.resSort), IFunApp(ctor, argTerms))
-        }
-    }
-  }
-
   val sorts =
     for (((sortName, card), sortNum) <-
            (sortNames zip cardinalities).zipWithIndex) yield
@@ -249,7 +254,8 @@ class ADT (sortNames : Seq[String],
                              Sort.Integer
                            case Some(card) =>
                              Sort.Interval(Some(0), Some(card - 1))
-                         }) {
+                         },
+                         this) {
           override val name = sortName
         }
 
@@ -758,7 +764,7 @@ class ADT (sortNames : Seq[String],
           val expCandidates : Iterator[(LinearCombination, Sort)] =
             for (a <- predFacts.positiveLits.iterator ++
                       predFacts.negativeLits.iterator;
-                 argSorts = SortedPredicate.argumentTypes(a.pred, a);
+                 argSorts = SortedPredicate.argumentSorts(a.pred, a);
                  (lc, sort) <- a.iterator zip argSorts.iterator;
                  if !(ctorDefinedCons contains lc);
                  if (nonEnumSorts contains sort))

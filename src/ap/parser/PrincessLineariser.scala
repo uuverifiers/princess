@@ -76,6 +76,9 @@ object PrincessLineariser {
   
   def printExpression(e : IExpression) =
     AbsyPrinter.visit(e, PrintContext(List(), "", 0))
+
+  def asString(e : IExpression) : String =
+    ap.DialogUtil.asString { printExpression(e) }
   
   //////////////////////////////////////////////////////////////////////////////
   

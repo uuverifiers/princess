@@ -955,8 +955,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         ensureEnvironmentCopy
 
         val name = asString(cmd.symbol_)
-        val smtDataSort = SMTInteger // TODO
-
         val sortNames = List(name)
         val (adtCtors, smtCtorArgs) =
           translateDataCtorList(sortNames, 0, cmd.listconstructordeclc_)
@@ -970,8 +968,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       case cmd : DataDeclsCommand => {
         ensureEnvironmentCopy
-
-        val smtDataSort = SMTInteger // TODO
 
         val sortNames =
           for (sortc <- cmd.listpolysortc_) yield {
@@ -1906,8 +1902,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           }
         } else addAxiom(t match {
           case SMTBool => {
-            val f = new IFunction(letVarName(name), 1, true, false)
-            env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTInteger))
+            val f = new MonoSortedIFunction(letVarName(name),
+                                            List(TSort.Integer), TSort.Bool,
+                                            true, false)
+            env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTBool))
 
             env.pushVar(name, SubstExpression(
                                   containFunctionApplications(eqZero(f(0))),
@@ -1918,7 +1916,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                              ((f(v(0)) === 1) & !asFormula((s, t))))))
           }
           case exprType => {
-            val c = new ConstantTerm(letVarName(name))
+            val c = t.toSort newConstant letVarName(name)
             addConstant(c, exprType)
             env.pushVar(name, SubstExpression(c, exprType))
             c === asTerm((s, t))
