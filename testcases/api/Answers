@@ -341,7 +341,7 @@ Vector(((cons(1, cons(2, nil)) + -1 * x) = 0), ((y + -1 * x) = 0))
 Vector(red, nil)
 Test 1
 Sat
-{c2 -> 2, c1 -> 0, c0 -> 0, colour_list_depth(2) -> 1, colour_list_depth(1) -> -1, colour_list_depth(0) -> 0, colour_list_ctor(2) -> 1, colour_list_ctor(1) -> 0, colour_list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 0, head(0) -> 0, cons(0, 1) -> 0, cons(0, 0) -> 2, nil -> 1}
+{c2 -> 2, c1 -> 2, c0 -> 0, colour_list_depth(2) -> 1, colour_list_depth(1) -> -1, colour_list_depth(0) -> 0, colour_list_ctor(2) -> 1, colour_list_ctor(1) -> 0, colour_list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 0, head(0) -> 2, cons(2, 1) -> 0, cons(0, 0) -> 2, nil -> 1}
 Test 2
 Unsat
 Test 3

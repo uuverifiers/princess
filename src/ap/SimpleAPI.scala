@@ -41,7 +41,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import ap.types.{Sort, SortedConstantTerm,
+import ap.types.{Sort, SortedConstantTerm, SortedIFunction,
                  MonoSortedIFunction, SortedPredicate, TypeTheory}
 import ap.util.{Debug, Timeout, Seqs}
 
@@ -1171,7 +1171,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
     val f = MonoSortedIFunction(name, argSorts, resSort, partial,
                                 functionalityMode != FunctionalityMode.Full)
-    addTypeTheoryIfNeeded(argSorts ++ List(resSort))
+    addTypeTheoryIfNeeded(f)
     
     addFunctionHelp(f, functionalityMode)
     f
@@ -2618,14 +2618,22 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   private def addTypeTheoryIfNeeded(sorts : Iterable[Sort]) : Unit =
-    sorts map (addTypeTheoryIfNeeded _)
+    if (!(theoryCollector includes TypeTheory) &&
+        (sorts exists (_ != Sort.Integer)))
+      addTypeTheory
 
-  private def addTypeTheoryIfNeeded(sort : Sort) : Unit = sort match {
-    case Sort.Integer =>
-      // nothing
-    case _ =>
-      if (!(theories contains TypeTheory))
-        addTheory(TypeTheory)
+  private def addTypeTheoryIfNeeded(f : IFunction) : Unit =
+    if (f.isInstanceOf[SortedIFunction])
+      addTypeTheory
+
+  private def addTypeTheoryIfNeeded(sort : Sort) : Unit =
+    if (sort != Sort.Integer)
+      addTypeTheory
+
+  private def addTypeTheory : Unit = {
+    theoryCollector addTheoryFront TypeTheory
+    // type theory does not add axioms, so calling addTheoryAxioms is not
+    // necessary
   }
 
   //////////////////////////////////////////////////////////////////////////////
