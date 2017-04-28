@@ -1314,6 +1314,18 @@ class SimpleAPI private (enableAssert : Boolean,
     createBooleanFunction(rawName, arity, FunctionalityMode.Full)
 
   /**
+   * Create a new uninterpreted Boolean-valued function with given arguments.
+   * Booleans values are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.<br>
+   * In contrast to predicates (generated using <code>createRelation</code>),
+   * Boolean functions can be used within triggers.
+   */
+  def createBooleanFunction(rawName : String, argSorts : Seq[Sort])
+                           : IExpression.BooleanFunApplier =
+    createBooleanFunction(rawName, argSorts, false, FunctionalityMode.Full)
+
+  /**
    * Create a new uninterpreted Boolean-valued function with fixed arity.
    * Booleans values are encoded into integers,
    * mapping <code>true</code> to <code>0</code> and <code>false</code>
@@ -1325,13 +1337,29 @@ class SimpleAPI private (enableAssert : Boolean,
                             arity : Int,
                             functionalityMode : FunctionalityMode.Value)
                            : IExpression.BooleanFunApplier =
+    createBooleanFunction(rawName,
+                          for (_ <- 0 until arity) yield Sort.Integer,
+                          false,
+                          functionalityMode)
+  
+  /**
+   * Create a new uninterpreted Boolean-valued function with given arguments.
+   * Booleans values are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.<br>
+   * In contrast to predicates (generated using <code>createRelation</code>),
+   * Boolean functions can be used within triggers.
+   */
+  def createBooleanFunction(rawName : String,
+                            argSorts : Seq[Sort],
+                            partial : Boolean = false,
+                            functionalityMode : FunctionalityMode.Value)
+                           : IExpression.BooleanFunApplier =
     new IExpression.BooleanFunApplier({
       doDumpScala {
-        println("// createBooleanFunction" +
-                "(\"" + rawName + "\", " + arity +
-                printFunctionalityMode(functionalityMode) + ")")
+        println("// createBooleanFunction(...)")
       }
-      createFunction(rawName, arity, functionalityMode)
+      createFunction(rawName, argSorts, Sort.Bool, partial, functionalityMode)
     })
   
   /**
@@ -3001,7 +3029,7 @@ class SimpleAPI private (enableAssert : Boolean,
    * <ul>
    *    <li> after receiving the result
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
-   * or <code>ProverStatus.Inconclusive</code>, or</li>
+   * or <code>ProverStatus.Inconclusive</code>,
    * which case the term is evaluated in the computed model, or</li>
    * <li> after receiving
    * the result
@@ -3017,7 +3045,10 @@ class SimpleAPI private (enableAssert : Boolean,
       PrettyScalaLineariser(getFunctionNames)(t)
       println("))")
     }
+    evalHelp(t)
+  }
 
+  private def evalHelp(t : ITerm) : IdealInt = {
     t match {
       case IConstant(c) => evalHelp(c)
       
@@ -3319,7 +3350,77 @@ class SimpleAPI private (enableAssert : Boolean,
     for (lc <- currentModel.arithConj.positiveEqs.toMap get c)
     yield -lc.constant
   }
-  
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Evaluate the given term in the current model to a constructor term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalAsTerm(t : ITerm) : ITerm = {
+    doDumpScala {
+      print("println(\"" + getScalaNum + ": \" + evalAsTerm(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println("))")
+    }
+    val num = evalHelp(t)
+    (Sort sortOf t).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+  }
+
+  /**
+   * Evaluate the given term in the current model to a constructor term,
+   * returning <code>None</code>
+   * in case the model does not completely determine the value of the term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalPartialAsTerm(t : ITerm) : Option[ITerm] = {
+    doDumpScala {
+      print("println(\"" + getScalaNum + ": \" + evalPartialAsTerm(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println("))")
+    }
+    for (num <- evalPartialHelp(t)) yield {
+      (Sort sortOf t).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+    }
+  }
+
+  /**
+   * Evaluate the given symbol in the current model to a constructor term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalAsTerm(c : IExpression.ConstantTerm) : ITerm = {
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + evalAsTerm(" + c + "))")
+    }
+    val num = evalHelp(c)
+    (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+  }
+
+  /**
+   * Evaluate the given symbol in the current model to a constructor term,
+   * returning <code>None</code>
+   * in case the model does not completely determine the value of the term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalPartialAsTerm(c : IExpression.ConstantTerm) : Option[ITerm] = {
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + evalAsTerm(" + c + "))")
+    }
+    for (num <- evalPartialHelp(c)) yield {
+      (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Evaluate the given formula in the current model.
    * This method can only be called after receiving the result

@@ -180,6 +180,22 @@
       !! (e =/= cons(green(), nil()))
       println(expect(???, ProverStatus.Unsat))
     }
+
+    println("Test 19")
+    scope {
+      val d = createConstant(colour)
+      val e = createConstant(colour_list)
+      !! (e =/= cons(red(), nil()))
+      !! (e =/= cons(blue(), nil()))
+      !! (e === cons(d, nil()))
+      println(expect(???, ProverStatus.Sat))
+
+      println(evalAsTerm(d))
+      println(evalAsTerm(e))
+
+      !! (e =/= cons(green(), nil()))
+      println(expect(???, ProverStatus.Unsat))
+    }
     }
 
     println("Test 20")

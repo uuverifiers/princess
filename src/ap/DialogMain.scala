@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -350,6 +350,11 @@ class InputDialog extends JPanel {
   
   private def defaultNewTab =
     newTabWithInput("Problem " + (createdTabs + 1), None, "", asString {
+      println("\\sorts {")
+      println("  /* Declare sorts and algebraic data-types */")
+      println("  ")
+      println("}")
+      println
       println("\\universalConstants {")
       println("  /* Declare universally quantified constants of the problem */")
       println("  ")
@@ -424,100 +429,35 @@ class InputDialog extends JPanel {
   
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
-  
-  newTabWithInput("SMT-LIB input", None, "-inputFormat=smtlib", asString{
-    println("(set-logic AUFLIA)")
-    println("(declare-fun a () Int)")
-    println("(declare-fun p (Int) Bool)")
+
+  newTabWithInput("ADTs", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Problem over Algebraic Data-Types")
+    println(" */")
     println
-    println("(assert (forall ((x Int)) (p (* 2 x))))")
-    println("(assert (forall ((x Int)) (not (p (+ (* 2 x) 1)))))")
-    println
-    println("(assert (p a))")
-    println("(assert (not (p (+ a 10))))")
-    println
-    println("(check-sat)")
+    println("/* Definition of Algebraic Data-Types */")
+    println("\\sorts {")
+    println("  Colour { red; green; blue; };")
+    println("  Pair { Pair(int x, Colour c); };")
+    println("}")
+    println("")
+    println("/* Definition of functions and variables of the problem */")
+    println("\\functions {")
+    println("  Pair inc(Pair p) { Pair(p.x + 1, p.c) };")
+    println("  Pair p;")
+    println("  int f(Pair);")
+    println("}")
+    println("")
+    println("/* Problem to be proven */")
+    println("\\problem {")
+    println("  \\forall Pair p; f(p) = \\abs(p.x)")
+    println("->")
+    println("  f(p) != f(inc(p))")
+    println("}")
   })
-  
-  newTabWithInput("TPTP input", None, "-inputFormat=tptp", asString{
-    println("%------------------------------------------------------------------------------")
-    println("% File     : GEG021=1 : TPTP v5.1.0. Released v5.1.0.")
-    println("% Domain   : Arithmetic")
-    println("% Problem  : Estimate distance between cities (one step)")
-    println("% Version  : Especial.")
-    println("% English  :")
-    println("")
-    println("% Refs     : [Wal10] Waldmann (2010), Email to Geoff Sutcliffe")
-    println("% Source   : [Wal10]")
-    println("% Names    :")
-    println("")
-    println("% Status   : Theorem")
-    println("% Rating   : 0.67 v5.1.0")
-    println("% Syntax   : Number of formulae    :   10 (   8 unit;   9 type)")
-    println("%            Number of atoms       :   27 (  14 equality)")
-    println("%            Maximal formula depth :   16 (   4 average)")
-    println("%            Number of connectives :   15 (   0   ~;   0   |;  14   &)")
-    println("%                                         (   0 <=>;   1  =>;   0  <=;   0 <~>)")
-    println("%                                         (   0  ~|;   0  ~&)")
-    println("%            Number of type conns  :    2 (   1   >;   1   *;   0   +;   0  <<)")
-    println("%            Number of predicates  :   13 (  11 propositional; 0-2 arity)")
-    println("%            Number of functors    :   22 (  20 constant; 0-2 arity)")
-    println("%            Number of variables   :    6 (   0 sgn;   6   !;   0   ?)")
-    println("%            Maximal term depth    :    3 (   2 average)")
-    println("%            Arithmetic symbols    :   15 (   2 pred;    0 func;   13 numbers)")
-    println("% SPC      : TFF_THM_EQU_ARI")
-    println("")
-    println("% Comments :")
-    println("%------------------------------------------------------------------------------")
-    println("tff(city_type,type,(")
-    println("    city: $tType )).")
-    println("")
-    println("tff(d_type,type,(")
-    println("    d: ( city * city ) > $int )).")
-    println("")
-    println("tff(kiel_type,type,(")
-    println("    kiel: city )).")
-    println("")
-    println("tff(hamburg_type,type,(")
-    println("    hamburg: city )).")
-    println("")
-    println("tff(berlin_type,type,(")
-    println("    berlin: city )).")
-    println("")
-    println("tff(cologne_type,type,(")
-    println("    cologne: city )).")
-    println("")
-    println("tff(frankfurt_type,type,(")
-    println("    frankfurt: city )).")
-    println("")
-    println("tff(saarbruecken_type,type,(")
-    println("    saarbruecken: city )).")
-    println("")
-    println("tff(munich_type,type,(")
-    println("    munich: city )).")
-    println("")
-    println("tff(city_distance_1,conjecture,")
-    println("    ( ( ! [X: city,Y: city] : d(X,Y) = d(Y,X)")
-    println("      & ! [X: city,Y: city,Z: city] : $lesseq(d(X,Z),$sum(d(X,Y),d(Y,Z)))")
-    println("      & ! [X: city] : d(X,X) = 0")
-    println("      & d(berlin,munich) = 510")
-    println("      & d(berlin,cologne) = 480")
-    println("      & d(berlin,frankfurt) = 420")
-    println("      & d(saarbruecken,frankfurt) = 160")
-    println("      & d(saarbruecken,cologne) = 190")
-    println("      & d(hamburg,cologne) = 360")
-    println("      & d(hamburg,frankfurt) = 390")
-    println("      & d(cologne,frankfurt) = 150")
-    println("      & d(hamburg,kiel) = 90")
-    println("      & d(hamburg,berlin) = 250")
-    println("      & d(munich,frankfurt) = 300")
-    println("      & d(munich,saarbruecken) = 360 )")
-    println("   => $lesseq(d(cologne,berlin),500) )).")
-    println("")
-    println("%------------------------------------------------------------------------------")
-  })
-  
-  newTabWithInput("Princess own format", None, "", asString {
+
+  newTabWithInput("Quantifiers", None, "", asString {
     println("/**")
     println(" * Example:")
     println(" * Problem in Presburger arithmetic with uninterpreted predicates")
@@ -546,7 +486,7 @@ class InputDialog extends JPanel {
     println("}")
   })
 
-  newTabWithInput("Arithmetic Interpolation", None, "", asString {
+  newTabWithInput("Interpolation", None, "", asString {
     println("/**")
     println(" * Example:")
     println(" * Craig interpolation problem in Presburger arithmetic")
@@ -591,8 +531,7 @@ class InputDialog extends JPanel {
     println("}")
     println("")
     println("\\problem {")
-    println("  \\forall int x; (x >= B ->")
-    println("     \\exists int y, z; (y >= 0 & z >= 0 & x = 7*y + 8*z))")
+    println("  \\forall int x; (x >= B -> \\exists nat y, z; x = 7*y + 8*z)")
     println("/**")
     println(" * Quantifier elimination determines that this formula is")
     println(" * equivalent to   B >= 42")
@@ -600,6 +539,21 @@ class InputDialog extends JPanel {
     println("}")
   })
 
+  newTabWithInput("SMT-LIB input", None, "-inputFormat=smtlib", asString{
+    println("(set-logic AUFLIA)")
+    println("(declare-fun a () Int)")
+    println("(declare-fun p (Int) Bool)")
+    println
+    println("(assert (forall ((x Int)) (p (* 2 x))))")
+    println("(assert (forall ((x Int)) (not (p (+ (* 2 x) 1)))))")
+    println
+    println("(assert (p a))")
+    println("(assert (not (p (+ a 10))))")
+    println
+    println("(check-sat)")
+  })
+
+/*
   newTabWithInput("Array interpolation", None, "", asString {
     println("/**")
     println(" * Example:")
@@ -634,7 +588,8 @@ class InputDialog extends JPanel {
     println
     println("\\interpolant {p0, p1; p2, p3}")
   })
-  
+  */
+
   newTabWithInput("SMT-LIB interpolation", None,
                   "-inputFormat=smtlib -genTotalityAxioms", asString{
     println(";")
@@ -713,7 +668,85 @@ class InputDialog extends JPanel {
     println("(echo \"04 (tree interpolants):\")")
     println("(get-interpolants M1 M2 (S11 S12) S1RET M3 (S21 S22) S2RET M4 ERR)")
   })
-  
+
+  newTabWithInput("TPTP input", None, "-inputFormat=tptp", asString{
+    println("%------------------------------------------------------------------------------")
+    println("% File     : GEG021=1 : TPTP v5.1.0. Released v5.1.0.")
+    println("% Domain   : Arithmetic")
+    println("% Problem  : Estimate distance between cities (one step)")
+    println("% Version  : Especial.")
+    println("% English  :")
+    println("")
+    println("% Refs     : [Wal10] Waldmann (2010), Email to Geoff Sutcliffe")
+    println("% Source   : [Wal10]")
+    println("% Names    :")
+    println("")
+    println("% Status   : Theorem")
+    println("% Rating   : 0.67 v5.1.0")
+    println("% Syntax   : Number of formulae    :   10 (   8 unit;   9 type)")
+    println("%            Number of atoms       :   27 (  14 equality)")
+    println("%            Maximal formula depth :   16 (   4 average)")
+    println("%            Number of connectives :   15 (   0   ~;   0   |;  14   &)")
+    println("%                                         (   0 <=>;   1  =>;   0  <=;   0 <~>)")
+    println("%                                         (   0  ~|;   0  ~&)")
+    println("%            Number of type conns  :    2 (   1   >;   1   *;   0   +;   0  <<)")
+    println("%            Number of predicates  :   13 (  11 propositional; 0-2 arity)")
+    println("%            Number of functors    :   22 (  20 constant; 0-2 arity)")
+    println("%            Number of variables   :    6 (   0 sgn;   6   !;   0   ?)")
+    println("%            Maximal term depth    :    3 (   2 average)")
+    println("%            Arithmetic symbols    :   15 (   2 pred;    0 func;   13 numbers)")
+    println("% SPC      : TFF_THM_EQU_ARI")
+    println("")
+    println("% Comments :")
+    println("%------------------------------------------------------------------------------")
+    println("tff(city_type,type,(")
+    println("    city: $tType )).")
+    println("")
+    println("tff(d_type,type,(")
+    println("    d: ( city * city ) > $int )).")
+    println("")
+    println("tff(kiel_type,type,(")
+    println("    kiel: city )).")
+    println("")
+    println("tff(hamburg_type,type,(")
+    println("    hamburg: city )).")
+    println("")
+    println("tff(berlin_type,type,(")
+    println("    berlin: city )).")
+    println("")
+    println("tff(cologne_type,type,(")
+    println("    cologne: city )).")
+    println("")
+    println("tff(frankfurt_type,type,(")
+    println("    frankfurt: city )).")
+    println("")
+    println("tff(saarbruecken_type,type,(")
+    println("    saarbruecken: city )).")
+    println("")
+    println("tff(munich_type,type,(")
+    println("    munich: city )).")
+    println("")
+    println("tff(city_distance_1,conjecture,")
+    println("    ( ( ! [X: city,Y: city] : d(X,Y) = d(Y,X)")
+    println("      & ! [X: city,Y: city,Z: city] : $lesseq(d(X,Z),$sum(d(X,Y),d(Y,Z)))")
+    println("      & ! [X: city] : d(X,X) = 0")
+    println("      & d(berlin,munich) = 510")
+    println("      & d(berlin,cologne) = 480")
+    println("      & d(berlin,frankfurt) = 420")
+    println("      & d(saarbruecken,frankfurt) = 160")
+    println("      & d(saarbruecken,cologne) = 190")
+    println("      & d(hamburg,cologne) = 360")
+    println("      & d(hamburg,frankfurt) = 390")
+    println("      & d(cologne,frankfurt) = 150")
+    println("      & d(hamburg,kiel) = 90")
+    println("      & d(hamburg,berlin) = 250")
+    println("      & d(munich,frankfurt) = 300")
+    println("      & d(munich,saarbruecken) = 360 )")
+    println("   => $lesseq(d(cologne,berlin),500) )).")
+    println("")
+    println("%------------------------------------------------------------------------------")
+  })
+
   tabbedPane setSelectedIndex 0
   
   //////////////////////////////////////////////////////////////////////////////
