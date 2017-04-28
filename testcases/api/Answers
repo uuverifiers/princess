@@ -376,6 +376,11 @@ Sat
 Some(green)
 Some(cons(green, nil))
 Unsat
+Test 19
+Sat
+green
+cons(green, nil)
+Unsat
 Test 20
 Valid
 Invalid
