@@ -638,20 +638,6 @@ class SMTLineariser(benchmarkName : String,
                           ctxt : PrintContext) : PreVisitResult = {
     import ctxt.variableType
     t match {
-      // Terms with Boolean type, which were encoded as integer terms
-      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
-        // strip off the integer encoding
-        TryAgain(t, ctxt)
-
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-
       // Terms
       case IConstant(c) => {
         addSpace
@@ -733,6 +719,36 @@ class SMTLineariser(benchmarkName : String,
         print(value)
         ShortCutResult(())
       }
+
+      // Terms with Boolean type, which were encoded as integer terms or
+      // using ADTs
+      case IExpression.Eq(ADT.BoolADT.True, t) =>
+        // strip off the ADT encoding
+        TryAgain(t, ctxt)
+      case IExpression.Eq(t, ADT.BoolADT.True) =>
+        // strip off the ADT encoding
+        TryAgain(t, ctxt)
+      case IExpression.Eq(ADT.BoolADT.False, t) =>
+        // strip off the ADT encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+      case IExpression.Eq(t, ADT.BoolADT.False) =>
+        // strip off the ADT encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+
+      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
+        // strip off the integer encoding
+        TryAgain(t, ctxt)
+
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
+        // strip off the integer encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
+        // strip off the integer encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+
+      // General equations
       case IExpression.Eq(s, t) =>
         // rewrite to a proper equation
         TryAgain(IAtom(eqPredicate, List(s, t)), ctxt)
