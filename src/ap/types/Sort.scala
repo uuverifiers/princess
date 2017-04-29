@@ -162,7 +162,7 @@ object Sort {
    * The sort of Booleans. Booleans are encoded as an ADT.
    * @see ap.theories.ADT.BoolADT
    */
-  val Bool = ap.theories.ADT.BoolADT.boolSort
+  lazy val Bool = ap.theories.ADT.BoolADT.boolSort
 
   //////////////////////////////////////////////////////////////////////////////
 

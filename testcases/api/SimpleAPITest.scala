@@ -234,7 +234,8 @@ object SimpleAPITest extends App {
   part("Boolean functions and triggers")
 
   scope {
-    val r = createBooleanFunction("r", 2)
+    val r = createBooleanFunction("r", List(Sort.Integer, Sort.Integer),
+                                  partial = true)
     val a = createConstant
 
     // Boolean functions can be used in triggers, in contrast to

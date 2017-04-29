@@ -372,9 +372,9 @@ unsat
 unsat
 unsat
 unsat
-((and (= proc_x_0 7) (= (myFunc 7) true)))
+((and (= proc_x_0 7) (myFunc 7)))
 unsat
-((and proc_x_0_2 (= (myFunc2 true) true)))
+((and proc_x_0_2 (myFunc2 true)))
 unsat
 ((and (= proc_x_0 7) (select ar 7)))
 unsat

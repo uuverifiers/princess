@@ -1315,18 +1315,6 @@ class SimpleAPI private (enableAssert : Boolean,
     createBooleanFunction(rawName, arity, FunctionalityMode.Full)
 
   /**
-   * Create a new uninterpreted Boolean-valued function with given arguments.
-   * Booleans values are encoded into integers,
-   * mapping <code>true</code> to <code>0</code> and <code>false</code>
-   * to <code>1</code>.<br>
-   * In contrast to predicates (generated using <code>createRelation</code>),
-   * Boolean functions can be used within triggers.
-   */
-  def createBooleanFunction(rawName : String, argSorts : Seq[Sort])
-                           : IExpression.BooleanFunApplier =
-    createBooleanFunction(rawName, argSorts, false, FunctionalityMode.Full)
-
-  /**
    * Create a new uninterpreted Boolean-valued function with fixed arity.
    * Booleans values are encoded into integers,
    * mapping <code>true</code> to <code>0</code> and <code>false</code>
@@ -1354,7 +1342,8 @@ class SimpleAPI private (enableAssert : Boolean,
   def createBooleanFunction(rawName : String,
                             argSorts : Seq[Sort],
                             partial : Boolean = false,
-                            functionalityMode : FunctionalityMode.Value)
+                            functionalityMode : FunctionalityMode.Value =
+                              FunctionalityMode.Full)
                            : IExpression.BooleanFunApplier =
     new IExpression.BooleanFunApplier({
       doDumpScala {
