@@ -2445,12 +2445,15 @@ class SimpleAPI private (enableAssert : Boolean,
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    for (c <- interpolants)
-    yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
+    for (c <- interpolants) yield {
+       implicit val _ = new Theory.DefaultDecoderContext(c)
+       IntToTermTranslator(
+         simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
+    }
   }
 
   /**
-   * Compute a tree interpolant for the given specification.
+   * compute a tree interpolant for the given specification.
    * Interpolants might contain quantifiers, which cannot always
    * be eliminated efficiently; the provided timeout (milliseconds) specifies
    * how long it is attempted to eliminated quantifiers in each interpolant. If
@@ -2516,8 +2519,13 @@ class SimpleAPI private (enableAssert : Boolean,
               Interpolator(currentSimpCertificate, iContext, false)
             }
 
-          (rawInt,
-           simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
+          val simpInt = {
+            implicit val _ = new Theory.DefaultDecoderContext(rawInt)
+            IntToTermTranslator(
+              simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
+          }
+
+          (rawInt, simpInt)
         }
 
       if (thisInt._1.isTrue) {
