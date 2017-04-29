@@ -558,7 +558,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentConstraint = null
     currentCertificate = null
     currentSimpCertificate = null
-    lastStatus = ProverStatus.Sat
+    lastStatus = ProverStatus.Unknown
     validityMode = false
     proofThreadStatus = ProofThreadStatus.Init
     currentPartitionNum = -1

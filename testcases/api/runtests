@@ -46,4 +46,5 @@ scala $OPTIONS ADTTest.scala
 scala $OPTIONS ADTTest2.scala
 scala $OPTIONS ADTTest3.scala
 scala $OPTIONS pred-simplify.scala
+scala $OPTIONS empty-stack-bug.scala
 
