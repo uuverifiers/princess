@@ -60,8 +60,10 @@ object SMTLineariser {
     import IExpression._
     import Sort.:::
 
+    println("(model")
+
     def printEq(lhs : ConstantTerm, sort : Sort, rhs : ITerm) : Unit = {
-      print("(define-const " + quoteIdentifier(lhs.name) + " ")
+      print("  (define-const " + quoteIdentifier(lhs.name) + " ")
       printSMTType(sort2SMTType(sort)._1)
       print(" ")
       apply(rhs)
@@ -85,9 +87,9 @@ object SMTLineariser {
           if (TheoryRegistry lookupSymbol f).isEmpty =>
         funPoints.getOrElseUpdate(f, new ArrayBuffer) += ((args, t))
       case IAtom(p, Seq()) =>
-        println("(define-const " + quoteIdentifier(p.name) + " Bool true)")
+        println("  (define-const " + quoteIdentifier(p.name) + " Bool true)")
       case INot(IAtom(p, Seq())) =>
-        println("(define-const " + quoteIdentifier(p.name) + " Bool false)")
+        println("  (define-const " + quoteIdentifier(p.name) + " Bool false)")
       case IAtom(p, args) =>
         predPoints.getOrElseUpdate(p, new ArrayBuffer) += ((args, true))
       case INot(IAtom(p, args)) =>
@@ -105,6 +107,7 @@ object SMTLineariser {
         (default /: points) {
           case (ob, (args, result)) => ite(formalArgs === args, result, ob)
         }
+      print("  ")
       printDefineFun(f, ft, formalArgs, body)
     }
 
@@ -115,9 +118,12 @@ object SMTLineariser {
         for ((s, n) <- argSorts.zipWithIndex) yield (s newConstant ("x!" + n))
       val body =
         or(for ((args, true) <- points.iterator) yield (formalArgs === args))
+      print("  ")
       printDefineFun(new IFunction(p.name, p.arity, false, false),
                      (argSorts, Sort.Bool), formalArgs, body)
     }
+
+    println(")")
   }
 
   def printDefineFun(f : IFunction,

@@ -42,7 +42,8 @@ import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import ap.types.{Sort, SortedConstantTerm, SortedIFunction,
-                 MonoSortedIFunction, SortedPredicate, TypeTheory}
+                 MonoSortedIFunction, SortedPredicate, TypeTheory,
+                 IntToTermTranslator}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
@@ -3005,7 +3006,51 @@ class SimpleAPI private (enableAssert : Boolean,
       lastPartialModel
     }
   }
-  
+
+  /**
+   * Produce a partial model, i.e., a (usually) partial interpretation
+   * of constants, functions, and predicates. This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * model only assigns existential constants.
+   * </li>
+   * </ul>
+   */
+  def partialModelAsFormula : IFormula = {
+    doDumpSMT {
+      println("; (partial-model-as-formula)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + partialModelAsFormula)")
+    }
+
+    // TODO: cache results?
+    setupTermEval
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC,
+                    currentModel.arithConj.negativeEqs.isTrue &&
+                    currentModel.arithConj.inEqs.isTrue &&
+                    currentModel.negatedConjs.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    implicit val _ = currentModel.order
+    val remainingPredConj = currentModel.predConj filter {
+      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
+    }
+    val remaining = currentModel.updatePredConj(remainingPredConj)
+    
+    val simp = Internal2InputAbsy(remaining, functionEnc.predTranslation)
+    IntToTermTranslator(simp)(decoderContext)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**

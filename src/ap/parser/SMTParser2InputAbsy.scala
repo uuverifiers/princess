@@ -713,7 +713,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
 
-  private var getModelWarning = false
   private var realSortWarning = false
 
   private var lastReasonUnknown = ""
@@ -1313,6 +1312,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             println("unknown")
             lastReasonUnknown = "incomplete"
           }
+          case SimpleAPI.ProverStatus.OutOfMemory =>
+            error("out of memory or stack overflow")
           case _ =>
             error("unexpected prover result")
         }
@@ -1335,29 +1336,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                SimpleAPI.ProverStatus.Inconclusive => try {
             val expressions = cmd.listterm_.toList
 
-            var unsupportedType = false
             val values = prover.withTimeout(timeoutPer) {
               for (expr <- expressions) yield
                 translateTerm(expr, 0) match {
-                  case p@(_, SMTBool) =>
-                    (prover eval asFormula(p)).toString
-                  case p@(_, SMTInteger) =>
-                    SMTLineariser toSMTExpr (prover eval asTerm(p))
-                  case (_, _) => {
-                    unsupportedType = true
-                    ""
-                  }
+                  case (f : IFormula, _) =>
+                    (prover eval f).toString
+                  case (t : ITerm, _) =>
+                    SMTLineariser asString (prover evalAsTerm t)
                 }
             }
             
-            if (unsupportedType) {
-              error("cannot print values of this type yet")
-            } else {
-              println("(" +
-                (for ((e, v) <- expressions.iterator zip values.iterator)
-                 yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
-                ")")
-            }
+            println("(" +
+              (for ((e, v) <- expressions.iterator zip values.iterator)
+               yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
+              ")")
           } catch {
             case SimpleAPI.TimeoutException =>
               error("timeout when constructing full model")
@@ -1419,40 +1411,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : GetModelCommand => if (checkIncrementalWarn("get-model")) {
-        if (!getModelWarning) {
-//          warn("accepting command get-model, which is not SMT-LIB 2.")
-          warn("only values of integer constants or Boolean variables will be shown.")
-          getModelWarning = true
-        }
-
         prover.getStatus(false) match {
           case SimpleAPI.ProverStatus.Sat |
                SimpleAPI.ProverStatus.Invalid |
                SimpleAPI.ProverStatus.Inconclusive => try {
             val model = prover.withTimeout(timeoutPer) {
-              prover.partialModel
+              prover.partialModelAsFormula
             }
 
-            for ((SimpleAPI.ConstantLoc(c), SimpleAPI.IntValue(value)) <-
-                   model.interpretation.iterator)
-              println("(define-fun " + (SMTLineariser quoteIdentifier c.name) +
-                      " () Int " + (SMTLineariser toSMTExpr value) + ")")
-            for ((SimpleAPI.PredicateLoc(p, Seq()), SimpleAPI.BoolValue(value)) <-
-                   model.interpretation.iterator)
-              println("(define-fun " + (SMTLineariser quoteIdentifier p.name) +
-                      " () Bool " + value + ")")
-
-/*
-            val funValues =
-              (for ((SimpleAPI.IntFunctionLoc(f, args), value) <-
-                      model.interpretation.iterator)
-               yield (f, args, value)).toSeq.groupBy(_._1)
-            for ((f, triplets) <- funValues) {
-              print("(define-fun " + f.name + " (" +
-                    (for (i <- 0 until f.arity) yield ("x" + i + " Int")).mkString(" ") +
-                    ") Int ")
-            }
- */
+            SMTLineariser printModel model
           } catch {
             case SimpleAPI.TimeoutException =>
               error("timeout when constructing full model")
