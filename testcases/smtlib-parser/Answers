@@ -92,28 +92,30 @@ Constructing countermodel ...
 sat
 
 Model:
-(define-const ?v_6_77 Int 5)
-(define-const ?v_5_76 Int 4)
-(define-const ?v_4_75 Int 3)
-(define-const ?v_3_74 Int 2)
-(define-const ?v_2_73 Int 0)
-(define-const ?v_75_52 Int 0)
-(define-const ?v_15_32 Int 0)
-(define-const ?v_14_28 Int 0)
-(define-const ?v_13_24 Int 0)
-(define-const ?v_12_20 Int 0)
-(define-const ?v_11_16 Int 0)
-(define-const ?v_10_12 Int 0)
-(define-const ?v_9_8 Int 0)
-(define-const ?v_8_4 Int 0)
-(define-const ?v_7_2 Int 0)
-(define-const ?v_0_1 Int (- 2))
-(define-const ?v_1_0 Int 1)
-(define-const x Int 0)
-(define-const fmt1 Int 0)
-(define-const fmt0 Int 0)
-(define-fun format ((x!0 Int)) Int (ite (= x!0 0) 0 (ite (= x!0 1) 0 (ite (= x!0 2) 0 (ite (= x!0 3) 0 (ite (= x!0 4) 0 (ite (= x!0 5) 0 (ite (= x!0 6) 0 (ite (= x!0 7) 0 (ite (= x!0 8) 0 (ite (= x!0 9) 0 0)))))))))))
-(define-fun ?v_66_27 ((x!0 Int)) Bool (ite (= x!0 0) true true))
+(model
+  (define-const ?v_6_77 Int 5)
+  (define-const ?v_5_76 Int 4)
+  (define-const ?v_4_75 Int 3)
+  (define-const ?v_3_74 Int 2)
+  (define-const ?v_2_73 Int 0)
+  (define-const ?v_75_52 Int 0)
+  (define-const ?v_15_32 Int 0)
+  (define-const ?v_14_28 Int 0)
+  (define-const ?v_13_24 Int 0)
+  (define-const ?v_12_20 Int 0)
+  (define-const ?v_11_16 Int 0)
+  (define-const ?v_10_12 Int 0)
+  (define-const ?v_9_8 Int 0)
+  (define-const ?v_8_4 Int 0)
+  (define-const ?v_7_2 Int 0)
+  (define-const ?v_0_1 Int (- 2))
+  (define-const ?v_1_0 Int 1)
+  (define-const x Int 0)
+  (define-const fmt1 Int 0)
+  (define-const fmt0 Int 0)
+  (define-fun format ((x!0 Int)) Int (ite (= x!0 0) 0 (ite (= x!0 1) 0 (ite (= x!0 2) 0 (ite (= x!0 3) 0 (ite (= x!0 4) 0 (ite (= x!0 5) 0 (ite (= x!0 6) 0 (ite (= x!0 7) 0 (ite (= x!0 8) 0 (ite (= x!0 9) 0 0)))))))))))
+  (define-fun ?v_66_27 ((x!0 Int)) Bool (ite (= x!0 0) true true))
+)
 
 Loading divmod.smt2 ...
 Preprocessing ...
@@ -250,10 +252,12 @@ Constructing countermodel ...
 sat
 
 Model:
-(define-const c_gcd_~y2 Int 1)
-(define-const c_gcd_~y1 Int 3)
-(define-const |c_gcd_#in~y2| Int 0)
-(define-const |c_gcd_#in~y1| Int 0)
+(model
+  (define-const c_gcd_~y2 Int 1)
+  (define-const c_gcd_~y1 Int 3)
+  (define-const |c_gcd_#in~y2| Int 0)
+  (define-const |c_gcd_#in~y1| Int 0)
+)
 
 Loading epsilon.smt2 ...
 Preprocessing ...
@@ -276,10 +280,12 @@ Constructing countermodel ...
 sat
 
 Model:
-(define-const _let_3_0 tree (leaf zero))
-(define-const x3 tree (leaf zero))
-(define-const x2 list null)
-(define-const x1 nat (succ zero))
+(model
+  (define-const _let_3_0 tree (leaf zero))
+  (define-const x3 tree (leaf zero))
+  (define-const x2 list null)
+  (define-const x1 nat (succ zero))
+)
 
 Loading define-fun-rec.smt2 ...
 Warning: assuming that recursive function square is partial
@@ -491,6 +497,14 @@ unsat
 ((not (= (tail (children x)) nil)))
 Loading datatype4.smt2 ...
 sat
+Loading datatype5.smt2 ...
+sat
+(model
+  (define-const z S A)
+  (define-const y S B)
+  (define-const x S C)
+)
+unsat
 Loading cvc-datatype-1.smt2 ...
 sat
 Loading unsat-core.smt2 ...

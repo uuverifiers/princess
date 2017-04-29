@@ -2523,32 +2523,38 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                     resultSortNum : Int,
                                     constructorDecls : Seq[ConstructorDeclC])
                 : (Seq[(String, ADT.CtorSignature)], Seq[Seq[SMTType]]) =
-    (for (ctor <- constructorDecls) yield {
-       val ctorDecl = ctor.asInstanceOf[ConstructorDecl]
-       val ctorName = asString(ctorDecl.symbol_)
+    (for (ctor <- constructorDecls) yield ctor match {
+       case ctorDecl : ConstructorDecl => {
+         val ctorName = asString(ctorDecl.symbol_)
 
-       val (adtArgs, smtArgs) =
-         (for (s <- ctorDecl.listselectordeclc_) yield {
-            val selDecl = s.asInstanceOf[SelectorDecl]
-            val selName = asString(selDecl.symbol_)
+         val (adtArgs, smtArgs) =
+           (for (s <- ctorDecl.listselectordeclc_) yield {
+              val selDecl = s.asInstanceOf[SelectorDecl]
+              val selName = asString(selDecl.symbol_)
 
-            val (adtSort, smtSort) =
-              (sortNames indexOf (printer print selDecl.sort_)) match {
-                case -1 => {
-                  val t = translateSort(selDecl.sort_)
-                  (ADT.OtherSort(t.toSort), t)
+              val (adtSort, smtSort) =
+                (sortNames indexOf (printer print selDecl.sort_)) match {
+                  case -1 => {
+                    val t = translateSort(selDecl.sort_)
+                    (ADT.OtherSort(t.toSort), t)
+                  }
+                  case ind =>
+                    // we don't have the actual ADT yet, so just put
+                    // null for the moment
+                    (ADT.ADTSort(ind), SMTADT(null, ind))
                 }
-                case ind =>
-                  // we don't have the actual ADT yet, so just put
-                  // null for the moment
-                  (ADT.ADTSort(ind), SMTADT(null, ind))
-              }
 
-            ((selName, adtSort), smtSort)
-          }).unzip
+              ((selName, adtSort), smtSort)
+            }).unzip
 
-        ((ctorName, ADT.CtorSignature(adtArgs, ADT.ADTSort(resultSortNum))),
-         smtArgs)
+          ((ctorName, ADT.CtorSignature(adtArgs, ADT.ADTSort(resultSortNum))),
+           smtArgs)
+       }
+
+       case ctorDecl : NullConstructorDecl =>
+         ((asString(ctorDecl.symbol_),
+           ADT.CtorSignature(List(), ADT.ADTSort(resultSortNum))),
+          List())
      }).unzip
   
   private def setupADT(sortNames : Seq[String],
