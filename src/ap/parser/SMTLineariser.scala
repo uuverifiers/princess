@@ -27,7 +27,8 @@ import ap.theories._
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
-import ap.types.{Sort, SortedIFunction, SortedPredicate}
+import IExpression.Sort
+import ap.types.{SortedIFunction, SortedPredicate}
 import ap.util.Seqs
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,

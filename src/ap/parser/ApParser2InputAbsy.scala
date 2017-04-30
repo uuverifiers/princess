@@ -34,7 +34,8 @@ import ap.basetypes.IdealInt
 import ap.parser.ApInput._
 import ap.parser.ApInput.Absyn._
 import ap.theories.ADT
-import ap.types.{Sort, MonoSortedIFunction, SortedIFunction,
+import IExpression.Sort
+import ap.types.{MonoSortedIFunction, SortedIFunction,
                  SortedConstantTerm,
                  MonoSortedPredicate, SortedPredicate}
 

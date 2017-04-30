@@ -32,7 +32,7 @@ import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic}
-import ap.types.{Sort => TSort, MonoSortedIFunction, MonoSortedPredicate}
+import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
@@ -45,6 +45,7 @@ object SMTParser2InputAbsy {
   private val AC = Debug.AC_PARSER
   
   import Parser2InputAbsy._
+  import IExpression.{Sort => TSort}
 
   abstract class SMTType {
     def toSort : TSort
@@ -432,7 +433,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             Map[PartName, Int]                                          // partNameIndexes
             )](_env, settings) {
   
-  import IExpression._
+  import IExpression.{Sort => TSort, _}
   import Parser2InputAbsy._
   import SMTParser2InputAbsy._
   

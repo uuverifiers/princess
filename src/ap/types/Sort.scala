@@ -551,8 +551,8 @@ object IntToTermTranslator {
  */
 class IntToTermTranslator(implicit decoderContext : Theory.DecoderContext)
       extends CollectingVisitor[Unit, IExpression] {
-  import IExpression._
   import Sort.{NonNumericTerm, NonNumeric}
+  import IExpression.{Sort => _, _}
 
   private def transformArgs(args : Seq[ITerm],
                             sorts : Seq[Sort]) : Seq[ITerm] = {

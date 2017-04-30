@@ -25,7 +25,6 @@ import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.terfor.preds.Predicate
-import ap.types.Sort
 import ap.util.{Debug, Seqs}
 
 import scala.collection.mutable.ArrayBuffer
@@ -86,6 +85,10 @@ object IExpression {
   val Quantifier = ap.terfor.conjunctions.Quantifier
   /** Imported type from the <code>terfor</code> package */
   type Predicate = ap.terfor.preds.Predicate
+  /** Imported type from the <code>types</code> package */
+  type Sort = ap.types.Sort
+  /** Imported companion object from the <code>types</code> package */
+  val Sort = ap.types.Sort
   
   /** Implicit conversion from integers to terms */
   def i(value : Int) : ITerm = IIntLit(value)

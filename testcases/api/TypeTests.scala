@@ -22,7 +22,6 @@
 // Unit tests for types and sorts
 
 import ap.parser._
-import ap.types._
 import ap.SimpleAPI
 import ap.util.Debug
 

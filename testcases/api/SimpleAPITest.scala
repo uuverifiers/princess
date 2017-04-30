@@ -21,7 +21,6 @@
 
 import ap._
 import ap.parser._
-import ap.types.Sort
 
 object SimpleAPITest extends App {
   ap.util.Debug.enableAllAssertions(true)

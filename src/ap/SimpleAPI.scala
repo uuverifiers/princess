@@ -41,7 +41,8 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
-import ap.types.{Sort, SortedConstantTerm, SortedIFunction,
+import IExpression.Sort
+import ap.types.{SortedConstantTerm, SortedIFunction,
                  MonoSortedIFunction, SortedPredicate, TypeTheory,
                  IntToTermTranslator}
 import ap.util.{Debug, Timeout, Seqs}
@@ -501,10 +502,12 @@ class SimpleAPI private (enableAssert : Boolean,
   doDumpScala {
     println("import ap._")
     println("import ap.parser._")
-    println("import ap.types.Sort")
     println("import ap.basetypes.IdealInt")
     println
-    println("SimpleAPI.withProver { p =>")
+    println("SimpleAPI.withProver(tightFunctionScopes = " +
+                                    tightFunctionScopes + ", " +
+                                  "genTotalityAxioms = " +
+                                    genTotalityAxioms + ") { p =>")
     println("import p._")
     println("import IExpression._")
     println("{")
@@ -770,6 +773,9 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def createExistentialConstant(rawName : String, sort : Sort) : ITerm = {
     import IExpression._
+    doDumpSMT {
+      println("; (create-existential " + rawName + ")")
+    }
     val c = createConstantRaw(rawName, "createExistentialConstant", sort)
     existentialConstants = existentialConstants + c
     c
@@ -801,6 +807,9 @@ class SimpleAPI private (enableAssert : Boolean,
    * implicitly existentially quantified.
    */
   def createExistentialConstants(num : Int, sort : Sort) : IndexedSeq[ITerm] = {
+    doDumpSMT {
+      println("; (create-existential ...)")
+    }
     val start = currentOrder.orderedConstants.size
     val cs = createConstantsRaw("X", start until (start + num),
                                 "createExistentialConstant",
@@ -1188,7 +1197,7 @@ class SimpleAPI private (enableAssert : Boolean,
         "val " + f.name +
         " = createFunction(\"" + rawName + "\", List(" +
         (argSorts map (PrettyScalaLineariser sort2String _)).mkString(", ") +
-        "), " + (PrettyScalaLineariser sort2String resSort) + ", " +
+        "), " + (PrettyScalaLineariser sort2String resSort) +
         printPartiality(f.partial) +
         printFunctionalityMode(functionalityMode) + ")")
   }

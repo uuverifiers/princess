@@ -41,7 +41,22 @@ Constructing countermodel ...
 unknown
 
 Possible model:
-(and (and (and (= time 2 ) (= q 0 ) ) (= p 1 ) ) (and (and (and (and (and (and (and (and (and (and (and (and (and (and (= (s2 1 ) false ) (= (s3 1 ) false ) ) (= (ro 1 0 ) false ) ) (= (rd 0 1 ) false ) ) (= (s4 1 ) true ) ) (= (sn 1 ) 1 ) ) (= (sn 0 ) 0 ) ) (= (s6 1 ) false ) ) (= (s6 0 ) true ) ) (= (rcs2 1 ) true ) ) (= (rcs2 0 ) true ) ) (= (x 1 0 ) false ) ) (= (x 0 1 ) false ) ) (= (s0 1 ) false ) ) (= (s5 1 ) false ) ) ) 
+(model
+  (define-const time Int 2)
+  (define-const q Int 0)
+  (define-const p Int 1)
+  (define-fun s2 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+  (define-fun s3 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+  (define-fun ro ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 0)) false true))
+  (define-fun rd ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 0) (= x!1 1)) false true))
+  (define-fun s4 ((x!0 Int)) Bool (ite (= x!0 1) true true))
+  (define-fun sn ((x!0 Int)) Int (ite (= x!0 0) 0 (ite (= x!0 1) 1 0)))
+  (define-fun s6 ((x!0 Int)) Bool (ite (= x!0 0) true (ite (= x!0 1) false true)))
+  (define-fun rcs2 ((x!0 Int)) Bool (ite (= x!0 0) true (ite (= x!0 1) true true)))
+  (define-fun x ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 0) (= x!1 1)) false (ite (and (= x!0 1) (= x!1 0)) false true)))
+  (define-fun s0 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+  (define-fun s5 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+)
 
 Loading proofBug.pri ...
 Preprocessing ...
@@ -102,5 +117,5 @@ VALID
 
 Loading abbrev-interpolation.smt2 ...
 unsat
-((and (and (and (and (and (and (and (= |main::A3@3| 1 ) (= |main::A1@3| 0 ) ) (= |main::S0@3| 0 ) ) (= |main::B1@3| 1 ) ) (= |main::S@3| 0 ) ) (= |main::A2@3| (- 2) ) ) (= |main::B2@3| (- 1) ) ) (or (and (= |main::E0@3| 1 ) (or (= |main::E@3| 1 ) (= |main::E@3| 0 ) ) ) (and (= |main::E0@3| 0 ) (and (<= 0 (+ 1 (* (- 1) |main::E@3| ) ) ) (<= 0 |main::E@3| ) ) ) ) ) 
-(and (and (and (and (and (= |main::A3@3| 1 ) (= |main::S0@4| 0 ) ) (= |main::B1@3| 1 ) ) (= |main::A2@3| (- 2) ) ) (= |main::B2@3| (- 1) ) ) (and (or (or (or (or (not (= 0 (* 0 (- 1) ) ) ) (not (= |main::E@4| |main::E0@5| ) ) ) (<= 0 (+ 100 (+ (* |main::A1@3| __VERIFIER_nondet_double@10 ) (+ (* 2 |main::E0@5| ) (+ |main::S@4| |main::E0@4| ) ) ) ) ) ) (or (or (not (= (* |main::S@4| 1 ) |main::S@4| ) ) (not (= (* (* 2 |main::E0@4| ) 0 ) 0 ) ) ) (not (= (* |main::E0@4| 1 ) |main::E0@4| ) ) ) ) (or (or (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10 ) (+ |main::S@4| |main::E0@4| ) ) 0 ) (= |main::E0@5| 1 ) ) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10 ) |main::S@4| ) 1 ) (or (and (= |main::E0@5| 1 ) (= |main::E0@4| 0 ) ) (and (= |main::E0@5| 0 ) (<= 0 |main::E0@4| ) ) ) ) ) (and (not (= __VERIFIER_nondet_double@10 1 ) ) (or (not (= __VERIFIER_nondet_double@10 0 ) ) (not (= (* |main::A1@3| 0 ) (* |main::A1@3| __VERIFIER_nondet_double@10 ) ) ) ) ) ) ) (or (or (or (or (not (= 0 (* 0 (- 1) ) ) ) (not (= |main::E@4| |main::E0@5| ) ) ) (<= 0 (+ 100 (+ (* (- 1) (* |main::A1@3| __VERIFIER_nondet_double@10 ) ) (+ (* (- 1) (* 2 |main::E0@5| ) ) (+ (* (- 1) |main::S@4| ) (* (- 1) |main::E0@4| ) ) ) ) ) ) ) (or (or (not (= (* |main::S@4| 1 ) |main::S@4| ) ) (not (= (* (* 2 |main::E0@4| ) 0 ) 0 ) ) ) (not (= (* |main::E0@4| 1 ) |main::E0@4| ) ) ) ) (or (or (or (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10 ) (+ |main::S@4| |main::E0@4| ) ) 1 ) (= |main::E0@5| 0 ) ) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10 ) (+ |main::S@4| |main::E0@4| ) ) 0 ) (= |main::E0@5| 1 ) ) ) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10 ) |main::S@4| ) 1 ) (or (and (= |main::E0@5| 1 ) (= |main::E0@4| 0 ) ) (and (= |main::E0@5| 0 ) (<= 0 (+ 1 (* (- 1) |main::E0@4| ) ) ) ) ) ) ) (and (not (= __VERIFIER_nondet_double@10 1 ) ) (or (not (= __VERIFIER_nondet_double@10 0 ) ) (not (= (* |main::A1@3| 0 ) (* |main::A1@3| __VERIFIER_nondet_double@10 ) ) ) ) ) ) ) ) ) )
+((and (and (and (and (and (and (and (= |main::A3@3| 1) (= |main::A1@3| 0)) (= |main::S0@3| 0)) (= |main::B1@3| 1)) (= |main::S@3| 0)) (= |main::A2@3| (- 2))) (= |main::B2@3| (- 1))) (or (and (= |main::E0@3| 1) (or (= |main::E@3| 1) (= |main::E@3| 0))) (and (= |main::E0@3| 0) (and (<= 0 (+ 1 (* (- 1) |main::E@3|))) (<= 0 |main::E@3|)))))
+(and (and (and (and (and (= |main::A3@3| 1) (= |main::S0@4| 0)) (= |main::B1@3| 1)) (= |main::A2@3| (- 2))) (= |main::B2@3| (- 1))) (and (or (or (or (or (not (= 0 (* 0 (- 1)))) (not (= |main::E@4| |main::E0@5|))) (<= 0 (+ 100 (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ (* 2 |main::E0@5|) (+ |main::S@4| |main::E0@4|)))))) (or (or (not (= (* |main::S@4| 1) |main::S@4|)) (not (= (* (* 2 |main::E0@4|) 0) 0))) (not (= (* |main::E0@4| 1) |main::E0@4|)))) (or (or (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ |main::S@4| |main::E0@4|)) 0) (= |main::E0@5| 1)) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) |main::S@4|) 1) (or (and (= |main::E0@5| 1) (= |main::E0@4| 0)) (and (= |main::E0@5| 0) (<= 0 |main::E0@4|))))) (and (not (= __VERIFIER_nondet_double@10 1)) (or (not (= __VERIFIER_nondet_double@10 0)) (not (= (* |main::A1@3| 0) (* |main::A1@3| __VERIFIER_nondet_double@10))))))) (or (or (or (or (not (= 0 (* 0 (- 1)))) (not (= |main::E@4| |main::E0@5|))) (<= 0 (+ 100 (+ (* (- 1) (* |main::A1@3| __VERIFIER_nondet_double@10)) (+ (* (- 1) (* 2 |main::E0@5|)) (+ (* (- 1) |main::S@4|) (* (- 1) |main::E0@4|))))))) (or (or (not (= (* |main::S@4| 1) |main::S@4|)) (not (= (* (* 2 |main::E0@4|) 0) 0))) (not (= (* |main::E0@4| 1) |main::E0@4|)))) (or (or (or (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ |main::S@4| |main::E0@4|)) 1) (= |main::E0@5| 0)) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ |main::S@4| |main::E0@4|)) 0) (= |main::E0@5| 1))) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) |main::S@4|) 1) (or (and (= |main::E0@5| 1) (= |main::E0@4| 0)) (and (= |main::E0@5| 0) (<= 0 (+ 1 (* (- 1) |main::E0@4|))))))) (and (not (= __VERIFIER_nondet_double@10 1)) (or (not (= __VERIFIER_nondet_double@10 0)) (not (= (* |main::A1@3| 0) (* |main::A1@3| __VERIFIER_nondet_double@10))))))))))
