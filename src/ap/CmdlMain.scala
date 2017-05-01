@@ -478,8 +478,7 @@ object CmdlMain {
       }
       case e : Throwable => {
         if (format == Param.InputFormat.SMTLIB) {
-          println("error")
-	  Console.err.println(e.getMessage)
+          println("(error \"" + e.getMessage.replace("\"", "\"\"") + "\")")
 	} else {
           println("ERROR: " + e.getMessage)
         }

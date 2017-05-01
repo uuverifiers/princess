@@ -591,10 +591,9 @@ class InputDialog extends JPanel {
   */
 
   newTabWithInput("SMT-LIB interpolation", None,
-                  "-inputFormat=smtlib -genTotalityAxioms", asString{
+                  "-inputFormat=smtlib", asString{
     println(";")
-    println("; For interpolation, the option \"-genTotalityAxioms\" has to be specified,")
-    println("; since the quantified totality axioms cannot be handled otherwise.")
+    println("; Simple interpolation example")
     println(";")
     println
     println("(set-logic AUFLIA)")
