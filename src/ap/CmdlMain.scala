@@ -303,6 +303,26 @@ object CmdlMain {
       }
     }
   
+  private def printModel(model : IFormula)
+                        (implicit format : Param.InputFormat.Value) : Unit =
+    format match {
+      case Param.InputFormat.SMTLIB =>
+        SMTLineariser printModel model
+/*      case Param.InputFormat.Princess => {
+        val modelStr = PrincessLineariser asString model
+        val modelParts = (modelStr split " & ") sortWith {
+          (str1, str2) => (!(str1 contains '(') && (str2 contains '(')) ||
+                          str1 < str2
+        }
+        if (modelStr.size > 60)
+          println(modelParts.mkString(" &" + System.lineSeparator()))
+        else
+          println(modelParts.mkString(" & "))
+      } */
+      case _ =>
+        printFormula(model)
+    }
+  
   private def printFormula(c : Conjunction)
                           (implicit format : Param.InputFormat.Value) : Unit =
     printFormula((new Simplifier)(Internal2InputAbsy(c)))
@@ -458,8 +478,7 @@ object CmdlMain {
       }
       case e : Throwable => {
         if (format == Param.InputFormat.SMTLIB) {
-          println("error")
-	  Console.err.println(e.getMessage)
+          println("(error \"" + e.getMessage.replace("\"", "\"\"") + "\")")
 	} else {
           println("ERROR: " + e.getMessage)
         }
@@ -551,7 +570,7 @@ object CmdlMain {
                 for (model <- optModel) Console.withOut(Console.err) {
                   println
                   println("Model:")
-                  printFormula(model)
+                  printModel(model)
                 }
               }
               case Prover.MaybeCounterModel(optModel) =>  {
@@ -559,7 +578,7 @@ object CmdlMain {
                 for (model <- optModel) Console.withOut(Console.err) {
                   println
                   println("Possible model:")
-                  printFormula(model)
+                  printModel(model)
                 }
               }
               case Prover.NoCounterModel =>  {
@@ -641,7 +660,7 @@ object CmdlMain {
                   case _ => {
                     println
                     println("Concrete witness:")
-                    printFormula(model)
+                    printModel(model)
                   }
                 }
                 if (Param.PRINT_TREE(settings)) {
@@ -677,7 +696,7 @@ object CmdlMain {
                   case Some(model) => {
                     println
                     println("Countermodel:")
-                    printFormula(model)
+                    printModel(model)
                   }
                 }
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -693,7 +712,7 @@ object CmdlMain {
                   case Some(model) => {
                     println
                     println("Possible countermodel:")
-                    printFormula(model)
+                    printModel(model)
                   }
                 }
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
@@ -739,7 +758,7 @@ object CmdlMain {
                 for (model <- optModel) {
                   println
                   println("Under the assignment:")
-                  printFormula(model)
+                  printModel(model)
                 }
               }
               case Prover.NoModel =>  {

@@ -6,7 +6,6 @@
 |)
 (set-info :smt-lib-version 2.0)
 (set-info :category "industrial")
-(declare-fun |#to_int| (Real) Int)
 (declare-fun |c___VERIFIER_nondet_int_#res| () Int)
 (declare-fun |c___VERIFIER_nondet_int_#res_primed| () Int)
 (declare-fun |c_ULTIMATE.start_#t~ret5| () Int)

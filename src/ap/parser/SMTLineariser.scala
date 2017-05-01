@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,9 +27,12 @@ import ap.theories._
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
+import IExpression.Sort
+import ap.types.{SortedIFunction, SortedPredicate}
 import ap.util.Seqs
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
+                                 LinkedHashMap}
 
 import java.io.PrintStream
 
@@ -54,6 +57,100 @@ object SMTLineariser {
     else
       value.toString
   
+  def printModel(model : IFormula) : Unit = {
+    import IExpression._
+    import Sort.:::
+
+    println("(model")
+
+    def printEq(lhs : ConstantTerm, sort : Sort, rhs : ITerm) : Unit = {
+      print("  (define-const " + quoteIdentifier(lhs.name) + " ")
+      printSMTType(sort2SMTType(sort)._1)
+      print(" ")
+      apply(rhs)
+      println(")")
+    }
+
+    val funPoints =
+      new LinkedHashMap[IFunction, ArrayBuffer[(Seq[ITerm], ITerm)]]
+    val predPoints =
+      new LinkedHashMap[Predicate, ArrayBuffer[(Seq[ITerm], Boolean)]]
+
+    for (conj <- LineariseVisitor(model, IBinJunctor.And)) conj match {
+      case Eq(IConstant(c) ::: sort, t) =>
+        printEq(c, sort, t)
+      case Eq(t, IConstant(c) ::: sort) =>
+        printEq(c, sort, t)
+      case Eq(IFunApp(f, args), t)
+          if (TheoryRegistry lookupSymbol f).isEmpty =>
+        funPoints.getOrElseUpdate(f, new ArrayBuffer) += ((args, t))
+      case Eq(t, IFunApp(f, args))
+          if (TheoryRegistry lookupSymbol f).isEmpty =>
+        funPoints.getOrElseUpdate(f, new ArrayBuffer) += ((args, t))
+      case IAtom(p, Seq()) =>
+        println("  (define-const " + quoteIdentifier(p.name) + " Bool true)")
+      case INot(IAtom(p, Seq())) =>
+        println("  (define-const " + quoteIdentifier(p.name) + " Bool false)")
+      case IAtom(p, args) =>
+        predPoints.getOrElseUpdate(p, new ArrayBuffer) += ((args, true))
+      case INot(IAtom(p, args)) =>
+        predPoints.getOrElseUpdate(p, new ArrayBuffer) += ((args, false))
+    }
+
+    for ((f, points) <- funPoints) {
+      val ft@(argSorts, resSort) =
+        SortedIFunction.iFunctionType(f, points.head._1)
+      val formalArgs =
+        for ((s, n) <- argSorts.zipWithIndex) yield (s newConstant ("x!" + n))
+      val default =
+        resSort.witness getOrElse i(0)
+      val body =
+        (default /: points) {
+          case (ob, (args, result)) => ite(formalArgs === args, result, ob)
+        }
+      print("  ")
+      printDefineFun(f, ft, formalArgs, body)
+    }
+
+    for ((p, points) <- predPoints) {
+      val argSorts =
+        SortedPredicate.iArgumentSorts(p, points.head._1)
+      val formalArgs =
+        for ((s, n) <- argSorts.zipWithIndex) yield (s newConstant ("x!" + n))
+      val body =
+        or(for ((args, true) <- points.iterator) yield (formalArgs === args))
+      print("  ")
+      printDefineFun(new IFunction(p.name, p.arity, false, false),
+                     (argSorts, Sort.Bool), formalArgs, body)
+    }
+
+    println(")")
+  }
+
+  def printDefineFun(f : IFunction,
+                     functionType : (Seq[Sort], Sort),
+                     formalArgs : Seq[ConstantTerm],
+                     body : IExpression) : Unit = {
+    val (argSorts, resSort) = functionType
+
+    print("(define-fun " + quoteIdentifier(f.name) + " (")
+    var sep = ""
+    for ((a, t) <- formalArgs.iterator zip argSorts.iterator) {
+      print(sep)
+      sep = " "
+      print("(")
+      print(quoteIdentifier(a.name))
+      print(" ")
+      printSMTType(sort2SMTType(t)._1)
+      print(")")
+    }
+    print(") ")
+    printSMTType(sort2SMTType(resSort)._1)
+    print(" ")
+    apply(body)
+    println(")")
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val emptyConstantType :
@@ -67,19 +164,49 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
+                              SMTFunctionType}
+
+  def printSMTType(t : SMTType) : Unit = t match {
+    case SMTInteger          => print("Int")
+    case SMTBool             => print("Bool")
+    case t : SMTADT          => print(t)
+    case SMTArray(args, res) => {
+      print("(Array")
+      for (s <- args) {
+        print(" ")
+        printSMTType(s)
+      }
+      print(" ")
+      printSMTType(res)
+      print(")")
+    }
+  }
+
+  def sort2SMTType(sort : Sort) : (SMTType,
+                                   Option[ITerm => IFormula]) = sort match {
+    case Sort.Integer =>
+      (SMTInteger, None)
+    case Sort.Nat | _ : Sort.Interval =>
+      (SMTInteger, Some(sort.membershipConstraint _))
+    case Sort.Bool =>
+      (SMTBool, None)
+    case sort : ADT.ADTProxySort =>
+      (SMTADT(sort.adtTheory, sort.sortNum), None)
+  }
+
+  def sort2SMTString(sort : Sort) : String =
+    DialogUtil asString { printSMTType(sort2SMTType(sort)._1) }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def apply(expr : IExpression) : Unit = expr match {
+    case f : IFormula => apply(f)
+    case t : ITerm =>    apply(t)
+  }
+
   def apply(formula : IFormula) : Unit =
     apply(formula, emptyConstantType, emptyFunctionType)
-
-  def asString(formula : IFormula) : String =
-    ap.DialogUtil.asString { apply(formula) }
-
-  def asString(t : ITerm) : String =
-    ap.DialogUtil.asString { apply(t) }
-
-  def asString(t : IExpression) : String = t match {
-    case t : IFormula => asString(t)
-    case t : ITerm => asString(t)
-  }
 
   def apply(formula : IFormula,
             constantType :
@@ -100,6 +227,17 @@ object SMTLineariser {
                                        emptyConstantType, emptyFunctionType)
     lineariser printTerm term
   }
+
+  def asString(t : IExpression) : String = t match {
+    case t : IFormula => asString(t)
+    case t : ITerm => asString(t)
+  }
+
+  def asString(formula : IFormula) : String =
+    ap.DialogUtil.asString { apply(formula) }
+
+  def asString(t : ITerm) : String =
+    ap.DialogUtil.asString { apply(t) }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -188,7 +326,8 @@ class SMTLineariser(benchmarkName : String,
                            IFunction => Option[SMTParser2InputAbsy.SMTFunctionType]) {
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr,
-                        trueConstant, falseConstant, eqPredicate}
+                        trueConstant, falseConstant, eqPredicate,
+                        printSMTType}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -251,11 +390,11 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
-    AbsyPrinter.visit(typedFormula, PrintContext(List(), None))
+    AbsyPrinter(typedFormula)
   }
   
   def printTerm(term : ITerm) =
-    AbsyPrinter.visit(term, PrintContext(List(), None))
+    AbsyPrinter(term)
   
   def close {
     println("(check-sat)")
@@ -473,23 +612,6 @@ class SMTLineariser(benchmarkName : String,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def printSMTType(t : SMTType) : Unit = t match {
-    case SMTInteger => print("Int")
-    case SMTBool    => print("Bool")
-    case SMTArray(args, res) => {
-      print("(Array")
-      for (s <- args) {
-        print(" ")
-        printSMTType(s)
-      }
-      print(" ")
-      printSMTType(res)
-      print(")")
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-
   private case class PrintContext(vars : List[(String, Option[SMTType])],
                                   pendingType : Option[SMTType]) {
     def pushVar(name : String) =
@@ -501,43 +623,46 @@ class SMTLineariser(benchmarkName : String,
 
   private object AbsyPrinter extends CollectingVisitor[PrintContext, Unit] {
 
+    private var spaceSkipped = false
+    private def addSpace : Unit =
+      if (spaceSkipped)
+        print(" ")
+      else
+        spaceSkipped = true
+
+    def apply(e : IExpression) : Unit = {
+      spaceSkipped = false
+      visitWithoutResult(e, PrintContext(List(), None))
+    }
+
     override def preVisit(t : IExpression,
                           ctxt : PrintContext) : PreVisitResult = {
     import ctxt.variableType
     t match {
-      // Terms with Boolean type, which were encoded as integer terms
-      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
-        // strip off the integer encoding
-        TryAgain(t, ctxt)
-
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-      case IIntFormula(IIntRelation.EqZero,
-                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
-        // strip off the integer encoding
-        TryAgain(!IExpression.eqZero(t), ctxt)
-
       // Terms
       case IConstant(c) => {
-        print(const2Identifier(c) + " ")
+        addSpace
+        print(const2Identifier(c))
         ShortCutResult(())
       }
       case IIntLit(value) => {
-        print(toSMTExpr(value) + " ")
+        addSpace
+        print(toSMTExpr(value))
         ShortCutResult(())
       }
       case IPlus(_, _) => {
-        print("(+ ")
+        addSpace
+        print("(+")
         KeepArg
       }
       case ITimes(coeff, _) => {
-        print("(* " + toSMTExpr(coeff) + " ")
+        addSpace
+        print("(* " + toSMTExpr(coeff))
         KeepArg
       }
       case IVariable(index) => {
-        print(ctxt.vars(index)._1 + " ")
+        addSpace
+        print(ctxt.vars(index)._1)
         ShortCutResult(())
       }
       case t@IFunApp(fun, args) => {
@@ -562,49 +687,85 @@ class SMTLineariser(benchmarkName : String,
         if (changed) {
           TryAgain(IFunApp(fun, newArgs), ctxt)
         } else {
-          print((if (args.isEmpty) "" else "(") + fun2Identifier(fun) + " ")
+          addSpace
+          print((if (args.isEmpty) "" else "(") + fun2Identifier(fun))
           KeepArg
         }
       }
 
       case _ : ITermITE | _ : IFormulaITE => {
-        print("(ite ")
+        addSpace
+        print("(ite")
         KeepArg
       }
 
       // Formulae
       case IAtom(pred, args) => {
-        print((if (args.isEmpty) "" else "(") + pred2Identifier(pred) + " ")
+        addSpace
+        print((if (args.isEmpty) "" else "(") + pred2Identifier(pred))
         KeepArg
       }
       case IBinFormula(junctor, _, _) => {
+        addSpace
         print("(")
         print(junctor match {
           case IBinJunctor.And => "and"
           case IBinJunctor.Or => "or"
           case IBinJunctor.Eqv => "="
         })
-        print(" ")
         KeepArg
       }
       case IBoolLit(value) => {
-        print(value + " ")
+        addSpace
+        print(value)
         ShortCutResult(())
       }
+
+      // Terms with Boolean type, which were encoded as integer terms or
+      // using ADTs
+      case IExpression.Eq(ADT.BoolADT.True, t) =>
+        // strip off the ADT encoding
+        TryAgain(t, ctxt)
+      case IExpression.Eq(t, ADT.BoolADT.True) =>
+        // strip off the ADT encoding
+        TryAgain(t, ctxt)
+      case IExpression.Eq(ADT.BoolADT.False, t) =>
+        // strip off the ADT encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+      case IExpression.Eq(t, ADT.BoolADT.False) =>
+        // strip off the ADT encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+
+      case IIntFormula(IIntRelation.EqZero, BooleanTerm(t)) =>
+        // strip off the integer encoding
+        TryAgain(t, ctxt)
+
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(BooleanTerm(t), IIntLit(v))) if (!v.isZero) =>
+        // strip off the integer encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
+        // strip off the integer encoding
+        TryAgain(!IExpression.eqZero(t), ctxt)
+
+      // General equations
       case IExpression.Eq(s, t) =>
         // rewrite to a proper equation
         TryAgain(IAtom(eqPredicate, List(s, t)), ctxt)
       case IIntFormula(rel, _) => {
+        addSpace
         print("(")
         print(rel match {
           case IIntRelation.EqZero => "="
           case IIntRelation.GeqZero => "<="
         })
-        print(" 0 ")
+        print(" 0")
         KeepArg
       }
       case INot(_) => {
-        print("(not ")
+        addSpace
+        print("(not")
         KeepArg
       }
       case IQuantified(Quantifier.ALL,
@@ -622,6 +783,7 @@ class SMTLineariser(benchmarkName : String,
                                 subF)) =>
         TryAgain(IExpression.eps(subF), ctxt addPendingType t)
       case IQuantified(quan, _) => {
+        addSpace
         val varName = "var" + ctxt.vars.size
         print("(")
         print(quan match {
@@ -630,7 +792,7 @@ class SMTLineariser(benchmarkName : String,
         })
         print(" ((" + varName + " ")
         printSMTType(ctxt.pendingType.getOrElse(SMTInteger))
-        print(")) ")
+        print("))")
         UniSubArgs(ctxt pushVar varName)
       }
 
@@ -643,7 +805,8 @@ class SMTLineariser(benchmarkName : String,
            ))
          if (num1 == num2 && denom1 == denom2 && denom2.abs == denom3 &&
              ContainsSymbol.freeFrom(num1, Set(IVariable(0)))) => {
-        print("(div ")
+        addSpace
+        print("(div")
         visit(VariableShiftVisitor(num1, 1, -1), ctxt)
         print(" " + toSMTExpr(denom1) + ")")
         ShortCutResult(())
@@ -659,29 +822,32 @@ class SMTLineariser(benchmarkName : String,
                               ITimes(denom2, IVariable(0)), IVariable(1))))))
          if (ContainsSymbol.freeFrom(num, Set(IVariable(0), IVariable(1))) &&
              denom1 == denom2.abs) => {
-        print("(mod ")
+        addSpace
+        print("(mod")
         visit(VariableShiftVisitor(num, 2, -2), ctxt)
         print(" " + toSMTExpr(denom2) + ")")
         ShortCutResult(())
       }
 
       case _ : IEpsilon => {
+        addSpace
         val varName = "var" + ctxt.vars.size
         print("(_eps ((" + varName + " ")
         printSMTType(ctxt.pendingType.getOrElse(SMTInteger))
-        print(")) ")
+        print("))")
         UniSubArgs(ctxt pushVar varName)
       }
       case ITrigger(trigs, body) => {
         // we have to handle this case recursively, since the
         // order of the parameters has to be changed
         
+        addSpace
         print("(! ")
         visit(body, ctxt)
         print(" :pattern (")
         for (t <- trigs)
           visit(t, ctxt)
-        print(")) ")
+        print("))")
         
         ShortCutResult(())
       }
@@ -690,11 +856,12 @@ class SMTLineariser(benchmarkName : String,
     
     def postVisit(t : IExpression,
                   arg : PrintContext, subres : Seq[Unit]) : Unit = t match {
-      case IPlus(_, _) | ITimes(_, _) | IAtom(_, Seq(_, _*)) | IFunApp(_, Seq(_, _*)) |
+      case IPlus(_, _) | ITimes(_, _) | IAtom(_, Seq(_, _*)) |
+           IFunApp(_, Seq(_, _*)) |
            IBinFormula(_, _, _) | IIntFormula(_, _) | INot(_) |
            IQuantified(_, _) | IEpsilon(_) |
            ITermITE(_, _, _) | IFormulaITE(_, _, _) =>
-        print(") ")
+        print(")")
       case IAtom(_, _) | IFunApp(_, _) =>
         // nothing
     }

@@ -22,15 +22,13 @@
 package ap;
 
 import ap.basetypes.IdealInt
-import ap.parser.Internal2InputAbsy
 import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.{Certificate, DagCertificateConverter}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.{Seqs, Debug, Timeout}
-import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier,
-                        ArraySimplifier}
+import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier}
 
 object IntelliFileProver {
   
@@ -132,11 +130,6 @@ class IntelliFileProver(reader : java.io.Reader,
   }
   */
   
-  private def toIFormula(c : Conjunction) = {
-    val raw = Internal2InputAbsy(c, functionEncoder.predTranslation)
-    (new ArraySimplifier)(raw)
-  }
-  
   lazy val counterModelResult : CounterModelResult =
     Timeout.catchTimeout[CounterModelResult] { 
       findCounterModelTimeout match {
@@ -146,7 +139,7 @@ class IntelliFileProver(reader : java.io.Reader,
           } else {
             val optModel =
               if (Param.COMPUTE_MODEL(settings))
-                Some(toIFormula(model))
+                Some(toIFormula(model, true))
               else
                 None
 

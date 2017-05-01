@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -350,6 +350,11 @@ class InputDialog extends JPanel {
   
   private def defaultNewTab =
     newTabWithInput("Problem " + (createdTabs + 1), None, "", asString {
+      println("\\sorts {")
+      println("  /* Declare sorts and algebraic data-types */")
+      println("  ")
+      println("}")
+      println
       println("\\universalConstants {")
       println("  /* Declare universally quantified constants of the problem */")
       println("  ")
@@ -424,7 +429,116 @@ class InputDialog extends JPanel {
   
   //////////////////////////////////////////////////////////////////////////////
   // Set up the example tabs
-  
+
+  newTabWithInput("ADTs", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Problem over Algebraic Data-Types")
+    println(" */")
+    println
+    println("/* Definition of Algebraic Data-Types */")
+    println("\\sorts {")
+    println("  Colour { red; green; blue; };")
+    println("  Pair { Pair(int x, Colour c); };")
+    println("}")
+    println("")
+    println("/* Definition of functions and variables of the problem */")
+    println("\\functions {")
+    println("  Pair inc(Pair p) { Pair(p.x + 1, p.c) };")
+    println("  Pair p;")
+    println("  int f(Pair);")
+    println("}")
+    println("")
+    println("/* Problem to be proven */")
+    println("\\problem {")
+    println("  \\forall Pair p; f(p) = \\abs(p.x)")
+    println("->")
+    println("  f(p) != f(inc(p))")
+    println("}")
+  })
+
+  newTabWithInput("Quantifiers", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Problem in Presburger arithmetic with uninterpreted predicates")
+    println(" */")
+    println
+    println("\\existentialConstants {")
+    println("  /* Declare existentially quantified constants of the problem */")
+    println
+    println("  int A;")
+    println("}")
+    println
+    println("\\predicates {")
+    println("  /* Declare predicates occurring in the problem */  ")
+    println
+    println("  divides(int, int);")
+    println("}")
+    println
+    println("\\problem {")
+    println("  /* Problem to be proven. The implicit quantification is:")
+    println("   *    \\exists <existentialConstants>; \\forall <predicates>; ... */")
+    println
+    println("     \\forall int x; divides(x, x)")
+    println("  -> \\forall int x, y; (divides(x, y) -> divides(x, y+x) & divides(x, y-x))")
+    println("  ->")
+    println("     divides(A, 42) & divides(A, 49) & A > 1")
+    println("}")
+  })
+
+  newTabWithInput("Interpolation", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Craig interpolation problem in Presburger arithmetic")
+    println(" */")
+    println
+    println("\\functions {")
+    println("   int x, a, b, c;")
+    println("}")
+    println
+    println("\\problem {")
+    println("  /* Problem to be proven and interpolated */")
+    println
+    println("  \\part[cond]          (a-2*x = 0 & -a <= 0) &")
+    println("  \\part[stmt1]         (2*b - a <=0 & -2*b + a -1 <=0) &")
+    println("  \\part[stmt2]         c-3*b-1=0")
+    println("                       ->")
+    println("  \\part[assert]        c > a")
+    println("}")
+    println
+    println("/* Interpolation specification */")
+    println("\\interpolant {cond; stmt1, stmt2, assert}")
+    println("\\interpolant {cond, stmt1; stmt2, assert}")
+    println("\\interpolant {cond, stmt1, stmt2; assert}")
+  })
+
+  newTabWithInput("Quantifier elimination", None, "+mostGeneralConstraint", asString {
+    println("/**")
+    println(" * Quantifier elimination example:")
+    println(" *")
+    println(" * \"There a bound B such that every integer x >= B")
+    println(" *  can be expressed as a non-negative linear combination")
+    println(" *  of 7 and 8.\"")
+    println(" *")
+    println(" * The best such bound can be computed using")
+    println(" * quantifier elimination. For this, variables are")
+    println(" * declared within \\existentialConstants, and the option")
+    println(" * +mostGeneralConstraint is used.")
+    println(" */")
+    println("")
+    println("\\existentialConstants {")
+    println("  int B;")
+    println("}")
+    println("")
+    println("\\problem {")
+    println("  \\forall int x; (x >= B -> \\exists nat y, z; x = 7*y + 8*z)")
+    println("/**")
+    println(" * Quantifier elimination determines that this formula is")
+    println(" * equivalent to   B >= 42")
+    println(" */")
+    println("}")
+  })
+
   newTabWithInput("SMT-LIB input", None, "-inputFormat=smtlib", asString{
     println("(set-logic AUFLIA)")
     println("(declare-fun a () Int)")
@@ -438,7 +552,122 @@ class InputDialog extends JPanel {
     println
     println("(check-sat)")
   })
+
+/*
+  newTabWithInput("Array interpolation", None, "", asString {
+    println("/**")
+    println(" * Example:")
+    println(" * Craig interpolation problem in the theory of arrays")
+    println(" */")
+    println
+    println("\\functions {")
+    println("  int x, y, z, ar;")
+    println("  \\partial int select(int, int);")
+    println("  \\partial int store(int, int, int);")
+    println("}")
+    println
+    println("\\problem {")
+    println("// Array axioms")
+    println("  \\forall int ar, ind, val; {select(store(ar, ind, val), ind)}")
+    println("    select(store(ar, ind, val), ind) = val")
+    println("->")
+    println("  \\forall int ar, ind1, ind2, val; {select(store(ar, ind1, val), ind2)}")
+    println("    (ind1 != ind2 -> select(store(ar, ind1, val), ind2) = select(ar, ind2))")
+    println("->")
+    println
+    println("  \\part[p0] (store(0, x, 1) = ar)")
+    println("->")
+    println("  \\part[p1] (select(ar, y) >= select(ar, x))")
+    println("->")
+    println("  \\part[p2] (z = select(ar, y)+1)")
+    println("->")
+    println("  \\part[p3] (z < 0)")
+    println("->")
+    println("  false")
+    println("}")
+    println
+    println("\\interpolant {p0, p1; p2, p3}")
+  })
+  */
+
+  newTabWithInput("SMT-LIB interpolation", None,
+                  "-inputFormat=smtlib", asString{
+    println(";")
+    println("; Simple interpolation example")
+    println(";")
+    println
+    println("(set-logic AUFLIA)")
+    println
+    println("(set-option :produce-interpolants true)")
+    println
+    println("(declare-fun f (Int) Int)")
+    println("(declare-fun a () Int)")
+    println("(declare-fun b () Int)")
+    println
+    println("(assert (> a (* b 2)))")
+    println("(assert (< a (+ (* b 2) 2)))")
+    println("(assert (> (f (- a 1)) (f (* 2 b))))")
+    println
+    println("(check-sat)")
+    println("(get-interpolants)")
+  })
   
+  newTabWithInput("Incremental SMT-LIB", None,
+                  "-inputFormat=smtlib +incremental", asString{
+    println(";")
+    println(";  Example from \"Interpolation in SMTLIB 2.0\", Juergen Christ, Jochen Hoenicke")
+    println(";  (slightly modified)")
+    println(";")
+    println(";  The use of :named formulae for interpolation is currently only supported in")
+    println(";  incremental mode")
+    println(";")
+    println("")
+    println("(set-option :print-success false)")
+    println("(set-option :produce-interpolants true)")
+    println("(set-logic QF_UFLIA)")
+    println("")
+    println("(declare-fun x_1 () Int)")
+    println("(declare-fun xm1 () Int)")
+    println("(declare-fun x2 () Int)")
+    println("(declare-fun res4 () Int)")
+    println("(declare-fun resm5 () Int)")
+    println("(declare-fun xm6 () Int)")
+    println("(declare-fun x7 () Int)")
+    println("(declare-fun res9 () Int)")
+    println("(declare-fun resm10 () Int)")
+    println("(declare-fun res11 () Int)")
+    println("(assert (! (<= x_1 100) :named M1))")
+    println("(assert (! (= xm1 (+ x_1 11)) :named M2))")
+    println("(assert (! (> x2 100) :named S11))")
+    println("(assert (! (= res4 (- x2 10)) :named S12))")
+    println("(assert (! (and (= x2 xm1) (= resm5 res4)) :named S1RET))")
+    println("(assert (! (= xm6 resm5) :named M3))")
+    println("(assert (! (> x7 100) :named S21))")
+    println("(assert (! (= res9 (- x7 10)) :named S22))")
+    println("(assert (! (and (= x7 xm6) (= resm10 res9)) :named S2RET))")
+    println("(assert (! (= res11 resm10) :named M4))")
+    println("(check-sat) ; sat")
+    println("")
+    println("(assert (! (and (<= x_1 101) (distinct res11 91)) :named ERR))")
+    println("(check-sat) ; unsat")
+    println("")
+    println("(echo \"\")")
+    println("(echo \"01:\")")
+    println("(get-interpolants)")
+    println("")
+    println("(echo \"\")")
+    println("(echo \"02:\")")
+    println("(get-interpolants (and M1 M2 S12 S11 S1RET) M3 (and S21 S22 S2RET) (and M4 ERR))")
+    println("")
+    println("(echo \"\")")
+    println("(echo \"03:\")")
+    println("(get-interpolants (and M1 M2 S12 S11 S1RET) (and S21 S22 S2RET) (and M4 ERR) M3)")
+    println("")
+    println("(echo \"\")")
+    println("(echo \"04 (tree interpolants):\")")
+    println("(get-interpolants M1 M2 (S11 S12) S1RET M3 (S21 S22) S2RET M4 ERR)")
+  })
+
   newTabWithInput("TPTP input", None, "-inputFormat=tptp", asString{
     println("%------------------------------------------------------------------------------")
     println("% File     : GEG021=1 : TPTP v5.1.0. Released v5.1.0.")
@@ -516,204 +745,7 @@ class InputDialog extends JPanel {
     println("")
     println("%------------------------------------------------------------------------------")
   })
-  
-  newTabWithInput("Princess own format", None, "", asString {
-    println("/**")
-    println(" * Example:")
-    println(" * Problem in Presburger arithmetic with uninterpreted predicates")
-    println(" */")
-    println
-    println("\\existentialConstants {")
-    println("  /* Declare existentially quantified constants of the problem */")
-    println
-    println("  int A;")
-    println("}")
-    println
-    println("\\predicates {")
-    println("  /* Declare predicates occurring in the problem */  ")
-    println
-    println("  divides(int, int);")
-    println("}")
-    println
-    println("\\problem {")
-    println("  /* Problem to be proven. The implicit quantification is:")
-    println("   *    \\exists <existentialConstants>; \\forall <predicates>; ... */")
-    println
-    println("     \\forall int x; divides(x, x)")
-    println("  -> \\forall int x, y; (divides(x, y) -> divides(x, y+x) & divides(x, y-x))")
-    println("  ->")
-    println("     divides(A, 42) & divides(A, 49) & A > 1")
-    println("}")
-  })
 
-  newTabWithInput("Arithmetic Interpolation", None, "", asString {
-    println("/**")
-    println(" * Example:")
-    println(" * Craig interpolation problem in Presburger arithmetic")
-    println(" */")
-    println
-    println("\\functions {")
-    println("   int x, a, b, c;")
-    println("}")
-    println
-    println("\\problem {")
-    println("  /* Problem to be proven and interpolated */")
-    println
-    println("  \\part[cond]          (a-2*x = 0 & -a <= 0) &")
-    println("  \\part[stmt1]         (2*b - a <=0 & -2*b + a -1 <=0) &")
-    println("  \\part[stmt2]         c-3*b-1=0")
-    println("                       ->")
-    println("  \\part[assert]        c > a")
-    println("}")
-    println
-    println("/* Interpolation specification */")
-    println("\\interpolant {cond; stmt1, stmt2, assert}")
-    println("\\interpolant {cond, stmt1; stmt2, assert}")
-    println("\\interpolant {cond, stmt1, stmt2; assert}")
-  })
-
-  newTabWithInput("Quantifier elimination", None, "+mostGeneralConstraint", asString {
-    println("/**")
-    println(" * Quantifier elimination example:")
-    println(" *")
-    println(" * \"There a bound B such that every integer x >= B")
-    println(" *  can be expressed as a non-negative linear combination")
-    println(" *  of 7 and 8.\"")
-    println(" *")
-    println(" * The best such bound can be computed using")
-    println(" * quantifier elimination. For this, variables are")
-    println(" * declared within \\existentialConstants, and the option")
-    println(" * +mostGeneralConstraint is used.")
-    println(" */")
-    println("")
-    println("\\existentialConstants {")
-    println("  int B;")
-    println("}")
-    println("")
-    println("\\problem {")
-    println("  \\forall int x; (x >= B ->")
-    println("     \\exists int y, z; (y >= 0 & z >= 0 & x = 7*y + 8*z))")
-    println("/**")
-    println(" * Quantifier elimination determines that this formula is")
-    println(" * equivalent to   B >= 42")
-    println(" */")
-    println("}")
-  })
-
-  newTabWithInput("Array interpolation", None, "", asString {
-    println("/**")
-    println(" * Example:")
-    println(" * Craig interpolation problem in the theory of arrays")
-    println(" */")
-    println
-    println("\\functions {")
-    println("  int x, y, z, ar;")
-    println("  \\partial int select(int, int);")
-    println("  \\partial int store(int, int, int);")
-    println("}")
-    println
-    println("\\problem {")
-    println("// Array axioms")
-    println("  \\forall int ar, ind, val; {select(store(ar, ind, val), ind)}")
-    println("    select(store(ar, ind, val), ind) = val")
-    println("->")
-    println("  \\forall int ar, ind1, ind2, val; {select(store(ar, ind1, val), ind2)}")
-    println("    (ind1 != ind2 -> select(store(ar, ind1, val), ind2) = select(ar, ind2))")
-    println("->")
-    println
-    println("  \\part[p0] (store(0, x, 1) = ar)")
-    println("->")
-    println("  \\part[p1] (select(ar, y) >= select(ar, x))")
-    println("->")
-    println("  \\part[p2] (z = select(ar, y)+1)")
-    println("->")
-    println("  \\part[p3] (z < 0)")
-    println("->")
-    println("  false")
-    println("}")
-    println
-    println("\\interpolant {p0, p1; p2, p3}")
-  })
-  
-  newTabWithInput("SMT-LIB interpolation", None,
-                  "-inputFormat=smtlib -genTotalityAxioms", asString{
-    println(";")
-    println("; For interpolation, the option \"-genTotalityAxioms\" has to be specified,")
-    println("; since the quantified totality axioms cannot be handled otherwise.")
-    println(";")
-    println
-    println("(set-logic AUFLIA)")
-    println
-    println("(set-option :produce-interpolants true)")
-    println
-    println("(declare-fun f (Int) Int)")
-    println("(declare-fun a () Int)")
-    println("(declare-fun b () Int)")
-    println
-    println("(assert (> a (* b 2)))")
-    println("(assert (< a (+ (* b 2) 2)))")
-    println("(assert (> (f (- a 1)) (f (* 2 b))))")
-    println
-    println("(check-sat)")
-    println("(get-interpolants)")
-  })
-  
-  newTabWithInput("Incremental SMT-LIB", None,
-                  "-inputFormat=smtlib +incremental", asString{
-    println(";")
-    println(";  Example from \"Interpolation in SMTLIB 2.0\", Juergen Christ, Jochen Hoenicke")
-    println(";  (slightly modified)")
-    println(";")
-    println(";  The use of :named formulae for interpolation is currently only supported in")
-    println(";  incremental mode")
-    println(";")
-    println("")
-    println("(set-option :print-success false)")
-    println("(set-option :produce-interpolants true)")
-    println("(set-logic QF_UFLIA)")
-    println("")
-    println("(declare-fun x_1 () Int)")
-    println("(declare-fun xm1 () Int)")
-    println("(declare-fun x2 () Int)")
-    println("(declare-fun res4 () Int)")
-    println("(declare-fun resm5 () Int)")
-    println("(declare-fun xm6 () Int)")
-    println("(declare-fun x7 () Int)")
-    println("(declare-fun res9 () Int)")
-    println("(declare-fun resm10 () Int)")
-    println("(declare-fun res11 () Int)")
-    println("(assert (! (<= x_1 100) :named M1))")
-    println("(assert (! (= xm1 (+ x_1 11)) :named M2))")
-    println("(assert (! (> x2 100) :named S11))")
-    println("(assert (! (= res4 (- x2 10)) :named S12))")
-    println("(assert (! (and (= x2 xm1) (= resm5 res4)) :named S1RET))")
-    println("(assert (! (= xm6 resm5) :named M3))")
-    println("(assert (! (> x7 100) :named S21))")
-    println("(assert (! (= res9 (- x7 10)) :named S22))")
-    println("(assert (! (and (= x7 xm6) (= resm10 res9)) :named S2RET))")
-    println("(assert (! (= res11 resm10) :named M4))")
-    println("(check-sat) ; sat")
-    println("")
-    println("(assert (! (and (<= x_1 101) (distinct res11 91)) :named ERR))")
-    println("(check-sat) ; unsat")
-    println("")
-    println("(echo \"\")")
-    println("(echo \"01:\")")
-    println("(get-interpolants)")
-    println("")
-    println("(echo \"\")")
-    println("(echo \"02:\")")
-    println("(get-interpolants (and M1 M2 S12 S11 S1RET) M3 (and S21 S22 S2RET) (and M4 ERR))")
-    println("")
-    println("(echo \"\")")
-    println("(echo \"03:\")")
-    println("(get-interpolants (and M1 M2 S12 S11 S1RET) (and S21 S22 S2RET) (and M4 ERR) M3)")
-    println("")
-    println("(echo \"\")")
-    println("(echo \"04 (tree interpolants):\")")
-    println("(get-interpolants M1 M2 (S11 S12) S1RET M3 (S21 S22) S2RET M4 ERR)")
-  })
-  
   tabbedPane setSelectedIndex 0
   
   //////////////////////////////////////////////////////////////////////////////

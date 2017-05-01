@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -53,20 +53,26 @@ object Environment {
 
 }
 
-class Environment[ConstantType, VariableType, PredicateType, FunctionType]
+class Environment[ConstantType, VariableType, PredicateType, FunctionType, SortType]
       extends Cloneable {
 
   import Environment._
   
-  type DSym = DeclaredSym[ConstantType, VariableType, PredicateType, FunctionType]
+  type DSym = DeclaredSym[ConstantType, VariableType, PredicateType,
+                          FunctionType]
   
   /** The declared symbols */
-  private val signature = new scala.collection.mutable.HashMap[String, DSym]
+  private val signature =
+    new scala.collection.mutable.HashMap[String, DSym]
   
   /** The variables bound at the present point, together with their type */
   private val context =
     new scala.collection.mutable.ArrayBuffer[(String, VariableType)]
   
+  /** The declared sorts */
+  private val sorts =
+    new scala.collection.mutable.HashMap[String, SortType]
+
   /** A <code>TermOrder</code> containing all declared constants */
   private var orderVar = TermOrder.EMPTY
   
@@ -77,9 +83,12 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Environment.AC,
                     signature.valuesIterator forall {
-                      case Constant(c, _, _) => newOrder.orderedConstants contains c
-                      case Predicate(pred, _, _) => newOrder.orderedPredicates contains pred
-                      case _ => true
+                      case Constant(c, _, _) =>
+                         newOrder.orderedConstants contains c
+                      case Predicate(pred, _, _) =>
+                        newOrder.orderedPredicates contains pred
+                      case _ =>
+                        true
                     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     orderVar = newOrder
@@ -88,11 +97,14 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
   override def clone : Environment[ConstantType,
                                    VariableType,
                                    PredicateType,
-                                   FunctionType] = {
-    val res = new Environment[ConstantType, VariableType, PredicateType, FunctionType]
+                                   FunctionType,
+                                   SortType] = {
+    val res = new Environment[ConstantType, VariableType, PredicateType,
+                              FunctionType, SortType]
     
     res.signature ++= this.signature
     res.context ++= this.context
+    res.sorts ++= this.sorts
     res.partNames ++= this.partNames
     res.orderVar = this.orderVar
     
@@ -102,6 +114,7 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
   def clear : Unit = {
     signature.clear
     context.clear
+    sorts.clear
     partNames.clear
     orderVar = TermOrder.EMPTY
   }
@@ -170,22 +183,41 @@ class Environment[ConstantType, VariableType, PredicateType, FunctionType]
     if (signature contains name)
       throw new EnvironmentException("Symbol " + name + " is already declared")
     else
-      signature += (name -> t)
+      signature.put(name, t)
   
   def pushVar(name : String, typ : VariableType) : Unit =
     context += ((name, typ))
 
-  def popVar : Unit =
-    if (context isEmpty)
+  def popVar : VariableType =
+    if (context isEmpty) {
       throw new EnvironmentException("Trying to pop a non-existing variable")
-    else
+    } else {
+      val res = context.last._2
       context reduceToSize (context.size - 1)
-  
+      res
+    }
+
   def existsVar(pred : VariableType => Boolean) =
     context exists { case (_, t) => pred(t) }
   
   def declaredVariableNum = context.size
   
+  def addSort(name : String, s : SortType) : Unit =
+    if (sorts contains name)
+      throw new EnvironmentException("Sort " + name + " is already declared")
+    else
+      sorts.put(name, s)
+
+  def lookupSort(name : String) : SortType =
+    (sorts get name) match {
+      case Some(s) =>
+        s
+      case None =>
+        throw new EnvironmentException("Sort " + name + " not declared")
+    }
+
+  def lookupSortPartial(name : String) : Option[SortType] = sorts get name
+
   def lookupPartName(name : String) : PartName =
     partNames.getOrElseUpdate(name, new PartName (name))
   

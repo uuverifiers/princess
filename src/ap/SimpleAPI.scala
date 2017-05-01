@@ -41,6 +41,10 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
+import IExpression.Sort
+import ap.types.{SortedConstantTerm, SortedIFunction,
+                 MonoSortedIFunction, SortedPredicate, TypeTheory,
+                 IntToTermTranslator}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
@@ -215,17 +219,42 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Class representing (usually partial) models of formulas computed
+   * through the API.
+   */
   class PartialModel(
-         val interpretation : scala.collection.Map[ModelLocation, ModelValue]) {
+         val interpretation : scala.collection.Map[ModelLocation, ModelValue],
+         val constructorTerms : scala.collection.Map[(IdealInt, Sort), ITerm]) {
 
     import IExpression._
 
     def definedLocations = interpretation.keySet
 
+    /**
+     * Evaluate an expression to some value in the current model, if possible.
+     */
     def evalExpression(e : IExpression) : Option[ModelValue] =
       Evaluator.visit(e, ())
+
+    /**
+     * Evaluate a term to its internal integer representation in the model,
+     * if possible.
+     */
     def eval(t : ITerm) : Option[IdealInt] =
       for (IntValue(v) <- evalExpression(t)) yield v
+
+    /**
+     * Evaluate a term to a constructor term in the model, if possible.
+     */
+    def evalToTerm(t : ITerm) : Option[ITerm] =
+      for (IntValue(v) <- evalExpression(t)) yield {
+        (constructorTerms get (v, Sort sortOf t)) getOrElse i(v)
+      }
+
+    /**
+     * Evaluate a formula to a truth value, if possible.
+     */
     def eval(f : IFormula) : Option[Boolean] =
       for (BoolValue(b) <- evalExpression(f)) yield b
 
@@ -500,7 +529,10 @@ class SimpleAPI private (enableAssert : Boolean,
     println("import ap.parser._")
     println("import ap.basetypes.IdealInt")
     println
-    println("SimpleAPI.withProver { p =>")
+    println("SimpleAPI.withProver(tightFunctionScopes = " +
+                                    tightFunctionScopes + ", " +
+                                  "genTotalityAxioms = " +
+                                    genTotalityAxioms + ") { p =>")
     println("import p._")
     println("import IExpression._")
     println("{")
@@ -555,7 +587,7 @@ class SimpleAPI private (enableAssert : Boolean,
     currentConstraint = null
     currentCertificate = null
     currentSimpCertificate = null
-    lastStatus = ProverStatus.Sat
+    lastStatus = ProverStatus.Unknown
     validityMode = false
     proofThreadStatus = ProofThreadStatus.Init
     currentPartitionNum = -1
@@ -601,9 +633,15 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Create a new symbolic constant.
    */
-  def createConstant(rawName : String) : ITerm = {
+  def createConstant(rawName : String) : ITerm =
+    createConstant(rawName, Sort.Integer)
+
+  /**
+   * Create a new symbolic constant with given sort.
+   */
+  def createConstant(rawName : String, sort : Sort) : ITerm = {
     import IExpression._
-    createConstantRaw(rawName)
+    createConstantRaw(rawName, sort)
   }
 
   /**
@@ -611,6 +649,12 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def createConstant : ITerm =
     createConstant("c" + currentOrder.orderedConstants.size)
+  
+  /**
+   * Create a new symbolic constant with predefined name and given sort.
+   */
+  def createConstant(sort : Sort) : ITerm =
+    createConstant("c" + currentOrder.orderedConstants.size, sort)
   
   /**
    * Create <code>num</code> new symbolic constants with predefined name.
@@ -621,11 +665,28 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
+   * Create <code>num</code> new symbolic constants with predefined name and
+   * given sort.
+   */
+  def createConstants(num : Int, sort : Sort) : IndexedSeq[ITerm] = {
+    val start = currentOrder.orderedConstants.size
+    createConstants("c", start until (start + num), sort)
+  }
+
+  /**
    * Create a sequence of new symbolic constants, with name starting with the
    * given prefix.
    */
   def createConstants(prefix : String, nums : Range) : IndexedSeq[ITerm] =
-    for (c <- createConstantsRaw(prefix, nums)) yield IConstant(c)
+    createConstants(prefix, nums, Sort.Integer)
+
+  /**
+   * Create a sequence of new symbolic constants, with name starting with the
+   * given prefix and the given sort.
+   */
+  def createConstants(prefix : String, nums : Range,
+                      sort : Sort) : IndexedSeq[ITerm] =
+    for (c <- createConstantsRaw(prefix, nums, sort)) yield IConstant(c)
 
   /**
    * Create a new symbolic constant, without directly turning it into an
@@ -633,51 +694,94 @@ class SimpleAPI private (enableAssert : Boolean,
    * only useful when working with formulae in the internal prover format.
    */
   def createConstantRaw(rawName : String) : IExpression.ConstantTerm =
-    createConstantRaw(rawName, "createConstant")
+    createConstantRaw(rawName, "createConstant", Sort.Integer)
+
+  /**
+   * Create a new symbolic constant, without directly turning it into an
+   * <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def createConstantRaw(rawName : String,
+                        sort : Sort) : IExpression.ConstantTerm =
+    createConstantRaw(rawName, "createConstant", sort)
 
   private def createConstantRaw(rawName : String,
-                                scalaCmd : String) : IExpression.ConstantTerm = {
+                                scalaCmd : String,
+                                sort : Sort) : IExpression.ConstantTerm = {
     import IExpression._
     
     val name = sanitise(rawName)
-    val c = new ConstantTerm(name)
+    val c = sort newConstant name
     currentOrder = currentOrder extend c
+
+    addTypeTheoryIfNeeded(sort)
     restartProofThread
-    doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Int)")
-    }
-    doDumpScala {
-      println("val " + name + " = " + scalaCmd + "(\"" + rawName + "\")")
-    }
+    dumpCreateConstant(c, rawName, scalaCmd, sort)
+    
     c
   }
 
+  private def dumpCreateConstant(c : IExpression.ConstantTerm,
+                                 rawName : String,
+                                 scalaCmd : String,
+                                 sort : Sort) : Unit = {
+    import IExpression._
+
+    doDumpSMT {
+      val (smtType, optConstr) = SMTLineariser sort2SMTType sort
+      print("(declare-fun " + SMTLineariser.quoteIdentifier(c.name) + " () ")
+      SMTLineariser printSMTType smtType
+      println(")")
+      
+      for (constr <- optConstr) {
+        print("(assert ")
+        SMTLineariser(constr(i(c)))
+        println(")")
+      }
+    }
+    
+    doDumpScala {
+      print("val " + c.name + " = " + scalaCmd + "(\"" + rawName + "\"")
+      if (sort != Sort.Integer) {
+        print(", ")
+        PrettyScalaLineariser printSort sort
+      }
+      println(")")
+    }
+  }
+
   /**
-   * Create a sequence of new symbolic constants, without directly turning them into an
-   * <code>ITerm</code>. This method is
+   * Create a sequence of new symbolic constants, without directly turning
+   * them into an <code>ITerm</code>. This method is
    * only useful when working with formulae in the internal prover format.
    */
   def createConstantsRaw(prefix : String, nums : Range)
                         : IndexedSeq[IExpression.ConstantTerm] =
-    createConstantsRaw(prefix, nums, "createConstant")
+    createConstantsRaw(prefix, nums, "createConstant", Sort.Integer)
 
-  def createConstantsRaw(prefix : String, nums : Range, scalaCmd : String)
-                        : IndexedSeq[IExpression.ConstantTerm] = {
+  /**
+   * Create a sequence of new symbolic constants, without directly turning
+   * them into an <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def createConstantsRaw(prefix : String, nums : Range, sort : Sort)
+                        : IndexedSeq[IExpression.ConstantTerm] =
+    createConstantsRaw(prefix, nums, "createConstant", sort)
+
+  private def createConstantsRaw(prefix : String,
+                                 nums : Range,
+                                 scalaCmd : String,
+                                 sort : Sort)
+                                : IndexedSeq[IExpression.ConstantTerm] = {
     import IExpression._
     val cs = (for (i <- nums)
               yield {
-                doDumpSMT {
-                  println("(declare-fun " +
-                          SMTLineariser.quoteIdentifier(prefix + i) +
-                          " () Int)")
-                }
-                doDumpScala {
-                  println("val " + prefix + i +
-                          " = " + scalaCmd + "(\"" + prefix + i + "\")")
-                }
-                new ConstantTerm (prefix + i)
+                val c = sort newConstant (prefix + i)
+                dumpCreateConstant(c, c.name, scalaCmd, sort)
+                c
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
+    addTypeTheoryIfNeeded(sort)
     restartProofThread
     cs
   }
@@ -685,9 +789,19 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Create a new symbolic constant that is implicitly existentially quantified.
    */
-  def createExistentialConstant(rawName : String) : ITerm = {
+  def createExistentialConstant(rawName : String) : ITerm =
+    createExistentialConstant(rawName, Sort.Integer)
+  
+  /**
+   * Create a new symbolic constant with given sort that is implicitly
+   * existentially quantified.
+   */
+  def createExistentialConstant(rawName : String, sort : Sort) : ITerm = {
     import IExpression._
-    val c = createConstantRaw(rawName, "createExistentialConstant")
+    doDumpSMT {
+      println("; (create-existential " + rawName + ")")
+    }
+    val c = createConstantRaw(rawName, "createExistentialConstant", sort)
     existentialConstants = existentialConstants + c
     c
   }
@@ -697,16 +811,34 @@ class SimpleAPI private (enableAssert : Boolean,
    * existentially quantified.
    */
   def createExistentialConstant : ITerm =
-    createExistentialConstant("X" + currentOrder.orderedConstants.size)
+    createExistentialConstant(Sort.Integer)
+  
+  /**
+   * Create a new symbolic constant with predefined name and given sort
+   * that is implicitly existentially quantified.
+   */
+  def createExistentialConstant(sort : Sort) : ITerm =
+    createExistentialConstant("X" + currentOrder.orderedConstants.size, sort)
   
   /**
    * Create <code>num</code> new symbolic constant with predefined name that is
    * implicitly existentially quantified.
    */
-  def createExistentialConstants(num : Int) : IndexedSeq[ITerm] = {
+  def createExistentialConstants(num : Int) : IndexedSeq[ITerm] =
+    createExistentialConstants(num, Sort.Integer)
+
+  /**
+   * Create <code>num</code> new symbolic constant with predefined name that is
+   * implicitly existentially quantified.
+   */
+  def createExistentialConstants(num : Int, sort : Sort) : IndexedSeq[ITerm] = {
+    doDumpSMT {
+      println("; (create-existential ...)")
+    }
     val start = currentOrder.orderedConstants.size
     val cs = createConstantsRaw("X", start until (start + num),
-                                "createExistentialConstant")
+                                "createExistentialConstant",
+                                sort)
     existentialConstants = existentialConstants ++ cs
     for (c <- cs) yield IConstant(c)
   }
@@ -742,7 +874,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly existentially quantified.
    */
-  def makeExistentialRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+  def makeExistentialRaw(constants : Iterable[IExpression.ConstantTerm])
+                        : Unit = {
     doDumpSMT {
       println("; (make-existential-raw " + (constants mkString ", ") + ")")
     }
@@ -755,7 +888,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly existentially quantified.
    */
-  def makeExistentialRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+  def makeExistentialRaw(constants : Iterator[IExpression.ConstantTerm])
+                       : Unit = {
     doDumpSMT {
       println("; (make-existential-raw ...)")
     }
@@ -796,7 +930,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly universally quantified.
    */
-  def makeUniversalRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+  def makeUniversalRaw(constants : Iterable[IExpression.ConstantTerm])
+                      : Unit = {
     doDumpSMT {
       println("; (make-universal-raw " + (constants mkString ", ") + ")")
     }
@@ -809,7 +944,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly universally quantified.
    */
-  def makeUniversalRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+  def makeUniversalRaw(constants : Iterator[IExpression.ConstantTerm])
+                      : Unit = {
     doDumpSMT {
       println("; (make-universal-raw ...)")
     }
@@ -820,6 +956,9 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  // TODO: are sorts handle correctly in addConstant, addFunction, addRelation,
+  // addAbbrev?
 
   /**
    * Add an externally defined constant to the environment of this prover.
@@ -844,14 +983,12 @@ class SimpleAPI private (enableAssert : Boolean,
    * Add an externally defined constant to the environment of this prover.
    */
   def addConstantRaw(c : IExpression.ConstantTerm) : Unit = {
-    doDumpSMT {
-      println("(declare-fun " +
-              SMTLineariser.quoteIdentifier(c.name) + " () Int)")
-    }
     doDumpScala {
-      println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-              "// addConstantRaw(" + c.name + ")")
+      println("// addConstantRaw(" + c.name + ")")
     }
+    val sort = SortedConstantTerm sortOf c
+    dumpCreateConstant(c, c.name, "createConstant", sort)
+    addTypeTheoryIfNeeded(sort)
 
     currentOrder = currentOrder extend c
     restartProofThread
@@ -862,15 +999,13 @@ class SimpleAPI private (enableAssert : Boolean,
    * this prover.
    */
   def addConstantsRaw(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
-    doDumpSMT {
-      for (c <- cs)
-        println("(declare-fun " +
-                SMTLineariser.quoteIdentifier(c.name) + " () Int)")
-    }
-    doDumpScala {
-      for (c <- cs)
-        println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-                "// addConstantRaw(" + c.name + ")")
+    for (c <- cs) {
+      doDumpScala {
+        println("// addConstantRaw(" + c.name + ")")
+      }
+      val sort = SortedConstantTerm sortOf c
+      dumpCreateConstant(c, c.name, "createConstant", sort)
+      addTypeTheoryIfNeeded(sort)
     }
 
     currentOrder = currentOrder extend cs.toSeq
@@ -884,7 +1019,8 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
 
     doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Bool)")
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) +
+              " () Bool)")
     }
     doDumpScala {
       println("val " + name + " = " +
@@ -1005,6 +1141,8 @@ class SimpleAPI private (enableAssert : Boolean,
                         case f => SymbolCollector nullaryPredicates f
                       }) yield p)
 
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Create a new uninterpreted function with fixed arity.
    */
@@ -1018,37 +1156,106 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def createFunction(rawName : String, arity : Int,
                      functionalityMode : FunctionalityMode.Value)
+                    : IFunction =
+    createFunction(rawName,
+                   for (_ <- 0 until arity) yield Sort.Integer,
+                   Sort.Integer,
+                   false,
+                   functionalityMode)
+
+  /**
+   * Create a new uninterpreted function with given sorts,
+   * and chose whether the function is partial, and to which degree
+   * functionality axioms should be generated.
+   */
+  def createFunction(rawName : String,
+                     argSorts : Seq[Sort],
+                     resSort : Sort,
+                     partial : Boolean = false,
+                     functionalityMode : FunctionalityMode.Value =
+                       FunctionalityMode.Full)
                     : IFunction = {
-    doDumpScala {
-      println("val " + sanitise(rawName) + " = " +
-              "createFunction(\"" + rawName + "\", " + arity +
-                   printFunctionalityMode(functionalityMode) + ")")
-    }
-    createFunctionSMTDump(sanitise(rawName), arity)
-    createFunctionHelp(rawName, arity, functionalityMode)
+    val f = createFunctionHelp(rawName, argSorts, resSort,
+                               partial, functionalityMode)
+    createFunctionScalaDump(f, rawName, argSorts, resSort, functionalityMode)
+    createFunctionSMTDump(f, argSorts, resSort)
+    f
   }
+
+  private def printPartiality(partial : Boolean) =
+    if (partial) ", partial = true" else ""
 
   private def printFunctionalityMode(m : FunctionalityMode.Value) =
     m match {
       case FunctionalityMode.Full => ""
-      case m => ", FunctionalityMode." + m
+      case m => ", functionalityMode = FunctionalityMode." + m
     }
 
   private def createFunctionHelp(rawName : String, arity : Int,
-                                 functionalityMode : FunctionalityMode.Value =
-                                   FunctionalityMode.Full)
+                                 functionalityMode : FunctionalityMode.Value)
                                 : IFunction = {
     val name = sanitise(rawName)
-    val f = new IFunction(name, arity, true,
+    val f = new IFunction(name, arity, false,
                           functionalityMode != FunctionalityMode.Full)
     addFunctionHelp(f, functionalityMode)
     f
   }
 
-  private def createFunctionSMTDump(name : String, arity : Int) = doDumpSMT {
-    println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
-        (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
+  private def createFunctionHelp(rawName : String,
+                                 argSorts : Seq[Sort], resSort : Sort,
+                                 partial : Boolean,
+                                 functionalityMode : FunctionalityMode.Value)
+                                : IFunction = {
+    val name = sanitise(rawName)
+    val f = MonoSortedIFunction(name, argSorts, resSort, partial,
+                                functionalityMode != FunctionalityMode.Full)
+    addTypeTheoryIfNeeded(f)
+    
+    addFunctionHelp(f, functionalityMode)
+    f
   }
+
+  private def createFunctionScalaDump(f : IFunction,
+                                      rawName : String,
+                                      argSorts : Seq[Sort],
+                                      resSort : Sort,
+                                      functionalityMode
+                                      : FunctionalityMode.Value) = doDumpScala {
+      println(
+        "val " + f.name +
+        " = createFunction(\"" + rawName + "\", List(" +
+        (argSorts map (PrettyScalaLineariser sort2String _)).mkString(", ") +
+        "), " + (PrettyScalaLineariser sort2String resSort) +
+        printPartiality(f.partial) +
+        printFunctionalityMode(functionalityMode) + ")")
+  }
+
+  private def createFunctionSMTDump(f : IFunction,
+                                    argSorts : Seq[Sort],
+                                    resSort : Sort) = doDumpSMT {
+    val (smtType, optConstr) = SMTLineariser sort2SMTType resSort
+    print("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
+        (for (s <- argSorts)
+         yield SMTLineariser.sort2SMTString(s)).mkString(" ") + ") ")
+    SMTLineariser printSMTType smtType
+    println(")")
+    
+    for (constr <- optConstr) {
+      import IExpression._
+      
+      val args = for ((s, n) <- argSorts.zipWithIndex)
+                 yield (s newConstant ("x!" + n))
+      print("(assert (forall (")
+      print((for ((s, n) <- argSorts.iterator.zipWithIndex)
+             yield ("(x!" + n + " " +
+                    SMTLineariser.sort2SMTString(s) + ")")) mkString " ")
+      print(") ")
+      SMTLineariser(constr(IFunApp(f, args)))
+      println("))")
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Add an externally defined function to the environment of this prover.
@@ -1062,15 +1269,28 @@ class SimpleAPI private (enableAssert : Boolean,
   def addFunction(f : IFunction,
                   functionalityMode : FunctionalityMode.Value) : Unit = {
     doDumpScala {
-      println("val " + f.name +
-              " = createFunction(" + f.name + ", " + f.arity +
-              printFunctionalityMode(functionalityMode) + ")" +
-              "// addFunction(" + f.name +
+      println("// addFunction(" + f.name +
               printFunctionalityMode(functionalityMode) + ")")
+      f match {
+        case f : MonoSortedIFunction =>
+          createFunctionScalaDump(f, f.name, f.argSorts, f.resSort,
+                                  functionalityMode)
+        case _ =>
+          createFunctionScalaDump(f, f.name,
+                                  for (_ <- 0 until f.arity) yield Sort.Integer,
+                                  Sort.Integer,
+                                  functionalityMode)
+      }
     }
     doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
-          (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
+      f match {
+        case f : MonoSortedIFunction =>
+          createFunctionSMTDump(f, f.argSorts, f.resSort)
+        case _ =>
+          createFunctionSMTDump(f,
+                                for (_ <- 0 until f.arity) yield Sort.Integer,
+                                Sort.Integer)
+      }
     }
     addFunctionHelp(f, functionalityMode)
   }
@@ -1143,13 +1363,30 @@ class SimpleAPI private (enableAssert : Boolean,
                             arity : Int,
                             functionalityMode : FunctionalityMode.Value)
                            : IExpression.BooleanFunApplier =
+    createBooleanFunction(rawName,
+                          for (_ <- 0 until arity) yield Sort.Integer,
+                          false,
+                          functionalityMode)
+  
+  /**
+   * Create a new uninterpreted Boolean-valued function with given arguments.
+   * Booleans values are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.<br>
+   * In contrast to predicates (generated using <code>createRelation</code>),
+   * Boolean functions can be used within triggers.
+   */
+  def createBooleanFunction(rawName : String,
+                            argSorts : Seq[Sort],
+                            partial : Boolean = false,
+                            functionalityMode : FunctionalityMode.Value =
+                              FunctionalityMode.Full)
+                           : IExpression.BooleanFunApplier =
     new IExpression.BooleanFunApplier({
       doDumpScala {
-        println("// createBooleanFunction" +
-                "(\"" + rawName + "\", " + arity +
-                printFunctionalityMode(functionalityMode) + ")")
+        println("// createBooleanFunction(...)")
       }
-      createFunction(rawName, arity, functionalityMode)
+      createFunction(rawName, argSorts, Sort.Bool, partial, functionalityMode)
     })
   
   /**
@@ -1198,7 +1435,8 @@ class SimpleAPI private (enableAssert : Boolean,
                       (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), t)
+    abbrevHelp(createFunctionHelp(name, List(Sort.Integer), Sort sortOf t,
+                                  true, FunctionalityMode.NoUnification), t)
   }
 
   private def abbrevHelp(a : IFunction, t : ITerm) = {
@@ -1772,8 +2010,11 @@ class SimpleAPI private (enableAssert : Boolean,
                                          currentOrder sort uniConstants,
                                          completeFor, currentOrder)
 
+    val closedExFor =
+      TypeTheory.addExConstraints(closedFor, existentialConstants, order)
+
     lastStatus = ProverStatus.Running
-    proverCmd put CheckValidityCommand(closedFor,
+    proverCmd put CheckValidityCommand(closedExFor,
                                        exhaustiveProverGoalSettings,
                                        mostGeneralConstraints)
   }
@@ -2230,12 +2471,15 @@ class SimpleAPI private (enableAssert : Boolean,
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    for (c <- interpolants)
-    yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
+    for (c <- interpolants) yield {
+       implicit val _ = new Theory.DefaultDecoderContext(c)
+       IntToTermTranslator(
+         simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
+    }
   }
 
   /**
-   * Compute a tree interpolant for the given specification.
+   * compute a tree interpolant for the given specification.
    * Interpolants might contain quantifiers, which cannot always
    * be eliminated efficiently; the provided timeout (milliseconds) specifies
    * how long it is attempted to eliminated quantifiers in each interpolant. If
@@ -2301,8 +2545,13 @@ class SimpleAPI private (enableAssert : Boolean,
               Interpolator(currentSimpCertificate, iContext, false)
             }
 
-          (rawInt,
-           simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
+          val simpInt = {
+            implicit val _ = new Theory.DefaultDecoderContext(rawInt)
+            IntToTermTranslator(
+              simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
+          }
+
+          (rawInt, simpInt)
         }
 
       if (thisInt._1.isTrue) {
@@ -2429,6 +2678,25 @@ class SimpleAPI private (enableAssert : Boolean,
   def addTheoriesFor(order : TermOrder) : Unit = {
     theoryCollector(order)
     addTheoryAxioms
+  }
+
+  private def addTypeTheoryIfNeeded(sorts : Iterable[Sort]) : Unit =
+    if (!(theoryCollector includes TypeTheory) &&
+        (sorts exists (_ != Sort.Integer)))
+      addTypeTheory
+
+  private def addTypeTheoryIfNeeded(f : IFunction) : Unit =
+    if (f.isInstanceOf[SortedIFunction])
+      addTypeTheory
+
+  private def addTypeTheoryIfNeeded(sort : Sort) : Unit =
+    if (sort != Sort.Integer)
+      addTypeTheory
+
+  private def addTypeTheory : Unit = {
+    theoryCollector addTheoryFront TypeTheory
+    // type theory does not add axioms, so calling addTheoryAxioms is not
+    // necessary
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2724,6 +2992,14 @@ class SimpleAPI private (enableAssert : Boolean,
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       val interpretation = new LinkedHashMap[ModelLocation, ModelValue]
+
+      val TypeTheory.DecoderData(ctorTerms) =
+        decoderContext getDataFor TypeTheory
+
+      // nullary constructor terms can be added to the interpretation
+      // (other terms should be part of the model returned by the prover)
+      for (((num, _), IFunApp(ctor, Seq())) <- ctorTerms)
+        interpretation.put(IntFunctionLoc(ctor, List()), IntValue(num))
   
       for (l <- currentModel.arithConj.positiveEqs) {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -2767,12 +3043,56 @@ class SimpleAPI private (enableAssert : Boolean,
           interpretation.put(PredicateLoc(a.pred, argValues),
                              BoolValue(false))
         }
-  
-      lastPartialModel = new PartialModel (interpretation)
+
+      lastPartialModel = new PartialModel (interpretation, ctorTerms)
       lastPartialModel
     }
   }
-  
+
+  /**
+   * Produce a partial model, i.e., a (usually) partial interpretation
+   * of constants, functions, and predicates. This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * model only assigns existential constants.
+   * </li>
+   * </ul>
+   */
+  def partialModelAsFormula : IFormula = {
+    doDumpSMT {
+      println("; (partial-model-as-formula)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + partialModelAsFormula)")
+    }
+
+    // TODO: cache results?
+    setupTermEval
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC,
+                    currentModel.arithConj.negativeEqs.isTrue &&
+                    currentModel.arithConj.inEqs.isTrue &&
+                    currentModel.negatedConjs.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    implicit val _ = currentModel.order
+    val remainingPredConj = currentModel.predConj filter {
+      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
+    }
+    val remaining = currentModel.updatePredConj(remainingPredConj)
+    
+    val simp = Internal2InputAbsy(remaining, functionEnc.predTranslation)
+    IntToTermTranslator(simp)(decoderContext)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -2796,7 +3116,7 @@ class SimpleAPI private (enableAssert : Boolean,
    * <ul>
    *    <li> after receiving the result
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
-   * or <code>ProverStatus.Inconclusive</code>, or</li>
+   * or <code>ProverStatus.Inconclusive</code>,
    * which case the term is evaluated in the computed model, or</li>
    * <li> after receiving
    * the result
@@ -2812,7 +3132,10 @@ class SimpleAPI private (enableAssert : Boolean,
       PrettyScalaLineariser(getFunctionNames)(t)
       println("))")
     }
+    evalHelp(t)
+  }
 
+  private def evalHelp(t : ITerm) : IdealInt = {
     t match {
       case IConstant(c) => evalHelp(c)
       
@@ -3114,7 +3437,77 @@ class SimpleAPI private (enableAssert : Boolean,
     for (lc <- currentModel.arithConj.positiveEqs.toMap get c)
     yield -lc.constant
   }
-  
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Evaluate the given term in the current model to a constructor term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalToTerm(t : ITerm) : ITerm = {
+    doDumpScala {
+      print("println(\"" + getScalaNum + ": \" + evalToTerm(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println("))")
+    }
+    val num = evalHelp(t)
+    (Sort sortOf t).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+  }
+
+  /**
+   * Evaluate the given term in the current model to a constructor term,
+   * returning <code>None</code>
+   * in case the model does not completely determine the value of the term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalPartialAsTerm(t : ITerm) : Option[ITerm] = {
+    doDumpScala {
+      print("println(\"" + getScalaNum + ": \" + evalPartialAsTerm(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println("))")
+    }
+    for (num <- evalPartialHelp(t)) yield {
+      (Sort sortOf t).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+    }
+  }
+
+  /**
+   * Evaluate the given symbol in the current model to a constructor term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalToTerm(c : IExpression.ConstantTerm) : ITerm = {
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + evalToTerm(" + c + "))")
+    }
+    val num = evalHelp(c)
+    (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+  }
+
+  /**
+   * Evaluate the given symbol in the current model to a constructor term,
+   * returning <code>None</code>
+   * in case the model does not completely determine the value of the term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalPartialAsTerm(c : IExpression.ConstantTerm) : Option[ITerm] = {
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + evalToTerm(" + c + "))")
+    }
+    for (num <- evalPartialHelp(c)) yield {
+      (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Evaluate the given formula in the current model.
    * This method can only be called after receiving the result
@@ -3488,7 +3881,8 @@ class SimpleAPI private (enableAssert : Boolean,
   private def addToProver(preCompleteFor : Conjunction,
                           preAxioms : Conjunction) : Unit = {
     val completeFor =
-      convertQuantifiers(Theory.preprocess(preCompleteFor, theories,
+      convertQuantifiers(Theory.preprocess(preCompleteFor,
+                                           theories,
                                            currentOrder))
     val axioms =
       convertQuantifiers(preAxioms)
@@ -3515,6 +3909,8 @@ class SimpleAPI private (enableAssert : Boolean,
       
     if (!needExhaustiveProver &&
         !(IterativeClauseMatcher.isMatchableRec(completeFor,
+            Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
+          IterativeClauseMatcher.isMatchableRec(axioms,
             Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
           Seqs.disjoint(completeFor.constants, existentialConstants))) {
       currentProver = null
@@ -3625,7 +4021,8 @@ class SimpleAPI private (enableAssert : Boolean,
                         order,
                         theoryCollector.theories)
     val (fors, _, newSig) =
-      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
+      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
+                    functionEnc)
     functionEnc.clearAxioms
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -3672,13 +4069,22 @@ class SimpleAPI private (enableAssert : Boolean,
     if (theoryCollector.newTheories.isEmpty) {
       List()
     } else {
+      // add type theory if any of the added theories uses sorted symbols
+      if (!(theories contains TypeTheory) &&
+          (theoryCollector.newTheories exists {
+             t => t.predicates exists (_.isInstanceOf[SortedPredicate])
+           })) {
+        addTheory(TypeTheory)
+        return checkNewTheories
+      }
+
       val theoryAxioms =
         for (t <- theoryCollector.newTheories) yield {
           currentOrder = t extend currentOrder
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, (currentOrder isSortingOf t.axioms) &&
                               (currentOrder isSortingOf t.totalityAxioms))
-          //-END-ASSERTION-/////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
   
           functionEnc addTheory t
   

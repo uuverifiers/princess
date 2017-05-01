@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,7 @@
   import SimpleAPI.ProverStatus
   import ap.parser._
   import ap.theories.ADT
+  import ap.types.Sort
   import ADT._
   import ap.util.Debug
 
@@ -34,7 +35,7 @@
   val listADT =
     new ADT (List("list"),
              List(("nil",  CtorSignature(List(), ADTSort(0))),
-                  ("cons", CtorSignature(List(("head", IntSort),
+                  ("cons", CtorSignature(List(("head", OtherSort(Sort.Integer)),
                                               ("tail", ADTSort(0))),
                   ADTSort(0)))))
 

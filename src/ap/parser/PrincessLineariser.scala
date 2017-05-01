@@ -76,6 +76,9 @@ object PrincessLineariser {
   
   def printExpression(e : IExpression) =
     AbsyPrinter.visit(e, PrintContext(List(), "", 0))
+
+  def asString(e : IExpression) : String =
+    ap.DialogUtil.asString { printExpression(e) }
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -93,6 +96,7 @@ object PrincessLineariser {
     def unapply(t : IExpression) : Option[ITerm] = t match {
       case t : IConstant => Some(t)
       case t : IVariable => Some(t)
+      case t@IFunApp(_, Seq()) => Some(t)
       case _ => None
     }
   }
@@ -114,6 +118,7 @@ object PrincessLineariser {
       else
         vs.head
     }
+    case IFunApp(f, Seq()) => f.name
   }
     
   private def relation(rel : IIntRelation.Value) = rel match {
@@ -133,6 +138,11 @@ object PrincessLineariser {
     case _ : ITimes                                     => 6
     case _ : ITerm | _ : IBoolLit | _ : IAtom           => 10
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val EqPredicate      = new Predicate ("=", 2)
+  private val NonEqPredicate   = new Predicate ("!=", 2)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -215,12 +225,11 @@ object PrincessLineariser {
       
         case IFunApp(fun, _) => {
           print(fun.name)
-          print("(")
-          if (fun.arity == 0) {
-            print(")")
-            KeepArg
-          } else {
+          if (fun.arity > 0) {
+            print("(")
             allButLast(ctxt setPrecLevel 0, ", ", ")", fun.arity)
+          } else {
+            KeepArg
           }
         }
         
@@ -231,7 +240,18 @@ object PrincessLineariser {
                        ctxt setParentOp ")"))
         }
 
-        // Formulae
+        // Equation predicates
+
+        case IAtom(EqPredicate, _) => {
+          allButLast(ctxt setPrecLevel 1, " = ", "", 2)
+        }
+
+        case IAtom(NonEqPredicate, _) => {
+          allButLast(ctxt setPrecLevel 1, " != ", "", 2)
+        }
+
+        // General formulae
+
         case IAtom(pred, _) => {
           print(pred.name)
           if (pred.arity > 0) {
@@ -295,24 +315,23 @@ object PrincessLineariser {
       
         case INot(IIntFormula(IIntRelation.EqZero,
                               ITimes(IdealInt.MINUS_ONE, t))) => {
-          print("0 != ")
-          TryAgain(t, ctxt)
+          TryAgain(IAtom(NonEqPredicate, List(IIntLit(0), t)), ctxt)
         }
         case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))))) => {
-          TryAgain(s, ctxt addParentOp (" != " + atomicTerm(t, ctxt)))
+                              IPlus(s, ITimes(IdealInt.MINUS_ONE, t)))) => {
+          TryAgain(IAtom(NonEqPredicate, List(s, t)), ctxt)
         }
         case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(s, ITimes(coeff, AtomicTerm(t))))) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" != " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+                              IPlus(s, ITimes(coeff, t)))) if (coeff.signum < 0) => {
+          TryAgain(IAtom(NonEqPredicate, List(s, ITimes(-coeff, t))), ctxt)
         }
         case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s))) => {
-          TryAgain(s, ctxt addParentOp (" != " + atomicTerm(t, ctxt)))
+                              IPlus(ITimes(IdealInt.MINUS_ONE, t), s))) => {
+          TryAgain(IAtom(NonEqPredicate, List(t, s)), ctxt)
         }
         case INot(IIntFormula(IIntRelation.EqZero,
-                              IPlus(ITimes(coeff, AtomicTerm(t)), s))) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" != " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+                              IPlus(ITimes(coeff, t), s))) if (coeff.signum < 0) => {
+          TryAgain(IAtom(NonEqPredicate, List(ITimes(-coeff, t), s)), ctxt)
         }
         case INot(IIntFormula(IIntRelation.EqZero,
                               IPlus(IIntLit(value), s))) => {
@@ -321,6 +340,33 @@ object PrincessLineariser {
       
         case INot(IIntFormula(IIntRelation.EqZero, s)) => {
           TryAgain(s, ctxt addParentOp " != 0")
+        }
+
+        // Positive equations
+      
+        case IIntFormula(IIntRelation.EqZero,
+                         ITimes(IdealInt.MINUS_ONE, t)) => {
+          TryAgain(IAtom(EqPredicate, List(IIntLit(0), t)), ctxt)
+        }
+        case IIntFormula(IIntRelation.EqZero,
+                         IPlus(s, ITimes(IdealInt.MINUS_ONE, t))) => {
+          TryAgain(IAtom(EqPredicate, List(s, t)), ctxt)
+        }
+        case IIntFormula(IIntRelation.EqZero,
+                         IPlus(s, ITimes(coeff, t))) if (coeff.signum < 0) => {
+          TryAgain(IAtom(EqPredicate, List(s, ITimes(-coeff, t))), ctxt)
+        }
+        case IIntFormula(IIntRelation.EqZero,
+                         IPlus(ITimes(IdealInt.MINUS_ONE, t), s)) => {
+          TryAgain(IAtom(EqPredicate, List(t, s)), ctxt)
+        }
+        case IIntFormula(IIntRelation.EqZero,
+                         IPlus(ITimes(coeff, t), s)) if (coeff.signum < 0) => {
+          TryAgain(IAtom(EqPredicate, List(ITimes(-coeff, t), s)), ctxt)
+        }
+        case IIntFormula(IIntRelation.EqZero,
+                         IPlus(IIntLit(value), s)) => {
+          TryAgain(s, ctxt addParentOp (" = " + (-value)))
         }
 
         // Non-negated relations

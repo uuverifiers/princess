@@ -85,6 +85,10 @@ object IExpression {
   val Quantifier = ap.terfor.conjunctions.Quantifier
   /** Imported type from the <code>terfor</code> package */
   type Predicate = ap.terfor.preds.Predicate
+  /** Imported type from the <code>types</code> package */
+  type Sort = ap.types.Sort
+  /** Imported companion object from the <code>types</code> package */
+  val Sort = ap.types.Sort
   
   /** Implicit conversion from integers to terms */
   def i(value : Int) : ITerm = IIntLit(value)
@@ -110,6 +114,18 @@ object IExpression {
   def i(value : Boolean) : IFormula = IBoolLit(value)
   /** Implicit conversion from Booleans to formulas */
   implicit def Boolean2IFormula(value : Boolean) : IFormula = IBoolLit(value)
+
+  /** Implicit conversion from Scala ranges to interval sorts */
+  implicit def Range2Interval(range : Range) : Sort.Interval = {
+    if (range.step != 1)
+      throw new IllegalArgumentException(
+        "Only ranges with step 1 can be converted to a sort")
+    val upper = if (range.isInclusive) range.end else (range.end - 1)
+    if (upper < range.start)
+      throw new IllegalArgumentException(
+        "Sorts have to be non-empty")
+    Sort.Interval(Some(range.start), Some(upper))
+  }
 
   /**
    * Implicit conversion, to enable the application of a predicate
@@ -148,19 +164,22 @@ object IExpression {
   }
 
   /**
-   * Add an existential quantifier for the variable with de Bruijn index 0.
-   */
-  def ex(f : IFormula) = IQuantified(Quantifier.EX, f)
-  
-  /**
-   * Add an existential quantifier for the variable with de Bruijn index 0.
-   */
-  def all(f : IFormula) = IQuantified(Quantifier.ALL, f)
-  
-  /**
    * Generate an epsilon-expression.
    */
   def eps(f : IFormula) = IEpsilon(f)
+
+  /**
+   * Higher-order syntax for epsilon-expressions. This makes it possible
+   * to write things like <code>eps(a => phi(a))</code>.
+   */
+  def eps(f : ITerm => IFormula) = {
+    // first substitute a fresh constant, and later replace it with a
+    // bound variable (just applying <code>f</code> to a bound variable
+    // would not work in case of nested binders)
+    val x = new ConstantTerm ("x")
+    val fWithShiftedVars = VariableShiftVisitor(f(x), 0, 1)
+    IEpsilon(ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0))))
+  }
 
   /**
    * Generate a conditional term.
@@ -174,6 +193,20 @@ object IExpression {
   def ite(cond : IFormula, left : IFormula, right : IFormula) =
     IFormulaITE(cond, left, right)
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Add an existential quantifier for the variable with de Bruijn index 0.
+   */
+  def ex(f : IFormula) = IQuantified(Quantifier.EX, f)
+  
+  /**
+   * Add an existential quantifier for the variable with de Bruijn index 0.
+   */
+  def all(f : IFormula) = IQuantified(Quantifier.ALL, f)
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Higher-order syntax for existential quantifiers. This makes it possible
    * to write a quantifier as <code>ex(a => phi(a))</code>.
@@ -181,10 +214,63 @@ object IExpression {
   def ex(f : ITerm => IFormula) = quan(Quantifier.EX, f)
   
   /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as <code>ex((a, b) => phi(a, b))</code>.
+   */
+  def ex(f : (ITerm, ITerm) => IFormula) = quan(Quantifier.EX, f)
+  
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as <code>ex((a, b, c) => phi(a, b, c))</code>.
+   */
+  def ex(f : (ITerm, ITerm, ITerm) => IFormula) = quan(Quantifier.EX, f)
+  
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as <code>ex((a, b, c, d) => phi(a, b, c, d))</code>.
+   */
+  def ex(f : (ITerm, ITerm, ITerm, ITerm) => IFormula) = quan(Quantifier.EX, f)
+  
+  /**
+   * Higher-order syntax for existential quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>ex((a, b, c, d, e) => phi(a, b, c, d, e))</code>.
+   */
+  def ex(f : (ITerm, ITerm, ITerm, ITerm, ITerm) => IFormula) =
+    quan(Quantifier.EX, f)
+  
+  /**
    * Higher-order syntax for universal quantifiers. This makes it possible
    * to write a quantifier as <code>all(a => phi(a))</code>.
    */
   def all(f : ITerm => IFormula) = quan(Quantifier.ALL, f)
+  
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as <code>all((a, b) => phi(a, b))</code>.
+   */
+  def all(f : (ITerm, ITerm) => IFormula) = quan(Quantifier.ALL, f)
+  
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as <code>all((a, b, c) => phi(a, b, c))</code>.
+   */
+  def all(f : (ITerm, ITerm, ITerm) => IFormula) = quan(Quantifier.ALL, f)
+  
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as <code>all((a, b, c, d) => phi(a, b, c, d))</code>.
+   */
+  def all(f : (ITerm, ITerm, ITerm, ITerm) => IFormula) =
+    quan(Quantifier.ALL, f)
+  
+  /**
+   * Higher-order syntax for universal quantifiers. This makes it possible
+   * to write a quantifier as
+   * <code>all((a, b, c, d, e) => phi(a, b, c, d, e))</code>.
+   */
+  def all(f : (ITerm, ITerm, ITerm, ITerm, ITerm) => IFormula) =
+    quan(Quantifier.ALL, f)
   
   /**
    * Higher-order syntax for quantifiers. This makes it possible
@@ -200,28 +286,60 @@ object IExpression {
   }
   
   /**
-   * Higher-order syntax for epsilon-expressions. This makes it possible
-   * to write things like <code>eps(a => phi(a))</code>.
+   * Higher-order syntax for quantifiers. This makes it possible
+   * to write a quantifier like in
+   * <code>quan(Quantifier.ALL, (a, b) => phi(a, b))</code>.
    */
-  def eps(f : ITerm => IFormula) = {
-    // first substitute a fresh constant, and later replace it with a
-    // bound variable (just applying <code>f</code> to a bound variable
-    // would not work in case of nested binders)
-    val x = new ConstantTerm ("x")
-    val fWithShiftedVars = VariableShiftVisitor(f(x), 0, 1)
-    IEpsilon(ConstantSubstVisitor(fWithShiftedVars, Map(x -> v(0))))
+  def quan(q : Quantifier, f : (ITerm, ITerm) => IFormula) : IFormula = {
+    val x1 = new ConstantTerm ("x1")
+    val x2 = new ConstantTerm ("x2")
+    quanConsts(q, List(x1, x2), f(x1, x2))
   }
-
-  /**
-   * Trigger/patterns that are used to define in which way a quantified 
-   * formula is supposed to be instantiated. Triggers are only allowed to occur
-   * immediately after (inside) a quantifier. This class can both represent
-   * uni-triggers (for <code>patterns.size == 1</code> and multi-triggers.
-   * Intended use is, for instance, <code>all(x => trig(f(x) >= 0, f(x)))</code>.
-   */
-  def trig(f : IFormula, patterns : IExpression*) =
-    ITrigger(ITrigger.extractTerms(patterns), f)
   
+  /**
+   * Higher-order syntax for quantifiers. This makes it possible
+   * to write a quantifier like in
+   * <code>quan(Quantifier.ALL, (a, b, c) => phi(a, b, c))</code>.
+   */
+  def quan(q : Quantifier,
+           f : (ITerm, ITerm, ITerm) => IFormula) : IFormula = {
+    val x1 = new ConstantTerm ("x1")
+    val x2 = new ConstantTerm ("x2")
+    val x3 = new ConstantTerm ("x3")
+    quanConsts(q, List(x1, x2, x3), f(x1, x2, x3))
+  }
+  
+  /**
+   * Higher-order syntax for quantifiers. This makes it possible
+   * to write a quantifier like in
+   * <code>quan(Quantifier.ALL, (a, b, c, d) => phi(a, b, c, d))</code>.
+   */
+  def quan(q : Quantifier,
+           f : (ITerm, ITerm, ITerm, ITerm) => IFormula) : IFormula = {
+    val x1 = new ConstantTerm ("x1")
+    val x2 = new ConstantTerm ("x2")
+    val x3 = new ConstantTerm ("x3")
+    val x4 = new ConstantTerm ("x4")
+    quanConsts(q, List(x1, x2, x3, x4), f(x1, x2, x3, x4))
+  }
+  
+  /**
+   * Higher-order syntax for quantifiers. This makes it possible
+   * to write a quantifier like in
+   * <code>quan(Quantifier.ALL, (a, b, c, d, e) => phi(a, b, c, d, e))</code>.
+   */
+  def quan(q : Quantifier,
+           f : (ITerm, ITerm, ITerm, ITerm, ITerm) => IFormula) : IFormula = {
+    val x1 = new ConstantTerm ("x1")
+    val x2 = new ConstantTerm ("x2")
+    val x3 = new ConstantTerm ("x3")
+    val x4 = new ConstantTerm ("x4")
+    val x5 = new ConstantTerm ("x5")
+    quanConsts(q, List(x1, x2, x3, x4, x5), f(x1, x2, x3, x4, x5))
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Add quantifiers for the variables with de Bruijn index
    * <code>0, ..., quans.size - 1</code>. The first quantifier in
@@ -288,6 +406,82 @@ object IExpression {
   }
 
   /**
+   * Trigger/patterns that are used to define in which way a quantified 
+   * formula is supposed to be instantiated. Triggers are only allowed to occur
+   * immediately after (inside) a quantifier. This class can both represent
+   * uni-triggers (for <code>patterns.size == 1</code> and multi-triggers.
+   * Intended use is, for instance,
+   * <code>all(x => trig(f(x) >= 0, f(x)))</code>.
+   */
+  def trig(f : IFormula, patterns : IExpression*) =
+    ITrigger(ITrigger.extractTerms(patterns), f)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Guard a formula, turning it into <code>f & guard</code>. The guard will
+   * be inserted underneath leading existential quantifiers.
+   */
+  def guardEx(f : IFormula, guard : IFormula) : IFormula = guard match {
+    case IBoolLit(true) => f
+    case guard          => guardEx(f, guard, 0)
+  }
+
+  private def guardEx(f : IFormula, guard : IFormula,
+                      depth : Int) : IFormula = f match {
+    case IQuantified(Quantifier.EX, body) =>
+      IQuantified(Quantifier.EX, guardEx(body, guard, depth + 1))
+    case ITrigger(patterns, body) =>
+      ITrigger(patterns, guardEx(body, guard, depth))
+    case f =>
+      VariableShiftVisitor(guard, 0, depth) & f
+  }
+
+  /**
+   * Guard a formula, turning it into <code>f ==> guard</code>. The guard will
+   * be inserted underneath leading universal quantifiers.
+   */
+  def guardAll(f : IFormula, guard : IFormula) : IFormula = guard match {
+    case IBoolLit(true) => f
+    case guard          => guardAll(f, guard, 0)
+  }
+
+  private def guardAll(f : IFormula, guard : IFormula,
+                       depth : Int) : IFormula = f match {
+    case IQuantified(Quantifier.ALL, body) =>
+      IQuantified(Quantifier.ALL, guardAll(body, guard, depth + 1))
+    case ITrigger(patterns, body) =>
+      ITrigger(patterns, guardAll(body, guard, depth))
+    case f =>
+      VariableShiftVisitor(guard, 0, depth) ==> f
+  }
+
+  /**
+   * Add sorted universal quantifiers for the variables with de Bruijn index
+   * <code>0, ..., sorts.size - 1</code>. The first sort in
+   * <code>sorts</code> will be the innermost quantifier and corresponds
+   * to index 0. 
+   */
+  def all(sorts : Seq[Sort], f : IFormula) : IFormula =
+    quan(Array.fill(sorts.size){Quantifier.ALL}, guardAll(f, sortGuards(sorts)))
+
+  /**
+   * Add sorted existential quantifiers for the variables with de Bruijn index
+   * <code>0, ..., sorts.size - 1</code>. The first sort in
+   * <code>sorts</code> will be the innermost quantifier and corresponds
+   * to index 0. 
+   */
+  def ex(sorts : Seq[Sort], f : IFormula) : IFormula =
+    quan(Array.fill(sorts.size){Quantifier.EX}, guardEx(f, sortGuards(sorts)))
+
+  private def sortGuards(sorts : Seq[Sort]) : IFormula =
+    connectSimplify(for ((s, n) <- sorts.iterator.zipWithIndex)
+                      yield (s membershipConstraint v(n)),
+                    IBinJunctor.And)
+
+  //////////////////////////////////////////////////////////////////////////////
+  
+  /**
    * When encoding functions using predicates, make sure that
    * no functions escape.
    */
@@ -317,6 +511,8 @@ object IExpression {
    */
   def subst(t : IExpression, replacement : List[ITerm], shift : Int) =
     VariableSubstVisitor(t, (replacement, shift))
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Generate the equation <code>t = 0</code>.
@@ -390,6 +586,19 @@ object IExpression {
   def connect(fors : Iterator[IFormula], op : IBinJunctor.Value) : IFormula =
     if (fors.hasNext) {
       fors reduceLeft (IBinFormula(op, _, _))
+    } else op match {
+      case IBinJunctor.And | IBinJunctor.Eqv => true
+      case IBinJunctor.Or => false
+    }
+
+  def connectSimplify(fors : Iterable[IFormula], op : IBinJunctor.Value) : IFormula =
+    connectSimplify(fors.iterator, op)
+
+  def connectSimplify(fors : Iterator[IFormula], op : IBinJunctor.Value) : IFormula =
+    if (fors.hasNext) op match {
+      case IBinJunctor.And => fors reduceLeft (_ &&& _)
+      case IBinJunctor.Or  => fors reduceLeft (_ ||| _)
+      case IBinJunctor.Eqv => fors reduceLeft (_ <===> _)
     } else op match {
       case IBinJunctor.And | IBinJunctor.Eqv => true
       case IBinJunctor.Or => false
@@ -1468,7 +1677,8 @@ object ITrigger {
  * immediately after (inside) a quantifier. This class can both represent
  * uni-triggers (for <code>patterns.size == 1</code> and multi-triggers.
  */
-case class ITrigger(patterns : Seq[ITerm], subformula : IFormula) extends IFormula {
+case class ITrigger(patterns : Seq[ITerm],
+                    subformula : IFormula) extends IFormula {
   override def apply(i : Int) : IExpression = 
     if (i == patterns.length) subformula else patterns(i)
   override def length : Int = patterns.length + 1

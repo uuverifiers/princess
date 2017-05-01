@@ -9,38 +9,16 @@ RUNOPTIONS="-cp `pwd`/../../bin:."
 
 export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
-scalac $OPTIONS SimpleAPITest.scala
-scala $RUNOPTIONS SimpleAPITest
+TESTS="SimpleAPITest SimpleAPITest2 SimpleAPITest3 SimpleAPITest4 \
+       SimpleAPITest5 SimpleAPITest6 SimpleAPITest7 SimpleAPITest8 \
+       SimpleAPITest9 SimpleAPITest10 SimpleAPITest11"
 
-scalac $OPTIONS SimpleAPITest2.scala
-scala $RUNOPTIONS SimpleAPITest2
-
-scalac $OPTIONS SimpleAPITest3.scala
-scala $RUNOPTIONS SimpleAPITest3
-
-scalac $OPTIONS SimpleAPITest4.scala
-scala $RUNOPTIONS SimpleAPITest4
-
-scalac $OPTIONS SimpleAPITest5.scala
-scala $RUNOPTIONS SimpleAPITest5
-
-scalac $OPTIONS SimpleAPITest6.scala
-scala $RUNOPTIONS SimpleAPITest6
-
-scalac $OPTIONS SimpleAPITest7.scala
-scala $RUNOPTIONS SimpleAPITest7
-
-scalac $OPTIONS SimpleAPITest8.scala
-scala $RUNOPTIONS SimpleAPITest8
-
-scalac $OPTIONS SimpleAPITest9.scala
-scala $RUNOPTIONS SimpleAPITest9
-
-scalac $OPTIONS SimpleAPITest10.scala
-scala $RUNOPTIONS SimpleAPITest10
-
-scalac $OPTIONS SimpleAPITest11.scala
-scala $RUNOPTIONS SimpleAPITest11
+for testname in $TESTS; do
+  echo
+  echo $testname
+  scalac $OPTIONS $testname.scala
+  scala $RUNOPTIONS $testname
+done
 
 scala $OPTIONS interpolation-bug.scala
 scala $OPTIONS scope-bug.scala
@@ -50,6 +28,8 @@ scala $OPTIONS getConstraint-bug.scala
 scala $OPTIONS TheoryTest.scala
 scala $OPTIONS TheoryTest2.scala
 scala $OPTIONS TheoryTest3.scala
+
+scala $OPTIONS TypeTests.scala
 
 scala $OPTIONS nonlinear.scala
 scala $OPTIONS nonlinearInterpolation.scala
@@ -64,5 +44,7 @@ scala $OPTIONS incremental.scala
 scala $OPTIONS divmodprint.scala
 scala $OPTIONS ADTTest.scala
 scala $OPTIONS ADTTest2.scala
+scala $OPTIONS ADTTest3.scala
 scala $OPTIONS pred-simplify.scala
+scala $OPTIONS empty-stack-bug.scala
 

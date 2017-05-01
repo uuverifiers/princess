@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2017 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -34,6 +34,7 @@ import ap.parameters.{ParserSettings, PreprocessingSettings,
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.terfor.TerForConvenience._
 import ap.terfor.TermOrder
+import ap.types.Sort
 import ap.proof.ModelSearchProver
 import ap.util.{Debug, Seqs}
 
@@ -343,7 +344,7 @@ object ResourceFiles {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class FrameworkVocabulary(preludeEnv : Environment[Unit, Unit, Unit, Unit]) {
+class FrameworkVocabulary(preludeEnv : Environment[Unit, Sort, Unit, Unit, Sort]) {
   private def lookupFun(n : String) = preludeEnv.lookupSym(n) match {
     case Environment.Function(f, _) => f
     case _ => throw new Error("Expected " + n + " to be defined as a function");

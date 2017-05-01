@@ -491,6 +491,26 @@ Interpolants:
 x = 1
 y != 3
 
+Loading adt-interpolation.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 7), simplifying (11), interpolating ...
+
+VALID
+
+Interpolants:
+List_ctor(l) != 0
+
+Loading bool-interpolation.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 12), simplifying (19), interpolating ...
+
+VALID
+
+Interpolants:
+f(false) != true & f(true) != true
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -501,9 +521,9 @@ Found proof (size 20), simplifying (30), interpolating ...
 unsat
 
 Interpolants:
-(or (= (select a_0 ULTIMATE.start_i_-1 ) 23 ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) (- 1) ) ) (= (select a_0 upper_-1 ) 23 ) ) ) ) 
-(or (= (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) (= (select a_0 ULTIMATE.start_i_-1 ) 23 ) ) 
-(= (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) 
+(or (= (select a_0 ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (select a_0 upper_-1) 23))))
+(or (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23) (= (select a_0 ULTIMATE.start_i_-1) 23))
+(= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23)
 
 Loading function-bug2.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -515,20 +535,20 @@ Found proof (size 19), simplifying (29), interpolating ...
 unsat
 
 Interpolants:
-(or (= (f ULTIMATE.start_i_-1 ) 23 ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) (- 1) ) ) (= (f upper_-1 ) 23 ) ) ) ) 
-(or (= (f (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) (= (f ULTIMATE.start_i_-1 ) 23 ) ) 
-(= (f (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) 
+(or (= (f ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (f upper_-1) 23))))
+(or (= (f (+ 1 ULTIMATE.start_i_-1)) 23) (= (f ULTIMATE.start_i_-1) 23))
+(= (f (+ 1 ULTIMATE.start_i_-1)) 23)
 
 Loading pred-unify-bug.smt2 ...
 Warning: treating sort Real as Int
 "starting trace check"
 unsat
 "interpolants-3"
-((= (select |#length_13| main_~p~4.base_18 ) 8 ) )
+((= (select |#length_13| main_~p~4.base_18) 8))
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
 Warning: treating sort Real as Int
 unsat
-((forall ((var0 Int)) (not (= (+ (* 4294967296 var0 ) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42 ) ) ) 0 ) ) ) )
+((forall ((var0 Int)) (not (= (+ (* 4294967296 var0) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42))) 0))))
 Loading function-bug3.smt2 ...
 "Start declaration of constants"
 "Finished declaration of constants"
@@ -547,35 +567,38 @@ unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
 (true
 true
-(= main_~a~4.offset_2 0 ) 
-(and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
-(and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
-(and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
-(and (= main_~p~4.base_3 main_~a~4.base_2 ) (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) (and (and (= main_~p~4.offset_3 0 ) (= main_~a~4.offset_2 0 ) ) (not (= (select (select |#memory_int_6| main_~a~4.base_2 ) 0 ) 1 ) ) ) ) ) 
-(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) main_~p~4.offset_7 ) 1 ) ) ) 
-(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) main_~p~4.offset_7 ) 1 ) ) ) 
-(or (or (not (= |main_#t~mem15_9| 1 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) )
+(= main_~a~4.offset_2 0)
+(and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
+(and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
+(and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
+(and (= main_~p~4.base_3 main_~a~4.base_2) (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)) (and (and (= main_~p~4.offset_3 0) (= main_~a~4.offset_2 0)) (not (= (select (select |#memory_int_6| main_~a~4.base_2) 0) 1)))))
+(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
+(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
+(or (or (not (= |main_#t~mem15_9| 1)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4))) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)))
+(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)))
+(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))))
 Loading smtTyping.smt2 ...
 Warning: treating sort Real as Int
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
-(and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
-(and (forall ((var0 Int)) (or (not (select |#valid_2| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0 ) ) (and (not (= var0 0 ) ) (forall ((var1 Int)) (or (= var1 var0 ) (= (select |old(#valid)_-1| var1 ) (select |#valid_2| var1 ) ) ) ) ) ) ) ) )
+((and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
+(and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
+(and (forall ((var0 Int)) (or (not (select |#valid_2| var0)) (select |old(#valid)_-1| var0))) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0)) (and (not (= var0 0)) (forall ((var1 Int)) (or (= var1 var0) (= (select |old(#valid)_-1| var1) (select |#valid_2| var1)))))))))
 Loading matchCheckBug.smt2 ...
 Warning: treating sort Real as Int
 unsat
 Loading treeInterpolation1.smt2 ...
 unsat
-((<= 0 (f x ) ) 
-(<= 0 (+ (- 1) (* (- 1) (f y ) ) ) ) )
+((<= 0 (f x))
+(<= 0 (+ (- 1) (* (- 1) (f y)))))
 Loading treeInterpolation2.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (= |#valid_4| |old(#valid)_4| ) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0 ) ) (or (= var0 0 ) (or (select |#valid_4| var0 ) (not (select |old(#valid)_4| var0 ) ) ) ) ) ) ) 
+((and (= |#valid_4| |old(#valid)_4|) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0)) (or (= var0 0) (or (select |#valid_4| var0) (not (select |old(#valid)_4| var0)))))))
 false)
+Loading enum-interpolation.smt2 ...
+unsat
+((= x blue))
 Loading prp-2-17.pri ...
 Preprocessing ...
 Constructing countermodel ...

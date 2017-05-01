@@ -39,7 +39,8 @@ TESTS="cryptarithm.pri \
        ite.pri ite2.pri ite3.pri \
        div-elimination.pri bad-divisibility.pri binderTypes.pri \
        nestedITE.pri reductionBug.pri extraOps.pri booleanDefs.pri \
-       pred-with-body.pri fun-with-body.pri"
+       pred-with-body.pri fun-with-body.pri sorted-existential-constants.pri \
+       bool-quantifier.pri adt.pri bool-fun-2.pri"
 
 $PRI "$@" $TESTS
 
@@ -47,6 +48,7 @@ $PRI "$@" $TESTS
 # Tests where we have to suppress parts of the output because it is
 # too nondeterministic
 
-TESTS="linearRanking.pri linearRanking2-quantified.pri"
+TESTS="linearRanking.pri linearRanking-sorted.pri \
+       linearRanking2-quantified.pri"
 
 $PRI "$@" $TESTS 2>&1 | grep -v "^lowerBound"

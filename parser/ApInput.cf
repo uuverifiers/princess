@@ -33,6 +33,7 @@ comment "/*" "*/";
 -- Top-level blocks
 
 Problem.	Block		::= "\\problem" "{" Expression "}";
+SortDecls.	Block		::= "\\sorts" "{" [DeclSortC] "}";
 FunctionDecls.	Block		::= "\\functions" "{" [DeclFunC] "}";
 ExConstants.	Block		::= ExConstantsSec "{" [DeclConstantC] "}";
 UniConstants.	Block		::= "\\universalConstants" "{" [DeclConstantC] "}";
@@ -55,8 +56,6 @@ ExprQuant.	Expression4	::= Quant DeclBinder Expression4;
 ExprEpsilon.	Expression4	::= "\\eps" DeclSingleVarC ";" Expression4;
 ExprTrigger.	Expression4	::= "{" [ArgC] "}" Expression4;
 ExprPart.       Expression4     ::= "\\part" "[" Ident "]" Expression4;
-ExprTrue.	Expression5	::= "true";
-ExprFalse.	Expression5	::= "false";
 ExprRel.	Expression5	::= Expression6 RelSym Expression6;
 
 ExprPlus.	Expression6	::= Expression6 "+" Expression7;
@@ -75,6 +74,9 @@ ExprMax.	Expression10	::= "\\max" OptArgs;
 ExprMin.	Expression10	::= "\\min" OptArgs;
 ExprDistinct.	Expression10	::= "\\distinct" OptArgs;
 ExprIdApp.	Expression10	::= Ident OptArgs;
+ExprDotAttr.    Expression10    ::= Expression10 "." Ident;
+ExprTrue.	Expression10	::= "true";
+ExprFalse.	Expression10	::= "false";
 ExprLit.	Expression10	::= IntLit;
 
 coercions Expression 10;
@@ -102,9 +104,9 @@ token IntLit digit+;
 DeclConst.	DeclConstC	::= Type [Ident];
 separator nonempty Ident ",";
 
-DeclSingleVar.  DeclSingleVarC  ::= BinderType Ident;
+DeclSingleVar.  DeclSingleVarC  ::= Type Ident;
 
-DeclVar.	DeclVarC	::= BinderType [Ident];
+DeclVar.	DeclVarC	::= Type [Ident];
 
 DeclBinder1.	DeclBinder	::= DeclVarC ";";
 DeclBinderM.	DeclBinder	::= "(" [DeclVarC] ")";
@@ -120,6 +122,15 @@ terminator DeclFunC ";";
 Partial.        FunOption       ::= "\\partial";
 Relational.     FunOption       ::= "\\relational";
 separator FunOption "";
+
+--------------------------------------------------------------------------------
+-- Sort declarations
+
+DeclADT.        DeclSortC       ::= Ident "{" [DeclCtorC] "}";
+terminator DeclSortC ";";
+
+DeclCtor.       DeclCtorC       ::= Ident OptFormalArgs;
+terminator DeclCtorC ";";
 
 --------------------------------------------------------------------------------
 -- Declarations of existential constants
@@ -148,16 +159,13 @@ SomeBody.	OptBody 	::= "{" Expression "}";
 NoBody.		OptBody 	::= ;
 
 --------------------------------------------------------------------------------
--- Base types (there is only one type, int)
+-- Types
 
 TypeInt.	Type		::= "int";
-
---------------------------------------------------------------------------------
--- Types that can be used in binders
-
-BTypeType.	BinderType	::= Type;
-BTypeNat.	BinderType	::= "nat";
-BTypeInterval.	BinderType	::= "int" "[" IntervalLower "," IntervalUpper "]";
+TypeNat.	Type		::= "nat";
+TypeInterval.	Type		::= "int" "[" IntervalLower "," IntervalUpper "]";
+TypeBool.	Type		::= "bool";
+TypeIdent.	Type		::= Ident;
 
 InfLower.       IntervalLower   ::= "-" "inf";
 NumLower.       IntervalLower   ::= IntLit;

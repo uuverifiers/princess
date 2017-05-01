@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,17 +21,43 @@
 
 package ap.parser
 
+import ap.DialogUtil
 import ap.basetypes.IdealInt
 import ap.terfor.preds.Predicate
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
+import ap.types.Sort
 import ap.util.Seqs
 
 import java.io.PrintStream
 
 object PrettyScalaLineariser {
+
   def apply(functionNames : PartialFunction[IFunction, String]) =
     new PrettyScalaLineariser(functionNames)
+
+  def printSort(sort : Sort) : Unit = sort match {
+    case Sort.Integer =>
+      print("Sort.Integer")
+    case Sort.Nat     =>
+      print("Sort.Nat")
+    case Sort.Interval(lower, upper) =>
+      print("Sort.Interval(" +
+            (for (l <- lower) yield int2String(l)) + ", " +
+            (for (u <- upper) yield int2String(u)) + ")")
+  }
+
+  def sort2String(sort : Sort) : String =
+    DialogUtil asString { printSort(sort) }
+
+  private def int2String(value : IdealInt) : String = {
+    val intValue = value.intValue
+    if (value == IdealInt(intValue))
+      "" + intValue
+    else
+      "IdealInt(\"" + value + "\")"
+  }
+
 }
 
 /**
@@ -39,6 +65,8 @@ object PrettyScalaLineariser {
  */
 class PrettyScalaLineariser private (
                functionNames : PartialFunction[IFunction, String]) {
+
+  import PrettyScalaLineariser.int2String
 
   def apply(e : IExpression) =
     AbsyPrinter.visit(e, PrintContext(List(), "", true))
@@ -99,14 +127,6 @@ class PrettyScalaLineariser private (
       case IConstant(c)     => c.name
       case IVariable(index) => ctxt vars index
       case IIntLit(value)   => int2String(value)
-    }
-
-    private def int2String(value : IdealInt) : String = {
-      val intValue = value.intValue
-      if (value == IdealInt(intValue))
-        "" + intValue
-      else
-        "IdealInt(\"" + value + "\")"
     }
 
     private def relation(rel : IIntRelation.Value) = rel match {

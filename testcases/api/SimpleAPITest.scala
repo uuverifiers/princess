@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -200,7 +200,8 @@ object SimpleAPITest extends App {
   part("Quantifiers, functions, and triggers")
 
   scope {
-    val f = createFunction("f", 1)
+    val f = createFunction("f", List(Sort.Integer), Sort.Integer,
+                           partial = true)
     !! (all(x => f(x) >= x))   // f(x) will automatically be selected as a trigger
 
     val a, b = createConstant
@@ -232,7 +233,8 @@ object SimpleAPITest extends App {
   part("Boolean functions and triggers")
 
   scope {
-    val r = createBooleanFunction("r", 2)
+    val r = createBooleanFunction("r", List(Sort.Integer, Sort.Integer),
+                                  partial = true)
     val a = createConstant
 
     // Boolean functions can be used in triggers, in contrast to

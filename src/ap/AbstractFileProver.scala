@@ -26,12 +26,15 @@ import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
                   Preprocessing, IsUniversalFormulaVisitor,
                   FunctionEncoder, IExpression, INamedPart, PartName,
-                  IFunction, IInterpolantSpec, IBinJunctor, Environment}
+                  IFunction, IInterpolantSpec, IBinJunctor, Environment,
+                  Internal2InputAbsy}
+import ap.interpolants.ArraySimplifier
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
+import ap.types.{TypeTheory, IntToTermTranslator}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.proof.tree.ProofTree
 import ap.proof.goal.{Goal, SymbolWeights}
@@ -115,6 +118,16 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     val (inputFormulas, interpolantS, sig) =
       Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)
     
+    val sig2 =
+      if (sig.isSorted) {
+//        Console.withOut(Console.err) {
+//          println("Warning: adding theory of types")
+//        }
+        sig.addTheories(List(ap.types.TypeTheory), true)
+      } else {
+        sig
+      }
+
     val gcedFunctions = Param.FUNCTION_GC(settings) match {
       case Param.FunctionGCOptions.None =>
         Set[Predicate]()
@@ -130,7 +143,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       if (Param.PRINT_SMT_FILE(settings) != "" ||
           Param.PRINT_TPTP_FILE(settings) != "")  f else null
 
-    (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions,
+    (inputFormulas, oriFormula, interpolantS, sig2, gcedFunctions,
      functionEnc, constructProofs)
   }
   
@@ -339,11 +352,37 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  protected def filterNonTheoryParts(model : Conjunction) : Conjunction = {
+    implicit val _ = model.order
+    val remainingPredConj = model.predConj filter {
+      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
+    }
+    model.updatePredConj(remainingPredConj)
+  }
+
+  protected def toIFormula(c : Conjunction,
+                           onlyNonTheory : Boolean = false) = {
+    val remaining = if (onlyNonTheory) filterNonTheoryParts(c) else c
+    val raw = Internal2InputAbsy(remaining, functionEncoder.predTranslation)
+    val simp = (new ArraySimplifier)(raw)
+    implicit val context = new Theory.DefaultDecoderContext(c)
+    IntToTermTranslator(simp)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   protected def findModelTimeout : Either[Conjunction, Certificate] = {
     Console.withOut(Console.err) {
       println("Constructing satisfying assignment for the existential constants ...")
     }
-    findCounterModelTimeout(List(Conjunction.disj(formulas, order).negate))
+
+    val formula = Conjunction.disj(formulas, order)
+    val exConstraintFormula = 
+      TypeTheory.addExConstraints(formula,
+                                  signature.existentialConstants,
+                                  order)
+
+    findCounterModelTimeout(List(exConstraintFormula.negate))
   }
   
   protected def findCounterModelTimeout : Either[Conjunction, Certificate] = {
@@ -367,9 +406,15 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected def constructProofTree : (ProofTree, Boolean) = {
     // explicitly quantify all universal variables
     
-    val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                         order sort signature.nullaryFunctions,
-                                         Conjunction.disj(formulas, order), order)
+    val closedFor =
+      Conjunction.quantify(Quantifier.ALL,
+                           order sort signature.nullaryFunctions,
+                           Conjunction.disj(formulas, order), order)
+
+    val closedExFor =
+      TypeTheory.addExConstraints(closedFor,
+                                  signature.existentialConstants,
+                                  order)
     
     Console.withOut(Console.err) {
       println("Proving ...")
@@ -378,7 +423,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Timeout.withChecker(stoppingCond) {
       val prover =
         new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-      val tree = prover(closedFor, signature)
+      val tree = prover(closedExFor, signature)
       val validConstraint = prover.isValidConstraint(tree.closingConstraint, signature)
       (tree, validConstraint)
     }

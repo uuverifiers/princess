@@ -31,6 +31,8 @@ import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 object Theory {
 
   private val AC = Debug.AC_THEORY
@@ -102,6 +104,14 @@ object Theory {
 
   trait DecoderContext {
     def getDataFor(t : Theory) : TheoryDecoderData
+  }
+
+  class DefaultDecoderContext(model : Conjunction) extends DecoderContext {
+    private val decoderDataCache = new MHashMap[Theory, TheoryDecoderData]
+    def getDataFor(t : Theory) : TheoryDecoderData =
+      decoderDataCache.getOrElseUpdate(t, {
+        (t generateDecoderData model).get
+      })
   }
 
   //////////////////////////////////////////////////////////////////////////////
