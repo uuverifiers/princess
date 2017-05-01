@@ -237,7 +237,9 @@ Constructing countermodel ...
 sat
 
 Model:
-(and (= a 0 ) (= (select 0 42 ) 0 ) ) 
+(model
+  (define-const a Int 0)
+)
 
 Loading distinctBug.smt2 ...
 Preprocessing ...
