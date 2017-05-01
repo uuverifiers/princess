@@ -1343,7 +1343,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                   case (f : IFormula, _) =>
                     (prover eval f).toString
                   case (t : ITerm, _) =>
-                    SMTLineariser asString (prover evalAsTerm t)
+                    SMTLineariser asString (prover evalToTerm t)
                 }
             }
             

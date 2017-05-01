@@ -38,7 +38,7 @@ import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
-                                 HashSet => MHashSet}
+                                 HashSet => MHashSet, Map => MMap}
 import scala.collection.{Set => GSet}
 
 object ADT {
@@ -82,7 +82,7 @@ object ADT {
 
     override def augmentModelTermSet(
                    model : Conjunction,
-                   terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =
+                   terms : MMap[(IdealInt, Sort), ITerm]) : Unit =
       if (adtTheory.isEnum(sortNum)) {
         if (!(terms contains (IdealInt.ZERO, this)))
           for ((f, num) <-

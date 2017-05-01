@@ -30,7 +30,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.theories.Theory
 import ap.util.Debug
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{Map => MMap}
 
 object Sort {
 
@@ -58,7 +58,7 @@ object Sort {
       yield IExpression.i(n)
 
     def augmentModelTermSet(model : Conjunction,
-                            terms : MHashMap[(IdealInt, Sort), ITerm])
+                            terms : MMap[(IdealInt, Sort), ITerm])
                            : Unit = ()
 
     override def newConstant(name : String) : ConstantTerm =
@@ -132,7 +132,7 @@ object Sort {
       }
 
     def augmentModelTermSet(model : Conjunction,
-                            terms : MHashMap[(IdealInt, Sort), ITerm])
+                            terms : MMap[(IdealInt, Sort), ITerm])
                            : Unit = ()
   }
 
@@ -282,11 +282,11 @@ trait Sort {
    * considered sort.
    */
   def augmentModelTermSet(model : Conjunction,
-                          terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit
+                          terms : MMap[(IdealInt, Sort), ITerm]) : Unit
 
   protected def getSubTerms(ids : Seq[Term],
                             sorts : Seq[Sort],
-                            terms : MHashMap[(IdealInt, Sort), ITerm])
+                            terms : MMap[(IdealInt, Sort), ITerm])
                            : Option[Seq[ITerm]] = {
     val subTerms =
       for ((idTerm, sort) <- ids zip sorts) yield {
@@ -531,7 +531,7 @@ class ProxySort(underlying : Sort) extends Sort {
   def individuals : Stream[ITerm] = underlying.individuals
 
   def augmentModelTermSet(model : Conjunction,
-                          terms : MHashMap[(IdealInt, Sort), ITerm]) : Unit =
+                          terms : MMap[(IdealInt, Sort), ITerm]) : Unit =
     underlying.augmentModelTermSet(model, terms)
 }
 

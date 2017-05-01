@@ -219,17 +219,42 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Class representing (usually partial) models of formulas computed
+   * through the API.
+   */
   class PartialModel(
-         val interpretation : scala.collection.Map[ModelLocation, ModelValue]) {
+         val interpretation : scala.collection.Map[ModelLocation, ModelValue],
+         val constructorTerms : scala.collection.Map[(IdealInt, Sort), ITerm]) {
 
     import IExpression._
 
     def definedLocations = interpretation.keySet
 
+    /**
+     * Evaluate an expression to some value in the current model, if possible.
+     */
     def evalExpression(e : IExpression) : Option[ModelValue] =
       Evaluator.visit(e, ())
+
+    /**
+     * Evaluate a term to its internal integer representation in the model,
+     * if possible.
+     */
     def eval(t : ITerm) : Option[IdealInt] =
       for (IntValue(v) <- evalExpression(t)) yield v
+
+    /**
+     * Evaluate a term to a constructor term in the model, if possible.
+     */
+    def evalToTerm(t : ITerm) : Option[ITerm] =
+      for (IntValue(v) <- evalExpression(t)) yield {
+        (constructorTerms get (v, Sort sortOf t)) getOrElse i(v)
+      }
+
+    /**
+     * Evaluate a formula to a truth value, if possible.
+     */
     def eval(f : IFormula) : Option[Boolean] =
       for (BoolValue(b) <- evalExpression(f)) yield b
 
@@ -2964,6 +2989,14 @@ class SimpleAPI private (enableAssert : Boolean,
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       val interpretation = new LinkedHashMap[ModelLocation, ModelValue]
+
+      val TypeTheory.DecoderData(ctorTerms) =
+        decoderContext getDataFor TypeTheory
+
+      // nullary constructor terms can be added to the interpretation
+      // (other terms should be part of the model returned by the prover)
+      for (((num, _), IFunApp(ctor, Seq())) <- ctorTerms)
+        interpretation.put(IntFunctionLoc(ctor, List()), IntValue(num))
   
       for (l <- currentModel.arithConj.positiveEqs) {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -3007,8 +3040,8 @@ class SimpleAPI private (enableAssert : Boolean,
           interpretation.put(PredicateLoc(a.pred, argValues),
                              BoolValue(false))
         }
-  
-      lastPartialModel = new PartialModel (interpretation)
+
+      lastPartialModel = new PartialModel (interpretation, ctorTerms)
       lastPartialModel
     }
   }
@@ -3410,9 +3443,9 @@ class SimpleAPI private (enableAssert : Boolean,
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
    * or <code>ProverStatus.Inconclusive</code>.
    */
-  def evalAsTerm(t : ITerm) : ITerm = {
+  def evalToTerm(t : ITerm) : ITerm = {
     doDumpScala {
-      print("println(\"" + getScalaNum + ": \" + evalAsTerm(")
+      print("println(\"" + getScalaNum + ": \" + evalToTerm(")
       PrettyScalaLineariser(getFunctionNames)(t)
       println("))")
     }
@@ -3445,9 +3478,9 @@ class SimpleAPI private (enableAssert : Boolean,
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
    * or <code>ProverStatus.Inconclusive</code>.
    */
-  def evalAsTerm(c : IExpression.ConstantTerm) : ITerm = {
+  def evalToTerm(c : IExpression.ConstantTerm) : ITerm = {
     doDumpScala {
-      println("println(\"" + getScalaNum + ": \" + evalAsTerm(" + c + "))")
+      println("println(\"" + getScalaNum + ": \" + evalToTerm(" + c + "))")
     }
     val num = evalHelp(c)
     (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
@@ -3463,7 +3496,7 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def evalPartialAsTerm(c : IExpression.ConstantTerm) : Option[ITerm] = {
     doDumpScala {
-      println("println(\"" + getScalaNum + ": \" + evalAsTerm(" + c + "))")
+      println("println(\"" + getScalaNum + ": \" + evalToTerm(" + c + "))")
     }
     for (num <- evalPartialHelp(c)) yield {
       (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)

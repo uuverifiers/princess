@@ -30,7 +30,8 @@ import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
 import ap.terfor.preds.Atom
 
 import scala.collection.mutable.{ArrayBuffer,
-                                 HashMap => MHashMap, HashSet => MHashSet}
+                                 HashMap => MHashMap, HashSet => MHashSet,
+                                 LinkedHashMap, LinkedHashSet}
 
 /**
  * Theory taking care of types of declared symbols.
@@ -159,13 +160,14 @@ object TypeTheory extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  case class DecoderData(valueTranslation : Map[(IdealInt, Sort), ITerm])
+  case class DecoderData(
+               valueTranslation : scala.collection.Map[(IdealInt, Sort), ITerm])
      extends Theory.TheoryDecoderData
 
   override def generateDecoderData(model : Conjunction)
                                   : Option[Theory.TheoryDecoderData] = {
     // find all relevant sorts
-    val sorts = new MHashSet[Sort]
+    val sorts = new LinkedHashSet[Sort]
 
     for (c <- model.constants) c match {
       case c : SortedConstantTerm =>
@@ -183,7 +185,7 @@ object TypeTheory extends Theory {
 
     // reconstruct terms from definitions in the model
 
-    val terms = new MHashMap[(IdealInt, Sort), ITerm]
+    val terms = new LinkedHashMap[(IdealInt, Sort), ITerm]
 
     var size = -1
     while (terms.size > size) {
@@ -223,7 +225,7 @@ object TypeTheory extends Theory {
         case _ => // nothing
       }
 
-    Some(DecoderData(terms.toMap))
+    Some(DecoderData(terms))
   }
 
   private def atoms(c : Conjunction) : Iterator[Atom] =

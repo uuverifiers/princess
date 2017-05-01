@@ -190,15 +190,54 @@
       !! (e === cons(d, nil()))
       println(expect(???, ProverStatus.Sat))
 
-      println(evalAsTerm(d))
-      println(evalAsTerm(e))
+      println(evalToTerm(d))
+      println(evalToTerm(e))
 
-      !! (e =/= cons(green(), nil()))
-      println(expect(???, ProverStatus.Unsat))
-    }
+      scope {
+        !! (e =/= cons(green(), nil()))
+        println(expect(???, ProverStatus.Unsat))
+      }
+
+      println(expect(???, ProverStatus.Sat))
+      val model = partialModel
+      println(model evalToTerm d)
+      println(model evalToTerm e)
     }
 
     println("Test 20")
+    scope {
+      val f = createFunction("f", List(colour), colour_list)
+
+      !! (f(green()) === nil())
+      !! (f(red()) === cons(blue(), nil()))
+
+      println(expect(???, ProverStatus.Sat))
+      val model = partialModel
+
+      println(model evalToTerm f(green()))
+      println(model evalToTerm f(red()))
+      println(model evalToTerm f(blue()))
+    }
+
+    println("Test 21")
+    scope {
+      val f = createFunction("f", List(colour_list), colour)
+
+      !! (f(nil()) === green())
+      !! (f(cons(green(), nil())) === blue())
+      !! (f(cons(blue(), nil())) =/= red())
+
+      println(expect(???, ProverStatus.Sat))
+      val model = partialModel
+
+      println(model evalToTerm f(nil()))
+      println(model evalToTerm f(cons(green(), nil())))
+      println(model evalToTerm f(cons(blue(), nil())))
+      println(model evalToTerm f(cons(red(), nil())))
+    }
+    }
+
+    println("Test 30")
     scope {
       addTheory(colADT)
       import TerForConvenience._
