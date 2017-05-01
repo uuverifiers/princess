@@ -1330,6 +1330,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
+      // TODO: fix output of arrays
+
       case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
         prover.getStatus(false) match {
           case SimpleAPI.ProverStatus.Sat |
@@ -1410,6 +1412,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         error("get-assignment not supported")
 
       //////////////////////////////////////////////////////////////////////////
+
+      // TODO: fix output of arrays
 
       case cmd : GetModelCommand => if (checkIncrementalWarn("get-model")) {
         prover.getStatus(false) match {
