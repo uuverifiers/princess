@@ -311,9 +311,6 @@ trait Sort {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // TODO: the following methods should use SortedConstantTerm for the bound
-  // symbol
-
   /**
    * Add an existential quantifier for the variable with de Bruijn index 0,
    * together with a guard representing this sort.

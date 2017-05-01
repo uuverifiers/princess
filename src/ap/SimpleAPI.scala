@@ -957,6 +957,9 @@ class SimpleAPI private (enableAssert : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // TODO: are sorts handle correctly in addConstant, addFunction, addRelation,
+  // addAbbrev?
+
   /**
    * Add an externally defined constant to the environment of this prover.
    */
