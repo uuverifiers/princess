@@ -120,9 +120,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
     val sig2 =
       if (sig.isSorted) {
-        Console.withOut(Console.err) {
-          println("Warning: adding theory of types")
-        }
+//        Console.withOut(Console.err) {
+//          println("Warning: adding theory of types")
+//        }
         sig.addTheories(List(ap.types.TypeTheory), true)
       } else {
         sig
