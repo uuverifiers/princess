@@ -422,8 +422,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 sat
-
-Model:
 (model
   (define-const a__5 Int 1)
   (define-const a__8 Int 0)

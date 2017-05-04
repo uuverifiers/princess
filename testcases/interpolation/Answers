@@ -519,11 +519,11 @@ Constructing countermodel ...
 Found proof (size 20), simplifying (30), interpolating ...
 
 unsat
-
-Interpolants:
-(or (= (select a_0 ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (select a_0 upper_-1) 23))))
-(or (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23) (= (select a_0 ULTIMATE.start_i_-1) 23))
-(= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23)
+(
+  (or (= (select a_0 ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (select a_0 upper_-1) 23))))
+  (or (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23) (= (select a_0 ULTIMATE.start_i_-1) 23))
+  (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23)
+)
 
 Loading function-bug2.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -533,11 +533,11 @@ Constructing countermodel ...
 Found proof (size 19), simplifying (29), interpolating ...
 
 unsat
-
-Interpolants:
-(or (= (f ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (f upper_-1) 23))))
-(or (= (f (+ 1 ULTIMATE.start_i_-1)) 23) (= (f ULTIMATE.start_i_-1) 23))
-(= (f (+ 1 ULTIMATE.start_i_-1)) 23)
+(
+  (or (= (f ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (f upper_-1) 23))))
+  (or (= (f (+ 1 ULTIMATE.start_i_-1)) 23) (= (f ULTIMATE.start_i_-1) 23))
+  (= (f (+ 1 ULTIMATE.start_i_-1)) 23)
+)
 
 Loading pred-unify-bug.smt2 ...
 Warning: treating sort Real as Int

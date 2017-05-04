@@ -567,19 +567,13 @@ object CmdlMain {
               }
               case Prover.CounterModel(optModel) =>  {
                 println("sat")
-                for (model <- optModel) Console.withOut(Console.err) {
-                  println
-                  println("Model:")
+                for (model <- optModel)
                   printModel(model)
-                }
               }
               case Prover.MaybeCounterModel(optModel) =>  {
                 println("unknown")
-                for (model <- optModel) Console.withOut(Console.err) {
-                  println
-                  println("Possible model:")
+                for (model <- optModel)
                   printModel(model)
-                }
               }
               case Prover.NoCounterModel =>  {
                 println("unsat")
@@ -591,9 +585,12 @@ object CmdlMain {
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("unsat")
                 printCertificate(cert, settings, prover)
-                Console.err.println
-                Console.err.println("Interpolants:")
-                for (i <- inters) printFormula(i)
+                println("(")
+                for (i <- inters) {
+                  print("  ")
+                  printFormula(i)
+                }
+                println(")")
               }
               case Prover.Model(model) =>  {
                 println("unsat")

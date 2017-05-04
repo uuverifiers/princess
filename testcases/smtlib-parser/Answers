@@ -87,8 +87,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 sat
-
-Model:
 (model
   (define-const ?v_6_77 Int 5)
   (define-const ?v_5_76 Int 4)
@@ -160,9 +158,9 @@ Constructing countermodel ...
 Found proof (size 4), simplifying (8), interpolating ...
 
 unsat
-
-Interpolants:
-(= (select b 1) 42)
+(
+  (= (select b 1) 42)
+)
 
 Loading define-fun.smt2 ...
 Preprocessing ...
@@ -188,9 +186,9 @@ Constructing countermodel ...
 Found proof (size 2), simplifying (2), interpolating ...
 
 unsat
-
-Interpolants:
-(<= 0 (+ (- 1) (+ d c)))
+(
+  (<= 0 (+ (- 1) (+ d c)))
+)
 
 Loading seconds.smt2 ...
 Warning: exit is only supported in incremental mode (option +incremental), ignoring it
@@ -232,8 +230,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 sat
-
-Model:
 (model
   (define-const a Int 0)
 )
@@ -249,8 +245,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 sat
-
-Model:
 (model
   (define-const c_gcd_~y2 Int 1)
   (define-const c_gcd_~y1 Int 3)
@@ -275,8 +269,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 sat
-
-Model:
 (model
   (define-const _let_3_0 tree (leaf zero))
   (define-const x3 tree (leaf zero))

@@ -38,8 +38,6 @@ Preprocessing ...
 Constructing countermodel ...
 
 unknown
-
-Possible model:
 (model
   (define-const time Int 2)
   (define-const q Int 0)
