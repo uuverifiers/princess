@@ -26,7 +26,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                NegatedConjunctions}
-import ap.terfor.{TermOrder, TerForConvenience, Formula}
+import ap.terfor.{TermOrder, TerForConvenience, Formula, OneTerm}
 import ap.terfor.preds.Atom
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.{SimpleAPI, PresburgerTools}
@@ -38,7 +38,8 @@ import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
-                                 HashSet => MHashSet, Map => MMap}
+                                 HashSet => MHashSet, Map => MMap,
+                                 BitSet => MBitSet, ArrayStack}
 import scala.collection.{Set => GSet}
 
 object ADT {
@@ -241,6 +242,121 @@ class ADT (sortNames : Seq[String],
         isEnum(num) = false
 
     isEnum.toVector
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Compute the possible term sizes for each sort (special case of
+  // Parikh images, following the procedure in Verma et al, CADE 2005)
+  
+  lazy val parikhSizeConstraints : IndexedSeq[Conjunction] = {
+    import TerForConvenience._
+    implicit val order = TermOrder.EMPTY
+
+    for ((ctorIds, entrySort) <- globalCtorIdsPerSort.zipWithIndex) yield {
+      if (ctorIds forall { id => ctorSignatures(id)._2.arguments forall {
+            case (_, _ : ADTSort) => false
+            case _ => true
+          }}) {
+
+        // flat datatype (including enums)
+        conj(v(0) === 1)
+
+      } else {
+
+        // find out which datatypes are referenced by this one
+        val referencedSorts = new MBitSet
+
+        {
+          val sortsTodo = new ArrayStack[Int]
+          referencedSorts += entrySort
+          sortsTodo push entrySort
+
+          while (!sortsTodo.isEmpty) {
+            val sort = sortsTodo.pop
+            for (ctorId <- globalCtorIdsPerSort(sort))
+              for ((_, ADTSort(refSort)) <- ctorSignatures(ctorId)._2.arguments)
+                if (referencedSorts add refSort)
+                  sortsTodo push refSort
+          }
+        }
+
+        val referencedSortsList = referencedSorts.toList
+
+        val productions =
+          (for (sort <- referencedSorts.iterator;
+                ctorId <- globalCtorIdsPerSort(sort).iterator;
+                sig = ctorSignatures(ctorId)._2;
+                relevantArgs =
+                  for ((_, ADTSort(num)) <- sig.arguments) yield num)
+           yield (sig.result.num, relevantArgs)).toList.distinct
+
+        val (prodVars, zVars, sizeVar) = {
+          val prodVars = for ((_, num) <- productions.zipWithIndex) yield v(num)
+          var nextVar = prodVars.size
+          val zVars = (for (sort <- referencedSorts.iterator) yield {
+            val ind = nextVar
+            nextVar = nextVar + 1
+            sort -> v(ind)
+          }).toMap
+          (prodVars, zVars, v(nextVar))
+        }
+
+        // equations relating the production counters
+        val prodEqs =
+          for (sort <- referencedSortsList) yield {
+            LinearCombination(
+               (if (sort == entrySort)
+                  Iterator((IdealInt.ONE, OneTerm))
+                else
+                  Iterator.empty) ++
+               (for (((source, targets), prodVar) <-
+                        productions.iterator zip prodVars.iterator;
+                      mult = (targets count (_ == sort)) -
+                             (if (source == sort) 1 else 0))
+                yield (IdealInt(mult), prodVar)),
+               order)
+          }
+
+        val sizeEq =
+          LinearCombination(
+            (for (v <- prodVars.iterator) yield (IdealInt.ONE, v)) ++
+            Iterator((IdealInt.MINUS_ONE, sizeVar)),
+            order)
+
+        val entryZEq =
+          zVars(entrySort) - 1
+
+        val allEqs = eqZ(entryZEq :: sizeEq :: prodEqs)
+
+        val prodNonNeg =
+          prodVars >= 0
+ 
+        val prodImps =
+          (for (((source, _), prodVar) <-
+                  productions.iterator zip prodVars.iterator;
+                if source != entrySort)
+           yield ((prodVar === 0) | (zVars(source) > 0))).toList
+
+        val zImps =
+          for (sort <- referencedSortsList; if sort != entrySort) yield {
+            disjFor(Iterator(zVars(sort) === 0) ++
+                    (for (((source, targets), prodVar) <-
+                            productions.iterator zip prodVars.iterator;
+                          if targets contains sort)
+                     yield conj(zVars(sort) === zVars(source) + 1,
+                                geqZ(List(prodVar - 1, zVars(source) - 1)))))
+          }
+
+        val matrix =
+          conj(allEqs :: prodNonNeg :: prodImps ::: zImps)
+        val rawConstraint =
+          exists(prodVars.size + zVars.size, matrix)
+        val constraint =
+          PresburgerTools elimQuantifiersWithPreds rawConstraint
+
+        constraint
+      }
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
