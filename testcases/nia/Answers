@@ -423,14 +423,14 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-const a__5 Int 1)
-  (define-const a__8 Int 0)
-  (define-const a__4 Int 1)
-  (define-const a__9 Int 0)
-  (define-const a__6 Int 0)
-  (define-const a__7 Int 1)
-  (define-const a__2 Int 1)
-  (define-const b__10 Int 1)
+  (define-fun a__5 () Int 1)
+  (define-fun a__8 () Int 0)
+  (define-fun a__4 () Int 1)
+  (define-fun a__9 () Int 0)
+  (define-fun a__6 () Int 0)
+  (define-fun a__7 () Int 1)
+  (define-fun a__2 () Int 1)
+  (define-fun b__10 () Int 1)
 )
 
 Loading splittingBug.pri ...

@@ -64,7 +64,7 @@ object SMTLineariser {
     println("(model")
 
     def printEq(lhs : ConstantTerm, sort : Sort, rhs : ITerm) : Unit = {
-      print("  (define-const " + quoteIdentifier(lhs.name) + " ")
+      print("  (define-fun " + quoteIdentifier(lhs.name) + " () ")
       printSMTType(sort2SMTType(sort)._1)
       print(" ")
       apply(rhs)
@@ -88,9 +88,9 @@ object SMTLineariser {
           if (TheoryRegistry lookupSymbol f).isEmpty =>
         funPoints.getOrElseUpdate(f, new ArrayBuffer) += ((args, t))
       case IAtom(p, Seq()) =>
-        println("  (define-const " + quoteIdentifier(p.name) + " Bool true)")
+        println("  (define-fun " + quoteIdentifier(p.name) + " () Bool true)")
       case INot(IAtom(p, Seq())) =>
-        println("  (define-const " + quoteIdentifier(p.name) + " Bool false)")
+        println("  (define-fun " + quoteIdentifier(p.name) + " () Bool false)")
       case IAtom(p, args) =>
         predPoints.getOrElseUpdate(p, new ArrayBuffer) += ((args, true))
       case INot(IAtom(p, args)) =>

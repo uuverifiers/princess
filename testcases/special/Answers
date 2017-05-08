@@ -39,9 +39,9 @@ Constructing countermodel ...
 
 unknown
 (model
-  (define-const time Int 2)
-  (define-const q Int 0)
-  (define-const p Int 1)
+  (define-fun time () Int 2)
+  (define-fun q () Int 0)
+  (define-fun p () Int 1)
   (define-fun s2 ((x!0 Int)) Bool (ite (= x!0 1) false true))
   (define-fun s3 ((x!0 Int)) Bool (ite (= x!0 1) false true))
   (define-fun ro ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 0)) false true))
