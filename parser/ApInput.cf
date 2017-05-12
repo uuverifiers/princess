@@ -73,6 +73,7 @@ ExprAbs.	Expression10	::= "\\abs" "(" Expression ")";
 ExprMax.	Expression10	::= "\\max" OptArgs;
 ExprMin.	Expression10	::= "\\min" OptArgs;
 ExprDistinct.	Expression10	::= "\\distinct" OptArgs;
+ExprSize.	Expression10	::= "\\size" "(" Expression ")";
 ExprIdApp.	Expression10	::= Ident OptArgs;
 ExprDotAttr.    Expression10    ::= Expression10 "." Ident;
 ExprTrue.	Expression10	::= "true";
