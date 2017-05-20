@@ -271,9 +271,9 @@ Constructing countermodel ...
 sat
 (model
   (define-fun _let_3_0 () tree (leaf zero))
-  (define-fun x3 () tree (leaf zero))
+  (define-fun x3 () tree (leaf (succ zero)))
   (define-fun x2 () list null)
-  (define-fun x1 () nat (succ zero))
+  (define-fun x1 () nat (succ (succ zero)))
 )
 
 Loading define-fun-rec.smt2 ...
