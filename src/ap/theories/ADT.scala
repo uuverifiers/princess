@@ -33,13 +33,14 @@ import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
 import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
                  SortedConstantTerm}
-import ap.util.{Debug, UnionSet, LazyMappedSet}
+import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics}
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, Map => MMap,
-                                 BitSet => MBitSet, ArrayStack}
+                                 BitSet => MBitSet, ArrayStack,
+                                 LinkedHashSet}
 import scala.collection.{Set => GSet}
 
 object ADT {
@@ -68,6 +69,76 @@ object ADT {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def termDepth(t : ITerm) : Int = t match {
+    case IFunApp(_, Seq()) => 1
+    case IFunApp(_, args) =>  (args map termDepth).max + 1
+    case _ =>                 0
+  }
+
+  private def depthSortedVectors(sorts : List[Sort]) : Stream[List[ITerm]] =
+    sorts match {
+      case List() => Stream(List())
+      case List(s) => for (ind <- s.individuals) yield List(ind)
+      case sorts => {
+        def compTail(prefixes : List[List[ITerm]],
+                     suffixes : List[Stream[ITerm]]) : Stream[List[ITerm]] = {
+          // pick a minimum-depth term from the suffixes
+          val depths =
+            for (s <- suffixes.iterator; if !s.tail.isEmpty)
+            yield termDepth(s.tail.head)
+
+          if (depths.hasNext) {
+            val minDepth = depths.min
+
+            var chosenTerm : ITerm = null
+            val (newPrefixes, components, newSuffixes) =
+              (for ((p, s) <- prefixes zip suffixes) yield s match {
+                 case s if chosenTerm == null &&
+                           !s.tail.isEmpty &&
+                           termDepth(s.tail.head) == minDepth => {
+                   chosenTerm = s.tail.head
+                   (chosenTerm :: p, List(chosenTerm), s.tail)
+                 }
+                 case s => (p, p, s)
+               }).unzip3
+
+            (Combinatorics cartesianProduct components).toStream #:::
+              compTail(newPrefixes, newSuffixes)
+          } else {
+            Stream()
+          }
+        }
+        
+        val inds = for (s <- sorts) yield s.individuals
+        (inds map (_.head)) #::
+          compTail(for (terms <- inds) yield List(terms.head), inds)
+      }
+    }
+
+  private def depthSortedInterl(terms : Stream[Stream[ITerm]],
+                                currentDepth : Int) : Stream[ITerm] =
+    if (terms.isEmpty) {
+      Stream()
+    } else {
+      val ts = terms.head
+      if (ts.isEmpty) {
+        depthSortedInterl(terms.tail, currentDepth)
+      } else if (termDepth(ts.head) == currentDepth) {
+        ts.head #:: depthSortedInterl(ts.tail #:: terms.tail, currentDepth)
+      } else {
+        val (shortTerms, longTerms) = terms partition {
+          ts => ts.isEmpty || termDepth(ts.head) == currentDepth
+        }
+
+        if (shortTerms.isEmpty)
+          depthSortedInterl(longTerms, currentDepth + 1)
+        else
+          depthSortedInterl(shortTerms #::: longTerms, currentDepth)
+      }
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Class representing the types/sorts defined by this ADT theory
    */
@@ -76,10 +147,12 @@ object ADT {
                      val adtTheory : ADT) extends ProxySort(underlying) {
 
     override lazy val individuals : Stream[ITerm] =
-      for (ctorNum <- adtTheory.sortedGlobalCtorIdsPerSort(sortNum).toStream;
-           f = adtTheory.constructors(ctorNum);
-           args <- Sort.individualsVectors(f.argSorts.toList))
-      yield IFunApp(f, args)
+      depthSortedInterl(
+        for (ctorNum <- adtTheory.sortedGlobalCtorIdsPerSort(sortNum).toStream;
+             f = adtTheory.constructors(ctorNum))
+        yield (for (args <- depthSortedVectors(f.argSorts.toList))
+               yield IFunApp(f, args)),
+        1)
 
     override def augmentModelTermSet(
                    model : Conjunction,
@@ -94,8 +167,11 @@ object ADT {
           a => adtTheory.constructorPredsSet contains a.pred
         }
 
+        var changed = false
+        val blockedKeys = new MHashSet[(IdealInt, Sort)]
+        val missingKeys = new LinkedHashSet[(IdealInt, Sort)]
+
         for (a <- atoms) {
-// TODO: don't add elements repeatedly to the terms map
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
           //-END-ASSERTION-/////////////////////////////////////////////////////
@@ -103,10 +179,58 @@ object ADT {
             adtTheory.adtPreds(a.pred)
           val ctor =
             adtTheory.constructors(ctorNum).asInstanceOf[MonoSortedIFunction]
-          for (argTerms <- getSubTerms(a.init, ctor.argSorts, terms))
-            terms.put((a.last.constant, ctor.resSort), IFunApp(ctor, argTerms))
+          val key = (a.last.constant, ctor.resSort)
+          if (!(terms contains key))
+            getSubTerms(a.init, ctor.argSorts, terms) match {
+              case Left(argTerms) => {
+                terms.put(key, IFunApp(ctor, argTerms))
+                changed = true
+              }
+              case Right(missing) => {
+                missingKeys ++= missing
+                blockedKeys += key
+              }
+            }
         }
-    }
+
+        if (!changed) {
+          // check whether we have to introduce some further individuals in the
+          // model
+
+          missingKeys --= blockedKeys
+
+          for (lc <- model.arithConj.positiveEqs.iterator;
+               c = lc.leadingTerm.asInstanceOf[IExpression.ConstantTerm];
+               sort = SortedConstantTerm sortOf c;
+               if (sort match {
+                 case adtTheory.SortNum(_) => true
+                 case _ => false
+               });
+               key = (-lc.constant, sort);
+               if !(terms contains key) && !(blockedKeys contains key))
+            missingKeys += key
+
+          if (!missingKeys.isEmpty) {
+            val existingTerms =
+              (for ((_, t) <- terms.iterator;
+                    if (t match {
+                      case IFunApp(f, _) => adtTheory.constructorsSet contains f
+                      case _ => false
+                    }))
+               yield t).toSet
+
+            val witnesses =
+              for ((_, sort) <- missingKeys)
+              yield (sort.individuals.iterator filterNot existingTerms).next
+            val (key, ind) =
+              (missingKeys.iterator zip witnesses.iterator) minBy {
+                case (_, ind) => termDepth(ind)
+              }
+
+            terms.put(key, ind)
+          }
+        }
+      }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -375,6 +499,18 @@ class ADT (sortNames : Seq[String],
           override val name = sortName
         }
 
+  /**
+   * Extractor to recognise sorts belonging to this ADT.
+   */
+  object SortNum {
+    def unapply(s : Sort) : Option[Int] = s match {
+      case s : ADTProxySort if s.adtTheory == ADT.this =>
+        Some(sorts indexOf s)
+      case _ =>
+        None
+    }
+  }
+
   private val ctorArgSorts =
     for ((_, sig) <- ctorSignatures) yield
       for ((_, s) <- sig.arguments) yield s match {
@@ -391,6 +527,8 @@ class ADT (sortNames : Seq[String],
     for (((name, sig), argSorts) <- ctorSignatures zip ctorArgSorts)
     yield new MonoSortedIFunction(name, argSorts, sorts(sig.result.num),
                                   true, false)
+
+  private val constructorsSet : Set[IFunction] = constructors.toSet
 
   val selectors : Seq[Seq[MonoSortedIFunction]] =
     for (((_, sig), argSorts) <- ctorSignatures zip ctorArgSorts) yield {
@@ -862,7 +1000,7 @@ class ADT (sortNames : Seq[String],
         None
   
       override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-        if (goalState(goal) == Plugin.GoalState.Final) {
+        if (false && goalState(goal) == Plugin.GoalState.Final) {
           implicit val order = goal.order
           val predFacts = goal.facts.predConj
 
@@ -892,7 +1030,7 @@ class ADT (sortNames : Seq[String],
             val (lc, sort) = expCandidates.next
             val sortNum = sort.asInstanceOf[ADTProxySort].sortNum
 
-//            println("Expanding: " + lc + ", " + sort)
+            println("Expanding: " + lc + ", " + sort)
 
             List(Plugin.SplitGoal(for (c <- quanCtorCases(sortNum, lc))
                                   yield List(Plugin.AddFormula(!c))))

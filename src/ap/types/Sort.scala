@@ -287,8 +287,8 @@ trait Sort {
   protected def getSubTerms(ids : Seq[Term],
                             sorts : Seq[Sort],
                             terms : MMap[(IdealInt, Sort), ITerm])
-                           : Option[Seq[ITerm]] = {
-    val subTerms =
+                           : Either[Seq[ITerm],Seq[(IdealInt, Sort)]] = {
+    val subTerms : Seq[Either[ITerm, (IdealInt, Sort)]] =
       for ((idTerm, sort) <- ids zip sorts) yield {
         val id = idTerm match {
           case idTerm : LinearCombination if idTerm.isConstant =>
@@ -298,15 +298,22 @@ trait Sort {
         }
 
         sort match {
-          case Sort.Numeric(_) =>  IIntLit(id)
-          case sort =>             terms.getOrElse((id, sort), null)
+          case Sort.Numeric(_) =>
+            Left(IIntLit(id))
+          case sort => {
+            val key = (id, sort)
+            (terms get key) match {
+              case Some(t) => Left(t)
+              case None => Right(key)
+            }
+          }
         }
       }
 
-    if (subTerms contains null)
-      None
+    if (subTerms forall (_.isLeft))
+      Left(subTerms map (_.left.get))
     else
-      Some(subTerms)
+      Right(for (Right(key) <- subTerms) yield key)
   }
 
   //////////////////////////////////////////////////////////////////////////////

@@ -32,6 +32,10 @@ object SortedConstantTerm {
     case c : SortedConstantTerm => c.sort
     case _ => Sort.Integer
   }
+  def unapply(c : Term) : Option[(SortedConstantTerm, Sort)] = c match {
+    case c : SortedConstantTerm => Some((c, c.sort))
+    case _ => None
+  }
 }
 
 /**
