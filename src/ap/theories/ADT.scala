@@ -69,9 +69,15 @@ object ADT {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def termDepth(t : ITerm) : Int = t match {
+  object TermMeasure extends Enumeration {
+    val RelDepth, Size = Value
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def ctorTermDepth(t : ITerm) : Int = t match {
     case IFunApp(_, Seq()) => 1
-    case IFunApp(_, args) =>  (args map termDepth).max + 1
+    case IFunApp(_, args) =>  (args map ctorTermDepth).max + 1
     case _ =>                 0
   }
 
@@ -85,7 +91,7 @@ object ADT {
           // pick a minimum-depth term from the suffixes
           val depths =
             for (s <- suffixes.iterator; if !s.tail.isEmpty)
-            yield termDepth(s.tail.head)
+            yield ctorTermDepth(s.tail.head)
 
           if (depths.hasNext) {
             val minDepth = depths.min
@@ -95,7 +101,7 @@ object ADT {
               (for ((p, s) <- prefixes zip suffixes) yield s match {
                  case s if chosenTerm == null &&
                            !s.tail.isEmpty &&
-                           termDepth(s.tail.head) == minDepth => {
+                           ctorTermDepth(s.tail.head) == minDepth => {
                    chosenTerm = s.tail.head
                    (chosenTerm :: p, List(chosenTerm), s.tail)
                  }
@@ -123,11 +129,11 @@ object ADT {
       val ts = terms.head
       if (ts.isEmpty) {
         depthSortedInterl(terms.tail, currentDepth)
-      } else if (termDepth(ts.head) == currentDepth) {
+      } else if (ctorTermDepth(ts.head) == currentDepth) {
         ts.head #:: depthSortedInterl(ts.tail #:: terms.tail, currentDepth)
       } else {
         val (shortTerms, longTerms) = terms partition {
-          ts => ts.isEmpty || termDepth(ts.head) == currentDepth
+          ts => ts.isEmpty || ctorTermDepth(ts.head) == currentDepth
         }
 
         if (shortTerms.isEmpty)
@@ -224,7 +230,7 @@ object ADT {
               yield (sort.individuals.iterator filterNot existingTerms).next
             val (key, ind) =
               (missingKeys.iterator zip witnesses.iterator) minBy {
-                case (_, ind) => termDepth(ind)
+                case (_, ind) => ctorTermDepth(ind)
               }
 
             terms.put(key, ind)
@@ -270,7 +276,9 @@ object ADT {
  * Theory solver for algebraic data-types.
  */
 class ADT (sortNames : Seq[String],
-           ctorSignatures : Seq[(String, ADT.CtorSignature)]) extends Theory {
+           ctorSignatures : Seq[(String, ADT.CtorSignature)],
+           measure : ADT.TermMeasure.Value =
+             ADT.TermMeasure.RelDepth) extends Theory {
 
   import ADT._
   import IExpression.Predicate
@@ -485,19 +493,19 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val sorts =
-    for (((sortName, card), sortNum) <-
-           (sortNames zip cardinalities).zipWithIndex) yield
-        new ADTProxySort(sortNum,
-                         card match {
-                           case None =>
-                             Sort.Integer
-                           case Some(card) =>
-                             Sort.Interval(Some(0), Some(card - 1))
-                         },
-                         this) {
-          override val name = sortName
-        }
+  val sorts : IndexedSeq[ADTProxySort] =
+    (for (((sortName, card), sortNum) <-
+            (sortNames zip cardinalities).zipWithIndex) yield
+         new ADTProxySort(sortNum,
+                          card match {
+                            case None =>
+                              Sort.Integer
+                            case Some(card) =>
+                              Sort.Interval(Some(0), Some(card - 1))
+                          },
+                          this) {
+           override val name = sortName
+         }).toIndexedSeq
 
   /**
    * Extractor to recognise sorts belonging to this ADT.
@@ -523,29 +531,65 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  val constructors : Seq[MonoSortedIFunction] =
-    for (((name, sig), argSorts) <- ctorSignatures zip ctorArgSorts)
-    yield new MonoSortedIFunction(name, argSorts, sorts(sig.result.num),
-                                  true, false)
+  /**
+   * The constructors of the ADT
+   */
+  val constructors : IndexedSeq[MonoSortedIFunction] =
+    (for (((name, sig), argSorts) <- ctorSignatures zip ctorArgSorts)
+     yield new MonoSortedIFunction(name, argSorts, sorts(sig.result.num),
+                                   true, false)).toIndexedSeq
 
   private val constructorsSet : Set[IFunction] = constructors.toSet
 
-  val selectors : Seq[Seq[MonoSortedIFunction]] =
-    for (((_, sig), argSorts) <- ctorSignatures zip ctorArgSorts) yield {
-      for (((name, _), argSort) <- sig.arguments zip argSorts)
-      yield new MonoSortedIFunction(name,
-                                    List(sorts(sig.result.num)),
-                                    argSort,
+  /**
+   * The selectors of the ADT
+   */
+  val selectors : IndexedSeq[Seq[MonoSortedIFunction]] =
+    (for (((_, sig), argSorts) <- ctorSignatures zip ctorArgSorts) yield {
+       for (((name, _), argSort) <- sig.arguments zip argSorts)
+       yield new MonoSortedIFunction(name,
+                                     List(sorts(sig.result.num)),
+                                     argSort,
+                                     true, false)
+     }).toIndexedSeq
+
+  /**
+   * Function symbols representing the index of the head symbol of a
+   * constructor term
+   */
+  val ctorIds : IndexedSeq[MonoSortedIFunction] =
+    for (sort <- sorts)
+    yield new MonoSortedIFunction(sort.name + "_ctor",
+                                  List(sort), Sort.Integer,
+                                  true, false)
+
+  /**
+   * Function symbols representing (relative) depth of constructor terms.
+   * The symbols are only available for
+   * <code>measure == ADT.TermMeasure.RelDepth</code>
+   */
+  val termDepth : IndexedSeq[MonoSortedIFunction] =
+    if (measure == ADT.TermMeasure.RelDepth)
+      for (sort <- sorts)
+      yield new MonoSortedIFunction(sort.name + "_depth",
+                                    List(sort), Sort.Integer,
                                     true, false)
-    }
+    else
+      null
 
-  val ctorIds =
-    for (name <- sortNames)
-    yield new IFunction(name + "_ctor", 1, true, false)
-
-  val termDepth =
-    for (name <- sortNames)
-    yield new IFunction(name + "_depth", 1, true, false)
+  /**
+   * Function symbols representing absolute size of constructor terms.
+   * The symbols are only available for
+   * <code>measure == ADT.TermMeasure.Size</code>
+   */
+  val termSize : IndexedSeq[MonoSortedIFunction] =
+    if (measure == ADT.TermMeasure.Size)
+      for (sort <- sorts)
+      yield new MonoSortedIFunction(sort.name + "_size",
+                                    List(sort), Sort.Integer,
+                                    true, false)
+    else
+      null
 
   private val ctorId2PerSortId : IndexedSeq[Int] = {
     val adtCtorNums = Array.fill[Int](sortNames.size)(0)
@@ -572,7 +616,9 @@ class ADT (sortNames : Seq[String],
   //////////////////////////////////////////////////////////////////////////////
 
   val functions: Seq[ap.parser.IFunction] =
-    constructors ++ selectors.flatten ++ ctorIds ++ termDepth
+    constructors ++ selectors.flatten ++ ctorIds ++
+    (measure match { case ADT.TermMeasure.RelDepth => termDepth;
+                     case ADT.TermMeasure.Size =>     termSize })
 
   val (predicates, axioms, _, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions)
@@ -627,7 +673,16 @@ class ADT (sortNames : Seq[String],
     ctorIds map functionTranslation
 
   val termDepthPreds =
-    termDepth map functionTranslation
+    if (measure == ADT.TermMeasure.RelDepth)
+      termDepth map functionTranslation
+    else
+      null
+
+  val termSizePreds =
+    if (measure == ADT.TermMeasure.Size)
+      termSize map functionTranslation
+    else
+      null
 
   //////////////////////////////////////////////////////////////////////////////
   // Verify that all of the sorts are inhabited, and compute witness terms
@@ -731,10 +786,8 @@ class ADT (sortNames : Seq[String],
            if !isEnum(sortN))
       yield (arg, sortN)
 
-    val depthRels =
-      if (adtArgs.isEmpty) {
-        List()
-      } else {
+    val measureRels = measure match {
+      case ADT.TermMeasure.RelDepth if !adtArgs.isEmpty => {
         val subst = VariableShiftSubst(0, adtArgs.size + 1, order)
 
         val nodeDepth =
@@ -748,8 +801,11 @@ class ADT (sortNames : Seq[String],
           conj(List(nodeDepth) ++ argDepths ++ depthRels)
         List(exists(adtArgs.size + 1, matrix))
       }
+      case _ =>
+        List()
+    }
             
-    (List(ctorRel, ctorId) ++ selectorRels, depthRels)
+    (List(ctorRel, ctorId) ++ selectorRels, measureRels)
   }
 
   private def quanCtorConjunction(ctorNum : Int, node : LinearCombination)
