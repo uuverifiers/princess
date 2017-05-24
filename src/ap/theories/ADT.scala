@@ -548,7 +548,7 @@ class ADT (sortNames : Seq[String],
   object SortNum {
     def unapply(s : Sort) : Option[Int] = s match {
       case s : ADTProxySort if s.adtTheory == ADT.this =>
-        Some(sorts indexOf s)
+        Some(s.sortNum)
       case _ =>
         None
     }
@@ -561,8 +561,8 @@ class ADT (sortNames : Seq[String],
         case OtherSort(sort) => sort
       }
 
-  private val nonEnumSorts : Set[Sort] =
-    (for (sort <- sorts.iterator; if !isEnum(sort.sortNum)) yield sort).toSet
+//  private val nonEnumSorts : Set[Sort] =
+//    (for (sort <- sorts.iterator; if !isEnum(sort.sortNum)) yield sort).toSet
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -1169,6 +1169,7 @@ class ADT (sortNames : Seq[String],
   
 //          println("Defined: " + ctorDefinedCons)
 
+/*
           val expCandidates : Iterator[(LinearCombination, Sort)] =
             for (a <- predFacts.positiveLits.iterator ++
                       predFacts.negativeLits.iterator;
@@ -1176,6 +1177,14 @@ class ADT (sortNames : Seq[String],
                  (lc, sort) <- a.iterator zip argSorts.iterator;
                  if !(ctorDefinedCons contains lc);
                  if (nonEnumSorts contains sort))
+            yield (lc, sort)
+*/
+
+          val expCandidates : Iterator[(LinearCombination, Sort)] =
+            for ((sort, pred) <- sorts.iterator zip termSizePreds.iterator;
+                 a <- (predFacts positiveLitsWithPred pred).iterator;
+                 lc = a.head;
+                 if !(ctorDefinedCons contains lc))
             yield (lc, sort)
 
           if (expCandidates.hasNext) {

@@ -217,7 +217,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         case _ => // nothing
       }
 
-      val adt = new ADT(adtNames.toVector, ctors.toVector)
+      val adt = new ADT(adtNames.toVector, ctors.toVector, ADT.TermMeasure.Size)
 
       for (sort <- adt.sorts)
         env.addSort(sort.name, sort)
@@ -713,15 +713,27 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       val args = translateNumOptArgs("\\max", t.optargs_)
       if (args.isEmpty)
         throw new Parser2InputAbsy.TranslationException(
-            "Function max needs to receive at least one argument")
+            "Function \\max needs to receive at least one argument")
       (max(args), Sort.Integer)
     }
     case t : ExprMin => {
       val args = translateNumOptArgs("\\min", t.optargs_)
       if (args.isEmpty)
         throw new Parser2InputAbsy.TranslationException(
-            "Function min needs to receive at least one argument")
+            "Function \\min needs to receive at least one argument")
       (min(args), Sort.Integer)
+    }
+    case t : ExprSize => {
+      val (arg, sort) = translateExpression(t.expression_)
+      sort match {
+        case sort : ADT.ADTProxySort =>
+          (IFunApp(sort.adtTheory.termSize(sort.sortNum),
+                   List(arg.asInstanceOf[ITerm])),
+           Sort.Integer)
+        case sort =>
+          throw new Parser2InputAbsy.TranslationException(
+              "Function \\size needs to receive an ADT term as argument")
+      }
     }
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)
