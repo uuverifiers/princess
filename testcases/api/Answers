@@ -398,6 +398,72 @@ None
 Test 30
 Valid
 Invalid
+Vector(red, nil)
+Test 1
+Sat
+{nil -> 1, red -> 0, blue -> 1, green -> 2, c2 -> 2, c1 -> 2, c0 -> 0, colour_list_size(2) -> 5, colour_list_size(1) -> 1, colour_list_size(0) -> 3, colour_list_ctor(2) -> 1, colour_list_ctor(1) -> 0, colour_list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 0, head(0) -> 2, cons(2, 1) -> 0, cons(0, 0) -> 2}
+Test 2
+Unsat
+Test 3
+Unsat
+Test 4
+Valid
+Test 5
+Valid
+Test 10
+Unsat
+Test 11
+Valid
+Test 12
+Invalid
+{red -> 0, blue -> 1, green -> 2, c5 -> 2}
+2
+Some(green)
+Test 13
+Valid
+Test 14
+Valid
+Test 15
+Invalid
+Test 15b
+Valid
+Test 16
+Valid
+Test 17
+Unsat
+Test 18
+Sat
+Some(green)
+Some(cons(green, nil))
+Unsat
+Test 19
+Sat
+green
+cons(green, nil)
+Unsat
+Sat
+Some(green)
+Some(cons(green, nil))
+Test 20
+Sat
+Some(nil)
+Some(cons(blue, nil))
+None
+Test 21
+Sat
+Some(green)
+Some(blue)
+Some(green)
+None
+Test 30
+Valid
+Invalid
+Test 1
+Sat
+cons(red, cons(green, nil))
+Sat
+cons(red, cons(green, cons(red, cons(red, cons(red, cons(red, nil))))))
+Unsat
 starting
 c = 4 & !p
 p | c = 4

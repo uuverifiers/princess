@@ -32,6 +32,8 @@
 
   Debug enableAllAssertions true
 
+  for (measure <- ADT.TermMeasure.values) {
+
   val colADT =
     new ADT (List("colour", "colour_list"),
              List(("red",   CtorSignature(List(), ADTSort(0))),
@@ -40,7 +42,8 @@
                   ("nil",   CtorSignature(List(), ADTSort(1))),
                   ("cons",  CtorSignature(List(("head", ADTSort(0)),
                                                ("tail", ADTSort(1))),
-                                          ADTSort(1)))))
+                                          ADTSort(1)))),
+             measure)
 
   val Seq(colour, colour_list)                    = colADT.sorts
   val Seq(red, blue, green, nil, cons)            = colADT.constructors
@@ -257,5 +260,6 @@
         println(expect(???, ProverStatus.Invalid))
       }
     }
+  }
   }
 //}
