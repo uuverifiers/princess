@@ -26,9 +26,9 @@ import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                NegatedConjunctions}
-import ap.terfor.{TermOrder, TerForConvenience, Formula, OneTerm}
+import ap.terfor.{TermOrder, TerForConvenience, Formula, OneTerm, Term}
 import ap.terfor.preds.Atom
-import ap.terfor.substitutions.VariableShiftSubst
+import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst}
 import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
 import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
@@ -66,6 +66,7 @@ object ADT {
                                    selNum : Int,
                                    sortNum : Int) extends ADTPred
   private case class ADTCtorIdPred(sortNum : Int) extends ADTPred
+  private case class ADTTermSizePred(sortNum : Int) extends ADTPred
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -177,31 +178,41 @@ object ADT {
         val blockedKeys = new MHashSet[(IdealInt, Sort)]
         val missingKeys = new LinkedHashSet[(IdealInt, Sort)]
 
-        for (a <- atoms) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
-          //-END-ASSERTION-/////////////////////////////////////////////////////
-          val ADTCtorPred(ctorNum, sortNum, _) =
-            adtTheory.adtPreds(a.pred)
-          val ctor =
-            adtTheory.constructors(ctorNum).asInstanceOf[MonoSortedIFunction]
-          val key = (a.last.constant, ctor.resSort)
-          if (!(terms contains key))
-            getSubTerms(a.init, ctor.argSorts, terms) match {
-              case Left(argTerms) => {
-                terms.put(key, IFunApp(ctor, argTerms))
-                changed = true
+        var oldSize = -1
+        while (oldSize < terms.size) {
+          oldSize = terms.size
+          blockedKeys.clear
+          missingKeys.clear
+
+          for (a <- atoms) {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(AC, a.constants.isEmpty && a.variables.isEmpty)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            val ADTCtorPred(ctorNum, sortNum, _) =
+              adtTheory.adtPreds(a.pred)
+            val ctor =
+              adtTheory.constructors(ctorNum).asInstanceOf[MonoSortedIFunction]
+            val key = (a.last.constant, ctor.resSort)
+            if (!(terms contains key))
+              getSubTerms(a.init, ctor.argSorts, terms) match {
+                case Left(argTerms) => {
+                  terms.put(key, IFunApp(ctor, argTerms))
+                  changed = true
+                }
+                case Right(missing) => {
+                  missingKeys ++= missing
+                  blockedKeys += key
+                }
               }
-              case Right(missing) => {
-                missingKeys ++= missing
-                blockedKeys += key
-              }
-            }
+          }
         }
 
         if (!changed) {
           // check whether we have to introduce some further individuals in the
           // model
+
+          // TODO: this might sometimes not work when terms of nested
+          // sort have to be constructed?
 
           missingKeys --= blockedKeys
 
@@ -492,6 +503,30 @@ class ADT (sortNames : Seq[String],
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  // Identify sorts that only contain terms of a single size
+
+  lazy val uniqueTermSize : IndexedSeq[Option[IdealInt]] =
+    for (constraint <- parikhSizeConstraints) yield {
+      if (constraint.arithConj.positiveEqs.size == 1)
+        Some(-constraint.arithConj.positiveEqs.head.constant)
+      else
+        None
+    }
+
+  lazy val sizeLowerBound : IndexedSeq[IdealInt] =
+    for (constraint <- parikhSizeConstraints) yield {
+      if (constraint.arithConj.positiveEqs.size == 1) {
+        -constraint.arithConj.positiveEqs.head.constant
+      } else {
+        val reducer = ReduceWithConjunction(Conjunction.TRUE, TermOrder.EMPTY)
+        (for (n <- Iterator.iterate[IdealInt](IdealInt.ONE)(_ + IdealInt.ONE);
+              if reducer(VariableSubst(0, List(LinearCombination(n)),
+                                       TermOrder.EMPTY)(constraint)).isTrue)
+         yield n).next
+      }
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   val sorts : IndexedSeq[ADTProxySort] =
     (for (((sortName, card), sortNum) <-
@@ -745,6 +780,10 @@ class ADT (sortNames : Seq[String],
       adtPreds.put(p, ADTSelPred(ctorNum, selNum, sortNum))
   }
 
+  if (measure == ADT.TermMeasure.Size)
+    for ((p, i) <- termSizePreds.iterator.zipWithIndex)
+      adtPreds.put(p, ADTTermSizePred(i))
+
   //////////////////////////////////////////////////////////////////////////////
 
   override def preprocess(f : Conjunction,
@@ -780,27 +819,74 @@ class ADT (sortNames : Seq[String],
       for ((sel, arg) <- selectorPreds(ctorNum).iterator zip arguments.iterator)
       yield sel(List(node, arg))
 
-    val adtArgs =
-      for ((arg, (_, ADTSort(sortN))) <-
-             arguments zip ctorSignatures(ctorNum)._2.arguments;
-           if !isEnum(sortN))
-      yield (arg, sortN)
-
     val measureRels = measure match {
-      case ADT.TermMeasure.RelDepth if !adtArgs.isEmpty => {
-        val subst = VariableShiftSubst(0, adtArgs.size + 1, order)
 
-        val nodeDepth =
-          termDepthPreds(sortNum)(List(subst(node), l(v(0))))
-        val argDepths =
-          for (((a, n), i) <- adtArgs.zipWithIndex)
-          yield termDepthPreds(n)(List(subst(a), l(v(i+1))))
-        val depthRels =
-          for (i <- 1 to adtArgs.size) yield (v(i) < v(0))
-        val matrix =
-          conj(List(nodeDepth) ++ argDepths ++ depthRels)
-        List(exists(adtArgs.size + 1, matrix))
+      case ADT.TermMeasure.RelDepth => {
+        val adtArgs =
+          for ((arg, (_, ADTSort(sortN))) <-
+                 arguments zip ctorSignatures(ctorNum)._2.arguments;
+               if !isEnum(sortN))
+          yield (arg, sortN)
+
+        if (adtArgs.isEmpty) {
+          List()
+        } else {
+          val subst = VariableShiftSubst(0, adtArgs.size + 1, order)
+  
+          val nodeDepth =
+            termDepthPreds(sortNum)(List(subst(node), l(v(0))))
+          val argDepths =
+            for (((a, n), i) <- adtArgs.zipWithIndex)
+            yield termDepthPreds(n)(List(subst(a), l(v(i+1))))
+          val depthRels =
+            for (i <- 1 to adtArgs.size) yield (v(i) < v(0))
+          val matrix =
+            conj(List(nodeDepth) ++ argDepths ++ depthRels)
+          List(exists(adtArgs.size + 1, matrix))
+        }
       }
+
+      case ADT.TermMeasure.Size => {
+        var sizeOffset = IdealInt.ONE
+
+        val adtArgs =
+          for ((arg, (_, ADTSort(sortN))) <-
+                 arguments zip ctorSignatures(ctorNum)._2.arguments;
+               if (uniqueTermSize(sortN) match {
+                 case Some(size) => {
+                   sizeOffset = sizeOffset + size
+                   false
+                 }
+                 case None =>
+                   true
+               }))
+          yield (arg, sortN)
+
+        val subst = VariableShiftSubst(0, adtArgs.size, order)
+
+        val sizePreds = new ArrayBuffer[Formula]
+        val sizeTerms = new ArrayBuffer[(IdealInt, Term)]
+
+        sizeTerms += ((sizeOffset, OneTerm))
+
+        var varNum = 0
+        for ((a, sn) <- adtArgs) {
+          val va = l(v(varNum))
+          varNum = varNum + 1
+
+          sizePreds += termSizePreds(sn)(List(subst(a), va))
+          sizePreds += (va >= sizeLowerBound(sn))
+          sizeTerms += ((IdealInt.ONE, va))
+        }
+
+        val nodeSize = termSizePreds(sortNum)(
+                                     List(subst(node),
+                                     LinearCombination(sizeTerms, order)))
+
+        val matrix = conj(List(nodeSize) ++ sizePreds)
+        List(exists(adtArgs.size, matrix))
+      }
+
       case _ =>
         List()
     }
@@ -984,6 +1070,17 @@ class ADT (sortNames : Seq[String],
                   Iterator single a
                 }
 
+                case Some(ADTTermSizePred(sortNum)) => {
+                  newConjuncts +=
+                    VariableSubst(0, List(a.last), order)(
+                                  parikhSizeConstraints(sortNum))
+
+                  if (uniqueTermSize(sortNum).isEmpty)
+                    Iterator single a
+                  else
+                    Iterator.empty
+                }
+
                 case None =>
                   Iterator single a
 
@@ -1050,13 +1147,14 @@ class ADT (sortNames : Seq[String],
   //////////////////////////////////////////////////////////////////////////////
 
   def plugin: Option[Plugin] =
-    if (isEnum contains false) Some(new Plugin {
+    if (measure == ADT.TermMeasure.Size &&
+        (uniqueTermSize exists (_.isEmpty))) Some(new Plugin {
       // not used
       def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
         None
-  
+
       override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-        if (false && goalState(goal) == Plugin.GoalState.Final) {
+        if (goalState(goal) == Plugin.GoalState.Final) {
           implicit val order = goal.order
           val predFacts = goal.facts.predConj
 
@@ -1086,7 +1184,7 @@ class ADT (sortNames : Seq[String],
             val (lc, sort) = expCandidates.next
             val sortNum = sort.asInstanceOf[ADTProxySort].sortNum
 
-            println("Expanding: " + lc + ", " + sort)
+//            println("Expanding: " + lc + ", " + sort)
 
             List(Plugin.SplitGoal(for (c <- quanCtorCases(sortNum, lc))
                                   yield List(Plugin.AddFormula(!c))))
