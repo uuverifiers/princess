@@ -548,6 +548,30 @@ object IExpression {
   }
   
   /**
+   * Generate or match an equation <code>s === lit</code>,
+   * where <code>lit</code> is an integer literal.
+   */
+  object EqLit {
+    def apply(s : ITerm, t : IdealInt) : IFormula = (s === t)
+    def unapply(f : IFormula) : Option[(ITerm, IdealInt)] = f match {
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(ITimes(IdealInt.MINUS_ONE, a), IIntLit(c))) =>
+        Some((a, -c))
+      case IIntFormula(IIntRelation.EqZero,
+                       IPlus(IIntLit(c), ITimes(IdealInt.MINUS_ONE, a))) =>
+        Some((a, -c))
+      case IIntFormula(IIntRelation.EqZero, IPlus(a, IIntLit(c))) =>
+        Some((a, c))
+      case IIntFormula(IIntRelation.EqZero, IPlus(IIntLit(c), a)) =>
+        Some((a, c))
+      case IIntFormula(IIntRelation.EqZero, t) =>
+        Some((t, IdealInt.ZERO))
+      case _ =>
+        None
+    }
+  }
+  
+  /**
    * Generate the inequality <code>t >= 0</code>.
    */
   def geqZero(t : ITerm) : IFormula = IIntFormula(IIntRelation.GeqZero, t)

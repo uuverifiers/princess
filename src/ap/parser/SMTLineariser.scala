@@ -338,6 +338,9 @@ class SMTLineariser(benchmarkName : String,
       case Some(t : MulTheory) => fun match {
         case t.mul => "*"
       }
+      case Some(t : ADT)
+        if t.termSize != null && (t.termSize contains fun) =>
+        "_size"
       case _ =>
         quoteIdentifier(funPrefix + fun.name)
     }

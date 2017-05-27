@@ -279,6 +279,23 @@ object ADT {
     val False = IFunApp(falseFun, List())
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Extractor recognising the <code>X_ctor</code> functions of
+   * any ADT theory.
+   */
+  object CtorId {
+    def unapply(fun : IFunction) : Option[(ADT, Int)] =
+      (TheoryRegistry lookupSymbol fun) match {
+        case Some(t : ADT) => (t.ctorIds indexOf fun) match {
+          case -1 => None
+          case num => Some((t, num))
+        }
+        case _ => None
+      }
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -647,6 +664,13 @@ class ADT (sortNames : Seq[String],
 
     ctorIds(sortNum)(t) === ctorId2PerSortId(id)
   }
+
+  /**
+   * Get the constructor number <code>ctorNum</code> of
+   * sort <code>sortNum</code>.
+   */
+  def getCtorPerSort(sortNum : Int, ctorNum : Int) : MonoSortedIFunction =
+    constructors(globalCtorIdsPerSort(sortNum)(ctorNum))
 
   //////////////////////////////////////////////////////////////////////////////
 

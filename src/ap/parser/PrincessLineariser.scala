@@ -23,7 +23,7 @@ package ap.parser
 
 import ap.Signature
 import ap.basetypes.IdealInt
-import ap.theories.BitShiftMultiplication
+import ap.theories.{TheoryRegistry, BitShiftMultiplication, ADT}
 import ap.theories.nia.GroebnerMultiplication
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
@@ -79,7 +79,16 @@ object PrincessLineariser {
 
   def asString(e : IExpression) : String =
     ap.DialogUtil.asString { printExpression(e) }
-  
+
+  private def fun2Identifier(fun : IFunction) =
+    (TheoryRegistry lookupSymbol fun) match {
+      case Some(t : ADT)
+        if t.termSize != null && (t.termSize contains fun) =>
+        "\\size"
+      case _ =>
+        fun.name
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   
   private case class PrintContext(vars : List[String],
@@ -214,7 +223,8 @@ object PrincessLineariser {
         case IPlus(_, _) => {
           allButLast(ctxt, " + ", "", 2)
         }
-        case IFunApp(BitShiftMultiplication.mul | GroebnerMultiplication.mul, _) => {
+        case IFunApp(BitShiftMultiplication.mul |
+                     GroebnerMultiplication.mul, _) => {
           allButLast(ctxt, " * ", "", 2)
         }
 
@@ -224,7 +234,7 @@ object PrincessLineariser {
         }
       
         case IFunApp(fun, _) => {
-          print(fun.name)
+          print(fun2Identifier(fun))
           if (fun.arity > 0) {
             print("(")
             allButLast(ctxt setPrecLevel 0, ", ", ")", fun.arity)
@@ -311,8 +321,24 @@ object PrincessLineariser {
           noParentOp(ctxt)
         }
 
+        // ADT expressions
+
+        case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
+                               num) => {
+          print("is_" + adt.getCtorPerSort(sortNum, num.intValueSafe).name +
+                "(")
+          TryAgain(arg, ctxt addParentOp (")"))
+        }
+
+        case INot(IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
+                                    num)) => {
+          print("!is_" + adt.getCtorPerSort(sortNum, num.intValueSafe).name +
+                "(")
+          TryAgain(arg, ctxt addParentOp (")"))
+        }
+
         // Negated equations
-      
+        
         case INot(IIntFormula(IIntRelation.EqZero,
                               ITimes(IdealInt.MINUS_ONE, t))) => {
           TryAgain(IAtom(NonEqPredicate, List(IIntLit(0), t)), ctxt)
