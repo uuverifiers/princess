@@ -208,7 +208,8 @@ object GlobalSettings {
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY,
-         Param.MUL_PROCEDURE, Param.REAL_RAT_SATURATION_ROUNDS)
+         Param.MUL_PROCEDURE, Param.ADT_MEASURE,
+         Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())
