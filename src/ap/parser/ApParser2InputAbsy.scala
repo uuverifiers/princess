@@ -22,7 +22,7 @@
 package ap.parser;
 
 import ap._
-import ap.parameters.ParserSettings
+import ap.parameters.{ParserSettings, Param}
 import ap.terfor.OneTerm
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -217,7 +217,8 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         case _ => // nothing
       }
 
-      val adt = new ADT(adtNames.toVector, ctors.toVector, ADT.TermMeasure.Size)
+      val adt = new ADT(adtNames.toVector, ctors.toVector,
+                        Param.ADT_MEASURE(settings))
 
       for (sort <- adt.sorts)
         env.addSort(sort.name, sort)
@@ -726,10 +727,15 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     case t : ExprSize => {
       val (arg, sort) = translateExpression(t.expression_)
       sort match {
-        case sort : ADT.ADTProxySort =>
+        case sort : ADT.ADTProxySort => {
+          if (sort.adtTheory.termSize == null)
+            throw new Parser2InputAbsy.TranslationException(
+                "Function \\size can only be used in combination with option " +
+                "-adtMeasure=size")
           (IFunApp(sort.adtTheory.termSize(sort.sortNum),
                    List(arg.asInstanceOf[ITerm])),
            Sort.Integer)
+        }
         case sort =>
           throw new Parser2InputAbsy.TranslationException(
               "Function \\size needs to receive an ADT term as argument")

@@ -2214,6 +2214,27 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // rotate_left, rotate_right
 
     ////////////////////////////////////////////////////////////////////////////
+    // ADT operations
+
+    case PlainSymbol("_size") => {
+      checkArgNum("_size", 1, args)
+      val (expr, ty) = translateTerm(args.head, 0)
+      ty match {
+        case SMTADT(adt, sortNum) => {
+          if (adt.termSize == null)
+            throw new Parser2InputAbsy.TranslationException(
+                "Function _size can only be used in combination with option " +
+                "-adtMeasure=size")
+          (IFunApp(adt.termSize(sortNum), List(expr.asInstanceOf[ITerm])),
+           SMTInteger)
+        }
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+              "Function _size needs to receive an ADT term as argument")
+      }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)
   }
@@ -2566,7 +2587,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                        allCtors : Seq[(Seq[(String, ADT.CtorSignature)],
                                        Seq[Seq[SMTType]])]) : Unit = {
         val adtCtors = (allCtors map (_._1)).flatten
-        val datatype = new ADT (sortNames, adtCtors)
+        val datatype =
+          new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
 
         val smtDataTypes =
           for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -173,6 +173,10 @@ object GlobalSettings {
           Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.BitShift)
         case ValueOpt("mulProcedure", "native") =>
           Param.MUL_PROCEDURE.set(settings, Param.MulProcedure.Native)
+        case ValueOpt("adtMeasure", "size") =>
+          Param.ADT_MEASURE.set(settings, ap.theories.ADT.TermMeasure.Size)
+        case ValueOpt("adtMeasure", "relDepth") =>
+          Param.ADT_MEASURE.set(settings, ap.theories.ADT.TermMeasure.RelDepth)
         case ValueOpt("realRatSaturationRounds", IntVal(value)) =>
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
         case Opt("multiStrategy", value) =>
@@ -234,7 +238,7 @@ object ParserSettings {
   val allParams = List(Param.BOOLEAN_FUNCTIONS_AS_PREDICATES,
                        Param.TRIGGERS_IN_CONJECTURE,
                        Param.MAKE_QUERIES_PARTIAL,
-                       Param.MUL_PROCEDURE,
+                       Param.MUL_PROCEDURE, Param.ADT_MEASURE,
                        Param.REAL_RAT_SATURATION_ROUNDS)
 
   val DEFAULT =
