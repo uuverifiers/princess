@@ -68,6 +68,10 @@ object SMTParser2InputAbsy {
     def toSort = adt sorts sortNum
     override def toString = (adt sorts sortNum).name
   }
+  case class SMTUnint(sort : TSort)                extends SMTType {
+    def toSort = sort
+    override def toString = sort.name
+  }  
 
   case class SMTFunctionType(arguments : List[SMTType],
                              result : SMTType)
@@ -946,8 +950,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : SortDeclCommand if (incremental) =>
-        unsupported
+      case cmd : SortDeclCommand => {
+        if (cmd.numeral_.toInt != 0)
+          throw new Parser2InputAbsy.TranslationException(
+            "Polymorphic sorts are not supported yet")
+
+        val name = asString(cmd.symbol_)
+        warn("treating sort " + name + " as infinite sort")
+
+        val sort = new TSort.InfUninterpreted(name)
+
+        env.addSort(name, SMTUnint(sort))
+
+        success
+      }
 
       //////////////////////////////////////////////////////////////////////////
 

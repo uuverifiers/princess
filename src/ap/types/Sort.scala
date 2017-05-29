@@ -137,6 +137,11 @@ object Sort {
   }
 
   //////////////////////////////////////////////////////////////////////////////
+  // Uninterpreted sorts
+
+  class InfUninterpreted(override val name : String) extends ProxySort(Integer)
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Extractor to recognise sorts that are subsets of the integers.
