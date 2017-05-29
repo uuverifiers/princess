@@ -951,6 +951,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : SortDeclCommand => {
+        ensureEnvironmentCopy
+
         if (cmd.numeral_.toInt != 0)
           throw new Parser2InputAbsy.TranslationException(
             "Polymorphic sorts are not supported yet")
