@@ -187,7 +187,9 @@ class InputDialog extends JPanel {
   
   menu.addSeparator
   
-  lazy val loadFileChooser = new JFileChooser
+  val pwd = System getProperty "user.dir"
+
+  lazy val loadFileChooser = new JFileChooser(pwd)
   
   addMenuItem("Load ...") {
     loadFileChooser.showOpenDialog(frame) match {
@@ -245,7 +247,7 @@ class InputDialog extends JPanel {
     case x : Throwable => throw x
   }
   
-  lazy val saveFileChooser = new JFileChooser {
+  lazy val saveFileChooser = new JFileChooser(pwd) {
     override def approveSelection = {
       val file = getSelectedFile
       if (file.exists) {
