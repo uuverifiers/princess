@@ -23,6 +23,7 @@ package ap.parameters;
 
 import ap.theories.ADT.TermMeasure
 import ap.Signature.PredicateMatchConfig
+import ap.proof.tree.{RandomDataSource, NonRandomDataSource}
 
 object Param {
   
@@ -342,6 +343,11 @@ object Param {
   case object THEORY_PLUGIN extends Param {
     type Value = Option[ap.proof.theoryPlugins.Plugin]
     val defau : Option[ap.proof.theoryPlugins.Plugin] = None
+  }
+
+  case object RANDOM_DATA_SOURCE extends Param {
+    type Value = RandomDataSource
+    val defau : RandomDataSource = NonRandomDataSource
   }
 }
 

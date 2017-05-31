@@ -227,7 +227,8 @@ object GoalSettings {
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
-                       Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS)
+                       Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS,
+                       Param.RANDOM_DATA_SOURCE)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
