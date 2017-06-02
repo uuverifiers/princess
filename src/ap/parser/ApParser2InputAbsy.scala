@@ -871,8 +871,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       case Some(s) =>
         s
       case None =>
-      println(left)
-      println(right)
         throw new Parser2InputAbsy.TranslationException(
             "Operator " + opName + " cannot be applied to arguments of sort " +
             left._2 + ", " + right._2)

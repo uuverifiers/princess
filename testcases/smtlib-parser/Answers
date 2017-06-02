@@ -404,7 +404,8 @@ success
 success
 success
 success
-unsupported
+Warning: treating sort myType as infinite sort
+success
 Loading missingLazyMatch.smt2 ...
 unknown
 Loading 4BitCounterStruct-safe.c.smt2 ...

@@ -32,7 +32,7 @@ import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst}
 import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
 import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
-                 SortedConstantTerm}
+                 SortedConstantTerm, MonoSortedPredicate}
 import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics}
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
@@ -578,8 +578,8 @@ class ADT (sortNames : Seq[String],
         case OtherSort(sort) => sort
       }
 
-//  private val nonEnumSorts : Set[Sort] =
-//    (for (sort <- sorts.iterator; if !isEnum(sort.sortNum)) yield sort).toSet
+  private val nonEnumSorts : Set[Sort] =
+    (for (sort <- sorts.iterator; if !isEnum(sort.sortNum)) yield sort).toSet
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -839,9 +839,14 @@ class ADT (sortNames : Seq[String],
     val ctorRel = constructorPreds(ctorNum)(arguments ++ List(node))
     val ctorId = ctorIdPreds(sortNum)(List(node, l(ctorInSortNum)))
 
-    val selectorRels =
-      for ((sel, arg) <- selectorPreds(ctorNum).iterator zip arguments.iterator)
-      yield sel(List(node, arg))
+    val (selectorRels, sortConstraints) =
+      (for ((sel, arg) <-
+              selectorPreds(ctorNum).iterator zip arguments.iterator)
+       yield {
+         val ssel = sel.asInstanceOf[MonoSortedPredicate]
+         val argSort = ssel.argSorts.last
+         (sel(List(node, arg)), argSort membershipConstraint arg)
+       }).toList.unzip
 
     val measureRels = measure match {
 
@@ -915,7 +920,7 @@ class ADT (sortNames : Seq[String],
         List()
     }
             
-    (List(ctorRel, ctorId) ++ selectorRels, measureRels)
+    (List(ctorRel, ctorId) ++ selectorRels, measureRels ++ sortConstraints)
   }
 
   private def quanCtorConjunction(ctorNum : Int, node : LinearCombination)
@@ -937,32 +942,10 @@ class ADT (sortNames : Seq[String],
     exists(varNum, conj(a ++ b ++ List(shiftSubst(sortConstraint))))
   }
 
-  private def quanNonCtorConjunction(sortNum : Int, node : LinearCombination)
-                                    (implicit order : TermOrder)
-                                    : Conjunction = {
-    import TerForConvenience._
-
-    val sortConstraint = sorts(sortNum) membershipConstraint node
-
-    if (sortConstraint.isTrue)
-      Conjunction.FALSE
-    else
-      conj(List(ctorIdPreds(sortNum)(List(node, l(-1))),
-                Conjunction.negate(sortConstraint, order)))
-  }
-
   private def quanCtorCases(sortNum : Int, node : LinearCombination)
                            (implicit order : TermOrder) : Seq[Conjunction] = {
-    val regCases =
-      for (ctorNum <- sortedGlobalCtorIdsPerSort(sortNum))
-      yield quanCtorConjunction(ctorNum, node)
-    val irregCase =
-      quanNonCtorConjunction(sortNum, node)
-
-    if (irregCase.isFalse)
-      regCases
-    else
-      regCases ++ List(irregCase)
+    for (ctorNum <- sortedGlobalCtorIdsPerSort(sortNum))
+    yield quanCtorConjunction(ctorNum, node)
   }
 
   private def ctorDisjunction(sortNum : Int,
@@ -993,18 +976,7 @@ class ADT (sortNames : Seq[String],
                                shiftSubst(sortConstraint))))
       }
 
-    // add a disjunct that applies to values outside of the data-type
-    // (for finite ADTs)
-    val irregularDisjuncts =
-      if (sortConstraint.isTrue)
-        Iterator.empty
-      else
-        Iterator single conj(List(
-           ctorIdPreds(sortNum)(List(node, l(-1))),
-           id === -1,
-           Conjunction.negate(sortConstraint, order)))
-
-    disj(regularDisjuncts ++ irregularDisjuncts)
+    disj(regularDisjuncts)
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -1171,8 +1143,7 @@ class ADT (sortNames : Seq[String],
   //////////////////////////////////////////////////////////////////////////////
 
   def plugin: Option[Plugin] =
-    if (measure == ADT.TermMeasure.Size &&
-        (uniqueTermSize exists (_.isEmpty))) Some(new Plugin {
+    if (!nonEnumSorts.isEmpty) Some(new Plugin {
       // not used
       def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
         None
@@ -1193,7 +1164,7 @@ class ADT (sortNames : Seq[String],
   
 //          println("Defined: " + ctorDefinedCons)
 
-/*
+
           val expCandidates : Iterator[(LinearCombination, Sort)] =
             for (a <- predFacts.positiveLits.iterator ++
                       predFacts.negativeLits.iterator;
@@ -1202,14 +1173,15 @@ class ADT (sortNames : Seq[String],
                  if !(ctorDefinedCons contains lc);
                  if (nonEnumSorts contains sort))
             yield (lc, sort)
-*/
 
+/*
           val expCandidates : Iterator[(LinearCombination, Sort)] =
             for ((sort, pred) <- sorts.iterator zip termSizePreds.iterator;
                  a <- (predFacts positiveLitsWithPred pred).iterator;
                  lc = a.head;
                  if !(ctorDefinedCons contains lc))
             yield (lc, sort)
+*/
 
           if (expCandidates.hasNext) {
             import TerForConvenience._

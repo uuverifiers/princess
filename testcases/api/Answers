@@ -462,7 +462,7 @@ Test 1
 Sat
 cons(red, cons(green, nil))
 Sat
-cons(red, cons(green, cons(red, cons(red, cons(red, cons(red, nil))))))
+cons(red, cons(green, cons(green, cons(green, cons(green, cons(green, nil))))))
 Unsat
 starting
 c = 4 & !p
