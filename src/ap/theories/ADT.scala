@@ -1191,8 +1191,9 @@ class ADT (sortNames : Seq[String],
 
 //            println("Expanding: " + lc + ", " + sort)
 
-            List(Plugin.SplitGoal(for (c <- quanCtorCases(sortNum, lc))
-                                  yield List(Plugin.AddFormula(!c))))
+            List(Plugin.SplitGoal(
+              for (c <- quanCtorCases(sortNum, lc))
+              yield List(Plugin.AddFormula(!(PresburgerTools toPrenex c)))))
           } else {
             List()
           }
