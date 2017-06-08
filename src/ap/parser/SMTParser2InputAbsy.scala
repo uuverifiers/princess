@@ -2691,6 +2691,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   protected def asTerm(expr : (IExpression, SMTType)) : ITerm = expr match {
     case (expr : ITerm, _) =>
       expr
+    case (IBoolLit(true), _) =>
+      i(0)
+    case (IBoolLit(false), _) =>
+      i(1)
     case (expr : IFormula, SMTBool) =>
       ITermITE(expr, i(0), i(1))
     case (expr, _) =>
