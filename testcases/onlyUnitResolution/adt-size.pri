@@ -20,7 +20,7 @@
   \forall List l; {gl(l)} (
     gl(l) <-> (\size(l) > 3 -> l.head != l.tail.head & gl(l.tail)))
 &
-  gl(l) & \size(l) < 10
+  gl(l) & \size(l) > 3 & \size(l) < 10
 
  -> false
 }

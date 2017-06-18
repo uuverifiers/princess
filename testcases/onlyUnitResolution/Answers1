@@ -243,7 +243,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-q = Pair(true, true) & p = Pair(false, true)
+q = Pair(false, true) & p = Pair(true, true)
 
 Loading pairs2.pri ...
 Preprocessing ...
@@ -270,7 +270,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-l = cons(blue, cons(green, cons(red, cons(blue, nil)))) & gl(cons(blue, cons(green, cons(red, cons(blue, nil))))) = true & gl(cons(green, cons(red, cons(blue, nil)))) = true & gl(cons(red, cons(blue, nil))) = true & gl(cons(blue, nil)) = true
+l = cons(blue, cons(green, nil)) & gl(cons(blue, cons(green, nil))) = true & gl(cons(green, nil)) = true & gl(nil) = true
 
 Loading adt-size2.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication
