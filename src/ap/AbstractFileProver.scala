@@ -36,7 +36,7 @@ import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
 import ap.types.{TypeTheory, IntToTermTranslator}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
-import ap.proof.tree.ProofTree
+import ap.proof.tree.{ProofTree, SeededRandomDataSource}
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.{Certificate, CertFormula}
 import ap.proof.theoryPlugins.PluginSequence
@@ -261,6 +261,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, plugin)
+    for (seed <- Param.RANDOM_SEED(settings))
+      gs = Param.RANDOM_DATA_SOURCE.set(gs, new SeededRandomDataSource(seed))
     gs
   }
   

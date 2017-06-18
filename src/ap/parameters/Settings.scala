@@ -179,6 +179,10 @@ object GlobalSettings {
           Param.ADT_MEASURE.set(settings, ap.theories.ADT.TermMeasure.RelDepth)
         case ValueOpt("realRatSaturationRounds", IntVal(value)) =>
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
+        case ValueOpt("randomSeed", "off") =>
+          Param.RANDOM_SEED.set(settings, None)
+        case ValueOpt("randomSeed", IntVal(value)) =>
+          Param.RANDOM_SEED.set(settings, Some(value))
         case Opt("multiStrategy", value) =>
           Param.MULTI_STRATEGY.set(settings, value)
         case Opt(_, _) =>
@@ -209,7 +213,7 @@ object GlobalSettings {
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY,
          Param.MUL_PROCEDURE, Param.ADT_MEASURE,
-         Param.REAL_RAT_SATURATION_ROUNDS)
+         Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())

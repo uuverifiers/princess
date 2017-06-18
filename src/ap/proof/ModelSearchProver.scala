@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -48,12 +48,128 @@ import scala.collection.mutable.ArrayBuilder
 object ModelSearchProver {
 
   private val AC = Debug.AC_PROVER
-   
   private val simplifier = ConstraintSimplifier.FAIR_SIMPLIFIER
+   
+  val DEFAULT = new ModelSearchProver(GoalSettings.DEFAULT)
+
+  /**
+   * <code>inputFor</code> is the formula to be disproven. The result of the
+   * method is a countermodel of <code>inputFor</code>, or <code>FALSE</code>
+   * if it was not possible to find one (this implies that <code>inputFor</code>
+   * is valid).
+   */
+  def apply(inputFor : Formula, order : TermOrder) : Conjunction =
+    DEFAULT(inputFor, order)
+
+  /**
+   * <code>inputDisjuncts</code> are the formulae (connected disjunctively) to
+   * be disproven. The result of the method is either countermodel of
+   * <code>inputDisjuncts</code> (the case <code>Left</code>), or a proof of
+   * validity (<code>Right</code>). In case proof construction is disabled,
+   * the validity result will be <code>Left(FALSE)</code>.
+   */
+  def apply(inputDisjuncts : Seq[Conjunction],
+            order : TermOrder,
+            settings : GoalSettings,
+            withFullModel : Boolean = true) : Either[Conjunction, Certificate] =
+    (new ModelSearchProver(settings))(inputDisjuncts, order, withFullModel)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private sealed abstract class FindModelResult
+  private case object SatResult                         extends FindModelResult
+  private case object UnsatResult                       extends FindModelResult
+  private case class  UnsatEFResult(extraFFors : Seq[Conjunction])
+                                                        extends FindModelResult
+  private case class  EFRerunResult(extraFFors : Seq[Conjunction])
+                                                        extends FindModelResult
+  private case class  UnsatCertResult(cert : Certificate)
+                                                        extends FindModelResult
+  private case class  ModelResult(model : Conjunction)  extends FindModelResult
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  sealed abstract class SearchDirection
+  case object ReturnSatDir                              extends SearchDirection
+  case object AcceptModelDir                            extends SearchDirection
+  case object DeriveFullModelDir                        extends SearchDirection
+  case object NextModelDir                              extends SearchDirection
+  case class  AddFormulaDir(formula : Conjunction)      extends SearchDirection
+  
+  private val FullModelDirector : (Conjunction, Boolean) => SearchDirection = {
+    case (_, false) => DeriveFullModelDir
+    case (_, true) => AcceptModelDir
+  }
+  
+  private val SatOnlyDirector : (Conjunction, Boolean) => SearchDirection = {
+    case _ => ReturnSatDir
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Prover that can be used incrementally
+  
+  def emptyIncProver(rawSettings : GoalSettings) : IncProver = {
+    val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
+    val (goal, certFormulas) =
+      Goal.createWithCertFormulas(List(), Set(),
+                                  Vocabulary(TermOrder.EMPTY), settings)
+    val p = new ModelSearchProver(settings)
+    new p.IncProverImpl(goal, certFormulas)
+  }
+
+  abstract class IncProver {
+    def order : TermOrder
+    def assert(f : Conjunction, newOrder : TermOrder) : IncProver
+    def assert(fors : Iterable[Conjunction],
+               newOrder : TermOrder) : IncProver
+    def conclude(f : Conjunction, newOrder : TermOrder) : IncProver
+    def conclude(fors : Iterable[Conjunction],
+                 newOrder : TermOrder) : IncProver
+    def checkValidity(constructModel : Boolean)
+                     : Either[Conjunction, Certificate]
+    def checkValidityDir(searchDirector
+                          : (Conjunction, Boolean) => SearchDirection)
+                     : Either[Conjunction, Certificate]
+    def checkValidityDir(searchDirector
+                          : (Conjunction, Boolean) => SearchDirection,
+                         lemmaBase : LemmaBase)
+                     : Either[Conjunction, Certificate]
+                     
+    /**
+     * Apply a simple criterion to check whether the formulas so far
+     * are valid
+     */
+    def isObviouslyValid : Boolean
+
+    /**
+     * Apply a simple criterion to check whether the formulas so far
+     * are not valid (there are still countermodels)
+     */
+    def isObviouslyUnprovable : Boolean
+
+    /**
+     * Eliminate all prioritised tasks for which the given predicate is false.
+     */
+    def filterTasks(p : PrioritisedTask => Boolean) : IncProver
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * A prover that tries to construct a countermodel of a ground formula. This
+ * prover works in depth-first mode, in contrast to the
+ * <code>ExhaustiveProver</code>.
+ */
+class ModelSearchProver(defaultSettings : GoalSettings) {
+  import ModelSearchProver._
+
+  private val randomDataSource = Param.RANDOM_DATA_SOURCE(defaultSettings)
+
   // we need to store eliminated facts from goals, otherwise we could not
   // construct a complete model
-  private val ptf = new SimpleProofTreeFactory(true, simplifier) {
+  private val ptf = new SimpleProofTreeFactory(true, simplifier,
+                                               randomDataSource) {
     override def eliminatedConstant(subtree : ProofTree,
                                     m : ModelElement,
                                     vocabulary : Vocabulary) : ProofTree =
@@ -77,7 +193,7 @@ object ModelSearchProver {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     cache.cached(inputFor) {
       applyHelp(List(Conjunction.conj(inputFor, order)),
-                order, GoalSettings.DEFAULT, FullModelDirector).left.get
+                order, defaultSettings, FullModelDirector).left.get
     } {
       result => result sortBy order
     }
@@ -92,15 +208,15 @@ object ModelSearchProver {
    */
   def apply(inputDisjuncts : Seq[Conjunction],
             order : TermOrder,
-            settings : GoalSettings,
-            withFullModel : Boolean = true) : Either[Conjunction, Certificate] = {
+            withFullModel : Boolean = true)
+            : Either[Conjunction, Certificate] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ModelSearchProver.AC,
-                    inputDisjuncts forall ((inputFor) =>
-                      inputFor.variables.isEmpty && (order isSortingOf inputFor)))
+                  inputDisjuncts forall ((inputFor) =>
+                    inputFor.variables.isEmpty && (order isSortingOf inputFor)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     applyHelp(inputDisjuncts, order,
-              Param.CONSTRAINT_SIMPLIFIER.set(settings, simplifier),
+              Param.CONSTRAINT_SIMPLIFIER.set(defaultSettings, simplifier),
               if (withFullModel) FullModelDirector else SatOnlyDirector)
   }
    
@@ -110,9 +226,11 @@ object ModelSearchProver {
    * if it was not possible to find one (this implies that <code>inputFor</code>
    * is valid).
    */
-  private def applyHelp(disjuncts : Seq[Conjunction], order : TermOrder,
+  private def applyHelp(disjuncts : Seq[Conjunction],
+                        order : TermOrder,
                         rawSettings : GoalSettings,
-                        searchDirector : (Conjunction, Boolean) => SearchDirection)
+                        searchDirector
+                          : (Conjunction, Boolean) => SearchDirection)
                        : Either[Conjunction, Certificate] = {
     val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
     val elimConstants = order.orderedConstants
@@ -188,37 +306,6 @@ object ModelSearchProver {
         Right(cert)
       }
     }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  
-  private sealed abstract class FindModelResult
-  private case object SatResult                         extends FindModelResult
-  private case object UnsatResult                       extends FindModelResult
-  private case class  UnsatEFResult(extraFFors : Seq[Conjunction])
-                                                        extends FindModelResult
-  private case class  EFRerunResult(extraFFors : Seq[Conjunction])
-                                                        extends FindModelResult
-  private case class  UnsatCertResult(cert : Certificate)
-                                                        extends FindModelResult
-  private case class  ModelResult(model : Conjunction)  extends FindModelResult
-  
-  //////////////////////////////////////////////////////////////////////////////
-
-  sealed abstract class SearchDirection
-  case object ReturnSatDir                              extends SearchDirection
-  case object AcceptModelDir                            extends SearchDirection
-  case object DeriveFullModelDir                        extends SearchDirection
-  case object NextModelDir                              extends SearchDirection
-  case class  AddFormulaDir(formula : Conjunction)      extends SearchDirection
-  
-  private val FullModelDirector : (Conjunction, Boolean) => SearchDirection = {
-    case (_, false) => DeriveFullModelDir
-    case (_, true) => AcceptModelDir
-  }
-  
-  private val SatOnlyDirector : (Conjunction, Boolean) => SearchDirection = {
-    case _ => ReturnSatDir
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -751,19 +838,11 @@ object ModelSearchProver {
   //////////////////////////////////////////////////////////////////////////////
   // Prover that can be used incrementally
   
-  def emptyIncProver(rawSettings : GoalSettings) : IncProver = {
-    val settings = Param.APPLY_BLOCKED_TASKS.set(rawSettings, true)
-    val (goal, certFormulas) =
-      Goal.createWithCertFormulas(List(), Set(),
-                                  Vocabulary(TermOrder.EMPTY), settings)
-    new IncProver(goal, certFormulas, settings)
-  }
-  
-  class IncProver protected[proof] (goal : Goal,
-                                    // certFormulas are needed for setting
-                                    // up the <code>LemmaBase</code>
-                                    certFormulas : Seq[CertFormula],
-                                    settings : GoalSettings) {
+  private class IncProverImpl(goal : Goal,
+                              // certFormulas are needed for setting
+                              // up the <code>LemmaBase</code>
+                              certFormulas : Seq[CertFormula])
+    extends IncProver {
 
     def order : TermOrder = goal.order
     
@@ -833,7 +912,7 @@ object ModelSearchProver {
         else
           certFormulas ++ additionalCertFormulas
 
-      new IncProver(resGoal, newCertFormulas, settings)
+      new IncProverImpl(resGoal, newCertFormulas)
     }
 
     def checkValidity(constructModel : Boolean)
@@ -861,7 +940,7 @@ object ModelSearchProver {
       if (lemmaBase != null)
         lemmaBase assumeFormulas certFormulas.iterator
 
-      findModel(goal, List(), List(), Set(), 0, settings,
+      findModel(goal, List(), List(), Set(), 0, defaultSettings,
                 searchDirector, lemmaBase, 0) match {
         case SatResult                      => Left(Conjunction.TRUE)
         case ModelResult(model)             => Left(model)
@@ -917,12 +996,13 @@ object ModelSearchProver {
       if (newGoal eq goal)
         this
       else
-        new IncProver(newGoal, certFormulas, settings)
+        new IncProverImpl(newGoal, certFormulas)
     }
   }
   
 }
 
+////////////////////////////////////////////////////////////////////////////////
  
 private case class WitnessTree(val subtree : ProofTree,
                                val modelElement : ModelElement,

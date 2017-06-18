@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,14 +30,40 @@ import ap.terfor.arithconj.ModelElement
 import ap.terfor.substitutions.Substitution
 import ap.parameters.GoalSettings
 
+import scala.collection.mutable.ArrayBuffer
+
 class SimpleProofTreeFactory(removeTask : Boolean,
-                             simplifier : ConstraintSimplifier) extends ProofTreeFactory {
+                             simplifier : ConstraintSimplifier,
+                             randomDataSource : RandomDataSource =
+                               NonRandomDataSource)
+      extends ProofTreeFactory {
 
   def and(subtrees : Seq[ProofTree],
           partialCertificate : PartialCertificate,
           vocabulary : Vocabulary) : ProofTree =
-    AndTree(subtrees, vocabulary, partialCertificate, simplifier)
+    if (randomDataSource.isRandom) {
+//    println("shuffling ...")
+      partialCertificate match {
+        case null => {
+          val trees = subtrees.toBuffer
+          randomDataSource shuffle trees
+          AndTree(trees, vocabulary, null, simplifier)
+        }
+        case pcert => {
+          val (newPCert, perm) = pcert shuffle randomDataSource
+          val trees = for (i <- perm) yield subtrees(i)
+          AndTree(trees, vocabulary, newPCert, simplifier)
+        }
+      }
+    } else {
+      AndTree(subtrees, vocabulary, partialCertificate, simplifier)
+    }
   
+  def andInOrder(subtrees : Seq[ProofTree],
+                 partialCertificate : PartialCertificate,
+                 vocabulary : Vocabulary) : ProofTree =
+    AndTree(subtrees, vocabulary, partialCertificate, simplifier)
+
   def quantify(subtree : ProofTree,
                quan : Quantifier,
                quantifiedConstants : Seq[ConstantTerm],

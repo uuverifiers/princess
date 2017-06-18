@@ -274,20 +274,20 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x11 () Term (list (cons (int 16) nil)))
+  (define-fun x11 () Term (list (cons (int 41) nil)))
   (define-fun x10 () Term (int 17))
-  (define-fun x9 () Term (list (cons (int 15) nil)))
+  (define-fun x9 () Term (list nil))
   (define-fun x8 () Term (int 42))
-  (define-fun x7 () Term (list (cons (int 17) (cons (int 16) nil))))
-  (define-fun x67 () Term (list (cons (int 42) (cons (int 15) nil))))
+  (define-fun x7 () Term (list (cons (int 17) (cons (int 41) nil))))
+  (define-fun x67 () Term (list (cons (int 42) nil)))
   (define-fun x5 () Term (int 17))
-  (define-fun x4 () Term (list (cons (int 16) nil)))
-  (define-fun x3 () Term (list (cons (int 17) (cons (int 42) (cons (int 15) nil)))))
-  (define-fun x2 () Term (int 16))
-  (define-fun x1 () Term (list (cons (int 16) (cons (int 17) (cons (int 42) (cons (int 15) nil))))))
-  (define-fun f0 ((x!0 Term)) Bool (ite (= x!0 (int 15)) true (ite (= x!0 (int 42)) true (ite (= x!0 (int 17)) true (ite (= x!0 (int 16)) true true)))))
-  (define-fun f2 ((x!0 Term)) Bool (ite (= x!0 (list (cons (int 16) (cons (int 17) (cons (int 42) (cons (int 15) nil)))))) true true))
-  (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 (cons (int 15) nil)) true (ite (= x!0 (cons (int 42) (cons (int 15) nil))) true (ite (= x!0 (cons (int 17) (cons (int 42) (cons (int 15) nil)))) true (ite (= x!0 (cons (int 16) (cons (int 17) (cons (int 42) (cons (int 15) nil))))) true (ite (= x!0 nil) true true))))))
+  (define-fun x4 () Term (list (cons (int 41) nil)))
+  (define-fun x3 () Term (list (cons (int 17) (cons (int 42) nil))))
+  (define-fun x2 () Term (int 41))
+  (define-fun x1 () Term (list (cons (int 41) (cons (int 17) (cons (int 42) nil)))))
+  (define-fun f0 ((x!0 Term)) Bool (ite (= x!0 (int 42)) true (ite (= x!0 (int 17)) true (ite (= x!0 (int 41)) true true))))
+  (define-fun f2 ((x!0 Term)) Bool (ite (= x!0 (list (cons (int 41) (cons (int 17) (cons (int 42) nil))))) true true))
+  (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 (cons (int 42) nil)) true (ite (= x!0 (cons (int 17) (cons (int 42) nil))) true (ite (= x!0 (cons (int 41) (cons (int 17) (cons (int 42) nil)))) true (ite (= x!0 nil) true true)))))
 )
 
 Loading cvc-datatype-1.smt2 ...
@@ -297,8 +297,8 @@ Constructing countermodel ...
 sat
 (model
   (define-fun _let_3_0 () tree (leaf zero))
-  (define-fun x3 () tree (leaf zero))
-  (define-fun x2 () list null)
+  (define-fun x3 () tree (node null))
+  (define-fun x2 () list (cons (leaf (succ (succ zero))) null))
   (define-fun x1 () nat (succ zero))
 )
 
@@ -519,27 +519,27 @@ Warning: assuming that recursive function f1 is partial
 Warning: assuming that recursive function f2 is partial
 sat
 (model
-  (define-fun x11 () Term (list (cons (int 16) nil)))
+  (define-fun x11 () Term (list (cons (int 41) nil)))
   (define-fun x10 () Term (int 17))
-  (define-fun x9 () Term (list (cons (int 15) nil)))
+  (define-fun x9 () Term (list nil))
   (define-fun x8 () Term (int 42))
-  (define-fun x7 () Term (list (cons (int 17) (cons (int 16) nil))))
-  (define-fun x67 () Term (list (cons (int 42) (cons (int 15) nil))))
+  (define-fun x7 () Term (list (cons (int 17) (cons (int 41) nil))))
+  (define-fun x67 () Term (list (cons (int 42) nil)))
   (define-fun x5 () Term (int 17))
-  (define-fun x4 () Term (list (cons (int 16) nil)))
-  (define-fun x3 () Term (list (cons (int 17) (cons (int 42) (cons (int 15) nil)))))
-  (define-fun x2 () Term (int 16))
-  (define-fun x1 () Term (list (cons (int 16) (cons (int 17) (cons (int 42) (cons (int 15) nil))))))
-  (define-fun f2 ((x!0 Term)) Bool (ite (= x!0 (list (cons (int 16) (cons (int 17) (cons (int 42) (cons (int 15) nil)))))) true true))
-  (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 (cons (int 15) nil)) true (ite (= x!0 (cons (int 42) (cons (int 15) nil))) true (ite (= x!0 (cons (int 17) (cons (int 42) (cons (int 15) nil)))) true (ite (= x!0 (cons (int 16) (cons (int 17) (cons (int 42) (cons (int 15) nil))))) true (ite (= x!0 nil) true true))))))
-  (define-fun f0 ((x!0 Term)) Bool (ite (= x!0 (int 15)) true (ite (= x!0 (int 42)) true (ite (= x!0 (int 17)) true (ite (= x!0 (int 16)) true true)))))
+  (define-fun x4 () Term (list (cons (int 41) nil)))
+  (define-fun x3 () Term (list (cons (int 17) (cons (int 42) nil))))
+  (define-fun x2 () Term (int 41))
+  (define-fun x1 () Term (list (cons (int 41) (cons (int 17) (cons (int 42) nil)))))
+  (define-fun f2 ((x!0 Term)) Bool (ite (= x!0 (list (cons (int 41) (cons (int 17) (cons (int 42) nil))))) true true))
+  (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 (cons (int 42) nil)) true (ite (= x!0 (cons (int 17) (cons (int 42) nil))) true (ite (= x!0 (cons (int 41) (cons (int 17) (cons (int 42) nil)))) true (ite (= x!0 nil) true true)))))
+  (define-fun f0 ((x!0 Term)) Bool (ite (= x!0 (int 42)) true (ite (= x!0 (int 17)) true (ite (= x!0 (int 41)) true true))))
 )
 Loading datatype5.smt2 ...
 sat
 (model
   (define-fun z () S A)
-  (define-fun y () S B)
-  (define-fun x () S C)
+  (define-fun y () S C)
+  (define-fun x () S B)
 )
 unsat
 Loading cvc-datatype-1.smt2 ...

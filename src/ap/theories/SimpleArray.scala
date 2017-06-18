@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -114,7 +114,11 @@ class SimpleArray private (arity : Int) extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  case class DecoderData(selectAtoms : Seq[Atom])
+  /**
+   * Map from array indices to arrays represented as maps
+   */
+  case class DecoderData(
+               arrayMaps : Map[IdealInt, Map[Seq[IdealInt], IdealInt]])
        extends Theory.TheoryDecoderData
 
   val asMap = new Theory.Decoder[Map[Seq[IdealInt], IdealInt]] {
@@ -122,16 +126,49 @@ class SimpleArray private (arity : Int) extends Theory {
              (implicit ctxt : Theory.DecoderContext)
              : Map[Seq[IdealInt], IdealInt] =
       (ctxt getDataFor SimpleArray.this) match {
-        case DecoderData(atoms) =>
-          (for (a <- atoms.iterator; if (a(0).constant == d))
-           yield (for (lc <- a.slice(1, a.size - 1)) yield lc.constant,
-                  a.last.constant)).toMap
+        case DecoderData(map) => map.getOrElse(d, Map())
       }
   }
 
   override def generateDecoderData(model : Conjunction)
-                                  : Option[Theory.TheoryDecoderData] =
-    Some(DecoderData(model.predConj positiveLitsWithPred predicates(0)))
+                                  : Option[Theory.TheoryDecoderData] = {
+    val arrays = new MHashMap[IdealInt, MHashMap[Seq[IdealInt], IdealInt]]
+
+    // extract select literals
+    for (a <- model.predConj positiveLitsWithPred predicates(0)) {
+      val arIndex =
+        a(0).constant
+      val arMap =
+        arrays.getOrElseUpdate(arIndex, new MHashMap[Seq[IdealInt], IdealInt])
+      arMap.put(for (lc <- a.slice(1, a.size - 1)) yield lc.constant,
+                a.last.constant)
+    }
+
+    // extract store literals, propagate maps
+    var changed = true
+    while (changed) {
+      changed = false
+      
+      for (a <- model.predConj positiveLitsWithPred predicates(1)) {
+        val fromIndex = a(0).constant
+        val toIndex = a.last.constant
+
+        val fromMap = arrays.getOrElseUpdate(fromIndex,
+                                       new MHashMap[Seq[IdealInt], IdealInt])
+        val toMap = arrays.getOrElseUpdate(toIndex,
+                                       new MHashMap[Seq[IdealInt], IdealInt])
+
+        for ((key, value) <- fromMap)
+          if (!(toMap contains key)) {
+            toMap.put(key, value)
+            changed = true
+          }
+      }
+    }
+
+    Some(DecoderData(
+      (for ((ind, map) <- arrays.iterator) yield (ind, map.toMap)).toMap))
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -349,6 +349,11 @@ object Param {
     type Value = RandomDataSource
     val defau : RandomDataSource = NonRandomDataSource
   }
+
+  case object RANDOM_SEED extends Param {
+    type Value = Option[Int]
+    val defau : Option[Int] = Some(1234567)
+  }
 }
 
 abstract class Param {

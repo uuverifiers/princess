@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -196,7 +196,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
           }
         }
 
-        ptf.and(resultingTrees, goal.vocabulary)
+        ptf.andInOrder(resultingTrees, goal.vocabulary)
       }
 
       case _ =>

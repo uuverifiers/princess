@@ -43,9 +43,9 @@ Unsat
 -- Incremental solving
   p1  	  p2  	  p3
 ------------------------
+  true	  true	  false
   true	  true	  true
   false	  true	  true
-  true	  true	  false
 
 -- Validity mode
 Sat

@@ -115,6 +115,9 @@ object CmdlMain {
     println(" -mulProcedure=val         Handling of nonlinear integer formulae")
     println("                             bitShift: shift-and-add axiom")
     println("                             native:   built-in theory solver       (default)")
+    println(" -randomSeed=val           Seed for randomisation")
+    println("                             <seed>: numeric seed             (default: 1234567)")
+    println("                             off:    disable randomisation")
     println(" -adtMeasure=val           Measure to ensure acyclicity of ADTs")
     println("                             relDepth: relative depth of terms")
     println("                             size:     size of terms                (default)")
@@ -501,7 +504,8 @@ object CmdlMain {
     SimpleAPI.withProver(enableAssert = assertions,
                          sanitiseNames = false,
                          genTotalityAxioms = 
-                           Param.GENERATE_TOTALITY_AXIOMS(settings)) { p =>
+                           Param.GENERATE_TOTALITY_AXIOMS(settings),
+                         randomSeed = Param.RANDOM_SEED(settings)) { p =>
       val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
       parser.processIncrementally(input,
                                   Param.TIMEOUT(settings),

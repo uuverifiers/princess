@@ -30,6 +30,7 @@ import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.goal.{SymbolWeights, FormulaTask}
 import ap.proof.certificates.{Certificate, LemmaBase, CertFormula}
+import ap.proof.tree.{NonRandomDataSource, SeededRandomDataSource}
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
                         ArraySimplifier}
 import ap.terfor.equations.ReduceWithEqs
@@ -83,14 +84,16 @@ object SimpleAPI {
             scalaDumpBasename : String = ScalaDumpBasename,
             dumpDirectory : File = null,
             tightFunctionScopes : Boolean = true,
-            genTotalityAxioms : Boolean = false) : SimpleAPI =
+            genTotalityAxioms : Boolean = false,
+            randomSeed : Option[Int] = Some(1234567)) : SimpleAPI =
     new SimpleAPI (enableAssert,
                    sanitiseNames,
                    if (dumpSMT) Some(smtDumpBasename) else None,
                    if (dumpScala) Some(scalaDumpBasename) else None,
                    dumpDirectory,
                    tightFunctionScopes,
-                   genTotalityAxioms)
+                   genTotalityAxioms,
+                   randomSeed)
 
   def spawn : SimpleAPI = apply()
 
@@ -154,12 +157,14 @@ object SimpleAPI {
                     scalaDumpBasename : String = ScalaDumpBasename,
                     dumpDirectory : File = null,
                     tightFunctionScopes : Boolean = true,
-                    genTotalityAxioms : Boolean = false)
+                    genTotalityAxioms : Boolean = false,
+                    randomSeed : Option[Int] = Some(1234567))
                    (f : SimpleAPI => A) : A = {
     val p = apply(enableAssert, sanitiseNames,
                   dumpSMT, smtDumpBasename,
                   dumpScala, scalaDumpBasename, dumpDirectory,
-                  tightFunctionScopes, genTotalityAxioms)
+                  tightFunctionScopes, genTotalityAxioms,
+                  randomSeed)
     try {
       f(p)
     } finally {
@@ -450,7 +455,8 @@ class SimpleAPI private (enableAssert : Boolean,
                          dumpScala : Option[String],
                          dumpDirectory : File,
                          tightFunctionScopes : Boolean,
-                         genTotalityAxioms : Boolean = false) {
+                         genTotalityAxioms : Boolean,
+                         randomSeed : Option[Int]) {
 
   import SimpleAPI._
 
@@ -4104,6 +4110,11 @@ class SimpleAPI private (enableAssert : Boolean,
       theoryAxioms
     }
 
+  private val randomDataSource = randomSeed match {
+    case None => NonRandomDataSource
+    case Some(s) => new SeededRandomDataSource(s)
+  }
+
   private def goalSettings = {
     var gs = GoalSettings.DEFAULT
 //    gs = Param.CONSTRAINT_SIMPLIFIER.set(gs, determineSimplifier(settings))
@@ -4130,6 +4141,7 @@ class SimpleAPI private (enableAssert : Boolean,
            (for (t <- theories.iterator;
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
+    gs = Param.RANDOM_DATA_SOURCE.set(gs, randomDataSource)
     gs
   }
 

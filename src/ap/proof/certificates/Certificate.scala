@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,6 +21,7 @@
 
 package ap.proof.certificates
 
+import ap.proof.tree.RandomDataSource
 import ap.terfor.{TermOrder, SortedWithOrder, ConstantTerm}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.{Debug, FilterIt, Seqs}
@@ -157,7 +158,9 @@ object PartialCertificate {
       }
     }
   }
-  
+
+  protected[certificates] val List_0 = List(0)
+
 }
 
 /**
@@ -208,6 +211,13 @@ abstract class PartialCertificate {
                 lemmaBase : LemmaBase,
                 lemmaBaseAssumedInferences : Int) : Certificate
 
+  /**
+   * Shuffle the certificates expected by this partial certificate,
+   * and return the new order of arguments relatively to the old order.
+   */
+  def shuffle(implicit randomDataSource : RandomDataSource)
+             : (PartialCertificate, Seq[Int])
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -241,6 +251,9 @@ case object PartialIdentityCertificate extends PartialCertificate {
                 lemmaBase : LemmaBase,
                 lemmaBaseAssumedInferences : Int) : Certificate =
     certBuilder.next
+
+  def shuffle(implicit randomDataSource : RandomDataSource) =
+    (this, PartialCertificate.List_0)
 
 }
 
@@ -326,6 +339,38 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
 
     second.dfExplore(newBuilder, lemmaBase, lemmaBaseAssumedInferences)
   }
+
+  def shuffle(implicit randomDataSource : RandomDataSource) =
+    if (first.size == 1) {
+      val (newFirst, perm) = first.head.shuffle
+      (new PartialCompositionCertificate(List(newFirst), second), perm)
+    } else {
+      val (shuffledSecond, permSecond) =
+        second.shuffle
+      val (shuffledFirst, permsFirst) =
+        (for (f <- first) yield f.shuffle).unzip
+
+      val offsets = {
+        var offset = 0
+        for (f <- first) yield {
+          val res = offset
+          offset = offset + f.arity
+          res
+        }
+      }
+
+      val finalPerm =
+        for (ind <- permSecond;
+             perms = permsFirst(ind);
+             offset = offsets(ind);
+             p <- perms)
+        yield (p + offset)
+
+      (new PartialCompositionCertificate(
+               for (ind <- permSecond) yield shuffledFirst(ind),
+               shuffledSecond),
+       finalPerm)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -351,7 +396,10 @@ class PartialFixedCertificate protected[certificates]
     certBuilder skipNext arity
     result
   }
-  
+
+  def shuffle(implicit randomDataSource : RandomDataSource) =
+    (this, (0 until arity).toIndexedSeq)
+
 }
 
 /**
@@ -396,6 +444,9 @@ class PartialInferenceCertificate protected[certificates]
         }
     }
   }
+
+  def shuffle(implicit randomDataSource : RandomDataSource) =
+    (this, PartialCertificate.List_0)
 
 }
 
@@ -478,6 +529,21 @@ class PartialCombCertificate protected[certificates]
     }
 
     comb(subRes)
+  }
+
+  def shuffle(implicit randomDataSource : RandomDataSource) = {
+    val providedFormulasBuf = providedFormulas.toBuffer
+    val perm = randomDataSource shuffleWithPerm providedFormulasBuf
+
+    (new PartialCombCertificate(
+                       certs => {
+                         val sortedCerts = new Array[Certificate](perm.size)
+                         for ((cert, ind) <- certs.iterator zip perm.iterator)
+                           sortedCerts(ind) = cert
+                         comb(sortedCerts)
+                       },
+                       providedFormulasBuf),
+     perm)
   }
 
 }

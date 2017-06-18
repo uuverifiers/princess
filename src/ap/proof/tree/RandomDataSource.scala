@@ -22,6 +22,7 @@
 package ap.proof.tree;
 
 import scala.util.Random
+import scala.collection.mutable.Buffer
 
 /**
  * Class to produce data needed to randomise proof construction.
@@ -49,6 +50,45 @@ abstract class RandomDataSource {
    * Produce a random integer value in the range <code>[0, bound)</code>.
    */
   def nextInt(bound : Int) : Int
+
+  /**
+   * Shuffle the given sequence
+   */
+  def shuffle[A](seq : Buffer[A]) : Unit =
+    if (isRandom) {
+      val N = seq.size
+      for (i <- 0 until (N - 1)) {
+        val newI = nextInt(N - i) + i
+        if (newI != i) {
+          val t = seq(i)
+          seq(i) = seq(newI)
+          seq(newI) = t
+        }
+      }
+    }
+
+  /**
+   * Shuffle the given sequence, and return the new ordering
+   */
+  def shuffleWithPerm[A](seq : Buffer[A]) : Seq[Int] = {
+    val N = seq.size
+    val res = (0 until N).toArray
+    
+    if (isRandom)
+      for (i <- 0 until (N - 1)) {
+        val newI = nextInt(N - i) + i
+        if (newI != i) {
+          val t = seq(i)
+          seq(i) = seq(newI)
+          seq(newI) = t
+          val t2 = res(i)
+          res(i) = res(newI)
+          res(newI) = t2
+        }
+      }
+
+    res
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

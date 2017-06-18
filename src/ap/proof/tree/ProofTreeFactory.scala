@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -37,6 +37,14 @@ abstract class ProofTreeFactory {
   def and(subtrees : Seq[ProofTree],
           partialCertificate : PartialCertificate,
           vocabulary : Vocabulary) : ProofTree
+  
+  def andInOrder(subtrees : Seq[ProofTree],
+                 vocabulary : Vocabulary) : ProofTree =
+    andInOrder(subtrees, null, vocabulary)
+
+  def andInOrder(subtrees : Seq[ProofTree],
+                 partialCertificate : PartialCertificate,
+                 vocabulary : Vocabulary) : ProofTree
   
   def quantify(subtree : ProofTree,
                quan : Quantifier,
