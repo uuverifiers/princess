@@ -514,11 +514,12 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                       depth + 1, settings, searchDirector, null, 0) match {
               case UnsatResult =>         r
               case UnsatEFResult(ef2) =>  UnsatEFResult(ef ++ ef2)
-              case _ : UnsatCertResult => throw new IllegalArgumentException
+              case _ : UnsatCertResult =>
+                throw new IllegalArgumentException("proof certificate missing")
               case r2 =>                  r2
             }
           case _ : UnsatCertResult =>
-            throw new IllegalArgumentException
+            throw new IllegalArgumentException("proof certificate missing")
           case lr => lr
         }
     }

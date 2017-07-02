@@ -21,9 +21,15 @@
 
 package ap.proof.theoryPlugins;
 
+import ap.basetypes.IdealInt
+import ap.theories.Theory
 import ap.proof.goal.{Goal, Task, EagerTask, PrioritisedTask}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
-import ap.terfor.conjunctions.Conjunction
+import ap.proof.certificates._
+import ap.terfor.Formula
+import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.linearcombination.LinearCombination
+import ap.parameters.Param
 import ap.util.Debug
 
 import scala.collection.mutable.{Stack, ArrayBuffer}
@@ -32,9 +38,38 @@ object Plugin {
   protected[theoryPlugins] val AC = Debug.AC_PLUGIN
 
   abstract sealed class Action
+
+  /**
+   * Add a formula to the handled proof goal. This action does not
+   * support generation of proof certificates.
+   */
   case class AddFormula  (formula : Conjunction)    extends Action
+
+  /**
+   * Remove some facts from the handled proof goal.
+   */
   case class RemoveFacts (facts : Conjunction)      extends Action
+  
+  /**
+   * Split a proof goal into multiple sub-goals. This action does not
+   * support generation of proof certificates.
+   */
   case class SplitGoal   (cases : Seq[Seq[Action]]) extends Action
+  
+  /**
+   * Split a proof goal into multiple sub-goals, and justify the split
+   * through an explicit theory axiom. The action can specify a list of
+   * assumptions that are antecedents of the axiom, but already assumed
+   * to be present in a goal. Constants in the axiom will be replaced
+   * with universally quantified variables.
+   */
+  case class AxiomSplit  (assumptions : Seq[Formula],
+                          cases : Seq[(Conjunction, Seq[Action])],
+                          theory : Theory)          extends Action
+  
+  /**
+   * Schedule a task to be applied later on the goal.
+   */
   case class ScheduleTask(proc : TheoryProcedure,
                           priority : Int)           extends Action
 
@@ -170,11 +205,121 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
     val actions = plugin handleGoal goal
 
-    if (actions.isEmpty) {
+    if (actions.isEmpty)
       ptf.updateGoal(goal)
-    } else actions.last match {
+    else if (Param.PROOF_CONSTRUCTION(goal.settings))
+      handleActionsRec(actions.toList, List(), goal, goal.branchInferences, ptf)
+    else
+      handleActionsNonCert(actions, goal, ptf)
+  }
 
-      case _ : SplitGoal => {
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def handleActionsRec(actions : List[Action],
+                               linearActions : List[Action],
+                               goal : Goal,
+                               branchInferences : BranchInferenceCollection,
+                               ptf : ProofTreeFactory) : ProofTree =
+    actions match {
+
+      case List() =>
+        applyActions(linearActions, goal, branchInferences, ptf)
+
+      case List(AxiomSplit(assumptions, cases, theory)) => {
+        val order = goal.order
+
+        // TODO: avoid conversion to conjunction
+        val certAssumptions =
+          for (a <- assumptions) yield CertFormula(Conjunction.conj(a, order))
+        val (compoundAssumptions, simpleAssumptions) =
+          certAssumptions partition (_.isInstanceOf[CertCompoundFormula])
+
+        val subTrees =
+          (for (a <- compoundAssumptions) yield {
+             applyActions(AddFormula(a.toConj) :: linearActions,
+                          goal,
+                          goal startNewInferenceCollectionCert List(!a),
+                          ptf)
+           }) ++
+          (for ((axiomCase, rest) <- cases) yield {
+             handleActionsRec(rest.toList,
+                              AddFormula(!axiomCase) :: linearActions,
+                              goal,
+                              goal startNewInferenceCollection List(axiomCase),
+                              ptf)
+           })
+
+        val providedFormulas =
+          (for (a <- compoundAssumptions) yield Set(!a)) ++
+          (for ((axiomCase, _) <- cases) yield Set(CertFormula(axiomCase)))
+
+        assert(subTrees.size >= 2)
+
+        // certificate constructor, to be applied once all sub-goals have been
+        // closed
+        def comb(certs : Seq[Certificate]) : Certificate = {
+          // add proofs for the simple assumptions
+          val simpleCerts =
+            for (a <- simpleAssumptions) yield {
+              val inf = a match {
+                // TODO: further cases
+                case eq : CertEquation =>
+                  ReduceInference(List((IdealInt.MINUS_ONE, eq)), !eq, order)
+              }
+              
+              val ccert =
+                CloseCertificate(Set(inf.providedFormulas.head), order)
+              (!a, BranchInferenceCertificate.prepend(List(inf), ccert, order))
+            }
+
+          val allCerts =
+            simpleCerts ++ ((providedFormulas map (_.head)) zip certs)
+          val betaCert = BetaCertificate(allCerts, order)
+
+          val instAxiom = betaCert.localAssumedFormulas.head
+
+          val consts = order sort instAxiom.constants
+            
+          val (axiom, instInf) =
+            if (consts.isEmpty) {
+              (instAxiom, List())
+            } else {
+              val axiomConj =
+                Conjunction.quantify(Quantifier.ALL, consts,
+                                     instAxiom.toConj, order)
+              val axiom =
+                CertFormula(axiomConj).asInstanceOf[CertCompoundFormula]
+              val instanceTerms =
+                for (c <- consts) yield LinearCombination(c, order)
+              (axiom,
+               List(GroundInstInference(axiom, instanceTerms, instAxiom,
+                                        List(), instAxiom, order)))
+            }
+                                   
+          BranchInferenceCertificate.prepend(
+              List(TheoryAxiomInference(axiom, theory)) ++ instInf,
+              betaCert, order)
+        }
+
+        val pCert =
+          PartialCertificate(comb _, providedFormulas, branchInferences, order)
+        ptf.andInOrder(subTrees, pCert, goal.vocabulary)
+      }
+      
+      case (a@(_ : RemoveFacts | _ : ScheduleTask)) :: rest =>
+        handleActionsRec(rest, a :: linearActions, goal, branchInferences, ptf)
+
+      case actions =>
+        throw new IllegalArgumentException("cannot execute actions " + actions)
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+  
+  private def handleActionsNonCert(actions : Seq[Action],
+                                   goal : Goal,
+                                   ptf : ProofTreeFactory) : ProofTree =
+    actions.last match {
+      case _ : SplitGoal | _ : AxiomSplit => {
         val actionStack    = new Stack[Seq[Action]]
         val resultingTrees = new ArrayBuffer[ProofTree]
 
@@ -190,8 +335,15 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
               for (b <- subActions.reverseIterator)
                 actionStack push (otherActions ++ b)
             }
+            case AxiomSplit(_, cases, _) => {
+              val otherActions = actions.init
+              for ((axiomCase, rest) <- cases.reverseIterator)
+                actionStack push (otherActions ++
+                                  List(AddFormula(!axiomCase)) ++
+                                  rest)
+            }
             case _ => {
-              resultingTrees += applyActions(actions, goal, ptf)
+              resultingTrees += applyActions(actions, goal, null, ptf)
             }
           }
         }
@@ -200,12 +352,15 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       }
 
       case _ =>
-        applyActions(actions, goal, ptf)
+        applyActions(actions, goal, null, ptf)
     }
-  }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   private def applyActions(actions : Seq[Action],
-                           goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
+                           goal : Goal,
+                           branchInferences : BranchInferenceCollection,
+                           ptf : ProofTreeFactory) : ProofTree = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(Plugin.AC, !(actions exists (_.isInstanceOf[SplitGoal])))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -213,16 +368,24 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
     val factsToRemove =
       Conjunction.conj(for (RemoveFacts(f) <- actions.iterator) yield f,
                        goal.order)
-    val factsToAdd =
-      goal.reduceWithFacts(
-        Conjunction.disj(for (AddFormula(f) <- actions.iterator) yield f,
-                         goal.order))
 
     val tasksToSchedule =
       (for (ScheduleTask(proc, priority) <- actions.iterator)
        yield new PrioritisedPluginTask(proc, priority, goal.age)).toList
+
     val formulaTasks =
-      (goal formulaTasks factsToAdd)
+      // if no inferences are given, we assume that proof generation is
+      // disabled, so we are free to simplify
+      if (branchInferences == null) {
+        val factsToAdd =
+          goal.reduceWithFacts(
+            Conjunction.disj(for (AddFormula(f) <- actions.iterator) yield f,
+                             goal.order))
+        goal formulaTasks factsToAdd
+      } else {
+        for (AddFormula(f) <- actions; t <- goal formulaTasks f)
+        yield t
+      }
 
     val newFacts =
       if (factsToRemove.isTrue)
@@ -245,9 +408,15 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         formulaTasks
       }
 
-    ptf.updateGoal(newFacts,
-                   tasksToSchedule ++ allFormulaTasks,
-                   goal)
+    if (branchInferences == null)
+      ptf.updateGoal(newFacts,
+                     tasksToSchedule ++ allFormulaTasks,
+                     goal)
+    else
+      ptf.updateGoal(newFacts,
+                     tasksToSchedule ++ allFormulaTasks,
+                     branchInferences,
+                     goal)
   }
 }
 

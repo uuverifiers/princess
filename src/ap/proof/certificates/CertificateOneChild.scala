@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,6 +31,7 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.substitutions.ConstantSubst
+import ap.theories.Theory
 import ap.util.{Debug, Seqs}
 
 import scala.runtime.ScalaRunTime
@@ -799,7 +800,6 @@ case class DivRightInference(divisibility : CertCompoundFormula,
     "DivRight(" + divisibility +" -> " + result + ")"
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 
 object PredUnifyInference {
@@ -836,4 +836,22 @@ case class PredUnifyInference(leftAtom : Atom, rightAtom : Atom,
   override def toString : String =
     "PredUnify(" + leftAtom + ", " + rightAtom + " -> " +
                    providedFormulas.head + ")"
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * An inference describing the introduction of a theory axiom.
+ */
+case class TheoryAxiomInference(axiom : CertFormula, theory : Theory) extends {
+
+  val assumedFormulas = Set[CertFormula]()
+  val providedFormulas = Set[CertFormula](axiom)
+
+} with BranchInference {
+  
+  def propagateConstraint(closingConstraint : Conjunction) = closingConstraint
+  
+  override def toString : String =
+    "TheoryAxiom(" + theory + ", " + axiom + ")"
 }
