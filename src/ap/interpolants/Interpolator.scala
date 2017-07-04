@@ -31,15 +31,15 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.TerForConvenience._
 import ap.terfor.{Term, ConstantTerm, VariableTerm}
-import ap.terfor.preds.PredConj
+import ap.terfor.preds.{PredConj, Predicate}
 import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
 import ap.parameters.GoalSettings
 import ap.basetypes.IdealInt
-import ap.util.{Debug, Seqs, FilterIt}
 import ap.PresburgerTools
 import ap.terfor.conjunctions.ReduceWithConjunction
+import ap.util.{Debug, Seqs, FilterIt, Timeout}
 
 object Interpolator
 {
@@ -58,12 +58,13 @@ object Interpolator
   
   def apply(certificate : Certificate, 
             iContext: InterpolationContext,
-            elimQuantifiers : Boolean = true) : Conjunction = {
+            elimQuantifiers : Boolean = true,
+            functionalPredicates : Set[Predicate] = Set()) : Conjunction = {
     val resWithQuantifiers = applyHelp(certificate, iContext).toConjunction
 
     implicit val o = certificate.order
     val res =
-      ReduceWithConjunction(Conjunction.TRUE, o)(
+      ReduceWithConjunction(Conjunction.TRUE, functionalPredicates, o)(
         if (elimQuantifiers)
           PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
         else
@@ -80,8 +81,9 @@ object Interpolator
     // the following assertions are quite expensive ...
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS, {
       implicit val o = certificate.order
-      isValid(certConj(iContext.leftFormulae ++ iContext.commonFormulae) ==> res) &&
-      isValid(!(certConj(iContext.rightFormulae ++ iContext.commonFormulae) & res))
+      val allCommon = iContext.commonFormulae ++ certificate.theoryAxioms
+      isValid(certConj(iContext.leftFormulae ++ allCommon) ==> res) &&
+      isValid(!(certConj(iContext.rightFormulae ++ allCommon) & res))
     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
@@ -92,8 +94,16 @@ object Interpolator
   private def isValid(f : Conjunction) : Boolean = {
     implicit val o = f.order
     val closedF = forall(o sort f.constants, f)
-    assertionProver(ReduceWithConjunction(Conjunction.TRUE, f.order)(closedF), f.order)
-                   .closingConstraint.isTrue
+    Timeout.withTimeoutMillis(60000) {
+      assertionProver(
+        ReduceWithConjunction(Conjunction.TRUE, f.order)(closedF), f.order)
+                     .closingConstraint.isTrue
+    } {
+      // if a timeout occurs, we assume that the formula was valid ...
+      Console.err.println(
+        "Warning: could not fully verify correctness of interpolant due to timeout")
+      true
+    }
   }
  
   private def certConj(fors : Iterable[CertFormula])
@@ -802,11 +812,11 @@ object Interpolator
       case GroundInstInference(qFormula, instTerms, _, Seq(), result, _) => {
         implicit val extOrder = iContext.order
         
-        //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertPre(AC, (iContext isFromLeft qFormula) ||
                             (iContext isFromRight qFormula) ||
                             (iContext isCommon qFormula))
-        //-END-ASSERTION-/////////////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         
         val termConsts =
           iContext.addDoubleConstants(
@@ -817,9 +827,10 @@ object Interpolator
           (iContext isFromLeft qFormula) ||
           (iContext isCommon qFormula) && {
             // check whether any of the literals of the quantified formula can
-            // be resolved with literals in the sequent (in this case, it is likely
-            // that this will happen later in the proof, and gives us a hint as to
-            // whether the result should be considered a left or a right formula)
+            // be resolved with literals in the sequent (in this case, it is
+            // likely that this will happen later in the proof, and gives us
+            // a hint as to whether the result should be considered a left
+            // or a right formula)
 
             val resConj = result.toConj
             val instAtoms =
@@ -895,6 +906,13 @@ object Interpolator
       case ReusedProofMarker =>
         // inference with no effect
         processBranchInferences(remInferences, child, iContext)
+
+      //////////////////////////////////////////////////////////////////////////
+      
+      case TheoryAxiomInference(axiom, _) => {
+        val newContext = iContext addCommon axiom
+        processBranchInferences(remInferences, child, newContext)
+      }
 
       //////////////////////////////////////////////////////////////////////////
       

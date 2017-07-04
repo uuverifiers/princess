@@ -1191,15 +1191,15 @@ class ADT (sortNames : Seq[String],
 
 //            println("Expanding: " + lc + ", " + sort)
 
-            List(Plugin.SplitGoal(
-              for (c <- quanCtorCases(sortNum, lc))
-              yield List(Plugin.AddFormula(!(PresburgerTools toPrenex c)))))
-
-//            List(Plugin.AxiomSplit(
-//              List(), // TODO
+//            List(Plugin.SplitGoal(
 //              for (c <- quanCtorCases(sortNum, lc))
-//                yield (PresburgerTools toPrenex c, List()),
-//              ADT.this))
+//              yield List(Plugin.AddFormula(!(PresburgerTools toPrenex c)))))
+
+            List(Plugin.AxiomSplit(
+              List(), // TODO
+              for (c <- quanCtorCases(sortNum, lc))
+                yield (PresburgerTools toPrenex c, List()),
+              ADT.this))
           } else {
             List()
           }

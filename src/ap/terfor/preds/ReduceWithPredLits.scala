@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -185,8 +185,20 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
         addNewPosLit(a)
       }
     
+    // for the negative literals, also functions within the positive
+    // literals can be taken into account
+    val (allFacts, allAllPreds) =
+      if (!functions.isEmpty &&
+          !newPosLits.isEmpty && !conj.negativeLits.isEmpty) {
+        val conjWithPosLits = PredConj(newPosLits, List(), o)
+        (LitFacts(conjWithPosLits) :: facts,
+         UnionSet(allPreds, conjWithPosLits.predicates))
+      } else {
+        (facts, allPreds)
+      }
+
     for (a <- conj.negativeLits)
-      if (allPreds contains a.pred) reduce(a, facts, false) match {
+      if (allAllPreds contains a.pred) reduce(a, allFacts, false) match {
         case UnchangedResult =>
           newNegLits += a
         case TrueResult =>

@@ -2453,9 +2453,11 @@ class SimpleAPI private (enableAssert : Boolean,
           val iContext =
             InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
           Timeout.withTimeoutMillis(maxQETime) {
-            Interpolator(currentSimpCertificate, iContext)
+            Interpolator(currentSimpCertificate, iContext, true,
+                         functionalPreds)
           } {
-            Interpolator(currentSimpCertificate, iContext, false)
+            Interpolator(currentSimpCertificate, iContext, false,
+                         functionalPreds)
           }
         }
       }
@@ -2546,9 +2548,11 @@ class SimpleAPI private (enableAssert : Boolean,
 
           val rawInt =
             Timeout.withTimeoutMillis(maxQETime) {
-              Interpolator(currentSimpCertificate, iContext)
+              Interpolator(currentSimpCertificate, iContext, true,
+                           functionalPreds)
             } {
-              Interpolator(currentSimpCertificate, iContext, false)
+              Interpolator(currentSimpCertificate, iContext, false,
+                           functionalPreds)
             }
 
           val simpInt = {

@@ -604,7 +604,7 @@ unsat
 Loading treeInterpolation2.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (= |#valid_4| |old(#valid)_4|) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0)) (or (= var0 0) (or (select |#valid_4| var0) (not (select |old(#valid)_4| var0)))))))
+((and (= |#valid_4| |old(#valid)_4|) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0)) (or (= var0 0) (select |#valid_4| var0)))))
 false)
 Loading enum-interpolation.smt2 ...
 unsat

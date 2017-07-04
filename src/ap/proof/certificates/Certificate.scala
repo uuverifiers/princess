@@ -101,6 +101,17 @@ abstract class Certificate {
       case (num, cert) => num + cert.inferenceCount
     }
 
+  lazy val theoryAxioms : Set[CertFormula] = this match {
+    case BranchInferenceCertificate(infs, child, _) =>
+      ((for (TheoryAxiomInference(axiom, _) <- infs.iterator) yield axiom) ++
+       child.theoryAxioms.iterator).toSet
+    case _ =>
+      if (this.subCertificates.isEmpty)
+        Set()
+      else
+        (this.subCertificates map (_.theoryAxioms)) reduceLeft (_ ++ _)
+  }
+
   def apply(i : Int) : Certificate
   def length : Int
   def iterator : Iterator [Certificate]
