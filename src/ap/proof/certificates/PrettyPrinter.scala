@@ -219,7 +219,7 @@ class CertificatePrettyPrinter(
           case _ => // nothing
         }
 
-        if (cnt - lastSplitPos > remLineWidth - 2*lastSplitParenNum &&
+        if (cnt - lastSplitPos > remLineWidth - 2*lastSplitParenNum - 1 &&
             curSplitPos > lastSplitPos) {
           println(text.substring(lastSplitPos, curSplitPos))
 

@@ -363,6 +363,10 @@ object PrincessLineariser {
                               IPlus(IIntLit(value), s))) => {
           TryAgain(s, ctxt addParentOp (" != " + (-value)))
         }
+        case INot(IIntFormula(IIntRelation.EqZero,
+                              IPlus(s, IIntLit(value)))) => {
+          TryAgain(s, ctxt addParentOp (" != " + (-value)))
+        }
       
         case INot(IIntFormula(IIntRelation.EqZero, s)) => {
           TryAgain(s, ctxt addParentOp " != 0")
@@ -394,6 +398,10 @@ object PrincessLineariser {
                          IPlus(IIntLit(value), s)) => {
           TryAgain(s, ctxt addParentOp (" = " + (-value)))
         }
+        case IIntFormula(IIntRelation.EqZero,
+                         IPlus(s, IIntLit(value))) => {
+          TryAgain(s, ctxt addParentOp (" = " + (-value)))
+        }
 
         // Non-negated relations
 
@@ -414,6 +422,9 @@ object PrincessLineariser {
           TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + coeff.abs + "*" + atomicTerm(t, ctxt)))
         }
         case IIntFormula(rel, IPlus(IIntLit(value), s)) => {
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + (-value)))
+        }
+        case IIntFormula(rel, IPlus(s, IIntLit(value))) => {
           TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + (-value)))
         }
       

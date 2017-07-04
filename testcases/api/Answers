@@ -244,8 +244,8 @@ Sat
 Unsat
 \exists int v0; (v0 >= 0 & x = y + v0) <-> x >= y
 Valid
-\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x + -1 >= 0)
-\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x + -1 >= 0)
+\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
+\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
 8 >= x
 Valid
 Unsat
@@ -280,7 +280,7 @@ Vector(!((-3 + c1) = 0))
 3: Invalid
 {c1 -> 2, c0 -> 1}
 4: Valid
-x - y + -1 >= 0 & y + -1*50 + -1 >= 0
+x - y >= 1 & y + -1*50 >= 1
 Sat
 Unsat
 starting
