@@ -287,12 +287,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected lazy val canUseModelSearchProver = {
     val config = Param.PREDICATE_MATCH_CONFIG(goalSettings)
 
-    (formulas exists (_.isTrue)) ||
-    (Seqs.disjoint(formulaConstants, signature.existentialConstants) &&
-     (if (Param.POS_UNIT_RESOLUTION(goalSettings))
-        formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
-      else
-        (formulaQuantifiers subsetOf Set(Quantifier.ALL))))
+    !(Param.COMPUTE_MODEL(settings) &&
+      !signature.existentialConstants.isEmpty) &&
+    ((formulas exists (_.isTrue)) ||
+     (Seqs.disjoint(formulaConstants, signature.existentialConstants) &&
+      (if (Param.POS_UNIT_RESOLUTION(goalSettings))
+         formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
+       else
+         (formulaQuantifiers subsetOf Set(Quantifier.ALL)))))
   }
 
   //////////////////////////////////////////////////////////////////////////////
