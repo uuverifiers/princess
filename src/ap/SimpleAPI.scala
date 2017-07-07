@@ -2619,10 +2619,6 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Install a theory plugin in the prover.
-   * This is highly experimental functionality.
-   *
-   * (In particular, <code>eval</code> and <code>evalPartial</code> might
-   * sometimes produce strange results in combination with plugins)
    */
   def setupTheoryPlugin(plugin : Plugin) : Unit = {
     doDumpSMT {

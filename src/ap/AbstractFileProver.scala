@@ -367,7 +367,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected def toIFormula(c : Conjunction,
                            onlyNonTheory : Boolean = false) = {
     val remaining = if (onlyNonTheory) filterNonTheoryParts(c) else c
-    val raw = Internal2InputAbsy(remaining, functionEncoder.predTranslation)
+    val remainingNoTypes = TypeTheory.filterTypeConstraints(remaining)
+    val raw = Internal2InputAbsy(remainingNoTypes,
+                                 functionEncoder.predTranslation)
     val simp = (new ArraySimplifier)(raw)
     implicit val context = new Theory.DefaultDecoderContext(c)
     IntToTermTranslator(simp)

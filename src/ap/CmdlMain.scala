@@ -32,7 +32,8 @@ import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
-                  Internal2InputAbsy, Simplifier, SMTParser2InputAbsy, IFunction}
+                  Internal2InputAbsy, Simplifier, SMTParser2InputAbsy, IFunction,
+                  LineariseVisitor}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
@@ -550,7 +551,7 @@ object CmdlMain {
                   settings : GlobalSettings)
                  (implicit format : Param.InputFormat.Value) = format match {
     case Param.InputFormat.SMTLIB => prover.result match {
-              case Prover.Proof(tree) => {
+              case Prover.Proof(tree, _) => {
                 println("unsat")
                 if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
                   println
@@ -558,7 +559,7 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case Prover.ProofWithModel(tree, model) => {
+              case Prover.ProofWithModel(tree, _, model) => {
                 println("unsat")
                 if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
                   println
@@ -621,9 +622,9 @@ object CmdlMain {
     }
       
     case _ => prover.result match {
-              case Prover.Proof(tree) => {
+              case Prover.Proof(tree, constraint) => {
                 println("VALID")
-                if (!tree.closingConstraint.isTrue ||
+                if (!constraint.isTrue ||
                     Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Under the " +
@@ -631,7 +632,7 @@ object CmdlMain {
                              "most-general "
                            else
                              "") + "constraint:")
-                  printFormula(tree.closingConstraint)
+                  printFormula(constraint)
                 }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
@@ -641,9 +642,9 @@ object CmdlMain {
                   println(tree)
                 }
               }
-              case Prover.ProofWithModel(tree, model) => {
+              case Prover.ProofWithModel(tree, constraint, model) => {
                 println("VALID")
-                if (!tree.closingConstraint.isTrue ||
+                if (!constraint.isTrue ||
                     Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Under the " +
@@ -651,16 +652,17 @@ object CmdlMain {
                              "most-general "
                            else
                              "") + "constraint:")
-                  printFormula(tree.closingConstraint)
+                  printFormula(constraint)
                 }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 model match {
                   case IBoolLit(true) => // nothing
-                  case _ if ({
-                               val c = tree.closingConstraint
-                               c.arithConj.positiveEqs.size == c.size
-                              }) => // nothing
+                  case _ if (
+                          LineariseVisitor(constraint, IBinJunctor.And) forall {
+                            case IExpression.Eq(_, _) => true
+                            case _ => false
+                          }) => // nothing
                   case _ => {
                     println
                     println("Concrete witness:")

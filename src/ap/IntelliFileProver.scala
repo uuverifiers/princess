@@ -58,9 +58,11 @@ class IntelliFileProver(reader : java.io.Reader,
         if (Seqs.disjoint(tree.closingConstraint.constants,
                           signature.universalConstants) &&
             Param.COMPUTE_MODEL(settings))
-          ProofWithModel(tree, toIFormula(findModel(tree.closingConstraint)))
+          ProofWithModel(tree,
+                         toIFormula(tree.closingConstraint),
+                         toIFormula(findModel(tree.closingConstraint)))
         else
-          Proof(tree)
+          Proof(tree, toIFormula(tree.closingConstraint))
       } else if (soundForSat) {
         Invalid(tree)
       } else {
@@ -73,8 +75,8 @@ class IntelliFileProver(reader : java.io.Reader,
         
   lazy val proofTree : ProofTree = proofResult match {
     case TimeoutProof(t) => t
-    case Proof(t) => t
-    case ProofWithModel(t, _) => t
+    case Proof(t, _) => t
+    case ProofWithModel(t, _, _) => t
     case NoProof(t) => t
     case Invalid(t) => t
   } 

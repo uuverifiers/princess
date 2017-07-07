@@ -78,6 +78,26 @@ object TypeTheory extends Theory {
       f
   }
 
+  /**
+   * Remove redundant type constraints that might occur in the formula
+   * (constraints that are implied by the typing information)
+   */
+  def filterTypeConstraints(f : Conjunction) : Conjunction = {
+    implicit val order = f.order
+
+    val membershipConstraints =
+      for (c <- f.constants.iterator; if c.isInstanceOf[SortedConstantTerm])
+      yield (c.asInstanceOf[SortedConstantTerm].sort membershipConstraint c)
+
+    if (membershipConstraints.hasNext) {
+      val membershipConstraintConj =
+        Conjunction.conj(membershipConstraints, order)
+      ReduceWithConjunction(membershipConstraintConj, order)(f)
+    } else {
+      f
+    }
+  }
+
   private def addResultConstraints(f : Conjunction, negated : Boolean)
                                   (implicit order : TermOrder) : Conjunction = {
     val newNegConj =

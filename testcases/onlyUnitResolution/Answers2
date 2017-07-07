@@ -270,7 +270,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-l = cons(blue, cons(green, nil)) & gl(cons(blue, cons(green, nil))) = true & gl(cons(green, nil)) = true & gl(nil) = true
+l = cons(blue, cons(green, nil)) & gl(cons(blue, cons(green, nil))) & gl(cons(green, nil)) & gl(nil)
 
 Loading adt-size2.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication

@@ -36,10 +36,12 @@ object Prover {
 
   abstract sealed class ProofResult extends Result
 
-  case class  Proof(tree : ProofTree)
+  case class  Proof(tree : ProofTree, constraint : IFormula)
               extends ProofResult
 
-  case class  ProofWithModel(tree : ProofTree, model : IFormula)
+  case class  ProofWithModel(tree : ProofTree,
+                             constraint : IFormula,
+                             model : IFormula)
               extends ProofResult
 
   case class  NoProof(unsatisfiableTree : ProofTree)
@@ -95,8 +97,8 @@ object Prover {
 
   object ValidResult {
     def unapply(res : Result) : Boolean = res match {
-      case Proof(_)                      => true
-      case ProofWithModel(_, _)          => true
+      case Proof(_, _)                   => true
+      case ProofWithModel(_, _, _)       => true
       case Model(_)                      => true
       case NoCounterModel                => true
       case NoCounterModelCert(_)         => true
