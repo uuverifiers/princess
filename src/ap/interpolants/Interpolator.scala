@@ -91,7 +91,7 @@ object Interpolator
 
   lazy val assertionProver = new ExhaustiveProver(true, GoalSettings.DEFAULT)
 
-  private def isValid(f : Conjunction) : Boolean = {
+  private def isValid(f : Conjunction, default : Boolean = true) : Boolean = {
     implicit val o = f.order
     val closedF = forall(o sort f.constants, f)
     Timeout.withTimeoutMillis(60000) {
@@ -102,7 +102,7 @@ object Interpolator
       // if a timeout occurs, we assume that the formula was valid ...
       Console.err.println(
         "Warning: could not fully verify correctness of interpolant due to timeout")
-      true
+      default
     }
   }
  
@@ -120,16 +120,26 @@ object Interpolator
     def certConj(fors : Iterable[CertFormula]) : Conjunction =
       conj(for (f <- fors) yield f.toConj)
 
+    val theoryAxioms =
+      certificate.theoryAxioms ++
+      (for (TheoryAxiomInference(axiom, _) <- inferences.iterator) yield axiom)
+    val allCommon =
+      iContext.commonFormulae ++ theoryAxioms
+
     if (!isValid((certConj(iContext.leftFormulae) &
-                  certConj(iContext.commonFormulae)) ==> interpolant) ||
+                  certConj(allCommon)) ==> interpolant,
+                 false) ||
         !isValid(!(certConj(iContext.rightFormulae) &
-                   certConj(iContext.commonFormulae) & interpolant))) {
+                   certConj(allCommon) & interpolant),
+                 false)) {
       println("===================================")
       println("Incorrect interpolant: " + interpolant)
       println("Certificate: " + certificate)
       println("Leading inferences: " + inferences)
       println("Left formulae: " + iContext.leftFormulae)
       println("Right formulae: " + iContext.rightFormulae)
+      println("Common formulae: " + iContext.commonFormulae)
+      println("Theory axioms: " + theoryAxioms)
       println("Partial interpolants: " + iContext.partialInterpolants)
       false
     } else {
@@ -241,7 +251,7 @@ object Interpolator
           case _ => throw new Error("Unexpected partial interpolant")
         }
         
-        val leftPartInter =  PartialInterpolant(origiPartInter.linComb-dec,
+        val leftPartInter =  PartialInterpolant(-origiPartInter.linComb-dec,
                                                 origiPartInter.den,
                                                 PartialInterpolant.Kind.InEqLeft)
         val leftRes =
@@ -254,7 +264,7 @@ object Interpolator
              }) {
           leftRes
         } else {
-          val rightPartInter = PartialInterpolant(-origiPartInter.linComb-dec,
+          val rightPartInter = PartialInterpolant(origiPartInter.linComb-dec,
                                                   origiPartInter.den,
                                                   PartialInterpolant.Kind.InEqLeft)
           val rightRes =
@@ -423,10 +433,10 @@ object Interpolator
       //////////////////////////////////////////////////////////////////////////
 
       case CloseCertificate(contradFors, _) => {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////       
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, contradFors.size == 1 &&
                             contradFors.head.isFalse)
-        //-END-ASSERTION-///////////////////////////////////////////////////
+        //-END-ASSERTION-///////////////////////////////////////////////////////
 
         contradFors.head match {
           case f : CertArithLiteral =>
@@ -966,7 +976,8 @@ object Interpolator
       else {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Interpolator.AC, {
-            Console.err.println("Warning: cannot map formula to left or right")
+            Console.err.println("Warning: cannot map formula to left or right "
+                                + "(constants " + (consts mkString ", ") + ")")
             true
           })
         //-END-ASSERTION-///////////////////////////////////////////////////////

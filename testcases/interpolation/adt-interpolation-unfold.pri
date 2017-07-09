@@ -17,3 +17,5 @@
 }
 
 \interpolant{p1, p3; p2}
+\interpolant{p1; p3, p2}
+\interpolant{p1, p2; p3}

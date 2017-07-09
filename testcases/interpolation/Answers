@@ -248,7 +248,7 @@ Found proof (size 7), simplifying (7), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; (2*v0 = y -> p(v0))
+\forall int v0; (2*v0 != y | p(v0))
 
 Loading prop5.pri ...
 Preprocessing ...
@@ -342,9 +342,9 @@ VALID
 Interpolants:
 true
 b1'1 = 0
-prob_index'2 = 1 -> select(prres0'1, 1) = 0
-prob_index'2 = 1 -> select(prres0'1, 1) = 0
-prob_index'2 = 1 -> select(prres0'1, 1) = 0
+prob_index'2 != 1 | select(prres0'1, 1) = 0
+prob_index'2 != 1 | select(prres0'1, 1) = 0
+prob_index'2 != 1 | select(prres0'1, 1) = 0
 prob_index'2 != 1
 prob_index'2 != 1
 prob_index'2 != 1
@@ -628,6 +628,29 @@ VALID
 
 Interpolants:
 v_princess_0 != 22 & i844 != 1
+
+Loading adt-interpolation-unfold.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 66), simplifying (131), interpolating ...
+
+VALID
+
+Interpolants:
+\size(y) != 3
+succ(succ(one)) = x
+y = x
+
+Loading adt-interpolation-unfold2.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 90), simplifying (128), interpolating ...
+
+VALID
+
+Interpolants:
+nil = u1
+\size(u1) != 1
 
 Loading surprising25.pri ...
 Preprocessing ...

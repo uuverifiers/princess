@@ -272,12 +272,12 @@ object PrincessLineariser {
           }
         }
 
-        case IBinFormula(IBinJunctor.Or, INot(left), right) => {
-          // In this special case, recursively print the antecedent
+        case IBinFormula(IBinJunctor.Or, INot(left : IAtom), right) => {
           left match {
             case IAtom(pred, Seq()) =>
               print(pred.name)
             case left =>
+              // In this special case, recursively print the antecedent
               AbsyPrinter.visit(left, ctxt.setOpPrec("", 1))
           }
 

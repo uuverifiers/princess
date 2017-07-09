@@ -23,7 +23,8 @@ lazy val parser = (project in file("parser")).
   settings(
     name := "Princess-parser",
     packageBin in Compile := baseDirectory.value / "parser.jar"
-  )
+  ).
+  disablePlugins(AssemblyPlugin)
 
 lazy val smtParser = (project in file("smt-parser")).
   settings(commonSettings: _*).
@@ -31,7 +32,8 @@ lazy val smtParser = (project in file("smt-parser")).
   settings(
     name := "Princess-smt-parser",
     packageBin in Compile := baseDirectory.value / "smt-parser.jar"
-  )
+  ).
+  disablePlugins(AssemblyPlugin)
 
 // Actual project
 

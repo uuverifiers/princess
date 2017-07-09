@@ -226,7 +226,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         applyActions(linearActions, goal, branchInferences, ptf)
 
       case List(AxiomSplit(assumptions, cases, theory)) => {
-        val order = goal.order
+        implicit val order = goal.order
 
         // TODO: avoid conversion to conjunction
         val certAssumptions =
@@ -265,6 +265,20 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                 // TODO: further cases
                 case eq : CertEquation =>
                   ReduceInference(List((IdealInt.MINUS_ONE, eq)), !eq, order)
+                case eq : CertNegEquation =>
+                  ReduceInference(List((IdealInt.MINUS_ONE, !eq)), eq, order)
+                case ineq : CertInequality => {
+                  val negIneq = !ineq
+                  val result = CertInequality(ineq.lhs + negIneq.lhs)
+                  CombineInequalitiesInference(IdealInt.ONE, ineq,
+                                               IdealInt.ONE, negIneq,
+                                               result, order)
+                }
+                case l : CertPredLiteral =>
+                  PredUnifyInference(l.atom, l.atom, 
+                                     CertFormula(Conjunction.TRUE), order)
+                case _ : CertCompoundFormula =>
+                  throw new IllegalArgumentException
               }
               
               val ccert =

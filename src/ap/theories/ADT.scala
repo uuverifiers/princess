@@ -938,8 +938,8 @@ class ADT (sortNames : Seq[String],
                            for (i <- 0 until varNum) yield l(v(i)),
                            shiftSubst(node))
 
-    val sortConstraint = sorts(sortNum) membershipConstraint node
-    exists(varNum, conj(a ++ b ++ List(shiftSubst(sortConstraint))))
+//    val sortConstraint = sorts(sortNum) membershipConstraint node
+    exists(varNum, conj(a ++ b /* ++ List(shiftSubst(sortConstraint)) */))
   }
 
   private def quanCtorCases(sortNum : Int, node : LinearCombination)
@@ -1051,6 +1051,7 @@ class ADT (sortNames : Seq[String],
                     newConjuncts += (a.head === a.last)
                     Iterator.empty
                   } else {
+// TODO: factor out common depth/size and sort constraints
                     newConjuncts += ctorDisjunction(sortNum, a.head, a.last)
                     Iterator single a
                   }
@@ -1059,8 +1060,9 @@ class ADT (sortNames : Seq[String],
                   if (!(allGuardedNodes contains a.head)) {
                     // for completeness, we need to add a predicate about
                     // the possible constructors of the considered term
-// TODO: pull out common depth predicates
+// TODO: factor out common depth/size predicates
                     newConjuncts += disj(quanCtorCases(sortNum, a.head))
+                    newConjuncts += sorts(sortNum) membershipConstraint a.head
                   }
 
                   Iterator single a
@@ -1195,8 +1197,15 @@ class ADT (sortNames : Seq[String],
 //              for (c <- quanCtorCases(sortNum, lc))
 //              yield List(Plugin.AddFormula(!(PresburgerTools toPrenex c)))))
 
+            val assumptions : Seq[Formula] = sort.cardinality match {
+              case Some(card) if !lc.isConstant =>
+                List(lc >= 0, lc < card)
+              case _ =>
+                List()
+            }
+
             List(Plugin.AxiomSplit(
-              List(), // TODO
+              assumptions,
               for (c <- quanCtorCases(sortNum, lc))
                 yield (PresburgerTools toPrenex c, List()),
               ADT.this))

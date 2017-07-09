@@ -46,7 +46,8 @@ $PRI "$@" +incremental $TESTS
 
 # Testing some large examples for which we have to switch off assertions
 
-TESTS="prp-2-17.pri prp-3-18.pri"
+TESTS="prp-2-17.pri prp-3-18.pri \
+       adt-interpolation-unfold.pri adt-interpolation-unfold2.pri"
 
 $PRI "$@" -assert $TESTS
 

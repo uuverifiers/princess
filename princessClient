@@ -31,15 +31,20 @@ startDaemon() {
 
         BASEDIR=`dirname $($pathCmd $0)`
         EXTLIBSDIR=$BASEDIR/extlibs
+        ASSEMBLY=$BASEDIR/target/scala-2.*/Princess-assembly*
 
-        export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
         export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
         tempportfile=`mktemp`
         touch "$tempportfile"
         chmod go-rwx "$tempportfile"
 
-        scala ap.ServerMain >"$tempportfile" &
+        if [ -f $ASSEMBLY ]; then
+            java $JAVA_OPTS -cp $ASSEMBLY ap.ServerMain >"$tempportfile" &
+        else
+            export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
+            scala ap.ServerMain >"$tempportfile" &
+        fi
 
         sleep 1
         while [ `wc -l "$tempportfile" | awk '{ printf $1 }'` -lt 2 ]; do
