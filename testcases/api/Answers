@@ -131,7 +131,7 @@ Vector(d - c >= 1, d >= 1)
 
 -- Interpolation with functions
 Unsat
-Vector(c = 3 -> f(3) = 5, f(3) = 5)
+Vector(c != 3 | f(3) = 5, f(3) = 5)
 Vector(c != 3)
 
 -- Interpolation with arrays
@@ -240,7 +240,7 @@ Starting
 Sat
 \exists int v0; (v0 >= 0 & v0 = x)
 Sat
-\forall int v0; (v0 >= 0 -> x = v0)
+\forall int v0; (!(v0 >= 0) | x = v0)
 Unsat
 \exists int v0; (v0 >= 0 & x = y + v0) <-> x >= y
 Valid
