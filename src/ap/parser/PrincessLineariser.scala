@@ -28,6 +28,8 @@ import ap.theories.nia.GroebnerMultiplication
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
+import IExpression.Sort
+import Sort.:::
 import ap.util.Seqs
 
 import java.io.PrintStream
@@ -80,14 +82,7 @@ object PrincessLineariser {
   def asString(e : IExpression) : String =
     ap.DialogUtil.asString { printExpression(e) }
 
-  private def fun2Identifier(fun : IFunction) =
-    (TheoryRegistry lookupSymbol fun) match {
-      case Some(t : ADT)
-        if t.termSize != null && (t.termSize contains fun) =>
-        "\\size"
-      case _ =>
-        fun.name
-    }
+  private def fun2Identifier(fun : IFunction) = fun.name
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -233,6 +228,12 @@ object PrincessLineariser {
           noParentOp(ctxt)
         }
       
+        case IFunApp(ADT.TermSize(adt, num), Seq(t ::: tSort))
+               if (adt sorts num) == tSort => {
+          print("\\size(")
+          allButLast(ctxt setPrecLevel 0, ", ", ")", 1)
+        }
+
         case IFunApp(fun, _) => {
           print(fun2Identifier(fun))
           if (fun.arity > 0) {

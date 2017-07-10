@@ -116,6 +116,11 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
 
   def getCollector : BranchInferenceCollector =
     LoggingBranchInferenceCollector(inferences)
+
+  def ++(newInferences : Seq[BranchInference]) : BranchInferenceCollection =
+    BranchInferenceCollection((inferences /: newInferences) {
+                                case (infs, inf) => inf :: infs
+                              })
   
   def getCertificate(child : Certificate, order : TermOrder) : Certificate =
     if (inferences.isEmpty) {

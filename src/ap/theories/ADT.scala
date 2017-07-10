@@ -296,6 +296,22 @@ object ADT {
       }
   }
 
+  /**
+   * Extractor recognising the <code>X_size</code> functions of
+   * any ADT theory.
+   */
+  object TermSize {
+    def unapply(fun : IFunction) : Option[(ADT, Int)] =
+      (TheoryRegistry lookupSymbol fun) match {
+        case Some(t : ADT) if t.termSize != null =>
+          (t.termSize indexOf fun) match {
+            case -1 => None
+            case num => Some((t, num))
+          }
+          case _ => None
+      }
+  }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1155,11 +1171,11 @@ class ADT (sortNames : Seq[String],
           implicit val order = goal.order
           val predFacts = goal.facts.predConj
 
-          val ctorDefinedCons = new MHashSet[LinearCombination]
+          val ctorDefinedCons = new MHashSet[(LinearCombination, Sort)]
 
           for (a <- predFacts.positiveLits) (adtPreds get a.pred) match {
-            case Some(_ : ADTCtorPred) =>
-              ctorDefinedCons += a.last
+            case Some(ADTCtorPred(_, sortNum, _)) =>
+              ctorDefinedCons += ((a.last, sorts(sortNum)))
             case _ =>
               // nothing
           }
@@ -1171,8 +1187,8 @@ class ADT (sortNames : Seq[String],
             for (a <- predFacts.positiveLits.iterator ++
                       predFacts.negativeLits.iterator;
                  argSorts = SortedPredicate.argumentSorts(a.pred, a);
-                 (lc, sort) <- a.iterator zip argSorts.iterator;
-                 if !(ctorDefinedCons contains lc);
+                 p@(lc, sort) <- a.iterator zip argSorts.iterator;
+                 if !(ctorDefinedCons contains p);
                  if (nonEnumSorts contains sort))
             yield (lc, sort)
 

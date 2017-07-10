@@ -189,19 +189,8 @@ object Interpolator
           (iContext isCommon originalForm) && {
             // check whether any of the predicate literals of the formula can be
             // unified with known literals (from left or right)
-
-            val conj = originalForm.toConj
-            val conjAtoms =
-              if (conj.isNegatedConjunction) {
-                val negConj = conj.negatedConjs(0)
-                atomsIterator(negConj.predConj, false) ++
-                (for (c <- negConj.negatedConjs.iterator;
-                      a <- atomsIterator(c.predConj, true)) yield a)
-              } else {
-                atomsIterator(conj.predConj, true)
-              }
-
-            canMapCommonFormulaToLeft(conjAtoms, originalForm.constants,
+            canMapCommonFormulaToLeft(enumToplevelAtoms(originalForm),
+                                      originalForm.constants,
                                       iContext)
           }
 
@@ -873,26 +862,35 @@ object Interpolator
       
       case QuantifierInference(qFormula, consts, result, _) => {
         implicit val order = iContext.order
+
+        val fromLeft =
+          (iContext isFromLeft qFormula) ||
+          (iContext isCommon qFormula) && {
+            // check whether any of the predicate literals of the formula can be
+            // unified with known literals (from left or right)
+            canMapCommonFormulaToLeft(enumToplevelAtoms(qFormula),
+                                      qFormula.constants,
+                                      iContext)
+          }
        
         val newContext = (
-          if (iContext isFromLeft qFormula) {
-            iContext addLeft result
-          } else {
-            //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-            Debug.assertInt(AC, iContext isFromRight qFormula)
-            //-END-ASSERTION-/////////////////////////////////////////////////////
-            iContext addRight result
-          }).addConstants(consts.reverse)
+            if (fromLeft)
+              iContext addLeft result
+            else
+              iContext addRight result
+          ).addConstants(consts.reverse)
 
         val totalInter =
-          processBranchInferences(remInferences, child, newContext).toConjunction
+          processBranchInferences(remInferences, child, newContext)
+                                 .toConjunction
 
         LazyConjunction(
-          if (iContext isFromLeft qFormula) {
-            forall(consts.filter(iContext.rightLocalConstants contains _), totalInter)
-          } else {
-            exists(consts.filter(iContext.leftLocalConstants contains _), totalInter)
-          })
+          if (fromLeft)
+            forall(consts.filter(iContext.rightLocalConstants contains _),
+                   totalInter)
+          else
+            exists(consts.filter(iContext.leftLocalConstants contains _),
+                   totalInter))
       }
       
       //////////////////////////////////////////////////////////////////////////
@@ -948,6 +946,19 @@ object Interpolator
     res
   }
 
+  private def enumToplevelAtoms(form : CertFormula)
+                               : Iterator[CertPredLiteral] = {
+    val conj = form.toConj
+    if (conj.isNegatedConjunction) {
+      val negConj = conj.negatedConjs(0)
+      atomsIterator(negConj.predConj, false) ++
+        (for (c <- negConj.negatedConjs.iterator;
+              a <- atomsIterator(c.predConj, true)) yield a)
+    } else {
+      atomsIterator(conj.predConj, true)
+    }
+  }
+
   private def canMapCommonFormulaToLeft
                 (forAtoms : Iterator[CertPredLiteral],
                  consts : Set[ConstantTerm],
@@ -976,8 +987,12 @@ object Interpolator
       else {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Interpolator.AC, {
-            Console.err.println("Warning: cannot map formula to left or right "
-                                + "(constants " + (consts mkString ", ") + ")")
+            Console.err.println(
+              "Warning: cannot map formula to left or right" +
+              (if (consts.isEmpty)
+                 ""
+               else
+                 "(constants " + (consts mkString ", ") + ")"))
             true
           })
         //-END-ASSERTION-///////////////////////////////////////////////////////
