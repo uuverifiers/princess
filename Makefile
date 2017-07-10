@@ -77,6 +77,7 @@ clean:
 	rm -rf bin
 	rm -rf doc
 	rm -rf dist/*.jar
+	rm -rf target
 	cd parser && $(MAKE) clean
 	cd smt-parser && $(MAKE) clean
 
