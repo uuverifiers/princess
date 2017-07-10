@@ -57,6 +57,25 @@ object Plugin {
   case class SplitGoal   (cases : Seq[Seq[Action]]) extends Action
   
   /**
+   * Close the goal by invoking an explicit theory axiom.
+   * The action can specify a list of assumptions that are antecedents
+   * of the axiom and assumed to be present in a goal. Constants in the
+   * axiom will be replaced with universally quantified variables.
+   */
+  case class CloseByAxiom(assumptions : Seq[Formula],
+                          theory : Theory)          extends Action
+
+  /**
+   * Add an explicit theory axiom. The action can specify a list of
+   * assumptions that are antecedents of the axiom and assumed
+   * to be present in a goal. Constants in the axiom will be replaced
+   * with universally quantified variables.
+   */
+  case class AddAxiom    (assumptions : Seq[Formula],
+                          axiom : Conjunction,
+                          theory : Theory)          extends Action
+  
+  /**
    * Split a proof goal into multiple sub-goals, and justify the split
    * through an explicit theory axiom. The action can specify a list of
    * assumptions that are antecedents of the axiom, but already assumed
@@ -225,6 +244,16 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       case List() =>
         applyActions(linearActions, goal, branchInferences, ptf)
 
+      case AddAxiom(assumptions, f, theory) :: rest =>
+         handleActionsRec(
+           List(AxiomSplit(assumptions, List((f, rest)), theory)),
+           linearActions, goal, branchInferences, ptf)
+
+      case CloseByAxiom(assumptions, theory) :: rest =>
+         handleActionsRec(
+           List(AxiomSplit(assumptions, List(), theory)),
+           linearActions, goal, branchInferences, ptf)
+
       case List(AxiomSplit(assumptions, cases, theory)) => {
         implicit val order = goal.order
 
@@ -266,8 +295,30 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
             }
           }
 
-          // The case where proper proof splitting is needed
-          case (_, subTreeNum) if subTreeNum >= 2 => {
+          // the case where we can directly close this proof branch
+          case (_, 0) => {
+            // certificate constructor that ignores the certificates coming
+            // from the dummy leafs
+            def comb(certs : Seq[Certificate]) : Certificate = {
+              // add proofs for the simple assumptions
+              val allCerts = proveSimpleAssumptions(simpleAssumptions)
+              val betaCert = BetaCertificate(allCerts, order)
+              val instAxiom = betaCert.localAssumedFormulas.head
+              BranchInferenceCertificate.prepend(
+                  axiomInferences(instAxiom, theory), betaCert, order)
+            }
+    
+            val pCert = PartialCertificate(comb _, dummyProvidedFormulas,
+                                           branchInferences, order)
+            ptf.andInOrder(dummySubTrees, pCert, goal.vocabulary)
+          }
+
+          // the case where proper proof splitting is needed
+          case (_, caseNum) => {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(Plugin.AC, caseNum >= 1)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+
             val subTrees =
               (for (a <- compoundAssumptions) yield {
                  applyActions(AddFormula(a.toConj) :: linearActions,
@@ -287,10 +338,21 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
             val providedFormulas =
               (for (a <- compoundAssumptions) yield Set(!a)) ++
               (for ((axiomCase, _) <- cases) yield Set(CertFormula(axiomCase)))
-    
+
+            val (allSubTrees, allProvidedFormulas) =
+              if (caseNum == 1)
+                (subTrees, providedFormulas)
+              else
+                // need to add a dummy leaf, so that we have a proof
+                // AND-node where we can store the certificate
+                (subTrees ++ List(Goal.TRUE),
+                 providedFormulas ++ List(dummyContradictionFors))
+
             // certificate constructor, to be applied once all sub-goals have
             // been closed
-            def comb(certs : Seq[Certificate]) : Certificate = {
+            def comb(extCerts : Seq[Certificate]) : Certificate = {
+              val certs = if (caseNum == 1) (extCerts take 1) else extCerts
+
               // add proofs for the simple assumptions
               val simpleCerts =
                 proveSimpleAssumptions(simpleAssumptions)
@@ -305,9 +367,9 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
             }
     
             val pCert =
-              PartialCertificate(comb _, providedFormulas, branchInferences,
+              PartialCertificate(comb _, allProvidedFormulas, branchInferences,
                                  order)
-            ptf.andInOrder(subTrees, pCert, goal.vocabulary)
+            ptf.andInOrder(allSubTrees, pCert, goal.vocabulary)
           }
 
         }
@@ -319,6 +381,13 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       case actions =>
         throw new IllegalArgumentException("cannot execute actions " + actions)
     }
+
+  private val dummySubTrees =
+    List(Goal.TRUE, Goal.TRUE)
+  private val dummyContradictionFors =
+    Set(CertFormula(Conjunction.FALSE))
+  private val dummyProvidedFormulas =
+    List(dummyContradictionFors, dummyContradictionFors)
 
   private def axiomInferences(instAxiom : CertFormula, theory : Theory)
                              (implicit order : TermOrder)
@@ -431,18 +500,28 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       (for (ScheduleTask(proc, priority) <- actions.iterator)
        yield new PrioritisedPluginTask(proc, priority, goal.age)).toList
 
+    val newFormulas =
+      for (action <- actions.iterator;
+           if action.isInstanceOf[AddFormula] ||
+              action.isInstanceOf[AddAxiom] ||
+              action.isInstanceOf[CloseByAxiom])
+      yield action match {
+        case AddFormula(f) =>      f
+        case AddAxiom(_, f, _) =>  f
+        case CloseByAxiom(_, _) => Conjunction.TRUE
+        case _ => throw new IllegalArgumentException
+      }
+
     val formulaTasks =
       // if no inferences are given, we assume that proof generation is
       // disabled, so we are free to simplify
       if (branchInferences == null) {
         val factsToAdd =
-          goal.reduceWithFacts(
-            Conjunction.disj(for (AddFormula(f) <- actions.iterator) yield f,
-                             goal.order))
+          goal.reduceWithFacts(Conjunction.disj(newFormulas, goal.order))
         goal formulaTasks factsToAdd
       } else {
-        for (AddFormula(f) <- actions; t <- goal formulaTasks f)
-        yield t
+        (for (f <- newFormulas; t <- (goal formulaTasks f).iterator)
+         yield t).toList
       }
 
     val newFacts =
@@ -454,7 +533,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
     val allFormulaTasks =
       if (formulaTasks.isEmpty &&
           (actions exists {
-             case AddFormula(_) | RemoveFacts(_) => true
+             case AddFormula(_) | RemoveFacts(_) | AddAxiom(_, _, _) => true
              case _ => false
            }) &&
           !newFacts.isTrue) {
