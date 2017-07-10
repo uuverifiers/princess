@@ -53,7 +53,7 @@ object Sort {
 
     val individuals : Stream[ITerm] =
       for (n <- Stream.iterate(IdealInt.ZERO){
-                  n => if (n.signum < 0) (-n+1) else -n
+                  n => if (n.signum <= 0) (-n+1) else -n
                 })
       yield IExpression.i(n)
 

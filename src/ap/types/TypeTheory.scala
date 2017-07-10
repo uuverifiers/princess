@@ -229,12 +229,12 @@ object TypeTheory extends Theory {
           case sort => {
             val index = -lc.constant
             if (!(terms contains ((index, sort)))) {
-              val chosedPair =
+              val chosenPair =
                 (for (ind <- sort.individuals;
                       pair = (ind, sort);
                       if !(allTerms contains pair))
                  yield pair).headOption
-              for (p@(term, sort) <- chosedPair) {
+              for (p@(term, sort) <- chosenPair) {
                 terms.put((-lc.constant, sort), term)
                 allTerms += p
               }
