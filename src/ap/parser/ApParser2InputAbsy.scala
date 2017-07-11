@@ -349,20 +349,6 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private def determineArity(args : FormalArgsC) : Int = args match {
-    case args : FormalArgs => {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(ApParser2InputAbsy.AC,
-        Logic.forall(for (at <- args.listargtypec_.iterator)
-                     yield (at match {
-                              case at : ArgType => at.type_.isInstanceOf[TypeInt]
-                              case at : NamedArgType => at.type_.isInstanceOf[TypeInt]
-                            })))
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      args.listargtypec_.size
-    }
-  }
-  
   private def determineSorts(args : FormalArgsC) : Seq[Sort] = args match {
     case args : FormalArgs =>
       for (at <- args.listargtypec_) yield at match {
