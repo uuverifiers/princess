@@ -164,10 +164,79 @@ object Sort {
   }
 
   /**
-   * The sort of Booleans. Booleans are encoded as an ADT.
+   * The sort of Booleans. Booleans are encoded as an ADT with two
+   * nullary constructors <code>true</code> (mapped to the integer
+   * <code>0</code>), <code>false</code> (mapped to the integer
+   * <code>1</code>).
    * @see ap.theories.ADT.BoolADT
    */
   lazy val Bool = ap.theories.ADT.BoolADT.boolSort
+
+  /**
+   * The sort of integers reinterpreted as Booleans. Integer <code>0</code.
+   * is interpreted as <code>true</code>, every non-zero number as
+   * <code>false</code>. For symbolic representation the same terms as in
+   * sort <code>Bool</code> are used.
+   * @see ap.theories.ADT.BoolADT
+   * @see Bool
+   */
+  object MultipleValueBool extends ProxySort(Integer) {
+    override val name : String = "MultipleValueBool"
+
+    /**
+     * Term representing the Boolean value <code>true</code>,
+     * and mapped to integer <code>0</code>.
+     */
+    val True = ap.theories.ADT.BoolADT.True
+
+    /**
+     * Term representing the Boolean value <code>false</code>,
+     * and mapped to integer <code>1</code>. (But note that every non-zero
+     * number is interpreted as <code>false</code>).
+     */
+    val False = ap.theories.ADT.BoolADT.False
+
+    /**
+     * Construct a tester for <code>true</code>.
+     */
+    def isTrue(t : ITerm) : IFormula = IExpression.eqZero(t)
+
+    /**
+     * Construct a tester for <code>false</code>.
+     */
+    def isFalse(t : ITerm) : IFormula = !IExpression.eqZero(t)
+
+    override def individuals : Stream[ITerm] =
+      True #:: False #::
+      (for (n <- Stream.iterate(IdealInt.MINUS_ONE){
+                   n => if (n.signum <= 0) (-n+1) else -n
+                 })
+       yield IExpression.i(n))
+
+    override def augmentModelTermSet(model : Conjunction,
+                                     terms : MMap[(IdealInt, Sort), ITerm])
+                                    : Unit = {
+      // at the moment, just a naive traversal that introduces terms
+      // <code>True</code>, <code>False</code> for every integer literal
+      // in the model
+
+      terms.put((IdealInt.ZERO, this), True)
+      terms.put((IdealInt.ONE, this), False)
+      
+      for (lc <- model.arithConj.positiveEqs) lc.constant match {
+        case IdealInt.ZERO => // nothing
+        case IdealInt.ONE  => // nothing
+        case num => terms.put((num, this), False)
+      }
+
+      for (a <- model.groundAtoms.iterator;
+           lc <- a.iterator) lc.constant match {
+        case IdealInt.ZERO => // nothing
+        case IdealInt.ONE  => // nothing
+        case num => terms.put((num, this), False)
+      }
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

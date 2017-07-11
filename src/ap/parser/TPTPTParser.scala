@@ -60,7 +60,7 @@ object TPTPTParser {
 
   // Truth values
   private object OType
-          extends Type("$o", Sort.Bool)
+          extends Type("$o", Sort.MultipleValueBool)
   
   // The type of types (kinds)
   private object TType
