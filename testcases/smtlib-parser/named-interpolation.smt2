@@ -1,5 +1,5 @@
 (set-info :source "
-  Example from \"Interpolation in SMTLIB 2.0\", Juergen Christ, Jochen Hoenicke
+  Example from ""Interpolation in SMTLIB 2.0"", Juergen Christ, Jochen Hoenicke
   (slightly modified)
  ")
 

@@ -1,4 +1,6 @@
 
+SimpleAPITest
+
 -- Declaration of symbols
 Sat
 
@@ -41,9 +43,9 @@ Unsat
 -- Incremental solving
   p1  	  p2  	  p3
 ------------------------
+  true	  true	  false
   true	  true	  true
   false	  true	  true
-  true	  true	  false
 
 -- Validity mode
 Sat
@@ -75,7 +77,7 @@ b = -5
 
 -- Boolean functions and triggers
 Sat
-Partial model: {c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> 0, r(1, 5) -> 0, p1 -> true, p0 -> true}
+Partial model: {true -> 0, false -> 1, c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> 0, r(1, 5) -> 0, p1 -> true, p0 -> true}
 Valid
 
 -- Existential constants
@@ -102,12 +104,12 @@ Simplify ex(x => 5 < x & x < 2*y) to: y >= 4
 
 -- Asynchronous interface
 Running
-Running
+true
 Sat
 
 -- Asynchronous interface, timeouts
 Running
-Running
+true
 Sat
 
 -- Asynchronous interface, busy waiting
@@ -129,8 +131,8 @@ Vector(d - c >= 1, d >= 1)
 
 -- Interpolation with functions
 Unsat
-Vector(!(c = 3) | f(3) = 5, f(3) = 5)
-Vector(!(c = 3))
+Vector(c != 3 | f(3) = 5, f(3) = 5)
+Vector(c != 3)
 
 -- Interpolation with arrays
 Unsat
@@ -146,6 +148,8 @@ Sat
 x500 = 124750
 Valid
 
+SimpleAPITest2
+
 -- Declaration of symbols
 Sat
 
@@ -153,32 +157,50 @@ Sat
 Sat
 Unsat
 Sat
+
+SimpleAPITest3
 Invalid
 Valid
+
+SimpleAPITest4
 Sat
 Sat
+
+SimpleAPITest5
 Starting ...
 T/O
 Valid
+
+SimpleAPITest6
 Sat
 Unsat
 Sat
 x = 10, k = 0
 Sat
 x = 15, k = 25
+
+SimpleAPITest7
 Sat
 Sat
 Some(3)
+
+SimpleAPITest8
 Sat
 Sat
+
+SimpleAPITest9
 Sat
 Valid
 Unsat
 Sat
 Sat
 Unsat
+
+SimpleAPITest10
 Sat
 Sat
+
+SimpleAPITest11
 Inconclusive
 0
 0: Unsat
@@ -199,6 +221,8 @@ Inconclusive
 59: Sat
 72: 0
 73: Invalid
+39: Valid
+40: true
 Sat
 List((Vector(0, 1),2), (Vector(1, 2),3))
 Sat
@@ -211,6 +235,31 @@ Inconclusive
 Unsat
 Unsat
 Unsat
+Starting
+\exists int v0, v1; v1 = x + v0
+Sat
+\exists int v0; (v0 >= 0 & v0 = x)
+Sat
+\forall int v0; (!(v0 >= 0) | x = v0)
+Unsat
+\exists int v0; (v0 >= 0 & x = y + v0) <-> x >= y
+Valid
+\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
+\exists int v0; (v0 >= 0 & 9 >= v0 & v0 - x >= 1)
+8 >= x
+Valid
+Unsat
+x1 = x2
+Unsat
+Valid
+Valid
+14 >= X & X >= 11
+Sat
+10
+Unsat
+Unsat
+Unsat
+Finished
 0: Sat
 {c1 -> 1, c0 -> 4}
 1: Sat
@@ -231,7 +280,7 @@ Vector(!((-3 + c1) = 0))
 3: Invalid
 {c1 -> 2, c0 -> 1}
 4: Valid
-x - y + -1 >= 0 & y + -1*50 + -1 >= 0
+x - y >= 1 & y + -1*50 >= 1
 Sat
 Unsat
 starting
@@ -254,13 +303,170 @@ Sat
 {z -> 5, y -> 1, x -> 2, a -> true}
 finished
 starting
-(div x  5)
-(div x  (- 5))
-(div (* (- 1) x )  5)
-(div (* (- 1) x )  (- 5))
-(mod x  5)
-(mod x  (- 5))
-(mod (* (- 1) x )  5)
-(mod (* (- 1) x )  (- 5))
-(_eps ((var0 Int)) (and (<= 0 var0 ) (or (= var0 x ) (= (* (- 1) var0 ) x ) ) ) ) 
+(div x 5)
+(div x (- 5))
+(div (* (- 1) x) 5)
+(div (* (- 1) x) (- 5))
+(mod x 5)
+(mod x (- 5))
+(mod (* (- 1) x) 5)
+(mod (* (- 1) x) (- 5))
+(_eps ((var0 Int)) (and (<= 0 var0) (or (= var0 x) (= (* (- 1) var0) x))))
 finished
+Vector(nil)
+Sat
+{nil -> 1, c2 -> 2, c1 -> 0, c0 -> 42, list_depth(2) -> 1, list_depth(1) -> -1, list_depth(0) -> 0, list_ctor(2) -> 1, list_ctor(1) -> 0, list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 42, head(0) -> 0, cons(42, 0) -> 2, cons(0, 1) -> 0}
+Unsat
+Unsat
+Valid
+Valid
+Unsat
+Valid
+Valid
+Unsat
+Valid
+Invalid
+Unsat
+Vector(!(list_ctor(x) = 0))
+Unsat
+Vector(!(head(x) = 0))
+Unsat
+Vector(((-42 + head(x)) = 0))
+Unsat
+Vector(((-42 + head(x)) = 0), !((-43 + head(a)) = 0))
+Valid
+Vector(((nil + -1 * x) = 0), ((y + -1 * x) = 0))
+Valid
+Vector(((cons(1, cons(2, nil)) + -1 * x) = 0), ((y + -1 * x) = 0))
+Vector(red, nil)
+Test 1
+Sat
+{nil -> 1, red -> 0, blue -> 1, green -> 2, c2 -> 2, c1 -> 2, c0 -> 0, colour_list_depth(2) -> 1, colour_list_depth(1) -> -1, colour_list_depth(0) -> 0, colour_list_ctor(2) -> 1, colour_list_ctor(1) -> 0, colour_list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 0, head(0) -> 2, cons(2, 1) -> 0, cons(0, 0) -> 2}
+Test 2
+Unsat
+Test 3
+Unsat
+Test 4
+Valid
+Test 5
+Valid
+Test 10
+Unsat
+Test 11
+Valid
+Test 12
+Invalid
+{red -> 0, blue -> 1, green -> 2, c5 -> 2}
+2
+Some(green)
+Test 13
+Valid
+Test 14
+Valid
+Test 15
+Invalid
+Test 15b
+Valid
+Test 16
+Valid
+Test 17
+Unsat
+Test 18
+Sat
+Some(green)
+Some(cons(green, nil))
+Unsat
+Test 19
+Sat
+green
+cons(green, nil)
+Unsat
+Sat
+Some(green)
+Some(cons(green, nil))
+Test 20
+Sat
+Some(nil)
+Some(cons(blue, nil))
+None
+Test 21
+Sat
+Some(green)
+Some(blue)
+Some(green)
+None
+Test 30
+Valid
+Invalid
+Vector(red, nil)
+Test 1
+Sat
+{nil -> 1, red -> 0, blue -> 1, green -> 2, c2 -> 2, c1 -> 2, c0 -> 0, colour_list_size(2) -> 5, colour_list_size(1) -> 1, colour_list_size(0) -> 3, colour_list_ctor(2) -> 1, colour_list_ctor(1) -> 0, colour_list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 0, head(0) -> 2, cons(2, 1) -> 0, cons(0, 0) -> 2}
+Test 2
+Unsat
+Test 3
+Unsat
+Test 4
+Valid
+Test 5
+Valid
+Test 10
+Unsat
+Test 11
+Valid
+Test 12
+Invalid
+{red -> 0, blue -> 1, green -> 2, c5 -> 2}
+2
+Some(green)
+Test 13
+Valid
+Test 14
+Valid
+Test 15
+Invalid
+Test 15b
+Valid
+Test 16
+Valid
+Test 17
+Unsat
+Test 18
+Sat
+Some(green)
+Some(cons(green, nil))
+Unsat
+Test 19
+Sat
+green
+cons(green, nil)
+Unsat
+Sat
+Some(green)
+Some(cons(green, nil))
+Test 20
+Sat
+Some(nil)
+Some(cons(blue, nil))
+None
+Test 21
+Sat
+Some(green)
+Some(blue)
+Some(green)
+None
+Test 30
+Valid
+Invalid
+Test 1
+Sat
+cons(red, cons(green, nil))
+Sat
+cons(red, cons(green, cons(green, cons(green, cons(green, cons(green, nil))))))
+Unsat
+starting
+c = 4 & !p
+p | c = 4
+finished
+Sat
+0

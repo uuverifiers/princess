@@ -47,8 +47,8 @@ The set of reserved words is the set of terminals appearing in the grammar. Thos
 The reserved words used in ApInput are the following: \\
 
 \begin{tabular}{lll}
-{\reserved{false}} &{\reserved{inf}} &{\reserved{int}} \\
-{\reserved{nat}} &{\reserved{true}} & \\
+{\reserved{bool}} &{\reserved{false}} &{\reserved{inf}} \\
+{\reserved{int}} &{\reserved{nat}} &{\reserved{true}} \\
 \end{tabular}\\
 
 The symbols used in ApInput are the following: \\
@@ -69,7 +69,11 @@ The symbols used in ApInput are the following: \\
 {\symb{$\backslash$forall}} &{\symb{$\backslash$exists}} &{\symb{{$=$}}} \\
 {\symb{!{$=$}}} &{\symb{{$<$}{$=$}}} &{\symb{{$>$}{$=$}}} \\
 {\symb{{$<$}}} &{\symb{{$>$}}} &{\symb{,}} \\
-{\symb{$\backslash$partial}} &{\symb{$\backslash$relational}} & \\
+{\symb{$\backslash$partial}} &{\symb{$\backslash$relational}} &
+{\symb{$\backslash$sorts}} \\
+{\symb{$\backslash$size}} & {\symb{$\backslash$negMatch}} &
+{\symb{$\backslash$noMatch}} \\
+{\symb{.}}
 \end{tabular}\\
 
 \subsection*{Comments}
@@ -97,6 +101,7 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{Block}} & {\arrow}  &{\terminal{$\backslash$problem}} {\terminal{\{}} {\nonterminal{Expression}} {\terminal{\}}}  \\
+ & {\delimit}  &{\terminal{$\backslash$sorts}} {\terminal{\{}} {\nonterminal{ListDeclSortC}} {\terminal{\}}}  \\
  & {\delimit}  &{\terminal{$\backslash$functions}} {\terminal{\{}} {\nonterminal{ListDeclFunC}} {\terminal{\}}}  \\
  & {\delimit}  &{\nonterminal{ExConstantsSec}} {\terminal{\{}} {\nonterminal{ListDeclConstantC}} {\terminal{\}}}  \\
  & {\delimit}  &{\terminal{$\backslash$universalConstants}} {\terminal{\{}} {\nonterminal{ListDeclConstantC}} {\terminal{\}}}  \\
@@ -140,9 +145,7 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression5}} & {\arrow}  &{\terminal{true}}  \\
- & {\delimit}  &{\terminal{false}}  \\
- & {\delimit}  &{\nonterminal{Expression6}} {\nonterminal{RelSym}} {\nonterminal{Expression6}}  \\
+{\nonterminal{Expression5}} & {\arrow}  &{\nonterminal{Expression6}} {\nonterminal{RelSym}} {\nonterminal{Expression6}}  \\
  & {\delimit}  &{\nonterminal{Expression6}}  \\
 \end{tabular}\\
 
@@ -176,7 +179,11 @@ All other symbols are terminals.\\
  & {\delimit}  &{\terminal{$\backslash$max}} {\nonterminal{OptArgs}}  \\
  & {\delimit}  &{\terminal{$\backslash$min}} {\nonterminal{OptArgs}}  \\
  & {\delimit}  &{\terminal{$\backslash$distinct}} {\nonterminal{OptArgs}}  \\
+ & {\delimit}  &{\terminal{$\backslash$size}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
  & {\delimit}  &{\nonterminal{Ident}} {\nonterminal{OptArgs}}  \\
+ & {\delimit}  &{\nonterminal{Expression10}} {\terminal{.}} {\nonterminal{Ident}}  \\
+ & {\delimit}  &{\terminal{true}}  \\
+ & {\delimit}  &{\terminal{false}}  \\
  & {\delimit}  &{\nonterminal{IntLit}}  \\
  & {\delimit}  &{\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
 \end{tabular}\\
@@ -220,11 +227,11 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclSingleVarC}} & {\arrow}  &{\nonterminal{BinderType}} {\nonterminal{Ident}}  \\
+{\nonterminal{DeclSingleVarC}} & {\arrow}  &{\nonterminal{Type}} {\nonterminal{Ident}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclVarC}} & {\arrow}  &{\nonterminal{BinderType}} {\nonterminal{ListIdent}}  \\
+{\nonterminal{DeclVarC}} & {\arrow}  &{\nonterminal{Type}} {\nonterminal{ListIdent}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -239,7 +246,7 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{DeclFunC}} & {\arrow}  &{\nonterminal{ListFunOption}} {\nonterminal{DeclConstC}}  \\
- & {\delimit}  &{\nonterminal{ListFunOption}} {\nonterminal{Type}} {\nonterminal{Ident}} {\nonterminal{FormalArgsC}}  \\
+ & {\delimit}  &{\nonterminal{ListFunOption}} {\nonterminal{Type}} {\nonterminal{Ident}} {\nonterminal{FormalArgsC}} {\nonterminal{OptBody}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -258,6 +265,24 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
+{\nonterminal{DeclSortC}} & {\arrow}  &{\nonterminal{Ident}} {\terminal{\{}} {\nonterminal{ListDeclCtorC}} {\terminal{\}}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{ListDeclSortC}} & {\arrow}  &{\emptyP} \\
+ & {\delimit}  &{\nonterminal{DeclSortC}} {\terminal{;}} {\nonterminal{ListDeclSortC}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{DeclCtorC}} & {\arrow}  &{\nonterminal{Ident}} {\nonterminal{OptFormalArgs}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{ListDeclCtorC}} & {\arrow}  &{\emptyP} \\
+ & {\delimit}  &{\nonterminal{DeclCtorC}} {\terminal{;}} {\nonterminal{ListDeclCtorC}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
 {\nonterminal{DeclConstantC}} & {\arrow}  &{\nonterminal{DeclConstC}}  \\
 \end{tabular}\\
 
@@ -267,7 +292,7 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{DeclPredC}} & {\arrow}  &{\nonterminal{ListPredOption}} {\nonterminal{Ident}} {\nonterminal{OptFormalArgs}}  \\
+{\nonterminal{DeclPredC}} & {\arrow}  &{\nonterminal{ListPredOption}} {\nonterminal{Ident}} {\nonterminal{OptFormalArgs}} {\nonterminal{OptBody}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -286,6 +311,7 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{ArgTypeC}} & {\arrow}  &{\nonterminal{Type}}  \\
+ & {\delimit}  &{\nonterminal{Type}} {\nonterminal{Ident}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -304,13 +330,16 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Type}} & {\arrow}  &{\terminal{int}}  \\
+{\nonterminal{OptBody}} & {\arrow}  &{\terminal{\{}} {\nonterminal{Expression}} {\terminal{\}}}  \\
+ & {\delimit}  &{\emptyP} \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{BinderType}} & {\arrow}  &{\nonterminal{Type}}  \\
+{\nonterminal{Type}} & {\arrow}  &{\terminal{int}}  \\
  & {\delimit}  &{\terminal{nat}}  \\
  & {\delimit}  &{\terminal{int}} {\terminal{[}} {\nonterminal{IntervalLower}} {\terminal{,}} {\nonterminal{IntervalUpper}} {\terminal{]}}  \\
+ & {\delimit}  &{\terminal{bool}}  \\
+ & {\delimit}  &{\nonterminal{Ident}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}

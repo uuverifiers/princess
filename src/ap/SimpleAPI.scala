@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,7 +29,8 @@ import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
 import ap.proof.goal.{SymbolWeights, FormulaTask}
-import ap.proof.certificates.Certificate
+import ap.proof.certificates.{Certificate, LemmaBase, CertFormula}
+import ap.proof.tree.{NonRandomDataSource, SeededRandomDataSource}
 import ap.interpolants.{ProofSimplifier, InterpolationContext, Interpolator,
                         ArraySimplifier}
 import ap.terfor.equations.ReduceWithEqs
@@ -41,12 +42,14 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
+import IExpression.Sort
+import ap.types.{SortedConstantTerm, SortedIFunction,
+                 MonoSortedIFunction, SortedPredicate, TypeTheory,
+                 IntToTermTranslator}
 import ap.util.{Debug, Timeout, Seqs}
 
-import scala.collection.mutable.{HashMap => MHashMap, ArrayStack,
-                                 LinkedHashMap, ArrayBuffer}
-import scala.actors.{Actor, DaemonActor, TIMEOUT}
-import scala.actors.Actor._
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
+                                 ArrayStack, LinkedHashMap, ArrayBuffer}
 import scala.concurrent.SyncVar
 
 import java.io.File
@@ -55,9 +58,20 @@ object SimpleAPI {
   
   private val AC = Debug.AC_SIMPLE_API
 
+  val version = CmdlMain.version
+
   private val SMTDumpBasename = "smt-queries-"
   private val ScalaDumpBasename = "princess-queries-"
-  
+
+  private def warn(msg : String) : Unit = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(AC, {
+      Console.err.println("Warning: " + msg)
+      true
+    })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+  }
+
   /**
    * Create a new prover. Note that the prover has to be shut down explicitly
    * by calling the method <code>SimpleAPI.shutDown</code> after use.
@@ -70,20 +84,25 @@ object SimpleAPI {
             scalaDumpBasename : String = ScalaDumpBasename,
             dumpDirectory : File = null,
             tightFunctionScopes : Boolean = true,
-            genTotalityAxioms : Boolean = false) : SimpleAPI =
+            genTotalityAxioms : Boolean = false,
+            randomSeed : Option[Int] = Some(1234567)) : SimpleAPI =
     new SimpleAPI (enableAssert,
                    sanitiseNames,
                    if (dumpSMT) Some(smtDumpBasename) else None,
                    if (dumpScala) Some(scalaDumpBasename) else None,
                    dumpDirectory,
                    tightFunctionScopes,
-                   genTotalityAxioms)
+                   genTotalityAxioms,
+                   randomSeed)
 
   def spawn : SimpleAPI = apply()
 
   def spawnNoSanitise : SimpleAPI = apply(sanitiseNames = false)
 
   def spawnWithAssertions : SimpleAPI = apply(enableAssert = true)
+
+  def spawnWithAssertionsNoSanitise : SimpleAPI =
+    apply(sanitiseNames = false, enableAssert = true)
 
   def spawnWithLog : SimpleAPI = apply(dumpSMT = true)
 
@@ -100,6 +119,12 @@ object SimpleAPI {
                              directory : File) : SimpleAPI =
     apply(dumpSMT = true, smtDumpBasename = basename,
           dumpDirectory = directory, sanitiseNames = false)
+
+  def spawnWithAssertionsLogNoSanitise(basename : String,
+                                       directory : File) : SimpleAPI =
+    apply(dumpSMT = true, smtDumpBasename = basename,
+          dumpDirectory = directory, sanitiseNames = false,
+          enableAssert = true)
 
   def spawnWithScalaLog : SimpleAPI = apply(dumpScala = true)
 
@@ -132,12 +157,14 @@ object SimpleAPI {
                     scalaDumpBasename : String = ScalaDumpBasename,
                     dumpDirectory : File = null,
                     tightFunctionScopes : Boolean = true,
-                    genTotalityAxioms : Boolean = false)
+                    genTotalityAxioms : Boolean = false,
+                    randomSeed : Option[Int] = Some(1234567))
                    (f : SimpleAPI => A) : A = {
     val p = apply(enableAssert, sanitiseNames,
                   dumpSMT, smtDumpBasename,
                   dumpScala, scalaDumpBasename, dumpDirectory,
-                  tightFunctionScopes, genTotalityAxioms)
+                  tightFunctionScopes, genTotalityAxioms,
+                  randomSeed)
     try {
       f(p)
     } finally {
@@ -185,6 +212,11 @@ object SimpleAPI {
 
   class SimpleAPIException(msg : String) extends Exception(msg)
 
+  class SimpleAPIForwardedException(cause : Throwable)
+        extends SimpleAPIException("Internal exception: " + cause) {
+    initCause(cause)
+  }
+
   object TimeoutException
          extends SimpleAPIException("Timeout during ap.SimpleAPI call")
   object NoModelException
@@ -192,17 +224,42 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Class representing (usually partial) models of formulas computed
+   * through the API.
+   */
   class PartialModel(
-         val interpretation : scala.collection.Map[ModelLocation, ModelValue]) {
+         val interpretation : scala.collection.Map[ModelLocation, ModelValue],
+         val constructorTerms : scala.collection.Map[(IdealInt, Sort), ITerm]) {
 
     import IExpression._
 
     def definedLocations = interpretation.keySet
 
+    /**
+     * Evaluate an expression to some value in the current model, if possible.
+     */
     def evalExpression(e : IExpression) : Option[ModelValue] =
       Evaluator.visit(e, ())
+
+    /**
+     * Evaluate a term to its internal integer representation in the model,
+     * if possible.
+     */
     def eval(t : ITerm) : Option[IdealInt] =
       for (IntValue(v) <- evalExpression(t)) yield v
+
+    /**
+     * Evaluate a term to a constructor term in the model, if possible.
+     */
+    def evalToTerm(t : ITerm) : Option[ITerm] =
+      for (IntValue(v) <- evalExpression(t)) yield {
+        (constructorTerms get (v, Sort sortOf t)) getOrElse i(v)
+      }
+
+    /**
+     * Evaluate a formula to a truth value, if possible.
+     */
     def eval(f : IFormula) : Option[Boolean] =
       for (BoolValue(b) <- evalExpression(f)) yield b
 
@@ -328,13 +385,15 @@ object SimpleAPI {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private object ProofActorStatus extends Enumeration {
+  private object ProofThreadStatus extends Enumeration {
     val Init, AtPartialModel, AtFullModel = Value
   }
   
   private abstract class ProverCommand
 
-  private case class CheckSatCommand(prover : ModelSearchProver.IncProver)
+  private case class CheckSatCommand(prover : ModelSearchProver.IncProver,
+                                     needLemmaBase : Boolean,
+                                     reuseLemmaBase : Boolean)
           extends ProverCommand
   private case class CheckValidityCommand(formula : Conjunction,
                                           goalSettings : GoalSettings,
@@ -345,7 +404,6 @@ object SimpleAPI {
   private case object RecheckCommand extends ProverCommand
   private case object DeriveFullModelCommand extends ProverCommand
   private case object ShutdownCommand extends ProverCommand
-  private case object StopCommand extends ProverCommand
 
   private abstract class ProverResult
   private case object UnsatResult extends ProverResult
@@ -357,7 +415,7 @@ object SimpleAPI {
   private case class SatResult(model : Conjunction) extends ProverResult
   private case class SatPartialResult(model : Conjunction) extends ProverResult
   private case object StoppedResult extends ProverResult
-  private case class ExceptionResult(msg : String) extends ProverResult
+  private case class ExceptionResult(t : Throwable) extends ProverResult
   private case object OutOfMemoryResult extends ProverResult
 
   private val badStringChar = """[^a-zA-Z_0-9']""".r
@@ -397,7 +455,8 @@ class SimpleAPI private (enableAssert : Boolean,
                          dumpScala : Option[String],
                          dumpDirectory : File,
                          tightFunctionScopes : Boolean,
-                         genTotalityAxioms : Boolean = false) {
+                         genTotalityAxioms : Boolean,
+                         randomSeed : Option[Int]) {
 
   import SimpleAPI._
 
@@ -460,7 +519,8 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   def shutDown : Unit = {
-    proofActor ! ShutdownCommand
+    proverCmd put ShutdownCommand
+    stopProofTask = true
     doDumpSMT {
       println("(exit)")
     }
@@ -473,8 +533,12 @@ class SimpleAPI private (enableAssert : Boolean,
   doDumpScala {
     println("import ap._")
     println("import ap.parser._")
+    println("import ap.basetypes.IdealInt")
     println
-    println("SimpleAPI.withProver { p =>")
+    println("SimpleAPI.withProver(tightFunctionScopes = " +
+                                    tightFunctionScopes + ", " +
+                                  "genTotalityAxioms = " +
+                                    genTotalityAxioms + ") { p =>")
     println("import p._")
     println("import IExpression._")
     println("{")
@@ -515,7 +579,7 @@ class SimpleAPI private (enableAssert : Boolean,
     existentialConstants = Set()
     functionalPreds = Set()
     functionEnc =
-      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings), false, Map())
+      new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings), false)
     currentProver = null
     needExhaustiveProver = false
     matchedTotalFunctions = false
@@ -528,9 +592,9 @@ class SimpleAPI private (enableAssert : Boolean,
     currentConstraint = null
     currentCertificate = null
     currentSimpCertificate = null
-    lastStatus = ProverStatus.Sat
+    lastStatus = ProverStatus.Unknown
     validityMode = false
-    proofActorStatus = ProofActorStatus.Init
+    proofThreadStatus = ProofThreadStatus.Init
     currentPartitionNum = -1
     constructProofs = false
     mostGeneralConstraints = false
@@ -574,9 +638,15 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Create a new symbolic constant.
    */
-  def createConstant(rawName : String) : ITerm = {
+  def createConstant(rawName : String) : ITerm =
+    createConstant(rawName, Sort.Integer)
+
+  /**
+   * Create a new symbolic constant with given sort.
+   */
+  def createConstant(rawName : String, sort : Sort) : ITerm = {
     import IExpression._
-    createConstantRaw(rawName)
+    createConstantRaw(rawName, sort)
   }
 
   /**
@@ -586,12 +656,42 @@ class SimpleAPI private (enableAssert : Boolean,
     createConstant("c" + currentOrder.orderedConstants.size)
   
   /**
-   * Create <code>num</code> new symbolic constant with predefined name.
+   * Create a new symbolic constant with predefined name and given sort.
+   */
+  def createConstant(sort : Sort) : ITerm =
+    createConstant("c" + currentOrder.orderedConstants.size, sort)
+  
+  /**
+   * Create <code>num</code> new symbolic constants with predefined name.
    */
   def createConstants(num : Int) : IndexedSeq[ITerm] = {
     val start = currentOrder.orderedConstants.size
-    for (c <- createConstantsRaw("c", start until (start + num))) yield IConstant(c)
+    createConstants("c", start until (start + num))
   }
+
+  /**
+   * Create <code>num</code> new symbolic constants with predefined name and
+   * given sort.
+   */
+  def createConstants(num : Int, sort : Sort) : IndexedSeq[ITerm] = {
+    val start = currentOrder.orderedConstants.size
+    createConstants("c", start until (start + num), sort)
+  }
+
+  /**
+   * Create a sequence of new symbolic constants, with name starting with the
+   * given prefix.
+   */
+  def createConstants(prefix : String, nums : Range) : IndexedSeq[ITerm] =
+    createConstants(prefix, nums, Sort.Integer)
+
+  /**
+   * Create a sequence of new symbolic constants, with name starting with the
+   * given prefix and the given sort.
+   */
+  def createConstants(prefix : String, nums : Range,
+                      sort : Sort) : IndexedSeq[ITerm] =
+    for (c <- createConstantsRaw(prefix, nums, sort)) yield IConstant(c)
 
   /**
    * Create a new symbolic constant, without directly turning it into an
@@ -599,61 +699,114 @@ class SimpleAPI private (enableAssert : Boolean,
    * only useful when working with formulae in the internal prover format.
    */
   def createConstantRaw(rawName : String) : IExpression.ConstantTerm =
-    createConstantRaw(rawName, "createConstant")
+    createConstantRaw(rawName, "createConstant", Sort.Integer)
+
+  /**
+   * Create a new symbolic constant, without directly turning it into an
+   * <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def createConstantRaw(rawName : String,
+                        sort : Sort) : IExpression.ConstantTerm =
+    createConstantRaw(rawName, "createConstant", sort)
 
   private def createConstantRaw(rawName : String,
-                                scalaCmd : String) : IExpression.ConstantTerm = {
+                                scalaCmd : String,
+                                sort : Sort) : IExpression.ConstantTerm = {
     import IExpression._
     
     val name = sanitise(rawName)
-    val c = new ConstantTerm(name)
+    val c = sort newConstant name
     currentOrder = currentOrder extend c
-    restartProofActor
-    doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Int)")
-    }
-    doDumpScala {
-      println("val " + name + " = " + scalaCmd + "(\"" + rawName + "\")")
-    }
+
+    addTypeTheoryIfNeeded(sort)
+    restartProofThread
+    dumpCreateConstant(c, rawName, scalaCmd, sort)
+    
     c
   }
 
+  private def dumpCreateConstant(c : IExpression.ConstantTerm,
+                                 rawName : String,
+                                 scalaCmd : String,
+                                 sort : Sort) : Unit = {
+    import IExpression._
+
+    doDumpSMT {
+      val (smtType, optConstr) = SMTLineariser sort2SMTType sort
+      print("(declare-fun " + SMTLineariser.quoteIdentifier(c.name) + " () ")
+      SMTLineariser printSMTType smtType
+      println(")")
+      
+      for (constr <- optConstr) {
+        print("(assert ")
+        SMTLineariser(constr(i(c)))
+        println(")")
+      }
+    }
+    
+    doDumpScala {
+      print("val " + c.name + " = " + scalaCmd + "(\"" + rawName + "\"")
+      if (sort != Sort.Integer) {
+        print(", ")
+        PrettyScalaLineariser printSort sort
+      }
+      println(")")
+    }
+  }
+
   /**
-   * Create a sequence of new symbolic constants, without directly turning them into an
-   * <code>ITerm</code>. This method is
+   * Create a sequence of new symbolic constants, without directly turning
+   * them into an <code>ITerm</code>. This method is
    * only useful when working with formulae in the internal prover format.
    */
   def createConstantsRaw(prefix : String, nums : Range)
                         : IndexedSeq[IExpression.ConstantTerm] =
-    createConstantsRaw(prefix, nums, "createConstant")
+    createConstantsRaw(prefix, nums, "createConstant", Sort.Integer)
 
-  def createConstantsRaw(prefix : String, nums : Range, scalaCmd : String)
-                        : IndexedSeq[IExpression.ConstantTerm] = {
+  /**
+   * Create a sequence of new symbolic constants, without directly turning
+   * them into an <code>ITerm</code>. This method is
+   * only useful when working with formulae in the internal prover format.
+   */
+  def createConstantsRaw(prefix : String, nums : Range, sort : Sort)
+                        : IndexedSeq[IExpression.ConstantTerm] =
+    createConstantsRaw(prefix, nums, "createConstant", sort)
+
+  private def createConstantsRaw(prefix : String,
+                                 nums : Range,
+                                 scalaCmd : String,
+                                 sort : Sort)
+                                : IndexedSeq[IExpression.ConstantTerm] = {
     import IExpression._
     val cs = (for (i <- nums)
               yield {
-                doDumpSMT {
-                  println("(declare-fun " +
-                          SMTLineariser.quoteIdentifier(prefix + i) +
-                          " () Int)")
-                }
-                doDumpScala {
-                  println("val " + prefix + i +
-                          " = " + scalaCmd + "(\"" + prefix + i + "\")")
-                }
-                new ConstantTerm (prefix + i)
+                val c = sort newConstant (prefix + i)
+                dumpCreateConstant(c, c.name, scalaCmd, sort)
+                c
               }).toIndexedSeq
     currentOrder = currentOrder extend cs
-    restartProofActor
+    addTypeTheoryIfNeeded(sort)
+    restartProofThread
     cs
   }
 
   /**
    * Create a new symbolic constant that is implicitly existentially quantified.
    */
-  def createExistentialConstant(rawName : String) : ITerm = {
+  def createExistentialConstant(rawName : String) : ITerm =
+    createExistentialConstant(rawName, Sort.Integer)
+  
+  /**
+   * Create a new symbolic constant with given sort that is implicitly
+   * existentially quantified.
+   */
+  def createExistentialConstant(rawName : String, sort : Sort) : ITerm = {
     import IExpression._
-    val c = createConstantRaw(rawName, "createExistentialConstant")
+    doDumpSMT {
+      println("; (create-existential " + rawName + ")")
+    }
+    val c = createConstantRaw(rawName, "createExistentialConstant", sort)
     existentialConstants = existentialConstants + c
     c
   }
@@ -663,16 +816,34 @@ class SimpleAPI private (enableAssert : Boolean,
    * existentially quantified.
    */
   def createExistentialConstant : ITerm =
-    createExistentialConstant("X" + currentOrder.orderedConstants.size)
+    createExistentialConstant(Sort.Integer)
+  
+  /**
+   * Create a new symbolic constant with predefined name and given sort
+   * that is implicitly existentially quantified.
+   */
+  def createExistentialConstant(sort : Sort) : ITerm =
+    createExistentialConstant("X" + currentOrder.orderedConstants.size, sort)
   
   /**
    * Create <code>num</code> new symbolic constant with predefined name that is
    * implicitly existentially quantified.
    */
-  def createExistentialConstants(num : Int) : IndexedSeq[ITerm] = {
+  def createExistentialConstants(num : Int) : IndexedSeq[ITerm] =
+    createExistentialConstants(num, Sort.Integer)
+
+  /**
+   * Create <code>num</code> new symbolic constant with predefined name that is
+   * implicitly existentially quantified.
+   */
+  def createExistentialConstants(num : Int, sort : Sort) : IndexedSeq[ITerm] = {
+    doDumpSMT {
+      println("; (create-existential ...)")
+    }
     val start = currentOrder.orderedConstants.size
     val cs = createConstantsRaw("X", start until (start + num),
-                                "createExistentialConstant")
+                                "createExistentialConstant",
+                                sort)
     existentialConstants = existentialConstants ++ cs
     for (c <- cs) yield IConstant(c)
   }
@@ -708,7 +879,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly existentially quantified.
    */
-  def makeExistentialRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+  def makeExistentialRaw(constants : Iterable[IExpression.ConstantTerm])
+                        : Unit = {
     doDumpSMT {
       println("; (make-existential-raw " + (constants mkString ", ") + ")")
     }
@@ -721,7 +893,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly existentially quantified.
    */
-  def makeExistentialRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+  def makeExistentialRaw(constants : Iterator[IExpression.ConstantTerm])
+                       : Unit = {
     doDumpSMT {
       println("; (make-existential-raw ...)")
     }
@@ -762,7 +935,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly universally quantified.
    */
-  def makeUniversalRaw(constants : Iterable[IExpression.ConstantTerm]) : Unit = {
+  def makeUniversalRaw(constants : Iterable[IExpression.ConstantTerm])
+                      : Unit = {
     doDumpSMT {
       println("; (make-universal-raw " + (constants mkString ", ") + ")")
     }
@@ -775,7 +949,8 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Make given constants implicitly universally quantified.
    */
-  def makeUniversalRaw(constants : Iterator[IExpression.ConstantTerm]) : Unit = {
+  def makeUniversalRaw(constants : Iterator[IExpression.ConstantTerm])
+                      : Unit = {
     doDumpSMT {
       println("; (make-universal-raw ...)")
     }
@@ -786,6 +961,9 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  // TODO: are sorts handle correctly in addConstant, addFunction, addRelation,
+  // addAbbrev?
 
   /**
    * Add an externally defined constant to the environment of this prover.
@@ -810,17 +988,15 @@ class SimpleAPI private (enableAssert : Boolean,
    * Add an externally defined constant to the environment of this prover.
    */
   def addConstantRaw(c : IExpression.ConstantTerm) : Unit = {
-    doDumpSMT {
-      println("(declare-fun " +
-              SMTLineariser.quoteIdentifier(c.name) + " () Int)")
-    }
     doDumpScala {
-      println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-              "// addConstantRaw(" + c.name + ")")
+      println("// addConstantRaw(" + c.name + ")")
     }
+    val sort = SortedConstantTerm sortOf c
+    dumpCreateConstant(c, c.name, "createConstant", sort)
+    addTypeTheoryIfNeeded(sort)
 
     currentOrder = currentOrder extend c
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -828,19 +1004,17 @@ class SimpleAPI private (enableAssert : Boolean,
    * this prover.
    */
   def addConstantsRaw(cs : Iterable[IExpression.ConstantTerm]) : Unit = {
-    doDumpSMT {
-      for (c <- cs)
-        println("(declare-fun " +
-                SMTLineariser.quoteIdentifier(c.name) + " () Int)")
-    }
-    doDumpScala {
-      for (c <- cs)
-        println("val " + c.name + " = " + "createConstant(\"" + c.name + "\") " +
-                "// addConstantRaw(" + c.name + ")")
+    for (c <- cs) {
+      doDumpScala {
+        println("// addConstantRaw(" + c.name + ")")
+      }
+      val sort = SortedConstantTerm sortOf c
+      dumpCreateConstant(c, c.name, "createConstant", sort)
+      addTypeTheoryIfNeeded(sort)
     }
 
     currentOrder = currentOrder extend cs.toSeq
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -850,7 +1024,8 @@ class SimpleAPI private (enableAssert : Boolean,
     val name = sanitise(rawName)
 
     doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " () Bool)")
+      println("(declare-fun " + SMTLineariser.quoteIdentifier(name) +
+              " () Bool)")
     }
     doDumpScala {
       println("val " + name + " = " +
@@ -882,7 +1057,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addRelationHelp(p : IExpression.Predicate) : Unit = {
     currentOrder = currentOrder extendPred p
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -905,7 +1080,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addRelationsHelp(ps : Iterable[IExpression.Predicate]) : Unit = {
     currentOrder = currentOrder extendPred ps.toSeq
-    restartProofActor
+    restartProofThread
   }
 
   /**
@@ -971,6 +1146,8 @@ class SimpleAPI private (enableAssert : Boolean,
                         case f => SymbolCollector nullaryPredicates f
                       }) yield p)
 
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Create a new uninterpreted function with fixed arity.
    */
@@ -984,37 +1161,106 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def createFunction(rawName : String, arity : Int,
                      functionalityMode : FunctionalityMode.Value)
+                    : IFunction =
+    createFunction(rawName,
+                   for (_ <- 0 until arity) yield Sort.Integer,
+                   Sort.Integer,
+                   false,
+                   functionalityMode)
+
+  /**
+   * Create a new uninterpreted function with given sorts,
+   * and chose whether the function is partial, and to which degree
+   * functionality axioms should be generated.
+   */
+  def createFunction(rawName : String,
+                     argSorts : Seq[Sort],
+                     resSort : Sort,
+                     partial : Boolean = false,
+                     functionalityMode : FunctionalityMode.Value =
+                       FunctionalityMode.Full)
                     : IFunction = {
-    doDumpScala {
-      println("val " + sanitise(rawName) + " = " +
-              "createFunction(\"" + rawName + "\", " + arity +
-                   printFunctionalityMode(functionalityMode) + ")")
-    }
-    createFunctionSMTDump(sanitise(rawName), arity)
-    createFunctionHelp(rawName, arity, functionalityMode)
+    val f = createFunctionHelp(rawName, argSorts, resSort,
+                               partial, functionalityMode)
+    createFunctionScalaDump(f, rawName, argSorts, resSort, functionalityMode)
+    createFunctionSMTDump(f, argSorts, resSort)
+    f
   }
+
+  private def printPartiality(partial : Boolean) =
+    if (partial) ", partial = true" else ""
 
   private def printFunctionalityMode(m : FunctionalityMode.Value) =
     m match {
       case FunctionalityMode.Full => ""
-      case m => ", FunctionalityMode." + m
+      case m => ", functionalityMode = FunctionalityMode." + m
     }
 
   private def createFunctionHelp(rawName : String, arity : Int,
-                                 functionalityMode : FunctionalityMode.Value =
-                                   FunctionalityMode.Full)
+                                 functionalityMode : FunctionalityMode.Value)
                                 : IFunction = {
     val name = sanitise(rawName)
-    val f = new IFunction(name, arity, true,
+    val f = new IFunction(name, arity, false,
                           functionalityMode != FunctionalityMode.Full)
     addFunctionHelp(f, functionalityMode)
     f
   }
 
-  private def createFunctionSMTDump(name : String, arity : Int) = doDumpSMT {
-    println("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
-        (for (_ <- 0 until arity) yield "Int").mkString(" ") + ") Int)")
+  private def createFunctionHelp(rawName : String,
+                                 argSorts : Seq[Sort], resSort : Sort,
+                                 partial : Boolean,
+                                 functionalityMode : FunctionalityMode.Value)
+                                : IFunction = {
+    val name = sanitise(rawName)
+    val f = MonoSortedIFunction(name, argSorts, resSort, partial,
+                                functionalityMode != FunctionalityMode.Full)
+    addTypeTheoryIfNeeded(f)
+    
+    addFunctionHelp(f, functionalityMode)
+    f
   }
+
+  private def createFunctionScalaDump(f : IFunction,
+                                      rawName : String,
+                                      argSorts : Seq[Sort],
+                                      resSort : Sort,
+                                      functionalityMode
+                                      : FunctionalityMode.Value) = doDumpScala {
+      println(
+        "val " + f.name +
+        " = createFunction(\"" + rawName + "\", List(" +
+        (argSorts map (PrettyScalaLineariser sort2String _)).mkString(", ") +
+        "), " + (PrettyScalaLineariser sort2String resSort) +
+        printPartiality(f.partial) +
+        printFunctionalityMode(functionalityMode) + ")")
+  }
+
+  private def createFunctionSMTDump(f : IFunction,
+                                    argSorts : Seq[Sort],
+                                    resSort : Sort) = doDumpSMT {
+    val (smtType, optConstr) = SMTLineariser sort2SMTType resSort
+    print("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
+        (for (s <- argSorts)
+         yield SMTLineariser.sort2SMTString(s)).mkString(" ") + ") ")
+    SMTLineariser printSMTType smtType
+    println(")")
+    
+    for (constr <- optConstr) {
+      import IExpression._
+      
+      val args = for ((s, n) <- argSorts.zipWithIndex)
+                 yield (s newConstant ("x!" + n))
+      print("(assert (forall (")
+      print((for ((s, n) <- argSorts.iterator.zipWithIndex)
+             yield ("(x!" + n + " " +
+                    SMTLineariser.sort2SMTString(s) + ")")) mkString " ")
+      print(") ")
+      SMTLineariser(constr(IFunApp(f, args)))
+      println("))")
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Add an externally defined function to the environment of this prover.
@@ -1028,15 +1274,28 @@ class SimpleAPI private (enableAssert : Boolean,
   def addFunction(f : IFunction,
                   functionalityMode : FunctionalityMode.Value) : Unit = {
     doDumpScala {
-      println("val " + f.name +
-              " = createFunction(" + f.name + ", " + f.arity +
-              printFunctionalityMode(functionalityMode) + ")" +
-              "// addFunction(" + f.name +
+      println("// addFunction(" + f.name +
               printFunctionalityMode(functionalityMode) + ")")
+      f match {
+        case f : MonoSortedIFunction =>
+          createFunctionScalaDump(f, f.name, f.argSorts, f.resSort,
+                                  functionalityMode)
+        case _ =>
+          createFunctionScalaDump(f, f.name,
+                                  for (_ <- 0 until f.arity) yield Sort.Integer,
+                                  Sort.Integer,
+                                  functionalityMode)
+      }
     }
     doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
-          (for (_ <- 0 until f.arity) yield "Int").mkString(" ") + ") Int)")
+      f match {
+        case f : MonoSortedIFunction =>
+          createFunctionSMTDump(f, f.argSorts, f.resSort)
+        case _ =>
+          createFunctionSMTDump(f,
+                                for (_ <- 0 until f.arity) yield Sort.Integer,
+                                Sort.Integer)
+      }
     }
     addFunctionHelp(f, functionalityMode)
   }
@@ -1109,13 +1368,30 @@ class SimpleAPI private (enableAssert : Boolean,
                             arity : Int,
                             functionalityMode : FunctionalityMode.Value)
                            : IExpression.BooleanFunApplier =
+    createBooleanFunction(rawName,
+                          for (_ <- 0 until arity) yield Sort.Integer,
+                          false,
+                          functionalityMode)
+  
+  /**
+   * Create a new uninterpreted Boolean-valued function with given arguments.
+   * Booleans values are encoded into integers,
+   * mapping <code>true</code> to <code>0</code> and <code>false</code>
+   * to <code>1</code>.<br>
+   * In contrast to predicates (generated using <code>createRelation</code>),
+   * Boolean functions can be used within triggers.
+   */
+  def createBooleanFunction(rawName : String,
+                            argSorts : Seq[Sort],
+                            partial : Boolean = false,
+                            functionalityMode : FunctionalityMode.Value =
+                              FunctionalityMode.Full)
+                           : IExpression.BooleanFunApplier =
     new IExpression.BooleanFunApplier({
       doDumpScala {
-        println("// createBooleanFunction" +
-                "(\"" + rawName + "\", " + arity +
-                printFunctionalityMode(functionalityMode) + ")")
+        println("// createBooleanFunction(...)")
       }
-      createFunction(rawName, arity, functionalityMode)
+      createFunction(rawName, argSorts, Sort.Bool, partial, functionalityMode)
     })
   
   /**
@@ -1160,10 +1436,12 @@ class SimpleAPI private (enableAssert : Boolean,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // Currently only supported for terms without free variables
     Debug.assertPre(SimpleAPI.AC,
-                    !ContainsSymbol(t, (x:IExpression) => x.isInstanceOf[IVariable]))
+                    !ContainsSymbol(t,
+                      (x:IExpression) => x.isInstanceOf[IVariable]))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    abbrevHelp(createFunctionHelp(name, 1, FunctionalityMode.NoUnification), t)
+    abbrevHelp(createFunctionHelp(name, List(Sort.Integer), Sort sortOf t,
+                                  true, FunctionalityMode.NoUnification), t)
   }
 
   private def abbrevHelp(a : IFunction, t : ITerm) = {
@@ -1172,8 +1450,12 @@ class SimpleAPI private (enableAssert : Boolean,
     import IExpression._
     // ensure that nested application of abbreviations are contained in
     // the definition and do not escape, using the AbbrevVariableVisitor
-    addFormulaHelp(
-      !all(trig(a(v(0)) === AbbrevVariableVisitor(t, abbrevFunctions), a(v(0)))))
+    withPartitionNumber(-1) {
+      addFormulaHelp(
+        !all(all(trig((a(v(0)) === v(1)) ==>
+                      (v(1) === AbbrevVariableVisitor(t, abbrevFunctions)),
+                 a(v(0))))))
+    }
     a(0)
   }
 
@@ -1259,7 +1541,10 @@ class SimpleAPI private (enableAssert : Boolean,
     val aAtom = a()
     val defAtom = defLabel()
 
-    addFormulaHelp((aAtom | defAtom | f) & (!aAtom | !defAtom | !f))
+    withPartitionNumber(-1) {
+      addFormulaHelp((aAtom | defAtom | containFunctionApplications(f)) &
+                     (!aAtom | !defAtom | containFunctionApplications(!f)))
+    }
     aAtom
   }
   
@@ -1409,7 +1694,7 @@ class SimpleAPI private (enableAssert : Boolean,
    * Convert a formula from the internal prover format to input syntax.
    */
   def asIFormula(c : Conjunction) : IFormula =
-    (new Simplifier)(Internal2InputAbsy(c, Map()))
+    (new Simplifier (0))(Internal2InputAbsy(c, Map()))
 
   /**
    * Pretty-print a formula or term.
@@ -1653,22 +1938,27 @@ class SimpleAPI private (enableAssert : Boolean,
                            allowShortCut : Boolean) : ProverStatus.Value =
     getStatusHelp(false) match {
       case ProverStatus.Unknown => {
-        lastStatus = ProverStatus.Running
-        proverRes.unset
+         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
     
         flushTodo
         initProver
     
-        proofActorStatus match {
+        proofThreadStatus match {
 
-          case ProofActorStatus.AtPartialModel |
-               ProofActorStatus.AtFullModel
-               if (!constructProofs) => {
-            // We can just add new formulas to the running proof actor,
-            // without a complete restart
-            // TODO: can this case also be used when constructing proofs?
-            restartProofActor // just mark that we are running again
-            proofActor ! RecheckCommand
+          case ProofThreadStatus.AtPartialModel |
+               ProofThreadStatus.AtFullModel => {
+            restartProofThread // mark that we are running again
+            lastStatus = ProverStatus.Running
+
+            if (constructProofs)
+              // Restart, but keep lemmas that have been derived previously
+              proverCmd put CheckSatCommand(currentProver, true, true)
+            else
+              // We can just add new formulas to the running proof thread,
+              // without a complete restart
+              proverCmd put RecheckCommand
           }
 
           case _ =>
@@ -1681,23 +1971,7 @@ class SimpleAPI private (enableAssert : Boolean,
                             "off proof construction and interpolation.")
               }
 
-              val completeFor = formulaeInProver match {
-                case List((_, f)) => f
-                case formulae => 
-                  ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
-                    Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
-                                     currentOrder))
-              }
-
-              // explicitly quantify all universal variables
-              val uniConstants = completeFor.constants -- existentialConstants
-              val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                                   currentOrder sort uniConstants,
-                                                   completeFor, currentOrder)
-
-              proofActor ! CheckValidityCommand(closedFor,
-                                                exhaustiveProverGoalSettings,
-                                                mostGeneralConstraints)
+              startExhaustiveProver
             } else if (allowShortCut && !constructProofs &&
                        currentProver.isObviouslyValid) {
               // no need to actually run the prover
@@ -1710,21 +1984,45 @@ class SimpleAPI private (enableAssert : Boolean,
               return lastStatus
             } else {
               // use a ModelCheckProver
-              proofActor ! CheckSatCommand(currentProver)
+              lastStatus = ProverStatus.Running
+              proverCmd put CheckSatCommand(currentProver, constructProofs,
+                                            false)
             }
             
         }
     
-        getStatusWithDeadline(block)    
+        getStatusWithDeadline(block)
       }
       
-      case ProverStatus.Running => {
-        assert(false)
-        ProverStatus.Error
-      }
+      case ProverStatus.Running =>
+        throw new IllegalStateException
         
       case s => s
     }
+
+  private def startExhaustiveProver = {
+    val completeFor = formulaeInProver match {
+      case List((_, f)) => f
+      case formulae => 
+        ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+              Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
+                               currentOrder))
+    }
+
+    // explicitly quantify all universal variables
+    val uniConstants = completeFor.constants -- existentialConstants
+    val closedFor = Conjunction.quantify(Quantifier.ALL,
+                                         currentOrder sort uniConstants,
+                                         completeFor, currentOrder)
+
+    val closedExFor =
+      TypeTheory.addExConstraints(closedFor, existentialConstants, order)
+
+    lastStatus = ProverStatus.Running
+    proverCmd put CheckValidityCommand(closedExFor,
+                                       exhaustiveProverGoalSettings,
+                                       mostGeneralConstraints)
+  }
 
   /**
    * After a <code>Sat</code> result, continue searching for the next model.
@@ -1750,10 +2048,12 @@ class SimpleAPI private (enableAssert : Boolean,
     if (block)
       checkTimeout
 
-    lastStatus = ProverStatus.Running
-    proverRes.unset
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    proofActor ! NextModelCommand
+    lastStatus = ProverStatus.Running
+    proverCmd put NextModelCommand
     getStatusWithDeadline(block)
   }
 
@@ -1787,7 +2087,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def getStatusHelp(block : Boolean) : ProverStatus.Value = {
     if (lastStatus == ProverStatus.Running && (block || proverRes.isSet))
-      evalProverResult(proverRes.get)
+      evalProverResult(proverRes.take)
     lastStatus
   }
   
@@ -1804,9 +2104,13 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   private def getStatusHelp(timeout : Long) : ProverStatus.Value = {
-    if (lastStatus == ProverStatus.Running)
-      for (r <- proverRes.get(timeout))
-        evalProverResult(r)
+    if (lastStatus == ProverStatus.Running &&
+        // behaviour of SyncVar for timeout 0 is unclear
+        (if (timeout <= 0)
+           proverRes.isSet
+         else
+           (proverRes get timeout).isDefined))
+      evalProverResult(proverRes.take)
     lastStatus
   }
 
@@ -1831,12 +2135,12 @@ class SimpleAPI private (enableAssert : Boolean,
         case SatResult(m) => {
           currentModel = m
           lastStatus = getSatStatus
-          proofActorStatus = ProofActorStatus.AtFullModel
+          proofThreadStatus = ProofThreadStatus.AtFullModel
         }
         case SatPartialResult(m) => {
           currentModel = m
           lastStatus = getSatStatus
-          proofActorStatus = ProofActorStatus.AtPartialModel
+          proofThreadStatus = ProofThreadStatus.AtPartialModel
         }
         case InvalidResult =>
           // no model is available in this case
@@ -1845,9 +2149,9 @@ class SimpleAPI private (enableAssert : Boolean,
           lastStatus = ProverStatus.Unknown
         case OutOfMemoryResult =>
           lastStatus = ProverStatus.OutOfMemory
-        case ExceptionResult(msg) => {
+        case ExceptionResult(t) => {
           lastStatus = ProverStatus.Error
-          throw new SimpleAPIException(msg)
+          throw new SimpleAPIForwardedException(t)
         }
         case _ =>
           lastStatus = ProverStatus.Error
@@ -1913,8 +2217,15 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     getStatusHelp(false) match {
       case ProverStatus.Running => {
-        proofActor ! StopCommand
-        getStatusHelp(block)
+        // proverCmd put StopCommand
+        stopProofTask = true
+        if (block) {
+          val res = getStatusHelp(true)
+          stopProofTask = false
+          res
+        } else {
+          ProverStatus.Running
+        }
       }
       case res =>
         res
@@ -1925,8 +2236,8 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Add subsequent formulae to partition <code>num</code>.
-   *  Index <code>-1</code> represents
-   * formulae belonging to all partitions (e.g., theory axioms).
+   * Index <code>-1</code> represents formulae belonging to all partitions
+   * (e.g., theory axioms).
    */
   def setPartitionNumber(num : Int) : Unit = {
     doDumpSMT {
@@ -1943,7 +2254,21 @@ class SimpleAPI private (enableAssert : Boolean,
       flushTodo
       currentPartitionNum = num
     }
-  
+
+  /**
+   * Execute the given code block with partition number set to
+   * <code>num</code>.
+   */
+  def withPartitionNumber[A](num : Int)(comp : => A) : A = {
+    val oldPartitionNum = currentPartitionNum
+    setPartitionNumberHelp(-1)
+    try {
+      comp
+    } finally {
+      setPartitionNumberHelp(oldPartitionNum)
+    }
+  }
+
   /**
    * Construct proofs in subsequent <code>checkSat</code> calls. Proofs are
    * needed for extract interpolants.
@@ -1959,6 +2284,104 @@ class SimpleAPI private (enableAssert : Boolean,
     proverRecreationNecessary
   }
 
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
+   * produce an (unsimplified) certificate.
+   */
+  def getCertificate : Certificate = {
+    doDumpSMT {
+      println("(get-proof)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getCertificate")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                    (Set(ProverStatus.Unsat,
+                         ProverStatus.Valid) contains getStatusHelp(false)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    currentCertificate
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
+   * produce a certificate in textual/readable format.
+   */
+  def certificateAsString(partNames : Map[Int, PartName],
+                          format : Param.InputFormat.Value) : String = {
+    doDumpSMT {
+      println("(get-proof)")
+    }
+    doDumpScala {
+      println(
+        "println(\"" + getScalaNum +
+                 ": \" + certificateAsString(ap.parameters.Param.InputFormat." +
+                 format + ")")
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                    (Set(ProverStatus.Unsat,
+                         ProverStatus.Valid) contains getStatusHelp(false)))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val formulaParts = new MHashMap[PartName, Conjunction]
+    for (((n, f), num) <- formulaeInProver.iterator.zipWithIndex) {
+      val name = (partNames get n) match {
+        case Some(name) =>
+          if (formulaParts contains name)
+            new PartName ("" + name + "_" + num)
+          else
+            name
+        case None if (n < 0 && !(formulaParts contains PartName.NO_NAME)) =>
+          PartName.NO_NAME
+        case _ =>
+          new PartName ("#" + n + "_" + num)
+      }
+
+      formulaParts.put(name, f)
+    }
+
+    DialogUtil asString {
+      CmdlMain.doPrintTextCertificate(currentCertificate,
+                                      formulaParts.toMap,
+                                      functionEnc.predTranslation.toMap,
+                                      format, "")
+    }
+  }
+
+  /**
+   * After receiving the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>,
+   * produce a core of assertions/conclusions that are already
+   * unsatisfiable or valid. This requires proof construction to be enabled
+   * (<code>setConstructProofs(true)</code>), otherwise the set of all
+   * assertions/conclusions is returned.
+   */
+  def getUnsatCore : Set[Int] = {
+    doDumpSMT {
+      println("(get-unsat-core)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + getUnsatCore")
+    }
+    if (currentCertificate == null) {
+      warn("call setConstructProofs(true) for more precise unsatisfiable cores")
+      (formulaeInProver.iterator map (_._1)).toSet
+    } else {
+      val res = new MHashSet[Int]
+      val af = currentCertificate.assumedFormulas
+      for ((n, f) <- formulaeInProver)
+        if (!(res contains n) && (af contains CertFormula(f.negate)))
+          res += n
+      res.toSet
+    }
+  }
+
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // some functions used to verify interpolants
   private lazy val assertionProver = new ExhaustiveProver(true, GoalSettings.DEFAULT)
@@ -1970,8 +2393,7 @@ class SimpleAPI private (enableAssert : Boolean,
       assertionProver(reducedF, f.order).closingConstraint.isTrue
     } {
       // if a timeout occurs, we assume that the formula was valid ...
-      Console.err.println(
-        "Warning: could not fully verify correctness of interpolant due to timeout")
+      warn("could not fully verify correctness of interpolant due to timeout")
       true
     }
   }
@@ -2030,9 +2452,11 @@ class SimpleAPI private (enableAssert : Boolean,
           val iContext =
             InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
           Timeout.withTimeoutMillis(maxQETime) {
-            Interpolator(currentSimpCertificate, iContext)
+            Interpolator(currentSimpCertificate, iContext, true,
+                         functionalPreds)
           } {
-            Interpolator(currentSimpCertificate, iContext, false)
+            Interpolator(currentSimpCertificate, iContext, false,
+                         functionalPreds)
           }
         }
       }
@@ -2054,12 +2478,15 @@ class SimpleAPI private (enableAssert : Boolean,
       })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    for (c <- interpolants)
-    yield simp(Internal2InputAbsy(c, functionEnc.predTranslation))
+    for (c <- interpolants) yield {
+       implicit val _ = new Theory.DefaultDecoderContext(c)
+       IntToTermTranslator(
+         simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
+    }
   }
 
   /**
-   * Compute a tree interpolant for the given specification.
+   * compute a tree interpolant for the given specification.
    * Interpolants might contain quantifiers, which cannot always
    * be eliminated efficiently; the provided timeout (milliseconds) specifies
    * how long it is attempted to eliminated quantifiers in each interpolant. If
@@ -2120,13 +2547,20 @@ class SimpleAPI private (enableAssert : Boolean,
 
           val rawInt =
             Timeout.withTimeoutMillis(maxQETime) {
-              Interpolator(currentSimpCertificate, iContext)
+              Interpolator(currentSimpCertificate, iContext, true,
+                           functionalPreds)
             } {
-              Interpolator(currentSimpCertificate, iContext, false)
+              Interpolator(currentSimpCertificate, iContext, false,
+                           functionalPreds)
             }
 
-          (rawInt,
-           simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
+          val simpInt = {
+            implicit val _ = new Theory.DefaultDecoderContext(rawInt)
+            IntToTermTranslator(
+              simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
+          }
+
+          (rawInt, simpInt)
         }
 
       if (thisInt._1.isTrue) {
@@ -2184,10 +2618,6 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Install a theory plugin in the prover.
-   * This is highly experimental functionality.
-   *
-   * (In particular, <code>eval</code> and <code>evalPartial</code> might
-   * sometimes produce strange results in combination with plugins)
    */
   def setupTheoryPlugin(plugin : Plugin) : Unit = {
     doDumpSMT {
@@ -2231,11 +2661,19 @@ class SimpleAPI private (enableAssert : Boolean,
   private def addTheoryAxioms = {
     val theoryAxioms = checkNewTheories
     if (!theoryAxioms.isEmpty) {
+      // directly add the axioms to the prover, to avoid
+      // further processing
+
+      for (f <- theoryAxioms)
+        addToProver(Conjunction.FALSE, f)
+
+/*
       val oldPartitionNum = currentPartitionNum
       setPartitionNumberHelp(-1)
       for (f <- theoryAxioms)
         addFormulaHelp(LazyConjunction(f)(currentOrder))
       setPartitionNumberHelp(oldPartitionNum)
+*/
     }
   }
 
@@ -2245,6 +2683,25 @@ class SimpleAPI private (enableAssert : Boolean,
   def addTheoriesFor(order : TermOrder) : Unit = {
     theoryCollector(order)
     addTheoryAxioms
+  }
+
+  private def addTypeTheoryIfNeeded(sorts : Iterable[Sort]) : Unit =
+    if (!(theoryCollector includes TypeTheory) &&
+        (sorts exists (_ != Sort.Integer)))
+      addTypeTheory
+
+  private def addTypeTheoryIfNeeded(f : IFunction) : Unit =
+    if (f.isInstanceOf[SortedIFunction])
+      addTypeTheory
+
+  private def addTypeTheoryIfNeeded(sort : Sort) : Unit =
+    if (sort != Sort.Integer)
+      addTypeTheory
+
+  private def addTypeTheory : Unit = {
+    theoryCollector addTheoryFront TypeTheory
+    // type theory does not add axioms, so calling addTheoryAxioms is not
+    // necessary
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2284,8 +2741,11 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertPre(AC, Set(ProverStatus.Unsat,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
-    asIFormula(currentConstraint)
+
+    if (needExhaustiveProver)
+      asIFormula(currentConstraint)
+    else
+      IBoolLit(true)
   }
 
   /**
@@ -2332,7 +2792,10 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    currentConstraint
+    if (needExhaustiveProver)
+      currentConstraint
+    else
+      Conjunction.TRUE
   }
 
   /**
@@ -2341,13 +2804,26 @@ class SimpleAPI private (enableAssert : Boolean,
    * Note that this will also return all formulas that have previously
    * been asserted in this prover.
    */
-  def projectAll(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = scope {
-    makeExistential(toConsts)
-    setMostGeneralConstraints(true)
-    ?? (f)
-    ??? match {
-      case ProverStatus.Valid   => getConstraint
-      case ProverStatus.Invalid => IBoolLit(false)
+  def projectAll(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (ContainsSymbol isPresburger f) scope {
+      makeExistential(toConsts)
+      setMostGeneralConstraints(true)
+      ?? (f)
+      ??? match {
+        case ProverStatus.Valid   => getConstraint
+        case ProverStatus.Invalid => IBoolLit(false)
+      }
+    } else {
+      // formula that we cannot project at the moment
+      val toConstsSet =
+        (for (IConstant(c) <- toConsts.iterator) yield c).toSet
+      val otherConsts =
+        (SymbolCollector constantsSorted f) filterNot toConstsSet
+      IExpression.quanConsts(Quantifier.ALL, otherConsts, f)
     }
   }
   
@@ -2357,13 +2833,26 @@ class SimpleAPI private (enableAssert : Boolean,
    * Note that this will also return all formulas that have previously
    * been asserted in this prover.
    */
-  def projectEx(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = scope {
-    makeExistential(toConsts)
-    setMostGeneralConstraints(true)
-    ?? (~f)
-    ??? match {
-      case ProverStatus.Valid   => ~getConstraint
-      case ProverStatus.Invalid => IBoolLit(true)
+  def projectEx(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (ContainsSymbol isPresburger f) scope {
+      makeExistential(toConsts)
+      setMostGeneralConstraints(true)
+      ?? (~f)
+      ??? match {
+        case ProverStatus.Valid   => ~getConstraint
+        case ProverStatus.Invalid => IBoolLit(true)
+      }
+    } else {
+      // formula that we cannot project at the moment
+      val toConstsSet =
+        (for (IConstant(c) <- toConsts.iterator) yield c).toSet
+      val otherConsts =
+        (SymbolCollector constantsSorted f) filterNot toConstsSet
+      IExpression.quanConsts(Quantifier.EX, otherConsts, f)
     }
   }
   
@@ -2373,25 +2862,99 @@ class SimpleAPI private (enableAssert : Boolean,
    * been asserted in this prover.
    */
   def simplify(f : IFormula) : IFormula =
-    projectAll(f, for (c <- SymbolCollector constants f) yield IConstant(c))
+    if (!(ContainsSymbol isPresburgerWithPreds f)) {
+      // Formula that we cannot fully simplify at the moment;
+      // just run the heuristic simplifier
+
+      asIFormula(asConjunction(f))
+
+    } else if ((ContainsSymbol isPresburger f) &&
+               (ContainsSymbol isClosed f)) {
+      // Simplest case, pure Presburger formula
+
+      val consts =
+        for (c <- SymbolCollector constantsSorted f) yield IConstant(c)
+      projectAll(f, consts)
+
+    } else scope {
+      import IExpression._
+
+      // Need to replace free variables in the formula with constants
+      val maxInd =
+        ((Iterator single -1) ++
+         (for (IVariable(v) <- (SymbolCollector variables f).iterator)
+          yield v)).max
+      val subst = createConstants("X", 0 until (maxInd + 1)).toList
+
+      val substF = VariableSubstVisitor(f, (subst, 0))
+
+      // Replace remaining predicates in the formula with new constants
+      val replacedAtoms = new MHashMap[IAtom, ConstantTerm]
+
+      object AtomAbstractingVisitor
+             extends CollectingVisitor[Unit, IExpression] {
+        override def preVisit(t : IExpression,
+                              arg : Unit) : PreVisitResult = t match {
+          case a : IAtom => {
+            val c = replacedAtoms.getOrElseUpdate(a, createConstantRaw("Y"))
+            ShortCutResult(eqZero(c))
+          }
+          case t =>
+            KeepArg
+        }
+        def postVisit(t : IExpression, arg : Unit,
+                      subres : Seq[IExpression]) : IExpression = t update subres
+      }
+
+      val substF2 =
+        AtomAbstractingVisitor.visit(substF, ()).asInstanceOf[IFormula]
+
+      val allConsts =
+        for (c <- SymbolCollector constantsSorted substF2) yield IConstant(c)
+      val res = projectAll(substF2, allConsts)
+
+      // substitute back predicates
+      val backSubst =
+        (for ((f, c) <- replacedAtoms.iterator) yield (c -> ite(f, 0, 1))).toMap
+      val res2 = SimplifyingConstantSubstVisitor(res, backSubst)
+
+      // substitute back variables
+      val backSubst2 =
+        (for ((IConstant(c), n) <- subst.iterator.zipWithIndex)
+         yield (c, IVariable(n))).toMap
+      ConstantSubstVisitor(res2, backSubst2)
+    }
   
   //////////////////////////////////////////////////////////////////////////////
 
   private def ensurePartialModel =
-    if (currentModel == null) {
+    if (currentModel == null && !needExhaustiveProver) {
       // then we have to completely re-run the prover
       lastStatus = ProverStatus.Unknown
       checkSatHelp(true, false)
     }
 
-  private def ensureFullModel = {
+  private def ensureFullModel = if (!needExhaustiveProver) {
     ensurePartialModel
-    while (proofActorStatus != ProofActorStatus.AtFullModel) {
+    while (proofThreadStatus != ProofThreadStatus.AtFullModel) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(SimpleAPI.AC, !proverRes.isSet)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
       // let's get a complete model
       lastStatus = ProverStatus.Running
-      proverRes.unset
-      proofActor ! DeriveFullModelCommand
-      getStatusWithDeadline(true)
+      proofThreadStatus = ProofThreadStatus.Init
+      proverCmd put DeriveFullModelCommand
+      getStatusWithDeadline(true) match {
+        case ProverStatus.Error =>
+          throw new SimpleAPIException(
+            "Error while building full model")
+        case ProverStatus.OutOfMemory =>
+          throw new SimpleAPIException(
+            "Out-of-memory error while building full model")
+        case _ =>
+          // nothing
+      }
     }
   }
 
@@ -2434,6 +2997,14 @@ class SimpleAPI private (enableAssert : Boolean,
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       val interpretation = new LinkedHashMap[ModelLocation, ModelValue]
+
+      val TypeTheory.DecoderData(ctorTerms) =
+        decoderContext getDataFor TypeTheory
+
+      // nullary constructor terms can be added to the interpretation
+      // (other terms should be part of the model returned by the prover)
+      for (((num, _), IFunApp(ctor, Seq())) <- ctorTerms)
+        interpretation.put(IntFunctionLoc(ctor, List()), IntValue(num))
   
       for (l <- currentModel.arithConj.positiveEqs) {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -2477,12 +3048,56 @@ class SimpleAPI private (enableAssert : Boolean,
           interpretation.put(PredicateLoc(a.pred, argValues),
                              BoolValue(false))
         }
-  
-      lastPartialModel = new PartialModel (interpretation)
+
+      lastPartialModel = new PartialModel (interpretation, ctorTerms)
       lastPartialModel
     }
   }
-  
+
+  /**
+   * Produce a partial model, i.e., a (usually) partial interpretation
+   * of constants, functions, and predicates. This method can be
+   * called in two situations:
+   * <ul>
+   *    <li> after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>, or</li>
+   * <li> after receiving
+   * the result
+   * <code>ProverStatus.Unsat</code> or <code>ProverStates.Valid</code>
+   * for a problem that contains existential constants. In this case the
+   * model only assigns existential constants.
+   * </li>
+   * </ul>
+   */
+  def partialModelAsFormula : IFormula = {
+    doDumpSMT {
+      println("; (partial-model-as-formula)")
+    }
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + partialModelAsFormula)")
+    }
+
+    // TODO: cache results?
+    setupTermEval
+    
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(SimpleAPI.AC,
+                    currentModel.arithConj.negativeEqs.isTrue &&
+                    currentModel.arithConj.inEqs.isTrue &&
+                    currentModel.negatedConjs.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    implicit val _ = currentModel.order
+    val remainingPredConj = currentModel.predConj filter {
+      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
+    }
+    val remaining = currentModel.updatePredConj(remainingPredConj)
+    
+    val simp = Internal2InputAbsy(remaining, functionEnc.predTranslation)
+    IntToTermTranslator(simp)(decoderContext)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -2506,7 +3121,7 @@ class SimpleAPI private (enableAssert : Boolean,
    * <ul>
    *    <li> after receiving the result
    * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
-   * or <code>ProverStatus.Inconclusive</code>, or</li>
+   * or <code>ProverStatus.Inconclusive</code>,
    * which case the term is evaluated in the computed model, or</li>
    * <li> after receiving
    * the result
@@ -2522,7 +3137,10 @@ class SimpleAPI private (enableAssert : Boolean,
       PrettyScalaLineariser(getFunctionNames)(t)
       println("))")
     }
+    evalHelp(t)
+  }
 
+  private def evalHelp(t : ITerm) : IdealInt = {
     t match {
       case IConstant(c) => evalHelp(c)
       
@@ -2824,7 +3442,77 @@ class SimpleAPI private (enableAssert : Boolean,
     for (lc <- currentModel.arithConj.positiveEqs.toMap get c)
     yield -lc.constant
   }
-  
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Evaluate the given term in the current model to a constructor term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalToTerm(t : ITerm) : ITerm = {
+    doDumpScala {
+      print("println(\"" + getScalaNum + ": \" + evalToTerm(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println("))")
+    }
+    val num = evalHelp(t)
+    (Sort sortOf t).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+  }
+
+  /**
+   * Evaluate the given term in the current model to a constructor term,
+   * returning <code>None</code>
+   * in case the model does not completely determine the value of the term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalPartialAsTerm(t : ITerm) : Option[ITerm] = {
+    doDumpScala {
+      print("println(\"" + getScalaNum + ": \" + evalPartialAsTerm(")
+      PrettyScalaLineariser(getFunctionNames)(t)
+      println("))")
+    }
+    for (num <- evalPartialHelp(t)) yield {
+      (Sort sortOf t).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+    }
+  }
+
+  /**
+   * Evaluate the given symbol in the current model to a constructor term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalToTerm(c : IExpression.ConstantTerm) : ITerm = {
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + evalToTerm(" + c + "))")
+    }
+    val num = evalHelp(c)
+    (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+  }
+
+  /**
+   * Evaluate the given symbol in the current model to a constructor term,
+   * returning <code>None</code>
+   * in case the model does not completely determine the value of the term.
+   * This method can be called after receiving the result
+   * <code>ProverStatus.Sat</code> or <code>ProverStates.Invalid</code>
+   * or <code>ProverStatus.Inconclusive</code>.
+   */
+  def evalPartialAsTerm(c : IExpression.ConstantTerm) : Option[ITerm] = {
+    doDumpScala {
+      println("println(\"" + getScalaNum + ": \" + evalToTerm(" + c + "))")
+    }
+    for (num <- evalPartialHelp(c)) yield {
+      (Sort sortOf c).asTerm(num)(decoderContext) getOrElse IExpression.i(num)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Evaluate the given formula in the current model.
    * This method can only be called after receiving the result
@@ -2846,8 +3534,48 @@ class SimpleAPI private (enableAssert : Boolean,
         // then we have to extend the model
   
         import TerForConvenience._
-  
-        f match {
+
+        if (needExhaustiveProver) {
+          // then we have to re-run the prover to check whether the
+          // given formula is consistent with our assertions
+
+          if (!Seqs.disjoint(reducedF.predicates, functionalPreds))
+            // to be on the safe side
+            throw NoModelException
+
+          pushHelp
+          val res = try {
+            if (currentModel != null)
+              addFormula(!LazyConjunction(currentModel)(currentOrder))
+            addFormula(!LazyConjunction(reducedF)(currentOrder))
+
+            flushTodo
+            startExhaustiveProver
+
+            getStatusHelp(true) match {
+              case ProverStatus.Sat | ProverStatus.Invalid =>
+                // then we can assume that the queried formula holds in
+                // the model
+                true
+              case ProverStatus.Unsat | ProverStatus.Valid =>
+                false
+              case _ =>
+                throw NoModelException
+            }
+          } finally {
+            popHelp
+          }
+
+          val modelComp =
+            if (res) reducedF else reducedF.negate
+          currentModel =
+            if (currentModel == null)
+              modelComp
+            else
+              Conjunction.conj(Array(currentModel, modelComp), currentOrder)
+
+          res
+        } else f match {
           case f if (currentOrder.orderedPredicates forall (_.arity == 0)) => {
             // then we can just set default values for all irreducible constants
             // and Boolean variables
@@ -2874,7 +3602,7 @@ class SimpleAPI private (enableAssert : Boolean,
           }
           
           case IAtom(p, Seq())
-            if (proofActorStatus == ProofActorStatus.AtPartialModel) => {
+            if (proofThreadStatus == ProofThreadStatus.AtPartialModel) => {
             // then we will just extend the partial model with a default value
           
             implicit val o = order
@@ -2963,13 +3691,16 @@ class SimpleAPI private (enableAssert : Boolean,
     f match {
       case IAtom(p, args) if (args forall (_.isInstanceOf[IIntLit])) => {
         ensurePartialModel
-        val a = Atom(p, for (IIntLit(value) <- args) yield l(value), currentOrder)
+        val a = Atom(p, for (IIntLit(value) <- args)
+                        yield l(value), currentOrder)
 
-        if (currentModel.predConj.positiveLitsAsSet contains a)
+        if (currentModel == null)
+          Right(a)
+        else if (currentModel.predConj.positiveLitsAsSet contains a)
           Left(true)
         else if (currentModel.predConj.negativeLitsAsSet contains a)
           Left(false)
-        else if (proofActorStatus != ProofActorStatus.AtFullModel) {
+        else if (proofThreadStatus != ProofThreadStatus.AtFullModel) {
           ensureFullModel
           if (currentModel.predConj.positiveLitsAsSet contains a)
             Left(true)
@@ -2983,17 +3714,22 @@ class SimpleAPI private (enableAssert : Boolean,
       case _ => {
         // more complex check by reducing the expression via the model
         ensureFullModel
+        val intF = toInternalNoAxioms(f, currentOrder)
 
-        val reduced =
-          ReduceWithConjunction(currentModel, functionalPreds, currentModel.order)(
-                                  toInternalNoAxioms(f, currentOrder))
+        if (currentModel == null) {
+          Right(intF)
+        } else {
+          val reduced =
+            ReduceWithConjunction(currentModel, functionalPreds,
+                                  currentModel.order)(intF)
 
-        if (reduced.isTrue)
-          Left(true)
-        else if (reduced.isFalse)
-          Left(false)
-        else
-          Right(reduced)
+          if (reduced.isTrue)
+            Left(true)
+          else if (reduced.isFalse)
+            Left(false)
+          else
+            Right(reduced)
+        }
       }
     }
   }
@@ -3012,7 +3748,8 @@ class SimpleAPI private (enableAssert : Boolean,
       if (getStatusHelp(false) == ProverStatus.Running) {
         // then something really bad happened, and we are in an inconsistent
         // state
-        proofActor ! ShutdownCommand
+        proverCmd put ShutdownCommand
+        stopProofTask = true
       } else {
         pop
       }
@@ -3023,6 +3760,18 @@ class SimpleAPI private (enableAssert : Boolean,
    * Add a new frame to the assertion stack.
    */
   def push : Unit = {
+    doDumpSMT {
+      println("(push 1)")
+    }
+    doDumpScala {
+      println
+      println("scope {")
+    }
+
+    pushHelp
+  }
+  
+  private def pushHelp : Unit = {
     // process pending formulae, to avoid processing them again after a pop
     flushTodo
     initProver
@@ -3038,14 +3787,6 @@ class SimpleAPI private (enableAssert : Boolean,
                        theoryPlugin, theoryCollector.clone,
                        abbrevFunctions,
                        abbrevPredicates)
-    
-    doDumpSMT {
-      println("(push 1)")
-    }
-    doDumpScala {
-      println
-      println("scope {")
-    }
   }
   
   /**
@@ -3060,6 +3801,10 @@ class SimpleAPI private (enableAssert : Boolean,
       println
     }
 
+    popHelp
+  }
+
+  private def popHelp : Unit = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, getStatusHelp(false) != ProverStatus.Running)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -3089,7 +3834,7 @@ class SimpleAPI private (enableAssert : Boolean,
     validityMode = oldValidityMode
     lastStatus = oldStatus
     decoderDataCache.clear
-    proofActorStatus = ProofActorStatus.Init
+    proofThreadStatus = ProofThreadStatus.Init
     theoryPlugin = oldTheoryPlugin
     theoryCollector = oldTheories
     abbrevFunctions = oldAbbrevFunctions
@@ -3140,31 +3885,37 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addToProver(preCompleteFor : Conjunction,
                           preAxioms : Conjunction) : Unit = {
-    val completeFor = convertQuantifiers(preCompleteFor)
-    val axioms = convertQuantifiers(preAxioms)
+    val completeFor =
+      convertQuantifiers(Theory.preprocess(preCompleteFor,
+                                           theories,
+                                           currentOrder))
+    val axioms =
+      convertQuantifiers(preAxioms)
 
     if (!completeFor.isFalse)
       formulaeInProver = (currentPartitionNum, completeFor) :: formulaeInProver
     if (!axioms.isFalse)
       formulaeInProver = (-1, axioms) :: formulaeInProver
 
-    proofActorStatus match {
-      case ProofActorStatus.Init =>
+    proofThreadStatus match {
+      case ProofThreadStatus.Init =>
         // nothing
-      case ProofActorStatus.AtPartialModel | ProofActorStatus.AtFullModel =>
+      case ProofThreadStatus.AtPartialModel | ProofThreadStatus.AtFullModel =>
         if (axioms.isFalse && (currentOrder eq currentProver.order)
             // completeFor.constants.isEmpty && axioms.isFalse &&
             // Seqs.disjoint(completeFor.predicates, abbrevPredicates.keySet)
             ) {
           // then we should be able to add this formula to the running prover
-          proofActor ! AddFormulaCommand(completeFor)
+          proverCmd put AddFormulaCommand(completeFor)
         } else {
-          restartProofActor
+          restartProofThread
         }
     }
       
     if (!needExhaustiveProver &&
         !(IterativeClauseMatcher.isMatchableRec(completeFor,
+            Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
+          IterativeClauseMatcher.isMatchableRec(axioms,
             Param.PREDICATE_MATCH_CONFIG(goalSettings)) &&
           Seqs.disjoint(completeFor.constants, existentialConstants))) {
       currentProver = null
@@ -3258,8 +4009,7 @@ class SimpleAPI private (enableAssert : Boolean,
         IterativeClauseMatcher.convertQuantifiers(
           c, Param.PREDICATE_MATCH_CONFIG(goalSettings), null)
       if (!ignoredQuantifiers && !(withoutQuans eq c)) {
-        Console.err.println(
-          "Warning: ignoring some quantifiers due to interpolation")
+        warn("ignoring some quantifiers due to interpolation")
         ignoredQuantifiers = true
       }
       withoutQuans
@@ -3276,7 +4026,8 @@ class SimpleAPI private (enableAssert : Boolean,
                         order,
                         theoryCollector.theories, Set(), Map())
     val (fors, _, newSig) =
-      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
+      Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
+                    functionEnc)
     functionEnc.clearAxioms
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -3323,13 +4074,22 @@ class SimpleAPI private (enableAssert : Boolean,
     if (theoryCollector.newTheories.isEmpty) {
       List()
     } else {
+      // add type theory if any of the added theories uses sorted symbols
+      if (!(theories contains TypeTheory) &&
+          (theoryCollector.newTheories exists {
+             t => t.predicates exists (_.isInstanceOf[SortedPredicate])
+           })) {
+        addTheory(TypeTheory)
+        return checkNewTheories
+      }
+
       val theoryAxioms =
         for (t <- theoryCollector.newTheories) yield {
           currentOrder = t extend currentOrder
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, (currentOrder isSortingOf t.axioms) &&
                               (currentOrder isSortingOf t.totalityAxioms))
-          //-END-ASSERTION-/////////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
   
           functionEnc addTheory t
   
@@ -3348,6 +4108,11 @@ class SimpleAPI private (enableAssert : Boolean,
 
       theoryAxioms
     }
+
+  private val randomDataSource = randomSeed match {
+    case None => NonRandomDataSource
+    case Some(s) => new SeededRandomDataSource(s)
+  }
 
   private def goalSettings = {
     var gs = GoalSettings.DEFAULT
@@ -3375,6 +4140,7 @@ class SimpleAPI private (enableAssert : Boolean,
            (for (t <- theories.iterator;
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
+    gs = Param.RANDOM_DATA_SOURCE.set(gs, randomDataSource)
     gs
   }
 
@@ -3447,7 +4213,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def proverRecreationNecessary = {
     currentProver = null
     resetModel
-    restartProofActor
+    restartProofThread
   }
 
   private def initProver =
@@ -3455,30 +4221,33 @@ class SimpleAPI private (enableAssert : Boolean,
       currentProver = (ModelSearchProver emptyIncProver goalSettings)
                           .conclude(formulaeInProver.unzip._2, currentOrder)
   
-  private def restartProofActor =
-    (proofActorStatus = ProofActorStatus.Init)
+  private def restartProofThread =
+    (proofThreadStatus = ProofThreadStatus.Init)
   
   //////////////////////////////////////////////////////////////////////////////
   //
-  // Prover actor, for the hard work
+  // Prover thread, for the hard work
   
   private val proverRes = new SyncVar[ProverResult]
+  private val proverCmd = new SyncVar[ProverCommand]
+  private var stopProofTask = false
   private var lastStatus : ProverStatus.Value = _
   private var validityMode : Boolean = _
   
-  private var proofActorStatus : ProofActorStatus.Value = _
+  private var proofThreadStatus : ProofThreadStatus.Value = _
   
-  private val proofActor = new DaemonActor { def act : Unit = {
+  private val proofThread = new Thread(new Runnable { def run : Unit = {
     Debug enableAllAssertions enableAssert
     
     var cont = true
     var nextCommand : ProverCommand = null
+    var lemmaBase : LemmaBase = null
     
     def directorWaitForNextCmd(order : TermOrder) = {
       var res : ModelSearchProver.SearchDirection = null
       var forsToAdd = List[Conjunction]()
               
-      while (res == null) receive {
+      while (res == null) proverCmd.take match {
         case DeriveFullModelCommand =>
           res = ModelSearchProver.DeriveFullModelDir
         case NextModelCommand =>
@@ -3489,7 +4258,7 @@ class SimpleAPI private (enableAssert : Boolean,
         case AddFormulaCommand(formula) =>
           forsToAdd = formula :: forsToAdd
         case c : ProverCommand => {
-          // get out of here
+          // get out of here, terminate the <code>ModelSearchProver</code> run
           nextCommand = c
           res = ModelSearchProver.ReturnSatDir
         }
@@ -3499,14 +4268,26 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     
     val commandParser : PartialFunction[Any, Unit] = {
-      case CheckSatCommand(p) =>
-          
+      case CheckSatCommand(p, needLemmaBase, reuseLemmaBase) => {
+
+        if (needLemmaBase) {
+          if (lemmaBase == null || !reuseLemmaBase) {
+            lemmaBase = new LemmaBase
+          } else {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(AC, lemmaBase.hasEmptyStack)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+          }
+        } else {
+          lemmaBase = null
+        }
+
         Timeout.catchTimeout {
           val order = p.order
 
-          p.checkValidityDir {
+          p.checkValidityDir({
             case (model, false) => {
-              proverRes set SatPartialResult(model)
+              proverRes put SatPartialResult(model)
               directorWaitForNextCmd(order)
             }
             
@@ -3515,25 +4296,28 @@ class SimpleAPI private (enableAssert : Boolean,
               Debug.assertPre(AC, !model.isFalse)
               //-END-ASSERTION-/////////////////////////////////////////////////
               
-              proverRes set SatResult(model)
+              proverRes put SatResult(model)
               directorWaitForNextCmd(order)
             }
-          }
+          }, lemmaBase)
         } { case _ => null } match {
 
           case null =>
-            proverRes set StoppedResult
+            proverRes put StoppedResult
           case Left(m) if (nextCommand == null) =>
-            proverRes set UnsatResult
+            proverRes put UnsatResult
           case Left(_) =>
             // nothing
           case Right(cert) =>
-            proverRes set UnsatCertResult(cert)
+            proverRes put UnsatCertResult(cert)
               
         }
+      }
 
-      case CheckValidityCommand(formula, goalSettings, mgc) =>
+      case CheckValidityCommand(formula, goalSettings, mgc) => {
         
+        lemmaBase = null
+
         Timeout.catchTimeout {
           
           val prover = new ExhaustiveProver (!mgc, goalSettings)
@@ -3543,42 +4327,35 @@ class SimpleAPI private (enableAssert : Boolean,
         } { case _ => null } match {
           
           case null =>
-            proverRes set StoppedResult
+            proverRes put StoppedResult
           case constraint =>
             if (constraint.isFalse) {
-              proverRes set InvalidResult
+              proverRes put InvalidResult
             } else {
-              val solution = ModelSearchProver(constraint.negate, constraint.order)
-              proverRes set FoundConstraintResult(constraint, solution)
+              val solution =
+                ModelSearchProver(constraint.negate, constraint.order)
+              proverRes put FoundConstraintResult(constraint, solution)
             }
             
         }
-        
-      case StopCommand =>
-        proverRes set StoppedResult
+      }
+
       case ShutdownCommand =>
         cont = false
     }
     
-    Timeout.withChecker(() => receiveWithin(0) {
-      case StopCommand =>
-        Timeout.raise
-      case ShutdownCommand => {
-        cont = false
-        Timeout.raise
-      }
-      case TIMEOUT => // nothing
-    }) {
-            
+    Timeout.withChecker(() => if (stopProofTask) Timeout.raise) {
       while (cont)
         try {
+          stopProofTask = false
+
           // wait for a command on what to do next
           if (nextCommand != null) {
             val c = nextCommand
             nextCommand = null
             commandParser(c)
           } else {
-            receive(commandParser)
+            commandParser(proverCmd.take)
           }
         } catch {
           case t : Timeout =>
@@ -3586,16 +4363,22 @@ class SimpleAPI private (enableAssert : Boolean,
             throw t
           case _ : StackOverflowError | _ : OutOfMemoryError =>
             // hope that we are able to continue
-            proverRes set OutOfMemoryResult
+            proverRes put OutOfMemoryResult
+          case _ : NoClassDefFoundError =>
+            // this exception indicates a stack overflow as well,
+            // but probably the system has to be restarted at this point
+            proverRes put OutOfMemoryResult
           case t : Throwable =>
             // hope that we are able to continue
-            proverRes set ExceptionResult(t.toString)
+            proverRes put ExceptionResult(t)
         }
       
     }
-  }}
+  }})
 
-  proofActor.start
+  // the prover thread is not supposed to keep the whole system running
+  proofThread setDaemon true
+  proofThread.start
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,7 +23,9 @@ package ap.parameters;
 
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Predicate
+import ap.theories.ADT.TermMeasure
 import ap.Signature.PredicateMatchConfig
+import ap.proof.tree.{RandomDataSource, NonRandomDataSource}
 
 object Param {
   
@@ -290,6 +292,11 @@ object Param {
     val defau : MulProcedure.Value = MulProcedure.Native
   }
 
+  case object ADT_MEASURE extends Param {
+    type Value = TermMeasure.Value
+    val defau : TermMeasure.Value = TermMeasure.Size
+  }
+
   object NonLinearSplitting extends Enumeration {
     val Spherical, Sign = Value
   }
@@ -352,6 +359,11 @@ object Param {
     val defau : Boolean = false
   }
   
+  case object COMPUTE_MODEL extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
+  
   case object PROOF_SIMPLIFICATION extends Param {
     type Value = Boolean
     val defau : Boolean = true
@@ -384,6 +396,16 @@ object Param {
   case object THEORY_PLUGIN extends Param {
     type Value = Option[ap.proof.theoryPlugins.Plugin]
     val defau : Option[ap.proof.theoryPlugins.Plugin] = None
+  }
+
+  case object RANDOM_DATA_SOURCE extends Param {
+    type Value = RandomDataSource
+    val defau : RandomDataSource = NonRandomDataSource
+  }
+
+  case object RANDOM_SEED extends Param {
+    type Value = Option[Int]
+    val defau : Option[Int] = Some(1234567)
   }
 }
 

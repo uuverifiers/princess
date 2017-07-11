@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -119,14 +119,14 @@ object Parser2InputAbsy {
 }
 
 
-abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
-                               (initialEnv : Environment[CT, VT, PT, FT],
+abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
+                               (initialEnv : Environment[CT, VT, PT, FT, ST],
                                 settings : ParserSettings) {
   
   import IExpression._
 
 
-  def this(env : Environment[CT, VT, PT, FT]) =
+  def this(env : Environment[CT, VT, PT, FT, ST]) =
     this(env, ParserSettings.DEFAULT)
 
   type GrammarExpression
@@ -215,13 +215,13 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, StackState]
   }
 
   private val storedStates =
-    new Stack[(Environment[CT, VT, PT, FT], Boolean, List[IFormula],
+    new Stack[(Environment[CT, VT, PT, FT, ST], Boolean, List[IFormula],
                StackState)]
 
-  private var currentEnv : Environment[CT, VT, PT, FT] = initialEnv
+  private var currentEnv : Environment[CT, VT, PT, FT, ST] = initialEnv
   private var environmentCopied : Boolean = true
 
-  def env : Environment[CT, VT, PT, FT] = currentEnv
+  def env : Environment[CT, VT, PT, FT, ST] = currentEnv
 
   //////////////////////////////////////////////////////////////////////////////
 

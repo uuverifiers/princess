@@ -9,6 +9,11 @@ Parts of the Craig interpolation code are by:
 Angelo Brillout <angelo.brillout@gmail.com>
 
 
+Parts of the solver for non-linear integer arithmetic are by:
+
+Peter Backeman <peter@backeman.se>
+
+
 Parts of the TPTP parser are by:
 
 Peter Baumgartner <Peter.Baumgartner@nicta.com.au>

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -272,8 +272,6 @@ object BitShiftMultiplication extends MulTheory {
   
   val functions = List(mul)
 
-  val (predicates, axioms, totalityAxioms) = {
-
     /*
         \forall int x; {mul(x, 0)} mul(x, 0) = 0
       &
@@ -289,9 +287,11 @@ object BitShiftMultiplication extends MulTheory {
                    n = 1 & res = subres + x
        )))
     */
-    
-    val (axioms, _, functionTranslation) =
-      Theory.toInternal(all(ITrigger(List(mul(v(0), 0)),
+
+  val (predicates, axioms, _, _) =
+      Theory.genAxioms(theoryFunctions = functions,
+                       theoryAxioms =
+                        all(ITrigger(List(mul(v(0), 0)),
                                      mul(v(0), 0) === 0)) &
                         all(ITrigger(List(mul(v(0), -1)),
                                      mul(v(0), -1) === -v(0))) &
@@ -304,13 +304,9 @@ object BitShiftMultiplication extends MulTheory {
                                    (v(1) === 0 & v(5) === v(2))
                                    |
                                    (v(1) === 1 & v(5) === v(2) + v(3))
-                                  ))))))))),
-                        false,
-                        TermOrder.EMPTY)
-    (List(functionTranslation(mul)),
-     axioms,
-     Conjunction.TRUE)
-  }
+                                  ))))))))))
+
+  val totalityAxioms = Conjunction.TRUE
 
   // just use default value
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()

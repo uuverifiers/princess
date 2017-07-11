@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -495,6 +495,41 @@ object ConstantSubstVisitor
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * Substitute some of the constants in an expression with arbitrary terms,
+ * and immediately simplify the resulting expression if possible.
+ */
+object SimplifyingConstantSubstVisitor
+       extends CollectingVisitor[(CMap[ConstantTerm, ITerm], Int), IExpression] {
+  import IExpression.i
+         
+  def apply(t : IExpression, subst : CMap[ConstantTerm, ITerm]) : IExpression =
+    SimplifyingConstantSubstVisitor.visit(t, (subst, 0))
+  def apply(t : ITerm, subst : CMap[ConstantTerm, ITerm]) : ITerm =
+    apply(t.asInstanceOf[IExpression], subst).asInstanceOf[ITerm]
+  def apply(t : IFormula, subst : CMap[ConstantTerm, ITerm]) : IFormula =
+    apply(t.asInstanceOf[IExpression], subst).asInstanceOf[IFormula]
+
+  override def preVisit(t : IExpression,
+                        subst : (CMap[ConstantTerm, ITerm], Int)) : PreVisitResult =
+    t match {
+      case IConstant(c) => ShortCutResult((subst._1 get c) match {
+        case Some(replacement) => VariableShiftVisitor(replacement, 0, subst._2)
+        case None => t
+      })
+      case _ : IQuantified | _ : IEpsilon =>
+        UniSubArgs((subst._1, subst._2 + 1))
+      case _ => KeepArg
+    }
+
+  def postVisit(t : IExpression,
+                subst : (CMap[ConstantTerm, ITerm], Int),
+                subres : Seq[IExpression]) : IExpression =
+    IExpression.updateAndSimplifyLazily(t, subres)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
  * Substitute some predicates in an expression with arbitrary formulae
  */
 object PredicateSubstVisitor
@@ -568,6 +603,12 @@ object SymbolCollector {
     val c = new SymbolCollector (variables, null, null)
     c.visitWithoutResult(t, 0)
     variables
+  }
+  def variablesSorted(t : IExpression) : scala.collection.Seq[IVariable] = {
+    val variables = new LinkedHashSet[IVariable]
+    val c = new SymbolCollector (variables, null, null)
+    c.visitWithoutResult(t, 0)
+    variables.toSeq
   }
   def constants(t : IExpression) : scala.collection.Set[ConstantTerm] = {
     val constants = new MHashSet[ConstantTerm]
@@ -694,6 +735,27 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
   def isClosed(t : IExpression) : Boolean =
     !apply(t, (x:IExpression) => x match {
        case v : IVariable => true
+       case _ => false
+     })
+
+  /**
+   * Check whether given formula is in Presburger arithmetic.
+   */
+  def isPresburger(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case _ : IFunApp | _ : IAtom => true
+       case _ => false
+     })
+
+  /**
+   * Check whether given formula is in Presburger arithmetic, but
+   * possibly including predicate atoms in which all arguments
+   * are concrete numbers.
+   */
+  def isPresburgerWithPreds(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case _ : IFunApp => true
+       case IAtom(_, args) => !(args forall (_.isInstanceOf[IIntLit]))
        case _ => false
      })
 
@@ -914,12 +976,51 @@ class SelectiveQuantifierCountVisitor(consideredQuantifiers : Set[Quantifier])
       val realQuan = if (ctxt.polarity > 0) q else q.dual
       if (consideredQuantifiers contains realQuan) {
         count = count + 1
-        KeepArg
+        super.preVisit(t, ctxt)
       } else {
         ShortCutResult(())
       }
     }
-    case _ => KeepArg
+    case _ => super.preVisit(t, ctxt)
+  }
+
+  def postVisit(t : IExpression, ctxt : Context[Unit],
+                subres : Seq[Unit]) : Unit = ()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Visitor for checking whether a formula contains any existential
+ * quantifiers without explicitly specified triggers.
+ */
+object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
+
+  private object FoundQuantifier extends Exception
+  private val v0Set = Set(IVariable(0))
+
+  def apply(f : IExpression) : Boolean = try {
+    this.visitWithoutResult(f, Context({}))
+    true
+  } catch {
+    case FoundQuantifier => false
+  }
+
+  private def isEX(q : Quantifier, ctxt : Context[Unit]) = q match {
+    case Quantifier.EX  if ctxt.polarity >= 0 => true
+    case Quantifier.ALL if ctxt.polarity <= 0 => true
+    case _ => false
+  }
+
+  override def preVisit(t : IExpression,
+                        ctxt : Context[Unit]) : PreVisitResult = t match {
+    case IQuantified(q, ITrigger(Seq(IFunApp(f, _)), body)) if f.partial =>
+      super.preVisit(t, ctxt)
+    case IQuantified(q, body)
+      if (isEX(q, ctxt) && !ContainsSymbol.freeFrom(body, v0Set)) =>
+        throw FoundQuantifier
+    case _ =>
+      super.preVisit(t, ctxt)
   }
 
   def postVisit(t : IExpression, ctxt : Context[Unit],

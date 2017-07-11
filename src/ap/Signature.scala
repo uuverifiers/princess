@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -113,11 +113,16 @@ class Signature(val universalConstants : Set[ConstantTerm],
                   nullaryFunctions, predicateMatchConfig, order, theories,
                   domainPredicates, newFunctionTypes)
 
-  def addTheories(additionalTheories : Seq[Theory]) : Signature =
+  def addTheories(additionalTheories : Seq[Theory],
+                  front : Boolean = false) : Signature =
     if (additionalTheories.isEmpty) {
       this
     } else {
-      val newTheories = this.theories ++ additionalTheories
+      val newTheories =
+        if (front)
+          additionalTheories ++ this.theories
+        else
+          this.theories ++ additionalTheories
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(Signature.AC, newTheories.toSet.size == newTheories.size)
@@ -134,4 +139,12 @@ class Signature(val universalConstants : Set[ConstantTerm],
                 domainPredicates,
                 functionTypes)
     }
+
+  /**
+   * Check whether any of the symbols stored in this signature uses sorts
+   * as defined in <code>ap.types</code>.
+   */
+  def isSorted : Boolean =
+    (order.orderedConstants exists (_.isInstanceOf[ap.types.SortedConstantTerm])) ||
+    (order.orderedPredicates exists (_.isInstanceOf[ap.types.SortedPredicate]))
 }

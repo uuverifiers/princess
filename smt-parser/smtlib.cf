@@ -2,7 +2,7 @@
 -- arithmetic with uninterpreted predicates.
 -- <http://www.philipp.ruemmer.org/princess.shtml>
 --
--- Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+-- Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
 --
 -- Princess is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Lesser General Public License as published by
@@ -37,12 +37,26 @@ SetInfoCommand.         Command         ::= "(" "set-info" Annotation ")";
 SortDeclCommand. 	Command	        ::= "(" "declare-sort" Symbol Numeral ")";
 SortDefCommand. 	Command	        ::= "(" "define-sort" Symbol
                                                 "(" [Symbol] ")" Sort ")";
+DataDeclsCommand.       Command         ::= "(" "declare-datatypes"
+                                                "(" [PolySortC] ")"
+                                                "(" [MaybeParDataDecl] ")" ")";
+DataDeclsOldCommand.    Command         ::= "(" "declare-datatypes"
+                                                "(" [Symbol] ")"
+                                                "(" [OldDataDeclC] ")" ")";
+DataDeclCommand.        Command         ::= "(" "declare-datatype" Symbol
+                                                "(" [ConstructorDeclC] ")" ")";
 FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
                                                 "(" MESorts ")" Sort ")";
 ConstDeclCommand.	Command	        ::= "(" "declare-const" Symbol Sort ")";
 FunctionDefCommand.	Command	        ::= "(" "define-fun" Symbol
                                                 "(" [ESortedVarC] ")"
                                                 Sort Term ")";
+RecFunctionDefCommand.	Command	        ::= "(" "define-fun-rec" Symbol
+                                                "(" [ESortedVarC] ")"
+                                                Sort Term ")";
+RecFunctionDefsCommand.	Command	        ::= "(" "define-funs-rec"
+                                                "(" [FunSignatureC] ")"
+                                                "(" [Term] ")" ")";
 PushCommand.            Command         ::= "(" "push" Numeral ")";
 PopCommand.             Command         ::= "(" "pop" Numeral ")";
 AssertCommand.          Command	        ::= "(" "assert" Term ")";
@@ -82,6 +96,28 @@ SomeSorts.      MESorts         ::= [Sort];
 NoSorts.        MESorts         ::= ;
 
 --------------------------------------------------------------------------------
+-- Algebraic data-types and their declarations
+
+NullConstructorDecl.ConstructorDeclC ::= Symbol;
+ConstructorDecl.   ConstructorDeclC ::= "(" Symbol [SelectorDeclC] ")";
+separator nonempty ConstructorDeclC "";
+
+SelectorDecl.      SelectorDeclC    ::= "(" Symbol Sort ")";
+separator SelectorDeclC "";
+
+PolySort.          PolySortC        ::= "(" Symbol Numeral ")";
+separator nonempty PolySortC "";
+
+MonoDataDecl.      MaybeParDataDecl ::= "(" [ConstructorDeclC] ")";
+ParDataDecl.       MaybeParDataDecl ::= "(" "par" "(" [Symbol] ")"
+                                            "(" [ConstructorDeclC] ")" ")";
+separator nonempty MaybeParDataDecl "";
+
+OldDataDecl.       OldDataDeclC     ::= "(" Symbol [ConstructorDeclC] ")";
+
+separator nonempty OldDataDeclC "";
+
+--------------------------------------------------------------------------------
 -- Terms
 
 ConstantTerm.	Term		::= SpecConstant;
@@ -112,6 +148,10 @@ EpsQuantifier.	Quantifier	::= "_eps";
 -- functions
 IdentifierRef.	SymbolRef	::= Identifier;
 CastIdentifierRef.SymbolRef	::= "(" "as" Identifier Sort ")";
+
+FunSignature.   FunSignatureC   ::= "(" Symbol "(" [ESortedVarC] ")" Sort ")";
+
+separator nonempty FunSignatureC "";
 
 --------------------------------------------------------------------------------
 -- Variables
@@ -162,7 +202,7 @@ token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
 
 token QuotedSymbolT ('|' [" `^~<=>_,;:!?/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ\n"]* '|');
 
-token SMTString     ('"' ((char - ["\"\\"]) | ('\\' ["\"\\"]) | ["\n"])* '"');
+token SMTString     ('"' ((char - '"') | {"\"\""})* '"');
 
 separator Symbol "";
 

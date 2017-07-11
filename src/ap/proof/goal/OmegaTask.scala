@@ -99,7 +99,7 @@ case object OmegaTask extends EagerTask {
                     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val ec = eliminableConsts(goal)
+    val ec = eliminableOmegaConsts(goal)
     val store = new BestSplitPossibilityStore
     
     findOmegaPossibilities(goal, ptf, ec, store)
@@ -109,14 +109,16 @@ case object OmegaTask extends EagerTask {
         return store.currentBest()
     
     val formulaSplitStore = new BestSplitPossibilityStore
-    findFormulaSplitPossibilities(goal, ptf, ec, formulaSplitStore)
+    findFormulaSplitPossibilities(goal, ptf,
+                                  goal.eliminatedConstants,
+                                  formulaSplitStore)
     store push formulaSplitStore
     
     if (store.currentCases == None)
       // the best case: there are no inequalities that have to be eliminated
       return ptf updateGoal goal
 
-    findSplitInEqsPossibilities(goal, ptf, ec, store)
+    findSplitInEqsPossibilities(goal, ptf, goal.eliminatedConstants, store)
     
     if (goal.constants subsetOf goal.eliminatedConstants) {
       // this is just a satisfiability-problem
@@ -141,7 +143,7 @@ case object OmegaTask extends EagerTask {
       
       // the following test seems to slow down Princess when all constants are
       // to be eliminated, but it is a good idea in general
-      findBoundedConstantsFast(goal, ptf, ec, store)
+      findBoundedConstantsFast(goal, ptf, goal.eliminatedConstants, store)
 
 // commented out, because it can make the prover loop in some (seldom) cases
 //
@@ -154,7 +156,10 @@ case object OmegaTask extends EagerTask {
     store.currentBest()
   }
 
-  private def eliminableConsts(goal : Goal) : Set[ConstantTerm] =
+  /**
+   * Determine constants that can be eliminated through the Omega rule
+   */
+  private def eliminableOmegaConsts(goal : Goal) : Set[ConstantTerm] =
     goal.eliminatedConstants --
     goal.facts.predConj.constants --
     goal.compoundFormulas.constantsInMatchedClauses
@@ -164,7 +169,7 @@ case object OmegaTask extends EagerTask {
    */
   def splittingNecessary(goal : Goal) : Boolean = {
     val ac = goal.facts.arithConj
-    !Seqs.disjoint(ac.inEqs.constants, eliminableConsts(goal))
+    !Seqs.disjoint(ac.inEqs.constants, goal.eliminatedConstants)
   }
     
   //////////////////////////////////////////////////////////////////////////////

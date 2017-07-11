@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -219,7 +219,7 @@ class CertificatePrettyPrinter(
           case _ => // nothing
         }
 
-        if (cnt - lastSplitPos > remLineWidth - 2*lastSplitParenNum &&
+        if (cnt - lastSplitPos > remLineWidth - 2*lastSplitParenNum - 1 &&
             curSplitPos > lastSplitPos) {
           println(text.substring(lastSplitPos, curSplitPos))
 
@@ -435,6 +435,8 @@ class CertificatePrettyPrinter(
         printRewritingRule("ANTI_SYMM", inf)
       case _ : DivRightInference =>
         printRewritingRule("DIV_RIGHT", inf)
+      case inf : TheoryAxiomInference =>
+        printRewritingRule("THEORY_AXIOM " + inf.theory, inf)
       case QuantifierInference(quantifiedFormula, newConstants, _, _) =>
         printlnPrefBreaking("DELTA: ",
                     "instantiating " +  l(quantifiedFormula) +
@@ -465,11 +467,11 @@ class CertificatePrettyPrinter(
 
   private def printRewritingRule(name : String, inf : BranchInference) : Unit =
     printlnPrefBreaking(name + ": ",
-                        l(inf.assumedFormulas) + " " +
+                        l(inf.assumedFormulas) +
                         (inf.assumedFormulas.size match {
-                          case 0 => "have:"
-                          case 1 => "implies:"
-                          case _ => "imply:"
+                          case 0 => ""
+                          case 1 => " implies:"
+                          case _ => " imply:"
                          }))
 
 }

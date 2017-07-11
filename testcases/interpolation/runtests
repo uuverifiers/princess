@@ -21,7 +21,8 @@ TESTS="columnRed.pri cryptarithm.pri \
        missingOmegaSupport.pri bignum_lia1.pri \
        linear-combination-bug.pri div-right-bug.pri \
        tree.pri axiom-instantiation-bug.pri \
-       nonlin.pri"
+       nonlin.pri adt-interpolation.pri adt-interpolation2.pri \
+       bool-interpolation.pri"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 
@@ -39,13 +40,15 @@ $PRI "$@" -genTotalityAxioms $TESTS
 
 TESTS="pred-unify-bug.smt2 rule60_list2.c_false-unreach-call_1.cil.c.smt2 \
        function-bug3.smt2 simplifier.smt2 smtTyping.smt2 matchCheckBug.smt2 \
-       treeInterpolation1.smt2 treeInterpolation2.smt2"
+       treeInterpolation1.smt2 treeInterpolation2.smt2 enum-interpolation.smt2"
 
 $PRI "$@" +incremental $TESTS
 
 # Testing some large examples for which we have to switch off assertions
 
-TESTS="prp-2-17.pri prp-3-18.pri"
+TESTS="prp-2-17.pri prp-3-18.pri \
+       adt-interpolation-unfold.pri adt-interpolation-unfold2.pri \
+       adt-interpolation-unfold3.pri"
 
 $PRI "$@" -assert $TESTS
 

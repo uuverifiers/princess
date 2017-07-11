@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,28 +24,24 @@ package ap;
 import ap.util.CmdlParser
 
 import scala.collection.mutable.ArrayBuffer
-import scala.actors.Actor._
-import scala.actors.{Actor, TIMEOUT}
+import java.util.concurrent.Semaphore
 
 import java.net._
 
 object ServerMain {
 
-  private val InactivityTimeout = 30 * 60 * 1000 // shutdown after 15min inactivity
+  // shutdown after 30min inactivity
+  private val InactivityTimeout = 30 * 60 * 1000
   private val TicketLength = 40
   private val MaxThreadNum = 16
   private val MaxWaitNum   = 32
 
-  private case class ThreadToken(stopTime : Long)
+  private var lastActiveTime = System.currentTimeMillis
+  private val serverSem = new Semaphore (MaxThreadNum)
 
   //////////////////////////////////////////////////////////////////////////////
 
   def main(args : Array[String]) : Unit = {
-
-    // since some of the actors in the class use blocking file operations,
-    // we have to disable the actor-fork-join stuff to prevent deadlocks
-    sys.props += ("actors.enableForkJoin" -> "false")
-
     val predefPort = args match {
       case Array(CmdlParser.IntVal(v)) => Some(v)
       case _ => None
@@ -71,10 +67,6 @@ object ServerMain {
     println(port)
     println(ticket)
 
-    val serverActor = self
-    for (_ <- 0 until MaxThreadNum)
-      serverActor ! ThreadToken(System.currentTimeMillis)
-
     ////////////////////////////////////////////////////////////////////////////
     // The main loop
 
@@ -82,14 +74,12 @@ object ServerMain {
     while (serverRunning) {
 
       // Get a token to serve another request
-      val curToken = receive {
-        case t : ThreadToken => t
-      }
+      serverSem.acquire
 
       try {
         val clientSocket = socket.accept
   
-        actor {
+        val thread = new Thread(new Runnable { def run : Unit = {
           Console setErr CmdlMain.NullStream
   
           val inputReader =
@@ -137,35 +127,19 @@ object ServerMain {
           inputReader.close
   
           // Put back the token
-  	  serverActor ! ThreadToken(System.currentTimeMillis)
-        }
+          lastActiveTime = System.currentTimeMillis
+          serverSem.release
+        }})
+
+        thread.start
   
       } catch {
         case _ : SocketTimeoutException => {
           // check whether any other thread is still active
-  
-          serverActor ! curToken
+          serverSem.release
 
-          var joinedThreads = List[ThreadToken]()
-          var stillActive = false
-          while (!stillActive && joinedThreads.size < MaxThreadNum)
-            receiveWithin(0) {
-              case t : ThreadToken => {
-                joinedThreads = t :: joinedThreads
-                // some thread only finished recently
-                stillActive =
-                  System.currentTimeMillis - t.stopTime < InactivityTimeout
-              }
-              case TIMEOUT => {
-                // there are still some threads running
-                stillActive = true
-              }
-            }
-  
-          if (stillActive) {
-            for (t <- joinedThreads)
-              serverActor ! t
-          } else {
+          if (serverSem.availablePermits == MaxThreadNum &&
+              System.currentTimeMillis - lastActiveTime > InactivityTimeout) {
             Console.err.println("Shutting down inactive Princess daemon")
             serverRunning = false
           }

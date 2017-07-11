@@ -2,8 +2,13 @@
 
 BASEDIR=`dirname $(readlink -e $0)`
 EXTLIBSDIR=$BASEDIR/extlibs
+ASSEMBLY=$BASEDIR/target/scala-2.*/Princess-assembly*
 
-export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$BASEDIR/smt-parser/smt-parser.jar:$EXTLIBSDIR/java-cup-11a.jar
 export JAVA_OPTS="-Xss20000k -Xmx1500m"
 
-exec scala ap.DialogMain "$@"
+if [ -f $ASSEMBLY ]; then
+    exec java $JAVA_OPTS -cp $ASSEMBLY ap.DialogMain "$@"
+else
+    export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/smt-parser/smt-parser.jar:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar    
+    exec scala ap.DialogMain "$@"
+fi

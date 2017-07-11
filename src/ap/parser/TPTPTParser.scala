@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2017 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -25,7 +25,8 @@ package ap.parser
 import ap._
 import ap.parameters.{ParserSettings, Param}
 import ap.basetypes.{IdealInt, IdealRat}
-import ap.terfor.Formula
+import ap.terfor.{Formula, ConstantTerm}
+import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.parameters.Param
 import ap.util.{Debug, Seqs}
 
@@ -36,10 +37,11 @@ import scala.util.matching.Regex
 object TPTPTParser {
 
   import IExpression.Quantifier
+  import IExpression.Sort
 
   private val AC = Debug.AC_PARSER
 
-  private type Env = Environment[Type, Type, Rank, Rank]
+  private type Env = Environment[Type, Type, Rank, Rank, Type]
   
   def apply(settings : ParserSettings) =
     new TPTPTParser(new Env, settings)
@@ -47,30 +49,43 @@ object TPTPTParser {
   private case class TypedVar(name : String, t : Type)
   private type SyntaxError = Parser2InputAbsy.ParseException
 
-  case class Type(name: String) {
+  case class Type(name: String, toSort : Sort) {
     override def toString = name
+    def newConstant(name : String) : ConstantTerm = toSort newConstant name
   }
   
   // Types
-  private object IType extends Type("$i") // Individuals (of the Herbrand Universe)
+
+  // Individuals (of the Herbrand Universe)
   // cannot call the object iType because if so Scala pattern matching assumes i
   // Type is a *variable*
-  private object OType extends Type("$o") // Truth values
-  private object TType extends Type("$tType") // The type of types (kinds)
-  private object IntType extends Type("$int")
-  private object RatType extends Type("$rat")
-  private object RealType extends Type("$real")
+  private object IType
+          extends Type("$i", new Sort.InfUninterpreted("$i"))
+
+  // Truth values
+  private object OType
+          extends Type("$o", Sort.MultipleValueBool)
   
-  private val preDeclaredTypes = Set(TType, OType, IType, IntType, RatType, RealType)
-  private val arithTypes = Set(IntType, RatType, RealType)
-  private val interpretedTypes = arithTypes + OType
+  // The type of types (kinds)
+  private object TType
+          extends Type("$tType", new Sort.InfUninterpreted("$tType"))
+  private object IntType
+          extends Type("$int", Sort.Integer)
+  private object RatType
+          extends Type("$rat", new Sort.InfUninterpreted("$rat"))
+  private object RealType
+          extends Type("$real", new Sort.InfUninterpreted("$real"))
+  
+  private val preDeclaredTypes =
+    Set(TType, OType, IType, IntType, RatType, RealType)
+  private val arithTypes =
+    Set(IntType, RatType, RealType)
+  private val interpretedTypes =
+    arithTypes + OType
 
   // Notice: no space between - and digits
   private val isIntegerConstRegEx = """[+-]?[0-9]+""".r 
   
-  // Predefined types: $i: individuals, $o: truth values
-  // var types = Set(IType, OType, IntType, raTType, RealType)
-
   /**
    * Rank: The signature of individual function (and predicate) symbols.
    */
@@ -156,12 +171,14 @@ object TPTPTParser {
 class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                      TPTPTParser.Type,
                                      TPTPTParser.Rank,
-                                     TPTPTParser.Rank],
+                                     TPTPTParser.Rank,
+                                     TPTPTParser.Type],
                   settings : ParserSettings)
       extends Parser2InputAbsy[TPTPTParser.Type,
                                TPTPTParser.Type,
                                TPTPTParser.Rank,
                                TPTPTParser.Rank,
+                               TPTPTParser.Type,
                                Unit](_env, settings)
       with JavaTokenParsers with PackratParsers {
 
@@ -278,16 +295,18 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
         ////////////////////////////////////////////////////////////////////////
                   
+/*
         val fixedDeclaredTypes = declaredTypes.toMap
 
         def typeGuard(a : ITerm, t : Type) = fixedDeclaredTypes(t) match {
           case None => i(true)
           case Some(pred) => pred(a)
         }
+*/
 
         def constructFunctionType(rank : Rank) =
           chosenFiniteConstraintMethod match {
-            case Param.FiniteDomainConstraints.TypeGuards =>
+/*            case Param.FiniteDomainConstraints.TypeGuards =>
               new Signature.FunctionType {
                 def argumentTypeGuard(args : Seq[ITerm]) : IFormula = {
                   //-BEGIN-ASSERTION-///////////////////////////////////////////
@@ -298,7 +317,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                 }
                 def resultTypeGuard  (res : ITerm) : IFormula =
                   typeGuard(res, rank.resType)
-              }
+              } */
             case _ =>
               Signature.TopFunctionType
           }
@@ -311,13 +330,15 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
               (for (Environment.Constant(_, Environment.NullaryFunction, t)
                      <- env.symbols) yield t).toSet
 
-            connect(for ((t, Some(domPred)) <- declaredTypes.iterator;
+            connect(for (t <- env.sortsIterator;
+                         if t.toSort.isInstanceOf[Sort.DomPredUninterpreted];
                          if (!(inhabitedTypes contains t)))
                     yield {
                       // add a constant to make sure that the type is inhabited
                       val constName = "constant_in_" + t.name
                       declareSym(constName, Rank0(t))
-                      domPred(checkUnintFunTerm(constName, List(), List())._1)
+                      val constTerm = checkUnintFunTerm(constName, List(), List())._1
+                      t.toSort membershipConstraint constTerm
                     }, IBinJunctor.And)
           }
           case Param.FiniteDomainConstraints.VocabularyEquations =>
@@ -381,11 +402,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                 Param.FiniteDomainConstraints.TypeGuards) {
 
             (for (Environment.Function(f, t) <- env.symbols;
-                  p <- declaredTypes(t.resType).iterator;
+                  if f.isInstanceOf[MonoSortedIFunction];
+                  monoF = f.asInstanceOf[MonoSortedIFunction];
+                  sort = monoF.resSort;
+                  if sort.isInstanceOf[Sort.DomPredUninterpreted];
+                  p = sort.asInstanceOf[Sort.DomPredUninterpreted].domPredicate;
                   if (finiteDomainSorts contains p);
                   partial = true;
                   if (partial != f.partial)) yield {
-               val newF = new IFunction(f.name, f.arity, partial, f.relational)
+               val newF = MonoSortedIFunction(f.name, monoF.argSorts, monoF.resSort,
+                                              partial, f.relational)
                f -> newF
              }).toMap
           } else {
@@ -444,27 +470,22 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   var containsEquations = false
 
   //////////////////////////////////////////////////////////////////////////////
-  
-  // Types with the corresponding domain predicates
-  private val declaredTypes = new MHashMap[Type, Option[Predicate]]
 
-  {
-    declaredTypes += (TType -> None)
-    declaredTypes += (OType -> None)
-    declaredTypes += (IntType -> None)
-    declaredTypes += (RatType -> None)
-    declaredTypes += (RealType -> None)
-    declareType(IType)
-  }
+  for (t <- preDeclaredTypes)
+    env.addSort(t.name, t)
 
-  private def declareType(t : Type) = tptpType match {
+  private def declareType(typeName : String) = tptpType match {
     case TPTPType.TFF => {
-      val domPred = new Predicate("in_" + t.name, 1)
-      declaredTypes += (t -> Some(domPred))
-      env.addDomainPredicate(domPred, Rank1((t), OType))
+      val domPred = new Predicate("in_" + typeName, 1)
+      val t = Type(typeName,
+                   new Sort.DomPredUninterpreted(typeName, domPred))
+      env.addSort(typeName, t)
+//      declaredTypes += (t -> Some(domPred))
+      env.addDomainPredicate(domPred, Rank1((t, OType)))
     }
     case _ =>
-      declaredTypes += (t -> None)
+      env.addSort(typeName,
+                  Type(typeName, new Sort.InfUninterpreted(typeName)))
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -710,8 +731,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
     implicit val _ = t
     
-    val verySmall = new ConstantTerm(prefix + "very_small")
-    val veryLarge = new ConstantTerm(prefix + "very_large")
+    val verySmall = t newConstant (prefix + "very_small")
+    val veryLarge = t newConstant (prefix + "very_large")
     env.addConstant(verySmall,  Environment.NullaryFunction, t)
     env.addConstant(veryLarge,  Environment.NullaryFunction, t)
 
@@ -914,8 +935,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
   private val ratLitValue = new MHashMap[ConstantTerm, IdealRat]
   
   private def constsFor(r : IdealRat) = ratLiterals.getOrElseUpdate(r, {
-    val ratConst = new ConstantTerm ("rat_" + r)
-    val realConst = new ConstantTerm ("real_" + r)
+    val ratConst = RatType newConstant ("rat_" + r)
+    val realConst = RealType newConstant ("real_" + r)
     env.addConstant(ratConst,  Environment.NullaryFunction, RatType)
     env.addConstant(realConst, Environment.NullaryFunction, RealType)
     ratLitValue += (ratConst -> r)
@@ -939,7 +960,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
    * Comments are considered as whitespace and ignored right away
    */
   protected override val whiteSpace = """(\s|%.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
-  
+
   /**
    * The grammar rules
    */
@@ -950,10 +971,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     // TPTP_input requires a list, because include abobe returns a list
     ( fof_annotated_logic_formula ^^ { List(_) } ) |
     ( cnf_annotated_logic_formula ^^ { List(_) } ) |
-    ( tff_annotated_type_formula ^^ {
-        case IBoolLit(false) => List()
-        case x =>              List((false, x))
-      } ) |
+    ( tff_annotated_type_formula ^^ { _ => List() } ) |
     ( tff_annotated_logic_formula ^^ { List(_) } ) 
   // cnf_annotated
 
@@ -1043,7 +1061,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       ITrigger(List(), f)
     else
       f
-      
+
   private lazy val tff_annotated_logic_formula =
     ("tff" ^^ { _ => tptpType = TPTPType.TFF }) ~ "(" ~>
     (atomic_word | wholeNumber) ~ "," ~ 
@@ -1073,21 +1091,15 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
 
   // tff_typed_atom can appear only at toplevel
-  private lazy val tff_typed_atom:PackratParser[() => IFormula] =
+  private lazy val tff_typed_atom:PackratParser[() => Unit] =
      ( ( tff_untyped_atom ~ ":" ~ tff_top_level_type ) ^^ { 
        // could declare a new type or a symbol of an existing type
        case typeName ~ ":" ~ Rank((Nil, TType)) => { () =>
-         declareType(Type(typeName))
-         i(false)
+         declareType(typeName)
+         ()
        }
-       case symbolName ~ ":" ~ (rank@Rank((Nil, t)))
-         if (declaredTypes(t).isDefined) => { () =>
-           declareSym(symbolName, rank)
-           !(declaredTypes(t).get)(checkUnintFunTerm(symbolName, List(), List())._1)
-         }
        case symbolName ~ ":" ~ rank => { () =>
          declareSym(symbolName, rank)
-         i(false)
        }
      } ) |
      ( "(" ~> tff_typed_atom <~ ")" )
@@ -1108,34 +1120,39 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                 !( // (rank.argsTypes exists interpretedTypes) &&
                     !(interpretedTypes contains rank.resType)   ))
 
-             env.addFunction(new IFunction(symbolName, rank.argsTypes.size,
+             env.addFunction(MonoSortedIFunction(
+                                           symbolName,
+                                           rank.argsTypes map (_.toSort),
+                                           rank.resType.toSort,
                                            partial, !functionalityAxiom),
                              rank)
            } else {
              // use a predicate
-             env.addPredicate(new Predicate(symbolName, rank.argsTypes.length),
+             env.addPredicate(MonoSortedPredicate(
+                                   symbolName, rank.argsTypes map (_.toSort)),
                               rank)
            }
          } else if (rank.resType != OType)
            // use a constant
-           env.addConstant(new ConstantTerm(symbolName), Environment.NullaryFunction,
+           env.addConstant(rank.resType newConstant symbolName,
+                           Environment.NullaryFunction,
                            rank.resType)
          else
            // use a nullary predicate (propositional variable)
            env.addPredicate(new Predicate(symbolName, 0), rank)
   }
      
-  private lazy val tff_untyped_atom =    atomic_word
+  private lazy val tff_untyped_atom = atomic_word
 
   // This results in a Rank in our terminology
   private lazy val tff_top_level_type:PackratParser[Rank] =
     tff_mapping_type |
-    ( tff_atomic_type  ^^ { (typ:Type) => Rank0(TypeExistsChecked(typ)) } )
+    ( tff_atomic_type  ^^ { (typ:Type) => Rank0(typ) } )
 
   private lazy val tff_mapping_type:PackratParser[Rank] =
     ( ( tff_unitary_type ~ ">" ~ tff_atomic_type ) ^^
         { case argsTypes ~ ">" ~ resType =>
-          Rank((argsTypes map (TypeExistsChecked(_))) -> TypeExistsChecked(resType)) } ) | (
+          Rank(argsTypes -> resType) } ) | (
             "(" ~> tff_mapping_type <~ ")" )
     
   private lazy val tff_unitary_type =
@@ -1237,33 +1254,26 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     (((forallSign ^^ { _ => Quantifier.ALL.asInstanceOf[Quantifier] } ) |
 	    ("?"        ^^ { _ => Quantifier.EX.asInstanceOf[Quantifier] } )) ~ 
 	     "[" ~ tff_varlist ~ "]" ^^ { 
-		        case q ~ "[" ~ vl ~ "]" => { 
-				  for (v <- vl)
-				    env.pushVar(v.name, v.t)
-				  // Return the partially instantiated Quantifier-Formula
-				  val quantify = (f:IFormula) => {
-				    val withGuards = (f /: vl.iterator.zipWithIndex) {
-				      case (f, (TypedVar(_, t), ind)) => (q, declaredTypes(t)) match {
-				        case (Quantifier.ALL, Some(domPred)) =>
-				          domPred(v(vl.size - ind - 1)) ==> f
-                        case (Quantifier.EX, Some(domPred)) =>
-                          domPred(v(vl.size - ind - 1)) & f
-                        case (_, None) =>
-                          f
-				      }
-				    }
-				    (possiblyEmptyTrigger(withGuards) /: vl) { case (f, _) =>  IQuantified(q, f) }
+                case q ~ "[" ~ vl ~ "]" => { 
+                  for (v <- vl)
+                    env.pushVar(v.name, v.t)
+                  // Return the partially instantiated Quantifier-Formula
+                  val quantify = (f:IFormula) => q match {
+                    case Quantifier.ALL =>
+                      IExpression.all(vl.reverse map (_.t.toSort), f)
+                    case Quantifier.EX  =>
+                      IExpression.ex(vl.reverse map (_.t.toSort), f)
                   }
-				  (quantify, vl.size)
-				}
-		     }) ~ ":" ~ tff_unitary_formula ^^ {
-		        // Put together the two parts, quantification and formula
-		        case (quantTemplate, varNum) ~ ":" ~ f => {
-                  for (_ <- 0 until varNum)
+                  (quantify, vl.size)
+                }
+             }) ~ ":" ~ tff_unitary_formula ^^ {
+               // Put together the two parts, quantification and formula
+               case (quantTemplate, varNum) ~ ":" ~ f => {
+                 for (_ <- 0 until varNum)
                     env.popVar
-		          quantTemplate(f)
-		        }
-		      }
+                 quantTemplate(possiblyEmptyTrigger(f))
+               }
+             }
 
 
   // Variable list
@@ -1272,7 +1282,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
   private lazy val tff_var: PackratParser[TypedVar] = 
     ( variableStr ~ ":" ~ tff_atomic_type ^^ { 
-        case x ~ ":" ~ typ => TypedVar(x, TypeExistsChecked(typ)) 
+        case x ~ ":" ~ typ => TypedVar(x, typ)
       } ) |
     ( variableStr <~ guard(not(":")) ^^ { 
         // default type of variables (in quantifications) is IType
@@ -1280,9 +1290,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       } )
 
   private lazy val tff_atomic_type = 
-    // user-defined type
-    defined_type | ( atomic_word ^^ { Type(_) } ) 
-  // predefined type
+    defined_type | ( atomic_word ^^ { env lookupSort _ } )
 
   private lazy val defined_type: PackratParser[Type] = 
     (("$oType" | "$o") ^^ { _ => OType }) |
@@ -1336,7 +1344,12 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                 for (v <- vl)
                   env.pushVar(v.name, v.t)
                 // Return the partially instantiated Quantifier-Formula
-                val quantify = (f:IFormula) => (f /: vl) { case (f, _) =>  IQuantified(q, f) }
+                val quantify = (f:IFormula) => q match {
+                  case Quantifier.ALL =>
+                    IExpression.all(vl.reverse map (_.t.toSort), f)
+                  case Quantifier.EX  =>
+                    IExpression.ex(vl.reverse map (_.t.toSort), f)
+                }
                 (quantify, vl.size)
               } 
            }) ~ ":" ~ fof_unitary_formula ^^ {
@@ -1609,7 +1622,8 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       regex(("\"([\\040-\\041\\043-\\0133\\0135-\\0176]|\\\\\"|\\\\\\\\)*\"").r) ^^ {
         case s =>
           (i(occurringStrings.getOrElseUpdate(s, {
-             val c = new ConstantTerm ("stringConstant" + occurringStrings.size)
+             val c =
+               IType newConstant ("stringConstant" + occurringStrings.size)
              env.addConstant(c, Environment.NullaryFunction, IType)
              c
            })), IType)
@@ -1926,12 +1940,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 	FunTerm(fun, args)
     else
 	throw new SyntaxError("Error: ill-sorted term: " + FunTerm(fun, args)) */
-
-  private def TypeExistsChecked(typ: Type) = 
-    if (declaredTypes contains typ)
-      typ
-    else
-      throw new SyntaxError("Error: type has not been declared: " + typ)
 }
 
 

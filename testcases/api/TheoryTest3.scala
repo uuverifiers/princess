@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -41,17 +41,14 @@ object ATheory extends Theory {
   val f = new IFunction("f", 2, true, false)
   val functions = List(f)
 
-  val (predicates, axioms, totalityAxioms, _f) = {
-    val (axioms, _, functionTranslation) =
-      Theory.toInternal(all(x => all(y => all(z =>
-                          trig(f(f(x, y), z) === f(x, f(y, z)),
-                               f(x, f(y, z)))))),
-                        false,
-                        TermOrder.EMPTY)
-    (List(functionTranslation(f)),
-     axioms, Conjunction.TRUE,
-     functionTranslation(f))
-  }
+  val (predicates, axioms, _, functionTranslation) =
+    Theory.genAxioms(theoryFunctions = functions,
+                     theoryAxioms =
+                       all(x => all(y => all(z =>
+                           trig(f(f(x, y), z) === f(x, f(y, z)),
+                              f(x, f(y, z)))))))
+  val Seq(_f) = predicates
+  val totalityAxioms = Conjunction.TRUE
 
   val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
   val triggerRelevantFunctions : Set[IFunction] = Set()

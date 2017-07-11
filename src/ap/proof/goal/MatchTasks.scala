@@ -67,9 +67,11 @@ private object MatchFunctions {
       if (collector.isLogging) {
         // if we are producing proofs, we mostly check for subsumed clauses
         // that can be removed
+        val settings = goal.settings
 
         def clauseReducer(c : Conjunction) =
-          if (goal.reduceWithFacts.tentativeReduce(c).isFalse)
+          if (!FormulaTask.isFunctionalityAxiom(c, settings) &&
+              goal.reduceWithFacts.tentativeReduce(c).isFalse)
             Conjunction.FALSE
           else
             c

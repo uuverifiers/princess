@@ -16,7 +16,7 @@ Found proof (size 303), simplifying (344), interpolating ...
 VALID
 
 Interpolants:
-!(D = O) & !(N = O) & !(U = O)
+D != O & N != O & U != O
 
 Loading eqProof2.pri ...
 Preprocessing ...
@@ -46,7 +46,7 @@ Found proof (size 5), simplifying (5), interpolating ...
 VALID
 
 Interpolants:
-!(y = 2*d)
+y != 2*d
 
 Loading eqProof5.pri ...
 Preprocessing ...
@@ -56,7 +56,7 @@ Found proof (size 5), simplifying (5), interpolating ...
 VALID
 
 Interpolants:
-!(y = 2*d)
+y != 2*d
 
 Loading eqProof6.pri ...
 Preprocessing ...
@@ -66,7 +66,7 @@ Found proof (size 6), simplifying (6), interpolating ...
 VALID
 
 Interpolants:
-!(c + b - a = 0)
+c + b - a != 0
 
 Loading eqProof.pri ...
 Preprocessing ...
@@ -208,7 +208,7 @@ Found proof (size 17), simplifying (15), interpolating ...
 VALID
 
 Interpolants:
-!p | q
+p -> q
 
 Loading prop1.pri ...
 Preprocessing ...
@@ -248,7 +248,7 @@ Found proof (size 7), simplifying (7), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; (!(2*v0 = y) | p(v0))
+\forall int v0; (2*v0 != y | p(v0))
 
 Loading prop5.pri ...
 Preprocessing ...
@@ -309,8 +309,8 @@ Found proof (size 66), simplifying (108), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; \forall int v1; (-1*h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
-\exists int v0; \exists int v1; (h'(f(v1)) + -1*h'(f(v0)) >= 1 & n >= v0 & v0 >= v1 & v1 >= 0)
+\forall int v0, v1; (-1*h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
+\exists int v0, v1; (h'(f(v1)) + -1*h'(f(v0)) >= 1 & n >= v0 & v0 >= v1 & v1 >= 0)
 
 Loading quan.pri ...
 Preprocessing ...
@@ -325,7 +325,7 @@ c >= 0
 Loading ring_2exp10_3vars_2ite_unsat.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 2563), simplifying (2799), interpolating ...
+Found proof (size 2600), simplifying (2808), interpolating ...
 
 VALID
 
@@ -342,13 +342,13 @@ VALID
 Interpolants:
 true
 b1'1 = 0
-!(prob_index'2 = 1) | select(prres0'1, 1) = 0
-!(prob_index'2 = 1) | select(prres0'1, 1) = 0
-!(prob_index'2 = 1) | select(prres0'1, 1) = 0
-!(prob_index'2 = 1)
-!(prob_index'2 = 1)
-!(prob_index'2 = 1)
-!(prob_index'2 = 1)
+prob_index'2 != 1 | select(prres0'1, 1) = 0
+prob_index'2 != 1 | select(prres0'1, 1) = 0
+prob_index'2 != 1 | select(prres0'1, 1) = 0
+prob_index'2 != 1
+prob_index'2 != 1
+prob_index'2 != 1
+prob_index'2 != 1
 
 Loading constOrderBug.pri ...
 Preprocessing ...
@@ -367,7 +367,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-id1 = 0 & id0 = 2 & write1' = 33 & write0' = 16 & write1 = 33 & write0 = 32 & read1' = 33 & read0' = 16 & read1 = 33 & read0 = 32 & A4 = 0 & A3 = 1 & A2 = 2 & A1 = 3 & A0 = 4 & j2' = 0 & j1' = 33 & j0' = 16 & j2 = 2 & j1 = 1 & j0 = 0 & i2' = 0 & i1' = 0 & i0' = 0 & i2 = 32 & i1 = 32 & i0 = 32 & select(4, 33) = -1 & select(4, 32) = 0 & select(4, 16) = 1 & select(3, 33) = -1 & select(3, 16) = 1 & select(2, 33) = 0 & select(2, 16) = 1 & select(1, 33) = 0 & store(4, 32, 1) = 3 & store(3, 33, 0) = 2 & store(2, 16, 2) = 1 & store(1, 33, 1) = 0 & T(32, 32, 1, 2, 3, 2, 33, 33) & T(32, 32, 0, 1, 4, 3, 32, 32) & T(0, 0, 33, 0, 1, 0, 33, 33) & T(0, 0, 16, 33, 2, 1, 16, 16) & !(select(4, 33) = 0) & !(select(3, 33) = 1) & !(select(3, 33) = 0) & !(select(3, 32) = 1) & !(select(2, 33) = 1) & !(store(4, 32, 1) = 4) & !(store(3, 33, 0) = 4) & !(store(3, 33, 0) = 3) & !(store(2, 33, 2) = 1) & !(store(2, 16, 2) = 4) & !(store(2, 16, 2) = 3) & !(store(2, 16, 2) = 2) & !(store(1, 33, 1) = 4) & !(store(1, 33, 1) = 3) & !(store(1, 33, 1) = 2) & !(store(1, 33, 1) = 1)
+id1 = 1 & id0 = 0 & write1' = 1 & write0' = 16 & write1 = 1 & write0 = 0 & read1' = 1 & read0' = 16 & read1 = 1 & read0 = 0 & A4 = 0 & A3 = 1 & A2 = 2 & A1 = 3 & A0 = 4 & j2' = 1 & j1' = 0 & j0' = 15 & j2 = 2 & j1 = 1 & j0 = 0 & i2' = 1 & i1' = 1 & i0' = 1 & i2 = 0 & i1 = 0 & i0 = 0 & select(4, 16) = 0 & select(4, 1) = -1 & select(4, 0) = 0 & select(3, 16) = 0 & select(3, 1) = -1 & select(2, 16) = 0 & select(2, 1) = 0 & select(1, 1) = 0 & store(4, 0, 1) = 3 & store(3, 1, 0) = 2 & store(2, 16, 1) = 1 & store(1, 1, 1) = 0 & T(1, 1, 15, 0, 2, 1, 16, 16) & T(1, 1, 0, 1, 1, 0, 1, 1) & T(0, 0, 1, 2, 3, 2, 1, 1) & T(0, 0, 0, 1, 4, 3, 0, 0) & select(4, 1) != 0 & select(3, 1) != 0 & store(4, 0, 1) != 4 & store(3, 1, 0) != 4 & store(3, 1, 0) != 3 & store(2, 16, 1) != 4 & store(2, 16, 1) != 3 & store(2, 16, 1) != 2 & store(1, 1, 1) != 4 & store(1, 1, 1) != 3 & store(1, 1, 1) != 2 & store(1, 1, 1) != 1
 
 Loading wrongInterpolant3.pri ...
 Preprocessing ...
@@ -386,7 +386,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-sym9 = 0 & sym8 = 0 & sym7 = 0 & sym6 = 0 & sym5 = 1 & sym4 = 2 & sym3 = 1 & sym2 = 1 & sym1 = 1 & sym0 = 268435456 & select(0, 1) = 12 & store(1, 1, 12) = 0 & store(0, 2, 3) = 0 & inUnsigned(32, 2) & inUnsigned(32, 1) & inUnsigned(32, 0) & inSigned(32, 268435456) & inArray(1) & inArray(0) & !(select(1, 1) = 12)
+sym9 = 0 & sym8 = 0 & sym7 = 0 & sym6 = 0 & sym5 = 1 & sym4 = 2 & sym3 = 1 & sym2 = 1 & sym1 = 1 & sym0 = 268435456 & select(0, 1) = 12 & store(1, 1, 12) = 0 & store(0, 2, 3) = 0 & inUnsigned(32, 2) & inUnsigned(32, 1) & inUnsigned(32, 0) & inSigned(32, 268435456) & inArray(1) & inArray(0) & select(1, 1) != 12
 
 Loading splitEq.pri ...
 Preprocessing ...
@@ -421,7 +421,7 @@ true
 Loading missingOmegaSupport.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 1127), simplifying (914), interpolating ...
+Found proof (size 946), simplifying (759), interpolating ...
 
 VALID
 
@@ -476,7 +476,7 @@ Found proof (size 11), simplifying (14), interpolating ...
 VALID
 
 Interpolants:
-\forall int v0; !(2*v0 + a = -1)
+\forall int v0; 2*v0 + a != -1
 
 Loading nonlin.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication
@@ -489,7 +489,37 @@ VALID
 
 Interpolants:
 x = 1
-!(y = 3)
+y != 3
+
+Loading adt-interpolation.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 7), simplifying (11), interpolating ...
+
+VALID
+
+Interpolants:
+!is_nil(l)
+
+Loading adt-interpolation2.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 6), simplifying (10), interpolating ...
+
+VALID
+
+Interpolants:
+!is_nil(l)
+
+Loading bool-interpolation.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 18), simplifying (30), interpolating ...
+
+VALID
+
+Interpolants:
+!f(true) & !f(false)
 
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -499,11 +529,11 @@ Constructing countermodel ...
 Found proof (size 20), simplifying (30), interpolating ...
 
 unsat
-
-Interpolants:
-(or (= (select a_0 ULTIMATE.start_i_-1 ) 23 ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) (- 1) ) ) (= (select a_0 upper_-1 ) 23 ) ) ) ) 
-(or (= (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) (= (select a_0 ULTIMATE.start_i_-1 ) 23 ) ) 
-(= (select a_0 (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) 
+(
+  (or (= (select a_0 ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (select a_0 upper_-1) 23))))
+  (or (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23) (= (select a_0 ULTIMATE.start_i_-1) 23))
+  (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23)
+)
 
 Loading function-bug2.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
@@ -513,35 +543,33 @@ Constructing countermodel ...
 Found proof (size 19), simplifying (29), interpolating ...
 
 unsat
-
-Interpolants:
-(or (= (f ULTIMATE.start_i_-1 ) 23 ) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1 ) upper_-1 ) ) ) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1 ) ) (- 1) ) ) (= (f upper_-1 ) 23 ) ) ) ) 
-(or (= (f (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) (= (f ULTIMATE.start_i_-1 ) 23 ) ) 
-(= (f (+ 1 ULTIMATE.start_i_-1 ) ) 23 ) 
+(
+  (or (= (f ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (f upper_-1) 23))))
+  (or (= (f (+ 1 ULTIMATE.start_i_-1)) 23) (= (f ULTIMATE.start_i_-1) 23))
+  (= (f (+ 1 ULTIMATE.start_i_-1)) 23)
+)
 
 Loading pred-unify-bug.smt2 ...
 Warning: treating sort Real as Int
-Warning: accepting command echo, which is not SMT-LIB 2
-starting trace check
+"starting trace check"
 unsat
-interpolants-3
-((= (select |#length_13| main_~p~4.base_18 ) 8 ) )
+"interpolants-3"
+((= (select |#length_13| main_~p~4.base_18) 8))
 Loading rule60_list2.c_false-unreach-call_1.cil.c.smt2 ...
 Warning: treating sort Real as Int
 unsat
-((forall ((var0 Int)) (not (= (+ (* 4294967296 var0 ) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42 ) ) ) 0 ) ) ) )
+((forall ((var0 Int)) (not (= (+ (* 4294967296 var0) (+ list_add_~__cil_tmp5~16_44 (* (- 1) list_add_~__cil_tmp4~16_42))) 0))))
 Loading function-bug3.smt2 ...
-Warning: accepting command echo, which is not SMT-LIB 2
-Start declaration of constants
-Finished declaration of constants
-Start declaration of functions
+"Start declaration of constants"
+"Finished declaration of constants"
+"Start declaration of functions"
 Warning: treating sort Real as Int
-Finished declaration of functions
-Start declaration of global variables
-Finished declaration global variables
-Start declaration of local variables
-Finished declaration local variables
-starting trace check
+"Finished declaration of functions"
+"Start declaration of global variables"
+"Finished declaration global variables"
+"Start declaration of local variables"
+"Finished declaration local variables"
+"starting trace check"
 unsat
 Loading simplifier.smt2 ...
 Warning: treating sort Real as Int
@@ -549,55 +577,91 @@ unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
 (true
 true
-(= main_~a~4.offset_2 0 ) 
-(and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
-(and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
-(and (and (= main_~p~4.offset_3 0 ) (= main_~p~4.base_3 main_~a~4.base_2 ) ) (= main_~a~4.offset_2 0 ) ) 
-(and (= main_~p~4.base_3 main_~a~4.base_2 ) (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) (and (and (= main_~p~4.offset_3 0 ) (= main_~a~4.offset_2 0 ) ) (not (= (select (select |#memory_int_6| main_~a~4.base_2 ) 0 ) 1 ) ) ) ) ) 
-(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) main_~p~4.offset_7 ) 1 ) ) ) 
-(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) (not (= (select (select |#memory_int_7| main_~p~4.base_7 ) main_~p~4.offset_7 ) 1 ) ) ) 
-(or (or (not (= |main_#t~mem15_9| 1 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) 
-(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4 ) ) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0 ) ) ) )
+(= main_~a~4.offset_2 0)
+(and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
+(and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
+(and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
+(and (= main_~p~4.base_3 main_~a~4.base_2) (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)) (and (and (= main_~p~4.offset_3 0) (= main_~a~4.offset_2 0)) (not (= (select (select |#memory_int_6| main_~a~4.base_2) 0) 1)))))
+(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
+(or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
+(or (or (not (= |main_#t~mem15_9| 1)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4))) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)))
+(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)))
+(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))))
 Loading smtTyping.smt2 ...
 Warning: treating sort Real as Int
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
-(and (not (= |cstpncpy_~#dst.base_0| 0 ) ) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (= (select |old(#valid)_-1| var0 ) (select |#valid_0| var0 ) ) ) ) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0| ) (or (not (select |#valid_0| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) ) ) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0| ) ) ) ) 
-(and (forall ((var0 Int)) (or (not (select |#valid_2| var0 ) ) (select |old(#valid)_-1| var0 ) ) ) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0 ) ) (and (not (= var0 0 ) ) (forall ((var1 Int)) (or (= var1 var0 ) (= (select |old(#valid)_-1| var1 ) (select |#valid_2| var1 ) ) ) ) ) ) ) ) )
+((and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
+(and (not (= |cstpncpy_~#dst.base_0| 0)) (and (and (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (= (select |old(#valid)_-1| var0) (select |#valid_0| var0)))) (forall ((var0 Int)) (or (= var0 |cstpncpy_~#dst.base_0|) (or (not (select |#valid_0| var0)) (select |old(#valid)_-1| var0))))) (not (select |old(#valid)_-1| |cstpncpy_~#dst.base_0|))))
+(and (forall ((var0 Int)) (or (not (select |#valid_2| var0)) (select |old(#valid)_-1| var0))) (exists ((var0 Int)) (and (not (select |old(#valid)_-1| var0)) (and (not (= var0 0)) (forall ((var1 Int)) (or (= var1 var0) (= (select |old(#valid)_-1| var1) (select |#valid_2| var1)))))))))
 Loading matchCheckBug.smt2 ...
 Warning: treating sort Real as Int
 unsat
 Loading treeInterpolation1.smt2 ...
-Warning: accepting command declare-const, which is not SMT-LIB 2
 unsat
-((<= 0 (f x ) ) 
-(<= 0 (+ (- 1) (* (- 1) (f y ) ) ) ) )
+((<= 0 (f x))
+(<= 0 (+ (- 1) (* (- 1) (f y)))))
 Loading treeInterpolation2.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (= |#valid_4| |old(#valid)_4| ) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0 ) ) (or (= var0 0 ) (or (select |#valid_4| var0 ) (not (select |old(#valid)_4| var0 ) ) ) ) ) ) ) 
+((and (= |#valid_4| |old(#valid)_4|) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0)) (or (= var0 0) (select |#valid_4| var0)))))
 false)
+Loading enum-interpolation.smt2 ...
+unsat
+((= x blue))
 Loading prp-2-17.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 16727), simplifying (5666), interpolating ...
+Found proof (size 344397), simplifying (6197), interpolating ...
 
 VALID
 
 Interpolants:
-(v_princess_0 = 402 & !(i844 = 1)) | (v_princess_0 = 30 & !(i844 = 1)) | (!(v_princess_0 = 22) & !(i844 = 1))
+(v_princess_0 = 402 & i844 != 1) | (v_princess_0 = 19 & i844 != 1) | (v_princess_0 != 22 & i844 != 1) | (i844 != 1 & (v_princess_0 = 30 | v_princess_0 = 19))
 
 Loading prp-3-18.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 35693), simplifying (5200), interpolating ...
+Found proof (size 25407), simplifying (5507), interpolating ...
 
 VALID
 
 Interpolants:
-!(v_princess_0 = 22) & !(i844 = 1)
+v_princess_0 != 22 & i844 != 1
+
+Loading adt-interpolation-unfold.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 66), simplifying (131), interpolating ...
+
+VALID
+
+Interpolants:
+\size(y) != 3
+succ(succ(one)) = x
+y = x
+
+Loading adt-interpolation-unfold2.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 90), simplifying (128), interpolating ...
+
+VALID
+
+Interpolants:
+nil = u1
+\size(u1) != 1
+
+Loading adt-interpolation-unfold3.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 2984), simplifying (4675), interpolating ...
+
+VALID
+
+Interpolants:
+u3 = u1 | \size(u3) != 3
+(u3 = 2 & 1 >= u2 & (u2 != 1 | Union_size(2) != 3 | Union_size(0) != 3) & (u2 != 0 | Union_size(2) != 3 | Union_size(1) != 3)) | (u3 = 1 & u2 = 2 & (Union_size(1) != 3 | Union_size(0) != 3)) | (u3 = 1 & u2 = 0 & (Union_size(2) != 3 | Union_size(1) != 3)) | (u3 = 0 & (u2 != 2 | Union_size(1) != 3 | Union_size(0) != 3) & (u2 >= 2 | (u2 = 1 & (Union_size(2) != 3 | Union_size(0) != 3))))
 
 Loading surprising25.pri ...
 Preprocessing ...
@@ -622,7 +686,7 @@ x4 - 19670160000*x1 >= 7999 | x4 - 16039976000*x1 >= 7999 | x4 - 9835080000*x1 >
 Loading ring_2exp10_3vars_0ite_unsat.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 1103)
+Found proof (size 1106)
 
 
 VALID

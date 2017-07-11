@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *                    Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -62,13 +62,13 @@ object InterpolationContext {
   }
  
   private def toCertFormulaSet(fors : Iterable[Conjunction]) =
-    Set() ++ (for (f <- fors.iterator) yield CertFormula(f.negate))
+    (for (f <- fors.iterator) yield CertFormula(f.negate)).toSet
 
   private def getConstants(fors : Iterable[CertFormula]) =
     for(f <- fors.iterator; c <- f.constants.iterator) yield c
 
   private def getPredicates(fors : Iterable[CertFormula]) =
-    Set() ++ (for(f <- fors.iterator; p <- f.predicates.iterator) yield p)
+    (for (f <- fors.iterator; p <- f.predicates.iterator) yield p).toSet
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -314,6 +314,16 @@ class InterpolationContext private (val leftFormulae : Set[CertFormula],
                              commonFormulae,
                              leftConstants,
                              rightConstants ++ addDoubleConstants(getConstants(rights)),
+                             partialInterpolants,
+                             rewrittenPredAtoms,
+                             parameters, doubleConstants,
+                             order)
+  
+  def addCommon(common : CertFormula) : InterpolationContext =
+    new InterpolationContext(leftFormulae, rightFormulae,
+                             commonFormulae + common,
+                             leftConstants,
+                             rightConstants,
                              partialInterpolants,
                              rewrittenPredAtoms,
                              parameters, doubleConstants,

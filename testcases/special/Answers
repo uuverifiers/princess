@@ -38,9 +38,22 @@ Preprocessing ...
 Constructing countermodel ...
 
 unknown
-
-Possible model:
-(and (and (and (= time 1 ) (= q 0 ) ) (= p 1 ) ) (and (and (and (and (and (and (and (and (and (and (and (= (s3 1 ) 1 ) (= (ro 1 0 ) 1 ) ) (= (rd 1 0 ) 1 ) ) (= (rd 0 1 ) 1 ) ) (= (s4 1 ) 0 ) ) (= (s4 0 ) 0 ) ) (= (sn 1 ) (- 1) ) ) (= (sn 0 ) 0 ) ) (= (s6 1 ) 0 ) ) (= (rcs2 1 ) 0 ) ) (= (x 1 0 ) 1 ) ) (= (x 0 1 ) 1 ) ) ) 
+(model
+  (define-fun time () Int 2)
+  (define-fun q () Int 0)
+  (define-fun p () Int 1)
+  (define-fun s2 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+  (define-fun s3 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+  (define-fun ro ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 0)) false true))
+  (define-fun rd ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 0) (= x!1 1)) false true))
+  (define-fun s4 ((x!0 Int)) Bool (ite (= x!0 1) true true))
+  (define-fun sn ((x!0 Int)) Int (ite (= x!0 0) 0 (ite (= x!0 1) 1 0)))
+  (define-fun s6 ((x!0 Int)) Bool (ite (= x!0 0) true (ite (= x!0 1) false true)))
+  (define-fun rcs2 ((x!0 Int)) Bool (ite (= x!0 0) true (ite (= x!0 1) true true)))
+  (define-fun x ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 0) (= x!1 1)) false (ite (and (= x!0 1) (= x!1 0)) false true)))
+  (define-fun s0 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+  (define-fun s5 ((x!0 Int)) Bool (ite (= x!0 1) false true))
+)
 
 Loading proofBug.pri ...
 Preprocessing ...
@@ -49,7 +62,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-empty = 6 & B = 7 & A = 8 & complement(8) = 2 & complement(7) = 5 & complement(5) = 7 & complement(2) = 8 & intersect(8, 7) = 3 & intersect(8, 5) = 4 & intersect(7, 8) = 3 & intersect(7, 2) = 0 & intersect(5, 8) = 4 & intersect(5, 2) = 1 & intersect(2, 7) = 0 & intersect(2, 5) = 1 & size(8) = 3 & size(7) = 6 & size(6) = 0 & size(5) = 8 & size(4) = 1 & size(3) = 2 & size(2) = 11 & size(1) = 7 & size(0) = 4 & !(complement(8) = 7) & !(complement(8) = 5) & !(complement(7) = 8) & !(complement(5) = 8) & !(intersect(8, 8) = 3) & !(intersect(8, 8) = 1) & !(intersect(8, 8) = 0) & !(intersect(8, 7) = 8) & !(intersect(8, 7) = 7) & !(intersect(8, 7) = 6) & !(intersect(8, 7) = 4) & !(intersect(8, 7) = 1) & !(intersect(8, 7) = 0) & !(intersect(8, 5) = 8) & !(intersect(8, 5) = 6) & !(intersect(8, 5) = 5) & !(intersect(8, 5) = 1) & !(intersect(8, 5) = 0) & !(intersect(8, 2) = 1) & !(intersect(8, 2) = 0) & !(intersect(7, 8) = 8) & !(intersect(7, 8) = 7) & !(intersect(7, 8) = 6) & !(intersect(7, 8) = 4) & !(intersect(7, 8) = 1) & !(intersect(7, 8) = 0) & !(intersect(7, 7) = 0) & !(intersect(7, 5) = 1) & !(intersect(7, 5) = 0) & !(intersect(7, 2) = 6) & !(intersect(7, 2) = 4) & !(intersect(7, 2) = 2) & !(intersect(7, 2) = 1) & !(intersect(5, 8) = 8) & !(intersect(5, 8) = 6) & !(intersect(5, 8) = 5) & !(intersect(5, 8) = 1) & !(intersect(5, 8) = 0) & !(intersect(5, 7) = 1) & !(intersect(5, 7) = 0) & !(intersect(5, 2) = 5) & !(intersect(5, 2) = 3) & !(intersect(2, 8) = 1) & !(intersect(2, 8) = 0) & !(intersect(2, 7) = 6) & !(intersect(2, 7) = 4) & !(intersect(2, 7) = 2) & !(intersect(2, 7) = 1) & !(intersect(2, 5) = 5) & !(intersect(2, 5) = 3) & !(size(8) = 11) & !(size(8) = 8) & !(size(8) = 7) & !(size(8) = 6) & !(size(8) = 4) & !(size(8) = 2) & !(size(8) = 1) & !(size(8) = 0) & !(size(7) = 11) & !(size(7) = 8) & !(size(7) = 7) & !(size(7) = 4) & !(size(7) = 2) & !(size(7) = 1) & !(size(7) = 0) & !(size(6) = 11) & !(size(6) = 8) & !(size(6) = 7) & !(size(6) = 4) & !(size(6) = 2) & !(size(6) = 1) & !(size(5) = 11) & !(size(5) = 7) & !(size(5) = 4) & !(size(5) = 2) & !(size(5) = 1) & !(size(4) = 11) & !(size(4) = 7) & !(size(4) = 4) & !(size(4) = 2) & !(size(3) = 11) & !(size(3) = 7) & !(size(3) = 4) & !(size(2) = 7) & !(size(2) = 4) & !(size(1) = 4)
+empty = 4 & B = 5 & A = 6 & complement(6) = 0 & complement(5) = 3 & complement(4) = 1 & complement(3) = 5 & complement(1) = 4 & complement(0) = 6 & intersect(6, 6) = 1 & intersect(6, 5) = 2 & intersect(6, 4) = 4 & intersect(6, 3) = 1 & intersect(6, 1) = 1 & intersect(6, 0) = 4 & intersect(5, 6) = 2 & intersect(5, 5) = 5 & intersect(5, 3) = 4 & intersect(5, 0) = 2 & intersect(4, 6) = 4 & intersect(4, 0) = 0 & intersect(3, 6) = 1 & intersect(3, 5) = 4 & intersect(3, 3) = 1 & intersect(3, 0) = 4 & intersect(1, 6) = 1 & intersect(1, 0) = 4 & intersect(0, 6) = 4 & intersect(0, 5) = 2 & intersect(0, 4) = 0 & intersect(0, 3) = 4 & intersect(0, 1) = 4 & intersect(0, 0) = 0 & size(6) = 1 & size(5) = 0 & size(4) = 0 & size(3) = 1 & size(2) = 0 & size(1) = 1 & size(0) = 0 & complement(6) != 5 & complement(6) != 4 & complement(6) != 3 & complement(5) != 6 & complement(5) != 4 & complement(4) != 6 & complement(4) != 5 & complement(4) != 3 & complement(4) != 0 & complement(3) != 6 & complement(3) != 4 & complement(0) != 4 & intersect(6, 6) != 6 & intersect(6, 6) != 4 & intersect(6, 6) != 2 & intersect(6, 6) != 0 & intersect(6, 5) != 6 & intersect(6, 5) != 4 & intersect(6, 5) != 3 & intersect(6, 5) != 1 & intersect(6, 4) != 1 & intersect(6, 3) != 5 & intersect(6, 3) != 4 & intersect(6, 3) != 3 & intersect(6, 3) != 2 & intersect(6, 1) != 5 & intersect(6, 1) != 2 & intersect(6, 1) != 0 & intersect(6, 0) != 2 & intersect(6, 0) != 1 & intersect(5, 6) != 6 & intersect(5, 6) != 4 & intersect(5, 6) != 3 & intersect(5, 6) != 1 & intersect(5, 5) != 2 & intersect(5, 5) != 1 & intersect(5, 3) != 2 & intersect(5, 2) != 2 & intersect(5, 0) != 4 & intersect(5, 0) != 3 & intersect(5, 0) != 1 & intersect(4, 6) != 1 & intersect(4, 3) != 4 & intersect(4, 0) != 4 & intersect(4, 0) != 1 & intersect(3, 6) != 4 & intersect(3, 6) != 2 & intersect(3, 5) != 2 & intersect(3, 4) != 4 & intersect(3, 3) != 5 & intersect(3, 3) != 2 & intersect(3, 3) != 0 & intersect(3, 0) != 3 & intersect(3, 0) != 1 & intersect(2, 5) != 2 & intersect(1, 6) != 5 & intersect(1, 6) != 2 & intersect(1, 6) != 0 & intersect(0, 6) != 2 & intersect(0, 6) != 1 & intersect(0, 5) != 4 & intersect(0, 5) != 3 & intersect(0, 5) != 1 & intersect(0, 4) != 4 & intersect(0, 4) != 1 & intersect(0, 3) != 3 & intersect(0, 3) != 1 & intersect(0, 0) != 4 & intersect(0, 0) != 1 & size(6) != 0 & size(5) != 1 & size(4) != 1 & size(3) != 0 & size(2) != 1 & size(1) != 0 & size(0) != 1
 
 Loading multiplication3.pri ...
 Warning: using theory to encode multiplication: GroebnerMultiplication
@@ -90,5 +103,22 @@ Constructing countermodel ...
 UNKNOWN
 
 Possible countermodel:
-not_orthogonal_lines(1, 0) & unorthogonal_lines(0, 0) & convergent_lines(0, 1) & !not_orthogonal_lines(0, 0) & !convergent_lines(1, 0)
+not_orthogonal_lines(0, 0) & orthogonal_lines(0, 0) & convergent_lines(1, 1) & !not_orthogonal_lines(0, 1) & !unorthogonal_lines(0, 0) & !convergent_lines(0, 1)
+
+Loading diamonds.10.2-no-interpolant.i.a.u.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 1182576658)
+
+VALID
+
+Loading abbrev-interpolation.smt2 ...
+unsat
+((and (and (and (and (and (and (and (= |main::A3@3| 1) (= |main::A1@3| 0)) (= |main::S0@3| 0)) (= |main::B1@3| 1)) (= |main::S@3| 0)) (= |main::A2@3| (- 2))) (= |main::B2@3| (- 1))) (or (and (= |main::E0@3| 1) (or (= |main::E@3| 1) (= |main::E@3| 0))) (and (= |main::E0@3| 0) (and (<= 0 (+ 1 (* (- 1) |main::E@3|))) (<= 0 |main::E@3|)))))
+(and (and (and (and (and (= |main::A3@3| 1) (= |main::S0@4| 0)) (= |main::B1@3| 1)) (= |main::A2@3| (- 2))) (= |main::B2@3| (- 1))) (and (or (or (or (or (not (= 0 (* 0 (- 1)))) (not (= |main::E@4| |main::E0@5|))) (<= 0 (+ 100 (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ (* 2 |main::E0@5|) (+ |main::S@4| |main::E0@4|)))))) (or (or (not (= (* |main::S@4| 1) |main::S@4|)) (not (= (* (* 2 |main::E0@4|) 0) 0))) (not (= (* |main::E0@4| 1) |main::E0@4|)))) (or (or (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ |main::S@4| |main::E0@4|)) 0) (= |main::E0@5| 1)) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) |main::S@4|) 1) (or (and (= |main::E0@5| 1) (= |main::E0@4| 0)) (and (= |main::E0@5| 0) (<= 0 |main::E0@4|))))) (and (not (= __VERIFIER_nondet_double@10 1)) (or (not (= __VERIFIER_nondet_double@10 0)) (not (= (* |main::A1@3| 0) (* |main::A1@3| __VERIFIER_nondet_double@10))))))) (or (or (or (or (not (= 0 (* 0 (- 1)))) (not (= |main::E@4| |main::E0@5|))) (<= 0 (+ 100 (+ (* (- 1) (* |main::A1@3| __VERIFIER_nondet_double@10)) (+ (* (- 1) (* 2 |main::E0@5|)) (+ (* (- 1) |main::S@4|) (* (- 1) |main::E0@4|))))))) (or (or (not (= (* |main::S@4| 1) |main::S@4|)) (not (= (* (* 2 |main::E0@4|) 0) 0))) (not (= (* |main::E0@4| 1) |main::E0@4|)))) (or (or (or (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ |main::S@4| |main::E0@4|)) 1) (= |main::E0@5| 0)) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) (+ |main::S@4| |main::E0@4|)) 0) (= |main::E0@5| 1))) (and (= (+ (* |main::A1@3| __VERIFIER_nondet_double@10) |main::S@4|) 1) (or (and (= |main::E0@5| 1) (= |main::E0@4| 0)) (and (= |main::E0@5| 0) (<= 0 (+ 1 (* (- 1) |main::E0@4|))))))) (and (not (= __VERIFIER_nondet_double@10 1)) (or (not (= __VERIFIER_nondet_double@10 0)) (not (= (* |main::A1@3| 0) (* |main::A1@3| __VERIFIER_nondet_double@10))))))))))
+Loading adt-size3b.pri ...
+Preprocessing ...
+Proving ...
+
+VALID
 

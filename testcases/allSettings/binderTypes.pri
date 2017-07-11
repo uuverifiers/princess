@@ -22,6 +22,4 @@
   (\eps int[-1, 0] x; \exists int y; c + x = 2*y) >= -1
 &
   ((\eps nat x; (c = d + x | d = c + x)) = 0 <-> c = d)
-&
-  !\exists int[0, -5] x; true
 }

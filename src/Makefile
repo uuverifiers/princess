@@ -23,6 +23,7 @@ all:
 		ap/parameterInference/*.scala \
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
+		ap/types/*.scala \
 		ap/*.scala
 
 doc:
@@ -48,4 +49,5 @@ doc:
 		ap/parameterInference/*.scala \
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
+		ap/types/*.scala \
 		ap/*.scala

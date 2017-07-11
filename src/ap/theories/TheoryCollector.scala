@@ -24,7 +24,7 @@ package ap.theories
 import ap.parser._
 import ap.terfor.TermOrder
 
-import scala.collection.mutable.{HashSet => MHashSet}
+import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
 
 /**
  * Class to find out which theories where used in a given set
@@ -36,21 +36,21 @@ class TheoryCollector extends CollectingVisitor[Unit, Unit]
   private val symbolsSeen  = new MHashSet[AnyRef]
   private val theoriesSeen = new MHashSet[Theory]
 
-  private var theoriesList : List[Theory] = List()
-  private var theoriesDiff : List[Theory] = List()
+  private var theoriesList = new ArrayBuffer[Theory]
+  private var theoriesDiff = new ArrayBuffer[Theory]
 
-  def theories    = theoriesList
+  def theories : Seq[Theory] = theoriesList
 
-  def reset       = (theoriesDiff = List())
-  def newTheories = theoriesDiff
+  def reset       = theoriesDiff.clear
+  def newTheories : Seq[Theory] = theoriesDiff
 
   override def clone : TheoryCollector = {
     val res = new TheoryCollector
     
     res.symbolsSeen  ++= this.symbolsSeen
     res.theoriesSeen ++= this.theoriesSeen
-    res.theoriesList =   this.theoriesList
-    res.theoriesDiff =   this.theoriesDiff
+    res.theoriesList ++= this.theoriesList
+    res.theoriesDiff ++= this.theoriesDiff
     
     res
   }
@@ -59,9 +59,17 @@ class TheoryCollector extends CollectingVisitor[Unit, Unit]
 
   def addTheory(t : Theory) =
     if (theoriesSeen add t) {
-      theoriesList = t :: theoriesList
-      theoriesDiff = t :: theoriesDiff
+      theoriesList += t
+      theoriesDiff += t
     }
+
+  def addTheoryFront(t : Theory) =
+    if (theoriesSeen add t) {
+      theoriesList.insert(0, t)
+      theoriesDiff += t
+    }
+
+  def includes(t : Theory) = theoriesSeen contains t
 
   //////////////////////////////////////////////////////////////////////////////
 

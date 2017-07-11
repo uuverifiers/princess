@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,15 +21,14 @@
 
 package ap;
 
-import ap.parser.Internal2InputAbsy
+import ap.basetypes.IdealInt
 import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
-import ap.proof.certificates.Certificate
+import ap.proof.certificates.{Certificate, DagCertificateConverter}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.{Seqs, Debug, Timeout}
-import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier,
-                        ArraySimplifier}
+import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier}
 
 object IntelliFileProver {
   
@@ -57,10 +56,13 @@ class IntelliFileProver(reader : java.io.Reader,
       val (tree, validConstraint) = constructProofTree
       if (validConstraint) {
         if (Seqs.disjoint(tree.closingConstraint.constants,
-                          signature.universalConstants))
-          ProofWithModel(tree, toIFormula(findModel(tree.closingConstraint)))
+                          signature.universalConstants) &&
+            Param.COMPUTE_MODEL(settings))
+          ProofWithModel(tree,
+                         toIFormula(tree.closingConstraint),
+                         toIFormula(findModel(tree.closingConstraint)))
         else
-          Proof(tree)
+          Proof(tree, toIFormula(tree.closingConstraint))
       } else if (soundForSat) {
         Invalid(tree)
       } else {
@@ -73,8 +75,8 @@ class IntelliFileProver(reader : java.io.Reader,
         
   lazy val proofTree : ProofTree = proofResult match {
     case TimeoutProof(t) => t
-    case Proof(t) => t
-    case ProofWithModel(t, _) => t
+    case Proof(t, _) => t
+    case ProofWithModel(t, _, _) => t
     case NoProof(t) => t
     case Invalid(t) => t
   } 
@@ -85,7 +87,10 @@ class IntelliFileProver(reader : java.io.Reader,
       if (model.isFalse)
         NoModel
       else
-        Model(toIFormula(model))
+        Model(if (Param.COMPUTE_MODEL(settings))
+                Some(toIFormula(model))
+              else
+                None)
     } {
       case _ => TimeoutModel
     }
@@ -105,22 +110,46 @@ class IntelliFileProver(reader : java.io.Reader,
       cert
     }
   }
-    
-  private def toIFormula(c : Conjunction) = {
-    val raw = Internal2InputAbsy(c, functionEncoder.predTranslation)
-    (new ArraySimplifier)(raw)
+
+/*
+  private def processCert(cert : Certificate) : Certificate = {
+    print("Found proof (size " + cert.inferenceCount)
+    val dagCert = DagCertificateConverter(cert)
+    print(", dag-size " + (DagCertificateConverter size dagCert) + ")")
+    if (Param.PROOF_SIMPLIFICATION(settings)) {
+      print(", simplifying ")
+      val simpDagCert = ProofSimplifier(dagCert)
+      print("(dag-size " + (DagCertificateConverter size simpDagCert) + ")")
+      val res = DagCertificateConverter inline simpDagCert
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(IntelliFileProver.AC,
+                      res.assumedFormulas subsetOf cert.assumedFormulas)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      res
+    } else {
+      cert
+    }
   }
+  */
   
   lazy val counterModelResult : CounterModelResult =
     Timeout.catchTimeout[CounterModelResult] { 
       findCounterModelTimeout match {
         case Left(model) =>
-          if (model.isFalse)
+          if (model.isFalse) {
             NoCounterModel
-          else if (soundForSat)
-            CounterModel(toIFormula(model))
-          else
-            MaybeCounterModel(toIFormula(model))
+          } else {
+            val optModel =
+              if (Param.COMPUTE_MODEL(settings))
+                Some(toIFormula(model, true))
+              else
+                None
+
+            if (soundForSat)
+              CounterModel(optModel)
+            else
+              MaybeCounterModel(optModel)
+          }
         case Right(cert) if (!interpolantSpecs.isEmpty) => {
           val finalCert = Console.withOut(Console.err) {
             val c = processCert(cert)
@@ -132,7 +161,8 @@ class IntelliFileProver(reader : java.io.Reader,
             val iContext = InterpolationContext(namedParts, spec, order)
             val rawInterpolant =
               Interpolator(finalCert, iContext,
-            	   	       Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings))
+                           Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings),
+                           Param.FUNCTIONAL_PREDICATES(goalSettings))
             toIFormula(rawInterpolant)
           }
           NoCounterModelCertInter(finalCert, interpolants)

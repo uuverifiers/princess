@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,19 +27,20 @@ import ap.proof.certificates.{Certificate, DotLineariser,
                               DagCertificateConverter, CertificatePrettyPrinter,
                               CertFormula}
 import ap.terfor.ConstantTerm
+import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Quantifier, Conjunction}
 import ap.parameters.{GlobalSettings, Param}
 import ap.parser.{SMTLineariser, TPTPLineariser, PrincessLineariser,
                   IFormula, IExpression,
                   IBinJunctor, IInterpolantSpec, INamedPart, IBoolLit, PartName,
-                  Internal2InputAbsy, Simplifier, IncrementalSMTLIBInterface,
-                  SMTParser2InputAbsy}
+                  Internal2InputAbsy, Simplifier, SMTParser2InputAbsy, IFunction,
+                  LineariseVisitor}
 import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
   class GaveUpException(_msg : String) extends Exception(_msg)
-  val version = "CASC build 2016-06-06"
+  val version = "CASC build 2017-07-11"
 
   def printGreeting = {
     println("________       _____")                                 
@@ -51,7 +52,7 @@ object CmdlMain {
     println("A Theorem Prover for First-Order Logic modulo Linear Integer Arithmetic")
     println("(" + version + ")")
     println
-    println("(c) Philipp Rümmer, 2009-2016")
+    println("(c) Philipp Rümmer, 2009-2017")
     println("(contributions by Peter Backeman, Peter Baumgartner,")
     println("                  Angelo Brillout, Aleksandar Zeljic)")
     println("Free software under GNU Lesser General Public License (LGPL).")
@@ -80,12 +81,13 @@ object CmdlMain {
     println("                             (+incremental implies -genTotalityAxioms)")
     println(" -timeout=val              Set a timeout in milliseconds        (default: infty)")
     println(" -timeoutPer=val           Set a timeout per SMT-LIB query (ms) (default: infty)")
-    println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
-    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
-    println("                           (quantifier elimination for PA formulae) (default: -)")
-    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
+    println(" [+-]model                 Compute models or countermodels          (default: -)")
     println(" [+-]unsatCore             Compute unsatisfiable cores              (default: -)")
     println(" [+-]printProof            Output the constructed proof             (default: -)")
+    println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
+    println("                           (quantifier elimination for PA formulae) (default: -)")
+    println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
+    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
   }
 
   def printExoticOptions = {
@@ -123,6 +125,12 @@ object CmdlMain {
     println(" -mulProcedure=val         Handling of nonlinear integer formulae")
     println("                             bitShift: shift-and-add axiom")
     println("                             native:   built-in theory solver       (default)")
+    println(" -randomSeed=val           Seed for randomisation")
+    println("                             <seed>: numeric seed             (default: 1234567)")
+    println("                             off:    disable randomisation")
+    println(" -adtMeasure=val           Measure to ensure acyclicity of ADTs")
+    println("                             relDepth: relative depth of terms")
+    println("                             size:     size of terms                (default)")
     println(" -constructProofs=val      Extract proofs")
     println("                             never")
     println("                             ifInterpolating: if \\interpolant occurs (default)")
@@ -225,24 +233,36 @@ object CmdlMain {
                                    lastFilename : String)
                                  (implicit format : Param.InputFormat.Value) = {
     Console.err.println
+    doPrintTextCertificate(cert,
+                           prover.getFormulaParts,
+                           prover.getPredTranslation,
+                           format,
+                           lastFilename)
+  }
 
-    val dagCert = DagCertificateConverter(cert)
-    val formulaParts = prover.getFormulaParts mapValues {
+  protected[ap] def doPrintTextCertificate(
+                      cert : Certificate,
+                      rawFormulaParts : Map[PartName, Conjunction],
+                      predTranslation : Map[Predicate, IFunction],
+                      format : Param.InputFormat.Value,
+                      lastFilename : String) : Unit = {
+    val formulaParts = rawFormulaParts mapValues {
       f => CertFormula(f.negate)
     }
+    val dagCert = DagCertificateConverter(cert)
 
     val formulaPrinter = format match {
       case Param.InputFormat.Princess =>
         new CertificatePrettyPrinter.PrincessFormulaPrinter (
-          prover.getPredTranslation
+          predTranslation
         )
       case Param.InputFormat.TPTP =>
         new CertificatePrettyPrinter.TPTPFormulaPrinter (
-          prover.getPredTranslation
+          predTranslation
         )
       case Param.InputFormat.SMTLIB =>
         new CertificatePrettyPrinter.SMTLIBFormulaPrinter (
-          prover.getPredTranslation
+          predTranslation
         )
     }
 
@@ -301,6 +321,26 @@ object CmdlMain {
         PrincessLineariser printExpression f
         println
       }
+    }
+  
+  private def printModel(model : IFormula)
+                        (implicit format : Param.InputFormat.Value) : Unit =
+    format match {
+      case Param.InputFormat.SMTLIB =>
+        SMTLineariser printModel model
+/*      case Param.InputFormat.Princess => {
+        val modelStr = PrincessLineariser asString model
+        val modelParts = (modelStr split " & ") sortWith {
+          (str1, str2) => (!(str1 contains '(') && (str2 contains '(')) ||
+                          str1 < str2
+        }
+        if (modelStr.size > 60)
+          println(modelParts.mkString(" &" + System.lineSeparator()))
+        else
+          println(modelParts.mkString(" & "))
+      } */
+      case _ =>
+        printFormula(model)
     }
   
   private def printFormula(c : Conjunction)
@@ -626,8 +666,7 @@ List(
       case e : Throwable => {
         format match {
           case Param.InputFormat.SMTLIB => {
-            println("error")
-            Console.err.println(e.getMessage) 
+            println("(error \"" + e.getMessage.replace("\"", "\"\"") + "\")")
           }
           case Param.InputFormat.TPTP => {
             e match {
@@ -659,27 +698,14 @@ List(
                          sanitiseNames = false,
                          genTotalityAxioms = 
                            Param.GENERATE_TOTALITY_AXIOMS(settings) ==
-                           Param.TotalityAxiomOptions.All) { p =>
+                           Param.TotalityAxiomOptions.All,
+                         randomSeed = Param.RANDOM_SEED(settings)) { p =>
       val parser = SMTParser2InputAbsy(settings.toParserSettings, p)
       parser.processIncrementally(input,
                                   Param.TIMEOUT(settings),
                                   Param.TIMEOUT_PER(settings),
                                   userDefStoppingCond)
     }
-
-/*
-    implicit val format = Param.InputFormat.SMTLIB
-    val interface = new IncrementalSMTLIBInterface {
-      protected def solve(input : String) : Option[Prover.Result] = {
-        Console.err.println("Checking satisfiability ...")
-        proveProblem(settings,
-                     "SMT-LIB 2 input",
-                     () => new java.io.StringReader(input),
-                     userDefStoppingCond)
-      }
-    }
-    interface.readInputs(input, settings)
-*/
   } catch {
       case _ : StackOverflowError => {
         println("unknown")
@@ -720,7 +746,7 @@ List(
                   lastFilename : String)
                  (implicit format : Param.InputFormat.Value) = format match {
     case Param.InputFormat.SMTLIB => result match {
-              case Prover.Proof(tree) => {
+              case Prover.Proof(tree, _) => {
                 println("unsat")
                 if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
                   println
@@ -728,7 +754,7 @@ List(
                   println(tree)
                 }
               }
-              case Prover.ProofWithModel(tree, model) => {
+              case Prover.ProofWithModel(tree, _, model) => {
                 println("unsat")
                 if (Param.PRINT_TREE(settings)) Console.withOut(Console.err) {
                   println
@@ -742,21 +768,15 @@ List(
               case Prover.Invalid(_) =>  {
                 println("sat")
               }
-              case Prover.CounterModel(model) =>  {
+              case Prover.CounterModel(optModel) =>  {
                 println("sat")
-                Console.withOut(Console.err) {
-                  println
-                  println("Model:")
-                  printFormula(model)
-                }
+                for (model <- optModel)
+                  printModel(model)
               }
-              case Prover.MaybeCounterModel(model) =>  {
+              case Prover.MaybeCounterModel(optModel) =>  {
                 println("unknown")
-                Console.withOut(Console.err) {
-                  println
-                  println("Possible model:")
-                  printFormula(model)
-                }
+                for (model <- optModel)
+                  printModel(model)
               }
               case Prover.NoCounterModel =>  {
                 println("unsat")
@@ -768,9 +788,12 @@ List(
               case Prover.NoCounterModelCertInter(cert, inters) => {
                 println("unsat")
                 printCertificate(cert, settings, prover, lastFilename)
-                Console.err.println
-                Console.err.println("Interpolants:")
-                for (i <- inters) printFormula(i)
+                println("(")
+                for (i <- inters) {
+                  print("  ")
+                  printFormula(i)
+                }
+                println(")")
               }
               case Prover.Model(model) =>  {
                 println("unsat")
@@ -787,7 +810,7 @@ List(
                   println(tree)
                 }
               }
-              case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
+              case Prover.TimeoutResult() =>  {
                 println("unknown")
                 Console.err.println("Cancelled or timeout")
               }
@@ -796,14 +819,19 @@ List(
     case Param.InputFormat.TPTP | Param.InputFormat.Princess => {
             val fileProperties = Param.FILE_PROPERTIES(settings)
             result match {
-              case Prover.Proof(tree) => {
-                Console.err.println("Formula is valid, resulting " +
-                        (if (Param.MOST_GENERAL_CONSTRAINT(settings))
-                           "most-general "
-                         else
-                           "") + "constraint:")
-                Console.withOut(Console.err) {
-                  printFormula(tree.closingConstraint)
+              case Prover.Proof(tree, constraint) => {
+                Console.err.println("VALID")
+                if (!constraint.isTrue ||
+                    Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  Console.err.println
+                  Console.err.println("Under the " +
+                          (if (Param.MOST_GENERAL_CONSTRAINT(settings))
+                             "most-general "
+                           else
+                             "") + "constraint:")
+                  Console.withOut(Console.err) {
+                    printFormula(constraint)
+                  }
                 }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
@@ -815,27 +843,33 @@ List(
                 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
-              case Prover.ProofWithModel(tree, model) => {
-                Console.err.println("Formula is valid, resulting " +
-                        (if (Param.MOST_GENERAL_CONSTRAINT(settings))
-                           "most-general "
-                         else
-                           "") + "constraint:")
-                Console.withOut(Console.err) {
-                  printFormula(tree.closingConstraint)
+              case Prover.ProofWithModel(tree, constraint, model) => {
+                Console.err.println("VALID")
+                if (!constraint.isTrue ||
+                    Param.MOST_GENERAL_CONSTRAINT(settings)) {
+                  Console.err.println
+                  Console.err.println("Under the " +
+                          (if (Param.MOST_GENERAL_CONSTRAINT(settings))
+                             "most-general "
+                           else
+                             "") + "constraint:")
+                  Console.withOut(Console.err) {
+                    printFormula(constraint)
+                  }
                 }
 //                Console.err.println("Number of existential constants: " +
 //                                    existentialConstantNum(tree))
                 model match {
                   case IBoolLit(true) => // nothing
-                  case _ if ({
-                               val c = tree.closingConstraint
-                               c.arithConj.positiveEqs.size == c.size
-                              }) => // nothing
+                  case _ if (
+                          LineariseVisitor(constraint, IBinJunctor.And) forall {
+                            case IExpression.Eq(_, _) => true
+                            case _ => false
+                          }) => // nothing
                   case _ => {
                     println
                     println("Concrete witness:")
-                    printFormula(model)
+                    printModel(model)
                   }
                 }
                 if (Param.PRINT_TREE(settings)) {
@@ -869,27 +903,34 @@ List(
                 }
                 println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
-              case Prover.CounterModel(model) =>  {
+              case Prover.CounterModel(optModel) =>  {
                 Console.withOut(Console.err) {
-                  println("Formula is invalid, found a countermodel:")
-                  printFormula(model)
+                println("INVALID")
+                optModel match {
+                  case None | Some(IBoolLit(true)) => // nothing
+                  case Some(model) => {
+                    println
+                    println("Countermodel:")
+                    printModel(model)
+                  }
                 }
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
                   println("false")
                 }
+                }
                 
                 println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
-              case Prover.MaybeCounterModel(model) =>  {
+              case Prover.MaybeCounterModel(optModel) =>  {
                 Console.withOut(Console.err) {
-                model match {
-                  case IBoolLit(true) => // nothing
-                  case _ => {
+                optModel match {
+                  case None | Some(IBoolLit(true)) => // nothing
+                  case Some(model) => {
                     println
                     println("Possible countermodel:")
-                    printFormula(model)
+                    printModel(model)
                   }
                 }
                 }
@@ -939,10 +980,14 @@ List(
                 
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
-              case Prover.Model(model) =>  {
+              case Prover.Model(optModel) =>  {
                 Console.withOut(Console.err) {
-                  println("Formula is valid, satisfying assignment for the existential constants is:")
-                  printFormula(model)
+                println("VALID")
+                for (model <- optModel) {
+                  println
+                  println("Under the assignment:")
+                  printModel(model)
+                }
                 }
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
@@ -970,7 +1015,7 @@ List(
                 }
                 println("% SZS status Timeout for " + lastFilename)
               }
-              case Prover.TimeoutModel | Prover.TimeoutCounterModel =>  {
+              case Prover.TimeoutResult() =>  {
                 Console.err.println("Cancelled or timeout")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println

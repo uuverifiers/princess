@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -200,7 +200,8 @@ object SimpleAPITest extends App {
   part("Quantifiers, functions, and triggers")
 
   scope {
-    val f = createFunction("f", 1)
+    val f = createFunction("f", List(Sort.Integer), Sort.Integer,
+                           partial = true)
     !! (all(x => f(x) >= x))   // f(x) will automatically be selected as a trigger
 
     val a, b = createConstant
@@ -232,7 +233,8 @@ object SimpleAPITest extends App {
   part("Boolean functions and triggers")
 
   scope {
-    val r = createBooleanFunction("r", 2)
+    val r = createBooleanFunction("r", List(Sort.Integer, Sort.Integer),
+                                  partial = true)
     val a = createConstant
 
     // Boolean functions can be used in triggers, in contrast to
@@ -336,15 +338,17 @@ object SimpleAPITest extends App {
   part("Asynchronous interface")
   
   !! (true)
-  println(p checkSat false)  // non-blocking, Running
-  println(p getStatus false) // non-blocking, Running
-  println(p getStatus true)  // blocking, equivalent to println(??), Sat
+  println(p checkSat false)        // non-blocking, Running
+  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
+              ProverStatus.Running) contains (p getStatus false))
+  println(p getStatus true)        // blocking, equivalent to println(???), Sat
   
   part("Asynchronous interface, timeouts")
   
   !! (true)
   println(p checkSat false)  // non-blocking, Running
-  println(p getStatus false) // non-blocking, Running
+  println(Set(ProverStatus.Sat,    // non-blocking, Running or Sat
+              ProverStatus.Running) contains (p getStatus false))
   println(p getStatus 30)    // blocking for up to 30ms, Sat
   p getStatus true
   
@@ -365,8 +369,8 @@ object SimpleAPITest extends App {
     case ProverStatus.Unknown |   // was already finished when calling "stop")
          ProverStatus.Sat =>
       println("expected result")
-    case _ =>
-      println("oops")
+    case x =>
+      println("oops: " + x)
   }  
 
   part("Stopping computation after a while")
@@ -376,8 +380,8 @@ object SimpleAPITest extends App {
     case ProverStatus.Running |
          ProverStatus.Sat =>
       println("expected result")
-    case _ =>
-      println("oops")
+    case x =>
+      println("oops: " + x)
   }
 
   {

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -26,11 +26,15 @@ import ap.terfor.ConstantTerm
 import ap.terfor.preds.Atom
 import ap.terfor.OneTerm
 import ap.basetypes.IdealInt
-import ap.util.{Debug, Timeout}
+import ap.util.{Debug, Timeout, IdealRange}
 import scala.collection.mutable.{LinkedHashMap, LinkedHashSet}
 
 
-case class IntervalException(smth : String) extends Exception(smth)
+case class IntervalException(smth : String)
+       extends Exception(smth)
+
+object InconsistentIntervalsException
+       extends IntervalException("Inconsistent intervals")
 
 case class IntervalVal(val value : IdealInt) extends IntervalInt {
   override def toString = value.toString
@@ -292,6 +296,28 @@ case class Interval(lower : IntervalInt, upper : IntervalInt,
     }
   }
 
+  /**
+   * Compute the least positive element in this interval.
+   */
+  lazy val leastPosElement : Option[IdealInt] =
+    if (!upper.isPositive || isEmpty)
+      None
+    else if (lower.isPositive)
+      Some(lower.get)
+    else
+      Some(IdealInt.ONE)
+
+  /**
+   * Compute the greatest negative element in this interval.
+   */
+  lazy val greatestNegElement : Option[IdealInt] =
+    if (!lower.isNegative || isEmpty)
+      None
+    else if (upper.isNegative)
+      Some(upper.get)
+    else
+      Some(IdealInt.MINUS_ONE)
+
   def containsInt(i : IdealInt) : Boolean = {
     (lower, upper) match {
       case (IntervalNegInf, IntervalPosInf) => true
@@ -313,53 +339,110 @@ case class Interval(lower : IntervalInt, upper : IntervalInt,
       Interval (upper * that, lower * that, None)
     }
 
+  def &(that : Interval) : Interval =
+    Interval(this.lower max that.lower,
+             this.upper min that.upper,
+             None)
+
   // this divided by that, minimized
-  def mindiv(that : Interval) : IntervalInt =  {
-    if (that.lower.isZero && that.upper.isZero)
-      return IntervalNegInf
+  def mindiv(that : Interval) : IntervalInt = {
+    val res =
+    if ((this containsInt 0) && (that containsInt 0)) {
+      IntervalNegInf
+    } else {
+      // List all the different extreme values, then select the minimum
+      val xtrms = List(
+        if (!that.lower.isZero) this.lower.divfloor(that.lower) else IntervalPosInf, 
+        if (!that.upper.isZero) this.lower.divfloor(that.upper) else IntervalPosInf,
+        if (that.containsInt(-1)) this.lower.divfloor(IntervalVal(-1)) else IntervalPosInf,
+        if (that.containsInt(1)) this.lower.divfloor(IntervalVal(1)) else IntervalPosInf,
+        if (!that.lower.isZero) this.upper.divfloor(that.lower) else IntervalPosInf,
+        if (!that.upper.isZero) this.upper.divfloor(that.upper) else IntervalPosInf,
+        if (that.containsInt(-1)) this.upper.divfloor(IntervalVal(-1)) else IntervalPosInf,
+        if (that.containsInt(1)) this.upper.divfloor(IntervalVal(1)) else IntervalPosInf)
 
-    // List all the different extreme values, then select the minimum
-    val xtrms = List(
-      if (!that.lower.isZero) this.lower.divfloor(that.lower) else IntervalPosInf, 
-      if (!that.upper.isZero) this.lower.divfloor(that.upper) else IntervalPosInf,
-      if (that.containsInt(-1)) this.lower.divfloor(IntervalVal(-1)) else IntervalPosInf,
-      if (that.containsInt(1)) this.lower.divfloor(IntervalVal(1)) else IntervalPosInf,
-      if (!that.lower.isZero) this.upper.divfloor(that.lower) else IntervalPosInf,
-      if (!that.upper.isZero) this.upper.divfloor(that.upper) else IntervalPosInf,
-      if (that.containsInt(-1)) this.upper.divfloor(IntervalVal(-1)) else IntervalPosInf,
-      if (that.containsInt(1)) this.upper.divfloor(IntervalVal(1)) else IntervalPosInf)
+      val xtrm = (xtrms.tail :\ xtrms.head) ((x1, x2) => x1.min(x2))
 
-    val xtrm = (xtrms.tail :\ xtrms.head) ((x1, x2) => x1.min(x2))
+      // If this Interval contains zero and the minimum is positive, then choose zero
+      if (xtrm.isPositive && this.containsInt(0))
+        IntervalVal(0)
+      else
+        xtrm
+    }
 
-    // If this Interval contains zero and the minimum is positive, then choose zero
-    if (xtrm.isPositive && this.containsInt(0))
-      IntervalVal(0)
-    else
-      xtrm
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(Debug.AC_NIA, res match {
+                       case IntervalNegInf => true
+                       case IntervalPosInf => true
+                       case IntervalVal(n) => {
+                         val thatLW = that.lower match {
+                           case IntervalNegInf => IdealInt(-100)
+                           case IntervalVal(n) => n max IdealInt(-100)
+                           case IntervalPosInf => IdealInt(1000000)
+                         }
+                         val thatUP = that.upper match {
+                           case IntervalPosInf => IdealInt(100)
+                           case IntervalVal(n) => (n+1) min IdealInt(100)
+                           case IntervalNegInf => IdealInt(-1000000)
+                         }
+                         IdealRange(thatLW, thatUP) forall {
+                           el => !(this containsInt (el * (n - 1)))
+                         }
+                       }
+                     })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    res
   }
 
   def maxdiv(that : Interval) : IntervalInt = {    
-    if (that.lower.isZero && that.upper.isZero)
-      return IntervalPosInf
+    val res =
+    if ((this containsInt 0) && (that containsInt 0)) {
+      IntervalPosInf
+    } else {
+      // List all the different extreme values, then select the maximum
+      val xtrms = List(
+        if (!that.lower.isZero) this.lower.divceil(that.lower) else IntervalNegInf, 
+        if (!that.upper.isZero) this.lower.divceil(that.upper) else IntervalNegInf,
+        if (that.containsInt(-1)) this.lower.divceil(IntervalVal(-1)) else IntervalNegInf,
+        if (that.containsInt(1)) this.lower.divceil(IntervalVal(1)) else IntervalNegInf,
+        if (!that.lower.isZero) this.upper.divceil(that.lower) else IntervalNegInf,
+        if (!that.upper.isZero) this.upper.divceil(that.upper) else IntervalNegInf,
+        if (that.containsInt(-1)) this.upper.divceil(IntervalVal(-1)) else IntervalNegInf,
+        if (that.containsInt(1)) this.upper.divceil(IntervalVal(1)) else IntervalNegInf)
 
-    // List all the different extreme values, then select the maximum
-    val xtrms = List(
-      if (!that.lower.isZero) this.lower.divceil(that.lower) else IntervalNegInf, 
-      if (!that.upper.isZero) this.lower.divceil(that.upper) else IntervalNegInf,
-      if (that.containsInt(-1)) this.lower.divceil(IntervalVal(-1)) else IntervalNegInf,
-      if (that.containsInt(1)) this.lower.divceil(IntervalVal(1)) else IntervalNegInf,
-      if (!that.lower.isZero) this.upper.divceil(that.lower) else IntervalNegInf,
-      if (!that.upper.isZero) this.upper.divceil(that.upper) else IntervalNegInf,
-      if (that.containsInt(-1)) this.upper.divceil(IntervalVal(-1)) else IntervalNegInf,
-      if (that.containsInt(1)) this.upper.divceil(IntervalVal(1)) else IntervalNegInf)
+      val xtrm = (xtrms.tail :\ xtrms.head) ((x1, x2) => x1.max(x2))
 
-    val xtrm = (xtrms.tail :\ xtrms.head) ((x1, x2) => x1.max(x2))
+      // If this Interval contains zero and the maximum is negative, then choose zero
+      if (xtrm.isNegative && this.containsInt(0))
+        IntervalVal(0)
+      else
+        xtrm
+    }
 
-    // If this Interval contains zero and the maximum is negative, then choose zero
-    if (xtrm.isNegative && this.containsInt(0))
-      IntervalVal(0)
-    else
-      xtrm
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(Debug.AC_NIA, res match {
+                       case IntervalNegInf => true
+                       case IntervalPosInf => true
+                       case IntervalVal(n) => {
+                         val thatLW = that.lower match {
+                           case IntervalNegInf => IdealInt(-100)
+                           case IntervalVal(n) => n max IdealInt(-100)
+                           case IntervalPosInf => IdealInt(1000000)
+                         }
+                         val thatUP = that.upper match {
+                           case IntervalPosInf => IdealInt(100)
+                           case IntervalVal(n) => (n+1) min IdealInt(100)
+                           case IntervalNegInf => IdealInt(-1000000)
+                         }
+                         IdealRange(thatLW, thatUP) forall {
+                           el => !(this containsInt (el * (n + 1)))
+                         }
+                       }
+                     })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    res
   }
 
   def widen : Interval = {
@@ -404,7 +487,6 @@ class IntervalSet(predicates : List[Polynomial],
   // Get all symbols and create all-covering intervals
   val intervals =
     new LinkedHashMap[ConstantTerm, (Interval, (Boolean, Boolean, Boolean))]
-  var error = false
 
   // Find all the symbols
   val symbols = {
@@ -482,19 +564,19 @@ class IntervalSet(predicates : List[Polynomial],
     if (newLower != oldInterval.lower ||
         newUpper != oldInterval.upper ||
         checkedGap != oldInterval.gap) {
-      if (newLower == IntervalPosInf || newUpper == IntervalNegInf) {
-        error = true
-        false
-      } else {
-        val lowerChange = (newLower != oldInterval.lower || oldul)
-        val upperChange = (newUpper != oldInterval.upper || olduu)
-        val gapChange = (checkedGap != oldInterval.gap || oldug)
-        val newInterval = Interval(newLower, newUpper, checkedGap)
+      val newInterval = Interval(newLower, newUpper, checkedGap)
 
-        intervals +=
-          (term -> (newInterval, (lowerChange, upperChange, gapChange)))
-        true
-      }
+      val lowerChange = (newLower != oldInterval.lower || oldul)
+      val upperChange = (newUpper != oldInterval.upper || olduu)
+      val gapChange = (checkedGap != oldInterval.gap || oldug)
+
+      intervals +=
+        (term -> (newInterval, (lowerChange, upperChange, gapChange)))
+
+      if (newInterval.isEmpty)
+        throw InconsistentIntervalsException
+
+      true
     }
     else
       false
@@ -688,12 +770,12 @@ class IntervalSet(predicates : List[Polynomial],
       else
         IntervalNegInf
 
-    if (exp == 1)
+    if (exp == 1) {
       if (ll.isPositive)
         Interval(ll.divceil(term.c), IntervalPosInf)
       else
         Interval(ll.divfloor(term.c), IntervalPosInf)
-      else if (exp == 2) {
+    } else if (exp == 2) {
         ll match {
           case IntervalVal(v) => {
             if (v > 0) {
@@ -867,26 +949,26 @@ class IntervalSet(predicates : List[Polynomial],
     changed
   }
 
-  // Returns true if propagation error
-  def propagate : Boolean= {
+  def propagate : Unit = {
     var iterations = 0
 
-    propagateSpecials
+    try {
+      propagateSpecials
 
-    var changed = true
-    while (changed && iterations < 15) {
-      if (error)
-        return true
-      Timeout.check
-      changed = false
-      for (ineq <- inEqs)
-        if (propagateIneq(ineq))
-          changed = true
+      var changed = true
+      while (changed && iterations < 15) {
+        Timeout.check
+        changed = false
+        for (ineq <- inEqs)
+          if (propagateIneq(ineq))
+            changed = true
 
-      iterations += 1
+        iterations += 1
+      }
+
+      propagateSpecials
+    } catch {
+      case InconsistentIntervalsException => // nothing, return
     }
-
-    propagateSpecials
-    false
   }
 }

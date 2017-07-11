@@ -139,52 +139,86 @@ class LemmaBase {
     Debug.assertPre(LemmaBase.AC, pendingCertificates.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    if (assumedFormulasL0 contains l)
-      return None
-
-    if (assumedFormulaStack.isEmpty) {
+    if (assumedFormulasL0 contains l) {
+      None
+    } else if (assumedFormulaStack.isEmpty) {
       assumedFormulasL0 += l
 //println("now know on L0 (" + assumedFormulasL0.size + "): " + l)
 
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      // at the moment we assume that no L0 formulas are added after
-      // finding certificates
-      Debug.assertInt(LemmaBase.AC, literals2Certs.isEmpty)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      updateWatchedLiteral(l) match {
+        case null =>
+          None
+        case record => {
+          // then the lemma base is in an inconsistent state and cannot
+          // be used anymore (for the time being); record this by adding
+          // the certificate as pending
+          pendingCertificates += record
+          Some(record.cert)
+        }
+      }
 
-      None
     } else {
       val oldAssumed = assumedFormulas
       assumedFormulas = assumedFormulas + l
 
-      if (oldAssumed eq assumedFormulas)
-        return None
-
+      if (oldAssumed eq assumedFormulas) {
+        None
+      } else {
 //println("now know (" + assumedFormulas.size + "): " + l)
+        updateWatchedLiteral(l) match {
+          case null =>
+            None
+          case record => {
+            // then the assumed literal has to be removed again
+            assumedFormulas = oldAssumed
+            Some(record.cert)
+          }
+        }
+      }
+    }
+  }
 
-      val res = (literals2Certs get l) match {
-        case Some(certs) => {
-          literals2Certs -= l
+  /**
+   * Check whether the given formula is watched in any certificates;
+   * if you, find new watched literals. The method might return a certificate
+   * that shows that the assumed formulas are inconsistent, otherwise
+   * <code>null</code>.
+   */
+  private def updateWatchedLiteral(l : CertFormula) : LemmaRecord = {
+    val res = (literals2Certs get l) match {
+      case Some(certs) => {
+        literals2Certs -= l
 
-          var remCerts = certs
-          while (!remCerts.isEmpty) {
-            val c = remCerts.head
-            if (!registerCertificate(c)) {
+        var remCerts = certs
+        var res : LemmaRecord = null
+
+        while (!remCerts.isEmpty) {
+          val c = remCerts.head
+          watchCertificate(c) match {
+            case null =>
+              remCerts = remCerts.tail
+            case updatedC => {
               // found a lemma/certificate that proves that the
               // assumed formulas are inconsistent
-//println("matching certificate #" + c.id)
-              assumedFormulas = oldAssumed
-              literals2Certs.put(l, remCerts)
-              return Some(c.cert)
-            }
-            remCerts = remCerts.tail
-          }
 
-          None
+//println("matching certificate #" + updatedC.id)
+
+              val newRemCerts =
+                if (c eq updatedC) remCerts else (updatedC :: remCerts.tail)
+              literals2Certs.put(l, newRemCerts)
+
+              res = updatedC
+              remCerts = List()
+            }
+          }
         }
-        case None =>
-          None
+
+        res
       }
+
+      case None =>
+        null
+    }
 
       /*
       // naive test, whether any lemma can be applied
@@ -217,8 +251,7 @@ class LemmaBase {
       }
       */
 
-      res
-    }
+    res
   }
 
   /**
@@ -251,14 +284,19 @@ class LemmaBase {
     var i = pendingCertificates.size
     while (i > 0) {
       i = i - 1
-      if (registerCertificate(pendingCertificates(i)))
+      val pendingCert = watchCertificate(pendingCertificates(i))
+      if (pendingCert == null) {
         pendingCertificates remove i
-      else
-        return Some(pendingCertificates(i).cert)
+      } else {
+        pendingCertificates(i) = pendingCert
+        return Some(pendingCert.cert)
+      }
     }
 
     None
   }
+
+  def hasEmptyStack : Boolean = assumedFormulaStack.isEmpty
 
   /**
    * Add a certificate to the database.
@@ -279,7 +317,7 @@ class LemmaBase {
 //println("watchable (" + watchable.size + "/" + cert.assumedFormulas.size + ")")
 //record.printWatchable
 
-    if (!registerCertificate(record))
+    if (watchCertificate(record) != null)
       pendingCertificates += record
   }
 
@@ -298,29 +336,49 @@ class LemmaBase {
 
   /**
    * Add a certificate to the database. The method returns
-   * <code>true</code> if some assumed literal of the certificate
-   * is not yet known, false otherwise.
+   * <code>null</code> if some assumed literal of the certificate
+   * is not yet known, and can be watched; an updated lemma record
+   * otherwise.
    */
-  private def registerCertificate(record : LemmaRecord) : Boolean = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(LemmaBase.AC, !(record.watchable exists assumedFormulasL0))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
+  private def watchCertificate(record : LemmaRecord) : LemmaRecord = {
     val notAssumed = record.watchable.iterator filterNot assumedFormulas
 
     if (notAssumed.hasNext) {
       val key = randomPick(notAssumed)
-      if (obsoleteConstants.isEmpty ||
-          Seqs.disjoint(key.constants, obsoleteConstants)) {
+
+      if (!(obsoleteConstants.isEmpty ||
+            Seqs.disjoint(key.constants, obsoleteConstants))) {
+        // if the certificate contains obsolete constants, it can be dropped
+        null
+      } else if (assumedFormulasL0 contains key) {
+        // then additional formulas have been assumed on level 0 after creating
+        // the lemma record, an update is necessary
+        watchCertificate(updateRecord(record))
+      } else {
         literals2Certs.put(key, record :: literals2Certs.getOrElse(key, List()))
 //println("assigning new watched literal")
+        null
       }
-      true
+
     } else {
-      // if the certificates contains obsolete constants, it can be dropped
-      !(obsoleteConstants.isEmpty ||
-        Seqs.disjoint(record.cert.constants, obsoleteConstants))
+
+      if (obsoleteConstants.isEmpty ||
+          Seqs.disjoint(record.cert.constants, obsoleteConstants))
+        record
+      else
+        // if the certificate contains obsolete constants, it can be dropped
+        null
+
     }
+  }
+
+  /**
+   * Update the watchable literals stored in the given lemma record.
+   */
+  private def updateRecord(record : LemmaRecord) : LemmaRecord = {
+//println("updating certificate #" + record.id)
+    val newWatchable = record.watchable filterNot assumedFormulasL0
+    new LemmaRecord (record.cert, newWatchable, record.id)
   }
 
   private val rand = new scala.util.Random(654321)

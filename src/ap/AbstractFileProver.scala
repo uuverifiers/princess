@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,16 +24,19 @@ package ap;
 import ap.parameters._
 import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
-                  Preprocessing,
+                  Preprocessing, IsUniversalFormulaVisitor,
                   FunctionEncoder, IExpression, INamedPart, PartName,
-                  IFunction, IInterpolantSpec, IBinJunctor, Environment}
+                  IFunction, IInterpolantSpec, IBinJunctor, Environment,
+                  Internal2InputAbsy}
+import ap.interpolants.ArraySimplifier
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher}
 import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
+import ap.types.{TypeTheory, IntToTermTranslator}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
-import ap.proof.tree.ProofTree
+import ap.proof.tree.{ProofTree, SeededRandomDataSource}
 import ap.proof.goal.{Goal, SymbolWeights}
 import ap.proof.certificates.{Certificate, CertFormula}
 import ap.proof.theoryPlugins.PluginSequence
@@ -134,17 +137,29 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       println("Preprocessing ...")
     }
     
+    val genTotality =
+      Param.GENERATE_TOTALITY_AXIOMS(settings) !=
+        Param.TotalityAxiomOptions.None &&
+      !IsUniversalFormulaVisitor(f)
+
     val functionEnc =
-      new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
-                           Param.GENERATE_TOTALITY_AXIOMS(settings) !=
-                             Param.TotalityAxiomOptions.None,
-                           signature.functionTypes)
+      new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings), genTotality)
     for (t <- signature.theories)
       functionEnc addTheory t
 
     val (inputFormulas, interpolantS, sig) =
       Preprocessing(f, interpolantSpecs, signature, preprocSettings, functionEnc)
     
+    val sig2 =
+      if (sig.isSorted) {
+//        Console.withOut(Console.err) {
+//          println("Warning: adding theory of types")
+//        }
+        sig.addTheories(List(ap.types.TypeTheory), true)
+      } else {
+        sig
+      }
+
     val gcedFunctions = Param.FUNCTION_GC(settings) match {
       case Param.FunctionGCOptions.None =>
         Set[Predicate]()
@@ -160,7 +175,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       if (Param.PRINT_SMT_FILE(settings) != "" ||
           Param.PRINT_TPTP_FILE(settings) != "")  f else null
 
-    (inputFormulas, oriFormula, interpolantS, sig, gcedFunctions, functionEnc,
+    (inputFormulas, oriFormula, interpolantS, sig2, gcedFunctions, functionEnc,
      constructProofs, settings)
   }
 
@@ -218,27 +233,36 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         (for (INamedPart(n, f) <- inputFormulas.iterator)
          yield (n -> Conjunction.conj(InputAbsy2Internal(f, order), order)))
       val reducedNamedParts =
-        for ((n, c) <- rawNamedParts) yield n match {
-          case PartName.NO_NAME =>
-            (PartName.NO_NAME ->
-             convertQuantifiers(
-               reducer(Conjunction.disj(List(theoryAxioms, c), order))))
-          case n =>
-            (n -> convertQuantifiers(reducer(c)))
+        for ((n, c) <- rawNamedParts) yield {
+          val redC = Theory.preprocess(reducer(c), signature.theories, order)
+          n match {
+            case PartName.NO_NAME =>
+              (PartName.NO_NAME ->
+                convertQuantifiers(
+                  Conjunction.disj(List(theoryAxioms, redC), order)))
+            case n =>
+              (n -> convertQuantifiers(redC))
+          }
         }
 
       (reducedNamedParts,
        for (n <- allPartNames) yield reducedNamedParts(n),
        checkMatchedTotalFunctions(rawNamedParts map (_._2)),
        ignoredQuantifiers)
+       
     } else {
+    
       // merge everything into one formula
       val rawF =
         InputAbsy2Internal(
           IExpression.or(for (f <- inputFormulas.iterator)
                          yield (IExpression removePartName f)), order)
-      val f = convertQuantifiers(
-                reducer(Conjunction.disjFor(List(theoryAxioms, rawF), order)))
+      val redF = Theory.preprocess(reducer(Conjunction.conj(rawF, order)),
+                                   signature.theories, order)
+      
+      val f =
+        convertQuantifiers(Conjunction.disj(List(theoryAxioms, redF), order))
+
       (Map(PartName.NO_NAME -> f),
        List(f),
        checkMatchedTotalFunctions(List(Conjunction.conj(rawF, order))),
@@ -274,6 +298,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
     gs = Param.THEORY_PLUGIN.set(gs, plugin)
+    for (seed <- Param.RANDOM_SEED(settings))
+      gs = Param.RANDOM_DATA_SOURCE.set(gs, new SeededRandomDataSource(seed))
     gs
   }
 
@@ -298,12 +324,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected lazy val canUseModelSearchProver = {
     val config = Param.PREDICATE_MATCH_CONFIG(goalSettings)
 
-    (formulas exists (_.isTrue)) ||
-    (Seqs.disjoint(formulaConstants, signature.existentialConstants) &&
-     (if (Param.POS_UNIT_RESOLUTION(goalSettings))
-        formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
-      else
-        (formulaQuantifiers subsetOf Set(Quantifier.ALL))))
+    !(Param.COMPUTE_MODEL(settings) &&
+      !signature.existentialConstants.isEmpty) &&
+    ((formulas exists (_.isTrue)) ||
+     (Seqs.disjoint(formulaConstants, signature.existentialConstants) &&
+      (if (Param.POS_UNIT_RESOLUTION(goalSettings))
+         formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
+       else
+         (formulaQuantifiers subsetOf Set(Quantifier.ALL)))))
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -349,12 +377,41 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected lazy val soundForSat =
     !ignoredQuantifiers &&
     theoriesAreSatComplete &&
-    (!matchedTotalFunctions ||
-     Param.GENERATE_TOTALITY_AXIOMS(settings) == Param.TotalityAxiomOptions.All ||
-// not quite clear yet how this trigger strategy should be integrated
-//     Param.TRIGGER_GENERATION(settings) ==
-//       Param.TriggerGenerationOptions.CompletenessPreserving ||
-     allFunctionsArePartial)
+    (!matchedTotalFunctions || allFunctionsArePartial ||
+     Param.GENERATE_TOTALITY_AXIOMS(settings) == Param.TotalityAxiomOptions.All
+     /*
+      Enabling this last case gives a wrong result for
+      testcases/onlyUnitResolution/functions5.pri
+      with options -generateTriggers=complete -genTotalityAxioms
+      Need a better criterion for when this trigger strategy
+      is complete
+     ||
+     (Set(Param.TriggerGenerationOptions.Complete,
+          Param.TriggerGenerationOptions.CompleteFrugal) contains
+      Param.TRIGGER_GENERATION(settings))
+      */
+     )
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected def filterNonTheoryParts(model : Conjunction) : Conjunction = {
+    implicit val _ = model.order
+    val remainingPredConj = model.predConj filter {
+      a => (TheoryRegistry lookupSymbol a.pred).isEmpty
+    }
+    model.updatePredConj(remainingPredConj)
+  }
+
+  protected def toIFormula(c : Conjunction,
+                           onlyNonTheory : Boolean = false) = {
+    val remaining = if (onlyNonTheory) filterNonTheoryParts(c) else c
+    val remainingNoTypes = TypeTheory.filterTypeConstraints(remaining)
+    val raw = Internal2InputAbsy(remainingNoTypes,
+                                 functionEncoder.predTranslation)
+    val simp = (new ArraySimplifier)(raw)
+    implicit val context = new Theory.DefaultDecoderContext(c)
+    IntToTermTranslator(simp)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -362,7 +419,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Console.withOut(Console.err) {
       println("Constructing satisfying assignment for the existential constants ...")
     }
-    findCounterModelTimeout(List(Conjunction.disj(formulas, order).negate))
+
+    val formula = Conjunction.disj(formulas, order)
+    val exConstraintFormula = 
+      TypeTheory.addExConstraints(formula,
+                                  signature.existentialConstants,
+                                  order)
+
+    findCounterModelTimeout(List(exConstraintFormula.negate))
   }
   
   protected def findCounterModelTimeout : Either[Conjunction, Certificate] = {
@@ -377,7 +441,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   
   protected def findCounterModelTimeout(f : Seq[Conjunction]) =
     Timeout.withChecker(stoppingCond) {
-      ModelSearchProver(f, order, goalSettings)
+      ModelSearchProver(f, order, goalSettings, Param.COMPUTE_MODEL(settings))
     }
   
   protected def findModel(f : Conjunction) : Conjunction =
@@ -386,9 +450,15 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   protected def constructProofTree : (ProofTree, Boolean) = {
     // explicitly quantify all universal variables
     
-    val closedFor = Conjunction.quantify(Quantifier.ALL,
-                                         order sort signature.nullaryFunctions,
-                                         Conjunction.disj(formulas, order), order)
+    val closedFor =
+      Conjunction.quantify(Quantifier.ALL,
+                           order sort signature.nullaryFunctions,
+                           Conjunction.disj(formulas, order), order)
+
+    val closedExFor =
+      TypeTheory.addExConstraints(closedFor,
+                                  signature.existentialConstants,
+                                  order)
     
     Console.withOut(Console.err) {
       println("Proving ...")
@@ -397,7 +467,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     Timeout.withChecker(stoppingCond) {
       val prover =
         new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-      val tree = prover(closedFor, signature)
+      val tree = prover(closedExFor, signature)
       val validConstraint = prover.isValidConstraint(tree.closingConstraint, signature)
       (tree, validConstraint)
     }

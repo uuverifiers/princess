@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -46,8 +46,7 @@ object Preprocessing {
     val funcEnc =
       new FunctionEncoder (Param.TIGHT_FUNCTION_SCOPES(settings),
                            Param.GENERATE_TOTALITY_AXIOMS(settings) !=
-                             Param.TotalityAxiomOptions.None,
-                           signature.functionTypes)
+                             Param.TotalityAxiomOptions.None)
     for (t <- signature.theories)
       funcEnc addTheory t
     apply(f, interpolantSpecs, signature, settings, funcEnc)
@@ -126,12 +125,12 @@ object Preprocessing {
     lazy val allTriggeredFunctions = Param.TRIGGER_GENERATION(settings) match {
       case Param.TriggerGenerationOptions.None =>
         theoryTriggerFunctions
-      case Param.TriggerGenerationOptions.Total =>
+      case Param.TriggerGenerationOptions.All =>
+        theoryTriggerFunctions ++ problemFunctions
+      case _ =>
         theoryTriggerFunctions ++
         (for (g <- problemFunctions.iterator;
               if (!g.partial && !g.relational)) yield g)
-      case _ =>
-        theoryTriggerFunctions ++ problemFunctions
     }
     lazy val stdTriggerGenerator = {
       val gen = new TriggerGenerator (allTriggeredFunctions,

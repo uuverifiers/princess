@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,11 +29,14 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
-import ap.util.{Debug, Logic, PlainRange}
-import ap.theories.SimpleArray
+import ap.proof.certificates.{Certificate, DagCertificateConverter,
+                              CertificatePrettyPrinter, CertFormula}
+import ap.theories.{SimpleArray, ADT, ModuloArithmetic}
+import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
-import smtlib._
-import smtlib.Absyn._
+import ap.parser.smtlib._
+import ap.parser.smtlib.Absyn._
+import ap.util.{Debug, Logic, PlainRange}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
@@ -42,12 +45,33 @@ object SMTParser2InputAbsy {
   private val AC = Debug.AC_PARSER
   
   import Parser2InputAbsy._
+  import IExpression.{Sort => TSort}
 
-  abstract class SMTType
-  case object SMTBool extends SMTType
-  case object SMTInteger extends SMTType
+  abstract class SMTType {
+    def toSort : TSort
+  }
+  case object SMTBool                              extends SMTType {
+    def toSort = TSort.Bool
+  }
+  case object SMTInteger                           extends SMTType {
+    def toSort = TSort.Integer
+  }
   case class  SMTArray(arguments : List[SMTType],
-                       result : SMTType) extends SMTType
+                       result : SMTType)           extends SMTType {
+    def toSort = TSort.Integer // TODO
+  }
+  case class SMTBitVec(width : Int)                extends SMTType {
+    val modulus = IdealInt(2) pow width
+    def toSort = TSort.Integer // TODO
+  }
+  case class SMTADT(adt : ADT, sortNum : Int)      extends SMTType {
+    def toSort = adt sorts sortNum
+    override def toString = (adt sorts sortNum).name
+  }
+  case class SMTUnint(sort : TSort)                extends SMTType {
+    def toSort = sort
+    override def toString = sort.name
+  }  
 
   case class SMTFunctionType(arguments : List[SMTType],
                              result : SMTType)
@@ -56,7 +80,8 @@ object SMTParser2InputAbsy {
   case class BoundVariable(varType : SMTType)              extends VariableType
   case class SubstExpression(e : IExpression, t : SMTType) extends VariableType
   
-  private type Env = Environment[SMTType, VariableType, Unit, SMTFunctionType]
+  private type Env =
+    Environment[SMTType, VariableType, Unit, SMTFunctionType, SMTType]
   
   def apply(settings : ParserSettings) =
     new SMTParser2InputAbsy (new Env, settings, null)
@@ -306,11 +331,15 @@ object SMTParser2InputAbsy {
   
   object PlainSymbol {
     def unapply(s : SymbolRef) : scala.Option[String] = s match {
-      case s : IdentifierRef => s.identifier_ match {
-        case id : SymbolIdent => id.symbol_ match {
-          case s : NormalSymbol => Some(s.normalsymbolt_)
-          case _ => None
-        }
+      case s : IdentifierRef => PlainIdentifier unapply s.identifier_
+      case _ => None
+    }
+  }
+
+  object PlainIdentifier {
+    def unapply(id : Identifier) : scala.Option[String] = id match {
+      case id : SymbolIdent => id.symbol_ match {
+        case s : NormalSymbol => Some(s.normalsymbolt_)
         case _ => None
       }
       case _ => None
@@ -319,13 +348,17 @@ object SMTParser2InputAbsy {
   
   object IndexedSymbol {
     def unapplySeq(s : SymbolRef) : scala.Option[Seq[String]] = s match {
-      case s : IdentifierRef => s.identifier_ match {
-        case id : IndexIdent => id.symbol_ match {
-          case s : NormalSymbol =>
-            Some(List(s.normalsymbolt_) ++
-                 (id.listindexc_ map (_.asInstanceOf[Index].numeral_)))
-          case _ => None
-        }
+      case s : IdentifierRef => IndexedIdentifier unapplySeq s.identifier_
+      case _ => None
+    }
+  }
+
+  object IndexedIdentifier {
+    def unapplySeq(id : Identifier) : scala.Option[Seq[String]] = id match {
+      case id : IndexIdent => id.symbol_ match {
+        case s : NormalSymbol =>
+          Some(List(s.normalsymbolt_) ++
+               (id.listindexc_ map (_.asInstanceOf[Index].numeral_)))
         case _ => None
       }
       case _ => None
@@ -344,6 +377,8 @@ object SMTParser2InputAbsy {
       case _ => None
     }
   }  
+
+  val BVDecLiteral = """bv([0-9]+)""".r
 
   //////////////////////////////////////////////////////////////////////////////
   
@@ -382,11 +417,13 @@ object SMTParser2InputAbsy {
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
 
 class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               SMTParser2InputAbsy.VariableType,
                                               Unit,
-                                              SMTParser2InputAbsy.SMTFunctionType],
+                                              SMTParser2InputAbsy.SMTFunctionType,
+                                              SMTParser2InputAbsy.SMTType],
                            settings : ParserSettings,
                            prover : SimpleAPI)
       extends Parser2InputAbsy
@@ -394,13 +431,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.VariableType,
            Unit,
            SMTParser2InputAbsy.SMTFunctionType,
+           SMTParser2InputAbsy.SMTType,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
-            Map[String, SMTParser2InputAbsy.SMTType],                   // sortDefs
             Int,                                                        // nextPartitionNumber
             Map[PartName, Int]                                          // partNameIndexes
             )](_env, settings) {
   
-  import IExpression._
+  import IExpression.{Sort => TSort, _}
   import Parser2InputAbsy._
   import SMTParser2InputAbsy._
   
@@ -549,7 +586,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     (if (warnOnly) ", ignoring it" else "")
 
   /**
-   * Check whether the given expression should never be inline,
+   * Check whether the given expression should never be inlined,
    * e.g., because it is too big. This method is meant to be
    * redefinable in subclasses
    */
@@ -640,20 +677,30 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   private var functionalityAxiom = true
   /**
-   * Set up things for interpolant generation?
+   * Set up proof generation?
+   */
+  private var genProofs = false
+  /**
+   * Set up interpolant generation?
    */
   private var genInterpolants = false
+  /**
+   * Set up unsat-core generation?
+   */
+  private var genUnsatCores = false
   /**
    * Timeout per query, in incremental mode
    */
   private var timeoutPer = Int.MaxValue
   
+  private def needCertificates : Boolean =
+    genProofs || genInterpolants || genUnsatCores
+
   //////////////////////////////////////////////////////////////////////////////
 
   private val assumptions = new ArrayBuffer[IFormula]
 
   private var functionDefs = Map[IFunction, (IExpression, SMTType)]()
-  private var sortDefs = Map[String, SMTType]()
 
   // Information about partitions used for interpolation
   private var nextPartitionNumber : Int = 0
@@ -671,9 +718,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
 
-  private var declareConstWarning = false
-  private var echoWarning = false
-  private var getModelWarning = false
+  private var realSortWarning = false
 
   private var lastReasonUnknown = ""
 
@@ -685,8 +730,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   protected def push : Unit = {
     checkIncremental("push")
-    pushState((functionDefs, sortDefs,
-               nextPartitionNumber, partNameIndexes))
+    pushState((functionDefs, nextPartitionNumber, partNameIndexes))
     prover.push
   }
 
@@ -697,17 +741,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     checkIncremental("pop")
     prover.pop
 
-    val (oldFunctionDefs, oldSortDefs,
-         oldNextPartitionNumber, oldPartNameIndexes) = popState
+    val (oldFunctionDefs, oldNextPartitionNumber, oldPartNameIndexes) = popState
     functionDefs = oldFunctionDefs
-    sortDefs = oldSortDefs
     nextPartitionNumber = oldNextPartitionNumber
     partNameIndexes = oldPartNameIndexes
 
     // make sure that the prover generates proofs; this setting
     // is handled via the stack in the prover, but is global
     // in SMT-LIB scripts
-    prover.setConstructProofs(genInterpolants)
+    prover.setConstructProofs(needCertificates)
   }
 
   /**
@@ -724,10 +766,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     inlineDefinedFuns    = true
     totalityAxiom        = true
     functionalityAxiom   = true
+    genProofs            = false
     genInterpolants      = false
+    genUnsatCores        = false
     assumptions.clear
     functionDefs         = Map()
-    sortDefs             = Map()
     nextPartitionNumber  = 0
     partNameIndexes      = Map()
   }
@@ -865,11 +908,25 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         handleBooleanAnnot(":functionality-axiom", annot) {
           value => functionalityAxiom = value
         } ||
+        handleBooleanAnnot(":produce-proofs", annot) {
+          value => {
+            genProofs = value
+            if (incremental)
+              prover.setConstructProofs(needCertificates)
+          }
+        } ||
         handleBooleanAnnot(":produce-interpolants", annot) {
           value => {
             genInterpolants = value
             if (incremental)
-              prover.setConstructProofs(value)
+              prover.setConstructProofs(needCertificates)
+          }
+        } ||
+        handleBooleanAnnot(":produce-unsat-cores", annot) {
+          value => {
+            genUnsatCores = value
+            if (incremental)
+              prover.setConstructProofs(needCertificates)
           }
         } ||
         handleNumAnnot(":timeout-per", annot) {
@@ -893,8 +950,96 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : SortDeclCommand if (incremental) =>
-        unsupported
+      case cmd : SortDeclCommand => {
+        ensureEnvironmentCopy
+
+        if (cmd.numeral_.toInt != 0)
+          throw new Parser2InputAbsy.TranslationException(
+            "Polymorphic sorts are not supported yet")
+
+        val name = asString(cmd.symbol_)
+        warn("treating sort " + name + " as infinite sort")
+
+        val sort = new TSort.InfUninterpreted(name)
+
+        env.addSort(name, SMTUnint(sort))
+
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : DataDeclCommand => {
+        ensureEnvironmentCopy
+
+        val name = asString(cmd.symbol_)
+        val sortNames = List(name)
+        val (adtCtors, smtCtorArgs) =
+          translateDataCtorList(sortNames, 0, cmd.listconstructordeclc_)
+
+        setupADT(sortNames, List((adtCtors, smtCtorArgs)))
+
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : DataDeclsCommand => {
+        ensureEnvironmentCopy
+
+        val sortNames =
+          for (sortc <- cmd.listpolysortc_) yield {
+            val sort = sortc.asInstanceOf[PolySort]
+            if (sort.numeral_.toInt != 0)
+              throw new Parser2InputAbsy.TranslationException(
+                "Polymorphic algebraic data-types are not supported yet")
+            asString(sort.symbol_)
+          }
+
+        val allCtors =
+          for ((maybedecl, sortNum) <-
+                 cmd.listmaybepardatadecl_.zipWithIndex) yield {
+            val decl = maybedecl match {
+              case d : MonoDataDecl => d
+              case _ : ParDataDecl =>
+                throw new Parser2InputAbsy.TranslationException(
+                  "Polymorphic algebraic data-types are not supported yet")
+            }
+            translateDataCtorList(sortNames, sortNum,
+                                  decl.listconstructordeclc_)  
+          }
+
+        setupADT(sortNames, allCtors)
+
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : DataDeclsOldCommand => {
+        ensureEnvironmentCopy
+
+        if (!cmd.listsymbol_.isEmpty)
+          throw new Parser2InputAbsy.TranslationException(
+            "Polymorphic algebraic data-types are not supported yet")
+
+        val sortNames =
+          for (declc <- cmd.listolddatadeclc_) yield {
+            val decl = declc.asInstanceOf[OldDataDecl]
+            asString(decl.symbol_)
+          }
+
+        val allCtors =
+          for ((declc, sortNum) <- cmd.listolddatadeclc_.zipWithIndex) yield {
+            val decl = declc.asInstanceOf[OldDataDecl]
+            translateDataCtorList(sortNames, sortNum,
+                                  decl.listconstructordeclc_)
+          }
+
+        setupADT(sortNames, allCtors)
+
+        success
+      }
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -902,7 +1047,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         if (!cmd.listsymbol_.isEmpty)        
           throw new Parser2InputAbsy.TranslationException(
               "Currently only define-sort with arity 0 is supported")
-        sortDefs = sortDefs + (asString(cmd.symbol_) -> translateSort(cmd.sort_))
+        env.addSort(asString(cmd.symbol_), translateSort(cmd.sort_))
         success
       }
 
@@ -926,8 +1071,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           if (args.length > 0) {
             if (!booleanFunctionsAsPredicates || res != SMTBool) {
               // use a real function
-              val f = new IFunction(name, args.length,
-                                    !totalityAxiom, !functionalityAxiom)
+              val f = MonoSortedIFunction(name,
+                                          args map (_.toSort),
+                                          res.toSort,
+                                          !totalityAxiom, !functionalityAxiom)
               env.addFunction(f, SMTFunctionType(args.toList, res))
               if (incremental)
                 prover.addFunction(f,
@@ -937,14 +1084,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                      SimpleAPI.FunctionalityMode.None)
             } else {
               // use a predicate
-              val p = new Predicate(name, args.length)
+              val p = MonoSortedPredicate(name, args map (_.toSort))
               env.addPredicate(p, ())
               if (incremental)
                 prover.addRelation(p)
             }
           } else if (res != SMTBool) {
             // use a constant
-            addConstant(new ConstantTerm(name), res)
+            addConstant(res.toSort newConstant name, res)
           } else {
             // use a nullary predicate (propositional variable)
             val p = new Predicate(name, 0)
@@ -960,11 +1107,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : ConstDeclCommand => {
-        if (!declareConstWarning) {
-          warn("accepting command declare-const, which is not SMT-LIB 2")
-          declareConstWarning = true
-        }
-
         val name = asString(cmd.symbol_)
         val res = translateSort(cmd.sort_)
 
@@ -973,7 +1115,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         if (!importProverSymbol(name, List(), res)) {
           if (res != SMTBool) {
             // use a constant
-            addConstant(new ConstantTerm(name), res)
+            addConstant(res.toSort newConstant name, res)
           } else {
             // use a nullary predicate (propositional variable)
             val p = new Predicate(name, 0)
@@ -1008,7 +1150,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         for (_ <- PlainRange(argNum)) env.popVar
 
         // use a real function
-        val f = new IFunction(name, argNum, true, true)
+        val f = MonoSortedIFunction(name, args map (_.toSort), resType.toSort,
+                                    true, true)
         env.addFunction(f, SMTFunctionType(args.toList, resType))
     
         if (inlineDefinedFuns && !neverInline(body._1)) {
@@ -1027,16 +1170,87 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           // set up a defining equation and formula
           if (incremental)
             prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
-
-          val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
-          val matrix =
-            if (argNum == 0)
-              lhs === asTerm(body)
-            else
-              ITrigger(List(lhs), lhs === asTerm(body))
-          addAxiom(quan(Array.fill(argNum){Quantifier.ALL}, matrix))
+          addAxiomEquation(f, body)
         }
 
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : RecFunctionDefCommand => {
+        val name = asString(cmd.symbol_)
+        val args : Seq[SMTType] = 
+          for (sortedVar <- cmd.listesortedvarc_)
+          yield translateSort(sortedVar.asInstanceOf[ESortedVar].sort_)
+        val argNum = pushVariables(cmd.listesortedvarc_)
+        val resType = translateSort(cmd.sort_)
+
+        // use a real function
+        val f = MonoSortedIFunction(name, args map (_.toSort), resType.toSort,
+                                    true, true)
+        env.addFunction(f, SMTFunctionType(args.toList, resType))
+
+        if (incremental)
+          prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
+        
+        // parse the definition of the function
+        val body@(_, bodyType) = translateTerm(cmd.term_, 0)
+
+        if (bodyType != resType)
+          throw new Parser2InputAbsy.TranslationException(
+              "Body of function definition has wrong type")
+
+        // pop the variables from the environment
+        for (_ <- PlainRange(argNum)) env.popVar
+
+        registerRecFunctions(List((f, body)))
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
+      case cmd : RecFunctionDefsCommand => {
+        // create functions
+        val functions = for (sigc <- cmd.listfunsignaturec_) yield {
+          val sig = sigc.asInstanceOf[FunSignature]
+          val name = asString(sig.symbol_)
+          val args : Seq[SMTType] = 
+            for (sortedVar <- sig.listesortedvarc_)
+            yield translateSort(sortedVar.asInstanceOf[ESortedVar].sort_)
+          val resType = translateSort(sig.sort_)
+
+          // use a real function
+          val f = MonoSortedIFunction(name, args map (_.toSort), resType.toSort,
+                                      true, true)
+          env.addFunction(f, SMTFunctionType(args.toList, resType))
+
+          if (incremental)
+            prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
+
+          f
+        }
+
+        // parse bodies
+        val funDefs =
+          for (((sigc, bodyExpr), f) <-
+                 (cmd.listfunsignaturec_ zip cmd.listterm_) zip functions) yield {
+            val sig = sigc.asInstanceOf[FunSignature]
+            val argNum = pushVariables(sig.listesortedvarc_)
+            val resType = translateSort(sig.sort_)
+
+            val body@(_, bodyType) = translateTerm(bodyExpr, 0)
+            if (bodyType != resType)
+              throw new Parser2InputAbsy.TranslationException(
+                "Body of function definition has wrong type")
+            
+            // pop the variables from the environment
+            for (_ <- PlainRange(argNum)) env.popVar
+
+            (f, body)
+          }
+
+        registerRecFunctions(funDefs)
         success
       }
 
@@ -1059,7 +1273,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
         if (incremental && !justStoreAssertions) {
-          if (genInterpolants) {
+          if (needCertificates) {
             PartExtractor(f, false) match {
               case List(INamedPart(PartName.NO_NAME, g)) => {
                 // generate consecutive partition numbers
@@ -1117,6 +1331,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             println("unknown")
             lastReasonUnknown = "incomplete"
           }
+          case SimpleAPI.ProverStatus.OutOfMemory =>
+            error("out of memory or stack overflow")
           case _ =>
             error("unexpected prover result")
         }
@@ -1132,6 +1348,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
+      // TODO: fix output of arrays
+
       case cmd : GetValueCommand => if (checkIncrementalWarn("get-value")) {
         prover.getStatus(false) match {
           case SimpleAPI.ProverStatus.Sat |
@@ -1139,29 +1357,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                SimpleAPI.ProverStatus.Inconclusive => try {
             val expressions = cmd.listterm_.toList
 
-            var unsupportedType = false
             val values = prover.withTimeout(timeoutPer) {
               for (expr <- expressions) yield
                 translateTerm(expr, 0) match {
-                  case p@(_, SMTBool) =>
-                    (prover eval asFormula(p)).toString
-                  case p@(_, SMTInteger) =>
-                    SMTLineariser toSMTExpr (prover eval asTerm(p))
-                  case (_, _) => {
-                    unsupportedType = true
-                    ""
-                  }
+                  case (f : IFormula, _) =>
+                    (prover eval f).toString
+                  case (t : ITerm, _) =>
+                    SMTLineariser asString (prover evalToTerm t)
                 }
             }
             
-            if (unsupportedType) {
-              error("cannot print values of this type yet")
-            } else {
-              println("(" +
-                (for ((e, v) <- expressions.iterator zip values.iterator)
-                 yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
-                ")")
-            }
+            println("(" +
+              (for ((e, v) <- expressions.iterator zip values.iterator)
+               yield ("(" + (printer print e) + " " + v + ")")).mkString(" ") +
+              ")")
           } catch {
             case SimpleAPI.TimeoutException =>
               error("timeout when constructing full model")
@@ -1177,12 +1386,43 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : GetProofCommand =>
-        error("get-proof not supported")
+        if (checkIncrementalWarn("get-proof")) {
+          prover.getStatus(false) match {
+            case SimpleAPI.ProverStatus.Unsat |
+                 SimpleAPI.ProverStatus.Valid
+                 if genProofs => {
+              println("(proof \"")
+              val nameMapping =
+                (for ((n, i) <- partNameIndexes.iterator)
+                 yield (i, n)).toMap
+              println(prover.certificateAsString(nameMapping,
+                                                 Param.InputFormat.SMTLIB))
+              println("\")")
+            }
+            case _ =>
+              error("no proof available")
+          }
+        }
 
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : GetUnsatCoreCommand =>
-        error("get-unsat-core not supported")
+        if (checkIncrementalWarn("get-unsat-core")) {
+          prover.getStatus(false) match {
+            case SimpleAPI.ProverStatus.Unsat |
+                 SimpleAPI.ProverStatus.Valid => {
+              val core = prover.getUnsatCore
+              val names =
+                (for ((name, n) <- partNameIndexes.iterator;
+                      if (core contains n))
+                 yield name.toString).toVector.sorted
+              println("(" + (names mkString " ") + ")")
+              success
+            }
+            case _ =>
+              error("no unsatisfiable core available")
+          }
+        }
 
       //////////////////////////////////////////////////////////////////////////
 
@@ -1191,41 +1431,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : GetModelCommand => if (checkIncrementalWarn("get-model")) {
-        if (!getModelWarning) {
-          warn("accepting command get-model, which is not SMT-LIB 2.")
-          warn("only values of integer constants or Boolean variables will be shown.")
-          getModelWarning = true
-        }
+      // TODO: fix output of arrays
 
+      case cmd : GetModelCommand => if (checkIncrementalWarn("get-model")) {
         prover.getStatus(false) match {
           case SimpleAPI.ProverStatus.Sat |
                SimpleAPI.ProverStatus.Invalid |
                SimpleAPI.ProverStatus.Inconclusive => try {
             val model = prover.withTimeout(timeoutPer) {
-              prover.partialModel
+              prover.partialModelAsFormula
             }
 
-            for ((SimpleAPI.ConstantLoc(c), SimpleAPI.IntValue(value)) <-
-                   model.interpretation.iterator)
-              println("(define-fun " + (SMTLineariser quoteIdentifier c.name) +
-                      " () Int " + (SMTLineariser toSMTExpr value) + ")")
-            for ((SimpleAPI.PredicateLoc(p, Seq()), SimpleAPI.BoolValue(value)) <-
-                   model.interpretation.iterator)
-              println("(define-fun " + (SMTLineariser quoteIdentifier p.name) +
-                      " () Bool " + value + ")")
-
-/*
-            val funValues =
-              (for ((SimpleAPI.IntFunctionLoc(f, args), value) <-
-                      model.interpretation.iterator)
-               yield (f, args, value)).toSeq.groupBy(_._1)
-            for ((f, triplets) <- funValues) {
-              print("(define-fun " + f.name + " (" +
-                    (for (i <- 0 until f.arity) yield ("x" + i + " Int")).mkString(" ") +
-                    ") Int ")
-            }
- */
+            SMTLineariser printModel model
           } catch {
             case SimpleAPI.TimeoutException =>
               error("timeout when constructing full model")
@@ -1364,12 +1581,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
       
       case cmd : EchoCommand => if (checkIncrementalWarn("echo")) {
-        if (!echoWarning) {
-          warn("accepting command echo, which is not SMT-LIB 2")
-          echoWarning = true
-        }
-        val str = cmd.smtstring_
-        println(str.substring(1, str.size - 1))
+        println(cmd.smtstring_)
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -1398,10 +1610,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   //////////////////////////////////////////////////////////////////////////////
 
   protected def translateSort(s : Sort) : SMTType = s match {
-    case s : IdentSort => asString(s.identifier_) match {
-      case "Int" => SMTInteger
-      case "Bool" => SMTBool
-      case id if (sortDefs contains id) => sortDefs(id)
+    case s : IdentSort => s.identifier_ match {
+      case PlainIdentifier("Int") =>
+        SMTInteger
+      case PlainIdentifier("Bool") =>
+        SMTBool
+      case PlainIdentifier("Real") => {
+        if (!realSortWarning) {
+          warn("treating sort Real as Int")
+          realSortWarning = true
+        }
+        SMTInteger
+      }
+      case IndexedIdentifier("BitVec", width) =>
+        SMTBitVec(width.toInt)
+      case PlainIdentifier(id) =>
+        env lookupSort id
       case id => {
         warn("treating sort " + (printer print s) + " as Int")
         SMTInteger
@@ -1468,7 +1692,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
 
       val baseExpr =
-        if (genInterpolants) {
+        if (needCertificates) {
           val names = for (annot <- t.listannotation_;
                            a = annot.asInstanceOf[AttrAnnotation];
                            if (a.annotattribute_ == ":named")) yield {
@@ -1547,63 +1771,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   private def translateQuantifier(t : QuantifierTerm, polarity : Int)
                                  : (IExpression, SMTType) = {
-    val quant : Quantifier = t.quantifier_ match {
-      case _ : AllQuantifier => Quantifier.ALL
-      case _ : ExQuantifier  => Quantifier.EX
-      case _ : EpsQuantifier => { // epsilon terms
-        if (t.listsortedvariablec_.size != 1)
-          throw new ParseException("_eps has to bind exactly one variable")
-        null
-      }
-    }
-
     val quantNum = pushVariables(t.listsortedvariablec_)
-    val body = asFormula(translateTerm(t.term_, polarity))
-
-    // we might need guards 0 <= x <= 1 for quantifiers ranging over booleans
-    val guard = connect(
-        for (binderC <- t.listsortedvariablec_.iterator;
-             binder = binderC.asInstanceOf[SortedVariable];
-             if (translateSort(binder.sort_) == SMTBool)) yield {
-          (env lookupSym asString(binder.symbol_)) match {
-            case Environment.Variable(ind, _) => (v(ind) >= 0) & (v(ind) <= 1)
-            case _ => { // just prevent a compiler warning
-              //-BEGIN-ASSERTION-///////////////////////////////////////////////
-              Debug.assertInt(SMTParser2InputAbsy.AC, false)
-              //-END-ASSERTION-/////////////////////////////////////////////////
-              null
-            }
-          }
-        },
-        IBinJunctor.And)
-      
-    val matrix = guard match {
-      case IBoolLit(true) =>
-        body
-      case _ => {
-        // we need to insert the guard underneath possible triggers
-        def insertGuard(f : IFormula) : IFormula = f match {
-          case ITrigger(pats, subF) =>
-            ITrigger(pats, insertGuard(subF))
-          case _ => quant match {
-            case null           => guard &&& f
-            case Quantifier.ALL => guard ===> f
-            case Quantifier.EX  => guard &&& f
-          }
-        }
-        
-        insertGuard(body)
-      }
-    }
+    val matrix = asFormula(translateTerm(t.term_, polarity))
 
     // pop the variables from the environment
-    for (_ <- PlainRange(quantNum)) env.popVar
-    
-    if (quant == null) { // epsilon term
-      val binder = t.listsortedvariablec_.head.asInstanceOf[SortedVariable]
-      (eps(matrix), translateSort(binder.sort_))
-    } else {             // proper quantifier
-      (quan(Array.fill(quantNum){quant}, matrix), SMTBool)
+    val types = for (_ <- 0 until quantNum)
+                yield env.popVar.asInstanceOf[BoundVariable].varType
+
+    t.quantifier_ match {
+      case _ : AllQuantifier =>
+        (all(types map (_.toSort), matrix), SMTBool)
+      case _ : ExQuantifier =>
+        (ex(types map (_.toSort), matrix), SMTBool)
+      case _ : EpsQuantifier => {
+        if (t.listsortedvariablec_.size != 1)
+          throw new ParseException("_eps has to bind exactly one variable")
+        (types.head.toSort eps matrix, types.head)
+      }
     }
   }
   
@@ -1656,11 +1840,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       if (inlineLetExpressions) {
         // then we directly inline the bound formulae and terms
         
-        val subst = for ((_, t, s) <- bindings.toList.reverse) yield asTerm((s, t))
+        val subst =
+          for ((_, t, s) <- bindings.toList.reverse) yield asTerm((s, t))
         (LetInlineVisitor.visit(body, (subst, -bindings.size)), bodyType)
       } else {
         val definingEqs =
-          connect(for (((_, t, s), num) <- bindings.iterator.zipWithIndex) yield {
+          connect(for (((_, t, s), num) <-
+                    bindings.iterator.zipWithIndex) yield {
             val shiftedS = VariableShiftVisitor(s, 0, bindings.size)
             val bv = v(bindings.length - num - 1)
             t match {        
@@ -1685,7 +1871,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
       
     } else {
-      // we introduce a boolean or integer variables to encode this let expression
+      // we introduce a boolean or integer variables to encode this
+      // let expression
 
       for ((name, t, s) <- bindings)
         // directly substitute small expressions, unless the user
@@ -1705,18 +1892,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           }
         } else addAxiom(t match {
           case SMTBool => {
-            val f = new IFunction(letVarName(name), 1, true, false)
-            env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTInteger))
+            val f = new MonoSortedIFunction(letVarName(name),
+                                            List(TSort.Integer), TSort.Bool,
+                                            true, false)
+            env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTBool))
 
-            env.pushVar(name, SubstExpression(all(eqZero(v(0)) ==> eqZero(f(v(0)))),
-                                              SMTBool))
+            env.pushVar(name, SubstExpression(
+                                  containFunctionApplications(eqZero(f(0))),
+                                  SMTBool))
             all(ITrigger(List(f(v(0))),
                          eqZero(v(0)) ==>
                          ((eqZero(f(v(0))) & asFormula((s, t))) |
                              ((f(v(0)) === 1) & !asFormula((s, t))))))
           }
           case exprType => {
-            val c = new ConstantTerm(letVarName(name))
+            val c = t.toSort newConstant letVarName(name)
             addConstant(c, exprType)
             env.pushVar(name, SubstExpression(c, exprType))
             c === asTerm((s, t))
@@ -1936,6 +2126,133 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // Bit-vector operations
+
+    case IndexedSymbol(BVDecLiteral(value), width) => {
+      val t = SMTBitVec(width.toInt)
+      (ModuloArithmetic.mod_cast(t.modulus, IdealInt(value)), t)
+    }
+
+    case PlainSymbol("concat") => {
+      checkArgNum("concat", 2, args)
+      val a0@(transArg0, type0) = translateTerm(args(0), 0)
+      val a1@(transArg1, type1) = translateTerm(args(1), 0)
+      val (mod0, width0) = extractBVModulusWidth("concat", type0, args(0))
+      val (mod1, width1) = extractBVModulusWidth("concat", type1, args(1))
+      (ModuloArithmetic.mod_concat(i(mod0), i(mod1), asTerm(a0), asTerm(a1)),
+       SMTBitVec(width0 + width1))
+    }
+
+    case IndexedSymbol("extract", beginStr, endStr) => {
+      checkArgNum("extract", 1, args)
+      val begin = beginStr.toInt
+      val end = endStr.toInt
+      val a0@(transArg0, type0) = translateTerm(args(0), 0)
+      val (_, width0) = extractBVModulusWidth("extract", type0, args(0))
+      val resType = SMTBitVec(begin - end + 1)
+      (ModuloArithmetic.mod_extract(i(SMTBitVec(width0 - begin - 1).modulus),
+                                    i(resType.modulus),
+                                    i(SMTBitVec(end).modulus),
+                                    asTerm(a0)),
+       resType)
+    }
+
+    case PlainSymbol("bvnot") =>
+      translateBVUnaryOp("bvnot", ModuloArithmetic.mod_not, args)
+    case PlainSymbol("bvneg") =>
+      translateBVUnaryOp("bvneg", ModuloArithmetic.mod_neg, args)
+
+    case PlainSymbol("bvand") =>
+      translateBVBinOp("bvand",  ModuloArithmetic.mod_and, args)
+    case PlainSymbol("bvor") =>
+      translateBVBinOp("bvor",   ModuloArithmetic.mod_or, args)
+    case PlainSymbol("bvadd") =>
+      translateBVBinOp("bvadd",  ModuloArithmetic.mod_add, args)
+    case PlainSymbol("bvsub") =>
+      translateBVBinOp("bvsub",  ModuloArithmetic.mod_sub, args)
+    case PlainSymbol("bvmul") =>
+      translateBVBinOp("bvmul",  ModuloArithmetic.mod_mul, args)
+    case PlainSymbol("bvudiv") =>
+      translateBVBinOp("bvudiv", ModuloArithmetic.mod_udiv, args)
+    case PlainSymbol("bvsdiv") =>
+      translateBVBinOp("bvsdiv", ModuloArithmetic.mod_sdiv, args)
+    case PlainSymbol("bvurem") =>
+      translateBVBinOp("bvurem", ModuloArithmetic.mod_urem, args)
+    case PlainSymbol("bvsrem") =>
+      translateBVBinOp("bvsrem", ModuloArithmetic.mod_srem, args)
+    case PlainSymbol("bvsmod") =>
+      translateBVBinOp("bvsmod", ModuloArithmetic.mod_smod, args)
+    case PlainSymbol("bvshl") =>
+      translateBVBinOp("bvshl",  ModuloArithmetic.mod_shl, args)
+    case PlainSymbol("bvlshr") =>
+      translateBVBinOp("bvlshr", ModuloArithmetic.mod_lshr, args)
+    case PlainSymbol("bvashr") =>
+      translateBVBinOp("bvashr", ModuloArithmetic.mod_ashr, args)
+    case PlainSymbol("bvxor") =>
+      translateBVBinOp("bvxor",  ModuloArithmetic.mod_xor, args)
+    case PlainSymbol("bvxnor") =>
+      translateBVBinOp("bvxnor", ModuloArithmetic.mod_xnor, args)
+
+    case PlainSymbol("bvnand") => {
+      val (t, tp) = translateBVBinOp("bvnand", ModuloArithmetic.mod_and, args)
+      (ModuloArithmetic.mod_not(i(tp.modulus), t), tp)
+    }
+    case PlainSymbol("bvnor") => {
+      val (t, tp) = translateBVBinOp("bvnor", ModuloArithmetic.mod_or, args)
+      (ModuloArithmetic.mod_not(i(tp.modulus), t), tp)
+    }
+
+    case PlainSymbol("bvcomp") => {
+      checkArgNum("bvcomp", 2, args)
+      val a0@(transArg0, type0) = translateTerm(args(0), 0)
+      val a1@(transArg1, type1) = translateTerm(args(1), 0)
+      val modulus = checkArgBVAgreement("bvcomp", args(0), type0, args(1), type1)
+      (ModuloArithmetic.mod_comp(i(modulus), asTerm(a0), asTerm(a1)), SMTBitVec(1))
+    }
+
+    case PlainSymbol("bvult") =>
+      translateBVBinPred("bvult", ModuloArithmetic.mod_ult, args)
+    case PlainSymbol("bvule") =>
+      translateBVBinPred("bvule", ModuloArithmetic.mod_ule, args)
+    case PlainSymbol("bvslt") =>
+      translateBVBinPred("bvslt", ModuloArithmetic.mod_slt, args)
+    case PlainSymbol("bvsle") =>
+      translateBVBinPred("bvsle", ModuloArithmetic.mod_sle, args)
+
+    case PlainSymbol("bvugt") =>
+      translateBVBinPredInv("bvugt", ModuloArithmetic.mod_ult, args)
+    case PlainSymbol("bvuge") =>
+      translateBVBinPredInv("bvuge", ModuloArithmetic.mod_ule, args)
+    case PlainSymbol("bvsgt") =>
+      translateBVBinPredInv("bvsgt", ModuloArithmetic.mod_slt, args)
+    case PlainSymbol("bvsge") =>
+      translateBVBinPredInv("bvsge", ModuloArithmetic.mod_sle, args)
+
+    // Not supported yet: repeat, zero_extend, sign_extend,
+    // rotate_left, rotate_right
+
+    ////////////////////////////////////////////////////////////////////////////
+    // ADT operations
+
+    case PlainSymbol("_size") => {
+      checkArgNum("_size", 1, args)
+      val (expr, ty) = translateTerm(args.head, 0)
+      ty match {
+        case SMTADT(adt, sortNum) => {
+          if (adt.termSize == null)
+            throw new Parser2InputAbsy.TranslationException(
+                "Function _size can only be used in combination with option " +
+                "-adtMeasure=size")
+          (IFunApp(adt.termSize(sortNum), List(expr.asInstanceOf[ITerm])),
+           SMTInteger)
+        }
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+              "Function _size needs to receive an ADT term as argument")
+      }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)
   }
@@ -2004,6 +2321,70 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         (e, t)
     }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateBVUnaryOp(name : String, f : IFunction, args : Seq[Term])
+                                : (IExpression, SMTType) = {
+    checkArgNum(name, 1, args)
+    val a0@(transArg0, type0) = translateTerm(args(0), 0)
+    (f(i(extractBVModulus(name, type0, args(0))), asTerm(a0)), type0)
+  }
+
+  private def extractBVModulus(name : String, t : SMTType,
+                               arg : Term) : IdealInt =
+    extractBVModulusWidth(name, t, arg)._1
+
+  private def extractBVModulusWidth(name : String, t : SMTType,
+                                    arg : Term) : (IdealInt, Int) =
+    t match {
+      case t@SMTBitVec(w) =>
+        (t.modulus, w)
+      case _ =>
+        throw new Parser2InputAbsy.TranslationException(
+          name + " cannot be applied to " + (printer print arg)
+        )
+    }
+
+  private def translateBVBinOp(name : String, f : IFunction, args : Seq[Term])
+                              : (ITerm, SMTBitVec) = {
+    checkArgNum(name, 2, args)
+    val a0@(transArg0, type0) = translateTerm(args(0), 0)
+    val a1@(transArg1, type1) = translateTerm(args(1), 0)
+    val modulus = checkArgBVAgreement(name, args(0), type0, args(1), type1)
+    (f(i(modulus), asTerm(a0), asTerm(a1)), type0.asInstanceOf[SMTBitVec])
+  }
+
+  private def translateBVBinPred(name : String, p : Predicate, args : Seq[Term])
+                                : (IExpression, SMTType) = {
+    checkArgNum(name, 2, args)
+    val a0@(transArg0, type0) = translateTerm(args(0), 0)
+    val a1@(transArg1, type1) = translateTerm(args(1), 0)
+    val modulus = checkArgBVAgreement(name, args(0), type0, args(1), type1)
+    (p(i(modulus), asTerm(a0), asTerm(a1)), SMTBool)
+  }
+
+  private def translateBVBinPredInv(name : String, p : Predicate, args : Seq[Term])
+                                   : (IExpression, SMTType) = {
+    checkArgNum(name, 2, args)
+    val a0@(transArg0, type0) = translateTerm(args(0), 0)
+    val a1@(transArg1, type1) = translateTerm(args(1), 0)
+    val modulus = checkArgBVAgreement(name, args(0), type0, args(1), type1)
+    (p(i(modulus), asTerm(a1), asTerm(a0)), SMTBool)
+  }
+
+  private def checkArgBVAgreement(name : String,
+                                  arg0 : Term, type0 : SMTType,
+                                  arg1 : Term, type1 : SMTType) : IdealInt =
+    (type0, type1) match {
+      case (t@SMTBitVec(w1), SMTBitVec(w2)) if (w1 == w2) =>
+        t.modulus
+      case _ =>
+        throw new Parser2InputAbsy.TranslationException(
+          name + " cannot be applied to " +
+          (printer print arg0) + " and " + (printer print arg1)
+        )
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   
   private def translateTrigger(expr : SExpr) : IExpression = expr match {
@@ -2181,7 +2562,121 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   }
 
   //////////////////////////////////////////////////////////////////////////////
+
+  private def translateDataCtorList(sortNames : Seq[String],
+                                    resultSortNum : Int,
+                                    constructorDecls : Seq[ConstructorDeclC])
+                : (Seq[(String, ADT.CtorSignature)], Seq[Seq[SMTType]]) =
+    (for (ctor <- constructorDecls) yield ctor match {
+       case ctorDecl : ConstructorDecl => {
+         val ctorName = asString(ctorDecl.symbol_)
+
+         val (adtArgs, smtArgs) =
+           (for (s <- ctorDecl.listselectordeclc_) yield {
+              val selDecl = s.asInstanceOf[SelectorDecl]
+              val selName = asString(selDecl.symbol_)
+
+              val (adtSort, smtSort) =
+                (sortNames indexOf (printer print selDecl.sort_)) match {
+                  case -1 => {
+                    val t = translateSort(selDecl.sort_)
+                    (ADT.OtherSort(t.toSort), t)
+                  }
+                  case ind =>
+                    // we don't have the actual ADT yet, so just put
+                    // null for the moment
+                    (ADT.ADTSort(ind), SMTADT(null, ind))
+                }
+
+              ((selName, adtSort), smtSort)
+            }).unzip
+
+          ((ctorName, ADT.CtorSignature(adtArgs, ADT.ADTSort(resultSortNum))),
+           smtArgs)
+       }
+
+       case ctorDecl : NullConstructorDecl =>
+         ((asString(ctorDecl.symbol_),
+           ADT.CtorSignature(List(), ADT.ADTSort(resultSortNum))),
+          List())
+     }).unzip
   
+  private def setupADT(sortNames : Seq[String],
+                       allCtors : Seq[(Seq[(String, ADT.CtorSignature)],
+                                       Seq[Seq[SMTType]])]) : Unit = {
+        val adtCtors = (allCtors map (_._1)).flatten
+        val datatype =
+          new ADT (sortNames, adtCtors, Param.ADT_MEASURE(settings))
+
+        val smtDataTypes =
+          for (n <- 0 until sortNames.size) yield SMTADT(datatype, n)
+
+        // add types to environment
+        for (t <- smtDataTypes)
+          env.addSort(t.toString, t)
+
+        // add adt symbols to the environment
+        val smtCtorFunctionTypes =
+          for (((_, args), num) <- allCtors.zipWithIndex;
+               args2 <- args.iterator;
+               cleanedArgs = for (t <- args2) yield t match {
+                 case SMTADT(null, n) => smtDataTypes(n)
+                 case t => t
+               })
+          yield SMTFunctionType(cleanedArgs.toList, smtDataTypes(num))
+
+        for ((f, smtType) <-
+             datatype.constructors.iterator zip smtCtorFunctionTypes.iterator)
+          env.addFunction(f, smtType)
+
+        for ((sels, smtType) <-
+               datatype.selectors.iterator zip smtCtorFunctionTypes.iterator;
+             (f, arg) <-
+               sels.iterator zip smtType.arguments.iterator) {
+          env.addFunction(f, SMTFunctionType(List(smtType.result), arg))
+        }
+
+        // generate the is- queries as inlined functions
+        for (((ctors, _), adtNum) <- allCtors.iterator.zipWithIndex;
+             ctorIdFun = datatype ctorIds adtNum;
+             ctorIdTerm = ctorIdFun(v(0));
+             ((name, _), ctorNum) <- ctors.iterator.zipWithIndex) {
+          val query = new IFunction("is-" + name, 1, true, true)
+          env.addFunction(query,
+                          SMTFunctionType(List(smtDataTypes(adtNum)), SMTBool))
+          val body = ctorIdTerm === ctorNum
+          functionDefs = functionDefs + (query -> (body, SMTBool))
+        }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected def registerRecFunctions(
+                  funs : Seq[(IFunction, (IExpression, SMTType))]) : Unit =
+    for ((f, body) <- funs) {
+      // set up a defining equation and formula
+      warn("assuming that recursive function " + f.name + " is partial")
+      addAxiomEquation(f, body)
+    }
+
+  private def addAxiomEquation(f : IFunction,
+                               body : (IExpression, SMTType)) : Unit = {
+    val argNum = f.arity
+
+    val lhs = IFunApp(f, for (i <- 1 to argNum) yield v(argNum - i))
+    val axiom =
+      if (argNum == 0)
+        lhs === asTerm(body)
+      else
+        quan(Array.fill(argNum + 1){Quantifier.ALL}, 
+          ITrigger(List(lhs),
+            (lhs === v(argNum)) ==> (asTerm(body) === v(argNum))))
+
+    addAxiom(axiom)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   protected def asFormula(expr : (IExpression, SMTType)) : IFormula = expr match {
     case (expr : IFormula, SMTBool) =>
       expr
@@ -2196,6 +2691,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   protected def asTerm(expr : (IExpression, SMTType)) : ITerm = expr match {
     case (expr : ITerm, _) =>
       expr
+    case (IBoolLit(true), _) =>
+      i(0)
+    case (IBoolLit(false), _) =>
+      i(1)
     case (expr : IFormula, SMTBool) =>
       ITermITE(expr, i(0), i(1))
     case (expr, _) =>

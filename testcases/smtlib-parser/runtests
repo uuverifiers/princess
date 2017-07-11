@@ -10,7 +10,7 @@ TESTS="bignum_quant.smt2 \
        init-1.smt2 MULTIPLIER_2.msat.smt2 \
        ite.smt2 ite2.smt2 ite3.smt2 \
        for_in_term.smt2 for_in_term2.smt2 \
-       let.smt2 let2.smt2 \
+       let.smt2 let2.smt2 let3.smt2 \
        divmod.smt2 arrays.smt2 arrays2.smt2 arrays3.smt2 \
        patternBug.smt2 correct-eq.smt2 \
        array-interpolation.smt2 \
@@ -19,7 +19,9 @@ TESTS="bignum_quant.smt2 \
        seconds.smt2 \
        quotes.smt2 extensions.smt2 boolean-quant.smt2 \
        define-fun-bug.smt2 boolean-array.smt2 distinctBug.smt2 \
-       reductionBug.smt2 epsilon.smt2"
+       reductionBug.smt2 epsilon.smt2 \
+       datatype.smt2 datatype4b.smt2 cvc-datatype-1.smt2 \
+       define-fun-rec.smt2 define-fun-recs.smt2"
 
 $PRI "$@" $TESTS
 
@@ -27,7 +29,12 @@ TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        named-interpolation.smt2 LockingExample.bpl.smt2 \
        let3.smt2 BugBooleanFunction.smt2 Typedef-safe.bpl.smt2 \
        missingLazyMatch.smt2 4BitCounterStruct-safe.c.smt2 \
-       interpolant-typing-bug.smt2"
+       interpolant-typing-bug.smt2 modelConstructionBug.smt2 \
+       incremental-interpolants.smt2 eval-exhaustive.smt2 \
+       datatype2.smt2 datatype3.smt2 datatype3b.smt2 datatype3c.smt2 \
+       datatype4.smt2 datatype4b.smt2 datatype5.smt2 \
+       cvc-datatype-1.smt2 unsat-core.smt2 define-fun-recs2.smt2 \
+       run_00007.trace.Alloc_large__008268.smt2"
 
 $PRI "$@" +incremental $TESTS
 
