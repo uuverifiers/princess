@@ -346,6 +346,14 @@ object PrincessLineariser {
           TryAgain(t, ctxt)
         }
 
+        case INot(IExpression.Eq(t, ADT.BoolADT.True)) => {
+          print("!")
+          TryAgain(t, ctxt)
+        }
+
+        case INot(IExpression.Eq(t, ADT.BoolADT.False)) =>
+          TryAgain(t, ctxt)
+
         // Negated equations
         
         case INot(IIntFormula(IIntRelation.EqZero,
