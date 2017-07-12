@@ -23,6 +23,7 @@ package ap
 
 import ap.parameters.{GlobalSettings, Param}
 import ap.proof.certificates.Certificate
+import ap.proof.tree.{SeededRandomDataSource, NonRandomDataSource}
 import ap.parser.{PartName, IFunction}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Predicate
@@ -37,8 +38,173 @@ object ParallelFileProver {
   private val AC = Debug.AC_MAIN
 
   //////////////////////////////////////////////////////////////////////////////
+  // Strategies used for CASC
 
-  val Timeslice = 200
+  val cascStrategies2016 =
+    List(
+      ("1110004000",52000,400),   // 0
+      ("1001001020",7000,5000),
+      ("1200113100",4000,600),    // 2: never gives up (all totality axioms)
+      ("1001001110",50000,5000),
+      ("1000004020",14000,12000),
+      ("1011110101",4000,4000),   // 5: never gives up (complete trigger strategy)
+      ("0011105000",6000,6000),
+      ("1010114120",18000,1800),
+      ("1101001020",30000,200),
+      ("1001002110",21000,14000),
+      ("1010011120",53000,53000), // 10
+      ("1010004120",24000,24000),
+      ("0000005001",1000,1000),   // 12: never gives up (complete trigger strategy)
+      ("1000011021",3000,3000),
+      ("0100102000",18000,18000),
+      ("1001105101",100000,22000), // 15: never gives up (complete trigger strategy)
+      ("1010111122",4000,4000),
+      ("1001005000",13000,4000),
+      ("1101001110",11000,11000),
+      ("1001001121",3000,2400)//,
+      //("1200113100",1000000,1000),  // again try strategy 2, for a long time
+      //("1011110101",1000000,1000)  // again try strategy 5, for a long time
+    )
+
+  /**
+   * Create a parallel prover with the given set of strategies
+   */
+  def apply(createReader : () => java.io.Reader,
+            // a timeout in milliseconds
+            timeout : Int,
+            output : Boolean,
+            userDefStoppingCond : => Boolean,
+            baseSettings : GlobalSettings,
+            rawStrategies : Seq[(String, Int, Int)],
+            repetitions : Int,
+            maxParallelProvers : Int,
+            runUntilProof : Boolean,
+            prelResultPrinter : Prover => Unit) : ParallelFileProver = {
+
+    val randomDataSource = Param.RANDOM_SEED(baseSettings) match {
+      case Some(seed) => new SeededRandomDataSource(seed)
+      case None =>       NonRandomDataSource
+    }
+
+    val strategies =
+      for (_ <- (0 until repetitions).iterator;
+           (str, to, seq) <- rawStrategies.iterator) yield {
+        val seed =
+          if (randomDataSource.isRandom)
+            Some(randomDataSource.nextInt)
+          else
+            None
+        val seedStr = " -randomSeed=" + (seed match {
+          case Some(seed) => "" + seed
+          case None => "off"
+        })
+
+        val s = Param.RANDOM_SEED.set(
+                Param.CLAUSIFIER_TIMEOUT.set(
+                  toSetting(str, baseSettings),
+                  to min Param.CLAUSIFIER_TIMEOUT(baseSettings)),
+                  seed)
+        Configuration(s, toOptionList(str) + seedStr, to, seq)
+      }
+    
+    new ParallelFileProver(createReader,
+                           timeout,
+                           true,
+                           userDefStoppingCond,
+                           strategies,
+                           maxParallelProvers,
+                           runUntilProof,
+                           prelResultPrinter)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def toSetting(str : String, baseSettings : GlobalSettings) = {
+    var s = baseSettings
+    s = Param.TRIGGERS_IN_CONJECTURE.set(s, str(0) == '1')
+    s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) match {
+          case '0' => Param.TotalityAxiomOptions.None
+          case '1' => Param.TotalityAxiomOptions.Ctors
+          case '2' => Param.TotalityAxiomOptions.All
+        })
+    s = Param.TIGHT_FUNCTION_SCOPES.set(s, str(2) == '1')
+    s = Param.CLAUSIFIER.set(s,
+        if (str(3) == '0')
+          Param.ClausifierOptions.Simple
+        else
+          Param.ClausifierOptions.None)
+    s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, str(4) == '1')
+    s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, str(5) == '1')
+    s = Param.TRIGGER_STRATEGY.set(s, str(6) match {
+      case '0' => Param.TriggerStrategyOptions.AllMaximal
+      case '1' => Param.TriggerStrategyOptions.Maximal
+      case '2' => Param.TriggerStrategyOptions.AllMinimal
+      case '3' => Param.TriggerStrategyOptions.AllMinimalAndEmpty
+      case '4' => Param.TriggerStrategyOptions.AllUni
+      case '5' => Param.TriggerStrategyOptions.MaximalOutermost
+    })
+    s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
+    s = Param.IGNORE_QUANTIFIERS.set(s, str(8) == '1' || str(8) == '2')
+    s = Param.PROOF_CONSTRUCTION_GLOBAL.set(s,
+          if (str(8) == '2')
+            Param.ProofConstructionOptions.Always
+          else
+            Param.ProofConstructionOptions.Never)
+    s = Param.TRIGGER_GENERATION.set(s, str(9) match {
+      case '0' => Param.TriggerGenerationOptions.All
+      case '1' => Param.TriggerGenerationOptions.Complete
+      case '2' => Param.TriggerGenerationOptions.CompleteFrugal
+    })
+    s
+  }
+
+  def toOptionList(strategy : String) : String = {
+    var s = ""
+    s = s + " " + (if (strategy.charAt(0)=='0') "-" else "+") + "triggersInConjecture"
+    s = s + " -genTotalityAxioms=" + (strategy.charAt(1) match {
+                                        case '0' => "none"
+                                        case '1' => "ctors"
+                                        case '2' => "all"
+                                      })
+    s = s + " " + (if (strategy.charAt(2)=='0') "-" else "+") + "tightFunctionScopes"
+    s = s + " -clausifier=" + (if (strategy.charAt(3)=='0') "simple" else "none")
+    s = s + " " + (if (strategy.charAt(4)=='0') "-" else "+") + "reverseFunctionalityPropagation"
+    s = s + " " + (if (strategy.charAt(5)=='0') "-" else "+") + "boolFunsAsPreds"
+    
+    s = s + " -triggerStrategy=" + (
+       if(strategy.charAt(6)=='0')
+         "allMaximal"
+       else if(strategy.charAt(6)=='1')
+         "maximal"
+       else if(strategy.charAt(6)=='2')
+         "allMinimal"
+       else if(strategy.charAt(6)=='3')
+         "allMinimalAndEmpty"
+       else if(strategy.charAt(6)=='4')
+         "allUni"
+       else
+         "maximalOutermost"
+    )
+
+    s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
+    s = s + " " + (if (strategy.charAt(8)=='0') "-" else "+") + "ignoreQuantifiers"
+    s = s + " -proofConstruction=" +
+              (if (strategy.charAt(8)=='2') "always" else "never")
+    s = s + " -generateTriggers=" + (
+      if (strategy.charAt(9)=='0')
+        "all"
+      else if (strategy.charAt(9)=='1')
+        "complete"
+      else
+        "completeFrugal"
+    )
+    
+    s
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val Timeslice = 200
   
   //////////////////////////////////////////////////////////////////////////////
   // Commands that can be sent to the provers
@@ -290,6 +456,8 @@ object ParallelFileProver {
     }
   
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Prover that tries to solve a given problem using a number of different

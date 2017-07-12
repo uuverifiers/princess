@@ -22,8 +22,7 @@
 package ap;
 
 import ap.proof.ConstraintSimplifier
-import ap.proof.tree.{ProofTree, QuantifiedTree,
-                      SeededRandomDataSource, NonRandomDataSource}
+import ap.proof.tree.{ProofTree, QuantifiedTree}
 import ap.proof.certificates.{Certificate, DotLineariser,
                               DagCertificateConverter, CertificatePrettyPrinter,
                               CertFormula}
@@ -88,7 +87,6 @@ object CmdlMain {
     println(" [+-]mostGeneralConstraint Derive the most general constraint for this problem")
     println("                           (quantifier elimination for PA formulae) (default: -)")
     println(" -clausifier=val           Choose the clausifier (none, simple)  (default: none)")
-    println(" [+-]genTotalityAxioms     Generate totality axioms for functions   (default: +)")
   }
 
   def printExoticOptions = {
@@ -356,91 +354,6 @@ object CmdlMain {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  
-  def toSetting(str : String, baseSettings : GlobalSettings) = {
-    var s = baseSettings
-    s = Param.TRIGGERS_IN_CONJECTURE.set(s, str(0) == '1')
-    s = Param.GENERATE_TOTALITY_AXIOMS.set(s, str(1) match {
-          case '0' => Param.TotalityAxiomOptions.None
-          case '1' => Param.TotalityAxiomOptions.Ctors
-          case '2' => Param.TotalityAxiomOptions.All
-        })
-    s = Param.TIGHT_FUNCTION_SCOPES.set(s, str(2) == '1')
-    s = Param.CLAUSIFIER.set(s,
-        if (str(3) == '0')
-          Param.ClausifierOptions.Simple
-        else
-          Param.ClausifierOptions.None)
-    s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, str(4) == '1')
-    s = Param.BOOLEAN_FUNCTIONS_AS_PREDICATES.set(s, str(5) == '1')
-    s = Param.TRIGGER_STRATEGY.set(s, str(6) match {
-      case '0' => Param.TriggerStrategyOptions.AllMaximal
-      case '1' => Param.TriggerStrategyOptions.Maximal
-      case '2' => Param.TriggerStrategyOptions.AllMinimal
-      case '3' => Param.TriggerStrategyOptions.AllMinimalAndEmpty
-      case '4' => Param.TriggerStrategyOptions.AllUni
-      case '5' => Param.TriggerStrategyOptions.MaximalOutermost
-    })
-    s = Param.REAL_RAT_SATURATION_ROUNDS.set(s, (str(7) - '0').toInt)
-    s = Param.IGNORE_QUANTIFIERS.set(s, str(8) == '1' || str(8) == '2')
-    s = Param.PROOF_CONSTRUCTION_GLOBAL.set(s,
-          if (str(8) == '2')
-            Param.ProofConstructionOptions.Always
-          else
-            Param.ProofConstructionOptions.Never)
-    s = Param.TRIGGER_GENERATION.set(s, str(9) match {
-      case '0' => Param.TriggerGenerationOptions.All
-      case '1' => Param.TriggerGenerationOptions.Complete
-      case '2' => Param.TriggerGenerationOptions.CompleteFrugal
-    })
-    s
-  }
-
-  def toOptionList(strategy : String) : String = {
-    var s = ""
-    s = s + " " + (if (strategy.charAt(0)=='0') "-" else "+") + "triggersInConjecture"
-    s = s + " -genTotalityAxioms=" + (strategy.charAt(1) match {
-                                        case '0' => "none"
-                                        case '1' => "ctors"
-                                        case '2' => "all"
-                                      })
-    s = s + " " + (if (strategy.charAt(2)=='0') "-" else "+") + "tightFunctionScopes"
-    s = s + " -clausifier=" + (if (strategy.charAt(3)=='0') "simple" else "none")
-    s = s + " " + (if (strategy.charAt(4)=='0') "-" else "+") + "reverseFunctionalityPropagation"
-    s = s + " " + (if (strategy.charAt(5)=='0') "-" else "+") + "boolFunsAsPreds"
-    
-    s = s + " -triggerStrategy=" + (
-       if(strategy.charAt(6)=='0')
-         "allMaximal"
-       else if(strategy.charAt(6)=='1')
-         "maximal"
-       else if(strategy.charAt(6)=='2')
-         "allMinimal"
-       else if(strategy.charAt(6)=='3')
-         "allMinimalAndEmpty"
-       else if(strategy.charAt(6)=='4')
-         "allUni"
-       else
-         "maximalOutermost"
-    )
-
-    s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
-    s = s + " " + (if (strategy.charAt(8)=='0') "-" else "+") + "ignoreQuantifiers"
-    s = s + " -proofConstruction=" +
-              (if (strategy.charAt(8)=='2') "always" else "never")
-    s = s + " -generateTriggers=" + (
-      if (strategy.charAt(9)=='0')
-        "all"
-      else if (strategy.charAt(9)=='1')
-        "complete"
-      else
-        "completeFrugal"
-    )
-    
-    s
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
 
   val domain_size : ConstantTerm = new ConstantTerm("domain_size")
 
@@ -464,57 +377,8 @@ object CmdlMain {
             lastFilename = (name split "/").last stripSuffix ".p"
             fileProperties.conjectureNum = -1
             
-            var rawStrategies =
-List(
-("1110004000",52000,400),   // 0
-("1001001020",7000,5000),
-("1200113100",4000,600),    // 2: never gives up (all totality axioms)
-("1001001110",50000,5000),
-("1000004020",14000,12000),
-("1011110101",4000,4000),   // 5: never gives up (complete trigger strategy)
-("0011105000",6000,6000),
-("1010114120",18000,1800),
-("1101001020",30000,200),
-("1001002110",21000,14000),
-("1010011120",53000,53000), // 10
-("1010004120",24000,24000),
-("0000005001",1000,1000),   // 12: never gives up (complete trigger strategy)
-("1000011021",3000,3000),
-("0100102000",18000,18000),
-("1001105101",100000,22000), // 15: never gives up (complete trigger strategy)
-("1010111122",4000,4000),
-("1001005000",13000,4000),
-("1101001110",11000,11000),
-("1001001121",3000,2400)//,
-//("1200113100",1000000,1000),  // again try strategy 2, for a long time
-//("1011110101",1000000,1000)  // again try strategy 5, for a long time
-)
+            var rawStrategies = ParallelFileProver.cascStrategies2016
 
-/*
-List(
-("1001001020",13000,4000),
-("1010004000",60000,800),
-("1011110101",2000,1600),
-("0100102100",55000,200),
-("0000105000",1000,1000),
-("1000112020",1000,400),
-("1001000120",3000,2800),
-("1200113000",1000,1000),
-("0011105100",6000,6000),
-("1001111101",9000,2200),
-("1101003000",37000,200),
-("1101011000",53000,53000),
-("1001105101",36000,23000),
-("1010004100",12000,400),
-("1201003100",24000,10000),
-("1010015010",59000,3000),
-("1001000010",60000,26000),
-("0000005101",7000,3000),
-("0000105100",31000,11000),
-("1001005000",1000000,16000)
-)
-*/
-        
             var conjNum = 0
 	    var prover : Prover = null
             var result : Prover.Result = null
@@ -527,37 +391,9 @@ List(
                              if (Param.SPLIT_CONJECTURES(settings2))
                                Some(conjNum)
                              else
-                               None), 15000)
+                               None), 50000)
               
               prover = if (Param.MULTI_STRATEGY(settings)) {
-                import ParallelFileProver._
-                
-                val randomDataSource = Param.RANDOM_SEED(baseSettings) match {
-                  case Some(seed) => new SeededRandomDataSource(seed)
-                  case None =>       NonRandomDataSource
-                }
-
-                val strategies =
-                  for (_ <- (0 until 5).iterator;
-                       (str, to, seq) <- rawStrategies.iterator) yield {
-                    val seed =
-                      if (randomDataSource.isRandom)
-                        Some(randomDataSource.nextInt)
-                      else
-                        None
-                    val seedStr = " -randomSeed=" + (seed match {
-                      case Some(seed) => "" + seed
-                      case None => "off"
-                    })
-
-                    val s = Param.RANDOM_SEED.set(
-                            Param.CLAUSIFIER_TIMEOUT.set(
-                              toSetting(str, baseSettings),
-                              to min 50000),
-                              seed)
-                    Configuration(s, toOptionList(str) + seedStr, to, seq)
-                  }
-                
                 def prelPrinter(p : Prover) : Unit = {
                   prelResultPrinted = p.result
                   Console.err.println
@@ -565,16 +401,18 @@ List(
                   Console.err.println
                 }
 
-                new ParallelFileProver(reader,
-                                       Param.TIMEOUT(settings),
-                                       true,
-                                       userDefStoppingCond,
-                                       strategies,
-                                       3,
-                                       Param.COMPUTE_UNSAT_CORE(settings) ||
-                                         Param.PRINT_CERTIFICATE(settings) ||
-                                         Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
-                                       prelPrinter _)
+                ParallelFileProver(reader,
+                                   Param.TIMEOUT(settings),
+                                   true,
+                                   userDefStoppingCond,
+                                   baseSettings,
+                                   rawStrategies,
+                                   5,
+                                   3,
+                                   Param.COMPUTE_UNSAT_CORE(settings) ||
+                                     Param.PRINT_CERTIFICATE(settings) ||
+                                     Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
+                                   prelPrinter _)
   
               } else {
                 new IntelliFileProver(reader(),
