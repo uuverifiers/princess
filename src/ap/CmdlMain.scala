@@ -22,7 +22,8 @@
 package ap;
 
 import ap.proof.ConstraintSimplifier
-import ap.proof.tree.{ProofTree, QuantifiedTree}
+import ap.proof.tree.{ProofTree, QuantifiedTree,
+                      SeededRandomDataSource, NonRandomDataSource}
 import ap.proof.certificates.{Certificate, DotLineariser,
                               DagCertificateConverter, CertificatePrettyPrinter,
                               CertFormula}
@@ -480,13 +481,14 @@ List(
 ("0000005001",1000,1000),   // 12: never gives up (complete trigger strategy)
 ("1000011021",3000,3000),
 ("0100102000",18000,18000),
-("1001105101",1000000,22000), // 15: never gives up (complete trigger strategy)
+("1001105101",100000,22000), // 15: never gives up (complete trigger strategy)
 ("1010111122",4000,4000),
 ("1001005000",13000,4000),
 ("1101001110",11000,11000),
-("1001001121",3000,2400),
-("1200113100",1000000,1000),  // again try strategy 2, for a long time
-("1011110101",1000000,1000))  // again try strategy 5, for a long time
+("1001001121",3000,2400)//,
+//("1200113100",1000000,1000),  // again try strategy 2, for a long time
+//("1011110101",1000000,1000)  // again try strategy 5, for a long time
+)
 
 /*
 List(
@@ -530,11 +532,31 @@ List(
               prover = if (Param.MULTI_STRATEGY(settings)) {
                 import ParallelFileProver._
                 
-                val strategies = for ((str, to, seq) <- rawStrategies) yield {
-                  val s = Param.CLAUSIFIER_TIMEOUT.set(toSetting(str, baseSettings),
-                                                       to min 50000)
-                  Configuration(s, toOptionList(str), to, seq)
+                val randomDataSource = Param.RANDOM_SEED(baseSettings) match {
+                  case Some(seed) => new SeededRandomDataSource(seed)
+                  case None =>       NonRandomDataSource
                 }
+
+                val strategies =
+                  for (_ <- (0 until 5).iterator;
+                       (str, to, seq) <- rawStrategies.iterator) yield {
+                    val seed =
+                      if (randomDataSource.isRandom)
+                        Some(randomDataSource.nextInt)
+                      else
+                        None
+                    val seedStr = " -randomSeed=" + (seed match {
+                      case Some(seed) => "" + seed
+                      case None => "off"
+                    })
+
+                    val s = Param.RANDOM_SEED.set(
+                            Param.CLAUSIFIER_TIMEOUT.set(
+                              toSetting(str, baseSettings),
+                              to min 50000),
+                              seed)
+                    Configuration(s, toOptionList(str) + seedStr, to, seq)
+                  }
                 
                 def prelPrinter(p : Prover) : Unit = {
                   prelResultPrinted = p.result

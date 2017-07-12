@@ -301,7 +301,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
                          timeout : Int,
                          output : Boolean,
                          userDefStoppingCond : => Boolean,
-                         settings : Seq[ParallelFileProver.Configuration],
+                         settings : Iterator[ParallelFileProver.Configuration],
                          maxParallelProvers : Int,
                          runUntilProof : Boolean,
                          prelResultPrinter : Prover => Unit) extends Prover {
@@ -341,7 +341,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     val messageQueue = new LinkedBlockingQueue[SubProverMessage]
 
     val subProversToSpawn =
-      for ((s, num) <- settings.iterator.zipWithIndex)
+      for ((s, num) <- settings.zipWithIndex)
       yield new SubProverManager(num, createReader, s,
                                  messageQueue, userDefStoppingCond)
 
