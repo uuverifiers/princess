@@ -29,7 +29,7 @@ import ap.terfor.TermOrder
 //import ap.terfor.conjunctions.Quantifier
 import ap.util.{Debug, Seqs}
 import ap.theories.Theory
-import ap.types.SortedIFunction
+import ap.types.{SortedIFunction, SortedPredicate}
 
 object FunctionEncoder {
   
@@ -348,8 +348,9 @@ class FunctionEncoder (tightFunctionScopes : Boolean,
   
   private def totality(pred : Predicate) : IFormula = {
     val args = (for (i <- 1 until pred.arity) yield v(i)) ++ List(v(0))
+    val argSorts = SortedPredicate.iArgumentSorts(pred, args)
     val atom = IAtom(pred, args)
-    quan(List.fill(pred.arity - 1){Quantifier.ALL}, ex(atom))
+    all(argSorts.init, argSorts.last ex atom)
   }
   
   private def functionality(pred : Predicate) : IFormula = {

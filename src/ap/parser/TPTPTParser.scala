@@ -234,8 +234,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
         val usesRatOps = usesRROps(problem, "rat")
         val usesRealOps = usesRROps(problem, "real")
-        val containsExQuantifiers =
-          SelectiveQuantifierCountVisitor(problem, Set(Quantifier.EX)) > 0
+        val containsExQuantifiers = ContainsExQuantifierVisitor(problem)
 
         if (tptpType == TPTPType.TFF &&
             (containsRat || containsReal) &&

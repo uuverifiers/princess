@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -96,7 +96,7 @@ object ParallelFileProver {
       def unfinished = (result == null)
       var localTimeout = config.timeout
       
-      var runtime : Long = num // just make sure that the provers start in the right order
+      var runtime : Long = 0
       var runtimeOffset : Long = 0
       var lastStartTime : Long = 0
       var targetedSuspendTime : Long = 0
@@ -273,7 +273,6 @@ object ParallelFileProver {
                          Prover.InconclusiveResult() => "gave up"
                     case _ => "terminated"
                   })
-                  Console.err.println("found result")
                   messageQueue put SubProverFinished(num, Some(prover))
                 }
               }
@@ -329,8 +328,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     // we currently ignore the NoProof result, since the way in which
     // finite domain guards are introduced destroys completeness in some
     // rare cases
-    case Prover.InconclusiveResult() |
-         Prover.InvalidResult() => true
+    case Prover.NoProof(_) |
+         Prover.Invalid(_) |
+         Prover.MaybeCounterModel(_) => true
     case _ => false
   }
   
@@ -340,13 +340,11 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     
     val messageQueue = new LinkedBlockingQueue[SubProverMessage]
 
-    val subProverManagers =
-      (for ((s, num) <- settings.iterator.zipWithIndex)
-       yield new SubProverManager(num, createReader, s,
-                                  messageQueue, userDefStoppingCond)).toArray
-    
-    val subProversToSpawn = subProverManagers.iterator
-    
+    val subProversToSpawn =
+      for ((s, num) <- settings.iterator.zipWithIndex)
+      yield new SubProverManager(num, createReader, s,
+                                 messageQueue, userDefStoppingCond)
+
     // all provers that have been spawned so far
     val spawnedProvers = new ArrayBuffer[SubProverManager]
     
@@ -389,13 +387,12 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       def compare(a : SubProverManager, b : SubProverManager) : Int =
         (b.runtime - b.runtimeOffset) compare (a.runtime - a.runtimeOffset)
     }
-    
-    val pendingProvers = new PriorityQueue[SubProverManager]
 
     def spawnNewProverIfPossible : Boolean =
       if (runningProverNum < maxParallelProvers && subProversToSpawn.hasNext) {
         updateOffset
         val newProver = subProversToSpawn.next
+        spawnedProvers += newProver
 
         if (preliminaryResult != null && !newProver.producesProofs) {
           // provers that do not generate certificates are useless at
@@ -406,12 +403,9 @@ class ParallelFileProver(createReader : () => java.io.Reader,
         }
 
         newProver.startSubProver   // start the actual prover
-        pendingProvers += newProver
-        spawnedProvers += newProver
         runningProverNum = runningProverNum + 1
-        if (exclusiveRun == -1)
-          exclusiveRun = newProver.num
-//        newProver resumeTO remainingTime
+        exclusiveRun = newProver.num
+        newProver resumeTO remainingTime
         true
       } else {
         false
@@ -425,8 +419,7 @@ class ParallelFileProver(createReader : () => java.io.Reader,
       
     ////////////////////////////////////////////////////////////////////////////
     
-    while (runningProverNum < maxParallelProvers && subProversToSpawn.hasNext)
-      spawnNewProverIfPossible
+    val pendingProvers = new PriorityQueue[SubProverManager]
 
     def resumeProver : Boolean =
       if (!pendingProvers.isEmpty) {
@@ -488,8 +481,8 @@ class ParallelFileProver(createReader : () => java.io.Reader,
 
     ////////////////////////////////////////////////////////////////////////////
     
-//    spawnNewProverIfPossible
-    resumeProver
+    spawnNewProverIfPossible
+//    resumeProver
     
     // the main loop of the controller    
     while (runningProverNum > 0) messageQueue.take match {

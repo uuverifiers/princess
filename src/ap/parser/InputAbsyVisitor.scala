@@ -991,6 +991,42 @@ class SelectiveQuantifierCountVisitor(consideredQuantifiers : Set[Quantifier])
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
+ * Check whether a formula contains existential quantifiers at all.
+ */
+object ContainsExQuantifierVisitor extends ContextAwareVisitor[Unit, Unit] {
+
+  private object FoundQuantifier extends Exception
+  private val v0Set = Set(IVariable(0))
+
+  def apply(f : IExpression) : Boolean = try {
+    this.visitWithoutResult(f, Context({}))
+    false
+  } catch {
+    case FoundQuantifier => true
+  }
+
+  private def isEX(q : Quantifier, ctxt : Context[Unit]) = q match {
+    case Quantifier.EX  if ctxt.polarity >= 0 => true
+    case Quantifier.ALL if ctxt.polarity <= 0 => true
+    case _ => false
+  }
+
+  override def preVisit(t : IExpression,
+                        ctxt : Context[Unit]) : PreVisitResult = t match {
+    case IQuantified(q, body)
+      if (isEX(q, ctxt) && !ContainsSymbol.freeFrom(body, v0Set)) =>
+        throw FoundQuantifier
+    case _ =>
+      super.preVisit(t, ctxt)
+  }
+
+  def postVisit(t : IExpression, ctxt : Context[Unit],
+                subres : Seq[Unit]) : Unit = ()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
  * Visitor for checking whether a formula contains any existential
  * quantifiers without explicitly specified triggers.
  */
