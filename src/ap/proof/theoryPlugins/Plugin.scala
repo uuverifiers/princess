@@ -535,7 +535,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
               action.isInstanceOf[CloseByAxiom])
       yield action match {
         case AddFormula(f) =>      f
-        case AddAxiom(_, f, _) =>  f
+        case AddAxiom(_, f, _) =>  f.negate
         case CloseByAxiom(_, _) => Conjunction.TRUE
         case _ => throw new IllegalArgumentException
       }
