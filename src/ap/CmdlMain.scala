@@ -942,7 +942,7 @@ List(
                 println("% SZS status GaveUp for " + lastFilename)
               }
               case Prover.NoCounterModel =>  {
-                Console.err.println("No countermodel exists, formula is valid")
+                Console.err.println("VALID")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -952,7 +952,7 @@ List(
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoCounterModelCert(cert) =>  {
-                Console.err.println("No countermodel exists, formula is valid")
+                Console.err.println("VALID")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -963,7 +963,7 @@ List(
                 printCertificate(cert, settings, prover, lastFilename)
               }
               case Prover.NoCounterModelCertInter(cert, inters) => {
-                Console.err.println("No countermodel exists, formula is valid")
+                Console.err.println("VALID")
                 if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
                   println
                   println("Most-general constraint:")
@@ -992,7 +992,7 @@ List(
                 println("% SZS status " + fileProperties.positiveResult + " for " + lastFilename)
               }
               case Prover.NoModel =>  {
-                Console.err.println("No satisfying assignment for the existential constants exists, formula is invalid")
+                Console.err.println("INVALID")
                 println("% SZS status " + fileProperties.negativeResult + " for " + lastFilename)
               }
               case Prover.TimeoutProof(tree) =>  {
