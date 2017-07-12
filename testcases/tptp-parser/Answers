@@ -120,7 +120,7 @@ Warning: ignoring some quantifiers
 Constructing countermodel ...
 Found proof (size 96)
 
-No countermodel exists, formula is valid
+VALID
 % SZS status Theorem for unsat-core
 
 Unsatisfiable core:
@@ -132,7 +132,7 @@ Warning: ignoring some quantifiers
 Constructing countermodel ...
 Found proof (size 96)
 
-No countermodel exists, formula is valid
+VALID
 % SZS status Theorem for unsat-core
 
 % SZS output start Proof for unsat-core
