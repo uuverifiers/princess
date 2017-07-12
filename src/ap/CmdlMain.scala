@@ -354,84 +354,25 @@ object CmdlMain {
             
             val prover = if (Param.MULTI_STRATEGY(settings)) {
               import ParallelFileProver._
-              
-              /*
-              val s1 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val s2 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val s3 = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s
-              }
-              
-              val strategies =
-                List((s1, true, "+reverseFunctionalityPropagation -tightFunctionScopes"),
-                     (s2, false, "-genTotalityAxioms -tightFunctionScopes"),
-                     (s3, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation"))
-              */
-                
-              val S = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val J = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, true)
-                s
-              }
-              val P = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, true)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.AllMaximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, false)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              val Y = {
-                var s = baseSettings
-                s = Param.GENERATE_TOTALITY_AXIOMS.set(s, false)
-                s = Param.TRIGGER_STRATEGY.set(s, Param.TriggerStrategyOptions.Maximal)
-                s = Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(s, true)
-                s = Param.TIGHT_FUNCTION_SCOPES.set(s, false)
-                s
-              }
-              
-              val strategies =
-                List(Configuration(S, false, "-genTotalityAxioms -tightFunctionScopes", Long.MaxValue),
-                     Configuration(J, true, "-triggerStrategy=allMaximal +reverseFunctionalityPropagation", Long.MaxValue),
-                     Configuration(P, true, "-triggerStrategy=allMaximal -tightFunctionScopes", Long.MaxValue),
-                     Configuration(Y, false, "-genTotalityAxioms +reverseFunctionalityPropagation -tightFunctionScopes", Long.MaxValue))
 
-              new ParallelFileProver(reader,
-                                     Param.TIMEOUT(settings),
-                                     true,
-                                     userDefStoppingCond,
-                                     strategies,
-                                     2)
+              def prelPrinter(p : Prover) : Unit = {
+                Console.err.println
+                printResult(p, baseSettings)
+                Console.err.println
+              }
+
+              ParallelFileProver(reader,
+                                 Param.TIMEOUT(settings),
+                                 true,
+                                 userDefStoppingCond,
+                                 baseSettings,
+                                 cascStrategies2016,
+                                 1,
+                                 3,
+                                 Param.COMPUTE_UNSAT_CORE(settings) ||
+                                   Param.PRINT_CERTIFICATE(settings) ||
+                                   Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
+                                 prelPrinter _)
             } else {
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),
