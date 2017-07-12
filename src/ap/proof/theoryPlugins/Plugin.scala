@@ -257,13 +257,22 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       case List(AxiomSplit(assumptions, cases, theory)) => {
         implicit val order = goal.order
 
+        val needsQuantifiers =
+          (assumptions exists (!_.constants.isEmpty)) ||
+          (cases exists { case (f, _) => !f.constants.isEmpty })
+
         // TODO: avoid conversion to conjunction
         val certAssumptions =
           for (a <- assumptions) yield CertFormula(Conjunction.conj(a, order))
         val (compoundAssumptions, simpleAssumptions) =
           certAssumptions partition (_.isInstanceOf[CertCompoundFormula])
+        val (predAssumptions, otherAssumptions) =
+          if (needsQuantifiers)
+            simpleAssumptions partition (_.isInstanceOf[CertPredLiteral])
+          else
+            (List(), simpleAssumptions)
 
-        (simpleAssumptions.size, cases.size + compoundAssumptions.size) match {
+        (otherAssumptions.size, cases.size + compoundAssumptions.size) match {
 
           // the case where we can just add the axiom using an inference
           case (0, 1) => {
@@ -273,7 +282,8 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                 val negA =
                   !assumption
                 val newInferences =
-                  branchInferences ++ axiomInferences(negA, theory)
+                  branchInferences ++
+                  axiomInferences(negA, predAssumptions, theory)
                 applyActions(AddFormula(assumption.toConj) :: linearActions,
                              goal,
                              newInferences,
@@ -285,7 +295,8 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                   cases
                 val newInferences =
                   branchInferences ++
-                  axiomInferences(CertFormula(axiomCase), theory)
+                  axiomInferences(CertFormula(axiomCase),
+                                  predAssumptions, theory)
                 handleActionsRec(rest.toList,
                                  AddFormula(!axiomCase) :: linearActions,
                                  goal,
@@ -305,7 +316,8 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
               val betaCert = BetaCertificate(allCerts, order)
               val instAxiom = betaCert.localAssumedFormulas.head
               BranchInferenceCertificate.prepend(
-                  axiomInferences(instAxiom, theory), betaCert, order)
+                  axiomInferences(instAxiom, predAssumptions, theory),
+                  betaCert, order)
             }
     
             val pCert = PartialCertificate(comb _, dummyProvidedFormulas,
@@ -341,12 +353,12 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
 
             val (allSubTrees, allProvidedFormulas) =
               if (caseNum == 1)
-                (subTrees, providedFormulas)
-              else
                 // need to add a dummy leaf, so that we have a proof
                 // AND-node where we can store the certificate
                 (subTrees ++ List(Goal.TRUE),
                  providedFormulas ++ List(dummyContradictionFors))
+              else
+                (subTrees, providedFormulas)
 
             // certificate constructor, to be applied once all sub-goals have
             // been closed
@@ -363,12 +375,14 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
     
               val instAxiom = betaCert.localAssumedFormulas.head
               BranchInferenceCertificate.prepend(
-                  axiomInferences(instAxiom, theory), betaCert, order)
+                  axiomInferences(instAxiom, predAssumptions, theory),
+                  betaCert, order)
             }
     
             val pCert =
               PartialCertificate(comb _, allProvidedFormulas, branchInferences,
                                  order)
+
             ptf.andInOrder(allSubTrees, pCert, goal.vocabulary)
           }
 
@@ -389,27 +403,41 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
   private val dummyProvidedFormulas =
     List(dummyContradictionFors, dummyContradictionFors)
 
-  private def axiomInferences(instAxiom : CertFormula, theory : Theory)
+  private def axiomInferences(instAxiom : CertFormula,
+                              predAssumptions : Seq[CertFormula],
+                              theory : Theory)
                              (implicit order : TermOrder)
                              : Seq[BranchInference] = {
-    val consts = order sort instAxiom.constants
-                
+    val predLits =
+      for (f <- predAssumptions) yield f.asInstanceOf[CertPredLiteral]
+    val negPredLits =
+      predLits map { l => !l }
+    val instAxiomWithPreds =
+      Conjunction.disj(List(instAxiom.toConj) ++ (negPredLits map (_.toConj)),
+                       order)
+    val consts =
+      order sort instAxiomWithPreds.constants
+
     val (axiom, instInf) =
       if (consts.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(Plugin.AC, predAssumptions.isEmpty)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         (instAxiom, List())
       } else {
         val axiomConj =
-          Conjunction.quantify(Quantifier.ALL, consts,
-                               instAxiom.toConj, order)
+          Conjunction.quantify(Quantifier.ALL, consts, instAxiomWithPreds,order)
         val axiom =
           CertFormula(axiomConj).asInstanceOf[CertCompoundFormula]
         val instanceTerms =
           for (c <- consts) yield LinearCombination(c, order)
+
         (axiom,
-         List(GroundInstInference(axiom, instanceTerms, instAxiom,
-                                  List(), instAxiom, order)))
+         List(GroundInstInference(axiom, instanceTerms,
+                                  CertFormula(instAxiomWithPreds),
+                                  predLits, instAxiom, order)))
       }
-                                       
+
     List(TheoryAxiomInference(axiom, theory)) ++ instInf
   }
 

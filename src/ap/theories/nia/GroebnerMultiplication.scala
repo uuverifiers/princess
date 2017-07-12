@@ -37,8 +37,8 @@ import ap.terfor.arithconj.ArithConj
 import ap.basetypes.IdealInt
 import ap.util.{Timeout, Seqs}
 
-import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
-                                 ArrayBuffer}
+import scala.collection.immutable.BitSet
+import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
 
 
 /**
@@ -148,33 +148,34 @@ println(unprocessed)
         if (!unprocessed.isEmpty) {
 
           // Move one polynomial from unprocessed to passive
-          val chosen = unprocessed.get
+          val (chosen, chosenLabel) = unprocessed.get
 //println("next: " + chosen)
-          val newPoly = active.reducePolynomial(passive, chosen)
+          val (newPoly, newLabel) =
+            active.reducePolynomial(passive, chosen, chosenLabel)
 
           // If the new polynomial is reduced to zero, reiterate
           if (!newPoly.isZero) {
-            val reducedActive  = active reduceBy newPoly
-            val reducedPassive = passive reduceBy newPoly
+            val reducedActive  = active.reduceBy(newPoly, newLabel)
+            val reducedPassive = passive.reduceBy(newPoly, newLabel)
 
             unprocessed add reducedActive
             unprocessed add reducedPassive
 
-            passive add newPoly
+            passive.add(newPoly, newLabel)
           }
 
         } else if (!passive.isEmpty) {
 
-          val newPoly = passive.get
+          val (newPoly, newLabel) = passive.get
 
           for (p <- active.polyIterator)
             if (newPoly.lt hasCommonVariables p.lt) {
-              val spol = newPoly.spol(p)
+              val spol = newPoly spol p
               if (!spol.isZero)
-                unprocessed add spol
+                unprocessed.add(spol, newLabel | (active labelFor p))
             }
 
-          active add newPoly
+          active.add(newPoly, newLabel)
 
         }
       }
@@ -268,18 +269,12 @@ println(unprocessed)
                       calledFromSplitter : Boolean) : Seq[Plugin.Action] = {
       implicit val _ = goal.order
 
-//println("Groebner: " + goal.facts)
+// println("Groebner: " + goal.facts)
 
       // Fetch all predicates, if none nothing we can do
       val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
       if (predicates.isEmpty)
         return List()
-
-      if (Param.PROOF_CONSTRUCTION(goal.settings))
-        throw new UnsupportedOperationException(
-          "GroebnerMultiplication cannot generate proofs yet.\n" +
-          "When using SimpleAPI, make sure that nonlinear formulae are\n" +
-          "asserted only after calling setConstructProofs(true).")
 
       val predicatesList = predicates.toList
       val (simplifiedGB, factsToRemove, monOrder) =
@@ -293,13 +288,13 @@ println(unprocessed)
           val basis = new Basis
           var factsToRemove = List[ap.terfor.preds.Atom]()
     
-          for (a <- predicates) {
+          for ((a, index) <- predicates.iterator.zipWithIndex) {
             val p = atomToPolynomial(a)
     
             if (p.isZero)
               factsToRemove = a :: factsToRemove
             else
-              basis add p
+              basis.add(p, BitSet(index))
           }
  
           val gb = buchberger(basis)
@@ -327,7 +322,7 @@ println(unprocessed)
 
       // Translate this to a linear system
 
-      def makeMap(polylist : List[Polynomial]) : List[Monomial] = {
+      def makeMap(polylist : Seq[Polynomial]) : List[Monomial] = {
         var newmap = List[Monomial]()
 
         for (p <- polylist)
@@ -352,12 +347,9 @@ println(unprocessed)
         }
       }
 
-      def makeMatrix(polylist : List[Polynomial]) : Array[Array[IdealInt]] = {
+      def makeMatrix(polylist : Seq[Polynomial]) : Array[Array[IdealInt]] = {
         var monomialMap = makeMap(polylist)
-        val list =
-          (for (p <- polylist)
-          yield
-            polyToRow(p, monomialMap)).toList
+        val list = for (p <- polylist) yield polyToRow(p, monomialMap)
 
         val array = Array.ofDim[IdealInt](list.length, monomialMap.length)
 
@@ -378,26 +370,38 @@ println(unprocessed)
       }
 
       // Did we find any linear formulas that can be propagated back?
-      val linearEq = simplifiedGB.toList
+      val linearEq = simplifiedGB.toArray
       if (!linearEq.isEmpty) {
-        val linearConj =
-          if (linearEq forall (_.isLinear)) {
-            conj(linearEq map (polynomialToAtom _))
-          } else if (linearEq.size > 1) {
-            val map = makeMap(linearEq)
-            val m = makeMatrix(linearEq)
-            val gaussian = new Gaussian(m)
+        if (linearEq forall (_.isLinear)) {
 
-            conj(for (r <- gaussian.getRows.iterator;
-                      poly = rowToPolynomial(map, r);
-                      if (poly.isLinear))
-                 yield polynomialToAtom(poly))
-          } else {
-            Conjunction.TRUE
-          }
+          val linearConj = conj(linearEq map (polynomialToAtom _))
+          return removeFactsActions :::
+                 List(Plugin.AddFormula(linearConj.negate))
 
-        if (!linearConj.isTrue)
-          return removeFactsActions ::: List(Plugin.AddFormula(linearConj.negate))
+        } else if (linearEq.size > 1) {
+
+          val map = makeMap(linearEq)
+          val m = makeMatrix(linearEq)
+          val gaussian = new Gaussian(m)
+
+          val implications =
+            (for ((r, preLabel) <- gaussian.getRows.iterator;
+                  poly = rowToPolynomial(map, r);
+                  if (poly.isLinear))
+             yield (polynomialToAtom(poly),
+                    BitSet() ++
+                      (for (ind <- preLabel.iterator;
+                            ind2 <- simplifiedGB labelFor linearEq(ind))
+                       yield ind2))).toList
+
+          if (!implications.isEmpty)
+            return removeFactsActions ::: (
+                     for ((eq, label) <- implications)
+                     yield Plugin.AddAxiom(for (ind <- label.toSeq)
+                                             yield predicates(ind),
+                                           eq,
+                                           GroebnerMultiplication.this))
+        }
       }
 
       //////////////////////////////////////////////////////////////////////////

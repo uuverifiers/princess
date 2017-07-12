@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -30,8 +30,9 @@ import ap.basetypes.IdealInt
 import scala.math.Ordering.Implicits.infixOrderingOps
 import ap.util.{Debug, Timeout}
 
+import scala.collection.immutable.BitSet
 import scala.collection.mutable.{HashMap => MHashMap, PriorityQueue,
-                                 ArrayBuffer}
+                                 ArrayBuffer, LinkedHashMap}
 
 
 /**
@@ -635,7 +636,7 @@ case class Polynomial(val terms : Polynomial.TermList)
  * By keeping a map and a priorityqueue in parallel,
  * the data structure supports:
  * -- Finding the smallest element (keeping it ordered)
- * -- Finding all polynomias with a LT containing some variables
+ * -- Finding all polynomials with a LT containing some variables
  */
 class Basis(implicit val ordering : MonomialOrdering) {
 
@@ -646,13 +647,17 @@ class Basis(implicit val ordering : MonomialOrdering) {
                               p1.terms.iterator map (_.m))
   }
 
-  val polyMap = new MHashMap[Monomial, List[Polynomial]]
+  val polyMap = new LinkedHashMap[Monomial, List[Polynomial]]
   val polyQueue = new PriorityQueue[Polynomial]
+  val labels = new MHashMap[Polynomial, BitSet]
+
+  def labelFor(p : Polynomial) : BitSet = labels(p)
 
   def polyIterator : Iterator[Polynomial] =
     for (l <- polyMap.valuesIterator; p <- l.iterator) yield p
 
   def toList : List[Polynomial] = polyIterator.toList
+  def toArray : Array[Polynomial] = polyIterator.toArray
   def toSet : Set[Polynomial] = polyIterator.toSet
 
   def isEmpty = polyMap.isEmpty
@@ -676,9 +681,10 @@ class Basis(implicit val ordering : MonomialOrdering) {
 
   override def toString : String =
     (for ((p, i) <- polyIterator.zipWithIndex)
-     yield "(" + i +") " + p).mkString("\n")
+     yield "(" + i +") {" + (labelFor(p) mkString ", ") +
+           "}\n\t" + p).mkString("\n")
 
-  def add(poly : Polynomial) : Unit = {
+  def add(poly : Polynomial, label : BitSet) : Unit = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Debug.AC_NIA, !poly.isZero)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -688,19 +694,20 @@ class Basis(implicit val ordering : MonomialOrdering) {
     if (!(curList contains poly)) {
       polyMap.put(poly.lm, poly :: curList)
       polyQueue enqueue poly
+      labels.put(poly, label)
     }
   }
 
-  def add(polys : Iterable[Polynomial]) : Unit =
+  def add(polys : Iterable[(Polynomial, BitSet)]) : Unit =
     for (p <- polys)
-      add(p)
+      add(p._1, p._2)
 
   def addBasis(b : Basis) : Unit =
     for (p <- b.polyIterator)
-      add(p) 
+      add(p, b labelFor p)
 
   // Retrieves a polynomial and removes it from the basis
-  def get : Polynomial = {
+  def get : (Polynomial, BitSet) = {
     val retPoly = polyQueue.dequeue
 
     val oldList = polyMap.getOrElse(retPoly.lm, List())
@@ -715,7 +722,10 @@ class Basis(implicit val ordering : MonomialOrdering) {
       else
         polyMap.put(retPoly.lm, newList)
 
-      retPoly
+      val label = labelFor(retPoly)
+      labels -= retPoly
+
+      (retPoly, label)
     }
   }
 
@@ -725,9 +735,10 @@ class Basis(implicit val ordering : MonomialOrdering) {
   }
 
   // Returns poly reduced with respect to this basis
-  def reducePolynomial(poly : Polynomial) : Polynomial = {
+  def reducePolynomial(poly : Polynomial,
+                       label : BitSet) : (Polynomial, BitSet) = {
     if (poly.isZero)
-      return poly
+      return (poly, label)
 
     val reducers =
       for (divMon <- poly.lm.divisors.sorted.iterator;
@@ -735,21 +746,25 @@ class Basis(implicit val ordering : MonomialOrdering) {
       yield p
 
     if (reducers.hasNext) {
-      val redPoly = poly reduceBy reducers.next
+      val reducer = reducers.next
+      val redPoly = poly reduceBy reducer
+      val newLabel = label | labelFor(reducer)
+
       if (redPoly.isZero)
-        redPoly
+        (redPoly, newLabel)
       else
-        reducePolynomial(redPoly)
+        reducePolynomial(redPoly, newLabel)
     } else {
-      poly
+      (poly, label)
     }
   }
 
   // Returns poly reduced with respect to two bases
   def reducePolynomial(andAlso : Basis,
-                       poly : Polynomial) : Polynomial = {
+                       poly : Polynomial,
+                       label : BitSet) : (Polynomial, BitSet) = {
     if (poly.isZero)
-      return poly
+      return (poly, label)
 
     val reducers =
       for (divMon <- poly.lm.divisors.sorted.iterator;
@@ -758,14 +773,17 @@ class Basis(implicit val ordering : MonomialOrdering) {
       yield p
 
     if (reducers.hasNext) {
-      val redPoly = poly reduceBy reducers.next
+      val reducer = reducers.next
+      val redPoly = poly reduceBy reducer
+      val newLabel =
+        label | labels.getOrElse(reducer, andAlso labelFor reducer)
 
       if (redPoly.isZero)
-        redPoly
+        (redPoly, newLabel)
       else
-        reducePolynomial(andAlso, redPoly)
+        reducePolynomial(andAlso, redPoly, newLabel)
     } else {
-      poly
+      (poly, label)
     }
   }
 
@@ -773,8 +791,9 @@ class Basis(implicit val ordering : MonomialOrdering) {
    * Reduce each polynomial in this basis using <code>poly</code>,
    * give back all modified polynomials.
    */
-  def reduceBy(poly : Polynomial) : Seq[Polynomial] = {
-    val res = new ArrayBuffer[Polynomial]
+  def reduceBy(poly : Polynomial, label : BitSet)
+              : Seq[(Polynomial, BitSet)] = {
+    val res = new ArrayBuffer[(Polynomial, BitSet)]
     val keysToRemove = new ArrayBuffer[Monomial]
 
     polyMap transform { case (key, polyList) => {
@@ -784,12 +803,14 @@ class Basis(implicit val ordering : MonomialOrdering) {
                if ({
                  if (reduced.isZero) {
                    // drop this polynomial
+                   labels -= p
                    false
                  } else if (reduced == p) {
                    // nothing has changed
                    true
                  } else {
-                   res += reduced
+                   res += ((reduced, labelFor(p) | label))
+                   labels -= p
                    false
                  }
                }))
@@ -815,21 +836,26 @@ class Basis(implicit val ordering : MonomialOrdering) {
     while (!this.isEmpty) {
       Timeout.check
 
-      val nextPoly = this.get
+      val (nextPoly, nextLabel) = this.get
+      var usedLabels = nextLabel
+
       val simpPoly = nextPoly simplifyBy { m => {
         val reducers =
           for (divMon <- m.divisors.sorted.iterator;
                p <- newBasis.polyMap.getOrElse(divMon, List()).iterator)
           yield p
-        if (reducers.hasNext)
-          Some(reducers.next)
-        else
+        if (reducers.hasNext) {
+          val reducer = reducers.next
+          usedLabels = usedLabels | (newBasis labelFor reducer)
+          Some(reducer)
+        } else {
           None
+        }
       }}
 
 //      println("" + nextPoly + " -> " + simpPoly)
 
-      newBasis add simpPoly
+      newBasis.add(simpPoly, usedLabels)
     }
 
     newBasis
