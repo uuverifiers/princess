@@ -83,7 +83,7 @@ class ExhaustiveProver(depthFirst : Boolean, settings : GoalSettings) {
   //////////////////////////////////////////////////////////////////////////////
 
   def apply(inputFor : Formula, order : TermOrder) : ProofTree =
-    apply(inputFor, Signature (Set(), inputFor.constants, Set(), order, Set(), Map()))
+    apply(inputFor, Signature (Set(), inputFor.constants, Set(), order, Set()))
 
   def apply(inputFor : Formula, signature : Signature) : ProofTree = {
     val order = signature.order

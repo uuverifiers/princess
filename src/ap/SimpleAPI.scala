@@ -4024,7 +4024,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         order.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         order,
-                        theoryCollector.theories, Set(), Map())
+                        theoryCollector.theories, Set())
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
                     functionEnc)
@@ -4050,7 +4050,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         currentOrder.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         currentOrder,
-                        theoryCollector.theories, Set(), Map())
+                        theoryCollector.theories, Set())
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms

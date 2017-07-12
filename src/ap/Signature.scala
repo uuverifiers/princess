@@ -30,17 +30,6 @@ import ap.util.Debug
 object Signature {
   private val AC = Debug.AC_SIGNATURE
 
-  abstract class FunctionType {
-    def argumentTypeGuard(args : Seq[ITerm]) : IFormula
-    def resultTypeGuard  (res : ITerm)       : IFormula
-  }
-  
-  object TopFunctionType extends FunctionType {
-    import IExpression._
-    def argumentTypeGuard(args : Seq[ITerm]) : IFormula = i(true)
-    def resultTypeGuard  (res : ITerm)       : IFormula = i(true)
-  }
-  
   object PredicateMatchStatus extends Enumeration {
     val Positive, Negative, None = Value
   }
@@ -54,26 +43,24 @@ object Signature {
             nullaryFunctions : Set[ConstantTerm],
             order : TermOrder) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  Map(), order, List(), Set(), Map())
+                  Map(), order, List(), Set())
 
   def apply(universalConstants : Set[ConstantTerm],
             existentialConstants : Set[ConstantTerm],
             nullaryFunctions : Set[ConstantTerm],
             order : TermOrder,
-            domainPredicates : Set[Predicate],
-            functionTypes : Map[IFunction, Signature.FunctionType]) =
+            domainPredicates : Set[Predicate]) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  Map(), order, List(), domainPredicates, functionTypes)
+                  Map(), order, List(), domainPredicates)
 
   def apply(universalConstants : Set[ConstantTerm],
             existentialConstants : Set[ConstantTerm],
             nullaryFunctions : Set[ConstantTerm],
             predicateMatchConfig : PredicateMatchConfig,
             order : TermOrder,
-            domainPredicates : Set[Predicate],
-            functionTypes : Map[IFunction, Signature.FunctionType]) =
+            domainPredicates : Set[Predicate]) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  predicateMatchConfig, order, List(), domainPredicates, functionTypes)
+                  predicateMatchConfig, order, List(), domainPredicates)
 
   def apply(universalConstants : Set[ConstantTerm],
             existentialConstants : Set[ConstantTerm],
@@ -81,37 +68,31 @@ object Signature {
             predicateMatchConfig : PredicateMatchConfig,
             order : TermOrder,
             theories : Seq[Theory],
-            domainPredicates : Set[Predicate],
-            functionTypes : Map[IFunction, Signature.FunctionType]) =
+            domainPredicates : Set[Predicate]) =
     new Signature(universalConstants, existentialConstants, nullaryFunctions,
-                  predicateMatchConfig, order, theories, domainPredicates, functionTypes)
+                  predicateMatchConfig, order, theories, domainPredicates)
 }
 
 /**
  * Helper class for storing the sets of declared constants (of various kinds)
  * and functions, together with the chosen <code>TermOrder</code>.
  */
-class Signature(val universalConstants : Set[ConstantTerm],
-                val existentialConstants : Set[ConstantTerm],
-                val nullaryFunctions : Set[ConstantTerm],
-                val predicateMatchConfig : Signature.PredicateMatchConfig,
-                val order : TermOrder,
-                val theories : Seq[Theory],
-                val domainPredicates : Set[Predicate],
-                val functionTypes : Map[IFunction, Signature.FunctionType]) {
+class Signature private (val universalConstants : Set[ConstantTerm],
+                         val existentialConstants : Set[ConstantTerm],
+                         val nullaryFunctions : Set[ConstantTerm],
+                         val predicateMatchConfig : Signature.PredicateMatchConfig,
+                         val order : TermOrder,
+                         val theories : Seq[Theory],
+                         val domainPredicates : Set[Predicate]) {
   def updateOrder(newOrder : TermOrder) =
     new Signature(universalConstants, existentialConstants,
                   nullaryFunctions, predicateMatchConfig, newOrder, theories,
-                  domainPredicates, functionTypes)
+                  domainPredicates)
   def updatePredicateMatchConfig(
                   newPredicateMatchConfig : Signature.PredicateMatchConfig) =
     new Signature(universalConstants, existentialConstants,
                   nullaryFunctions, newPredicateMatchConfig, order, theories,
-                  domainPredicates, functionTypes)
-  def updateFunctionTypes(newFunctionTypes : Map[IFunction, Signature.FunctionType]) =
-    new Signature(universalConstants, existentialConstants,
-                  nullaryFunctions, predicateMatchConfig, order, theories,
-                  domainPredicates, newFunctionTypes)
+                  domainPredicates)
 
   def addTheories(additionalTheories : Seq[Theory],
                   front : Boolean = false) : Signature =
@@ -136,8 +117,7 @@ class Signature(val universalConstants : Set[ConstantTerm],
                        p <- t.predicateMatchConfig.iterator) yield p),
                 (this.order /: additionalTheories) { case (o, t) => t extend o },
                 newTheories,
-                domainPredicates,
-                functionTypes)
+                domainPredicates)
     }
 
   /**

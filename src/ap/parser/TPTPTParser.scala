@@ -294,33 +294,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
 
         ////////////////////////////////////////////////////////////////////////
                   
-/*
-        val fixedDeclaredTypes = declaredTypes.toMap
-
-        def typeGuard(a : ITerm, t : Type) = fixedDeclaredTypes(t) match {
-          case None => i(true)
-          case Some(pred) => pred(a)
-        }
-*/
-
-        def constructFunctionType(rank : Rank) =
-          chosenFiniteConstraintMethod match {
-/*            case Param.FiniteDomainConstraints.TypeGuards =>
-              new Signature.FunctionType {
-                def argumentTypeGuard(args : Seq[ITerm]) : IFormula = {
-                  //-BEGIN-ASSERTION-///////////////////////////////////////////
-                  Debug.assertPre(TPTPTParser.AC, args.size == rank.argsTypes.size)
-                  //-END-ASSERTION-/////////////////////////////////////////////
-                  connect(for ((a, t) <- args.iterator zip rank.argsTypes.iterator)
-                          yield typeGuard(a, t), IBinJunctor.And)
-                }
-                def resultTypeGuard  (res : ITerm) : IFormula =
-                  typeGuard(res, rank.resType)
-              } */
-            case _ =>
-              Signature.TopFunctionType
-          }
-        
         val domainPredAxioms = chosenFiniteConstraintMethod match {
           case Param.FiniteDomainConstraints.TypeGuards => {
             // check whether there are any types without declared
@@ -425,8 +398,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
              domainPredAxioms) ===>
           (problem ||| domainAxioms)
 
-        val preSignature =
-          genSignature(completeFor, constructFunctionType _)
+        val preSignature = genSignature(completeFor)
 
         val finalPredMatchConfig =
           preSignature.predicateMatchConfig ++ ( 
@@ -446,13 +418,10 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
         if (funMapping.isEmpty) {
           (completeFor, List(), signature)
         } else {
-          val newFunctionTypes =
-            for ((f, t) <- signature.functionTypes)
-            yield (funMapping.getOrElse(f, f), t)
           ((new FunSubstituter(funMapping)).visit(completeFor, ())
                                            .asInstanceOf[IFormula],
            List(),
-           signature updateFunctionTypes newFunctionTypes)
+           signature)
         }
       }
       case error =>

@@ -123,8 +123,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                   preSignature2.nullaryFunctions,
                   preSignature2.predicateMatchConfig,
                   preSignature2.order.extend(domain_size, Set()),
-                  preSignature2.domainPredicates,
-                  preSignature2.functionTypes)
+                  preSignature2.domainPredicates)
       case _ =>
         preSignature2
     }

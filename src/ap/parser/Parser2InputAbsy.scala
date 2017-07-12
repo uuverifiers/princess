@@ -24,7 +24,6 @@ package ap.parser;
 import ap._
 import ap.theories.{TheoryCollector, MulTheory}
 import ap.parameters.{ParserSettings, Param}
-import ap.parameters.{ParserSettings, Param}
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -190,28 +189,6 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
     currentEnv.clear
     environmentCopied = true
     axioms = List()
-  }
-
-  protected def genSignature(completeFor : IExpression,
-                             funTypeConverter : FT => Signature.FunctionType)
-                            : Signature = {
-    var prel = env toSignature funTypeConverter
-    val coll = new TheoryCollector
-    coll(completeFor)
-    if (coll.theories.isEmpty) {
-      prel
-    } else {
-      Signature(prel.universalConstants,
-                prel.existentialConstants,
-                prel.nullaryFunctions,
-                prel.predicateMatchConfig ++ (
-                  for (t <- coll.theories.iterator;
-                       p <- t.predicateMatchConfig.iterator) yield p),
-                (prel.order /: coll.theories) { case (o, t) => t extend o },
-                coll.theories,
-                prel.domainPredicates,
-                prel.functionTypes)
-    }
   }
 
   private val storedStates =
