@@ -26,7 +26,7 @@ import ap.theories.Theory
 import ap.proof.goal.{Goal, Task, EagerTask, PrioritisedTask}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates._
-import ap.terfor.{Formula, TermOrder}
+import ap.terfor.{Formula, TermOrder, TerForConvenience}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
 import ap.parameters.Param
@@ -85,6 +85,13 @@ object Plugin {
   case class AxiomSplit  (assumptions : Seq[Formula],
                           cases : Seq[(Conjunction, Seq[Action])],
                           theory : Theory)          extends Action
+
+  /**
+   * Split a disequality fact into two inequalities.
+   */
+  case class SplitDisequality(equality : LinearCombination,
+                              leftActions : Seq[Action],
+                              rightActions : Seq[Action]) extends Action
   
   /**
    * Schedule a task to be applied later on the goal.
@@ -312,12 +319,24 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
             // from the dummy leafs
             def comb(certs : Seq[Certificate]) : Certificate = {
               // add proofs for the simple assumptions
-              val allCerts = proveSimpleAssumptions(simpleAssumptions)
-              val betaCert = BetaCertificate(allCerts, order)
-              val instAxiom = betaCert.localAssumedFormulas.head
-              BranchInferenceCertificate.prepend(
-                  axiomInferences(instAxiom, predAssumptions, theory),
-                  betaCert, order)
+              val (inferences, betaCert) =
+                if (otherAssumptions.isEmpty) {
+                  val allCerts =
+                    proveSimpleAssumptions(simpleAssumptions)
+                  val (instAxiom, betaCert) =
+                    BetaCertificate.naryWithDisjunction(allCerts, order)
+                  (axiomInferences(instAxiom, List(), theory),
+                   betaCert)
+                } else {
+                  val allCerts =
+                    proveSimpleAssumptions(otherAssumptions)
+                  val (instAxiom, betaCert) =
+                    BetaCertificate.naryWithDisjunction(allCerts, order)
+                  (axiomInferences(instAxiom, predAssumptions, theory),
+                   betaCert)
+                }
+
+              BranchInferenceCertificate.prepend(inferences, betaCert, order)
             }
     
             val pCert = PartialCertificate(comb _, dummyProvidedFormulas,
@@ -367,13 +386,12 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
 
               // add proofs for the simple assumptions
               val simpleCerts =
-                proveSimpleAssumptions(simpleAssumptions)
+                proveSimpleAssumptions(otherAssumptions)
               val allCerts =
                 simpleCerts ++ ((providedFormulas map (_.head)) zip certs)
-              val betaCert =
-                BetaCertificate(allCerts, order)
+              val (instAxiom, betaCert) =
+                BetaCertificate.naryWithDisjunction(allCerts, order)
     
-              val instAxiom = betaCert.localAssumedFormulas.head
               BranchInferenceCertificate.prepend(
                   axiomInferences(instAxiom, predAssumptions, theory),
                   betaCert, order)
@@ -387,6 +405,39 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
           }
 
         }
+      }
+
+      case List(SplitDisequality(eqLC, left, right)) => {
+        implicit val order = goal.order
+        import TerForConvenience._
+
+        val leftSubtree =
+          handleActionsRec(left.toList,
+                           AddFormula(eqLC >= 0) :: linearActions,
+                           goal,
+                           goal.startNewInferenceCollection,
+                           ptf)
+        val rightSubtree =
+          handleActionsRec(right.toList,
+                           AddFormula(eqLC <= 0) :: linearActions,
+                           goal,
+                           goal.startNewInferenceCollection,
+                           ptf)
+
+        val leftInEq = CertInequality(-eqLC - 1)
+        val rightInEq = CertInequality(eqLC - 1)
+
+        // certificate constructor, to be applied once all sub-goals have
+        // been closed
+        def comb(certs : Seq[Certificate]) : Certificate =
+          SplitEqCertificate(leftInEq, rightInEq, certs(0), certs(1), order)
+        
+        val pCert =
+          PartialCertificate(comb _,
+                             List(Set(leftInEq), Set(rightInEq)),
+                             branchInferences, order)
+
+        ptf.andInOrder(List(leftSubtree, rightSubtree), pCert, goal.vocabulary)
       }
       
       case (a@(_ : RemoveFacts | _ : ScheduleTask)) :: rest =>
@@ -416,7 +467,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       Conjunction.disj(List(instAxiom.toConj) ++ (negPredLits map (_.toConj)),
                        order)
     val consts =
-      order sort instAxiomWithPreds.constants
+      (order sort instAxiomWithPreds.constants).reverse
 
     val (axiom, instInf) =
       if (consts.isEmpty) {
@@ -496,6 +547,18 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                 actionStack push (otherActions ++
                                   List(AddFormula(!axiomCase)) ++
                                   rest)
+            }
+            case SplitDisequality(eqLC, left, right) => {
+              implicit val _ = goal.order
+              import TerForConvenience._
+
+              val otherActions = actions.init
+              actionStack push (otherActions ++
+                                List(AddFormula(eqLC <= 0)) ++
+                                right)
+              actionStack push (otherActions ++
+                                List(AddFormula(eqLC >= 0)) ++
+                                left)
             }
             case _ => {
               resultingTrees += applyActions(actions, goal, null, ptf)

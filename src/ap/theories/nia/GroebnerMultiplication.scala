@@ -28,12 +28,14 @@ import ap.theories._
 import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
-import ap.terfor.{TermOrder, ConstantTerm, OneTerm}
+import ap.terfor.{TermOrder, ConstantTerm, OneTerm, Formula}
 import ap.terfor.TerForConvenience._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{Atom, Predicate}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.arithconj.ArithConj
+import ap.terfor.inequalities.InEqConj
+import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
 import ap.util.{Timeout, Seqs}
 
@@ -267,7 +269,7 @@ println(unprocessed)
 
     def handleGoalAux(goal : Goal,
                       calledFromSplitter : Boolean) : Seq[Plugin.Action] = {
-      implicit val _ = goal.order
+      implicit val order = goal.order
 
 // println("Groebner: " + goal.facts)
 
@@ -275,6 +277,22 @@ println(unprocessed)
       val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
       if (predicates.isEmpty)
         return List()
+
+      val inequalities = goal.facts.arithConj.inEqs
+      val disequalities = goal.facts.arithConj.negativeEqs
+
+      val ineqOffset = predicates.size
+      val negeqOffset = ineqOffset + inequalities.size
+
+      def label2Assumptions(l : BitSet) : Seq[Formula] =
+        for (ind <- l.toSeq) yield {
+          if (ind < ineqOffset)
+            predicates(ind)
+          else if (ind < negeqOffset)
+            InEqConj(inequalities(ind - ineqOffset), order)
+          else
+            NegEquationConj(disequalities(ind - negeqOffset), order)
+        }
 
       val predicatesList = predicates.toList
       val (simplifiedGB, factsToRemove, monOrder) =
@@ -306,9 +324,11 @@ println(unprocessed)
           (simplified, factsToRemove, monOrder)
         }
 
-      if (simplifiedGB.containsUnit)
+      for (p <- simplifiedGB.containsUnit)
         // we have an inconsistency
-        return List(Plugin.AddFormula(Conjunction.TRUE))
+        return List(Plugin.CloseByAxiom(
+                             label2Assumptions(simplifiedGB labelFor p),
+                             GroebnerMultiplication.this))
 
       implicit val xMonOrder = monOrder
 
@@ -374,9 +394,15 @@ println(unprocessed)
       if (!linearEq.isEmpty) {
         if (linearEq forall (_.isLinear)) {
 
-          val linearConj = conj(linearEq map (polynomialToAtom _))
-          return removeFactsActions :::
-                 List(Plugin.AddFormula(linearConj.negate))
+          val actions =
+            (for (p <- linearEq.iterator;
+                  c = polynomialToAtom(p) /* ;
+                  if !(goal reduceWithFacts !c).isFalse */)
+             yield Plugin.AddAxiom(label2Assumptions(simplifiedGB labelFor p),
+                                   c, GroebnerMultiplication.this)).toList
+          
+          if (!actions.isEmpty)
+            return removeFactsActions ::: actions
 
         } else if (linearEq.size > 1) {
 
@@ -397,9 +423,7 @@ println(unprocessed)
           if (!implications.isEmpty)
             return removeFactsActions ::: (
                      for ((eq, label) <- implications)
-                     yield Plugin.AddAxiom(for (ind <- label.toSeq)
-                                             yield predicates(ind),
-                                           eq,
+                     yield Plugin.AddAxiom(label2Assumptions(label), eq,
                                            GroebnerMultiplication.this))
         }
       }
@@ -408,18 +432,31 @@ println(unprocessed)
       // If Gröbner basis calculation does nothing
       // Lets try to do some interval propagation
 
-      val preds = ((predicates.map(atomToPolynomial).toList).filter(
-                     x => !x.isZero) ++ simplifiedGB.toSet).toList
-      val intervalSet = new IntervalSet(
-        preds,
-        goal.facts.arithConj.inEqs.map(lcToPolynomial).toList,
-        goal.facts.arithConj.negativeEqs.map(lcToPolynomial).toList)
+      val preds =
+        ((for ((a, n) <- predicates.iterator.zipWithIndex;
+               poly = atomToPolynomial(a);
+               if !poly.isZero)
+          yield (poly, BitSet(n))) ++
+         (for (p <- simplifiedGB.polyIterator)
+          yield (p, simplifiedGB labelFor p))).toList
+
+      val ineqs =
+        (for ((lc, n) <- goal.facts.arithConj.inEqs.iterator.zipWithIndex)
+         yield (lcToPolynomial(lc), BitSet(n + ineqOffset))).toList
+
+      val negeqs =
+        (for ((lc, n) <- goal.facts.arithConj.negativeEqs.iterator.zipWithIndex)
+         yield (lcToPolynomial(lc), BitSet(n + negeqOffset))).toList
+
+      val intervalSet = new IntervalSet(preds, ineqs, negeqs)
 
       intervalSet.propagate
 
-      val allFormulas = intervals2Formula(intervalSet, predicates, goal)
-      if (!allFormulas.isFalse)
-        return removeFactsActions ::: List(Plugin.AddFormula(allFormulas))
+      val intActions = intervals2InterestingActions(intervalSet, predicates,
+                                                    goal, label2Assumptions _)
+
+      if (!intActions.isEmpty)
+        return removeFactsActions ++ intActions
 
       // Do splitting
       if (calledFromSplitter)
@@ -440,33 +477,70 @@ println(unprocessed)
 
     private def intervals2Formula(intervalSet : IntervalSet,
                                   predicates : IndexedSeq[Atom],
-                                  goal : Goal) : Conjunction = {
+                                  goal : Goal)
+                                 : Conjunction = {
       implicit val _ = goal.order
 
-      val intervalAtoms = new ArrayBuffer[ap.terfor.inequalities.InEqConj]
-      for ((ct, i, (ul, uu, gu)) <- intervalSet.getIntervals) {
-        // Generate inequalities according to intervals
-        if (ul) {
-          i.lower match {
-            case IntervalNegInf =>
-            case IntervalPosInf => {
-              intervalAtoms += (ct > 0)
-              intervalAtoms += (ct < 0)
-            }
-            case IntervalVal(v) =>
-              intervalAtoms += (ct >= v)
-          }
-        }
+      goal reduceWithFacts conj(
+        for (Plugin.AddAxiom(_, f, _) <-
+               intervals2Actions(intervalSet, predicates,
+                                 goal, l => List()).iterator)
+        yield f).negate
+    }
 
-        if (uu) {
-          i.upper match {
-            case IntervalNegInf => {
-              intervalAtoms += (ct > 0)
-              intervalAtoms += (ct < 0)
+    private def intervals2InterestingActions(
+                                  intervalSet : IntervalSet,
+                                  predicates : IndexedSeq[Atom],
+                                  goal : Goal,
+                                  label2Assumptions : BitSet => Seq[Formula])
+                                 : Seq[Plugin.Action] = {
+      for (a@Plugin.AddAxiom(assumptions, _, _) <-
+             intervals2Actions(intervalSet, predicates,
+                               goal, label2Assumptions);
+           if (assumptions exists (f => !f.predicates.isEmpty)))
+      yield a
+    }
+
+    private def intervals2Actions(intervalSet : IntervalSet,
+                                  predicates : IndexedSeq[Atom],
+                                  goal : Goal,
+                                  label2Assumptions : BitSet => Seq[Formula])
+                                 : Seq[Plugin.Action] = {
+      implicit val order = goal.order
+
+      val intervalAtoms = new ArrayBuffer[(ArithConj, BitSet)]
+
+      for ((ct, i, (ul, uu, gu), label) <- intervalSet.getIntervals) {
+
+        if ((ul || uu) && i.lower == i.upper) {
+          i.lower match {
+            case IntervalVal(v) => intervalAtoms += ((ct === v, label))
+            case _ => // nothing
+          }
+        } else {
+          // Generate inequalities according to intervals
+          if (ul) {
+            i.lower match {
+              case IntervalNegInf =>
+              case IntervalPosInf => {
+                intervalAtoms += ((ct > 0, label))
+                intervalAtoms += ((ct < 0, label))
+              }
+              case IntervalVal(v) =>
+                intervalAtoms += ((ct >= v, label))
             }
-            case IntervalVal(v) =>
-              intervalAtoms += (ct <= v)
-            case IntervalPosInf =>
+          }
+
+          if (uu) {
+            i.upper match {
+              case IntervalNegInf => {
+                intervalAtoms += ((ct > 0, label))
+                intervalAtoms += ((ct < 0, label))
+              }
+              case IntervalVal(v) =>
+                intervalAtoms += ((ct <= v, label))
+              case IntervalPosInf =>
+            }
           }
         }
       }
@@ -486,23 +560,30 @@ println(unprocessed)
            case _ => Iterator.empty
          })
 
-      val crossInEqs =
-        for (a <- predicates.iterator;
+      val crossInEqs : Iterator[(ArithConj, BitSet)] =
+        for ((a, predN) <- predicates.iterator.zipWithIndex;
              if (a(0).size == 1 && a(0).constants.size == 1 &&
                  a(1).size == 1 && a(1).constants.size == 1);
-             i0 = intervalSet getTermInterval a(0).leadingTerm.asInstanceOf[ConstantTerm];
+             ca0 = a(0).leadingTerm.asInstanceOf[ConstantTerm];
+             ca1 = a(1).leadingTerm.asInstanceOf[ConstantTerm];
+             (i0, l0) = intervalSet getLabelledTermInterval ca0;
+             (i1, l1) = intervalSet getLabelledTermInterval ca1;
              (coeff0, bound0) <- enumBounds(i0 * a(0).leadingCoeff);
-             i1 = intervalSet getTermInterval a(1).leadingTerm.asInstanceOf[ConstantTerm];
              (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff)) yield {
-          (a(2) * coeff0 * coeff1) -
-            (a(0) * coeff0 * bound1) -
-            (a(1) * coeff1 * bound0) +
-            (bound0 * bound1) >= 0
+          ((a(2) * coeff0 * coeff1) -
+             (a(0) * coeff0 * bound1) -
+             (a(1) * coeff1 * bound0) +
+             (bound0 * bound1) >= 0,
+           (l0 | l1) + predN)
         }
 
       //////////////////////////////////////////////////////////////////////////
 
-      goal reduceWithFacts conj(intervalAtoms.iterator ++ crossInEqs).negate
+      (for ((f, label) <- intervalAtoms.iterator ++ crossInEqs;
+            if !(goal reduceWithFacts !f).isFalse)
+       yield (Plugin.AddAxiom(label2Assumptions(label), conj(f),
+                              GroebnerMultiplication.this))).toList
+
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -531,12 +612,36 @@ println(unprocessed)
   
 //   println("Splitter: " + goal.facts)
   
-        val preds = (predicates.map(atomToPolynomial).toList).filter(x => !x.isZero)
-  
+        val preds =
+          (for ((a, n) <- predicates.iterator.zipWithIndex;
+                poly = atomToPolynomial(a);
+                if !poly.isZero)
+           yield (poly, BitSet(n))).toList
+
+        val inequalities = goal.facts.arithConj.inEqs
+        val disequalities = goal.facts.arithConj.negativeEqs
+        val equalities = goal.facts.arithConj.positiveEqs
+
+        val ineqOffset = predicates.size
+        val negeqOffset = ineqOffset + inequalities.size
+        val eqOffset = negeqOffset + disequalities.size
+
+        def label2Assumptions(l : BitSet) : Seq[Formula] =
+          for (ind <- l.toSeq) yield {
+            if (ind < ineqOffset)
+              predicates(ind)
+            else if (ind < negeqOffset)
+              InEqConj(inequalities(ind - ineqOffset), order)
+            else if (ind < eqOffset)
+              NegEquationConj(disequalities(ind - negeqOffset), order)
+            else
+              EquationConj(equalities(ind - eqOffset), order)
+          }
+
         /**
-          * Here follows the different splitting strategies
-          * 
-          */
+         * Here follows the different splitting strategies
+         * 
+         */
   
         // General helper function, that find sets of ConstantTerms such that
         // all predicates are linearized
@@ -546,18 +651,6 @@ println(unprocessed)
   
           // Given the List [({x11, x12, ...}, {y11, y12, ...}), ({x21, ....]
           // returns {{x1*, x2*, x3* ...xn*}, {x1*, x2*, ... yn*}, ..., {y1*, y2*, ... yn*}}
-/*          def helper(list : List[(Set[ConstantTerm], Set[ConstantTerm])])
-                    : Set[Set[ConstantTerm]] = {
-            list match {
-              case Nil => Set(Set()) : Set[Set[ConstantTerm]]
-              case (xSet, ySet) :: rest => {
-                  val recur = helper(rest)
-                  val xRes = recur.map (x => x ++ xSet)
-                  val yRes = recur.map (y => y ++ ySet)
-                  (xRes ++ yRes)
-                }
-            }
-          } */
   
           val predSet =
             for (p <- predicates)
@@ -565,10 +658,6 @@ println(unprocessed)
               (p(0).constants, p(1).constants)
   
           val allConsts = order sort order.orderedConstants
-//            (for ((_, consts) <- goal.bindingContext.constantSeq.iterator;
-//                  c <- consts.toSeq.sortBy(_.name).iterator)
-//             yield c).toSeq
-
           val allConstsSet = new MHashSet[ConstantTerm]
           allConstsSet ++= allConsts
 
@@ -585,14 +674,13 @@ println(unprocessed)
             }
 
           Set(allConstsSet.toSet)
-
-//          helper(predSet)
         }
   
   
         def sphericalSplit(predicates : List[ap.terfor.preds.Atom],
                            intervalSet : IntervalSet)
-                          : Iterator[(ArithConj, ArithConj, String)] =  {
+                          : Iterator[(ArithConj, ArithConj, String, BitSet,
+                                      Seq[Plugin.Action])] =  {
           throw new Exception("sphericalSplit not enabled!")
         }
   
@@ -603,50 +691,66 @@ println(unprocessed)
   
         def infinitySplit(intervalSet : IntervalSet,
                           targetSet : Set[ConstantTerm])
-                         : Iterator[(ArithConj, ArithConj, String)] = {
+                         : Iterator[(ArithConj, ArithConj, String, BitSet,
+                                     Seq[Plugin.Action])] = {
           (intervalSet.getAllIntervals.iterator.collect {
-            case (c, i) if ((targetSet contains c) &&
-                            i.lower == IntervalNegInf &&
-                            i.upper == IntervalPosInf) => {
+            case (c, i, label) if ((targetSet contains c) &&
+                                   i.lower == IntervalNegInf &&
+                                   i.upper == IntervalPosInf) => {
               val opt1 = (c >= 0)
               val opt2 = (c < 0)
               (opt1.negate, opt2.negate,
-               "[-Inf, +Inf] split: " + opt1 + ", " + opt2)
+               "[-Inf, +Inf] split: " + opt1 + ", " + opt2,
+               BitSet(),
+               splitTermAt(c, IdealInt.ZERO))
             }
           })
         }
   
+        def splitTermAt(x : ConstantTerm, mid : IdealInt) : Seq[Plugin.Action] =
+          List(Plugin.AxiomSplit(
+                List(),
+                List((exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) <= mid)),
+                      List()),
+                     (exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) > mid)),
+                      List())),
+                GroebnerMultiplication.this))
+
         /**
          * Finds any possible split by finding a lower (upper) bound b on
          * any variable x and the form the split x = b V x > b (x = b V x < b)
          */ 
         def desperateSplit(intervalSet : IntervalSet,
                            targetSet : Set[ConstantTerm])
-                          : Iterator[(ArithConj, ArithConj, String)] = {
+                          : Iterator[(ArithConj, ArithConj, String, BitSet,
+                                      Seq[Plugin.Action])] = {
           val symbols = targetSet.toList.sortBy(_.name)
           val ac = goal.facts.arithConj
 
           for (x <- symbols.iterator;
-               res <- (intervalSet getTermInterval x) match {
-                 case Interval(IntervalVal(ll),
-                               IntervalVal(ul), _) if (ll < ul) => {
+               res <- (intervalSet getLabelledTermInterval x) match {
+                 case (Interval(IntervalVal(ll),
+                                IntervalVal(ul), _), _) if (ll < ul) => {
                    val mid = (ll + ul) / 2
                    val opt1 = ArithConj.conj(x <= mid, order)
                    val opt2 = ArithConj.conj(x > mid, order)
                    Iterator single ((opt1.negate, opt2.negate,
-                                     "Interval split: " + opt1 + ", " + opt2))
+                                     "Interval split: " + opt1 + ", " + opt2,
+                                     BitSet(), splitTermAt(x, mid)))
                  }
-                 case Interval(IntervalVal(ll), IntervalPosInf, _) => {
+                 case (Interval(IntervalVal(ll), IntervalPosInf, _), label) => {
                    val opt1 = ArithConj.conj(x === ll, order)
                    val opt2 = ArithConj.conj(x > ll, order)
                    Iterator single ((opt1.negate, opt2.negate,
-                                     "LowerBound split: " + opt1 + ", " + opt2))
+                                     "LowerBound split: " + opt1 + ", " + opt2,
+                                     label, null))
                  }
-                 case Interval(IntervalNegInf, IntervalVal(ul), _) => {
+                 case (Interval(IntervalNegInf, IntervalVal(ul), _), label) => {
                    val opt1 = ArithConj.conj(x === ul, order)
                    val opt2 = ArithConj.conj(x < ul, order)
                    Iterator single ((opt1.negate, opt2.negate,
-                                     "UpperBound split: " + opt1 + ", " + opt2))
+                                     "UpperBound split: " + opt1 + ", " + opt2,
+                                     label, null))
                  }
                  case _ =>
                    Iterator.empty
@@ -661,7 +765,8 @@ println(unprocessed)
         def negeqSplit(intervalSet : IntervalSet,
                        negeqs : ap.terfor.equations.NegEquationConj,
                        targetSet : Set[ConstantTerm])
-                      : Iterator[(ArithConj, ArithConj, String)] =
+                      : Iterator[(ArithConj, ArithConj, String, BitSet,
+                                 Seq[Plugin.Action])] =
           for (negeq <- negeqs.iterator;
                if (negeq.constants.size == 1);
                c = negeq.constants.iterator.next;
@@ -670,7 +775,9 @@ println(unprocessed)
                opt1 = (negeq > 0);
                opt2 = (negeq < 0))
           yield
-            (opt1.negate, opt2.negate, "Negeq split on: " + negeq)
+            (opt1.negate, opt2.negate, "Negeq split on: " + negeq,
+             null,
+             List(Plugin.SplitDisequality(negeq, List(), List())))
   
         /**
          * Utilizes any gaps in an interval (i.e. x = [lb, -a] U [a, ub]) 
@@ -679,48 +786,39 @@ println(unprocessed)
          */
         def gapSplit(intervalSet : IntervalSet,
                      targetSet : Set[ConstantTerm])
-                    : Iterator[(ArithConj, ArithConj, String)] = {
+                    : Iterator[(ArithConj, ArithConj, String, BitSet,
+                                Seq[Plugin.Action])] = {
           val gaps = intervalSet.getGaps
-          (for ((term, interval) <- gaps.iterator;
+          (for ((term, interval, label) <- gaps.iterator;
                 if (targetSet contains term))
           yield {
             val opt1 = (term < interval.gap.get._1)
             val opt2 = (term > interval.gap.get._2)
             (opt1.negate, opt2.negate,
-             "Gap split on " + term + " using " + interval)
+             "Gap split on " + term + " using " + interval,
+             label, null)
           })
         }
 
         ////////////////////////////////////////////////////////////////////////  
   
-        // Converts a split alternative to a Plugin.SplitGoal
-        def doSplit(splitparams : (ArithConj, ArithConj, String))
-                   : List[Plugin.Action] = {
-          val (opt1, opt2, _) = splitparams
-          val opt1act = Conjunction.conj(opt1, order)
-          val opt2act = Conjunction.conj(opt2, order)
-          List(Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)),
-                                     List(Plugin.AddFormula(opt2act)))))
-        }
-
-        ////////////////////////////////////////////////////////////////////////
-  
-        val ineqPolys, negeqPolys = new ArrayBuffer[Polynomial]
+        val ineqPolys, negeqPolys = new ArrayBuffer[(Polynomial, BitSet)]
 
         def addFacts(conj : ArithConj) : Unit = {
-          for (lc <- conj.inEqs)
-            ineqPolys += lcToPolynomial(lc)
-          for (lc <- conj.positiveEqs) {
-            ineqPolys += lcToPolynomial(lc)
-            ineqPolys += lcToPolynomial(-lc)
+          for ((lc, n) <- conj.inEqs.iterator.zipWithIndex)
+            ineqPolys += ((lcToPolynomial(lc), BitSet(n + ineqOffset)))
+          for ((lc, n) <- conj.positiveEqs.iterator.zipWithIndex) {
+            ineqPolys += ((lcToPolynomial(lc), BitSet(n + eqOffset)))
+            ineqPolys += ((lcToPolynomial(-lc), BitSet(n + eqOffset)))
           }
-          for (lc <- conj.negativeEqs)
-            negeqPolys += lcToPolynomial(lc)
+          for ((lc, n) <- conj.negativeEqs.iterator.zipWithIndex)
+            negeqPolys += ((lcToPolynomial(lc), BitSet(n + negeqOffset)))
         }
 
         addFacts(goal.facts.arithConj)
 
         var contPropLoop = true
+        var lastAlternative : Seq[Plugin.Action] = null
         while (contPropLoop) {
           contPropLoop = false
 
@@ -729,8 +827,9 @@ println(unprocessed)
   
           intervalSet.propagate
 
-          if (!intervalSet.getInconsistency.isEmpty)
-            return List(Plugin.AddFormula(Conjunction.TRUE))
+          for ((_, _, l) <- intervalSet.getInconsistency)
+            return List(Plugin.CloseByAxiom(label2Assumptions(l),
+                                            GroebnerMultiplication.this))
 
           // Let the target set be the smallest set such that all
           // predicates are made linear
@@ -750,34 +849,68 @@ println(unprocessed)
             })
 
           if (alternatives.hasNext) {
-            val s@(opt1, opt2, _) = alternatives.next
-            if ((goal reduceWithFacts opt1).isFalse) {
-              addFacts(opt1.negate)
-//              println("one further iteration, adding " + opt1.negate)
-              contPropLoop = true
-            } else if ((goal reduceWithFacts opt2).isFalse) {
-              addFacts(opt2.negate)
-//              println("one further iteration, adding " + opt2.negate)
-              contPropLoop = true
-            } else {
+            val s@(opt1, opt2, _, label, actions) = alternatives.next
+
+            if (Param.PROOF_CONSTRUCTION(goal.settings)) {
+              // just apply the split that we found
 //              println("Splitting: " + s)
+              
+              val splitActions =
+                if (actions == null)
+                  List(Plugin.AxiomSplit(label2Assumptions(label),
+                                         List((conj(opt1), List()),
+                                              (conj(opt2), List())),
+                                         GroebnerMultiplication.this))
+                else
+                  actions
+
+              val intActions =
+                intervals2InterestingActions(intervalSet, predicates, goal,
+                                             label2Assumptions _)
+              val res = intActions ++ splitActions
+
+//              println("res: " + res)
+              return res
+
+            } else {
 
               val opt1act = Conjunction.conj(opt1, order)
               val opt2act = Conjunction.conj(opt2, order)
-              val res =
+              lastAlternative =
                 List(Plugin.AddFormula(intervals2Formula(intervalSet,
                                                          predicates, goal)),
                      Plugin.SplitGoal(List(List(Plugin.AddFormula(opt1act)),
                                            List(Plugin.AddFormula(opt2act)))))
-//              println(res)
-              return res
+
+              // check whether we might be able to close one of the branches
+              // immediately, in which case we can focus on the other branch
+
+              if ((goal reduceWithFacts opt1).isFalse) {
+                addFacts(opt1.negate)
+//                println("one further iteration, adding " + opt1.negate)
+                contPropLoop = true
+              } else if ((goal reduceWithFacts opt2).isFalse) {
+                addFacts(opt2.negate)
+//                println("one further iteration, adding " + opt2.negate)
+                contPropLoop = true
+              } else {
+//                println("Splitting: " + s)
+
+                return lastAlternative
+              }
             }
+
+          } else if (lastAlternative != null) {
+
+            return lastAlternative
 
           } else {
 
-            val allFormulas = intervals2Formula(intervalSet, predicates, goal)
-            if (!allFormulas.isFalse)
-              return List(Plugin.AddFormula(allFormulas))
+            val intActions =
+              intervals2InterestingActions(intervalSet, predicates,
+                                           goal, label2Assumptions _)
+            if (!intActions.isEmpty)
+              return intActions
 
           }
         }

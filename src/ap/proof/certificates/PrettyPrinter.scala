@@ -447,8 +447,8 @@ class CertificatePrettyPrinter(
                                _, dischargedAtoms, _, _) =>
         printlnPrefBreaking("GROUND_INST: ",
                     "instantiating " +  l(quantifiedFormula) + " with " +
-                    ((for (t <- instanceTerms)
-                    yield (formulaPrinter term2String t)) mkString ", ") +
+                    ((for (t <- instanceTerms.reverse)
+                     yield (formulaPrinter term2String t)) mkString ", ") +
                     (if (!dischargedAtoms.isEmpty)
                        ", simplifying with " + l(dischargedAtoms)
                      else

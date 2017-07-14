@@ -27,7 +27,9 @@ import ap.terfor.preds.Atom
 import ap.terfor.OneTerm
 import ap.basetypes.IdealInt
 import ap.util.{Debug, Timeout, IdealRange}
+
 import scala.collection.mutable.{LinkedHashMap, LinkedHashSet}
+import scala.collection.immutable.BitSet
 
 
 case class IntervalException(smth : String)
@@ -477,22 +479,24 @@ case class Interval(lower : IntervalInt, upper : IntervalInt,
 }
 
 
-class IntervalSet(predicates : List[Polynomial],
-                  oriInEqs : List[Polynomial],
-                  negEqs : List[Polynomial]) {
+class IntervalSet(predicates : List[(Polynomial, BitSet)],
+                  oriInEqs : List[(Polynomial, BitSet)],
+                  negEqs : List[(Polynomial, BitSet)]) {
 
   // Propagate predicates ( ab = c ) as double inequalities ( ab >= c ^ ab <= c)
-  val inEqs = (for (p <- predicates; q <- List(p, p.neg)) yield q) ::: oriInEqs
+  val inEqs =
+    (for ((p, l) <- predicates; q <- List(p, p.neg)) yield (q, l)) ::: oriInEqs
 
   // Get all symbols and create all-covering intervals
   val intervals =
-    new LinkedHashMap[ConstantTerm, (Interval, (Boolean, Boolean, Boolean))]
+    new LinkedHashMap[ConstantTerm,
+                      (Interval, (Boolean, Boolean, Boolean), BitSet)]
 
   // Find all the symbols
   val symbols = {
     val symbols = new LinkedHashSet[ConstantTerm]
 
-    for (p <- inEqs.iterator ++ negEqs.iterator;
+    for ((p, _) <- inEqs.iterator ++ negEqs.iterator;
          s <- p.variables.iterator)
       symbols += s
 
@@ -502,45 +506,50 @@ class IntervalSet(predicates : List[Polynomial],
   // Create intervals for the symbols
   for (s <- symbols)
     intervals += (s -> ((Interval(IntervalNegInf, IntervalPosInf),
-                         (false, false, false))))
+                         (false, false, false), BitSet())))
 
-  def getInconsistency : Option[(ConstantTerm, Interval)] = {
-    for ((ct, (i, _)) <- intervals)
+  def getInconsistency : Option[(ConstantTerm, Interval, BitSet)] = {
+    for ((ct, (i, _, l)) <- intervals)
       if (i.isEmpty)
-        return Some((ct, i))
+        return Some((ct, i, l))
     None
   }
 
   // Returns the intervals that has been updated
   def getIntervals : List[(ConstantTerm, Interval,
-                           (Boolean, Boolean, Boolean))] = {
-    (for ( (ct, (i, (ul, uu, gu))) <- intervals;
+                           (Boolean, Boolean, Boolean), BitSet)] = {
+    (for ( (ct, (i, (ul, uu, gu), l)) <- intervals;
       if (ul == true || uu == true))
       yield
-        (ct, i, (ul, uu, gu))).toList
+        (ct, i, (ul, uu, gu), l)).toList
   }
 
   // Returns ALL intervals
-  def getAllIntervals : List[(ConstantTerm, Interval)] = {
-    (for ((ct, (i, _)) <- intervals)
+  def getAllIntervals : List[(ConstantTerm, Interval, BitSet)] = {
+    (for ((ct, (i, _, l)) <- intervals)
     yield
-      (ct, i)).toList
+      (ct, i, l)).toList
   }
 
   def getTermInterval(ct : ConstantTerm) : Interval = {
-    val (i, _) = intervals(ct)
+    val (i, _, _) = intervals(ct)
     i
   }
 
-  def getGaps : List[(ConstantTerm, Interval)] = {
-    (for ( (ct, (i, _)) <- intervals;
-      if (!i.gap.isEmpty))
-      yield
-        (ct, i)).toList
+  def getLabelledTermInterval(ct : ConstantTerm) : (Interval, BitSet) = {
+    val (i, _, l) = intervals(ct)
+    (i, l)
   }
 
-  def updateInterval(term : ConstantTerm, interval : Interval) : Boolean = {
-    val (oldInterval, (oldul, olduu, oldug)) = intervals(term)
+  def getGaps : List[(ConstantTerm, Interval, BitSet)] = {
+    (for ((ct, (i, _, l)) <- intervals;
+          if (!i.gap.isEmpty))
+     yield (ct, i, l)).toList
+  }
+
+  def updateInterval(term : ConstantTerm, interval : Interval,
+                     addLabel : BitSet) : Boolean = {
+    val (oldInterval, (oldul, olduu, oldug), oldLabel) = intervals(term)
 
     val newLower = oldInterval.lower.max(interval.lower)
     val newUpper = oldInterval.upper.min(interval.upper)
@@ -570,8 +579,10 @@ class IntervalSet(predicates : List[Polynomial],
       val upperChange = (newUpper != oldInterval.upper || olduu)
       val gapChange = (checkedGap != oldInterval.gap || oldug)
 
+      val newLabel = oldLabel | addLabel
+
       intervals +=
-        (term -> (newInterval, (lowerChange, upperChange, gapChange)))
+        (term -> (newInterval, (lowerChange, upperChange, gapChange), newLabel))
 
       if (newInterval.isEmpty)
         throw InconsistentIntervalsException
@@ -596,37 +607,38 @@ class IntervalSet(predicates : List[Polynomial],
    */
 
   // We only upport monomials of order <=2, this could be generalized
-  def lowerLimit(m : Monomial) : IntervalInt = {
+  def lowerLimit(m : Monomial) : (IntervalInt, BitSet) = {
     if (m.pairs.length == 1 && m.pairs(0)._2 == 1) {
       // The lower limit of "x" is the lowest value of x
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
-      xInterval.lower
+      val (xInterval, _, l) = intervals(x)
+      (xInterval.lower, l)
     }
     else if (m.pairs.length == 1 && m.pairs(0)._2 == 2) {
       // The lower limit of "x^2", is either 0 or the smallest of
       // X_low^2 and X_high^2
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
+      val (xInterval, _, l) = intervals(x)
       if (xInterval.containsInt(0))
-        IntervalVal(0)
+        (IntervalVal(0), l)
       else
-        (xInterval.lower*xInterval.lower).min(xInterval.upper*xInterval.upper)
+        ((xInterval.lower*xInterval.lower).min(
+         xInterval.upper*xInterval.upper), l)
     } else if (m.pairs.length == 1 && m.pairs(0)._2 == 3) {
       // The lower limit of "x^3", is  the lowest value of x to the
       // power of 3 (since sign is kept)
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
-      (xInterval.lower*xInterval.lower*xInterval.lower)
+      val (xInterval, _, l) = intervals(x)
+      (xInterval.lower*xInterval.lower*xInterval.lower, l)
     } else if (m.pairs.length == 2 &&
                m.pairs(0)._2 == 1 && m.pairs(1)._2 == 1) {
       // The lower limit of "x*y" is
       //   min(X_low*Y_low, X_low*Y_high, X_high*Y_low, X_high*Y_high)
       // or 0 if all of the above are >0, and x or y can be 0
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
+      val (xInterval, _, lx) = intervals(x)
       val (y, _) = m.pairs(1)
-      val (yInterval, _) = intervals(y)
+      val (yInterval, _, ly) = intervals(y)
 
       val xtrms = List(
         xInterval.lower * yInterval.lower, xInterval.lower * yInterval.upper,
@@ -636,38 +648,41 @@ class IntervalSet(predicates : List[Polynomial],
 
       if (xtrm.isPositive &&
           (xInterval.containsInt(0) || yInterval.containsInt(0)))
-        IntervalVal(0)
+        (IntervalVal(0), lx | ly)
       else
-        xtrm
+        (xtrm, lx | ly)
     }
     else
       // Anything else we just skip for now, -Inf is always a safe bet
-      IntervalNegInf
+      (IntervalNegInf, BitSet())
   }
 
   // If t is negative, the lower limit is equal to the upper limit of
   // the negation
-  def lowerLimit(t : Term) : IntervalInt = {
+  def lowerLimit(t : Term) : (IntervalInt, BitSet) = {
     if (t.isConstant)
-      IntervalVal(t.c)
-    else if (t.c < 0)
-      upperLimit(t.m)*t.c
-    else
-      lowerLimit(t.m)*t.c
+      (IntervalVal(t.c), BitSet())
+    else if (t.c < 0) {
+      val (lim, l) = upperLimit(t.m)
+      (lim*t.c, l)
+    } else {
+      val (lim, l) = lowerLimit(t.m)
+      (lim*t.c, l)
+    }
   }
 
   // If a variable occurs in two terms, do not make a limit
-  def lowerLimit(p : Polynomial) : IntervalInt = {
+  def lowerLimit(p : Polynomial) : (IntervalInt, BitSet) = {
     for (t1 <- p.terms;
       t2 <- p.terms
       if (t1 != t2);
       if (t1.hasCommonVariables(t2)))
-      return IntervalNegInf
+      return (IntervalNegInf, BitSet())
     
-      ((for (t <- p.terms)
-        yield lowerLimit(t)).toList :\ (IntervalVal(0) : IntervalInt)) (
-         (t1, t2) => t1 + t2
-      )
+      ((for (t <- p.terms) yield lowerLimit(t)).toList :\
+              (IntervalVal(0) : IntervalInt, BitSet())) {
+         case ((t1, l1), (t2, l2)) => (t1 + t2, l1 | l2)
+      }
   }
 
 
@@ -677,31 +692,32 @@ class IntervalSet(predicates : List[Polynomial],
     */
 
   // We only upport monomials of order <=2, this could be generalized
-  def upperLimit(m : Monomial) : IntervalInt = {
+  def upperLimit(m : Monomial) : (IntervalInt, BitSet) = {
     if (m.pairs.length == 1 && m.pairs(0)._2 == 1) {
       // The upper limit of "x" is the highest value of x
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
-      xInterval.upper
+      val (xInterval, _, l) = intervals(x)
+      (xInterval.upper, l)
     } else if (m.pairs.length == 1 && m.pairs(0)._2 == 2) {
     // The upper limit of "x^2" is the highest of X_low^2 and X_high^2
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
-        (xInterval.lower*xInterval.lower).max(xInterval.upper*xInterval.upper)
+      val (xInterval, _, l) = intervals(x)
+      ((xInterval.lower*xInterval.lower).max(xInterval.upper*xInterval.upper),
+       l)
     } else if (m.pairs.length == 1 && m.pairs(0)._2 == 3) {
       // The upper limit of "x^3", is X_high^3
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
-      (xInterval.upper*xInterval.upper*xInterval.upper)
+      val (xInterval, _, l) = intervals(x)
+      (xInterval.upper*xInterval.upper*xInterval.upper, l)
     } else if (m.pairs.length == 2 &&
                m.pairs(0)._2 == 1 && m.pairs(1)._2 == 1) {
       // The upper limit of "x*y" is
       //   max(X_low*Y_low, X_low*Y_high, X_high*Y_low, X_high*Y_high)
       // or 0 if all of the above are <0, and x or y can be 0
       val (x, _) = m.pairs(0)
-      val (xInterval, _) = intervals(x)
+      val (xInterval, _, lx) = intervals(x)
       val (y, _) = m.pairs(1)
-      val (yInterval, _) = intervals(y)
+      val (yInterval, _, ly) = intervals(y)
 
       val xtrms = List(
         xInterval.lower * yInterval.lower, xInterval.lower * yInterval.upper,
@@ -711,27 +727,30 @@ class IntervalSet(predicates : List[Polynomial],
 
       if (xtrm.isNegative &&
           (xInterval.containsInt(0) || yInterval.containsInt(0)))
-        IntervalVal(0)
+        (IntervalVal(0), lx | ly)
       else
-        xtrm
+        (xtrm, lx | ly)
     }
     else
       // Anything else we just skip for now, +Inf is always a safe bet
-      IntervalPosInf
+      (IntervalPosInf, BitSet())
   }
 
   // If t is negative, the upper limit is equal to the lower limit of the
   // negation
-  def upperLimit(t : Term) : IntervalInt = {
+  def upperLimit(t : Term) : (IntervalInt, BitSet) = {
     if (t.isConstant)
-      IntervalVal(t.c)
-    else if (t.c < 0)
-      lowerLimit(t.m)*t.c
-    else
-      upperLimit(t.m)*t.c
+      (IntervalVal(t.c), BitSet())
+    else if (t.c < 0) {
+      val (lim, l) = lowerLimit(t.m)
+      (lim*t.c, l)
+    } else {
+      val (lim, l) = upperLimit(t.m)
+      (lim*t.c, l)
+    }
   }
 
-  def upperLimit(p : Polynomial) : IntervalInt = {
+  def upperLimit(p : Polynomial) : (IntervalInt, BitSet) = {
     // If a variable occurs in two terms, do not make a limit
     // actually, why not?
     /*
@@ -743,10 +762,10 @@ class IntervalSet(predicates : List[Polynomial],
       return IntervalPosInf
     */
 
-    ((for (t <- p.terms.iterator)
-      yield upperLimit(t)) :\ (IntervalVal(0) : IntervalInt)) (
-       (t1, t2) => t1 + t2
-     )
+    ((for (t <- p.terms.iterator) yield upperLimit(t)) :\
+           (IntervalVal(0) : IntervalInt, BitSet())) {
+       case ((t1, l1), (t2, l2)) => (t1 + t2, l1 | l2)
+     }
   }
 
 
@@ -757,24 +776,28 @@ class IntervalSet(predicates : List[Polynomial],
 
   def propagateGreaterThan(term : Term, ct : ConstantTerm,
                            exp : Int, divMon : Monomial,
-                           rhs : Polynomial) : Interval = {
+                           rhs : Polynomial)
+                          : (Interval, BitSet) = {
     // If the constant before t is positive, propagate t >= -ts
-    val ll =
+    val (ll, llLabel) =
       if (divMon.isEmpty) {
         lowerLimit(rhs)
       } else if (divMon.size == 1) {
-        val rhsInterval = Interval(lowerLimit(rhs), upperLimit(rhs))
-        val divtermInterval = Interval(lowerLimit(divMon), upperLimit(divMon))
-        rhsInterval.mindiv(divtermInterval)
+        val (rhsInterval, l1) =
+          intWithLabel(lowerLimit(rhs), upperLimit(rhs))
+        val (divtermInterval, l2) =
+          intWithLabel(lowerLimit(divMon), upperLimit(divMon))
+        (rhsInterval.mindiv(divtermInterval), l1 | l2)
       }
       else
-        IntervalNegInf
+        (IntervalNegInf, BitSet())
 
     if (exp == 1) {
-      if (ll.isPositive)
-        Interval(ll.divceil(term.c), IntervalPosInf)
-      else
-        Interval(ll.divfloor(term.c), IntervalPosInf)
+      (if (ll.isPositive)
+         Interval(ll.divceil(term.c), IntervalPosInf)
+       else
+         Interval(ll.divfloor(term.c), IntervalPosInf),
+       llLabel)
     } else if (exp == 2) {
         ll match {
           case IntervalVal(v) => {
@@ -787,31 +810,34 @@ class IntervalSet(predicates : List[Polynomial],
                 else
                   (Math.ceil(-sqrt).toInt, Math.floor(sqrt).toInt)
 
-              Interval(IntervalNegInf, IntervalPosInf, Some(gapNeg, gapPos))
+              (Interval(IntervalNegInf, IntervalPosInf, Some(gapNeg, gapPos)),
+               llLabel)
             }
             else
-              Interval(IntervalNegInf, IntervalPosInf)
+              (Interval(IntervalNegInf, IntervalPosInf), BitSet())
           }
-          case _ => Interval(IntervalNegInf, IntervalPosInf)
+          case _ => (Interval(IntervalNegInf, IntervalPosInf), BitSet())
         }
       }
       else
-        Interval(IntervalNegInf, IntervalPosInf)
+        (Interval(IntervalNegInf, IntervalPosInf), BitSet())
   }
 
   def propagateLessThan(term : Term, ct : ConstantTerm, exp : Int,
-                        divMon : Monomial, rhs : Polynomial) : Interval = {
-    val ul =
+                        divMon : Monomial, rhs : Polynomial)
+                       : (Interval, BitSet) = {
+    val (ul, ulLabel) =
       if (divMon.isEmpty) {
         upperLimit(rhs)
       } else if (divMon.size == 1) {
-        val rhsInterval = Interval(lowerLimit(rhs), upperLimit(rhs))
-        val divtermInterval = 
-            Interval(lowerLimit(divMon), upperLimit(divMon))
-        rhsInterval.maxdiv(divtermInterval)
+        val (rhsInterval, l1) =
+          intWithLabel(lowerLimit(rhs), upperLimit(rhs))
+        val (divtermInterval, l2) =
+          intWithLabel(lowerLimit(divMon), upperLimit(divMon))
+        (rhsInterval.maxdiv(divtermInterval), l1 | l2)
       }
       else
-        IntervalPosInf
+        (IntervalPosInf, BitSet())
 
       if (exp == 1) {
         val newUpper = 
@@ -820,28 +846,28 @@ class IntervalSet(predicates : List[Polynomial],
           else
             ul.divceil(term.c)
 
-        Interval(IntervalNegInf, newUpper)
+        (Interval(IntervalNegInf, newUpper), ulLabel)
       } else if (exp == 2) {
         val limit = ul.divfloor(term.c.abs)
 
         // If we have a^2 < 0, complex solution
         if (limit.isNegative) {
-          Interval(IntervalVal(1), IntervalVal(-1))
+          (Interval(IntervalVal(1), IntervalVal(-1)), ulLabel)
         } else {
           limit match {
             case IntervalVal(l) => {
               val bound = Math.floor(Math.sqrt(l.doubleValue)).toInt
-              Interval(IntervalVal(-bound), IntervalVal(bound))
+              (Interval(IntervalVal(-bound), IntervalVal(bound)), ulLabel)
             }
-            case _ => Interval(IntervalNegInf, IntervalPosInf)
+            case _ => (Interval(IntervalNegInf, IntervalPosInf), BitSet())
           }
         }
       }
       else
-        Interval(IntervalNegInf, IntervalPosInf)
+        (Interval(IntervalNegInf, IntervalPosInf), BitSet())
   }
 
-  def propagateIneq(p : Polynomial) : Boolean = {
+  def propagateIneq(p : Polynomial, pLabel : BitSet) : Boolean = {
     implicit val _ = p.ordering
     var changed = false
 
@@ -856,13 +882,13 @@ class IntervalSet(predicates : List[Polynomial],
   
         for (p@(ct, exp) <- t.m.pairs) {
           val divMon = new Monomial(t.m.pairs diff List(p))
-          val newInterval =
+          val (newInterval, propLabel) =
             if (t.c > 0)
               propagateGreaterThan(lhs, ct, exp, divMon, rhs)
             else
               propagateLessThan(lhs, ct, exp, divMon, rhs)
   
-          if (updateInterval(ct, newInterval.widen)) {
+          if (updateInterval(ct, newInterval.widen, pLabel | propLabel)) {
             changed = true
           }
         }
@@ -871,6 +897,10 @@ class IntervalSet(predicates : List[Polynomial],
     changed
   }
 
+  def intWithLabel(lower : (IntervalInt, BitSet),
+                   upper : (IntervalInt, BitSet))
+                  : (Interval, BitSet) =
+    (Interval(lower._1, upper._1), lower._2 | lower._2)
 
   /**
     * Propagates equations s.t. f*g = g
@@ -881,7 +911,7 @@ class IntervalSet(predicates : List[Polynomial],
     */
   def propagateSpecials : Boolean = {
     var changed = false
-    for (p <- predicates;
+    for ((p, label) <- predicates;
       if (p.size == 2 && 
         (p.terms(0).c.isMinusOne || p.terms(0).c.isOne) &&
         (p.terms(1).c.isMinusOne || p.terms(1).c.isOne))) {
@@ -908,38 +938,42 @@ class IntervalSet(predicates : List[Polynomial],
           // -- (f*g = g)
 
           // -- (f != 1) => g = 0
-          val fi = Interval(lowerLimit(f.neg), upperLimit(f.neg))
+          val (fi, flabel) = intWithLabel(lowerLimit(f.neg), upperLimit(f.neg))
           if (!fi.containsInt(1) && !fi.isEmpty &&
               g.variables.size == 1 && g.order == 1)
             if (updateInterval(g.variables.toList.head,
-                           (Interval(IntervalVal(0), IntervalVal(0))).widen))
+                           (Interval(IntervalVal(0), IntervalVal(0))).widen,
+                           label | flabel))
               changed = true
 
           // -- (g != 0) => f = 1
-          val gi = Interval(lowerLimit(g), upperLimit(g))
+          val (gi, glabel) = intWithLabel(lowerLimit(g), upperLimit(g))
           if (!gi.containsInt(0) && !gi.isEmpty &&
               f.variables.size == 1 && f.order == 1) {
             if (updateInterval(f.variables.toList.head,
-                           (Interval(IntervalVal(1), IntervalVal(1))).widen))
+                           (Interval(IntervalVal(1), IntervalVal(1))).widen,
+                           label | glabel))
               changed = true
           }
         } else {
           // -- (f*g = -g)
 
           // -- (f != -1) => g = 0
-          val fi = Interval(lowerLimit(f), upperLimit(f))
+          val (fi, flabel) = intWithLabel(lowerLimit(f), upperLimit(f))
           if (!fi.containsInt(-1) && !fi.isEmpty &&
               g.variables.size == 1 && g.order == 1)
             if (updateInterval(g.variables.toList.head,
-                           (Interval(IntervalVal(0), IntervalVal(0))).widen))
+                           (Interval(IntervalVal(0), IntervalVal(0))).widen,
+                           label | flabel))
               changed = true
 
           // -- (g != 0) => f = -1
-          val gi = Interval(lowerLimit(g), upperLimit(g))
+          val (gi, glabel) = intWithLabel(lowerLimit(g), upperLimit(g))
           if (!gi.containsInt(0) && !gi.isEmpty &&
               f.variables.size == 1 && f.order == 1) {
             if (updateInterval(f.variables.toList.head,
-                           (Interval(IntervalVal(-1), IntervalVal(-1))).widen))
+                           (Interval(IntervalVal(-1), IntervalVal(-1))).widen,
+                           label | glabel))
               changed = true
           }
         }
@@ -959,8 +993,8 @@ class IntervalSet(predicates : List[Polynomial],
       while (changed && iterations < 15) {
         Timeout.check
         changed = false
-        for (ineq <- inEqs)
-          if (propagateIneq(ineq))
+        for ((ineq, label) <- inEqs)
+          if (propagateIneq(ineq, label))
             changed = true
 
         iterations += 1

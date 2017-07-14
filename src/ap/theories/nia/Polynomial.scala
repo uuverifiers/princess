@@ -662,10 +662,15 @@ class Basis(implicit val ordering : MonomialOrdering) {
 
   def isEmpty = polyMap.isEmpty
 
-  def containsUnit =
-    !isEmpty && {
+  def containsUnit : Option[Polynomial] =
+    if (isEmpty) {
+      None
+    } else {
       val p = polyIterator.next
-      p.isConstant && !p.isZero
+      if (p.isConstant && !p.isZero)
+        Some(p)
+      else
+        None
     }
 
   def copy : Basis = {
