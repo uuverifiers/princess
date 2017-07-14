@@ -165,7 +165,7 @@ class IntelliFileProver(reader : java.io.Reader,
                            Param.FUNCTIONAL_PREDICATES(goalSettings))
             toIFormula(rawInterpolant)
           }
-          NoCounterModelCertInter(finalCert, interpolants)
+          NoCounterModelCertInter(cert, interpolants)
         }
 
         case Right(cert) => {

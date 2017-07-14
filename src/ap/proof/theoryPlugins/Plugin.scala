@@ -26,7 +26,7 @@ import ap.theories.Theory
 import ap.proof.goal.{Goal, Task, EagerTask, PrioritisedTask}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates._
-import ap.terfor.{Formula, TermOrder}
+import ap.terfor.{Formula, TermOrder, TerForConvenience}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
 import ap.parameters.Param
@@ -85,6 +85,13 @@ object Plugin {
   case class AxiomSplit  (assumptions : Seq[Formula],
                           cases : Seq[(Conjunction, Seq[Action])],
                           theory : Theory)          extends Action
+
+  /**
+   * Split a disequality fact into two inequalities.
+   */
+  case class SplitDisequality(equality : LinearCombination,
+                              leftActions : Seq[Action],
+                              rightActions : Seq[Action]) extends Action
   
   /**
    * Schedule a task to be applied later on the goal.
@@ -257,13 +264,22 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       case List(AxiomSplit(assumptions, cases, theory)) => {
         implicit val order = goal.order
 
+        val needsQuantifiers =
+          (assumptions exists (!_.constants.isEmpty)) ||
+          (cases exists { case (f, _) => !f.constants.isEmpty })
+
         // TODO: avoid conversion to conjunction
         val certAssumptions =
           for (a <- assumptions) yield CertFormula(Conjunction.conj(a, order))
         val (compoundAssumptions, simpleAssumptions) =
           certAssumptions partition (_.isInstanceOf[CertCompoundFormula])
+        val (predAssumptions, otherAssumptions) =
+          if (needsQuantifiers)
+            simpleAssumptions partition (_.isInstanceOf[CertPredLiteral])
+          else
+            (List(), simpleAssumptions)
 
-        (simpleAssumptions.size, cases.size + compoundAssumptions.size) match {
+        (otherAssumptions.size, cases.size + compoundAssumptions.size) match {
 
           // the case where we can just add the axiom using an inference
           case (0, 1) => {
@@ -273,7 +289,8 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                 val negA =
                   !assumption
                 val newInferences =
-                  branchInferences ++ axiomInferences(negA, theory)
+                  branchInferences ++
+                  axiomInferences(negA, predAssumptions, theory)
                 applyActions(AddFormula(assumption.toConj) :: linearActions,
                              goal,
                              newInferences,
@@ -285,7 +302,8 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                   cases
                 val newInferences =
                   branchInferences ++
-                  axiomInferences(CertFormula(axiomCase), theory)
+                  axiomInferences(CertFormula(axiomCase),
+                                  predAssumptions, theory)
                 handleActionsRec(rest.toList,
                                  AddFormula(!axiomCase) :: linearActions,
                                  goal,
@@ -301,11 +319,24 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
             // from the dummy leafs
             def comb(certs : Seq[Certificate]) : Certificate = {
               // add proofs for the simple assumptions
-              val allCerts = proveSimpleAssumptions(simpleAssumptions)
-              val betaCert = BetaCertificate(allCerts, order)
-              val instAxiom = betaCert.localAssumedFormulas.head
-              BranchInferenceCertificate.prepend(
-                  axiomInferences(instAxiom, theory), betaCert, order)
+              val (inferences, betaCert) =
+                if (otherAssumptions.isEmpty) {
+                  val allCerts =
+                    proveSimpleAssumptions(simpleAssumptions)
+                  val (instAxiom, betaCert) =
+                    BetaCertificate.naryWithDisjunction(allCerts, order)
+                  (axiomInferences(instAxiom, List(), theory),
+                   betaCert)
+                } else {
+                  val allCerts =
+                    proveSimpleAssumptions(otherAssumptions)
+                  val (instAxiom, betaCert) =
+                    BetaCertificate.naryWithDisjunction(allCerts, order)
+                  (axiomInferences(instAxiom, predAssumptions, theory),
+                   betaCert)
+                }
+
+              BranchInferenceCertificate.prepend(inferences, betaCert, order)
             }
     
             val pCert = PartialCertificate(comb _, dummyProvidedFormulas,
@@ -341,12 +372,12 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
 
             val (allSubTrees, allProvidedFormulas) =
               if (caseNum == 1)
-                (subTrees, providedFormulas)
-              else
                 // need to add a dummy leaf, so that we have a proof
                 // AND-node where we can store the certificate
                 (subTrees ++ List(Goal.TRUE),
                  providedFormulas ++ List(dummyContradictionFors))
+              else
+                (subTrees, providedFormulas)
 
             // certificate constructor, to be applied once all sub-goals have
             // been closed
@@ -355,24 +386,58 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
 
               // add proofs for the simple assumptions
               val simpleCerts =
-                proveSimpleAssumptions(simpleAssumptions)
+                proveSimpleAssumptions(otherAssumptions)
               val allCerts =
                 simpleCerts ++ ((providedFormulas map (_.head)) zip certs)
-              val betaCert =
-                BetaCertificate(allCerts, order)
+              val (instAxiom, betaCert) =
+                BetaCertificate.naryWithDisjunction(allCerts, order)
     
-              val instAxiom = betaCert.localAssumedFormulas.head
               BranchInferenceCertificate.prepend(
-                  axiomInferences(instAxiom, theory), betaCert, order)
+                  axiomInferences(instAxiom, predAssumptions, theory),
+                  betaCert, order)
             }
     
             val pCert =
               PartialCertificate(comb _, allProvidedFormulas, branchInferences,
                                  order)
+
             ptf.andInOrder(allSubTrees, pCert, goal.vocabulary)
           }
 
         }
+      }
+
+      case List(SplitDisequality(eqLC, left, right)) => {
+        implicit val order = goal.order
+        import TerForConvenience._
+
+        val leftSubtree =
+          handleActionsRec(left.toList,
+                           AddFormula(eqLC >= 0) :: linearActions,
+                           goal,
+                           goal.startNewInferenceCollection,
+                           ptf)
+        val rightSubtree =
+          handleActionsRec(right.toList,
+                           AddFormula(eqLC <= 0) :: linearActions,
+                           goal,
+                           goal.startNewInferenceCollection,
+                           ptf)
+
+        val leftInEq = CertInequality(-eqLC - 1)
+        val rightInEq = CertInequality(eqLC - 1)
+
+        // certificate constructor, to be applied once all sub-goals have
+        // been closed
+        def comb(certs : Seq[Certificate]) : Certificate =
+          SplitEqCertificate(leftInEq, rightInEq, certs(0), certs(1), order)
+        
+        val pCert =
+          PartialCertificate(comb _,
+                             List(Set(leftInEq), Set(rightInEq)),
+                             branchInferences, order)
+
+        ptf.andInOrder(List(leftSubtree, rightSubtree), pCert, goal.vocabulary)
       }
       
       case (a@(_ : RemoveFacts | _ : ScheduleTask)) :: rest =>
@@ -389,27 +454,41 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
   private val dummyProvidedFormulas =
     List(dummyContradictionFors, dummyContradictionFors)
 
-  private def axiomInferences(instAxiom : CertFormula, theory : Theory)
+  private def axiomInferences(instAxiom : CertFormula,
+                              predAssumptions : Seq[CertFormula],
+                              theory : Theory)
                              (implicit order : TermOrder)
                              : Seq[BranchInference] = {
-    val consts = order sort instAxiom.constants
-                
+    val predLits =
+      for (f <- predAssumptions) yield f.asInstanceOf[CertPredLiteral]
+    val negPredLits =
+      predLits map { l => !l }
+    val instAxiomWithPreds =
+      Conjunction.disj(List(instAxiom.toConj) ++ (negPredLits map (_.toConj)),
+                       order)
+    val consts =
+      (order sort instAxiomWithPreds.constants).reverse
+
     val (axiom, instInf) =
       if (consts.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(Plugin.AC, predAssumptions.isEmpty)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         (instAxiom, List())
       } else {
         val axiomConj =
-          Conjunction.quantify(Quantifier.ALL, consts,
-                               instAxiom.toConj, order)
+          Conjunction.quantify(Quantifier.ALL, consts, instAxiomWithPreds,order)
         val axiom =
           CertFormula(axiomConj).asInstanceOf[CertCompoundFormula]
         val instanceTerms =
           for (c <- consts) yield LinearCombination(c, order)
+
         (axiom,
-         List(GroundInstInference(axiom, instanceTerms, instAxiom,
-                                  List(), instAxiom, order)))
+         List(GroundInstInference(axiom, instanceTerms,
+                                  CertFormula(instAxiomWithPreds),
+                                  predLits, instAxiom, order)))
       }
-                                       
+
     List(TheoryAxiomInference(axiom, theory)) ++ instInf
   }
 
@@ -469,6 +548,18 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                                   List(AddFormula(!axiomCase)) ++
                                   rest)
             }
+            case SplitDisequality(eqLC, left, right) => {
+              implicit val _ = goal.order
+              import TerForConvenience._
+
+              val otherActions = actions.init
+              actionStack push (otherActions ++
+                                List(AddFormula(eqLC <= 0)) ++
+                                right)
+              actionStack push (otherActions ++
+                                List(AddFormula(eqLC >= 0)) ++
+                                left)
+            }
             case _ => {
               resultingTrees += applyActions(actions, goal, null, ptf)
             }
@@ -507,7 +598,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
               action.isInstanceOf[CloseByAxiom])
       yield action match {
         case AddFormula(f) =>      f
-        case AddAxiom(_, f, _) =>  f
+        case AddAxiom(_, f, _) =>  f.negate
         case CloseByAxiom(_, _) => Conjunction.TRUE
         case _ => throw new IllegalArgumentException
       }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -43,29 +43,80 @@ object BetaCertificateHelper {
 
 object BetaCertificate {
   
-  private val AC = Debug.AC_CERTIFICATES
+  protected[certificates] val AC = Debug.AC_CERTIFICATES
   
   /**
-   * Convenience method to handle splits with many children
+   * Convenience method to handle splits with many children.
    */
   def apply(children : Seq[(CertFormula, Certificate)],
-            order : TermOrder) : BetaCertificate = {
+            order : TermOrder) : Certificate =
+    naryWithDisjunction(children, order)._2
+
+  /**
+   * Convenience method to handle splits with many children. The method will
+   * return the new certificate, together with the final formula that was split
+   * (the disjunction of the cases provided).
+   */
+  def naryWithDisjunction(
+            children : Seq[(CertFormula, Certificate)],
+            order : TermOrder) : (CertFormula, Certificate) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, children.size >= 2)
+    Debug.assertPre(AC, !children.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    implicit val o = order
-    
-    val childrenIt = children.iterator
-    childrenIt.next
-    childrenIt.next
-    
-    (BetaCertificate(children(0) _1, children(1) _1, false,
-                     children(0) _2, children(1) _2, order) /: childrenIt) {
-       case (cert, (formula, child)) =>
-         BetaCertificate(cert.localAssumedFormulas.head, formula, false,
-                         cert, child, order)
-    }
+    naryHelp(children.toIndexedSeq, 0, children.size, order)
   }
+
+  private def naryHelp(children : IndexedSeq[(CertFormula, Certificate)],
+                       begin : Int, end : Int,
+                       order : TermOrder) : (CertFormula, Certificate) =
+    if (end == begin + 1) {
+      children(begin)
+    } else {
+      val mid = (begin + end) / 2
+      val (leftFor, leftCert) = naryHelp(children, begin, mid, order)
+      val (rightFor, rightCert) = naryHelp(children, mid, end, order)
+      val res = betaIfNeeded(leftFor, rightFor, false,
+                             leftCert, rightCert, order)
+      if (res eq leftCert)
+        (leftFor, leftCert)
+      else if (res eq rightCert)
+        (rightFor, rightCert)
+      else
+        (res.localAssumedFormulas.head, res)
+    }
+
+  /**
+   * Create a beta certificate, but handle the case that one of the
+   * disjuncts subsumes the other; in this case, simply one of the child
+   * certificates will be returned.
+   */
+  def betaIfNeeded(leftFormula : CertFormula, rightFormula : CertFormula,
+                   lemma : Boolean,
+                   leftChild : Certificate, rightChild : Certificate,
+                   order : TermOrder) : Certificate =
+    (leftFormula, rightFormula) match {
+      case (leftFormula : CertArithLiteral,
+            rightFormula : CertArithLiteral) => {
+        implicit val o = order
+
+        val leftConj = leftFormula.toConj
+        val rightConj = rightFormula.toConj
+        val disj = leftConj | rightConj
+        
+        if (disj == leftConj)
+          leftChild
+        else if (disj == rightConj)
+          rightChild
+        else
+          BetaCertificate(leftFormula, rightFormula, lemma,
+                          leftChild, rightChild, order)
+      }
+      case (leftFormula, rightFormula) if leftFormula == rightFormula =>
+        leftChild
+      case _ =>
+        BetaCertificate(leftFormula, rightFormula, lemma,
+                        leftChild, rightChild, order)
+    }
 
   def providedFormulas(leftFormula : CertFormula, rightFormula : CertFormula,
                        lemma : Boolean) =
@@ -88,7 +139,11 @@ case class BetaCertificate(leftFormula : CertFormula, rightFormula : CertFormula
   
   val localAssumedFormulas = Set[CertFormula]({
     implicit val o = _order
-    CertCompoundFormula(leftFormula.toConj | rightFormula.toConj)
+    val disj = leftFormula.toConj | rightFormula.toConj
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertCtor(BetaCertificate.AC, !disj.isTrue)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    CertCompoundFormula(disj)
   })
   
   val localProvidedFormulas : Seq[Set[CertFormula]] =

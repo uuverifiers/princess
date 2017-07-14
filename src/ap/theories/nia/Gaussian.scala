@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -29,6 +29,10 @@ import ap.terfor.preds.Atom
 import ap.terfor.TerForConvenience._
 import ap.SimpleAPI
 import ap.parser._
+import ap.util.Debug
+
+import scala.collection.immutable.BitSet
+
 
 
 // Assuming rectangular matrix
@@ -43,73 +47,70 @@ class Gaussian(array : Array[Array[IdealInt]]) {
   //  GAUSSIAN ELIMINATION PART
   // 
 
-  def getRows() : List[Array[IdealInt]] = {
+  def getRows : List[(Array[IdealInt], BitSet)] = {
     // Startup engine
     SimpleAPI.withProver { p =>
     import p._
 
+    // Create flags for the individual rows
+    val rowFlags = createExistentialConstants(rows)
     // Create temporary constants
     val vars = createExistentialConstants(cols)
-    val constants =
-      vars.map(x => x match { case (c : IConstant) => c.c }).toList
+
+    val colIndex =
+      vars.iterator.map({ case (c : IConstant) => c.c }).zipWithIndex.toMap
+    val rowIndex =
+      rowFlags.iterator.map({ case (c : IConstant) => c.c }).zipWithIndex.toMap
+
     setMostGeneralConstraints(true)
 
-    // Convert each row to a formula
+    // Convert each row to an equation
     for (r <- 0 until rows) {
       var formula = 0 : ap.parser.ITerm
       for (c <- 0 until cols)
         if (array(r)(c) != 0)
           formula = formula + array(r)(c)*vars(c)
 
-      !! (formula === 0)
+      !! (formula === rowFlags(r))
     }
 
-    // Run system
+    // run system
     ???
 
-    // Flattens an IFormula to a list, this needs further work TODO
-    def bintoformula(constraints : IFormula) : List[IFormula] = {
-      constraints match {
-        case (c : IBinFormula) => bintoformula(c.f1) ++ bintoformula(c.f2)
-        case (c : IFormula) => List(c)
-      }
+    // Convert constraints back to a matrix (encoding polynomials)
+
+    def lcToRow(lc : LinearCombination) : Array[IdealInt] = {
+      val res = Array.fill[IdealInt](cols)(IdealInt.ZERO)
+      for ((coeff, t : ConstantTerm) <- lc.iterator)
+        for (col <- colIndex get t)
+          res(col) = coeff
+      res
     }
 
-    // Converts an iterm to an lc, needs further work TODO
-    def termToList(term : ITerm) : List[(IdealInt, IdealInt)] = {
-      term match {
-        case (constant : IConstant) => List((vars indexOf constant, 1))
-        case (times : ITimes) => (termToList(times.subterm)).map(
-                                     t => (t._1, t._2*times.coeff) )
-        case (plus : IPlus) => termToList(plus.t1) ++ termToList(plus.t2)
-      }
-    }
+    def lcToLabel(lc : LinearCombination) : BitSet =
+      BitSet() ++ (for ((_, t : ConstantTerm) <- lc.iterator;
+                        row <- (rowIndex get t).iterator)
+                   yield row)
 
-    def expToList(exp : IExpression) : List[(IdealInt, IdealInt)] = {
-      exp match {
-        case (f : IIntFormula) => termToList(f.t)
-      }
-    }
+    val constraint = getConstraintRaw.negate
 
-    def expToRow(exp : IExpression) : Array[IdealInt] = {
-      val list = expToList(exp)
-      val a = Array.ofDim[IdealInt](cols)
-      for (i <- 0 until cols)
-        a(i.intValue) = 0
-      for ((i, m) <- list)
-        a(i.intValue) = m
-      a
-    }
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(Debug.AC_NIA,
+                    constraint.size == constraint.arithConj.positiveEqs.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    // Convert constraints into polynomials
-    val constraint = getConstraint    
+    (for (lc <- constraint.arithConj.positiveEqs.iterator;
+          if {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(Debug.AC_NIA, lc.constant.isZero)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            true
+          };
+          matrixRow = lcToRow(lc);
+          if matrixRow exists (_.signum != 0);
+          label = lcToLabel(lc))
+      yield (matrixRow, label)).toList
 
-    val clist = bintoformula(constraint)
-    (for (c <- clist)
-      yield
-        for (e <- c.subExpressions)
-        yield
-          expToRow(e)).flatten
     }
   }
 }
