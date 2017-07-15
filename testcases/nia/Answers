@@ -443,3 +443,1069 @@ INVALID
 Countermodel:
 x9 = 3 & x8 = 9 & x7 = 5 & x6 = 2 & x5 = 8 & x4 = 6 & x3 = 4 & x2 = 7 & x1 = 1
 
+Loading nonLinInEqExample2.pri ...
+Warning: using theory to encode multiplication: GroebnerMultiplication
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 187)
+
+VALID
+
+Assumptions after simplification:
+---------------------------------
+
+  (axioms)
+  \exists int v0, v1, v2, v3; (a * a = v0 & ((3 >= v0 & (!(1 >= a) | !(a >=
+            -1))) | (v0 >= 4 & 1 >= a & a >= -1) | (v0 * a = v1 & ((10 >= v1 & a
+            >= 3) | (3 >= v1 & a >= 2) | (v1 >= 11 & 2 >= a) | (v1 >= 4 & 1 >=
+            a) | (v2 * a = v3 & v1 * a = v2 & ((39 >= v3 & a >= 3) | (v3 >= 40 &
+                2 >= a)))))))
+
+Those formulas are unsatisfiable:
+---------------------------------
+
+Begin of proof
+| 
+| DELTA: instantiating (axioms) with fresh symbols all_0_0, all_0_1, all_0_2,
+|        all_0_3 gives:
+|   (1)  a * a = all_0_3 & ((3 >= all_0_3 & (!(1 >= a) | !(a >= -1))) | (all_0_3
+|            >= 4 & 1 >= a & a >= -1) | (all_0_3 * a = all_0_2 & ((10 >= all_0_2
+|                & a >= 3) | (3 >= all_0_2 & a >= 2) | (all_0_2 >= 11 & 2 >= a)
+|              | (all_0_2 >= 4 & 1 >= a) | (all_0_1 * a = all_0_0 & all_0_2 * a
+|                = all_0_1 & ((39 >= all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >=
+|                    a))))))
+| 
+| ALPHA: (1) implies:
+|   (2)  a * a = all_0_3
+|   (3)  (3 >= all_0_3 & (!(1 >= a) | !(a >= -1))) | (all_0_3 >= 4 & 1 >= a & a
+|          >= -1) | (all_0_3 * a = all_0_2 & ((10 >= all_0_2 & a >= 3) | (3 >=
+|              all_0_2 & a >= 2) | (all_0_2 >= 11 & 2 >= a) | (all_0_2 >= 4 & 1
+|              >= a) | (all_0_1 * a = all_0_0 & all_0_2 * a = all_0_1 & ((39 >=
+|                  all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >= a)))))
+| 
+| BETA: splitting (3) gives:
+| 
+| Case 1:
+| | 
+| |   (4)  3 >= all_0_3 & (!(1 >= a) | !(a >= -1))
+| | 
+| | ALPHA: (4) implies:
+| |   (5)  3 >= all_0_3
+| |   (6)  !(1 >= a) | !(a >= -1)
+| | 
+| | THEORY_AXIOM GroebnerMultiplication: 
+| |   (7)  \forall int v0, v1; (!(3 >= v1) | !(-2 >= v0) | v0 * v0 != v1)
+| | 
+| | GROUND_INST: instantiating (7) with a, all_0_3, simplifying with (2) gives:
+| |   (8)  !(3 >= all_0_3) | !(-2 >= a)
+| | 
+| | BETA: splitting (8) gives:
+| | 
+| | Case 1:
+| | | 
+| | |   (9)  all_0_3 >= 4
+| | | 
+| | | COMBINE_INEQS: (5), (9) imply:
+| | |   (10)  -1 >= 0
+| | | 
+| | | CLOSE: (10) is inconsistent.
+| | | 
+| | Case 2:
+| | | 
+| | |   (11)  a >= -1
+| | | 
+| | | THEORY_AXIOM GroebnerMultiplication: 
+| | |   (12)  \forall int v0, v1; (!(3 >= v1) | !(v0 >= 2) | v0 * v0 != v1)
+| | | 
+| | | GROUND_INST: instantiating (12) with a, all_0_3, simplifying with (2)
+| | |              gives:
+| | |   (13)  !(3 >= all_0_3) | !(a >= 2)
+| | | 
+| | | BETA: splitting (13) gives:
+| | | 
+| | | Case 1:
+| | | | 
+| | | |   (14)  all_0_3 >= 4
+| | | | 
+| | | | COMBINE_INEQS: (5), (14) imply:
+| | | |   (15)  -1 >= 0
+| | | | 
+| | | | CLOSE: (15) is inconsistent.
+| | | | 
+| | | Case 2:
+| | | | 
+| | | |   (16)  1 >= a
+| | | | 
+| | | | BETA: splitting (6) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (17)  a >= 2
+| | | | | 
+| | | | | COMBINE_INEQS: (16), (17) imply:
+| | | | |   (18)  -1 >= 0
+| | | | | 
+| | | | | CLOSE: (18) is inconsistent.
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (19)  -2 >= a
+| | | | | 
+| | | | | COMBINE_INEQS: (11), (19) imply:
+| | | | |   (20)  -1 >= 0
+| | | | | 
+| | | | | CLOSE: (20) is inconsistent.
+| | | | | 
+| | | | End of split
+| | | | 
+| | | End of split
+| | | 
+| | End of split
+| | 
+| Case 2:
+| | 
+| |   (21)  (all_0_3 >= 4 & 1 >= a & a >= -1) | (all_0_3 * a = all_0_2 & ((10 >=
+| |               all_0_2 & a >= 3) | (3 >= all_0_2 & a >= 2) | (all_0_2 >= 11 &
+| |               2 >= a) | (all_0_2 >= 4 & 1 >= a) | (all_0_1 * a = all_0_0 &
+| |               all_0_2 * a = all_0_1 & ((39 >= all_0_0 & a >= 3) | (all_0_0
+| |                   >= 40 & 2 >= a)))))
+| | 
+| | BETA: splitting (21) gives:
+| | 
+| | Case 1:
+| | | 
+| | |   (22)  all_0_3 >= 4 & 1 >= a & a >= -1
+| | | 
+| | | ALPHA: (22) implies:
+| | |   (23)  a >= -1
+| | |   (24)  1 >= a
+| | |   (25)  all_0_3 >= 4
+| | | 
+| | | THEORY_AXIOM GroebnerMultiplication: 
+| | |   (26)  \forall int v0, v1; (!(v1 >= 4) | !(1 >= v0) | !(v0 >= -1) | v0 *
+| | |           v0 != v1)
+| | | 
+| | | GROUND_INST: instantiating (26) with a, all_0_3, simplifying with (2)
+| | |              gives:
+| | |   (27)  !(all_0_3 >= 4) | !(1 >= a) | !(a >= -1)
+| | | 
+| | | BETA: splitting (27) gives:
+| | | 
+| | | Case 1:
+| | | | 
+| | | |   (28)  !(all_0_3 >= 4) | !(1 >= a)
+| | | | 
+| | | | BETA: splitting (28) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (29)  3 >= all_0_3
+| | | | | 
+| | | | | COMBINE_INEQS: (25), (29) imply:
+| | | | |   (30)  -1 >= 0
+| | | | | 
+| | | | | CLOSE: (30) is inconsistent.
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (31)  a >= 2
+| | | | | 
+| | | | | COMBINE_INEQS: (24), (31) imply:
+| | | | |   (32)  -1 >= 0
+| | | | | 
+| | | | | CLOSE: (32) is inconsistent.
+| | | | | 
+| | | | End of split
+| | | | 
+| | | Case 2:
+| | | | 
+| | | |   (33)  !(all_0_3 >= 2) | !(a >= -1)
+| | | | 
+| | | | BETA: splitting (33) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (34)  -2 >= a
+| | | | | 
+| | | | | COMBINE_INEQS: (23), (34) imply:
+| | | | |   (35)  -1 >= 0
+| | | | | 
+| | | | | CLOSE: (35) is inconsistent.
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (36)  1 >= all_0_3
+| | | | | 
+| | | | | COMBINE_INEQS: (25), (36) imply:
+| | | | |   (37)  -1 >= 0
+| | | | | 
+| | | | | CLOSE: (37) is inconsistent.
+| | | | | 
+| | | | End of split
+| | | | 
+| | | End of split
+| | | 
+| | Case 2:
+| | | 
+| | |   (38)  all_0_3 * a = all_0_2 & ((10 >= all_0_2 & a >= 3) | (3 >= all_0_2
+| | |             & a >= 2) | (all_0_2 >= 11 & 2 >= a) | (all_0_2 >= 4 & 1 >= a)
+| | |           | (all_0_1 * a = all_0_0 & all_0_2 * a = all_0_1 & ((39 >=
+| | |                 all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >= a))))
+| | | 
+| | | ALPHA: (38) implies:
+| | |   (39)  all_0_3 * a = all_0_2
+| | |   (40)  (10 >= all_0_2 & a >= 3) | (3 >= all_0_2 & a >= 2) | (all_0_2 >=
+| | |           11 & 2 >= a) | (all_0_2 >= 4 & 1 >= a) | (all_0_1 * a = all_0_0
+| | |           & all_0_2 * a = all_0_1 & ((39 >= all_0_0 & a >= 3) | (all_0_0
+| | |               >= 40 & 2 >= a)))
+| | | 
+| | | BETA: splitting (40) gives:
+| | | 
+| | | Case 1:
+| | | | 
+| | | |   (41)  (10 >= all_0_2 & a >= 3) | (3 >= all_0_2 & a >= 2)
+| | | | 
+| | | | BETA: splitting (41) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (42)  10 >= all_0_2 & a >= 3
+| | | | | 
+| | | | | ALPHA: (42) implies:
+| | | | |   (43)  a >= 3
+| | | | |   (44)  10 >= all_0_2
+| | | | | 
+| | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | |   (45)  \forall int v0, v1, v2; (!(10 >= v2) | !(8 >= v1) | !(v0 >= 3)
+| | | | |           | v1 * v0 != v2 | v0 * v0 != v1)
+| | | | | 
+| | | | | GROUND_INST: instantiating (45) with a, all_0_3, all_0_2, simplifying
+| | | | |              with (2), (39) gives:
+| | | | |   (46)  !(10 >= all_0_2) | !(8 >= all_0_3) | !(a >= 3)
+| | | | | 
+| | | | | BETA: splitting (46) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (47)  all_0_2 >= 11
+| | | | | | 
+| | | | | | COMBINE_INEQS: (44), (47) imply:
+| | | | | |   (48)  -1 >= 0
+| | | | | | 
+| | | | | | CLOSE: (48) is inconsistent.
+| | | | | | 
+| | | | | Case 2:
+| | | | | | 
+| | | | | |   (49)  !(8 >= all_0_3) | !(a >= 3)
+| | | | | | 
+| | | | | | BETA: splitting (49) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (50)  2 >= a
+| | | | | | | 
+| | | | | | | COMBINE_INEQS: (43), (50) imply:
+| | | | | | |   (51)  -1 >= 0
+| | | | | | | 
+| | | | | | | CLOSE: (51) is inconsistent.
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+| | | | | | |   (52)  all_0_3 >= 9
+| | | | | | | 
+| | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | |   (53)  \forall int v0, v1, v2; (!(10 >= v2) | !(v1 >= 5) | !(v0
+| | | | | | |             >= 3) | v1 * v0 != v2 | v0 * v0 != v1)
+| | | | | | | 
+| | | | | | | GROUND_INST: instantiating (53) with a, all_0_3, all_0_2,
+| | | | | | |              simplifying with (2), (39) gives:
+| | | | | | |   (54)  !(10 >= all_0_2) | !(all_0_3 >= 5) | !(a >= 3)
+| | | | | | | 
+| | | | | | | BETA: splitting (54) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (55)  all_0_2 >= 11
+| | | | | | | | 
+| | | | | | | | COMBINE_INEQS: (44), (55) imply:
+| | | | | | | |   (56)  -1 >= 0
+| | | | | | | | 
+| | | | | | | | CLOSE: (56) is inconsistent.
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (57)  !(all_0_3 >= 5) | !(a >= 3)
+| | | | | | | | 
+| | | | | | | | BETA: splitting (57) gives:
+| | | | | | | | 
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (58)  2 >= a
+| | | | | | | | | 
+| | | | | | | | | COMBINE_INEQS: (43), (58) imply:
+| | | | | | | | |   (59)  -1 >= 0
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (59) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | |   (60)  4 >= all_0_3
+| | | | | | | | | 
+| | | | | | | | | COMBINE_INEQS: (52), (60) imply:
+| | | | | | | | |   (61)  -1 >= 0
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (61) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | End of split
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (62)  3 >= all_0_2 & a >= 2
+| | | | | 
+| | | | | ALPHA: (62) implies:
+| | | | |   (63)  a >= 2
+| | | | |   (64)  3 >= all_0_2
+| | | | | 
+| | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | |   (65)  \forall int v0, v1, v2; (!(3 >= v2) | !(3 >= v1) | !(v0 >= 2)
+| | | | |           | v1 * v0 != v2 | v0 * v0 != v1)
+| | | | | 
+| | | | | GROUND_INST: instantiating (65) with a, all_0_3, all_0_2, simplifying
+| | | | |              with (2), (39) gives:
+| | | | |   (66)  !(3 >= all_0_2) | !(3 >= all_0_3) | !(a >= 2)
+| | | | | 
+| | | | | BETA: splitting (66) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (67)  all_0_2 >= 4
+| | | | | | 
+| | | | | | COMBINE_INEQS: (64), (67) imply:
+| | | | | |   (68)  -1 >= 0
+| | | | | | 
+| | | | | | CLOSE: (68) is inconsistent.
+| | | | | | 
+| | | | | Case 2:
+| | | | | | 
+| | | | | |   (69)  !(3 >= all_0_3) | !(a >= 2)
+| | | | | | 
+| | | | | | BETA: splitting (69) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (70)  1 >= a
+| | | | | | | 
+| | | | | | | COMBINE_INEQS: (63), (70) imply:
+| | | | | | |   (71)  -1 >= 0
+| | | | | | | 
+| | | | | | | CLOSE: (71) is inconsistent.
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+| | | | | | |   (72)  all_0_3 >= 4
+| | | | | | | 
+| | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | |   (73)  \forall int v0, v1, v2; (!(3 >= v2) | !(v1 >= 3) | !(v0 >=
+| | | | | | |             2) | v1 * v0 != v2 | v0 * v0 != v1)
+| | | | | | | 
+| | | | | | | GROUND_INST: instantiating (73) with a, all_0_3, all_0_2,
+| | | | | | |              simplifying with (2), (39) gives:
+| | | | | | |   (74)  !(3 >= all_0_2) | !(all_0_3 >= 3) | !(a >= 2)
+| | | | | | | 
+| | | | | | | BETA: splitting (74) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (75)  all_0_2 >= 4
+| | | | | | | | 
+| | | | | | | | COMBINE_INEQS: (64), (75) imply:
+| | | | | | | |   (76)  -1 >= 0
+| | | | | | | | 
+| | | | | | | | CLOSE: (76) is inconsistent.
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (77)  !(all_0_3 >= 3) | !(a >= 2)
+| | | | | | | | 
+| | | | | | | | BETA: splitting (77) gives:
+| | | | | | | | 
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (78)  1 >= a
+| | | | | | | | | 
+| | | | | | | | | COMBINE_INEQS: (63), (78) imply:
+| | | | | | | | |   (79)  -1 >= 0
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (79) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | |   (80)  2 >= all_0_3
+| | | | | | | | | 
+| | | | | | | | | COMBINE_INEQS: (72), (80) imply:
+| | | | | | | | |   (81)  -1 >= 0
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (81) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | End of split
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | End of split
+| | | | 
+| | | Case 2:
+| | | | 
+| | | |   (82)  (all_0_2 >= 11 & 2 >= a) | (all_0_2 >= 4 & 1 >= a) | (all_0_1 *
+| | | |           a = all_0_0 & all_0_2 * a = all_0_1 & ((39 >= all_0_0 & a >=
+| | | |               3) | (all_0_0 >= 40 & 2 >= a)))
+| | | | 
+| | | | BETA: splitting (82) gives:
+| | | | 
+| | | | Case 1:
+| | | | | 
+| | | | |   (83)  all_0_2 >= 11 & 2 >= a
+| | | | | 
+| | | | | ALPHA: (83) implies:
+| | | | |   (84)  2 >= a
+| | | | |   (85)  all_0_2 >= 11
+| | | | | 
+| | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | |   (86)  \forall int v0, v1, v2; (!(v2 >= 11) | !(2 >= v0) | v1 * v0 !=
+| | | | |           v2 | v0 * v0 != v1)
+| | | | | 
+| | | | | GROUND_INST: instantiating (86) with a, all_0_3, all_0_2, simplifying
+| | | | |              with (2), (39) gives:
+| | | | |   (87)  !(all_0_2 >= 11) | !(2 >= a)
+| | | | | 
+| | | | | BETA: splitting (87) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (88)  10 >= all_0_2
+| | | | | | 
+| | | | | | COMBINE_INEQS: (85), (88) imply:
+| | | | | |   (89)  -1 >= 0
+| | | | | | 
+| | | | | | CLOSE: (89) is inconsistent.
+| | | | | | 
+| | | | | Case 2:
+| | | | | | 
+| | | | | |   (90)  !(all_0_2 >= 9) | !(2 >= a)
+| | | | | | 
+| | | | | | BETA: splitting (90) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (91)  a >= 3
+| | | | | | | 
+| | | | | | | COMBINE_INEQS: (84), (91) imply:
+| | | | | | |   (92)  -1 >= 0
+| | | | | | | 
+| | | | | | | CLOSE: (92) is inconsistent.
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+| | | | | | |   (93)  8 >= all_0_2
+| | | | | | | 
+| | | | | | | COMBINE_INEQS: (85), (93) imply:
+| | | | | | |   (94)  -1 >= 0
+| | | | | | | 
+| | | | | | | CLOSE: (94) is inconsistent.
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | Case 2:
+| | | | | 
+| | | | |   (95)  (all_0_2 >= 4 & 1 >= a) | (all_0_1 * a = all_0_0 & all_0_2 * a
+| | | | |           = all_0_1 & ((39 >= all_0_0 & a >= 3) | (all_0_0 >= 40 & 2
+| | | | |               >= a)))
+| | | | | 
+| | | | | BETA: splitting (95) gives:
+| | | | | 
+| | | | | Case 1:
+| | | | | | 
+| | | | | |   (96)  all_0_2 >= 4 & 1 >= a
+| | | | | | 
+| | | | | | ALPHA: (96) implies:
+| | | | | |   (97)  1 >= a
+| | | | | |   (98)  all_0_2 >= 4
+| | | | | | 
+| | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | |   (99)  \forall int v0, v1, v2; (!(v2 >= 4) | !(1 >= v0) | v1 * v0
+| | | | | |           != v2 | v0 * v0 != v1)
+| | | | | | 
+| | | | | | GROUND_INST: instantiating (99) with a, all_0_3, all_0_2,
+| | | | | |              simplifying with (2), (39) gives:
+| | | | | |   (100)  !(all_0_2 >= 4) | !(1 >= a)
+| | | | | | 
+| | | | | | BETA: splitting (100) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (101)  3 >= all_0_2
+| | | | | | | 
+| | | | | | | COMBINE_INEQS: (98), (101) imply:
+| | | | | | |   (102)  -1 >= 0
+| | | | | | | 
+| | | | | | | CLOSE: (102) is inconsistent.
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+| | | | | | |   (103)  !(all_0_2 >= 2) | !(1 >= a)
+| | | | | | | 
+| | | | | | | BETA: splitting (103) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (104)  a >= 2
+| | | | | | | | 
+| | | | | | | | COMBINE_INEQS: (97), (104) imply:
+| | | | | | | |   (105)  -1 >= 0
+| | | | | | | | 
+| | | | | | | | CLOSE: (105) is inconsistent.
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (106)  1 >= all_0_2
+| | | | | | | | 
+| | | | | | | | COMBINE_INEQS: (98), (106) imply:
+| | | | | | | |   (107)  -1 >= 0
+| | | | | | | | 
+| | | | | | | | CLOSE: (107) is inconsistent.
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | Case 2:
+| | | | | | 
+| | | | | |   (108)  all_0_1 * a = all_0_0 & all_0_2 * a = all_0_1 & ((39 >=
+| | | | | |              all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >= a))
+| | | | | | 
+| | | | | | ALPHA: (108) implies:
+| | | | | |   (109)  all_0_2 * a = all_0_1
+| | | | | |   (110)  all_0_1 * a = all_0_0
+| | | | | |   (111)  (39 >= all_0_0 & a >= 3) | (all_0_0 >= 40 & 2 >= a)
+| | | | | | 
+| | | | | | BETA: splitting (111) gives:
+| | | | | | 
+| | | | | | Case 1:
+| | | | | | | 
+| | | | | | |   (112)  39 >= all_0_0 & a >= 3
+| | | | | | | 
+| | | | | | | ALPHA: (112) implies:
+| | | | | | |   (113)  a >= 3
+| | | | | | |   (114)  39 >= all_0_0
+| | | | | | | 
+| | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | |   (115)  \forall int v0, v1, v2, v3, v4; (!(39 >= v4) | !(8 >= v1)
+| | | | | | |            | !(v0 >= 3) | v3 * v0 != v4 | v2 * v0 != v3 | v1 * v0
+| | | | | | |            != v2 | v0 * v0 != v1)
+| | | | | | | 
+| | | | | | | GROUND_INST: instantiating (115) with a, all_0_3, all_0_2,
+| | | | | | |              all_0_1, all_0_0, simplifying with (2), (39), (109),
+| | | | | | |              (110) gives:
+| | | | | | |   (116)  !(39 >= all_0_0) | !(8 >= all_0_3) | !(a >= 3)
+| | | | | | | 
+| | | | | | | BETA: splitting (116) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (117)  all_0_0 >= 40
+| | | | | | | | 
+| | | | | | | | COMBINE_INEQS: (114), (117) imply:
+| | | | | | | |   (118)  -1 >= 0
+| | | | | | | | 
+| | | | | | | | CLOSE: (118) is inconsistent.
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (119)  !(8 >= all_0_3) | !(a >= 3)
+| | | | | | | | 
+| | | | | | | | BETA: splitting (119) gives:
+| | | | | | | | 
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (120)  2 >= a
+| | | | | | | | | 
+| | | | | | | | | COMBINE_INEQS: (113), (120) imply:
+| | | | | | | | |   (121)  -1 >= 0
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (121) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | |   (122)  all_0_3 >= 9
+| | | | | | | | | 
+| | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | | |   (123)  \forall int v0, v1, v2, v3, v4; (!(39 >= v4) | !(v1
+| | | | | | | | |              >= 3) | !(v0 >= 3) | v3 * v0 != v4 | v2 * v0 !=
+| | | | | | | | |            v3 | v1 * v0 != v2 | v0 * v0 != v1)
+| | | | | | | | | 
+| | | | | | | | | GROUND_INST: instantiating (123) with a, all_0_3, all_0_2,
+| | | | | | | | |              all_0_1, all_0_0, simplifying with (2), (39),
+| | | | | | | | |              (109), (110) gives:
+| | | | | | | | |   (124)  !(39 >= all_0_0) | !(all_0_3 >= 3) | !(a >= 3)
+| | | | | | | | | 
+| | | | | | | | | BETA: splitting (124) gives:
+| | | | | | | | | 
+| | | | | | | | | Case 1:
+| | | | | | | | | | 
+| | | | | | | | | |   (125)  all_0_0 >= 40
+| | | | | | | | | | 
+| | | | | | | | | | COMBINE_INEQS: (114), (125) imply:
+| | | | | | | | | |   (126)  -1 >= 0
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (126) is inconsistent.
+| | | | | | | | | | 
+| | | | | | | | | Case 2:
+| | | | | | | | | | 
+| | | | | | | | | |   (127)  !(all_0_3 >= 3) | !(a >= 3)
+| | | | | | | | | | 
+| | | | | | | | | | BETA: splitting (127) gives:
+| | | | | | | | | | 
+| | | | | | | | | | Case 1:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (128)  2 >= a
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_INEQS: (113), (128) imply:
+| | | | | | | | | | |   (129)  -1 >= 0
+| | | | | | | | | | | 
+| | | | | | | | | | | CLOSE: (129) is inconsistent.
+| | | | | | | | | | | 
+| | | | | | | | | | Case 2:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (130)  2 >= all_0_3
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_INEQS: (122), (130) imply:
+| | | | | | | | | | |   (131)  -1 >= 0
+| | | | | | | | | | | 
+| | | | | | | | | | | CLOSE: (131) is inconsistent.
+| | | | | | | | | | | 
+| | | | | | | | | | End of split
+| | | | | | | | | | 
+| | | | | | | | | End of split
+| | | | | | | | | 
+| | | | | | | | End of split
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | Case 2:
+| | | | | | | 
+| | | | | | |   (132)  all_0_0 >= 40 & 2 >= a
+| | | | | | | 
+| | | | | | | ALPHA: (132) implies:
+| | | | | | |   (133)  2 >= a
+| | | | | | |   (134)  all_0_0 >= 40
+| | | | | | | 
+| | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | |   (135)  \forall int v0, v1, v2; (!(v2 >= 9) | !(2 >= v0) | v1 *
+| | | | | | |            v0 != v2 | v0 * v0 != v1)
+| | | | | | | 
+| | | | | | | GROUND_INST: instantiating (135) with a, all_0_3, all_0_2,
+| | | | | | |              simplifying with (2), (39) gives:
+| | | | | | |   (136)  !(all_0_2 >= 9) | !(2 >= a)
+| | | | | | | 
+| | | | | | | BETA: splitting (136) gives:
+| | | | | | | 
+| | | | | | | Case 1:
+| | | | | | | | 
+| | | | | | | |   (137)  a >= 3
+| | | | | | | | 
+| | | | | | | | COMBINE_INEQS: (133), (137) imply:
+| | | | | | | |   (138)  -1 >= 0
+| | | | | | | | 
+| | | | | | | | CLOSE: (138) is inconsistent.
+| | | | | | | | 
+| | | | | | | Case 2:
+| | | | | | | | 
+| | | | | | | |   (139)  8 >= all_0_2
+| | | | | | | | 
+| | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | |   (140)  \forall int v0; (v0 != 2 | !(1 >= v0))
+| | | | | | | | 
+| | | | | | | | GROUND_INST: instantiating (140) with a gives:
+| | | | | | | |   (141)  a != 2 | !(1 >= a)
+| | | | | | | | 
+| | | | | | | | BETA: splitting (141) gives:
+| | | | | | | | 
+| | | | | | | | Case 1:
+| | | | | | | | | 
+| | | | | | | | |   (142)  a >= 3
+| | | | | | | | | 
+| | | | | | | | | COMBINE_INEQS: (133), (142) imply:
+| | | | | | | | |   (143)  -1 >= 0
+| | | | | | | | | 
+| | | | | | | | | CLOSE: (143) is inconsistent.
+| | | | | | | | | 
+| | | | | | | | Case 2:
+| | | | | | | | | 
+| | | | | | | | | 
+| | | | | | | | | BETA: splitting (141) gives:
+| | | | | | | | | 
+| | | | | | | | | Case 1:
+| | | | | | | | | | 
+| | | | | | | | | |   (144)  a != 2
+| | | | | | | | | | 
+| | | | | | | | | | STRENGTHEN: (133), (144) imply:
+| | | | | | | | | |   (145)  1 >= a
+| | | | | | | | | | 
+| | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | | | |   (146)  \forall int v0, v1, v2; (!(8 >= v2) | !(v2 >= 2) |
+| | | | | | | | | |            !(1 >= v0) | v1 * v0 != v2 | v0 * v0 != v1)
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (146) with a, all_0_3, all_0_2,
+| | | | | | | | | |              simplifying with (2), (39) gives:
+| | | | | | | | | |   (147)  !(8 >= all_0_2) | !(all_0_2 >= 2) | !(1 >= a)
+| | | | | | | | | | 
+| | | | | | | | | | BETA: splitting (147) gives:
+| | | | | | | | | | 
+| | | | | | | | | | Case 1:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (148)  all_0_2 >= 9
+| | | | | | | | | | | 
+| | | | | | | | | | | COMBINE_INEQS: (139), (148) imply:
+| | | | | | | | | | |   (149)  -1 >= 0
+| | | | | | | | | | | 
+| | | | | | | | | | | CLOSE: (149) is inconsistent.
+| | | | | | | | | | | 
+| | | | | | | | | | Case 2:
+| | | | | | | | | | | 
+| | | | | | | | | | |   (150)  !(all_0_2 >= 2) | !(1 >= a)
+| | | | | | | | | | | 
+| | | | | | | | | | | BETA: splitting (150) gives:
+| | | | | | | | | | | 
+| | | | | | | | | | | Case 1:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (151)  a >= 2
+| | | | | | | | | | | | 
+| | | | | | | | | | | | COMBINE_INEQS: (145), (151) imply:
+| | | | | | | | | | | |   (152)  -1 >= 0
+| | | | | | | | | | | | 
+| | | | | | | | | | | | CLOSE: (152) is inconsistent.
+| | | | | | | | | | | | 
+| | | | | | | | | | | Case 2:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (153)  1 >= all_0_2
+| | | | | | | | | | | | 
+| | | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | | | | | |   (154)  \forall int v0; (v0 != 1 | !(0 >= v0))
+| | | | | | | | | | | | 
+| | | | | | | | | | | | GROUND_INST: instantiating (154) with a gives:
+| | | | | | | | | | | |   (155)  a != 1 | !(0 >= a)
+| | | | | | | | | | | | 
+| | | | | | | | | | | | BETA: splitting (155) gives:
+| | | | | | | | | | | | 
+| | | | | | | | | | | | Case 1:
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | |   (156)  a >= 2
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | COMBINE_INEQS: (145), (156) imply:
+| | | | | | | | | | | | |   (157)  -1 >= 0
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | CLOSE: (157) is inconsistent.
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | Case 2:
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | BETA: splitting (155) gives:
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | Case 1:
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | |   (158)  a != 1
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | STRENGTHEN: (145), (158) imply:
+| | | | | | | | | | | | | |   (159)  0 >= a
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | | | | | | | |   (160)  \forall int v0, v1, v2, v3, v4; (!(v4 >= 40) | !(1
+| | | | | | | | | | | | | |              >= v2) | !(0 >= v0) | v3 * v0 != v4 | v2 * v0
+| | | | | | | | | | | | | |            != v3 | v1 * v0 != v2 | v0 * v0 != v1)
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | GROUND_INST: instantiating (160) with a, all_0_3, all_0_2,
+| | | | | | | | | | | | | |              all_0_1, all_0_0, simplifying with (2), (39),
+| | | | | | | | | | | | | |              (109), (110) gives:
+| | | | | | | | | | | | | |   (161)  !(all_0_0 >= 40) | !(1 >= all_0_2) | !(0 >= a)
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | BETA: splitting (161) gives:
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | Case 1:
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | |   (162)  !(all_0_0 >= 40) | !(1 >= all_0_2)
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | BETA: splitting (162) gives:
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | Case 1:
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | |   (163)  39 >= all_0_0
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | COMBINE_INEQS: (134), (163) imply:
+| | | | | | | | | | | | | | | |   (164)  -1 >= 0
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | CLOSE: (164) is inconsistent.
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | Case 2:
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | |   (165)  all_0_2 >= 2
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | COMBINE_INEQS: (153), (165) imply:
+| | | | | | | | | | | | | | | |   (166)  -1 >= 0
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | CLOSE: (166) is inconsistent.
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | End of split
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | Case 2:
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | |   (167)  !(all_0_0 >= 1) | !(0 >= a)
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | BETA: splitting (167) gives:
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | Case 1:
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | |   (168)  a >= 1
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | COMBINE_INEQS: (159), (168) imply:
+| | | | | | | | | | | | | | | |   (169)  -1 >= 0
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | CLOSE: (169) is inconsistent.
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | Case 2:
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | |   (170)  0 >= all_0_0
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | COMBINE_INEQS: (134), (170) imply:
+| | | | | | | | | | | | | | | |   (171)  -1 >= 0
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | | CLOSE: (171) is inconsistent.
+| | | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | | End of split
+| | | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | End of split
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | Case 2:
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | |   (172)  a >= 1
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | ANTI_SYMM: (145), (172) imply:
+| | | | | | | | | | | | | |   (173)  a = 1
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | REDUCE: (110), (173) imply:
+| | | | | | | | | | | | | |   (174)  all_0_1 * 1 = all_0_0
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | REDUCE: (109), (173) imply:
+| | | | | | | | | | | | | |   (175)  all_0_2 * 1 = all_0_1
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | REDUCE: (39), (173) imply:
+| | | | | | | | | | | | | |   (176)  all_0_3 * 1 = all_0_2
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | REDUCE: (2), (173) imply:
+| | | | | | | | | | | | | |   (177)  1 * 1 = all_0_3
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | | | | | | | |   (178)  \forall int v0, v1, v2, v3; (v3 = 1 | v2 * 1 != v3
+| | | | | | | | | | | | | |            | v1 * 1 != v2 | v0 * 1 != v1 | 1 * 1 != v0)
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | GROUND_INST: instantiating (178) with all_0_3, all_0_2,
+| | | | | | | | | | | | | |              all_0_1, all_0_0, simplifying with (174), (175),
+| | | | | | | | | | | | | |              (176), (177) gives:
+| | | | | | | | | | | | | |   (179)  all_0_0 = 1
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | REDUCE: (134), (179) imply:
+| | | | | | | | | | | | | |   (180)  -1 >= 0
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | | CLOSE: (180) is inconsistent.
+| | | | | | | | | | | | | | 
+| | | | | | | | | | | | | End of split
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | End of split
+| | | | | | | | | | | | 
+| | | | | | | | | | | End of split
+| | | | | | | | | | | 
+| | | | | | | | | | End of split
+| | | | | | | | | | 
+| | | | | | | | | Case 2:
+| | | | | | | | | | 
+| | | | | | | | | |   (181)  a >= 2
+| | | | | | | | | | 
+| | | | | | | | | | ANTI_SYMM: (133), (181) imply:
+| | | | | | | | | |   (182)  a = 2
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (110), (182) imply:
+| | | | | | | | | |   (183)  all_0_1 * 2 = all_0_0
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (109), (182) imply:
+| | | | | | | | | |   (184)  all_0_2 * 2 = all_0_1
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (39), (182) imply:
+| | | | | | | | | |   (185)  all_0_3 * 2 = all_0_2
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (2), (182) imply:
+| | | | | | | | | |   (186)  2 * 2 = all_0_3
+| | | | | | | | | | 
+| | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | | | |   (187)  \forall int v0, v1, v2, v3; (v3 = 32 | v2 * 2 != v3
+| | | | | | | | | |            | v1 * 2 != v2 | v0 * 2 != v1 | 2 * 2 != v0)
+| | | | | | | | | | 
+| | | | | | | | | | GROUND_INST: instantiating (187) with all_0_3, all_0_2,
+| | | | | | | | | |              all_0_1, all_0_0, simplifying with (183), (184),
+| | | | | | | | | |              (185), (186) gives:
+| | | | | | | | | |   (188)  all_0_0 = 32
+| | | | | | | | | | 
+| | | | | | | | | | REDUCE: (134), (188) imply:
+| | | | | | | | | |   (189)  -1 >= 0
+| | | | | | | | | | 
+| | | | | | | | | | CLOSE: (189) is inconsistent.
+| | | | | | | | | | 
+| | | | | | | | | End of split
+| | | | | | | | | 
+| | | | | | | | End of split
+| | | | | | | | 
+| | | | | | | End of split
+| | | | | | | 
+| | | | | | End of split
+| | | | | | 
+| | | | | End of split
+| | | | | 
+| | | | End of split
+| | | | 
+| | | End of split
+| | | 
+| | End of split
+| | 
+| End of split
+| 
+End of proof
+
+Loading quadraticInEq5.pri ...
+Warning: using theory to encode multiplication: GroebnerMultiplication
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 20)
+
+VALID
+
+Assumptions after simplification:
+---------------------------------
+
+  (axioms)
+  \exists int v0; (-1*v0 - 7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & (3*x) * y =
+    v0)
+
+Those formulas are unsatisfiable:
+---------------------------------
+
+Begin of proof
+| 
+| DELTA: instantiating (axioms) with fresh symbol all_0_0 gives:
+|   (1)  -1*all_0_0 - 7*a >= -3 & a >= 0 & y >= 2 & x >= 2 & (3*x) * y = all_0_0
+| 
+| ALPHA: (1) implies:
+|   (2)  x >= 2
+|   (3)  y >= 2
+|   (4)  a >= 0
+|   (5)  -1*all_0_0 - 7*a >= -3
+|   (6)  (3*x) * y = all_0_0
+| 
+| THEORY_AXIOM GroebnerMultiplication: 
+|   (7)  \forall int v0, v1, v2, v3; (!(-1*v3 - 7*v2 >= -3) | !(11 >= v3) | !(v2
+|            >= 0) | !(v1 >= 2) | !(v0 >= 2) | (3*v0) * v1 != v3)
+| 
+| GROUND_INST: instantiating (7) with x, y, a, all_0_0, simplifying with (6)
+|              gives:
+|   (8)  !(-1*all_0_0 - 7*a >= -3) | !(11 >= all_0_0) | !(a >= 0) | !(y >= 2) |
+|        !(x >= 2)
+| 
+| BETA: splitting (8) gives:
+| 
+| Case 1:
+| | 
+| |   (9)  !(-1*all_0_0 - 7*a >= -3) | !(a >= 0)
+| | 
+| | BETA: splitting (9) gives:
+| | 
+| | Case 1:
+| | | 
+| | |   (10)  all_0_0 + 7*a >= 4
+| | | 
+| | | COMBINE_INEQS: (5), (10) imply:
+| | |   (11)  -1 >= 0
+| | | 
+| | | CLOSE: (11) is inconsistent.
+| | | 
+| | Case 2:
+| | | 
+| | |   (12)  -1 >= a
+| | | 
+| | | COMBINE_INEQS: (4), (12) imply:
+| | |   (13)  -1 >= 0
+| | | 
+| | | CLOSE: (13) is inconsistent.
+| | | 
+| | End of split
+| | 
+| Case 2:
+| | 
+| |   (14)  !(11 >= all_0_0) | !(y >= 2) | !(x >= 2)
+| | 
+| | BETA: splitting (14) gives:
+| | 
+| | Case 1:
+| | | 
+| | |   (15)  1 >= y
+| | | 
+| | | COMBINE_INEQS: (3), (15) imply:
+| | |   (16)  -1 >= 0
+| | | 
+| | | CLOSE: (16) is inconsistent.
+| | | 
+| | Case 2:
+| | | 
+| | |   (17)  !(11 >= all_0_0) | !(x >= 2)
+| | | 
+| | | BETA: splitting (17) gives:
+| | | 
+| | | Case 1:
+| | | | 
+| | | |   (18)  1 >= x
+| | | | 
+| | | | COMBINE_INEQS: (2), (18) imply:
+| | | |   (19)  -1 >= 0
+| | | | 
+| | | | CLOSE: (19) is inconsistent.
+| | | | 
+| | | Case 2:
+| | | | 
+| | | |   (20)  all_0_0 >= 12
+| | | | 
+| | | | COMBINE_INEQS: (5), (20) imply:
+| | | |   (21)  -2 >= a
+| | | | 
+| | | | SIMP: (21) implies:
+| | | |   (22)  -2 >= a
+| | | | 
+| | | | COMBINE_INEQS: (4), (22) imply:
+| | | |   (23)  -1 >= 0
+| | | | 
+| | | | CLOSE: (23) is inconsistent.
+| | | | 
+| | | End of split
+| | | 
+| | End of split
+| | 
+| End of split
+| 
+End of proof
+
