@@ -58,7 +58,8 @@ object GroebnerMultiplication extends MulTheory {
   val axioms = Conjunction.TRUE
   val totalityAxioms = Conjunction.TRUE
 
-  val predicateMatchConfig : Signature.PredicateMatchConfig = Map()
+  val predicateMatchConfig : Signature.PredicateMatchConfig =
+    Map(_mul -> Signature.PredicateMatchStatus.None)
   val functionalPredicates = predicates.toSet
   override val singleInstantiationPredicates = predicates.toSet
   val functionPredicateMapping = List(mul -> _mul)
@@ -452,8 +453,9 @@ println(unprocessed)
 
       intervalSet.propagate
 
-      val intActions = intervals2InterestingActions(intervalSet, predicates,
-                                                    goal, label2Assumptions _)
+      val intActions =
+        filterActions(intervals2Actions(intervalSet, predicates,
+                                        goal, label2Assumptions _), order)
 
       if (!intActions.isEmpty)
         return removeFactsActions ++ intActions
@@ -475,6 +477,11 @@ println(unprocessed)
 
     ////////////////////////////////////////////////////////////////////////////
 
+    private def filterActions(actions : Seq[Plugin.Action],
+                              order : TermOrder)
+                             : Seq[Plugin.Action] =
+      actions filter (Plugin.isRelevantAxiomAction(_, order))
+
     private def intervals2Formula(intervalSet : IntervalSet,
                                   predicates : IndexedSeq[Atom],
                                   goal : Goal)
@@ -486,19 +493,6 @@ println(unprocessed)
                intervals2Actions(intervalSet, predicates,
                                  goal, l => List()).iterator)
         yield f).negate
-    }
-
-    private def intervals2InterestingActions(
-                                  intervalSet : IntervalSet,
-                                  predicates : IndexedSeq[Atom],
-                                  goal : Goal,
-                                  label2Assumptions : BitSet => Seq[Formula])
-                                 : Seq[Plugin.Action] = {
-      for (a@Plugin.AddAxiom(assumptions, _, _) <-
-             intervals2Actions(intervalSet, predicates,
-                               goal, label2Assumptions);
-           if (assumptions exists (f => !f.predicates.isEmpty)))
-      yield a
     }
 
     private def intervals2Actions(intervalSet : IntervalSet,
@@ -865,8 +859,8 @@ println(unprocessed)
                   actions
 
               val intActions =
-                intervals2InterestingActions(intervalSet, predicates, goal,
-                                             label2Assumptions _)
+                filterActions(intervals2Actions(intervalSet, predicates, goal,
+                                                label2Assumptions _), order)
               val res = intActions ++ splitActions
 
 //              println("res: " + res)
@@ -907,8 +901,8 @@ println(unprocessed)
           } else {
 
             val intActions =
-              intervals2InterestingActions(intervalSet, predicates,
-                                           goal, label2Assumptions _)
+              filterActions(intervals2Actions(intervalSet, predicates,
+                                              goal, label2Assumptions _), order)
             if (!intActions.isEmpty)
               return intActions
 

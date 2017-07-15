@@ -3984,21 +3984,6 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
-   * HACK: When constructing proofs, make sure that the given formula only uses
-   * the <code>BitShiftMultiplicationTheory</code>; other theories do not support
-   * proof extraction at the moment.
-   */
-  private def fixMulTheory(f : IFormula) : IFormula =
-    if (constructProofs) {
-      val newF = ap.theories.BitShiftMultiplication convert f
-      theoryCollector(newF)
-      addTheoryAxioms
-      newF
-    } else {
-      f
-    }
-
-  /**
    * In some cases, convert universal quantifiers to existential ones.
    * At the moment, this is in particular necessary when constructing
    * proof for interpolation.
@@ -4043,8 +4028,7 @@ class SimpleAPI private (enableAssert : Boolean,
     formula
   }
 
-  private def toInternal(preF : IFormula) : (Conjunction, Conjunction) = {
-    val f = fixMulTheory(preF)
+  private def toInternal(f : IFormula) : (Conjunction, Conjunction) = {
     val sig = Signature(Set(),
                         existentialConstants,
                         currentOrder.orderedConstants -- existentialConstants,

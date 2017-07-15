@@ -67,3 +67,8 @@ TESTS="division.pri \
 $PRI "$@" $TESTS 2>&1
 
 $PRI "$@" -timeout=30000 splittingBug.pri 2>&1
+
+TESTS="nonLinInEqExample2.pri \
+       quadraticInEq5.pri"
+
+$PRI "$@" +printProof $TESTS 2>&1
