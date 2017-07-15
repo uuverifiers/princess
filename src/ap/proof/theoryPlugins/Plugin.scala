@@ -99,6 +99,30 @@ object Plugin {
   case class ScheduleTask(proc : TheoryProcedure,
                           priority : Int)           extends Action
 
+  /**
+   * A simple relevance filter to get rid of axioms that follow trivially
+   * from built-in arithmetic rules. Such irrelevant axioms should not be
+   * added, since they might interfere with the built-in simplification rules,
+   * and sometimes lead to illformed proofs.
+   */
+  def isRelevantAxiomAction(action : Action,
+                            order : TermOrder) : Boolean = action match {
+    case AddAxiom(assumptions, axiom, _) => {
+      implicit val _ = order
+      import TerForConvenience._
+
+      !(conj(assumptions) ==> axiom).isTrue
+    }
+    case AxiomSplit(assumptions, cases, _) => {
+      implicit val _ = order
+      import TerForConvenience._
+
+      !(conj(assumptions) ==> disj(for ((a, _) <- cases) yield a)).isTrue
+    }
+    case _ =>
+      true
+  }
+
   object GoalState extends Enumeration {
     val Intermediate, Final = Value
   }

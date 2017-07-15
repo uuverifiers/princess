@@ -88,7 +88,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
     // HACK: currently the Groebner theories does not support interpolation,
     // if necessary switch to bit-shift multiplication
-    val (f, signature) =
+    val (f, signature) = /*
       if ((preSignature.theories contains ap.theories.nia.GroebnerMultiplication) &&
           constructProofs) {
         Console.withOut(Console.err) {
@@ -97,7 +97,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         }
         (ap.theories.BitShiftMultiplication convert preF,
          preSignature addTheories List(ap.theories.BitShiftMultiplication))
-      } else {
+      } else */ {
         (preF, preSignature)
       }
     

@@ -331,10 +331,17 @@ case class GroundInstInference(quantifiedFormula : CertCompoundFormula,
                      // and no quantifiers of the same kind are left
                      (quans.size == instanceTerms.size ||
                       quans(quans.size - instanceTerms.size - 1) != quans.last)
-                   } &&
-                   instance.toConj ==
-                     ReduceWithConjunction(Conjunction.TRUE, order)(
-                       quantifiedFormula.f.instantiate(instanceTerms)(order)) &&
+                   } && {
+                     val instanceConj =
+                       instance.toConj
+                     val quanInst =
+                       quantifiedFormula.f.instantiate(instanceTerms)(order)
+                     // the provided instance can either be the direct result
+                     // of instantiation, or the result after simplification
+                     instanceConj == quanInst ||
+                     instanceConj ==
+                       ReduceWithConjunction(Conjunction.TRUE, order)(quanInst)
+                     } &&
                    (if (dischargedAtoms.isEmpty) {
                       result == instance
                     } else {
