@@ -443,6 +443,15 @@ object ParallelFileProver {
                 }
               }
             } catch {
+              case t : StackOverflowError => {
+                Console.err.println("Stack overflow, giving up")
+                messageQueue put SubProverException(num, t)
+              }
+              case t : OutOfMemoryError => {
+                Console.err.println("Out of memory, giving up")
+                messageQueue put SubProverException(num, t)
+                System.gc
+              }
               case t : Throwable => {
                 Console.err.println("Exception: " + t.getMessage)
                 messageQueue put SubProverException(num, t)
