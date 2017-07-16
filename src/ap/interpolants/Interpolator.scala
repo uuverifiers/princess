@@ -741,13 +741,13 @@ object Interpolator
              iContext isCommon leftOriLit,
            iContext isFromLeft rightOriLit,
              iContext isCommon rightOriLit) match {
-            case (true,  false, true,  false) |
-                 (true,  false, false, true)  |
-                 (false, true,  true,  false) |
-                 (false, true, false, true)     => (true,  true,  true)
+            case (true,  _,     true,  _)     |
+                 (true,  _,     _,     true)  |
+                 (_,     true,  true,  _)     |
+                 (false, true,  false, true)    => (true,  true,  true)
             case (false, false, false, false) |
-                 (false, false, false, true)  |
-                 (false, true,  false, false)   => (false, false, false)
+                 (false, false, _,     true)  |
+                 (_,     true,  false, false)   => (false, false, false)
             case (l,     false, r,     false)   => (l,     r,     true)
           }
         
