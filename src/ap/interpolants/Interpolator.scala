@@ -76,7 +76,9 @@ object Interpolator
       (!res.predicates.isEmpty || !elimQuantifiers ||
        (Conjunction collectQuantifiers res).isEmpty) &&
       (res.constants subsetOf iContext.globalConstants) &&
-      (res.predicates subsetOf iContext.globalPredicates)
+      (res.predicates subsetOf (iContext.globalPredicates ++
+                                (for (a <- certificate.theoryAxioms.iterator;
+                                      p <- a.predicates.iterator) yield p)))
     })
     // the following assertions are quite expensive ...
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS, {
@@ -734,18 +736,19 @@ object Interpolator
         val (rightEqs, rightOriLit) =
           iContext getPredAtomRewriting CertPredLiteral(true, rightAtom)
 
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(AC,
-                        // The following case is currently not handled
-                        !(iContext isCommon leftOriLit) &&
-                        !(iContext isCommon rightOriLit))
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        
-        val lInterpolation =
-          (iContext isFromLeft leftOriLit, iContext isFromLeft rightOriLit) match {
-            case (true, true) => true
-            case (false, false) => false
-            case _ => true
+        val (leftFromLeft, rightFromLeft, lInterpolation) =
+          (iContext isFromLeft leftOriLit,
+             iContext isCommon leftOriLit,
+           iContext isFromLeft rightOriLit,
+             iContext isCommon rightOriLit) match {
+            case (true,  _,     true,  _)     |
+                 (true,  _,     _,     true)  |
+                 (_,     true,  true,  _)     |
+                 (false, true,  false, true)    => (true,  true,  true)
+            case (false, false, false, false) |
+                 (false, false, _,     true)  |
+                 (_,     true,  false, false)   => (false, false, false)
+            case (l,     false, r,     false)   => (l,     r,     true)
           }
         
         val newContext = if (lInterpolation)
@@ -754,23 +757,29 @@ object Interpolator
                            iContext addRight !result
 
         val subInterpolant =
-          processBranchInferences(remInferences, child, newContext).toConjunction
+          processBranchInferences(remInferences, child,
+                                  newContext).toConjunction
 
-        def computePredInterpolant(lit : CertPredLiteral) : Conjunction =
-          (iContext isFromLeft lit, lInterpolation) match {
+        def computePredInterpolant(lit : CertPredLiteral,
+                                   litFromLeft : Boolean) : Conjunction =
+          (litFromLeft, lInterpolation) match {
             case (true, true) => Conjunction.FALSE
             case (false, false) => Conjunction.TRUE
             case (true, false) => lit.toConj
             case (false, true) => (!lit).toConj
           }
 
-        val leftPredInterpolant = computePredInterpolant(leftOriLit)
-        val rightPredInterpolant = computePredInterpolant(rightOriLit)
+        val leftPredInterpolant =
+          computePredInterpolant(leftOriLit, leftFromLeft)
+        val rightPredInterpolant =
+          computePredInterpolant(rightOriLit, rightFromLeft)
         
         val leftModifierInterpolants =
-          for (eqs <- leftEqs) yield derivePredModifier(eqs, lInterpolation, iContext)
+          for (eqs <- leftEqs)
+          yield derivePredModifier(eqs, lInterpolation, iContext)
         val rightModifierInterpolants =
-          for (eqs <- rightEqs) yield derivePredModifier(eqs, lInterpolation, iContext)
+          for (eqs <- rightEqs)
+          yield derivePredModifier(eqs, lInterpolation, iContext)
         
         val allInterpolantParts =
           leftModifierInterpolants ++ rightModifierInterpolants ++
@@ -782,7 +791,9 @@ object Interpolator
                                         conj(allInterpolantParts)
 
         val constsToQuantify =
-          unquantifiedInterpolant.constants -- iContext.globalConstants -- iContext.parameters
+          unquantifiedInterpolant.constants --
+          iContext.globalConstants --
+          iContext.parameters
         
         val res =
           if (constsToQuantify.isEmpty) {
@@ -796,7 +807,8 @@ object Interpolator
               exists(constsToQuantifySeq, unquantifiedInterpolant)
           }
         
-        LazyConjunction(ReduceWithConjunction(Conjunction.TRUE, extendedOrder)(res))
+        LazyConjunction(ReduceWithConjunction(Conjunction.TRUE, extendedOrder)(
+                                              res))
       }
       
       //////////////////////////////////////////////////////////////////////////
