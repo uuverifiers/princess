@@ -398,7 +398,7 @@ println(unprocessed)
           val actions =
             (for (p <- linearEq.iterator;
                   c = polynomialToAtom(p) /* ;
-                  if !(goal reduceWithFacts !c).isFalse */)
+                  if !(goal reduceWithFacts c).isTrue */)
              yield Plugin.AddAxiom(label2Assumptions(simplifiedGB labelFor p),
                                    c, GroebnerMultiplication.this)).toList
           
@@ -488,11 +488,11 @@ println(unprocessed)
                                  : Conjunction = {
       implicit val _ = goal.order
 
-      goal reduceWithFacts conj(
-        for (Plugin.AddAxiom(_, f, _) <-
-               intervals2Actions(intervalSet, predicates,
-                                 goal, l => List()).iterator)
-        yield f).negate
+      (goal reduceWithFacts conj(
+         for (Plugin.AddAxiom(_, f, _) <-
+                intervals2Actions(intervalSet, predicates,
+                                  goal, l => List()).iterator)
+         yield f)).negate
     }
 
     private def intervals2Actions(intervalSet : IntervalSet,
@@ -574,7 +574,7 @@ println(unprocessed)
       //////////////////////////////////////////////////////////////////////////
 
       (for ((f, label) <- intervalAtoms.iterator ++ crossInEqs;
-            if !(goal reduceWithFacts !f).isFalse)
+            if !(goal reduceWithFacts f).isTrue)
        yield (Plugin.AddAxiom(label2Assumptions(label), conj(f),
                               GroebnerMultiplication.this))).toList
 

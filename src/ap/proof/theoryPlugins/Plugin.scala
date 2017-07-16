@@ -615,28 +615,39 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       (for (ScheduleTask(proc, priority) <- actions.iterator)
        yield new PrioritisedPluginTask(proc, priority, goal.age)).toList
 
-    val newFormulas =
-      for (action <- actions.iterator;
-           if action.isInstanceOf[AddFormula] ||
-              action.isInstanceOf[AddAxiom] ||
-              action.isInstanceOf[CloseByAxiom])
-      yield action match {
-        case AddFormula(f) =>      f
-        case AddAxiom(_, f, _) =>  f.negate
-        case CloseByAxiom(_, _) => Conjunction.TRUE
-        case _ => throw new IllegalArgumentException
-      }
-
     val formulaTasks =
       // if no inferences are given, we assume that proof generation is
       // disabled, so we are free to simplify
       if (branchInferences == null) {
-        val factsToAdd =
-          goal.reduceWithFacts(Conjunction.disj(newFormulas, goal.order))
-        goal formulaTasks factsToAdd
+        val newFormulas =
+          for (action <- actions.iterator;
+               if action.isInstanceOf[AddFormula] ||
+                  action.isInstanceOf[AddAxiom] ||
+                  action.isInstanceOf[CloseByAxiom])
+          yield action match {
+            case AddFormula(f) =>      f.negate
+            case AddAxiom(_, f, _) =>  f
+            case CloseByAxiom(_, _) => Conjunction.FALSE
+            case _ => throw new IllegalArgumentException
+        }
+
+        val newForConj =
+          goal reduceWithFacts Conjunction.conj(newFormulas, goal.order)
+
+        goal formulaTasks newForConj.negate
       } else {
-        (for (f <- newFormulas; t <- (goal formulaTasks f).iterator)
-         yield t).toList
+        for (a <- actions;
+             t <- a match {
+               case AddFormula(f) =>
+                 goal formulaTasks f
+               case AddAxiom(_, f, _) =>
+                 goal formulaTasks f.negate
+               case CloseByAxiom(_, _) =>
+                 goal formulaTasks Conjunction.TRUE
+               case _ =>
+                 List()
+             })
+        yield t
       }
 
     val newFacts =

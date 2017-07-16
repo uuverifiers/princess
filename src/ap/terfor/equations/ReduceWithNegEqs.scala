@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -127,20 +127,28 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
         conj
       } else {
         var changed = false
-        val reducedLCs = for (lc <- conj) yield {
-                           var strengthenedLC = lc
-                           while (equations contains strengthenedLC.makePositive) {
-                             val oriLC = strengthenedLC
-                             strengthenedLC = strengthenedLC + IdealInt.MINUS_ONE
-                             logger.directStrengthen(oriLC, oriLC.makePositive,
-                                                     strengthenedLC, order)
-                             changed = true
-                           }
-                           strengthenedLC
-                         }
+        
+        val reducedLCs =
+          for (lc <- conj) yield strengthenInEq(lc, logger) match {
+            case null =>
+              lc
+            case strengthenedLC => {
+              changed = true
+              strengthenedLC
+            }
+          }
+          
+        val addedLCs =
+          for (lc <- conj.geqZeroInfs;
+               strengthenedLC = strengthenInEq(lc, logger);
+               if strengthenedLC != null)
+          yield {
+            changed = true
+            strengthenedLC
+          }
 
         if (changed)
-          InEqConj(reducedLCs.iterator, logger, order)
+          InEqConj(reducedLCs.iterator ++ addedLCs.iterator, logger, order)
         else
           conj
       }
@@ -149,6 +157,22 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
     Debug.assertPost(ReduceWithNegEqs.AC, (res eq conj) || res != conj)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
+  }
+
+  private def strengthenInEq(lc : LinearCombination,
+                             logger : ComputationLogger) : LinearCombination = {
+    var strengthenedLC = lc
+    
+    while (equations contains strengthenedLC.makePositive) {
+      val oriLC = strengthenedLC
+      strengthenedLC = strengthenedLC + IdealInt.MINUS_ONE
+      logger.directStrengthen(oriLC, oriLC.makePositive, strengthenedLC, order)
+    }
+
+    if (lc eq strengthenedLC)
+      null
+    else
+      strengthenedLC
   }
 
 }
