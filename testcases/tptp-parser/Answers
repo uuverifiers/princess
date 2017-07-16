@@ -783,601 +783,601 @@ constant_in_array = 0 & in_array(0)
 % SZS status GaveUp for DAT078=1
 
 Loading SYN000_2.p ...
-Prover 0: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1042961893
+Prover 0: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1042961893
 Prover 0: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 0: 
 Prover 0:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 0: 
 Prover 0:         ^
-Prover 1: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-1571432423
+Prover 1: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-1571432423
 Prover 1: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 1: 
 Prover 1:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 1: 
 Prover 1:         ^
-Prover 2: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1065072994
+Prover 2: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1065072994
 Prover 2: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 2: 
 Prover 2:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 2: 
 Prover 2:         ^
-Prover 3: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1922548996
+Prover 3: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1922548996
 Prover 3: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 3: 
 Prover 3:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 3: 
 Prover 3:         ^
-Prover 4: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=1868514696
+Prover 4: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=1868514696
 Prover 4: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 4: 
 Prover 4:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 4: 
 Prover 4:         ^
-Prover 5: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=1259561288
+Prover 5: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=1259561288
 Prover 5: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 5: 
 Prover 5:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 5: 
 Prover 5:         ^
-Prover 6: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1399714365
+Prover 6: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1399714365
 Prover 6: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 6: 
 Prover 6:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 6: 
 Prover 6:         ^
-Prover 7: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-236303470
+Prover 7: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-236303470
 Prover 7: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 7: 
 Prover 7:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 7: 
 Prover 7:         ^
-Prover 8: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-200781089
+Prover 8: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-200781089
 Prover 8: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 8: 
 Prover 8:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 8: 
 Prover 8:         ^
-Prover 9: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1423531889
+Prover 9: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1423531889
 Prover 9: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 9: 
 Prover 9:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 9: 
 Prover 9:         ^
-Prover 10: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=919308125
+Prover 10: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=919308125
 Prover 10: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 10: 
 Prover 10:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 10: 
 Prover 10:         ^
-Prover 11: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-1509710984
+Prover 11: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-1509710984
 Prover 11: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 11: 
 Prover 11:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 11: 
 Prover 11:         ^
-Prover 12: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=2024365391
+Prover 12: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=2024365391
 Prover 12: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 12: 
 Prover 12:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 12: 
 Prover 12:         ^
-Prover 13: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=1138197443
+Prover 13: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=1138197443
 Prover 13: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 13: 
 Prover 13:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 13: 
 Prover 13:         ^
-Prover 14: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=414236379
+Prover 14: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=414236379
 Prover 14: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 14: 
 Prover 14:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 14: 
 Prover 14:         ^
-Prover 15: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=723048181
+Prover 15: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=723048181
 Prover 15: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 15: 
 Prover 15:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 15: 
 Prover 15:         ^
-Prover 16: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=completeFrugal -randomSeed=-2043353683
+Prover 16: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=completeFrugal -randomSeed=-2043353683
 Prover 16: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 16: 
 Prover 16:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 16: 
 Prover 16:         ^
-Prover 17: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=642448422
+Prover 17: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=642448422
 Prover 17: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 17: 
 Prover 17:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 17: 
 Prover 17:         ^
-Prover 18: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-219651170
+Prover 18: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-219651170
 Prover 18: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 18: 
 Prover 18:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 18: 
 Prover 18:         ^
-Prover 19: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=-1780594085
+Prover 19: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=-1780594085
 Prover 19: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 19: 
 Prover 19:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 19: 
 Prover 19:         ^
-Prover 20: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=2065050644
+Prover 20: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=2065050644
 Prover 20: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 20: 
 Prover 20:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 20: 
 Prover 20:         ^
-Prover 21: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=201956991
+Prover 21: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=201956991
 Prover 21: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 21: 
 Prover 21:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 21: 
 Prover 21:         ^
-Prover 22: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=386944239
+Prover 22: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=386944239
 Prover 22: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 22: 
 Prover 22:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 22: 
 Prover 22:         ^
-Prover 23: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-187882765
+Prover 23: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-187882765
 Prover 23: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 23: 
 Prover 23:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 23: 
 Prover 23:         ^
-Prover 24: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-2107713799
+Prover 24: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-2107713799
 Prover 24: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 24: 
 Prover 24:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 24: 
 Prover 24:         ^
-Prover 25: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=-1484913614
+Prover 25: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=-1484913614
 Prover 25: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 25: 
 Prover 25:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 25: 
 Prover 25:         ^
-Prover 26: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1769851187
+Prover 26: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1769851187
 Prover 26: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 26: 
 Prover 26:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 26: 
 Prover 26:         ^
-Prover 27: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=1377679389
+Prover 27: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=1377679389
 Prover 27: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 27: 
 Prover 27:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 27: 
 Prover 27:         ^
-Prover 28: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-230721668
+Prover 28: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-230721668
 Prover 28: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 28: 
 Prover 28:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 28: 
 Prover 28:         ^
-Prover 29: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1555342872
+Prover 29: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1555342872
 Prover 29: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 29: 
 Prover 29:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 29: 
 Prover 29:         ^
-Prover 30: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-2057884579
+Prover 30: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-2057884579
 Prover 30: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 30: 
 Prover 30:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 30: 
 Prover 30:         ^
-Prover 31: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-208309572
+Prover 31: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-208309572
 Prover 31: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 31: 
 Prover 31:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 31: 
 Prover 31:         ^
-Prover 32: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=361987840
+Prover 32: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=361987840
 Prover 32: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 32: 
 Prover 32:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 32: 
 Prover 32:         ^
-Prover 33: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=-302520431
+Prover 33: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=-302520431
 Prover 33: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 33: 
 Prover 33:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 33: 
 Prover 33:         ^
-Prover 34: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=101929379
+Prover 34: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=101929379
 Prover 34: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 34: 
 Prover 34:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 34: 
 Prover 34:         ^
-Prover 35: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=-565657904
+Prover 35: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=-565657904
 Prover 35: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 35: 
 Prover 35:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 35: 
 Prover 35:         ^
-Prover 36: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=completeFrugal -randomSeed=2143189501
+Prover 36: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=completeFrugal -randomSeed=2143189501
 Prover 36: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 36: 
 Prover 36:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 36: 
 Prover 36:         ^
-Prover 37: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1164547244
+Prover 37: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1164547244
 Prover 37: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 37: 
 Prover 37:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 37: 
 Prover 37:         ^
-Prover 38: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1325202317
+Prover 38: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1325202317
 Prover 38: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 38: 
 Prover 38:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 38: 
 Prover 38:         ^
-Prover 39: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=1398272867
+Prover 39: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=1398272867
 Prover 39: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 39: 
 Prover 39:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 39: 
 Prover 39:         ^
-Prover 40: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1604428820
+Prover 40: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1604428820
 Prover 40: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 40: 
 Prover 40:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 40: 
 Prover 40:         ^
-Prover 41: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=116387013
+Prover 41: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=116387013
 Prover 41: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 41: 
 Prover 41:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 41: 
 Prover 41:         ^
-Prover 42: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1420589912
+Prover 42: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1420589912
 Prover 42: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 42: 
 Prover 42:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 42: 
 Prover 42:         ^
-Prover 43: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=163075241
+Prover 43: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=163075241
 Prover 43: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 43: 
 Prover 43:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 43: 
 Prover 43:         ^
-Prover 44: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-481416861
+Prover 44: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-481416861
 Prover 44: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 44: 
 Prover 44:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 44: 
 Prover 44:         ^
-Prover 45: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=-632592321
+Prover 45: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=-632592321
 Prover 45: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 45: 
 Prover 45:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 45: 
 Prover 45:         ^
-Prover 46: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-466052616
+Prover 46: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-466052616
 Prover 46: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 46: 
 Prover 46:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 46: 
 Prover 46:         ^
-Prover 47: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-1232563102
+Prover 47: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-1232563102
 Prover 47: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 47: 
 Prover 47:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 47: 
 Prover 47:         ^
-Prover 48: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=1133095194
+Prover 48: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=1133095194
 Prover 48: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 48: 
 Prover 48:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 48: 
 Prover 48:         ^
-Prover 49: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1591344467
+Prover 49: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1591344467
 Prover 49: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 49: 
 Prover 49:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 49: 
 Prover 49:         ^
-Prover 50: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=48229041
+Prover 50: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=48229041
 Prover 50: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 50: 
 Prover 50:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 50: 
 Prover 50:         ^
-Prover 51: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=58881155
+Prover 51: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=58881155
 Prover 51: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 51: 
 Prover 51:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 51: 
 Prover 51:         ^
-Prover 52: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=-243282610
+Prover 52: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=-243282610
 Prover 52: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 52: 
 Prover 52:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 52: 
 Prover 52:         ^
-Prover 53: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=-32686760
+Prover 53: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=-32686760
 Prover 53: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 53: 
 Prover 53:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 53: 
 Prover 53:         ^
-Prover 54: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=330729892
+Prover 54: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=330729892
 Prover 54: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 54: 
 Prover 54:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 54: 
 Prover 54:         ^
-Prover 55: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=1209102356
+Prover 55: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=1209102356
 Prover 55: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 55: 
 Prover 55:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 55: 
 Prover 55:         ^
-Prover 56: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=completeFrugal -randomSeed=726993933
+Prover 56: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=completeFrugal -randomSeed=726993933
 Prover 56: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 56: 
 Prover 56:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 56: 
 Prover 56:         ^
-Prover 57: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1573814852
+Prover 57: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1573814852
 Prover 57: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 57: 
 Prover 57:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 57: 
 Prover 57:         ^
-Prover 58: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1415254175
+Prover 58: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1415254175
 Prover 58: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 58: 
 Prover 58:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 58: 
 Prover 58:         ^
-Prover 59: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=1068535387
+Prover 59: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=1068535387
 Prover 59: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 59: 
 Prover 59:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 59: 
 Prover 59:         ^
-Prover 60: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-889461327
+Prover 60: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-889461327
 Prover 60: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 60: 
 Prover 60:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 60: 
 Prover 60:         ^
-Prover 61: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=1421471858
+Prover 61: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=1421471858
 Prover 61: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 61: 
 Prover 61:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 61: 
 Prover 61:         ^
-Prover 62: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-2123050332
+Prover 62: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-2123050332
 Prover 62: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 62: 
 Prover 62:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 62: 
 Prover 62:         ^
-Prover 63: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-38812614
+Prover 63: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-38812614
 Prover 63: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 63: 
 Prover 63:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 63: 
 Prover 63:         ^
-Prover 64: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-420531079
+Prover 64: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-420531079
 Prover 64: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 64: 
 Prover 64:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 64: 
 Prover 64:         ^
-Prover 65: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=1902203045
+Prover 65: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=1902203045
 Prover 65: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 65: 
 Prover 65:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 65: 
 Prover 65:         ^
-Prover 66: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1999137778
+Prover 66: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1999137778
 Prover 66: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 66: 
 Prover 66:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 66: 
 Prover 66:         ^
-Prover 67: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-1784444971
+Prover 67: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-1784444971
 Prover 67: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 67: 
 Prover 67:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 67: 
 Prover 67:         ^
-Prover 68: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=461988181
+Prover 68: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=461988181
 Prover 68: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 68: 
 Prover 68:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 68: 
 Prover 68:         ^
-Prover 69: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=424937036
+Prover 69: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=424937036
 Prover 69: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 69: 
 Prover 69:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 69: 
 Prover 69:         ^
-Prover 70: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=1320890647
+Prover 70: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=1320890647
 Prover 70: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 70: 
 Prover 70:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 70: 
 Prover 70:         ^
-Prover 71: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=1321695863
+Prover 71: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=1321695863
 Prover 71: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 71: 
 Prover 71:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 71: 
 Prover 71:         ^
-Prover 72: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=1725534720
+Prover 72: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=1725534720
 Prover 72: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 72: 
 Prover 72:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 72: 
 Prover 72:         ^
-Prover 73: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=2092541447
+Prover 73: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=2092541447
 Prover 73: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 73: 
 Prover 73:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 73: 
 Prover 73:         ^
-Prover 74: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-821628349
+Prover 74: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-821628349
 Prover 74: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 74: 
 Prover 74:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 74: 
 Prover 74:         ^
-Prover 75: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=-641250122
+Prover 75: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=-641250122
 Prover 75: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 75: 
 Prover 75:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 75: 
 Prover 75:         ^
-Prover 76: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=completeFrugal -randomSeed=357901396
+Prover 76: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=completeFrugal -randomSeed=357901396
 Prover 76: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 76: 
 Prover 76:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 76: 
 Prover 76:         ^
-Prover 77: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1545662569
+Prover 77: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1545662569
 Prover 77: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 77: 
 Prover 77:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 77: 
 Prover 77:         ^
-Prover 78: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-944224109
+Prover 78: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-944224109
 Prover 78: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 78: 
 Prover 78:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 78: 
 Prover 78:         ^
-Prover 79: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=1643069652
+Prover 79: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=1643069652
 Prover 79: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 79: 
 Prover 79:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 79: 
 Prover 79:         ^
-Prover 80: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1797977383
+Prover 80: Options:  +triggersInConjecture -genTotalityAxioms=ctors +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1797977383
 Prover 80: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 80: 
 Prover 80:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 80: 
 Prover 80:         ^
-Prover 81: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=805123327
+Prover 81: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=805123327
 Prover 81: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 81: 
 Prover 81:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 81: 
 Prover 81:         ^
-Prover 82: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-269775298
+Prover 82: Options:  +triggersInConjecture -genTotalityAxioms=all -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMinimalAndEmpty -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-269775298
 Prover 82: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 82: 
 Prover 82:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 82: 
 Prover 82:         ^
-Prover 83: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1762136216
+Prover 83: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1762136216
 Prover 83: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 83: 
 Prover 83:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 83: 
 Prover 83:         ^
-Prover 84: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=842260126
+Prover 84: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=842260126
 Prover 84: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 84: 
 Prover 84:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 84: 
 Prover 84:         ^
-Prover 85: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=812147089
+Prover 85: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allMaximal -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=812147089
 Prover 85: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 85: 
 Prover 85:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 85: 
 Prover 85:         ^
-Prover 86: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1444700512
+Prover 86: Options:  -triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1444700512
 Prover 86: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 86: 
 Prover 86:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 86: 
 Prover 86:         ^
-Prover 87: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-105434564
+Prover 87: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-105434564
 Prover 87: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 87: 
 Prover 87:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 87: 
 Prover 87:         ^
-Prover 88: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-170214836
+Prover 88: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-170214836
 Prover 88: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 88: 
 Prover 88:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 88: 
 Prover 88:         ^
-Prover 89: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=408961447
+Prover 89: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=408961447
 Prover 89: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 89: 
 Prover 89:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 89: 
 Prover 89:         ^
-Prover 90: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=819886450
+Prover 90: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=819886450
 Prover 90: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 90: 
 Prover 90:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 90: 
 Prover 90:         ^
-Prover 91: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=all -randomSeed=-163948167
+Prover 91: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allUni -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=all -randomSeed=-163948167
 Prover 91: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 91: 
 Prover 91:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 91: 
 Prover 91:         ^
-Prover 92: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=-2116537737
+Prover 92: Options:  -triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=-2116537737
 Prover 92: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 92: 
 Prover 92:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 92: 
 Prover 92:         ^
-Prover 93: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=505000526
+Prover 93: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=simple -reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=0 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=505000526
 Prover 93: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 93: 
 Prover 93:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 93: 
 Prover 93:         ^
-Prover 94: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-978033349
+Prover 94: Options:  -triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=allMinimal -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-978033349
 Prover 94: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 94: 
 Prover 94:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 94: 
 Prover 94:         ^
-Prover 95: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -proofConstruction=never -generateTriggers=complete -randomSeed=929828609
+Prover 95: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none +reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=1 -ignoreQuantifiers -constructProofs=never -generateTriggers=complete -randomSeed=929828609
 Prover 95: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 95: 
 Prover 95:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 95: 
 Prover 95:         ^
-Prover 96: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=completeFrugal -randomSeed=301858615
+Prover 96: Options:  +triggersInConjecture -genTotalityAxioms=none +tightFunctionScopes -clausifier=simple +reverseFunctionalityPropagation +boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=completeFrugal -randomSeed=301858615
 Prover 96: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 96: 
 Prover 96:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 96: 
 Prover 96:         ^
-Prover 97: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=1382862363
+Prover 97: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximalOutermost -realRatSaturationRounds=0 -ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=1382862363
 Prover 97: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 97: 
 Prover 97:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 97: 
 Prover 97:         ^
-Prover 98: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=never -generateTriggers=all -randomSeed=-1960688378
+Prover 98: Options:  +triggersInConjecture -genTotalityAxioms=ctors -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=never -generateTriggers=all -randomSeed=-1960688378
 Prover 98: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 98: 
 Prover 98:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
 Prover 98: 
 Prover 98:         ^
-Prover 99: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -proofConstruction=always -generateTriggers=complete -randomSeed=1437240348
+Prover 99: Options:  +triggersInConjecture -genTotalityAxioms=none -tightFunctionScopes -clausifier=none -reverseFunctionalityPropagation -boolFunsAsPreds -triggerStrategy=maximal -realRatSaturationRounds=1 +ignoreQuantifiers -constructProofs=always -generateTriggers=complete -randomSeed=1437240348
 Prover 99: Exception: [70.9] failure: `<=>' expected but `,' found
 Prover 99: 
 Prover 99:         , ( q($let_tt(! [Z1: $i] : f(Z1) = g(Z1,b), f(a)),X)
