@@ -188,7 +188,7 @@ object ParallelFileProver {
 
     s = s + " -realRatSaturationRounds=" + strategy.charAt(7)
     s = s + " " + (if (strategy.charAt(8)=='0') "-" else "+") + "ignoreQuantifiers"
-    s = s + " -proofConstruction=" +
+    s = s + " -constructProofs=" +
               (if (strategy.charAt(8)=='2') "always" else "never")
     s = s + " -generateTriggers=" + (
       if (strategy.charAt(9)=='0')
