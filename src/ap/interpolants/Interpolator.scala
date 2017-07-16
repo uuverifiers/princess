@@ -1004,7 +1004,7 @@ object Interpolator
               (if (consts.isEmpty)
                  ""
                else
-                 "(constants " + (consts mkString ", ") + ")"))
+                 " (constants " + (consts mkString ", ") + ")"))
             true
           })
         //-END-ASSERTION-///////////////////////////////////////////////////////
