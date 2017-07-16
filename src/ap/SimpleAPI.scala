@@ -2470,9 +2470,12 @@ class SimpleAPI private (enableAssert : Boolean,
           val transitionFors =
             for ((n, f) <- formulaeInProver;
                  if (n < 0 || (names contains n))) yield f.negate
+          val theoryAxioms =
+            currentSimpCertificate.theoryAxioms map (_.toConj)
           val condition =
-            Conjunction.implies(Conjunction.conj(transitionFors ++ List(left),
-                                                 currentOrder),
+            Conjunction.implies(Conjunction.conj(
+                                  transitionFors ++ theoryAxioms ++ List(left),
+                                  currentOrder),
                                 right, currentOrder)
           interpolantImpIsValid(condition)
         }
@@ -2597,9 +2600,11 @@ class SimpleAPI private (enableAssert : Boolean,
         for ((n, f) <- formulaeInProver;
              if (n < 0 || (names.d contains n))) yield f.negate
       val subInts = for (c <- ints.children) yield c.d
+      val theoryAxioms = currentSimpCertificate.theoryAxioms map (_.toConj)
       val condition =
-        Conjunction.implies(Conjunction.conj(transitionFors ++ subInts,
-                                             currentOrder),
+        Conjunction.implies(Conjunction.conj(
+                              transitionFors ++ theoryAxioms ++ subInts,
+                              currentOrder),
                             ints.d, currentOrder)
       interpolantImpIsValid(condition) &&
       ((names.children.iterator zip ints.children.iterator) forall {
