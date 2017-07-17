@@ -137,7 +137,12 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
               strengthenedLC
             }
           }
-          
+
+        /*
+          Adding the following inequalities sometimes improves performance,
+          but also destroys the property (res eq conj) || (res != conj)
+          in ReduceWithConjunction.tentativeReduce
+
         val addedLCs =
           for (lc <- conj.geqZeroInfs;
                strengthenedLC = strengthenInEq(lc, logger);
@@ -146,9 +151,11 @@ class ReduceWithNegEqs private (equations : scala.collection.Set[LinearCombinati
             changed = true
             strengthenedLC
           }
+        */
 
         if (changed)
-          InEqConj(reducedLCs.iterator ++ addedLCs.iterator, logger, order)
+          InEqConj(reducedLCs.iterator /* ++ addedLCs.iterator */,
+                   logger, order)
         else
           conj
       }
