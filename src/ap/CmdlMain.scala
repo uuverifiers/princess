@@ -407,7 +407,7 @@ object CmdlMain {
                                    userDefStoppingCond,
                                    baseSettings,
                                    rawStrategies,
-                                   5,
+                                   1,
                                    3,
                                    Param.COMPUTE_UNSAT_CORE(settings) ||
                                      Param.PRINT_CERTIFICATE(settings) ||

@@ -57,13 +57,13 @@ object ParallelFileProver {
       ("0000005001",1000,1000),   // 12: never gives up (complete trigger strategy)
       ("1000011021",3000,3000),
       ("0100102000",18000,18000),
-      ("1001105101",100000,22000), // 15: never gives up (complete trigger strategy)
+      ("1001105101",1000000,22000), // 15: never gives up (complete trigger strategy)
       ("1010111122",4000,4000),
       ("1001005000",13000,4000),
       ("1101001110",11000,11000),
-      ("1001001121",3000,2400)//,
-      //("1200113100",1000000,1000),  // again try strategy 2, for a long time
-      //("1011110101",1000000,1000)  // again try strategy 5, for a long time
+      ("1001001121",3000,2400),
+      ("1200113100",1000000,1000),  // again try strategy 2, for a long time
+      ("1011110101",1000000,1000)  // again try strategy 5, for a long time
     )
 
   /**
