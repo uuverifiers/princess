@@ -221,7 +221,7 @@ object CmdlMain {
                                    settings : GlobalSettings,
                                    prover : Prover)
                                  (implicit format : Param.InputFormat.Value) = {
-    Console.err.println
+    println
     doPrintTextCertificate(cert,
                            prover.getFormulaParts,
                            prover.getPredTranslation,
