@@ -405,7 +405,8 @@ object Param {
 
   case object RANDOM_SEED extends Param {
     type Value = Option[Int]
-    val defau : Option[Int] = Some(1234567)
+    val defau : Option[Int] = None
+//    val defau : Option[Int] = Some(1234567)
   }
 }
 
