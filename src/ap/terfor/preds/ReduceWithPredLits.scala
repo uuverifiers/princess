@@ -120,8 +120,9 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
    * reducible by this reducer
    */
   def reductionPossible(conj : PredConj) : Boolean =
-    !Seqs.disjoint(allPreds, conj.predicates) ||
-    !Seqs.disjoint(functions, conj.predicates)
+    !conj.isFalse &&
+    (!Seqs.disjoint(allPreds, conj.predicates) ||
+     !Seqs.disjoint(functions, conj.predicates))
 
   /**
    * Reduce a conjunction of predicate literals using known predicate
