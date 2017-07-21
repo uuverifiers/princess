@@ -168,6 +168,8 @@ object TypeTheory extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  override def toString = "Types"
+
   val axioms = Conjunction.TRUE
   val functionPredicateMapping = List()
   val functionalPredicates : Set[ap.parser.IExpression.Predicate] = Set()
