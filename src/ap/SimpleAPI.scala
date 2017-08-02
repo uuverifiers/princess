@@ -1392,7 +1392,8 @@ class SimpleAPI private (enableAssert : Boolean,
       doDumpScala {
         println("// createBooleanFunction(...)")
       }
-      createFunction(rawName, argSorts, Sort.Bool, partial, functionalityMode)
+      createFunction(rawName, argSorts, Sort.MultipleValueBool,
+                     partial, functionalityMode)
     })
   
   /**
