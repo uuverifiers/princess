@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,19 +21,21 @@
 
 package ap.util;
 
+import scala.collection.concurrent.TrieMap
+
 /**
- * Very naive implementation of an LRU cache ... to be improved
+ * Naive implementation of a thread-safe LRU cache.
  */
 class LRUCache[K, V] (maxEntries : Int) {
 
-  private val backend = new scala.collection.mutable.HashMap[K, V]
+  private val backend = new TrieMap[K, V]
   
-  def get(k : K) : Option[V] = synchronized ( backend get k )
+  def get(k : K) : Option[V] = backend get k
   
   def apply(k : K)(otherwise : => V) : V = (this get k) match {
     case None => {
       val res = otherwise
-      this += (k -> res)
+      put(k, res)
       res
     }
     case Some(res) => res
@@ -43,16 +45,21 @@ class LRUCache[K, V] (maxEntries : Int) {
     (this get k) match {
       case None => {
         val res = otherwise
-        this += (k -> res)
+        put(k, res)
         res
       }
       case Some(res) =>
         cachePostProcessing(res)
     }
   
-  def +=(pair : (K, V)) : Unit = synchronized {
+  def +=(pair : (K, V)) : Unit = {
     if (backend.size >= maxEntries) backend.clear
     backend += pair
   }
-  
+
+  def put(k : K, v : V) : Unit = {
+    if (backend.size >= maxEntries) backend.clear
+    backend.put(k, v)
+  }
+
 }
