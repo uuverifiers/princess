@@ -28,14 +28,14 @@ import scala.collection.concurrent.TrieMap
  */
 class LRUCache[K, V] (maxEntries : Int) {
 
-  private val backend = new TrieMap[K, V]
+  private val backend = new scala.collection.mutable.HashMap[K, V]
   
-  def get(k : K) : Option[V] = backend get k
+  def get(k : K) : Option[V] = synchronized ( backend get k )
   
   def apply(k : K)(otherwise : => V) : V = (this get k) match {
     case None => {
       val res = otherwise
-      put(k, res)
+      this += (k -> res)
       res
     }
     case Some(res) => res
@@ -45,21 +45,18 @@ class LRUCache[K, V] (maxEntries : Int) {
     (this get k) match {
       case None => {
         val res = otherwise
-        put(k, res)
+        this += (k -> res)
         res
       }
       case Some(res) =>
         cachePostProcessing(res)
     }
   
-  def +=(pair : (K, V)) : Unit = {
+  def +=(pair : (K, V)) : Unit = synchronized {
     if (backend.size >= maxEntries) backend.clear
     backend += pair
   }
 
-  def put(k : K, v : V) : Unit = {
-    if (backend.size >= maxEntries) backend.clear
-    backend.put(k, v)
-  }
+  override def toString : String = backend.toString
 
 }

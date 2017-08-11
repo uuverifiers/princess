@@ -22,7 +22,9 @@
 package ap.terfor.inequalities;
 
 import ap.terfor._
-import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.linearcombination.{LinearCombination,
+                                    LinearCombination0,
+                                    LinearCombination1}
 import ap.terfor.arithconj.{ArithConj, ReduceWithAC}
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
@@ -54,7 +56,18 @@ object ReduceWithInEqs {
  * are assumed as facts.
  */
 abstract class ReduceWithInEqs {
-  
+
+  /**
+   * Check whether the known inequalities imply a lower bound of the given term.
+   */
+  def lowerBound(t : Term) : Option[IdealInt]
+
+  /**
+   * Check whether the known inequalities imply an upper bound of the given
+   * term.
+   */
+  def upperBound(t : Term) : Option[IdealInt]
+
   def addInEqs(furtherInEqs : InEqConj) : ReduceWithInEqs
   
   /**
@@ -93,7 +106,11 @@ abstract class ReduceWithInEqs {
  */
 class ReduceWithEmptyInEqs protected[inequalities]
                            (order : TermOrder) extends ReduceWithInEqs {
-  
+
+  def lowerBound(t : Term) : Option[IdealInt] = None
+
+  def upperBound(t : Term) : Option[IdealInt] = None
+
   def addInEqs(furtherInEqs : InEqConj) : ReduceWithInEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithInEqs.AC, furtherInEqs isSortedBy order)
@@ -120,7 +137,8 @@ class ReduceWithEmptyInEqs protected[inequalities]
  * The standard implementation
  */
 class ReduceWithInEqsImpl protected[inequalities]
-                          (lowerBound : (LinearCombination) => Option[IdealInt],
+                          (ineqLowerBound :
+                            (LinearCombination) => Option[IdealInt],
                            containsVariables : Boolean,
                            order : TermOrder)
       extends ReduceWithInEqs {
@@ -134,23 +152,117 @@ class ReduceWithInEqsImpl protected[inequalities]
     else
       new ReduceWithInEqsImpl((lc:LinearCombination) => (
                               // we compute the maximum of all known lower bounds
-                              (lowerBound(lc), furtherInEqs findLowerBound lc) match {
-                                case (Some(c), Some(d)) => Some(c max d)
-                                case (x@Some(_), _) => x
-                                case (_, x@Some(_)) => x
-                                case _ => None
-                              }),
-                              containsVariables || !furtherInEqs.variables.isEmpty,
+                              max(ineqLowerBound(lc),
+                                  furtherInEqs findLowerBound lc)),
+                              containsVariables ||
+                                !furtherInEqs.variables.isEmpty,
                               order)
   }
-  
+
+  private def max(a : Option[IdealInt],
+                  b : Option[IdealInt]) : Option[IdealInt] = (a, b) match {
+    case (Some(c), Some(d)) => Some(c max d)
+    case (x@Some(_), _) => x
+    case (_, x@Some(_)) => x
+    case _ => None
+  }
+
+  private def min(a : Option[IdealInt],
+                  b : Option[IdealInt]) : Option[IdealInt] = (a, b) match {
+    case (Some(c), Some(d)) => Some(c min d)
+    case (x@Some(_), _) => x
+    case (_, x@Some(_)) => x
+    case _ => None
+  }
+
+  /**
+   * Check whether the known inequalities imply a lower bound of the given term.
+   */
+  def lowerBound(t : Term) : Option[IdealInt] = t match {
+    case OneTerm => {
+      Some(IdealInt.ONE)
+    }
+    case _ : VariableTerm | _ : ConstantTerm => lowerBoundsCache(t) {
+      ineqLowerBound(LinearCombination(t, order))
+    }
+    case t : LinearCombination0 => {
+      Some(t.constant)
+    }
+    case t : LinearCombination1 =>
+      if (t.coeff0.isOne && t.constant.isZero) {
+        lowerBound(t.term0)
+      } else {
+        toOption(coeffBound(t.coeff0, t.term0, t.constant, false))
+      }
+    case t : LinearCombination => lowerBoundsCache(t) {
+      max(linCompBound(t, false), ineqLowerBound(t))
+    }
+  }
+
+  /**
+   * Check whether the known inequalities imply an upper bound of the given
+   * term.
+   */
+  def upperBound(t : Term) : Option[IdealInt] = t match {
+    case OneTerm => {
+      Some(IdealInt.ONE)
+    }
+    case _ : VariableTerm | _ : ConstantTerm => upperBoundsCache(t) {
+      for (b <- ineqLowerBound(-LinearCombination(t, order))) yield -b
+    }
+    case t : LinearCombination0 => {
+      Some(t.constant)
+    }
+    case t : LinearCombination1 =>
+      if (t.coeff0.isOne && t.constant.isZero) {
+        upperBound(t.term0)
+      } else {
+        toOption(coeffBound(t.coeff0, t.term0, t.constant, true))
+      }
+    case t : LinearCombination => upperBoundsCache(t) {
+      min(linCompBound(t, true), for (b <- ineqLowerBound(-t)) yield -b)
+    }
+  }
+
+  /**
+   * Returns null if there is no lower bound.
+   */
+  private def coeffBound(coeff : IdealInt, term : Term,
+                         offset : IdealInt, upper : Boolean) : IdealInt =
+    (if ((coeff.signum > 0) != upper)
+       lowerBound(term)
+     else
+       upperBound(term)) match {
+      case Some(b) => b * coeff + offset
+      case None => null
+    }
+
+  private def linCompBound(t : LinearCombination,
+                           upper : Boolean) : Option[IdealInt] = {
+    var bound = IdealInt.ZERO
+    var i = 0
+    while (i < t.lcSize && bound != null) {
+      bound = coeffBound(t getCoeff i, t getTerm i, bound, upper)
+      i = i + 1        
+    }
+    toOption(bound)
+  }
+
+  private def toOption(n : IdealInt) : Option[IdealInt] =
+    if (n == null) None else Some(n)
+
+  private val lowerBoundsCache, upperBoundsCache =
+    new LRUCache[Term, Option[IdealInt]](5000)
+
   def passQuantifiers(num : Int) : ReduceWithInEqs =
     if (containsVariables && num > 0) {
-      val downShifter = VariableShiftSubst.downShifter[LinearCombination](num, order)
-      new ReduceWithInEqsImpl((lc:LinearCombination) => (if (downShifter isDefinedAt lc)
-                                                           lowerBound(downShifter(lc))
-                                                         else
-                                                           None),
+      val downShifter =
+        VariableShiftSubst.downShifter[LinearCombination](num, order)
+      new ReduceWithInEqsImpl((lc:LinearCombination) =>
+                                (if (downShifter isDefinedAt lc)
+                                  ineqLowerBound(downShifter(lc))
+                                else
+                                  None),
                               true,
                               order)
     } else {
@@ -182,14 +294,18 @@ class ReduceWithInEqsImpl protected[inequalities]
    * of <code>lc</code> is not zero
    */
   private def isNonZero(lc : LinearCombination) : Boolean = nonZeroCache(lc) {
-    // yes, it has to be twice isPositive!
-    isPositive(lowerBound(lc)) || isPositive(lowerBound(-lc))
+    isPositive(lowerBound(lc)) || isNegative(upperBound(lc))
   }
 
   private val nonZeroCache = new LRUCache[LinearCombination, Boolean] (5000)
     
-  private def isPositive : Option[IdealInt] => Boolean = {
+  private def isPositive(opt : Option[IdealInt]) : Boolean = opt match {
     case Some(d) => d.signum > 0
+    case _ => false
+  }
+  
+  private def isNegative(opt : Option[IdealInt]) : Boolean = opt match {
+    case Some(d) => d.signum < 0
     case _ => false
   }
   
@@ -203,7 +319,8 @@ class ReduceWithInEqsImpl protected[inequalities]
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     val res =
-      conj.updateEqsSubset(conj filter ((lc:LinearCombination) => !isNonZero(lc)))(order)
+      conj.updateEqsSubset(conj filter ((lc:LinearCombination) =>
+                                          !isNonZero(lc)))(order)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(ReduceWithInEqs.AC, (res eq conj) || res != conj)
@@ -271,10 +388,9 @@ class ReduceWithInEqsImpl protected[inequalities]
         val lcIt = conj.iterator
         while (lcIt.hasNext) {
           val lc = lcIt.next
-          val negLC = -lc
 
-          lowerBound(negLC) match {
-            case Some(d) if (d.signum > 0) => 
+          upperBound(lc) match {
+            case Some(d) if (d.signum < 0) =>
               // contradiction
               throw CONTRADICTION_EXCEPTION
             case x => // we also need to check lower bounds
@@ -288,7 +404,7 @@ class ReduceWithInEqsImpl protected[inequalities]
                           // we can infer an equation from an inequality
                           // by inserting an upper bound as well
                           newLCs += lc
-                          newLCs += negLC
+                          newLCs += -lc
                           changed = true
                         }
                         case _ => {

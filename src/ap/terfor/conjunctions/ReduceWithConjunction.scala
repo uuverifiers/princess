@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -244,21 +244,20 @@ object ReduceWithConjunction {
   private def reReduceConj(conj : Conjunction,
                            initialReducer : ReduceWithConjunction)
                           : Conjunction = try {
-    val reducer = initialReducer.passQuantifiers(conj.quans.size)
-
-    val newArithConj = reducer.plainReduce(conj.arithConj)
+    val reducer = initialReducer passQuantifiers conj.quans.size
+    val (newArithConj, reducer2) = reducer plainReduce conj.arithConj
 
     if (newArithConj.isFalse)
       throw FALSE_EXCEPTION
 
-    val (newPredConj, newEqs) = reducer plainReduce conj.predConj
+    val (newPredConj, newEqs) = reducer2 plainReduce conj.predConj
 
     val newArithConj2 =
       if (newEqs.isTrue) {
         newArithConj
       } else {
         // the reduction has made some new equations available
-        val newAC = ArithConj.conj(List(newArithConj, newEqs), reducer.order)
+        val newAC = ArithConj.conj(List(newArithConj, newEqs), reducer2.order)
         if (newAC.isFalse) throw FALSE_EXCEPTION
         newAC
       }
@@ -266,7 +265,7 @@ object ReduceWithConjunction {
     val newNegConjs = {
       var changed = false
       val newConjs = for (c <- conj.negatedConjs) yield {
-        val reduced = reReduceConj(c, reducer)
+        val reduced = reReduceConj(c, reducer2)
         if (reduced.isTrue)
           throw FALSE_EXCEPTION
         if (!(reduced eq c))
@@ -275,7 +274,7 @@ object ReduceWithConjunction {
       }
 
       if (changed)
-        NegatedConjunctions(newConjs, reducer.order)
+        NegatedConjunctions(newConjs, reducer2.order)
       else
         conj.negatedConjs
     }
@@ -286,7 +285,7 @@ object ReduceWithConjunction {
       conj
     else
       Conjunction(conj.quans, newArithConj2, newPredConj, newNegConjs,
-                  reducer.order)
+                  reducer2.order)
       
   } catch {
     case FALSE_EXCEPTION => Conjunction.FALSE
@@ -435,11 +434,16 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     (newArithConj, this replaceAC newACReducer)
   }
 
-  private def plainReduce(ac : ArithConj) : ArithConj = {
+  private def plainReduce(ac : ArithConj)
+                         : (ArithConj, ReduceWithConjunction) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, ac isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    acReducer plainReduce ac
+    val (newAC, newRed) = acReducer plainReduce ac
+    if (newRed eq acReducer)
+      (newAC, this)
+    else
+      (newAC, new ReduceWithConjunction (newRed, predReducer, order))
   }
   
   private def reduce(conj : PredConj, logger : ComputationLogger)

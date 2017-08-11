@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -306,7 +306,7 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
    * Just reduce the components of the conjunction individually,
    * do not do any internal propagation.
    */
-  def plainReduce(conj : ArithConj) : ArithConj = try {
+  def plainReduce(conj : ArithConj) : (ArithConj, ReduceWithAC) = try {
     val (newEqs, newInEqs) =
       if (conj.inEqs.equalityInfs.isTrue) {
         (reduce(conj.positiveEqs),
@@ -323,16 +323,19 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
         (newEqs, newInEqs)
       }
 
-    val newNegEqs = reduce(conj.negativeEqs, ComputationLogger.NonLogger)
+    val newReducer =
+      this addInEqs newInEqs
+    val newNegEqs =
+      newReducer.reduce(conj.negativeEqs, ComputationLogger.NonLogger)
 
     if ((newEqs    eq conj.positiveEqs) &&
         (newNegEqs eq conj.negativeEqs) &&
         (newInEqs  eq conj.inEqs))
-      conj
+      (conj, newReducer)
     else
-      ArithConj(newEqs, newNegEqs, newInEqs, order)
+      (ArithConj(newEqs, newNegEqs, newInEqs, order), newReducer)
   }
-  catch { case _ : FALSE_EXCEPTION => ArithConj.FALSE }
+  catch { case _ : FALSE_EXCEPTION => (ArithConj.FALSE, this) }
 
   def apply(conj : EquationConj) : EquationConj =
     try { this reduce conj }

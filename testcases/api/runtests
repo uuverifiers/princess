@@ -20,32 +20,26 @@ for testname in $TESTS; do
   scala $RUNOPTIONS $testname
 done
 
-scala $OPTIONS interpolation-bug.scala
-scala $OPTIONS scope-bug.scala
-scala $OPTIONS incrementality-bug.scala
-scala $OPTIONS getConstraint-bug.scala
+TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
+       getConstraint-bug.scala TheoryTest.scala TheoryTest2.scala \
+       TheoryTest3.scala TypeTests.scala nonlinear.scala \
+       nonlinearInterpolation.scala division.scala"
 
-scala $OPTIONS TheoryTest.scala
-scala $OPTIONS TheoryTest2.scala
-scala $OPTIONS TheoryTest3.scala
-
-scala $OPTIONS TypeTests.scala
-
-scala $OPTIONS nonlinear.scala
-scala $OPTIONS nonlinearInterpolation.scala
-scala $OPTIONS division.scala
+for testname in $TESTS; do
+  echo
+  echo $testname
+  scala $OPTIONS $testname
+done
 
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
-scala $OPTIONS readSMTLIB.scala
-scala $OPTIONS deadlock.scala
-scala $OPTIONS exception.scala
-scala $OPTIONS incremental.scala
-scala $OPTIONS divmodprint.scala
-scala $OPTIONS ADTTest.scala
-scala $OPTIONS ADTTest2.scala
-scala $OPTIONS ADTTest3.scala
-scala $OPTIONS ADTTest4.scala
-scala $OPTIONS pred-simplify.scala
-scala $OPTIONS empty-stack-bug.scala
+TESTS="readSMTLIB.scala deadlock.scala exception.scala incremental.scala \
+       divmodprint.scala ADTTest.scala ADTTest2.scala ADTTest3.scala ADTTest4.scala \
+       pred-simplify.scala empty-stack-bug.scala"
+
+for testname in $TESTS; do
+  echo
+  echo $testname
+  scala $OPTIONS $testname
+done
 

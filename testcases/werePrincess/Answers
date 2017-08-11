@@ -35,10 +35,10 @@ Found proof (size 20), simplifying (44)
 VALID
 (forall (| (= (select (sym M) (boundVar x0) ) (select (sym M') (boundVar x0) ) ) (forall (| (= (boundVar x1) (boundVar x0) ) (= (select (sym M) (boundVar x1) ) (select (sym M') (boundVar x1) ) ) ) ) ) ) 
 .
-Found proof (size 40), simplifying (46)
+Found proof (size 28), simplifying (34)
 VALID
 (>= (lit 5) (sym x) ) 
-(| (& (>= (lit 7) (sym y) ) (>= (sym y) (lit -2147483648) ) ) (& (>= (lit -3) (sym y) ) (>= (sym y) (lit -2147483648) ) ) ) 
+(& (>= (lit 7) (sym y) ) (>= (sym y) (lit -2147483648) ) ) 
 (>= (lit 20) (sym z) ) 
 .
 Found proof (size 208), simplifying (254)
