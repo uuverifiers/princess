@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -129,6 +129,17 @@ class LemmaBase {
    */
   def allKnown(fors : Iterable[CertFormula]) : Boolean =
     fors forall { x => assumedFormulasL0(x) || assumedFormulas(x) }
+
+  /**
+   * Check whether all of the given formulas have been asserted;
+   * if not, return some formula that was not asserted
+   */
+  def allKnownWitness(fors : Iterable[CertFormula]) : Option[CertFormula] = {
+    for (x <- fors)
+      if (!(assumedFormulasL0(x) || assumedFormulas(x)))
+        return Some(x)
+    None
+  }
 
   /**
    * Assume the given literal, and return a certificate in case

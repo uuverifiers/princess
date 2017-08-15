@@ -74,13 +74,21 @@ object ReduceWithAC {
     reducer = reducer addInEqs newInEqs
 
     // reduce negated equations, assuming the reduced inequalities
-    val newNegEqs = reducer.reduce(ac.negativeEqs, logger)
+    val (newNegEqs, additionalInEqs) = reducer.reduce(ac.negativeEqs, logger)
 
     if ((newPosEqs eq ac.positiveEqs) &&
         (newNegEqs eq ac.negativeEqs) &&
         (newInEqs eq ac.inEqs)) {
       // then nothing has changed, and we can give back the old object
       (ac, reducer addEquations newNegEqs)
+    } else if (!additionalInEqs.isEmpty) {
+      // some disequalities were turned into inequalities, recurse
+      val allInEqs =
+        InEqConj.conj(Seqs.doubleIterator(newInEqs, additionalInEqs),
+                      logger, reducer.order)
+      val newAC =
+        ArithConj(newPosEqs, newNegEqs, allInEqs, reducer.order)
+      reduceAC(newAC, initialReducer, logger)
     } else {
       val newAC = ArithConj(newPosEqs, newNegEqs, newInEqs, reducer.order)
       if ((newInEqs.equalityInfs.isEmpty ||
@@ -210,16 +218,17 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
   }
 
   private def reduce(eqs : NegEquationConj,
-                     logger : ComputationLogger) : NegEquationConj = {
+                     logger : ComputationLogger)
+                    : (NegEquationConj, InEqConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithAC.AC, eqs isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (eqs.isTrue) {
-      eqs
+      (eqs, InEqConj.TRUE)
     } else {
-      val redEqs = inEqs(negativeEqs(positiveEqs(eqs, logger)))
-      if (redEqs.isFalse) throw FALSE_EXCEPTION_STD
-      redEqs
+      val res = inEqs(negativeEqs(positiveEqs(eqs, logger)), logger)
+      if (res._1.isFalse) throw FALSE_EXCEPTION_STD
+      res
     }
   }
 
@@ -325,15 +334,18 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
 
     val newReducer =
       this addInEqs newInEqs
-    val newNegEqs =
+    val (newNegEqs, additionalInEqs) =
       newReducer.reduce(conj.negativeEqs, ComputationLogger.NonLogger)
 
     if ((newEqs    eq conj.positiveEqs) &&
         (newNegEqs eq conj.negativeEqs) &&
-        (newInEqs  eq conj.inEqs))
+        (newInEqs  eq conj.inEqs)) {
       (conj, newReducer)
-    else
-      (ArithConj(newEqs, newNegEqs, newInEqs, order), newReducer)
+    } else {
+      val allInEqs =
+        InEqConj.conj(Seqs.doubleIterator(newInEqs, additionalInEqs), order)
+      (ArithConj(newEqs, newNegEqs, allInEqs, order), newReducer)
+    }
   }
   catch { case _ : FALSE_EXCEPTION => (ArithConj.FALSE, this) }
 

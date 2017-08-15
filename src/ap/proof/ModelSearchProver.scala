@@ -399,8 +399,15 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
             val cert = goal.getCertificate
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(ModelSearchProver.AC,
-                            lemmaBase == null ||
-                            (lemmaBase allKnown cert.assumedFormulas))
+              lemmaBase == null ||
+              ((lemmaBase allKnownWitness cert.assumedFormulas) match {
+                  case Some(f) => {
+                    throw new Exception("unasserted, but assumed formula: " + f)
+                    false
+                  }
+                  case None =>
+                    true
+               }))
             //-END-ASSERTION-///////////////////////////////////////////////////
             UnsatCertResult(cert)
           } else

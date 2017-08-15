@@ -31,7 +31,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.util.{Debug, Logic, Seqs, FilterIt, LRUCache}
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
 
 object ReduceWithInEqs {
   
@@ -82,9 +82,19 @@ abstract class ReduceWithInEqs {
 
   /**
    * Reduce a conjunction of negated equations by removing all equations from
-   * which we know that they hold anyway
+   * which we know that they hold anyway. This will also turn
+   * disequalities into inequalities if possible.
    */
-  def apply(conj : NegEquationConj) : NegEquationConj
+  def apply(conj : NegEquationConj,
+            logger : ComputationLogger) : (NegEquationConj, InEqConj)
+
+  /**
+   * Reduce a conjunction of negated equations by removing all equations from
+   * which we know that they hold anyway. This will also turn
+   * disequalities into inequalities if possible.
+   */
+  def apply(conj : NegEquationConj) : (NegEquationConj, InEqConj) =
+    apply(conj, ComputationLogger.NonLogger)
 
   /**
    * Reduce a conjunction of inequalities. This means that subsumed inequalities
@@ -126,7 +136,9 @@ class ReduceWithEmptyInEqs protected[inequalities]
   
   def apply(conj : EquationConj) : EquationConj = conj
 
-  def apply(conj : NegEquationConj) : NegEquationConj = conj
+  def apply(conj : NegEquationConj,
+            logger : ComputationLogger) : (NegEquationConj, InEqConj) =
+    (conj, InEqConj.TRUE)
 
   def apply(conj : InEqConj) : InEqConj = conj
 
@@ -224,6 +236,46 @@ class ReduceWithInEqsImpl protected[inequalities]
     }
   }
 
+  private def deriveBoundIneq(lc : LinearCombination,
+                              upper : Boolean,
+                              logger : ComputationLogger) : Unit = lc match {
+    case _ : LinearCombination0 => // nothing
+    case _ : LinearCombination1 => // nothing
+    case lc =>
+      if ((!upper && ineqLowerBound(lc) != lowerBound(lc)) ||
+          (upper && (for (b <- ineqLowerBound(-lc)) yield -b) != upperBound(lc))) {
+        val bounds = for ((coeff, t : ConstantTerm) <- lc.pairIterator) yield {
+          if (coeff.signum > 0 != upper)
+            (coeff.abs,
+             LinearCombination(Array((IdealInt.ONE, t),
+                                     (-lowerBound(t).get, OneTerm)),
+                               order))
+          else
+            (coeff.abs,
+             LinearCombination(Array((IdealInt.MINUS_ONE, t),
+                                     (upperBound(t).get, OneTerm)),
+                               order))
+        }
+
+        val (coeff1, lc1) = bounds.next
+        val (coeff2, lc2) = bounds.next
+        val initIneq =
+          LinearCombination.sum(Array((coeff1, lc1), (coeff2, lc2)), order)
+        logger.combineInequalities(coeff1, lc1, coeff2, lc2,
+                                   initIneq, initIneq, order)
+
+        (initIneq /: bounds) {
+          case (s, (c, lc)) => {
+            val newS = 
+              LinearCombination.sum(Array((IdealInt.ONE, s), (c, lc)), order)
+            logger.combineInequalities(IdealInt.ONE, s, c, lc,
+                                       newS, newS, order)
+            newS
+          }
+        }
+      }
+  }
+
   /**
    * Returns null if there is no lower bound.
    */
@@ -310,22 +362,103 @@ class ReduceWithInEqsImpl protected[inequalities]
   }
   
   /**
-   * TODO: at this point, sometimes disequalities should be
-   * turned into inequalities?
+   * Reduce a conjunction of disequalities; sometimes, this will turn
+   * disequalities into inequalities.
    */
-  def apply(conj : NegEquationConj) : NegEquationConj = {
+  def apply(conj : NegEquationConj,
+            logger : ComputationLogger) : (NegEquationConj, InEqConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithInEqs.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
+
     val res =
-      conj.updateEqsSubset(conj filter ((lc:LinearCombination) =>
-                                          !isNonZero(lc)))(order)
+      if (conj.isTrue || conj.isFalse) {
+        (conj, InEqConj.TRUE)
+      } else {
+        val newInEqs = new ArrayBuffer[LinearCombination]
+        val negEqsToRemove = new MHashSet[LinearCombination]
+
+        val remainingNegEqs = conj filter ((lc:LinearCombination) =>
+          !(negEqsToRemove contains lc) &&
+          (lowerBound(lc) match {
+            case Some(b) if b.signum > 0 => {
+              // disequality can be dropped
+              false
+            }
+            case Some(b) if b.isZero => {
+              // disequality can be turned into an inequality
+              newInEqs += strengthenIneqWithNegEqs(conj, lc, false,
+                                                   negEqsToRemove, logger)
+              false
+            }
+            case _ => upperBound(lc) match {
+              case Some(b) if b.signum < 0 => {
+                // disequality can be dropped
+                false
+              }
+              case Some(b) if b.isZero => {
+                // disequality can be turned into an inequality
+                newInEqs += strengthenIneqWithNegEqs(conj, lc, true,
+                                                     negEqsToRemove, logger)
+                false
+              }
+              case _ =>
+                true
+            }
+          }))
+
+        val inEqs =
+          if (newInEqs.isEmpty)
+            InEqConj.TRUE
+          else
+            InEqConj(newInEqs.iterator, logger, order)
+
+        if (inEqs.isFalse) {
+          (NegEquationConj.FALSE, InEqConj.TRUE)
+        } else {
+          val remainingNegEqs2 =
+            if (negEqsToRemove.isEmpty)
+              remainingNegEqs
+            else
+              remainingNegEqs filterNot negEqsToRemove
+
+          (conj.updateEqsSubset(remainingNegEqs2)(order), inEqs)
+        }
+      }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ReduceWithInEqs.AC, (res eq conj) || res != conj)
+    Debug.assertPost(ReduceWithInEqs.AC,
+                     ((res._1 eq conj) && res._2.isTrue) || (res._1 != conj))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     res
+  }
+
+  private def strengthenIneqWithNegEqs(
+                conj : NegEquationConj,
+                negEq : LinearCombination,
+                upper : Boolean,
+                negEqsToRemove : MHashSet[LinearCombination],
+                logger : ComputationLogger) : LinearCombination = {
+    val boundIneq = if (upper) -negEq else negEq
+    var newBoundIneq = boundIneq + IdealInt.MINUS_ONE
+
+    if (logger.isLogging) {
+      deriveBoundIneq(negEq, upper, logger)
+      logger.directStrengthen(boundIneq, negEq, newBoundIneq, order)
+    }
+
+    var shiftedNegEq = if (upper) (negEq + IdealInt.ONE) else newBoundIneq
+
+    while (conj contains shiftedNegEq) {
+      negEqsToRemove += shiftedNegEq
+      val newIneq = newBoundIneq + IdealInt.MINUS_ONE
+      logger.directStrengthen(newBoundIneq, shiftedNegEq, newIneq, order)
+      newBoundIneq = newIneq
+      shiftedNegEq = if (upper) (shiftedNegEq + IdealInt.ONE) else newBoundIneq
+    }
+
+    newBoundIneq
   }
 
   def apply(conj : InEqConj) : InEqConj = {
