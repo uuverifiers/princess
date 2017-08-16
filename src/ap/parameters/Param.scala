@@ -354,6 +354,11 @@ object Param {
     type Value = Option[Int]
     val defau : Option[Int] = Some(1234567)
   }
+
+  case object REDUCER_SETTINGS extends Param {
+    type Value = ReducerSettings
+    val defau : ReducerSettings = ReducerSettings.DEFAULT
+  }
 }
 
 abstract class Param {

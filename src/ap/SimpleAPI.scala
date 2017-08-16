@@ -24,7 +24,7 @@ package ap
 import ap.basetypes.{IdealInt, Tree}
 import ap.parser._
 import ap.parameters.{PreprocessingSettings, GoalSettings, ParserSettings,
-                      Param}
+                      ReducerSettings, Param}
 import ap.terfor.{TermOrder, Formula}
 import ap.terfor.TerForConvenience
 import ap.proof.{ModelSearchProver, ExhaustiveProver}
@@ -1688,7 +1688,7 @@ class SimpleAPI private (enableAssert : Boolean,
     // flush to make sure that no old axioms are left in the
     // function encoder
     flushTodo
-    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+    ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
       toInternalNoAxioms(f, currentOrder))
   }
   
@@ -2006,7 +2006,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val completeFor = formulaeInProver match {
       case List((_, f)) => f
       case formulae => 
-        ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+        ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
               Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
                                currentOrder))
     }
@@ -2455,10 +2455,10 @@ class SimpleAPI private (enableAssert : Boolean,
             InterpolationContext(leftFors, rightFors, commonFors, currentOrder)
           Timeout.withTimeoutMillis(maxQETime) {
             Interpolator(currentSimpCertificate, iContext, true,
-                         functionalPreds)
+                         reducerSettings)
           } {
             Interpolator(currentSimpCertificate, iContext, false,
-                         functionalPreds)
+                         reducerSettings)
           }
         }
       }
@@ -2553,10 +2553,10 @@ class SimpleAPI private (enableAssert : Boolean,
           val rawInt =
             Timeout.withTimeoutMillis(maxQETime) {
               Interpolator(currentSimpCertificate, iContext, true,
-                           functionalPreds)
+                           reducerSettings)
             } {
               Interpolator(currentSimpCertificate, iContext, false,
-                           functionalPreds)
+                           reducerSettings)
             }
 
           val simpInt = {
@@ -3197,7 +3197,7 @@ class SimpleAPI private (enableAssert : Boolean,
             implicit val extendedOrder = order extendPred p
 
             val pAssertion =
-              ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+              ReduceWithConjunction(currentModel, extendedOrder, reducerSettings)(
                 toInternalNoAxioms(!IAtom(p, List(t)), extendedOrder))
             val extendedProver =
               currentProver.assert(currentModel, extendedOrder)
@@ -3235,7 +3235,7 @@ class SimpleAPI private (enableAssert : Boolean,
             implicit val extendedOrder = order extend c
 
             val cAssertion =
-              ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+              ReduceWithConjunction(currentModel, extendedOrder, reducerSettings)(
                 toInternalNoAxioms(IExpression.i(c) =/= t, extendedOrder))
             val extendedProver =
               (ModelSearchProver emptyIncProver goalSettings
@@ -3330,7 +3330,7 @@ class SimpleAPI private (enableAssert : Boolean,
         val extendedOrder = order extend c
         
         val reduced =
-          ReduceWithConjunction(currentModel, functionalPreds, extendedOrder)(
+          ReduceWithConjunction(currentModel, extendedOrder, reducerSettings)(
                                 toInternalNoAxioms(t === c, extendedOrder))
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -3624,8 +3624,8 @@ class SimpleAPI private (enableAssert : Boolean,
             val p = new IExpression.Predicate("p", 0)
             implicit val extendedOrder = order extendPred p
             val pAssertion =
-              ReduceWithConjunction(currentModel, functionalPreds,
-                                    extendedOrder)(
+              ReduceWithConjunction(currentModel, extendedOrder,
+                                    reducerSettings)(
                 toInternalNoAxioms(IAtom(p, Seq()) </> f, extendedOrder))
             val extendedProver =
               currentProver.assert(currentModel, extendedOrder)
@@ -3727,8 +3727,9 @@ class SimpleAPI private (enableAssert : Boolean,
           Right(intF)
         } else {
           val reduced =
-            ReduceWithConjunction(currentModel, functionalPreds,
-                                  currentModel.order)(intF)
+            ReduceWithConjunction(currentModel,
+                                  currentModel.order,
+                                  reducerSettings)(intF)
 
           if (reduced.isTrue)
             Left(true)
@@ -3872,7 +3873,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
       rawFormulaeTodo = LazyConjunction.FALSE
       val reducedFor =
-        ReduceWithConjunction(Conjunction.TRUE, functionalPreds, currentOrder)(
+        ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
                               completeFor)
       addToProver(reducedFor, axioms)
     }
@@ -4132,7 +4133,14 @@ class SimpleAPI private (enableAssert : Boolean,
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
     gs = Param.THEORY_PLUGIN.set(gs, theoryPlugin)
     gs = Param.RANDOM_DATA_SOURCE.set(gs, randomDataSource)
+    gs = Param.REDUCER_SETTINGS.set(gs, reducerSettings)
     gs
+  }
+
+  private def reducerSettings = {
+    var rs = ReducerSettings.DEFAULT
+    rs = Param.FUNCTIONAL_PREDICATES.set(rs, functionalPreds)
+    rs
   }
 
   // TODO: correct setting even if Theories are used?

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -55,11 +55,14 @@ case object FactsNormalisationTask extends EagerTask {
     var constantFreedom = goal.constantFreedom
     var definedSyms = goal.definedSyms
     var iteration = 0
-    
-    val allFunctionalPreds =
-      Param.FUNCTIONAL_PREDICATES(goal.settings)
-    val functionalPreds =
-      if (collector.isLogging) Set[Predicate]() else allFunctionalPreds
+
+    val oriReducerSettings = goal.reducerSettings
+    val reducerSettings =
+      if (collector.isLogging)
+        Param.FUNCTIONAL_PREDICATES.set(oriReducerSettings, Set())
+      else
+        // TODO: can we also generate proofs for predicate functionality?
+        oriReducerSettings
     
     ////////////////////////////////////////////////////////////////////////////
     // normalise facts
@@ -89,7 +92,8 @@ case object FactsNormalisationTask extends EagerTask {
     while (cont) {
       // propagate the solved equations into the other facts
       facts = ReduceWithConjunction(Conjunction.TRUE,
-                                    functionalPreds, order)(facts, collector)
+                                    order,
+                                    reducerSettings)(facts, collector)
 
       if (facts.isFalse) {
         // then the goal can be closed immediately. if a proof is being
@@ -116,7 +120,7 @@ case object FactsNormalisationTask extends EagerTask {
     ////////////////////////////////////////////////////////////////////////////
     // update clauses
 
-    val reducer = ReduceWithConjunction(facts, allFunctionalPreds, order)
+    val reducer = ReduceWithConjunction(facts, order, oriReducerSettings)
 
     def illegalQFClause(c : Conjunction) =
       c.isTrue || c.isLiteral || c.isNegatedConjunction ||

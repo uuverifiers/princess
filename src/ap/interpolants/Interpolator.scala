@@ -35,7 +35,7 @@ import ap.terfor.preds.{PredConj, Predicate}
 import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier}
-import ap.parameters.GoalSettings
+import ap.parameters.{GoalSettings, ReducerSettings}
 import ap.basetypes.IdealInt
 import ap.PresburgerTools
 import ap.terfor.conjunctions.ReduceWithConjunction
@@ -59,12 +59,13 @@ object Interpolator
   def apply(certificate : Certificate, 
             iContext: InterpolationContext,
             elimQuantifiers : Boolean = true,
-            functionalPredicates : Set[Predicate] = Set()) : Conjunction = {
+            reducerSettings : ReducerSettings = ReducerSettings.DEFAULT)
+           : Conjunction = {
     val resWithQuantifiers = applyHelp(certificate, iContext).toConjunction
 
     implicit val o = certificate.order
     val res =
-      ReduceWithConjunction(Conjunction.TRUE, functionalPredicates, o)(
+      ReduceWithConjunction(Conjunction.TRUE, o, reducerSettings)(
         if (elimQuantifiers)
           PresburgerTools.elimQuantifiersWithPreds(resWithQuantifiers)
         else

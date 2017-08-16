@@ -232,7 +232,7 @@ object GoalSettings {
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
                        Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS,
-                       Param.RANDOM_DATA_SOURCE)
+                       Param.RANDOM_DATA_SOURCE, Param.REDUCER_SETTINGS)
 
   val DEFAULT =
     new GoalSettings (scala.collection.immutable.HashMap[Param, Any]())
@@ -261,6 +261,15 @@ object PreprocessingSettings {
 
   val DEFAULT =
     new PreprocessingSettings (scala.collection.immutable.HashMap[Param, Any]())
+  
+}
+
+object ReducerSettings {
+
+  val allParams = List(Param.FUNCTIONAL_PREDICATES)
+
+  val DEFAULT =
+    new ReducerSettings (scala.collection.immutable.HashMap[Param, Any]())
   
 }
 
@@ -307,16 +316,8 @@ abstract class Settings[STT <: Settings[STT]]
   override def hashCode = hashCodeVal
 
   override def toString : String = "Settings(" + paramMap + ")"
-}
 
-class GlobalSettings(_paramMap : Map[Param, Any])
-      extends Settings[GlobalSettings](_paramMap) {
-  protected val allParams = GlobalSettings.allParams
-  
-  protected def setParams(paramMap : Map[Param, Any]) =
-    new GlobalSettings(paramMap)
-    
-  private def subSettings[A <: Settings[A]]
+  protected def subSettings[A <: Settings[A]]
                          (params : Seq[Param], init : A) : A = {
     var res = init
     
@@ -327,7 +328,7 @@ class GlobalSettings(_paramMap : Map[Param, Any])
     
     res
   }
-  
+
   def toGoalSettings : GoalSettings =
     subSettings(GoalSettings.allParams, GoalSettings.DEFAULT)
     
@@ -336,6 +337,17 @@ class GlobalSettings(_paramMap : Map[Param, Any])
     
   def toPreprocessingSettings : PreprocessingSettings =
     subSettings(PreprocessingSettings.allParams, PreprocessingSettings.DEFAULT)
+
+  def toReducerSettings : ReducerSettings =
+    subSettings(ReducerSettings.allParams, ReducerSettings.DEFAULT)
+}
+
+class GlobalSettings(_paramMap : Map[Param, Any])
+      extends Settings[GlobalSettings](_paramMap) {
+  protected val allParams = GlobalSettings.allParams
+  
+  protected def setParams(paramMap : Map[Param, Any]) =
+    new GlobalSettings(paramMap)
 }
 
 class GoalSettings(_paramMap : Map[Param, Any])
@@ -360,4 +372,12 @@ class PreprocessingSettings(_paramMap : Map[Param, Any])
   
   protected def setParams(paramMap : Map[Param, Any]) =
     new PreprocessingSettings(paramMap)
+}
+
+class ReducerSettings(_paramMap : Map[Param, Any])
+      extends Settings[ReducerSettings](_paramMap) {
+  protected val allParams = ReducerSettings.allParams
+  
+  protected def setParams(paramMap : Map[Param, Any]) =
+    new ReducerSettings(paramMap)
 }

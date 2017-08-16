@@ -26,6 +26,7 @@ import ap.terfor.arithconj.{ArithConj, ReduceWithAC, ModelElement}
 import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{PredConj, ReduceWithPredLits, Predicate}
 import ap.terfor.substitutions.Substitution
+import ap.parameters.{ReducerSettings, Param}
 import ap.util.{Debug, Logic, PlainRange, Timeout}
 
 
@@ -33,23 +34,24 @@ object ReduceWithConjunction {
   
   private val AC = Debug.AC_PROPAGATION
 
-  def apply(conj : Conjunction, order : TermOrder) : ReduceWithConjunction =
-    apply(conj, Set(), order)
-  
   def apply(conj : Conjunction,
-            functionalPreds : Set[Predicate],
-            order : TermOrder) : ReduceWithConjunction = {
+            order : TermOrder,
+            settings : ReducerSettings = ReducerSettings.DEFAULT)
+           : ReduceWithConjunction = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (conj.quans.isEmpty)
       new ReduceWithConjunction(ReduceWithAC(conj.arithConj, order),
-                                ReduceWithPredLits(conj.predConj, functionalPreds, order),
+                                ReduceWithPredLits(
+                                  conj.predConj,
+                                  Param.FUNCTIONAL_PREDICATES(settings),
+                                  order),
                                 order)
     else
       // formulas with quantifiers are not supported right now
-      apply(Conjunction.TRUE, functionalPreds, order)
+      apply(Conjunction.TRUE, order, settings)
   }
   
   /**

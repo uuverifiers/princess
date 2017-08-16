@@ -162,7 +162,7 @@ class IntelliFileProver(reader : java.io.Reader,
             val rawInterpolant =
               Interpolator(finalCert, iContext,
                            Param.ELIMINATE_INTERPOLANT_QUANTIFIERS(settings),
-                           Param.FUNCTIONAL_PREDICATES(goalSettings))
+                           Param.REDUCER_SETTINGS(goalSettings))
             toIFormula(rawInterpolant)
           }
           NoCounterModelCertInter(cert, interpolants)

@@ -161,8 +161,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private val theoryAxioms =
     Conjunction.conj(for (t <- theories) yield t.axioms, order).negate
 
+  private val reducerSettings = {
+    var rs = settings.toReducerSettings
+    rs = Param.FUNCTIONAL_PREDICATES.set(rs, functionalPreds)
+    rs
+  }
+
   private val reducer =
-    ReduceWithConjunction(Conjunction.TRUE, functionalPreds, order)
+    ReduceWithConjunction(Conjunction.TRUE, order, reducerSettings)
 
   private val allPartNames =
     (List(PartName.NO_NAME) ++
@@ -263,6 +269,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     gs = Param.THEORY_PLUGIN.set(gs, plugin)
     for (seed <- Param.RANDOM_SEED(settings))
       gs = Param.RANDOM_DATA_SOURCE.set(gs, new SeededRandomDataSource(seed))
+    gs = Param.REDUCER_SETTINGS.set(gs, reducerSettings)
     gs
   }
   

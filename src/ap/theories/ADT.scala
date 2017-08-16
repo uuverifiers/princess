@@ -36,6 +36,7 @@ import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
 import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics}
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
+import ap.parameters.{Param, ReducerSettings}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, Map => MMap,
@@ -834,9 +835,12 @@ class ADT (sortNames : Seq[String],
     implicit val _ = order
     val after = preprocessHelp(f, false, Set())
 //println(" -> " + after)
+    val reducerSettings =
+      Param.FUNCTIONAL_PREDICATES.set(ReducerSettings.DEFAULT,
+                                      functionalPredicates)
     val after2 = ReduceWithConjunction(Conjunction.TRUE,
-                                       functionalPredicates,
-                                       order)(after)
+                                       order,
+                                       reducerSettings)(after)
 //println(" -> " + after2)
 //println
    after2

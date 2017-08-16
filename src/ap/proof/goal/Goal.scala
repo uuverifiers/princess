@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -67,8 +67,8 @@ object Goal {
                           order : TermOrder,
                           settings : GoalSettings) : Goal = {
     val reducer = ReduceWithConjunction(Conjunction.TRUE,
-                                        Param.FUNCTIONAL_PREDICATES(settings),
-                                        order)
+                                        order,
+                                        Param.REDUCER_SETTINGS(settings))
     apply(List(reducer(Conjunction.conj(f, order))),
           eliminatedConstants, Vocabulary(order), settings)
   }
@@ -357,8 +357,10 @@ class Goal private (val facts : Conjunction,
     case _ => false
   }
 
+  lazy val reducerSettings = Param.REDUCER_SETTINGS(settings)
+
   lazy val reduceWithFacts : ReduceWithConjunction =
-    ReduceWithConjunction(facts, Param.FUNCTIONAL_PREDICATES(settings), order)
+    ReduceWithConjunction(facts, order, reducerSettings)
    
   //////////////////////////////////////////////////////////////////////////////
 
