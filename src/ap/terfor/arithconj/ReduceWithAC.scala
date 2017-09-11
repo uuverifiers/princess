@@ -132,18 +132,6 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
     }
   }
 
-  def addArithConj(ac : ArithConj) : ReduceWithAC = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ReduceWithAC.AC, ac isSortedBy order)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    if (ac.isEmpty)
-      this
-    else
-      new ReduceWithAC(positiveEqs addEquations ac.positiveEqs.toMap,
-                       negativeEqs addEquations ac.negativeEqs.toSet,
-                       inEqs addInEqs ac.inEqs,
-                       order)    
-  }
   
   private def addEquations(eqs : EquationConj) : ReduceWithAC = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

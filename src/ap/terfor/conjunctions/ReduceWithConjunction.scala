@@ -48,6 +48,7 @@ object ReduceWithConjunction {
                                   conj.predConj,
                                   Param.FUNCTIONAL_PREDICATES(settings),
                                   order),
+                                Param.REDUCER_PLUGIN(settings)(conj, order),
                                 order)
     else
       // formulas with quantifiers are not supported right now
@@ -60,49 +61,93 @@ object ReduceWithConjunction {
   private def reduceConj(conj : Conjunction,
                          initialReducer : ReduceWithConjunction,
                          logger : ComputationLogger) : Conjunction =
-    if (conj.isTrue)
+    if (conj.isTrue) {
       conj
-    else try {
+    } else try {
       Timeout.check
+
+      implicit val order = initialReducer.order
+      var currentArithConj = conj.arithConj
+      var currentPredConj = conj.predConj
+      var currentNegConjs = conj.negatedConjs
       
-      val (newArithConj, reducer) =
-        if (conj.quans.size > 0)
-          initialReducer.passQuantifiers(conj.quans.size)
-                        .reduce(conj.arithConj, ComputationLogger.NonLogger)
-        else
-          initialReducer.reduce(conj.arithConj, logger)
+      val innerReducer = initialReducer passQuantifiers conj.quans.size
+
+      // outer loop, reducing both arithmetic and predicate constraints
+      while(true) {
+        val (newArithConj, reducerWithAC) =
+          innerReducer.reduce(currentArithConj, logger)
+        currentArithConj = newArithConj
+
+        // inner loop, reducing only predicate constraints
+        var contInner = true
+        while (contInner) reducerWithAC.reduce(currentPredConj, logger) match {
+
+          case Left((newPredConj, reducerWithPC)) => {
+            currentPredConj = newPredConj
+            reducerWithPC.reduceWithPlugin(
+                              currentPredConj, logger,
+                              ReducerPlugin.ReductionMode.Contextual) match {
+
+              case Left(reducerWithPC2) => {
+                // reducer plugin converged
+
+                currentNegConjs =
+                  reduceNegatedConjs(currentNegConjs, reducerWithPC2)
+                val preRes = constructConj(conj, conj.quans,
+                                           currentArithConj,
+                                           currentPredConj,
+                                           currentNegConjs,
+                                           order)
+                val res = initialReducer.reducerPlugin finalReduce preRes
     
-      reducer.reduce(conj.predConj, logger) match {
+                if ((conj.quans == res.quans) &&
+                    (currentArithConj eq res.arithConj) &&
+                    (currentPredConj eq res.predConj)) {
+                  return res
+                } else {
+                  // it might be necessary to repeat reduction, because new
+                  // facts became available
+                  return reduceConj(res, initialReducer, logger)
+                }
+              }
 
-        case Left((newPredConj, reducer2)) => {
-          val newNegConjs = reduceNegatedConjs(conj.negatedConjs, reducer2)
-          val res = constructConj(conj, conj.quans,
-                                  newArithConj, newPredConj, newNegConjs,
-                                  reducer2.order)    
+              case Right(ReducerPlugin.ChangedConjResult(addArithConj,
+                                                         newPredConj,
+                                                         addNegConjs)) => {
+                currentPredConj = newPredConj
+                currentNegConjs = currentNegConjs & addNegConjs
 
-          if ((conj.quans == res.quans) &&
-              (newArithConj eq res.arithConj) &&
-              (newPredConj eq res.predConj)) {
-            res
-          } else {
-            // it might be necessary to repeat reduction, because new facts became
-            // available
-            reduceConj(res, initialReducer, logger)
+                if (addArithConj.isTrue) {
+                  // continue in the inner loop
+                } else {
+                  currentArithConj =
+                    ArithConj.conj(List(currentArithConj, addArithConj), order)
+                  if (currentArithConj.isFalse) throw FALSE_EXCEPTION
+                  contInner = false
+                }
+              }
+
+            }
           }
+
+          case Right((newPredConj, newEqs)) => {
+            // the reduction has made some new equations available, continue
+            // in the outer loop
+
+            currentPredConj = newPredConj
+            currentArithConj = ArithConj.conj(List(currentArithConj, newEqs),
+                                              order)
+            if (currentArithConj.isFalse) throw FALSE_EXCEPTION
+
+            contInner = false
+          }
+
         }
-        
-        case Right((newPredConj, newEqs)) => {
-          // the reduction has made some new equations available
-          val newAC = ArithConj.conj(List(newArithConj, newEqs), reducer.order)
-          if (newAC.isFalse) throw FALSE_EXCEPTION
-          val newConj = Conjunction(conj.quans,
-                                    newAC, newPredConj, conj.negatedConjs,
-                                    reducer.order)
-          reduceConj(newConj, initialReducer, logger)
-        }
-        
       }
-          
+
+      null // unreachable
+
     } catch {
       case FALSE_EXCEPTION => Conjunction.FALSE
     }
@@ -169,19 +214,23 @@ object ReduceWithConjunction {
         }
     
         if (eliminableVars.isEmpty) {
-          createConj(oldConj, quans, newArithConj, newPredConj, newNegConjs, order)
+          createConj(oldConj, quans, newArithConj, newPredConj, newNegConjs,
+                     order)
         } else {
           val literals =
-            Conjunction(List(), newArithConj, newPredConj, NegatedConjunctions.TRUE, order)
+            Conjunction(List(), newArithConj, newPredConj,
+                        NegatedConjunctions.TRUE, order)
           val eliminator =
             new LiteralEliminator(literals, eliminableVars, order)
           val essentialLits = 
             eliminator eliminate ComputationLogger.NonLogger
           
-          val negConjs = if (eliminator.divJudgements.isEmpty)
+          val negConjs =
+            if (eliminator.divJudgements.isEmpty)
               newNegConjs
             else
-              NegatedConjunctions(newNegConjs ++ eliminator.divJudgements, order)
+              NegatedConjunctions(newNegConjs ++ eliminator.divJudgements,
+                                  order)
 
           val newConj =
             createConj(oldConj,
@@ -251,6 +300,8 @@ object ReduceWithConjunction {
 
     if (newArithConj.isFalse)
       throw FALSE_EXCEPTION
+    if (!(newArithConj eq conj.arithConj))
+      return conj.updateArithConj(newArithConj)(reducer2.order)
 
     val (newPredConj, newEqs) = reducer2 plainReduce conj.predConj
 
@@ -264,31 +315,50 @@ object ReduceWithConjunction {
         newAC
       }
 
-    val newNegConjs = {
-      var changed = false
-      val newConjs = for (c <- conj.negatedConjs) yield {
-        val reduced = reReduceConj(c, reducer2)
-        if (reduced.isTrue)
-          throw FALSE_EXCEPTION
-        if (!(reduced eq c))
-          changed = true
-        reduced
+    if (!(newArithConj2 eq conj.arithConj) || !(newPredConj eq conj.predConj))
+      return Conjunction(conj.quans, newArithConj2, newPredConj,
+                         conj.negatedConjs, reducer2.order)
+
+    reducer2.reduceWithPlugin(newPredConj, ComputationLogger.NonLogger,
+                              ReducerPlugin.ReductionMode.Simple) match {
+      case Left(reducer3) => {
+        var changed = false
+          
+        val newConjs = for (c <- conj.negatedConjs) yield {
+          if (changed) {
+            // then we will do a second, contextual reduction pass anyway
+            c
+          } else {
+            val reduced = reReduceConj(c, reducer3)
+            if (reduced.isTrue)
+              throw FALSE_EXCEPTION
+            if (!(reduced eq c))
+              changed = true
+            reduced
+          }
+        }
+    
+        if (changed) {
+          val newNegConjs = NegatedConjunctions(newConjs, reducer3.order)
+          Conjunction(conj.quans, newArithConj2, newPredConj, newNegConjs,
+                      reducer3.order)
+        } else {
+          conj
+        }
       }
 
-      if (changed)
-        NegatedConjunctions(newConjs, reducer2.order)
-      else
-        conj.negatedConjs
+      case Right(ReducerPlugin.ChangedConjResult(addArithConj,
+                                                 newPredConj2,
+                                                 addNegConjs)) => {
+        val newArithConj3 =
+          ArithConj.conj(List(newArithConj2, addArithConj), reducer2.order)
+        val newNegConjs =
+          (conj.negatedConjs & addNegConjs)(reducer2.order)
+        Conjunction(conj.quans, newArithConj3, newPredConj2, newNegConjs,
+                    reducer2.order)
+      }
     }
 
-    if ((newArithConj2 eq conj.arithConj) &&
-        (newPredConj eq conj.predConj) &&
-        (newNegConjs eq conj.negatedConjs))
-      conj
-    else
-      Conjunction(conj.quans, newArithConj2, newPredConj, newNegConjs,
-                  reducer2.order)
-      
   } catch {
     case FALSE_EXCEPTION => Conjunction.FALSE
   }
@@ -297,6 +367,7 @@ object ReduceWithConjunction {
 
 class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
                                      private val predReducer : ReduceWithPredLits,
+                                     private val reducerPlugin : ReducerPlugin,
                                      private val order : TermOrder) {
 
   def passQuantifiers(num : Int) : ReduceWithConjunction = {
@@ -308,11 +379,14 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     } else {
       val new1 = acReducer passQuantifiers num
       val new2 = predReducer passQuantifiers num
+      val new3 = reducerPlugin passQuantifiers num
 
-      if ((new1 eq acReducer) && (new2 eq predReducer))
+      if ((new1 eq acReducer) &&
+          (new2 eq predReducer) &&
+          (new3 eq reducerPlugin))
         this
       else
-        new ReduceWithConjunction(new1, new2, order)
+        new ReduceWithConjunction(new1, new2, new3, order)
     }
   }
 
@@ -323,18 +397,9 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
   lazy val withoutFacts =
     new ReduceWithConjunction(ReduceWithAC(ArithConj.TRUE, order),
                               predReducer.withoutFacts,
+                              reducerPlugin.factory(Conjunction.TRUE, order),
                               order)
 
-  def addArithConj(ac : ArithConj) : ReduceWithConjunction = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ReduceWithConjunction.AC, ac isSortedBy order)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    if (ac.isEmpty)
-      this
-    else
-      new ReduceWithConjunction(acReducer addArithConj ac, predReducer, order)
-  }
 
   def apply(conj : Conjunction) : Conjunction =
     apply(conj, ComputationLogger.NonLogger)
@@ -349,8 +414,8 @@ class ReduceWithConjunction private (private val acReducer : ReduceWithAC,
     // we demand that the reducer is a projection (repeated application does not
     // change the result anymore)
     Debug.assertPostFast(ReduceWithConjunction.AC,
-                         (ReduceWithConjunction.reduceConj(res, this) eq res) &&
-                         ((res eq conj) || (res != conj)))
+               (ReduceWithConjunction.reduceConj(res, this, logger) eq res) &&
+               ((res eq conj) || (res != conj)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
@@ -414,26 +479,40 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
   def apply(conj : EquationConj) : EquationConj = acReducer(conj)
   def apply(conj : ArithConj) : ArithConj = acReducer(conj)
   
-  private def replaceAC(newAC : ReduceWithAC) : ReduceWithConjunction =
-    if (newAC eq this.acReducer)
+  private def replace(newAC : ReduceWithAC,
+                      newPlugin : ReducerPlugin) : ReduceWithConjunction =
+    if ((newAC eq this.acReducer) && (newPlugin eq reducerPlugin))
       this
     else
-      new ReduceWithConjunction(newAC, predReducer, order)
+      new ReduceWithConjunction(newAC, predReducer, newPlugin, order)
   
-  private def replacePred(newPred : ReduceWithPredLits) : ReduceWithConjunction =
+  private def replacePred(newPred : ReduceWithPredLits)
+                         : ReduceWithConjunction =
     if (newPred eq this.predReducer)
       this
     else
-      new ReduceWithConjunction(acReducer, newPred, order)
+      new ReduceWithConjunction(acReducer, newPred, reducerPlugin, order)
+
+  private def replacePlugin(newPlugin : ReducerPlugin)
+                         : ReduceWithConjunction =
+    if (newPlugin eq reducerPlugin)
+      this
+    else
+      new ReduceWithConjunction(acReducer, predReducer, newPlugin, order)
   
   private def reduce(ac : ArithConj,
-                     logger : ComputationLogger) : (ArithConj, ReduceWithConjunction) = {
+                     logger : ComputationLogger)
+                    : (ArithConj, ReduceWithConjunction) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, ac isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (newArithConj, newACReducer) = acReducer.reduceAndAdd(ac, logger)
     if (newArithConj.isFalse) throw FALSE_EXCEPTION
-    (newArithConj, this replaceAC newACReducer)
+    (newArithConj,
+     this.replace(newACReducer,
+                  reducerPlugin.addAssumptions(
+                                    newArithConj,
+                                    ReducerPlugin.ReductionMode.Contextual)))
   }
 
   private def plainReduce(ac : ArithConj)
@@ -442,10 +521,11 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     Debug.assertPre(ReduceWithConjunction.AC, ac isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     val (newAC, newRed) = acReducer plainReduce ac
-    if (newRed eq acReducer)
-      (newAC, this)
-    else
-      (newAC, new ReduceWithConjunction (newRed, predReducer, order))
+    (newAC,
+     replace(newRed,
+             reducerPlugin.addAssumptions(
+                                newAC,
+                                ReducerPlugin.ReductionMode.Simple)))
   }
   
   private def reduce(conj : PredConj, logger : ComputationLogger)
@@ -465,7 +545,26 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
         Right(redConj, newEqs)
     }
   }
-  
+
+  private def reduceWithPlugin(conj : PredConj, logger : ComputationLogger,
+                               mode : ReducerPlugin.ReductionMode.Value)
+                              : Either[ReduceWithConjunction,
+                                       ReducerPlugin.ChangedConjResult] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(ReduceWithConjunction.AC, conj isSortedBy order)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (conj.isTrue) {
+      Left(this)
+    } else reducerPlugin.reduce(conj, this, logger, mode) match {
+      case ReducerPlugin.UnchangedResult =>
+        Left(replacePlugin(reducerPlugin.addAssumptions(conj, mode)))
+      case ReducerPlugin.FalseResult =>
+        throw FALSE_EXCEPTION
+      case res : ReducerPlugin.ChangedConjResult =>
+        Right(res)
+    }
+  }
+
   private def plainReduce(conj : PredConj) : (PredConj, ArithConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, conj isSortedBy order)

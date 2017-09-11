@@ -50,10 +50,10 @@ lazy val root = (project in file(".")).
     scalacOptions in Compile ++=
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
-    scalacOptions <+= scalaVersion map { sv => sv match {
+    scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.8" => "-optimise"
       case "2.12.1" => "-opt:l:classpath"
-    }},
+    }}).value,
 //
     libraryDependencies +=
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",

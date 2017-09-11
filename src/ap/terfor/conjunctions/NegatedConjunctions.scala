@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -125,6 +125,13 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
       this
     else
       new NegatedConjunctions(newConjs.toArray, newOrder)
+
+  def &(that : NegatedConjunctions)
+       (implicit newOrder : TermOrder) : NegatedConjunctions =
+    if (that.isEmpty)
+      this
+    else
+      NegatedConjunctions.apply(this.iterator ++ that.iterator, newOrder)
   
   //////////////////////////////////////////////////////////////////////////////
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,7 +26,9 @@ import ap.Signature
 import ap.parser._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.preds.Predicate
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
+                               ReducerPluginFactory,
+                               IdentityReducerPluginFactory}
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
@@ -225,6 +227,12 @@ trait Theory {
    */
   def preprocess(f : Conjunction,
                  order : TermOrder) : Conjunction = f
+
+  /**
+   * Optionally, a plugin for the reducer applied to formulas both before
+   * and during proving.
+   */
+  val reducerPlugin : ReducerPluginFactory = IdentityReducerPluginFactory
 
   /**
    * If this theory defines any <code>Theory.Decoder</code>, which

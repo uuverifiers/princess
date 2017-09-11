@@ -28,11 +28,13 @@ import ap.theories._
 import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
-import ap.terfor.{TermOrder, ConstantTerm, OneTerm, Formula}
+import ap.terfor.{TermOrder, ConstantTerm, OneTerm, Formula, ComputationLogger}
 import ap.terfor.TerForConvenience._
 import ap.terfor.linearcombination.LinearCombination
-import ap.terfor.preds.{Atom, Predicate}
-import ap.terfor.conjunctions.Conjunction
+import ap.terfor.preds.{Atom, Predicate, PredConj}
+import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
+                               ReducerPluginFactory, IdentityReducerPlugin,
+                               ReducerPlugin}
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
@@ -100,6 +102,46 @@ object GroebnerMultiplication extends MulTheory {
                       (implicit ordering : MonomialOrdering) : Polynomial =
     lcToPolynomial(a(0))*lcToPolynomial(a(1)) - lcToPolynomial(a(2))
 
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object Reducer extends ReducerPlugin {
+    object factory extends ReducerPluginFactory {
+      def apply(conj : Conjunction, order : TermOrder) = Reducer
+    }
+    
+    def passQuantifiers(num : Int) = this
+
+    def addAssumptions(arithConj : ArithConj,
+                       mode : ReducerPlugin.ReductionMode.Value) = this
+
+    def addAssumptions(predConj : PredConj,
+                       mode : ReducerPlugin.ReductionMode.Value) = this
+
+    def reduce(predConj : PredConj,
+               baseReducer : ReduceWithConjunction,
+               logger : ComputationLogger,
+               mode : ReducerPlugin.ReductionMode.Value)
+             : ReducerPlugin.ReductionResult =
+      if (logger.isLogging) {
+        ReducerPlugin.UnchangedResult
+      } else {
+        implicit val order = predConj.order
+        ReducerPlugin.rewritePreds(predConj, List(_mul), order) {
+          a =>
+            if (a(0).isConstant)
+              a(0).constant * a(1) === a(2)
+            else if (a(1).isConstant)
+              a(1).constant * a(0) === a(2)
+            else
+              a
+        }
+      }
+
+    def finalReduce(conj : Conjunction) = conj
+  }
+
+  override val reducerPlugin : ReducerPluginFactory = Reducer.factory
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -266,7 +266,7 @@ object PreprocessingSettings {
 
 object ReducerSettings {
 
-  val allParams = List(Param.FUNCTIONAL_PREDICATES)
+  val allParams = List(Param.FUNCTIONAL_PREDICATES, Param.REDUCER_PLUGIN)
 
   val DEFAULT =
     new ReducerSettings (scala.collection.immutable.HashMap[Param, Any]())

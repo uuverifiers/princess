@@ -31,7 +31,7 @@ import ap.parser.{InputAbsy2Internal,
 import ap.interpolants.ArraySimplifier
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
-                               IterativeClauseMatcher}
+                               IterativeClauseMatcher, SeqReducerPluginFactory}
 import ap.terfor.preds.Predicate
 import ap.theories.{Theory, TheoryRegistry}
 import ap.types.{TypeTheory, IntToTermTranslator}
@@ -163,7 +163,10 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   private val reducerSettings = {
     var rs = settings.toReducerSettings
-    rs = Param.FUNCTIONAL_PREDICATES.set(rs, functionalPreds)
+    rs = Param.FUNCTIONAL_PREDICATES.set(
+         rs, functionalPreds)
+    rs = Param.REDUCER_PLUGIN.set(
+         rs, SeqReducerPluginFactory(for (t <- theories) yield t.reducerPlugin))
     rs
   }
 

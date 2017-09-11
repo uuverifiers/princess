@@ -38,7 +38,7 @@ import ap.terfor.preds.{Atom, PredConj, ReduceWithPredLits}
 import ap.terfor.substitutions.ConstantSubst
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
-                               LazyConjunction}
+                               LazyConjunction, SeqReducerPluginFactory}
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
                     SimpleArray, MulTheory}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
@@ -4140,6 +4140,8 @@ class SimpleAPI private (enableAssert : Boolean,
   private def reducerSettings = {
     var rs = ReducerSettings.DEFAULT
     rs = Param.FUNCTIONAL_PREDICATES.set(rs, functionalPreds)
+    rs = Param.REDUCER_PLUGIN.set(
+         rs, SeqReducerPluginFactory(for (t <- theories) yield t.reducerPlugin))
     rs
   }
 
