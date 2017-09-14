@@ -61,8 +61,8 @@ object SMTParser2InputAbsy {
     def toSort = TSort.Integer // TODO
   }
   case class SMTBitVec(width : Int)                extends SMTType {
+    def toSort = ModuloArithmetic.UnsignedBVSort(width)
     val modulus = IdealInt(2) pow width
-    def toSort = TSort.Integer // TODO
   }
   case class SMTADT(adt : ADT, sortNum : Int)      extends SMTType {
     def toSort = adt sorts sortNum
@@ -2130,7 +2130,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case IndexedSymbol(BVDecLiteral(value), width) => {
       val t = SMTBitVec(width.toInt)
-      (ModuloArithmetic.mod_cast(t.modulus, IdealInt(value)), t)
+      (ModuloArithmetic.cast2Sort(t.toSort, IdealInt(value)), t)
     }
 
     case PlainSymbol("concat") => {

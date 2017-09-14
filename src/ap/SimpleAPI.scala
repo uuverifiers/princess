@@ -1777,10 +1777,7 @@ class SimpleAPI private (enableAssert : Boolean,
    * The current theory used for non-linear problems.
    */
   def mulTheory : MulTheory =
-    if (constructProofs)
-      ap.theories.BitShiftMultiplication
-    else
-      ap.theories.nia.GroebnerMultiplication
+    ap.theories.nia.GroebnerMultiplication
 
   /**
    * Generate the product of the given terms. Depending on the arguments,

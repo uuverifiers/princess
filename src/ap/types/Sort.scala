@@ -225,8 +225,8 @@ object Sort {
       
       for (lc <- model.arithConj.positiveEqs) lc.constant match {
         case IdealInt.ZERO => // nothing
-        case IdealInt.ONE  => // nothing
-        case num => terms.put((num, this), False)
+        case IdealInt.MINUS_ONE  => // nothing
+        case num => terms.put((-num, this), False)
       }
 
       for (a <- model.groundAtoms.iterator;

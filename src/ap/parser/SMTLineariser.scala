@@ -165,12 +165,13 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
-                              SMTFunctionType}
+                              SMTBitVec, SMTFunctionType}
 
   def printSMTType(t : SMTType) : Unit = t match {
     case SMTInteger          => print("Int")
     case SMTBool             => print("Bool")
     case t : SMTADT          => print(t)
+    case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
     case SMTArray(args, res) => {
       print("(Array")
       for (s <- args) {
@@ -193,6 +194,8 @@ object SMTLineariser {
       (SMTBool, None)
     case sort : ADT.ADTProxySort =>
       (SMTADT(sort.adtTheory, sort.sortNum), None)
+    case ModuloArithmetic.UnsignedBVSort(width) =>
+      (SMTBitVec(width), None)
   }
 
   def sort2SMTString(sort : Sort) : String =
@@ -666,6 +669,14 @@ class SMTLineariser(benchmarkName : String,
       case IVariable(index) => {
         addSpace
         print(ctxt.vars(index)._1)
+        ShortCutResult(())
+      }
+      case IFunApp(ModuloArithmetic.mod_cast,
+                   Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
+                       IIntLit(value)))
+          if (value.signum >= 0 && (upper & (upper + 1)).isZero) => {
+        addSpace
+        print("(_ bv" + value + " " + (upper.getHighestSetBit + 1) + ")")
         ShortCutResult(())
       }
       case t@IFunApp(fun, args) => {

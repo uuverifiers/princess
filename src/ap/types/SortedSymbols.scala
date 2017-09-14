@@ -23,7 +23,7 @@ package ap.types
 
 import ap.parser.{IFunction, ITerm}
 import ap.terfor.{ConstantTerm, Term, Formula, TermOrder}
-import ap.terfor.preds.Predicate
+import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.Debug
 
@@ -202,6 +202,11 @@ class MonoSortedIFunction(_name : String,
 ////////////////////////////////////////////////////////////////////////////////
 
 object SortedPredicate {
+  /**
+   * Determine the argument types of any predicate.
+   */
+  def argumentSorts(a : Atom) : Seq[Sort] = argumentSorts(a.pred, a)
+
   /**
    * Determine the argument types of any predicate.
    */

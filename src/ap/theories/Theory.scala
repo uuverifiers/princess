@@ -25,7 +25,7 @@ import ap.basetypes.IdealInt
 import ap.Signature
 import ap.parser._
 import ap.terfor.{Formula, TermOrder}
-import ap.terfor.preds.Predicate
+import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPluginFactory,
                                IdentityReducerPluginFactory}
@@ -33,7 +33,7 @@ import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
 
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
 
 object Theory {
 
@@ -95,6 +95,68 @@ object Theory {
 //  ap.util.Timer.measure("theory preprocessing") {
     (f /: theories) { case (f, t) => t.preprocess(f, order) }
 //  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Apply a uniform substitution to a formula, rewriting atoms to arbitrary
+   * new formulas.
+   */
+  def rewritePreds(f : Conjunction, order : TermOrder)
+                  (rewrite : (Atom, Boolean) => Formula) : Conjunction =
+    rewritePredsHelp(f, false, order)(rewrite)
+
+  def rewritePredsHelp(f : Conjunction, negated : Boolean, order : TermOrder)
+                      (rewrite : (Atom, Boolean) => Formula) : Conjunction = {
+    var newFors = List[Formula]()
+
+    val newPosLits =
+      (for (a <- f.predConj.positiveLits.iterator;
+            newF = rewrite(a, negated);
+            b <- newF match {
+              case b : Atom =>
+                Iterator single b
+              case newF => {
+                newFors = newF :: newFors
+                Iterator.empty
+              }
+            })
+       yield b).toArray
+
+    val newNegLits =
+      (for (a <- f.predConj.negativeLits.iterator;
+            newF = rewrite(a, !negated);
+            b <- newF match {
+              case b : Atom =>
+                Iterator single b
+              case newF => {
+                newFors = Conjunction.negate(newF, order) :: newFors
+                Iterator.empty
+              }
+            })
+       yield b).toArray
+
+    val newPredConj = f.predConj.updateLits(newPosLits, newNegLits)(order)
+
+    val newNegConjs =
+      f.negatedConjs.update(
+        for (c <- f.negatedConjs)
+        yield rewritePredsHelp(c, !negated, order)(rewrite), order)
+
+    if (newFors.isEmpty &&
+        (newPredConj eq f.predConj) &&
+        (newNegConjs eq f.negatedConjs)) {
+      f
+    } else if (newFors.isEmpty) {
+      Conjunction(f.quans, f.arithConj, newPredConj, newNegConjs, order)
+    } else {
+      // TODO: pull out quantifiers!
+      val matrix =
+        Conjunction.conj(f.arithConj :: newPredConj :: newNegConjs :: newFors,
+                         order)
+      Conjunction.quantify(f.quans, matrix, order)
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

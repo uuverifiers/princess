@@ -21,6 +21,7 @@
 
 package ap.terfor.conjunctions;
 
+import ap.basetypes.IdealInt
 import ap.terfor._
 import ap.terfor.arithconj.{ArithConj, ReduceWithAC, ModelElement}
 import ap.terfor.equations.EquationConj
@@ -478,7 +479,18 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
 
   def apply(conj : EquationConj) : EquationConj = acReducer(conj)
   def apply(conj : ArithConj) : ArithConj = acReducer(conj)
-  
+
+  /**
+   * Check whether known inequalities imply a lower bound of the given term.
+   */
+  def lowerBound(t : Term) : Option[IdealInt] = acReducer lowerBound t
+
+  /**
+   * Check whether known inequalities imply an upper bound of the given
+   * term.
+   */
+  def upperBound(t : Term) : Option[IdealInt] = acReducer upperBound t
+
   private def replace(newAC : ReduceWithAC,
                       newPlugin : ReducerPlugin) : ReduceWithConjunction =
     if ((newAC eq this.acReducer) && (newPlugin eq reducerPlugin))

@@ -21,6 +21,7 @@
 
 package ap.terfor.arithconj;
 
+import ap.basetypes.IdealInt
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions}
@@ -349,7 +350,18 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
       // we use the inconsistent reduced predicate as result (because the method
       // PredConj.FALSE needs an argument)
       catch { case FALSE_EXCEPTION_PRED(falsePredConj) => falsePredConj }    
-    
+
+  /**
+   * Check whether known inequalities imply a lower bound of the given term.
+   */
+  def lowerBound(t : Term) : Option[IdealInt] = inEqs lowerBound t
+
+  /**
+   * Check whether known inequalities imply an upper bound of the given
+   * term.
+   */
+  def upperBound(t : Term) : Option[IdealInt] = inEqs upperBound t
+
 }
 
 private abstract class FALSE_EXCEPTION extends Exception

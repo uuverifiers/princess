@@ -77,7 +77,7 @@ b = -5
 
 -- Boolean functions and triggers
 Sat
-Partial model: {true -> 0, false -> 5, c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> 0, r(1, 5) -> 0, p1 -> true, p0 -> true}
+Partial model: {true -> 0, false -> 115, c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> 0, r(1, 5) -> 0, p1 -> true, p0 -> true}
 Valid
 
 -- Existential constants
