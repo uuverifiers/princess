@@ -30,7 +30,8 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPluginFactory, IdentityReducerPlugin,
                                ReducerPlugin}
-import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.linearcombination.{LinearCombination, LinearCombination0}
+import ap.terfor.substitutions.VariableShiftSubst
 import ap.basetypes.IdealInt
 import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
@@ -149,7 +150,7 @@ object ModuloArithmetic extends Theory {
       argumentSorts(arguments).last membershipConstraint arguments.last
   }
 
-  val mod_cast = new SortedIFunction("mod_cast", 3, true, false) {
+  val mod_cast = new SortedIFunction("mod_cast", 3, true, true) {
     def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val IIntLit(lower) = arguments(0)
       val IIntLit(upper) = arguments(1)
@@ -214,7 +215,7 @@ object ModuloArithmetic extends Theory {
   }
 
   class BVNAryOp(_name : String, _arity : Int)
-        extends SortedIFunction(_name, _arity + 1, true, false) {
+        extends SortedIFunction(_name, _arity + 1, true, true) {
     def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val IIntLit(modulus) = arguments(0)
       val sort = ModSort(0, modulus - 1)
@@ -238,45 +239,45 @@ object ModuloArithmetic extends Theory {
 
   // Arguments: N1, N2, number mod N1, number mod N2
   // Result:    number mod (N1 * N2)
-  val mod_concat        = new IFunction("mod_concat",      4, true, false)
+  val mod_concat        = new IFunction("mod_concat",      4, true, true)
   
   // Arguments: N1, N2, N3, number mod (N1 * N2 * N3)
   // Result:    number mod N2
-  val mod_extract       = new IFunction("mod_extract",     4, true, false)
+  val mod_extract       = new IFunction("mod_extract",     4, true, true)
 
   // Arguments: N, number mod N
   // Result:    number mod N
-  val mod_not           = new BVNAryOp ("mod_not", 1)
-  val mod_neg           = new BVNAryOp ("mod_neg", 1)
+  val mod_not           = new BVNAryOp ("mod_not", 1) // X
+  val mod_neg           = new BVNAryOp ("mod_neg", 1) // X
 
   // Arguments: N, number mod N, number mod N
   // Result:    number mod N
   val mod_and           = new BVNAryOp ("mod_and", 2)
   val mod_or            = new BVNAryOp ("mod_or",  2)
-  val mod_add           = new BVNAryOp ("mod_add", 2)
-  val mod_sub           = new BVNAryOp ("mod_sub", 2)
-  val mod_mul           = new IFunction("mod_mul",         3, true, false)
-  val mod_udiv          = new IFunction("mod_udiv",        3, true, false)
-  val mod_sdiv          = new IFunction("mod_sdiv",        3, true, false)
-  val mod_urem          = new IFunction("mod_urem",        3, true, false)
-  val mod_srem          = new IFunction("mod_srem",        3, true, false)
-  val mod_smod          = new IFunction("mod_smod",        3, true, false)
-  val mod_shl           = new IFunction("mod_shl",         3, true, false)
-  val mod_lshr          = new IFunction("mod_lshr",        3, true, false)
-  val mod_ashr          = new IFunction("mod_ashr",        3, true, false)
+  val mod_add           = new BVNAryOp ("mod_add", 2) // X
+  val mod_sub           = new BVNAryOp ("mod_sub", 2) // X
+  val mod_mul           = new BVNAryOp ("mod_mul", 2)
+  val mod_udiv          = new BVNAryOp ("mod_udiv",2)
+  val mod_sdiv          = new BVNAryOp ("mod_sdiv",2)
+  val mod_urem          = new BVNAryOp ("mod_urem",2)
+  val mod_srem          = new BVNAryOp ("mod_srem",2)
+  val mod_smod          = new BVNAryOp ("mod_smod",2)
+  val mod_shl           = new BVNAryOp ("mod_shl", 2)
+  val mod_lshr          = new BVNAryOp ("mod_lshr",2)
+  val mod_ashr          = new BVNAryOp ("mod_ashr",2)
 
-  val mod_xor           = new IFunction("mod_xor",         3, true, false)
-  val mod_xnor          = new IFunction("mod_xnor",        3, true, false)
+  val mod_xor           = new BVNAryOp ("mod_xor", 2)
+  val mod_xnor          = new BVNAryOp ("mod_xnor",2)
 
   // Arguments: N, number mod N, number mod N
   // Result:    number mod 2
-  val mod_comp          = new IFunction("mod_comp",        3, true, false)
+  val mod_comp          = new IFunction("mod_comp",        3, true, true)
 
   // Arguments: N, number mod N, number mod N
-  val mod_ult           = new Predicate("mod_ult",         3)
-  val mod_ule           = new Predicate("mod_ule",         3)
-  val mod_slt           = new Predicate("mod_slt",         3)
-  val mod_sle           = new Predicate("mod_sle",         3)
+  val mod_ult           = new Predicate("mod_ult",         3) // X
+  val mod_ule           = new Predicate("mod_ule",         3) // X
+  val mod_slt           = new Predicate("mod_slt",         3) // X
+  val mod_sle           = new Predicate("mod_sle",         3) // X
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -336,6 +337,36 @@ object ModuloArithmetic extends Theory {
           _mod_cast(List(l(0), a(0) - 1, a(1) + a(2), a(3)))
         case BVPred(`mod_sub`) =>
           _mod_cast(List(l(0), a(0) - 1, a(1) - a(2), a(3)))
+
+        case `mod_ult` =>
+          a(1) < a(2)
+        case `mod_ule` =>
+          a(1) <= a(2)
+
+        case `mod_slt` | `mod_sle` => { // TODO: optimise
+          val modulus = a(0).asInstanceOf[LinearCombination0].constant
+          val lb = l(-(modulus / 2))
+          val ub = l(modulus / 2 - 1)
+          val subst = VariableShiftSubst(0, 2, order)
+          val modLit0 = _mod_cast(List(lb, ub, subst(a(1)), l(v(0))))
+          val modLit1 = _mod_cast(List(lb, ub, subst(a(2)), l(v(1))))
+
+          val antecedent =
+            modLit0 & modLit1 &
+            lb <= v(0) & v(0) <= ub &
+            lb <= v(1) & v(1) <= ub
+
+          val predicate = a.pred match {
+            case `mod_slt` => v(0) < v(1)
+            case `mod_sle` => v(0) <= v(1)
+          }
+
+          if (negated)
+            exists(2, antecedent & predicate)
+          else
+            forall(2, antecedent ==> predicate)
+        }
+
         case _ =>
           a
       }
@@ -499,6 +530,12 @@ object ModuloArithmetic extends Theory {
   }
 
   override val reducerPlugin : ReducerPluginFactory = Reducer.factory
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def isSoundForSat(
+                 theories : Seq[Theory],
+                 config : Theory.SatSoundnessConfig.Value) : Boolean = true
   
   //////////////////////////////////////////////////////////////////////////////
 

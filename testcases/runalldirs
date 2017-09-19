@@ -12,13 +12,13 @@
 ./rundir werePrincess ""
 
 ./rundir allSettings "1" -logo +assert +model -timeout=30000 -clausifier=none -posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "2" -logo +assert +model -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "3" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "4" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
-./rundir allSettings "5" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
-./rundir allSettings "6" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
-./rundir allSettings "7" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=complete -genTotalityAxioms
-./rundir allSettings "7" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=completeFrugal -genTotalityAxioms
+./rundir allSettings "1" -logo +assert +model -timeout=30000 -clausifier=simple -posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -constructProofs=never -generateTriggers=none
+./rundir allSettings "2" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=total
+./rundir allSettings "2" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=all
+./rundir allSettings "3" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=complete -genTotalityAxioms
+./rundir allSettings "3" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=never -generateTriggers=completeFrugal -genTotalityAxioms
 
 ./rundir onlyUnitResolution "1" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -generateTriggers=none
 ./rundir onlyUnitResolution "1" -logo +assert +model -timeout=30000 -clausifier=simple +posUnitResolution -generateTriggers=none

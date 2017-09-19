@@ -2181,7 +2181,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def theoriesAreSatComplete =
     theories.isEmpty || {
       val config = getSatSoundnessConfig
-      theories exists (_.isSoundForSat(theories, config))
+      theories forall (_.isSoundForSat(theories, config))
     }
 
   private def getBasicSatStatus : ProverStatus.Value =
@@ -4068,7 +4068,7 @@ class SimpleAPI private (enableAssert : Boolean,
           (theoryCollector.newTheories exists {
              t => t.predicates exists (_.isInstanceOf[SortedPredicate])
            })) {
-        addTheory(TypeTheory)
+        addTypeTheory
         return checkNewTheories
       }
 

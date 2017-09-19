@@ -33,7 +33,7 @@ import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 import ap.parser.ApInput._
 import ap.parser.ApInput.Absyn._
-import ap.theories.ADT
+import ap.theories.{ADT, ModuloArithmetic}
 import IExpression.Sort
 import ap.types.{MonoSortedIFunction, SortedIFunction,
                  SortedConstantTerm,
@@ -402,26 +402,46 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     case _ : TypeNat => Sort.Nat
     case _ : TypeBool => Sort.Bool
     case t : TypeInterval => {
-      val lb = t.intervallower_ match {
-        case _ : InfLower =>      None
-        case iv : NumLower =>     Some(IdealInt(iv.intlit_))
-        case iv : NegNumLower =>  Some(-IdealInt(iv.intlit_))
-      }
-      val ub = t.intervalupper_ match {
-        case _ : InfUpper =>     None
-        case iv : NumUpper =>    Some(IdealInt(iv.intlit_))
-        case iv : NegNumUpper => Some(-IdealInt(iv.intlit_))
-      }
-
-      for (l <- lb; u <- ub)
-        if (l > u)
-          throw new Parser2InputAbsy.TranslationException(
-            "Interval types have to be non-empty")
-          
+      val (lb, ub) = translateBounds(t.intervallower_, t.intervalupper_)
       Sort.Interval(lb, ub)
     }
+    case t : TypeMod => {
+      val (lb, ub) = translateBounds(t.intervallower_, t.intervalupper_)
+      if (lb.isEmpty || ub.isEmpty)
+        throw new Parser2InputAbsy.TranslationException(
+          "Modulo sorts have to be finite")
+      ModuloArithmetic.ModSort(lb.get, ub.get)
+    }
+    case t : TypeBV =>
+      ModuloArithmetic.UnsignedBVSort(t.intlit_.toInt)
+    case t : TypeSignedBV =>
+      ModuloArithmetic.SignedBVSort(t.intlit_.toInt)
     case t : TypeIdent =>
       env lookupSort t.ident_
+  }
+
+  private def translateBounds(lower : IntervalLower,
+                              upper : IntervalUpper)
+                           : (Option[IdealInt], Option[IdealInt]) = {
+    val lb = bound2IdealInt(lower)
+    val ub = bound2IdealInt(upper)
+    for (l <- lb; u <- ub)
+      if (l > u)
+        throw new Parser2InputAbsy.TranslationException(
+          "Interval types have to be non-empty")
+    (lb, ub)
+  }
+
+  private def bound2IdealInt(b : IntervalLower) : Option[IdealInt] = b match {
+    case _ : InfLower =>      None
+    case iv : NumLower =>     Some(IdealInt(iv.intlit_))
+    case iv : NegNumLower =>  Some(-IdealInt(iv.intlit_))
+  }
+
+  private def bound2IdealInt(b : IntervalUpper) : Option[IdealInt] = b match {
+    case _ : InfUpper =>      None
+    case iv : NumUpper =>     Some(IdealInt(iv.intlit_))
+    case iv : NegNumUpper =>  Some(-IdealInt(iv.intlit_))
   }
 
   private def toMVBool(s : Sort) : Sort = s match {
@@ -655,17 +675,17 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         translateCompBinTerConnective("!=", f.expression_1, f.expression_2,
                                       _ =/= _)
       case _ : RelLeq =>
-        translateNumBinTerConnective("<=", f.expression_1, f.expression_2,
-                                     _ <= _)
+        translateNumCompBinTerConnective("<=", f.expression_1, f.expression_2,
+                                         _ <= _)
       case _ : RelGeq =>
-        translateNumBinTerConnective(">=", f.expression_1, f.expression_2,
-                                     _ >= _)
+        translateNumCompBinTerConnective(">=", f.expression_1, f.expression_2,
+                                         _ >= _)
       case _ : RelLt =>
-        translateNumBinTerConnective("<", f.expression_1, f.expression_2,
-                                     _ < _)
+        translateNumCompBinTerConnective("<", f.expression_1, f.expression_2,
+                                         _ < _)
       case _ : RelGt =>
-        translateNumBinTerConnective(">", f.expression_1, f.expression_2,
-                                     _ > _)
+        translateNumCompBinTerConnective(">", f.expression_1, f.expression_2,
+                                         _ > _)
     }
     case f : ExprTrigger =>
       (translateTrigger(f), Sort.Bool)
@@ -686,9 +706,9 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     case t : ExprMod =>
       translateNumBinTerConnective("%", t.expression_1, t.expression_2, mulTheory.eMod _)
     case t : ExprUnPlus =>
-      translateUnTerConnective("+", t.expression_, (lc) => lc)
+      translateNumUnTerConnective("+", t.expression_, (lc) => lc)
     case t : ExprUnMinus =>
-      translateUnTerConnective("-", t.expression_, - _)
+      translateNumUnTerConnective("-", t.expression_, - _)
     case t : ExprExp =>
       translateNumBinTerConnective("^", t.expression_1, t.expression_2, mulTheory.pow _)
     case t : ExprLit =>
@@ -700,7 +720,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       (sort eps cond, sort)
     }
     case t : ExprAbs =>
-      translateUnTerConnective("\\abs", t.expression_, abs _)
+      translateNumUnTerConnective("\\abs", t.expression_, abs _)
     case t : ExprMax => {
       val args = translateNumOptArgs("\\max", t.optargs_)
       if (args.isEmpty)
@@ -807,11 +827,20 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
               : (IExpression, Sort) =
     (con(asFormula(translateExpression(f))), Sort.Bool)
   
-  private def translateUnTerConnective(opName : String,
-                                       f : Expression,
-                                       con : (ITerm) => IExpression)
-              : (IExpression, Sort) =
-    (con(asNumTerm(opName, translateExpression(f))), Sort.Integer)
+  private def translateNumUnTerConnective(opName : String,
+                                          f : Expression,
+                                          con : (ITerm) => IExpression)
+                                       : (IExpression, Sort) = {
+    val (expr, sort) = translateExpression(f)
+    val resSort = sort match {
+      case Sort.Numeric(_) => Sort.Integer
+      case sort : ModuloArithmetic.ModSort => sort
+      case sort =>
+        throw new Parser2InputAbsy.TranslationException(
+                opName + " expects a numeric term, not sort " + sort)
+    }
+    wrapResult((con(asTerm((expr, sort))), resSort))
+  }
 
   private def translateBinForConnective(f1 : Expression, f2 : Expression,
                                         con : (IFormula, IFormula) => IFormula)
@@ -824,13 +853,40 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                                            f1 : Expression, f2 : Expression,
                                            con : (ITerm, ITerm) => IExpression)
                                           : (IExpression, Sort) =
-    translateBinTerConnective(opName, f1, f2, con,
-      (s1, s2) => (s1, s2) match {
-                    case (Sort.Numeric(_), Sort.Numeric(_)) =>
-                      Some(Sort.Integer)
-                    case _ =>
-                      None
-                  })
+    wrapResult(translateBinTerConnective(opName, f1, f2, con,
+                                         numSortCoercion _))
+
+  private def translateNumCompBinTerConnective(
+                                           opName : String,
+                                           f1 : Expression, f2 : Expression,
+                                           con : (ITerm, ITerm) => IExpression)
+                                          : (IExpression, Sort) = {
+    (translateBinTerConnective(opName, f1, f2, con, numSortCoercion _)._1,
+     Sort.Bool)
+  }
+
+  private def wrapResult(res : (IExpression, Sort)) : (IExpression, Sort) =
+    res._2 match {
+      case s : ModuloArithmetic.ModSort =>
+        (ModuloArithmetic.cast2Sort(s, res._1.asInstanceOf[ITerm]), s)
+      case _ =>
+        res
+    }
+
+  private def numSortCoercion(s1 : Sort, s2 : Sort) : Option[Sort] =
+    (s1, s2) match {
+      case (Sort.Numeric(_), Sort.Numeric(_)) =>
+        Some(Sort.Integer)
+      case (s1 : ModuloArithmetic.ModSort,
+            s2 : ModuloArithmetic.ModSort) if (s1 == s2) =>
+        Some(s1)
+      case (s : ModuloArithmetic.ModSort, Sort.Numeric(_)) =>
+        Some(s)
+      case (Sort.Numeric(_), s : ModuloArithmetic.ModSort) =>
+        Some(s)
+      case _ =>
+        None
+    }
 
   private def translateCompBinTerConnective(opName : String,
                                             f1 : Expression, f2 : Expression,
@@ -847,6 +903,10 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         Some(Sort.Integer)
       case (s1, s2) if s1 == s2 =>
         Some(s1)
+      case (Sort.Numeric(_), _ : ModuloArithmetic.ModSort) =>
+        Some(Sort.Integer)
+      case (_ : ModuloArithmetic.ModSort, Sort.Numeric(_)) =>
+        Some(Sort.Integer)
       case (Sort.Bool, Sort.MultipleValueBool) |
            (Sort.MultipleValueBool, Sort.Bool) =>
         Some(Sort.MultipleValueBool)

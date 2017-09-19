@@ -63,7 +63,7 @@
   \partial \relational int and(int, int);
 
 // Modulo, which we assume not reveal any overflows (correct?)
-  \partial \relational int mod(int, int);
+  \partial \relational int modulo(int, int);
 
 // General (unbounded) multiplication
   \partial \relational int mul(int, int);
@@ -245,8 +245,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Modulo
 
-  \forall int x, y, res; {mod(x, y)}
-      (mod(x, y) = res & y != 0 ->
+  \forall int x, y, res; {modulo(x, y)}
+      (modulo(x, y) = res & y != 0 ->
        \exists int k; mul(k, y) + res = x &
        0 <= res & (res < y | res < -y))
 &

@@ -2228,8 +2228,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("bvsge") =>
       translateBVBinPredInv("bvsge", ModuloArithmetic.mod_sle, args)
 
-    // Not supported yet: repeat, zero_extend, sign_extend,
-    // rotate_left, rotate_right
+    case IndexedSymbol("zero_extend", digitsStr) => {
+      checkArgNum("zero_extend", 1, args)
+      val digits = digitsStr.toInt
+      val a0@(transArg0, type0) = translateTerm(args(0), 0)
+      val (_, width) = extractBVModulusWidth("zero_extend", type0, args(0))
+      (transArg0, SMTBitVec(width + digits))
+    }
+
+    // Not supported yet: repeat, sign_extend, rotate_left, rotate_right
 
     ////////////////////////////////////////////////////////////////////////////
     // ADT operations
@@ -2363,6 +2370,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     (p(i(modulus), asTerm(a0), asTerm(a1)), SMTBool)
   }
 
+  private def translateBVBinPred(name : String, args : Seq[Term],
+                                 op : (Int, ITerm, ITerm) => IFormula)
+                                : (IExpression, SMTType) = {
+    checkArgNum(name, 2, args)
+    val a0@(transArg0, type0) = translateTerm(args(0), 0)
+    val a1@(transArg1, type1) = translateTerm(args(1), 0)
+    val width = checkArgBVAgreementBits(name, args(0), type0, args(1), type1)
+    (op(width, asTerm(a0), asTerm(a1)), SMTBool)
+  }
+
   private def translateBVBinPredInv(name : String, p : Predicate, args : Seq[Term])
                                    : (IExpression, SMTType) = {
     checkArgNum(name, 2, args)
@@ -2372,18 +2389,23 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     (p(i(modulus), asTerm(a1), asTerm(a0)), SMTBool)
   }
 
-  private def checkArgBVAgreement(name : String,
-                                  arg0 : Term, type0 : SMTType,
-                                  arg1 : Term, type1 : SMTType) : IdealInt =
+  private def checkArgBVAgreementBits(name : String,
+                                      arg0 : Term, type0 : SMTType,
+                                      arg1 : Term, type1 : SMTType) : Int =
     (type0, type1) match {
       case (t@SMTBitVec(w1), SMTBitVec(w2)) if (w1 == w2) =>
-        t.modulus
+        w1
       case _ =>
         throw new Parser2InputAbsy.TranslationException(
           name + " cannot be applied to " +
           (printer print arg0) + " and " + (printer print arg1)
         )
     }
+
+  private def checkArgBVAgreement(name : String,
+                                  arg0 : Term, type0 : SMTType,
+                                  arg1 : Term, type1 : SMTType) : IdealInt =
+    IdealInt(2) pow checkArgBVAgreementBits(name, arg0, type0, arg1, type1)
 
   //////////////////////////////////////////////////////////////////////////////
   

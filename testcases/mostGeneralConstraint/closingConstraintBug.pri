@@ -12,7 +12,6 @@
   \partial \relational int and(int, int);
   \partial \relational int andBit(int, int);
   \partial \relational int ones(int);
-  \partial \relational int mod(int, int);
   \partial \relational int shiftLeft(int, int);
 }
 

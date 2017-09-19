@@ -23,7 +23,8 @@ package ap.parser
 
 import ap.Signature
 import ap.basetypes.IdealInt
-import ap.theories.{TheoryRegistry, BitShiftMultiplication, ADT}
+import ap.theories.{TheoryRegistry, BitShiftMultiplication, ADT,
+                    ModuloArithmetic}
 import ap.theories.nia.GroebnerMultiplication
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
@@ -232,6 +233,14 @@ object PrincessLineariser {
                if (adt sorts num) == tSort => {
           print("\\size(")
           allButLast(ctxt setPrecLevel 0, ", ", ")", 1)
+        }
+
+        case IFunApp(ModuloArithmetic.mod_cast,
+                     Seq(IIntLit(lower), IIntLit(upper), t)) => {
+          print("\\as(")
+          print(ModuloArithmetic.ModSort(lower, upper))
+          print(", ")
+          TryAgain(t, ctxt addParentOp (")"))
         }
 
         case IFunApp(fun, _) => {

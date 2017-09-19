@@ -40,7 +40,8 @@ TESTS="cryptarithm.pri \
        div-elimination.pri bad-divisibility.pri binderTypes.pri \
        nestedITE.pri reductionBug.pri extraOps.pri booleanDefs.pri \
        pred-with-body.pri fun-with-body.pri sorted-existential-constants.pri \
-       bool-quantifier.pri adt.pri bool-fun-2.pri gen-trivial-model.pri"
+       bool-quantifier.pri adt.pri bool-fun-2.pri gen-trivial-model.pri \
+       bv0.pri bv0b.pri"
 
 $PRI "$@" $TESTS
 

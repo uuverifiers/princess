@@ -74,6 +74,7 @@ ExprMax.	Expression10	::= "\\max" OptArgs;
 ExprMin.	Expression10	::= "\\min" OptArgs;
 ExprDistinct.	Expression10	::= "\\distinct" OptArgs;
 ExprSize.	Expression10	::= "\\size" "(" Expression ")";
+ExprCast.	Expression10	::= "\\as" "(" Type "," Expression ")";
 ExprIdApp.	Expression10	::= Ident OptArgs;
 ExprDotAttr.    Expression10    ::= Expression10 "." Ident;
 ExprTrue.	Expression10	::= "true";
@@ -166,6 +167,9 @@ TypeInt.	Type		::= "int";
 TypeNat.	Type		::= "nat";
 TypeInterval.	Type		::= "int" "[" IntervalLower "," IntervalUpper "]";
 TypeBool.	Type		::= "bool";
+TypeMod.        Type            ::= "mod" "[" IntervalLower "," IntervalUpper "]";
+TypeBV.         Type            ::= "bv" "[" IntLit "]";
+TypeSignedBV.   Type            ::= "signed" "bv" "[" IntLit "]";
 TypeIdent.	Type		::= Ident;
 
 InfLower.       IntervalLower   ::= "-" "inf";

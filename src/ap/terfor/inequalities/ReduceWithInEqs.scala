@@ -117,9 +117,19 @@ abstract class ReduceWithInEqs {
 class ReduceWithEmptyInEqs protected[inequalities]
                            (order : TermOrder) extends ReduceWithInEqs {
 
-  def lowerBound(t : Term) : Option[IdealInt] = None
+  def lowerBound(t : Term) : Option[IdealInt] = t match {
+    case t : LinearCombination0 =>
+      Some(t.constant)
+    case _ =>
+      None
+  }
 
-  def upperBound(t : Term) : Option[IdealInt] = None
+  def upperBound(t : Term) : Option[IdealInt] = t match {
+    case t : LinearCombination0 =>
+      Some(t.constant)
+    case _ =>
+      None
+  }
 
   def addInEqs(furtherInEqs : InEqConj) : ReduceWithInEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////

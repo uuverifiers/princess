@@ -333,8 +333,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   private lazy val theoriesAreSatComplete =
     theories.isEmpty || {
       val config = getSatSoundnessConfig
-      Param.POS_UNIT_RESOLUTION(goalSettings) &&
-      (theories exists (_.isSoundForSat(theories, config)))
+      (theories forall (_.isSoundForSat(theories, config)))
     }
 
   private lazy val allFunctionsArePartial =

@@ -1158,9 +1158,8 @@ class ADT (sortNames : Seq[String],
   override def isSoundForSat(
          theories : Seq[Theory],
          config : Theory.SatSoundnessConfig.Value) : Boolean =
-    theories.size == 1 &&
-    (Set(Theory.SatSoundnessConfig.Elementary,
-         Theory.SatSoundnessConfig.Existential) contains config)
+    Set(Theory.SatSoundnessConfig.Elementary,
+        Theory.SatSoundnessConfig.Existential) contains config
 
   //////////////////////////////////////////////////////////////////////////////
 
