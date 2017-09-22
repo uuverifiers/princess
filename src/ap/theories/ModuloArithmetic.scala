@@ -27,6 +27,7 @@ import ap.terfor.{Term, TermOrder, Formula, ComputationLogger,
                   TerForConvenience}
 import ap.terfor.preds.{Atom, Predicate, PredConj}
 import ap.terfor.arithconj.ArithConj
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPluginFactory, IdentityReducerPlugin,
                                ReducerPlugin}
@@ -413,7 +414,8 @@ object ModuloArithmetic extends Theory {
   })
 
   /**
-   * Splitter handles the splitting when no new information can be deduced.
+   * Splitter handles the splitting of modulo-operations, when no other
+   * inference steps are possible anymore.
    */
   private object Splitter extends TheoryProcedure {
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
@@ -427,9 +429,32 @@ object ModuloArithmetic extends Theory {
       var bestSplitAction : Seq[Plugin.Action] = null
 
       var simpleElims : List[Plugin.Action] = List()
+      var assumptions : List[Formula] = List()
 
-      for (a <- castPreds)
-        (reducer lowerBound a(2), reducer upperBound a(2)) match {
+      val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
+
+      for (a <- castPreds) {
+        assumptions = List(a)
+
+        val lBound =
+          if (proofs)
+            for ((b, assum) <- reducer lowerBoundWithAssumptions a(2)) yield {
+              assumptions = InEqConj(assum, order) :: assumptions
+              b
+            }
+          else
+            reducer lowerBound a(2)
+
+        val uBound =
+          if (proofs)
+            for ((b, assum) <- reducer upperBoundWithAssumptions a(2)) yield {
+              assumptions = InEqConj(assum, order) :: assumptions
+              b
+            }
+          else
+            reducer upperBound a(2)
+
+        (lBound, uBound) match {
           case (Some(lb), Some(ub)) => {
             val sort@ModSort(sortLB, sortUB) =
               (SortedPredicate argumentSorts a).last
@@ -438,11 +463,12 @@ object ModuloArithmetic extends Theory {
             val upperFactor = -((sortUB - ub) / sort.modulus)
 
             if (lowerFactor == upperFactor) {
-            
+              // in this case, no splitting is necessary
+
               simpleElims =
                 Plugin.RemoveFacts(a) ::
                 Plugin.AddAxiom(
-                       List(), // TODO
+                       assumptions,
                        a(2) === a(3) + (lowerFactor * sort.modulus),
                        ModuloArithmetic.this) :: simpleElims
                        
@@ -459,7 +485,7 @@ object ModuloArithmetic extends Theory {
                 bestSplitNum = caseNum.intValueSafe
                 bestSplitAction = List(
                   Plugin.RemoveFacts(a),
-                  Plugin.AxiomSplit(List(), // TODO
+                  Plugin.AxiomSplit(assumptions,
                                     cases,
                                     ModuloArithmetic.this))
               }
@@ -468,6 +494,7 @@ object ModuloArithmetic extends Theory {
           case _ =>
             // nothing
         }
+      }
 
       if (!simpleElims.isEmpty) {
         simpleElims

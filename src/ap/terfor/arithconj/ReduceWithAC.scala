@@ -357,10 +357,26 @@ class ReduceWithAC private (positiveEqs : ReduceWithEqs,
   def lowerBound(t : Term) : Option[IdealInt] = inEqs lowerBound t
 
   /**
+   * Check whether the known inequalities imply a lower bound of the given term.
+   * Also return assumed inequalities needed to derive the bound.
+   */
+  def lowerBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])] =
+    inEqs lowerBoundWithAssumptions t
+
+  /**
    * Check whether known inequalities imply an upper bound of the given
    * term.
    */
   def upperBound(t : Term) : Option[IdealInt] = inEqs upperBound t
+
+  /**
+   * Check whether the known inequalities imply an upper bound of the given
+   * term. Also return assumed inequalities needed to derive the bound.
+   */
+  def upperBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])] =
+    inEqs upperBoundWithAssumptions t
 
 }
 

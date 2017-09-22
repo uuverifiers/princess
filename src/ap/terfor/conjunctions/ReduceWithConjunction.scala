@@ -25,6 +25,7 @@ import ap.basetypes.IdealInt
 import ap.terfor._
 import ap.terfor.arithconj.{ArithConj, ReduceWithAC, ModelElement}
 import ap.terfor.equations.EquationConj
+import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{PredConj, ReduceWithPredLits, Predicate}
 import ap.terfor.substitutions.Substitution
 import ap.parameters.{ReducerSettings, Param}
@@ -486,6 +487,14 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
   def lowerBound(t : Term) : Option[IdealInt] = acReducer lowerBound t
 
   /**
+   * Check whether the known inequalities imply a lower bound of the given term.
+   * Also return assumed inequalities needed to derive the bound.
+   */
+  def lowerBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])] =
+    acReducer lowerBoundWithAssumptions t
+
+  /**
    * Check whether known inequalities imply an upper bound of the given
    * term.
    */
@@ -497,7 +506,15 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
       this
     else
       new ReduceWithConjunction(newAC, predReducer, newPlugin, order)
-  
+
+  /**
+   * Check whether the known inequalities imply an upper bound of the given
+   * term. Also return assumed inequalities needed to derive the bound.
+   */
+  def upperBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])] =
+    acReducer upperBoundWithAssumptions t
+
   private def replacePred(newPred : ReduceWithPredLits)
                          : ReduceWithConjunction =
     if (newPred eq this.predReducer)

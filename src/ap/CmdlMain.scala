@@ -38,7 +38,7 @@ import ap.util.{Debug, Seqs, Timeout}
 
 object CmdlMain {
 
-  val version = "release 2017-07-17"
+  val version = "unstable build"
 
   def printGreeting = {
     println("________       _____")                                 

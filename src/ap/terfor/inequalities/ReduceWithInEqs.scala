@@ -63,10 +63,24 @@ abstract class ReduceWithInEqs {
   def lowerBound(t : Term) : Option[IdealInt]
 
   /**
+   * Check whether the known inequalities imply a lower bound of the given term.
+   * Also return assumed inequalities needed to derive the bound.
+   */
+  def lowerBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])]
+
+  /**
    * Check whether the known inequalities imply an upper bound of the given
    * term.
    */
   def upperBound(t : Term) : Option[IdealInt]
+
+  /**
+   * Check whether the known inequalities imply an upper bound of the given
+   * term. Also return assumed inequalities needed to derive the bound.
+   */
+  def upperBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])]
 
   def addInEqs(furtherInEqs : InEqConj) : ReduceWithInEqs
   
@@ -118,18 +132,30 @@ class ReduceWithEmptyInEqs protected[inequalities]
                            (order : TermOrder) extends ReduceWithInEqs {
 
   def lowerBound(t : Term) : Option[IdealInt] = t match {
+    case OneTerm =>
+      Some(IdealInt.ONE)
     case t : LinearCombination0 =>
       Some(t.constant)
     case _ =>
       None
   }
 
+  def lowerBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])] =
+    for (b <- lowerBound(t)) yield (b, List())
+
   def upperBound(t : Term) : Option[IdealInt] = t match {
+    case OneTerm =>
+      Some(IdealInt.ONE)
     case t : LinearCombination0 =>
       Some(t.constant)
     case _ =>
       None
   }
+
+  def upperBoundWithAssumptions(t : Term)
+      : Option[(IdealInt, Seq[LinearCombination])] =
+    for (b <- upperBound(t)) yield (b, List())
 
   def addInEqs(furtherInEqs : InEqConj) : ReduceWithInEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -221,6 +247,33 @@ class ReduceWithInEqsImpl protected[inequalities]
     }
   }
 
+  def lowerBoundWithAssumptions(t : Term)
+                   : Option[(IdealInt, Seq[LinearCombination])] = t match {
+    case OneTerm | _ : LinearCombination0 =>
+      for (b <- lowerBound(t)) yield (b, List())
+    case _ : VariableTerm | _ : ConstantTerm =>
+      for (b <- lowerBound(t))
+      yield (b, List(LinearCombination(Array((IdealInt.ONE, t),
+                                             (-b, OneTerm)), order)))
+    case t : LinearCombination1 =>
+      if (t.coeff0.isOne && t.constant.isZero) {
+        lowerBoundWithAssumptions(t.term0)
+      } else {
+        toOption(coeffBoundWithAssumptions(
+                   t.coeff0, t.term0, t.constant, false))
+      }
+    case t : LinearCombination =>  // TODO: optimise this case? caching?
+      for (b <- lowerBound(t)) yield {
+        ineqLowerBound(t) match {
+          case Some(`b`) =>
+            (b, List(LinearCombination(Array((IdealInt.ONE, t),
+                                             (-b, OneTerm)), order)))
+          case _ =>
+            linCompBoundWithAssumptions(t, false).get
+        }
+      }
+  }
+
   /**
    * Check whether the known inequalities imply an upper bound of the given
    * term.
@@ -244,6 +297,33 @@ class ReduceWithInEqsImpl protected[inequalities]
     case t : LinearCombination => upperBoundsCache(t) {
       min(linCompBound(t, true), for (b <- ineqLowerBound(-t)) yield -b)
     }
+  }
+
+  def upperBoundWithAssumptions(t : Term)
+                   : Option[(IdealInt, Seq[LinearCombination])] = t match {
+    case OneTerm | _ : LinearCombination0 =>
+      for (b <- upperBound(t)) yield (b, List())
+    case _ : VariableTerm | _ : ConstantTerm =>
+      for (b <- upperBound(t))
+      yield (b, List(LinearCombination(Array((IdealInt.MINUS_ONE, t),
+                                             (b, OneTerm)), order)))
+    case t : LinearCombination1 =>
+      if (t.coeff0.isOne && t.constant.isZero) {
+        upperBoundWithAssumptions(t.term0)
+      } else {
+        toOption(coeffBoundWithAssumptions(
+                   t.coeff0, t.term0, t.constant, true))
+      }
+    case t : LinearCombination => // TODO: optimise this case? caching?
+      for (b <- upperBound(t)) yield {
+        ineqLowerBound(-t) match {
+          case Some(c) if (c == -b) =>
+            (b, List(LinearCombination(Array((IdealInt.MINUS_ONE, t),
+                                             (b, OneTerm)), order)))
+          case _ =>
+            linCompBoundWithAssumptions(t, true).get
+        }
+      }
   }
 
   private def deriveBoundIneq(lc : LinearCombination,
@@ -299,6 +379,23 @@ class ReduceWithInEqsImpl protected[inequalities]
       case None => null
     }
 
+  /**
+   * Returns null if there is no lower bound.
+   */
+  private def coeffBoundWithAssumptions
+                   (coeff : IdealInt, term : Term,
+                    offset : IdealInt, upper : Boolean)
+                   : (IdealInt, Seq[LinearCombination]) =
+    (if ((coeff.signum > 0) != upper)
+       lowerBoundWithAssumptions(term)
+     else
+       upperBoundWithAssumptions(term)) match {
+      case Some((b, assumptions)) =>
+        (b * coeff + offset, assumptions)
+      case None =>
+        null
+    }
+
   private def linCompBound(t : LinearCombination,
                            upper : Boolean) : Option[IdealInt] = {
     var bound = IdealInt.ZERO
@@ -310,7 +407,29 @@ class ReduceWithInEqsImpl protected[inequalities]
     toOption(bound)
   }
 
-  private def toOption(n : IdealInt) : Option[IdealInt] =
+  private def linCompBoundWithAssumptions
+          (t : LinearCombination, upper : Boolean)
+          : Option[(IdealInt, Seq[LinearCombination])] = {
+    var bound = IdealInt.ZERO
+    var assumptions = new ArrayBuffer[LinearCombination]
+    var i = 0
+    while (i < t.lcSize && bound != null) {
+      val p = coeffBoundWithAssumptions(t getCoeff i, t getTerm i, bound, upper)
+      if (p == null) {
+        bound = null
+      } else {
+        bound = p._1
+        assumptions ++= p._2
+      }
+      i = i + 1
+    }
+    if (bound == null)
+      None
+    else
+      Some((bound, assumptions.toIndexedSeq))
+  }
+
+  private def toOption[A <: AnyRef](n : A) : Option[A] =
     if (n == null) None else Some(n)
 
   private val lowerBoundsCache, upperBoundsCache =
