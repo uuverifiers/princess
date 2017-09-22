@@ -237,10 +237,10 @@ object PrincessLineariser {
 
         case IFunApp(ModuloArithmetic.mod_cast,
                      Seq(IIntLit(lower), IIntLit(upper), t)) => {
-          print("\\as(")
+          print("\\as[")
           print(ModuloArithmetic.ModSort(lower, upper))
-          print(", ")
-          TryAgain(t, ctxt addParentOp (")"))
+          print("] ")
+          TryAgain(t, ctxt)
         }
 
         case IFunApp(fun, _) => {
