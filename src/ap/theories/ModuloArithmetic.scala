@@ -478,11 +478,12 @@ object ModuloArithmetic extends Theory {
 
               if (caseNum < IdealInt(bestSplitNum)) {
                 val cases =
-                  for (n <- IdealRange(lowerFactor, upperFactor + 1)) yield {
-                    (conj(a(2) === a(3) + (n * sort.modulus)), List())
-                  }
+                  (for (n <- IdealRange(lowerFactor, upperFactor + 1).iterator;
+                        f = conj(a(2) === a(3) + (n * sort.modulus));
+                        if !f.isFalse)
+                   yield (f, List())).toList
 
-                bestSplitNum = caseNum.intValueSafe
+                bestSplitNum = cases.size
                 bestSplitAction = List(
                   Plugin.RemoveFacts(a),
                   Plugin.AxiomSplit(assumptions,

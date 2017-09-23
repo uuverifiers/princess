@@ -721,6 +721,8 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     }
     case t : ExprAbs =>
       translateNumUnTerConnective("\\abs", t.expression_, abs _)
+    case t : ExprDotAbs =>
+      translateNumUnTerConnective("\\abs", t.expression_, abs _)
     case t : ExprMax => {
       val args = translateNumOptArgs("\\max", t.optargs_)
       if (args.isEmpty)
@@ -735,23 +737,14 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
             "Function \\min needs to receive at least one argument")
       (min(args), Sort.Integer)
     }
-    case t : ExprSize => {
-      val (arg, sort) = translateExpression(t.expression_)
-      sort match {
-        case sort : ADT.ADTProxySort => {
-          if (sort.adtTheory.termSize == null)
-            throw new Parser2InputAbsy.TranslationException(
-                "Function \\size can only be used in combination with option " +
-                "-adtMeasure=size")
-          (IFunApp(sort.adtTheory.termSize(sort.sortNum),
-                   List(arg.asInstanceOf[ITerm])),
-           Sort.Integer)
-        }
-        case sort =>
-          throw new Parser2InputAbsy.TranslationException(
-              "Function \\size needs to receive an ADT term as argument")
-      }
-    }
+    case t : ExprCast =>
+      translateCast(t.expression_, t.type_)
+    case t : ExprDotCast =>
+      translateCast(t.expression_, t.type_)
+    case t : ExprSize =>
+      translateSize(t.expression_)
+    case t : ExprDotSize =>
+      translateSize(t.expression_)
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)
     case t : ExprIfThenElse => {
@@ -821,6 +814,39 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
               opName + " expects a numeric term, not sort " + s)
   }
   //////////////////////////////////////////////////////////////////////////////
+
+  private def translateCast(t : Expression, ty : Type) : (IExpression, Sort) = {
+      val p@(arg, oldSort) = translateExpression(t)
+      type2Sort(ty) match {
+        case `oldSort` =>
+          (arg, oldSort)
+        case Sort.Integer =>
+          (arg, Sort.Integer)
+        case sort : ModuloArithmetic.ModSort =>
+          (ModuloArithmetic.cast2Sort(sort, asTerm(p)), sort)
+        case sort =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Cannot cast to sort " + sort)
+      }
+  }
+
+  private def translateSize(t : Expression) : (IExpression, Sort) = {
+      val (arg, sort) = translateExpression(t)
+      sort match {
+        case sort : ADT.ADTProxySort => {
+          if (sort.adtTheory.termSize == null)
+            throw new Parser2InputAbsy.TranslationException(
+                "Function \\size can only be used in combination with option " +
+                "-adtMeasure=size")
+          (IFunApp(sort.adtTheory.termSize(sort.sortNum),
+                   List(arg.asInstanceOf[ITerm])),
+           Sort.Integer)
+        }
+        case sort =>
+          throw new Parser2InputAbsy.TranslationException(
+              "Function \\size needs to receive an ADT term as argument")
+      }
+  }
 
   private def translateUnForConnective(f : Expression,
                                        con : (IFormula) => IFormula)

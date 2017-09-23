@@ -520,6 +520,30 @@ VALID
 Interpolants:
 !f(true) & !f(false)
 
+Loading bv-interpolation-1.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 272), simplifying (326), interpolating ...
+
+VALID
+
+Interpolants:
+48 >= a & a >= 0 & \exists int v0; 2*v0 - a.\as[int] = -256
+b != -43 & 3*b.\as[int] >= a & 24 >= b
+c.\as[int] - a.\as[int] >= 1
+
+Loading bv-interpolation-2.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 65), simplifying (76), interpolating ...
+
+VALID
+
+Interpolants:
+126 >= a & a >= 0 & \exists int v0; 2*v0 - a.\as[int] = -256
+3*b.\as[int] >= a
+c.\as[int] - a.\as[int] >= 1
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it

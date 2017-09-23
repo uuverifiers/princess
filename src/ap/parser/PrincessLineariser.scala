@@ -24,8 +24,7 @@ package ap.parser
 import ap.Signature
 import ap.basetypes.IdealInt
 import ap.theories.{TheoryRegistry, BitShiftMultiplication, ADT,
-                    ModuloArithmetic}
-import ap.theories.nia.GroebnerMultiplication
+                    ModuloArithmetic, MulTheory}
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
@@ -94,6 +93,7 @@ object PrincessLineariser {
     def setParentOp(op : String)        = PrintContext(vars, op, outerPrec)
     def addParentOp(op : String)        = PrintContext(vars, op + parentOp, outerPrec)
     def setOpPrec(op : String, l : Int) = PrintContext(vars, op, l)
+    def addOpPrec(op : String, l : Int) = PrintContext(vars, op + parentOp, l)
     def setPrecLevel(l : Int)           = PrintContext(vars, parentOp, l)
   }
   
@@ -107,8 +107,10 @@ object PrincessLineariser {
   }
     
   private def atomicTerm(t : ITerm,
-                         ctxt : PrintContext) : String = t match {
-    case IConstant(c)     => c.name
+                         ctxt : PrintContext,
+                         cast2Int : Boolean = false) : String = t match {
+    case IConstant(c) ::: sort =>
+      c.name + (if (cast2Int && sort != Sort.Integer) ".\\as[int]" else "")
     case IVariable(index) => {
       var vs = ctxt.vars
       var ind = index
@@ -123,9 +125,23 @@ object PrincessLineariser {
       else
         vs.head
     }
-    case IFunApp(f, Seq()) => f.name
+    case IFunApp(f, Seq()) ::: sort =>
+      f.name + (if (cast2Int && sort != Sort.Integer) ".\\as[int]" else "")
   }
-    
+
+  private def needsIntCast(t : ITerm) : Boolean = t match {
+    case (_ : IConstant) ::: sort if (sort != Sort.Integer) => true
+    case IFunApp(MulTheory.Mul(), _)                        => false
+    case (_ : IFunApp) ::: sort if (sort != Sort.Integer)   => true
+    case _                                                  => false
+  }
+
+  private def insertIntCast(t : ITerm, ctxt : PrintContext) : PrintContext =
+    if (needsIntCast(t))
+      ctxt.addOpPrec(".\\as[int]", 10)
+    else
+      ctxt
+
   private def relation(rel : IIntRelation.Value) = rel match {
     case IIntRelation.EqZero => "="
     case IIntRelation.GeqZero => ">="
@@ -141,6 +157,7 @@ object PrincessLineariser {
     case _ : IIntFormula                                => 4
     case _ : IPlus                                      => 5
     case _ : ITimes                                     => 6
+    case IIntLit(v) if (v.signum < 0)                   => 8
     case _ : ITerm | _ : IBoolLit | _ : IAtom           => 10
   }
 
@@ -166,7 +183,10 @@ object PrincessLineariser {
       print(ctxt.parentOp)
       ShortCutResult(())
     }
-    
+
+    private def tryAgainWithCast(s : ITerm, ctxt : PrintContext) =
+      TryAgain(s, insertIntCast(s, ctxt))
+
     override def preVisit(t : IExpression,
                           oldCtxt : PrintContext) : PreVisitResult = {
       // first use the precedence level of operators to determine whether we
@@ -193,19 +213,20 @@ object PrincessLineariser {
               " + " + value
             else
               " - " + (-value)
-          TryAgain(s, ctxt addParentOp offset)
+          tryAgainWithCast(s, ctxt addParentOp offset)
         }
+        
         case IPlus(s, ITimes(IdealInt.MINUS_ONE, AtomicTerm(t))) => {
-          TryAgain(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt)))
+          tryAgainWithCast(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt, true)))
         }
         case IPlus(s, ITimes(coeff, AtomicTerm(t))) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+          tryAgainWithCast(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt, true)))
         }
         case IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s) => {
-          TryAgain(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt)))
+          tryAgainWithCast(s, ctxt addParentOp (" - " + atomicTerm(t, ctxt, true)))
         }
         case IPlus(ITimes(coeff, AtomicTerm(t)), s) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+          tryAgainWithCast(s, ctxt addParentOp (" - " + coeff.abs + "*" + atomicTerm(t, ctxt, true)))
         }
       
         case AtomicTerm(t) => {
@@ -216,17 +237,19 @@ object PrincessLineariser {
           print(value)
           noParentOp(ctxt)
         }
-        case IPlus(_, _) => {
-          allButLast(ctxt, " + ", "", 2)
+        case IPlus(t1, t2) => {
+          SubArgs(List(insertIntCast(t1, ctxt setParentOp " + "),
+                       insertIntCast(t2, ctxt setParentOp "")))
         }
-        case IFunApp(BitShiftMultiplication.mul |
-                     GroebnerMultiplication.mul, _) => {
-          allButLast(ctxt, " * ", "", 2)
+        case IFunApp(MulTheory.Mul(), Seq(t1, t2)) => {
+          SubArgs(List(insertIntCast(t1, ctxt setParentOp " * "),
+                       insertIntCast(t2, ctxt setParentOp "")))
         }
 
-        case ITimes(coeff, _) => {
+        case ITimes(coeff, s) => {
           print(coeff + "*")
-          noParentOp(ctxt)
+          // noParentOp(ctxt)
+          UniSubArgs(insertIntCast(s, ctxt setParentOp ""))
         }
       
         case IFunApp(ADT.TermSize(adt, num), Seq(t ::: tSort))
@@ -237,10 +260,9 @@ object PrincessLineariser {
 
         case IFunApp(ModuloArithmetic.mod_cast,
                      Seq(IIntLit(lower), IIntLit(upper), t)) => {
-          print("\\as[")
-          print(ModuloArithmetic.ModSort(lower, upper))
-          print("] ")
-          TryAgain(t, ctxt)
+          TryAgain(t, ctxt.addOpPrec(".\\as[" +
+                                     ModuloArithmetic.ModSort(lower, upper) +
+                                     "]", 10))
         }
 
         case IFunApp(fun, _) => {
@@ -439,13 +461,15 @@ object PrincessLineariser {
           TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + atomicTerm(t, ctxt)))
         }
         case IIntFormula(rel, IPlus(s, ITimes(coeff, AtomicTerm(t)))) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " +
+                                        coeff.abs + "*" + atomicTerm(t, ctxt, true)))
         }
         case IIntFormula(rel, IPlus(ITimes(IdealInt.MINUS_ONE, AtomicTerm(t)), s)) => {
           TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + atomicTerm(t, ctxt)))
         }
         case IIntFormula(rel, IPlus(ITimes(coeff, AtomicTerm(t)), s)) if (coeff.signum < 0) => {
-          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + coeff.abs + "*" + atomicTerm(t, ctxt)))
+          TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " +
+                                        coeff.abs + "*" + atomicTerm(t, ctxt, true)))
         }
         case IIntFormula(rel, IPlus(IIntLit(value), s)) => {
           TryAgain(s, ctxt addParentOp (" " + relation(rel) + " " + (-value)))
