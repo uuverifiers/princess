@@ -2231,12 +2231,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case IndexedSymbol("zero_extend", digitsStr) => {
       checkArgNum("zero_extend", 1, args)
       val digits = digitsStr.toInt
-      val a0@(transArg0, type0) = translateTerm(args(0), 0)
+      val (transArg0, type0) = translateTerm(args(0), 0)
       val (_, width) = extractBVModulusWidth("zero_extend", type0, args(0))
       (transArg0, SMTBitVec(width + digits))
     }
 
-    // Not supported yet: repeat, sign_extend, rotate_left, rotate_right
+    case IndexedSymbol("sign_extend", digitsStr) => {
+      checkArgNum("sign_extend", 1, args)
+      val digits = digitsStr.toInt
+      val a0@(transArg0, type0) = translateTerm(args(0), 0)
+      val (_, width) = extractBVModulusWidth("sign_extend", type0, args(0))
+      (ModuloArithmetic.cast2UnsignedBV(width + digits,
+         ModuloArithmetic.cast2SignedBV(width, asTerm(a0))),
+       SMTBitVec(width + digits))
+    }
+
+    // Not supported yet: repeat, rotate_left, rotate_right
 
     ////////////////////////////////////////////////////////////////////////////
     // ADT operations
