@@ -30,20 +30,36 @@ import scala.collection.mutable.{HashSet => MHashSet}
 
 object ReducerPlugin {
 
-  sealed abstract class ReductionResult
+  sealed abstract class ReductionResult {
+    def orElse(otherResult : => ReductionResult) : ReductionResult
+  }
+  
   case object UnchangedResult
-              extends ReductionResult
+              extends ReductionResult {
+    def orElse(otherResult : => ReductionResult) : ReductionResult =
+      otherResult
+  }
+  
   case object FalseResult
-              extends ReductionResult
+              extends ReductionResult {
+    def orElse(otherResult : => ReductionResult) : ReductionResult = this
+  }
+  
   case class  ChangedConjResult(arithConj : ArithConj,
                                 predConj : PredConj,
                                 negConjs : NegatedConjunctions)
-              extends ReductionResult
+              extends ReductionResult {
+    def orElse(otherResult : => ReductionResult) : ReductionResult = this
+  }
 
   object ReductionMode extends Enumeration {
     val Simple, Contextual = Value
   }
 
+  /**
+   * Rewrite occurrences of the predicates in the set
+   * <code>rewrittenPreds</code> using a given rewriting function.
+   */
   def rewritePreds(predConj : PredConj,
                    rewrittenPreds : Iterable[Predicate],
                    order : TermOrder)

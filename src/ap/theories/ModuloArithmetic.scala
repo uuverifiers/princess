@@ -127,7 +127,18 @@ object ModuloArithmetic extends Theory {
    * for an explanation of the operations
    */
 
-  // Function for mapping any number to an interval [lower, upper].
+  private def getLowerUpper(arguments : Seq[Term]) : (IdealInt, IdealInt) = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+      arguments(0).asInstanceOf[LinearCombination].isConstant &&
+      arguments(1).asInstanceOf[LinearCombination].isConstant)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val lower = arguments(0).asInstanceOf[LinearCombination].constant
+    val upper = arguments(1).asInstanceOf[LinearCombination].constant
+    (lower, upper)
+  }
+
+  // function for mapping any number to an interval [lower, upper].
   // The function is applied as mod_cast(lower, upper, number)
 
   val _mod_cast = new SortedPredicate("mod_cast", 4) {
@@ -137,13 +148,7 @@ object ModuloArithmetic extends Theory {
       List(Sort.Integer, Sort.Integer, Sort.Integer, ModSort(lower, upper))
     }
     def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(AC,
-        arguments(0).asInstanceOf[LinearCombination].isConstant &&
-        arguments(1).asInstanceOf[LinearCombination].isConstant)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val lower = arguments(0).asInstanceOf[LinearCombination].constant
-      val upper = arguments(1).asInstanceOf[LinearCombination].constant
+      val (lower, upper) = getLowerUpper(arguments)
       List(Sort.Integer, Sort.Integer, Sort.Integer, ModSort(lower, upper))
     }
     override def sortConstraints(arguments : Seq[Term])
@@ -151,20 +156,14 @@ object ModuloArithmetic extends Theory {
       argumentSorts(arguments).last membershipConstraint arguments.last
   }
 
-  val mod_cast = new SortedIFunction("mod_cast", 3, true, true) {
+  val mod_cast = new SortedIFunction("mod_cast", 3, true, false) {
     def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val IIntLit(lower) = arguments(0)
       val IIntLit(upper) = arguments(1)
       (List(Sort.Integer, Sort.Integer, Sort.Integer), ModSort(lower, upper))
     }
     def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(AC,
-        arguments(0).asInstanceOf[LinearCombination].isConstant &&
-        arguments(1).asInstanceOf[LinearCombination].isConstant)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val lower = arguments(0).asInstanceOf[LinearCombination].constant
-      val upper = arguments(1).asInstanceOf[LinearCombination].constant
+      val (lower, upper) = getLowerUpper(arguments)
       (List(Sort.Integer, Sort.Integer, Sort.Integer), ModSort(lower, upper))
     }
     def iResultSort(arguments : Seq[ITerm]) : Sort = iFunctionType(arguments)._2
@@ -308,8 +307,9 @@ object ModuloArithmetic extends Theory {
 
   val otherPreds = List(mod_ult, mod_ule, mod_slt, mod_sle)
 
-  val (functionalPredSeq, axioms, preOrder, functionTranslation) =
+  val (functionalPredSeq, _, preOrder, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions)
+  val axioms = Conjunction.TRUE
 
   val functionPredicateMapping = functions zip functionalPredSeq
   val functionalPredicates = functionalPredSeq.toSet
@@ -329,7 +329,9 @@ object ModuloArithmetic extends Theory {
   override def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
     implicit val _ = order
     import TerForConvenience._
-    
+
+//    println("init: " + f)
+
     val after1 = Theory.rewritePreds(f, order) { (a, negated) =>
       a.pred match {
         case BVPred(`mod_not`) =>
@@ -381,13 +383,13 @@ object ModuloArithmetic extends Theory {
                                       functionalPredicates),
                                       reducerPlugin)
 
+//    println("after1: " + after1)
+    
     val after2 = ReduceWithConjunction(Conjunction.TRUE,
                                        order,
                                        reducerSettings)(after1)
 
-/*    println(f)
-    println(after1)
-    println(after2) */
+//    println("after2: " + after2)
 
     after2
   }  
@@ -509,18 +511,108 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private object Reducer extends ReducerPlugin {
-    object factory extends ReducerPluginFactory {
-      def apply(conj : Conjunction, order : TermOrder) = Reducer
+  private def getLeadingTerm(a : Atom, order : TermOrder) : Term = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, a.pred == _mod_cast)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val lt1 = a(2).leadingTerm
+    val lt2 = a(3).leadingTerm
+    if (order.compare(lt1, lt2) > 0)
+      lt1
+    else
+      lt2
+  }
+
+  /**
+   * Compute the effective leading coefficient of the modulo atom <code>a</code>
+   * for simplifying modulo the given <code>modulus</code>.
+   */
+  private def effectiveLeadingCoeff(a : Atom,
+                                    modulus : IdealInt,
+                                    order : TermOrder) : IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, a.pred == _mod_cast)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val aModulus = getModulus(a)
+    val modulusLCM = aModulus lcm modulus
+
+    val leadingCoeff =
+      if (a(3).isEmpty || order.compare(a(2).leadingTerm, a(3).leadingTerm) > 0)
+        a(2).leadingCoeff
+      else
+        a(3).leadingCoeff
+
+    leadingCoeff * (modulusLCM / aModulus)
+  }
+
+  private def getModulus(a : Atom) : IdealInt = {
+    val (lower, upper) = getLowerUpper(a)
+    upper - lower + 1
+  }
+
+  private def atomsContainVariables(atoms : Seq[Atom]) : Boolean =
+    atoms exists { a => !a.variables.isEmpty }
+
+  private def extractModulos(atoms : Seq[Atom], order : TermOrder)
+                            (t : Term) : Iterator[Atom] =
+    for (a <- atoms.iterator;
+         if a.pred == _mod_cast;
+         if getLeadingTerm(a, order) == t)
+    yield a
+
+  private val emptyIteratorFun = (t : Term) => Iterator.empty
+
+  object ReducerFactory extends ReducerPluginFactory {
+    def apply(conj : Conjunction, order : TermOrder) = {
+      val atoms = conj.predConj.positiveLitsWithPred(_mod_cast)
+      new Reducer(if (atoms.isEmpty)
+                    emptyIteratorFun
+                  else
+                    extractModulos(atoms, order) _,
+                  atomsContainVariables(atoms),
+                  order)
     }
+  }
+
+  class Reducer(modulos : Term => Iterator[Atom],
+                containsVariables : Boolean,
+                order : TermOrder) extends ReducerPlugin {
+    val factory = ReducerFactory
     
-    def passQuantifiers(num : Int) = this
+    def passQuantifiers(num : Int) =
+      if (containsVariables && num > 0) {
+        val downShifter = VariableShiftSubst.downShifter[Term](num, order)
+        val upShifter =   VariableShiftSubst.upShifter[Atom](num, order)
+        new Reducer((t:Term) =>
+                    if (downShifter isDefinedAt t)
+                      for (a <- modulos(downShifter(t))) yield upShifter(a)
+                    else
+                      Iterator.empty,
+                    true,
+                    order)
+      } else {
+        this
+      }
 
     def addAssumptions(arithConj : ArithConj,
                        mode : ReducerPlugin.ReductionMode.Value) = this
 
     def addAssumptions(predConj : PredConj,
-                       mode : ReducerPlugin.ReductionMode.Value) = this
+                       mode : ReducerPlugin.ReductionMode.Value) = mode match {
+      case ReducerPlugin.ReductionMode.Contextual => {
+        val newAtoms = predConj.positiveLitsWithPred(_mod_cast)
+        if (newAtoms.isEmpty)
+          this
+        else
+          new Reducer((t:Term) =>
+                        extractModulos(newAtoms, order)(t) ++ modulos(t),
+                      containsVariables || atomsContainVariables(newAtoms),
+                      order)
+      }
+      case ReducerPlugin.ReductionMode.Simple =>
+        this
+    }
 
     def reduce(predConj : PredConj,
                reducer : ReduceWithConjunction,
@@ -532,26 +624,78 @@ object ModuloArithmetic extends Theory {
       } else {
         implicit val order = predConj.order
         import TerForConvenience._
-        
-        ReducerPlugin.rewritePreds(predConj, List(_mod_cast), order) {
-          a => (reducer lowerBound a(2), reducer upperBound a(2)) match {
+
+        {
+          // First try to eliminate some modulo atoms
+          ReducerPlugin.rewritePreds(predConj, List(_mod_cast), order) {
+            a => (reducer lowerBound a(2), reducer upperBound a(2)) match {
           
-            case (Some(lb), Some(ub)) => {
-              val sort@ModSort(sortLB, sortUB) =
-                (SortedPredicate argumentSorts a).last
+              case (Some(lb), Some(ub)) => {
+                val sort@ModSort(sortLB, sortUB) =
+                  (SortedPredicate argumentSorts a).last
                 
-              val lowerFactor = (lb - sortLB) / sort.modulus
-              val upperFactor = -((sortUB - ub) / sort.modulus)
+                val lowerFactor = (lb - sortLB) / sort.modulus
+                val upperFactor = -((sortUB - ub) / sort.modulus)
 
-              if (lowerFactor == upperFactor)
-                a(2) === a(3) + (lowerFactor * sort.modulus)
-              else
-                a
-            }
+                if (lowerFactor == upperFactor)
+                  a(2) === a(3) + (lowerFactor * sort.modulus)
+                else
+                  a
+              }
             
-            case _ =>
-              a
+              case _ =>
+                a
 
+            }
+          
+        }} orElse {
+          // then try to rewrite modulo atoms using known facts
+
+          var rewritten : List[Atom] = List()
+          val additionalAtoms = predConj.positiveLitsWithPred(_mod_cast)
+          
+          def getModulos(t : Term) = mode match {
+            case ReducerPlugin.ReductionMode.Contextual =>
+              modulos(t) ++ (
+                for (a <- extractModulos(additionalAtoms, order)(t);
+                     if !(rewritten contains a))
+                yield a
+              )
+            case ReducerPlugin.ReductionMode.Simple =>
+              modulos(t)
+          }
+
+          ReducerPlugin.rewritePreds(predConj, List(_mod_cast), order) {
+            a => {
+              lazy val modulus = getModulus(a)
+              
+              val simplifiers =
+                for ((coeff, t) <- a(2).iterator;
+                     knownAtom <- getModulos(t);
+                     if knownAtom != a;
+                     simpCoeff = effectiveLeadingCoeff(knownAtom, modulus, order);
+                     reduceMult = (coeff reduceAbs simpCoeff)._1;
+                     if !reduceMult.isZero)
+                yield (knownAtom, reduceMult * simpCoeff)
+
+              if (simplifiers.hasNext) {
+                val (knownAtom, subtractedValue) = simplifiers.next
+
+                val lc = knownAtom(2) - knownAtom(3)
+                val newA2 = LinearCombination.sum(
+                              Array((IdealInt.ONE, a(2)),
+                                    (-(subtractedValue / lc.leadingCoeff), lc)),
+                              order)
+                val newA = Atom(_mod_cast, Array(a(0), a(1), newA2, a(3)), order)
+//                println("simp: " + a + " -> " + newA)
+
+                rewritten = a :: rewritten
+
+                newA
+              } else {
+                a
+              }
+            }
           }
         }
       }
@@ -559,7 +703,7 @@ object ModuloArithmetic extends Theory {
     def finalReduce(conj : Conjunction) = conj
   }
 
-  override val reducerPlugin : ReducerPluginFactory = Reducer.factory
+  override val reducerPlugin : ReducerPluginFactory = ReducerFactory
 
   //////////////////////////////////////////////////////////////////////////////
 
