@@ -590,7 +590,10 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
           }
         }
 
-        ptf.andInOrder(resultingTrees, goal.vocabulary)
+        if (resultingTrees.isEmpty)
+          applyActions(List(AddFormula(Conjunction.TRUE)), goal, null, ptf)
+        else
+          ptf.andInOrder(resultingTrees, goal.vocabulary)
       }
 
       case _ =>

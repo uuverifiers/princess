@@ -34,7 +34,7 @@ TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        datatype2.smt2 datatype3.smt2 datatype3b.smt2 datatype3c.smt2 \
        datatype4.smt2 datatype4b.smt2 datatype5.smt2 \
        cvc-datatype-1.smt2 unsat-core.smt2 define-fun-recs2.smt2 \
-       run_00007.trace.Alloc_large__008268.smt2"
+       run_00007.trace.Alloc_large__008268.smt2 bench_586.smt2"
 
 $PRI "$@" +incremental $TESTS
 
