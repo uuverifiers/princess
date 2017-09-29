@@ -178,6 +178,16 @@ object ModuloArithmetic extends Theory {
     IFunApp(mod_cast, List(sort.lower, sort.upper, t))
 
   /**
+   * Cast a term to an integer interval, with modulo semantics.
+   */
+  def cast2Interval(lower : IdealInt, upper : IdealInt, t : ITerm) : ITerm = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, lower <= upper)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    IFunApp(mod_cast, List(lower, upper, t))
+  }
+
+  /**
    * Cast a term to an unsigned bit-vector term.
    */
   def cast2UnsignedBV(bits : Int, t : ITerm) : ITerm = {
@@ -415,28 +425,35 @@ object ModuloArithmetic extends Theory {
     }
   })
 
+  private val SPLIT_LIMIT = IdealInt(1000)
+
   /**
    * Splitter handles the splitting of modulo-operations, when no other
    * inference steps are possible anymore.
    */
   private object Splitter extends TheoryProcedure {
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
+//println("splitter " + goal.facts)
       val castPreds = goal.facts.predConj.positiveLitsWithPred(_mod_cast)
       val reducer = goal.reduceWithFacts
       implicit val order = goal.order
       import TerForConvenience._
 
-      // find the best modulo operation to split
-      var bestSplitNum = 1000000
-      var bestSplitAction : Seq[Plugin.Action] = null
-
+      // find simple mod_cast predicates that can be replaced by equations
       var simpleElims : List[Plugin.Action] = List()
-      var assumptions : List[Formula] = List()
+
+      // find a mod_cast predicate that can be split into a small number of cases
+      var bestSplitNum = SPLIT_LIMIT
+      var bestSplitPred : Option[(Atom, IdealInt, IdealInt,
+                                  List[Formula], ModSort)] = None
+
+      // find a predicate that has to be eliminated through a quantifier
+      var someQuantPred : Option[Atom] = None
 
       val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
 
       for (a <- castPreds) {
-        assumptions = List(a)
+        var assumptions : List[Formula] = List(a)
 
         val lBound =
           if (proofs)
@@ -448,13 +465,17 @@ object ModuloArithmetic extends Theory {
             reducer lowerBound a(2)
 
         val uBound =
-          if (proofs)
-            for ((b, assum) <- reducer upperBoundWithAssumptions a(2)) yield {
-              assumptions = InEqConj(assum, order) :: assumptions
-              b
-            }
-          else
-            reducer upperBound a(2)
+          if (lBound.isDefined) {
+            if (proofs)
+              for ((b, assum) <- reducer upperBoundWithAssumptions a(2)) yield {
+                assumptions = InEqConj(assum, order) :: assumptions
+                b
+              }
+            else
+              reducer upperBound a(2)
+          } else {
+            None
+          }
 
         (lBound, uBound) match {
           case (Some(lb), Some(ub)) => {
@@ -478,33 +499,58 @@ object ModuloArithmetic extends Theory {
             
               val caseNum = upperFactor - lowerFactor + 1
 
-              if (caseNum < IdealInt(bestSplitNum)) {
-                val cases =
-                  (for (n <- IdealRange(lowerFactor, upperFactor + 1).iterator;
-                        f = conj(a(2) === a(3) + (n * sort.modulus));
-                        if !f.isFalse)
-                   yield (f, List())).toList
-
-                bestSplitNum = cases.size
-                bestSplitAction = List(
-                  Plugin.RemoveFacts(a),
-                  Plugin.AxiomSplit(assumptions,
-                                    cases,
-                                    ModuloArithmetic.this))
+              if (someQuantPred.isEmpty && caseNum >= SPLIT_LIMIT) {
+                someQuantPred =
+                  Some(a)
+              } else if (caseNum < bestSplitNum) {
+                bestSplitNum =
+                  caseNum
+                bestSplitPred =
+                  Some((a, lowerFactor, upperFactor, assumptions, sort))
               }
             }
           }
+
           case _ =>
-            // nothing
+            someQuantPred = Some(a)
         }
       }
 
       if (!simpleElims.isEmpty) {
+
         simpleElims
-      } else if (bestSplitAction != null) {
-        bestSplitAction
+
+      } else if (bestSplitPred.isDefined) {
+
+        val Some((a, lowerFactor, upperFactor, assumptions, sort)) =
+          bestSplitPred
+        val cases =
+          (for (n <- IdealRange(lowerFactor, upperFactor + 1).iterator;
+                f = conj(a(2) === a(3) + (n * sort.modulus));
+                if !f.isFalse)
+           yield (f, List())).toList
+
+        List(Plugin.RemoveFacts(a),
+             Plugin.AxiomSplit(assumptions,
+                               cases,
+                               ModuloArithmetic.this))
+        
+      } else if (someQuantPred.isDefined) {
+
+        val Some(a) =
+          someQuantPred
+        val sort =
+          (SortedPredicate argumentSorts a).last.asInstanceOf[ModSort]
+
+        List(Plugin.RemoveFacts(a),
+             Plugin.AddAxiom(List(a),
+                             exists(a(2) === a(3) + (v(0) * sort.modulus)),
+                             ModuloArithmetic.this))
+
       } else {
+
         List()
+
       }
     }
   }

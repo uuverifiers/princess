@@ -2088,7 +2088,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("mod") => {
       checkArgNum("mod", 2, args)
       val Seq(num, denom) = for (a <- args) yield asTerm(translateTerm(a, 0))
-      (mulTheory.eMod(num, denom), SMTInteger)
+/*      denom match {
+        case IIntLit(denomVal) if denomVal.signum > 0 =>
+          (ModuloArithmetic.cast2Interval(IdealInt.ZERO, denomVal - 1, num),
+           SMTInteger)
+        case denom => */
+          (mulTheory.eMod(num, denom), SMTInteger)
+//      }
     }
 
     case PlainSymbol("abs") => {
