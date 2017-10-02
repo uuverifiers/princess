@@ -37,7 +37,7 @@ import ap.basetypes.IdealInt
 import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
-import ap.util.{Debug, IdealRange}
+import ap.util.{Debug, IdealRange, LRUCache}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
 
@@ -208,16 +208,18 @@ object ModuloArithmetic extends Theory {
   class BVNAryOpPred(_name : String, _arity : Int)
         extends SortedPredicate(_name, _arity + 2) {
     def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = {
-      val IIntLit(modulus) = arguments(0)
-      Sort.Integer :: List.fill(_arity + 1)(ModSort(0, modulus - 1))
+      val IIntLit(bits) = arguments(0)
+      val sort = UnsignedBVSort(bits.intValueSafe)
+      Sort.Integer :: List.fill(_arity + 1)(sort)
     }
     def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPre(AC,
         arguments(0).asInstanceOf[LinearCombination].isConstant)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val modulus = arguments(0).asInstanceOf[LinearCombination].constant
-      Sort.Integer :: List.fill(_arity + 1)(ModSort(0, modulus - 1))
+      val bits = arguments(0).asInstanceOf[LinearCombination].constant
+      val sort = UnsignedBVSort(bits.intValueSafe)
+      Sort.Integer :: List.fill(_arity + 1)(sort)
     }
     override def sortConstraints(arguments : Seq[Term])
                                 (implicit order : TermOrder) : Formula =
@@ -227,8 +229,8 @@ object ModuloArithmetic extends Theory {
   class BVNAryOp(_name : String, _arity : Int)
         extends SortedIFunction(_name, _arity + 1, true, true) {
     def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
-      val IIntLit(modulus) = arguments(0)
-      val sort = ModSort(0, modulus - 1)
+      val IIntLit(bits) = arguments(0)
+      val sort = UnsignedBVSort(bits.intValueSafe)
       (Sort.Integer :: List.fill(_arity)(sort), sort)
     }
     def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
@@ -236,8 +238,8 @@ object ModuloArithmetic extends Theory {
       Debug.assertPre(AC,
         arguments(0).asInstanceOf[LinearCombination].isConstant)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val modulus = arguments(0).asInstanceOf[LinearCombination].constant
-      val sort = ModSort(0, modulus - 1)
+      val bits = arguments(0).asInstanceOf[LinearCombination].constant
+      val sort = UnsignedBVSort(bits.intValueSafe)
       (Sort.Integer :: List.fill(_arity)(sort), sort)
     }
     def iResultSort(arguments : Seq[ITerm]) : Sort = iFunctionType(arguments)._2
@@ -247,75 +249,75 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  // Arguments: N1, N2, number mod N1, number mod N2
+  // Arguments: N1, N2, number mod 2^N1, number mod 2^N2
   // Result:    number mod (N1 * N2)
-  val mod_concat        = new IFunction("mod_concat",      4, true, true)
+  val bv_concat        = new IFunction("bv_concat",      4, true, true)
   
-  // Arguments: N1, N2, N3, number mod (N1 * N2 * N3)
-  // Result:    number mod N2
-  val mod_extract       = new IFunction("mod_extract",     4, true, true)
+  // Arguments: N1, N2, N3, number mod 2^(N1 + N2 + N3)
+  // Result:    number mod 2^N2
+  val bv_extract       = new IFunction("bv_extract",     4, true, true)
 
-  // Arguments: N, number mod N
-  // Result:    number mod N
-  val mod_not           = new BVNAryOp ("mod_not", 1) // X
-  val mod_neg           = new BVNAryOp ("mod_neg", 1) // X
+  // Arguments: N, number mod 2^N
+  // Result:    number mod 2^N
+  val bv_not           = new BVNAryOp ("bv_not", 1) // X
+  val bv_neg           = new BVNAryOp ("bv_neg", 1) // X
 
-  // Arguments: N, number mod N, number mod N
-  // Result:    number mod N
-  val mod_and           = new BVNAryOp ("mod_and", 2)
-  val mod_or            = new BVNAryOp ("mod_or",  2)
-  val mod_add           = new BVNAryOp ("mod_add", 2) // X
-  val mod_sub           = new BVNAryOp ("mod_sub", 2) // X
-  val mod_mul           = new BVNAryOp ("mod_mul", 2)
-  val mod_udiv          = new BVNAryOp ("mod_udiv",2)
-  val mod_sdiv          = new BVNAryOp ("mod_sdiv",2)
-  val mod_urem          = new BVNAryOp ("mod_urem",2)
-  val mod_srem          = new BVNAryOp ("mod_srem",2)
-  val mod_smod          = new BVNAryOp ("mod_smod",2)
-  val mod_shl           = new BVNAryOp ("mod_shl", 2)
-  val mod_lshr          = new BVNAryOp ("mod_lshr",2)
-  val mod_ashr          = new BVNAryOp ("mod_ashr",2)
+  // Arguments: N, number mod 2^N, number mod 2^N
+  // Result:    number mod 2^N
+  val bv_and           = new BVNAryOp ("bv_and", 2)
+  val bv_or            = new BVNAryOp ("bv_or",  2)
+  val bv_add           = new BVNAryOp ("bv_add", 2) // X
+  val bv_sub           = new BVNAryOp ("bv_sub", 2) // X
+  val bv_mul           = new BVNAryOp ("bv_mul", 2)
+  val bv_udiv          = new BVNAryOp ("bv_udiv",2)
+  val bv_sdiv          = new BVNAryOp ("bv_sdiv",2)
+  val bv_urem          = new BVNAryOp ("bv_urem",2)
+  val bv_srem          = new BVNAryOp ("bv_srem",2)
+  val bv_smod          = new BVNAryOp ("bv_smod",2)
+  val bv_shl           = new BVNAryOp ("bv_shl", 2)
+  val bv_lshr          = new BVNAryOp ("bv_lshr",2)
+  val bv_ashr          = new BVNAryOp ("bv_ashr",2)
 
-  val mod_xor           = new BVNAryOp ("mod_xor", 2)
-  val mod_xnor          = new BVNAryOp ("mod_xnor",2)
+  val bv_xor           = new BVNAryOp ("bv_xor", 2)
+  val bv_xnor          = new BVNAryOp ("bv_xnor",2)
 
-  // Arguments: N, number mod N, number mod N
+  // Arguments: N, number mod 2^N, number mod 2^N
   // Result:    number mod 2
-  val mod_comp          = new IFunction("mod_comp",        3, true, true)
+  val bv_comp          = new IFunction("bv_comp",        3, true, true)
 
-  // Arguments: N, number mod N, number mod N
-  val mod_ult           = new Predicate("mod_ult",         3) // X
-  val mod_ule           = new Predicate("mod_ule",         3) // X
-  val mod_slt           = new Predicate("mod_slt",         3) // X
-  val mod_sle           = new Predicate("mod_sle",         3) // X
+  // Arguments: N, number mod 2^N, number mod 2^N
+  val bv_ult           = new Predicate("bv_ult",         3) // X
+  val bv_ule           = new Predicate("bv_ule",         3) // X
+  val bv_slt           = new Predicate("bv_slt",         3) // X
+  val bv_sle           = new Predicate("bv_sle",         3) // X
 
   //////////////////////////////////////////////////////////////////////////////
 
   val functions = List(
     mod_cast,
-    mod_concat,
-    mod_extract,
-    mod_not,
-    mod_neg,
-    mod_and,
-    mod_or,
-    mod_add,
-    mod_sub,
-    mod_mul,
-    mod_udiv,
-    mod_sdiv,
-    mod_urem,
-    mod_srem,
-    mod_smod,
-    mod_shl,
-    mod_lshr,
-    mod_ashr,
-    mod_xor,
-    mod_xnor,
-    mod_comp
+    bv_concat,
+    bv_extract,
+    bv_not,
+    bv_neg,
+    bv_and,
+    bv_or,
+    bv_add,
+    bv_sub,
+    bv_mul,
+    bv_udiv,
+    bv_sdiv,
+    bv_urem,
+    bv_srem,
+    bv_smod,
+    bv_shl,
+    bv_lshr,
+    bv_ashr,
+    bv_xor,
+    bv_xnor,
+    bv_comp
   )
 
-  val otherPreds = List(mod_ult, mod_ule, mod_slt, mod_sle)
+  val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)
 
   val (functionalPredSeq, _, preOrder, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions)
@@ -336,6 +338,18 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private val bits2RangeCache =
+    new LRUCache[LinearCombination, LinearCombination](256)
+
+  private def bits2Range(lc : LinearCombination) : LinearCombination =
+    bits2RangeCache(lc) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPre(AC, lc.isConstant)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      val bits = lc.constant.intValueSafe
+      LinearCombination((IdealInt(2) pow bits) - IdealInt.ONE)
+    }
+
   override def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
     implicit val _ = order
     import TerForConvenience._
@@ -344,22 +358,23 @@ object ModuloArithmetic extends Theory {
 
     val after1 = Theory.rewritePreds(f, order) { (a, negated) =>
       a.pred match {
-        case BVPred(`mod_not`) =>
-          _mod_cast(List(l(0), a(0) - 1, a(0) - a(1) - 1, a(2)))
-        case BVPred(`mod_neg`) =>
-          _mod_cast(List(l(0), a(0) - 1, -a(1), a(2)))
-        case BVPred(`mod_add`) =>
-          _mod_cast(List(l(0), a(0) - 1, a(1) + a(2), a(3)))
-        case BVPred(`mod_sub`) =>
-          _mod_cast(List(l(0), a(0) - 1, a(1) - a(2), a(3)))
+        case BVPred(`bv_not`) =>
+          _mod_cast(List(l(0), bits2Range(a(0)), a(0) - a(1) - 1, a(2)))
+        case BVPred(`bv_neg`) =>
+          _mod_cast(List(l(0), bits2Range(a(0)), -a(1), a(2)))
+        case BVPred(`bv_add`) =>
+          _mod_cast(List(l(0), bits2Range(a(0)), a(1) + a(2), a(3)))
+        case BVPred(`bv_sub`) =>
+          _mod_cast(List(l(0), bits2Range(a(0)), a(1) - a(2), a(3)))
 
-        case `mod_ult` =>
+        case `bv_ult` =>
           a(1) < a(2)
-        case `mod_ule` =>
+        case `bv_ule` =>
           a(1) <= a(2)
 
-        case `mod_slt` | `mod_sle` => { // TODO: optimise
-          val modulus = a(0).asInstanceOf[LinearCombination0].constant
+        case `bv_slt` | `bv_sle` => { // TODO: optimise
+          val bits = a(0).asInstanceOf[LinearCombination0].constant.intValueSafe
+          val modulus = IdealInt(2) pow bits
           val lb = l(-(modulus / 2))
           val ub = l(modulus / 2 - 1)
           val subst = VariableShiftSubst(0, 2, order)
@@ -372,8 +387,8 @@ object ModuloArithmetic extends Theory {
             lb <= v(1) & v(1) <= ub
 
           val predicate = a.pred match {
-            case `mod_slt` => v(0) < v(1)
-            case `mod_sle` => v(0) <= v(1)
+            case `bv_slt` => v(0) < v(1)
+            case `bv_sle` => v(0) <= v(1)
           }
 
           if (negated)
@@ -442,7 +457,8 @@ object ModuloArithmetic extends Theory {
       // find simple mod_cast predicates that can be replaced by equations
       var simpleElims : List[Plugin.Action] = List()
 
-      // find a mod_cast predicate that can be split into a small number of cases
+      // find a mod_cast predicate that can be split into a small number of
+      // cases
       var bestSplitNum = SPLIT_LIMIT
       var bestSplitPred : Option[(Atom, IdealInt, IdealInt,
                                   List[Formula], ModSort)] = None
@@ -719,7 +735,8 @@ object ModuloArithmetic extends Theory {
                 for ((coeff, t) <- a(2).iterator;
                      knownAtom <- getModulos(t);
                      if knownAtom != a;
-                     simpCoeff = effectiveLeadingCoeff(knownAtom, modulus, order);
+                     simpCoeff = effectiveLeadingCoeff(knownAtom, modulus,
+                                                       order);
                      reduceMult = (coeff reduceAbs simpCoeff)._1;
                      if !reduceMult.isZero)
                 yield (knownAtom, reduceMult * simpCoeff)
@@ -732,7 +749,8 @@ object ModuloArithmetic extends Theory {
                               Array((IdealInt.ONE, a(2)),
                                     (-(subtractedValue / lc.leadingCoeff), lc)),
                               order)
-                val newA = Atom(_mod_cast, Array(a(0), a(1), newA2, a(3)), order)
+                val newA = Atom(_mod_cast, Array(a(0), a(1), newA2, a(3)),
+                                order)
 //                println("simp: " + a + " -> " + newA)
 
                 rewritten = a :: rewritten
