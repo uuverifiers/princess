@@ -506,7 +506,7 @@ Begin of proof
 | | |   (9)  all_0_3 >= 4
 | | | 
 | | | COMBINE_INEQS: (5), (9) imply:
-| | |   (10)  -1 >= 0
+| | |   (10)  false
 | | | 
 | | | CLOSE: (10) is inconsistent.
 | | | 
@@ -528,7 +528,7 @@ Begin of proof
 | | | |   (14)  all_0_3 >= 4
 | | | | 
 | | | | COMBINE_INEQS: (5), (14) imply:
-| | | |   (15)  -1 >= 0
+| | | |   (15)  false
 | | | | 
 | | | | CLOSE: (15) is inconsistent.
 | | | | 
@@ -543,7 +543,7 @@ Begin of proof
 | | | | |   (17)  a >= 2
 | | | | | 
 | | | | | COMBINE_INEQS: (16), (17) imply:
-| | | | |   (18)  -1 >= 0
+| | | | |   (18)  false
 | | | | | 
 | | | | | CLOSE: (18) is inconsistent.
 | | | | | 
@@ -552,7 +552,7 @@ Begin of proof
 | | | | |   (19)  -2 >= a
 | | | | | 
 | | | | | COMBINE_INEQS: (11), (19) imply:
-| | | | |   (20)  -1 >= 0
+| | | | |   (20)  false
 | | | | | 
 | | | | | CLOSE: (20) is inconsistent.
 | | | | | 
@@ -602,7 +602,7 @@ Begin of proof
 | | | | |   (29)  3 >= all_0_3
 | | | | | 
 | | | | | COMBINE_INEQS: (25), (29) imply:
-| | | | |   (30)  -1 >= 0
+| | | | |   (30)  false
 | | | | | 
 | | | | | CLOSE: (30) is inconsistent.
 | | | | | 
@@ -611,7 +611,7 @@ Begin of proof
 | | | | |   (31)  a >= 2
 | | | | | 
 | | | | | COMBINE_INEQS: (24), (31) imply:
-| | | | |   (32)  -1 >= 0
+| | | | |   (32)  false
 | | | | | 
 | | | | | CLOSE: (32) is inconsistent.
 | | | | | 
@@ -628,7 +628,7 @@ Begin of proof
 | | | | |   (34)  -2 >= a
 | | | | | 
 | | | | | COMBINE_INEQS: (23), (34) imply:
-| | | | |   (35)  -1 >= 0
+| | | | |   (35)  false
 | | | | | 
 | | | | | CLOSE: (35) is inconsistent.
 | | | | | 
@@ -637,7 +637,7 @@ Begin of proof
 | | | | |   (36)  1 >= all_0_3
 | | | | | 
 | | | | | COMBINE_INEQS: (25), (36) imply:
-| | | | |   (37)  -1 >= 0
+| | | | |   (37)  false
 | | | | | 
 | | | | | CLOSE: (37) is inconsistent.
 | | | | | 
@@ -690,7 +690,7 @@ Begin of proof
 | | | | | |   (47)  all_0_2 >= 11
 | | | | | | 
 | | | | | | COMBINE_INEQS: (44), (47) imply:
-| | | | | |   (48)  -1 >= 0
+| | | | | |   (48)  false
 | | | | | | 
 | | | | | | CLOSE: (48) is inconsistent.
 | | | | | | 
@@ -705,7 +705,7 @@ Begin of proof
 | | | | | | |   (50)  2 >= a
 | | | | | | | 
 | | | | | | | COMBINE_INEQS: (43), (50) imply:
-| | | | | | |   (51)  -1 >= 0
+| | | | | | |   (51)  false
 | | | | | | | 
 | | | | | | | CLOSE: (51) is inconsistent.
 | | | | | | | 
@@ -728,7 +728,7 @@ Begin of proof
 | | | | | | | |   (55)  all_0_2 >= 11
 | | | | | | | | 
 | | | | | | | | COMBINE_INEQS: (44), (55) imply:
-| | | | | | | |   (56)  -1 >= 0
+| | | | | | | |   (56)  false
 | | | | | | | | 
 | | | | | | | | CLOSE: (56) is inconsistent.
 | | | | | | | | 
@@ -743,7 +743,7 @@ Begin of proof
 | | | | | | | | |   (58)  2 >= a
 | | | | | | | | | 
 | | | | | | | | | COMBINE_INEQS: (43), (58) imply:
-| | | | | | | | |   (59)  -1 >= 0
+| | | | | | | | |   (59)  false
 | | | | | | | | | 
 | | | | | | | | | CLOSE: (59) is inconsistent.
 | | | | | | | | | 
@@ -752,7 +752,7 @@ Begin of proof
 | | | | | | | | |   (60)  4 >= all_0_3
 | | | | | | | | | 
 | | | | | | | | | COMBINE_INEQS: (52), (60) imply:
-| | | | | | | | |   (61)  -1 >= 0
+| | | | | | | | |   (61)  false
 | | | | | | | | | 
 | | | | | | | | | CLOSE: (61) is inconsistent.
 | | | | | | | | | 
@@ -787,7 +787,7 @@ Begin of proof
 | | | | | |   (67)  all_0_2 >= 4
 | | | | | | 
 | | | | | | COMBINE_INEQS: (64), (67) imply:
-| | | | | |   (68)  -1 >= 0
+| | | | | |   (68)  false
 | | | | | | 
 | | | | | | CLOSE: (68) is inconsistent.
 | | | | | | 
@@ -802,7 +802,7 @@ Begin of proof
 | | | | | | |   (70)  1 >= a
 | | | | | | | 
 | | | | | | | COMBINE_INEQS: (63), (70) imply:
-| | | | | | |   (71)  -1 >= 0
+| | | | | | |   (71)  false
 | | | | | | | 
 | | | | | | | CLOSE: (71) is inconsistent.
 | | | | | | | 
@@ -825,7 +825,7 @@ Begin of proof
 | | | | | | | |   (75)  all_0_2 >= 4
 | | | | | | | | 
 | | | | | | | | COMBINE_INEQS: (64), (75) imply:
-| | | | | | | |   (76)  -1 >= 0
+| | | | | | | |   (76)  false
 | | | | | | | | 
 | | | | | | | | CLOSE: (76) is inconsistent.
 | | | | | | | | 
@@ -840,7 +840,7 @@ Begin of proof
 | | | | | | | | |   (78)  1 >= a
 | | | | | | | | | 
 | | | | | | | | | COMBINE_INEQS: (63), (78) imply:
-| | | | | | | | |   (79)  -1 >= 0
+| | | | | | | | |   (79)  false
 | | | | | | | | | 
 | | | | | | | | | CLOSE: (79) is inconsistent.
 | | | | | | | | | 
@@ -849,7 +849,7 @@ Begin of proof
 | | | | | | | | |   (80)  2 >= all_0_3
 | | | | | | | | | 
 | | | | | | | | | COMBINE_INEQS: (72), (80) imply:
-| | | | | | | | |   (81)  -1 >= 0
+| | | | | | | | |   (81)  false
 | | | | | | | | | 
 | | | | | | | | | CLOSE: (81) is inconsistent.
 | | | | | | | | | 
@@ -894,7 +894,7 @@ Begin of proof
 | | | | | |   (88)  10 >= all_0_2
 | | | | | | 
 | | | | | | COMBINE_INEQS: (85), (88) imply:
-| | | | | |   (89)  -1 >= 0
+| | | | | |   (89)  false
 | | | | | | 
 | | | | | | CLOSE: (89) is inconsistent.
 | | | | | | 
@@ -909,7 +909,7 @@ Begin of proof
 | | | | | | |   (91)  a >= 3
 | | | | | | | 
 | | | | | | | COMBINE_INEQS: (84), (91) imply:
-| | | | | | |   (92)  -1 >= 0
+| | | | | | |   (92)  false
 | | | | | | | 
 | | | | | | | CLOSE: (92) is inconsistent.
 | | | | | | | 
@@ -918,7 +918,7 @@ Begin of proof
 | | | | | | |   (93)  8 >= all_0_2
 | | | | | | | 
 | | | | | | | COMBINE_INEQS: (85), (93) imply:
-| | | | | | |   (94)  -1 >= 0
+| | | | | | |   (94)  false
 | | | | | | | 
 | | | | | | | CLOSE: (94) is inconsistent.
 | | | | | | | 
@@ -957,7 +957,7 @@ Begin of proof
 | | | | | | |   (101)  3 >= all_0_2
 | | | | | | | 
 | | | | | | | COMBINE_INEQS: (98), (101) imply:
-| | | | | | |   (102)  -1 >= 0
+| | | | | | |   (102)  false
 | | | | | | | 
 | | | | | | | CLOSE: (102) is inconsistent.
 | | | | | | | 
@@ -972,7 +972,7 @@ Begin of proof
 | | | | | | | |   (104)  a >= 2
 | | | | | | | | 
 | | | | | | | | COMBINE_INEQS: (97), (104) imply:
-| | | | | | | |   (105)  -1 >= 0
+| | | | | | | |   (105)  false
 | | | | | | | | 
 | | | | | | | | CLOSE: (105) is inconsistent.
 | | | | | | | | 
@@ -981,7 +981,7 @@ Begin of proof
 | | | | | | | |   (106)  1 >= all_0_2
 | | | | | | | | 
 | | | | | | | | COMBINE_INEQS: (98), (106) imply:
-| | | | | | | |   (107)  -1 >= 0
+| | | | | | | |   (107)  false
 | | | | | | | | 
 | | | | | | | | CLOSE: (107) is inconsistent.
 | | | | | | | | 
@@ -1026,7 +1026,7 @@ Begin of proof
 | | | | | | | |   (117)  all_0_0 >= 40
 | | | | | | | | 
 | | | | | | | | COMBINE_INEQS: (114), (117) imply:
-| | | | | | | |   (118)  -1 >= 0
+| | | | | | | |   (118)  false
 | | | | | | | | 
 | | | | | | | | CLOSE: (118) is inconsistent.
 | | | | | | | | 
@@ -1041,7 +1041,7 @@ Begin of proof
 | | | | | | | | |   (120)  2 >= a
 | | | | | | | | | 
 | | | | | | | | | COMBINE_INEQS: (113), (120) imply:
-| | | | | | | | |   (121)  -1 >= 0
+| | | | | | | | |   (121)  false
 | | | | | | | | | 
 | | | | | | | | | CLOSE: (121) is inconsistent.
 | | | | | | | | | 
@@ -1066,7 +1066,7 @@ Begin of proof
 | | | | | | | | | |   (125)  all_0_0 >= 40
 | | | | | | | | | | 
 | | | | | | | | | | COMBINE_INEQS: (114), (125) imply:
-| | | | | | | | | |   (126)  -1 >= 0
+| | | | | | | | | |   (126)  false
 | | | | | | | | | | 
 | | | | | | | | | | CLOSE: (126) is inconsistent.
 | | | | | | | | | | 
@@ -1081,7 +1081,7 @@ Begin of proof
 | | | | | | | | | | |   (128)  2 >= a
 | | | | | | | | | | | 
 | | | | | | | | | | | COMBINE_INEQS: (113), (128) imply:
-| | | | | | | | | | |   (129)  -1 >= 0
+| | | | | | | | | | |   (129)  false
 | | | | | | | | | | | 
 | | | | | | | | | | | CLOSE: (129) is inconsistent.
 | | | | | | | | | | | 
@@ -1090,7 +1090,7 @@ Begin of proof
 | | | | | | | | | | |   (130)  2 >= all_0_3
 | | | | | | | | | | | 
 | | | | | | | | | | | COMBINE_INEQS: (122), (130) imply:
-| | | | | | | | | | |   (131)  -1 >= 0
+| | | | | | | | | | |   (131)  false
 | | | | | | | | | | | 
 | | | | | | | | | | | CLOSE: (131) is inconsistent.
 | | | | | | | | | | | 
@@ -1125,7 +1125,7 @@ Begin of proof
 | | | | | | | |   (137)  a >= 3
 | | | | | | | | 
 | | | | | | | | COMBINE_INEQS: (133), (137) imply:
-| | | | | | | |   (138)  -1 >= 0
+| | | | | | | |   (138)  false
 | | | | | | | | 
 | | | | | | | | CLOSE: (138) is inconsistent.
 | | | | | | | | 
@@ -1146,7 +1146,7 @@ Begin of proof
 | | | | | | | | |   (142)  a >= 3
 | | | | | | | | | 
 | | | | | | | | | COMBINE_INEQS: (133), (142) imply:
-| | | | | | | | |   (143)  -1 >= 0
+| | | | | | | | |   (143)  false
 | | | | | | | | | 
 | | | | | | | | | CLOSE: (143) is inconsistent.
 | | | | | | | | | 
@@ -1177,7 +1177,7 @@ Begin of proof
 | | | | | | | | | | |   (148)  all_0_2 >= 9
 | | | | | | | | | | | 
 | | | | | | | | | | | COMBINE_INEQS: (139), (148) imply:
-| | | | | | | | | | |   (149)  -1 >= 0
+| | | | | | | | | | |   (149)  false
 | | | | | | | | | | | 
 | | | | | | | | | | | CLOSE: (149) is inconsistent.
 | | | | | | | | | | | 
@@ -1192,7 +1192,7 @@ Begin of proof
 | | | | | | | | | | | |   (151)  a >= 2
 | | | | | | | | | | | | 
 | | | | | | | | | | | | COMBINE_INEQS: (145), (151) imply:
-| | | | | | | | | | | |   (152)  -1 >= 0
+| | | | | | | | | | | |   (152)  false
 | | | | | | | | | | | | 
 | | | | | | | | | | | | CLOSE: (152) is inconsistent.
 | | | | | | | | | | | | 
@@ -1213,7 +1213,7 @@ Begin of proof
 | | | | | | | | | | | | |   (156)  a >= 2
 | | | | | | | | | | | | | 
 | | | | | | | | | | | | | COMBINE_INEQS: (145), (156) imply:
-| | | | | | | | | | | | |   (157)  -1 >= 0
+| | | | | | | | | | | | |   (157)  false
 | | | | | | | | | | | | | 
 | | | | | | | | | | | | | CLOSE: (157) is inconsistent.
 | | | | | | | | | | | | | 
@@ -1252,7 +1252,7 @@ Begin of proof
 | | | | | | | | | | | | | | | |   (163)  39 >= all_0_0
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | COMBINE_INEQS: (134), (163) imply:
-| | | | | | | | | | | | | | | |   (164)  -1 >= 0
+| | | | | | | | | | | | | | | |   (164)  false
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | CLOSE: (164) is inconsistent.
 | | | | | | | | | | | | | | | | 
@@ -1261,7 +1261,7 @@ Begin of proof
 | | | | | | | | | | | | | | | |   (165)  all_0_2 >= 2
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | COMBINE_INEQS: (153), (165) imply:
-| | | | | | | | | | | | | | | |   (166)  -1 >= 0
+| | | | | | | | | | | | | | | |   (166)  false
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | CLOSE: (166) is inconsistent.
 | | | | | | | | | | | | | | | | 
@@ -1278,7 +1278,7 @@ Begin of proof
 | | | | | | | | | | | | | | | |   (168)  a >= 1
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | COMBINE_INEQS: (159), (168) imply:
-| | | | | | | | | | | | | | | |   (169)  -1 >= 0
+| | | | | | | | | | | | | | | |   (169)  false
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | CLOSE: (169) is inconsistent.
 | | | | | | | | | | | | | | | | 
@@ -1287,7 +1287,7 @@ Begin of proof
 | | | | | | | | | | | | | | | |   (170)  0 >= all_0_0
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | COMBINE_INEQS: (134), (170) imply:
-| | | | | | | | | | | | | | | |   (171)  -1 >= 0
+| | | | | | | | | | | | | | | |   (171)  false
 | | | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | | | CLOSE: (171) is inconsistent.
 | | | | | | | | | | | | | | | | 
@@ -1324,7 +1324,7 @@ Begin of proof
 | | | | | | | | | | | | | |   (179)  all_0_0 = 1
 | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | REDUCE: (134), (179) imply:
-| | | | | | | | | | | | | |   (180)  -1 >= 0
+| | | | | | | | | | | | | |   (180)  false
 | | | | | | | | | | | | | | 
 | | | | | | | | | | | | | | CLOSE: (180) is inconsistent.
 | | | | | | | | | | | | | | 
@@ -1365,7 +1365,7 @@ Begin of proof
 | | | | | | | | | |   (188)  all_0_0 = 32
 | | | | | | | | | | 
 | | | | | | | | | | REDUCE: (134), (188) imply:
-| | | | | | | | | |   (189)  -1 >= 0
+| | | | | | | | | |   (189)  false
 | | | | | | | | | | 
 | | | | | | | | | | CLOSE: (189) is inconsistent.
 | | | | | | | | | | 
@@ -1441,7 +1441,7 @@ Begin of proof
 | | |   (10)  all_0_0 + 7*a >= 4
 | | | 
 | | | COMBINE_INEQS: (5), (10) imply:
-| | |   (11)  -1 >= 0
+| | |   (11)  false
 | | | 
 | | | CLOSE: (11) is inconsistent.
 | | | 
@@ -1450,7 +1450,7 @@ Begin of proof
 | | |   (12)  -1 >= a
 | | | 
 | | | COMBINE_INEQS: (4), (12) imply:
-| | |   (13)  -1 >= 0
+| | |   (13)  false
 | | | 
 | | | CLOSE: (13) is inconsistent.
 | | | 
@@ -1467,7 +1467,7 @@ Begin of proof
 | | |   (15)  1 >= y
 | | | 
 | | | COMBINE_INEQS: (3), (15) imply:
-| | |   (16)  -1 >= 0
+| | |   (16)  false
 | | | 
 | | | CLOSE: (16) is inconsistent.
 | | | 
@@ -1482,7 +1482,7 @@ Begin of proof
 | | | |   (18)  1 >= x
 | | | | 
 | | | | COMBINE_INEQS: (2), (18) imply:
-| | | |   (19)  -1 >= 0
+| | | |   (19)  false
 | | | | 
 | | | | CLOSE: (19) is inconsistent.
 | | | | 
@@ -1497,7 +1497,7 @@ Begin of proof
 | | | |   (22)  -2 >= a
 | | | | 
 | | | | COMBINE_INEQS: (4), (22) imply:
-| | | |   (23)  -1 >= 0
+| | | |   (23)  false
 | | | | 
 | | | | CLOSE: (23) is inconsistent.
 | | | | 

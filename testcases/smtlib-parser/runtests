@@ -21,7 +21,7 @@ TESTS="bignum_quant.smt2 \
        define-fun-bug.smt2 boolean-array.smt2 distinctBug.smt2 \
        reductionBug.smt2 epsilon.smt2 \
        datatype.smt2 datatype4b.smt2 cvc-datatype-1.smt2 \
-       define-fun-rec.smt2 define-fun-recs.smt2 bv0.smt2"
+       define-fun-rec.smt2 define-fun-recs.smt2 bv0.smt2 bv1.smt2 bv1b.smt2"
 
 $PRI "$@" $TESTS
 

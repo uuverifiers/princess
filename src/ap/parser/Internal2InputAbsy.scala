@@ -85,35 +85,42 @@ class Internal2InputAbsy(predTranslation : MMap[IExpression.Predicate, IFunction
   }
   
   private def convert(c : Conjunction) : IFormula =
-    if (c.isFalse)
-      false
-    else if (c.isTrue)
-      true
-    else
-      quan(c.quans,
-           convert(c.arithConj) &&& convert(c.predConj) &&&
-           connect(for (d <- c.negatedConjs.iterator) yield !convert(d),
-                   IBinJunctor.And))
+    quan(c.quans,
+         convert(c.arithConj) &&& convert(c.predConj) &&&
+         connect(for (d <- c.negatedConjs.iterator) yield !convert(d),
+                 IBinJunctor.And))
   
   private def convert(ac : ArithConj) : IFormula =
     convert(ac.positiveEqs) &&& convert(ac.negativeEqs) &&& convert(ac.inEqs)
   
   private def convert(eqs : EquationConj) : IFormula =
-    connect(for (lc <- eqs.iterator)
-            yield eqZero(convert(lc)), IBinJunctor.And)
+    if (eqs.isFalse)
+      false
+    else
+      connect(for (lc <- eqs.iterator)
+              yield eqZero(convert(lc)), IBinJunctor.And)
 
   private def convert(eqs : NegEquationConj) : IFormula =
-    connect(for (lc <- eqs.iterator)
-            yield !eqZero(convert(lc)),
-            IBinJunctor.And)
+    if (eqs.isFalse)
+      false
+    else
+      connect(for (lc <- eqs.iterator)
+              yield !eqZero(convert(lc)),
+              IBinJunctor.And)
   
   private def convert(eqs : InEqConj) : IFormula =
-    connect(for (lc <- eqs.iterator)
-            yield geqZero(convert(lc)),
-            IBinJunctor.And)
+    if (eqs.isFalse)
+      false
+    else
+      connect(for (lc <- eqs.iterator)
+              yield geqZero(convert(lc)),
+              IBinJunctor.And)
   
   private def convert(preds : PredConj) : IFormula =
-    convert(preds.positiveLits, false) &&& convert(preds.negativeLits, true)
+    if (preds.isFalse)
+      false
+    else
+      convert(preds.positiveLits, false) &&& convert(preds.negativeLits, true)
   
   private def convert(lits : Seq[Atom], negate : Boolean) : IFormula = connect(
     for (a <- lits.iterator) yield {

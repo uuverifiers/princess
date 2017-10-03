@@ -57,7 +57,17 @@ object IdealInt {
    */
   def apply(i : Int) : IdealInt =
     if (minCached <= i && i <= maxCached) fromCache(i) else newIdealInt(i)
-  
+
+  /**
+   * Extract a 32-bit integer from an <code>IdealInt</code>.
+   */
+  def unapply(n : IdealInt) : Option[Int] =
+    if (n.usesLong &&
+        Int.MinValue <= n.longStore && n.longStore <= Int.MaxValue)
+      Some(n.longStore.toInt)
+    else
+      None
+
   def apply(i : Long) : IdealInt =
     if (minCached <= i && i <= maxCached) fromCache(i.toInt) else newIdealInt(i)
 

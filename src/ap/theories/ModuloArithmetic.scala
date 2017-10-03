@@ -205,57 +205,97 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  class BVNAryOpPred(_name : String, _arity : Int)
-        extends SortedPredicate(_name, _arity + 2) {
-    def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = {
-      val IIntLit(bits) = arguments(0)
-      val sort = UnsignedBVSort(bits.intValueSafe)
-      Sort.Integer :: List.fill(_arity + 1)(sort)
-    }
-    def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(AC,
-        arguments(0).asInstanceOf[LinearCombination].isConstant)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val bits = arguments(0).asInstanceOf[LinearCombination].constant
-      val sort = UnsignedBVSort(bits.intValueSafe)
-      Sort.Integer :: List.fill(_arity + 1)(sort)
-    }
-    override def sortConstraints(arguments : Seq[Term])
-                                (implicit order : TermOrder) : Formula =
-      argumentSorts(arguments).last membershipConstraint arguments.last
-  }
+  /**
+   * Generic class to represent families of functions, indexed by a vector of
+   * bit-widths.
+   */
+  abstract class IndexedBVOp(_name : String, indexArity : Int, bvArity : Int)
+           extends SortedIFunction(_name, indexArity + bvArity, true, true) {
 
-  class BVNAryOp(_name : String, _arity : Int)
-        extends SortedIFunction(_name, _arity + 1, true, true) {
+    /**
+     * Given the vector of indexes, compute the argument and the result
+     * sorts of the function.
+     */
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort)
+
     def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
-      val IIntLit(bits) = arguments(0)
-      val sort = UnsignedBVSort(bits.intValueSafe)
-      (Sort.Integer :: List.fill(_arity)(sort), sort)
+      val indexes =
+        for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
+      computeSorts(indexes)
     }
+    
     def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(AC,
-        arguments(0).asInstanceOf[LinearCombination].isConstant)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val bits = arguments(0).asInstanceOf[LinearCombination].constant
-      val sort = UnsignedBVSort(bits.intValueSafe)
-      (Sort.Integer :: List.fill(_arity)(sort), sort)
+      val indexes =
+        for (lc <- arguments take indexArity)
+        yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
+      computeSorts(indexes)
     }
+    
     def iResultSort(arguments : Seq[ITerm]) : Sort = iFunctionType(arguments)._2
     def resultSort(arguments : Seq[Term]) : Sort = functionType(arguments)._2
-    def toPredicate : SortedPredicate = new BVNAryOpPred(name, _arity)
+    
+    def toPredicate : SortedPredicate =
+      new SortedPredicate(_name, indexArity + bvArity + 1) {
+        def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = {
+          val indexes =
+            for (IIntLit(IdealInt(n)) <- arguments take indexArity) yield n
+          val (args, res) = computeSorts(indexes)
+          args ++ List(res)
+        }
+        
+        def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
+          val indexes =
+            for (lc <- arguments take indexArity)
+            yield lc.asInstanceOf[LinearCombination0].constant.intValueSafe
+          val (args, res) = computeSorts(indexes)
+          args ++ List(res)
+        }
+        
+        override def sortConstraints(arguments : Seq[Term])
+                                    (implicit order : TermOrder) : Formula =
+          argumentSorts(arguments).last membershipConstraint arguments.last
+      }
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
   // Arguments: N1, N2, number mod 2^N1, number mod 2^N2
   // Result:    number mod (N1 * N2)
-  val bv_concat        = new IFunction("bv_concat",      4, true, true)
+
+  object BVConcat extends IndexedBVOp("bv_concat", 2, 2) {
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
+      (List(Sort.Integer, Sort.Integer,
+            UnsignedBVSort(indexes(0)), UnsignedBVSort(indexes(1))),
+       UnsignedBVSort(indexes(0) + indexes(1)))
+    }
+  }
+
+  val bv_concat = BVConcat // X
   
+  //////////////////////////////////////////////////////////////////////////////
+
   // Arguments: N1, N2, N3, number mod 2^(N1 + N2 + N3)
   // Result:    number mod 2^N2
-  val bv_extract       = new IFunction("bv_extract",     4, true, true)
+
+  object BVExtract extends IndexedBVOp("bv_extract", 3, 1) {
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
+      (List(Sort.Integer, Sort.Integer, Sort.Integer,
+            UnsignedBVSort(indexes(0) + indexes(1) + indexes(2))),
+       UnsignedBVSort(indexes(1)))
+    }
+  }
+
+  val bv_extract = BVExtract
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  class BVNAryOp(_name : String, _arity : Int)
+        extends IndexedBVOp(_name, 1, _arity) {
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
+      val sort = UnsignedBVSort(indexes.head)
+      (Sort.Integer :: List.fill(_arity)(sort), sort)
+    }
+  }
 
   // Arguments: N, number mod 2^N
   // Result:    number mod 2^N
@@ -286,10 +326,10 @@ object ModuloArithmetic extends Theory {
   val bv_comp          = new IFunction("bv_comp",        3, true, true)
 
   // Arguments: N, number mod 2^N, number mod 2^N
-  val bv_ult           = new Predicate("bv_ult",         3) // X
-  val bv_ule           = new Predicate("bv_ule",         3) // X
-  val bv_slt           = new Predicate("bv_slt",         3) // X
-  val bv_sle           = new Predicate("bv_sle",         3) // X
+  val bv_ult           = new Predicate("bv_ult", 3) // X
+  val bv_ule           = new Predicate("bv_ule", 3) // X
+  val bv_slt           = new Predicate("bv_slt", 3) // X
+  val bv_sle           = new Predicate("bv_sle", 3) // X
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -358,6 +398,42 @@ object ModuloArithmetic extends Theory {
 
     val after1 = Theory.rewritePreds(f, order) { (a, negated) =>
       a.pred match {
+        case BVPred(`bv_concat`) => {
+          val shift = IdealInt(2) pow a(1).asInstanceOf[LinearCombination0]
+                                          .constant.intValueSafe
+          a(2) * shift + a(3) === a(4)
+        }
+
+        case BVPred(`bv_extract`) => { // to be improved!
+          val bits1 =
+            a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+          val bits2 =
+            a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+
+          val castSort = UnsignedBVSort(bits1 + bits2)
+          val remSort =  UnsignedBVSort(bits2)
+
+          val subst = VariableShiftSubst(0, 1, order)
+          val pred = _mod_cast(List(l(0), l(castSort.upper),
+                                    subst(a(3)),
+                                    subst(a(4))*remSort.modulus + v(0)))
+
+          if (negated)
+            existsSorted(List(remSort), pred)
+          else
+            // forall int v0, BV[bits2] v1.
+            //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
+            // <=>
+            // forall int v0, BV[bits2] v1.
+            //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
+            // <=>
+            // forall int v0.
+            //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
+            forall(pred ==>
+                     Conjunction.negate(remSort membershipConstraint v(0),
+                                        order))
+        }
+
         case BVPred(`bv_not`) =>
           _mod_cast(List(l(0), bits2Range(a(0)), a(0) - a(1) - 1, a(2)))
         case BVPred(`bv_neg`) =>
@@ -381,20 +457,19 @@ object ModuloArithmetic extends Theory {
           val modLit0 = _mod_cast(List(lb, ub, subst(a(1)), l(v(0))))
           val modLit1 = _mod_cast(List(lb, ub, subst(a(2)), l(v(1))))
 
-          val antecedent =
-            modLit0 & modLit1 &
-            lb <= v(0) & v(0) <= ub &
-            lb <= v(1) & v(1) <= ub
+          val antecedent = modLit0 & modLit1
 
           val predicate = a.pred match {
             case `bv_slt` => v(0) < v(1)
             case `bv_sle` => v(0) <= v(1)
           }
 
+          val sort = SignedBVSort(bits)
+
           if (negated)
-            exists(2, antecedent & predicate)
+            existsSorted(List(sort, sort), antecedent & predicate)
           else
-            forall(2, antecedent ==> predicate)
+            forallSorted(List(sort, sort), antecedent ==> predicate)
         }
 
         case _ =>

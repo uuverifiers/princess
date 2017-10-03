@@ -524,7 +524,7 @@ Begin of proof
 | | | | |   (30)  all_595_0 = 0
 | | | | | 
 | | | | | REDUCE: (23), (30) imply:
-| | | | |   (31)   ~ (0 = 0)
+| | | | |   (31)  $false
 | | | | | 
 | | | | | CLOSE: (31) is inconsistent.
 | | | | | 
@@ -548,7 +548,7 @@ Begin of proof
 | | | | |   (37)  all_612_0 = 0
 | | | | | 
 | | | | | REDUCE: (35), (37) imply:
-| | | | |   (38)   ~ (0 = 0)
+| | | | |   (38)  $false
 | | | | | 
 | | | | | CLOSE: (38) is inconsistent.
 | | | | | 
@@ -587,7 +587,7 @@ Begin of proof
 | | | | |   (44)  all_396_3 = vtempty
 | | | | | 
 | | | | | REDUCE: (19), (44) imply:
-| | | | |   (45)   ~ (0 = 0)
+| | | | |   (45)  $false
 | | | | | 
 | | | | | CLOSE: (45) is inconsistent.
 | | | | | 
@@ -719,7 +719,7 @@ Begin of proof
 | | | | | | | | |   (77)  vrow1 = vrow2
 | | | | | | | | | 
 | | | | | | | | | REDUCE: (77), (DIFF-row1-row2) imply:
-| | | | | | | | |   (78)   ~ (0 = 0)
+| | | | | | | | |   (78)  $false
 | | | | | | | | | 
 | | | | | | | | | CLOSE: (78) is inconsistent.
 | | | | | | | | | 
@@ -730,7 +730,7 @@ Begin of proof
 | | | | | | | |   (79)  vrow3 = vrow2
 | | | | | | | | 
 | | | | | | | | REDUCE: (79), (DIFF-row2-row3) imply:
-| | | | | | | |   (80)   ~ (0 = 0)
+| | | | | | | |   (80)  $false
 | | | | | | | | 
 | | | | | | | | CLOSE: (80) is inconsistent.
 | | | | | | | | 
@@ -741,7 +741,7 @@ Begin of proof
 | | | | | | |   (81)  vrow3 = vrow1
 | | | | | | | 
 | | | | | | | REDUCE: (81), (DIFF-row1-row3) imply:
-| | | | | | |   (82)   ~ (0 = 0)
+| | | | | | |   (82)  $false
 | | | | | | | 
 | | | | | | | CLOSE: (82) is inconsistent.
 | | | | | | | 
@@ -752,7 +752,7 @@ Begin of proof
 | | | | | |   (83)  all_440_0 = all_396_3
 | | | | | | 
 | | | | | | REDUCE: (12), (83) imply:
-| | | | | |   (84)   ~ (0 = 0)
+| | | | | |   (84)  $false
 | | | | | | 
 | | | | | | CLOSE: (84) is inconsistent.
 | | | | | | 
@@ -795,7 +795,7 @@ Begin of proof
 | | | |   (92)  all_396_3 = vtempty
 | | | | 
 | | | | REDUCE: (19), (92) imply:
-| | | |   (93)   ~ (0 = 0)
+| | | |   (93)  $false
 | | | | 
 | | | | CLOSE: (93) is inconsistent.
 | | | | 
