@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -104,6 +104,51 @@ object BranchInferenceCollection {
       }
       case _ => List()
     }
+
+  private def getCertificateHelp(infs : List[BranchInference],
+                                 child : Certificate,
+                                 order : TermOrder) : Certificate =
+    if (infs.isEmpty) {
+      child
+    } else {
+      val requiredFormulas = new MHashSet[CertFormula]
+      val containedConstants = new MHashSet[ConstantTerm]
+
+      requiredFormulas ++= child.assumedFormulas
+      containedConstants ++= child.constants
+    
+      var selectedInferences : List[BranchInference] = List()
+      var remInferences = infs
+
+      while (!remInferences.isEmpty) {
+        val inf = remInferences.head
+        remInferences = remInferences.tail
+
+        if (!Seqs.disjoint(inf.providedFormulas, requiredFormulas) ||
+            !Seqs.disjoint(inf.localBoundConstants, containedConstants))
+          inf match {
+            case PartialCertificateInference(pCert, _, _) => {
+              val infCert = 
+                BranchInferenceCertificate.prepend(selectedInferences,
+                                                   child,
+                                                   order)
+              val newChild =
+                pCert(List(infCert))
+              return getCertificateHelp(remInferences, newChild, order)
+            }
+            case inf => {
+              requiredFormulas --= inf.providedFormulas
+              requiredFormulas ++= inf.assumedFormulas
+              containedConstants ++= inf.constants
+              containedConstants --= inf.localBoundConstants
+              selectedInferences = inf :: selectedInferences
+            }
+          }
+      }
+    
+      BranchInferenceCertificate.prepend(selectedInferences, child, order)
+    }
+  
 }
 
 /**
@@ -123,29 +168,7 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
                               })
   
   def getCertificate(child : Certificate, order : TermOrder) : Certificate =
-    if (inferences.isEmpty) {
-      child
-    } else {
-      val requiredFormulas = new MHashSet[CertFormula]
-      val containedConstants = new MHashSet[ConstantTerm]
-
-      requiredFormulas ++= child.assumedFormulas
-      containedConstants ++= child.constants
-    
-      var selectedInferences : List[BranchInference] = List()
-    
-      for (inf <- inferences)
-        if (!Seqs.disjoint(inf.providedFormulas, requiredFormulas) ||
-            !Seqs.disjoint(inf.localBoundConstants, containedConstants)) {
-          requiredFormulas --= inf.providedFormulas
-          requiredFormulas ++= inf.assumedFormulas
-          containedConstants ++= inf.constants
-          containedConstants --= inf.localBoundConstants
-          selectedInferences = inf :: selectedInferences
-        }
-    
-      BranchInferenceCertificate.prepend(selectedInferences, child, order)
-    }
+    BranchInferenceCollection.getCertificateHelp(inferences, child, order)
   
   /**
    * Check whether any of the stored inferences produced an unsatisfiable

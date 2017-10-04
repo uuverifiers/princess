@@ -862,3 +862,35 @@ case class TheoryAxiomInference(axiom : CertFormula, theory : Theory) extends {
   override def toString : String =
     "TheoryAxiom(" + theory + ", " + axiom + ")"
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+object PartialCertificateInference {
+  private val AC = Debug.AC_CERTIFICATES
+}
+
+/**
+ * An inference encapsulating the application of a unary
+ * <code>PartialCertificate</code>.
+ */
+case class PartialCertificateInference(pCert : PartialCertificate,
+                                       _providedFormulas : Set[CertFormula],
+                                       _boundConstants : Set[ConstantTerm])
+     extends {
+
+  val assumedFormulas = Set[CertFormula]() // never accessed!
+  val providedFormulas = _providedFormulas
+  override val localBoundConstants : Set[ConstantTerm] = _boundConstants
+
+} with BranchInference {
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(PartialCertificateInference.AC, pCert.arity == 1)
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+  
+  def propagateConstraint(closingConstraint : Conjunction) =
+    throw new UnsupportedOperationException
+  
+  override def toString : String =
+    "PartialCertificateInference(" + pCert + ")"
+}
