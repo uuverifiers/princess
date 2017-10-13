@@ -13,5 +13,5 @@
   false
 }
 
-\interpolant{a; b, c}
-\interpolant{a, b; c}
+\interpolant{a; b; c}
+

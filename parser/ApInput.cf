@@ -38,10 +38,13 @@ FunctionDecls.	Block		::= "\\functions" "{" [DeclFunC] "}";
 ExConstants.	Block		::= ExConstantsSec "{" [DeclConstantC] "}";
 UniConstants.	Block		::= "\\universalConstants" "{" [DeclConstantC] "}";
 PredDecls.	Block		::= "\\predicates" "{" [DeclPredC] "}";
-Interpolant.    Block           ::= "\\interpolant" "{" [Ident] ";" [Ident] "}";
+Interpolant.    Block           ::= "\\interpolant" "{" [InterpBlockC] "}";
 
 ECS1.		ExConstantsSec  ::= "\\existentialConstants";
 ECS2.		ExConstantsSec  ::= "\\metaVariables";
+
+InterpBlock.    InterpBlockC    ::= [Ident];
+separator nonempty InterpBlockC ";";
 
 --------------------------------------------------------------------------------
 -- Expressions, which cover both first-order formulas and terms

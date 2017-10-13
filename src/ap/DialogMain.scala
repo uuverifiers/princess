@@ -508,10 +508,8 @@ class InputDialog extends JPanel {
     println("  \\part[assert]        c > a")
     println("}")
     println
-    println("/* Interpolation specification */")
-    println("\\interpolant {cond; stmt1, stmt2, assert}")
-    println("\\interpolant {cond, stmt1; stmt2, assert}")
-    println("\\interpolant {cond, stmt1, stmt2; assert}")
+    println("/* Interpolation sequence specification */")
+    println("\\interpolant {cond; stmt1; stmt2; assert}")
   })
 
   newTabWithInput("Quantifier elimination", None, "+mostGeneralConstraint", asString {

@@ -14,6 +14,4 @@
 }
 
 /* Interpolation specification */
-\interpolant {cond; stmt1, stmt2, assert}
-\interpolant {cond, stmt1; stmt2, assert}
-\interpolant {cond, stmt1, stmt2; assert}
+\interpolant {cond; stmt1; stmt2; assert}

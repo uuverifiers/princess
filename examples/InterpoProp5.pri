@@ -12,5 +12,5 @@
   \part[middle] p(0) | \part[right] (p(1) | p(2)) | \part[middle] p(3)
 }
 
-\interpolant { left, middle; right }
-\interpolant { left; middle, right }
+\interpolant { left; middle; right }
+

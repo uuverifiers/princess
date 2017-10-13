@@ -147,11 +147,18 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
   protected def translateInterpolantSpecs(api : API)
                                          : List[IInterpolantSpec] = api match {
     case api : BlockList => {
-      (for (block <- api.listblock_; if (block.isInstanceOf[Interpolant])) yield {
-         val inter = block.asInstanceOf[Interpolant]
+      (for (block <- api.listblock_;
+            if block.isInstanceOf[Interpolant];
+            inter = block.asInstanceOf[Interpolant];
+            intBlocks = inter.listinterpblockc_;
+            n <- 1 until intBlocks.size) yield {
+         val left = intBlocks take n
+         val right = intBlocks drop n
          IInterpolantSpec(
-           (for (id <- inter.listident_1) yield (env lookupPartName id)).toList,
-           (for (id <- inter.listident_2) yield (env lookupPartName id)).toList)
+           (for (ids <- left; id <- ids.asInstanceOf[InterpBlock].listident_)
+              yield (env lookupPartName id)).toList,
+           (for (ids <- right; id <- ids.asInstanceOf[InterpBlock].listident_)
+              yield (env lookupPartName id)).toList)
        }).toList
     }
   }
