@@ -4366,6 +4366,10 @@ class SimpleAPI private (enableAssert : Boolean,
             // this exception indicates a stack overflow as well,
             // but probably the system has to be restarted at this point
             proverRes put OutOfMemoryResult
+          case t : InterruptedException =>
+            // somebody interrupted the thread, we assume that it is
+            // supposed to die
+            cont = false
           case t : Throwable =>
             // hope that we are able to continue
             proverRes put ExceptionResult(t)
