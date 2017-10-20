@@ -175,7 +175,7 @@ StringConstant.	SpecConstant	::= SMTString;
 
 token Numeral     ('0' | (["123456789"] ["0123456789"]*));
 token Rational    (('0' | (["123456789"] ["0123456789"]*)) '.' ["0123456789"]+);
-token Hexadecimal ({"#h"} ["0123456789ABCDEF"]+);
+token Hexadecimal ({"#x"} ["0123456789ABCDEFabcdef"]+);
 token Binary      ({"#b"} ["01"]+);
 
 NumMetaConstant.MetaConstant	::= "NUMERAL";

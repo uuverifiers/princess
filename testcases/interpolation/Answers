@@ -544,6 +544,17 @@ Interpolants:
 3*b.\as[int] >= a
 c.\as[int] - a.\as[int] >= 1
 
+Loading bv-interpolation-3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 17), simplifying (20), interpolating ...
+
+unsat
+(
+  (or (bvuge b (_ bv1000 16)) (bvuge a b))
+  (bvuge b (_ bv1000 16))
+)
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it

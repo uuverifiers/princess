@@ -28,11 +28,12 @@ import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
 import IExpression.Sort
-import ap.types.{SortedIFunction, SortedPredicate}
-import ap.util.Seqs
+import ap.types.{SortedIFunction, SortedPredicate, MonoSortedIFunction,
+                 SortedConstantTerm}
+import ap.util.{Seqs, Debug}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
-                                 LinkedHashMap}
+                                 HashSet => MHashSet, LinkedHashMap}
 
 import java.io.PrintStream
 
@@ -40,6 +41,8 @@ import java.io.PrintStream
  * Class for printing <code>IFormula</code>s in the SMT-LIB 2 format
  */
 object SMTLineariser {
+
+  private val AC = Debug.AC_PARSER
 
   private val SaneId =
     """[+-/*=%?!.$_~&^<>@a-zA-Z][+-/*=%?!.$_~&^<>@a-zA-Z0-9]*""".r
@@ -153,19 +156,37 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  private val emptyConstantType :
-       ConstantTerm => Option[SMTParser2InputAbsy.SMTType] = (_) => None
-  private val emptyFunctionType :
-       IFunction => Option[SMTParser2InputAbsy.SMTFunctionType] = (_) => None
-
-  private val trueConstant  = IConstant(new ConstantTerm("true"))
-  private val falseConstant = IConstant(new ConstantTerm("false"))
-  private val eqPredicate   = new Predicate ("=", 2)
-
-  //////////////////////////////////////////////////////////////////////////////
-
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
                               SMTBitVec, SMTFunctionType}
+
+  private val constantTypeFromSort =
+    (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
+
+  private val functionTypeFromSort =
+    (f : IFunction) => f match {
+      case f : MonoSortedIFunction =>
+        Some(SMTFunctionType(
+               (f.argSorts map { s => sort2SMTType(s)._1 }).toList,
+               sort2SMTType(f.resSort)._1))
+      case _ : SortedIFunction =>
+        None
+      case _ : IFunction =>
+        Some(SMTFunctionType(
+               (for (_ <- 0 until f.arity) yield SMTInteger).toList,
+               SMTInteger))
+    }
+
+  private val trueConstant  = IConstant(Sort.Bool newConstant "true")
+  private val falseConstant = IConstant(Sort.Bool newConstant "false")
+  private val eqPredicate   = new Predicate ("=", 2)
+
+  private val bvadd = new IFunction("bvadd", 2, true, true)
+  private val bvmul = new IFunction("bvmul", 2, true, true)
+  private val bvneg = new IFunction("bvneg", 1, true, true)
+  private val bvuge = new Predicate("bvuge", 2)
+  private val bvsge = new Predicate("bvsge", 2)
+
+  //////////////////////////////////////////////////////////////////////////////
 
   def printSMTType(t : SMTType) : Unit = t match {
     case SMTInteger          => print("Int")
@@ -209,7 +230,7 @@ object SMTLineariser {
   }
 
   def apply(formula : IFormula) : Unit =
-    apply(formula, emptyConstantType, emptyFunctionType)
+    apply(formula, constantTypeFromSort, functionTypeFromSort)
 
   def apply(formula : IFormula,
             constantType :
@@ -219,15 +240,17 @@ object SMTLineariser {
     formula match {
       case IBoolLit(value) => print(value)
       case _ => {
-        val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "",
-                                           constantType, functionType)
+        val lineariser =
+          new SMTLineariser("", "", "", List(), List(), "", "", "",
+                            constantType, functionType)
         lineariser printFormula formula
       }
     }
 
   def apply(term : ITerm) : Unit = {
-    val lineariser = new SMTLineariser("", "", "", List(), List(), "", "", "",
-                                       emptyConstantType, emptyFunctionType)
+    val lineariser =
+      new SMTLineariser("", "", "", List(), List(), "", "", "",
+                        constantTypeFromSort, functionTypeFromSort)
     lineariser printTerm term
   }
 
@@ -283,7 +306,8 @@ object SMTLineariser {
                                        order.orderedPredicates.toList,
 //                                       "fun", "pred", "const",
                                        "", "", "",
-                                       emptyConstantType, emptyFunctionType)
+                                       constantTypeFromSort,
+                                       functionTypeFromSort)
    
     lineariser.open
     for (f <- finalFormulas)
@@ -302,7 +326,8 @@ object SMTLineariser {
                                        constsToDeclare,
                                        predsToDeclare,
                                        "", "", "",
-                                       emptyConstantType, emptyFunctionType)
+                                       constantTypeFromSort,
+                                       functionTypeFromSort)
    
     lineariser.open
     for (f <- formulas)
@@ -330,7 +355,7 @@ class SMTLineariser(benchmarkName : String,
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr,
                         trueConstant, falseConstant, eqPredicate,
-                        printSMTType}
+                        printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -345,7 +370,10 @@ class SMTLineariser(benchmarkName : String,
         if t.termSize != null && (t.termSize contains fun) =>
         "_size"
       case _ =>
-        quoteIdentifier(funPrefix + fun.name)
+        if (zeroExtendFuns contains fun)
+          fun.name
+        else
+          quoteIdentifier(funPrefix + fun.name)
     }
 
   private def pred2Identifier(pred : Predicate) =
@@ -357,6 +385,16 @@ class SMTLineariser(benchmarkName : String,
   private def const2Identifier(const : ConstantTerm) =
     quoteIdentifier(constPrefix + const.name)
   
+  private val zeroExtendFunsMap = new MHashMap[Int, IFunction]
+  private val zeroExtendFuns    = new MHashSet[IFunction]
+
+  private def getZeroExtend(addedBits : Int) : IFunction =
+    zeroExtendFunsMap.getOrElseUpdate(addedBits, {
+      val f = new IFunction("(_ zero_extend " + addedBits + ")", 1, true, true)
+      zeroExtendFuns += f
+      f
+    })
+
   //////////////////////////////////////////////////////////////////////////////
 
   def open {
@@ -396,7 +434,8 @@ class SMTLineariser(benchmarkName : String,
         VariableTypeInferenceVisitor.visit(typedFormula, ())
                                     .asInstanceOf[IFormula]
     }
-    AbsyPrinter(typedFormula)
+    val bitvecFormula = (new BitVectorTranslator).visit(typedFormula, ())
+    AbsyPrinter(bitvecFormula)
   }
   
   def printTerm(term : ITerm) =
@@ -618,6 +657,142 @@ class SMTLineariser(benchmarkName : String,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Translate arithmetic constraints back to bit-vectors.
+   */
+  private class BitVectorTranslator
+                extends CollectingVisitor[Unit, IExpression] {
+
+    import SMTParser2InputAbsy.SMTBitVec
+    import IExpression._
+
+    private val variableTypes = new ArrayBuffer[SMTType]
+
+    private def setVariableType(variableIndex : Int, t : SMTType) : Unit =
+      variableTypes(variableTypes.size - variableIndex - 1) = t
+
+    implicit val getVariableType : Int => Option[SMTType] = (ind:Int) =>
+      variableTypes(variableTypes.size - ind - 1) match {
+        case null => None
+        case t => Some(t)
+      }
+
+    private object BitWidthInferrer
+                   extends CollectingVisitor[Unit, Option[Int]] {
+      override def preVisit(t : IExpression,
+                            arg : Unit) : PreVisitResult = t match {
+        case _ : IVariable | _ : IConstant | _ : IFunApp =>
+          ShortCutResult(
+            for (SMTBitVec(width) <- getTermType(t.asInstanceOf[ITerm]))
+            yield (width + 1))
+        case IIntLit(value) =>
+          ShortCutResult(Some(value.abs.getHighestSetBit + 1))
+        case _ =>
+          KeepArg
+      }
+      def postVisit(t : IExpression,
+                    arg : Unit,
+                    subres : Seq[Option[Int]]) : Option[Int] = t match {
+        case t : IPlus =>
+          for (left <- subres(0); right <- subres(1))
+          yield ((left max right) + 1)
+        case ITimes(coeff, _) =>
+          for (bits <- subres(0))
+          yield (bits + coeff.abs.getHighestSetBit)
+        case _ =>
+          None
+      }
+    }
+
+    private object BitVectorPadder
+                   extends CollectingVisitor[Int, ITerm] {
+      override def preVisit(t : IExpression,
+                            newWidth : Int) : PreVisitResult = t match {
+        case _ : IVariable | _ : IConstant | _ : IFunApp => {
+          val Some(SMTBitVec(oldWidth)) = getTermType(t.asInstanceOf[ITerm])
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(SMTLineariser.AC, oldWidth < newWidth)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+          ShortCutResult(getZeroExtend(newWidth - oldWidth)
+                                      (t.asInstanceOf[ITerm]))
+        }
+        case t : IIntLit =>
+          ShortCutResult(
+            ModuloArithmetic.cast2UnsignedBV(newWidth, t))
+        case _ =>
+          KeepArg
+      }
+      def postVisit(t : IExpression,
+                    newWidth : Int,
+                    subres : Seq[ITerm]) : ITerm = t match {
+        case _ : IPlus =>
+          bvadd(subres(0), subres(1))
+        case ITimes(IdealInt.MINUS_ONE, _) =>
+          bvneg(subres(0))
+        case ITimes(coeff, _) =>
+          bvmul(ModuloArithmetic.cast2UnsignedBV(newWidth, coeff),
+                subres(0))
+      }
+    }
+
+    override def preVisit(t : IExpression,
+                          arg : Unit) : PreVisitResult = {
+      t match {
+        case _ : IQuantified | _ : IEpsilon =>
+          variableTypes += null
+        case TypePredicate(IVariable(ind), s) =>
+          setVariableType(ind, s)
+        case _ =>
+          // nothing
+      }
+      KeepArg
+    }
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case _ : IQuantified | _ : IEpsilon => {
+        variableTypes reduceToSize (variableTypes.size - 1)
+        t update subres
+      }
+        
+      case IIntFormula(rel, _) => subres(0) match {
+        case Difference(TypedTerm(s, Some(SMTBitVec(sWidth))),
+                        TypedTerm(t, Some(SMTBitVec(tWidth))))
+          if (sWidth == tWidth) => rel match {
+            case IIntRelation.GeqZero => bvuge(s, t)
+            case IIntRelation.EqZero  => eqPredicate(s, t)
+          }
+        case IPlus(IIntLit(value),
+                   TypedTerm(t, Some(SMTBitVec(width))))
+          if (value.signum <= 0 && value > -(IdealInt(2) pow width)) =>
+          rel match {
+            case IIntRelation.GeqZero =>
+              bvuge(t, ModuloArithmetic.cast2UnsignedBV(width, -value))
+            case IIntRelation.EqZero =>
+              eqPredicate(t, ModuloArithmetic.cast2UnsignedBV(width, -value))
+          }
+        case _ =>
+          BitWidthInferrer.visit(subres(0), ()) match {
+            case Some(newWidth) => {
+              val pred = rel match {
+                case IIntRelation.GeqZero => bvsge
+                case IIntRelation.EqZero => eqPredicate
+              }
+              pred(BitVectorPadder.visit(subres(0), newWidth),
+                   ModuloArithmetic.cast2UnsignedBV(newWidth, 0))
+            }
+            case None =>
+              t update subres
+          }
+        }
+      case _ =>
+        t update subres
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private case class PrintContext(vars : List[(String, Option[SMTType])],
                                   pendingType : Option[SMTType]) {
     def pushVar(name : String) =
@@ -674,9 +849,10 @@ class SMTLineariser(benchmarkName : String,
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
                        IIntLit(value)))
-          if (value.signum >= 0 && (upper & (upper + 1)).isZero) => {
+          if (upper & (upper + 1)).isZero => {
         addSpace
-        print("(_ bv" + value + " " + (upper.getHighestSetBit + 1) + ")")
+        print("(_ bv" + (value % (upper + 1)) + " " +
+              (upper.getHighestSetBit + 1) + ")")
         ShortCutResult(())
       }
       case t@IFunApp(fun, args) => {
