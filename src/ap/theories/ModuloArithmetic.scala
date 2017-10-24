@@ -37,6 +37,7 @@ import ap.basetypes.IdealInt
 import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
+import ap.theories.nia.GroebnerMultiplication
 import ap.util.{Debug, IdealRange, LRUCache}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap}
@@ -443,6 +444,24 @@ object ModuloArithmetic extends Theory {
         case BVPred(`bv_sub`) =>
           _mod_cast(List(l(0), bits2Range(a(0)), a(1) - a(2), a(3)))
 
+        case BVPred(`bv_mul`) =>
+          if (a(1).isConstant) {
+            _mod_cast(List(l(0), bits2Range(a(0)), a(2) * a(1).constant, a(3)))
+          } else if (a(2).isConstant) {
+            _mod_cast(List(l(0), bits2Range(a(0)), a(1) * a(2).constant, a(3)))
+          } else {
+            val subst = VariableShiftSubst(0, 1, order)
+            val mulPred =
+              GroebnerMultiplication._mul(List(subst(a(1)), subst(a(2)),
+                                               l(v(0))))
+            val castPred = 
+              _mod_cast(List(l(0), bits2Range(a(0)), l(v(0)), subst(a(3))))
+            if (negated)
+              exists(mulPred & castPred)
+            else
+              forall(mulPred ==> castPred)
+          }
+
         case `bv_ult` =>
           a(1) < a(2)
         case `bv_ule` =>
@@ -502,16 +521,24 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  override val dependencies : Iterable[Theory] = List(GroebnerMultiplication)
+
   def plugin = Some(new Plugin {
     // not used
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       val castPreds = goal.facts.predConj.positiveLitsWithPred(_mod_cast)
-      if (castPreds.isEmpty)
+      if (castPreds.isEmpty) {
         List()
-      else
-        List(Plugin.ScheduleTask(Splitter, 0))
+      } else {
+        val actions = actionsForGoal(goal)
+        if (actions exists (_.isInstanceOf[Plugin.AxiomSplit]))
+          // delayed splitting through a separate task
+          List(Plugin.ScheduleTask(Splitter, 0))
+        else
+          actions
+      }
     }
   })
 
@@ -524,6 +551,13 @@ object ModuloArithmetic extends Theory {
   private object Splitter extends TheoryProcedure {
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
 //println("splitter " + goal.facts)
+      actionsForGoal(goal)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+    private def actionsForGoal(goal : Goal) : Seq[Plugin.Action] =  {
       val castPreds = goal.facts.predConj.positiveLitsWithPred(_mod_cast)
       val reducer = goal.reduceWithFacts
       implicit val order = goal.order
@@ -644,7 +678,7 @@ object ModuloArithmetic extends Theory {
 
       }
     }
-  }
+
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -602,12 +602,20 @@ println(unprocessed)
              (i0, l0) = intervalSet getLabelledTermInterval ca0;
              (i1, l1) = intervalSet getLabelledTermInterval ca1;
              (coeff0, bound0) <- enumBounds(i0 * a(0).leadingCoeff);
-             (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff)) yield {
-          ((a(2) * coeff0 * coeff1) -
-             (a(0) * coeff0 * bound1) -
-             (a(1) * coeff1 * bound0) +
-             (bound0 * bound1) >= 0,
-           (l0 | l1) + predN)
+             (coeff1, bound1) <- enumBounds(i1 * a(1).leadingCoeff);
+             ineq = (a(2) * coeff0 * coeff1) -
+                    (a(0) * coeff0 * bound1) -
+                    (a(1) * coeff1 * bound0) +
+                    (bound0 * bound1) >= 0;
+             // heuristic condition to
+             // avoid looping by introducing steeper and steeper inequalities
+             if (a(0) != a(1) ||
+                 !(goal.facts.arithConj.inEqs exists { lc =>
+                     lc.constants == ineq.constants &&
+                     lc.leadingCoeff.signum == ineq.head.leadingCoeff.signum
+                   })
+                 )) yield {
+          (ineq, (l0 | l1) + predN)
         }
 
       //////////////////////////////////////////////////////////////////////////
@@ -740,14 +748,17 @@ println(unprocessed)
           })
         }
   
-        def splitTermAt(x : ConstantTerm, mid : IdealInt) : Seq[Plugin.Action] =
+        def splitTermAt(x : ConstantTerm, mid : IdealInt,
+                        swap : Boolean = false) : Seq[Plugin.Action] = {
+          val for1 = (exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) <= mid)),
+                      List())
+          val for2 = (exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) > mid)),
+                      List())
           List(Plugin.AxiomSplit(
                 List(),
-                List((exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) <= mid)),
-                      List()),
-                     (exists(_mul(List(l(x), l(1), l(v(0)))) & (v(0) > mid)),
-                      List())),
+                if (swap) List(for2, for1) else List(for1, for2),
                 GroebnerMultiplication.this))
+        }
 
         /**
          * Finds any possible split by finding a lower (upper) bound b on
@@ -771,19 +782,52 @@ println(unprocessed)
                                      "Interval split: " + opt1 + ", " + opt2,
                                      BitSet(), splitTermAt(x, mid)))
                  }
-                 case (Interval(IntervalVal(ll), IntervalPosInf, _), label) => {
+                 case (Interval(IntervalVal(ll), IntervalPosInf, _), _)
+                     if ll.signum > 0 => {
+                   val mid = 2*ll
+                   val opt1 = ArithConj.conj(x <= mid, order)
+                   val opt2 = ArithConj.conj(x > mid, order)
+                   Iterator single ((opt1.negate, opt2.negate,
+                                     "Exp lowerbound split: " +
+                                        opt1 + ", " + opt2,
+                                     BitSet(), splitTermAt(x, mid)))
+                 }
+                 case (Interval(IntervalVal(IdealInt.ZERO), IntervalPosInf, _),
+                       label) => {
+                   val ll = IdealInt.ZERO
                    val opt1 = ArithConj.conj(x === ll, order)
                    val opt2 = ArithConj.conj(x > ll, order)
                    Iterator single ((opt1.negate, opt2.negate,
                                      "LowerBound split: " + opt1 + ", " + opt2,
                                      label, null))
                  }
-                 case (Interval(IntervalNegInf, IntervalVal(ul), _), label) => {
+                 case (Interval(IntervalNegInf, IntervalVal(ul), _), _)
+                     if ul.signum < 0 => {
+                   val mid = 2*ul
+                   val opt1 = ArithConj.conj(x > mid, order)
+                   val opt2 = ArithConj.conj(x <= mid, order)
+                   Iterator single ((opt1.negate, opt2.negate,
+                                     "Exp upperbound split: " +
+                                        opt1 + ", " + opt2,
+                                     BitSet(), splitTermAt(x, mid, true)))
+                 }
+                 case (Interval(IntervalNegInf, IntervalVal(IdealInt.ZERO), _),
+                       label) => {
+                   val ul = IdealInt.ZERO
                    val opt1 = ArithConj.conj(x === ul, order)
                    val opt2 = ArithConj.conj(x < ul, order)
                    Iterator single ((opt1.negate, opt2.negate,
                                      "UpperBound split: " + opt1 + ", " + opt2,
                                      label, null))
+                 }
+                 case (Interval(IntervalVal(_), IntervalPosInf, _), _) |
+                      (Interval(IntervalNegInf, IntervalVal(_), _), _) => {
+                   val opt1 = ArithConj.conj(x >= 0, order)
+                   val opt2 = ArithConj.conj(x < 0, order)
+                   Iterator single ((opt1.negate, opt2.negate,
+                                    "[-Inf, +Inf] split: " + opt1 + ", " + opt2,
+                                    BitSet(),
+                                    splitTermAt(x, IdealInt.ZERO)))
                  }
                  case _ =>
                    Iterator.empty

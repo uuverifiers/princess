@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -57,16 +57,20 @@ class TheoryCollector extends CollectingVisitor[Unit, Unit]
 
   //////////////////////////////////////////////////////////////////////////////
 
-  def addTheory(t : Theory) =
+  def addTheory(t : Theory) : Unit =
     if (theoriesSeen add t) {
       theoriesList += t
       theoriesDiff += t
+      for (s <- t.dependencies)
+        addTheory(s)
     }
 
-  def addTheoryFront(t : Theory) =
+  def addTheoryFront(t : Theory) : Unit =
     if (theoriesSeen add t) {
       theoriesList.insert(0, t)
       theoriesDiff += t
+      for (s <- t.dependencies)
+        addTheory(s)
     }
 
   def includes(t : Theory) = theoriesSeen contains t

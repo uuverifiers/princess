@@ -139,8 +139,8 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
   protected def genSignature(completeFor : IExpression) : Signature = {
     val coll = new TheoryCollector
     coll(completeFor)
-    for (t <- coll.theories find (_.isInstanceOf[MulTheory]))
-      Parser2InputAbsy.warn("using theory to encode multiplication: " + t)
+//    for (t <- coll.theories find (_.isInstanceOf[MulTheory]))
+//      Parser2InputAbsy.warn("using theory to encode multiplication: " + t)
     env.toSignature addTheories coll.theories
   }
 

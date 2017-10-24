@@ -223,10 +223,19 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
   override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
     val it = plugins.iterator
     var res : Seq[Plugin.Action] = List()
-    while (res.isEmpty && it.hasNext)
-      res = it.next handleGoal goal
+    while (it.hasNext && !splittingActions(res))
+      res = (it.next handleGoal goal) ++ res
     res
   }
+
+  private def splittingActions(actions : Seq[Plugin.Action]) =
+    actions exists {
+      case _ : Plugin.SplitGoal        => true
+      case _ : Plugin.CloseByAxiom     => true
+      case _ : Plugin.AxiomSplit       => true
+      case _ : Plugin.SplitDisequality => true
+      case _ =>                           false
+    }
 
   /**
    * Check whether the formulas in the given goal are satisfiable,

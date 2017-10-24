@@ -284,6 +284,11 @@ trait Theory {
   def plugin : Option[Plugin]
 
   /**
+   * Optionally, other theories that this theory depends on.
+   */
+  val dependencies : Iterable[Theory] = List()
+
+  /**
    * Optionally, a pre-processor that is applied to formulas over this
    * theory, prior to sending the formula to a prover.
    */

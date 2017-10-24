@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -743,7 +743,13 @@ abstract sealed class LinearCombination (val order : TermOrder)
    */
   def scaleAndAdd(coeff : IdealInt, const : IdealInt) : LinearCombination
 
-  def * (that : LinearCombination) : LinearCombination = (this.pairSeq, that.pairSeq) match {
+  /**
+   * Multiple two linear combinations. One of the arguments has to be
+   * constant, otherwise the method will raise an
+   * <code>IllegalArgumentException</code>.
+   */
+  def * (that : LinearCombination) : LinearCombination = (this.pairSeq,
+                                                          that.pairSeq) match {
     case (_, Seq()) | (Seq(), _) => LinearCombination.ZERO
     case (_, Seq((coeff, OneTerm))) => this scale coeff
     case (Seq((coeff, OneTerm)), _) => that scale coeff
