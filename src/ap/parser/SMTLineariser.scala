@@ -211,12 +211,15 @@ object SMTLineariser {
       (SMTInteger, None)
     case Sort.Nat | _ : Sort.Interval =>
       (SMTInteger, Some(sort.membershipConstraint _))
-    case Sort.Bool =>
+    case Sort.Bool | Sort.MultipleValueBool =>
       (SMTBool, None)
     case sort : ADT.ADTProxySort =>
       (SMTADT(sort.adtTheory, sort.sortNum), None)
     case ModuloArithmetic.UnsignedBVSort(width) =>
       (SMTBitVec(width), None)
+    case SimpleArray.ArraySort(arity) =>
+      (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
+       None)
   }
 
   def sort2SMTString(sort : Sort) : String =

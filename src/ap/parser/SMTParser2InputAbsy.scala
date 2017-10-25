@@ -51,14 +51,14 @@ object SMTParser2InputAbsy {
     def toSort : TSort
   }
   case object SMTBool                              extends SMTType {
-    def toSort = TSort.Bool
+    def toSort = TSort.MultipleValueBool
   }
   case object SMTInteger                           extends SMTType {
     def toSort = TSort.Integer
   }
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType)           extends SMTType {
-    def toSort = TSort.Integer // TODO
+    def toSort = SimpleArray(arguments.size).sort
   }
   case class SMTBitVec(width : Int)                extends SMTType {
     def toSort = ModuloArithmetic.UnsignedBVSort(width)
@@ -1893,7 +1893,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         } else addAxiom(t match {
           case SMTBool => {
             val f = new MonoSortedIFunction(letVarName(name),
-                                            List(TSort.Integer), TSort.Bool,
+                                            List(TSort.Integer),
+                                            TSort.MultipleValueBool,
                                             true, false)
             env.addFunction(f, SMTFunctionType(List(SMTInteger), SMTBool))
 

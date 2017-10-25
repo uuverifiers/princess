@@ -231,7 +231,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun a () Int 0)
+  (define-fun a () (Array Int Int) 0)
 )
 
 Loading distinctBug.smt2 ...

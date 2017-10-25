@@ -27,10 +27,13 @@ import ap.parser._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.preds.Atom
+import ap.types.{TypeTheory, ProxySort, MonoSortedIFunction}
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
 object SimpleArray {
+
+  import IExpression.Sort
   
   private val instances = new MHashMap[Int, SimpleArray]
 
@@ -62,6 +65,14 @@ object SimpleArray {
       }
   }
 
+  /**
+   * Sort representing arrays. At the moment the sorts only distinguish
+   * the arity of arrays, not the index and element sorts.
+   */
+  case class ArraySort(arity : Int) extends ProxySort(Sort.Integer) {
+    override val name : String =
+      "SimpleArray" + (if (arity == 1) "" else "_" + arity)
+  }
 }
 
 /**
@@ -76,8 +87,20 @@ class SimpleArray private (arity : Int) extends Theory {
 
   private val partial = false
 
-  val select = new IFunction(prefix + "select" + suffix, arity + 1, partial, false)
-  val store = new IFunction(prefix + "store" + suffix, arity + 2, partial, false)
+  val sort = new SimpleArray.ArraySort(arity)
+
+  val select =
+    MonoSortedIFunction(
+      prefix + "select" + suffix,
+      List(sort) ++ (for (_ <- 0 until arity) yield Sort.Integer),
+      Sort.Integer,
+      partial, false)
+  val store =
+    MonoSortedIFunction(
+      prefix + "store" + suffix,
+      List(sort) ++ (for (_ <- 0 to arity) yield Sort.Integer),
+      sort,
+      partial, false)
   
   val functions = List(select, store)
 
@@ -104,9 +127,9 @@ class SimpleArray private (arity : Int) extends Theory {
       case Theory.SatSoundnessConfig.Elementary |
            Theory.SatSoundnessConfig.Existential =>
         theories forall {
-          t => t.isInstanceOf[SimpleArray] ||
-               t == BitShiftMultiplication ||
-               t == nia.GroebnerMultiplication
+          t => t == TypeTheory ||
+               t.isInstanceOf[SimpleArray] ||
+               t.isInstanceOf[MulTheory]
         }
       case Theory.SatSoundnessConfig.General =>
         false
