@@ -22,13 +22,14 @@
 package ap.theories
 
 import ap.basetypes.IdealInt
-import ap.Signature
+import ap.{Signature, PresburgerTools}
 import ap.parser._
 import ap.terfor.{Formula, TermOrder}
 import ap.terfor.preds.{Predicate, Atom}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPluginFactory,
                                IdentityReducerPluginFactory}
+import ap.terfor.substitutions.VariableShiftSubst
 import ap.parameters.{PreprocessingSettings, Param}
 import ap.proof.theoryPlugins.Plugin
 import ap.util.Debug
@@ -101,6 +102,7 @@ object Theory {
   /**
    * Apply a uniform substitution to a formula, rewriting atoms to arbitrary
    * new formulas.
+   * TODO: optimise
    */
   def rewritePreds(f : Conjunction, order : TermOrder)
                   (rewrite : (Atom, Boolean) => Formula) : Conjunction =
@@ -150,11 +152,21 @@ object Theory {
     } else if (newFors.isEmpty) {
       Conjunction(f.quans, f.arithConj, newPredConj, newNegConjs, order)
     } else {
-      // TODO: pull out quantifiers!
-      val matrix =
-        Conjunction.conj(f.arithConj :: newPredConj :: newNegConjs :: newFors,
-                         order)
-      Conjunction.quantify(f.quans, matrix, order)
+      val quantifiedParts =
+        PresburgerTools toPrenex Conjunction.conj(newFors, order)
+      val newQuanNum =
+        quantifiedParts.quans.size
+
+      val unquantifiedParts =
+        VariableShiftSubst(0, newQuanNum, order)(
+          Conjunction(List(), f.arithConj, newPredConj, newNegConjs, order))
+
+      Conjunction.quantify(
+        quantifiedParts.quans ++ f.quans,
+        Conjunction.conj(
+          List(quantifiedParts unquantify newQuanNum, unquantifiedParts),
+          order),
+        order)
     }
   }
 

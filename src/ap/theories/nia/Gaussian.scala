@@ -47,7 +47,10 @@ class Gaussian(array : Array[Array[IdealInt]]) {
   //  GAUSSIAN ELIMINATION PART
   // 
 
-  def getRows : List[(Array[IdealInt], BitSet)] = {
+  def getRows : List[(Array[IdealInt], BitSet)] =
+    // prevent confusing debugging output from here
+    Console.withOut(ap.CmdlMain.NullStream) {
+
     // Startup engine
     SimpleAPI.withProver { p =>
     import p._

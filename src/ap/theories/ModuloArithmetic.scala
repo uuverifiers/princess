@@ -542,7 +542,7 @@ object ModuloArithmetic extends Theory {
     }
   })
 
-  private val SPLIT_LIMIT = IdealInt(1000)
+  private val SPLIT_LIMIT = IdealInt(20)
 
   /**
    * Splitter handles the splitting of modulo-operations, when no other
@@ -901,6 +901,7 @@ object ModuloArithmetic extends Theory {
         return conj
 
       val predConj = conj.predConj
+      val quanNum = quans.size
       val castLits = predConj.positiveLitsWithPred(_mod_cast)
 
       if (castLits.isEmpty)
@@ -915,7 +916,8 @@ object ModuloArithmetic extends Theory {
                         _,
                         LinearCombination.SingleTerm(resVar : VariableTerm)),
                     _) <- castLits;
-             if quans(resVar.index) == Quantifier.EX &&
+             if resVar.index < quanNum &&
+                quans(resVar.index) == Quantifier.EX &&
                 hasImpliedIneqConstraints(resVar, lower, upper,
                                           conj.arithConj.inEqs))
         yield a
