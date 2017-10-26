@@ -97,6 +97,19 @@ object LinearCombination {
       new LinearCombination1(IdealInt.ONE, t, IdealInt.ZERO, order)
   }
   
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are just a
+   * single term with coefficient <code>1</code>.
+   */
+  object SingleTerm {
+    def unapply(lc : LinearCombination) : Option[Term] = lc match {
+      case lc : LinearCombination1 if lc.coeff0.isOne && lc.constant.isZero =>
+        Some(lc.term0)
+      case _ =>
+        None
+    }
+  }
+
   def apply(coeff : IdealInt, t : Term,
             order : TermOrder) : LinearCombination = t match {
     case t : LinearCombination => {
@@ -130,6 +143,16 @@ object LinearCombination {
     case IdealInt.ONE => ONE
     case IdealInt.MINUS_ONE => MINUS_ONE
     case _ => new LinearCombination0 (c)
+  }
+
+  /**
+   * Extractor applying to <code>LinearCombination</code> that are constant.
+   */
+  object Constant {
+    def unapply(lc : LinearCombination) : Option[IdealInt] = lc match {
+      case lc : LinearCombination0 => Some(lc.constant)
+      case _ => None
+    }    
   }
   
   /**

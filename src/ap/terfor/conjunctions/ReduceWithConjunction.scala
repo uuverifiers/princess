@@ -105,7 +105,8 @@ object ReduceWithConjunction {
     
                 if ((conj.quans == res.quans) &&
                     (currentArithConj eq res.arithConj) &&
-                    (currentPredConj eq res.predConj)) {
+                    (currentPredConj eq res.predConj) &&
+                    (currentNegConjs eq res.negatedConjs)) {
                   return res
                 } else {
                   // it might be necessary to repeat reduction, because new

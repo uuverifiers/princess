@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -839,7 +839,14 @@ class Conjunction private (val quans : Seq[Quantifier],
    * conjunction
    */
   def isNegatedConjunction : Boolean =
-    (isPurelyNegated && negatedConjs.size == 1)
+    isPurelyNegated && negatedConjs.size == 1
+
+  /**
+   * Return whether this conjunction actually is the negation of a single
+   * conjunction
+   */
+  def isQuantifiedNegatedConjunction : Boolean =
+    arithConj.isTrue && predConj.isTrue && negatedConjs.size == 1
 
   /**
    * Return whether this conjunction only contains negated sub-conjunctions

@@ -23,14 +23,14 @@ package ap.theories
 
 import ap.parser._
 import ap.parameters.{Param, ReducerSettings}
-import ap.terfor.{Term, TermOrder, Formula, ComputationLogger,
+import ap.terfor.{Term, VariableTerm, TermOrder, Formula, ComputationLogger,
                   TerForConvenience}
 import ap.terfor.preds.{Atom, Predicate, PredConj}
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.inequalities.InEqConj
-import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
+import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                ReducerPluginFactory, IdentityReducerPlugin,
-                               ReducerPlugin}
+                               ReducerPlugin, NegatedConjunctions}
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination0}
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.basetypes.IdealInt
@@ -40,7 +40,7 @@ import ap.proof.goal.Goal
 import ap.theories.nia.GroebnerMultiplication
 import ap.util.{Debug, IdealRange, LRUCache}
 
-import scala.collection.mutable.{ArrayBuffer, Map => MMap}
+import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet}
 
 /**
  * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
@@ -873,7 +873,103 @@ object ModuloArithmetic extends Theory {
         }
       }
 
-    def finalReduce(conj : Conjunction) = conj
+    /**
+     * Perform GC, remove literals that are no longer needed in a formula.
+     */
+    def finalReduce(conj : Conjunction) =
+      if (conj.quans.isEmpty) {
+        conj
+      } else if (conj.isQuantifiedNegatedConjunction) {
+        val subConj =
+          conj.negatedConjs.head
+        val newSubConj =
+          finalReduceHelp(subConj, for (q <- conj.quans) yield q.dual)
+
+        if (subConj eq newSubConj) {
+          conj
+        } else {
+          implicit val order = conj.order
+          conj.updateNegatedConjs(NegatedConjunctions(newSubConj, order))
+        }
+      } else {
+        finalReduceHelp(conj, conj.quans)
+      }
+
+    private def finalReduceHelp(conj : Conjunction,
+                                quans : Seq[Quantifier]) : Conjunction = {
+      if (!(quans contains Quantifier.EX))
+        return conj
+
+      val predConj = conj.predConj
+      val castLits = predConj.positiveLitsWithPred(_mod_cast)
+
+      if (castLits.isEmpty)
+        return conj
+
+      // check which of the casts have results in terms of existentially
+      // quantified variables
+      val varLits =
+        for (a@Atom(_,
+                    Seq(LinearCombination.Constant(lower),
+                        LinearCombination.Constant(upper),
+                        _,
+                        LinearCombination.SingleTerm(resVar : VariableTerm)),
+                    _) <- castLits;
+             if quans(resVar.index) == Quantifier.EX &&
+                hasImpliedIneqConstraints(resVar, lower, upper,
+                                          conj.arithConj.inEqs))
+        yield a
+
+      if (varLits.isEmpty)
+        return conj
+
+      // check which of the result variables are not used anywhere else
+
+      val varOccurs, unelimVars = new MHashSet[VariableTerm]
+      unelimVars ++= conj.arithConj.positiveEqs.variables
+      unelimVars ++= conj.arithConj.negativeEqs.variables
+      unelimVars ++= (for (a <- predConj.negativeLits.iterator;
+                           v <- a.variables.iterator) yield v)
+      unelimVars ++= conj.negatedConjs.variables
+
+      for (a <- predConj.positiveLits.iterator;
+           lc <- a.iterator;
+           v <- lc.variables.iterator)
+        if (!(varOccurs add v))
+          unelimVars add v
+
+      val elimLits =
+        (for (a@Atom(_,
+                     Seq(_, _, _,
+                         LinearCombination.SingleTerm(resVar : VariableTerm)),
+                     _) <- varLits.iterator;
+              if !(unelimVars contains resVar))
+         yield a).toSet
+
+      if (elimLits.isEmpty)
+        return conj
+
+      val newPosLits =
+        predConj.positiveLits filterNot elimLits
+      val newPredConj =
+        predConj.updateLitsSubset(newPosLits, predConj.negativeLits, conj.order)
+
+      conj.updatePredConj(newPredConj)(conj.order)
+    }
+
+    private def hasImpliedIneqConstraints(v : VariableTerm,
+                                          lower : IdealInt,
+                                          upper : IdealInt,
+                                          ineqs : InEqConj) : Boolean =
+      ineqs forall { lc =>
+        !(lc.variables contains v) ||
+        (lc.variables.size == 1 && lc.constants.isEmpty &&
+         (lc.leadingCoeff match {
+            case IdealInt.ONE       => -lc.constant <= lower
+            case IdealInt.MINUS_ONE => lc.constant >= upper
+            case _                  => false
+          }))
+      }
   }
 
   override val reducerPlugin : ReducerPluginFactory = ReducerFactory

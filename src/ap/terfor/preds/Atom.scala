@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -40,6 +40,14 @@ object Atom {
             args : Iterable[LinearCombination],
             order : TermOrder) : Atom =
     new Atom (pred, args.toArray[LinearCombination], order)
+
+  def unapply(f : Formula)
+             : Option[(Predicate,
+                       Seq[LinearCombination],
+                       TermOrder)] = f match {
+    case a : Atom => Some((a.pred, a, a.order))
+    case _ => None
+  }
 
   def createNoCopy(pred : Predicate,
                    args : Array[LinearCombination],
