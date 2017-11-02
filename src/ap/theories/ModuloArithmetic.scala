@@ -388,13 +388,13 @@ object ModuloArithmetic extends Theory {
   val bv_or            = new BVNAryOp ("bv_or",  2)
   val bv_add           = new BVNAryOp ("bv_add", 2) // X
   val bv_sub           = new BVNAryOp ("bv_sub", 2) // X
-  val bv_mul           = new BVNAryOp ("bv_mul", 2)
-  val bv_udiv          = new BVNAryOp ("bv_udiv",2)
+  val bv_mul           = new BVNAryOp ("bv_mul", 2) // X (to be optimised)
+  val bv_udiv          = new BVNAryOp ("bv_udiv",2) // X
   val bv_sdiv          = new BVNAryOp ("bv_sdiv",2)
-  val bv_urem          = new BVNAryOp ("bv_urem",2)
+  val bv_urem          = new BVNAryOp ("bv_urem",2) // partly
   val bv_srem          = new BVNAryOp ("bv_srem",2)
   val bv_smod          = new BVNAryOp ("bv_smod",2)
-  val bv_shl           = new BVNAryOp ("bv_shl", 2)
+  val bv_shl           = new BVNAryOp ("bv_shl", 2) // partly
   val bv_lshr          = new BVNAryOp ("bv_lshr",2)
   val bv_ashr          = new BVNAryOp ("bv_ashr",2)
 
@@ -581,19 +581,22 @@ object ModuloArithmetic extends Theory {
           val denom = a(2)
           val res   = a(3)
 
-          if (denom.isConstant) {
+//          if (denom.isConstant) {
 
             if (denom.constant.isZero)
               res === num
             else
               _mod_cast(List(l(0), denom - 1, a(1), a(3)))
 
-          } else {
-
-            null
-
-          }
+//          } else {
+//            ... TODO
+//          }
         }
+
+        case BVPred(`bv_shl`) if a(2).isConstant =>
+          _mod_cast(List(l(0), bits2Range(a(0)),
+                         a(1) * (IdealInt(2) pow a(2).constant.intValueSafe),
+                         a(3)))
 
         case `bv_ult` =>
           a(1) < a(2)
