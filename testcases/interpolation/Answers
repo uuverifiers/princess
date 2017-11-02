@@ -561,8 +561,8 @@ Found proof (size 102), simplifying (115), interpolating ...
 
 unsat
 (
-  (and (bvuge a (_ bv1 8)) (or (and (bvsge (bvadd (_ bv255 12) (bvadd (bvmul (_ bv4094 12) ((_ zero_extend 4) b)) ((_ zero_extend 4) a))) (_ bv0 12)) (bvuge b (_ bv128 8))) (and (bvsge (bvadd (_ bv4095 12) (bvadd (bvmul (_ bv4094 12) ((_ zero_extend 4) b)) ((_ zero_extend 4) a))) (_ bv0 12)) (bvsge (bvadd (_ bv127 10) (bvneg ((_ zero_extend 2) b))) (_ bv0 10)))))
-  (and (and (bvsge (bvadd (_ bv254 10) (bvneg ((_ zero_extend 2) a))) (_ bv0 10)) (bvuge a (_ bv1 8))) (or (and (= (bvadd (_ bv3841 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (and (bvuge b a) (bvuge b (_ bv128 8)))) (and (= (bvadd (_ bv1 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (bvsge (bvadd (_ bv128 11) (bvadd ((_ zero_extend 3) b) (bvneg ((_ zero_extend 3) a)))) (_ bv0 11)))))
+  (and (bvuge a (_ bv1 8)) (and (or (bvsge (bvadd (_ bv255 12) (bvadd (bvmul (_ bv4094 12) ((_ zero_extend 4) b)) ((_ zero_extend 4) a))) (_ bv0 12)) (bvsge (bvadd (_ bv127 10) (bvneg ((_ zero_extend 2) b))) (_ bv0 10))) (or (bvsge (bvadd (_ bv4095 12) (bvadd (bvmul (_ bv4094 12) ((_ zero_extend 4) b)) ((_ zero_extend 4) a))) (_ bv0 12)) (bvuge b (_ bv128 8)))))
+  (and (and (bvsge (bvadd (_ bv254 10) (bvneg ((_ zero_extend 2) a))) (_ bv0 10)) (bvuge a (_ bv1 8))) (and (or (= (bvadd (_ bv3841 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (bvsge (bvadd (_ bv127 10) (bvneg ((_ zero_extend 2) b))) (_ bv0 10))) (or (= (bvadd (_ bv1 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (bvuge b (_ bv128 8)))))
 )
 
 Loading function-bug.smt2 ...

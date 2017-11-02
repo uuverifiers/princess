@@ -22,7 +22,7 @@
 package ap.theories
 
 import ap.parser._
-import ap.parameters.{Param, ReducerSettings}
+import ap.parameters.{Param, ReducerSettings, GoalSettings}
 import ap.terfor.{Term, VariableTerm, TermOrder, Formula, ComputationLogger,
                   TerForConvenience}
 import ap.terfor.preds.{Atom, Predicate, PredConj}
@@ -53,6 +53,85 @@ object ModuloArithmetic extends Theory {
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
   override def toString = "ModuloArithmetic"
+
+  //////////////////////////////////////////////////////////////////////////////
+  // API methods that infer the right bit-width based on types
+  
+  def bv(width : Int, num : IdealInt) : ITerm =
+    cast2UnsignedBV(width, num)
+
+  def concat(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_concat, List(extractBitWidth(t1), extractBitWidth(t2), t1, t2))
+  def extract(begin : Int, end : Int, t : ITerm) : ITerm = {
+    val width = extractBitWidth(t)
+    IFunApp(bv_extract,
+            List(width - begin - 1, begin - end + 1, end, t))
+  }
+
+  def bvnot(t : ITerm) : ITerm =
+    IFunApp(bv_not, List(extractBitWidth(t), t))
+  def bvneg(t : ITerm) : ITerm =
+    IFunApp(bv_neg, List(extractBitWidth(t), t))
+  def bvand(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_and, List(extractBitWidth(t1, t2), t1, t2))
+  def bvor(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_or, List(extractBitWidth(t1, t2), t1, t2))
+  def bvadd(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_add, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsub(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_sub, List(extractBitWidth(t1, t2), t1, t2))
+  def bvmul(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_mul, List(extractBitWidth(t1, t2), t1, t2))
+  def bvudiv(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_udiv, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsdiv(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_sdiv, List(extractBitWidth(t1, t2), t1, t2))
+  def bvurem(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_urem, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsrem(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_srem, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsmod(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_smod, List(extractBitWidth(t1, t2), t1, t2))
+  def bvshl(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_shl, List(extractBitWidth(t1, t2), t1, t2))
+  def bvlshr(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_lshr, List(extractBitWidth(t1, t2), t1, t2))
+  def bvashr(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_ashr, List(extractBitWidth(t1, t2), t1, t2))
+  def bvxor(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_xor, List(extractBitWidth(t1, t2), t1, t2))
+  def bvxnor(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_xnor, List(extractBitWidth(t1, t2), t1, t2))
+  def bvcomp(t1 : ITerm, t2 : ITerm) : ITerm =
+    IFunApp(bv_comp, List(extractBitWidth(t1, t2), t1, t2))
+
+  def bvult(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_ult, List(extractBitWidth(t1, t2), t1, t2))
+  def bvule(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_ule, List(extractBitWidth(t1, t2), t1, t2))
+  def bvslt(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_slt, List(extractBitWidth(t1, t2), t1, t2))
+  def bvsle(t1 : ITerm, t2 : ITerm) : IFormula =
+    IAtom(bv_sle, List(extractBitWidth(t1, t2), t1, t2))
+
+  private def extractBitWidth(t1 : ITerm, t2 : ITerm) : Int = {
+    val width1 = extractBitWidth(t1)
+    val width2 = extractBitWidth(t2)
+    if (width1 != width2)
+      throw new IllegalArgumentException(
+        "method can only be applied to terms of the same bit-vector sort")
+    width1
+  }
+
+  private def extractBitWidth(t : ITerm) : Int = (Sort sortOf t) match {
+    case UnsignedBVSort(width) =>
+      width
+    case _ =>
+      throw new IllegalArgumentException(
+        "method can only be applied to terms with a bit-vector sort")
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Modulo sorts, representing the interval
@@ -436,7 +515,7 @@ object ModuloArithmetic extends Theory {
         }
 
         case BVPred(`bv_not`) =>
-          _mod_cast(List(l(0), bits2Range(a(0)), a(0) - a(1) - 1, a(2)))
+          _mod_cast(List(l(0), bits2Range(a(0)), -a(1) - 1, a(2)))
         case BVPred(`bv_neg`) =>
           _mod_cast(List(l(0), bits2Range(a(0)), -a(1), a(2)))
         case BVPred(`bv_add`) =>
@@ -451,9 +530,8 @@ object ModuloArithmetic extends Theory {
             _mod_cast(List(l(0), bits2Range(a(0)), a(1) * a(2).constant, a(3)))
           } else {
             val subst = VariableShiftSubst(0, 1, order)
-            val mulPred =
-              GroebnerMultiplication._mul(List(subst(a(1)), subst(a(2)),
-                                               l(v(0))))
+            val mulPred = GroebnerMultiplication._mul(
+                            List(subst(a(1)), subst(a(2)), l(v(0))))
             val castPred = 
               _mod_cast(List(l(0), bits2Range(a(0)), l(v(0)), subst(a(3))))
             if (negated)
@@ -461,6 +539,61 @@ object ModuloArithmetic extends Theory {
             else
               forall(mulPred ==> castPred)
           }
+
+        case BVPred(`bv_udiv`) => {
+          val num   = a(1)
+          val denom = a(2)
+          val res   = a(3)
+
+          if (denom.isConstant) {
+
+            if (denom.constant.isZero) {
+              res === bits2Range(a(0))
+            } else {
+              (res * denom <= num) & (res * denom > num - denom)
+            }
+
+          } else {
+
+            val subst   = VariableShiftSubst(0, 1, order)
+            val shNum   = subst(num)
+            val shDenom = subst(denom)
+            val shRes   = subst(res)
+
+            val mulPred = GroebnerMultiplication._mul(
+                            List(shRes, shDenom, l(v(0))))
+
+            val ineqs   = (v(0) <= num) & (v(0) > num - denom)
+
+            if (negated)
+              exists(mulPred &
+                     (((shDenom === 0) & (shRes === bits2Range(a(0)))) |
+                      ((shDenom > 0) & ineqs)))
+            else
+              forall(mulPred ==>
+                     (((shDenom === 0) ==> (shRes === bits2Range(a(0)))) &
+                      ((shDenom > 0) ==> ineqs)))
+          }
+        }
+
+        case BVPred(`bv_urem`) if a(2).isConstant => {
+          val num   = a(1)
+          val denom = a(2)
+          val res   = a(3)
+
+          if (denom.isConstant) {
+
+            if (denom.constant.isZero)
+              res === num
+            else
+              _mod_cast(List(l(0), denom - 1, a(1), a(3)))
+
+          } else {
+
+            null
+
+          }
+        }
 
         case `bv_ult` =>
           a(1) < a(2)
@@ -491,6 +624,15 @@ object ModuloArithmetic extends Theory {
             forallSorted(List(sort, sort), antecedent ==> predicate)
         }
 
+        case `_mod_cast` =>
+          a
+
+        case BVPred(_) => {
+          Console.err.println("Warning: don't know how to handle " + a)
+          (incompletenessFlag.value)(0) = true
+          a
+        }
+
         case _ =>
           a
       }
@@ -518,6 +660,13 @@ object ModuloArithmetic extends Theory {
       (for ((a, b) <- functionPredicateMapping.iterator) yield (b, a)).toMap
     def unapply(p : Predicate) : Option[IFunction] = reverseMapping get p
   }
+
+  // a simple flag to detect problems with operators that are not yet
+  // supported
+  // TODO: add support for all operators
+
+  val incompletenessFlag =
+    new scala.util.DynamicVariable[Array[Boolean]] (Array(false))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -558,7 +707,10 @@ object ModuloArithmetic extends Theory {
   //////////////////////////////////////////////////////////////////////////////
 
     private def actionsForGoal(goal : Goal) : Seq[Plugin.Action] =  {
-      val castPreds = goal.facts.predConj.positiveLitsWithPred(_mod_cast)
+      val castPreds =
+        goal.facts.predConj.positiveLitsWithPred(_mod_cast).toBuffer
+      Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
+
       val reducer = goal.reduceWithFacts
       implicit val order = goal.order
       import TerForConvenience._
@@ -653,11 +805,12 @@ object ModuloArithmetic extends Theory {
           (for (n <- IdealRange(lowerFactor, upperFactor + 1).iterator;
                 f = conj(a(2) === a(3) + (n * sort.modulus));
                 if !f.isFalse)
-           yield (f, List())).toList
+           yield (f, List())).toBuffer
+        Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(cases)
 
         List(Plugin.RemoveFacts(a),
              Plugin.AxiomSplit(assumptions,
-                               cases,
+                               cases.toList,
                                ModuloArithmetic.this))
         
       } else if (someQuantPred.isDefined) {

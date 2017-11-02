@@ -23,7 +23,12 @@ done
 TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        getConstraint-bug.scala TheoryTest.scala TheoryTest2.scala \
        TheoryTest3.scala TypeTests.scala nonlinear.scala \
-       nonlinearInterpolation.scala division.scala"
+       nonlinearInterpolation.scala division.scala \
+        deadlock.scala exception.scala incremental.scala \
+       divmodprint.scala \
+       ADTTest.scala ADTTest2.scala ADTTest3.scala ADTTest4.scala \
+       pred-simplify.scala empty-stack-bug.scala \
+       TestModuloArithmetic.scala"
 
 for testname in $TESTS; do
   echo
@@ -31,11 +36,11 @@ for testname in $TESTS; do
   scala $OPTIONS $testname
 done
 
+# Test cases that are use the SMT-LIB parser, which needs additional libraries
+
 OPTIONS="-language:implicitConversions,postfixOps,reflectiveCalls -cp `pwd`/../../bin:`pwd`/../../extlibs/java-cup-11a.jar:`pwd`/../../smt-parser/smt-parser.jar"
 
-TESTS="readSMTLIB.scala deadlock.scala exception.scala incremental.scala \
-       divmodprint.scala ADTTest.scala ADTTest2.scala ADTTest3.scala ADTTest4.scala \
-       pred-simplify.scala empty-stack-bug.scala"
+TESTS="readSMTLIB.scala"
 
 for testname in $TESTS; do
   echo

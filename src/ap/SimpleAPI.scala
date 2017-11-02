@@ -3890,10 +3890,16 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addToProver(preCompleteFor : Conjunction,
                           preAxioms : Conjunction) : Unit = {
-    val completeFor =
+    val incomp = Array(false)
+    val completeFor = ap.theories.ModuloArithmetic.incompletenessFlag.withValue(incomp) {
       convertQuantifiers(Theory.preprocess(preCompleteFor,
                                            theories,
                                            currentOrder))
+    }
+
+    if (incomp(0))
+      ignoredQuantifiers = true
+
     val axioms =
       convertQuantifiers(preAxioms)
 

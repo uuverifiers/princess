@@ -346,6 +346,20 @@ sat
   (define-fun c () (_ BitVec 8) (_ bv7 8))
 )
 
+Loading bitops1.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading division_by_zero0.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat
@@ -582,7 +596,42 @@ Warning: assuming that recursive function f2 is partial
 sat
 ((c 22))
 Loading run_00007.trace.Alloc_large__008268.smt2 ...
-sat
+Warning: don't know how to handle bv_xor(32, 103, _56, _55)
+Warning: don't know how to handle bv_or(32, _28, _21, _20)
+Warning: don't know how to handle bv_or(32, 0, _15, _14)
+Warning: don't know how to handle bv_or(32, 0, _17, _16)
+Warning: don't know how to handle bv_or(32, 0, _19, _18)
+Warning: don't know how to handle bv_or(32, 0, _20, _19)
+Warning: don't know how to handle bv_or(32, 0, _33, _32)
+Warning: don't know how to handle bv_or(32, 0, _35, _34)
+Warning: don't know how to handle bv_or(32, 0, _45, _44)
+Warning: don't know how to handle bv_or(32, 0, _47, _46)
+Warning: don't know how to handle bv_or(32, 0, _49, _48)
+Warning: don't know how to handle bv_or(32, 0, _57, _56)
+Warning: don't know how to handle bv_or(32, 0, _59, _58)
+Warning: don't know how to handle bv_or(32, 0, _61, _60)
+Warning: don't know how to handle bv_or(16, _52, _38, _37)
+Warning: don't know how to handle bv_and(32, 4294902015, _50, _49)
+Warning: don't know how to handle bv_and(32, 4294902015, _62, _61)
+Warning: don't know how to handle bv_and(32, 4278255615, _18, _17)
+Warning: don't know how to handle bv_and(32, 4278255615, _36, _35)
+Warning: don't know how to handle bv_and(32, 4278255615, _48, _47)
+Warning: don't know how to handle bv_and(32, 4278255615, _60, _59)
+Warning: don't know how to handle bv_and(32, 4278190080, _14, _13)
+Warning: don't know how to handle bv_and(32, 16777215, _16, _15)
+Warning: don't know how to handle bv_and(32, 16777215, _34, _33)
+Warning: don't know how to handle bv_and(32, 16777215, _46, _45)
+Warning: don't know how to handle bv_and(32, 16777215, _58, _57)
+Warning: don't know how to handle bv_and(32, 16711680, _14, _9)
+Warning: don't know how to handle bv_and(32, 65280, _14, _5)
+Warning: don't know how to handle bv_and(32, 65280, _31, _27)
+Warning: don't know how to handle bv_and(32, 255, _14, _1)
+Warning: don't know how to handle bv_and(32, 255, _31, _30)
+Warning: don't know how to handle bv_and(8, 255, _42, _41)
+Warning: don't know how to handle bv_and(8, 255, _54, _53)
+Warning: don't know how to handle bv_and(8, 255, INPUT_10000_0020, _63)
+Warning: don't know how to handle bv_and(8, 255, INPUT_missed_10000_0020_21628, _51)
+unknown
 Loading bench_586.smt2 ...
 unsat
 Loading changing_truth_value_unsafe_garbage.c.smt2 ...

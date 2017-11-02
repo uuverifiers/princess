@@ -303,11 +303,6 @@ division.scala
 {c1 -> 2, c0 -> 1}
 4: Valid
 
-readSMTLIB.scala
-x - y >= 1 & y + -1*50 >= 1
-Sat
-Unsat
-
 deadlock.scala
 starting
 Sat
@@ -514,3 +509,23 @@ finished
 empty-stack-bug.scala
 Sat
 0
+
+TestModuloArithmetic.scala
+Test 1
+Sat
+{b2 -> 14, b1 -> 255}
+b1 = mod_cast(0, 255, 255)
+Test 2
+Sat
+{w2 -> 0, w1 -> 13}
+Test 3
+Sat
+h1 = mod_cast(0, 65535, 11007)
+Unsat
+Test 4
+Valid
+
+readSMTLIB.scala
+x - y >= 1 & y + -1*50 >= 1
+Sat
+Unsat

@@ -207,7 +207,14 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
          yield (n -> Conjunction.conj(InputAbsy2Internal(f, order), order)))
       val reducedNamedParts =
         for ((n, c) <- rawNamedParts) yield {
-          val redC = Theory.preprocess(reducer(c), signature.theories, order)
+          val incomp = Array(false)
+          val redC = ap.theories.ModuloArithmetic.incompletenessFlag.withValue(incomp) {
+            Theory.preprocess(reducer(c), signature.theories, order)
+          }
+
+          if (incomp(0))
+            ignoredQuantifiers = true
+
           n match {
             case PartName.NO_NAME =>
               (PartName.NO_NAME ->
@@ -230,9 +237,15 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         InputAbsy2Internal(
           IExpression.or(for (f <- inputFormulas.iterator)
                          yield (IExpression removePartName f)), order)
-      val redF = Theory.preprocess(reducer(Conjunction.conj(rawF, order)),
-                                   signature.theories, order)
-      
+      val incomp = Array(false)
+      val redF =  ap.theories.ModuloArithmetic.incompletenessFlag.withValue(incomp) {
+        Theory.preprocess(reducer(Conjunction.conj(rawF, order)),
+                          signature.theories, order)
+      }
+
+      if (incomp(0))
+        ignoredQuantifiers = true
+
       val f =
         convertQuantifiers(Conjunction.disj(List(theoryAxioms, redF), order))
 

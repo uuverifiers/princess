@@ -646,7 +646,7 @@ final class IdealInt private (private val longStore : Long,
       }
       res
     } else {
-      this.getBI.bitLength
+      this.getBI.bitLength - 1
     }
   }
 

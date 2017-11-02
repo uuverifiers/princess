@@ -1131,7 +1131,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : FunctionDefCommand => {
-        // Functions are always declared to have integer inputs and outputs
         val name = asString(cmd.symbol_)
         val args : Seq[SMTType] = 
           for (sortedVar <- cmd.listesortedvarc_)
@@ -2533,11 +2532,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   protected def translateSpecConstant(c : SpecConstant)
                                      : (ITerm, SMTType) = c match {
     case c : NumConstant =>
-      (i(IdealInt(c.numeral_)), SMTInteger)
+      (i(IdealInt(c.numeral_)),
+       SMTInteger)
     case c : HexConstant =>
-      (i(IdealInt(c.hexadecimal_ substring 2, 16)), SMTInteger)
+      (i(IdealInt(c.hexadecimal_ substring 2, 16)),
+       SMTBitVec((c.hexadecimal_.size - 2) * 4))
     case c : BinConstant =>
-      (i(IdealInt(c.binary_ substring 2, 2)), SMTInteger)
+      (i(IdealInt(c.binary_ substring 2, 2)),
+       SMTBitVec(c.binary_.size - 2))
 
     case c : RatConstant => {
       val v = IdealRat(c.rational_)
