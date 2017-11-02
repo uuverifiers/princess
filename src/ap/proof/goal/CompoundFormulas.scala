@@ -24,6 +24,7 @@ package ap.proof.goal
 import ap.Signature.PredicateMatchConfig
 import ap.proof._
 import ap.terfor.{TermOrder, Sorted, Formula, ConstantTerm}
+import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                IterativeClauseMatcher}
 import ap.util.{Debug, Seqs}
@@ -100,6 +101,10 @@ case class CompoundFormulas(qfClauses : NegatedConjunctions,
   lazy val constantsInMatchedClauses : Set[ConstantTerm] =
     eagerQuantifiedClauses.clauses.constants ++
     lazyQuantifiedClauses.clauses.constants
+  
+  lazy val predicates : Set[Predicate] =
+    eagerQuantifiedClauses.clauses.predicates ++
+    lazyQuantifiedClauses.clauses.predicates
   
   //////////////////////////////////////////////////////////////////////////////
 

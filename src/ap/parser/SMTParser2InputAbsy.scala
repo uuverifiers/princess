@@ -1150,7 +1150,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
         // use a real function
         val f = MonoSortedIFunction(name, args map (_.toSort), resType.toSort,
-                                    true, true)
+                                    true, !args.isEmpty)
         env.addFunction(f, SMTFunctionType(args.toList, resType))
     
         if (inlineDefinedFuns && !neverInline(body._1)) {

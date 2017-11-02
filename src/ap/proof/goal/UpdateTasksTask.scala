@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -39,7 +39,8 @@ case object UpdateTasksTask extends EagerTask {
 
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
     val oldTasks = goal.tasks
-    val criticalPreds = goal.facts.predicates
+    val criticalPreds =
+      goal.facts.predicates ++ goal.compoundFormulas.predicates
 
     // we might have to remove ourself from the task-manager
     val remTasks = if (oldTasks.max == this)
