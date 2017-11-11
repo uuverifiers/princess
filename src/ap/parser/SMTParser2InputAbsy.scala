@@ -653,6 +653,40 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
        }
      })
 
+  private def importProverSymbol(name : String) : Boolean = {
+    import ap.types.SortedConstantTerm
+    import SMTLineariser.{sort2SMTType, functionTypeFromSort}
+
+    incremental &&
+    ((reusedSymbols get name) match {
+       case None =>
+         false
+       case Some(c : ConstantTerm) => {
+         env.addConstant(c, Environment.NullaryFunction,
+                         sort2SMTType(SortedConstantTerm sortOf c)._1)
+         true
+       }
+       case Some(f : IFunction) => functionTypeFromSort(f) match {
+         case Some(t) => {
+           env.addFunction(f, t)
+           true
+         }
+         case None => {
+           warn("cannot reconstruct type of symbol " + name)
+           false
+         }
+       }
+       case Some(p : Predicate) => {
+         env.addPredicate(p, ())
+         true
+       }
+       case _ => {
+         warn("cannot handle symbol " + name)
+         false
+       }
+     })
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -2309,10 +2343,24 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         a === b
     }
 
+  private def lookupSym(name : String) : SMTParser2InputAbsy.Env#DSym =
+    if (reusedSymbols == null) {
+      env lookupSym name
+    } else {
+      (env lookupSymPartial name) match {
+        case Some(res) =>
+          res
+        case None => {
+          importProverSymbol(name)
+          env lookupSym name
+        }
+      }
+    }
+
   private def unintFunApp(id : String,
                           sym : SymbolRef, args : Seq[Term], polarity : Int)
                          : (IExpression, SMTType) =
-    (env lookupSym id) match {
+    lookupSym(id) match {
       case Environment.Predicate(pred, _, _) => {
         checkArgNumLazy(printer print sym, pred.arity, args)
         (IAtom(pred, for (a <- args) yield asTerm(translateTerm(a, 0))),
@@ -2427,7 +2475,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     
     case expr : ConstantSExpr => translateSpecConstant(expr.specconstant_)._1
     
-    case expr : SymbolSExpr => (env lookupSym asString(expr.symbol_)) match {
+    case expr : SymbolSExpr => lookupSym(asString(expr.symbol_)) match {
       case Environment.Function(fun, _) => {
         checkArgNumSExpr(printer print expr.symbol_,
                          fun.arity, List[SExpr]())
@@ -2460,7 +2508,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             IFunApp(SimpleArray(expr.listsexpr_.size - 3).store,
                     translateSExprTail(expr.listsexpr_))
 
-          case funName => (env lookupSym funName) match {
+          case funName => lookupSym(funName) match {
             case Environment.Function(fun, _) => {
               checkArgNumSExpr(printer print funExpr.symbol_, fun.arity,
                                expr.listsexpr_.tail)

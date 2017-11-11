@@ -1726,9 +1726,8 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
-   * Execute an SMT-LIB script. Symbols used in the script have
-   * to be declared in the script as well, i.e., the script has to
-   * be self-contained; however, if the prover already knows about
+   * Execute an SMT-LIB script. Symbols declared in the script will
+   * be added to the prover; however, if the prover already knows about
    * symbols with the same name, they will be reused.
    */
   def execSMTLIB(input : java.io.Reader) : Unit = {
@@ -1737,9 +1736,9 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   /**
-   * Extract the assertions in an SMT-LIB script. Symbols used in the script
-   * have to be declared in the script as well, i.e., the script has to
-   * be self-contained; however, if the prover already knows about
+   * Extract the assertions in an SMT-LIB script.
+   * Symbols declared in the script will
+   * be added to the prover; however, if the prover already knows about
    * symbols with the same name, they will be reused.
    */
   def extractSMTLIBAssertions(input : java.io.Reader) : Seq[IFormula] = {
@@ -1749,9 +1748,9 @@ class SimpleAPI private (enableAssert : Boolean,
 
   /**
    * Extract assertions and declared symbols in an SMT-LIB script.
-   * Symbols used in the script have to be declared in the script as
-   * well, i.e., the script has to be self-contained; however, if the
-   * prover already knows about symbols with the same name, they will be reused.
+   * Symbols declared in the script will
+   * be added to the prover; however, if the prover already knows about
+   * symbols with the same name, they will be reused.
    */
   def extractSMTLIBAssertionsSymbols(input : java.io.Reader)
              : (Seq[IFormula],
@@ -1761,15 +1760,6 @@ class SimpleAPI private (enableAssert : Boolean,
     val res = parser.extractAssertions(input)
     (res, parser.functionTypeMap, parser.constantTypeMap)
   }
-
-/*  private def toSMTEnvironment = {
-    val env = Environment[SMTParser2InputAbsy.SMTType,
-                          SMTParser2InputAbsy.VariableType,
-                          Unit,
-                          SMTParser2InputAbsy.SMTFunctionType]
-    
-    env
-  } */
 
   //////////////////////////////////////////////////////////////////////////////
 

@@ -529,3 +529,6 @@ readSMTLIB.scala
 x - y >= 1 & y + -1*50 >= 1
 Sat
 Unsat
+x - y >= 1 & y + -1*50 >= 1
+Sat
+Unsat

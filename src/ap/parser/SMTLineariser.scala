@@ -162,7 +162,7 @@ object SMTLineariser {
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
 
-  private val functionTypeFromSort =
+  val functionTypeFromSort =
     (f : IFunction) => f match {
       case f : MonoSortedIFunction =>
         Some(SMTFunctionType(
