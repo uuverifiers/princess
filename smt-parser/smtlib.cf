@@ -200,7 +200,7 @@ QuotedSymbol.   Symbol          ::= QuotedSymbolT;
 token NormalSymbolT ((["+-/*=~?!._$%&^<>@"] | letter)
                      (["+-/*=~?!._$%&^<>@:"] | letter | digit)*);
 
-token QuotedSymbolT ('|' [" `^~<=>_,;:!?/.'()[]{}@$*\"\\&#%+-0123456789aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ\n"]* '|');
+token QuotedSymbolT ('|' (char - ["\\|"])* '|');
 
 token SMTString     ('"' ((char - '"') | {"\"\""})* '"');
 
