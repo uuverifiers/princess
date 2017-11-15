@@ -135,6 +135,7 @@ separator FunOption "";
 -- Sort declarations
 
 DeclADT.        DeclSortC       ::= Ident "{" [DeclCtorC] "}";
+DeclUnintSort.  DeclSortC       ::= Ident;
 terminator DeclSortC ";";
 
 DeclCtor.       DeclCtorC       ::= Ident OptFormalArgs;

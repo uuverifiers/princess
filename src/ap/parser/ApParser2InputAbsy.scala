@@ -168,7 +168,21 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
   private def collectSortDeclarations(api : API) : Unit = api match {
     case api : BlockList => {
 
-      // first determine all declared ADTs
+      // declare uninterpreted sorts
+      for (block <- api.listblock_.iterator) block match {
+        case block : SortDecls =>
+          for (decl <- block.listdeclsortc_.iterator) decl match {
+            case decl : DeclUnintSort => {
+              val name = decl.ident_
+              warn("treating sort " + name + " as infinite sort")
+              env.addSort(name, new Sort.InfUninterpreted(name))
+            }
+            case _ => // nothing
+          }
+        case _ => // nothing
+      }
+
+      // determine all declared ADTs
       val adtNames = new ArrayBuffer[String]
 
       for (block <- api.listblock_.iterator) block match {
@@ -176,6 +190,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
           for (decl <- block.listdeclsortc_.iterator) decl match {
             case decl : DeclADT =>
               adtNames += decl.ident_
+            case _ => // nothing
           }
         case _ => // nothing
       }
@@ -220,6 +235,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                 ctors += ((ctorName, ADT.CtorSignature(arguments, adtSort)))
               }
             }
+            case _ => // nothing
           }
         case _ => // nothing
       }
