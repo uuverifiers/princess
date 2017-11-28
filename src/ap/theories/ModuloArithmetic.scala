@@ -712,6 +712,10 @@ object ModuloArithmetic extends Theory {
     private def actionsForGoal(goal : Goal) : Seq[Plugin.Action] =  {
       val castPreds =
         goal.facts.predConj.positiveLitsWithPred(_mod_cast).toBuffer
+      val hasMulPred =
+        !goal.facts.predConj.positiveLitsWithPred(
+            GroebnerMultiplication._mul).isEmpty
+
       Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
 
       val reducer = goal.reduceWithFacts
@@ -775,7 +779,7 @@ object ModuloArithmetic extends Theory {
                        a(2) === a(3) + (lowerFactor * sort.modulus),
                        ModuloArithmetic.this) :: simpleElims
                        
-            } else if (simpleElims.isEmpty) {
+            } else if (simpleElims.isEmpty && !hasMulPred) {
             
               val caseNum = upperFactor - lowerFactor + 1
 
@@ -809,6 +813,10 @@ object ModuloArithmetic extends Theory {
                 f = conj(a(2) === a(3) + (n * sort.modulus));
                 if !f.isFalse)
            yield (f, List())).toBuffer
+
+        // TODO: instead of shuffling, the cases should be ordered
+        // in a meaningful way (e.g., look at the cases with many
+        // solutions first?)
         Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(cases)
 
         List(Plugin.RemoveFacts(a),

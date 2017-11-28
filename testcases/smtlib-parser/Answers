@@ -372,6 +372,17 @@ Constructing countermodel ...
 
 unsat
 
+Loading bvmul.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y1 () (_ BitVec 32) (_ bv2147488282 32))
+  (define-fun x1 () (_ BitVec 32) (_ bv2147488281 32))
+  (define-fun x0 () (_ BitVec 32) (_ bv46341 32))
+)
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat
