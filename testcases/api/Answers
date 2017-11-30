@@ -524,6 +524,10 @@ h1 = mod_cast(0, 65535, 11007)
 Unsat
 Test 4
 Valid
+Test 5
+Valid
+Test 6
+Valid
 
 readSMTLIB.scala
 x - y >= 1 & y + -1*50 >= 1

@@ -80,5 +80,17 @@
       ?? (bvmul(w1, (bvadd(w1, bv(32, 1)))) === bvadd(bvmul(w1, w1), w1))
       println(expect(???, ProverStatus.Valid))
     }
+
+    println("Test 5")
+    scope {
+      ?? (sign_extend(31, bv(1, 1)) === sign_extend(30, bv(2, 3)))
+      println(expect(???, ProverStatus.Valid))
+    }
+
+    println("Test 6")
+    scope {
+      ?? (extract(31, 31, sign_extend(31, bv(1, 1))) === bv(1, 1))
+      println(expect(???, ProverStatus.Valid))
+    }
   }
 //}

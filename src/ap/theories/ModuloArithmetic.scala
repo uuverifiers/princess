@@ -114,6 +114,13 @@ object ModuloArithmetic extends Theory {
   def bvsle(t1 : ITerm, t2 : ITerm) : IFormula =
     IAtom(bv_sle, List(extractBitWidth(t1, t2), t1, t2))
 
+  def zero_extend(addWidth : Int, t : ITerm) : ITerm =
+    cast2UnsignedBV(extractBitWidth(t) + addWidth, t)
+  def sign_extend(addWidth : Int, t : ITerm) : ITerm = {
+    val w = extractBitWidth(t)
+    cast2UnsignedBV(w + addWidth, cast2SignedBV(w, t))
+  }
+
   private def extractBitWidth(t1 : ITerm, t2 : ITerm) : Int = {
     val width1 = extractBitWidth(t1)
     val width2 = extractBitWidth(t2)
@@ -195,7 +202,10 @@ object ModuloArithmetic extends Theory {
       case ModSort(lower, upper)
         if (lower.signum < 0 && upper + IdealInt.ONE == -lower &&
             (upper & (upper + 1)).isZero) =>
-          Some(upper.getHighestSetBit + 2)
+          if (upper.isZero)
+            Some(1)
+          else
+            Some(upper.getHighestSetBit + 2)
       case _ =>
         None
     }
