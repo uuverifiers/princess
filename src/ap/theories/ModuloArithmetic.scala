@@ -38,7 +38,7 @@ import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.theories.nia.GroebnerMultiplication
-import ap.util.{Debug, IdealRange, LRUCache}
+import ap.util.{Debug, IdealRange, LRUCache, Seqs}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet}
 
@@ -712,9 +712,7 @@ object ModuloArithmetic extends Theory {
     private def actionsForGoal(goal : Goal) : Seq[Plugin.Action] =  {
       val castPreds =
         goal.facts.predConj.positiveLitsWithPred(_mod_cast).toBuffer
-      val hasMulPred =
-        !goal.facts.predConj.positiveLitsWithPred(
-            GroebnerMultiplication._mul).isEmpty
+      // TODO: handle occurring _mul predicates in a special way?
 
       Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
 
@@ -728,7 +726,11 @@ object ModuloArithmetic extends Theory {
       // find a mod_cast predicate that can be split into a small number of
       // cases
       var bestSplitNum = SPLIT_LIMIT
-      var bestSplitPred : Option[(Atom, IdealInt, IdealInt,
+      var bestSplitPred : Option[(Atom,
+                                  IdealInt, // lowerFactor
+                                  IdealInt, // upperFactor
+                                  IdealInt, // wastedLower
+                                  IdealInt, // wastedUpper
                                   List[Formula], ModSort)] = None
 
       // find a predicate that has to be eliminated through a quantifier
@@ -765,7 +767,7 @@ object ModuloArithmetic extends Theory {
           case (Some(lb), Some(ub)) => {
             val sort@ModSort(sortLB, sortUB) =
               (SortedPredicate argumentSorts a).last
-                
+
             val lowerFactor = (lb - sortLB) / sort.modulus
             val upperFactor = -((sortUB - ub) / sort.modulus)
 
@@ -779,7 +781,7 @@ object ModuloArithmetic extends Theory {
                        a(2) === a(3) + (lowerFactor * sort.modulus),
                        ModuloArithmetic.this) :: simpleElims
                        
-            } else if (simpleElims.isEmpty && !hasMulPred) {
+            } else if (simpleElims.isEmpty) {
             
               val caseNum = upperFactor - lowerFactor + 1
 
@@ -789,8 +791,13 @@ object ModuloArithmetic extends Theory {
               } else if (caseNum < bestSplitNum) {
                 bestSplitNum =
                   caseNum
+                val wastedLower =
+                  lb - (lowerFactor * sort.modulus + sortLB)
+                val wastedUpper =
+                  (upperFactor * sort.modulus + sortUB) - ub
                 bestSplitPred =
-                  Some((a, lowerFactor, upperFactor, assumptions, sort))
+                  Some((a, lowerFactor, upperFactor,
+                        wastedLower, wastedUpper, assumptions, sort))
               }
             }
           }
@@ -806,18 +813,25 @@ object ModuloArithmetic extends Theory {
 
       } else if (bestSplitPred.isDefined) {
 
-        val Some((a, lowerFactor, upperFactor, assumptions, sort)) =
+        val Some((a, lowerFactor, upperFactor,
+                  wastedLower, wastedUpper, assumptions, sort)) =
           bestSplitPred
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(AC, lowerFactor < upperFactor)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
         val cases =
-          (for (n <- IdealRange(lowerFactor, upperFactor + 1).iterator;
+          (for (n <-
+                  // consider the inner cases first
+                  IdealRange(lowerFactor + 1, upperFactor).iterator ++
+                  (if (wastedLower < wastedUpper)
+                     Seqs.doubleIterator(lowerFactor, upperFactor)
+                   else
+                     Seqs.doubleIterator(upperFactor, lowerFactor));
                 f = conj(a(2) === a(3) + (n * sort.modulus));
                 if !f.isFalse)
            yield (f, List())).toBuffer
-
-        // TODO: instead of shuffling, the cases should be ordered
-        // in a meaningful way (e.g., look at the cases with many
-        // solutions first?)
-        Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(cases)
 
         List(Plugin.RemoveFacts(a),
              Plugin.AxiomSplit(assumptions,

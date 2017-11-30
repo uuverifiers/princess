@@ -513,8 +513,8 @@ Sat
 TestModuloArithmetic.scala
 Test 1
 Sat
-{b2 -> 14, b1 -> 255}
-b1 = mod_cast(0, 255, 255)
+{b2 -> 0, b1 -> 13}
+b1 = mod_cast(0, 255, 13)
 Test 2
 Sat
 {w2 -> 0, w1 -> 13}
