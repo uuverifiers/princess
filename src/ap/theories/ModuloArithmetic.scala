@@ -754,7 +754,8 @@ object ModuloArithmetic extends Theory {
         val lBound =
           if (proofs)
             for ((b, assum) <- reducer lowerBoundWithAssumptions a(2)) yield {
-              assumptions = InEqConj(assum, order) :: assumptions
+              if (!assum.isEmpty)
+                assumptions = InEqConj(assum, order) :: assumptions
               b
             }
           else
@@ -764,7 +765,8 @@ object ModuloArithmetic extends Theory {
           if (lBound.isDefined) {
             if (proofs)
               for ((b, assum) <- reducer upperBoundWithAssumptions a(2)) yield {
-                assumptions = InEqConj(assum, order) :: assumptions
+                if (!assum.isEmpty)
+                  assumptions = InEqConj(assum, order) :: assumptions
                 b
               }
             else

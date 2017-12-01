@@ -286,7 +286,9 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
 
       case AddAxiom(assumptions, f, theory) :: rest =>
          handleActionsRec(
-           List(AxiomSplit(assumptions, List((f, rest)), theory)),
+           List(AxiomSplit(assumptions,
+                           if (f.isFalse) List() else List((f, rest)),
+                           theory)),
            contActions, goal, branchInferences, ptf)
 
       case CloseByAxiom(assumptions, theory) :: rest =>
@@ -300,6 +302,11 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         val needsQuantifiers =
           (assumptions exists (!_.constants.isEmpty)) ||
           (cases exists { case (f, _) => !f.constants.isEmpty })
+
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        // There should not be any trivial assumptions
+        Debug.assertInt(Plugin.AC, assumptions forall { a => !a.isTrue })
+        //-END-ASSERTION-///////////////////////////////////////////////////////
 
         // TODO: avoid conversion to conjunction
         val certAssumptions =
