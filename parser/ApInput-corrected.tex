@@ -47,8 +47,9 @@ The set of reserved words is the set of terminals appearing in the grammar. Thos
 The reserved words used in ApInput are the following: \\
 
 \begin{tabular}{lll}
-{\reserved{bool}} &{\reserved{false}} &{\reserved{inf}} \\
-{\reserved{int}} &{\reserved{nat}} &{\reserved{true}} \\
+{\reserved{bool}} &{\reserved{bv}} &{\reserved{false}} \\
+{\reserved{inf}} &{\reserved{int}} &{\reserved{mod}} \\
+{\reserved{nat}} &{\reserved{signed}} &{\reserved{true}} \\
 \end{tabular}\\
 
 The symbols used in ApInput are the following: \\
@@ -60,8 +61,8 @@ The symbols used in ApInput are the following: \\
 {\symb{$\backslash$metaVariables}} &{\symb{{$<$}{$-$}{$>$}}} &{\symb{{$-$}{$>$}}} \\
 {\symb{{$<$}{$-$}}} &{\symb{{$|$}}} &{\symb{\&}} \\
 {\symb{!}} &{\symb{$\backslash$abs}} &{\symb{$\backslash$max}} \\
-{\symb{$\backslash$min}} &{\symb{$\backslash$distinct}} &\\
-{\symb{$\backslash$eps}} &{\symb{$\backslash$part}} &\\
+{\symb{$\backslash$min}} &{\symb{$\backslash$distinct}} & {\symb{$\backslash$as}}\\
+{\symb{$\backslash$eps}} &{\symb{$\backslash$part}} & \\
 {\symb{[}} &{\symb{]}} &{\symb{{$+$}}} \\
 {\symb{{$-$}}} &{\symb{*}} &{\symb{/}} \\
 {\symb{\%}} &{\symb{\^}} &{\symb{$\backslash$if}} \\
@@ -163,8 +164,10 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
+{\nonterminal{Expression8}} & {\arrow}  &{\terminal{$\backslash$as}} {\terminal{[}} {\nonterminal{Type}} {\terminal{]}} {\nonterminal{Expression8}}  \\
 {\nonterminal{Expression8}} & {\arrow}  &{\terminal{{$+$}}} {\nonterminal{Expression9}}  \\
  & {\delimit}  &{\terminal{{$-$}}} {\nonterminal{Expression9}}  \\
+ & {\delimit}  &{\nonterminal{Expression10}} {\terminal{.}} {\terminal{$\backslash$as}} {\terminal{[}} {\nonterminal{Type}} {\terminal{]}}  \\
  & {\delimit}  &{\nonterminal{Expression9}}  \\
 \end{tabular}\\
 
@@ -266,6 +269,7 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{DeclSortC}} & {\arrow}  &{\nonterminal{Ident}} {\terminal{\{}} {\nonterminal{ListDeclCtorC}} {\terminal{\}}}  \\
+ & {\delimit}  &{\nonterminal{Ident}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -339,6 +343,9 @@ All other symbols are terminals.\\
  & {\delimit}  &{\terminal{nat}}  \\
  & {\delimit}  &{\terminal{int}} {\terminal{[}} {\nonterminal{IntervalLower}} {\terminal{,}} {\nonterminal{IntervalUpper}} {\terminal{]}}  \\
  & {\delimit}  &{\terminal{bool}}  \\
+ & {\delimit}  &{\terminal{mod}} {\terminal{[}} {\nonterminal{IntervalLower}} {\terminal{,}} {\nonterminal{IntervalUpper}} {\terminal{]}}  \\
+ & {\delimit}  &{\terminal{bv}} {\terminal{[}} {\nonterminal{IntLit}} {\terminal{]}}  \\
+ & {\delimit}  &{\terminal{signed}} {\terminal{bv}} {\terminal{[}} {\nonterminal{IntLit}} {\terminal{]}}  \\
  & {\delimit}  &{\nonterminal{Ident}}  \\
 \end{tabular}\\
 
