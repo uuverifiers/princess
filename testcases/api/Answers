@@ -528,6 +528,9 @@ Test 5
 Valid
 Test 6
 Valid
+Test 7
+Unsat
+Vector(((x + -1 * mod_cast(0, 1, 1)) = 0), ((-1 + y) >= 0))
 
 readSMTLIB.scala
 x - y >= 1 & y + -1*50 >= 1

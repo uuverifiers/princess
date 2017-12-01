@@ -92,5 +92,22 @@
       ?? (extract(31, 31, sign_extend(31, bv(1, 1))) === bv(1, 1))
       println(expect(???, ProverStatus.Valid))
     }
+
+    println("Test 7")
+    scope {
+      setConstructProofs(true)
+      val x = createConstant("x", UnsignedBVSort(1))
+      val y = createConstant("y", UnsignedBVSort(1))
+      val z = createConstant("z", UnsignedBVSort(32))
+      setPartitionNumber(1)
+      !! (x =/= bv(1, 0))
+      setPartitionNumber(2)
+      !! (z === sign_extend(31, x))
+      !! (y === extract(31, 31, z))
+      setPartitionNumber(3)
+      !! (y === bv(1, 0))
+      println(expect(???, ProverStatus.Unsat))
+      println(getInterpolants(List(Set(1), Set(2), Set(3))))
+    }
   }
 //}

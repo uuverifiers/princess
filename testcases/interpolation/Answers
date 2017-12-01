@@ -565,6 +565,21 @@ unsat
   (and (and (bvsge (bvadd (_ bv254 10) (bvneg ((_ zero_extend 2) a))) (_ bv0 10)) (bvuge a (_ bv1 8))) (and (or (= (bvadd (_ bv3841 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (bvsge (bvadd (_ bv127 10) (bvneg ((_ zero_extend 2) b))) (_ bv0 10))) (or (= (bvadd (_ bv1 12) (bvadd (bvmul (_ bv2 12) ((_ zero_extend 4) b)) (bvneg ((_ zero_extend 4) a)))) (_ bv0 12)) (bvuge b (_ bv128 8)))))
 )
 
+Loading bv-interpolation-5.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 10), simplifying (13), interpolating ...
+
+VALID
+
+Interpolants:
+i1_3_0 = 100
+i2_2_0 = 101
+i1_1_0 != 75
+i1_1_0 = 75
+i2_2_0 != 101
+i1_3_0 != 100
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
