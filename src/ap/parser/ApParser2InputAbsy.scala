@@ -725,15 +725,18 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     case t : ExprMult =>
       translateNumBinTerConnective("*", t.expression_1, t.expression_2, mult _)
     case t : ExprDiv =>
-      translateNumBinTerConnective("/", t.expression_1, t.expression_2, mulTheory.eDiv _)
+      translateNumBinTerConnective("/", t.expression_1, t.expression_2,
+                                   mulTheory.eDiv _)
     case t : ExprMod =>
-      translateNumBinTerConnective("%", t.expression_1, t.expression_2, mulTheory.eMod _)
+      translateNumBinTerConnective("%", t.expression_1, t.expression_2,
+                                   mulTheory.eMod _)
     case t : ExprUnPlus =>
       translateNumUnTerConnective("+", t.expression_, (lc) => lc)
     case t : ExprUnMinus =>
       translateNumUnTerConnective("-", t.expression_, - _)
     case t : ExprExp =>
-      translateNumBinTerConnective("^", t.expression_1, t.expression_2, mulTheory.pow _)
+      wrapResult(translateBinTerConnective("^", t.expression_1, t.expression_2,
+                                           mulTheory.pow _, powSortCoercion _))
     case t : ExprLit =>
       (IIntLit(IdealInt(t.intlit_)), Sort.Integer)
     case t : ExprEpsilon => {
@@ -747,18 +750,18 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     case t : ExprDotAbs =>
       translateNumUnTerConnective("\\abs", t.expression_, abs _)
     case t : ExprMax => {
-      val args = translateNumOptArgs("\\max", t.optargs_)
+      val (args, sort) = translateNumOptArgs("\\max", t.optargs_)
       if (args.isEmpty)
         throw new Parser2InputAbsy.TranslationException(
             "Function \\max needs to receive at least one argument")
-      (max(args), Sort.Integer)
+      (max(args), sort)
     }
     case t : ExprMin => {
-      val args = translateNumOptArgs("\\min", t.optargs_)
+      val (args, sort) = translateNumOptArgs("\\min", t.optargs_)
       if (args.isEmpty)
         throw new Parser2InputAbsy.TranslationException(
             "Function \\min needs to receive at least one argument")
-      (min(args), Sort.Integer)
+      (min(args), sort)
     }
     case t : ExprCast =>
       translateCast(t.expression_, t.type_)
@@ -828,14 +831,16 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                    "Expected a term, not " + expr)
   }
 
-  private def asNumTerm(opName : String,
-                        expr : (IExpression, Sort)) : ITerm = expr match {
-    case (expr : ITerm, Sort.Numeric(_)) =>
-      expr
-    case (_, s) => 
+  private def assertNumSort(opName : String, sort : Sort) : Unit = sort match {
+    case Sort.Numeric(_) =>
+      // ok
+    case ModuloArithmetic.ModSort(_, _) =>
+      // ok
+    case sort =>
       throw new Parser2InputAbsy.TranslationException(
-              opName + " expects a numeric term, not sort " + s)
+              opName + " expects a numeric term, not sort " + sort)
   }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def translateCast(t : Expression, ty : Type) : (IExpression, Sort) = {
@@ -932,6 +937,16 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       case (s : ModuloArithmetic.ModSort, Sort.Numeric(_)) =>
         Some(s)
       case (Sort.Numeric(_), s : ModuloArithmetic.ModSort) =>
+        Some(s)
+      case _ =>
+        None
+    }
+
+  private def powSortCoercion(s1 : Sort, s2 : Sort) : Option[Sort] =
+    (s1, s2) match {
+      case (Sort.Numeric(_), Sort.Integer) =>
+        Some(Sort.Integer)
+      case (s : ModuloArithmetic.ModSort, Sort.Integer) =>
         Some(s)
       case _ =>
         None
@@ -1089,7 +1104,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     }
 
   private def translateTrigger(trigger : ExprTrigger) : IFormula = {
-    val patterns = translateExprArgs(trigger.listargc_)
+    val patterns = translateExprArgs(trigger.listargc_) map (_._1)
     val body = asFormula(translateExpression(trigger.expression_))
     ITrigger(ITrigger.extractTerms(patterns), body)
   }
@@ -1105,20 +1120,24 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       case arg : Arg => translateExpression(arg.expression_)
     }
 
-  private def translateNumOptArgs(opName : String,
-                                  args : OptArgs) : Seq[ITerm] = args match {
-    case args : Args => translateNumArgs(opName, args.listargc_)
-    case _ : NoArgs => List()
+  private def translateNumOptArgs(opName : String, args : OptArgs)
+                                 : (Seq[ITerm], Sort) = args match {
+    case args : Args => {
+      val transArgs = translateExprArgs(args.listargc_)
+      val sort = transArgs.head._2
+      assertNumSort(opName, sort)
+      if (transArgs exists { case (_, s) => s != sort })
+        throw new Parser2InputAbsy.TranslationException(
+               opName + " has to be applied to terms of the same numeric sort")
+      (transArgs map (_._1.asInstanceOf[ITerm]), sort)
+    }
+    case _ : NoArgs =>
+      (List(), Sort.Integer)
   }
   
-  private def translateNumArgs(opName : String, args : ListArgC) =
-    for (arg <- args) yield arg match {
-      case arg : Arg => asNumTerm(opName, translateExpression(arg.expression_))
-    }
-
   private def translateExprArgs(args : ListArgC) =
-    for (arg <- args) yield arg match {
-      case arg : Arg => translateExpression(arg.expression_)._1
-    }
+    (for (arg <- args.iterator) yield arg match {
+       case arg : Arg => translateExpression(arg.expression_)
+     }).toSeq
 
 }
