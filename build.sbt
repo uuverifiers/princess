@@ -52,7 +52,7 @@ lazy val root = (project in file(".")).
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.8" => "-optimise"
-      case "2.12.4" => "-opt:l:classpath"
+      case "2.12.4" => "-opt:_"
     }}).value,
 //
     libraryDependencies +=
