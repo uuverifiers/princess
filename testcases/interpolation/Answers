@@ -640,7 +640,7 @@ true
 (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
 (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
 (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0))
-(and (= main_~p~4.base_3 main_~a~4.base_2) (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)) (and (and (= main_~p~4.offset_3 0) (= main_~a~4.offset_2 0)) (not (= (select (select |#memory_int_6| main_~a~4.base_2) 0) 1)))))
+(or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)) (and (and (and (= main_~p~4.offset_3 0) (= main_~p~4.base_3 main_~a~4.base_2)) (= main_~a~4.offset_2 0)) (not (= (select (select |#memory_int_6| main_~a~4.base_2) 0) 1))))
 (or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
 (or (or (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0))) (not (= (select (select |#memory_int_7| main_~p~4.base_7) main_~p~4.offset_7) 1)))
 (or (or (not (= |main_#t~mem15_9| 1)) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~n| 4))) (not (= |#offset~STRUCT#?h~INT?n~$Pointer$#~h| 0)))

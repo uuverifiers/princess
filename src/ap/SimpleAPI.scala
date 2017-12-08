@@ -585,7 +585,7 @@ class SimpleAPI private (enableAssert : Boolean,
     needExhaustiveProver = false
     matchedTotalFunctions = false
     ignoredQuantifiers = false
-    formulaeInProver = List()
+    formulaeInProver.clear
     formulaeTodo = false
     currentModel = null
     decoderDataCache.clear
@@ -1990,13 +1990,12 @@ class SimpleAPI private (enableAssert : Boolean,
     }
 
   private def startExhaustiveProver = {
-    val completeFor = formulaeInProver match {
-      case List((_, f)) => f
-      case formulae => 
+    val completeFor =
+      if (formulaeInProver.size == 1)
+        formulaeInProver.keysIterator.next
+      else
         ReduceWithConjunction(Conjunction.TRUE, currentOrder, reducerSettings)(
-              Conjunction.disj(for ((_, f) <- formulae.iterator) yield f,
-                               currentOrder))
-    }
+              Conjunction.disj(formulaeInProver.keysIterator, currentOrder))
 
     // explicitly quantify all universal variables
     val uniConstants = completeFor.constants -- existentialConstants
@@ -2163,7 +2162,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def getSatSoundnessConfig : Theory.SatSoundnessConfig.Value =
     if (needExhaustiveProver || matchedTotalFunctions)
       Theory.SatSoundnessConfig.General
-    else if (formulaeInProver forall { case (_, f) => f.predicates.isEmpty })
+    else if (formulaeInProver.keysIterator forall (_.predicates.isEmpty))
       Theory.SatSoundnessConfig.Elementary
     else
       Theory.SatSoundnessConfig.Existential
@@ -2178,7 +2177,7 @@ class SimpleAPI private (enableAssert : Boolean,
     if (validityMode) ProverStatus.Invalid else ProverStatus.Sat
 
   private def allFunctionsArePartial : Boolean =
-    (formulaeInProver forall { case (_, f) => f.predicates forall {
+    (formulaeInProver.keysIterator forall { f => f.predicates forall {
        p => (functionEnc.predTranslation get p) match {
                case Some(f) => f.partial
                case None => true
@@ -2319,7 +2318,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val formulaParts = new MHashMap[PartName, Conjunction]
-    for (((n, f), num) <- formulaeInProver.iterator.zipWithIndex) {
+    for (((f, n), num) <- formulaeInProver.iterator.zipWithIndex) {
       val name = (partNames get n) match {
         case Some(name) =>
           if (formulaParts contains name)
@@ -2360,11 +2359,11 @@ class SimpleAPI private (enableAssert : Boolean,
     }
     if (currentCertificate == null) {
       warn("call setConstructProofs(true) for more precise unsatisfiable cores")
-      (formulaeInProver.iterator map (_._1)).toSet
+      formulaeInProver.values.toSet
     } else {
       val res = new MHashSet[Int]
       val af = currentCertificate.assumedFormulas
-      for ((n, f) <- formulaeInProver)
+      for ((f, n) <- formulaeInProver)
         if (!(res contains n) && (af contains CertFormula(f.negate)))
           res += n
       res.toSet
@@ -2414,7 +2413,7 @@ class SimpleAPI private (enableAssert : Boolean,
                       val allNames = (for (s <- partitions.iterator;
                                            n <- s.iterator) yield n).toSet
                       formulaeInProver forall {
-                        case (n, _) => n < 0 || (allNames contains n)
+                        case (_, n) => n < 0 || (allNames contains n)
                       }
                     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -2425,7 +2424,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val simp = interpolantSimplifier
     
     val commonFors =
-      for ((n, f) <- formulaeInProver; if (n < 0)) yield f
+      for ((f, n) <- formulaeInProver; if (n < 0)) yield f
 
     val interpolants =
       Debug.withDisabledAssertions(
@@ -2433,9 +2432,9 @@ class SimpleAPI private (enableAssert : Boolean,
         for (i <- 1 to (partitions.size - 1)) yield {
           val leftNums = (partitions take i).flatten.toSet
       
-          val leftFors =   for ((n, f) <- formulaeInProver;
+          val leftFors =   for ((f, n) <- formulaeInProver;
                                 if (n >= 0 && (leftNums contains n))) yield f
-          val rightFors =  for ((n, f) <- formulaeInProver;
+          val rightFors =  for ((f, n) <- formulaeInProver;
                                 if (n >= 0 && !(leftNums contains n))) yield f
 
           val iContext =
@@ -2456,7 +2455,7 @@ class SimpleAPI private (enableAssert : Boolean,
           .sliding(2) zip partitions.iterator) forall {
         case (Seq(left, right), names) => {
           val transitionFors =
-            for ((n, f) <- formulaeInProver;
+            for ((f, n) <- formulaeInProver;
                  if (n < 0 || (names contains n))) yield f.negate
           val theoryAxioms =
             currentSimpCertificate.theoryAxioms map (_.toConj)
@@ -2506,16 +2505,16 @@ class SimpleAPI private (enableAssert : Boolean,
                       val allNames = (for (s <- partitions.iterator;
                                            n <- s.iterator) yield n).toSet
                       formulaeInProver forall {
-                        case (n, _) => n < 0 || (allNames contains n)
+                        case (_, n) => n < 0 || (allNames contains n)
                       }
                     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-  
+
     if (currentSimpCertificate == null)
       currentSimpCertificate = ProofSimplifier(currentCertificate)
 
     val commonFors =
-      for ((n, f) <- formulaeInProver; if (n < 0)) yield f
+      for ((f, n) <- formulaeInProver; if (n < 0)) yield f
 
     val simp = interpolantSimplifier
 
@@ -2529,9 +2528,9 @@ class SimpleAPI private (enableAssert : Boolean,
           val subNames =
             (for (s <- names.iterator; n <- s.iterator) yield n).toSet
 
-          val leftFors =   for ((n, f) <- formulaeInProver;
+          val leftFors =   for ((f, n) <- formulaeInProver;
                                 if (n >= 0 && (subNames contains n))) yield f
-          val rightFors =  for ((n, f) <- formulaeInProver;
+          val rightFors =  for ((f, n) <- formulaeInProver;
                                 if (n >= 0 && !(subNames contains n))) yield f
 
           val iContext =
@@ -2564,7 +2563,7 @@ class SimpleAPI private (enableAssert : Boolean,
           if (names.children.size == 1 &&
               (rootNames.isEmpty ||
                (formulaeInProver forall {
-                  case (n, f) =>
+                  case (f, n) =>
                     !(n >= 0 && (rootNames contains n)) || f.isFalse
                 })))
             Some(thisInt)
@@ -2585,7 +2584,7 @@ class SimpleAPI private (enableAssert : Boolean,
     def verifyInts(names : Tree[Set[Int]],
                    ints : Tree[Conjunction]) : Boolean = {
       val transitionFors =
-        for ((n, f) <- formulaeInProver;
+        for ((f, n) <- formulaeInProver;
              if (n < 0 || (names.d contains n))) yield f.negate
       val subInts = for (c <- ints.children) yield c.d
       val theoryAxioms = currentSimpCertificate.theoryAxioms map (_.toConj)
@@ -3775,7 +3774,7 @@ class SimpleAPI private (enableAssert : Boolean,
                        matchedTotalFunctions, ignoredQuantifiers,
                        currentOrder, existentialConstants,
                        functionalPreds, functionEnc.clone,
-                       formulaeInProver,
+                       formulaeInProver.clone,
                        currentPartitionNum,
                        constructProofs, mostGeneralConstraints,
                        validityMode, lastStatus,
@@ -3893,10 +3892,28 @@ class SimpleAPI private (enableAssert : Boolean,
     val axioms =
       convertQuantifiers(preAxioms)
 
+    var relevantFormulas = false
+
     if (!completeFor.isFalse)
-      formulaeInProver = (currentPartitionNum, completeFor) :: formulaeInProver
+      formulaeInProver.put(completeFor, currentPartitionNum) match {
+        case None =>
+          relevantFormulas = true
+        case Some(oldNum) =>
+          // the prover already knew about the formula
+          formulaeInProver.put(completeFor, oldNum)
+      }
+
     if (!axioms.isFalse)
-      formulaeInProver = (-1, axioms) :: formulaeInProver
+      formulaeInProver.put(axioms, -1) match {
+        case None =>
+          relevantFormulas = true
+        case Some(oldNum) =>
+          // the prover already knew about the formula
+          formulaeInProver.put(axioms, oldNum)
+      }
+
+    if (!relevantFormulas)
+      return
 
     proofThreadStatus match {
       case ProofThreadStatus.Init =>
@@ -4172,7 +4189,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var currentConstraint : Conjunction = _
   private var currentCertificate : Certificate = _
   private var currentSimpCertificate : Certificate = _
-  private var formulaeInProver : List[(Int, Conjunction)] = List()
+  private var formulaeInProver = new LinkedHashMap[Conjunction, Int]
   private var currentPartitionNum : Int = -1
   private var constructProofs : Boolean = false
   private var mostGeneralConstraints : Boolean = false
@@ -4192,7 +4209,7 @@ class SimpleAPI private (enableAssert : Boolean,
                                              Set[IExpression.ConstantTerm],
                                              Set[IExpression.Predicate],
                                              FunctionEncoder,
-                                             List[(Int, Conjunction)],
+                                             LinkedHashMap[Conjunction, Int],
                                              Int,
                                              Boolean,
                                              Boolean,
@@ -4213,7 +4230,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private def initProver =
     if (!needExhaustiveProver && currentProver == null)
       currentProver = (ModelSearchProver emptyIncProver goalSettings)
-                          .conclude(formulaeInProver.unzip._2, currentOrder)
+                          .conclude(formulaeInProver.unzip._1, currentOrder)
   
   private def restartProofThread =
     (proofThreadStatus = ProofThreadStatus.Init)
