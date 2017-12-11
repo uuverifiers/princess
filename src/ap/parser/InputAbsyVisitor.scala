@@ -23,6 +23,7 @@ package ap.parser;
 
 import IExpression.{ConstantTerm, Predicate}
 import ap.terfor.conjunctions.Quantifier
+import ap.theories.{TheoryRegistry, ModuloArithmetic}
 import ap.util.{Debug, Logic, PlainRange, Seqs}
 
 import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer,
@@ -748,6 +749,24 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
      })
 
   /**
+   * Check whether given formula is in Presburger or bit-vector arithmetic.
+   */
+  def isPresburgerBV(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case IFunApp(f, _) =>
+         (TheoryRegistry lookupSymbol f) match {
+           case Some(ModuloArithmetic) => false
+           case _ => true
+         }
+       case IAtom(p, args) =>
+         (TheoryRegistry lookupSymbol p) match {
+           case Some(ModuloArithmetic) => false
+           case _ => true
+         }
+       case _ => false
+     })
+
+  /**
    * Check whether given formula is in Presburger arithmetic, but
    * possibly including predicate atoms in which all arguments
    * are concrete numbers.
@@ -757,6 +776,27 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
        case _ : IFunApp => true
        case IAtom(_, args) => !(args forall (_.isInstanceOf[IIntLit]))
        case _ => false
+     })
+
+  /**
+   * Check whether given formula is in Presburger or bit-vector arithmetic, but
+   * possibly including predicate atoms in which all arguments
+   * are concrete numbers.
+   */
+  def isPresburgerBVWithPreds(t : IExpression) : Boolean =
+    !apply(t, (x:IExpression) => x match {
+       case IFunApp(f, _) =>
+         (TheoryRegistry lookupSymbol f) match {
+           case Some(ModuloArithmetic) => false
+           case _ => true
+         }
+       case IAtom(p, args) =>
+         (TheoryRegistry lookupSymbol p) match {
+           case Some(ModuloArithmetic) => false
+           case _ => !(args forall (_.isInstanceOf[IIntLit]))
+         }
+       case _ =>
+         false
      })
 
   def apply(t : IExpression, pred : IExpression => Boolean) : Boolean = try {

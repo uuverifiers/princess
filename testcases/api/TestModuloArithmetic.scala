@@ -109,5 +109,17 @@
       println(expect(???, ProverStatus.Unsat))
       println(getInterpolants(List(Set(1), Set(2), Set(3))))
     }
+
+    println("Test 8")
+    scope {
+      val width = 2
+      val x = createConstant("x", UnsignedBVSort(width))
+      val f = UnsignedBVSort(width).ex(y => bvmul(x, y) === bv(width, 1))
+      println(pp(f))
+      val simpF = simplify(f)
+      println(pp(simpF))
+      ?? (simpF <=> (extract(0, 0, x) === bv(1, 1)))
+      println(expect(???, ProverStatus.Valid))
+    }
   }
 //}

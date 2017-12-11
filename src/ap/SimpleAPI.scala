@@ -2802,7 +2802,7 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    if (ContainsSymbol isPresburger f) scope {
+    if (ContainsSymbol isPresburgerBV f) scope {
       makeExistential(toConsts)
       setMostGeneralConstraints(true)
       ?? (f)
@@ -2831,7 +2831,7 @@ class SimpleAPI private (enableAssert : Boolean,
     Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    if (ContainsSymbol isPresburger f) scope {
+    if (ContainsSymbol isPresburgerBV f) scope {
       makeExistential(toConsts)
       setMostGeneralConstraints(true)
       ?? (~f)
@@ -2855,15 +2855,15 @@ class SimpleAPI private (enableAssert : Boolean,
    * been asserted in this prover.
    */
   def simplify(f : IFormula) : IFormula =
-    if (!(ContainsSymbol isPresburgerWithPreds f)) {
+    if (!(ContainsSymbol isPresburgerBVWithPreds f)) {
       // Formula that we cannot fully simplify at the moment;
       // just run the heuristic simplifier
 
       asIFormula(asConjunction(f))
 
-    } else if ((ContainsSymbol isPresburger f) &&
+    } else if ((ContainsSymbol isPresburgerBV f) &&
                (ContainsSymbol isClosed f)) {
-      // Simplest case, pure Presburger formula
+      // Simplest case, pure Presburger or bit-vector formula
 
       val consts =
         for (c <- SymbolCollector constantsSorted f) yield IConstant(c)
@@ -2888,7 +2888,7 @@ class SimpleAPI private (enableAssert : Boolean,
              extends CollectingVisitor[Unit, IExpression] {
         override def preVisit(t : IExpression,
                               arg : Unit) : PreVisitResult = t match {
-          case a : IAtom => {
+          case a@IAtom(p, _) if !(TheoryRegistry lookupSymbol p).isDefined => {
             val c = replacedAtoms.getOrElseUpdate(a, createConstantRaw("Y"))
             ShortCutResult(eqZero(c))
           }
