@@ -25,6 +25,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.terfor.preds.Predicate
+import ap.types.SortedConstantTerm
 import ap.util.{Debug, Seqs}
 
 import scala.collection.mutable.ArrayBuffer
@@ -383,11 +384,18 @@ object IExpression {
     Debug.assertPre(IExpression.AC, consts.toSet.size == consts.size)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
+    val constsSeq = consts.toSeq
+
     val fWithShiftedVars = VariableShiftVisitor(f, 0, consts.size)
-    val subst = (for ((c, i) <- consts.iterator.zipWithIndex)
+    val subst = (for ((c, i) <- constsSeq.iterator.zipWithIndex)
                  yield (c, v(i))).toMap
     val fWithSubstitutedConsts = ConstantSubstVisitor(fWithShiftedVars, subst)
-    (consts :\ fWithSubstitutedConsts) ((_, f) => IQuantified(quan, f))
+
+    val sorts = constsSeq map (SortedConstantTerm sortOf _)
+    quan match {
+      case Quantifier.ALL => all(sorts, fWithSubstitutedConsts)
+      case Quantifier.EX  => ex (sorts, fWithSubstitutedConsts)
+    }
   }
   
   /**
@@ -400,8 +408,10 @@ object IExpression {
     val subst = (for (((_, c), i) <- quantifiedConstants.iterator.zipWithIndex)
                  yield (c, v(quantifiedConstants.size - i - 1))).toMap
     val fWithSubstitutedConsts = ConstantSubstVisitor(fWithShiftedVars, subst)
+
     (quantifiedConstants :\ fWithSubstitutedConsts) {
-      case ((q, _), f) => IQuantified(q, f)
+      case ((Quantifier.ALL, c), f) => (SortedConstantTerm sortOf c) all f
+      case ((Quantifier.EX,  c), f) => (SortedConstantTerm sortOf c) ex f
     }
   }
 

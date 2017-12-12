@@ -442,6 +442,12 @@ object SimpleAPI {
         t update subres
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val COMMON_PART_NR         = -1
+  private val INTERNAL_AXIOM_PART_NR = -10
+
 }
 
 /**
@@ -575,17 +581,26 @@ class SimpleAPI private (enableAssert : Boolean,
 
     storedStates.clear
     
+    formulaeInProver.clear
     currentOrder = TermOrder.EMPTY
-    existentialConstants = Set()
     functionalPreds = Set()
     functionEnc =
       new FunctionEncoder(Param.TIGHT_FUNCTION_SCOPES(basicPreprocSettings),
                           genTotalityAxioms)
+    abbrevFunctions = Set()
+    abbrevPredicates = Map()
+    theoryPlugin = None
+    theoryCollector = new TheoryCollector
+
+    resetFormulasHelp
+    resetOptionsHelp
+  }
+
+  private def resetFormulasHelp = {
     currentProver = null
     needExhaustiveProver = false
     matchedTotalFunctions = false
     ignoredQuantifiers = false
-    formulaeInProver.clear
     formulaeTodo = false
     currentModel = null
     decoderDataCache.clear
@@ -596,13 +611,13 @@ class SimpleAPI private (enableAssert : Boolean,
     lastStatus = ProverStatus.Unknown
     validityMode = false
     proofThreadStatus = ProofThreadStatus.Init
-    currentPartitionNum = -1
+    currentPartitionNum = COMMON_PART_NR
+  }
+
+  private def resetOptionsHelp = {
+    existentialConstants = Set()
     constructProofs = false
     mostGeneralConstraints = false
-    theoryPlugin = None
-    theoryCollector = new TheoryCollector
-    abbrevFunctions = Set()
-    abbrevPredicates = Map()
   }
 
   private var currentDeadline : Option[Long] = None
@@ -1452,7 +1467,7 @@ class SimpleAPI private (enableAssert : Boolean,
     import IExpression._
     // ensure that nested application of abbreviations are contained in
     // the definition and do not escape, using the AbbrevVariableVisitor
-    withPartitionNumber(-1) {
+    withPartitionNumber(INTERNAL_AXIOM_PART_NR) {
       addFormulaHelp(
         !all(all(trig((a(v(0)) === v(1)) ==>
                       (v(1) === AbbrevVariableVisitor(t, abbrevFunctions)),
@@ -1543,7 +1558,7 @@ class SimpleAPI private (enableAssert : Boolean,
     val aAtom = a()
     val defAtom = defLabel()
 
-    withPartitionNumber(-1) {
+    withPartitionNumber(INTERNAL_AXIOM_PART_NR) {
       addFormulaHelp((aAtom | defAtom | containFunctionApplications(f)) &
                      (!aAtom | !defAtom | containFunctionApplications(!f)))
     }
@@ -2249,7 +2264,7 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def withPartitionNumber[A](num : Int)(comp : => A) : A = {
     val oldPartitionNum = currentPartitionNum
-    setPartitionNumberHelp(-1)
+    setPartitionNumberHelp(num)
     try {
       comp
     } finally {
@@ -2794,22 +2809,21 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Project a formula to a given set of constants; all other constants
    * are removed by quantifying them universally.
-   * Note that this will also return all formulas that have previously
-   * been asserted in this prover.
    */
   def projectAll(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    if (ContainsSymbol isPresburgerBV f) scope {
-      makeExistential(toConsts)
-      setMostGeneralConstraints(true)
-      ?? (f)
-      ??? match {
-        case ProverStatus.Valid   => getConstraint
-        case ProverStatus.Invalid => IBoolLit(false)
-      }
+    if (ContainsSymbol isPresburgerBV f)
+      scope(resetFormulas = true, resetOptions = true) {
+        makeExistential(toConsts)
+        setMostGeneralConstraints(true)
+        ?? (f)
+        ??? match {
+          case ProverStatus.Valid   => getConstraint
+          case ProverStatus.Invalid => IBoolLit(false)
+        }
     } else {
       // formula that we cannot project at the moment
       val toConstsSet =
@@ -2823,22 +2837,21 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * Project a formula to a given set of constants; all other constants
    * are removed by quantifying them existentially.
-   * Note that this will also return all formulas that have previously
-   * been asserted in this prover.
    */
   def projectEx(f : IFormula, toConsts : Iterable[ITerm]) : IFormula = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(SimpleAPI.AC, ContainsSymbol isClosed f)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    if (ContainsSymbol isPresburgerBV f) scope {
-      makeExistential(toConsts)
-      setMostGeneralConstraints(true)
-      ?? (~f)
-      ??? match {
-        case ProverStatus.Valid   => ~getConstraint
-        case ProverStatus.Invalid => IBoolLit(true)
-      }
+    if (ContainsSymbol isPresburgerBV f)
+      scope(resetFormulas = true, resetOptions = true) {
+        makeExistential(toConsts)
+        setMostGeneralConstraints(true)
+        ?? (~f)
+        ??? match {
+          case ProverStatus.Valid   => ~getConstraint
+          case ProverStatus.Invalid => IBoolLit(true)
+        }
     } else {
       // formula that we cannot project at the moment
       val toConstsSet =
@@ -2851,8 +2864,6 @@ class SimpleAPI private (enableAssert : Boolean,
   
   /**
    * Simplify a formula by eliminating quantifiers.
-   * Note that this will also return all formulas that have previously
-   * been asserted in this prover.
    */
   def simplify(f : IFormula) : IFormula =
     if (!(ContainsSymbol isPresburgerBVWithPreds f)) {
@@ -3751,6 +3762,32 @@ class SimpleAPI private (enableAssert : Boolean,
   }
   
   /**
+   * Execute a computation within a local scope. After leaving the scope,
+   * assertions and declarations done in the meantime will disappear.
+   * This method has the
+   * option to temporarily forget all asserted formulas, or
+   * temporarily reset the options <code>setConstructProofs,
+   * setMostGeneralConstraints, makeExistential, makeUniversal</code>.
+   */
+  def scope[A](resetFormulas : Boolean = false,
+               resetOptions : Boolean = false)
+              (comp: => A) : A = {
+    pushEmptyFrame(resetFormulas, resetOptions)
+    try {
+      comp
+    } finally {
+      if (getStatusHelp(false) == ProverStatus.Running) {
+        // then something really bad happened, and we are in an inconsistent
+        // state
+        proverCmd put ShutdownCommand
+        stopProofTask = true
+      } else {
+        pop
+      }
+    }
+  }
+  
+  /**
    * Add a new frame to the assertion stack.
    */
   def push : Unit = {
@@ -3782,6 +3819,41 @@ class SimpleAPI private (enableAssert : Boolean,
                        abbrevFunctions,
                        abbrevPredicates)
   }
+
+  /**
+   * Add a new frame to the assertion stack. This method has the
+   * option to temporarily forget all asserted formulas, or
+   * temporarily reset the options <code>setConstructProofs,
+   * setMostGeneralConstraints, makeExistential, makeUniversal</code>.
+   */
+  def pushEmptyFrame(resetFormulas : Boolean = false,
+                     resetOptions : Boolean = false) : Unit =
+    if (!resetFormulas && !resetOptions) {
+      push
+    } else {
+      doDumpSMT {
+        println("(push 1) ; pushEmptyFrame(resetFormulas = " + resetFormulas +
+                ", resetOptions = " + resetOptions + ")")
+      }
+      doDumpScala {
+        println
+        println("scope(resetFormulas = " + resetFormulas +
+                ", resetOptions = " + resetOptions + ") {")
+      }
+
+      pushHelp
+
+      if (resetFormulas) {
+        resetFormulasHelp
+        // only keep asserted axioms
+        formulaeInProver =
+          formulaeInProver filter { case (_, n) => n == INTERNAL_AXIOM_PART_NR }
+      }
+
+      if (resetOptions) {
+        resetOptionsHelp
+      }
+    }
   
   /**
    * Pop the top-most frame from the assertion stack.
@@ -3904,7 +3976,7 @@ class SimpleAPI private (enableAssert : Boolean,
       }
 
     if (!axioms.isFalse)
-      formulaeInProver.put(axioms, -1) match {
+      formulaeInProver.put(axioms, INTERNAL_AXIOM_PART_NR) match {
         case None =>
           relevantFormulas = true
         case Some(oldNum) =>
@@ -4190,7 +4262,7 @@ class SimpleAPI private (enableAssert : Boolean,
   private var currentCertificate : Certificate = _
   private var currentSimpCertificate : Certificate = _
   private var formulaeInProver = new LinkedHashMap[Conjunction, Int]
-  private var currentPartitionNum : Int = -1
+  private var currentPartitionNum : Int = COMMON_PART_NR
   private var constructProofs : Boolean = false
   private var mostGeneralConstraints : Boolean = false
   private var formulaeTodo : IFormula = false

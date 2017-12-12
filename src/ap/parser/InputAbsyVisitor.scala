@@ -758,7 +758,7 @@ object ContainsSymbol extends ContextAwareVisitor[IExpression => Boolean, Unit] 
            case Some(ModuloArithmetic) => false
            case _ => true
          }
-       case IAtom(p, args) =>
+       case IAtom(p, _) =>
          (TheoryRegistry lookupSymbol p) match {
            case Some(ModuloArithmetic) => false
            case _ => true

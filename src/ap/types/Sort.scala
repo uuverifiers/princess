@@ -415,8 +415,7 @@ trait Sort {
   def ex(f : ITerm => IFormula) = {
     import IExpression._
     val x = newConstant("x")
-    quanConsts(Quantifier.EX, List(x),
-               guardEx(f(x), membershipConstraint(x)))
+    quanConsts(Quantifier.EX, List(x), f(x))
   }
 
   /**
@@ -427,8 +426,7 @@ trait Sort {
     import IExpression._
     val x1 = newConstant("x1")
     val x2 = newConstant("x2")
-    val guard = membershipConstraint(i(x1)) &&& membershipConstraint(i(x2))
-    quanConsts(Quantifier.EX, List(x1, x2), guardEx(f(x1, x2), guard))
+    quanConsts(Quantifier.EX, List(x1, x2), f(x1, x2))
   }
 
   /**
@@ -441,10 +439,7 @@ trait Sort {
     val x1 = newConstant("x1")
     val x2 = newConstant("x2")
     val x3 = newConstant("x3")
-    val guard = membershipConstraint(i(x1)) &&&
-                membershipConstraint(i(x2)) &&&
-                membershipConstraint(i(x3))
-    quanConsts(Quantifier.EX, List(x1, x2, x3), guardEx(f(x1, x2, x3), guard))
+    quanConsts(Quantifier.EX, List(x1, x2, x3), f(x1, x2, x3))
   }
 
   /**
@@ -458,12 +453,7 @@ trait Sort {
     val x2 = newConstant("x2")
     val x3 = newConstant("x3")
     val x4 = newConstant("x4")
-    val guard = membershipConstraint(i(x1)) &&&
-                membershipConstraint(i(x2)) &&&
-                membershipConstraint(i(x3)) &&&
-                membershipConstraint(i(x4))
-    quanConsts(Quantifier.EX, List(x1, x2, x3, x4),
-               guardEx(f(x1, x2, x3, x4), guard))
+    quanConsts(Quantifier.EX, List(x1, x2, x3, x4), f(x1, x2, x3, x4))
   }
 
   /**
@@ -478,13 +468,7 @@ trait Sort {
     val x3 = newConstant("x3")
     val x4 = newConstant("x4")
     val x5 = newConstant("x5")
-    val guard = membershipConstraint(i(x1)) &&&
-                membershipConstraint(i(x2)) &&&
-                membershipConstraint(i(x3)) &&&
-                membershipConstraint(i(x4)) &&&
-                membershipConstraint(i(x5))
-    quanConsts(Quantifier.EX, List(x1, x2, x3, x4, x5),
-               guardEx(f(x1, x2, x3, x4, x5), guard))
+    quanConsts(Quantifier.EX, List(x1, x2, x3, x4, x5), f(x1, x2, x3, x4, x5))
   }
 
   /**
@@ -494,8 +478,7 @@ trait Sort {
   def all(f : ITerm => IFormula) = {
     import IExpression._
     val x = newConstant("x")
-    quanConsts(Quantifier.ALL, List(x),
-               guardAll(f(x), membershipConstraint(x)))
+    quanConsts(Quantifier.ALL, List(x), f(x))
   }
 
   /**
@@ -506,8 +489,7 @@ trait Sort {
     import IExpression._
     val x1 = newConstant("x1")
     val x2 = newConstant("x2")
-    val guard = membershipConstraint(i(x1)) &&& membershipConstraint(i(x2))
-    quanConsts(Quantifier.ALL, List(x1, x2), guardAll(f(x1, x2), guard))
+    quanConsts(Quantifier.ALL, List(x1, x2), f(x1, x2))
   }
 
   /**
@@ -520,10 +502,7 @@ trait Sort {
     val x1 = newConstant("x1")
     val x2 = newConstant("x2")
     val x3 = newConstant("x3")
-    val guard = membershipConstraint(i(x1)) &&&
-                membershipConstraint(i(x2)) &&&
-                membershipConstraint(i(x3))
-    quanConsts(Quantifier.ALL, List(x1, x2, x3), guardAll(f(x1, x2, x3), guard))
+    quanConsts(Quantifier.ALL, List(x1, x2, x3), f(x1, x2, x3))
   }
 
   /**
@@ -537,12 +516,7 @@ trait Sort {
     val x2 = newConstant("x2")
     val x3 = newConstant("x3")
     val x4 = newConstant("x4")
-    val guard = membershipConstraint(i(x1)) &&&
-                membershipConstraint(i(x2)) &&&
-                membershipConstraint(i(x3)) &&&
-                membershipConstraint(i(x4))
-    quanConsts(Quantifier.ALL, List(x1, x2, x3, x4),
-               guardAll(f(x1, x2, x3, x4), guard))
+    quanConsts(Quantifier.ALL, List(x1, x2, x3, x4), f(x1, x2, x3, x4))
   }
 
   /**
@@ -557,13 +531,7 @@ trait Sort {
     val x3 = newConstant("x3")
     val x4 = newConstant("x4")
     val x5 = newConstant("x5")
-    val guard = membershipConstraint(i(x1)) &&&
-                membershipConstraint(i(x2)) &&&
-                membershipConstraint(i(x3)) &&&
-                membershipConstraint(i(x4)) &&&
-                membershipConstraint(i(x5))
-    quanConsts(Quantifier.ALL, List(x1, x2, x3, x4, x5),
-               guardAll(f(x1, x2, x3, x4, x5), guard))
+    quanConsts(Quantifier.ALL, List(x1, x2, x3, x4, x5), f(x1, x2, x3, x4, x5))
   }
 
   /**
