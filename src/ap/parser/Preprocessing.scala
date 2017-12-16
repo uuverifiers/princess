@@ -25,7 +25,7 @@ import ap._
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.terfor.conjunctions.Quantifier
 import ap.parameters.{PreprocessingSettings, Param}
-import ap.theories.TheoryRegistry
+import ap.theories.{Theory, TheoryRegistry}
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
 
@@ -74,8 +74,19 @@ object Preprocessing {
       for (f <- fors)
       yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
+    val (fors2a, signature2) = {
+      val theories = signature.theories
+      var sig = signature
+      val newFors = for (f <- fors2) yield {
+        val (newF, newSig) = Theory.iPreprocess(f, signature.theories, sig)
+        sig = newSig
+        newF
+      }
+      (newFors, sig)
+    }
+
     // simple mini-scoping for existential quantifiers
-    val fors2a = for (f <- fors2) yield SimpleMiniscoper(f)
+    val fors2b = for (f <- fors2a) yield SimpleMiniscoper(f)
 
     // compress chains of implications
 //    val fors2b = for (INamedPart(n, f) <- fors2a)
@@ -84,7 +95,7 @@ object Preprocessing {
     ////////////////////////////////////////////////////////////////////////////
     // Handling of triggers
 
-    var order3 = signature.order
+    var order3 = signature2.order
     def encodeFunctions(f : IFormula) : IFormula = {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
@@ -92,11 +103,11 @@ object Preprocessing {
     }
 
     val theoryTriggerFunctions =
-      (for (t <- signature.theories.iterator;
+      (for (t <- signature2.theories.iterator;
             f <- t.triggerRelevantFunctions.iterator) yield f).toSet
     // all uninterpreted functions occurring in the problem
     val problemFunctions =
-      for (f <- FunctionCollector(fors2a);
+      for (f <- FunctionCollector(fors2b);
            if (!(TheoryRegistry lookupSymbol f).isDefined))
       yield f
 
@@ -113,7 +124,7 @@ object Preprocessing {
     lazy val stdTriggerGenerator = {
       val gen = new TriggerGenerator (allTriggeredFunctions,
                                       Param.TRIGGER_STRATEGY(settings))
-      for (f <- fors2a)
+      for (f <- fors2b)
         gen setup f
       gen
     }
@@ -123,7 +134,7 @@ object Preprocessing {
            Param.TriggerGenerationOptions.CompleteFrugal => {
 
         val disjuncts =
-          (for (INamedPart(n, f) <- fors2a.iterator;
+          (for (INamedPart(n, f) <- fors2b.iterator;
                 f2 <- LineariseVisitor(Transform2NNF(f), IBinJunctor.Or).iterator)
            yield (INamedPart(n, f2))).toArray
   
@@ -204,7 +215,7 @@ println
             val triggerGenerator =
               new TriggerGenerator (totalFunctions,
                                     Param.TRIGGER_STRATEGY(settings))
-            for (f <- fors2a)
+            for (f <- fors2b)
               triggerGenerator setup f
 
             for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
@@ -240,7 +251,7 @@ println
       }
 
       case _ => {
-        val withTriggers = for (f <- fors2a) yield stdTriggerGenerator(f)
+        val withTriggers = for (f <- fors2b) yield stdTriggerGenerator(f)
 
         for (INamedPart(n, f) <- withTriggers)
         yield INamedPart(n, encodeFunctions(f))
@@ -282,7 +293,7 @@ println
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]
     }
     
-    (fors6, interpolantSpecs, signature updateOrder order3)
+    (fors6, interpolantSpecs, signature2 updateOrder order3)
   }
 
   //////////////////////////////////////////////////////////////////////////////

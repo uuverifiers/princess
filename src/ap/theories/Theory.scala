@@ -89,6 +89,18 @@ object Theory {
   /**
    * Apply preprocessing to a formula over some set of
    * theories, prior to sending the formula to a prover.
+   * This method will be called form within 
+   */
+  def iPreprocess(f : IFormula,
+                  theories : Seq[Theory], signature : Signature)
+                 : (IFormula, Signature) =
+//  ap.util.Timer.measure("theory iPreprocessing") {
+    ((f, signature) /: theories) { case ((f, s), t) => t.iPreprocess(f, s) }
+//  }
+
+  /**
+   * Apply preprocessing to a formula over some set of
+   * theories, prior to sending the formula to a prover.
    */
   def preprocess(f : Conjunction,
                  theories : Seq[Theory],
@@ -302,10 +314,18 @@ trait Theory {
 
   /**
    * Optionally, a pre-processor that is applied to formulas over this
+   * theory, prior to sending the formula to a prover. This method
+   * will be applied very early in the translation process.
+   */
+  def iPreprocess(f : IFormula, signature : Signature)
+                 : (IFormula, Signature) =
+    (f, signature)
+
+  /**
+   * Optionally, a pre-processor that is applied to formulas over this
    * theory, prior to sending the formula to a prover.
    */
-  def preprocess(f : Conjunction,
-                 order : TermOrder) : Conjunction = f
+  def preprocess(f : Conjunction, order : TermOrder) : Conjunction = f
 
   /**
    * Optionally, a plugin for the reducer applied to formulas both before
