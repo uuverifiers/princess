@@ -42,6 +42,7 @@ Interpolant.    Block           ::= "\\interpolant" "{" [InterpBlockC] "}";
 
 ECS1.		ExConstantsSec  ::= "\\existentialConstants";
 ECS2.		ExConstantsSec  ::= "\\metaVariables";
+ECS3.		ExConstantsSec  ::= "\\variables";
 
 InterpBlock.    InterpBlockC    ::= [Ident];
 separator nonempty InterpBlockC ";";

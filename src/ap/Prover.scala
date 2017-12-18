@@ -62,6 +62,9 @@ object Prover {
   case class  Model(model : Option[IFormula])
               extends ModelResult
 
+  case class  AllModels(constraint : IFormula, model : Option[IFormula])
+              extends ModelResult
+
   case object NoModel
               extends ModelResult
 
@@ -100,6 +103,7 @@ object Prover {
       case Proof(_, _)                   => true
       case ProofWithModel(_, _, _)       => true
       case Model(_)                      => true
+      case AllModels(_, _)               => true
       case NoCounterModel                => true
       case NoCounterModelCert(_)         => true
       case NoCounterModelCertInter(_, _) => true

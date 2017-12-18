@@ -40,11 +40,14 @@ Concrete witness:
 
 Loading bv0.pri ...
 Preprocessing ...
-Proving ...
+Eliminating quantifiers ...
 
 VALID
 
-Under the most-general constraint:
+Equivalent constraint:
+a = 0
+
+Concrete witness:
 a = 0.\as[bv[3]]
 
 Loading closingConstraintBug.pri ...

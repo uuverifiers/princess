@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2017 Philipp Ruemmer <ph_r@gmx.net>
  *               2010,2011 Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -40,7 +40,11 @@ object WolverineInterfaceMain extends {
 
   val nothing =
     Console.withOut(Console.err) {
-      CmdlMain.printGreeting
+      println("________       _____")                                 
+      println("___  __ \\_________(_)________________________________")
+      println("__  /_/ /_  ___/_  /__  __ \\  ___/  _ \\_  ___/_  ___/")
+      println("_  ____/_  /   _  / _  / / / /__ /  __/(__  )_(__  )")
+      println("/_/     /_/    /_/  /_/ /_/\\___/ \\___//____/ /____/")
       println
       println("(The Princess in the wolf skin)")
       println

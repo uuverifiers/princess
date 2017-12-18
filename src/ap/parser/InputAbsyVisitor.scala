@@ -1060,6 +1060,65 @@ object IsUniversalFormulaVisitor extends ContextAwareVisitor[Unit, Unit] {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object QuantifierCollectingVisitor {
+  private object FoundAll extends Exception
+
+  def apply(f : IExpression) : Set[Quantifier] = {
+    val visitor = new QuantifierCollectingVisitor
+    try {
+      visitor.visitWithoutResult(f, Context({}))
+      visitor.foundQuantifiers.toSet
+    } catch {
+      case FoundAll => visitor.foundQuantifiers.toSet
+    }
+  }
+
+  private val V0Sum = IExpression.SymbolSum(IVariable(0))
+}
+
+/**
+ * Visitor for collecting all quantifiers in a formula. The visitor
+ * will not consider quantifiers expressing divisibility constraints.
+ */
+class QuantifierCollectingVisitor extends ContextAwareVisitor[Unit, Unit] {
+
+  import QuantifierCollectingVisitor._
+
+  private val foundQuantifiers = new MHashSet[Quantifier]
+
+  override def preVisit(t : IExpression,
+                        ctxt : Context[Unit]) : PreVisitResult = t match {
+    case IQuantified(Quantifier.EX,  IExpression.EqZ(V0Sum(_, _))) |
+         IQuantified(Quantifier.ALL, INot(IExpression.EqZ(V0Sum(_, _)))) =>
+      // divisibility, ignored
+      super.preVisit(t, ctxt)
+
+    case IQuantified(q, _) => {
+      if (ctxt.polarity > 0) {
+        foundQuantifiers += q
+      } else if (ctxt.polarity < 0) {
+        foundQuantifiers += q.dual
+      } else {
+        foundQuantifiers += Quantifier.ALL
+        foundQuantifiers += Quantifier.EX
+      }
+
+      if (foundQuantifiers.size == 2)
+        throw FoundAll
+
+      super.preVisit(t, ctxt)
+    }
+
+    case _ =>
+      super.preVisit(t, ctxt)
+  }
+
+  def postVisit(t : IExpression, ctxt : Context[Unit],
+                subres : Seq[Unit]) : Unit = ()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 object Transform2Prenex {
   private val AC = Debug.AC_INPUT_ABSY
 

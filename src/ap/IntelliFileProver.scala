@@ -22,10 +22,12 @@
 package ap;
 
 import ap.basetypes.IdealInt
+import ap.parser.{ContainsSymbol, IExpression, IAtom, IFunApp}
 import ap.proof.{ConstraintSimplifier, ModelSearchProver}
 import ap.proof.tree.ProofTree
 import ap.proof.certificates.{Certificate, DagCertificateConverter}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, IterativeClauseMatcher}
+import ap.theories.TheoryRegistry
 import ap.parameters.{GlobalSettings, Param}
 import ap.util.{Seqs, Debug, Timeout}
 import ap.interpolants.{Interpolator, InterpolationContext, ProofSimplifier}
@@ -51,12 +53,70 @@ class IntelliFileProver(reader : java.io.Reader,
 
   import Prover._
 
+  // are only theories used for which we can also reason about the
+  // negated formula?
+  private lazy val onlyCompleteTheories = rawSignature.theories forall {
+    case ap.types.TypeTheory             => true
+    case _ : ap.theories.MulTheory       => true
+    case ap.theories.ModuloArithmetic    => true
+    case _ : ap.theories.ADT             => true // strictly speaking,
+                                                 // only works for guarded
+                                                 // formulas ... (TODO!)
+    case _                               => false
+  }
+
+  // only theories for which quantifier elimination is implemented?
+  private lazy val onlyQEEnabledTheories = rawSignature.theories forall {
+    case ap.types.TypeTheory             => true
+    case _ : ap.theories.MulTheory       => true
+    case ap.theories.ModuloArithmetic    => true
+    case _                               => false
+  }
+
+  // do all function or predicate symbols in the raw input formula
+  // belong to a theory?
+  private lazy val onlyInterpretedSymbols = 
+    !ContainsSymbol(rawInputFormula, (e:IExpression) => e match {
+      case IAtom(p, _)   => (TheoryRegistry lookupSymbol p).isEmpty
+      case IFunApp(f, _) => (TheoryRegistry lookupSymbol f).isEmpty
+      case _             => false
+    })
+
+  // do we work with the positive or negative input formula?
+  val (usedTranslation, usingNegatedFormula) =
+    if (!constructProofs &&
+        onlyCompleteTheories &&
+        !rawConstants.isEmpty &&
+        (rawConstants subsetOf rawSignature.existentialConstants) &&
+        (rawQuantifiers subsetOf Set(Quantifier.EX)) &&
+        onlyInterpretedSymbols &&
+        (!Param.MOST_GENERAL_CONSTRAINT(settings) || onlyQEEnabledTheories)) {
+      // try to find a model of the negated formula
+      (negTranslation, true)
+    } else {
+      // work positively
+      (posTranslation, false)
+    }
+
+  // currently, only the ModelSearchProver can construct proofs
+  if (Param.PROOF_CONSTRUCTION(usedTranslation.goalSettings) &&
+      !usedTranslation.canUseModelSearchProver)
+    throw new Exception (
+      "Currently no proofs can be constructed for the given" +
+      " problem,\nsince it contains existential constants or" +
+      " quantifiers that cannot be\nhandled by unit resolution.\n" +
+      "You might want to use the option -genTotalityAxioms")
+
+  //////////////////////////////////////////////////////////////////////////////
+
   lazy val proofResult : ProofResult =
     Timeout.catchTimeout[ProofResult] {
-      val (tree, validConstraint) = constructProofTree
+      import posTranslation._
+      val (tree, validConstraint) = constructProofTree("Proving")
       if (validConstraint) {
         if (Seqs.disjoint(tree.closingConstraint.constants,
-                          signature.universalConstants) &&
+                          posTranslation.signature.universalConstants) &&
+            !posTranslation.signature.existentialConstants.isEmpty &&
             Param.COMPUTE_MODEL(settings))
           ProofWithModel(tree,
                          toIFormula(tree.closingConstraint),
@@ -72,25 +132,40 @@ class IntelliFileProver(reader : java.io.Reader,
       case x : ProofTree => TimeoutProof(x)
       case _ => TimeoutProof(null)
     }
-        
+
   lazy val proofTree : ProofTree = proofResult match {
     case TimeoutProof(t) => t
     case Proof(t, _) => t
     case ProofWithModel(t, _, _) => t
     case NoProof(t) => t
     case Invalid(t) => t
-  } 
+  }
 
   lazy val modelResult : ModelResult =
     Timeout.catchTimeout[ModelResult] { 
-      val model = findModelTimeout.left.get
-      if (model.isFalse)
-        NoModel
-      else
-        Model(if (Param.COMPUTE_MODEL(settings))
-                Some(toIFormula(model))
-              else
-                None)
+      import negTranslation._
+      if (Param.MOST_GENERAL_CONSTRAINT(settings)) {
+        val (tree, _) =
+          constructProofTree("Eliminating quantifiers")
+       val mgConstraint = tree.closingConstraint.negate
+       if (mgConstraint.isFalse)
+         NoModel
+       else
+         AllModels(toIFormula(mgConstraint),
+                   if (Param.COMPUTE_MODEL(settings))
+                     Some(toIFormula(findModel(mgConstraint), true))
+                   else
+                     None)
+      } else {
+        val model = findModelTimeout.left.get
+        if (model.isFalse)
+          NoModel
+        else
+          Model(if (Param.COMPUTE_MODEL(settings))
+                  Some(toIFormula(model, true))
+                else
+                  None)
+      }
     } {
       case _ => TimeoutModel
     }
@@ -133,7 +208,9 @@ class IntelliFileProver(reader : java.io.Reader,
   */
   
   lazy val counterModelResult : CounterModelResult =
-    Timeout.catchTimeout[CounterModelResult] { 
+    Timeout.catchTimeout[CounterModelResult] {
+      import posTranslation._
+
       findCounterModelTimeout match {
         case Left(model) =>
           if (model.isFalse) {
@@ -150,14 +227,14 @@ class IntelliFileProver(reader : java.io.Reader,
             else
               MaybeCounterModel(optModel)
           }
-        case Right(cert) if (!interpolantSpecs.isEmpty) => {
+        case Right(cert) if (!preprocInterpolantSpecs.isEmpty) => {
           val finalCert = Console.withOut(Console.err) {
             val c = processCert(cert)
             println(", interpolating ...")
             c
           }
 
-          val interpolants = for (spec <- interpolantSpecs.view) yield {
+          val interpolants = for (spec <- preprocInterpolantSpecs.view) yield {
             val iContext = InterpolationContext(namedParts, spec, order)
             val rawInterpolant =
               Interpolator(finalCert, iContext,
@@ -184,24 +261,16 @@ class IntelliFileProver(reader : java.io.Reader,
       case _ => TimeoutCounterModel
     }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   val result : Prover.Result = {
-    // currently, only the ModelSearchProver can construct proofs
-    if (Param.PROOF_CONSTRUCTION(goalSettings) && !canUseModelSearchProver)
-      throw new Exception ("Currently no proofs can be constructed for the given" +
-                           " problem,\nsince it contains existential constants or" +
-                           " quantifiers that cannot be\nhandled by unit resolution.\n" +
-                           "You might want to use the option -genTotalityAxioms")
-      
-    if (canUseModelSearchProver) {
-      // try to find a countermodel
-      counterModelResult
-    } else if (!Param.MOST_GENERAL_CONSTRAINT(settings) &&
-               (formulaConstants subsetOf signature.existentialConstants) &&
-               (formulas forall ((f) => f.predicates.isEmpty)) &&
-               (formulaQuantifiers subsetOf Set(Quantifier.EX))) {
+    if (usingNegatedFormula) {
       // try to find a model
       modelResult
-    } else {
+    } else if (usedTranslation.canUseModelSearchProver) {
+      // try to find a countermodel
+      counterModelResult
+    } else  {
       // try to construct a proof
       proofResult
     }

@@ -42,11 +42,11 @@ echo "Running soundness checks (this will take a while)"
 echo
 
 ./rundir unprovable "1" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=none -posUnitResolution -generateTriggers=none
-./rundir unprovable "2" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=simple -posUnitResolution -generateTriggers=none
-./rundir unprovable "3" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=none +posUnitResolution -generateTriggers=none
-./rundir unprovable "4" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=simple +posUnitResolution -generateTriggers=none
-./rundir unprovable "5" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=none -posUnitResolution -generateTriggers=none
-./rundir unprovable "6" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple -posUnitResolution -generateTriggers=none
-./rundir unprovable "7" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=none +posUnitResolution -generateTriggers=none
-./rundir unprovable "8" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir unprovable "1" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=simple -posUnitResolution -generateTriggers=none
+./rundir unprovable "2" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir unprovable "2" -logo +assert +model -timeout=30000 -simplifyConstraints=fair -clausifier=simple +posUnitResolution -generateTriggers=none
+./rundir unprovable "1" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=none -posUnitResolution -generateTriggers=none
+./rundir unprovable "1" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple -posUnitResolution -generateTriggers=none
+./rundir unprovable "2" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=none +posUnitResolution -generateTriggers=none
+./rundir unprovable "2" -logo +assert +model -timeout=30000 -simplifyConstraints=lemmas -clausifier=simple +posUnitResolution -generateTriggers=none
 

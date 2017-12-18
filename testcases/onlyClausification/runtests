@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# tests only runnable with unit resolution
+# tests only runnable with unit resolution and clausification
 
 PRI=../../princess
 
-TESTS="PUZ031p1.pri"
+TESTS="PUZ031p1.pri bv-existential.pri"
 
 $PRI "$@" $TESTS
