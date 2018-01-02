@@ -21,6 +21,7 @@
 
 package ap.theories
 
+import ap.Signature
 import ap.parser._
 import ap.parameters.{Param, ReducerSettings, GoalSettings}
 import ap.terfor.{Term, VariableTerm, TermOrder, Formula, ComputationLogger,
@@ -350,7 +351,7 @@ object ModuloArithmetic extends Theory {
   //////////////////////////////////////////////////////////////////////////////
 
   // Arguments: N1, N2, number mod 2^N1, number mod 2^N2
-  // Result:    number mod (N1 * N2)
+  // Result:    number mod 2^(N1 + N2)
 
   object BVConcat extends IndexedBVOp("bv_concat", 2, 2) {
     def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
@@ -465,6 +466,213 @@ object ModuloArithmetic extends Theory {
   val triggerRelevantFunctions: Set[ap.parser.IFunction] = Set()
 
   override val singleInstantiationPredicates = predicates.toSet
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private case class VisitorArg(modN : Option[IdealInt],
+                                boundVarRanges : List[(Option[IdealInt],
+                                                       Option[IdealInt])],
+                                underQuantifier : Boolean) {
+    import IExpression._
+
+    def addMod(n : IdealInt) = modN match {
+      case Some(oldN) if (oldN divides n) =>
+        this.notUnderQuantifier
+      case _ =>
+        copy(modN = Some(n), underQuantifier = false)
+    }
+
+    def noMod =
+      copy(modN = None, underQuantifier = false)
+
+    def pushVar =
+      copy(boundVarRanges = (None, None) :: boundVarRanges,
+           underQuantifier = true)
+
+    def notUnderQuantifier =
+      copy(underQuantifier = false)
+
+    def collectVariableRanges(f : IFormula) = {
+      var ranges = boundVarRanges
+
+      def collectRanges(f : IFormula, neg : Boolean) : Unit = f match {
+        case INot(subF) =>
+          collectRanges(subF, !neg)
+        case Conj(left, right) if !neg => {
+          collectRanges(left, neg)
+          collectRanges(right, neg)
+        }
+        case Disj(left, right) if neg => {
+          collectRanges(left, neg)
+          collectRanges(right, neg)
+        }
+        case Geq(IVariable(ind), IIntLit(value)) if !neg => {
+          val (oldL, oldU) =
+            ranges(ind)
+          ranges =
+            ranges.updated(ind, (Some((oldL getOrElse value) max value), oldU))
+        }
+        case Geq(IIntLit(value), IVariable(ind)) if !neg => {
+          val (oldL, oldU) =
+            ranges(ind)
+          ranges =
+            ranges.updated(ind, (oldL, Some((oldU getOrElse value) min value)))
+        }
+        case _ =>
+          // nothing
+      }
+
+      collectRanges(f, false)
+      copy(boundVarRanges = ranges, underQuantifier = false)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+ 
+  private object VisitorRes {
+
+    def update(t : IExpression, subres : Seq[VisitorRes]) : VisitorRes = {
+      if (subres.isEmpty)
+        deriveBounds(t, subres)
+      else
+        deriveBounds(t update (subres map (_.res)), subres)
+    }
+
+    def deriveBounds(t : IExpression,
+                     subres : Seq[VisitorRes]) : VisitorRes = t match {
+      case _ : IFormula =>
+        VisitorRes(t, null, null)
+
+      case IIntLit(value) =>
+        VisitorRes(t, value, value)
+
+      case _ : IPlus => {
+        val Seq(VisitorRes(_, lb1, ub1), VisitorRes(_, lb2, ub2)) = subres
+        val newLB = if (lb1 == null || lb2 == null) null else (lb1 + lb2)
+        val newUB = if (ub1 == null || ub2 == null) null else (ub1 + ub2)
+        VisitorRes(t, newLB, newUB)
+      }
+
+      case ITimes(coeff, _) => {
+        val Seq(VisitorRes(_, lb, ub)) = subres
+        if (coeff.signum >= 0)
+          VisitorRes(t,
+                     if (lb == null) null else (lb * coeff),
+                     if (ub == null) null else (ub * coeff))
+        else
+          VisitorRes(t,
+                     if (ub == null) null else (ub * coeff),
+                     if (lb == null) null else (lb * coeff))
+      }
+
+      case IFunApp(MulTheory.Mul(), _) => {
+        val Seq(VisitorRes(_, lb1, ub1), VisitorRes(_, lb2, ub2)) = subres
+        if (lb1 == null || lb2 == null || ub1 == null || ub2 == null) {
+          VisitorRes(t, null, null)
+        } else {
+          val p1 = lb1 * lb2
+          val p2 = lb1 * ub2
+          val p3 = ub1 * lb2
+          val p4 = ub1 * ub2
+          VisitorRes(t, p1 min p2 min p3 min p4, p1 max p2 max p3 max p4)
+        }
+      }
+
+      case _ : IConstant |
+           _ : IFunApp => (Sort sortOf t.asInstanceOf[ITerm]) match {
+        case ModSort(lower, upper) =>
+          VisitorRes(t, lower, upper)
+        case Sort.Interval(lower, upper) =>
+          VisitorRes(t, lower getOrElse null, upper getOrElse null)
+        case _ =>
+          VisitorRes(t, null, null)
+      }
+
+      case _ =>
+        VisitorRes(t, null, null)
+    }
+  }
+
+  private case class VisitorRes(res : IExpression,
+                                lowerBound : IdealInt,   // maybe null
+                                upperBound : IdealInt) { // maybe null
+    import IExpression._
+
+    def noModCastNeeded(lower : IdealInt, upper : IdealInt,
+                        ctxt : VisitorArg) = {
+      val modulus = upper - lower + IdealInt.ONE
+      ctxt.modN match {
+        case Some(n) if (n divides modulus) =>
+          true
+        case _ =>
+          lowerBound != null && upperBound != null &&
+          (lowerBound - lower) / modulus == -((upper - upperBound) / modulus)
+      }
+    }
+
+    def modCast(lower : IdealInt, upper : IdealInt,
+                ctxt : VisitorArg) : VisitorRes =
+      if (noModCastNeeded(lower, upper, ctxt))
+        this
+      else
+        VisitorRes(mod_cast(lower, upper, res.asInstanceOf[ITerm]),
+                   lower, upper)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object Preproc extends CollectingVisitor[VisitorArg, VisitorRes] {
+    import IExpression._
+
+    override def preVisit(t : IExpression,
+                          ctxt : VisitorArg) : PreVisitResult = t match {
+      case _ : IQuantified | _ : IEpsilon =>
+        UniSubArgs(ctxt.pushVar)
+      case Conj(left, _) if ctxt.underQuantifier =>
+        SubArgs(List(ctxt.notUnderQuantifier,
+                     ctxt collectVariableRanges left))
+      case Disj(left, _) if ctxt.underQuantifier =>
+        SubArgs(List(ctxt.notUnderQuantifier,
+                     ctxt collectVariableRanges ~left))
+      case IFunApp(`mod_cast`, Seq(IIntLit(lower), IIntLit(upper), _)) =>
+        SubArgs(List(ctxt.noMod, ctxt.noMod,
+                     ctxt addMod (upper - lower + IdealInt.ONE)))
+      // Concat
+      // Extract
+      case IFunApp(`bv_not` | `bv_neg` | `bv_and` | `bv_or` |
+                   `bv_add` | `bv_sub` | `bv_mul`,
+                   Seq(IIntLit(IdealInt(n)), _*)) =>
+        UniSubArgs(ctxt addMod (IdealInt(2) pow n))
+      case _ : IPlus | _ : ITimes | IFunApp(MulTheory.Mul(), _) => // IMPROVE
+        UniSubArgs(ctxt.notUnderQuantifier)
+      case _ =>
+        UniSubArgs(ctxt.noMod)
+    }
+
+    def postVisit(t : IExpression,
+                  ctxt : VisitorArg, subres : Seq[VisitorRes]) : VisitorRes = {
+      println("" + t + ", " + ctxt)
+      val res = t match {
+        case IFunApp(`mod_cast`, Seq(IIntLit(lower), IIntLit(upper), _))
+          if subres.last.noModCastNeeded(lower, upper, ctxt) =>
+            subres.last
+        case t => 
+          VisitorRes.update(t, subres)
+      }
+      println(res)
+      res
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def iPreprocess(f : IFormula, signature : Signature)
+                          : (IFormula, Signature) = {
+/*    (Preproc.visit(f,
+        VisitorArg(None, List(), false)).res.asInstanceOf[IFormula],
+     signature) */
+    (f, signature)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
