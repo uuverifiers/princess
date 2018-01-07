@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -598,29 +598,51 @@ object ModuloArithmetic extends Theory {
                                 upperBound : IdealInt) { // maybe null
     import IExpression._
 
-    def noModCastNeeded(lower : IdealInt, upper : IdealInt,
-                        ctxt : VisitorArg) = {
+    def modCast(lower : IdealInt, upper : IdealInt,
+                ctxt : VisitorArg) : VisitorRes =
+      modCastHelp(lower, upper, ctxt) match {
+        case null =>
+          VisitorRes(mod_cast(lower, upper, res.asInstanceOf[ITerm]),
+                     lower, upper)
+        case res =>
+          res
+      }
+
+    def modCastHelp(lower : IdealInt, upper : IdealInt,
+                    ctxt : VisitorArg) : VisitorRes = {
       val modulus = upper - lower + IdealInt.ONE
       ctxt.modN match {
         case Some(n) if (n divides modulus) =>
-          true
+          this
         case _ =>
-          lowerBound != null && upperBound != null &&
-          (lowerBound - lower) / modulus == -((upper - upperBound) / modulus)
+          if (lowerBound == null || upperBound == null) {
+            null // mod_cast is needed!
+          } else {
+            val lowerFactor = (lowerBound - lower) / modulus
+            val upperFactor = -((upper - upperBound) / modulus)
+            if (lowerFactor == upperFactor) {
+              if (lowerFactor.isZero) {
+                this
+              } else {
+                val corr = lowerFactor * modulus
+                VisitorRes(res.asInstanceOf[ITerm] - corr,
+                           lower - corr, upper - corr)
+              }
+            } else {
+              null // mod_cast is needed!
+            }
+          }
       }
     }
-
-    def modCast(lower : IdealInt, upper : IdealInt,
-                ctxt : VisitorArg) : VisitorRes =
-      if (noModCastNeeded(lower, upper, ctxt))
-        this
-      else
-        VisitorRes(mod_cast(lower, upper, res.asInstanceOf[ITerm]),
-                   lower, upper)
   }
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Visitor called during pre-processing, to translate
+   * bit-vector operations to a basic set of operations
+   * (mod_cast, ...) and simplify.
+   */
   private object Preproc extends CollectingVisitor[VisitorArg, VisitorRes] {
     import IExpression._
 
@@ -653,9 +675,11 @@ object ModuloArithmetic extends Theory {
                   ctxt : VisitorArg, subres : Seq[VisitorRes]) : VisitorRes = {
       println("" + t + ", " + ctxt)
       val res = t match {
-        case IFunApp(`mod_cast`, Seq(IIntLit(lower), IIntLit(upper), _))
-          if subres.last.noModCastNeeded(lower, upper, ctxt) =>
-            subres.last
+        case IFunApp(`mod_cast`, Seq(IIntLit(lower), IIntLit(upper), _)) =>
+          subres.last.modCastHelp(lower, upper, ctxt) match {
+            case null => VisitorRes.update(t, subres)
+            case res  => res
+          }
         case t => 
           VisitorRes.update(t, subres)
       }
