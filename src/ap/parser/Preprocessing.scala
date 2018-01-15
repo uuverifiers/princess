@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -59,31 +59,32 @@ object Preprocessing {
             : (List[INamedPart], List[IInterpolantSpec], Signature) = {
 
     // turn the formula into a list of its named parts
-    val fors = PartExtractor(f)
+    val fors1a = PartExtractor(f)
 
     // the other steps can be skipped for simple cases
     if ((functionEncoder.axioms match {
            case IBoolLit(true) => true
            case _ => false
          }) &&
-        !needsPreprocessing(fors))
-      return (fors, interpolantSpecs, signature)
+        !needsPreprocessing(fors1a))
+      return (fors1a, interpolantSpecs, signature)
 
-    // partial evaluation, expand equivalences
-    val fors2 =
-      for (f <- fors)
-      yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
-
-    val (fors2a, signature2) = {
+    // theory-specific preprocessing
+    val (fors1b, signature2) = {
       val theories = signature.theories
       var sig = signature
-      val newFors = for (f <- fors2) yield {
+      val newFors = for (f <- fors1a) yield {
         val (newF, newSig) = Theory.iPreprocess(f, signature.theories, sig)
         sig = newSig
         newF
       }
       (newFors, sig)
     }
+
+    // partial evaluation, expand equivalences
+    val fors2a =
+      for (f <- fors1b)
+      yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
     // simple mini-scoping for existential quantifiers
     val fors2b = for (f <- fors2a) yield SimpleMiniscoper(f)

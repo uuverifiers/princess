@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2018 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -688,17 +688,35 @@ println(unprocessed)
         // all predicates are linearized
         // Since we have predicates of the form a(0)*a(1)=a(2), a simple (but incomplete?)
   
-        def linearizers(predicates : List[ap.terfor.preds.Atom]) : Set[Set[ConstantTerm]] = {
+        def linearizers(predicates : List[ap.terfor.preds.Atom],
+                        intervalSet : IntervalSet) : Set[Set[ConstantTerm]] = {
   
           // Given the List [({x11, x12, ...}, {y11, y12, ...}), ({x21, ....]
           // returns {{x1*, x2*, x3* ...xn*}, {x1*, x2*, ... yn*}, ..., {y1*, y2*, ... yn*}}
   
           val predSet =
-            for (p <- predicates)
-            yield
-              (p(0).constants, p(1).constants)
-  
-          val allConsts = order sort order.orderedConstants
+            for (p <- predicates) yield (p(0).constants, p(1).constants)
+          val relevantConsts =
+            (for ((s, t) <- predSet.iterator; c <- s.iterator ++ t.iterator)
+             yield c).toSet
+
+          val allConsts = relevantConsts.toVector sortWith {
+            case (c, d) => {
+              val cInt = intervalSet getTermInterval c
+              val cBoundNum =
+                (if (cInt.lower == IntervalNegInf) 0 else 1) +
+                (if (cInt.upper == IntervalPosInf) 0 else 1)
+
+              val dInt = intervalSet getTermInterval d
+              val dBoundNum =
+                (if (dInt.lower == IntervalNegInf) 0 else 1) +
+                (if (dInt.upper == IntervalPosInf) 0 else 1)
+
+              cBoundNum < dBoundNum ||
+              (cBoundNum == dBoundNum) && order.compare(c, d) < 0
+            }
+          }
+
           val allConstsSet = new MHashSet[ConstantTerm]
           allConstsSet ++= allConsts
 
@@ -910,7 +928,7 @@ println(unprocessed)
 
           // Let the target set be the smallest set such that all
           // predicates are made linear
-          val targetSet = linearizers(predicates.toList).toList
+          val targetSet = linearizers(predicates.toList, intervalSet).toList
                              .sortWith((s1, s2) => s1.size > s2.size).head
 
           val alternatives =

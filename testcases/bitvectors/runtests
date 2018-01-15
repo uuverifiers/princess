@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# tests only runnable with unit resolution and clausification
+
+PRI=../../princess
+
+TESTS="existential.pri \
+       bvsdiv.smt2 \
+       bvsdiv2.smt2 \
+       bvsdiv3.smt2 \
+       bvsdiv5.smt2 \
+       bvsdiv6.smt2 \
+       bvsdiv6b.smt2 \
+       bvsdiv6c.smt2 \
+       bvsmod.smt2 \
+       bvsmod3.smt2 \
+       bvsrem.smt2 \
+       bvsrem2.smt2"
+
+$PRI "$@" $TESTS

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -75,13 +75,24 @@ trait MulTheory extends Theory {
   /**
    * Euclidian division
    */
-  def eDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
-    val num = VariableShiftVisitor(numTerm, 0, 1)
-    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+  def eDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm =
+    if (isSimpleTerm(numTerm) && Const.unapply(denomTerm).isDefined) {
+      val num = VariableShiftVisitor(numTerm, 0, 1)
+      val denom = VariableShiftVisitor(denomTerm, 0, 1)
 
-    val v0Denom = mult(v(0), denom)
-    eps((v0Denom <= num) & (v0Denom > num - abs(denom)))
-  }
+      val v0Denom = mult(v(0), denom)
+      eps((v0Denom <= num) & (v0Denom > num - abs(denom)))
+    } else {
+      // avoid duplication of the numerator by introducing a quantifier
+
+      val num = VariableShiftVisitor(numTerm, 0, 4)
+      val denom = VariableShiftVisitor(denomTerm, 0, 4)
+
+      eps(ex(ex(ex((v(0) === num) &
+                   (v(1) === mult(v(3), v(2))) &
+                   (v(2) === denom) &
+                   (v(1) <= v(0)) & (v(1) > v(0) - abs(v(2)))))))
+    }
 
   /**
    * Euclidian remainder
@@ -98,39 +109,73 @@ trait MulTheory extends Theory {
   /**
    * Truncation division
    */
-  def tDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
-    val num = VariableShiftVisitor(numTerm, 0, 1)
-    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+  def tDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm =
+    if (isSimpleTerm(numTerm) && Const.unapply(denomTerm).isDefined) {
+      val num = VariableShiftVisitor(numTerm, 0, 1)
+      val denom = VariableShiftVisitor(denomTerm, 0, 1)
 
-    val rem = num - mult(v(0), denom)
-    eps((rem < abs(denom)) & (-rem < abs(denom)) &
-        ((rem > 0) ==> (num > 0)) & ((rem < 0) ==> (num < 0)))
-  }
+      val rem = num - mult(v(0), denom)
+      eps((rem < abs(denom)) & (-rem < abs(denom)) &
+          ((rem > 0) ==> (num > 0)) & ((rem < 0) ==> (num < 0)))
+    } else {
+      // avoid duplication of terms by introducing quantifiers
+
+      val num = VariableShiftVisitor(numTerm, 0, 4)
+      val denom = VariableShiftVisitor(denomTerm, 0, 4)
+
+      eps(ex(ex(ex((v(0) === num) &
+                   (v(1) === v(0) - mult(v(3), v(2))) &
+                   (v(2) === denom) &
+                   (v(1) < abs(v(2))) & (-v(1) < abs(v(2))) &
+                   ((v(1) > 0) ==> (v(0) > 0)) & ((v(1) < 0) ==> (v(0) < 0))))))
+    }
 
   /**
    * Truncation remainder
    */
-  def tMod(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
-    val num = VariableShiftVisitor(numTerm, 0, 1)
-    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+  def tMod(numTerm : ITerm, denomTerm : ITerm) : ITerm =
+    if (isSimpleTerm(numTerm)) {
+      val num = VariableShiftVisitor(numTerm, 0, 1)
+      val denom = VariableShiftVisitor(denomTerm, 0, 1)
 
-    eps((v(0) < abs(denom)) & (-v(0) < abs(denom)) &
-        ((v(0) > 0) ==> (num > 0)) & ((v(0) < 0) ==> (num < 0)) &
-        ex(VariableShiftVisitor(num, 0, 1) ===
-           mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
-  }
+      eps((v(0) < abs(denom)) & (-v(0) < abs(denom)) &
+          ((v(0) > 0) ==> (num > 0)) & ((v(0) < 0) ==> (num < 0)) &
+          ex(VariableShiftVisitor(num, 0, 1) ===
+             mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(1)))
+    } else {
+      // avoid duplication of the numerator by introducing a quantifier
+
+      val num = VariableShiftVisitor(numTerm, 0, 2)
+      val denom = VariableShiftVisitor(denomTerm, 0, 2)
+
+      eps(ex((v(0) === num) &
+             (v(1) < abs(denom)) & (-v(1) < abs(denom)) &
+             ((v(1) > 0) ==> (v(0) > 0)) & ((v(1) < 0) ==> (v(0) < 0)) &
+             ex(v(1) === mult(v(0), VariableShiftVisitor(denom, 0, 1)) + v(2))))
+    }
 
   /**
    * Floor division
    */
-  def fDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm = {
-    val num = VariableShiftVisitor(numTerm, 0, 1)
-    val denom = VariableShiftVisitor(denomTerm, 0, 1)
+  def fDiv(numTerm : ITerm, denomTerm : ITerm) : ITerm =
+    if (isSimpleTerm(numTerm)) {
+      val num = VariableShiftVisitor(numTerm, 0, 1)
+      val denom = VariableShiftVisitor(denomTerm, 0, 1)
 
-    val rem = num - mult(v(0), denom)
-    eps((rem < abs(denom)) & (-rem < abs(denom)) &
-        ((rem > 0) ==> (denom > 0)) & ((rem < 0) ==> (denom < 0)))
-  }
+      val rem = num - mult(v(0), denom)
+      eps((rem < abs(denom)) & (-rem < abs(denom)) &
+          ((rem > 0) ==> (denom > 0)) & ((rem < 0) ==> (denom < 0)))
+    } else {
+      // avoid duplication of the numerator by introducing a quantifier
+
+      val num = VariableShiftVisitor(numTerm, 0, 2)
+      val denom = VariableShiftVisitor(denomTerm, 0, 2)
+
+      val rem = v(0) - mult(v(1), denom)
+      eps(ex((v(0) === num) &
+             (rem < abs(denom)) & (-rem < abs(denom)) &
+             ((rem > 0) ==> (denom > 0)) & ((rem < 0) ==> (denom < 0))))
+    }
 
   /**
    * Floor remainder
