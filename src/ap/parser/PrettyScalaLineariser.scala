@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,6 +27,7 @@ import ap.terfor.preds.Predicate
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.types.Sort
+import ap.theories.ModuloArithmetic
 import ap.util.Seqs
 
 import java.io.PrintStream
@@ -39,12 +40,19 @@ object PrettyScalaLineariser {
   def printSort(sort : Sort) : Unit = sort match {
     case Sort.Integer =>
       print("Sort.Integer")
-    case Sort.Nat     =>
+    case Sort.Nat =>
       print("Sort.Nat")
+    case Sort.Bool =>
+      print("Sort.Bool")
+    case Sort.MultipleValueBool =>
+      print("Sort.MultipleValueBool")
     case Sort.Interval(lower, upper) =>
       print("Sort.Interval(" +
             (for (l <- lower) yield int2String(l)) + ", " +
             (for (u <- upper) yield int2String(u)) + ")")
+    case ModuloArithmetic.ModSort(lower, upper) =>
+      print("ap.theories.ModuloArithmetic.ModSort(" +
+            int2String(lower) + ", " + int2String(upper) + ")")
   }
 
   def sort2String(sort : Sort) : String =

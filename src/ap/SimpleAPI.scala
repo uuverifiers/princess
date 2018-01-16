@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -44,8 +44,8 @@ import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
-                 MonoSortedIFunction, SortedPredicate, TypeTheory,
-                 IntToTermTranslator}
+                 MonoSortedIFunction, MonoSortedPredicate,
+                 SortedPredicate, TypeTheory, IntToTermTranslator}
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
@@ -1061,12 +1061,28 @@ class SimpleAPI private (enableAssert : Boolean,
    */
   def addRelation(p : IExpression.Predicate) : Unit = {
     doDumpSMT {
-      println("(declare-fun " + SMTLineariser.quoteIdentifier(p.name) + " (" +
-          (for (_ <- 0 until p.arity) yield "Int").mkString(" ") + ") Bool)")
+      p match {
+        case p : MonoSortedPredicate =>
+          dumpSMTFunDecl(p.name, p.argSorts, SMTParser2InputAbsy.SMTBool)
+        case _ =>
+          dumpSMTFunDecl(p.name,
+                         for (_ <- 0 until p.arity) yield Sort.Integer,
+                         SMTParser2InputAbsy.SMTBool)
+      }
     }
     doDumpScala {
-      println("val " + p.name + " = " +
-              "createRelation(\"" + p.name + "\", " + p.arity + ")")
+      p match {
+        case p : MonoSortedPredicate =>
+          println(
+            "val " + p.name +
+            " = createRelation(\"" + p.name + "\", List(" +
+            (p.argSorts map
+               (PrettyScalaLineariser sort2String _)).mkString(", ") +
+            "))")
+        case _ =>
+          println("val " + p.name + " = " +
+                  "createRelation(\"" + p.name + "\", " + p.arity + ")")
+      }
     }
     addRelationHelp(p)
   }
@@ -1255,11 +1271,7 @@ class SimpleAPI private (enableAssert : Boolean,
                                     argSorts : Seq[Sort],
                                     resSort : Sort) = doDumpSMT {
     val (smtType, optConstr) = SMTLineariser sort2SMTType resSort
-    print("(declare-fun " + SMTLineariser.quoteIdentifier(f.name) + " (" +
-        (for (s <- argSorts)
-         yield SMTLineariser.sort2SMTString(s)).mkString(" ") + ") ")
-    SMTLineariser printSMTType smtType
-    println(")")
+    dumpSMTFunDecl(f.name, argSorts, smtType)
     
     for (constr <- optConstr) {
       import IExpression._
@@ -1274,6 +1286,16 @@ class SimpleAPI private (enableAssert : Boolean,
       SMTLineariser(constr(IFunApp(f, args)))
       println("))")
     }
+  }
+
+  private def dumpSMTFunDecl(name : String,
+                             argSorts : Seq[Sort],
+                             resType : SMTParser2InputAbsy.SMTType) = {
+    print("(declare-fun " + SMTLineariser.quoteIdentifier(name) + " (" +
+        (for (s <- argSorts)
+         yield SMTLineariser.sort2SMTString(s)).mkString(" ") + ") ")
+    SMTLineariser printSMTType resType
+    println(")")
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1421,6 +1443,20 @@ class SimpleAPI private (enableAssert : Boolean,
     
     val name = sanitise(rawName)
     val r = new Predicate(name, arity)
+    addRelation(r)
+    r
+  }
+
+  /**
+   * Create a new uninterpreted predicate with the given arguments.<br>
+   * Predicates are more low-level than Boolean functions, and
+   * cannot be used within triggers.
+   */
+  def createRelation(rawName : String, argSorts : Seq[Sort]) = {
+    import IExpression._
+    
+    val name = sanitise(rawName)
+    val r = MonoSortedPredicate(name, argSorts)
     addRelation(r)
     r
   }
