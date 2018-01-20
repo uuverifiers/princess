@@ -39,7 +39,7 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
-import ap.util.{Timeout, Seqs}
+import ap.util.{Timeout, Seqs, Debug}
 
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
@@ -51,6 +51,8 @@ import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
  * by interval propagation.
  */
 object GroebnerMultiplication extends MulTheory {
+
+  private val AC = Debug.AC_NIA
 
   val mul = new IFunction("mul", 2, true, false)
   val _mul = new Predicate("mul", 3)
@@ -493,8 +495,14 @@ println(unprocessed)
       intervalSet.propagate
 
       val intActions =
-        filterActions(intervals2Actions(intervalSet, predicates,
-                                        goal, label2Assumptions _), order)
+        filterActions(intervals2Actions(
+                                intervalSet, predicates,
+                                goal, label2Assumptions _) ++
+//                      crossMult(intervalSet, predicates,
+//                                goal, label2Assumptions _) ++
+                      filterSubsumedActions(crossMult2(predicates, goal),
+                                            goal, intervalSet),
+                      order)
 
       if (!intActions.isEmpty)
         return removeFactsActions ++ intActions
@@ -578,10 +586,25 @@ println(unprocessed)
         }
       }
 
-      //////////////////////////////////////////////////////////////////////////
-      //
-      // Generate linear approximations of quadratic terms using
-      // cross-multiplication
+      (for ((f, label) <- intervalAtoms.iterator;
+            if !(goal reduceWithFacts f).isTrue)
+       yield (Plugin.AddAxiom(label2Assumptions(label), conj(f),
+                              GroebnerMultiplication.this))).toList
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Generate linear approximations of quadratic terms using
+     * cross-multiplication. This version only considers inequalities
+     * with exactly one constant symbol.
+     */
+    private def crossMult(intervalSet : IntervalSet,
+                          predicates : IndexedSeq[Atom],
+                          goal : Goal,
+                          label2Assumptions : BitSet => Seq[Formula])
+                         : Seq[Plugin.Action] = {
+      implicit val order = goal.order
 
       def enumBounds(i : Interval) : Iterator[(IdealInt, IdealInt)] =
         (i.lower match {
@@ -618,13 +641,223 @@ println(unprocessed)
           (ineq, (l0 | l1) + predN)
         }
 
-      //////////////////////////////////////////////////////////////////////////
-
-      (for ((f, label) <- intervalAtoms.iterator ++ crossInEqs;
+      (for ((f, label) <- crossInEqs;
             if !(goal reduceWithFacts f).isTrue)
        yield (Plugin.AddAxiom(label2Assumptions(label), conj(f),
                               GroebnerMultiplication.this))).toList
+    }
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    private val CROSS_COEFF_BOUND = IdealInt(5)
+
+    /**
+     * Generate linear approximations of quadratic terms using
+     * cross-multiplication. This version considers all inequalities
+     * with coefficients bounded by <code>CROSS_COEFF_BOUND</code>
+     * (to avoid looping behaviour), provided that the result of
+     * cross-multiplication can be expressed as a linear inequality
+     * using just the product terms that already exist in a goal.
+     */
+    private def crossMult2(predicates : IndexedSeq[Atom], goal : Goal)
+                          : Seq[Plugin.Action] = {
+      implicit val order = goal.order
+
+      val multMapping : Map[(ConstantTerm, ConstantTerm),
+                            (LinearCombination, Atom)] =
+        (for (a <- predicates.iterator;
+              if a(0).constants.size == 1 && a(0).leadingCoeff.isUnit &&
+                 a(1).constants.size == 1 && a(1).leadingCoeff.isUnit;
+              c0 = a(0).leadingTerm.asInstanceOf[ConstantTerm];
+              c1 = a(1).leadingTerm.asInstanceOf[ConstantTerm];
+              // (c1 x1 + d1) * (c2 x2 + d2) = t
+              // c1 c2 x1 x2 + c1 d2 x1 + c2 d1 x2 + d1 d2 = t
+              // x1 x2 = (t - c1 d2 x1 - c2 d1 x2 - d1 d2) / c1 c2
+              val fact = a(0).leadingCoeff * a(1).leadingCoeff;
+              rhs =
+                LinearCombination(List(
+                  (fact, a(2)),
+                  (- a(0).leadingCoeff * a(1).constant * fact, c0),
+                  (- a(1).leadingCoeff * a(0).constant * fact, c1),
+                  (- a(0).constant * a(1).constant * fact, OneTerm)),
+                  order);
+              key <- Seqs.doubleIterator((c0, c1), (c1, c0))) yield {
+           (key, (rhs, a))
+         }).toMap
+
+      val mappedTerms =
+        (for (((c, d), _) <- multMapping.iterator;
+              x <- Seqs.doubleIterator(c, d))
+         yield x).toSet
+
+      val ineqs =
+        (for (lc <- goal.facts.arithConj.inEqs.iterator ++
+                    goal.facts.arithConj.inEqs.geqZeroInfs.iterator;
+              if (lc.constants subsetOf mappedTerms) &&
+                 (lc forall {
+                    case (_, OneTerm) => true
+                    case (coeff, _) => coeff.abs <= CROSS_COEFF_BOUND
+                  }))
+         yield lc).toIndexedSeq
+
+      val crossLC = new ArrayBuffer[(IdealInt, ap.terfor.Term)]
+      val assumptions = new ArrayBuffer[Formula]
+
+      val res = new ArrayBuffer[Plugin.Action]
+
+      for (ind1  <- 0 until ineqs.size;
+           ineq1 = ineqs(ind1);
+           n1    = ineq1.size;
+           ind2  <- ind1 until ineqs.size;
+           ineq2 = ineqs(ind2)) {
+        crossLC.clear
+        assumptions.clear
+
+        val n2 = ineq2.size
+
+        var cont = true
+        var i1 = 0
+        while (cont && i1 < n1) {
+          (ineq1 getTerm i1) match {
+            case OneTerm =>
+              crossLC += ((ineq1 getCoeff i1, ineq2))
+            case c1 : ConstantTerm => {
+              val coeff1 = ineq1 getCoeff i1
+              
+              var i2 = 0
+              while (cont && i2 < n2) {
+                (ineq2 getTerm i2) match {
+                  case OneTerm =>
+                    crossLC += ((coeff1 * (ineq2 getCoeff i2), c1))
+                  case c2 : ConstantTerm =>
+                    (multMapping get (c1, c2)) match {
+                      case Some((rhs, atom)) => {
+                        crossLC += ((coeff1 * (ineq2 getCoeff i2), rhs))
+                        assumptions += atom
+                      }
+                      case None =>
+                        cont = false
+                    }
+                }
+            
+                i2 = i2 + 1
+              }
+            }
+          }
+
+          i1 = i1 + 1
+        }
+
+        if (cont) {
+          val newInEq = InEqConj(LinearCombination(crossLC, order), order)
+
+          if (!(goal reduceWithFacts newInEq).isTrue) {
+            assumptions += InEqConj(ineq1, order)
+            assumptions += InEqConj(ineq2, order)
+
+            res += Plugin.AddAxiom(assumptions.toList, newInEq,
+                                   GroebnerMultiplication.this)
+          }
+        }
+      }
+
+      res
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Check whether <code>ineq1 >= 0</code> implies <code>ineq2 >= 0</code>,
+     * given the ranges of variables provided.
+     */
+    private def ineqImplies(ineq1 : LinearCombination,
+                            ineq2 : LinearCombination,
+                            intervalSet : IntervalSet) : Boolean =
+      ineq1.constants == ineq2.constants && {
+        var diff = ineq2.constant - ineq2.constant
+
+        val n = ineq1.size min ineq2.size
+        var ind = 0
+        while (ind < n) {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, (ineq1 getTerm ind) == (ineq2 getTerm ind))
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+           (ineq1 getTerm ind) match {
+             case c : ConstantTerm => {
+               val coeffDiff = (ineq2 getCoeff ind) - (ineq1 getCoeff ind)
+               coeffDiff.signum match {
+                 case 0 =>
+                   // nothing
+                 case sig =>
+                   (intervalSet getTermIntervalOption c) match {
+                     case Some(interval) =>
+                       if (sig > 0) {
+                         interval.lower match {
+                           case IntervalVal(v) =>
+                             diff = diff + (coeffDiff * v)
+                           case _ =>
+                             return false
+                         }
+                       } else {
+                         interval.upper match {
+                           case IntervalVal(v) =>
+                             diff = diff + (coeffDiff * v)
+                           case _ =>
+                             return false
+                         }
+                       }
+                     case None =>
+                       return false
+                   }
+               }
+             }
+             case _ =>
+               // nothing
+           }
+
+          ind = ind + 1
+        }
+
+        diff.signum >= 0
+      }
+
+    private def filterSubsumedActions(actions : Seq[Plugin.Action],
+                                      goal : Goal,
+                                      intervalSet : IntervalSet)
+                                     : Seq[Plugin.Action] = {
+      implicit val order = goal.order
+      val ineqs = goal.facts.arithConj.inEqs
+
+      val res = new ArrayBuffer[Plugin.Action]
+
+      for (act <- actions) act match {
+        case Plugin.AddAxiom(_, c, _)
+          if c.isArithLiteral && c.arithConj.inEqs.size == 1 &&
+             c.constants.size > 1 => {
+
+          val ineq = c.arithConj.inEqs.head
+          if (ineqs.findInEqsWithLeadingTerm(ineq.leadingTerm, true) exists (
+                ineqImplies(_, ineq, intervalSet))) {
+            // forward subsumption:
+            // this inequality is implied by some inequalities that already
+            // exists in the goal, skip it
+          } else {
+            res += act
+
+            // check possible backward subsumptions
+            val toElim =
+              (ineqs.findInEqsWithLeadingTerm(ineq.leadingTerm) filter {
+                 lc => ineqImplies(ineq, lc, intervalSet) }) >= 0
+            if (!toElim.isTrue)
+              res += Plugin.RemoveFacts(toElim)
+          }
+        }
+        case _ =>
+          res += act
+      }
+
+      res
     }
 
     ////////////////////////////////////////////////////////////////////////////

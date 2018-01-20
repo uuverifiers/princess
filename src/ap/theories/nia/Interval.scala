@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2018 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -288,7 +288,7 @@ case class Interval(lower : IntervalInt, upper : IntervalInt,
   override def toString =
     "(" + lower + ", " + upper + ") + gap: " + gap.toString
 
-  def isEmpty : Boolean = {
+  lazy val isEmpty : Boolean = {
     (lower, upper) match {
       case (IntervalNegInf, IntervalNegInf) => true
       case (IntervalPosInf, IntervalPosInf) => true
@@ -319,6 +319,26 @@ case class Interval(lower : IntervalInt, upper : IntervalInt,
       Some(upper.get)
     else
       Some(IdealInt.MINUS_ONE)
+
+  /**
+   * Check whether all values in this interval are non-negative.
+   */
+  lazy val allNonNegative : Boolean =
+    isEmpty ||
+    (lower match {
+      case IntervalVal(l) => l.signum >= 0
+      case _ => false
+    })
+
+  /**
+   * Check whether all values in this interval are non-positive.
+   */
+  lazy val allNonPositive : Boolean =
+    isEmpty ||
+    (upper match {
+      case IntervalVal(l) => l.signum <= 0
+      case _ => false
+    })
 
   def containsInt(i : IdealInt) : Boolean = {
     (lower, upper) match {
@@ -535,6 +555,9 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     val (i, _, _) = intervals(ct)
     i
   }
+
+  def getTermIntervalOption(ct : ConstantTerm) : Option[Interval] =
+    for ((i, _, _) <- intervals get ct) yield i
 
   def getLabelledTermInterval(ct : ConstantTerm) : (Interval, BitSet) = {
     val (i, _, l) = intervals(ct)

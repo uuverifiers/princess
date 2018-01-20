@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -468,7 +468,67 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
           ((bound - primLC.constant) * lc.nonConstCoeffGcd + lc.constant)
       }
     }
-   
+
+  /**
+   * Find all inequalities starting with a given <code>ConstantTerm</code> or
+   * <code>VariableTerm</code>. Optionally, the search can also include
+   * inferred inequalities.
+   */
+  def findInEqsWithLeadingTerm(lt : Term, includeInfs : Boolean = false)
+                              : Seq[LinearCombination] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(InEqConj.AC,
+                    lt.isInstanceOf[ConstantTerm] ||
+                    lt.isInstanceOf[VariableTerm])
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (lt.isInstanceOf[ConstantTerm] &&
+        !(order.orderedConstants contains lt.asInstanceOf[ConstantTerm])) {
+      List()
+    } else {
+      val lc = LinearCombination(lt, order)
+      val ineqs = findInEqsWithLeadingTerm(lc, geqZero)
+      if (includeInfs)
+        ineqs ++ findInEqsWithLeadingTerm(lc, geqZeroInfs)
+      else
+        ineqs
+    }
+  }
+
+  private def findInEqsWithLeadingTerm(lc : LinearCombination,
+                                       bounds : IndexedSeq[LinearCombination])
+                                       : Seq[LinearCombination] = {
+    val initInd =
+      Seqs.binSearch(bounds, 0, bounds.size, lc)(
+                     order.reverseLCOrdering) match {
+        case Seqs.Found(i)    => i
+        case Seqs.NotFound(i) => i
+      }
+
+    val lt = lc.leadingTerm
+
+    var start = initInd
+    while (start > 0 && bounds(start - 1).leadingTerm == lt)
+      start = start - 1
+
+    var end = initInd
+    while (end < bounds.size && bounds(end).leadingTerm == lt)
+      end = end + 1
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(InEqConj.AC,
+                     (0 until bounds.size) forall {
+                       i => (bounds(i).leadingTerm == lt) ==
+                            (start <= i && i < end)
+                     })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    if (start == end)
+      List()
+    else
+      bounds.view(start, end)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
      
   def length : Int = geqZero.length
