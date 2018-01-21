@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -441,10 +441,10 @@ object Interpolator
             } else if (iContext isFromRight f) {
               LazyConjunction.TRUE
             } else {
-              assert(false)
-              null
+              throw new Error("Cannot map formula to interpolation partition")
             }
-          case _ => { assert(false); null }
+          case f =>
+            throw new Error("Don't know how to handle " + f)
         }
       }
 	    
@@ -1001,7 +1001,7 @@ object Interpolator
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Interpolator.AC, {
             Console.err.println(
-              "Warning: cannot map formula to left or right" +
+              "Warning: cannot map formula to interpolation partition" +
               (if (consts.isEmpty)
                  ""
                else
@@ -1081,7 +1081,8 @@ object Interpolator
         Conjunction.TRUE
       }
       
-      case _ => { assert(false); null }
+      case f =>
+        throw new Error("Don't know how to handle " + f)
     }
   }
   

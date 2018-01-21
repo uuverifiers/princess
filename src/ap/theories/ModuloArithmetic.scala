@@ -1037,13 +1037,35 @@ object ModuloArithmetic extends Theory {
         case IAtom(`bv_ule`, _) =>
           VisitorRes(subres(1).resTerm <= subres(2).resTerm)
 
-        // TODO: optimise for some common cases (e.g., (bvsge x 0))
         case IAtom(`bv_slt`, Seq(IIntLit(IdealInt(bits)), _*)) =>
-          VisitorRes(subres(1).modCastSignedPow2(bits, ctxt).resTerm <
-                     subres(2).modCastSignedPow2(bits, ctxt).resTerm)
+          if (subres(2).isConstant &&
+              subres(2).modCastSignedPow2(bits, ctxt).lowerBound.isZero) {
+            val ModSort(_, mid) = SignedBVSort(bits)
+            VisitorRes(subres(1).modCastPow2(bits, ctxt).resTerm > mid)
+          } else if (subres(1).isConstant &&
+                     subres(1).modCastSignedPow2(bits, ctxt)
+                              .lowerBound.isMinusOne) {
+            val ModSort(_, mid) = SignedBVSort(bits)
+            VisitorRes(subres(2).modCastPow2(bits, ctxt).resTerm <= mid)
+          } else {
+            VisitorRes(subres(1).modCastSignedPow2(bits, ctxt).resTerm <
+                       subres(2).modCastSignedPow2(bits, ctxt).resTerm)
+          }
+
         case IAtom(`bv_sle`, Seq(IIntLit(IdealInt(bits)), _*)) =>
-          VisitorRes(subres(1).modCastSignedPow2(bits, ctxt).resTerm <=
-                     subres(2).modCastSignedPow2(bits, ctxt).resTerm)
+          if (subres(2).isConstant &&
+              subres(2).modCastSignedPow2(bits, ctxt).lowerBound.isMinusOne) {
+            val ModSort(_, mid) = SignedBVSort(bits)
+            VisitorRes(subres(1).modCastPow2(bits, ctxt).resTerm > mid)
+          } else if (subres(1).isConstant &&
+                     subres(1).modCastSignedPow2(bits, ctxt)
+                              .lowerBound.isZero) {
+            val ModSort(_, mid) = SignedBVSort(bits)
+            VisitorRes(subres(2).modCastPow2(bits, ctxt).resTerm <= mid)
+          } else {
+            VisitorRes(subres(1).modCastSignedPow2(bits, ctxt).resTerm <=
+                       subres(2).modCastSignedPow2(bits, ctxt).resTerm)
+          }
 
         case t =>
           VisitorRes.update(t, subres)
