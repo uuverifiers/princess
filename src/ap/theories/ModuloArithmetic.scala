@@ -747,6 +747,10 @@ object ModuloArithmetic extends Theory {
         // TODO: handle bit-width argument correctly
         UniSubArgs(ctxt addMod (IdealInt(2) pow n))
 
+      case IFunApp(`bv_shl`,
+                   Seq(IIntLit(IdealInt(n)), _*)) =>
+        SubArgs(List(ctxt.noMod, ctxt addMod (IdealInt(2) pow n), ctxt.noMod))
+
       case IAtom(`bv_slt` | `bv_sle`,
                  Seq(IIntLit(IdealInt(n)), _*)) =>
         UniSubArgs(ctxt addMod (IdealInt(2) pow n))
@@ -795,6 +799,9 @@ object ModuloArithmetic extends Theory {
           (subres(1) + subres(2)).modCastPow2(bits, ctxt)
         case IFunApp(`bv_sub`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           (subres(1) + (subres(2) * IdealInt.MINUS_ONE)).modCastPow2(bits, ctxt)
+
+        ////////////////////////////////////////////////////////////////////////
+
         case IFunApp(`bv_mul`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(1).isConstant)
             (subres(2) * subres(1).lowerBound).modCastPow2(bits, ctxt)
@@ -810,6 +817,16 @@ object ModuloArithmetic extends Theory {
           else if (subres(2).isConstant)
             subres(1) * subres(2).lowerBound
           else
+            VisitorRes.update(t, subres)
+
+        ////////////////////////////////////////////////////////////////////////
+
+        case IFunApp(`bv_shl`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          if (subres(2).isConstant)
+            (subres(1) * (IdealInt(2) pow subres(2).lowerBound.intValueSafe))
+              .modCastPow2(bits, ctxt)
+          else
+            // TODO: further optimise the translation
             VisitorRes.update(t, subres)
 
         ////////////////////////////////////////////////////////////////////////
