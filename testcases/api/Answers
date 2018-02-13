@@ -535,6 +535,9 @@ Test 8
 \exists int v0; (v0 >= 0 & 3 >= v0 & bv_mul(2, x, v0) = 1.\as[bv[2]])
 x = 3 | x = 1
 Valid
+Test 9
+Unsat
+Vector(a.\as[int] - b.\as[int] >= 126 | a >= 254 | (b.\as[int] - a.\as[int] = 130 & a >= 0), b >= 130, b >= c)
 
 TreeInterpolation.scala
 Unsat

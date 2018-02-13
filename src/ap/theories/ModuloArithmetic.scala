@@ -117,6 +117,11 @@ object ModuloArithmetic extends Theory {
   def bvsle(t1 : ITerm, t2 : ITerm) : IFormula =
     IAtom(bv_sle, List(extractBitWidth(t1, t2), t1, t2))
 
+  def bvugt(t1 : ITerm, t2 : ITerm) : IFormula = bvult(t2, t1)
+  def bvuge(t1 : ITerm, t2 : ITerm) : IFormula = bvule(t2, t1)
+  def bvsgt(t1 : ITerm, t2 : ITerm) : IFormula = bvslt(t2, t1)
+  def bvsge(t1 : ITerm, t2 : ITerm) : IFormula = bvsge(t2, t1)
+
   def zero_extend(addWidth : Int, t : ITerm) : ITerm =
     cast2UnsignedBV(extractBitWidth(t) + addWidth, t)
   def sign_extend(addWidth : Int, t : ITerm) : ITerm = {

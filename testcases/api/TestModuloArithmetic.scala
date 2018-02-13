@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -120,6 +120,33 @@
       println(pp(simpF))
       ?? (simpF <=> (extract(0, 0, x) === bv(1, 1)))
       println(expect(???, ProverStatus.Valid))
+    }
+
+    println("Test 9")
+    scope {
+      setConstructProofs(true)
+      val width = 8
+
+      val a = createConstant("a", UnsignedBVSort(width))
+      val b = createConstant("b", UnsignedBVSort(width))
+      val c = createConstant("c", UnsignedBVSort(width))
+
+      val A = (b === bvadd(a, bv(width, 130)))
+      val B = bvugt(b, a)
+      val C = (c === bvadd(b, bv(width, 130)))
+      val D = bvugt(c, b)
+
+      setPartitionNumber(1)
+      !! (A)
+      setPartitionNumber(2)
+      !! (B)
+      setPartitionNumber(3)
+      !! (C)
+      setPartitionNumber(4)
+      !! (D)
+
+      println(expect(???, ProverStatus.Unsat))
+      println(getInterpolants(List(Set(1), Set(2), Set(3), Set(4))) map (pp(_)))
     }
   }
 //}

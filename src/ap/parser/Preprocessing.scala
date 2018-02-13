@@ -318,9 +318,13 @@ println
 
       t match {
         case _ : IConstant | _ : IIntLit | _ : IPlus | _ : ITimes |
-             _ : IAtom | _ : IBoolLit | _ : IIntFormula | _ : INot |
-             IBinFormula(IBinJunctor.And | IBinJunctor.Or, _, _) => KeepArg
-        case _ => throw NeedsPreprocException
+             _ : IBoolLit | _ : IIntFormula | _ : INot |
+             IBinFormula(IBinJunctor.And | IBinJunctor.Or, _, _) =>
+          KeepArg
+        case IAtom(p, _) if (TheoryRegistry lookupSymbol p).isEmpty =>
+          KeepArg
+        case _ =>
+          throw NeedsPreprocException
       }
     }
     def postVisit(t : IExpression, arg : Unit, subres : Seq[Unit]) : Unit = ()
