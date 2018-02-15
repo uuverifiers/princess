@@ -68,6 +68,40 @@ object ModuloArithmetic extends Theory {
   private def pow2MinusOne(bits : Int) : IdealInt =
     pow2(bits) - IdealInt.ONE
 
+  /**
+   * Run-length encoding of a number, starting with the number of
+   * least-significant zeroes.
+   */
+  private def runlengths(v : IdealInt) : Seq[Int] = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, v.signum >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val two = IdealInt(2)
+    val res = new ArrayBuffer[Int]
+
+    var curBit = IdealInt.ZERO
+    var curNum = 0
+
+    var rem = v
+
+    while (!rem.isZero) {
+      val (newRem, bit) = rem /% two
+      if (bit == curBit) {
+        curNum = curNum + 1
+      } else {
+        res += curNum
+        curNum = 1
+        curBit = bit
+      }
+
+      rem = newRem
+    }
+
+    res += curNum
+    res
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // API methods that infer the right bit-width based on types
   

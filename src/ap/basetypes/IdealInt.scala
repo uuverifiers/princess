@@ -633,6 +633,19 @@ final class IdealInt private (private val longStore : Long,
       IdealInt(this.getBI and that.getBI)
   }
 
+  /**
+   * Bit-wise or.
+   */
+  def |  (that: IdealInt): IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (this.usesLong && that.usesLong)
+      IdealInt(this.longStore | that.longStore)
+    else
+      IdealInt(this.getBI or that.getBI)
+  }
+
   def getHighestSetBit : Int = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IdealInt.AC, this.signum > 0)
