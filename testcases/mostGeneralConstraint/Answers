@@ -62,3 +62,15 @@ Under the most-general constraint:
 Concrete witness:
 O1 = 8 & I1 = 8
 
+Loading shift4.pri ...
+Preprocessing ...
+Eliminating quantifiers ...
+
+VALID
+
+Equivalent constraint:
+(b != 2 | a = 3221225497 | a = 2147483673 | a = 1073741849 | a = 25) & (b != 1 | a = 2147483698 | a = 50) & (b = 2 | b = 1)
+
+Concrete witness:
+b = 2.\as[bv[32]] & a = 3221225497.\as[bv[32]]
+

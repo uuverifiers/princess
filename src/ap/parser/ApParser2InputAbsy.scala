@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -718,6 +718,21 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
        Sort.Bool)
     ////////////////////////////////////////////////////////////////////////////
     // Terms
+    case t : ExprShiftL =>
+      (translateExpression(t.expression_1),
+       translateExpression(t.expression_2)) match {
+        case ((left : ITerm, Sort.Numeric(_)), (IIntLit(bits), Sort.Numeric(_)))
+          if bits.signum >= 0 =>
+            (left * (IdealInt(2) pow bits.intValueSafe), Sort.Integer)
+        case ((left : ITerm,
+                 sort@ModuloArithmetic.ModSort(lower, upper)),
+              (right : ITerm,
+                 Sort.Numeric(_) | _ : ModuloArithmetic.ModSort)) =>
+            (ModuloArithmetic.shiftLeft(sort, left, right), sort)
+        case ((left, _), (right, _)) =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Cannot shift " + left + " to the left by " + right + " bits")
+      }
     case t : ExprPlus =>
       translateNumBinTerConnective("+", t.expression_1, t.expression_2, _ + _)
     case t : ExprMinus =>

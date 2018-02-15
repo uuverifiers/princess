@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -69,10 +69,15 @@ object CertificatePrettyPrinter {
     private val translator = new Internal2InputAbsy(predTranslation)
 
     def for2String(f : CertFormula) : String =
-      SMTLineariser asString Transform2NNF(translator(f.toFormula))
+      ap.DialogUtil.asString {
+        SMTLineariser applyNoPrettyBitvectors Transform2NNF(
+                                                translator(f.toFormula))
+      }
 
     def term2String(t : LinearCombination) : String =
-      SMTLineariser asString translator(t)
+      ap.DialogUtil.asString {
+        SMTLineariser applyNoPrettyBitvectors translator(t)
+      }
   }
 
   private val LINE_WIDTH = 80

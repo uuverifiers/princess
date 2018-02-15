@@ -57,6 +57,17 @@ object ModuloArithmetic extends Theory {
 
   val MultTheory = GroebnerMultiplication
 
+  // TODO: move the following methods to IdealInt class, optimise
+
+  private def pow2(bits : Int) : IdealInt =
+    IdealInt(2) pow bits
+
+  private def pow2(bits : IdealInt) : IdealInt =
+    IdealInt(2) pow bits.intValueSafe
+
+  private def pow2MinusOne(bits : Int) : IdealInt =
+    pow2(bits) - IdealInt.ONE
+
   //////////////////////////////////////////////////////////////////////////////
   // API methods that infer the right bit-width based on types
   
@@ -181,15 +192,13 @@ object ModuloArithmetic extends Theory {
     }
   }
 
-  // TODO: add functions IdealInt.pow2, and IdealInt.pow2MinusOne
-
   /**
    * Object to create and recognise modulo sorts representing
    * unsigned bit-vectors.
    */
   object UnsignedBVSort {
     def apply(bits : Int) : ModSort =
-      ModSort(IdealInt.ZERO, (IdealInt(2) pow bits) - IdealInt.ONE)
+      ModSort(IdealInt.ZERO, pow2MinusOne(bits))
     def unapply(s : Sort) : Option[Int] = s match {
       case ModSort(IdealInt.ZERO, upper)
         if (upper.signum > 0 && (upper & (upper + 1)).isZero) =>
@@ -205,7 +214,7 @@ object ModuloArithmetic extends Theory {
    */
   object SignedBVSort {
     def apply(bits : Int) : ModSort = {
-      val upper = IdealInt(2) pow (bits - 1)
+      val upper = pow2(bits - 1)
       ModSort(-upper, upper - IdealInt.ONE)
     }
     def unapply(s : Sort) : Option[Int] = s match {
@@ -220,6 +229,8 @@ object ModuloArithmetic extends Theory {
         None
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Modulo and bit-vector operations.
@@ -238,9 +249,6 @@ object ModuloArithmetic extends Theory {
     (lower, upper)
   }
 
-  // function for mapping any number to an interval [lower, upper].
-  // The function is applied as mod_cast(lower, upper, number)
-
   val _mod_cast = new SortedPredicate("mod_cast", 4) {
     def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = {
       val IIntLit(lower) = arguments(0)
@@ -256,15 +264,21 @@ object ModuloArithmetic extends Theory {
       argumentSorts(arguments).last membershipConstraint arguments.last
   }
 
+  /**
+   * Function for mapping any number to an interval [lower, upper].
+   * The function is applied as <code>mod_cast(lower, upper, number)</code>
+   */
   val mod_cast = new SortedIFunction("mod_cast", 3, true, false) {
+    private val argSorts =
+      List(Sort.Integer, Sort.Integer, Sort.Integer)
     def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
       val IIntLit(lower) = arguments(0)
       val IIntLit(upper) = arguments(1)
-      (List(Sort.Integer, Sort.Integer, Sort.Integer), ModSort(lower, upper))
+      (argSorts, ModSort(lower, upper))
     }
     def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
       val (lower, upper) = getLowerUpper(arguments)
-      (List(Sort.Integer, Sort.Integer, Sort.Integer), ModSort(lower, upper))
+      (argSorts, ModSort(lower, upper))
     }
     def iResultSort(arguments : Seq[ITerm]) : Sort = iFunctionType(arguments)._2
     def resultSort(arguments : Seq[Term]) : Sort = functionType(arguments)._2
@@ -302,6 +316,61 @@ object ModuloArithmetic extends Theory {
     val ModSort(lower, upper) = SignedBVSort(bits)
     IFunApp(mod_cast, List(lower, upper, t))
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  class ShiftPredicate(name : String)
+        extends SortedPredicate(name, 5) {
+    def iArgumentSorts(arguments : Seq[ITerm]) : Seq[Sort] = {
+      val IIntLit(lower) = arguments(0)
+      val IIntLit(upper) = arguments(1)
+      List(Sort.Integer, Sort.Integer, Sort.Integer, Sort.Integer,
+           ModSort(lower, upper))
+    }
+    def argumentSorts(arguments : Seq[Term]) : Seq[Sort] = {
+      val (lower, upper) = getLowerUpper(arguments)
+      List(Sort.Integer, Sort.Integer, Sort.Integer, Sort.Integer,
+           ModSort(lower, upper))
+    }
+    override def sortConstraints(arguments : Seq[Term])
+                                (implicit order : TermOrder) : Formula =
+      argumentSorts(arguments).last membershipConstraint arguments.last
+  }
+
+  class ShiftFunction(name : String, val toPredicate : ShiftPredicate)
+        extends SortedIFunction(name, 4, true, false) {
+    private val argSorts =
+      List(Sort.Integer, Sort.Integer, Sort.Integer, Sort.Integer)
+    def iFunctionType(arguments : Seq[ITerm]) : (Seq[Sort], Sort) = {
+      val IIntLit(lower) = arguments(0)
+      val IIntLit(upper) = arguments(1)
+      (argSorts, ModSort(lower, upper))
+    }
+    def functionType(arguments : Seq[Term]) : (Seq[Sort], Sort) = {
+      val (lower, upper) = getLowerUpper(arguments)
+      (argSorts, ModSort(lower, upper))
+    }
+    def iResultSort(arguments : Seq[ITerm]) : Sort = iFunctionType(arguments)._2
+    def resultSort(arguments : Seq[Term]) : Sort = functionType(arguments)._2
+  }
+
+  val _l_shift_cast = new ShiftPredicate("l_shift_cast")
+
+  /**
+   * Function for multiplying any number <code>t</code> with <code>2^n</code>
+   * and mapping to an interval [lower, upper].
+   * The function is applied as <code>shift_cast(lower, upper, t, n)</code>.
+   * <code>n</code> can be negative, in which case rounding towards zero is
+   * performed.
+   */
+  val l_shift_cast = new ShiftFunction("l_shift_cast", _l_shift_cast)
+
+  /**
+   * Shift the term <code>shifted</code> a number of bits to the left,
+   * staying within the given sort.
+   */
+  def shiftLeft(sort : ModSort, shifted : ITerm, bits : ITerm) : ITerm =
+    IFunApp(l_shift_cast, List(sort.lower, sort.upper, shifted, bits))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -435,6 +504,7 @@ object ModuloArithmetic extends Theory {
 
   val functions = List(
     mod_cast,
+    l_shift_cast,
     bv_concat,
     bv_extract,
     bv_not,
@@ -646,7 +716,7 @@ object ModuloArithmetic extends Theory {
       }
 
     def modCastPow2(bits : Int, ctxt : VisitorArg) : VisitorRes =
-      modCast(IdealInt.ZERO, (IdealInt(2) pow bits) - IdealInt.ONE, ctxt)
+      modCast(IdealInt.ZERO, pow2MinusOne(bits), ctxt)
 
     def modCastSignedPow2(bits : Int, ctxt : VisitorArg) : VisitorRes = {
       val ModSort(lower, upper) = SignedBVSort(bits)
@@ -738,27 +808,32 @@ object ModuloArithmetic extends Theory {
         SubArgs(List(ctxt.noMod, ctxt.noMod,
                      ctxt addMod (upper - lower + IdealInt.ONE)))
 
+      case IFunApp(`l_shift_cast`, Seq(IIntLit(lower), IIntLit(upper), _*)) =>
+        SubArgs(List(ctxt.noMod, ctxt.noMod,
+                     ctxt addMod (upper - lower + IdealInt.ONE),
+                     ctxt.noMod))
+
       case IFunApp(`bv_concat`, Seq(_, IIntLit(IdealInt(n)), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod,
-                     ctxt divideMod (IdealInt(2) pow n), ctxt.noMod))
+                     ctxt divideMod pow2(n), ctxt.noMod))
       case IFunApp(`bv_extract`,
                    Seq(_, IIntLit(IdealInt(n1)), IIntLit(IdealInt(n2)), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod, ctxt.noMod,
-                     ctxt addMod (IdealInt(2) pow (n1 + n2))))
+                     ctxt addMod pow2(n1 + n2)))
 
       case IFunApp(`bv_not` | `bv_neg` | `bv_and` | `bv_or` |
                    `bv_add` | `bv_sub` | `bv_mul` | `bv_srem`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         // TODO: handle bit-width argument correctly
-        UniSubArgs(ctxt addMod (IdealInt(2) pow n))
+        UniSubArgs(ctxt addMod pow2(n))
 
       case IFunApp(`bv_shl`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
-        SubArgs(List(ctxt.noMod, ctxt addMod (IdealInt(2) pow n), ctxt.noMod))
+        SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
       case IAtom(`bv_slt` | `bv_sle`,
                  Seq(IIntLit(IdealInt(n)), _*)) =>
-        UniSubArgs(ctxt addMod (IdealInt(2) pow n))
+        UniSubArgs(ctxt addMod pow2(n))
 
       case _ : IPlus | IFunApp(MulTheory.Mul(), _) => // IMPROVE
         UniSubArgs(ctxt.notUnderQuantifier)
@@ -784,14 +859,14 @@ object ModuloArithmetic extends Theory {
           }
 
         case IFunApp(`bv_concat`, Seq(_, IIntLit(IdealInt(bits)), _*)) =>
-          (subres(2) * (IdealInt(2) pow bits)) + subres(3)
+          (subres(2) * pow2(bits)) + subres(3)
 /*
    This is currently handled in the Theory.preprocess method
    (but has to be further optimised)
 
         case IFunApp(`bv_extract`, Seq(_, IIntLit(IdealInt(n1)),
                                           IIntLit(IdealInt(n2)), _*)) =>
-          (subres.last eDiv (IdealInt(2) pow n2)).modCastPow2(n1, ctxt)
+          (subres.last eDiv pow2(n2)).modCastPow2(n1, ctxt)
 */
 
         case IFunApp(`bv_not`, Seq(IIntLit(IdealInt(bits)), _)) =>
@@ -826,13 +901,23 @@ object ModuloArithmetic extends Theory {
 
         ////////////////////////////////////////////////////////////////////////
 
-        case IFunApp(`bv_shl`, Seq(IIntLit(IdealInt(bits)), _*)) =>
-          if (subres(2).isConstant)
-            (subres(1) * (IdealInt(2) pow subres(2).lowerBound.intValueSafe))
-              .modCastPow2(bits, ctxt)
+        case IFunApp(`l_shift_cast`, Seq(IIntLit(lower), IIntLit(upper), _*)) =>
+          if (subres(3).isConstant)
+            (subres(2) * pow2(subres(3).lowerBound max IdealInt.ZERO))
+                .modCast(lower, upper, ctxt)
           else
-            // TODO: further optimise the translation
             VisitorRes.update(t, subres)
+
+        case IFunApp(`bv_shl`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          if (subres(2).isConstant) {
+            (subres(1) * pow2(subres(2).lowerBound.intValueSafe))
+              .modCastPow2(bits, ctxt)
+          } else {
+            val upper = pow2MinusOne(bits)
+            VisitorRes(l_shift_cast(IdealInt.ZERO, upper,
+                                    subres(1).resTerm, subres(2).resTerm),
+                       IdealInt.ZERO, upper)
+          }
 
         ////////////////////////////////////////////////////////////////////////
 
@@ -1117,7 +1202,7 @@ object ModuloArithmetic extends Theory {
       Debug.assertPre(AC, lc.isConstant)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       val bits = lc.constant.intValueSafe
-      LinearCombination((IdealInt(2) pow bits) - IdealInt.ONE)
+      LinearCombination(pow2MinusOne(bits))
     }
 
   override def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
@@ -1131,7 +1216,8 @@ object ModuloArithmetic extends Theory {
         case BVPred(`bv_concat` |
                     `bv_not` | `bv_neg` | `bv_add` | `bv_sub` | `bv_mul` |
                     `bv_udiv` | `bv_urem` |
-                    `bv_sdiv` | `bv_srem` | `bv_srem`) =>
+                    `bv_sdiv` | `bv_srem` | `bv_srem` |
+                    `bv_shl`) =>
           throw new Exception("unexpected function " + a.pred)
 
         case `bv_ult` | `bv_ule` | `bv_slt` | `bv_sle` =>
@@ -1167,12 +1253,7 @@ object ModuloArithmetic extends Theory {
                                         order))
         }
 
-        case BVPred(`bv_shl`) if a(2).isConstant =>
-          _mod_cast(List(l(0), bits2Range(a(0)),
-                         a(1) * (IdealInt(2) pow a(2).constant.intValueSafe),
-                         a(3)))
-
-        case `_mod_cast` =>
+        case `_mod_cast` | `_l_shift_cast` =>
           a
 
         case BVPred(_) => {
@@ -1225,30 +1306,219 @@ object ModuloArithmetic extends Theory {
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      val castPreds = goal.facts.predConj.positiveLitsWithPred(_mod_cast)
-      if (castPreds.isEmpty) {
-        List()
-      } else {
-        val actions = actionsForGoal(goal)
-        if (actions exists (_.isInstanceOf[Plugin.AxiomSplit]))
-          // delayed splitting through a separate task
-          List(Plugin.ScheduleTask(Splitter, 0))
-        else
-          actions
-      }
+      
+        val actions1 = modCastActions(goal)
+        val actions2 = shiftCastActions(goal)
+
+        val resActions1 =
+          if (actions1 exists (_.isInstanceOf[Plugin.AxiomSplit]))
+            // delayed splitting through a separate task
+            List(Plugin.ScheduleTask(ModCastSplitter, 0))
+          else
+            actions1
+
+        val resActions2 =
+          if (actions2 exists (_.isInstanceOf[Plugin.AxiomSplit]))
+            // delayed splitting through a separate task
+            List(Plugin.ScheduleTask(ShiftCastSplitter, 0))
+          else
+            actions2
+
+        resActions1 ++ resActions2
     }
   })
 
-  private val SPLIT_LIMIT = IdealInt(20)
+  //////////////////////////////////////////////////////////////////////////////
 
   /**
-   * Splitter handles the splitting of modulo-operations, when no other
+   * Splitter handles the splitting of mod_cast-operations, when no other
    * inference steps are possible anymore.
    */
-  private object Splitter extends TheoryProcedure {
+  private object ModCastSplitter extends TheoryProcedure {
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
-//println("splitter " + goal.facts)
-      actionsForGoal(goal)
+//println("mod splitter " + goal.facts)
+      modCastActions(goal)
+    }
+  }
+
+  /**
+   * Splitter handles the splitting of mod_cast-operations, when no other
+   * inference steps are possible anymore.
+   */
+  private object ShiftCastSplitter extends TheoryProcedure {
+    def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
+//println("shift splitter " + goal.facts)
+      shiftCastActions(goal)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def shiftCastActions(goal : Goal) : Seq[Plugin.Action] =  {
+    val castPreds =
+      goal.facts.predConj.positiveLitsWithPred(_l_shift_cast).toBuffer
+
+    Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
+
+    val reducer = goal.reduceWithFacts
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    // find simple l_shift_cast predicates that can be replaced by mod_cast
+    var simpleElims : List[Plugin.Action] = List()
+    
+    var bestSplitNum = Int.MaxValue
+    var splitPred : Option[(Atom,
+                            IdealInt,  // lower exponent bound
+                            IdealInt,  // upper exponent bound
+                            Boolean,   // for upper bound all bits after shift
+                                       // are zero
+                            List[Formula])] = None
+
+    val proofs = Param.PROOF_CONSTRUCTION(goal.settings)
+
+    for (a <- castPreds) {
+      var assumptions : List[Formula] = List(a)
+
+      if (a(2).isZero) {
+
+        simpleElims =
+          Plugin.RemoveFacts(a) ::
+          Plugin.AddAxiom(assumptions,
+                          Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order),
+                          ModuloArithmetic.this) ::
+          simpleElims
+
+      } else if (a(3).isConstant) {
+
+        simpleElims =
+          Plugin.RemoveFacts(a) ::
+          Plugin.AddAxiom(assumptions,
+                          Atom(_mod_cast,
+                            Array(a(0), a(1),
+                                  a(2) * pow2(a(3).constant max IdealInt.ZERO),
+                                  a(4)),
+                            order),
+                          ModuloArithmetic.this) ::
+          simpleElims
+
+      } else {
+
+        val modulus = getModulus(a)
+        val pow2Modulus = (modulus & (modulus - 1)).isZero
+
+        val lBound =
+          if (proofs)
+            for ((b, assum) <- reducer lowerBoundWithAssumptions a(3)) yield {
+              if (!assum.isEmpty)
+                assumptions = InEqConj(assum, order) :: assumptions
+              b
+            }
+          else
+            reducer lowerBound a(3)
+
+        val (uBound, vanishing) =
+          (reducer upperBound a(3)) match {
+            case Some(ub)
+              if (!pow2Modulus || ub < IdealInt(modulus.getHighestSetBit)) =>
+                if (proofs) {
+                  val Some((b, assum)) = reducer upperBoundWithAssumptions a(3)
+                  if (!assum.isEmpty)
+                    assumptions = InEqConj(assum, order) :: assumptions
+                  (Some(b), false)
+                } else {
+                  (Some(ub), false)
+                }
+            case _ if pow2Modulus =>
+              (Some(IdealInt(modulus.getHighestSetBit)), true)
+            case _ =>
+              (None, false)
+          }
+
+        (lBound, uBound) match {
+          case (_, Some(upper)) if upper.signum < 0 => {
+            simpleElims =
+              Plugin.RemoveFacts(a) ::
+              Plugin.AddAxiom(assumptions,
+                          Atom(_mod_cast,
+                               Array(a(0), a(1), a(2), a(4)),
+                               order),
+                          ModuloArithmetic.this) ::
+              simpleElims
+          }
+          case (Some(lower), Some(upper)) if lower >= upper => {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            Debug.assertInt(AC, vanishing)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            simpleElims =
+              Plugin.RemoveFacts(a) ::
+              Plugin.AddAxiom(assumptions,
+                          Atom(_mod_cast,
+                               Array(a(0), a(1),
+                                     LinearCombination.ZERO, a(4)),
+                               order),
+                          ModuloArithmetic.this) ::
+              simpleElims
+          }
+          case (Some(lower), Some(upper)) if simpleElims.isEmpty => {
+            // need to do some splitting        
+            val cases = (upper - lower + 1).intValueSafe
+            if (cases < bestSplitNum) {
+              bestSplitNum = cases
+              splitPred = Some((a, lower, upper, vanishing, assumptions))
+            }
+          }
+          case _ =>
+            // nothing
+        }
+
+      }
+    }
+
+    if (!simpleElims.isEmpty) {
+
+      simpleElims
+
+    } else if (splitPred.isDefined) {
+
+      val Some((a, lower, upper, vanishing, assumptions)) = splitPred
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC, lower < upper && upper.signum >= 0)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      val cases =
+        (for (n <- IdealRange(lower max IdealInt.ZERO, upper + 1)) yield {
+           if (n.isZero && lower < n) {
+             (conj(List(a(3) <= n,
+                        Atom(_mod_cast,
+                             Array(a(0), a(1), a(2), a(4)),
+                             order))),
+              List())
+           } else if (vanishing && n == upper) {
+             (conj(List(a(3) >= n,
+                        Atom(_mod_cast,
+                             Array(a(0), a(1), LinearCombination.ZERO, a(4)),
+                             order))),
+              List())
+           } else {
+             (conj(List(a(3) === n,
+                        Atom(_mod_cast,
+                             Array(a(0), a(1), a(2) * pow2(n), a(4)),
+                             order))),
+              List())
+           }
+         }).toBuffer
+
+      List(Plugin.RemoveFacts(a),
+           Plugin.AxiomSplit(assumptions,
+                             cases.toList,
+                             ModuloArithmetic.this))
+
+    } else {
+
+      List()
+
     }
   }
 
@@ -1256,7 +1526,9 @@ object ModuloArithmetic extends Theory {
 
   // TODO: backward propagation for the mod_cast function
 
-    private def actionsForGoal(goal : Goal) : Seq[Plugin.Action] =  {
+  private val SPLIT_LIMIT = IdealInt(20)
+
+    private def modCastActions(goal : Goal) : Seq[Plugin.Action] =  {
       val castPreds =
         goal.facts.predConj.positiveLitsWithPred(_mod_cast).toBuffer
       // TODO: handle occurring _mul predicates in a special way?
@@ -1518,33 +1790,61 @@ object ModuloArithmetic extends Theory {
                mode : ReducerPlugin.ReductionMode.Value)
              : ReducerPlugin.ReductionResult =
       if (logger.isLogging) {
+        // TODO
         ReducerPlugin.UnchangedResult
       } else {
         implicit val order = predConj.order
         import TerForConvenience._
 
+        // TODO: eliminate mod_cast arguments with large coefficients
+
         {
           // First try to eliminate some modulo atoms
-          ReducerPlugin.rewritePreds(predConj, List(_mod_cast), order) {
-            a => (reducer lowerBound a(2), reducer upperBound a(2)) match {
+          ReducerPlugin.rewritePreds(predConj,
+                                     List(_mod_cast, _l_shift_cast),
+                                     order) { a =>
+              a.pred match {
+                case `_mod_cast` =>
+                  (reducer lowerBound a(2), reducer upperBound a(2)) match {
           
-              case (Some(lb), Some(ub)) => {
-                val sort@ModSort(sortLB, sortUB) =
-                  (SortedPredicate argumentSorts a).last
+                    case (Some(lb), Some(ub)) => {
+                      val sort@ModSort(sortLB, sortUB) =
+                        (SortedPredicate argumentSorts a).last
                 
-                val lowerFactor = (lb - sortLB) / sort.modulus
-                val upperFactor = -((sortUB - ub) / sort.modulus)
+                      val lowerFactor = (lb - sortLB) / sort.modulus
+                      val upperFactor = -((sortUB - ub) / sort.modulus)
 
-                if (lowerFactor == upperFactor)
-                  a(2) === a(3) + (lowerFactor * sort.modulus)
-                else
-                  a
-              }
+                      if (lowerFactor == upperFactor)
+                        a(2) === a(3) + (lowerFactor * sort.modulus)
+                      else
+                        a
+                    }
             
-              case _ =>
-                a
+                    case _ =>
+                      a
+                  }
 
-            }
+                case `_l_shift_cast` =>
+                  if (a(2).isZero) {
+                    Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
+                  } else if (a(3).isConstant) {
+                    Atom(_mod_cast,
+                         Array(a(0), a(1),
+                               a(2) * pow2(a(3).constant max IdealInt.ZERO),
+                               a(4)),
+                         order)
+                  } else {
+                    (reducer lowerBound a(3)) match {
+                      case Some(lb) if lb.signum > 0 =>
+                        Atom(_l_shift_cast,
+                             Array(a(0), a(1),
+                                   a(2) * pow2(lb), a(3) - lb, a(4)),
+                             order)
+                      case _ =>
+                        a
+                    }
+                  }
+              }
           
         }} orElse {
           // then try to rewrite modulo atoms using known facts
@@ -1563,7 +1863,9 @@ object ModuloArithmetic extends Theory {
               modulos(t)
           }
 
-          ReducerPlugin.rewritePreds(predConj, List(_mod_cast), order) {
+          ReducerPlugin.rewritePreds(predConj,
+                                     List(_mod_cast, _l_shift_cast),
+                                     order) {
             a => {
               lazy val modulus = getModulus(a)
               
@@ -1585,8 +1887,7 @@ object ModuloArithmetic extends Theory {
                               Array((IdealInt.ONE, a(2)),
                                     (-(subtractedValue / lc.leadingCoeff), lc)),
                               order)
-                val newA = Atom(_mod_cast, Array(a(0), a(1), newA2, a(3)),
-                                order)
+                val newA = Atom(a.pred, a.updated(2, newA2), order)
 //                println("simp: " + a + " -> " + newA)
 
                 rewritten = a :: rewritten

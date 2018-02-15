@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -235,17 +235,21 @@ object SMTLineariser {
   def apply(formula : IFormula) : Unit =
     apply(formula, constantTypeFromSort, functionTypeFromSort)
 
+  def applyNoPrettyBitvectors(formula : IFormula) : Unit =
+    apply(formula, constantTypeFromSort, functionTypeFromSort, false)
+
   def apply(formula : IFormula,
             constantType :
               ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
             functionType :
-              IFunction => Option[SMTParser2InputAbsy.SMTFunctionType]) : Unit =
+              IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+            prettyBitvectors : Boolean = true) : Unit =
     formula match {
       case IBoolLit(value) => print(value)
       case _ => {
         val lineariser =
           new SMTLineariser("", "", "", List(), List(), "", "", "",
-                            constantType, functionType)
+                            constantType, functionType, prettyBitvectors)
         lineariser printFormula formula
       }
     }
@@ -254,6 +258,13 @@ object SMTLineariser {
     val lineariser =
       new SMTLineariser("", "", "", List(), List(), "", "", "",
                         constantTypeFromSort, functionTypeFromSort)
+    lineariser printTerm term
+  }
+
+  def applyNoPrettyBitvectors(term : ITerm) : Unit = {
+    val lineariser =
+      new SMTLineariser("", "", "", List(), List(), "", "", "",
+                        constantTypeFromSort, functionTypeFromSort, false)
     lineariser printTerm term
   }
 
@@ -354,7 +365,8 @@ class SMTLineariser(benchmarkName : String,
                     constantType :
                            ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
                     functionType :
-                           IFunction => Option[SMTParser2InputAbsy.SMTFunctionType]) {
+                           IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+                    prettyBitvectors : Boolean = true) {
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr,
                         trueConstant, falseConstant, eqPredicate,
@@ -775,7 +787,7 @@ class SMTLineariser(benchmarkName : String,
             case IIntRelation.EqZero =>
               eqPredicate(t, ModuloArithmetic.cast2UnsignedBV(width, -value))
           }
-        case _ =>
+        case _ if prettyBitvectors =>
           BitWidthInferrer.visit(subres(0), ()) match {
             case Some(newWidth) => {
               val pred = rel match {
@@ -788,6 +800,8 @@ class SMTLineariser(benchmarkName : String,
             case None =>
               t update subres
           }
+        case _ =>
+          t update subres
         }
       case _ =>
         t update subres
@@ -852,7 +866,7 @@ class SMTLineariser(benchmarkName : String,
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
                        IIntLit(value)))
-          if (upper & (upper + 1)).isZero => {
+          if prettyBitvectors && (upper & (upper + 1)).isZero => {
         addSpace
         print("(_ bv" + (value % (upper + 1)) + " " +
               (upper.getHighestSetBit + 1) + ")")

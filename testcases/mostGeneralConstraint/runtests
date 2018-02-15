@@ -8,6 +8,8 @@ TESTS="bitvectorArith3.pri bitvectorArith4.pri omegaBug.pri splitting.pri \
 
 $PRI "$@" $TESTS 2>&1 | grep -v "^[(!zOc]"
 
-# For the last testcase we have to check the output precisely
+# Testcase where we check the output precisely
 
-$PRI "$@" closingConstraintBug.pri
+TESTS="closingConstraintBug.pri shift4.pri"
+
+$PRI "$@" $TESTS

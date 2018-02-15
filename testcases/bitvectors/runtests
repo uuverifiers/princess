@@ -15,6 +15,14 @@ TESTS="existential.pri \
        bvsmod.smt2 \
        bvsmod3.smt2 \
        bvsrem.smt2 \
-       bvsrem2.smt2"
+       bvsrem2.smt2 \
+       bvshl1.smt2 \
+       bvshl2.smt2 \
+       bvshl3.smt2 \
+       bvshl4.smt2 \
+       shift2.pri \
+       shift3.pri \
+       shift5.pri \
+       shift6.pri"
 
 $PRI "$@" $TESTS
