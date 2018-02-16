@@ -151,3 +151,53 @@ INVALID
 Countermodel:
 y = (-5).\as[signed bv[16]] & x = 0.\as[signed bv[16]]
 
+Loading bench_977.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun T1_572572 () (_ BitVec 8) (_ bv34 8))
+)
+
+Loading bench_977b.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun T1_572572 () (_ BitVec 8) (_ bv36 8))
+)
+
+Loading bench_977c.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun T1_572572 () (_ BitVec 8) (_ bv6 8))
+)
+
+Loading bench_977d.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun T1_572572 () (_ BitVec 8) (_ bv112 8))
+)
+
+Loading bench_977e.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun T1_572572 () (_ BitVec 8) (_ bv64 8))
+)
+

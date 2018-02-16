@@ -23,6 +23,11 @@ TESTS="existential.pri \
        shift2.pri \
        shift3.pri \
        shift5.pri \
-       shift6.pri"
+       shift6.pri \
+       bench_977.smt2 \
+       bench_977b.smt2 \
+       bench_977c.smt2 \
+       bench_977d.smt2 \
+       bench_977e.smt2"
 
 $PRI "$@" $TESTS

@@ -662,7 +662,11 @@ object ModuloArithmetic extends Theory {
  
   private object VisitorRes {
 
-    def apply(e : IExpression) : VisitorRes = VisitorRes(e, null, null)
+    def apply(const : IdealInt) : VisitorRes =
+      VisitorRes(IIntLit(const), const, const)
+
+    def apply(e : IExpression) : VisitorRes =
+      VisitorRes(e, null, null)
 
     def update(t : IExpression, subres : Seq[VisitorRes]) : VisitorRes = {
       if (subres.isEmpty)
@@ -774,7 +778,7 @@ object ModuloArithmetic extends Theory {
                 this
               } else {
                 val corr = lowerFactor * modulus
-                VisitorRes(resTerm - corr, lower - corr, upper - corr)
+                VisitorRes(resTerm - corr, lowerBound - corr, upperBound - corr)
               }
             } else {
               null // mod_cast is needed!
@@ -855,7 +859,7 @@ object ModuloArithmetic extends Theory {
         SubArgs(List(ctxt.noMod, ctxt.noMod, ctxt.noMod,
                      ctxt addMod pow2(n1 + n2)))
 
-      case IFunApp(`bv_not` | `bv_neg` | `bv_and` | `bv_or` |
+      case IFunApp(`bv_not` | `bv_neg` |
                    `bv_add` | `bv_sub` | `bv_mul` | `bv_srem`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         // TODO: handle bit-width argument correctly
@@ -952,6 +956,129 @@ object ModuloArithmetic extends Theory {
                                     subres(1).resTerm, subres(2).resTerm),
                        IdealInt.ZERO, upper)
           }
+
+        ////////////////////////////////////////////////////////////////////////
+
+        case IFunApp(`bv_and`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          def oneConstant(arg : VisitorRes, pattern : IdealInt) : VisitorRes =
+            runlengths(pattern) match {
+              case Seq(_) => {
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
+                // Pattern must be constantly zero
+                Debug.assertInt(AC, pattern.isZero)
+                //-END-ASSERTION-///////////////////////////////////////////////
+                VisitorRes(IdealInt.ZERO)
+              }
+              case Seq(offset, length) => {
+                // Single block of ones
+                VisitorRes(
+                  bv_extract(bits - offset - length, length, offset,
+                             arg.resTerm) *** pow2(offset),
+                  IdealInt.ZERO, pattern)
+              }
+              case lens => {
+                // multiple blocks, handle using an epsilon term
+                var offset : Int = 0
+                var bit = true
+                
+                val extractTerm =
+                  sum(for (len <- lens) yield {
+                    bit = !bit
+                    offset = offset + len
+                    if (bit) {
+                      bv_extract(bits - offset, len, offset - len,
+                                 v(0)) * pow2(offset - len)
+                    } else {
+                      i(0)
+                    }
+                  })
+                
+                val res =
+                  eps(ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
+                         v(1) === extractTerm))
+
+                VisitorRes(res, IdealInt.ZERO, pattern)
+              }
+            }
+
+          (subres(1).isConstant, subres(2).isConstant) match {
+            case (true, true) =>
+              VisitorRes(subres(1).lowerBound & subres(2).lowerBound)
+            case (true, false) =>
+              oneConstant(subres(2), subres(1).lowerBound)
+            case (false, true) =>
+              oneConstant(subres(1), subres(2).lowerBound)
+            case (false, false) =>
+              VisitorRes.update(t, subres)
+          }
+        }
+
+        case IFunApp(`bv_or`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          def oneConstant(arg : VisitorRes, pattern : IdealInt) : VisitorRes =
+            runlengths(pattern) match {
+              case Seq(_) => {
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
+                // Pattern must be constantly zero
+                Debug.assertInt(AC, pattern.isZero)
+                //-END-ASSERTION-///////////////////////////////////////////////
+                arg
+              }
+              case Seq(0, length) => {
+                // pattern starting with a single block of ones
+                VisitorRes(
+                  (bv_extract(0, bits - length, length, arg.resTerm) *
+                     pow2(length)) + pattern,
+                  pattern, pow2MinusOne(bits))
+              }
+              case Seq(offset, length) if offset + length == bits => {
+                // pattern ending with a single block of ones
+                VisitorRes(
+                  bv_extract(length, offset, 0, arg.resTerm) + pattern,
+                  pattern, pow2MinusOne(bits))
+              }
+              
+              case preLens => {
+                // multiple blocks of zeros, handle using an epsilon term
+                val preLensSum = preLens.sum
+                val lens =
+                  if (preLensSum < bits)
+                    preLens ++ List(bits - preLensSum)
+                  else
+                    preLens
+
+                var offset : Int = 0
+                var bit = true
+                
+                val extractTerm =
+                  sum(for (len <- lens) yield {
+                    bit = !bit
+                    offset = offset + len
+                    (if (bit) {
+                       i(pow2MinusOne(len))
+                     } else {
+                       bv_extract(bits - offset, len, offset - len, v(0))
+                     }) *** pow2(offset - len)
+                  })
+
+                val res =
+                  eps(ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
+                         v(1) === extractTerm))
+
+                VisitorRes(res, pattern, pow2MinusOne(bits))
+              }
+            }
+
+          (subres(1).isConstant, subres(2).isConstant) match {
+            case (true, true) =>
+              VisitorRes(subres(1).lowerBound | subres(2).lowerBound)
+            case (true, false) =>
+              oneConstant(subres(2), subres(1).lowerBound)
+            case (false, true) =>
+              oneConstant(subres(1), subres(2).lowerBound)
+            case (false, false) =>
+              VisitorRes.update(t, subres)
+          }
+        }
 
         ////////////////////////////////////////////////////////////////////////
 
