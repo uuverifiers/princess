@@ -580,6 +580,16 @@ i1_1_0 = 75
 i2_2_0 != 101
 i1_3_0 != 100
 
+Loading bv-interpolation-6.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 8), simplifying (11), interpolating ...
+
+unsat
+(
+  (not (= b (_ bv11 8)))
+)
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it

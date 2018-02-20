@@ -624,8 +624,11 @@ Loading define-fun-bug3.smt2 ...
 unsat
 Loading run_00007.trace.Alloc_large__008268.smt2 ...
 Warning: don't know how to handle bv_xor(32, 103, _3, _2)
-Warning: don't know how to handle bv_or(16, _5, _0, _12)
-Warning: don't know how to handle bv_or(32, _5, _1, _0)
+Warning: don't know how to handle bv_or(16, _8, _0, _16)
+Warning: don't know how to handle bv_or(32, _13, _0, _5)
+Warning: don't know how to handle bv_or(32, _17, _0, _5)
+Warning: don't know how to handle bv_or(32, _17, _0, _5)
+Warning: don't know how to handle bv_or(32, _15, _0, _5)
 unsat
 Loading bench_586.smt2 ...
 unsat

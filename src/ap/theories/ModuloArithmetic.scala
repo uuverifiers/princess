@@ -102,6 +102,18 @@ object ModuloArithmetic extends Theory {
     res
   }
 
+  private def completedRunlengths(lens : Seq[Int],
+                                  totalLen : Int) : Seq[Int] = {
+    val lensSum = lens.sum
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, lensSum <= totalLen)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (lensSum < totalLen)
+      lens ++ List(totalLen - lensSum)
+    else
+      lens
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // API methods that infer the right bit-width based on types
   
@@ -969,33 +981,39 @@ object ModuloArithmetic extends Theory {
                 //-END-ASSERTION-///////////////////////////////////////////////
                 VisitorRes(IdealInt.ZERO)
               }
-              case Seq(offset, length) => {
-                // Single block of ones
+              case Seq(0, length) => {
+                // pattern starting with a single block of ones
                 VisitorRes(
-                  bv_extract(bits - offset - length, length, offset,
-                             arg.resTerm) *** pow2(offset),
+                  bv_extract(bits - length, length, 0, arg.resTerm),
                   IdealInt.ZERO, pattern)
               }
-              case lens => {
-                // multiple blocks, handle using an epsilon term
+
+              case preLens => {
+                // multiple blocks of zeros, handle using an epsilon term
+                val lens = completedRunlengths(preLens, bits)
+
                 var offset : Int = 0
                 var bit = true
                 
-                val extractTerm =
-                  sum(for (len <- lens) yield {
-                    bit = !bit
-                    offset = offset + len
-                    if (bit) {
-                      bv_extract(bits - offset, len, offset - len,
-                                 v(0)) * pow2(offset - len)
-                    } else {
-                      i(0)
-                    }
-                  })
+                val resultDef =
+                  and(for (len <- lens) yield {
+                        bit = !bit
+                        if (len > 0) {
+                          offset = offset + len
+                          bv_extract(bits - offset, len, offset - len, v(1)) ===
+                          (if (bit)
+                             bv_extract(bits - offset, len, offset - len, v(0))
+                           else
+                             i(0))
+                        } else {
+                          i(true)
+                        }
+                      })
                 
                 val res =
-                  eps(ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
-                         v(1) === extractTerm))
+                  UnsignedBVSort(bits).eps(
+                    ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
+                       resultDef))
 
                 VisitorRes(res, IdealInt.ZERO, pattern)
               }
@@ -1023,13 +1041,6 @@ object ModuloArithmetic extends Theory {
                 //-END-ASSERTION-///////////////////////////////////////////////
                 arg
               }
-              case Seq(0, length) => {
-                // pattern starting with a single block of ones
-                VisitorRes(
-                  (bv_extract(0, bits - length, length, arg.resTerm) *
-                     pow2(length)) + pattern,
-                  pattern, pow2MinusOne(bits))
-              }
               case Seq(offset, length) if offset + length == bits => {
                 // pattern ending with a single block of ones
                 VisitorRes(
@@ -1039,30 +1050,30 @@ object ModuloArithmetic extends Theory {
               
               case preLens => {
                 // multiple blocks of zeros, handle using an epsilon term
-                val preLensSum = preLens.sum
-                val lens =
-                  if (preLensSum < bits)
-                    preLens ++ List(bits - preLensSum)
-                  else
-                    preLens
+                val lens = completedRunlengths(preLens, bits)
 
                 var offset : Int = 0
                 var bit = true
-                
-                val extractTerm =
-                  sum(for (len <- lens) yield {
-                    bit = !bit
-                    offset = offset + len
-                    (if (bit) {
-                       i(pow2MinusOne(len))
-                     } else {
-                       bv_extract(bits - offset, len, offset - len, v(0))
-                     }) *** pow2(offset - len)
-                  })
 
+                val resultDef =
+                  and(for (len <- lens) yield {
+                        bit = !bit
+                        if (len > 0) {
+                          offset = offset + len
+                          bv_extract(bits - offset, len, offset - len, v(1)) ===
+                          (if (bit)
+                             i(pow2MinusOne(len))
+                           else
+                             bv_extract(bits - offset, len, offset - len, v(0)))
+                        } else {
+                          i(true)
+                        }
+                      })
+                
                 val res =
-                  eps(ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
-                         v(1) === extractTerm))
+                  UnsignedBVSort(bits).eps(
+                    ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
+                       resultDef))
 
                 VisitorRes(res, pattern, pow2MinusOne(bits))
               }
