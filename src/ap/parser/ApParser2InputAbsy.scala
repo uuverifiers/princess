@@ -733,6 +733,22 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
           throw new Parser2InputAbsy.TranslationException(
             "Cannot shift " + left + " to the left by " + right + " bits")
       }
+    case t : ExprShiftR =>
+      (translateExpression(t.expression_1),
+       translateExpression(t.expression_2)) match {
+        case ((left : ITerm, Sort.Numeric(_)), (IIntLit(bits), Sort.Numeric(_)))
+          if bits.signum >= 0 =>
+            (mulTheory.eDiv(left, (IdealInt(2) pow bits.intValueSafe)),
+             Sort.Integer)
+        case ((left : ITerm,
+                 sort@ModuloArithmetic.ModSort(lower, upper)),
+              (right : ITerm,
+                 Sort.Numeric(_) | _ : ModuloArithmetic.ModSort)) =>
+            (ModuloArithmetic.shiftRight(sort, left, right), sort)
+        case ((left, _), (right, _)) =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Cannot shift " + left + " to the right by " + right + " bits")
+      }
     case t : ExprPlus =>
       translateNumBinTerConnective("+", t.expression_1, t.expression_2, _ + _)
     case t : ExprMinus =>

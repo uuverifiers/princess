@@ -405,9 +405,7 @@ object ModuloArithmetic extends Theory {
   /**
    * Function for multiplying any number <code>t</code> with <code>2^n</code>
    * and mapping to an interval [lower, upper].
-   * The function is applied as <code>shift_cast(lower, upper, t, n)</code>.
-   * <code>n</code> can be negative, in which case rounding towards zero is
-   * performed.
+   * The function is applied as <code>l_shift_cast(lower, upper, t, n)</code>.
    */
   val l_shift_cast = new ShiftFunction("l_shift_cast", _l_shift_cast)
 
@@ -417,6 +415,22 @@ object ModuloArithmetic extends Theory {
    */
   def shiftLeft(sort : ModSort, shifted : ITerm, bits : ITerm) : ITerm =
     IFunApp(l_shift_cast, List(sort.lower, sort.upper, shifted, bits))
+
+  val _r_shift_cast = new ShiftPredicate("r_shift_cast")
+
+  /**
+   * Function for dividing any number <code>t</code> by <code>2^n</code>,
+   * rounding towards negative, and mapping to an interval [lower, upper].
+   * The function is applied as <code>r_shift_cast(lower, upper, t, n)</code>.
+   */
+  val r_shift_cast = new ShiftFunction("r_shift_cast", _r_shift_cast)
+
+  /**
+   * Shift the term <code>shifted</code> a number of bits to the right,
+   * staying within the given sort.
+   */
+  def shiftRight(sort : ModSort, shifted : ITerm, bits : ITerm) : ITerm =
+    IFunApp(r_shift_cast, List(sort.lower, sort.upper, shifted, bits))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -551,6 +565,7 @@ object ModuloArithmetic extends Theory {
   val functions = List(
     mod_cast,
     l_shift_cast,
+    r_shift_cast,
     bv_concat,
     bv_extract,
     bv_not,
@@ -828,8 +843,16 @@ object ModuloArithmetic extends Theory {
       Debug.assertPre(AC, divisor.signum > 0)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       VisitorRes(MultTheory.eDiv(resTerm, divisor),
-                 if (lowerBound == null) null else (lowerBound / divisor),
-                 if (upperBound == null) null else (upperBound / divisor))
+                 lowerBound match {
+                   case null               => null
+                   case b if b.signum <= 0 => b / divisor
+                   case _                  => IdealInt.ZERO
+                 },
+                 upperBound match {
+                   case null               => null
+                   case b if b.signum >= 0 => b / divisor
+                   case _                  => IdealInt.ZERO
+                 })
     }
   }
 
@@ -877,7 +900,7 @@ object ModuloArithmetic extends Theory {
         // TODO: handle bit-width argument correctly
         UniSubArgs(ctxt addMod pow2(n))
 
-      case IFunApp(`bv_shl`,
+      case IFunApp(`bv_shl` | `bv_ashr`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt addMod pow2(n), ctxt.noMod))
 
@@ -958,6 +981,16 @@ object ModuloArithmetic extends Theory {
           else
             VisitorRes.update(t, subres)
 
+        case IFunApp(`r_shift_cast`, Seq(IIntLit(lower), IIntLit(upper), _*)) =>
+          if (subres(3).isConstant) {
+            val denom = pow2(subres(3).lowerBound max IdealInt.ZERO)
+            subres(2).eDiv(denom).modCast(lower, upper, ctxt)
+          } else {
+            VisitorRes.update(t, subres)
+          }
+
+        ////////////////////////////////////////////////////////////////////////
+
         case IFunApp(`bv_shl`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
             (subres(1) * pow2(subres(2).lowerBound.intValueSafe))
@@ -967,6 +1000,42 @@ object ModuloArithmetic extends Theory {
             VisitorRes(l_shift_cast(IdealInt.ZERO, upper,
                                     subres(1).resTerm, subres(2).resTerm),
                        IdealInt.ZERO, upper)
+          }
+
+        case IFunApp(`bv_lshr`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          if (subres(2).isConstant) {
+            subres(2).lowerBound match {
+              case IdealInt.ZERO =>
+                subres(1)
+              case IdealInt(shift) =>
+                VisitorRes(
+                  bv_extract(0, bits - shift, shift, subres(1).resTerm),
+                  IdealInt.ZERO, pow2MinusOne(bits - shift))
+            }
+          } else {
+            val upper = pow2MinusOne(bits)
+            VisitorRes(r_shift_cast(IdealInt.ZERO, upper,
+                                    subres(1).resTerm, subres(2).resTerm),
+                       IdealInt.ZERO, upper)
+          }
+
+        case IFunApp(`bv_ashr`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          if (subres(2).isConstant) {
+            subres(2).lowerBound match {
+              case IdealInt.ZERO =>
+                subres(1).modCastPow2(bits, ctxt)
+              case IdealInt(shift) =>
+                subres(1).modCastSignedPow2(bits, ctxt.noMod)
+                         .eDiv(pow2(shift))
+                         .modCastPow2(bits, ctxt)
+            }
+          } else {
+            val ModSort(lower, upper) = SignedBVSort(bits)
+            VisitorRes(r_shift_cast(
+                         lower, upper,
+                         subres(1).modCastSignedPow2(bits, ctxt.noMod).resTerm,
+                         subres(2).resTerm),
+                       lower, upper).modCastPow2(bits, ctxt)
           }
 
         ////////////////////////////////////////////////////////////////////////
