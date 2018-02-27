@@ -65,11 +65,9 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
   def closedSafe(strong : Boolean)  : Option[ConnectionBranch] = {
     strong match {
       case true => {
-        println("Closing STRONG")
         if (stronglyClosable) Some(closed(strong)) else None
       }
       case false => {
-        println("Closing WEAK")
         if (weaklyClosable) Some(closed(strong)) else None
       }
     }
