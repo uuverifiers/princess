@@ -39,7 +39,7 @@ import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.theories.nia.GroebnerMultiplication
-import ap.util.{Debug, IdealRange, LRUCache, Seqs}
+import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
 
 import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet}
 
@@ -2034,6 +2034,8 @@ object ModuloArithmetic extends Theory {
         // TODO
         ReducerPlugin.UnchangedResult
       } else {
+        Timeout.check
+
         implicit val order = predConj.order
         import TerForConvenience._
 
