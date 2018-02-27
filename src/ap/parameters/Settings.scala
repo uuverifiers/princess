@@ -59,8 +59,6 @@ object GlobalSettings {
           Param.INPUT_FORMAT.set(settings, Param.InputFormat.TPTP)
         case Opt("stdin", value) =>
           Param.STDIN.set(settings, value)
-        case Opt("connection", value) =>
-          Param.CONNECTION_STRATEGY.set(settings, true)
         case Opt("incremental", value) => {
           val settings2 = Param.INCREMENTAL.set(settings, value)
           if (value)
@@ -186,6 +184,12 @@ object GlobalSettings {
           Param.BREU_STRATEGY.set(settings, Param.BREUStrategyOptions.Lazy)
         case ValueOpt("BREU", "bench") =>
           Param.BREU_STRATEGY.set(settings, Param.BREUStrategyOptions.Bench)
+        case ValueOpt("connection", "none") =>
+          Param.CONNECTION.set(settings, Param.ConnectionOptions.None)
+        case ValueOpt("connection", "weak") =>
+          Param.CONNECTION.set(settings, Param.ConnectionOptions.Weak)
+        case ValueOpt("connection", "strong") =>
+          Param.CONNECTION.set(settings, Param.ConnectionOptions.Strong)          
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -214,7 +218,7 @@ object GlobalSettings {
          Param.MULTI_STRATEGY, Param.CLAUSIFIER_TIMEOUT,
          Param.MUL_PROCEDURE, Param.REAL_RAT_SATURATION_ROUNDS,
          Param.BREU_STRATEGY, Param.FILE_PROPERTIES, Param.DELAYED_PROOF,
-         Param.CONNECTION_STRATEGY)
+         Param.CONNECTION)
 
   val DEFAULT =
     new GlobalSettings (scala.collection.immutable.HashMap[Param, Any]())

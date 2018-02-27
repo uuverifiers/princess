@@ -52,7 +52,7 @@ object ConnectionProver {
 }
 
 
-class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
+class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong : Boolean) {
 
   // How many of our closing-attempts could easily be ignored
   var safeSKIP = 0
@@ -169,13 +169,13 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings) {
   def tryStep(table : ConnectionTable, step : Int, branchIdx : Int, inputClauses : List[Conjunction], iteration : Int, disequalities : Seq[(ConstantTerm, ConstantTerm)]) : Option[ConnectionTable] = {
     val closedTable =
       if (step == 0) {
-        Some(table.close(branchIdx, true))
+        Some(table.close(branchIdx, strong))
       } else ap.util.Timer.measure("Extending Table") {
         val (clause, idx) = findLiteral(inputClauses, step - 1)
         val (instClause, newOrder, _) = fullInst(clause, "branch_" + iteration)
         val orderClause = conjToClause(instClause, false)
         val extendedTable = table.extendBranch(branchIdx, orderClause, idx, newOrder)
-        extendedTable.closeSafe(branchIdx, true)
+        extendedTable.closeSafe(branchIdx, strong)
       }
 
     if (closedTable.isEmpty) {

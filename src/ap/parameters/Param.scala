@@ -388,9 +388,14 @@ object Param {
     val defau : Option[breu.BREUSolver[ConstantTerm, Predicate]] = None
   }
 
-  case object CONNECTION_STRATEGY extends Param {
-    type Value = Boolean
-    val defau : Boolean = false
+
+  object ConnectionOptions extends Enumeration {
+    val None, Strong, Weak = Value
+  }
+
+  case object CONNECTION extends Param {
+    type Value = ConnectionOptions.Value
+    val defau : ConnectionOptions.Value = ConnectionOptions.None
   }
 }
 

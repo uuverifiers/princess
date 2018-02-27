@@ -38,15 +38,6 @@ import ClosedStyle._
 // TODO: Maybe store how branch was closed?
 // This could be useful for reusing old solutions!
 class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val order : BREUOrder) {
-  closed match {
-    case Weak => {
-      val e = new Exception("CLOSING WEAK!")
-      e.printStackTrace()
-    }
-    case Strong => println("strong...")
-    case Open => println("open ... ")
-  }
-
 
   // Output formatting helper methods
   // def longestPrefix(that : List[Node]) : List[Node] =

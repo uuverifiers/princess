@@ -359,26 +359,37 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     
     Timeout.withChecker(stoppingCond) {
       println("Things are happening")
-      if(Param.CONNECTION_STRATEGY(settings)) {
-        val prover =
-          new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-        val (solved, tree) = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
-        // val validConstraint = tree.breunifiable
+      Param.CONNECTION(settings) match {
+        case Param.ConnectionOptions.Strong => {
+          val prover =
+            new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings, true)
+          val (solved, tree) = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
+          // val validConstraint = tree.breunifiable
 
-        (tree, solved, null)
-        // prover.isValidConstraint(tree.closingConstraint, signature)
+          (tree, solved, null)
+          // prover.isValidConstraint(tree.closingConstraint, signature)
+        }
+        case Param.ConnectionOptions.Weak => {
+          val prover =
+            new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings, false)
+          val (solved, tree) = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
+          // val validConstraint = tree.breunifiable
 
-      } else {
-        val prover =
-          new ExhaustiveBREUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
-        val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
-        val validConstraint = tree.breunifiable
-        // prover.isValidConstraint(tree.closingConstraint, signature)
-        (tree, validConstraint,
-          if (validConstraint && constructProofs)
-            prover extractCertificate tree
-          else
-            null)
+          (tree, solved, null)
+          // prover.isValidConstraint(tree.closingConstraint, signature)
+        }
+        case Param.ConnectionOptions.None => {
+          val prover =
+            new ExhaustiveBREUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
+          val tree = Console.withErr(ap.CmdlMain.NullStream) { prover(closedFor, signature) }
+          val validConstraint = tree.breunifiable
+          // prover.isValidConstraint(tree.closingConstraint, signature)
+          (tree, validConstraint,
+            if (validConstraint && constructProofs)
+              prover extractCertificate tree
+            else
+              null)
+        }
       }
     }
   }
