@@ -38,7 +38,14 @@ import ClosedStyle._
 // TODO: Maybe store how branch was closed?
 // This could be useful for reusing old solutions!
 class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val order : BREUOrder) {
-
+  closed match {
+    case Weak => {
+      val e = new Exception("CLOSING WEAK!")
+      e.printStackTrace()
+    }
+    case Strong => println("strong...")
+    case Open => println("open ... ")
+  }
 
 
   // Output formatting helper methods
@@ -66,8 +73,14 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
 
   def closedSafe(strong : Boolean)  : Option[ConnectionBranch] = {
     strong match {
-      case true => if (stronglyClosable) Some(closed(strong)) else None
-      case false => if (weaklyClosable) Some(closed(strong)) else None
+      case true => {
+        println("Closing STRONG")
+        if (stronglyClosable) Some(closed(strong)) else None
+      }
+      case false => {
+        println("Closing WEAK")
+        if (weaklyClosable) Some(closed(strong)) else None
+      }
     }
   }
   def depth = (for (n <- nodes if n.isLiteral) yield 1).sum

@@ -3,7 +3,7 @@
 BASEDIR:=$(shell pwd)
 EXTLIBSDIR:=$(BASEDIR)/extlibs
 
-CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar:$(EXTLIBSDIR)/breu.jar
+CLASSPATH:=$(CLASSPATH):$(BASEDIR)/parser/parser.jar:$(BASEDIR)/smt-parser/smt-parser.jar:$(EXTLIBSDIR)/java-cup-11a.jar:$(EXTLIBSDIR)/breu.jar:$(EXTLIBSDIR)/org.sat4j.core.jar
 # :$(EXTLIBSDIR)/org.sat4j.core.jar
 
 SCALAC:=scalac
