@@ -27,7 +27,6 @@
 
 // TODO RIGHT NOW:
 //
-// Make NegFunEquation just Equation with polarity?
 // Line 705 fix on geo118+1.p
 // TODO: Fix terms vs order (BREUterms?)
 
@@ -83,62 +82,118 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         }
       }
 
-    val newOrder = conj.order.extend(quants.map(_._1))
+    val newOrder = order.extend(quants.map(_._1))
     (conj.instantiate(quants.map(_._1))(newOrder), quants.toList, newOrder)
   }
 
 
-  // Fully instantiate conj with prefix
-  def fullInst(conj : Conjunction, prefix : String) = {
+
+  /**
+    * 
+    * Instantiate a formula
+    * 
+    * s.t. all quantifiers are instantiated with dummy variables
+    * using prefix. 
+    */
+
+
+
+  def instantiateAux(conj : Conjunction, prefix : String, to : TermOrder) :
+      (Conjunction, List[(ConstantTerm, Boolean)], TermOrder) = {
     // Instantiate top-level
     val allTerms : ListBuffer[(ConstantTerm, Boolean)] = ListBuffer()
 
-    val (newConj, nt, norder) = inst(conj, prefix, conj.order)
+    val (newConj, nt, norder) = inst(conj, prefix, to)
     allTerms ++= nt
 
-    val retVal =
-      if (newConj.negatedConjs.size == 1) {
-        val disjunction = newConj.negatedConjs(0)
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-        Debug.assertInt(ConnectionProver.AC, disjunction.quans.length == 0)
-        //-END-ASSERTION-//////////////////////////////////////////////////////////
+    var disjCount = 0    
+    var termOrder = norder
 
-        // Check all assumption-based formulas:
-        var negOrder = norder
-        val updatedNegConj =
-          for (nc <- disjunction.negatedConjs) yield {
-            val (newConj, nt, tmporder) = inst(nc, prefix + "_disj", negOrder)
-            negOrder = tmporder
-            allTerms ++= nt
-            newConj
-          }
-
-        val tmp = disjunction.negatedConjs.update(updatedNegConj, negOrder)
-        val finalDisjunction = disjunction.updateNegatedConjs(tmp)(negOrder)
-        val tmp2 = newConj.negatedConjs.update(List(finalDisjunction), negOrder)
-        val finalConj = newConj.updateNegatedConjs(tmp2)(negOrder)
-        (finalConj, allTerms.toList.reverse, negOrder)
-      } else {
-        // TODO: This and above, really reverse?
-        (newConj, allTerms.toList.reverse, norder)
+    val updatedNegatedConjs =
+      for (disjunction <- newConj.negatedConjs) yield {
+        val (negConj, nt, no) = instantiateAux(disjunction, prefix + "_disj" + disjCount, termOrder)
+        disjCount += 1
+        termOrder = no
+        allTerms ++= nt
+        negConj
       }
 
-    retVal
+    val finalConj = 
+      if (!updatedNegatedConjs.isEmpty) {
+        val negConj = newConj.negatedConjs.update(updatedNegatedConjs, termOrder)
+        newConj.updateNegatedConjs(negConj)(termOrder)
+      } else {
+        newConj
+      }
+
+    (finalConj, allTerms.toList.reverse, termOrder)
   }
 
+  def fullInst(conj : Conjunction, prefix : String) =
+    instantiateAux(conj, prefix, conj.order)
+  // Fully instantiate conj with prefix
+  // def fullInst(conj : Conjunction, prefix : String) = {
+
+  //   // Instantiate top-level
+  //   val allTerms : ListBuffer[(ConstantTerm, Boolean)] = ListBuffer()
+
+  //   val (newConj, nt, norder) = inst(conj, prefix, conj.order)
+  //   allTerms ++= nt
+
+  //   val retVal =
+  //     if (newConj.negatedConjs.size >= 1) {
+  //       var disjCount = 0
+  //       var negOrder = norder
+
+  //       val updatedNegatedConjs = 
+  //         for (disjunction <- newConj.negatedConjs) yield {
+  //           println("->" + disjunction)
+  //           // val disjunction = newConj.negatedConjs(0)
+  //           //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+  //           Debug.assertInt(ConnectionProver.AC, disjunction.quans.length == 0)
+  //           //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+  //           // Check all assumption-based formulas:
+  //           val (newConj, nt, tmpOrder) = inst(disjunction, prefix + "_disj" + disjCount, negOrder)
+  //           disjCount += 1
+  //           negOrder = tmpOrder
+  //           allTerms ++= nt
+  //           println("\t" + newConj)
+  //           newConj
+  //         }
+
+  //       val negConj = newConj.negatedConjs.update(updatedNegatedConjs, negOrder)
+  //       val finalConj = newConj.updateNegatedConjs(negConj)(negOrder)
+  //       (finalConj, allTerms.toList.reverse, negOrder)
+  //     } else {
+  //       // TODO: This and above, really reverse?
+  //       (newConj, allTerms.toList.reverse, norder)
+  //     }
+
+  //   retVal
+  // }
 
 
-  def convertNegFunEquation(negFunEq : NegFunEquation) = {
-    val pc = negFunEq.eq
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, pc.isLiteral && pc.positiveLits.length == 1)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-    val atom = pc.positiveLits(0)
-    val fun = atom.pred
-    val args = atom.take(atom.length-1).map(x => x.lastTerm.constants.head)
-    val res = atom(atom.length-1).lastTerm.constants.head
-    (fun, args.toList, res)
-  }
+
+  // def convertNegFunEquation(negFunEq : NegFunEquation) = {
+  //   println("Converting: " + negFunEq)
+  //   val pc = negFunEq.eq
+  //   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+  //   Debug.assertInt(ConnectionProver.AC, pc.isLiteral && pc.positiveLits.length == 1)
+  //   //-END-ASSERTION-//////////////////////////////////////////////////////////
+  //   val atom = pc.positiveLits(0)
+  //   println("\tatom " + atom)
+  //   val fun = atom.pred
+  //   println("\tfun: " + fun)
+  //   for (a <- atom) {
+  //     println("\t\t" + a + "|")
+  //     println("\t\t" + a.lastTerm + "|")
+  //     println("\t\t" + a.lastTerm.constants + "|")      
+  //   }
+  //   val args = atom.take(atom.length-1).map(x => x.lastTerm.constants.head)
+  //   val res = atom(atom.length-1).lastTerm.constants.head
+  //   (fun, args.toList, res)
+  // }
 
   /**
     * Returns a clause with the selected literal in front:
@@ -255,13 +310,13 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     for (p <- predConj.iterator) {
       if ((p.predicates.size == 1) && (p.predicates subsetOf Param.FUNCTIONAL_PREDICATES(preSettings))) {
         if (negated) {
-          // Convert to a funeq and a negeq
-          val (_, _, res2) = convertNegFunEquation(NegFunEquation(p))
+          // Convert f(a_1, a_2, ...) != b to f(a_1, a_2, ...) = D ^ D != b (where D is a new Dummy)
 
           val atom = p.positiveLits(0)
           val fun = atom.pred
           val args = atom.take(atom.length-1)
-          val res = atom(atom.length-1)
+
+          val res = atom(atom.length-1).lastTerm.constants.head
           val newTerm = new ConstantTerm("DUMMY_TERM_" + nextTerm)
           val newOrder = List((newTerm, false))
           val no = p.order.extend(newTerm)
@@ -269,12 +324,12 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
           nextTerm += 1
           val lc = LinearCombination(newTerm, no)
           val newFunEq = Atom(fun, args ++ List(lc), no)
-          val newEq = NegEquation(res2, newTerm)
+          val newEq = NegEquation(res, newTerm)
 
-          newNodes += ((List(newEq, FunEquation(PredConj(List(newFunEq), List(), no))), newOrder))
+          newNodes += ((List(newEq, FunEquation(PredConj(List(newFunEq), List(), no), false)), newOrder))
 
         } else {
-          newNodes += ((List(FunEquation(p)) : List[Node], List() : BREUOrder))
+          newNodes += ((List(FunEquation(p, false)) : List[Node], List() : BREUOrder))
         }
       } else if (p.predicates.size == 1) {
         if (negated)

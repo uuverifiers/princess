@@ -86,9 +86,10 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
 
   def literals = nodes.filter(_.isLiteral).map(_.asLiteral)
   def equations = nodes.filter(_.isEquation).map(_.asEquation)
-  def funEquations = nodes.filter(_.isFunEquation).map(_.asFunEquation)
+  def funEquations = nodes.filter(x => x.isFunEquation && !x.asFunEquation.negated).map(_.asFunEquation)
+  def negFunEquations = nodes.filter(x => x.isFunEquation && x.asFunEquation.negated).map(_.asFunEquation)  
   def negEquations = nodes.filter(_.isNegEquation).map(_.asNegEquation)
-  def negFunEquations = nodes.filter(_.isNegFunEquation).map(_.asNegFunEquation)
+
 
   val allConnections = {
     var connections = ListBuffer() : ListBuffer[Connection]

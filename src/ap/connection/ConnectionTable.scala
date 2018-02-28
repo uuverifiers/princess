@@ -263,17 +263,17 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   }
 
 
-  def convertNegFunEquation(negFunEq : NegFunEquation) = {
-    val pc = negFunEq.eq
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, pc.isLiteral && pc.positiveLits.length == 1)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-    val atom = pc.positiveLits(0)
-    val fun = atom.pred
-    val args = atom.take(atom.length-1).map(x => x.lastTerm.constants.head)
-    val res = atom(atom.length-1).lastTerm.constants.head
-    (fun, args.toList, res)
-  }
+  // def convertNegFunEquation(negFunEq : NegFunEquation) = {
+  //   val pc = negFunEq.eq
+  //   //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+  //   Debug.assertInt(ConnectionProver.AC, pc.isLiteral && pc.positiveLits.length == 1)
+  //   //-END-ASSERTION-//////////////////////////////////////////////////////////
+  //   val atom = pc.positiveLits(0)
+  //   val fun = atom.pred
+  //   val args = atom.take(atom.length-1).map(x => x.lastTerm.constants.head)
+  //   val res = atom(atom.length-1).lastTerm.constants.head
+  //   (fun, args.toList, res)
+  // }
 
 
   def convertEquation(eq : Equation) = {
@@ -297,9 +297,9 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
         if (!branch.allClosable) {
           throw new Exception("Trying to create BREU-problem from structural open branch!")
         } else {
-          val funEqs = branch.funEquations.map(convertFunEquation(_))
-          val eqs = branch.equations.map(convertEquation(_)).flatten
-          val negFunEqs = branch.negFunEquations.map(convertNegFunEquation(_))
+          val funEqs = branch.funEquations.map(convertFunEquation)
+          val eqs = branch.equations.map(convertEquation).flatten
+          val negFunEqs = branch.negFunEquations.map(convertFunEquation)
           
           //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
           Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)

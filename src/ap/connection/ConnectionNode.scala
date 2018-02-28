@@ -41,8 +41,8 @@ abstract class Node {
   override def toString = {
     this match {
       case Literal(formula) => formula.toString
-      case FunEquation(eq) => eq.toString
-      case NegFunEquation(eq) => eq.toString
+      case FunEquation(eq, negated) if (negated) => "(! " + eq.toString + ")"
+      case FunEquation(eq, _) => eq.toString
       case Equation(lhs, rhs) => lhs + " = " + rhs
       case NegEquation(lhs, rhs) => lhs + " != " + rhs
     }
@@ -52,14 +52,12 @@ abstract class Node {
   def isEquation = this.isInstanceOf[Equation]
   def isNegEquation = this.isInstanceOf[NegEquation]
   def isFunEquation = this.isInstanceOf[FunEquation]
-  def isNegFunEquation = this.isInstanceOf[NegFunEquation]
 
   // TODO: Is this the correct way?
   def asLiteral = this.asInstanceOf[Literal]
   def asEquation = this.asInstanceOf[Equation]
   def asNegEquation = this.asInstanceOf[NegEquation]
   def asFunEquation = this.asInstanceOf[FunEquation]
-  def asNegFunEquation = this.asInstanceOf[NegFunEquation]
 
   // TODO: Cleanup
   def structuralUnifiable(that : Node) : Boolean = {
@@ -88,8 +86,7 @@ abstract class Node {
 }
  
 case class Literal(formula : PredConj) extends Node
-case class FunEquation(eq : PredConj) extends Node
-case class NegFunEquation(eq : PredConj) extends Node
+case class FunEquation(eq : PredConj, negated : Boolean) extends Node
 case class Equation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
 case class NegEquation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
 

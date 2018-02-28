@@ -36,7 +36,7 @@ package object connection {
 
   def clauseToString(clause : OrderClause) : String =
     (for ((nodes, _) <- clause) yield {
-      nodes.mkString("^") + ")"
+      nodes.mkString("^")
     }).mkString(" v ")
 }
 
