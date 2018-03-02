@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -594,6 +594,45 @@ object VariableSubstVisitor
   def postVisit(t : IExpression,
                 substShift : (List[ITerm], Int),
                 subres : Seq[IExpression]) : IExpression = t update subres
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Substitute variables in an expression with arbitrary terms,
+ * and immediately simplify the resulting expression if possible.
+ */
+object SimplifyingVariableSubstVisitor
+       extends CollectingVisitor[(List[ITerm], Int), IExpression] {
+  def apply(t : IExpression, substShift : (List[ITerm], Int)) : IExpression =
+    SimplifyingVariableSubstVisitor.visit(t, substShift)
+  def apply(t : ITerm, substShift : (List[ITerm], Int)) : ITerm =
+    apply(t.asInstanceOf[IExpression], substShift).asInstanceOf[ITerm]
+  def apply(t : IFormula, substShift : (List[ITerm], Int)) : IFormula =
+    apply(t.asInstanceOf[IExpression], substShift).asInstanceOf[IFormula]
+
+  override def preVisit(t : IExpression,
+                        substShift : (List[ITerm], Int)) : PreVisitResult =
+    t match {
+      case IVariable(index) => {
+        val (subst, shift) = substShift
+        ShortCutResult(if (index >= subst.size)
+                         IVariable(index + shift)
+                       else
+                         subst(index))
+      }
+      case _ : IQuantified | _ : IEpsilon => {
+        val (subst, shift) = substShift
+        val newSubst = for (t <- subst) yield VariableShiftVisitor(t, 0, 1)
+        UniSubArgs((IVariable(0) :: newSubst, shift))
+      }
+      case _ => KeepArg
+    }
+
+  def postVisit(t : IExpression,
+                substShift : (List[ITerm], Int),
+                subres : Seq[IExpression]) : IExpression =
+    IExpression.updateAndSimplifyLazily(t, subres)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
