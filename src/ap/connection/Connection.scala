@@ -29,14 +29,19 @@ package object connection {
 
   // We use a special kind of clause,
   // where each literal is a list of literals (to allow equations)
-  type Clause = List[List[Node]]
-  type OrderNode = (List[Node], List[(ConstantTerm, Boolean)])
-  type OrderClause = List[OrderNode]
+  type PseudoLiteral = (List[FunEquation], Node)
+  type PseudoClause = List[PseudoLiteral]
+
+  // type Clause = List[List[Node]]
+  // type OrderNode = (List[Node], List[(ConstantTerm, Boolean)])
+  // type OrderClause = List[OrderNode]
+
   type BREUOrder = List[(ConstantTerm, Boolean)]  
 
-  def clauseToString(clause : OrderClause) : String =
-    (for ((nodes, _) <- clause) yield {
-      nodes.mkString("^")
+  def clauseToString(clause : PseudoClause) : String =
+    (for (plits <- clause) yield {
+      val (funs, pred) = plits
+      "(" + funs.mkString("^") + ": " + pred + ")"
     }).mkString(" v ")
 }
 

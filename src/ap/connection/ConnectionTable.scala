@@ -106,10 +106,10 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   def isOpen = openBranches > 0
 
   // Extend branch branchIdx with clause(idx) and add new branches to the right
-  def extendBranch(branchIdx : Int, orderClause : OrderClause, idx : Int, newOrder : BREUOrder) = {
+  def extendBranch(branchIdx : Int, clause : PseudoClause, idx : Int, newOrder : BREUOrder) = {
     val preBranches = branches.take(branchIdx)
     val postBranches = branches.drop(branchIdx + 1)
-    val newBranches = for (c <- orderClause) yield branches(branchIdx).extend(c, newOrder)
+    val newBranches = for (c <- clause) yield branches(branchIdx).extend(c, newOrder)
     new ConnectionTable(preBranches ++ (newBranches(idx) :: newBranches.filter(_ != newBranches(idx)))  ++ postBranches, preSettings)
   }
 
@@ -299,17 +299,15 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
         } else {
           val funEqs = branch.funEquations.map(convertFunEquation)
           val eqs = branch.equations.map(convertEquation).flatten
-          val negFunEqs = branch.negFunEquations.map(convertFunEquation)
-          
-          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-          Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)
-          //-END-ASSERTION-//////////////////////////////////////////////////////////
 
           val argGoals : List[List[(ConstantTerm, ConstantTerm)]] = branch.toBREU
-          (argGoals.toList, funEqs ++ eqs, negFunEqs)
+          (argGoals.toList, funEqs ++ eqs)
         }
       }
-    breuSolver.createProblem(domains.toMap, subProblems.map(_._1), subProblems.map(_._2), subProblems.map(_._3))
+
+    // TODO: BreuSolver takes neg fun eqs?
+    val negFunEqs = for (_ <- subProblems) yield List()
+    breuSolver.createProblem(domains.toMap, subProblems.map(_._1), subProblems.map(_._2), negFunEqs)
   }
 
   // TODO: Maybe we can replace with default arguments instead...

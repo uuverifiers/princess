@@ -23,7 +23,7 @@
 
 package ap.connection;
 
-import ap.connection.connection.{OrderNode, BREUOrder}
+import ap.connection.connection.{BREUOrder, PseudoLiteral}
 import ap.terfor.ConstantTerm
 import ap.util.Debug
 import scala.collection.mutable.ListBuffer
@@ -77,17 +77,16 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
   def apply(idx : Int) = nodes(idx)
 
   // TODO: Extra order, yuck...
-  def extend(newOrderNode : OrderNode, extraOrder : BREUOrder) = {
-    val (newNodes, newOrder) = newOrderNode
+  def extend(literal : PseudoLiteral, extraOrder : BREUOrder) = {
+    val (funs, pred) = literal
     // TODO: Correct combination order?
-    val mergeOrder = newOrder ++ extraOrder ++ order
-    new ConnectionBranch(newNodes ++ nodes, ClosedStyle.Open, mergeOrder)
+    val mergeOrder = extraOrder ++ order
+    new ConnectionBranch(pred :: funs ++ nodes, ClosedStyle.Open, mergeOrder)
   }
 
   def literals = nodes.filter(_.isLiteral).map(_.asLiteral)
   def equations = nodes.filter(_.isEquation).map(_.asEquation)
-  def funEquations = nodes.filter(x => x.isFunEquation && !x.asFunEquation.negated).map(_.asFunEquation)
-  def negFunEquations = nodes.filter(x => x.isFunEquation && x.asFunEquation.negated).map(_.asFunEquation)  
+  def funEquations = nodes.filter(x => x.isFunEquation).map(_.asFunEquation)
   def negEquations = nodes.filter(_.isNegEquation).map(_.asNegEquation)
 
 

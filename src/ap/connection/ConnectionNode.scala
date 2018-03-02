@@ -41,8 +41,7 @@ abstract class Node {
   override def toString = {
     this match {
       case Literal(formula) => formula.toString
-      case FunEquation(eq, negated) if (negated) => "(! " + eq.toString + ")"
-      case FunEquation(eq, _) => eq.toString
+      case FunEquation(eq) => eq.toString
       case Equation(lhs, rhs) => lhs + " = " + rhs
       case NegEquation(lhs, rhs) => lhs + " != " + rhs
     }
@@ -86,7 +85,7 @@ abstract class Node {
 }
  
 case class Literal(formula : PredConj) extends Node
-case class FunEquation(eq : PredConj, negated : Boolean) extends Node
+case class FunEquation(eq : PredConj) extends Node
 case class Equation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
 case class NegEquation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
 
