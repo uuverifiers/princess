@@ -109,7 +109,7 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   def extendBranch(branchIdx : Int, clause : PseudoClause, idx : Int, newOrder : BREUOrder) = {
     val preBranches = branches.take(branchIdx)
     val postBranches = branches.drop(branchIdx + 1)
-    val newBranches = for (c <- clause) yield branches(branchIdx).extend(c, newOrder)
+    val newBranches = for (c <- clause.pseudoLiterals) yield branches(branchIdx).extend(c, newOrder)
     new ConnectionTable(preBranches ++ (newBranches(idx) :: newBranches.filter(_ != newBranches(idx)))  ++ postBranches, preSettings)
   }
 

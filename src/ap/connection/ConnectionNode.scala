@@ -44,6 +44,7 @@ abstract class Node {
       case FunEquation(eq) => eq.toString
       case Equation(lhs, rhs) => lhs + " = " + rhs
       case NegEquation(lhs, rhs) => lhs + " != " + rhs
+      case True => "True"
     }
   }
 
@@ -88,4 +89,5 @@ case class Literal(formula : PredConj) extends Node
 case class FunEquation(eq : PredConj) extends Node
 case class Equation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
 case class NegEquation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
+case object True extends Node
 

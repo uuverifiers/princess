@@ -23,10 +23,11 @@
 
 package ap.connection;
 
-import ap.connection.connection.{BREUOrder, PseudoLiteral}
+import ap.connection.connection.{BREUOrder}
 import ap.terfor.ConstantTerm
 import ap.util.Debug
 import scala.collection.mutable.ListBuffer
+
 
 object ClosedStyle extends Enumeration {
   type ClosedStyle = Value
@@ -78,10 +79,9 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
 
   // TODO: Extra order, yuck...
   def extend(literal : PseudoLiteral, extraOrder : BREUOrder) = {
-    val (funs, pred) = literal
     // TODO: Correct combination order?
     val mergeOrder = extraOrder ++ order
-    new ConnectionBranch(pred :: funs ++ nodes, ClosedStyle.Open, mergeOrder)
+    new ConnectionBranch(literal.lit :: literal.funs ++ nodes, ClosedStyle.Open, mergeOrder)
   }
 
   def literals = nodes.filter(_.isLiteral).map(_.asLiteral)
