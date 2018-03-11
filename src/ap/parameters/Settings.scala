@@ -189,7 +189,11 @@ object GlobalSettings {
         case ValueOpt("connection", "weak") =>
           Param.CONNECTION.set(settings, Param.ConnectionOptions.Weak)
         case ValueOpt("connection", "strong") =>
-          Param.CONNECTION.set(settings, Param.ConnectionOptions.Strong)          
+          Param.CONNECTION.set(settings, Param.ConnectionOptions.Strong)
+        case ValueOpt("connection", "weakd") =>
+          Param.CONNECTION.set(settings, Param.ConnectionOptions.WeakD)
+        case ValueOpt("connection", "strongd") =>
+          Param.CONNECTION.set(settings, Param.ConnectionOptions.StrongD)                    
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }

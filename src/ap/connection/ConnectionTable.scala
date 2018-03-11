@@ -31,7 +31,8 @@ import ap.connection.connection._
 
 import scala.collection.mutable.{Map => MMap, ListBuffer}
 
-class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings : GoalSettings) {
+// TODO: branches should be private...
+class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSettings) {
 
   // TODO: Make nicer?
   var nextPredicate = 0
@@ -89,7 +90,7 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
         val closer = 
           nodeLists.head._2 match {
             case ClosedStyle.Open => "--OPEN--"
-            case ClosedStyle.Strong => "-STRONG-"
+            case ClosedStyle.Strong => "-STRONG- "
             case ClosedStyle.Weak => "--WEAK--"
           }
         tabs + closer + "\n" + printBranch(nodeLists.tail, level, (branch.head + 1) :: branch.tail)
@@ -101,6 +102,14 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
     printBranch(branches.map(x => (x.nodes.reverse, x.closed)), 0, List(1))
     
   }
+
+
+  // override def toString = {
+  //   (for (b <- branches) yield 
+  //     b.toString).mkString("\n")
+  // }
+
+
   def width = branches.length
   def openBranches = branches.count(_.isOpen)
   def isOpen = openBranches > 0
@@ -109,17 +118,18 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   def extendBranch(branchIdx : Int, clause : PseudoClause, idx : Int, newOrder : BREUOrder) = {
     val preBranches = branches.take(branchIdx)
     val postBranches = branches.drop(branchIdx + 1)
-    val newBranches = for (c <- clause.pseudoLiterals) yield branches(branchIdx).extend(c, newOrder)
+    val newBranches = (for (c <- clause.pseudoLiterals) yield branches(branchIdx).extend(c, newOrder)).toList
     new ConnectionTable(preBranches ++ (newBranches(idx) :: newBranches.filter(_ != newBranches(idx)))  ++ postBranches, preSettings)
   }
 
   def close(idx : Int, strong : Boolean) : ConnectionTable = {
     val newBranches =
       for (i <- 0 until branches.length) yield {
-        if (i == idx)
+        if (i == idx) {
           branches(i).closed(strong)
-        else
+        } else {
           branches(i)
+        }
       }
     new ConnectionTable(newBranches, preSettings)
   }
@@ -154,11 +164,14 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
 
   def unifyBranches(disequalities : Seq[(ConstantTerm, ConstantTerm)])
       : (Option[Map[ConstantTerm, ConstantTerm]]) = {
+
     val breuSolver = new breu.LazySolver[ConstantTerm, Predicate](
       () => Timeout.check,
       Param.CLAUSIFIER_TIMEOUT(preSettings))
 
     val problem = branchToBREU(breuSolver, disequalities)
+    println(problem)
+    problem.saveToFile("error.breu")
     val result = problem.solve
     // println("Blocking Unit Clauses:")
     for ((i1, i2) <- breuSolver.unitBlockingClauses) {
@@ -180,8 +193,7 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   def unifyBranches() : (Option[Map[ConstantTerm, ConstantTerm]]) = unifyBranches(List())  
 
   def closable : Boolean = 
-    !(branches.find(b => !b.isOpen && !b.closable).isDefined) &&
-  unifyBranches().isDefined
+    !(branches.find(b => !b.isOpen && !b.closable).isDefined) && unifyBranches().isDefined
 
   def closable(disequalities : Seq[(ConstantTerm, ConstantTerm)]) : Boolean = 
     !(branches.find(b => !b.isOpen && !b.closable).isDefined) &&
@@ -190,8 +202,10 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   // PRE: must be one open branch
   def firstOpen = {
     val first = branches.find(_.isOpen)
-    val idx = branches indexOf first
-    (first, idx)
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConnectionProver.AC, first.isDefined)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////    
+    branches indexOf first.get
   }
 
   def shortestOpen = {
@@ -202,12 +216,17 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
   }
 
 
+  /**
+    * Combine orders from different branches into domains
+    * 
+    * The issue is when one variable occurs in several branches,
+    * then the domain should be the intersection of its
+    * domain on each branch.
+    */
   def combineOrders(orders : Seq[BREUOrder], disequalities : Seq[(ConstantTerm, ConstantTerm)]) = {
     val maps = orders.map(orderToMap)
     val keys : Set[ConstantTerm] = (for (m <- maps) yield m.keys).foldLeft(Set() : Set[ConstantTerm])(_ ++ _)
 
-
-    // val singleDomains = Map() : Map[ConstantTerm, ConstantTerm]
     val finalDomains = 
       (for (k <- keys) yield {
         val allVals : Set[ConstantTerm] = (for (m <- maps) yield { m.getOrElse(k, Set() : Set[ConstantTerm]) }).foldLeft(Set() : Set[ConstantTerm])(_ ++ _)
@@ -217,7 +236,8 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
     def isInDomain(x : (ConstantTerm, ConstantTerm)) = {
       val (s, t) = x
       finalDomains(s) contains t
-      }
+    }
+
     val singleDomains = (disequalities.map(_.swap) ++ disequalities).filter(isInDomain).toMap
     // println("CombineOrder(" + orders + ", " + disequalities + ")")
 
@@ -228,34 +248,28 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
         else
           (k, vals)
       }).toMap
-    // println("finalDomains: ")
-    // println(finalDomains)
-    // println("NewDomains:")
-    // println(newDomains)
-    // println("----")
-    newDomains
+    // newDomains
+    finalDomains
   }
 
   def orderToMap(order : BREUOrder) = {
-      val domain = MMap() : MMap[ConstantTerm,Set[ConstantTerm]]
-      for ((t, uni) <- order.reverse) {
-        domain += (t -> Set(t))
-        if (uni) {
-          for (k <- domain.keys) {
-            domain += (t -> (domain(t) + k))
-          }
+    val domain = MMap() : MMap[ConstantTerm,Set[ConstantTerm]]
+
+    for ((t, uni) <- order.reverse) {
+      domain += (t -> Set(t))
+      if (uni) {
+        for (k <- domain.keys) {
+          domain += (t -> (domain(t) + k))
         }
       }
+    }
+
     domain
   }
 
 
   def convertFunEquation(funEq : FunEquation) = {
-    val pc = funEq.eq
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, pc.isLiteral && pc.positiveLits.length == 1)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-    val atom = pc.positiveLits(0)
+    val atom = funEq.eq
     val fun = atom.pred
     val args = atom.take(atom.length-1).map(x => x.lastTerm.constants.head)
     val res = atom(atom.length-1).lastTerm.constants.head
@@ -289,17 +303,27 @@ class ConnectionTable(private val branches : Seq[ConnectionBranch], preSettings 
 
   def branchToBREU(breuSolver : breu.BREUSolver[ConstantTerm, Predicate], breuBranches : Seq[ConnectionBranch], disequalities : Seq[(ConstantTerm, ConstantTerm)])
       : breu.BREUInstance[ConstantTerm, Predicate]  = {
+    println("Converting branches to breu!")
     // We need to keep track of domains
     val domains = combineOrders(for (branch <- breuBranches) yield branch.order, disequalities)
 
     val subProblems =
       for (branch <- breuBranches) yield {
+        println("<--SUB-branch-->!")
+        println(branch)
+        for (n <- branch.nodes) {
+          println("\t" + n)
+          println("\t\t" + n.getClass)
+          println("\t\t" + n.isFunEquation)
+        }
+
         if (!branch.allClosable) {
           throw new Exception("Trying to create BREU-problem from structural open branch!")
         } else {
           val funEqs = branch.funEquations.map(convertFunEquation)
+          println("funEqs: " + funEqs.mkString(", "))
           val eqs = branch.equations.map(convertEquation).flatten
-
+          println("eqs: " + eqs.mkString(","))
           val argGoals : List[List[(ConstantTerm, ConstantTerm)]] = branch.toBREU
           (argGoals.toList, funEqs ++ eqs)
         }

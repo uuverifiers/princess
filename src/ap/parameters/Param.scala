@@ -390,7 +390,7 @@ object Param {
 
 
   object ConnectionOptions extends Enumeration {
-    val None, Strong, Weak = Value
+    val None, Strong, Weak, StrongD, WeakD = Value
   }
 
   case object CONNECTION extends Param {

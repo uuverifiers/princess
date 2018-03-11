@@ -1,6 +1,6 @@
 package ap.connection;
 
-class PseudoClause(val pseudoLiterals : List[PseudoLiteral]) {
+class PseudoClause(val pseudoLiterals : Seq[PseudoLiteral]) {
   override def toString = {
     pseudoLiterals.mkString(" v ")
   }

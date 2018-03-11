@@ -47,11 +47,13 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
   //   longestPrefix(that.nodes)
 
   override def toString = {
-    closed match {
-      case ClosedStyle.Open => "||\t (---) " + nodes.mkString(", ")
-      case ClosedStyle.Strong => "||\t (STR) " + nodes.mkString(", ")
-      case ClosedStyle.Weak => "||\t (WEK) " + nodes.mkString(", ")
-    }
+    val str =
+      closed match {
+        case ClosedStyle.Open => "  (---) " + nodes.mkString(", ")
+        case ClosedStyle.Strong => "  (STR) " + nodes.mkString(", ") + " @ " + strongConnections.mkString(", ")
+        case ClosedStyle.Weak => "  (WEK) " + nodes.mkString(", ") + " @ " + weakConnections.mkString(", ")
+      }
+    str + " $" + order.mkString(",")
   }
 
   def isOpen = (closed == ClosedStyle.Open)
@@ -84,7 +86,8 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
     new ConnectionBranch(literal.lit :: literal.funs ++ nodes, ClosedStyle.Open, mergeOrder)
   }
 
-  def literals = nodes.filter(_.isLiteral).map(_.asLiteral)
+  def positiveLiterals = nodes.filter(_.isPositiveLiteral).map(_.asPositiveLiteral)
+  def negativeLiterals = nodes.filter(_.isNegativeLiteral).map(_.asNegativeLiteral)  
   def equations = nodes.filter(_.isEquation).map(_.asEquation)
   def funEquations = nodes.filter(x => x.isFunEquation).map(_.asFunEquation)
   def negEquations = nodes.filter(_.isNegEquation).map(_.asNegEquation)
@@ -145,7 +148,7 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
     }
   }
 
-  def toBREU = {
+  def toBREU : List[List[(ConstantTerm, ConstantTerm)]] = {
     val connections = 
       closed match {
         case ClosedStyle.Open => throw new Exception("toBREU on open branch")
@@ -153,7 +156,7 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
         case ClosedStyle.Strong => strongConnections
       }
 
-    for (c <- connections) yield {
+    (for (c <- connections) yield {
       c match {
         case ConnectionNegEq(node) => {
           (nodes(node)) match {
@@ -165,23 +168,27 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
         }
         case ConnectionCompLits(node1, node2) => {
           (nodes(node1), nodes(node2)) match {
-            case (Literal(pred1), Literal(pred2)) => {
-              val pred1atom = (pred1.negativeLits ++ pred1.positiveLits).head
-              val pred2atom = (pred2.negativeLits ++ pred2.positiveLits).head
+            case (pl : PositiveLiteral, nl : NegativeLiteral) =>
+              for ((t1, t2) <- pl.args zip nl.args) yield (t1, t2)
+            case (nl : NegativeLiteral, pl : PositiveLiteral) =>
+              for ((t1, t2) <- pl.args zip nl.args) yield (t1, t2)
+          }
+              // val pred1atom = (pred1.negativeLits ++ pred1.positiveLits).head
+              // val pred2atom = (pred2.negativeLits ++ pred2.positiveLits).head
 
-              for ((arg1, arg2) <- (pred1atom zip pred2atom).toList) yield {
-                //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-                Debug.assertPre(ConnectionProver.AC, arg1.termIterator.size == 1 && arg2.termIterator.size == 1)
-                //-END-ASSERTION-//////////////////////////////////////////////////////////
+              // (node1, node2)
+              // for ((arg1, arg2) <- (pred1atom zip pred2atom).toList) yield {
+              //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+              // Debug.assertPre(ConnectionProver.AC, arg1.termIterator.size == 1 && arg2.termIterator.size == 1)
+              //-END-ASSERTION-//////////////////////////////////////////////////////////
                 // println("\t" + arg1 + "\t?=\t" + arg2)
                 // println("\t" + arg1.getClass + " \t?=\t" + arg2.getClass)
-                (arg1.lastTerm.constants.head, arg2.lastTerm.constants.head)
-              }
-            }
-            case _ => throw new Exception("ConncetionCompLits is pointing wrong!")
-          }
+                // (arg1.lastTerm.constants.head, arg2.lastTerm.constants.head)
+                // }
+          //   case _ => throw new Exception("ConncetionCompLits is pointing wrong!")
+          // }
         }
       }
-    }
+    }).toList 
   }
 }

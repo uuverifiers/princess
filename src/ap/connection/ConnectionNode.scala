@@ -24,7 +24,7 @@
 package ap.connection;
 
 import ap.terfor.ConstantTerm
-import ap.terfor.preds.PredConj
+import ap.terfor.preds.{PredConj, Atom}
 import ap.util.Debug
 
 
@@ -40,7 +40,8 @@ import ap.util.Debug
 abstract class Node {
   override def toString = {
     this match {
-      case Literal(formula) => formula.toString
+      case PositiveLiteral(atom) => atom.toString
+      case NegativeLiteral(atom) => "!" + atom.toString        
       case FunEquation(eq) => eq.toString
       case Equation(lhs, rhs) => lhs + " = " + rhs
       case NegEquation(lhs, rhs) => lhs + " != " + rhs
@@ -48,45 +49,50 @@ abstract class Node {
     }
   }
 
-  def isLiteral = this.isInstanceOf[Literal]
+  def isLiteral = this.isInstanceOf[PositiveLiteral] || this.isInstanceOf[NegativeLiteral]
+  def isPositiveLiteral = this.isInstanceOf[PositiveLiteral]
+  def isNegativeLiteral = this.isInstanceOf[NegativeLiteral]  
   def isEquation = this.isInstanceOf[Equation]
   def isNegEquation = this.isInstanceOf[NegEquation]
   def isFunEquation = this.isInstanceOf[FunEquation]
 
   // TODO: Is this the correct way?
-  def asLiteral = this.asInstanceOf[Literal]
+  def asPositiveLiteral = this.asInstanceOf[PositiveLiteral]
+  def asNegativeLiteral = this.asInstanceOf[NegativeLiteral]  
   def asEquation = this.asInstanceOf[Equation]
   def asNegEquation = this.asInstanceOf[NegEquation]
   def asFunEquation = this.asInstanceOf[FunEquation]
 
-  // TODO: Cleanup
   def structuralUnifiable(that : Node) : Boolean = {
     (this, that) match {
-      case (Literal(formula1), Literal(formula2)) => {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-        Debug.assertInt(ConnectionProver.AC, formula1.isLiteral && formula2.isLiteral)
-        //-END-ASSERTION-//////////////////////////////////////////////////////////
-        val formula1atom = (formula1.negativeLits ++ formula1.positiveLits).head
-        val formula2atom = (formula2.negativeLits ++ formula2.positiveLits).head
-
-        // Two cases, either formula1 and !formula2 or !formula1 and formula2
-        if (!((formula1.negativeLits.length == 1 && formula2.positiveLits.length == 1) ||
-          (formula2.negativeLits.length == 1 && formula1.positiveLits.length == 1))) {
-          false
-        } else if (formula1atom.pred != formula2atom.pred) {
-          // They have to share predicate symbol
-          false
-        } else {
-          true
-        }
-      }
+      case (PositiveLiteral(atom1), NegativeLiteral(atom2)) => atom1.pred == atom2.pred
+      case (NegativeLiteral(atom1), PositiveLiteral(atom2)) => atom1.pred == atom2.pred
       case _ => false
     }
   }
 }
- 
-case class Literal(formula : PredConj) extends Node
-case class FunEquation(eq : PredConj) extends Node
+
+object Literal {
+  def atom2Terms(a : Atom) : List[ConstantTerm] = {
+    (for (e <- a.elements) yield {
+      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+      Debug.assertInt(ConnectionProver.AC, e.lcSize == 1)
+      Debug.assertInt(ConnectionProver.AC, e.getPair(0)._1 == ap.basetypes.IdealInt.ONE)
+      Debug.assertInt(ConnectionProver.AC, e.getTerm(0).isInstanceOf[ConstantTerm])
+      //-END-ASSERTION-//////////////////////////////////////////////////////////
+      e.getTerm(0).asInstanceOf[ConstantTerm]
+    }).toList
+  }
+}
+
+case class PositiveLiteral(lit : Atom) extends Node {
+  def args = Literal.atom2Terms(lit)
+}
+
+case class NegativeLiteral(lit : Atom) extends Node {
+  def args = Literal.atom2Terms(lit)  
+}
+case class FunEquation(eq : Atom) extends Node
 case class Equation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
 case class NegEquation(lhs : ConstantTerm, rhs : ConstantTerm) extends Node
 case object True extends Node

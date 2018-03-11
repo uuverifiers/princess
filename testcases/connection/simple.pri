@@ -1,5 +1,5 @@
 \functions {
-  int f(int);
+  int f(int); int a;
 }
 
 \predicates {

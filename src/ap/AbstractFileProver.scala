@@ -378,6 +378,27 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           (tree, solved, null)
           // prover.isValidConstraint(tree.closingConstraint, signature)
         }
+
+        case Param.ConnectionOptions.StrongD => {
+          val prover =
+            new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings, true, true)
+          val (solved, tree) = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
+          // val validConstraint = tree.breunifiable
+
+          (tree, solved, null)
+          // prover.isValidConstraint(tree.closingConstraint, signature)
+        }
+        case Param.ConnectionOptions.WeakD => {
+          val prover =
+            new ConnectionProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings, false, true)
+          val (solved, tree) = Console.withErr(ap.CmdlMain.NullStream) { prover.solve(closedFor, order) }
+          // val validConstraint = tree.breunifiable
+
+          (tree, solved, null)
+          // prover.isValidConstraint(tree.closingConstraint, signature)
+        }
+
+
         case Param.ConnectionOptions.None => {
           val prover =
             new ExhaustiveBREUProver(!Param.MOST_GENERAL_CONSTRAINT(settings), goalSettings)
