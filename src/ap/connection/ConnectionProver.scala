@@ -175,7 +175,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     */
   def tryStep(table : ConnectionTable, step : Int, branchIdx : Int, inputClauses : List[Conjunction],
     iteration : Int, disequalities : Seq[(ConstantTerm, ConstantTerm)]) : Option[ConnectionTable] = {
-    println("Trying step " + step)
+    dprintln("Trying step " + step)
     val closedTable =
       if (step == 0) {
         Some(table.close(branchIdx, strong))
@@ -190,13 +190,10 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       }
 
     if (closedTable.isEmpty) {
-      println("SAFESKIP")
+      dprintln("SAFESKIP")
       safeSKIP += 1
       None
     } else ap.util.Timer.measure("Checking closable") {
-      println("CLOSED TABLE")
-      println(closedTable.get)
-      
       if (closedTable.get.closable(disequalities)) {
         closedTable
       } else {
@@ -219,30 +216,30 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
     if (table.openBranches == 0) {
       // No open branches - we are done
-      println("All branches closed!")
+      dprintln("All branches closed!")
       (Some(table), false)
     } else if (table.openBranches > maxIteration - iteration) {
       // We can't close n branches with <n iterations
-      println("Open Branches > Remaining Iterations")
+      dprintln("Open Branches > Remaining Iterations")
       (None, true)
     } else {
       // Let's try one more step...
 
-      val branchIdx = table.firstOpen
-      // val (branch, branchIdx) = table.shortestOpen
+      // val branchIdx = table.firstOpen
+      val branchIdx = table.shortestOpen
 
       // TODO: Any way of making branch a val and branchStep a var?
       println("\n//--------- " + iteration + " -------------")
-      // println("|| extending (" + branchIdx + ")")
+      println("|| extending (" + branchIdx + ")")
       // println((for (l <- table.toString.split("\n").toList) yield ("|| " + l)).mkString("\n"))
       for (i <- table.branches.indices) {
         if (i == branchIdx)
-          println("|| --> " + table.branches(i))
+          dprintln("|| --> " + table.branches(i))
         else
-          println("|| " + table.branches(i))
+          dprintln("|| " + table.branches(i))
       }
 
-      println("||==============================")
+      dprintln("||==============================")
       println(table)
       if (!disequalities.isEmpty)
         println("|| Disequalities: " + disequalities.mkString(", "))
@@ -263,7 +260,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       while (step <= maxStep) {
         val res = tryStep(table, step, branchIdx, inputClauses, iteration, disequalities)
         if (res.isDefined) {
-          println("\nStep (" + step + ") works!")
+          dprintln("\nStep (" + step + ") works!")
           val (t, mr) = solveTable(res.get, inputClauses, maxIteration, iteration + 1, res.get.diseqPairs.toList ++ disequalities)
           if (!t.isEmpty)
             return (t, mr)
@@ -272,7 +269,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         step += 1
       }
 
-      println("BACKTRACK")
+      dprintln("BACKTRACK")
       (None, maxReached)
     }
   }

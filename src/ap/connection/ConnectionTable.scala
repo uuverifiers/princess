@@ -32,7 +32,7 @@ import ap.connection.connection._
 import scala.collection.mutable.{Map => MMap, ListBuffer}
 
 // TODO: branches should be private...
-class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSettings) {
+class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSettings, var DEBUG : Boolean = false) {
 
   // TODO: Make nicer?
   var nextPredicate = 0
@@ -170,8 +170,9 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
       Param.CLAUSIFIER_TIMEOUT(preSettings))
 
     val problem = branchToBREU(breuSolver, disequalities)
-    println(problem)
-    problem.saveToFile("error.breu")
+    if (DEBUG)
+      println(problem)
+    // problem.saveToFile("error.breu")
     val result = problem.solve
     // println("Blocking Unit Clauses:")
     for ((i1, i2) <- breuSolver.unitBlockingClauses) {
@@ -211,8 +212,7 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
   def shortestOpen = {
     val openBranches = branches.filter(_.isOpen)
     val shortestOpen = openBranches.minBy(_.length)
-    val idx = branches indexOf shortestOpen
-    (shortestOpen, idx)
+    branches indexOf shortestOpen
   }
 
 
@@ -303,27 +303,16 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
 
   def branchToBREU(breuSolver : breu.BREUSolver[ConstantTerm, Predicate], breuBranches : Seq[ConnectionBranch], disequalities : Seq[(ConstantTerm, ConstantTerm)])
       : breu.BREUInstance[ConstantTerm, Predicate]  = {
-    println("Converting branches to breu!")
     // We need to keep track of domains
     val domains = combineOrders(for (branch <- breuBranches) yield branch.order, disequalities)
 
     val subProblems =
       for (branch <- breuBranches) yield {
-        println("<--SUB-branch-->!")
-        println(branch)
-        for (n <- branch.nodes) {
-          println("\t" + n)
-          println("\t\t" + n.getClass)
-          println("\t\t" + n.isFunEquation)
-        }
-
         if (!branch.allClosable) {
           throw new Exception("Trying to create BREU-problem from structural open branch!")
         } else {
           val funEqs = branch.funEquations.map(convertFunEquation)
-          println("funEqs: " + funEqs.mkString(", "))
           val eqs = branch.equations.map(convertEquation).flatten
-          println("eqs: " + eqs.mkString(","))
           val argGoals : List[List[(ConstantTerm, ConstantTerm)]] = branch.toBREU
           (argGoals.toList, funEqs ++ eqs)
         }
