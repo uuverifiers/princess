@@ -295,8 +295,9 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     * Here we sometimes get a negated conjunction. I do not know why...
     */
   def conjToPseudoLiteral(conj : Conjunction) : (List[FunEquation], Node) = {
-    dprintln("conjToPseudo(" + conj + ")")
-    val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)    
+    dprintln("conjToPseudoLiteral(" + conj + ")")
+    val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)
+    dprintln("\tfunPred: " + funPreds.mkString(","))
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, conj.arithConj.positiveEqs.size == 0)
     Debug.assertInt(ConnectionProver.AC, conj.arithConj.negativeEqs.size <= 1)
@@ -310,6 +311,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
 
 
+    dprintln("\tfunEqs: " + funEqs.mkString(", "))
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)
     //-END-ASSERTION-//////////////////////////////////////////////////////////    
@@ -340,14 +342,19 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       val negPredLits =
         (for (p <- conj.predConj.negativeLits.iterator; if !(p.predicates subsetOf funPreds)) yield NegativeLiteral(p)).toList
 
+
       dprintln("posPredLits: "+ posPredLits.mkString(","))
       dprintln("negPreDLtis: "+ negPredLits.mkString(","))
+      val singleLits = (posPredLits ++ negPredLits).toList
+
       //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-      Debug.assertInt(ConnectionProver.AC, posPredLits.length + negPredLits.length == 1)
+      Debug.assertInt(ConnectionProver.AC, singleLits.length <= 1)
       //-END-ASSERTION-//////////////////////////////////////////////////////////
 
-      val lit = (posPredLits ++ negPredLits).toList.head
-      (funEqs.toList, lit)
+      if (singleLits.isEmpty)
+        (funEqs.toList.tail, funEqs.toList.head)
+      else
+        (funEqs.toList, singleLits.head)
     }
   }
 
@@ -415,7 +422,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     //   (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
 
     dprintln("ArithEqs")
-    val arithEqs =
+    dprintln("\tpositiveEqs: " + conj.arithConj.positiveEqs.mkString(", "))
+    dprintln("\tnegativeEqs: " + conj.arithConj.negativeEqs.mkString(", "))
+
+    // We are under negation so every positive equality is negative nd v.v.
+    val arithLiterals =
       (for (eq <- conj.arithConj.negativeEqs) yield {
         dprintln("" + eq)
         val (c, d, tmpOrder) = eqTerms(eq, newOrder)
@@ -423,12 +434,13 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         dprintln("\tc" + c)
         dprintln("\td" + d)
         // Should we update the order?
-        val tempPred = new Predicate("tempPred", 0)
-        val a1: Atom = Atom(tempPred, List(LinearCombination(c, newOrder)), newOrder)
-        val a2: Atom = Atom(tempPred, List(LinearCombination(d, newOrder)), newOrder)        
-        List(FunEquation(a1), FunEquation(a2))
-      }).flatten
-    dprintln("\t..." + arithEqs.mkString(","))
+        // val tempPred = new Predicate("tempPred_" + nextPredicate , 1)
+        // nextPredicate += 1
+        // val a1: Atom = Atom(tempPred, List(LinearCombination(c, newOrder)), newOrder)
+        // val a2: Atom = Atom(tempPred, List(LinearCombination(d, newOrder)), newOrder)
+        new PseudoLiteral(List(), Equation(c, d))
+      })
+    dprintln("\tarithLiterals: " + arithLiterals.mkString(","))
 
     val negFunEqs = 
       (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield {
@@ -466,15 +478,18 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         new PseudoLiteral(List(feq), neq)
       }
 
-    (new PseudoClause((negFunEqs ++ funLiterals ++ posPredLits ++ negPredLits ++ pseudoLiterals).toList), newBREUOrder)
+    (new PseudoClause((negFunEqs ++ funLiterals ++ arithLiterals ++ posPredLits ++ negPredLits ++ pseudoLiterals).toList), newBREUOrder)
   }
+
+
+
 
   // Converting one conjunction to a pseudoclause (which consists of consists pseudoliterals).
   // Three are two cases.
   // (A) It is a single positive or negative literal (this corresponds to a unit-clause)
   // (B) Negated conjs is larger than 0, and we have a disjunction (and then the predconj should be empty)
   def conjToClause(conj : Conjunction) : (PseudoClause, BREUOrder) = {
-    // dprintln("conjToClause(" + conj + ")")
+    dprintln("conjToClause(" + conj + ")")
     val predConj = conj.predConj
     val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)        
 
@@ -580,15 +595,15 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     val clauses = closedFor.negate.iterator.toList.reverse
 
     def printConj(conj : Conjunction) {
-      println(conj)
+      dprintln("" + conj)
       dprintln("\tpos: " + conj.predConj.positiveLits)
       dprintln("\tneg: " + conj.predConj.negativeLits)
       dprintln("\tnegConj: " + conj.negatedConjs)
     }
 
-    // println("Input Clauses (non-intantiated): ")
-    // for (c <- clauses)
-    //   printConj(c)
+    dprintln("Input Clauses (non-intantiated): ")
+    for (c <- clauses)
+      printConj(c)
 
     println("Input Clauses: ")
     for ((c, bo) <- clauses.map(x => conjToClause(fullInst(x, "conv")._1)))
