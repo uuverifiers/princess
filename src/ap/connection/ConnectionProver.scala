@@ -449,10 +449,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         new PseudoLiteral(List(feq), neq)
       }).toList
 
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-
 
     // One of these should be negated...    
     val posPredLits =
@@ -579,7 +575,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
   /*
    * Given a formula and a term ordering, and tries to prove it using connection tableuax
    */
-  def solve(givenFor : Conjunction, termOrder : TermOrder) = ap.util.Timer.measure("Solve") {
+  def solve(givenFor : Conjunction, termOrder : TermOrder) : (Boolean, ap.proof.goal.Goal) = ap.util.Timer.measure("Solve") {
 
     // Since the formula is in CNF, everything should be in the negated conjunctions
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -605,9 +601,20 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     for (c <- clauses)
       printConj(c)
 
+    println("Input Clauses: (new method): ")
+    for (c <- clauses) {
+      val (instClause, instOrder) = fullInst(c, "conv")
+      val (pseudoClause, breuOrder) = PseudoClause.fromConjunction(fullInst(c, "conv")._1)
+      // println("\t" + pseudoClause)
+    }
+
+    return (false, Goal(List(givenFor), Set(), Vocabulary(termOrder), preSettings))
+
     println("Input Clauses: ")
     for ((c, bo) <- clauses.map(x => conjToClause(fullInst(x, "conv")._1)))
       println("\t" + c + "  $  " + bo.mkString(","))
+
+
 
     var initBREUOrder = List() : BREUOrder
     val unitClauses : List[PseudoClause] =
