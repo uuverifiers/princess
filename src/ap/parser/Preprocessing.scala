@@ -28,7 +28,8 @@ import ap.parameters.{PreprocessingSettings, Param}
 import ap.util.Timeout
 import ap.theories.TheoryRegistry
 
-import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap}
+import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+                                 ArrayBuffer}
 
 /**
  * Preprocess an InputAbsy formula in order to make it suitable for
@@ -87,6 +88,31 @@ object Preprocessing {
     // simple mini-scoping for existential quantifiers
     val fors2a = for (f <- fors2) yield SimpleMiniscoper(f)
 
+    val skolemVisitor = new SkolemisationVisitor
+    val fors2b =
+      for (f <- fors2a)
+      yield skolemVisitor.visit(f, Context(())).asInstanceOf[IFormula]
+
+    val order2b = signature.order extend skolemVisitor.skolemConstants
+    val signature2b =
+      Signature(signature.universalConstants,
+                signature.existentialConstants,
+                signature.nullaryFunctions ++ skolemVisitor.skolemConstants,
+                signature.predicateMatchConfig,
+                order2b,
+                signature.theories)
+
+    // do clausification
+    val fors2c = Param.CLAUSIFIER(settings) match {
+      case Param.ClausifierOptions.None =>
+        fors2b
+      case Param.ClausifierOptions.Simple =>
+        Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
+          for (f <- fors2b) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
+        )(throw new CmdlMain.GaveUpException("Clausification timed out"))
+    }
+    checkSize(fors2c)
+
     // compress chains of implications
 //    val fors2b = for (INamedPart(n, f) <- fors2a)
 //                 yield INamedPart(n, ImplicationCompressor(f))
@@ -94,7 +120,7 @@ object Preprocessing {
     ////////////////////////////////////////////////////////////////////////////
     // Handling of triggers
 
-    var order3 = signature.order
+    var order3 = signature2b.order
     def encodeFunctions(f : IFormula) : IFormula = {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
@@ -102,11 +128,11 @@ object Preprocessing {
     }
 
     val theoryTriggerFunctions =
-      (for (t <- signature.theories.iterator;
+      (for (t <- signature2b.theories.iterator;
             f <- t.triggerRelevantFunctions.iterator) yield f).toSet
     // all uninterpreted functions occurring in the problem
     val problemFunctions =
-      for (f <- FunctionCollector(fors2a);
+      for (f <- FunctionCollector(fors2c);
            if (!(TheoryRegistry lookupSymbol f).isDefined))
       yield f
 
@@ -123,7 +149,7 @@ object Preprocessing {
     lazy val stdTriggerGenerator = {
       val gen = new TriggerGenerator (allTriggeredFunctions,
                                       Param.TRIGGER_STRATEGY(settings))
-      for (f <- fors2a)
+      for (f <- fors2c)
         gen setup f
       gen
     }
@@ -133,7 +159,7 @@ object Preprocessing {
            Param.TriggerGenerationOptions.CompleteFrugal => {
 
         val disjuncts =
-          (for (INamedPart(n, f) <- fors2a.iterator;
+          (for (INamedPart(n, f) <- fors2c.iterator;
                 f2 <- LineariseVisitor(Transform2NNF(f), IBinJunctor.Or).iterator)
            yield (INamedPart(n, f2))).toArray
   
@@ -214,7 +240,7 @@ println
             val triggerGenerator =
               new TriggerGenerator (totalFunctions,
                                     Param.TRIGGER_STRATEGY(settings))
-            for (f <- fors2a)
+            for (f <- fors2c)
               triggerGenerator setup f
 
             for ((INamedPart(n, disjunct), funs) <- impliedTotalFunctions) yield {
@@ -250,7 +276,7 @@ println
       }
 
       case _ => {
-        val withTriggers = for (f <- fors2a) yield stdTriggerGenerator(f)
+        val withTriggers = for (f <- fors2c) yield stdTriggerGenerator(f)
 
         for (INamedPart(n, f) <- withTriggers)
         yield INamedPart(n, encodeFunctions(f))
@@ -285,18 +311,7 @@ println
     val fors5 = 
       for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     
-    // do clausification
-    val fors6 = Param.CLAUSIFIER(settings) match {
-      case Param.ClausifierOptions.None =>
-        fors5
-      case Param.ClausifierOptions.Simple =>
-        Timeout.withTimeoutMillis(Param.CLAUSIFIER_TIMEOUT(settings))(
-          for (f <- fors5) yield (new SimpleClausifier)(f).asInstanceOf[INamedPart]
-        )(throw new CmdlMain.GaveUpException("Clausification timed out"))
-    }
-    checkSize(fors6)
-    
-    (fors6, interpolantSpecs, signature updateOrder order3)
+    (fors5, interpolantSpecs, signature2b updateOrder order3)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -420,4 +435,46 @@ private object EmptyTriggerInjector
       t update subres
   }
 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+private class SkolemisationVisitor
+        extends ContextAwareVisitor[Unit, IExpression] {
+
+  private var functionCounter = 0
+
+  val skolemConstants = new ArrayBuffer[ConstantTerm]
+
+  override def preVisit(t : IExpression,
+                        ctxt : Context[Unit]) : PreVisitResult = t match {
+
+    case IQuantified(q, subT)
+      if q == (if (ctxt.polarity > 0) Quantifier.ALL else Quantifier.EX) => {
+        // skolemise
+
+        val name = "skolem" + functionCounter
+        functionCounter = functionCounter + 1
+
+        val skTerm : ITerm =
+          if (ctxt.binders.isEmpty) {
+            val sk = new ConstantTerm(name)
+            skolemConstants += sk
+            IConstant(sk)
+          } else {
+            val sk = new IFunction(name, ctxt.binders.size, false, false)
+            IFunApp(sk, for (n <- 0 until ctxt.binders.size) yield IVariable(n))
+          }
+
+        TryAgain(VariableSubstVisitor(subT, (List(skTerm), -1)), ctxt)
+    }
+
+    case _ =>
+      super.preVisit(t, ctxt)
+  }
+
+  def postVisit(t : IExpression, ctxt : Context[Unit],
+                subres : Seq[IExpression]) : IExpression =
+    t update subres
+  
 }
