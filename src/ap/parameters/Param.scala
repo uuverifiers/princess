@@ -129,7 +129,7 @@ object Param {
   // resolve negative predicate literals in clauses with positive facts
   case object POS_UNIT_RESOLUTION extends Param {
     type Value = Boolean
-    val defau : Boolean = true
+    val defau : Boolean = false
   }
   
   object PosUnitResolutionMethod extends Enumeration {
@@ -146,7 +146,7 @@ object Param {
   }
   case object CLAUSIFIER extends Param {
     type Value = ClausifierOptions.Value
-    val defau : ClausifierOptions.Value = ClausifierOptions.None
+    val defau : ClausifierOptions.Value = ClausifierOptions.Simple
   }
 
   object TriggerGenerationOptions extends Enumeration {
@@ -162,7 +162,7 @@ object Param {
 
   case object GENERATE_TOTALITY_AXIOMS extends Param {
     type Value = Boolean
-    val defau : Boolean = true
+    val defau : Boolean = false
   }
 
   object TriggerStrategyOptions extends Enumeration {
@@ -200,7 +200,7 @@ object Param {
 
   case object MULTI_STRATEGY extends Param {
     type Value = Boolean
-    val defau : Boolean = true
+    val defau : Boolean = false
   }
   
   case object SYMBOL_WEIGHTS extends Param {

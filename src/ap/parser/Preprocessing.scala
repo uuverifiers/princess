@@ -88,19 +88,10 @@ object Preprocessing {
     // simple mini-scoping for existential quantifiers
     val fors2a = for (f <- fors2) yield SimpleMiniscoper(f)
 
-    val skolemVisitor = new SkolemisationVisitor
+    val skolemVisitor = new SkolemisationVisitor(false)
     val fors2b =
       for (f <- fors2a)
       yield skolemVisitor.visit(f, Context(())).asInstanceOf[IFormula]
-
-    val order2b = signature.order extend skolemVisitor.skolemConstants
-    val signature2b =
-      Signature(signature.universalConstants,
-                signature.existentialConstants,
-                signature.nullaryFunctions ++ skolemVisitor.skolemConstants,
-                signature.predicateMatchConfig,
-                order2b,
-                signature.theories)
 
     // do clausification
     val fors2c = Param.CLAUSIFIER(settings) match {
@@ -120,7 +111,7 @@ object Preprocessing {
     ////////////////////////////////////////////////////////////////////////////
     // Handling of triggers
 
-    var order3 = signature2b.order
+    var order3 = signature.order
     def encodeFunctions(f : IFormula) : IFormula = {
       val (g, o) = functionEncoder(f, order3)
       order3 = o
@@ -128,7 +119,7 @@ object Preprocessing {
     }
 
     val theoryTriggerFunctions =
-      (for (t <- signature2b.theories.iterator;
+      (for (t <- signature.theories.iterator;
             f <- t.triggerRelevantFunctions.iterator) yield f).toSet
     // all uninterpreted functions occurring in the problem
     val problemFunctions =
@@ -284,15 +275,34 @@ println
     }
 
     ////////////////////////////////////////////////////////////////////////////
+
+    // skolemise once more, since new universal quantifiers might have
+    // appeared
+    val skolemVisitor2 = new SkolemisationVisitor(true)
+    val fors3a =
+      for (f <- fors3)
+      yield skolemVisitor2.visit(f, Context(())).asInstanceOf[IFormula]
+
+    order3 = order3 extend (skolemVisitor.skolemConstants ++ skolemVisitor2.skolemConstants)
+    val signature3 =
+      Signature(signature.universalConstants,
+                signature.existentialConstants,
+                signature.nullaryFunctions ++ skolemVisitor.skolemConstants,
+                signature.predicateMatchConfig,
+                order3,
+                signature.theories)
+
+println(fors3a)
+    ////////////////////////////////////////////////////////////////////////////
     // Add the function axioms
 
     val fors4 = functionEncoder.axioms match {
-      case IBoolLit(true) => fors3
+      case IBoolLit(true) => fors3a
       case x => {
         var noNamePart : INamedPart = null
         var realNamedParts : List[INamedPart] = List()
         
-        for (p @ INamedPart(n, _) <- fors3)
+        for (p @ INamedPart(n, _) <- fors3a)
           if (n == PartName.NO_NAME)
             noNamePart = p
           else
@@ -311,7 +321,7 @@ println
     val fors5 = 
       for (f <- fors4) yield BooleanCompactifier(f).asInstanceOf[INamedPart]
     
-    (fors5, interpolantSpecs, signature2b updateOrder order3)
+    (fors5, interpolantSpecs, signature3)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -439,7 +449,7 @@ private object EmptyTriggerInjector
 
 ////////////////////////////////////////////////////////////////////////////////
 
-private class SkolemisationVisitor
+private class SkolemisationVisitor(onlyConstants : Boolean)
         extends ContextAwareVisitor[Unit, IExpression] {
 
   private var functionCounter = 0
@@ -450,7 +460,8 @@ private class SkolemisationVisitor
                         ctxt : Context[Unit]) : PreVisitResult = t match {
 
     case IQuantified(q, subT)
-      if q == (if (ctxt.polarity > 0) Quantifier.ALL else Quantifier.EX) => {
+      if q == (if (ctxt.polarity > 0) Quantifier.ALL else Quantifier.EX) &&
+         (ctxt.binders.isEmpty || !onlyConstants) => {
         // skolemise
 
         val name = "skolem" + functionCounter
