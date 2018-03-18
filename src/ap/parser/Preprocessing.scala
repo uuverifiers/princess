@@ -292,7 +292,6 @@ println
                 order3,
                 signature.theories)
 
-println(fors3a)
     ////////////////////////////////////////////////////////////////////////////
     // Add the function axioms
 

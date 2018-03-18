@@ -51,16 +51,11 @@ object ConnectionProver {
 
 class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong : Boolean, DEBUGPrint : Boolean = false) {
   // How many of our closing-attempts could easily be ignored
-  var safeSKIP = 0
 
+  // Debug 
   val DEBUG = true
-
   def dprintln(str : String) = if (DEBUGPrint) println(str)
-
-  // TODO: How to make this nicer?
-  var nextPredicate = 0
-  var nextTerm = 0
-
+  val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)
 
   /**
     * Instantiate top-level of conjuction, returning instantiated conj, updated BREUorder and TermOrder 
@@ -88,10 +83,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     (res, quants.toList, newOrder)
   }
 
-  var depth = 0
-  def i() = depth += 1
-  def d() = depth -= 1
-  def p(str : String) = println("\t"*depth + str)
 
   /**
     * Instantiates conj, where new terms are named using prefix. 
@@ -181,25 +172,19 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         Some(table.close(branchIdx, strong))
       } else ap.util.Timer.measure("Extending Table") {
         val (clause, idx) = findLiteral(inputClauses, step - 1)
+        dprintln("\tExtending with: " + clause)
         val (instClause, newBREUOrder) = fullInst(clause, "branch_" + iteration)
-        val (pseudoClause, tmpBREUOrder) = conjToClause(instClause)
+        val (pseudoClause, tmpBREUOrder) = PseudoClause.fromConjunction(instClause, funPreds)
 
         // TODO: tmpBREUOrder should only be existentials...
         val extendedTable = table.extendBranch(branchIdx, pseudoClause, idx, newBREUOrder ++ tmpBREUOrder)
         extendedTable.closeSafe(branchIdx, strong)
       }
 
-    if (closedTable.isEmpty) {
-      dprintln("SAFESKIP")
-      safeSKIP += 1
+    if (!closedTable.isEmpty && closedTable.get.closable(disequalities))
+      closedTable
+    else
       None
-    } else ap.util.Timer.measure("Checking closable") {
-      if (closedTable.get.closable(disequalities)) {
-        closedTable
-      } else {
-        None
-      }
-    }
   }
 
 
@@ -223,15 +208,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       dprintln("Open Branches > Remaining Iterations")
       (None, true)
     } else {
-      // Let's try one more step...
-
       // val branchIdx = table.firstOpen
       val branchIdx = table.shortestOpen
 
-      // TODO: Any way of making branch a val and branchStep a var?
       println("\n//--------- " + iteration + " -------------")
       println("|| extending (" + branchIdx + ")")
-      // println((for (l <- table.toString.split("\n").toList) yield ("|| " + l)).mkString("\n"))
       for (i <- table.branches.indices) {
         if (i == branchIdx)
           dprintln("|| --> " + table.branches(i))
@@ -275,295 +256,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
   }
 
 
-
-  //
-  //
-  //
-  // CONVERSION TO CNF ...
-  //
-  //
-  //
-  //
-
-
-  /**
-    *  AND THIS IS UNDER DOUBLE NEGATION?
-
-    * Here conj is pseudo-literal. 
-    * This means it is an actual conjunction...
-    * 
-    * Here we sometimes get a negated conjunction. I do not know why...
-    */
-  def conjToPseudoLiteral(conj : Conjunction) : (List[FunEquation], Node) = {
-    dprintln("conjToPseudoLiteral(" + conj + ")")
-    val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)
-    dprintln("\tfunPred: " + funPreds.mkString(","))
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, conj.arithConj.positiveEqs.size == 0)
-    Debug.assertInt(ConnectionProver.AC, conj.arithConj.negativeEqs.size <= 1)
-    Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.size == 0)    
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-
-    val funEqs =
-      (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
-
-    val negFunEqs =
-      (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
-
-
-    dprintln("\tfunEqs: " + funEqs.mkString(", "))
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////    
-
-    // Two cases, either we have a negative equation or a ordinary literal
-    if (conj.arithConj.negativeEqs.size == 1) {
-      dprintln("ArithEqs")
-      val eq = conj.arithConj.negativeEqs(0)
-      dprintln("\t" + eq)
-      val (c, d, newOrder) = eqTerms(eq, conj.order)
-      dprintln("\tc" + c)
-      dprintln("\td" + d)
-      // Should we update the order?
-      val tempPred = new Predicate("tempPred_" + nextPredicate, 1)
-      nextPredicate += 1
-      val a1: Atom = Atom(tempPred, List(LinearCombination(c, newOrder)), newOrder)
-      dprintln("\ta1: " + a1)
-      val a2: Atom = Atom(tempPred, List(LinearCombination(d, newOrder)), newOrder)
-      dprintln("\ta2: " + a2)            
-      val ret = (List(FunEquation(a1), FunEquation(a2)), NegEquation(c, d))
-      dprintln("\tret: " + ret)
-      ret
-    } else {
-      // There should only be one non-equational literal
-      val posPredLits =
-        (for (p <- conj.predConj.positiveLits.iterator; if !(p.predicates subsetOf funPreds)) yield PositiveLiteral(p)).toList
-
-      val negPredLits =
-        (for (p <- conj.predConj.negativeLits.iterator; if !(p.predicates subsetOf funPreds)) yield NegativeLiteral(p)).toList
-
-
-      dprintln("posPredLits: "+ posPredLits.mkString(","))
-      dprintln("negPreDLtis: "+ negPredLits.mkString(","))
-      val singleLits = (posPredLits ++ negPredLits).toList
-
-      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-      Debug.assertInt(ConnectionProver.AC, singleLits.length <= 1)
-      //-END-ASSERTION-//////////////////////////////////////////////////////////
-
-      if (singleLits.isEmpty)
-        (funEqs.toList.tail, funEqs.toList.head)
-      else
-        (funEqs.toList, singleLits.head)
-    }
-  }
-
-  private def toConstant(lc : LinearCombination, order : TermOrder) : (ConstantTerm, TermOrder) = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(ConnectionProver.AC,
-      (lc.isConstant &&
-        (lc.constant.isZero || lc.constant.isOne)) ||
-        (lc.size == 1 &&
-          lc.leadingCoeff.isOne &&
-          lc.leadingTerm.isInstanceOf[ConstantTerm]))
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    if (lc.isConstant) {
-      val c = new ConstantTerm ("int_" + lc.constant)
-      (c, order.extend(c))
-    } else {
-      (lc.leadingTerm.asInstanceOf[ConstantTerm], order)
-    }
-  }
-
-  private def eqTerms(lc : LinearCombination, order : TermOrder) :  (ConstantTerm, ConstantTerm, TermOrder) = {
-    lc.size match {
-      case 1 => {
-        val (c1, order1) = toConstant(lc, order)
-        val (c2, order2) = toConstant(LinearCombination.ZERO, order1)
-        (c1, c2, order2)
-      }
-      case 2 if (lc.constants.size == 1 && lc.leadingCoeff.isOne) =>
-        val (c2, newOrder) = toConstant(LinearCombination(-lc.constant), order)
-        (lc.leadingTerm.asInstanceOf[ConstantTerm], c2, newOrder)
-      case 2 => {
-        //-BEGIN-ASSERTION-////////////////////////////////////////////
-        Debug.assertInt(ConnectionProver.AC,
-          lc.size == 2 &&
-            lc.getCoeff(0).isOne && lc.getCoeff(1).isMinusOne &&
-            lc.getTerm(0).isInstanceOf[ConstantTerm] &&
-            lc.getTerm(1).isInstanceOf[ConstantTerm])
-        //-END-ASSERTION-//////////////////////////////////////////////
-        
-        (lc.getTerm(0).asInstanceOf[ConstantTerm], lc.getTerm(1).asInstanceOf[ConstantTerm], order)
-      }
-    }
-  }
-
-  /**
-    *  THIS FUNCTION IS UNDER ONE NEGATION?
-    * 
-    * Here conj is a disjunction
-    * Each literal in predConj.positiveLits/negativeLits is a literal
-    * each conjunction in negatedConjs is a pseudo-lietral
-    * 
-    *  So it seems we should be able to put positive fun equations to other branches? (If we change quantifiers)
-    */
-  def disjunctionToClause(conj : Conjunction) : (PseudoClause, BREUOrder) = {
-    dprintln("disjToClause(" + conj + ")")
-    val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)
-    var newBREUOrder = List() : BREUOrder
-    var newOrder = conj.order
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, conj.arithConj.positiveEqs.size == 0)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-
-    // val funEqs = 
-    //   (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
-
-    dprintln("ArithEqs")
-    dprintln("\tpositiveEqs: " + conj.arithConj.positiveEqs.mkString(", "))
-    dprintln("\tnegativeEqs: " + conj.arithConj.negativeEqs.mkString(", "))
-
-    // We are under negation so every positive equality is negative nd v.v.
-    val arithLiterals =
-      (for (eq <- conj.arithConj.negativeEqs) yield {
-        dprintln("" + eq)
-        val (c, d, tmpOrder) = eqTerms(eq, newOrder)
-        newOrder = tmpOrder
-        dprintln("\tc" + c)
-        dprintln("\td" + d)
-        // Should we update the order?
-        // val tempPred = new Predicate("tempPred_" + nextPredicate , 1)
-        // nextPredicate += 1
-        // val a1: Atom = Atom(tempPred, List(LinearCombination(c, newOrder)), newOrder)
-        // val a2: Atom = Atom(tempPred, List(LinearCombination(d, newOrder)), newOrder)
-        new PseudoLiteral(List(), Equation(c, d))
-      })
-    dprintln("\tarithLiterals: " + arithLiterals.mkString(","))
-
-    val negFunEqs = 
-      (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield {
-        val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
-        newBREUOrder ++= tmpBREUOrder
-        new PseudoLiteral(List(feq), neq)
-      }).toList
-
-
-    // One of these should be negated...    
-    val posPredLits =
-      (for (p <- conj.predConj.positiveLits.iterator; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(List(), NegativeLiteral(p))).toList
-
-    val negPredLits =
-      (for (p <- conj.predConj.negativeLits.iterator; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(List(), PositiveLiteral(p))).toList
-
-
-    // dprintln("posPreDLits: " + posPredLits)
-    // dprintln("negPredLits: " + negPredLits)
-
-    val pseudoLiterals =
-      for (n <- conj.negatedConjs) yield {
-        val (feq, lit) = conjToPseudoLiteral(n)
-        new PseudoLiteral(feq, lit)
-      }
-
-    val funLiterals =
-      for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield {
-        val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
-        newBREUOrder ++= tmpBREUOrder        
-        new PseudoLiteral(List(feq), neq)
-      }
-
-    (new PseudoClause((negFunEqs ++ funLiterals ++ arithLiterals ++ posPredLits ++ negPredLits ++ pseudoLiterals).toList), newBREUOrder)
-  }
-
-
-
-
-  // Converting one conjunction to a pseudoclause (which consists of consists pseudoliterals).
-  // Three are two cases.
-  // (A) It is a single positive or negative literal (this corresponds to a unit-clause)
-  // (B) Negated conjs is larger than 0, and we have a disjunction (and then the predconj should be empty)
-  def conjToClause(conj : Conjunction) : (PseudoClause, BREUOrder) = {
-    dprintln("conjToClause(" + conj + ")")
-    val predConj = conj.predConj
-    val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)        
-
-    var breuOrder = List() : BREUOrder
-    var termOrder = conj.order    
-
-    val singleLiterals =
-      (for (p <- predConj.positiveLits; if p.predicates subsetOf funPreds) yield new PseudoLiteral(List(), FunEquation(p))) ++
-      (for (p <- predConj.positiveLits; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(List(), PositiveLiteral(p))) ++    
-    (for (p <- predConj.negativeLits; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(List(), NegativeLiteral(p)))
-
-    val funEqs =
-      (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList    
-
-    // for (a <- predConj.positiveLits)
-    //   dprintln("..." + a)
-
-    // dprintln("\tpredConj: " + conj.predConj)
-    // dprintln("\t\t" + conj.predConj.positiveLits)
-    // dprintln("\t\t" + conj.predConj.negativeLits)
-    // dprintln("\t\t" + conj.predConj.iterator)
-    // dprintln("\tarithConj: " + conj.arithConj)
-    // dprintln("\tneg: " + conj.negatedConjs)
-
-
-
-
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, conj.arithConj.positiveEqs.size == 0)
-    Debug.assertInt(ConnectionProver.AC, conj.arithConj.negativeEqs.size == 0)     
-    Debug.assertInt(ConnectionProver.AC, conj.arithConj.inEqs.size == 0)
-    Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 1 || singleLiterals.length == 1)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
-
-    dprintln("\tsingleLiterals: " + singleLiterals.mkString(","))
-
-    val (pl, bo) = 
-      if (!singleLiterals.isEmpty)
-        (new PseudoClause(singleLiterals.toList), List())
-      else
-        disjunctionToClause(conj.negatedConjs(0))
-
-    // Move all universals to the front
-    val newBo = bo.filter(_._2) ++ bo.filter(!_._2)
-    (pl, newBo)
-  }
-
-  def convertNegFunEq(funEq : Atom) : (FunEquation, NegEquation, BREUOrder) = {
-    dprintln("convertNegFunEq(" + funEq + ")")
-    val fun = funEq.pred
-
-    // val res = funEq(funEq.length-1).lastTerm.constants.head
-
-    val args = funEq.init
-    dprintln("\targs: " + args.mkString(", "))
-
-    val res = funEq.last
-    dprintln("\tres: " + res)    
-
-    val newTerm = new ConstantTerm("DUMMY_TERM_" + nextTerm)
-    val newBREUOrder = List((newTerm, false))
-    val newTermOrder = funEq.order.extend(newTerm)
-
-    val negEqLC = LinearCombination(List((ap.basetypes.IdealInt.ONE, newTerm), (ap.basetypes.IdealInt.MINUS_ONE, res)), newTermOrder)
-    dprintln("\tnegEqLC: " + negEqLC)
-
-    nextTerm += 1
-    val lc = LinearCombination(newTerm, newTermOrder)
-    val newFunEq = FunEquation(Atom(fun, args ++ List(lc), newTermOrder))
-    dprintln("\tnewFunEq: " + newFunEq)
-    // val newEq = NegEquation(res.constants.head, newTerm)
-    val (lhs, rhs, newEq) = eqTerms(negEqLC, newTermOrder)
-    val eq = NegEquation(lhs, rhs)
-    dprintln("\teq: " + eq)
-    (newFunEq, eq, newBREUOrder)
-  }
-
-  def clauseWidth(conj : Conjunction) = conjToClause(fullInst(conj, "clauseWidth")._1)._1.length
+  def clauseWidth(conj : Conjunction) = PseudoClause.fromConjunction(fullInst(conj, "clauseWidth")._1, funPreds)._1.length
 
   // TODO: Is this sound, ask Philipp!
   def isUnitClause(conj : Conjunction) : Boolean = conj.boundVariables.size == 0
@@ -583,77 +276,50 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
     // Instantiate quantifiers with rigid variables and make into CNF
-
     val quans = givenFor.quans
     val tmpConstants = for (i <- 0 until givenFor.quans.length) yield (new ConstantTerm("CONSTANT_" + i))
     val tmpOrder = givenFor.order.extend(tmpConstants)
     val closedFor = givenFor.instantiate(tmpConstants)(tmpOrder)
     val clauses = closedFor.negate.iterator.toList.reverse
 
-    def printConj(conj : Conjunction) {
-      dprintln("" + conj)
-      dprintln("\tpos: " + conj.predConj.positiveLits)
-      dprintln("\tneg: " + conj.predConj.negativeLits)
-      dprintln("\tnegConj: " + conj.negatedConjs)
-    }
-
     dprintln("Input Clauses (non-intantiated): ")
     for (c <- clauses)
-      printConj(c)
+      println(c)
 
-    println("Input Clauses: (new method): ")
+    println("Input Clauses:")
     for (c <- clauses) {
-      val (instClause, instOrder) = fullInst(c, "conv")
-      val (pseudoClause, breuOrder) = PseudoClause.fromConjunction(fullInst(c, "conv")._1)
-      // println("\t" + pseudoClause)
+      val (pseudoClause, breuOrder) = PseudoClause.fromConjunction(fullInst(c, "")._1, funPreds, DEBUGPrint)
+      println("\t" + pseudoClause)
     }
 
-    return (false, Goal(List(givenFor), Set(), Vocabulary(termOrder), preSettings))
-
-    println("Input Clauses: ")
-    for ((c, bo) <- clauses.map(x => conjToClause(fullInst(x, "conv")._1)))
-      println("\t" + c + "  $  " + bo.mkString(","))
-
-
+    // Put all unit clauses on the main branch
 
     var initBREUOrder = List() : BREUOrder
     val unitClauses : List[PseudoClause] =
       for (c <- clauses if isUnitClause(c)) yield {
-        val (clause, tmpBREUOrder) = conjToClause(fullInst(c, "conv")._1)
+        val (clause, tmpBREUOrder) = PseudoClause.fromConjunction((fullInst(c, "conv")._1), funPreds)
         initBREUOrder ++= tmpBREUOrder
         clause
       }
 
     if (!unitClauses.isEmpty)
-      println(unitClauses.map(_.toString).mkString("Unit Clauses:\n\t", "\n\t","\n"))
-
-
-
-    // (false, Goal(List(givenFor), Set(), Vocabulary(termOrder), preSettings))
-
+      println(unitClauses.map(_.toString).mkString("Unit Clauses:\n\t", "\n\t","\n"))    
 
     def tryFirstClause(idx : Int, maxIterations : Int) :
         (Option[ConnectionTable], Boolean) = {
 
       val (firstClause, newTerms) = fullInst(clauses(idx), "base")
-
-
-      println("\n//-----------------------------")      
-      println("||Trying with initial clause: " + firstClause)
       val baseOrder = initBREUOrder ++ extractConstants(clauses) ++ List((new ConstantTerm("MIN"), false))
-      println("|| baseOrder: " + baseOrder)
-      println("|| newTerms: " + newTerms)
-      println("\\-----------------------------")      
-
-      // We have to extract all firstBREUOrder in the problem
-
-
-      val unitNodes = unitClauses.map(_.head.nodes).flatten : List[Node]
-
-      val (initClause, someBREUOrder) = conjToClause(firstClause)
+      val (initClause, someBREUOrder) = PseudoClause.fromConjunction(firstClause, funPreds)
 
       // TODO: This is not very elegant, but hopefully correct?
       val initOrder = (newTerms ++ someBREUOrder ++ baseOrder)
+
+      println("\n//-----------------------------")      
+      println("||Trying with initial clause: " + initClause)
+      println("|| initOrder: " + initOrder)
+      println("|| newTerms: " + newTerms)
+      println("\\-----------------------------")      
 
       val initTable  =
         new ConnectionTable(for (plit <- initClause.pseudoLiterals) yield {
@@ -664,10 +330,8 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     }
 
 
-
     var table = None : Option[ConnectionTable]
-
-    var maxIteration = 2
+    var maxIteration = 8
     var maxReached = true
 
     while (table.isEmpty && maxReached) {
@@ -676,11 +340,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       println("//-----------------------------")
       println("||  TRYING maxIteration: " + maxIteration)
       println("\\\\-----------------------------\n\n")
-
-      // println(ap.util.Timer)
-      // println("||")
-      // println("|| safeSKIPs: " +safeSKIP)
-      // println("||")
 
       while (table.isEmpty && tryIdx < clauses.length) {
         val (t, mr) = tryFirstClause(tryIdx, maxIteration)
@@ -701,7 +360,6 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       val finalTable = table.get
       val finalMap = finalTable.unifyBranches()
       println("CLOSED TABLE:")
-      // println("with order: " + finalOrder.mkString(", "))
       println(finalTable)
       println("Using: " + finalMap.get)
       (true, Goal(List(givenFor), Set(), Vocabulary(termOrder), preSettings))

@@ -248,8 +248,10 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
         else
           (k, vals)
       }).toMap
-    // newDomains
-    finalDomains
+
+
+    newDomains
+    // finalDomains
   }
 
   def orderToMap(order : BREUOrder) = {
