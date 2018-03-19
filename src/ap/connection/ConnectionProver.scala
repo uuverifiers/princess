@@ -175,6 +175,8 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         dprintln("\tExtending with: " + clause)
         val (instClause, newBREUOrder) = fullInst(clause, "branch_" + iteration)
         val (pseudoClause, tmpBREUOrder) = PseudoClause.fromConjunction(instClause, funPreds)
+        val firstLiteral = pseudoClause(idx)
+        dprintln("\tpicked literal: " + firstLiteral)
 
         // TODO: tmpBREUOrder should only be existentials...
         val extendedTable = table.extendBranch(branchIdx, pseudoClause, idx, newBREUOrder ++ tmpBREUOrder)
@@ -331,7 +333,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
 
     var table = None : Option[ConnectionTable]
-    var maxIteration = 8
+    var maxIteration = 2
     var maxReached = true
 
     while (table.isEmpty && maxReached) {
@@ -350,7 +352,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
       if (maxReached) {
         println("Increasing max iteration:")
-        maxIteration *= 2
+        maxIteration += 1
       }
     }
 

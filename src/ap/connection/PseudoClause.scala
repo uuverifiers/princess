@@ -222,10 +222,6 @@ object PseudoClause {
 
     val negFunEqs =
       (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield (new PseudoLiteral(List(), FunEquation(p)))).toList
-
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)
-    //-END-ASSERTION-//////////////////////////////////////////////////////////
     dprintln("negFunEqs: " + negFunEqs.mkString(", "))
 
     
@@ -281,29 +277,26 @@ object PseudoClause {
         (for (p <- predConj.positiveLits; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(List(), PositiveLiteral(p))) ++
     (for (p <- predConj.negativeLits; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(List(), NegativeLiteral(p))) ++
     (for (eq <- arithConj.negativeEqs) yield {
-      dprintln("ArithEqs")
+      dprintln("Negative ArithEqs")
       dprintln("\t" + eq)
       val (c, d, newOrder) = eqTerms(eq, conj.order)
       dprintln("\tc" + c)
       dprintln("\td" + d)
-      // Should we update the order?
-      // val tempPred = new Predicate("tempPred_" + nextPredicate, 1)
-      // nextPredicate += 1
-      // val a1: Atom = Atom(tempPred, List(LinearCombination(c, newOrder)), newOrder)
-      // dprintln("\ta1: " + a1)
-      // val a2: Atom = Atom(tempPred, List(LinearCombination(d, newOrder)), newOrder)
-      // dprintln("\ta2: " + a2)            
-      // val ret = new PseudoLiteral(List(FunEquation(a1), FunEquation(a2)), NegEquation(c, d))
-      // dprintln("\tret: " + ret)
-      // ret
       new PseudoLiteral(List(), NegEquation(c, d))
-    })    
+    }) ++
+    (for (eq <- arithConj.positiveEqs) yield {
+      dprintln("Positive ArithEqs")
+      dprintln("\t" + eq)
+      val (c, d, newOrder) = eqTerms(eq, conj.order)
+      dprintln("\tc" + c)
+      dprintln("\td" + d)
+      new PseudoLiteral(List(), Equation(c, d))
+    })        
 
     val funEqs =
       (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList    
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertInt(ConnectionProver.AC, conj.arithConj.positiveEqs.size == 0)
     Debug.assertInt(ConnectionProver.AC, conj.arithConj.inEqs.size == 0)
     Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 1 || singleLiterals.length == 1)
     //-END-ASSERTION-//////////////////////////////////////////////////////////
@@ -326,8 +319,8 @@ object PseudoClause {
     DEBUGPrint = debug
     val (pc, order) = conjToClause(conj, funPreds)
     dprintln("" + conj)
-    dprintln("->" + pc.reverse + " $ " + order)
-    (pc.reverse, order)
+    dprintln("->" + pc + " $ " + order)
+    (pc, order)
   }
 }
 
@@ -337,9 +330,10 @@ class PseudoClause(val pseudoLiterals : Seq[PseudoLiteral]) {
   override def toString = {
     pseudoLiterals.mkString(" v ")
   }
-
   def head : PseudoLiteral = pseudoLiterals.head
   def isUnit : Boolean = pseudoLiterals.length == 1
   def reverse : PseudoClause = new PseudoClause(pseudoLiterals.reverse)
   val length = pseudoLiterals.length
+
+  def apply(i : Int) = pseudoLiterals(i)
 }
