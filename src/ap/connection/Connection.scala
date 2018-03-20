@@ -26,25 +26,7 @@ package ap.connection;
 import ap.terfor.ConstantTerm
 
 package object connection {
-
-  // We use a special kind of clause,
-  // where each literal is a list of literals (to allow equations)
-
-  // type PseudoLiteral = (List[FunEquation], Node)
-  // type PseudoClause = (List[Quantifiers], List[PseudoLiteral])
-  // Maybe add some quantifier prefix to each pseudo-clause, so lets not ins
-
-  // type Clause = List[List[Node]]
-  // type OrderNode = (List[Node], List[(ConstantTerm, Boolean)])
-  // type OrderClause = List[OrderNode]
-
   type BREUOrder = List[(ConstantTerm, Boolean)]  
-
-  // def clauseToString(clause : PseudoClause) : String =
-  //   (for (plits <- clause) yield {
-  //     val (funs, pred) = plits
-  //     "(" + funs.mkString("^") + ": " + pred + ")"
-  //   }).mkString(" v ")
 }
 
 abstract class Connection
