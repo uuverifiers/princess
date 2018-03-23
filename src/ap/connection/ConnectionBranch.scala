@@ -49,7 +49,7 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
   override def toString = {
     val str =
       closed match {
-        case ClosedStyle.Open => "  (---) " + nodes.mkString(", ")
+        case ClosedStyle.Open => "  (---) " + nodes.mkString(", ") + " ! " + strongConnections.mkString(", ")
         case ClosedStyle.Strong => "  (STR) " + nodes.mkString(", ") + " @ " + strongConnections.mkString(", ")
         case ClosedStyle.Weak => "  (WEK) " + nodes.mkString(", ") + " @ " + weakConnections.mkString(", ")
       }

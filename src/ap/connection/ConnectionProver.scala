@@ -54,6 +54,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
   // Debug 
   val DEBUG = true
+  var stepCount = 0
   def dprintln(str : String) = if (DEBUGPrint) println(str)
   val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)
 
@@ -93,7 +94,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     *    -Updated TermOrder (which might be thrown away...)
     */
   def instantiateAux(conj : Conjunction, prefix : String, to : TermOrder) :
-      (Conjunction, List[(ConstantTerm, Boolean)], TermOrder) = {
+      (Conjunction, BREUOrder, TermOrder) = {
     
     // Instantiate top-level
     val allTerms : ListBuffer[(ConstantTerm, Boolean)] = ListBuffer()
@@ -121,8 +122,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         newConj
       }
 
+    // Pull out all universals to the front...
 
-    (finalConj, allTerms.toList.reverse, termOrder)
+    val newBREUOrder = allTerms.toList.reverse.filter(!_._2) ++ allTerms.toList.reverse.filter(_._2)
+
+    (finalConj, newBREUOrder, termOrder)
   }
 
   /**
@@ -166,20 +170,22 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     */
   def tryStep(table : ConnectionTable, step : Int, branchIdx : Int, inputClauses : List[Conjunction],
     iteration : Int, disequalities : Seq[(ConstantTerm, ConstantTerm)]) : Option[ConnectionTable] = {
-    dprintln("Trying step " + step)
+    dprintln("Trying step " + step + "\t(" + stepCount + ")")
+    stepCount += 1
     val closedTable =
       if (step == 0) {
-        Some(table.close(branchIdx, strong))
+        Some(table.close(branchIdx, false))
       } else ap.util.Timer.measure("Extending Table") {
         val (clause, idx) = findLiteral(inputClauses, step - 1)
         dprintln("\tExtending with: " + clause)
         val (instClause, newBREUOrder) = fullInst(clause, "branch_" + iteration)
         val (pseudoClause, tmpBREUOrder) = PseudoClause.fromConjunction(instClause, funPreds)
         val firstLiteral = pseudoClause(idx)
-        dprintln("\tpicked literal: " + firstLiteral)
+        val finalBREUOrder = tmpBREUOrder ++ newBREUOrder
+        dprintln("\tpicked literal: " + firstLiteral + " $ " + finalBREUOrder)
 
         // TODO: tmpBREUOrder should only be existentials...
-        val extendedTable = table.extendBranch(branchIdx, pseudoClause, idx, newBREUOrder ++ tmpBREUOrder)
+        val extendedTable = table.extendBranch(branchIdx, pseudoClause, idx, finalBREUOrder)
         extendedTable.closeSafe(branchIdx, strong)
       }
 
@@ -244,7 +250,8 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         val res = tryStep(table, step, branchIdx, inputClauses, iteration, disequalities)
         if (res.isDefined) {
           dprintln("\nStep (" + step + ") works!")
-          val (t, mr) = solveTable(res.get, inputClauses, maxIteration, iteration + 1, res.get.diseqPairs.toList ++ disequalities)
+          // res.get.diseqPairs.toList ++ 
+          val (t, mr) = solveTable(res.get, inputClauses, maxIteration, iteration + 1, disequalities)
           if (!t.isEmpty)
             return (t, mr)
           maxReached |= mr
@@ -326,7 +333,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       val initTable  =
         new ConnectionTable(for (plit <- initClause.pseudoLiterals) yield {
           new ConnectionBranch(plit.nodes ++ unitClauses.map(_.head.nodes).flatten, ClosedStyle.Open, initOrder)
-        }, preSettings)
+        }, preSettings, DEBUGPrint)
 
       solveTable(initTable, clauses, maxIterations, 0, List())
     }

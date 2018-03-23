@@ -34,6 +34,8 @@ import scala.collection.mutable.{Map => MMap, ListBuffer}
 // TODO: branches should be private...
 class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSettings, var DEBUG : Boolean = false) {
 
+  def dprintln(str : String) = if (DEBUG) println(str)
+
   // TODO: Make nicer?
   var nextPredicate = 0
   val diseqPairs = ListBuffer() : ListBuffer[(ConstantTerm, ConstantTerm)]
@@ -119,7 +121,7 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
     val preBranches = branches.take(branchIdx)
     val postBranches = branches.drop(branchIdx + 1)
     val newBranches = (for (c <- clause.pseudoLiterals) yield branches(branchIdx).extend(c, newOrder)).toList
-    new ConnectionTable(preBranches ++ (newBranches(idx) :: newBranches.filter(_ != newBranches(idx)))  ++ postBranches, preSettings)
+    new ConnectionTable(preBranches ++ (newBranches(idx) :: newBranches.filter(_ != newBranches(idx)))  ++ postBranches, preSettings, DEBUG)
   }
 
   def close(idx : Int, strong : Boolean) : ConnectionTable = {
@@ -131,7 +133,7 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
           branches(i)
         }
       }
-    new ConnectionTable(newBranches, preSettings)
+    new ConnectionTable(newBranches, preSettings, DEBUG)
   }
 
 
@@ -165,13 +167,14 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
   def unifyBranches(disequalities : Seq[(ConstantTerm, ConstantTerm)])
       : (Option[Map[ConstantTerm, ConstantTerm]]) = {
 
+    dprintln("UNIFYBRANCHES")
     val breuSolver = new breu.LazySolver[ConstantTerm, Predicate](
       () => Timeout.check,
       Param.CLAUSIFIER_TIMEOUT(preSettings))
 
     val problem = branchToBREU(breuSolver, disequalities)
-    if (DEBUG)
-      println(problem)
+    dprintln("DISEQ: "  + disequalities.mkString(","))
+    dprintln("" + problem)
     // problem.saveToFile("error.breu")
     val result = problem.solve
     // println("Blocking Unit Clauses:")
