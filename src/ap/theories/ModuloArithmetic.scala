@@ -1621,6 +1621,10 @@ object ModuloArithmetic extends Theory {
     for (a <- castPreds) {
       var assumptions : List[Formula] = List(a)
 
+      def addInEqAssumption(ineqs : Seq[LinearCombination]) =
+        for (lc <- ineqs)
+          assumptions = InEqConj(lc, order) :: assumptions
+
       if (a(2).isZero) {
 
         simpleElims =
@@ -1651,8 +1655,7 @@ object ModuloArithmetic extends Theory {
         val lBound =
           if (proofs)
             for ((b, assum) <- reducer lowerBoundWithAssumptions a(3)) yield {
-              if (!assum.isEmpty)
-                assumptions = InEqConj(assum, order) :: assumptions
+              addInEqAssumption(assum)
               b
             }
           else
@@ -1664,8 +1667,7 @@ object ModuloArithmetic extends Theory {
               if (!pow2Modulus || ub < IdealInt(modulus.getHighestSetBit)) =>
                 if (proofs) {
                   val Some((b, assum)) = reducer upperBoundWithAssumptions a(3)
-                  if (!assum.isEmpty)
-                    assumptions = InEqConj(assum, order) :: assumptions
+                  addInEqAssumption(assum)
                   (Some(b), false)
                 } else {
                   (Some(ub), false)
@@ -1801,11 +1803,14 @@ object ModuloArithmetic extends Theory {
       for (a <- castPreds) {
         var assumptions : List[Formula] = List(a)
 
+        def addInEqAssumption(ineqs : Seq[LinearCombination]) =
+          for (lc <- ineqs)
+            assumptions = InEqConj(lc, order) :: assumptions
+
         val lBound =
           if (proofs)
             for ((b, assum) <- reducer lowerBoundWithAssumptions a(2)) yield {
-              if (!assum.isEmpty)
-                assumptions = InEqConj(assum, order) :: assumptions
+              addInEqAssumption(assum)
               b
             }
           else
@@ -1815,8 +1820,7 @@ object ModuloArithmetic extends Theory {
           if (lBound.isDefined) {
             if (proofs)
               for ((b, assum) <- reducer upperBoundWithAssumptions a(2)) yield {
-                if (!assum.isEmpty)
-                  assumptions = InEqConj(assum, order) :: assumptions
+                addInEqAssumption(assum)
                 b
               }
             else

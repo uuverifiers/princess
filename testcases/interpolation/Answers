@@ -590,6 +590,43 @@ unsat
   (not (= b (_ bv11 8)))
 )
 
+Loading bv-interpolation-7.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 1034), simplifying (1022), interpolating ...
+
+VALID
+
+Interpolants:
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+(y.\as[int] + x.\as[int] = 11 & ((2*z.\as[int] - x.\as[int] = -4 & z.\as[int] - x.\as[int] >= -5) | (6 >= x & x >= 4 & \exists int v0; 2*v0 + x.\as[int] = 0 & ((z = 5 & x = 6) | (z = 4 & x = 4))))) | (y.\as[int] + x.\as[int] = 7 & ((2*z.\as[int] - x.\as[int] = 12 & z.\as[int] - x.\as[int] >= 5 & z >= 6) | (2*z.\as[int] - x.\as[int] = 4 & z.\as[int] - x.\as[int] >= -1 & z >= 2) | (2*z.\as[int] - x.\as[int] = -4 & z.\as[int] - x.\as[int] >= -5))) | (y.\as[int] + x.\as[int] != 11 & y.\as[int] + x.\as[int] != 7 & (y.\as[int] + x.\as[int] != 3 | (2*z.\as[int] - x.\as[int] = 12 & z >= 6) | (2*z.\as[int] - x.\as[int] = 4 & z >= 2 & 2 >= x & (2 >= z | x >= 2))))
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+Warning: cannot map formula to interpolation partition (constants sc_27_0_0)
+(2*z.\as[int] + 2*y.\as[int] + x.\as[int] = 26 & z.\as[int] + 2*y.\as[int] + x.\as[int] >= 19 & z >= 6) | (2*z.\as[int] + 2*y.\as[int] + x.\as[int] = 18 & z.\as[int] + 2*y.\as[int] + x.\as[int] >= 17) | (2*z.\as[int] + 2*y.\as[int] + x.\as[int] = 18 & z.\as[int] + 2*y.\as[int] + x.\as[int] >= 13 & z >= 2) | (2*z.\as[int] + 2*y.\as[int] + x.\as[int] = 18 & z.\as[int] + 2*y.\as[int] + x.\as[int] >= 11 & z >= 6) | (2*z.\as[int] + 2*y.\as[int] + x.\as[int] = 10 & z.\as[int] + 2*y.\as[int] + x.\as[int] >= 9) | (2*z.\as[int] + 2*y.\as[int] + x.\as[int] = 10 & z.\as[int] + 2*y.\as[int] + x.\as[int] >= 7 & z >= 2) | (\exists int v0; 2*v0 + -2*y.\as[int] - x.\as[int] = -22 & ((z = 5 & 2*y.\as[int] + x.\as[int] = 16) | (z = 4 & 2*y.\as[int] + x.\as[int] = 18)))
+y.\as[int] + x.\as[int] != 11 & y.\as[int] + x.\as[int] != 7 & y.\as[int] + x.\as[int] != 3
+
+Loading bv-interpolation-8.pri ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 164), simplifying (170), interpolating ...
+
+VALID
+
+Interpolants:
+(y.\as[int] + x.\as[int] != 98303 | 2*z.\as[int] - x.\as[int] = 65540 | 2*z.\as[int] - x.\as[int] = -65532 | 2*z.\as[int] - x.\as[int] = 4) & (y.\as[int] + x.\as[int] != 65535 | 2*z.\as[int] - x.\as[int] = 65540 | 2*z.\as[int] - x.\as[int] = -65532 | 2*z.\as[int] - x.\as[int] = 4) & (y.\as[int] + x.\as[int] != 32767 | 2*z.\as[int] - x.\as[int] = 65540 | 2*z.\as[int] - x.\as[int] = 4)
+y.\as[int] + x.\as[int] != 98303 & y.\as[int] + x.\as[int] != 65535 & y.\as[int] + x.\as[int] != 32767
+
 Loading function-bug.smt2 ...
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it

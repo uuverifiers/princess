@@ -43,9 +43,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv127 8))
-  (define-fun d () (_ BitVec 8) (_ bv255 8))
-  (define-fun c () (_ BitVec 8) (_ bv126 8))
+  (define-fun x () (_ BitVec 8) (_ bv1 8))
+  (define-fun d () (_ BitVec 8) (_ bv129 8))
+  (define-fun c () (_ BitVec 8) (_ bv129 8))
 )
 
 Loading bvsdiv6c.smt2 ...
@@ -54,7 +54,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () (_ BitVec 8) (_ bv8 8))
+  (define-fun x () (_ BitVec 8) (_ bv127 8))
 )
 
 Loading bvsmod.smt2 ...

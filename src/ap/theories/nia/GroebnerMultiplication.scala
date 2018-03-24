@@ -324,14 +324,17 @@ println(unprocessed)
       val disequalities = goal.facts.arithConj.negativeEqs
 
       val ineqOffset = predicates.size
-      val negeqOffset = ineqOffset + inequalities.size
+      val ineqInfsOffset = ineqOffset + inequalities.size
+      val negeqOffset = ineqInfsOffset + inequalities.geqZeroInfs.size
 
       def label2Assumptions(l : BitSet) : Seq[Formula] =
         for (ind <- l.toSeq) yield {
           if (ind < ineqOffset)
             predicates(ind)
-          else if (ind < negeqOffset)
+          else if (ind < ineqInfsOffset)
             InEqConj(inequalities(ind - ineqOffset), order)
+          else if (ind < negeqOffset)
+            InEqConj(inequalities.geqZeroInfs(ind - ineqInfsOffset), order)
           else
             NegEquationConj(disequalities(ind - negeqOffset), order)
         }
@@ -483,8 +486,11 @@ println(unprocessed)
           yield (p, simplifiedGB labelFor p))).toList
 
       val ineqs =
-        (for ((lc, n) <- goal.facts.arithConj.inEqs.iterator.zipWithIndex)
-         yield (lcToPolynomial(lc), BitSet(n + ineqOffset))).toList
+        ((for ((lc, n) <- inequalities.iterator.zipWithIndex)
+          yield (lcToPolynomial(lc), BitSet(n + ineqOffset))) ++
+         (for ((lc, n) <- inequalities.geqZeroInfs.iterator.zipWithIndex;
+               if lc.constants.size == 1)
+          yield (lcToPolynomial(lc), BitSet(n + ineqInfsOffset)))).toList
 
       val negeqs =
         (for ((lc, n) <- goal.facts.arithConj.negativeEqs.iterator.zipWithIndex)
@@ -897,15 +903,18 @@ println(unprocessed)
         val equalities = goal.facts.arithConj.positiveEqs
 
         val ineqOffset = predicates.size
-        val negeqOffset = ineqOffset + inequalities.size
+        val ineqInfsOffset = ineqOffset + inequalities.size
+        val negeqOffset = ineqInfsOffset + inequalities.geqZeroInfs.size
         val eqOffset = negeqOffset + disequalities.size
 
         def label2Assumptions(l : BitSet) : Seq[Formula] =
           for (ind <- l.toSeq) yield {
             if (ind < ineqOffset)
               predicates(ind)
-            else if (ind < negeqOffset)
+            else if (ind < ineqInfsOffset)
               InEqConj(inequalities(ind - ineqOffset), order)
+            else if (ind < negeqOffset)
+              InEqConj(inequalities.geqZeroInfs(ind - ineqInfsOffset), order)
             else if (ind < eqOffset)
               NegEquationConj(disequalities(ind - negeqOffset), order)
             else
@@ -1043,9 +1052,8 @@ println(unprocessed)
                                         opt1 + ", " + opt2,
                                      BitSet(), splitTermAt(x, mid)))
                  }
-                 case (Interval(IntervalVal(IdealInt.ZERO), IntervalPosInf, _),
-                       label) => {
-                   val ll = IdealInt.ZERO
+                 case (Interval(IntervalVal(ll), IntervalPosInf, _), label)
+                     if ll >= IdealInt.MINUS_ONE => {
                    val opt1 = ArithConj.conj(x === ll, order)
                    val opt2 = ArithConj.conj(x > ll, order)
                    Iterator single ((opt1.negate, opt2.negate,
@@ -1062,9 +1070,8 @@ println(unprocessed)
                                         opt1 + ", " + opt2,
                                      BitSet(), splitTermAt(x, mid, true)))
                  }
-                 case (Interval(IntervalNegInf, IntervalVal(IdealInt.ZERO), _),
-                       label) => {
-                   val ul = IdealInt.ZERO
+                 case (Interval(IntervalNegInf, IntervalVal(ul), _), label)
+                      if ul <= IdealInt.ONE => {
                    val opt1 = ArithConj.conj(x === ul, order)
                    val opt2 = ArithConj.conj(x < ul, order)
                    Iterator single ((opt1.negate, opt2.negate,
@@ -1135,6 +1142,9 @@ println(unprocessed)
         def addFacts(conj : ArithConj) : Unit = {
           for ((lc, n) <- conj.inEqs.iterator.zipWithIndex)
             ineqPolys += ((lcToPolynomial(lc), BitSet(n + ineqOffset)))
+          for ((lc, n) <- conj.inEqs.geqZeroInfs.iterator.zipWithIndex;
+               if lc.constants.size == 1)
+            ineqPolys += ((lcToPolynomial(lc), BitSet(n + ineqInfsOffset)))
           for ((lc, n) <- conj.positiveEqs.iterator.zipWithIndex) {
             ineqPolys += ((lcToPolynomial(lc), BitSet(n + eqOffset)))
             ineqPolys += ((lcToPolynomial(-lc), BitSet(n + eqOffset)))

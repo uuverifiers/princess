@@ -24,7 +24,8 @@ TESTS="columnRed.pri cryptarithm.pri \
        nonlin.pri adt-interpolation.pri adt-interpolation2.pri \
        bool-interpolation.pri \
        bv-interpolation-1.pri bv-interpolation-2.pri bv-interpolation-3.smt2 \
-       bv-interpolation-4.smt2 bv-interpolation-5.pri bv-interpolation-6.smt2"
+       bv-interpolation-4.smt2 bv-interpolation-5.pri bv-interpolation-6.smt2 \
+       bv-interpolation-7.pri bv-interpolation-8.pri"
 
 #       super_queen4-1.pri super_queen5-1.pri super_queen6-1.pri super_queen7-1.pri \
 
