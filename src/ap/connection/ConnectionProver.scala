@@ -251,7 +251,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         if (res.isDefined) {
           dprintln("\nStep (" + step + ") works!")
           // res.get.diseqPairs.toList ++ 
-          val (t, mr) = solveTable(res.get, inputClauses, maxIteration, iteration + 1, disequalities)
+          val (t, mr) = solveTable(res.get, inputClauses, maxIteration, iteration + 1, res.get.diseqPairs.toList ++ disequalities)
           if (!t.isEmpty)
             return (t, mr)
           maxReached |= mr
