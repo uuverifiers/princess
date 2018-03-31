@@ -179,7 +179,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         val (clause, idx) = findLiteral(inputClauses, step - 1)
         dprintln("\tExtending with: " + clause)
         val (instClause, newBREUOrder) = fullInst(clause, "branch_" + iteration)
-        val (pseudoClause, tmpBREUOrder) = PseudoClause.fromConjunction(instClause, funPreds)
+        val (pseudoClause, tmpBREUOrder) = PseudoClause.CTC(instClause, funPreds)
         val firstLiteral = pseudoClause(idx)
         val finalBREUOrder = tmpBREUOrder ++ newBREUOrder
         dprintln("\tpicked literal: " + firstLiteral + " $ " + finalBREUOrder)
@@ -265,7 +265,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
   }
 
 
-  def clauseWidth(conj : Conjunction) = PseudoClause.fromConjunction(fullInst(conj, "clauseWidth")._1, funPreds)._1.length
+  def clauseWidth(conj : Conjunction) = PseudoClause.CTC(fullInst(conj, "clauseWidth")._1, funPreds)._1.length
 
   // TODO: Is this sound, ask Philipp!
   def isUnitClause(conj : Conjunction) : Boolean = conj.boundVariables.size == 0
@@ -295,18 +295,30 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     for (c <- clauses)
       println(c)
 
-    println("Input Clauses:")
-    for (c <- clauses) {
-      val (pseudoClause, breuOrder) = PseudoClause.fromConjunction(fullInst(c, "")._1, funPreds, DEBUGPrint)
-      println("\t" + pseudoClause)
-    }
+
+    val strs = 
+      for (c <- clauses) yield {
+        val (pseudoClause, breuOrder) = PseudoClause.CTC(fullInst(c, "")._1, funPreds, DEBUGPrint)
+        "" + c + "\n\t->" + pseudoClause
+      }
+
+    // println("Input Clauses (fromConjunction):")
+    // for (c <- clauses) {
+    //   val (pseudoClause, breuOrder) = PseudoClause.fromConjunction(fullInst(c, "")._1, funPreds, DEBUGPrint)
+    //   println("\t" + pseudoClause)
+    // }
+
+    dprintln("Input Clauses (CTC):")    
+    println(strs.mkString("\n"))
+
+
 
     // Put all unit clauses on the main branch
 
     var initBREUOrder = List() : BREUOrder
     val unitClauses : List[PseudoClause] =
       for (c <- clauses if isUnitClause(c)) yield {
-        val (clause, tmpBREUOrder) = PseudoClause.fromConjunction((fullInst(c, "conv")._1), funPreds)
+        val (clause, tmpBREUOrder) = PseudoClause.CTC((fullInst(c, "conv")._1), funPreds)
         initBREUOrder ++= tmpBREUOrder
         clause
       }
@@ -319,7 +331,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
       val (firstClause, newTerms) = fullInst(clauses(idx), "base")
       val baseOrder = initBREUOrder ++ extractConstants(clauses) ++ List((new ConstantTerm("MIN"), false))
-      val (initClause, someBREUOrder) = PseudoClause.fromConjunction(firstClause, funPreds)
+      val (initClause, someBREUOrder) = PseudoClause.CTC(firstClause, funPreds)
 
       // TODO: This is not very elegant, but hopefully correct?
       val initOrder = (newTerms ++ someBREUOrder ++ baseOrder)

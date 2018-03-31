@@ -58,6 +58,74 @@ object PseudoClause {
   }
 
 
+
+
+  def singleConjunctionToLits(conj : Conjunction, extraFunEqs : List[FunEquation], funPreds : Set[Predicate]) : List[PseudoLiteral] = {
+    dprintln("singleConjLits(" + conj + ", " + extraFunEqs.mkString(", ") + ", " + funPreds.mkString(", ") + ")")
+
+    val funEqs =
+      (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
+
+    val negFunEqs =
+      (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
+
+    dprintln("\tfunEqs: " + funEqs.mkString(", "))
+
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)
+    Debug.assertInt(ConnectionProver.AC, funEqs.length == 0)    
+    Debug.assertInt(ConnectionProver.AC, conj.arithConj.size == 0)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////    
+
+    // Either we have an equation a negequation a positive pred or a negative pred
+
+    // val asd1 = 
+    //   (for (eq <- conj.arithConj.negativeEqs) yield {
+    //     dprintln("NegArithEqs")
+    //     dprintln("\t" + eq)
+    //     val (c, d, newOrder) = eqTerms(eq, conj.order)
+    //     dprintln("\tc" + c)
+    //     dprintln("\td" + d)
+    //     // Should we update the order?
+    //     val tempPred = new Predicate("tempPred_" + nextPredicate, 1)
+    //     nextPredicate += 1
+    //     val a1: Atom = Atom(tempPred, List(LinearCombination(c, newOrder)), newOrder)
+    //     dprintln("\ta1: " + a1)
+    //     val a2: Atom = Atom(tempPred, List(LinearCombination(d, newOrder)), newOrder)
+    //     dprintln("\ta2: " + a2)
+    //     val ret = (List(FunEquation(a1), FunEquation(a2)), NegEquation(c, d))
+    //     dprintln("\tret: " + ret)
+    //     ret
+    //   }).toList : Seq[(List[FunEquation], Node)]
+
+    // val asd2 = 
+    //   (for (eq <- conj.arithConj.positiveEqs) yield {
+    //   dprintln("Positive ArithEqs")
+    //   dprintln("\t" + eq)
+    //   val (c, d, newOrder) = eqTerms(eq, conj.order)
+    //   dprintln("\tc" + c)
+    //   dprintln("\td" + d)
+    //   (List() : List[FunEquation], Equation(c, d))
+    //   }).toList : Seq[(List[FunEquation], Node)]
+
+    val asd3 = 
+      (for (p <- conj.predConj.positiveLits.iterator; if !(p.predicates subsetOf funPreds)) yield (List() : List[FunEquation], PositiveLiteral(p))).toList : Seq[(List[FunEquation], Node)]
+
+    val asd4 =
+      (for (p <- conj.predConj.negativeLits.iterator; if !(p.predicates subsetOf funPreds)) yield (List() : List[FunEquation], NegativeLiteral(p))).toList : Seq[(List[FunEquation], Node)]
+
+    val literals : Seq[(List[FunEquation], Node)] = asd3 ++ asd4
+
+    dprintln("Literals: " + literals.mkString(", "))
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConnectionProver.AC, literals.length >= 1)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+    (for ((a, b) <- literals) yield new PseudoLiteral(extraFunEqs ++ a, b)).toList
+  }
+
+
   /**
     *  AND THIS IS UNDER DOUBLE NEGATION?
 
@@ -65,7 +133,79 @@ object PseudoClause {
     * This means it is an actual conjunction...
     * 
     */
-  def conjToPseudoLiteral(conj : Conjunction, funPreds : Set[Predicate]) : (List[FunEquation], Node) = {
+
+  def conjToPseudoLiteralsAux(conj : Conjunction, funPreds : Set[Predicate]) : List[PseudoLiteral] = {
+    dprintln("conjToPseudoLiterals(" + conj + ")")
+    dprintln("\tfunPreds: " + funPreds.mkString(","))
+    // WE NEED TO CONVERT THIS TO SEVERAL LITERALS!!
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConnectionProver.AC, conj.arithConj.size < 1)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+    val funEqs =
+      (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
+
+    val negFunEqs =
+      (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList
+
+    dprintln("\tfunEqs: " + funEqs.mkString(", "))
+
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConnectionProver.AC, negFunEqs.length == 0)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////    
+
+    // Either we have an equation a negequation a positive pred or a negative pred
+
+    // val asd1 = 
+    //   (for (eq <- conj.arithConj.negativeEqs) yield {
+    //     dprintln("NegArithEqs")
+    //     dprintln("\t" + eq)
+    //     val (c, d, newOrder) = eqTerms(eq, conj.order)
+    //     dprintln("\tc" + c)
+    //     dprintln("\td" + d)
+    //     // Should we update the order?
+    //     val tempPred = new Predicate("tempPred_" + nextPredicate, 1)
+    //     nextPredicate += 1
+    //     val a1: Atom = Atom(tempPred, List(LinearCombination(c, newOrder)), newOrder)
+    //     dprintln("\ta1: " + a1)
+    //     val a2: Atom = Atom(tempPred, List(LinearCombination(d, newOrder)), newOrder)
+    //     dprintln("\ta2: " + a2)
+    //     val ret = (List(FunEquation(a1), FunEquation(a2)), NegEquation(c, d))
+    //     dprintln("\tret: " + ret)
+    //     ret
+    //   }).toList : Seq[(List[FunEquation], Node)]
+
+    // val asd2 = 
+    //   (for (eq <- conj.arithConj.positiveEqs) yield {
+    //   dprintln("Positive ArithEqs")
+    //   dprintln("\t" + eq)
+    //   val (c, d, newOrder) = eqTerms(eq, conj.order)
+    //   dprintln("\tc" + c)
+    //   dprintln("\td" + d)
+    //   (List() : List[FunEquation], Equation(c, d))
+    //   }).toList : Seq[(List[FunEquation], Node)]
+
+    val asd3 = 
+      (for (p <- conj.predConj.positiveLits.iterator; if !(p.predicates subsetOf funPreds)) yield (List() : List[FunEquation], PositiveLiteral(p))).toList : Seq[(List[FunEquation], Node)]
+
+    val asd4 =
+      (for (p <- conj.predConj.negativeLits.iterator; if !(p.predicates subsetOf funPreds)) yield (List() : List[FunEquation], NegativeLiteral(p))).toList : Seq[(List[FunEquation], Node)]
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConnectionProver.AC, asd3.length <= 0)
+    Debug.assertInt(ConnectionProver.AC, asd4.length <= 0)
+    Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.length == 1)    
+    //-END-ASSERTION-//////////////////////////////////////////////////////////
+
+    val nc = conj.negatedConjs(0)
+    dprintln("nc: " + conj.negatedConjs(0))
+    val lits =  singleConjunctionToLits(nc, funEqs, funPreds)
+    lits.toList
+  }
+
+  def conjToPseudoLiteralAux(conj : Conjunction, funPreds : Set[Predicate]) : PseudoLiteral = {
     dprintln("conjToPseudoLiteral(" + conj + ")")
     dprintln("\tfunPreds: " + funPreds.mkString(","))
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -131,9 +271,18 @@ object PseudoClause {
     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
     if (literal.isEmpty)
-      (funEqs.tail, funEqs.head)
+      new PseudoLiteral(funEqs.tail, funEqs.head)
     else
-      (literal.head._1 ++ funEqs, literal.head._2)
+      new PseudoLiteral(literal.head._1 ++ funEqs, literal.head._2)
+  }
+
+
+  def conjToPseudoLiterals(conj : Conjunction, funPreds : Set[Predicate]) : List[PseudoLiteral] = {
+    if (conj.negatedConjs.length == 0) {
+      List(conjToPseudoLiteralAux(conj, funPreds))
+    } else {
+      conjToPseudoLiteralsAux(conj, funPreds)
+    }
   }
 
 
@@ -246,10 +395,9 @@ object PseudoClause {
     dprintln("negPredLits: " + negPredLits)
 
     val pseudoLiterals =
-      for (n <- conj.negatedConjs) yield {
-        val (feq, lit) = conjToPseudoLiteral(n, funPreds)
-        new PseudoLiteral(feq, lit)
-      }
+      (for (n <- conj.negatedConjs) yield {
+        conjToPseudoLiterals(n, funPreds)
+      }).flatten
 
     // val funLiterals =
     //   for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield {
@@ -338,6 +486,144 @@ object PseudoClause {
     dprintln("->" + pc + " $ " + order)
     (pc , order)
   }
+
+
+
+
+
+
+
+  // When we convert a formula ...
+
+  // On the way down we have to propagate all functional equations
+  // On the way up we collect all PseudoLiterals
+
+  // What about the ordering ...
+  // if something is introduced, variables further down can see it, right?
+  // So the order should be extended on the way up such that the new symbols are placed after the old ones (or v.v.) Lets Try!
+
+  def ctc(conj : Conjunction, funEqs : List[FunEquation], funPreds : Set[Predicate], negated : Boolean) : (List[PseudoLiteral], BREUOrder) = {
+    dprintln("ctc")
+    dprintln("conj: " + conj)
+
+    var newBREUOrder = List() : BREUOrder
+
+    val (newFunEqs, newLiterals) : (List[FunEquation], List[PseudoLiteral]) = 
+      if (negated) {
+
+        // NEGATED CASE
+
+        // Extract all funEqs (i.e., negative funPreds)
+        val nfe =
+          (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList ++ funEqs
+
+        // Extract all literals at this level (i.e., positive/negative !funPreds, positive funPreds, positive/negative arithConjs)
+
+        // positive !funPreds => negative !funPreds
+        val lits1 =
+          (for (p <- conj.predConj.positiveLits.iterator; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(nfe, NegativeLiteral(p))).toList
+
+        // negative !funPreds => positive !funPreds
+        val lits2 =
+          (for (p <- conj.predConj.negativeLits.iterator; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(nfe, PositiveLiteral(p))).toList
+
+        // positive funPreds => negative funPreds
+        val lits3 =
+          (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield {
+            val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
+            newBREUOrder ++= tmpBREUOrder
+            new PseudoLiteral(nfe ++ List(feq), neq)
+          }).toList
+
+        // positive arithConjs => negative arithConjs
+        val lits4 =
+          (for (eq <- conj.arithConj.positiveEqs) yield {
+            val (c, d, _) = eqTerms(eq, conj.order)
+            new PseudoLiteral(nfe, NegEquation(c, d))
+          }).toList
+
+        // negative arithConjs => positive arithConjs
+        val lits5 =
+          (for (eq <- conj.arithConj.negativeEqs) yield {
+            val (c, d, _) = eqTerms(eq, conj.order)
+            new PseudoLiteral(nfe, Equation(c, d))
+          }).toList
+        (nfe, lits1 ++ lits2 ++ lits3 ++ lits4 ++ lits5)
+      } else {
+        // POSITIVE CASE
+
+        // Extract all funEqs (i.e., positive funPreds)
+        val nfe =
+          (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield FunEquation(p)).toList ++ funEqs
+
+        // Extract all literals at this level (i.e., positive/negative !funPreds, negative funPreds, positive/negative arithConjs)
+
+        // positive !funPreds
+        val lits1 =
+          (for (p <- conj.predConj.positiveLits.iterator; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(nfe, PositiveLiteral(p))).toList
+
+        // negative !funPreds
+        val lits2 =
+          (for (p <- conj.predConj.negativeLits.iterator; if !(p.predicates subsetOf funPreds)) yield new PseudoLiteral(nfe, NegativeLiteral(p))).toList
+
+        // negative funPreds
+        val lits3 =
+          (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield {
+            val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
+            newBREUOrder ++= tmpBREUOrder
+            new PseudoLiteral(nfe ++ List(feq), neq)
+          }).toList
+
+        // positive arithConjs
+        val lits4 =
+          (for (eq <- conj.arithConj.positiveEqs) yield {
+            val (c, d, _) = eqTerms(eq, conj.order)
+            new PseudoLiteral(nfe, Equation(c, d))
+          }).toList
+
+        // negative arithConjs
+        val lits5 =
+          (for (eq <- conj.arithConj.negativeEqs) yield {
+            val (c, d, _) = eqTerms(eq, conj.order)
+            new PseudoLiteral(nfe, NegEquation(c, d))
+          }).toList
+        (nfe, lits1 ++ lits2 ++ lits3 ++ lits4 ++ lits5)
+      }
+
+    dprintln("newFunEqs: " + newFunEqs.mkString(","))
+    dprintln("newLiterals: " + newLiterals.mkString(", "))
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // Debug.assertInt(ConnectionProver.AC, conj.negatedConjs.size <= 1)
+    //-END-ASSERTION-//////////////////////////////////////////////////////////
+    if (conj.negatedConjs.size == 0) {
+      if (newLiterals.length == 0) {
+        (List(new PseudoLiteral(newFunEqs.tail, newFunEqs.head)), newBREUOrder)
+      } else {
+        (newLiterals, newBREUOrder)
+      }
+    } else {
+      var deeperLiterals = List() : List[PseudoLiteral]
+      var deeperOrder = List() : BREUOrder
+      for (nc <- conj.negatedConjs) {
+        val (dlit, dord) = ctc(nc, newFunEqs, funPreds, !negated)
+        deeperLiterals ++= dlit
+        deeperOrder ++= dord
+      }
+      (newLiterals ++ deeperLiterals, deeperOrder ++ newBREUOrder)
+    }
+  }
+
+
+  def CTC(conj : Conjunction, funPreds : Set[Predicate], debug : Boolean = false) : (PseudoClause, BREUOrder) = {
+    DEBUGPrint = debug    
+    dprintln(" CTC")
+    dprintln("-----")
+    dprintln("conj: " + conj)
+    dprintln("funPreds: " + funPreds.mkString(", "))
+    val (lits, ord) = ctc(conj, List() : List[FunEquation], funPreds, false)
+    (new PseudoClause(lits), ord)
+  }
+
 }
 
 
