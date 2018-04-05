@@ -1211,6 +1211,45 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
+      case cmd : ConstDefCommand => {
+        val name = asString(cmd.symbol_)
+        val resType = translateSort(cmd.sort_)
+        
+        // parse the definition of the definition
+        val body@(_, bodyType) = translateTerm(cmd.term_, 0)
+
+        if (bodyType != resType)
+          throw new Parser2InputAbsy.TranslationException(
+              "Body of constant definition has wrong type")
+
+        // use a real function (TODO: better introduce just a constant?)
+        val f = MonoSortedIFunction(name, List(), resType.toSort, true, false)
+        env.addFunction(f, SMTFunctionType(List(), resType))
+    
+        if (inlineDefinedFuns && !neverInline(body._1)) {
+          functionDefs = functionDefs + (f -> body) 
+        } else if (incremental) {
+          // use the SimpleAPI abbreviation feature
+          resType match {
+            case SMTBool =>
+              functionDefs =
+                functionDefs + (f -> (prover abbrev asFormula(body), SMTBool))
+            case t =>
+              functionDefs =
+                functionDefs + (f -> (prover abbrev asTerm(body), t))
+          }
+        } else {
+          // set up a defining equation and formula
+          if (incremental)
+            prover.addFunction(f, SimpleAPI.FunctionalityMode.NoUnification)
+          addAxiomEquation(f, body)
+        }
+
+        success
+      }
+
+      //////////////////////////////////////////////////////////////////////////
+
       case cmd : RecFunctionDefCommand => {
         val name = asString(cmd.symbol_)
         val args : Seq[SMTType] = 
