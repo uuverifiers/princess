@@ -210,3 +210,9 @@ INVALID
 Countermodel:
 inv_main23_4_0 = 2147483647 & inv_main23_3_0 = 2147483646 & inv_main23_2_0 = 2 & inv_main23_1_0 = -2147483644 & inv_main23_0_0 = 2147483647 & inv_main15_4_0 = 2147483647 & inv_main15_3_0 = 2147483647 & inv_main15_2_0 = 2 & inv_main15_1_0 = 2 & inv_main15_0_0 = 2147483647
 
+Loading nested_casts.pri ...
+Preprocessing ...
+Constructing countermodel ...
+
+VALID
+
