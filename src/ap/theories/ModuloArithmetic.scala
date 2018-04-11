@@ -1928,14 +1928,19 @@ object ModuloArithmetic extends Theory {
 
   private def getLeadingTerm(a : Atom, order : TermOrder) : Term = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, a.pred == _mod_cast)
+    Debug.assertPre(AC, a.pred == _mod_cast && !a(2).isConstant)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     val lt1 = a(2).leadingTerm
-    val lt2 = a(3).leadingTerm
-    if (order.compare(lt1, lt2) > 0)
+    if (a(3).isConstant) {
       lt1
-    else
-      lt2
+    } else {
+      val lt2 = a(3).leadingTerm
+      if (order.compare(lt1, lt2) > 0)
+        lt1
+      else
+        lt2
+    }
   }
 
   /**
@@ -1946,14 +1951,15 @@ object ModuloArithmetic extends Theory {
                                     modulus : IdealInt,
                                     order : TermOrder) : IdealInt = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(AC, a.pred == _mod_cast)
+    Debug.assertPre(AC, a.pred == _mod_cast && !a(2).isConstant)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val aModulus = getModulus(a)
     val modulusLCM = aModulus lcm modulus
 
     val leadingCoeff =
-      if (a(3).isEmpty || order.compare(a(2).leadingTerm, a(3).leadingTerm) > 0)
+      if (a(3).isConstant ||
+          order.compare(a(2).leadingTerm, a(3).leadingTerm) > 0)
         a(2).leadingCoeff
       else
         a(3).leadingCoeff
@@ -1974,8 +1980,8 @@ object ModuloArithmetic extends Theory {
     for (a <- atoms.iterator;
          if a.pred == _mod_cast &&
             // avoid cyclic rewriting
-            Seqs.disjoint(a(2).constants, a(3).constants) &&
-            Seqs.disjoint(a(2).variables, a(3).variables);
+            !a(2).isConstant &&
+            (a(3).isConstant || a(2).leadingTerm != a(3).leadingTerm);
          if getLeadingTerm(a, order) == t)
     yield a
 
