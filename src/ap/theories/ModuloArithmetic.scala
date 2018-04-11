@@ -1972,7 +1972,10 @@ object ModuloArithmetic extends Theory {
   private def extractModulos(atoms : Seq[Atom], order : TermOrder)
                             (t : Term) : Iterator[Atom] =
     for (a <- atoms.iterator;
-         if a.pred == _mod_cast;
+         if a.pred == _mod_cast &&
+            // avoid cyclic rewriting
+            Seqs.disjoint(a(2).constants, a(3).constants) &&
+            Seqs.disjoint(a(2).variables, a(3).variables);
          if getLeadingTerm(a, order) == t)
     yield a
 

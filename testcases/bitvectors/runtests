@@ -28,6 +28,7 @@ TESTS="existential.pri \
        bench_977b.smt2 \
        bench_977c.smt2 \
        bench_977d.smt2 \
-       bench_977e.smt2"
+       bench_977e.smt2 \
+       rewriting_cycle.pri"
 
 $PRI "$@" $TESTS
