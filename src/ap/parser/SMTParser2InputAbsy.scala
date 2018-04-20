@@ -1544,7 +1544,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
                   print("(")
                   var sep = ""
-                  for (interpolant <- prover.getInterpolants(interpolantSpecs)) {
+                  for (interpolant <- interpolants) {
                     print(sep)
                     sep = "\n"
                     smtLinearise(interpolant)

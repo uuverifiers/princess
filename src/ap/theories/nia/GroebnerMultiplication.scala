@@ -152,8 +152,27 @@ object GroebnerMultiplication extends MulTheory {
     // not used
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
-    override def handleGoal(goal : Goal) : Seq[Plugin.Action] =
-      handleGoalAux(goal, false)
+    override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+      val negPreds = goal.facts.predConj.negativeLitsWithPred(_mul)
+
+      if (!negPreds.isEmpty) {
+        // replace negated predicates with positive predicates
+
+        implicit val order = goal.order
+
+        (for (a <- negPreds) yield {
+          val axiom =
+            exists(Atom(_mul, a.init ++ List(l(v(0))), order) &
+                   (v(0) =/= a.last))
+          Plugin.AddAxiom(List(!conj(a)), axiom, GroebnerMultiplication.this)
+        }) ++ List(Plugin.RemoveFacts(conj(for (a <- negPreds) yield !conj(a))))
+
+      } else {
+      
+        handleGoalAux(goal, false)
+
+      }
+    }
 
     /**
      * Buchberger algorithm

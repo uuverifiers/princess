@@ -1547,7 +1547,26 @@ object ModuloArithmetic extends Theory {
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+      val negPreds =
+        goal.facts.predConj.negativeLitsWithPred(_mod_cast) ++
+        goal.facts.predConj.negativeLitsWithPred(_l_shift_cast)
       
+      if (!negPreds.isEmpty) {
+        // replace negated predicates with positive predicates
+
+        implicit val order = goal.order
+        import TerForConvenience._
+
+        (for (a <- negPreds) yield {
+          val axiom =
+            exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
+                   (v(0) >= a(0)) & (v(0) <= a(1)) &
+                   (v(0) =/= a.last))
+          Plugin.AddAxiom(List(!conj(a)), axiom, ModuloArithmetic.this)
+        }) ++ List(Plugin.RemoveFacts(conj(for (a <- negPreds) yield !conj(a))))
+
+      } else {
+
         val actions1 = modCastActions(goal)
         val actions2 = shiftCastActions(goal)
 
@@ -1566,6 +1585,7 @@ object ModuloArithmetic extends Theory {
             actions2
 
         resActions1 ++ resActions2
+      }
     }
   })
 

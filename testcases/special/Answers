@@ -124,7 +124,7 @@ Found proof (size 556), simplifying (581), interpolating ...
 VALID
 
 Interpolants:
-(2*y.\as[int] + 2*x.\as[int] + 2).\as[bv[3]] != 0.\as[bv[3]] | (2*z.\as[int] - x.\as[int] = 12 & z.\as[int] - x.\as[int] >= 5 & z >= 6) | (2*z.\as[int] - x.\as[int] = 4 & z.\as[int] - x.\as[int] >= -1 & z >= 2) | (2*z.\as[int] - x.\as[int] = -4 & z.\as[int] - x.\as[int] >= -5)
-(2*y.\as[int] + 2*x.\as[int] + 2).\as[bv[3]] = 0.\as[bv[3]] & ((2*z.\as[int] - x.\as[int] = 12 & z >= 6) | (2*z.\as[int] - x.\as[int] = 4 & z.\as[int] - x.\as[int] >= -1 & z >= 2) | (2*z.\as[int] - x.\as[int] = -4 & z.\as[int] - x.\as[int] >= -5))
+\forall int v0; 4*v0 + -1*y.\as[int] - x.\as[int] != 1 | (2*z.\as[int] - x.\as[int] = 12 & z.\as[int] - x.\as[int] >= 5 & z >= 6) | (2*z.\as[int] - x.\as[int] = 4 & z.\as[int] - x.\as[int] >= -1 & z >= 2) | (2*z.\as[int] - x.\as[int] = -4 & z.\as[int] - x.\as[int] >= -5)
+\exists int v0; 4*v0 + -1*y.\as[int] - x.\as[int] = 1 & ((2*z.\as[int] - x.\as[int] = 12 & z.\as[int] - x.\as[int] >= 5 & z >= 6) | (2*z.\as[int] - x.\as[int] = 4 & z.\as[int] - x.\as[int] >= -1 & z >= 2) | (2*z.\as[int] - x.\as[int] = -4 & z.\as[int] - x.\as[int] >= -5))
 (2*y.\as[int] + 2*x.\as[int] + 2).\as[bv[3]] != 0.\as[bv[3]]
 
