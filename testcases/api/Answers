@@ -537,7 +537,7 @@ x = 3 | x = 1
 Valid
 Test 9
 Unsat
-Vector(a.\as[int] - b.\as[int] >= 126 | a >= 254 | (b.\as[int] - a.\as[int] = 130 & a >= 0), b >= 130, b >= c)
+Vector(a >= 0 & (a.\as[int] + 130).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a >= 252), b >= 130, b >= c)
 
 TreeInterpolation.scala
 Unsat
