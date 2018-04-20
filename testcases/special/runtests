@@ -18,4 +18,5 @@ $PRI "$@" -timeout=30000 +triggersInConjecture -genTotalityAxioms -tightFunction
 $PRI "$@" -timeout=90000 -assert -constructProofs=always diamonds.10.2-no-interpolant.i.a.u.pri
 $PRI "$@" -timeout=30000 +incremental -assert abbrev-interpolation.smt2
 $PRI "$@" -timeout=30000 -generateTriggers=all adt-size3b.pri
+$PRI "$@" -timeout=30000 -assert bv-interpolation-7.pri
 

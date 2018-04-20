@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -42,6 +42,9 @@ import ap.parameters.{GoalSettings, Param}
  * have to be eliminated constants and, thus, never occur in constraints
  * anyway. This makes it possible to construct proof trees in a purely
  * depth-first way (just like in the <code>ModelSearchProver</code>)
+ *
+ * TODO: at the moment, this prover does not support theories like
+ * bit-vectors or multiplication
  */
 object QuantifierElimProver {
 

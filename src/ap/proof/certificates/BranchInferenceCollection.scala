@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,7 +22,8 @@
 package ap.proof.certificates
 
 import ap.basetypes.IdealInt
-import ap.terfor.{TermOrder, ConstantTerm}
+import ap.theories.Theory
+import ap.terfor.{TermOrder, ConstantTerm, Formula}
 import ap.terfor.TerForConvenience._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.Conjunction
@@ -287,6 +288,8 @@ class LoggingBranchInferenceCollector private
 
 } with BranchInferenceCollector {
   
+  import LoggingBranchInferenceCollector.AC
+
   private def addPlusDefaultInfs(inf : BranchInference) : Unit = {
     addDirectly(inf)
     for (f <- inf.providedFormulas) newCertFormula(f)
@@ -295,6 +298,20 @@ class LoggingBranchInferenceCollector private
   private def addDirectly(inf : BranchInference) : Unit =
     inferences = inf :: inferences
   
+  private def addSequence(infs : Seq[BranchInference]) : Unit = {
+    val it = infs.iterator
+    var cont = it.hasNext
+    while (cont) {
+      val next = it.next
+      if (it.hasNext) {
+        addDirectly(next)
+      } else {
+        addPlusDefaultInfs(next)
+        cont = false
+      }
+    }
+  }
+
   def newFormula(f : Conjunction) : Unit = newCertFormula(CertFormula(f))
   
   def newCertFormula(f : CertFormula) : Unit =
@@ -407,5 +424,72 @@ class LoggingBranchInferenceCollector private
     addPlusDefaultInfs(PredUnifyInference(leftAtom, rightAtom,
                                           CertFormula(result),
                                           order))
+
+  def otherComputation(assumptions : Seq[Formula],
+                       result : Formula,
+                       order : TermOrder,
+                       theoryAnyRef : AnyRef) : Unit = {
+    implicit val _ = order
+
+    import ap.proof.theoryPlugins.PluginTask
+    import PluginTask.{prepareAssumptions, axiomInferences,
+                       proveSimpleAssumptions, simpleAssumptionInf}
+
+    val (compoundAssumptions, predAssumptions, arithAssumptions) =
+      prepareAssumptions(assumptions, !result.constants.isEmpty, order)
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // A case that is not handled yet (and maybe not necessary anyway)
+    Debug.assertInt(AC, compoundAssumptions.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    val theory = theoryAnyRef.asInstanceOf[Theory]
+    val resultCertFor = CertFormula(Conjunction.conj(result, order))
+
+    if (arithAssumptions.isEmpty) {
+
+      // a case where we can just add the axiom using an inference;
+      // no assumptions
+      addSequence(axiomInferences(resultCertFor, predAssumptions, theory))
+
+    } else if (arithAssumptions.size == 1 && result.isFalse) {
+
+      val assumption = arithAssumptions.head
+      addSequence(axiomInferences(!assumption, List(), theory))
+      addPlusDefaultInfs(simpleAssumptionInf(assumption))
+
+    } else {
+
+      // the case where we can just add the axiom using an inference
+      // encapsulating a partial certificate
+      // (<code>PartialCertificateInference</code>)
+
+      val providedFormula = resultCertFor
+
+      // certificate constructor, to be applied once the goal has
+      // been closed
+      def comb(certs : Seq[Certificate]) : Certificate = {
+        // add proofs for the simple assumptions
+        val simpleCerts =
+          proveSimpleAssumptions(arithAssumptions)
+        val allCerts =
+          simpleCerts ++ List((providedFormula, certs.head))
+        val (instAxiom, betaCert) =
+          BetaCertificate.naryWithDisjunction(allCerts, order)
+    
+        BranchInferenceCertificate.prepend(
+          axiomInferences(instAxiom, predAssumptions, theory),
+          betaCert, order)
+      }
+
+      val pCert =
+        PartialCertificate(comb _, List(Set(providedFormula)))
+
+      addPlusDefaultInfs(PartialCertificateInference(pCert,
+                                                     Set(providedFormula),
+                                                     Set()))
+
+    }
+  }
 
 }

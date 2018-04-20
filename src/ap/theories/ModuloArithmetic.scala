@@ -2043,11 +2043,9 @@ object ModuloArithmetic extends Theory {
                logger : ComputationLogger,
                mode : ReducerPlugin.ReductionMode.Value)
              : ReducerPlugin.ReductionResult =
-      if (logger.isLogging) {
-        // TODO
-        ReducerPlugin.UnchangedResult
-      } else {
+      {
         Timeout.check
+        val logging = logger.isLogging
 
         implicit val order = predConj.order
         import TerForConvenience._
@@ -2058,22 +2056,29 @@ object ModuloArithmetic extends Theory {
           // First try to eliminate some modulo atoms
           ReducerPlugin.rewritePreds(predConj,
                                      List(_mod_cast, _l_shift_cast),
-                                     order) { a =>
+                                     order,
+                                     logger) { a =>
               a.pred match {
                 case `_mod_cast` =>
-                  (reducer lowerBound a(2), reducer upperBound a(2)) match {
+                  (reducer.lowerBound(a(2), logging),
+                   reducer.upperBound(a(2), logging)) match {
           
-                    case (Some(lb), Some(ub)) => {
+                    case (Some((lb, lbAsses)), Some((ub, ubAsses))) => {
                       val sort@ModSort(sortLB, sortUB) =
                         (SortedPredicate argumentSorts a).last
                 
                       val lowerFactor = (lb - sortLB) / sort.modulus
                       val upperFactor = -((sortUB - ub) / sort.modulus)
 
-                      if (lowerFactor == upperFactor)
-                        a(2) === a(3) + (lowerFactor * sort.modulus)
-                      else
+                      if (lowerFactor == upperFactor) {
+                        val newEq = a(2) === a(3) + (lowerFactor * sort.modulus)
+                        logger.otherComputation(lbAsses ++ ubAsses ++ List(a),
+                                                newEq, order,
+                                                ModuloArithmetic.this)
+                        newEq
+                      } else {
                         a
+                      }
                     }
             
                     case _ =>
@@ -2082,20 +2087,32 @@ object ModuloArithmetic extends Theory {
 
                 case `_l_shift_cast` =>
                   if (a(2).isZero) {
-                    Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
+                    val newA =
+                      Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
+                    logger.otherComputation(List(a), newA, order,
+                                            ModuloArithmetic.this)
+                    newA
                   } else if (a(3).isConstant) {
-                    Atom(_mod_cast,
-                         Array(a(0), a(1),
-                               a(2) * pow2(a(3).constant max IdealInt.ZERO),
-                               a(4)),
-                         order)
+                    val newA =
+                      Atom(_mod_cast,
+                           Array(a(0), a(1),
+                                 a(2) * pow2(a(3).constant max IdealInt.ZERO),
+                                 a(4)),
+                           order)
+                    logger.otherComputation(List(a), newA, order,
+                                            ModuloArithmetic.this)
+                    newA
                   } else {
-                    (reducer lowerBound a(3)) match {
-                      case Some(lb) if lb.signum > 0 =>
-                        Atom(_l_shift_cast,
-                             Array(a(0), a(1),
-                                   a(2) * pow2(lb), a(3) - lb, a(4)),
-                             order)
+                    (reducer.lowerBound(a(3), logging)) match {
+                      case Some((lb, lbAsses)) if lb.signum > 0 => {
+                        val newA = Atom(_l_shift_cast,
+                                        Array(a(0), a(1),
+                                              a(2) * pow2(lb), a(3) - lb, a(4)),
+                                        order)
+                        logger.otherComputation(lbAsses ++ List(a), newA, order,
+                                                ModuloArithmetic.this)
+                        newA
+                      }
                       case _ =>
                         a
                     }
@@ -2121,7 +2138,8 @@ object ModuloArithmetic extends Theory {
 
           ReducerPlugin.rewritePreds(predConj,
                                      List(_mod_cast, _l_shift_cast),
-                                     order) {
+                                     order,
+                                     logger) {
             a => {
               lazy val modulus = getModulus(a)
               
@@ -2145,6 +2163,9 @@ object ModuloArithmetic extends Theory {
                               order)
                 val newA = Atom(a.pred, a.updated(2, newA2), order)
 //                println("simp: " + a + " -> " + newA)
+
+                logger.otherComputation(List(knownAtom, a), newA, order,
+                                        ModuloArithmetic.this)
 
                 rewritten = a :: rewritten
 

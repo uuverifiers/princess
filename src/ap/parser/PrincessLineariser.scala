@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -109,8 +109,10 @@ object PrincessLineariser {
   private def atomicTerm(t : ITerm,
                          ctxt : PrintContext,
                          cast2Int : Boolean = false) : String = t match {
-    case IConstant(c) ::: sort =>
-      c.name + (if (cast2Int && sort != Sort.Integer) ".\\as[int]" else "")
+    case IConstant(c) ::: SortNeedingIntCast(_) if cast2Int =>
+      c.name + ".\\as[int]"
+    case IConstant(c) =>
+      c.name
     case IVariable(index) => {
       var vs = ctxt.vars
       var ind = index
@@ -125,15 +127,24 @@ object PrincessLineariser {
       else
         vs.head
     }
-    case IFunApp(f, Seq()) ::: sort =>
-      f.name + (if (cast2Int && sort != Sort.Integer) ".\\as[int]" else "")
+    case IFunApp(f, Seq()) ::: SortNeedingIntCast(_) if cast2Int =>
+      f.name + ".\\as[int]"
+    case IFunApp(f, Seq()) =>
+      f.name
+  }
+
+  private object SortNeedingIntCast {
+    def unapply(sort : Sort) : Option[Sort] = sort match {
+      case Sort.Numeric(_) => None
+      case _               => Some(sort)
+    }
   }
 
   private def needsIntCast(t : ITerm) : Boolean = t match {
-    case (_ : IConstant) ::: sort if (sort != Sort.Integer) => true
-    case IFunApp(MulTheory.Mul(), _)                        => false
-    case (_ : IFunApp) ::: sort if (sort != Sort.Integer)   => true
-    case _                                                  => false
+    case (_ : IConstant) ::: SortNeedingIntCast(_)       => true
+    case IFunApp(MulTheory.Mul(), _)                     => false
+    case (_ : IFunApp) ::: SortNeedingIntCast(_)         => true
+    case _                                               => false
   }
 
   private def insertIntCast(t : ITerm, ctxt : PrintContext) : PrintContext =

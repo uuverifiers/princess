@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -65,6 +65,11 @@ object ComputationLogger {
                                     order : TermOrder) : Unit = {}
     def unifyPredicates(leftAtom : Atom, rightAtom : Atom,
                         result : EquationConj, order : TermOrder) : Unit = {}
+
+    def otherComputation(assumptions : Seq[Formula],
+                         result : Formula,
+                         order : TermOrder,
+                         theory : AnyRef) : Unit = {}
   }
 
   val NonLogger = new NonLoggingLogger
@@ -185,6 +190,15 @@ trait ComputationLogger {
    */
   def unifyPredicates(leftAtom : Atom, rightAtom : Atom,
                       result : EquationConj, order : TermOrder) : Unit
+
+  /**
+   * Some other computation, that might in particular be performed by
+   * theory plug-ins.
+   */
+  def otherComputation(assumptions : Seq[Formula],
+                       result : Formula,
+                       order : TermOrder,
+                       theory : AnyRef) : Unit
   
   //////////////////////////////////////////////////////////////////////////////
   // Some convenience methods that ease logging
@@ -212,4 +226,15 @@ trait ComputationLogger {
         combineInequalities(input _1, input _2, input _3, input _4,
                             result _1, result _2, input _5)
     }
+
+  /**
+   * Convenient interface for <code>otherComputation</code>
+   */
+  val otherCompScope =
+    new LogScope[(Seq[Formula], TermOrder, AnyRef), Formula](isLogging) {
+      def log(input : (Seq[Formula], TermOrder, AnyRef),
+              result : Formula) : Unit =
+        otherComputation(input _1, result, input _2, input _3)
+    }
+
 }

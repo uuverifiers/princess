@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,6 +25,7 @@ import ap.basetypes.IdealInt
 import ap.terfor._
 import ap.terfor.arithconj.{ArithConj, ReduceWithAC, ModelElement}
 import ap.terfor.equations.EquationConj
+import ap.terfor.inequalities.InEqConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{PredConj, ReduceWithPredLits, Predicate}
 import ap.terfor.substitutions.Substitution
@@ -496,6 +497,20 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     acReducer lowerBoundWithAssumptions t
 
   /**
+   * Check whether the known inequalities imply a lower bound of the given term.
+   * If <code>withAssumptionInEqs</code> is set, also return the assumed
+   * inequalities needed for the bound.
+   */
+  def lowerBound(t : Term, withAssumptionInEqs : Boolean)
+      : Option[(IdealInt, Seq[InEqConj])] =
+    if (withAssumptionInEqs)
+      for ((b, lcs) <- lowerBoundWithAssumptions(t))
+      yield (b, for (lc <- lcs) yield InEqConj(lc, order))
+    else
+      for (b <- lowerBound(t))
+      yield (b, List())
+
+  /**
    * Check whether known inequalities imply an upper bound of the given
    * term.
    */
@@ -515,6 +530,20 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
   def upperBoundWithAssumptions(t : Term)
       : Option[(IdealInt, Seq[LinearCombination])] =
     acReducer upperBoundWithAssumptions t
+
+  /**
+   * Check whether the known inequalities imply a upper bound of the given term.
+   * If <code>withAssumptionInEqs</code> is set, also return the assumed
+   * inequalities needed for the bound.
+   */
+  def upperBound(t : Term, withAssumptionInEqs : Boolean)
+      : Option[(IdealInt, Seq[InEqConj])] =
+    if (withAssumptionInEqs)
+      for ((b, lcs) <- upperBoundWithAssumptions(t))
+      yield (b, for (lc <- lcs) yield InEqConj(lc, order))
+    else
+      for (b <- upperBound(t))
+      yield (b, List())
 
   private def replacePred(newPred : ReduceWithPredLits)
                          : ReduceWithConjunction =

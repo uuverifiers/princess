@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -254,6 +254,120 @@ class PluginSequence private (val plugins : Seq[Plugin]) extends Plugin {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object PluginTask {
+
+  /**
+   * Split assumptions into compound formulas, predicate atoms, and arithmetic
+   * literals.
+   */
+  protected[ap] def prepareAssumptions(assumptions : Seq[Formula],
+                                       alwaysNeedsQuantifiers : Boolean,
+                                       order : TermOrder)
+                        : (Seq[CertFormula],       // compoundAssumptions
+                           Seq[CertFormula],       // predAssumptions
+                           Seq[CertFormula]) = {   // arithAssumptions
+    val needsQuantifiers =
+      alwaysNeedsQuantifiers ||
+      (assumptions exists (!_.constants.isEmpty))
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // There should not be any trivial assumptions
+    Debug.assertInt(Plugin.AC, assumptions forall { a => !a.isTrue })
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    // TODO: avoid conversion to conjunction
+    val certAssumptions =
+      for (a <- assumptions) yield CertFormula(Conjunction.conj(a, order))
+    val (compoundAssumptions, simpleAssumptions) =
+      certAssumptions partition (_.isInstanceOf[CertCompoundFormula])
+    val (predAssumptions, arithAssumptions) =
+      if (needsQuantifiers)
+        simpleAssumptions partition (_.isInstanceOf[CertPredLiteral])
+      else
+        (List(), simpleAssumptions)
+
+    (compoundAssumptions, predAssumptions, arithAssumptions)
+  }
+
+  /**
+   * Generate the inferences needed to introduce a theory axiom.
+   * <code>instAxiom</code> is the instantiated axiom, but excluding
+   * assumed predicate literals (given as <code>predAssumptions</code>).
+   */
+  protected[ap] def axiomInferences(instAxiom : CertFormula,
+                                    predAssumptions : Seq[CertFormula],
+                                    theory : Theory)
+                                   (implicit order : TermOrder)
+                                  : Seq[BranchInference] = {
+    val predLits =
+      for (f <- predAssumptions) yield f.asInstanceOf[CertPredLiteral]
+    val negPredLits =
+      predLits map { l => !l }
+    val instAxiomWithPreds =
+      Conjunction.disj(List(instAxiom.toConj) ++ (negPredLits map (_.toConj)),
+                       order)
+    val consts =
+      (order sort instAxiomWithPreds.constants).reverse
+
+    val (axiom, instInf) =
+      if (consts.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(Plugin.AC, predAssumptions.isEmpty)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        (instAxiom, List())
+      } else {
+        val axiomConj =
+          Conjunction.quantify(Quantifier.ALL, consts, instAxiomWithPreds,order)
+        val axiom =
+          CertFormula(axiomConj).asInstanceOf[CertCompoundFormula]
+        val instanceTerms =
+          for (c <- consts) yield LinearCombination(c, order)
+
+        (axiom,
+         List(GroundInstInference(axiom, instanceTerms,
+                                  CertFormula(instAxiomWithPreds),
+                                  predLits, instAxiom, order)))
+      }
+
+    List(TheoryAxiomInference(axiom, theory)) ++ instInf
+  }
+
+  /**
+   * Generate the certificate steps needed to discharge the
+   * given (atomic) arithmetic or predicate assumptions.
+   */
+  protected[ap] def proveSimpleAssumptions(assumptions : Seq[CertFormula])
+                                          (implicit order : TermOrder)
+                                         : Seq[(CertFormula, Certificate)] =
+    for (a <- assumptions) yield {
+      val inf = simpleAssumptionInf(a)
+      val ccert = CloseCertificate(Set(inf.providedFormulas.head), order)
+      (!a, BranchInferenceCertificate.prepend(List(inf), ccert, order))
+    }
+
+  protected[ap] def simpleAssumptionInf(assumption : CertFormula)
+                                       (implicit order : TermOrder)
+                                      : BranchInference = assumption match {
+        case eq : CertEquation =>
+          ReduceInference(List((IdealInt.MINUS_ONE, eq)), !eq, order)
+        case eq : CertNegEquation =>
+          ReduceInference(List((IdealInt.MINUS_ONE, !eq)), eq, order)
+        case ineq : CertInequality => {
+          val negIneq = !ineq
+          val result = CertInequality(ineq.lhs + negIneq.lhs)
+          CombineInequalitiesInference(IdealInt.ONE, ineq,
+                                       IdealInt.ONE, negIneq,
+                                       result, order)
+        }
+        case l : CertPredLiteral =>
+          PredUnifyInference(l.atom, l.atom, 
+                             CertFormula(Conjunction.TRUE), order)
+        case _ : CertCompoundFormula =>
+          throw new IllegalArgumentException
+      }
+
+}
+
 /**
  * Task integrating a <code>Plugin</code> (or <code>TheoryProcedure</code>)
  * into a prover
@@ -299,25 +413,14 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       case List(AxiomSplit(assumptions, cases, theory)) => {
         implicit val order = goal.order
 
-        val needsQuantifiers =
-          (assumptions exists (!_.constants.isEmpty)) ||
-          (cases exists { case (f, _) => !f.constants.isEmpty })
+        import PluginTask.{prepareAssumptions, axiomInferences,
+                           proveSimpleAssumptions}
 
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        // There should not be any trivial assumptions
-        Debug.assertInt(Plugin.AC, assumptions forall { a => !a.isTrue })
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-
-        // TODO: avoid conversion to conjunction
-        val certAssumptions =
-          for (a <- assumptions) yield CertFormula(Conjunction.conj(a, order))
-        val (compoundAssumptions, simpleAssumptions) =
-          certAssumptions partition (_.isInstanceOf[CertCompoundFormula])
-        val (predAssumptions, arithAssumptions) =
-          if (needsQuantifiers)
-            simpleAssumptions partition (_.isInstanceOf[CertPredLiteral])
-          else
-            (List(), simpleAssumptions)
+        val (compoundAssumptions, predAssumptions, arithAssumptions) =
+          prepareAssumptions(
+             assumptions,
+             cases exists { case (f, _) => !f.constants.isEmpty },
+             order)
 
         (arithAssumptions.size, cases.size + compoundAssumptions.size) match {
 
@@ -409,7 +512,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
               val (inferences, betaCert) =
                 if (arithAssumptions.isEmpty) {
                   val allCerts =
-                    proveSimpleAssumptions(simpleAssumptions)
+                    proveSimpleAssumptions(predAssumptions ++ arithAssumptions)
                   val (instAxiom, betaCert) =
                     BetaCertificate.naryWithDisjunction(allCerts, order)
                   (axiomInferences(instAxiom, List(), theory),
@@ -530,80 +633,6 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
   private val dummyProvidedFormulas =
     List(dummyContradictionFors, dummyContradictionFors)
 
-
-  /**
-   * Generate the inferences needed to introduce a theory axiom.
-   * <code>instAxiom</code> is the instantiated axiom, but excluding
-   * assumed predicate literals (given as <code>predAssumptions</code>).
-   */
-  private def axiomInferences(instAxiom : CertFormula,
-                              predAssumptions : Seq[CertFormula],
-                              theory : Theory)
-                             (implicit order : TermOrder)
-                             : Seq[BranchInference] = {
-    val predLits =
-      for (f <- predAssumptions) yield f.asInstanceOf[CertPredLiteral]
-    val negPredLits =
-      predLits map { l => !l }
-    val instAxiomWithPreds =
-      Conjunction.disj(List(instAxiom.toConj) ++ (negPredLits map (_.toConj)),
-                       order)
-    val consts =
-      (order sort instAxiomWithPreds.constants).reverse
-
-    val (axiom, instInf) =
-      if (consts.isEmpty) {
-        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-        Debug.assertInt(Plugin.AC, predAssumptions.isEmpty)
-        //-END-ASSERTION-///////////////////////////////////////////////////////
-        (instAxiom, List())
-      } else {
-        val axiomConj =
-          Conjunction.quantify(Quantifier.ALL, consts, instAxiomWithPreds,order)
-        val axiom =
-          CertFormula(axiomConj).asInstanceOf[CertCompoundFormula]
-        val instanceTerms =
-          for (c <- consts) yield LinearCombination(c, order)
-
-        (axiom,
-         List(GroundInstInference(axiom, instanceTerms,
-                                  CertFormula(instAxiomWithPreds),
-                                  predLits, instAxiom, order)))
-      }
-
-    List(TheoryAxiomInference(axiom, theory)) ++ instInf
-  }
-
-  /**
-   * Generate the certificate steps needed to discharge the
-   * given (atomic) arithmetic or predicate assumptions.
-   */
-  private def proveSimpleAssumptions(assumptions : Seq[CertFormula])
-                                    (implicit order : TermOrder)
-                                    : Seq[(CertFormula, Certificate)] =
-    for (a <- assumptions) yield {
-      val inf = a match {
-        case eq : CertEquation =>
-          ReduceInference(List((IdealInt.MINUS_ONE, eq)), !eq, order)
-        case eq : CertNegEquation =>
-          ReduceInference(List((IdealInt.MINUS_ONE, !eq)), eq, order)
-        case ineq : CertInequality => {
-          val negIneq = !ineq
-          val result = CertInequality(ineq.lhs + negIneq.lhs)
-          CombineInequalitiesInference(IdealInt.ONE, ineq,
-                                       IdealInt.ONE, negIneq,
-                                       result, order)
-        }
-        case l : CertPredLiteral =>
-          PredUnifyInference(l.atom, l.atom, 
-                             CertFormula(Conjunction.TRUE), order)
-        case _ : CertCompoundFormula =>
-          throw new IllegalArgumentException
-      }
-      
-      val ccert = CloseCertificate(Set(inf.providedFormulas.head), order)
-      (!a, BranchInferenceCertificate.prepend(List(inf), ccert, order))
-    }
 
   //////////////////////////////////////////////////////////////////////////////
   

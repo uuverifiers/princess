@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,16 +22,21 @@
 package ap
 
 import ap.basetypes.IdealInt
+import ap.theories.{TheoryRegistry, ModuloArithmetic}
+import ap.theories.nia.GroebnerMultiplication
 import ap.proof.{ConstraintSimplifier, ModelSearchProver, ExhaustiveProver}
+import ap.proof.theoryPlugins.PluginSequence
 import ap.terfor.{Formula, ConstantTerm, VariableTerm, TermOrder}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
-                               IterativeClauseMatcher, NegatedConjunctions}
+                               IterativeClauseMatcher, NegatedConjunctions,
+                               SeqReducerPluginFactory}
 import ap.terfor.preds.PredConj
 import ap.terfor.inequalities.InEqConj
-import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst, ConstantSubst}
+import ap.terfor.substitutions.{VariableShiftSubst, VariableSubst,
+                                ConstantSubst}
 import ap.terfor.TerForConvenience._
-import ap.parameters.{GoalSettings, Param}
+import ap.parameters.{GoalSettings, ReducerSettings, Param}
 import ap.util.{Debug, Seqs, IdealRange, Combinatorics, Timeout}
 
 import scala.collection.mutable.{HashSet => MHashSet}
@@ -64,6 +69,15 @@ object PresburgerTools {
     isQFPresburger(f) &&
     !(f.negatedConjs exists ((c) => !c.isDivisibility && !c.isNonDivisibility))
   
+  def containsBVNonlin(f : Conjunction) : Boolean =
+    f.predicates exists {
+      p => (TheoryRegistry lookupSymbol p) match {
+        case Some(ModuloArithmetic)       => true
+        case Some(GroebnerMultiplication) => true
+        case _                            => false
+      }
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**
@@ -400,18 +414,29 @@ object PresburgerTools {
    * Quantifier elimination procedure that can also handle uninterpreted
    * predicates, provided that predicates never occur in the scope of
    * quantifiers. Quantifiers above predicate occurrences are left in the
-   * formula.
+   * formula. The method can also handle formulas with bit-vector arithmetic
+   * or non-linear multiplication.
    */
   def elimQuantifiersWithPreds(c : Conjunction) : Conjunction = {
     implicit val order = c.order
-    val reducer = ReduceWithConjunction(Conjunction.TRUE, order)
-    val constraintSimplifier = ConstraintSimplifier.LEMMA_SIMPLIFIER_NON_DNF
+    val reducer =
+      if (containsBVNonlin(c))
+        ReduceWithConjunction(Conjunction.TRUE, order, bvReducerSettings)
+      else
+        ReduceWithConjunction(Conjunction.TRUE, order)
+    val constraintSimplifier =
+      ConstraintSimplifier.LEMMA_SIMPLIFIER_NON_DNF
     
     def simplifier(c : Conjunction, order : TermOrder) : Conjunction =
       Conjunction.collectQuantifiers(c).size match {
-        case 0 => c // nothing to do
-        case 1 => constraintSimplifier(c, order)
-        case 2 => expansionProver(c, order).closingConstraint
+        case 0 =>
+          c // nothing to do
+        case 1 if c.predicates.isEmpty =>
+          constraintSimplifier(c, order)
+        case 2 if c.predicates.isEmpty =>
+          expansionProver(c, order).closingConstraint
+        case _ =>
+          !bvExpansionProver(!c, order).closingConstraint
       }
    
     def descend(c : Conjunction) : Conjunction = {
@@ -466,11 +491,19 @@ object PresburgerTools {
       }
     }
     
+    def quanElimPossible(c : Conjunction) : Boolean = c.predicates forall {
+      p => (TheoryRegistry lookupSymbol p) match {
+        case Some(ModuloArithmetic)       => true
+        case Some(GroebnerMultiplication) => true
+        case _                            => false
+      }
+    }
+
     def elimHelp(c : Conjunction) : Conjunction =
       if (Conjunction.collectQuantifiers(c).isEmpty) {
         c // nothing to do
       } else {
-          if (c.predicates.isEmpty) {
+          if (quanElimPossible(c)) {
             // just call the quantifier eliminator
         
             if (c.variables.isEmpty) {
@@ -562,6 +595,44 @@ object PresburgerTools {
                                     ConstraintSimplifier.LEMMA_SIMPLIFIER_NON_DNF)
   private val expansionProver =
     new ExhaustiveProver(false, expansionSettings)
+
+  // expansion in the presence of bit-vectors
+  private val (bvReducerSettings, bvExpansionSettings) = {
+    val theories =
+      List(ModuloArithmetic, GroebnerMultiplication)
+    val functionalPreds =
+      (for (t <- theories; p <- t.functionalPredicates) yield p).toSet
+
+    val reducerSettings = {
+      var rs = ReducerSettings.DEFAULT
+      rs = Param.FUNCTIONAL_PREDICATES.set(
+           rs, functionalPreds)
+      rs = Param.REDUCER_PLUGIN.set(
+           rs, SeqReducerPluginFactory
+                 (for (t <- theories) yield t.reducerPlugin))
+      rs
+    }
+
+    val expSettings = {
+      var gs = GoalSettings.DEFAULT
+      gs = Param.CONSTRAINT_SIMPLIFIER.set(gs,
+                   ConstraintSimplifier.LEMMA_SIMPLIFIER_NON_DNF)
+      gs = Param.REDUCER_SETTINGS.set(gs, reducerSettings)
+      val plugin =
+        PluginSequence(for (t <- theories; p <- t.plugin.toSeq) yield p)
+      gs = Param.THEORY_PLUGIN.set(gs, plugin)
+      gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
+      gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
+           (for (t <- theories.iterator;
+                 p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
+      gs
+    }
+
+    (reducerSettings, expSettings)
+  }
+
+  private val bvExpansionProver =
+    new ExhaustiveProver(false, bvExpansionSettings)
 
   /**
    * Compute the most general quantifier-free formula without uninterpreted
