@@ -67,7 +67,8 @@ TESTS="division.pri \
        bv-quadratic-eq.pri \
        mult-diff.pri \
        mult-model.pri \
-       shift.pri"
+       shift.pri \
+       diffsquare.pri"
 
 $PRI "$@" $TESTS 2>&1
 

@@ -509,7 +509,11 @@ println(unprocessed)
           yield (lcToPolynomial(lc), BitSet(n + ineqOffset))) ++
          (for ((lc, n) <- inequalities.geqZeroInfs.iterator.zipWithIndex;
                if lc.constants.size == 1)
-          yield (lcToPolynomial(lc), BitSet(n + ineqInfsOffset)))).toList
+          yield (lcToPolynomial(lc), BitSet(n + ineqInfsOffset))) ++
+         // For square predicates t*t = s, add an inequality s >= 0
+         (for ((a, n) <- predicates.iterator.zipWithIndex;
+               if a(0) == a(1))
+          yield (lcToPolynomial(a(2)), BitSet(n)))).toList
 
       val negeqs =
         (for ((lc, n) <- goal.facts.arithConj.negativeEqs.iterator.zipWithIndex)
