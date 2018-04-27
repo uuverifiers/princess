@@ -22,7 +22,7 @@
 package ap.proof.certificates
 
 import ap.basetypes.IdealInt
-import ap.theories.Theory
+import ap.theories.{Theory, FunctionalConsistency}
 import ap.terfor.{TermOrder, ConstantTerm, Formula}
 import ap.terfor.TerForConvenience._
 import ap.terfor.linearcombination.LinearCombination
@@ -424,6 +424,22 @@ class LoggingBranchInferenceCollector private
     addPlusDefaultInfs(PredUnifyInference(leftAtom, rightAtom,
                                           CertFormula(result),
                                           order))
+
+  def unifyFunctionApps(leftApp : Atom, rightApp : Atom,
+                        resultEq : LinearCombination,
+                        order : TermOrder) : Unit = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // only the last arguments (the function result) might differ
+    Debug.assertPre(AC, leftApp.pred == rightApp.pred &&
+                        leftApp.init == rightApp.init)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    implicit val _ = order
+    val resEq = resultEq === 0
+
+    otherComputation(List(leftApp, rightApp), resEq, order,
+                     FunctionalConsistency)
+  }
 
   def otherComputation(assumptions : Seq[Formula],
                        result : Formula,

@@ -155,6 +155,8 @@ object GlobalSettings {
           Param.MATCHING_BASE_PRIORITY.set(settings, value)
         case Opt("reverseFunctionalityPropagation", value) =>
           Param.REVERSE_FUNCTIONALITY_PROPAGATION.set(settings, value)
+        case Opt("useFunctionalConsistencyTheory", value) =>
+          Param.USE_FUNCTIONAL_CONSISTENCY_THEORY.set(settings, value)
         case ValueOpt("triggerStrategy", "allMinimal") =>
           Param.TRIGGER_STRATEGY.set(settings, Param.TriggerStrategyOptions.AllMinimal)
         case ValueOpt("triggerStrategy", "allUni") =>
@@ -210,6 +212,7 @@ object GlobalSettings {
          Param.GENERATE_TOTALITY_AXIOMS,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS, Param.IGNORE_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
+         Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY,
          Param.MUL_PROCEDURE, Param.ADT_MEASURE,
@@ -230,6 +233,7 @@ object GoalSettings {
                        Param.CONSTRAINT_SIMPLIFIER,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
+                       Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
                        Param.THEORY_PLUGIN, Param.PREDICATE_MATCH_CONFIG,
                        Param.NONLINEAR_SPLITTING, Param.ABBREV_LABELS,
                        Param.RANDOM_DATA_SOURCE, Param.REDUCER_SETTINGS)

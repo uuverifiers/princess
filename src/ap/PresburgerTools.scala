@@ -24,6 +24,7 @@ package ap
 import ap.basetypes.IdealInt
 import ap.theories.{TheoryRegistry, ModuloArithmetic}
 import ap.theories.nia.GroebnerMultiplication
+import ap.types.TypeTheory
 import ap.proof.{ConstraintSimplifier, ModelSearchProver, ExhaustiveProver}
 import ap.proof.theoryPlugins.PluginSequence
 import ap.terfor.{Formula, ConstantTerm, VariableTerm, TermOrder}
@@ -427,17 +428,31 @@ object PresburgerTools {
     val constraintSimplifier =
       ConstraintSimplifier.LEMMA_SIMPLIFIER_NON_DNF
     
-    def simplifier(c : Conjunction, order : TermOrder) : Conjunction =
-      Conjunction.collectQuantifiers(c).size match {
+    def simplifier(c : Conjunction, order : TermOrder) : Conjunction = {
+      val quantifiers = Conjunction.collectQuantifiers(c)
+      quantifiers.size match {
         case 0 =>
           c // nothing to do
         case 1 if c.predicates.isEmpty =>
           constraintSimplifier(c, order)
         case 2 if c.predicates.isEmpty =>
           expansionProver(c, order).closingConstraint
-        case _ =>
-          !bvExpansionProver(!c, order).closingConstraint
+        case 1 if (quantifiers contains Quantifier.EX) => {
+          // we need to add type constraints in general, otherwise QE might
+          // give unexpected results
+          val typedC = TypeTheory.preprocess(!c, order)
+          TypeTheory.filterTypeConstraints(
+            !bvExpansionProver(typedC, order).closingConstraint)
+        }
+        case _ => {
+          // we need to add type constraints in general, otherwise QE might
+          // give unexpected results
+          val typedC = TypeTheory.preprocess(c, order)
+          TypeTheory.filterTypeConstraints(
+            bvExpansionProver(typedC, order).closingConstraint)
+        }
       }
+    }
    
     def descend(c : Conjunction) : Conjunction = {
       val newNegatedConjs =
@@ -601,6 +616,8 @@ object PresburgerTools {
       List(ModuloArithmetic, GroebnerMultiplication)
     val functionalPreds =
       (for (t <- theories; p <- t.functionalPredicates) yield p).toSet
+    val predicateMatchConfig =
+      (for (t <- theories; p <- t.predicateMatchConfig) yield p).toMap
 
     val reducerSettings = {
       var rs = ReducerSettings.DEFAULT
@@ -624,6 +641,7 @@ object PresburgerTools {
       gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
            (for (t <- theories.iterator;
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
+      gs = Param.PREDICATE_MATCH_CONFIG.set(gs, predicateMatchConfig)
       gs
     }
 

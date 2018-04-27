@@ -66,6 +66,10 @@ object ComputationLogger {
     def unifyPredicates(leftAtom : Atom, rightAtom : Atom,
                         result : EquationConj, order : TermOrder) : Unit = {}
 
+    def unifyFunctionApps(leftApp : Atom, rightApp : Atom,
+                          resultEq : LinearCombination,
+                          order : TermOrder) : Unit = {}
+
     def otherComputation(assumptions : Seq[Formula],
                          result : Formula,
                          order : TermOrder,
@@ -190,6 +194,14 @@ trait ComputationLogger {
    */
   def unifyPredicates(leftAtom : Atom, rightAtom : Atom,
                       result : EquationConj, order : TermOrder) : Unit
+
+  /**
+   * Apply the functional consistency axiom to derive that the results of
+   * two function applications (encoded as predicate atoms) must be the same.
+   */
+  def unifyFunctionApps(leftApp : Atom, rightApp : Atom,
+                        resultEq : LinearCombination,
+                        order : TermOrder) : Unit
 
   /**
    * Some other computation, that might in particular be performed by

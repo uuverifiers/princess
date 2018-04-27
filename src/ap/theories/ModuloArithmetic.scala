@@ -602,7 +602,9 @@ object ModuloArithmetic extends Theory {
   val predicates = otherPreds ++ functionalPredSeq
   val totalityAxioms = Conjunction.TRUE
 
-  val predicateMatchConfig: ap.Signature.PredicateMatchConfig = Map()
+  val predicateMatchConfig: Signature.PredicateMatchConfig =
+    (for (p <- predicates)
+     yield (p -> Signature.PredicateMatchStatus.None)).toMap
   val triggerRelevantFunctions: Set[ap.parser.IFunction] = Set()
 
   override val singleInstantiationPredicates = predicates.toSet

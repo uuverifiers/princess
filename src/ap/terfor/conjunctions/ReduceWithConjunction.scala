@@ -596,7 +596,7 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     if (conj.isTrue) {
       Left(conj, this)
     } else {
-      val (redConj, newEqs) = predReducer(acReducer(conj, logger))
+      val (redConj, newEqs) = predReducer(acReducer(conj, logger), logger)
       if (redConj.isFalse) throw FALSE_EXCEPTION
       if (newEqs.isTrue)
         Left(redConj, this replacePred (predReducer addLits redConj))
@@ -628,8 +628,9 @@ println("-> " + ReduceWithConjunction.reduceConj(res, this))
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithConjunction.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
+    val logger = ComputationLogger.NonLogger
     val (redConj, newEqs) =
-      predReducer(acReducer(conj, ComputationLogger.NonLogger))
+      predReducer(acReducer(conj, logger), logger)
     if (redConj.isFalse) throw FALSE_EXCEPTION
     (redConj, newEqs)
   }

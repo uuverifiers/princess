@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -58,12 +58,12 @@ case object FactsNormalisationTask extends EagerTask {
 
     val oriReducerSettings = goal.reducerSettings
     val reducerSettings =
-      if (collector.isLogging)
-        Param.FUNCTIONAL_PREDICATES.set(oriReducerSettings, Set())
-      else
-        // TODO: can we also generate proofs for predicate functionality?
+      if (!collector.isLogging ||
+          Param.USE_FUNCTIONAL_CONSISTENCY_THEORY(goal.settings))
         oriReducerSettings
-    
+      else
+        Param.FUNCTIONAL_PREDICATES.set(oriReducerSettings, Set())
+
     ////////////////////////////////////////////////////////////////////////////
     // normalise facts
 

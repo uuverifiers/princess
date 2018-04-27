@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -130,8 +130,9 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
    * is able to apply the functionality axiom to replace predicate literals
    * with equations.
    */
-  def apply(conj : PredConj) : (PredConj, ArithConj) = {
-    val res = applyHelp(conj)
+  def apply(conj : PredConj,
+            logger : ComputationLogger) : (PredConj, ArithConj) = {
+    val res = applyHelp(conj, logger)
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(ReduceWithPredLits.AC,
@@ -140,17 +141,26 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
     res
   }
 
-  private def applyHelp(conj : PredConj) : (PredConj, ArithConj) = {
+  /**
+   * Reduce a conjunction of predicate literals using known predicate
+   * literals. This function knows about functional predicates, and
+   * is able to apply the functionality axiom to replace predicate literals
+   * with equations.
+   */
+  def apply(conj : PredConj) : (PredConj, ArithConj) =
+    apply(conj, ComputationLogger.NonLogger)
+
+  private def applyHelp(conj : PredConj,
+                        logger : ComputationLogger) : (PredConj, ArithConj) = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithPredLits.AC, conj isSortedBy order)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    
+
     if (!reductionPossible(conj))
       return (conj, ArithConj.TRUE)
     
     val newPosLits = new ArrayBuffer[Atom]
-    val newNegLits = ArrayBuilder.make[Atom]
-    val posEqs, negEqs = ArrayBuilder.make[LinearCombination]
+    val posEqs = new ArrayBuffer[LinearCombination]
     
     implicit val o = order
     
@@ -162,11 +172,15 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
         // contract consecutive literals representing the same function
         // application
 //        println("found consec: " + a)
-        posEqs += (a.last - newPosLits.last.last)
+        val resultDiff = a.last - newPosLits.last.last
+        logger.unifyFunctionApps(a, newPosLits.last, resultDiff, order)
+        posEqs += resultDiff
       } else
         newPosLits += a
     
-    for (a <- conj.positiveLits)
+    val posIt = conj.positiveLits.iterator
+    while (posIt.hasNext) {
+      val a = posIt.next
       if (allPreds contains a.pred) reduce(a, facts, false) match {
         case UnchangedResult =>
           addNewPosLit(a)
@@ -185,47 +199,61 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
       } else {
         addNewPosLit(a)
       }
-    
-    // for the negative literals, also functions within the positive
-    // literals can be taken into account
-    val (allFacts, allAllPreds) =
-      if (!functions.isEmpty &&
-          !newPosLits.isEmpty && !conj.negativeLits.isEmpty) {
-        val conjWithPosLits = PredConj(newPosLits, List(), o)
-        (LitFacts(conjWithPosLits) :: facts,
-         UnionSet(allPreds, conjWithPosLits.predicates))
-      } else {
-        (facts, allPreds)
-      }
+    }
 
-    for (a <- conj.negativeLits)
-      if (allAllPreds contains a.pred) reduce(a, allFacts, false) match {
-        case UnchangedResult =>
-          newNegLits += a
-        case TrueResult =>
-          // found a contradiction
-          return (PredConj.FALSE(conj), ArithConj.TRUE)
-        case FalseResult =>
-          // nothing
-        case FunctionValueResult(v) => {
-          val eq = a.last - LinearCombination(v, order)
-          if (eq.isZero)
-            // found a contradiction
-            return (PredConj.FALSE(conj), ArithConj.TRUE)
-          negEqs += eq
-        }
+    val (newNegLits, negEqs) =
+      if (logger.isLogging) {
+        (conj.negativeLits, List())
       } else {
-        newNegLits += a
+        val newNegLits = new ArrayBuffer[Atom]
+        val negEqs = new ArrayBuffer[LinearCombination]
+
+        // for the negative literals, also functions within the positive
+        // literals can be taken into account
+        val (allFacts, allAllPreds) =
+          if (!functions.isEmpty &&
+              !newPosLits.isEmpty && !conj.negativeLits.isEmpty) {
+            val conjWithPosLits = PredConj(newPosLits, List(), o)
+            (LitFacts(conjWithPosLits) :: facts,
+             UnionSet(allPreds, conjWithPosLits.predicates))
+          } else {
+            (facts, allPreds)
+          }
+
+        val negIt = conj.negativeLits.iterator
+        while (negIt.hasNext) {
+          val a = negIt.next
+          if (allAllPreds contains a.pred) reduce(a, allFacts, false) match {
+            case UnchangedResult =>
+              newNegLits += a
+            case TrueResult =>
+              // found a contradiction
+              return (PredConj.FALSE(conj), ArithConj.TRUE)
+            case FalseResult =>
+              // nothing
+            case FunctionValueResult(v) => {
+              val eq = a.last - LinearCombination(v, order)
+              if (eq.isZero)
+                // found a contradiction
+                return (PredConj.FALSE(conj), ArithConj.TRUE)
+              negEqs += eq
+            }
+          } else {
+            newNegLits += a
+          }
+        }
+
+        (newNegLits, negEqs)
       }
     
-    val ac = ArithConj(EquationConj(posEqs.result, order),
-                       NegEquationConj(negEqs.result, order),
+    val ac = ArithConj(EquationConj(posEqs.iterator, logger, order),
+                       NegEquationConj(negEqs, order),
                        InEqConj.TRUE, order)
 
     if (ac.isFalse)
       (PredConj.FALSE(conj), ArithConj.TRUE)
     else
-      (conj.updateLitsSubset(newPosLits.result, newNegLits.result, order), ac)
+      (conj.updateLitsSubset(newPosLits.result, newNegLits, order), ac)
   }
 
   /**

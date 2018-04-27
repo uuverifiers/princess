@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -230,6 +230,15 @@ object Param {
   case object FUNCTIONAL_PREDICATES extends Param {
     type Value = Set[ap.terfor.preds.Predicate]
     val defau : Set[ap.terfor.preds.Predicate] = Set()
+  }
+
+  /**
+   * Use the <code>FunctionalConsistency</code> dummy theory
+   * to represent applications of functionality in proofs.
+   */
+  case object USE_FUNCTIONAL_CONSISTENCY_THEORY extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
   }
 
   case object SINGLE_INSTANTIATION_PREDICATES extends Param {
