@@ -2081,7 +2081,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          val types = (transArgs map (_._2)).toSet
          if (types.size > 1)
            throw new Parser2InputAbsy.TranslationException(
-             "Can only compare terms of same type using =")
+             "= cannot be applied to " +
+             ((args map (printer print _)) mkString " and "))
          connect(for (Seq(a, b) <- (transArgs map (asTerm(_))) sliding 2)
                    yield translateEq(a, b, types.iterator.next, polarity),
                  IBinJunctor.And)
@@ -2099,7 +2100,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          val types = (transArgs map (_._2)).toSet
          if (types.size > 1)
            throw new Parser2InputAbsy.TranslationException(
-             "Can only compare terms of same type using distinct")
+             "distinct cannot be applied to " +
+             ((args map (printer print _)) mkString " and "))
          distinct(for (p <- transArgs.iterator) yield asTerm(p))
        }, SMTBool)
     }
@@ -2242,15 +2244,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       translateBVUnaryOp("bvneg", ModuloArithmetic.bv_neg, args)
 
     case PlainSymbol("bvand") =>
-      translateBVBinOp("bvand",  ModuloArithmetic.bv_and, args)
+      translateBVNAryOp("bvand",  ModuloArithmetic.bv_and, args)
     case PlainSymbol("bvor") =>
-      translateBVBinOp("bvor",   ModuloArithmetic.bv_or, args)
+      translateBVNAryOp("bvor",   ModuloArithmetic.bv_or, args)
     case PlainSymbol("bvadd") =>
-      translateBVBinOp("bvadd",  ModuloArithmetic.bv_add, args)
+      translateBVNAryOp("bvadd",  ModuloArithmetic.bv_add, args)
     case PlainSymbol("bvsub") =>
       translateBVBinOp("bvsub",  ModuloArithmetic.bv_sub, args)
     case PlainSymbol("bvmul") =>
-      translateBVBinOp("bvmul",  ModuloArithmetic.bv_mul, args)
+      translateBVNAryOp("bvmul",  ModuloArithmetic.bv_mul, args)
     case PlainSymbol("bvudiv") =>
       translateBVBinOp("bvudiv", ModuloArithmetic.bv_udiv, args)
     case PlainSymbol("bvsdiv") =>
@@ -2489,6 +2491,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     (f(i(bits), asTerm(a0), asTerm(a1)), type0.asInstanceOf[SMTBitVec])
   }
 
+  private def translateBVNAryOp(name : String, f : IFunction, args : Seq[Term])
+                              : (ITerm, SMTBitVec) = {
+    val flatArgs = flatten(name, args)
+    val transArgs = for (a <- flatArgs) yield translateTerm(a, 0)
+    val bits = checkArgBVAgreement(name, flatArgs, transArgs.unzip._2)
+    ((transArgs.iterator map (asTerm(_))) reduceLeft {
+       (s, t) => f(i(bits), s, t)
+     },
+     SMTBitVec(bits))
+  }
+
   private def translateBVBinPred(name : String, p : Predicate, args : Seq[Term])
                                 : (IExpression, SMTType) = {
     checkArgNum(name, 2, args)
@@ -2527,6 +2540,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         throw new Parser2InputAbsy.TranslationException(
           name + " cannot be applied to " +
           (printer print arg0) + " and " + (printer print arg1)
+        )
+    }
+
+  private def checkArgBVAgreement(name : String,
+                                  args : Seq[Term],
+                                  types : Seq[SMTType]) : Int =
+    types.distinct match {
+      case Seq(SMTBitVec(w)) =>
+        w
+      case _ =>
+        throw new Parser2InputAbsy.TranslationException(
+          name + " cannot be applied to " +
+          ((args map (printer print _)) mkString " ")
         )
     }
 
