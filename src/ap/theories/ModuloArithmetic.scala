@@ -1575,14 +1575,14 @@ object ModuloArithmetic extends Theory {
         val resActions1 =
           if (actions1 exists (_.isInstanceOf[Plugin.AxiomSplit]))
             // delayed splitting through a separate task
-            List(Plugin.ScheduleTask(ModCastSplitter, 0))
+            List(Plugin.ScheduleTask(ModCastSplitter, 30))
           else
             actions1
 
         val resActions2 =
           if (actions2 exists (_.isInstanceOf[Plugin.AxiomSplit]))
             // delayed splitting through a separate task
-            List(Plugin.ScheduleTask(ShiftCastSplitter, 0))
+            List(Plugin.ScheduleTask(ShiftCastSplitter, 20))
           else
             actions2
 

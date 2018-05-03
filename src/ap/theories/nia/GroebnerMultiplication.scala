@@ -545,7 +545,7 @@ println(unprocessed)
           // Split directly!
           removeFactsActions ::: (Splitter handleGoal goal).toList
         case _ =>
-          val scheduleAction = Plugin.ScheduleTask(Splitter, 0)
+          val scheduleAction = Plugin.ScheduleTask(Splitter, 10)
           removeFactsActions ::: List(scheduleAction)
       }
 
