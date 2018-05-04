@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,8 +26,9 @@ import ap.parameters.Param
 import ap.proof.Vocabulary
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
-import ap.util.Debug
+import ap.terfor.inequalities.InEqConj
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
+import ap.util.{Debug, Seqs}
 
 object ExQuantifierTask {
 
@@ -59,55 +60,46 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
     val newVocabulary =
       Vocabulary(newOrder, newBindingContext, goal.constantFreedom)
 
-    val subtree =
-      if (!(formula.predicates subsetOf
-              Param.SINGLE_INSTANTIATION_PREDICATES(goal.settings))) {
-        // can some of the Presburger conditions be extracted and added as
-        // constraints to the proof tree?
+    val singleInstantiation =
+      formula.predicates subsetOf
+        Param.SINGLE_INSTANTIATION_PREDICATES(goal.settings)
 
-/*        val (withoutPredsIt, withPredsIt) =
-          instantiatedConj.iterator partition (_.predicates.isEmpty)
-        val withPredsList = withPredsIt.toList
-        val withoutPreds = Conjunction.conj(withoutPredsIt, newOrder)
+    val subtree = {
+      implicit val _ = newOrder
+      val ineqs = instantiatedConj.arithConj.inEqs
 
-        if (!withoutPreds.isTrue &&
-            withPredsList.size == 1 &&
-            PresburgerTools.isValid(
-              Conjunction.quantify(Quantifier.EX, constants, withoutPreds, newOrder))) {
-          val withPreds = Conjunction.conj(withPredsList, newOrder)
-        
-          val instantiatedConjTask =
-            Goal.formulaTasks(withPreds, goal.age,
-                              Set.empty, newVocabulary, goal.settings) ++
-            Goal.formulaTasks(withoutPreds.negate, goal.age,
-                              Set.empty, newVocabulary, goal.settings)
+      // extract bounds on the quantified variables, which are handled
+      // using constraints in the proof tree
+      val (varBounds, remainingConj) =
+        if (Seqs.disjointSeq(ineqs.constants, constants) ||
+            !Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS(goal.settings)) {
+          (InEqConj.TRUE, instantiatedConj)
+        } else {
+          val constantSet =
+            constants.toSet
+          val (lc1, lc2) =
+            ineqs partition { lc => lc.constants.size == 1 &&
+                                    (lc.constants subsetOf constantSet) }
+          (ineqs updateGeqZeroSubset lc1,
+           instantiatedConj.updateInEqs(ineqs updateGeqZeroSubset lc2))
+        }
 
-          ptf.strengthen(
-            ptf.updateGoal(Set.empty.asInstanceOf[Set[ConstantTerm]],
-                           newVocabulary,
-                           instantiatedConjTask ++ goal.formulaTasks(formula),
-                           goal),
-            withoutPreds, newVocabulary)
-        } else { */
-          val instantiatedConjTask =
-            Goal.formulaTasks(instantiatedConj, goal.age,
-                              Set.empty, newVocabulary, goal.settings)
-          ptf.updateGoal(Set.empty.asInstanceOf[Set[ConstantTerm]],
-                         newVocabulary,
-                         instantiatedConjTask ++ goal.formulaTasks(formula),
-                         goal)
-//        }
+      val instantiatedConjTasks =
+        Goal.formulaTasks(remainingConj, goal.age,
+                          Set.empty, newVocabulary, goal.settings) ++
+        Goal.formulaTasks(Conjunction.negate(varBounds, newOrder), goal.age,
+                          Set.empty, newVocabulary, goal.settings) ++
+        (if (singleInstantiation) List() else goal.formulaTasks(formula))
 
-      } else {
-
-        val instantiatedConjTask =
-            Goal.formulaTasks(instantiatedConj, goal.age,
-                              Set.empty, newVocabulary, goal.settings)
+      val newGoal =
         ptf.updateGoal(Set.empty.asInstanceOf[Set[ConstantTerm]],
-                       newVocabulary,
-                       instantiatedConjTask,
-                       goal)
+                       newVocabulary, instantiatedConjTasks, goal)
 
+      if (varBounds.isTrue)
+        newGoal
+      else
+        ptf.strengthen(newGoal, Conjunction.conj(varBounds, newOrder),
+                       newVocabulary)
     }
 
     ptf.quantify(subtree, Quantifier.EX, constants, goal.vocabulary, newOrder)

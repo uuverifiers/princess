@@ -109,6 +109,13 @@ object Param {
     type Value = Boolean
     val defau : Boolean = false
   }
+
+  // Represent numeric side conditions (inequalities) in quantified formulas
+  // using the <code>StrengthenTree</code> constructor
+  case object STRENGTHEN_TREE_FOR_SIDE_CONDITIONS extends Param {
+    type Value = Boolean
+    val defau : Boolean = false
+  }
   
   case object MOST_GENERAL_CONSTRAINT extends Param {
     type Value = Boolean

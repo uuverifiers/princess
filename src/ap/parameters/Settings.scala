@@ -91,6 +91,8 @@ object GlobalSettings {
                                          Param.ConstraintSimplifierOptions.Lemmas)
         case Opt("traceConstraintSimplifier", value) =>
           Param.TRACE_CONSTRAINT_SIMPLIFIER.set(settings, value)
+        case Opt("useStrengthenTree", value) =>
+          Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS.set(settings, value)
         case Opt("mostGeneralConstraint", value) =>
           Param.MOST_GENERAL_CONSTRAINT.set(settings, value)
         case Opt("dnfConstraints", value) =>
@@ -202,6 +204,7 @@ object GlobalSettings {
          Param.PRINT_SMT_FILE, Param.PRINT_TPTP_FILE,
          Param.PRINT_DOT_CERTIFICATE_FILE, Param.PRINT_CERTIFICATE,
          Param.SIMPLIFY_CONSTRAINTS, Param.TRACE_CONSTRAINT_SIMPLIFIER,
+         Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS,
          Param.MOST_GENERAL_CONSTRAINT, Param.DNF_CONSTRAINTS,
          Param.TIMEOUT, Param.TIMEOUT_PER,
          Param.POS_UNIT_RESOLUTION, Param.CLAUSIFIER,
@@ -231,6 +234,7 @@ object GoalSettings {
                        Param.SINGLE_INSTANTIATION_PREDICATES,
                        Param.FULL_SPLITTING, Param.APPLY_BLOCKED_TASKS,
                        Param.CONSTRAINT_SIMPLIFIER,
+                       Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS,
                        Param.PROOF_CONSTRUCTION, Param.MATCHING_BASE_PRIORITY,
                        Param.REVERSE_FUNCTIONALITY_PROPAGATION,
                        Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
