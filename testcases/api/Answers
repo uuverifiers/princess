@@ -533,11 +533,13 @@ Unsat
 Vector(((x + -1 * mod_cast(0, 1, 1)) = 0), ((-1 + y) >= 0))
 Test 8
 \exists int v0; (v0 >= 0 & 3 >= v0 & bv_mul(2, x, v0) = 1.\as[bv[2]])
-x = 3 | x = 1
+x = 1 | x >= 3
 Valid
 Test 9
 Unsat
 Vector(a >= 0 & (a.\as[int] + 130).\as[bv[8]] = b & (b.\as[int] - a.\as[int] >= 130 | a.\as[int] - b.\as[int] >= 126 | a >= 252), b >= 130, b >= c)
+Test 10
+!((b = 0 & a = 255) | (a = 255 & 244 >= b & b >= 1) | (a.\as[int] - b.\as[int] >= -1 & b >= 245))
 
 TreeInterpolation.scala
 Unsat

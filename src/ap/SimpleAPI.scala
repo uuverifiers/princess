@@ -2787,7 +2787,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (needExhaustiveProver)
-      asIFormula(currentConstraint)
+      asIFormula(TypeTheory filterTypeConstraints currentConstraint)
     else
       IBoolLit(true)
   }
@@ -2813,7 +2813,8 @@ class SimpleAPI private (enableAssert : Boolean,
                             ProverStatus.Valid) contains getStatusHelp(false))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
-    asIFormula(PresburgerTools.minimiseFormula(currentConstraint))
+    asIFormula(PresburgerTools.minimiseFormula(
+                 TypeTheory filterTypeConstraints currentConstraint))
   }
 
   /**

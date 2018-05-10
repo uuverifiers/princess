@@ -148,5 +148,16 @@
       println(expect(???, ProverStatus.Unsat))
       println(getInterpolants(List(Set(1), Set(2), Set(3), Set(4))) map (pp(_)))
     }
+
+    println("Test 10")
+    scope {
+      val width = 8
+
+      val a = createConstant("a", UnsignedBVSort(width))
+      val b = createConstant("b", UnsignedBVSort(width))
+      val c = createConstant("c", UnsignedBVSort(width))
+
+      println(pp(projectEx(a < bvadd(b, c) & c > bv(width, 10), Set(a, b))))
+    }
   }
 //}
