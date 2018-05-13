@@ -65,6 +65,9 @@ object ModuloArithmetic extends Theory {
   private def pow2(bits : IdealInt) : IdealInt =
     IdealInt(2) pow bits.intValueSafe
 
+  private def pow2Mod(bits : IdealInt, modulus : IdealInt) : IdealInt =
+    IdealInt(2).powMod(bits, modulus)
+
   private def pow2MinusOne(bits : Int) : IdealInt =
     pow2(bits) - IdealInt.ONE
 
@@ -1677,7 +1680,9 @@ object ModuloArithmetic extends Theory {
         val lBound =
           if (proofs)
             for ((b, assum) <- reducer lowerBoundWithAssumptions a(3)) yield {
-              addInEqAssumption(assum)
+              // only non-negative bounds matter at this point!
+              if (b.signum >= 0)
+                addInEqAssumption(assum)
               b
             }
           else
@@ -1701,7 +1706,7 @@ object ModuloArithmetic extends Theory {
           }
 
         (lBound, uBound) match {
-          case (_, Some(upper)) if upper.signum < 0 => {
+          case (_, Some(upper)) if upper.signum <= 0 => {
             simpleElims =
               Plugin.RemoveFacts(a) ::
               Plugin.AddAxiom(assumptions,
@@ -1727,7 +1732,7 @@ object ModuloArithmetic extends Theory {
           }
           case (Some(lower), Some(upper)) if simpleElims.isEmpty => {
             // need to do some splitting        
-            val cases = (upper - lower + 1).intValueSafe
+            val cases = (upper - (lower max IdealInt.ZERO) + 1).intValueSafe
             if (cases < bestSplitNum) {
               bestSplitNum = cases
               splitPred = Some((a, lower, upper, vanishing, assumptions))
@@ -2115,10 +2120,14 @@ object ModuloArithmetic extends Theory {
                                             ModuloArithmetic.this)
                     newA
                   } else if (a(3).isConstant) {
+                    val sort@ModSort(_, _) =
+                      (SortedPredicate argumentSorts a).last
                     val newA =
                       Atom(_mod_cast,
                            Array(a(0), a(1),
-                                 a(2) * pow2(a(3).constant max IdealInt.ZERO),
+                                 a(2) *
+                                   pow2Mod(a(3).constant max IdealInt.ZERO,
+                                           sort.modulus),
                                  a(4)),
                            order)
                     logger.otherComputation(List(a), newA, order,

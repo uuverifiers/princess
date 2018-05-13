@@ -722,11 +722,11 @@ final class IdealInt private (private val longStore : Long,
         }
       }
     
-      //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       Debug.assertPost(IdealInt.AC,
                        that * quot + rem == this &&
                        (rem isAbsMinMod that))
-      //-END-ASSERTION-///////////////////////////////////////////////////////////
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
       (quot, rem)
     }
   
@@ -783,6 +783,30 @@ final class IdealInt private (private val longStore : Long,
    * to the power of <tt>exp</tt>).
    */
   def pow (exp: Int): IdealInt = IdealInt(this.getBI pow exp)
+
+  /** Returns a <code>IdealInt</code> whose value is (<tt>this</tt> raised
+   * to the power of <tt>exp</tt>), modulo <tt>modulus</tt>.
+   */
+  def powMod (exp: IdealInt, modulus : IdealInt): IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, exp.signum >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    var res = IdealInt.ONE
+    var power = this
+    var remExp = exp
+    val two = IdealInt(2)
+
+    while (!remExp.isZero && !res.isZero) {
+      val (div, rem) = remExp /% two
+      if (!rem.isZero)
+        res = (res * power) % modulus
+      power = (power * power) % modulus
+      remExp = div
+    }
+
+    res
+  }
 
   /** Converts this <code>IdealInt</code> to an <tt>int</tt>. 
    *  If the <code>IdealInt</code> is too big to fit in a char, only the
