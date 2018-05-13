@@ -1730,8 +1730,9 @@ object ModuloArithmetic extends Theory {
                           ModuloArithmetic.this) ::
               simpleElims
           }
-          case (Some(lower), Some(upper)) if simpleElims.isEmpty => {
-            // need to do some splitting        
+          case (rawLower, Some(upper)) if simpleElims.isEmpty => {
+            // need to do some splitting
+            val lower = rawLower getOrElse IdealInt.MINUS_ONE
             val cases = (upper - (lower max IdealInt.ZERO) + 1).intValueSafe
             if (cases < bestSplitNum) {
               bestSplitNum = cases
