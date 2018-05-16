@@ -381,7 +381,9 @@ object CmdlMain {
             val timeBefore = System.currentTimeMillis
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
             
-            val prover = if (Param.MULTI_STRATEGY(settings)) {
+            val prover = if (Param.MULTI_STRATEGY(settings) ||
+                             Param.PROOF_CONSTRUCTION_GLOBAL(settings) ==
+                               Param.ProofConstructionOptions.Portfolio) {
               import ParallelFileProver._
 
               def prelPrinter(p : Prover) : Unit = {
@@ -390,18 +392,47 @@ object CmdlMain {
                 Console.err.println
               }
 
-              ParallelFileProver(reader,
-                                 Param.TIMEOUT(settings),
-                                 true,
-                                 userDefStoppingCond,
-                                 baseSettings,
-                                 cascStrategies2016,
-                                 1,
-                                 3,
-                                 Param.COMPUTE_UNSAT_CORE(settings) ||
-                                   Param.PRINT_CERTIFICATE(settings) ||
-                                   Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
-                                 prelPrinter _)
+              if (Param.MULTI_STRATEGY(settings)) {
+                ParallelFileProver(reader,
+                                   Param.TIMEOUT(settings),
+                                   true,
+                                   userDefStoppingCond,
+                                   baseSettings,
+                                   cascStrategies2016,
+                                   1,
+                                   3,
+                                   Param.COMPUTE_UNSAT_CORE(settings) ||
+                                     Param.PRINT_CERTIFICATE(settings) ||
+                                     Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
+                                   prelPrinter _)
+              } else {
+                val strategies =
+                  List(ParallelFileProver.Configuration(
+                         Param.PROOF_CONSTRUCTION_GLOBAL.set(
+                                baseSettings,
+                                Param.ProofConstructionOptions.Never),
+                         "-constructProofs=never",
+                         Long.MaxValue,
+                         10000),
+                       ParallelFileProver.Configuration(
+                         Param.PROOF_CONSTRUCTION_GLOBAL.set(
+                                baseSettings,
+                                Param.ProofConstructionOptions.Always),
+                         "-constructProofs=always",
+                         Long.MaxValue,
+                         10000))
+                ParallelFileProver(reader,
+                                   Param.TIMEOUT(settings),
+                                   true,
+                                   userDefStoppingCond,
+                                   strategies,
+                                   1,
+                                   2,
+                                   Param.COMPUTE_UNSAT_CORE(settings) ||
+                                     Param.PRINT_CERTIFICATE(settings) ||
+                                     Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
+                                   prelPrinter _)
+              }
             } else {
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -116,6 +116,9 @@ object GlobalSettings {
         case ValueOpt("constructProofs", "ifInterpolating") =>
           Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
                                               Param.ProofConstructionOptions.IfInterpolating)
+        case ValueOpt("constructProofs", "portfolio") =>
+          Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
+                                              Param.ProofConstructionOptions.Portfolio)
         case Opt("simplifyProofs", value) =>
           Param.PROOF_SIMPLIFICATION.set(settings, value)
         case Opt("unsatCore", value) =>

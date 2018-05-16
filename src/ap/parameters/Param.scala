@@ -310,7 +310,7 @@ object Param {
   // globally, we can also choose to construct proofs depending on whether
   // interpolation specs were given (the default)
   object ProofConstructionOptions extends Enumeration {
-    val Never, Always, IfInterpolating = Value
+    val Never, Always, IfInterpolating, Portfolio = Value
   }
   case object PROOF_CONSTRUCTION_GLOBAL extends Param {
     type Value = ProofConstructionOptions.Value

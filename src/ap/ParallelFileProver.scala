@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -74,6 +74,28 @@ object ParallelFileProver {
             timeout : Int,
             output : Boolean,
             userDefStoppingCond : => Boolean,
+            strategies : Seq[Configuration],
+            repetitions : Int,
+            maxParallelProvers : Int,
+            runUntilProof : Boolean,
+            prelResultPrinter : Prover => Unit) : ParallelFileProver =
+    new ParallelFileProver(createReader,
+                           timeout,
+                           output,
+                           userDefStoppingCond,
+                           strategies.iterator,
+                           maxParallelProvers,
+                           runUntilProof,
+                           prelResultPrinter)
+
+  /**
+   * Create a parallel prover with the given set of strategies
+   */
+  def apply(createReader : () => java.io.Reader,
+            // a timeout in milliseconds
+            timeout : Int,
+            output : Boolean,
+            userDefStoppingCond : => Boolean,
             baseSettings : GlobalSettings,
             rawStrategies : Seq[(String, Int, Int)],
             repetitions : Int,
@@ -109,7 +131,7 @@ object ParallelFileProver {
     
     new ParallelFileProver(createReader,
                            timeout,
-                           true,
+                           output,
                            userDefStoppingCond,
                            strategies,
                            maxParallelProvers,
