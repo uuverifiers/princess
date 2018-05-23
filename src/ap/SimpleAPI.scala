@@ -525,8 +525,7 @@ class SimpleAPI private (enableAssert : Boolean,
   }
 
   def shutDown : Unit = {
-    proverCmd put ShutdownCommand
-    stopProofTask = true
+    shutDownHelp
     doDumpSMT {
       println("(exit)")
     }
@@ -534,6 +533,23 @@ class SimpleAPI private (enableAssert : Boolean,
       closeAllScopes
       println("}} // withProver")
     }
+  }
+
+  private def shutDownHelp : Unit = {
+    stopProofTask = true
+
+    // make sure that no prover command is queued at the moment;
+    // repeatedly calling <code>shutDown</code> would otherwise
+    // hang
+
+    try {
+      if (proverCmd.isSet)
+        proverCmd take 0
+    } catch {
+      case _ : NoSuchElementException => // nothing
+    }
+
+    proverCmd put ShutdownCommand
   }
 
   doDumpScala {
@@ -3788,10 +3804,8 @@ class SimpleAPI private (enableAssert : Boolean,
       comp
     } finally {
       if (getStatusHelp(false) == ProverStatus.Running) {
-        // then something really bad happened, and we are in an inconsistent
-        // state
-        proverCmd put ShutdownCommand
-        stopProofTask = true
+        // then something bad happened, and we are in an inconsistent state
+        shutDownHelp
       } else {
         pop
       }
@@ -3814,10 +3828,8 @@ class SimpleAPI private (enableAssert : Boolean,
       comp
     } finally {
       if (getStatusHelp(false) == ProverStatus.Running) {
-        // then something really bad happened, and we are in an inconsistent
-        // state
-        proverCmd put ShutdownCommand
-        stopProofTask = true
+        // then something bad happened, and we are in an inconsistent state
+        shutDownHelp
       } else {
         pop
       }
