@@ -561,6 +561,39 @@ object PredicateSubstVisitor
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object UniformSubstVisitor {
+  def apply(t : IFormula, subst : CMap[Predicate, IFormula]) : IFormula = {
+    val visitor = new UniformSubstVisitor(subst)
+    visitor.visit(t.asInstanceOf[IExpression], ()).asInstanceOf[IFormula]
+  }
+}
+
+/**
+ * Uniform substitution of predicates: replace all occurrences of predicates
+ * with a formula; the replacement of an n-ary predicate can contain free variables
+ * <code>_0, _1, ..., _(n-1)</code> which are replaced with the predicate arguments.
+ */
+class UniformSubstVisitor(subst : CMap[Predicate, IFormula])
+      extends CollectingVisitor[Unit, IExpression] {
+
+  def postVisit(t : IExpression,
+                arg : Unit,
+                subres : Seq[IExpression]) : IExpression = t match {
+    case a@IAtom(p, _) => (subst get p) match {
+      case Some(replacement) =>
+        VariableSubstVisitor(
+          replacement,
+          ((for (e <- subres) yield e.asInstanceOf[ITerm]).toList, 0))
+      case None =>
+        a update subres
+    }
+    case _ =>
+      t update subres
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 /**
  * Substitute variables in an expression with arbitrary terms
  */
