@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -116,7 +116,7 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
       case ALL   => simplify(f, order)
       case EX    => negSimplify(f, order)
       case EMPTY =>
-        if (ground2DNF && f.size > 1)
+        if (ground2DNF && !isInDNF(f, false))
           negSimplify(f, order)
         else
           f
@@ -129,7 +129,17 @@ class SimpleSimplifier(lemmas : Boolean, ground2DNF : Boolean, output : Boolean)
         result sortBy order
     }
   }
-  
+
+  private def isInDNF(c : Conjunction, negated : Boolean) : Boolean =
+    if (negated)
+      c.negatedConjs forall (isInDNF(_, false))
+    else
+      c.negatedConjs match {
+        case Seq()  => true
+        case Seq(d) => isInDNF(d, true)
+        case _      => false
+      }
+
   private def simplify(f : Conjunction, order : TermOrder) : Conjunction =
     Timeout.unfinishedValue(None) {
       println("Simplify: " + f + " (positive)")
