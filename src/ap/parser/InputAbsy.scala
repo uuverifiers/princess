@@ -566,14 +566,14 @@ object IExpression {
     def unapply(f : IFormula) : Option[(ITerm, IdealInt)] = f match {
       case IIntFormula(IIntRelation.EqZero,
                        IPlus(ITimes(IdealInt.MINUS_ONE, a), IIntLit(c))) =>
-        Some((a, -c))
+        Some((a, c))
       case IIntFormula(IIntRelation.EqZero,
                        IPlus(IIntLit(c), ITimes(IdealInt.MINUS_ONE, a))) =>
-        Some((a, -c))
+        Some((a, c))
       case IIntFormula(IIntRelation.EqZero, IPlus(a, IIntLit(c))) =>
-        Some((a, c))
+        Some((a, -c))
       case IIntFormula(IIntRelation.EqZero, IPlus(IIntLit(c), a)) =>
-        Some((a, c))
+        Some((a, -c))
       case IIntFormula(IIntRelation.EqZero, t) =>
         Some((t, IdealInt.ZERO))
       case _ =>
