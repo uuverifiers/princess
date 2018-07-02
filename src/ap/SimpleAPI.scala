@@ -2422,7 +2422,7 @@ class SimpleAPI private (enableAssert : Boolean,
       println("(get-unsat-core)")
     }
     doDumpScala {
-      println("println(\"" + getScalaNum + ": \" + getUnsatCore")
+      println("println(\"" + getScalaNum + ": \" + getUnsatCore)")
     }
     if (currentCertificate == null) {
       warn("call setConstructProofs(true) for more precise unsatisfiable cores")
