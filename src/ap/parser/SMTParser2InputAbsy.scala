@@ -32,6 +32,7 @@ import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic}
+import ap.theories.strings.StringTheoryBuilder
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
@@ -71,6 +72,19 @@ object SMTParser2InputAbsy {
   case class SMTUnint(sort : TSort)                extends SMTType {
     def toSort = sort
     override def toString = sort.name
+  }
+
+  case class SMTString(sort : TSort)               extends SMTType {
+    def toSort = sort
+    override def toString = "String"
+  }
+  case class SMTChar(sort : TSort)                 extends SMTType {
+    def toSort = sort
+    override def toString = "Char"
+  }
+  case class SMTRegLan(sort : TSort)               extends SMTType {
+    def toSort = sort
+    override def toString = "RegLan"
   }
 
   case class SMTFunctionType(arguments : List[SMTType],
@@ -732,6 +746,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private var stringTheoryBuilder =
+    StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
+
+  stringTheoryBuilder setBitWidth 18
+
+  private def stringTheory =
+    stringTheoryBuilder.theory
+
+  private def charType =   SMTChar(stringTheory.CharSort)
+  private def stringType = SMTString(stringTheory.StringSort)
+  private def regexType =  SMTRegLan(stringTheory.RegexSort)
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private val assumptions = new ArrayBuffer[IFormula]
 
   private var functionDefs = Map[IFunction, (IExpression, SMTType)]()
@@ -807,6 +835,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     functionDefs         = Map()
     nextPartitionNumber  = 0
     partNameIndexes      = Map()
+    stringTheoryBuilder =
+      StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
+    stringTheoryBuilder setBitWidth 18
   }
 
   protected override def addAxiom(f : IFormula) : Unit =
@@ -1696,6 +1727,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
+      case PlainIdentifier("String") =>
+        stringType
+      case PlainIdentifier("RegLan") =>
+        regexType
+      case PlainIdentifier("Char") =>
+        charType
       case PlainIdentifier(id) =>
         env lookupSort id
       case id => {
@@ -2373,6 +2410,128 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // String operations
+
+    case IndexedSymbol("char", valStr) =>
+      (stringTheory int2Char IdealInt(valStr), charType)
+
+    case PlainSymbol("str.empty") =>
+      (translateStringFun(stringTheory.str_empty, args, List()), stringType)
+    case PlainSymbol("str.cons") =>
+      (translateStringFun(stringTheory.str_cons, args,
+                          List(charType, stringType)), stringType)
+
+    case PlainSymbol("str.head") =>
+      (translateStringFun(stringTheory.str_head, args,
+                          List(stringType)), charType)
+    case PlainSymbol("str.tail") =>
+      (translateStringFun(stringTheory.str_head, args,
+                          List(stringType)), stringType)
+
+    case PlainSymbol("str") =>
+      (translateStringFun(stringTheory.str, args,
+                          List(charType)), stringType)
+
+    case PlainSymbol("str.++") =>
+      (translateNAryStringFun(stringTheory.str_++, args,
+                              stringType), stringType)
+    case PlainSymbol("str.len") =>
+      (translateStringFun(stringTheory.str_len, args,
+                          List(stringType)), SMTInteger)
+
+    // str.<
+
+    case PlainSymbol("str.to-re" | "str.to.re") =>
+      (translateStringFun(stringTheory.str_to_re, args,
+                          List(stringType)), regexType)
+
+    case PlainSymbol("str.in-re" | "str.in.re") =>
+      translateStringPred(stringTheory.str_in_re, args,
+                          List(stringType, regexType))
+    case PlainSymbol("re.none") =>
+      (translateStringFun(stringTheory.re_none, args,
+                          List()), regexType)
+    case PlainSymbol("re.all") =>
+      (translateStringFun(stringTheory.re_all, args,
+                          List()), regexType)
+    case PlainSymbol("re.allchar") =>
+      (translateStringFun(stringTheory.re_allchar, args,
+                          List()), regexType)
+    case PlainSymbol("re.++") =>
+      (translateNAryStringFun(stringTheory.re_++, args,
+                              regexType), regexType)
+    case PlainSymbol("re.union") =>
+      (translateNAryStringFun(stringTheory.re_union, args,
+                              regexType), regexType)
+    case PlainSymbol("re.inter") =>
+      (translateNAryStringFun(stringTheory.re_inter, args,
+                              regexType), regexType)
+    
+    case PlainSymbol("re.*") =>
+      (translateStringFun(stringTheory.re_*, args,
+                          List(regexType)), regexType)
+
+    case PlainSymbol("str.<=") =>
+      translateStringPred(stringTheory.str_<=, args,
+                          List(stringType, stringType))
+    case PlainSymbol("str.at") =>
+      (translateStringFun(stringTheory.str_at, args,
+                          List(stringType, SMTInteger)), stringType)
+    case PlainSymbol("str.char") =>
+      (translateStringFun(stringTheory.str_char, args,
+                          List(stringType, SMTInteger)), charType)
+
+    case PlainSymbol("str.substr") =>
+      (translateStringFun(stringTheory.str_substr, args,
+                          List(stringType, SMTInteger, SMTInteger)), stringType)
+
+    case PlainSymbol("str.prefixof") =>
+      translateStringPred(stringTheory.str_prefixof, args,
+                          List(stringType, stringType))
+    case PlainSymbol("str.suffixof") =>
+      translateStringPred(stringTheory.str_suffixof, args,
+                          List(stringType, stringType))
+    case PlainSymbol("str.contains") =>
+      translateStringPred(stringTheory.str_contains, args,
+                          List(stringType, stringType))
+
+    case PlainSymbol("str.indexof") =>
+      (translateStringFun(stringTheory.str_indexof, args,
+                          List(stringType, stringType, SMTInteger)), SMTInteger)
+
+    case PlainSymbol("str.replace") =>
+      (translateStringFun(stringTheory.str_replace, args,
+                          List(stringType, stringType, stringType)), stringType)
+    case PlainSymbol("str.replaceall") =>
+      (translateStringFun(stringTheory.str_replaceall, args,
+                          List(stringType, stringType, stringType)), stringType)
+
+    case PlainSymbol("str.replaceallre") =>
+      (translateStringFun(stringTheory.str_replaceallre, args,
+                          List(stringType, regexType, stringType)), stringType)
+
+    case PlainSymbol("str.is-digit") =>
+      translateStringPred(stringTheory.char_is_digit, args, List(charType))
+
+    case PlainSymbol("re.+") =>
+      (translateStringFun(stringTheory.re_+, args,
+                          List(regexType)), regexType)
+    case PlainSymbol("re.opt") =>
+      (translateStringFun(stringTheory.re_opt, args,
+                          List(regexType)), regexType)
+
+    // re.range, re.^, re.loop
+
+    case PlainSymbol("char.code") =>
+      (stringTheory.char2Int(asTerm(translateTerm(args.head, 0))), SMTInteger)
+    case PlainSymbol("char.from-int") =>
+      (stringTheory.int2Char(asTerm(translateTerm(args.head, 0))), charType)
+
+    // char.code, char.from-int
+
+    // str.to-int, str.from-int
+
+    ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)
   }
@@ -2455,6 +2614,44 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         (e, t)
     }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateStringFun(f : IFunction,
+                                 args : Seq[Term],
+                                 argTypes : Seq[SMTType]) : IExpression = {
+    val transArgs = for (a <- args) yield translateTerm(a, 0)
+    if (argTypes != (transArgs map (_._2)))
+      throw new TranslationException(
+        f.name + " cannot be applied to arguments of type " +
+        (transArgs map (_._2) mkString ", "))
+    IFunApp(f, transArgs map (asTerm(_)))
+  }
+
+  private def translateNAryStringFun(f : IFunction,
+                                     args : Seq[Term],
+                                     argType : SMTType) : IExpression = {
+    val transArgs = for (a <- args) yield translateTerm(a, 0)
+    if (!(transArgs forall { case (_, t) => t == argType }))
+      throw new TranslationException(
+        f.name + " cannot be applied to arguments of type " +
+        (transArgs map (_._2) mkString ", "))
+    (transArgs.iterator map (asTerm(_))) reduceLeft {
+       (s, t) => f(s, t)
+     }
+  }
+
+  private def translateStringPred(p : Predicate,
+                                  args : Seq[Term],
+                                  argTypes : Seq[SMTType])
+                               : (IExpression, SMTType) = {
+    val transArgs = for (a <- args) yield translateTerm(a, 0)
+    if (argTypes != (transArgs map (_._2)))
+      throw new TranslationException(
+        p.name + " cannot be applied to arguments of type " +
+        (transArgs map (_._2) mkString ", "))
+    (IAtom(p, transArgs map (asTerm(_))), SMTBool)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def translateBVUnaryOp(name : String, f : IFunction, args : Seq[Term])
@@ -2687,6 +2884,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         addConstant(const, SMTInteger)
         (const, SMTInteger)
       }
+    }
+
+    case c : StringConstant => {
+      import IExpression._
+
+      val it =
+        SMTLineariser.deescapeIt(
+          c.smtstring_.substring(1, c.smtstring_.size - 1).iterator)
+
+      ((stringTheory.str_empty() /: it) {
+         case (s, c) => stringTheory.str_cons(stringTheory int2Char c, s)
+       }, stringType)
     }
   }
   

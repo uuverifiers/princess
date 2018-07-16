@@ -22,6 +22,7 @@
 package ap.parameters;
 
 import ap.theories.ADT.TermMeasure
+import ap.theories.strings.StringTheoryBuilder
 import ap.Signature.PredicateMatchConfig
 import ap.proof.tree.{RandomDataSource, NonRandomDataSource}
 import ap.terfor.conjunctions.{ReducerPluginFactory, IdentityReducerPlugin}
@@ -246,6 +247,11 @@ object Param {
   case object USE_FUNCTIONAL_CONSISTENCY_THEORY extends Param {
     type Value = Boolean
     val defau : Boolean = false
+  }
+
+  case object STRING_THEORY_DESC extends Param {
+    type Value = String
+    val defau : String = "ap.theories.strings.SeqStringTheory"
   }
 
   case object SINGLE_INSTANTIATION_PREDICATES extends Param {

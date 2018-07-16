@@ -22,6 +22,7 @@ all:
 		ap/interpolants/*.scala \
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
+		ap/theories/strings/*.scala \
 		ap/types/*.scala \
 		ap/*.scala
 
@@ -47,5 +48,6 @@ doc:
 		ap/interpolants/*.scala \
 		ap/theories/*.scala \
 		ap/theories/nia/*.scala \
+		ap/theories/strings/*.scala \
 		ap/types/*.scala \
 		ap/*.scala
