@@ -29,7 +29,12 @@ object TheoryBuilder {
       case ind => (desc take ind, desc drop (ind + 1))
     }
     
-    val cl = Class forName (className + "Builder")
+    val cl = try {
+      Class forName (className + "Builder")
+    } catch {
+      case _ : ClassNotFoundException =>
+        throw new Exception("Instantiation of theory " + className + " failed")
+    }
     val builder = cl.newInstance.asInstanceOf[TheoryBuilder]
 
     if (params != "")

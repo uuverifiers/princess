@@ -186,6 +186,8 @@ object GlobalSettings {
           Param.ADT_MEASURE.set(settings, ap.theories.ADT.TermMeasure.RelDepth)
         case ValueOpt("realRatSaturationRounds", IntVal(value)) =>
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
+        case ValueOpt("stringSolver", value) =>
+          Param.STRING_THEORY_DESC.set(settings, value)
         case ValueOpt("randomSeed", "off") =>
           Param.RANDOM_SEED.set(settings, None)
         case ValueOpt("randomSeed", IntVal(value)) =>

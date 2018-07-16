@@ -22,11 +22,13 @@
 package ap.theories.strings
 
 import ap.Signature
-import ap.parser.{IFunction, ITerm}
+import ap.parser._
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ADT, ModuloArithmetic, TheoryRegistry}
 import ap.types.Sort
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.{TermOrder, TerForConvenience}
+import ap.terfor.substitutions.VariableShiftSubst
 
 import scala.collection.mutable.{HashMap => MHashMap}
 
@@ -89,6 +91,66 @@ class SeqStringTheory private (val bitWidth : Int) extends {
   override val dependencies : Iterable[Theory] = List(seqADT, ModuloArithmetic)
 
   def plugin = None
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private val adtSize = seqADT.termSize.head
+  private val adtSizePred = seqADT.termSizePreds.head
+
+  /**
+   * Visitor called during pre-processing to eliminate symbols
+   * <code>str, str_len</code>
+   */
+  private object Preproc extends CollectingVisitor[Unit, IExpression] {
+    import IExpression._
+
+    def postVisit(t : IExpression,
+                  arg : Unit,
+                  subres : Seq[IExpression]) : IExpression = t match {
+      case IFunApp(`str`, _) =>
+        str_cons(subres.head.asInstanceOf[ITerm], str_empty())
+      case IFunApp(`str_len`, _) =>
+        adtSize(subres.head.asInstanceOf[ITerm])
+      case t =>
+        t update subres
+    }
+  }
+
+  override def iPreprocess(f : IFormula, signature : Signature)
+                          : (IFormula, Signature) =
+    (Preproc.visit(f, ()).asInstanceOf[IFormula], signature)
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private object StringPred {
+    val reverseMapping =
+      (for ((a, b) <- functionPredicateMapping.iterator) yield (b, a)).toMap
+    def unapply(p : Predicate) : Option[IFunction] = reverseMapping get p
+  }
+
+  override def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
+    implicit val _ = order
+    import TerForConvenience._
+
+//    println("init: " + f)
+
+    val after1 = Theory.rewritePreds(f, order) { (a, negated) =>
+      a.pred match {
+        case StringPred(`str_++`) if negated => {
+          val shiftedA = VariableShiftSubst(0, 2, order)(a)
+          exists(2, shiftedA &
+                    adtSizePred(List(shiftedA(0), l(v(0)))) &
+                    adtSizePred(List(shiftedA(1), l(v(1)))) &
+                    adtSizePred(List(shiftedA(2), v(0) + v(1) - 1)))
+        }
+        case _ =>
+          a
+      }
+    }
+
+//    println("after1: " + after1)
+    after1
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
