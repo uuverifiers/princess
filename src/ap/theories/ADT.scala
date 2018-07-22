@@ -864,13 +864,21 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Rewrite a formula prior to solving; e.g., add selector and tester
+   * constraints
+   */
+  def rewriteADTFormula(f : Conjunction, order : TermOrder) : Conjunction = {
+    implicit val _ = order
+    preprocessHelp(f, false, Set())
+  }
+
   override def preprocess(f : Conjunction,
                           order : TermOrder) : Conjunction = {
 //println
 //println("Preprocessing:")
 //println(f)
-    implicit val _ = order
-    val after = preprocessHelp(f, false, Set())
+    val after = rewriteADTFormula(f, order)
 //println(" -> " + after)
     val reducerSettings =
       Param.FUNCTIONAL_PREDICATES.set(ReducerSettings.DEFAULT,

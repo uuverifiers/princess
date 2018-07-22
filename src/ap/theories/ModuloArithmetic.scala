@@ -2003,6 +2003,7 @@ object ModuloArithmetic extends Theory {
   private def atomsContainVariables(atoms : Seq[Atom]) : Boolean =
     atoms exists { a => !a.variables.isEmpty }
 
+  // TODO: this is quite slow?
   private def extractModulos(atoms : Seq[Atom], order : TermOrder)
                             (t : Term) : Iterator[Atom] =
     for (a <- atoms.iterator;

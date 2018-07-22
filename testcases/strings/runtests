@@ -1,0 +1,10 @@
+#!/bin/sh
+
+PRI=../../princess
+
+TESTS="simple-cycle.smt2 \
+       simple-cycle2.smt2 \
+       concat-1.smt2 \
+       concat-2.smt2"
+
+$PRI "$@" $TESTS

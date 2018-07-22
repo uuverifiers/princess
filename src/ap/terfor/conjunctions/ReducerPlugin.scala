@@ -24,11 +24,13 @@ package ap.terfor.conjunctions;
 import ap.terfor._
 import ap.terfor.preds.{PredConj, Atom, Predicate}
 import ap.terfor.arithconj.ArithConj
-import ap.util.Seqs
+import ap.util.{Seqs, Debug}
 
 import scala.collection.mutable.{HashSet => MHashSet}
 
 object ReducerPlugin {
+
+  private val AC = Debug.AC_PROPAGATION
 
   sealed abstract class ReductionResult {
     def orElse(otherResult : => ReductionResult) : ReductionResult
@@ -127,6 +129,11 @@ object ReducerPlugin {
                                (Iterator single remainingPredConj),
                                logger,
                                order)
+                               
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertPre(AC, conj.quans.isEmpty)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        
         if (conj.isFalse)
           FalseResult
         else
