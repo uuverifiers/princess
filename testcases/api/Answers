@@ -26,10 +26,10 @@ Unsat
 
 -- Declaring functions
 Sat
-f(x) + f(z) = -1
+f(z) - f(x) = -1
 (f(x) === f(z)) = false
-Partial model: {c4 -> 20, c3 -> 10, c2 -> 9, c1 -> 100, c0 -> 115, f(20) -> -1, f(9) -> 0, p1 -> true, p0 -> true}
-In model: f(x) + f(z) = Some(-1)
+Partial model: {c4 -> 20, c3 -> 10, c2 -> 9, c1 -> 100, c0 -> 115, f(20) -> 22, f(9) -> 23, p1 -> true, p0 -> true}
+In model: f(z) - f(x) = Some(-1)
           f(17) = None
           (f(x) >= -5) = Some(true)
 Unsat
@@ -56,7 +56,7 @@ Valid
 -- Theory of arrays
 Sat
 select(a, 1) = 1
-select(a, 10) = 0
+select(a, 10) = 11
 Unsat
 Valid
 Unsat
@@ -243,7 +243,7 @@ Valid
 TheoryTest2.scala
 Unsat
 Inconclusive
-{c -> 0, b -> 0, a -> 0, mul(0, 0) -> 0}
+{c -> 0, b -> 2, a -> 1, mul(2, 1) -> 0, mul(1, 2) -> 0}
 Unsat
 Unsat
 
@@ -344,7 +344,7 @@ finished
 ADTTest.scala
 Vector(nil)
 Sat
-{nil -> 1, c2 -> 2, c1 -> 0, c0 -> 42, list_depth(2) -> 1, list_depth(1) -> -1, list_depth(0) -> 0, list_ctor(2) -> 1, list_ctor(1) -> 0, list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 42, head(0) -> 0, cons(42, 0) -> 2, cons(0, 1) -> 0}
+{nil -> 45, c2 -> 44, c1 -> 43, c0 -> 42, list_depth(46) -> 0, list_depth(45) -> -1, list_depth(44) -> 1, list_ctor(46) -> 1, list_ctor(45) -> 0, list_ctor(44) -> 1, tail(46) -> 45, tail(44) -> 46, head(46) -> 43, head(44) -> 42, cons(43, 45) -> 46, cons(42, 46) -> 44}
 Unsat
 Unsat
 Valid
@@ -374,7 +374,7 @@ ADTTest3.scala
 Vector(red, nil)
 Test 1
 Sat
-{nil -> 1, red -> 0, blue -> 1, green -> 2, c2 -> 2, c1 -> 2, c0 -> 0, colour_list_depth(2) -> 1, colour_list_depth(1) -> -1, colour_list_depth(0) -> 0, colour_list_ctor(2) -> 1, colour_list_ctor(1) -> 0, colour_list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 0, head(0) -> 2, cons(2, 1) -> 0, cons(0, 0) -> 2}
+{nil -> 4, red -> 0, blue -> 1, green -> 2, c2 -> 3, c1 -> 2, c0 -> 0, colour_list_depth(5) -> 0, colour_list_depth(4) -> -1, colour_list_depth(3) -> 1, colour_list_ctor(5) -> 1, colour_list_ctor(4) -> 0, colour_list_ctor(3) -> 1, tail(5) -> 4, tail(3) -> 5, head(5) -> 2, head(3) -> 0, cons(2, 4) -> 5, cons(0, 5) -> 3}
 Test 2
 Unsat
 Test 3
@@ -434,7 +434,7 @@ Invalid
 Vector(red, nil)
 Test 1
 Sat
-{nil -> 1, red -> 0, blue -> 1, green -> 2, c2 -> 2, c1 -> 2, c0 -> 0, colour_list_size(2) -> 5, colour_list_size(1) -> 1, colour_list_size(0) -> 3, colour_list_ctor(2) -> 1, colour_list_ctor(1) -> 0, colour_list_ctor(0) -> 1, tail(2) -> 0, tail(0) -> 1, head(2) -> 0, head(0) -> 2, cons(2, 1) -> 0, cons(0, 0) -> 2}
+{nil -> 8, red -> 0, blue -> 1, green -> 2, c2 -> 7, c1 -> 2, c0 -> 0, colour_list_size(9) -> 3, colour_list_size(8) -> 1, colour_list_size(7) -> 5, colour_list_ctor(9) -> 1, colour_list_ctor(8) -> 0, colour_list_ctor(7) -> 1, tail(9) -> 8, tail(7) -> 9, head(9) -> 2, head(7) -> 0, cons(2, 8) -> 9, cons(0, 9) -> 7}
 Test 2
 Unsat
 Test 3

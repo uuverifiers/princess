@@ -40,16 +40,16 @@ Constructing countermodel ...
 unknown
 (model
   (define-fun time () Int 2)
-  (define-fun q () Int 0)
+  (define-fun q () Int 2)
   (define-fun p () Int 1)
   (define-fun s3 ((x!0 Int)) Bool (ite (= x!0 1) false true))
-  (define-fun ro ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 0)) false true))
-  (define-fun rd ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 0) (= x!1 1)) false true))
+  (define-fun ro ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 2)) false true))
+  (define-fun rd ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 2) (= x!1 1)) false true))
   (define-fun s4 ((x!0 Int)) Bool (ite (= x!0 1) true true))
-  (define-fun sn ((x!0 Int)) Int (ite (= x!0 0) 0 (ite (= x!0 1) 1 0)))
-  (define-fun s6 ((x!0 Int)) Bool (ite (= x!0 0) true (ite (= x!0 1) false true)))
-  (define-fun rcs2 ((x!0 Int)) Bool (ite (= x!0 0) true true))
-  (define-fun x ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 0) (= x!1 1)) false (ite (and (= x!0 1) (= x!1 0)) false true)))
+  (define-fun sn ((x!0 Int)) Int (ite (= x!0 1) 1 (ite (= x!0 2) 0 0)))
+  (define-fun s6 ((x!0 Int)) Bool (ite (= x!0 1) false (ite (= x!0 2) true true)))
+  (define-fun rcs2 ((x!0 Int)) Bool (ite (= x!0 2) true true))
+  (define-fun x ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 2)) false (ite (and (= x!0 2) (= x!1 1)) false true)))
   (define-fun s5 ((x!0 Int)) Bool (ite (= x!0 1) false true))
 )
 
@@ -97,7 +97,7 @@ Constructing countermodel ...
 UNKNOWN
 
 Possible countermodel:
-not_orthogonal_lines(0, 0) & orthogonal_lines(0, 0) & convergent_lines(1, 1) & !not_orthogonal_lines(0, 1) & !unorthogonal_lines(0, 0) & !convergent_lines(0, 1)
+not_orthogonal_lines(3, 4) & orthogonal_lines(6, 7) & convergent_lines(1, 2) & !not_orthogonal_lines(4, 5) & !unorthogonal_lines(6, 7) & !convergent_lines(3, 5)
 
 Loading diamonds.10.2-no-interpolant.i.a.u.pri ...
 Preprocessing ...

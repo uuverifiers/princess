@@ -92,12 +92,11 @@ object SimpleAPITest extends App {
     val f = createFunction("f", 1)
     !! (f(x) === f(z) + 1)
     println(???) // Sat
-    
-    println("f(x) + f(z) = " + eval(f(x) + f(z)))       // f(x) + f(z) = -1
+    println("f(z) - f(x) = " + eval(f(z) - f(x)))       // f(z) - f(x) = -1
     println("(f(x) === f(z)) = " + eval(f(x) === f(z))) // (f(x) === f(z)) = false
 
     println("Partial model: " + partialModel)
-    println("In model: " + "f(x) + f(z) = " + partialModel.eval(f(x) + f(z))) // = Some(-1)
+    println("In model: " + "f(z) - f(x) = " + partialModel.eval(f(z) - f(x))) // = Some(-1)
     println("          " + "f(17) = " + partialModel.eval(f(17)))             // = None
     println("          " + "(f(x) >= -5) = " + partialModel.eval(f(x) >= -5)) // = Some(true)
     
@@ -170,7 +169,7 @@ object SimpleAPITest extends App {
     
     println(???) // Sat
     println("select(a, 1) = " + eval(select(a, 1)))   // select(a, 1) = 1
-    println("select(a, 10) = " + eval(select(a, 10))) // select(a, 10) = 0
+    println("select(a, 10) = " + eval(select(a, 10))) // select(a, 10) = ?
     
     scope {
       !! (a === store(b, 0, 1))
