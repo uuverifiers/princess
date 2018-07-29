@@ -23,7 +23,7 @@ package ap.proof;
 
 import ap._
 import ap.basetypes.IdealInt
-import ap.terfor.{Formula, TermOrder, ConstantTerm}
+import ap.terfor.{Formula, TermOrder, ConstantTerm, OneTerm}
 import ap.terfor.arithconj.{ArithConj, ModelElement}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction}
 import ap.terfor.linearcombination.LinearCombination
@@ -690,7 +690,9 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                            })
           //-END-ASSERTION-///////////////////////////////////////////////////////
           res.asInstanceOf[ModelResult].model
+
         } else if (goal.constantFreedom.isBottom) {
+
           // we have already found a model
         
           val order = goal.order
@@ -704,27 +706,70 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
           assembleModel(ModelElement.constructModel(witnesses, order,
                                                     Map(), initialPredModel),
                         predConj, constsToIgnore, order)
-        } else {
-          // We have to lower the constant freedom, to make sure that
-          // quantified formulae are fully taken into account when building
-          // the model.
-          
-          // TODO: this could probably be done much more efficiently
-          // TODO: the proof generation could be switched off from this point on
-        
-          val res = findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
-                              List(), witnesses, constsToIgnore, depth,
-                              settings, FullModelDirector,
-                              lemmaBase, lemmaBaseAssumedInferences)
 
-          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
-          // We should be able to derive a counterexample
-          Debug.assertPost(ModelSearchProver.AC, res match {
-                             case ModelResult(model) => !model.isFalse
-                             case _ => false
-                           })
-          //-END-ASSERTION-///////////////////////////////////////////////////////
-          res.asInstanceOf[ModelResult].model
+        } else {
+
+          // We know that a model exists, but we still need to assign
+          // values to leftover constants in the goal. We do this in such a
+          // way that all predicate argument terms get pairwise different
+          // values; in almost all cases (unless we have clauses applied
+          // using unit resolution that compare predicate arguments in some
+          // more complicated way) this should give us a model.
+
+          implicit val order = goal.order
+          val facts = goal.facts
+
+          val terms =
+            ((for (a <- facts.groundAtoms.iterator;
+                   l <- a.iterator)
+              yield l) ++
+             (for (lc <- facts.arithConj.negativeEqs.iterator;
+                   lc2 <- Iterator(
+                            LinearCombination(lc.view(0, 1), order),
+                            -LinearCombination(lc.view(1, lc.size), order)))
+              yield lc2)).toSet
+          val assignment =
+            PresburgerTools.distinctInterpretation(terms, order)
+
+          val assignmentFor =
+            EquationConj(
+              for ((c, v) <- assignment.iterator;
+                   if !(goal.constantFreedom isBottomWRT c))
+              yield LinearCombination(
+                      Array((IdealInt.ONE, c), (-v, OneTerm)), order), order)
+
+          findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
+                    List(Conjunction.negate(assignmentFor, order)),
+                    witnesses, constsToIgnore, depth,
+                    settings, FullModelDirector,
+                    null, 0) match {
+            case ModelResult(model) if !model.isFalse =>
+              model
+            case r => {
+              // That failed. We have to lower the constant freedom, to make
+              // sure that quantified formulae are fully taken into account
+              // when building the model.
+              
+              // TODO: this could probably be done much more efficiently
+              // TODO: the proof generation could be switched off from this
+              // point on
+        println("fallback: " + r)
+              val res =
+                findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
+                          List(), witnesses, constsToIgnore, depth,
+                          settings, FullModelDirector,
+                          lemmaBase, lemmaBaseAssumedInferences)
+
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              // We should be able to derive a counterexample
+              Debug.assertPost(ModelSearchProver.AC, res match {
+                                 case ModelResult(model) => !model.isFalse
+                                 case _ => false
+                               })
+              //-END-ASSERTION-/////////////////////////////////////////////////
+              res.asInstanceOf[ModelResult].model
+            }
+          }
         }
         
         searchDirector(model, true) match {

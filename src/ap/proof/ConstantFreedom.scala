@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -97,7 +97,10 @@ class ConstantFreedom private (private val constantStatus :
     }
 
   def isBottom : Boolean = constantStatus.isEmpty
-                            
+
+  def isBottomWRT(constant : ConstantTerm) : Boolean =
+    constantStatus(constant) == NonFree
+
   def isBottomWRT(constants : Set[ConstantTerm]) : Boolean =
     Seqs.disjointSeq(constants, constantStatus.keysIterator)
   
@@ -119,7 +122,10 @@ class ConstantFreedom private (private val constantStatus :
   def addTopStatus(consts : Iterable[ConstantTerm]) : ConstantFreedom =
     new ConstantFreedom(this.constantStatus ++
                         (for (c <- consts.iterator) yield (c -> ShieldingEquations)))
-  
+
+  /**
+   * Give the given constants bottom status.
+   */
   def --(consts : Iterable[ConstantTerm]) : ConstantFreedom =
     new ConstantFreedom(this.constantStatus -- consts)
   
