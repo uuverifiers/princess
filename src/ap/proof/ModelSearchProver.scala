@@ -716,30 +716,37 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
           // using unit resolution that compare predicate arguments in some
           // more complicated way) this should give us a model.
 
-          implicit val order = goal.order
           val facts = goal.facts
 
-          val terms =
-            ((for (a <- facts.groundAtoms.iterator;
-                   l <- a.iterator)
-              yield l) ++
-             (for (lc <- facts.arithConj.negativeEqs.iterator;
-                   lc2 <- Iterator(
-                            LinearCombination(lc.view(0, 1), order),
-                            -LinearCombination(lc.view(1, lc.size), order)))
-              yield lc2)).toSet
-          val assignment =
-            PresburgerTools.distinctInterpretation(terms, order)
-
           val assignmentFor =
-            EquationConj(
-              for ((c, v) <- assignment.iterator;
-                   if !(goal.constantFreedom isBottomWRT c))
-              yield LinearCombination(
-                      Array((IdealInt.ONE, c), (-v, OneTerm)), order), order)
+            if (goal.constantFreedom isBottomWRT facts.predConj.constants) {
+              List()
+            } else {
+              implicit val order = goal.order
+
+              val terms =
+                ((for (a <- facts.groundAtoms.iterator;
+                       l <- a.iterator)
+                  yield l) ++
+                 (for (lc <- facts.arithConj.negativeEqs.iterator;
+                       lc2 <- Iterator(
+                                LinearCombination(lc.view(0, 1), order),
+                                -LinearCombination(lc.view(1, lc.size), order)))
+                  yield lc2)).toSet
+              val assignment =
+                PresburgerTools.distinctInterpretation(terms, order)
+
+              List(
+                Conjunction.negate(EquationConj(
+                  for ((c, v) <- assignment.iterator;
+                       if !(goal.constantFreedom isBottomWRT c))
+                  yield LinearCombination(
+                          Array((IdealInt.ONE, c), (-v, OneTerm)), order),
+                  order), order))
+            }
 
           findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
-                    List(Conjunction.negate(assignmentFor, order)),
+                    assignmentFor,
                     witnesses, constsToIgnore, depth,
                     settings, FullModelDirector,
                     null, 0) match {
