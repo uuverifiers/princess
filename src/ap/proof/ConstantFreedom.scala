@@ -23,7 +23,8 @@ package ap.proof
 
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
-import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.linearcombination.{LinearCombination, LinearCombination0,
+                                    LinearCombination1}
 import ap.util.{Debug, Logic, FilterIt, Seqs}
 
 object ConstantFreedom {
@@ -174,12 +175,52 @@ class ConstantFreedom private (private val constantStatus :
    * (for arbitrary <code>phi</code>)
    */
   def diffIsShieldingLC(lc1 : LinearCombination, lc2 : LinearCombination,
-                        bc : BindingContext) : Boolean =  
-    lc1.variables.isEmpty && lc2.variables.isEmpty && {
-      val remainingConsts =
-        (lc1.constants ++ lc2.constants) filter ((c) => (lc1 get c) != (lc2 get c))
-      bc.containsMaximumConstantWith(remainingConsts, (constantStatus(_) != NonFree))
+                        bc : BindingContext) : Boolean = ap.util.Timer.measure("diffIsShieldingLC") {
+    (lc1, lc2) match {
+      case (lc1 : LinearCombination0, lc2 : LinearCombination0) =>
+        lc1.constant != lc2.constant
+      case (lc1 : LinearCombination0, lc2 : LinearCombination1) =>
+        lc2.term0 match {
+          case c : ConstantTerm =>
+            constantStatus(c) != NonFree
+          case _ =>
+            false
+        }
+      case (lc1 : LinearCombination1, lc2 : LinearCombination0) =>
+        lc1.term0 match {
+          case c : ConstantTerm =>
+            constantStatus(c) != NonFree
+          case _ =>
+            false
+        }
+      case (lc1 : LinearCombination1, lc2 : LinearCombination1) =>
+        (lc1.term0, lc2.term0) match {
+          case (c : ConstantTerm, d : ConstantTerm) =>
+            if (c == d) {
+              if (lc1.coeff0 == lc2.coeff0)
+                lc1.constant != lc2.constant
+              else
+                constantStatus(c) != NonFree
+            } else {
+              (bc.lteq(c, d) && constantStatus(d) != NonFree) ||
+              (bc.lteq(d, c) && constantStatus(c) != NonFree)
+            }
+          case _ =>
+            false
+        }
+      case _ =>
+        lc1.variables.isEmpty && lc2.variables.isEmpty && {
+          val remainingConsts =
+            (lc1.constants ++ lc2.constants) filter (
+              (c) => (lc1 get c) != (lc2 get c))
+          if (remainingConsts.isEmpty)
+            lc1.constant != lc2.constant
+          else
+            bc.containsMaximumConstantWith(
+              remainingConsts, (constantStatus(_) != NonFree))
+        }
     }
+  }
   
   private def isShieldingLC(lc : LinearCombination, bc : BindingContext) : Boolean =
     lc.variables.isEmpty &&

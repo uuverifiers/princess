@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -46,8 +46,7 @@ object IterativeClauseMatcher {
                              litFacts : PredConj,
                              additionalPosLits : Iterable[Atom],
                              additionalNegLits : Iterable[Atom],
-                             mayAlias : (LinearCombination,
-                                         LinearCombination) => AliasStatus.Value,
+                             mayAlias : AliasChecker,
                              contextReducer : ReduceWithConjunction,
                              allLitFacts : PredConj,
                              isNotRedundant : (Conjunction, GSet[ConstantTerm]) => Boolean,
@@ -101,22 +100,23 @@ object IterativeClauseMatcher {
         }
         
         case CheckMayAlias(litNrA, argNrA, litNrB, argNrB) :: progTail =>
-          mayAlias(selectedLits(litNrA)(argNrA), selectedLits(litNrB)(argNrB)) match {
+          mayAlias(selectedLits(litNrA)(argNrA),
+                   selectedLits(litNrB)(argNrB),
+                   allowConditionalInstances && !conditional) match {
             case AliasStatus.Must | AliasStatus.May =>
               exec(progTail, originatingConstants, conditional)
-            case AliasStatus.CannotDueToFreedom
-                if (allowConditionalInstances && !conditional) =>
+            case AliasStatus.CannotDueToFreedom =>
               exec(progTail, originatingConstants, true)
             case _ =>
               // nothing
           }
         
         case CheckMayAliasUnary(litNr, argNr, lc) :: progTail =>
-          mayAlias(selectedLits(litNr)(argNr), lc) match {
+          mayAlias(selectedLits(litNr)(argNr), lc,
+                   allowConditionalInstances && !conditional) match {
             case AliasStatus.Must | AliasStatus.May =>
               exec(progTail, originatingConstants, conditional)
-            case AliasStatus.CannotDueToFreedom
-                if (allowConditionalInstances && !conditional) =>
+            case AliasStatus.CannotDueToFreedom =>
               exec(progTail, originatingConstants, true)
             case _ =>
               // nothing
@@ -827,7 +827,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       IterativeClauseMatcher.constructMatcher(pred, negated, clauses, matchAxioms))
   
   def updateFacts(newFacts : PredConj,
-                  mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
+                  mayAlias : AliasChecker,
                   contextReducer : ReduceWithConjunction,
                   // predicate to distinguish the relevant matches
                   // (e.g., to filter out shielded formulae)
@@ -909,7 +909,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
 
   def addClauses(newFacts : PredConj,
                  addedClauses : Iterable[Conjunction],
-                 mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
+                 mayAlias : AliasChecker,
                  contextReducer : ReduceWithConjunction,
                  // predicate to distinguish the relevant matches
                  // (e.g., to filter out shielded formulae)

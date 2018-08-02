@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,6 +21,9 @@
 
 package ap.terfor
 
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.preds.{Predicate, Atom}
+
 /**
  * Enumeration to represent whether two terms cannot, may, or must have
  * the same value. The value <code>CannotDueToFreedom</code> expresses that
@@ -29,4 +32,30 @@ package ap.terfor
  */
 object AliasStatus extends Enumeration {
   val Cannot, CannotDueToFreedom, May, Must = Value
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Trait for classes providing term alias information.
+ */
+trait AliasChecker {
+
+  /**
+   * Check whether two terms have to be considered as potential
+   * aliases, i.e., may have the same value.
+   */
+  def apply(a : LinearCombination, b : LinearCombination,
+            includeCannotDueToFreedom : Boolean) : AliasStatus.Value
+
+  /**
+   * Find atoms within the sequence <code>atoms</code> that may
+   * alias with atoms with the given <code>arguments</code>
+   * as the first arguments.
+   */
+  def findMayAliases(atoms : Seq[Atom],
+                     arguments : Seq[LinearCombination],
+                     includeCannotDueToFreedom : Boolean)
+                   : Map[AliasStatus.Value, Seq[Atom]]
+
 }
