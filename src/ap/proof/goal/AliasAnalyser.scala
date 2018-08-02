@@ -73,11 +73,11 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
     } else {
       val res = checkAlias(a, b)
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPost(AC, res == (checkAliasFD(a, b) match {
-                                     case AliasStatus.CannotDueToFreedom =>
-                                       AliasStatus.Cannot
-                                     case s => s
-                                   }))
+//      Debug.assertPost(AC, res == (checkAliasFD(a, b) match {
+//                                     case AliasStatus.CannotDueToFreedom =>
+//                                       AliasStatus.Cannot
+//                                     case s => s
+//                                   }))
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       res
     }
@@ -90,7 +90,7 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
                          b : LinearCombination) : AliasStatus.Value =
     if (a == b) {
       AliasStatus.Must
-    } else /* cache(cacheKey(a, b)) */ {
+    } else cache(cacheKey(a, b)) {
       if (cf.diffIsShieldingLC(a, b, bc)) {
         AliasStatus.Cannot
       } else ap.util.Timer.measure("AliasAnalyser - reduction") {
