@@ -54,6 +54,7 @@ trait AliasChecker {
    * as the first arguments.
    */
   def findMayAliases(atoms : Seq[Atom],
+                     pred : Predicate,
                      arguments : Seq[LinearCombination],
                      includeCannotDueToFreedom : Boolean)
                    : Map[AliasStatus.Value, Seq[Atom]]

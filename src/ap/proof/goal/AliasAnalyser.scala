@@ -27,7 +27,7 @@ import ap.terfor.{TermOrder, AliasStatus, AliasChecker}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj, ReduceWithNegEqs}
 import ap.terfor.conjunctions.ReduceWithConjunction
-import ap.terfor.preds.Atom
+import ap.terfor.preds.{Atom, Predicate}
 import ap.util.{Debug, LRUCache, Seqs}
 
 object AliasAnalyser {
@@ -134,15 +134,18 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
    * as the first arguments.
    */
   def findMayAliases(atoms : Seq[Atom],
+                     pred : Predicate,
                      arguments : Seq[LinearCombination],
                      includeCannotDueToFreedom : Boolean)
                    : Map[AliasStatus.Value, Seq[Atom]] = {
+//                   println(atoms)
+
     val N = arguments.size
-    atoms groupBy { a =>
-      var res = AliasStatus.May
+    var res = atoms groupBy { a =>
+      var res = if (a.pred == pred) AliasStatus.May else AliasStatus.Cannot
       var n = 0
       
-      while (n < N && res != AliasStatus.Cannot)
+      while (n < N && res != AliasStatus.Cannot) {
         apply(a(n), arguments(n),
               includeCannotDueToFreedom &&
               res != AliasStatus.CannotDueToFreedom) match {
@@ -151,9 +154,13 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
           case s =>
             res = s
         }
+        n = n + 1
+      }
 
       res
     }
+//    println(res)
+    res
   }
 
 }

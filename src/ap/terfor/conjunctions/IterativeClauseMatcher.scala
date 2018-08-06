@@ -44,8 +44,8 @@ object IterativeClauseMatcher {
                              negatedStartLit : Boolean,
                              program : List[MatchStatement],
                              litFacts : PredConj,
-                             additionalPosLits : Iterable[Atom],
-                             additionalNegLits : Iterable[Atom],
+                             additionalPosLits : Seq[Atom],
+                             additionalNegLits : Seq[Atom],
                              mayAlias : AliasChecker,
                              contextReducer : ReduceWithConjunction,
                              allLitFacts : PredConj,
@@ -95,6 +95,43 @@ object IterativeClauseMatcher {
                    UnionSet(originatingConstants, a.constants),
                    conditional)
             }
+          
+          selectedLits reduceToSize selLitsNum
+        }
+        
+        case SelectMayAliasLiteral(pred, negative, arguments) :: progTail => {
+          val selLitsNum = selectedLits.size
+          selectedLits += null
+
+          val argumentLCs = for (a <- arguments) yield a match {
+            case Left(lc)              => lc
+            case Right((litNr, argNr)) => selectedLits(litNr)(argNr)
+          }
+
+          val oldAtoms =
+            if (negative) litFacts.negativeLits else litFacts.positiveLits
+          val additionalAtoms =
+            if (negative) additionalNegLits else additionalPosLits
+
+          val withCond = allowConditionalInstances && !conditional
+
+          for (atoms <- List(oldAtoms, additionalAtoms)) {
+            val aliasingAtoms =
+              mayAlias.findMayAliases(atoms, pred, argumentLCs, withCond)
+            for (a <- aliasingAtoms.getOrElse(AliasStatus.May, List())) {
+              selectedLits(selLitsNum) = a
+              exec(progTail,
+                   UnionSet(originatingConstants, a.constants),
+                   conditional)
+            }
+            for (a <- aliasingAtoms.getOrElse(AliasStatus.CannotDueToFreedom,
+                                              List())) {
+              selectedLits(selLitsNum) = a
+              exec(progTail,
+                   UnionSet(originatingConstants, a.constants),
+                   true)
+            }
+          }
           
           selectedLits reduceToSize selLitsNum
         }
@@ -278,7 +315,7 @@ object IterativeClauseMatcher {
     if (includeAxiomMatcher)
       matchers += constructAxiomMatcher(startPred, negStartLit)
     
-    combineMatchers(matchers)
+    optimiseMayAlias(combineMatchers(matchers), 1)
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -780,6 +817,60 @@ object IterativeClauseMatcher {
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Replace <code>SelectLiteral</code> with <code>SelectMayAliasLiteral</code>
+   * whenever possible.
+   */
+  private def optimiseMayAlias(prog : List[MatchStatement], litNr : Int)
+                             : List[MatchStatement] = prog match {
+    case (stmt@SelectLiteral(pred, negative)) :: rest => {
+      val aliasChecks = new ArrayBuffer[Either[LinearCombination, (Int, Int)]]
+      val newRest = collectMayAlias(rest, litNr, aliasChecks)
+      if (aliasChecks.isEmpty)
+        stmt :: optimiseMayAlias(rest, litNr + 1)
+      else
+        SelectMayAliasLiteral(pred, negative, aliasChecks) ::
+          optimiseMayAlias(newRest, litNr + 1)
+    }
+    case List(Choice(options)) =>
+      List(Choice(options map (optimiseMayAlias(_, litNr))))
+    case stmt :: rest =>
+      stmt :: optimiseMayAlias(rest, litNr)
+    case List() =>
+      List()
+  }
+
+  private def collectMayAlias(
+                prog : List[MatchStatement], litNr : Int,
+                result : ArrayBuffer[Either[LinearCombination, (Int, Int)]])
+              : List[MatchStatement] = prog match {
+    case CheckMayAlias(`litNr`, argNrA, litNrB, argNrB) :: rest
+      if argNrA == result.size && litNrB < litNr => {
+      result += Right((litNrB, argNrB))
+      collectMayAlias(rest, litNr, result)
+    }
+    case CheckMayAlias(litNrB, argNrB, `litNr`, argNrA) :: rest
+      if argNrA == result.size && litNrB < litNr => {
+      result += Right((litNrB, argNrB))
+      collectMayAlias(rest, litNr, result)
+    }
+    case CheckMayAliasUnary(`litNr`, argNrA, lc) :: rest
+      if argNrA == result.size => {
+      result += Left(lc)
+      collectMayAlias(rest, litNr, result)
+    }
+    case (stmt : CheckMayAlias) :: rest =>
+      stmt :: collectMayAlias(rest, litNr, result)
+    case (stmt : CheckMayAliasUnary) :: rest =>
+      stmt :: collectMayAlias(rest, litNr, result)
+    case prog =>
+      prog
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def empty(matchAxioms : Boolean, config : PredicateMatchConfig) =
     IterativeClauseMatcher (PredConj.TRUE, NegatedConjunctions.TRUE,
                             matchAxioms,
@@ -1063,6 +1154,11 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
 private abstract sealed class MatchStatement
 
 private case class SelectLiteral(pred : Predicate, negative : Boolean)
+                   extends MatchStatement
+
+private case class SelectMayAliasLiteral(
+                     pred : Predicate, negative : Boolean,
+                     arguments : Seq[Either[LinearCombination, (Int, Int)]])
                    extends MatchStatement
 
 private case class CheckMayAlias(litNrA : Int, argNrA : Int,

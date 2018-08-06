@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -186,6 +186,361 @@ object Seqs {
       }
     }
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Forward and backward binary search, searching for a point in a sequence
+  // at which a monotonic predicate becomes true
+
+  /**
+   * Find the first index <code>ind</code> in the range
+   * <code>[begin, end)</code> with <code>p(ar(ind))</code>;
+   * return <code>begin</code> if <code>p</code> is <code>true</code> on
+   * <code>[begin, end)</code>,
+   * and <code>end</code> if <code>p</code> is <code>false</code> on
+   * <code>[begin, end)</code>.
+   *
+   * <code>p</code> has to be monotonic on <code>ar</code>, i.e.,
+   * if <code>p(ar(ind))</code> then <code>p(ar(ind + 1))</code>.
+   */
+  def risingEdgeFull[A](ar : IndexedSeq[A], p : A => Boolean,
+                        begin : Int, end : Int) : Int = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                    0 <= begin && begin <= end && end <= ar.size &&
+                    (!(begin + 2 <= end) || !p(ar(begin)) || p(ar(end - 1))))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    
+    if (begin == end || p(ar(begin)))
+      begin
+    else
+      binSearchHelp(ar, p, begin, end)
+  }
+
+  /**
+   * Find the first index <code>ind</code> with <code>p(ar(ind))</code>;
+   * return <code>0</code> if <code>p</code> is <code>true</code> on
+   * the whole sequence, and <code>end</code> if <code>p</code> is
+   * <code>false</code> on the whole sequence.
+   *
+   * <code>p</code> has to be monotonic on <code>ar</code>, i.e.,
+   * if <code>p(ar(ind))</code> then <code>p(ar(ind + 1))</code>.
+   */
+  def risingEdge[A](ar : IndexedSeq[A], p : A => Boolean) : Int =
+    risingEdgeFull(ar, p, 0, ar.size)
+
+  /**
+   * Going forward, find the first index <code>ind</code> in the range
+   * <code>[start, end)</code> with <code>p(ar(ind))</code>;
+   * return <code>start</code> if <code>p</code> is <code>true</code> on
+   * <code>[start, end)</code>,
+   * and <code>end</code> if <code>p</code> is <code>false</code> on
+   * <code>[start, end)</code>.
+   *
+   * <code>p</code> has to be monotonic on <code>ar</code>, i.e.,
+   * if <code>p(ar(ind))</code> then <code>p(ar(ind + 1))</code>.
+   */
+  def risingEdgeFwdFull[A](ar : IndexedSeq[A], p : A => Boolean,
+                           start : Int, end : Int) : Int = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                    0 <= start && start <= end && end <= ar.size &&
+                    (!(start + 2 <= end) || !p(ar(start)) || p(ar(end - 1))))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    var left = start
+    var right = start
+    var step = 1
+
+    while (right < end && !p(ar(right))) {
+      left = right
+      right = (right + step) min end
+      step = step * 2
+    }
+
+    if (left == right)
+      right
+    else
+      binSearchHelp(ar, p, left, right)
+  }
+
+  /**
+   * Going forward, find the first index <code>ind</code> in the range
+   * <code>[start, ar.size)</code> with <code>p(ar(ind))</code>;
+   * return <code>start</code> if <code>p</code> is <code>true</code> on
+   * <code>[start, ar.size)</code>,
+   * and <code>ar.size</code> if <code>p</code> is <code>false</code> on
+   * <code>[start, ar.size)</code>.
+   *
+   * <code>p</code> has to be monotonic on <code>ar</code>, i.e.,
+   * if <code>p(ar(ind))</code> then <code>p(ar(ind + 1))</code>.
+   */
+  def risingEdgeFwd[A](ar : IndexedSeq[A], p : A => Boolean,
+                       start : Int) : Int =
+    risingEdgeFwdFull(ar, p, start, ar.size)
+
+  /**
+   * Going backward, find the first index <code>ind</code> in the range
+   * <code>[begin, start)</code> with <code>p(ar(ind))</code>;
+   * return <code>begin</code> if <code>p</code> is <code>true</code> on
+   * <code>[begin, start)</code>,
+   * and <code>start</code> if <code>p</code> is <code>false</code> on
+   * <code>[begin, start)</code>.
+   *
+   * <code>p</code> has to be monotonic on <code>ar</code>, i.e.,
+   * if <code>p(ar(ind))</code> then <code>p(ar(ind + 1))</code>.
+   */
+  def risingEdgeBwdFull[A](ar : IndexedSeq[A], p : A => Boolean,
+                           start : Int, begin : Int) : Int = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC,
+                   0 <= begin && begin <= start && start <= ar.size &&
+                   (!(begin + 2 <= start) || !p(ar(begin)) || p(ar(start - 1))))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    var left = start
+    var right = start
+    var step = 1
+
+    var cont = true
+  
+    while (cont && left > begin) {
+      right = left
+      left = (left - step) max begin
+      step = step * 2
+
+      cont = p(ar(left))
+    }
+
+    if (cont)
+      left
+    else
+      binSearchHelp(ar, p, left, right)
+  }
+
+  /**
+   * Going backward, find the first index <code>ind</code> in the range
+   * <code>[0, start)</code> with <code>p(ar(ind))</code>;
+   * return <code>0</code> if <code>p</code> is <code>true</code> on
+   * <code>[0, start)</code>,
+   * and <code>start</code> if <code>p</code> is <code>false</code> on
+   * <code>[0, start)</code>.
+   *
+   * <code>p</code> has to be monotonic on <code>ar</code>, i.e.,
+   * if <code>p(ar(ind))</code> then <code>p(ar(ind + 1))</code>.
+   */
+  def risingEdgeBwd[A](ar : IndexedSeq[A], p : A => Boolean,
+                       start : Int) : Int =
+    risingEdgeBwdFull(ar, p, start, 0)
+
+  private def binSearchHelp[A](ar : IndexedSeq[A], p : A => Boolean,
+                               _left : Int, _right : Int) : Int = {
+    var left = _left
+    var right = _right
+
+    while (left + 2 <= right) {
+      val mid = (left + right) / 2
+      if (p(ar(mid)))
+        right = mid
+      else
+        left = mid
+    }
+
+    right
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Verified C version of those functions.
+
+    int max(int a, int b) {
+      if (a < b)
+        return b;
+      else
+        return a;
+    }
+    
+    int min(int a, int b) {
+      if (a < b)
+        return a;
+      else
+        return b;
+    }
+    
+    int checkPos = -1;
+    
+    int nondet();
+    
+    int checkP(int pos, int arThre, int start, int end) {
+      assert(pos >= start && pos < end);
+    
+      // verify that we never evaluate the predicate twice for the same position
+      assert(checkPos != pos);
+      if (nondet())
+        checkPos = pos;
+      
+      return pos >= arThre;
+    }
+    
+    int binSearch(/* ar : IndexedSeq[A], p : A => Boolean */
+                  int arThre, int start, int end,
+                  int _left, int _right) {
+      assert(_left < arThre && _right >= min(arThre, end));
+    
+      int left = _left, right = _right;
+      
+      while (left + 2 <= right) {
+        assert(left < arThre && right >= min(arThre, end));
+    
+        int variant = right - left;
+        assert(variant >= 0);
+    
+        // int mid = (left + right) / 2;
+    
+        int mid;
+        assume(left < mid && mid < right);
+        
+        if (checkP(mid, arThre, start, end))
+          right = mid;
+        else
+          left = mid;
+    
+        assert(right - left < variant);
+      }
+    
+      assert(left + 1 == right);
+      assert(right == min(arThre, end));
+    
+      return right;
+    }
+    
+    /**
+     * Find the first element ind in [begin, end) with p(ar(ind)) = true;
+     * return begin if p is true on [begin, end), and end if p is false on
+     * [begin, end).
+     */
+    int risingEdge(/* ar : IndexedSeq[A], p : A => Boolean */
+                   int arThre, // index of first element with p(ar(ind)) = true
+                   int begin,
+                   int end) {
+      assert(begin <= end);
+    
+      if (begin == end || checkP(begin, arThre, begin, end))
+        return begin;
+    
+      return binSearch(arThre, begin, end, begin, end);
+    }
+    
+    /**
+     * Find the first element ind in [start, end) with p(ar(ind)) = true;
+     * return start if p is true on [start, end), and end if p is false on
+     * [start, end).
+     */
+    int risingEdgeFwd(/* ar : IndexedSeq[A], p : A => Boolean */
+                      int arThre, // index of first element with p(ar(ind)) = true
+                      int start,
+                      int end) {
+      assert(start <= end);
+    
+      int left = start, right = start;
+      int step = 1;
+    
+      while (right < end && !checkP(right, arThre, start, end)) {
+        int variant = end - right;
+        assert(variant >= 0);
+    
+        left = right;
+        right = min(right + step, end);
+        step = step * 2;
+        
+        assert(end - right < variant);
+      }
+    
+      assert(start <= left && left <= right && right <= end);
+    
+      if (left == right)
+        return right;
+    
+      return binSearch(arThre, start, end, left, right);
+    }
+    
+    /**
+     * Find the first element ind in [begin, start) with p(ar(ind)) = true;
+     * return begin if p is true on [begin, start), and start if p is false on
+     * [begin, start).
+     */
+    int risingEdgeBwd(/* ar : IndexedSeq[A], p : A => Boolean */
+                      int arThre, // index of first element with p(ar(ind)) = true
+                      int start,
+                      int begin) {
+      assert(begin <= start);
+    
+      int left = start, right = start;
+      int step = 1;
+    
+      int cont = 1;
+      
+      while (cont && left > begin) {
+        int variant = left - begin;
+        assert(variant >= 0);
+    
+        right = left;
+        left = max(left - step, begin);
+        step = step * 2;
+    
+        cont = checkP(left, arThre, begin, start);
+        
+        assert(left - begin < variant);
+      }
+    
+      assert(begin <= left && left <= right && right <= start);
+    
+      if (cont)
+        return left;
+    
+      return binSearch(arThre, begin, start, left, right);
+    }
+    
+    void main(void) {
+    
+      if (nondet()) {
+        
+      int arThre, begin, end;
+      assume(0 <= begin && begin <= end);
+    
+      int res = risingEdge(arThre, begin, end);
+      assert(begin <= res && res <= end);
+      assert(!(arThre >= end) || res == end);
+      assert(!(arThre <= begin) || res == begin);
+      assert(!(begin < arThre && arThre < end) || res == arThre);
+    
+      } else if (nondet()) {
+        
+      int arThre, start, end;
+      assume(0 <= start && start <= end);
+    
+      int res = risingEdgeFwd(arThre, start, end);
+      assert(start <= res && res <= end);
+      assert(!(arThre >= end) || res == end);
+      assert(!(arThre <= start) || res == start);
+      assert(!(start < arThre && arThre < end) || res == arThre);
+      
+      } else {
+    
+      int arThre, begin, start;
+      assume(0 <= begin && begin <= start);
+    
+      int res = risingEdgeBwd(arThre, start, begin);
+      assert(begin <= res && res <= start);
+      assert(!(arThre >= start) || res == start);
+      assert(!(arThre <= begin) || res == begin);
+      assert(!(begin < arThre && arThre < start) || res == arThre);
+        
+      }
+    
+    }
+
+   */
 
   //////////////////////////////////////////////////////////////////////////////
 
