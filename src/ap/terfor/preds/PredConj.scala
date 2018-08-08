@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -128,6 +128,23 @@ object PredConj {
    */
   def conj(conjs : Iterable[PredConj], order : TermOrder) : PredConj =
     conj(conjs.iterator, order)
+
+  /**
+   * Find all atoms in <code>atoms</code> with predicate <code>pred</code>,
+   * returning the interval <code>[left, right)</code> with such atoms. The
+   * list has to be sorted in descending order
+   * (<code>order.reverseAtomOrdering</code>).
+   */
+  def findAtomsWithPred(atoms : IndexedSeq[Atom],
+                        pred : Predicate,
+                        order : TermOrder) : (Int, Int) = {
+    val po = order.reversePredOrdering
+    val left = Seqs.risingEdge(atoms, (a:Atom) => po.gteq(a.pred, pred))
+    if (left == atoms.size || atoms(left).pred != pred)
+      (0, 0)
+    else
+      (left, Seqs.risingEdgeFwd(atoms, (a:Atom) => po.gt(a.pred, pred), left+1))
+  }
 
 }
 

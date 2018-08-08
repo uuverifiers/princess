@@ -23,12 +23,14 @@ package ap.proof.goal
 
 import ap.proof._
 import ap.basetypes.IdealInt
-import ap.terfor.{TermOrder, AliasStatus, AliasChecker}
+import ap.terfor.{TermOrder, AliasStatus, AliasChecker, ConstantTerm}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj, ReduceWithNegEqs}
 import ap.terfor.conjunctions.ReduceWithConjunction
-import ap.terfor.preds.{Atom, Predicate}
+import ap.terfor.preds.{Atom, Predicate, PredConj}
 import ap.util.{Debug, LRUCache, Seqs}
+
+import scala.collection.mutable.ArrayBuffer
 
 object AliasAnalyser {
   
@@ -67,7 +69,7 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
    * aliases, i.e., may have the same value.
    */
   def apply(a : LinearCombination, b : LinearCombination,
-            includeCannotDueToFreedom : Boolean) : AliasStatus.Value = ap.util.Timer.measure("AliasAnalyser") {
+            includeCannotDueToFreedom : Boolean) : AliasStatus.Value = {
     if (includeCannotDueToFreedom) {
       checkAliasFD(a, b)
     } else {
@@ -93,7 +95,7 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
     } else cache(cacheKey(a, b)) {
       if (cf.diffIsShieldingLC(a, b, bc)) {
         AliasStatus.Cannot
-      } else ap.util.Timer.measure("AliasAnalyser - reduction") {
+      } else {
         implicit val o = order
         val reduced = reducer(EquationConj(a - b, order))
         
@@ -128,6 +130,8 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
         AliasStatus.May
     }
 
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Find atoms within the sequence <code>atoms</code> that may
    * alias with atoms with the given <code>arguments</code>
@@ -138,10 +142,158 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
                      arguments : Seq[LinearCombination],
                      includeCannotDueToFreedom : Boolean)
                    : Map[AliasStatus.Value, Seq[Atom]] = {
-//                   println(atoms)
+    if (atoms.size <= 5 || includeCannotDueToFreedom)
+      findMayAliasesNaive(atoms, pred, arguments, includeCannotDueToFreedom)
+    else
+      findMayAliasesBin(atoms, pred, arguments, false)
+  }
+
+  /**
+   * Find atoms within the sequence <code>atoms</code> that may
+   * alias with atoms with the given <code>arguments</code>
+   * as the first arguments.
+   *
+   * Implementation using binary search.
+   */
+  private def findMayAliasesBin(_atoms : Seq[Atom],
+                                pred : Predicate,
+                                _arguments : Seq[LinearCombination],
+                                includeCannotDueToFreedom : Boolean)
+                              : Map[AliasStatus.Value, Seq[Atom]] = {
+//    println("--")
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(AC, !_arguments.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    import AliasStatus.{Must, May, Cannot}
+
+//println(_atoms)
+//println(_arguments)
+
+    val atoms = _atoms.toIndexedSeq
+    val arguments = _arguments.toIndexedSeq
+    val argumentSize = arguments.size
+    val arity = pred.arity
+    val lcOrdering = order.lcOrdering
+    val termOrdering = order.termOrdering
+
+    import lcOrdering.{lt => lcLT, lteq => lcLTeq}
+    import termOrdering.{lt => teLT}
+
+    val (predLeft, predRight) = PredConj.findAtomsWithPred(atoms, pred, order)
+
+    val mayResult = new ArrayBuffer[Atom]
+
+    def selectAtoms(left : Int, right : Int, aInd : Int) : Unit = {
+      if (left >= right) {
+        // nothing
+      } else if (aInd == argumentSize) {
+        for (ind <- left until right)
+          mayResult += atoms(ind)
+      } else if (left + 1 == right) {
+
+        val a = atoms(left)
+        var res = May
+        var n = aInd
+      
+        while (n < argumentSize && res != Cannot) {
+          apply(a(n), arguments(n), false) match {
+            case Must | May => // nothing
+            case s          => res = s
+          }
+          n = n + 1
+        }
+
+        if (res != Cannot)
+          mayResult += a
+        
+      } else {
+      
+        val argument = arguments(aInd)
+        if (argument.isConstant) {
+          // we search for an argument with constant value; consider
+          // atoms with either a matching constant argument, or with an
+          // aliasing symbolic term
+          
+          val constsStart =
+            one2oneSelection(left, right, aInd, argument, _.isConstant)
+          val constsLeft =
+            Seqs.risingEdgeFwdFull(atoms,
+                                   (a:Atom) => lcLTeq(a(aInd), argument),
+                                   constsStart, right)
+          val constsRight =
+            Seqs.risingEdgeFwdFull(atoms,
+                                   (a:Atom) => lcLT(a(aInd), argument),
+                                   constsLeft, right)
+
+//          println(" [" + constsLeft + ", " + constsRight + ")")
+          selectAtoms(constsLeft, constsRight, aInd + 1)
+          
+        } else {
+        
+          val lt = argument.leadingTerm.asInstanceOf[ConstantTerm]
+          if (cf.isBottomWRT(lt)) {
+            one2oneSelection(left, right, aInd, argument, (_) => false)
+          } else {
+            // we search for a term that starts with a shielding constant;
+            // we can therefore ignore terms with a smaller leading term
+
+            val ind =
+            one2oneSelection(left, right, aInd, argument,
+              lc => lc.isConstant || teLT(lc.leadingTerm, lt))
+//if (ind != right)
+//  println("" + right + " -> " + ind)
+          }
+        }
+      }
+    }
+
+    def one2oneSelection(left : Int, right : Int,
+                         aInd : Int, argument : LinearCombination,
+                         stopCond : LinearCombination => Boolean) : Int = {
+      var ind = left
+      if (aInd == argumentSize - 1) {
+        while (ind < right && !stopCond(atoms(ind)(aInd))) {
+          if (apply(atoms(ind)(aInd), argument, false) != Cannot)
+            mayResult += atoms(ind)
+          ind = ind + 1
+        }
+      } else {
+        while (ind < right && !stopCond(atoms(ind)(aInd))) {
+          val nextInd =
+            Seqs.risingEdgeFwdFull(atoms,
+                                   (a:Atom) => lcLT(a(aInd), atoms(ind)(aInd)),
+                                   ind + 1, right)
+          if (apply(atoms(ind)(aInd), argument, false) != Cannot)
+            selectAtoms(ind, nextInd, aInd + 1)
+          ind = nextInd
+        }
+      }
+
+      ind
+    }
+
+    selectAtoms(predLeft, predRight, 0)
+
+    Map(May -> mayResult)
+  }
+
+  /**
+   * Find atoms within the sequence <code>atoms</code> that may
+   * alias with atoms with the given <code>arguments</code>
+   * as the first arguments.
+   *
+   * Implementation that just linearly scans the given atoms.
+   */
+  private def findMayAliasesNaive(atoms : Seq[Atom],
+                                  pred : Predicate,
+                                  arguments : Seq[LinearCombination],
+                                  includeCannotDueToFreedom : Boolean)
+                                : Map[AliasStatus.Value, Seq[Atom]] = {
 
     val N = arguments.size
-    var res = atoms groupBy { a =>
+    atoms groupBy { a =>
       var res = if (a.pred == pred) AliasStatus.May else AliasStatus.Cannot
       var n = 0
       
@@ -159,8 +311,6 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
 
       res
     }
-//    println(res)
-    res
   }
 
 }

@@ -175,7 +175,7 @@ class ConstantFreedom private (private val constantStatus :
    * (for arbitrary <code>phi</code>)
    */
   def diffIsShieldingLC(lc1 : LinearCombination, lc2 : LinearCombination,
-                        bc : BindingContext) : Boolean = ap.util.Timer.measure("diffIsShieldingLC") {
+                        bc : BindingContext) : Boolean = {
     (lc1, lc2) match {
       case (lc1 : LinearCombination0, lc2 : LinearCombination0) =>
         lc1.constant != lc2.constant

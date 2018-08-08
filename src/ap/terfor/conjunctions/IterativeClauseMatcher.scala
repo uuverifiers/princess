@@ -29,7 +29,7 @@ import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.Signature.{PredicateMatchStatus, PredicateMatchConfig}
-import ap.util.{Debug, FilterIt, Seqs, UnionSet}
+import ap.util.{Debug, FilterIt, Seqs, UnionSet, IndexedSeqView}
 import ap.PresburgerTools
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap,
@@ -945,25 +945,45 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
           newGeneratedInstances = newGeneratedInstances + reducedInstance
           true
         }
-      
-      for (negated <- List(false, true))
-        for (a <- if (negated) addedFacts.negativeLits else addedFacts.positiveLits) {
-          (if (negated) additionalNegLits else additionalPosLits) += a
-          
-          instances ++=
-            IterativeClauseMatcher.executeMatcher(a,
-                                                  negated,
-                                                  matcherFor(a.pred, negated),
-                                                  oldFacts,
-                                                  additionalPosLits, additionalNegLits,
-                                                  mayAlias,
-                                                  contextReducer,
-                                                  newFacts,
-                                                  isNotRedundant _,
-                                                  allowConditionalInstances,
-                                                  logger,
-                                                  order)
-        }
+
+      val posSize = addedFacts.positiveLits.size
+      val negSize = addedFacts.negativeLits.size
+
+      for (n <- (posSize - 1) to 0 by -1; a = addedFacts.positiveLits(n))
+        instances ++=
+          IterativeClauseMatcher.executeMatcher(a,
+                                                false,
+                                                matcherFor(a.pred, false),
+                                                oldFacts,
+                                                new IndexedSeqView(
+                                                  addedFacts.positiveLits,
+                                                  n + 1, posSize),
+                                                Vector(),
+                                                mayAlias,
+                                                contextReducer,
+                                                newFacts,
+                                                isNotRedundant _,
+                                                allowConditionalInstances,
+                                                logger,
+                                                order)
+
+      for (n <- (negSize - 1) to 0 by -1; a  = addedFacts.negativeLits(n))
+        instances ++=
+          IterativeClauseMatcher.executeMatcher(a,
+                                                true,
+                                                matcherFor(a.pred, true),
+                                                oldFacts,
+                                                addedFacts.positiveLits,
+                                                new IndexedSeqView(
+                                                  addedFacts.negativeLits,
+                                                  n + 1, negSize),
+                                                mayAlias,
+                                                contextReducer,
+                                                newFacts,
+                                                isNotRedundant _,
+                                                allowConditionalInstances,
+                                                logger,
+                                                order)
 
       (instances,
        new IterativeClauseMatcher(newFacts, clauses, matchAxioms, matchers,
@@ -1139,8 +1159,10 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
    * Only used for assertion purposes
    */
   def factsAreOutdated(actualFacts : PredConj) : Boolean =
+    Debug.withoutAssertions {
     !(actualFacts.positiveLitsAsSet subsetOf currentFacts.positiveLitsAsSet) ||
     !(actualFacts.negativeLitsAsSet subsetOf currentFacts.negativeLitsAsSet)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
