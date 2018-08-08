@@ -304,13 +304,13 @@ x2 - x1 = 2 | x2 - x1 = -2 | x2 - x1 = 1 | x2 - x1 = -1
 Loading cav-ex4b.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 66), simplifying (108), interpolating ...
+Found proof (size 50), simplifying (87), interpolating ...
 
 VALID
 
 Interpolants:
-\forall int v0, v1; (-1*h'(f(v1)) + h'(f(v0)) >= 0 | v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1)
-\exists int v0, v1; (h'(f(v1)) + -1*h'(f(v0)) >= 1 & n >= v0 & v0 >= v1 & v1 >= 0)
+\forall int v0, v1; (v0 - n >= 1 | v1 - v0 >= 1 | -1 >= v1 | h'(f(v0)) + -1*h'(f(v1)) >= 0)
+\exists int v0, v1; (n >= v0 & v0 >= v1 & v1 >= 0 & -1*h'(f(v0)) + h'(f(v1)) >= 1)
 
 Loading quan.pri ...
 Preprocessing ...
@@ -335,18 +335,18 @@ v_princess_0 = 2*v2 | v2 >= 1024 | (v_princess_0 - 2*v2 = -1024 & v2 >= 512)
 Loading arrays0.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 6), simplifying (10), interpolating ...
+Found proof (size 7), simplifying (11), interpolating ...
 
 VALID
 
 Interpolants:
 true
-b1'1 = 0
-prob_index'2 != 1 | select(prres0'1, 1) = 0
-prob_index'2 != 1 | select(prres0'1, 1) = 0
-prob_index'2 != 1 | select(prres0'1, 1) = 0
-prob_index'2 != 1
-prob_index'2 != 1
+true
+true
+true
+true
+prob_index'2 != 1 | select(prres0'1, 1) = 1
+prob_index'2 != 1 | select(prres0'1, 1) = 1
 prob_index'2 != 1
 prob_index'2 != 1
 
@@ -372,7 +372,7 @@ id1 = 0 & id0 = 2 & write1' = 33 & write0' = 48 & write1 = 33 & write0 = 32 & re
 Loading wrongInterpolant3.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 47), simplifying (60), interpolating ...
+Found proof (size 45), simplifying (60), interpolating ...
 
 VALID
 
@@ -517,7 +517,7 @@ Found proof (size 18), simplifying (30), interpolating ...
 VALID
 
 Interpolants:
-!f(true) & !f(false)
+!f(false) & !f(true)
 
 Loading bv-interpolation-1.pri ...
 Preprocessing ...
@@ -606,11 +606,11 @@ Warning: echo is only supported in incremental mode (option +incremental), ignor
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 20), simplifying (30), interpolating ...
+Found proof (size 20), simplifying (29), interpolating ...
 
 unsat
 (
-  (or (= (select a_0 ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (select a_0 upper_-1) 23))))
+  (or (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23) (and (and (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (<= 0 (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= ULTIMATE.start_i_-1 upper_-1)) (= (select a_0 upper_-1) 23))))
   (or (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23) (= (select a_0 ULTIMATE.start_i_-1) 23))
   (= (select a_0 (+ 1 ULTIMATE.start_i_-1)) 23)
 )
@@ -620,11 +620,11 @@ Warning: echo is only supported in incremental mode (option +incremental), ignor
 Warning: echo is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 19), simplifying (29), interpolating ...
+Found proof (size 19), simplifying (28), interpolating ...
 
 unsat
 (
-  (or (= (f ULTIMATE.start_i_-1) 23) (and (<= 0 (+ (- 1) (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (= (f upper_-1) 23))))
+  (or (= (f (+ 1 ULTIMATE.start_i_-1)) 23) (and (and (not (= (+ ULTIMATE.start_i_-1 (* (- 1) upper_-1)) (- 1))) (<= 0 (+ (* (- 1) ULTIMATE.start_i_-1) upper_-1))) (or (not (= ULTIMATE.start_i_-1 upper_-1)) (= (f upper_-1) 23))))
   (or (= (f (+ 1 ULTIMATE.start_i_-1)) 23) (= (f ULTIMATE.start_i_-1) 23))
   (= (f (+ 1 ULTIMATE.start_i_-1)) 23)
 )
@@ -684,8 +684,8 @@ unsat
 Loading treeInterpolation2.smt2 ...
 unsat
 Warning: not all asserted formulas are mentioned in interpolant specification, putting remaining formulas in the last/root partition
-((and (= |#valid_4| |old(#valid)_4|) (forall ((var0 Int)) (or (not (select |old(#valid)_4| var0)) (or (= var0 0) (select |#valid_4| var0)))))
-false)
+((= |#valid_4| |old(#valid)_4|)
+(and (forall ((var0 Int)) (or (not (select |#valid_13| var0)) (select |old(#valid)_5| var0))) (forall ((var0 Int)) (or (select |#valid_13| var0) (not (select |old(#valid)_5| var0))))))
 Loading enum-interpolation.smt2 ...
 unsat
 ((= x blue))

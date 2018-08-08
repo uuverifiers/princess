@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -172,6 +172,13 @@ class TermOrder private (
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Ordering on terms that lists large terms last
+   */
+  lazy val termOrdering = new Ordering[Term] {
+    def compare(a : Term, b : Term) = TermOrder.this.compare(a, b)
+  }
+
+  /**
    * Ordering on terms that lists large terms first
    */
   lazy val reverseTermOrdering = new Ordering[Term] {
@@ -190,6 +197,22 @@ class TermOrder private (
    */
   lazy val reverseLCOrdering = new Ordering[LinearCombination] {
     def compare(a : LinearCombination, b : LinearCombination) = fastCompare(b, a)
+  }
+
+  /**
+   * Ordering on predicates that lists large predicates last
+   */
+  lazy val predOrdering = new Ordering[Predicate] {
+    def compare(a : Predicate, b : Predicate) =
+      predicateWeight(a) compare predicateWeight(b)
+  }
+
+  /**
+   * Ordering on predicates that lists large predicates first
+   */
+  lazy val reversePredOrdering = new Ordering[Predicate] {
+    def compare(a : Predicate, b : Predicate) =
+      predicateWeight(b) compare predicateWeight(a)
   }
 
   /**

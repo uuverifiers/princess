@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,7 +29,7 @@ import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.Signature.{PredicateMatchStatus, PredicateMatchConfig}
-import ap.util.{Debug, FilterIt, Seqs, UnionSet}
+import ap.util.{Debug, FilterIt, Seqs, UnionSet, IndexedSeqView}
 import ap.PresburgerTools
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap,
@@ -44,18 +44,16 @@ object IterativeClauseMatcher {
                              negatedStartLit : Boolean,
                              program : List[MatchStatement],
                              litFacts : PredConj,
-                             additionalPosLits : Iterable[Atom],
-                             additionalNegLits : Iterable[Atom],
-                             mayAlias : (LinearCombination,
-                                         LinearCombination) => AliasStatus.Value,
+                             additionalPosLits : Seq[Atom],
+                             additionalNegLits : Seq[Atom],
+                             mayAlias : AliasChecker,
                              contextReducer : ReduceWithConjunction,
                              allLitFacts : PredConj,
                              isNotRedundant : (Conjunction, GSet[ConstantTerm]) => Boolean,
                              allowConditionalInstances : Boolean,
                              logger : ComputationLogger,
                              order : TermOrder) : Iterator[Conjunction] = {
-    println("matching: " + startLit)
-    println(program)
+    
     val selectedLits = new ArrayBuffer[Atom]
     
     val instances = new ArrayBuffer[Conjunction]
@@ -101,23 +99,61 @@ object IterativeClauseMatcher {
           selectedLits reduceToSize selLitsNum
         }
         
+        case SelectMayAliasLiteral(pred, negative, arguments) :: progTail => {
+          val selLitsNum = selectedLits.size
+          selectedLits += null
+
+          val argumentLCs = for (a <- arguments) yield a match {
+            case Left(lc)              => lc
+            case Right((litNr, argNr)) => selectedLits(litNr)(argNr)
+          }
+
+          val oldAtoms =
+            if (negative) litFacts.negativeLits else litFacts.positiveLits
+          val additionalAtoms =
+            if (negative) additionalNegLits else additionalPosLits
+
+          val withCond = allowConditionalInstances && !conditional
+
+          for (atoms <- List(oldAtoms, additionalAtoms)) {
+            val aliasingAtoms =
+              mayAlias.findMayAliases(atoms, pred, argumentLCs, withCond)
+            for (a <- aliasingAtoms.getOrElse(AliasStatus.May, List())) {
+              selectedLits(selLitsNum) = a
+              exec(progTail,
+                   UnionSet(originatingConstants, a.constants),
+                   conditional)
+            }
+            for (a <- aliasingAtoms.getOrElse(AliasStatus.CannotDueToFreedom,
+                                              List())) {
+              selectedLits(selLitsNum) = a
+              exec(progTail,
+                   UnionSet(originatingConstants, a.constants),
+                   true)
+            }
+          }
+          
+          selectedLits reduceToSize selLitsNum
+        }
+        
         case CheckMayAlias(litNrA, argNrA, litNrB, argNrB) :: progTail =>
-          mayAlias(selectedLits(litNrA)(argNrA), selectedLits(litNrB)(argNrB)) match {
+          mayAlias(selectedLits(litNrA)(argNrA),
+                   selectedLits(litNrB)(argNrB),
+                   allowConditionalInstances && !conditional) match {
             case AliasStatus.Must | AliasStatus.May =>
               exec(progTail, originatingConstants, conditional)
-            case AliasStatus.CannotDueToFreedom
-                if (allowConditionalInstances && !conditional) =>
+            case AliasStatus.CannotDueToFreedom =>
               exec(progTail, originatingConstants, true)
             case _ =>
               // nothing
           }
         
         case CheckMayAliasUnary(litNr, argNr, lc) :: progTail =>
-          mayAlias(selectedLits(litNr)(argNr), lc) match {
+          mayAlias(selectedLits(litNr)(argNr), lc,
+                   allowConditionalInstances && !conditional) match {
             case AliasStatus.Must | AliasStatus.May =>
               exec(progTail, originatingConstants, conditional)
-            case AliasStatus.CannotDueToFreedom
-                if (allowConditionalInstances && !conditional) =>
+            case AliasStatus.CannotDueToFreedom =>
               exec(progTail, originatingConstants, true)
             case _ =>
               // nothing
@@ -279,7 +315,7 @@ object IterativeClauseMatcher {
     if (includeAxiomMatcher)
       matchers += constructAxiomMatcher(startPred, negStartLit)
     
-    combineMatchers(matchers)
+    optimiseMayAlias(combineMatchers(matchers), 1)
   }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -781,6 +817,60 @@ object IterativeClauseMatcher {
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Replace <code>SelectLiteral</code> with <code>SelectMayAliasLiteral</code>
+   * whenever possible.
+   */
+  private def optimiseMayAlias(prog : List[MatchStatement], litNr : Int)
+                             : List[MatchStatement] = prog match {
+    case (stmt@SelectLiteral(pred, negative)) :: rest => {
+      val aliasChecks = new ArrayBuffer[Either[LinearCombination, (Int, Int)]]
+      val newRest = collectMayAlias(rest, litNr, aliasChecks)
+      if (aliasChecks.isEmpty)
+        stmt :: optimiseMayAlias(rest, litNr + 1)
+      else
+        SelectMayAliasLiteral(pred, negative, aliasChecks) ::
+          optimiseMayAlias(newRest, litNr + 1)
+    }
+    case List(Choice(options)) =>
+      List(Choice(options map (optimiseMayAlias(_, litNr))))
+    case stmt :: rest =>
+      stmt :: optimiseMayAlias(rest, litNr)
+    case List() =>
+      List()
+  }
+
+  private def collectMayAlias(
+                prog : List[MatchStatement], litNr : Int,
+                result : ArrayBuffer[Either[LinearCombination, (Int, Int)]])
+              : List[MatchStatement] = prog match {
+    case CheckMayAlias(`litNr`, argNrA, litNrB, argNrB) :: rest
+      if argNrA == result.size && litNrB < litNr => {
+      result += Right((litNrB, argNrB))
+      collectMayAlias(rest, litNr, result)
+    }
+    case CheckMayAlias(litNrB, argNrB, `litNr`, argNrA) :: rest
+      if argNrA == result.size && litNrB < litNr => {
+      result += Right((litNrB, argNrB))
+      collectMayAlias(rest, litNr, result)
+    }
+    case CheckMayAliasUnary(`litNr`, argNrA, lc) :: rest
+      if argNrA == result.size => {
+      result += Left(lc)
+      collectMayAlias(rest, litNr, result)
+    }
+    case (stmt : CheckMayAlias) :: rest =>
+      stmt :: collectMayAlias(rest, litNr, result)
+    case (stmt : CheckMayAliasUnary) :: rest =>
+      stmt :: collectMayAlias(rest, litNr, result)
+    case prog =>
+      prog
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def empty(matchAxioms : Boolean, config : PredicateMatchConfig) =
     IterativeClauseMatcher (PredConj.TRUE, NegatedConjunctions.TRUE,
                             matchAxioms,
@@ -828,7 +918,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
       IterativeClauseMatcher.constructMatcher(pred, negated, clauses, matchAxioms))
   
   def updateFacts(newFacts : PredConj,
-                  mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
+                  mayAlias : AliasChecker,
                   contextReducer : ReduceWithConjunction,
                   // predicate to distinguish the relevant matches
                   // (e.g., to filter out shielded formulae)
@@ -855,25 +945,45 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
           newGeneratedInstances = newGeneratedInstances + reducedInstance
           true
         }
-      
-      for (negated <- List(false, true))
-        for (a <- if (negated) addedFacts.negativeLits else addedFacts.positiveLits) {
-          (if (negated) additionalNegLits else additionalPosLits) += a
-          
-          instances ++=
-            IterativeClauseMatcher.executeMatcher(a,
-                                                  negated,
-                                                  matcherFor(a.pred, negated),
-                                                  oldFacts,
-                                                  additionalPosLits, additionalNegLits,
-                                                  mayAlias,
-                                                  contextReducer,
-                                                  newFacts,
-                                                  isNotRedundant _,
-                                                  allowConditionalInstances,
-                                                  logger,
-                                                  order)
-        }
+
+      val posSize = addedFacts.positiveLits.size
+      val negSize = addedFacts.negativeLits.size
+
+      for (n <- (posSize - 1) to 0 by -1; a = addedFacts.positiveLits(n))
+        instances ++=
+          IterativeClauseMatcher.executeMatcher(a,
+                                                false,
+                                                matcherFor(a.pred, false),
+                                                oldFacts,
+                                                new IndexedSeqView(
+                                                  addedFacts.positiveLits,
+                                                  n + 1, posSize),
+                                                Vector(),
+                                                mayAlias,
+                                                contextReducer,
+                                                newFacts,
+                                                isNotRedundant _,
+                                                allowConditionalInstances,
+                                                logger,
+                                                order)
+
+      for (n <- (negSize - 1) to 0 by -1; a  = addedFacts.negativeLits(n))
+        instances ++=
+          IterativeClauseMatcher.executeMatcher(a,
+                                                true,
+                                                matcherFor(a.pred, true),
+                                                oldFacts,
+                                                addedFacts.positiveLits,
+                                                new IndexedSeqView(
+                                                  addedFacts.negativeLits,
+                                                  n + 1, negSize),
+                                                mayAlias,
+                                                contextReducer,
+                                                newFacts,
+                                                isNotRedundant _,
+                                                allowConditionalInstances,
+                                                logger,
+                                                order)
 
       (instances,
        new IterativeClauseMatcher(newFacts, clauses, matchAxioms, matchers,
@@ -910,7 +1020,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
 
   def addClauses(newFacts : PredConj,
                  addedClauses : Iterable[Conjunction],
-                 mayAlias : (LinearCombination, LinearCombination) => AliasStatus.Value,
+                 mayAlias : AliasChecker,
                  contextReducer : ReduceWithConjunction,
                  // predicate to distinguish the relevant matches
                  // (e.g., to filter out shielded formulae)
@@ -1049,8 +1159,10 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
    * Only used for assertion purposes
    */
   def factsAreOutdated(actualFacts : PredConj) : Boolean =
+    Debug.withoutAssertions {
     !(actualFacts.positiveLitsAsSet subsetOf currentFacts.positiveLitsAsSet) ||
     !(actualFacts.negativeLitsAsSet subsetOf currentFacts.negativeLitsAsSet)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1064,6 +1176,11 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
 private abstract sealed class MatchStatement
 
 private case class SelectLiteral(pred : Predicate, negative : Boolean)
+                   extends MatchStatement
+
+private case class SelectMayAliasLiteral(
+                     pred : Predicate, negative : Boolean,
+                     arguments : Seq[Either[LinearCombination, (Int, Int)]])
                    extends MatchStatement
 
 private case class CheckMayAlias(litNrA : Int, argNrA : Int,

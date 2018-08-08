@@ -744,7 +744,7 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                           Array((IdealInt.ONE, c), (-v, OneTerm)), order),
                   order), order))
             }
-println("assignment: " + assignmentFor)
+
           findModel(goal updateConstantFreedom ConstantFreedom.BOTTOM,
                     assignmentFor,
                     witnesses, constsToIgnore, depth,
