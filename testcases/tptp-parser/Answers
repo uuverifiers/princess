@@ -425,9 +425,15 @@ Begin of proof
 |   (12)   ~ (all_440_0 = all_396_3)
 |   (13)  vrawDifference(all_396_2, all_396_0) = all_440_0
 | 
+| GROUND_INST: instantiating (4) with all_396_3, all_396_0, vrow1, all_396_2,
+|              all_440_0, simplifying with (8), (13) gives:
+|   (14)  all_440_0 = all_304_0 | all_396_3 = vtempty |  ? [v0: $int] :  ? [v1:
+|           $int] : (( ~ (v1 = 0) & vrowIn(vrow1, all_396_0) = v1) | ( ~ (v0 =
+|               all_304_0) & vrawDifference(all_396_3, all_396_0) = v0))
+| 
 | GROUND_INST: instantiating (rawDifference-INV) with all_396_2, all_396_0,
 |              all_440_0, simplifying with (13) gives:
-|   (14)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : ( ~
+|   (15)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :  ? [v3: $int] : ( ~
 |           (v3 = 0) &  ~ (v1 = vtempty) & vrawDifference(v1, all_396_0) = v0 &
 |           vrowIn(v2, all_396_0) = v3 & vtcons(v2, v1) = all_396_2 & vtcons(v2,
 |             v0) = all_440_0) |  ? [v0: $int] :  ? [v1: $int] : (all_440_0 =
@@ -439,13 +445,7 @@ Begin of proof
 |           = all_396_2) | (all_440_0 = all_396_2 & all_396_0 = vtempty) |
 |         (all_440_0 = vtempty & all_396_2 = vtempty)
 | 
-| GROUND_INST: instantiating (4) with all_396_3, all_396_0, vrow1, all_396_2,
-|              all_440_0, simplifying with (8), (13) gives:
-|   (15)  all_440_0 = all_304_0 | all_396_3 = vtempty |  ? [v0: $int] :  ? [v1:
-|           $int] : (( ~ (v1 = 0) & vrowIn(vrow1, all_396_0) = v1) | ( ~ (v0 =
-|               all_304_0) & vrawDifference(all_396_3, all_396_0) = v0))
-| 
-| BETA: splitting (15) gives:
+| BETA: splitting (14) gives:
 | 
 | Case 1:
 | | 
@@ -464,7 +464,7 @@ Begin of proof
 | | 
 | |   (19)   ~ (all_396_3 = vtempty)
 | | 
-| | BETA: splitting (14) gives:
+| | BETA: splitting (15) gives:
 | | 
 | | Case 1:
 | | | 
@@ -620,21 +620,21 @@ Begin of proof
 | | | | | REDUCE: (49), (53) imply:
 | | | | |   (55)  vrowIn(vrow1, all_396_0) = 0
 | | | | | 
-| | | | | GROUND_INST: instantiating (rawDifference2) with vrow2, all_396_0,
-| | | | |              all_396_3, all_440_0, simplifying with (6), (54) gives:
-| | | | |   (56)  all_440_0 = all_396_3 | vrowIn(vrow2, all_396_0) = 0
-| | | | | 
 | | | | | GROUND_INST: instantiating (2) with vrow1, vrow3, all_396_1,
 | | | | |              all_396_0, simplifying with (9), (55) gives:
-| | | | |   (57)  vrow3 = vrow1 | vrowIn(vrow1, all_396_1) = 0
+| | | | |   (56)  vrow3 = vrow1 | vrowIn(vrow1, all_396_1) = 0
 | | | | | 
 | | | | | GROUND_INST: instantiating (rowIn-true-INV) with vrow1, all_396_0,
 | | | | |              simplifying with (55) gives:
-| | | | |   (58)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] : (vtcons(v0,
+| | | | |   (57)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] : (vtcons(v0,
 | | | | |             v1) = all_396_0 & (v0 = vrow1 | (v2 = 0 & vrowIn(vrow1,
 | | | | |                 v1) = 0)))
 | | | | | 
-| | | | | DELTA: instantiating (58) with fresh symbols all_606_0, all_606_1,
+| | | | | GROUND_INST: instantiating (rawDifference2) with vrow2, all_396_0,
+| | | | |              all_396_3, all_440_0, simplifying with (6), (54) gives:
+| | | | |   (58)  all_440_0 = all_396_3 | vrowIn(vrow2, all_396_0) = 0
+| | | | | 
+| | | | | DELTA: instantiating (57) with fresh symbols all_606_0, all_606_1,
 | | | | |        all_606_2 gives:
 | | | | |   (59)  vtcons(all_606_2, all_606_1) = all_396_0 & (all_606_2 = vrow1
 | | | | |           | (all_606_0 = 0 & vrowIn(vrow1, all_606_1) = 0))
@@ -642,13 +642,13 @@ Begin of proof
 | | | | | ALPHA: (59) implies:
 | | | | |   (60)  vtcons(all_606_2, all_606_1) = all_396_0
 | | | | | 
-| | | | | BETA: splitting (56) gives:
+| | | | | BETA: splitting (58) gives:
 | | | | | 
 | | | | | Case 1:
 | | | | | | 
 | | | | | |   (61)  vrowIn(vrow2, all_396_0) = 0
 | | | | | | 
-| | | | | | BETA: splitting (57) gives:
+| | | | | | BETA: splitting (56) gives:
 | | | | | | 
 | | | | | | Case 1:
 | | | | | | | 
@@ -663,38 +663,38 @@ Begin of proof
 | | | | | | |   (64)  all_606_2 = vrow3
 | | | | | | |   (65)  all_606_1 = all_396_1
 | | | | | | | 
+| | | | | | | GROUND_INST: instantiating (2) with vrow2, vrow3, all_396_1,
+| | | | | | |              all_396_0, simplifying with (9), (61) gives:
+| | | | | | |   (66)  vrow3 = vrow2 | vrowIn(vrow2, all_396_1) = 0
+| | | | | | | 
 | | | | | | | GROUND_INST: instantiating (rowIn-true-INV) with vrow1, all_396_1,
 | | | | | | |              simplifying with (62) gives:
-| | | | | | |   (66)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :
+| | | | | | |   (67)   ? [v0: $int] :  ? [v1: $int] :  ? [v2: $int] :
 | | | | | | |         (vtcons(v0, v1) = all_396_1 & (v0 = vrow1 | (v2 = 0 &
 | | | | | | |               vrowIn(vrow1, v1) = 0)))
 | | | | | | | 
-| | | | | | | GROUND_INST: instantiating (2) with vrow2, vrow3, all_396_1,
-| | | | | | |              all_396_0, simplifying with (9), (61) gives:
-| | | | | | |   (67)  vrow3 = vrow2 | vrowIn(vrow2, all_396_1) = 0
-| | | | | | | 
-| | | | | | | DELTA: instantiating (66) with fresh symbols all_635_0, all_635_1,
-| | | | | | |        all_635_2 gives:
-| | | | | | |   (68)  vtcons(all_635_2, all_635_1) = all_396_1 & (all_635_2 =
-| | | | | | |           vrow1 | (all_635_0 = 0 & vrowIn(vrow1, all_635_1) = 0))
+| | | | | | | DELTA: instantiating (67) with fresh symbols all_633_0, all_633_1,
+| | | | | | |        all_633_2 gives:
+| | | | | | |   (68)  vtcons(all_633_2, all_633_1) = all_396_1 & (all_633_2 =
+| | | | | | |           vrow1 | (all_633_0 = 0 & vrowIn(vrow1, all_633_1) = 0))
 | | | | | | | 
 | | | | | | | ALPHA: (68) implies:
-| | | | | | |   (69)  vtcons(all_635_2, all_635_1) = all_396_1
+| | | | | | |   (69)  vtcons(all_633_2, all_633_1) = all_396_1
 | | | | | | | 
-| | | | | | | BETA: splitting (67) gives:
+| | | | | | | BETA: splitting (66) gives:
 | | | | | | | 
 | | | | | | | Case 1:
 | | | | | | | | 
 | | | | | | | |   (70)  vrowIn(vrow2, all_396_1) = 0
 | | | | | | | | 
-| | | | | | | | GROUND_INST: instantiating (1) with vrow1, all_635_2, vtempty,
-| | | | | | | |              all_635_1, all_396_1, simplifying with (7), (69)
+| | | | | | | | GROUND_INST: instantiating (1) with vrow1, all_633_2, vtempty,
+| | | | | | | |              all_633_1, all_396_1, simplifying with (7), (69)
 | | | | | | | |              gives:
-| | | | | | | |   (71)  all_635_1 = vtempty & all_635_2 = vrow1
+| | | | | | | |   (71)  all_633_1 = vtempty & all_633_2 = vrow1
 | | | | | | | | 
 | | | | | | | | ALPHA: (71) implies:
-| | | | | | | |   (72)  all_635_2 = vrow1
-| | | | | | | |   (73)  all_635_1 = vtempty
+| | | | | | | |   (72)  all_633_2 = vrow1
+| | | | | | | |   (73)  all_633_1 = vtempty
 | | | | | | | | 
 | | | | | | | | GROUND_INST: instantiating (2) with vrow2, vrow1, vtempty,
 | | | | | | | |              all_396_1, simplifying with (7), (70) gives:
