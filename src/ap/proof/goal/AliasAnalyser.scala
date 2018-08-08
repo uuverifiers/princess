@@ -23,7 +23,7 @@ package ap.proof.goal
 
 import ap.proof._
 import ap.basetypes.IdealInt
-import ap.terfor.{TermOrder, AliasStatus}
+import ap.terfor.{TermOrder, AliasStatus, AliasChecker}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.{EquationConj, NegEquationConj, ReduceWithNegEqs}
 import ap.terfor.conjunctions.ReduceWithConjunction
@@ -44,7 +44,7 @@ object AliasAnalyser {
 class AliasAnalyser (reducer : ReduceWithConjunction,
                      cf : ConstantFreedom, bc : BindingContext,
                      order : TermOrder)
-      extends ((LinearCombination, LinearCombination) => AliasStatus.Value) {
+      extends AliasChecker {
 
   private val cache =
     new LRUCache[(LinearCombination, LinearCombination), AliasStatus.Value] (10000)

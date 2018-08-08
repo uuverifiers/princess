@@ -735,6 +735,7 @@ class ADT (sortNames : Seq[String],
 
   val (predicates, axioms, _, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions)
+println("axioms: " + axioms)
 
   val totalityAxioms = Conjunction.TRUE
 

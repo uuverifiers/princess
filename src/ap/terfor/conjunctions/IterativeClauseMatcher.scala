@@ -54,7 +54,8 @@ object IterativeClauseMatcher {
                              allowConditionalInstances : Boolean,
                              logger : ComputationLogger,
                              order : TermOrder) : Iterator[Conjunction] = {
-    
+    println("matching: " + startLit)
+    println(program)
     val selectedLits = new ArrayBuffer[Atom]
     
     val instances = new ArrayBuffer[Conjunction]

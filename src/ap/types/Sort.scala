@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -245,37 +245,30 @@ object Sort {
    * checks like <code>t match { case t ::: Sort.Bool => XXX }</code>.
    */
   object ::: {
-    def unapply(t : ITerm) : Option[(ITerm, Sort)] = t match {
-      case IConstant(c : SortedConstantTerm) =>
-        Some((t, c.sort))
-      case IFunApp(f : SortedIFunction, args) =>
-        Some((t, f iResultSort args))
-      case t =>
-        Some((t, Sort.Integer))
-    }
+    def unapply(t : ITerm) : Option[(ITerm, Sort)] = Some((t, sortOf(t)))
   }
 
   /**
    * Determine the sort of the given term.
    */
   def sortOf(t : ITerm) : Sort = t match {
-    case _ ::: sort => sort
+    case IConstant(c : SortedConstantTerm) =>
+      c.sort
+    case IFunApp(f : SortedIFunction, args) =>
+      f iResultSort args
+    case ITermITE(_, left, right) => {
+      val lSort = sortOf(left)
+      val rSort = sortOf(right)
+      if (lSort == rSort) lSort else Sort.Integer
+    }
+    case _ =>
+      Sort.Integer
   }
 
   object NonNumericTerm {
-    def unapply(t : ITerm) : Option[(ITerm, Sort)] = t match {
-      case IConstant(c : SortedConstantTerm) =>
-        c.sort match {
-          case Numeric(_) => None
-          case sort =>       Some((t, sort))
-        }
-      case IFunApp(f : SortedIFunction, args) =>
-        (f iResultSort args) match {
-          case Numeric(_) => None
-          case sort =>       Some((t, sort))
-        }
-      case t =>
-        None
+    def unapply(t : ITerm) : Option[(ITerm, Sort)] = sortOf(t) match {
+      case Numeric(_) => None
+      case sort       => Some((t, sort))
     }
   }
 

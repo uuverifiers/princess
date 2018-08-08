@@ -27,7 +27,7 @@ import ap.theories.nia.GroebnerMultiplication
 import ap.types.TypeTheory
 import ap.proof.{ConstraintSimplifier, ModelSearchProver, ExhaustiveProver}
 import ap.proof.theoryPlugins.PluginSequence
-import ap.terfor.{Formula, ConstantTerm, VariableTerm, TermOrder}
+import ap.terfor.{Formula, ConstantTerm, VariableTerm, TermOrder, Term, OneTerm}
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher, NegatedConjunctions,
@@ -40,7 +40,8 @@ import ap.terfor.TerForConvenience._
 import ap.parameters.{GoalSettings, ReducerSettings, Param}
 import ap.util.{Debug, Seqs, IdealRange, Combinatorics, Timeout}
 
-import scala.collection.mutable.{HashSet => MHashSet}
+import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+                                 ArrayBuffer}
 
 /**
  * A collection of tools for analysing and transforming formulae in Presburger
@@ -782,6 +783,112 @@ object PresburgerTools {
                 nShifter(c.predConj),
                 NegatedConjunctions(subConj, c.order),
                 c.order)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Find an interpretation of the constants in the given terms that will make
+   * all terms evaluate to pairwise distinct integers.
+   */
+  def distinctInterpretation[T <: Term](terms : Set[T], order : TermOrder)
+                                      : Map[ConstantTerm, IdealInt] = {
+    val suffixClosure = new MHashSet[LinearCombination]
+    for (t <- terms) t match {
+      case _ : ConstantTerm | OneTerm =>
+        suffixClosure += LinearCombination(t, order)
+      case lc : LinearCombination => {
+        suffixClosure += lc
+        val N = lc.size
+        for (n <- 1 until N)
+          suffixClosure += LinearCombination(lc.view(n, N), order)
+      }
+    }
+
+    val suffixClosureSeq = suffixClosure.toIndexedSeq.sorted(order.lcOrdering)
+
+    val assignment = new MHashMap[ConstantTerm, IdealInt]
+    var curMin, curMax = IdealInt.ZERO
+    val nextTerms = new ArrayBuffer[LinearCombination]
+
+    def newValue(v : IdealInt) = {
+      if (v < curMin)
+        curMin = v
+      else if (v > curMax)
+        curMax = v
+    }
+
+    def eval(ts : Seq[(IdealInt, Term)]) : IdealInt =
+      (for ((coeff, t) <- ts.iterator) yield t match {
+         case OneTerm => coeff
+         case c : ConstantTerm => coeff * assignment(c)
+       }).sum
+
+    var n = 0
+    val N = suffixClosureSeq.size
+    while (n < N)
+      if (suffixClosureSeq(n).isConstant) {
+        newValue(suffixClosureSeq(n).constant)
+        n = n + 1
+      } else {
+        val nextConst =
+          suffixClosureSeq(n).leadingTerm.asInstanceOf[ConstantTerm]
+        nextTerms += suffixClosureSeq(n)
+        n = n + 1
+        
+        while (n < N && suffixClosureSeq(n).leadingTerm == nextConst) {
+          nextTerms += suffixClosureSeq(n)
+          n = n + 1
+        }
+
+        nextTerms match {
+          case Seq(Seq((IdealInt.ONE, c : ConstantTerm))) => {
+            val v = curMax + IdealInt.ONE
+            assignment.put(c, v)
+            newValue(v)
+          }
+
+          case _ => {
+            val tailVals =
+              for (lc <- nextTerms) yield eval(lc.view(1, lc.size))
+
+            var constV =
+              (for ((lc, tailVal) <- nextTerms.iterator zip tailVals.iterator;
+                    lCoeff = lc.leadingCoeff)
+               yield lCoeff.signum match {
+                 case 1  =>
+                   (curMax - tailVal + (lCoeff - IdealInt.ONE)) / lCoeff
+                 case -1 => -(curMin - tailVal)
+               }).max + IdealInt.ONE
+
+            assignment.put(nextConst, constV)
+
+            val termValues =
+              (for ((lc, tailVal) <- nextTerms.iterator zip tailVals.iterator)
+               yield (tailVal + constV * lc.leadingCoeff)).toArray
+
+            while (nextTerms.size > 1 &&
+                   termValues.toSet.size < nextTerms.size) {
+              constV = constV + IdealInt.ONE
+              assignment.put(nextConst, constV)
+              (for ((lc, tailVal) <- nextTerms.iterator zip tailVals.iterator)
+               yield (tailVal + constV*lc.leadingCoeff)) copyToArray termValues
+            }
+
+            termValues foreach newValue
+          }
+        }
+
+        nextTerms.clear
+      }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(AC,
+      (for (t <- terms.iterator)
+       yield eval(LinearCombination(t, order))).toSet.size == terms.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    assignment.toMap
   }
 
 }

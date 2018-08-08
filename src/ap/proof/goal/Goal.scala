@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,7 +25,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import ap.proof._
 import ap.terfor.{Formula, ConstantTerm, VariableTerm,
-                  TermOrder, TerFor, Term, AliasStatus}
+                  TermOrder, TerFor, Term, AliasChecker}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                ReduceWithConjunction, Quantifier}
 import ap.terfor.arithconj.ArithConj
@@ -334,7 +334,7 @@ class Goal private (val facts : Conjunction,
   lazy val fixedConstantFreedom : Boolean =
     constantFreedom == closingConstantFreedom
 
-  lazy val mayAlias : ((LinearCombination, LinearCombination) => AliasStatus.Value) =
+  lazy val mayAlias : AliasChecker =
     new AliasAnalyser (reduceWithFacts,
                        constantFreedom, vocabulary.bindingContext,
                        order)
@@ -376,7 +376,7 @@ class Goal private (val facts : Conjunction,
     // apply the first task to the goal and then stop immediately
     val task = tasks.max
 
-//    println(task)
+    println(task)
     
 //    task match {
 //      case WrappedFormulaTask(t, Seq(simpTask)) => println("" + simpTask + " <- " + t)
