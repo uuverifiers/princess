@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
-import ap.util.{Debug, Logic, Seqs, PlainRange}
+import ap.util.{Debug, Logic, Seqs, PlainRange, LazyIndexedSeqSlice}
 
 object PredConj {
   
@@ -293,53 +293,17 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
    */
   private def findLitsWithPred
      (pred : Predicate, otherAtoms : IndexedSeq[Atom]) : IndexedSeq[Atom] = {
-    def post(res : IndexedSeq[Atom]) = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPost(PredConj.AC,
-                       Logic.forall(for (a <- res.iterator)
-                                    yield (a.pred == pred)) &&
-                       (for (a <- otherAtoms; if (a.pred == pred))
-                        yield a).size == res.size)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      res
-    }
-     
+
     // first check whether the predicate is available at all (otherwise,
     // comparisons using the <code>TermOrder</code> might fail)
     if (!(predicates contains pred)) {
-      post(IndexedSeq.empty)
+      IndexedSeq.empty
     } else {
-      
-      // we need some atom with the given predicate to do binary search
-      val atom = Atom(pred, Array.fill(pred.arity){LinearCombination.ZERO}, order)
-    
-      def findAllAtoms(i : Int) = {
-        var lowerBound : Int = i
-        var upperBound : Int = i+1
-        while (lowerBound > 0 && otherAtoms(lowerBound-1).pred == pred)
-          lowerBound = lowerBound - 1
-        while (upperBound < otherAtoms.size && otherAtoms(upperBound).pred == pred)
-          upperBound = upperBound + 1
-        post(otherAtoms.slice(lowerBound, upperBound))
-      }
-    
-      // we assume that the sequence of atoms is sorted
-      Seqs.binSearch(otherAtoms, 0, otherAtoms.size, atom)(
-                                           order.reverseAtomOrdering) match {
-      case Seqs.Found(i) =>
-        findAllAtoms(i)
-      case Seqs.NotFound(i) =>
-        if (i > 0 && otherAtoms(i-1).pred == pred)
-          findAllAtoms(i-1)
-        else if (i < otherAtoms.size && otherAtoms(i).pred == pred)
-          findAllAtoms(i)
-        else
-          // no other atoms with the same predicate exist
-          post(otherAtoms.slice(0, 0))
-      }
+      val (left, right) = PredConj.findAtomsWithPred(otherAtoms, pred, order)
+      new LazyIndexedSeqSlice(otherAtoms, left, right)
     }
   }
-                
+
   //////////////////////////////////////////////////////////////////////////////
 
   def implies(that : PredConj) : Boolean = {

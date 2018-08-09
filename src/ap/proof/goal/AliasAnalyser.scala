@@ -142,7 +142,9 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
                      arguments : Seq[LinearCombination],
                      includeCannotDueToFreedom : Boolean)
                    : Map[AliasStatus.Value, Seq[Atom]] = {
-    if (atoms.size <= 5 || includeCannotDueToFreedom)
+    if (atoms.isEmpty)
+      Map()
+    else if (includeCannotDueToFreedom || atoms.size <= 5)
       findMayAliasesNaive(atoms, pred, arguments, includeCannotDueToFreedom)
     else
       findMayAliasesBin(atoms, pred, arguments, false)
@@ -172,6 +174,12 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
 //println(_arguments)
 
     val atoms = _atoms.toIndexedSeq
+    
+    val (predLeft, predRight) = PredConj.findAtomsWithPred(atoms, pred, order)
+
+    if (predLeft >= predRight)
+      return Map()
+
     val arguments = _arguments.toIndexedSeq
     val argumentSize = arguments.size
     val arity = pred.arity
@@ -180,8 +188,6 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
 
     import lcOrdering.{lt => lcLT, lteq => lcLTeq}
     import termOrdering.{lt => teLT}
-
-    val (predLeft, predRight) = PredConj.findAtomsWithPred(atoms, pred, order)
 
     val mayResult = new ArrayBuffer[Atom]
 

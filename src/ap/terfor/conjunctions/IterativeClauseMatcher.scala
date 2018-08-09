@@ -29,7 +29,7 @@ import ap.terfor.equations.{EquationConj, ReduceWithEqs}
 import ap.terfor.preds.{Predicate, Atom, PredConj}
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.Signature.{PredicateMatchStatus, PredicateMatchConfig}
-import ap.util.{Debug, FilterIt, Seqs, UnionSet, IndexedSeqView}
+import ap.util.{Debug, FilterIt, Seqs, UnionSet, LazyIndexedSeqSlice}
 import ap.PresburgerTools
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap,
@@ -955,7 +955,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                 false,
                                                 matcherFor(a.pred, false),
                                                 oldFacts,
-                                                new IndexedSeqView(
+                                                new LazyIndexedSeqSlice(
                                                   addedFacts.positiveLits,
                                                   n + 1, posSize),
                                                 Vector(),
@@ -974,7 +974,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
                                                 matcherFor(a.pred, true),
                                                 oldFacts,
                                                 addedFacts.positiveLits,
-                                                new IndexedSeqView(
+                                                new LazyIndexedSeqSlice(
                                                   addedFacts.negativeLits,
                                                   n + 1, negSize),
                                                 mayAlias,
