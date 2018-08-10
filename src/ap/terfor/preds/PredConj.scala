@@ -306,6 +306,57 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Check whether there is a positive literal with the given predicate,
+   * and starting with the given arguments, and return the last argument.
+   */
+  def lookupFunctionResult(pred : Predicate,
+                           arguments : Seq[LinearCombination])
+                         : Option[LinearCombination] =
+    lookupFunctionResult(Atom(pred, arguments ++ List(LinearCombination.ZERO),
+                              order))
+
+  /**
+   * Check whether there is a positive literal with the given predicate,
+   * and starting with the given arguments, and return the last argument.
+   */
+  def lookupFunctionResult(atom : Atom) : Option[LinearCombination] = {
+    if (!(predicates contains atom.pred))
+      return None
+
+    var i = 0
+    val N = atom.length
+    while (i < N - 1) {
+      if (!(atom(i).constants subsetOf constants))
+        return None
+      i = i + 1
+    }
+
+    val a =
+      if (atom.last.constants subsetOf order.orderedConstants)
+        atom
+      else
+        Atom(atom.pred, atom.init ++ List(LinearCombination.ZERO), order)
+
+    Seqs.binSearch(positiveLits, 0, positiveLits.size, a)(
+                   order.reverseAtomOrdering) match {
+      case Seqs.Found(i) =>
+        Some(positiveLits(i).last)
+      case Seqs.NotFound(i) => {
+        if (i > 0 && Atom.sameFunctionApp(positiveLits(i-1), a)) {
+          Some(positiveLits(i-1).last)
+        } else if (i >= 0 && i < positiveLits.size &&
+                   Atom.sameFunctionApp(positiveLits(i), a)) {
+          Some(positiveLits(i).last)
+        } else {
+          None
+        }
+      }
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def implies(that : PredConj) : Boolean = {
     // TODO: make this more efficient
     val posLits = positiveLitsAsSet

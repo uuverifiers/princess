@@ -75,6 +75,7 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
                                   order : TermOrder) {
   
   import ReduceWithPredLits._
+  import Atom.sameFunctionApp
   
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(AC, allPreds == (for (LitFacts(conj) <- facts;
@@ -271,37 +272,24 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
       if (!replacedLastArg && (conj.negativeLitsAsSet contains atom)) {
         FalseResult
       } else {
-        // Binary search for the literal among the positive facts; if we
+        // Try to lookup the function result among the positive facts; if we
         // know that some predicate satisfies the functionality axiom, it might
         // be possible to replace the literal with a simple equation
-        
-        val posLits = conj.positiveLits
-        
-        Seqs.binSearch(posLits, 0, posLits.size, atom)(order.reverseAtomOrdering) match {
-          case Seqs.Found(i) =>
-            if (replacedLastArg) {
-//              println("found: " + posLits(i))
-              FunctionValueResult(posLits(i).last)
-            } else
-              TrueResult
-          case Seqs.NotFound(i) => {
-            if (functions contains atom.pred) {
-              // maybe we know some literal representing the same function app
-              if (i > 0 && sameFunctionApp(posLits(i-1), atom)) {
-//                println("found: " + posLits(i-1))
-                FunctionValueResult(posLits(i-1).last)
-              } else if (i >= 0 && i < posLits.size &&
-                         sameFunctionApp(posLits(i), atom)) {
-//                println("found: " + posLits(i))
-                FunctionValueResult(posLits(i).last)
-              } else {
-                reduce(atom, rem, replacedLastArg)
-              }
-            } else {
+       
+        if (functions contains atom.pred)
+          conj.lookupFunctionResult(atom) match {
+            case Some(res) =>
+              if (!replacedLastArg && res == atom.last)
+                TrueResult
+              else
+                FunctionValueResult(res)
+            case None =>
               reduce(atom, rem, replacedLastArg)
-            }
           }
-        }
+        else if (conj.positiveLitsAsSet contains atom)
+          TrueResult
+        else
+          reduce(atom, rem, replacedLastArg)
       }
     
     case PassBinders(up, down) :: rem =>
@@ -336,14 +324,5 @@ class ReduceWithPredLits private (facts : List[ReduceWithPredLits.FactStackEleme
         UnchangedResult
       }
   }
-  
-  /**
-   * Assuming that the given predicates encode functions, check whether the
-   * arguments (apart from the last argument, the function result) coincide,
-   * and whether the predicates are the same
-   */
-  private def sameFunctionApp(a : Atom, b : Atom) =
-    a.pred == b.pred &&
-    ((0 until (a.length - 1)) forall { case i => a(i) == b(i) })
   
 }
