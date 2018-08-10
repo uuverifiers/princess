@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -53,6 +53,15 @@ object Atom {
                    args : Array[LinearCombination],
                    order : TermOrder) : Atom =
     new Atom (pred, args, order)
+
+  /**
+   * Assuming that the given predicates encode functions, check whether the
+   * arguments (apart from the last argument, the function result) coincide,
+   * and whether the predicates are the same
+   */
+  def sameFunctionApp(a : Atom, b : Atom) =
+    a.pred == b.pred &&
+    ((0 until (a.length - 1)) forall { case i => a(i) == b(i) })
 
 }
 

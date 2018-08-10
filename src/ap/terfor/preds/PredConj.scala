@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 import ap.terfor._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.equations.EquationConj
-import ap.util.{Debug, Logic, Seqs, PlainRange}
+import ap.util.{Debug, Logic, Seqs, PlainRange, LazyIndexedSeqSlice}
 
 object PredConj {
   
@@ -293,53 +293,68 @@ class PredConj private (val positiveLits : IndexedSeq[Atom],
    */
   private def findLitsWithPred
      (pred : Predicate, otherAtoms : IndexedSeq[Atom]) : IndexedSeq[Atom] = {
-    def post(res : IndexedSeq[Atom]) = {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPost(PredConj.AC,
-                       Logic.forall(for (a <- res.iterator)
-                                    yield (a.pred == pred)) &&
-                       (for (a <- otherAtoms; if (a.pred == pred))
-                        yield a).size == res.size)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      res
-    }
-     
+
     // first check whether the predicate is available at all (otherwise,
     // comparisons using the <code>TermOrder</code> might fail)
     if (!(predicates contains pred)) {
-      post(IndexedSeq.empty)
+      IndexedSeq.empty
     } else {
-      
-      // we need some atom with the given predicate to do binary search
-      val atom = Atom(pred, Array.fill(pred.arity){LinearCombination.ZERO}, order)
-    
-      def findAllAtoms(i : Int) = {
-        var lowerBound : Int = i
-        var upperBound : Int = i+1
-        while (lowerBound > 0 && otherAtoms(lowerBound-1).pred == pred)
-          lowerBound = lowerBound - 1
-        while (upperBound < otherAtoms.size && otherAtoms(upperBound).pred == pred)
-          upperBound = upperBound + 1
-        post(otherAtoms.slice(lowerBound, upperBound))
-      }
-    
-      // we assume that the sequence of atoms is sorted
-      Seqs.binSearch(otherAtoms, 0, otherAtoms.size, atom)(
-                                           order.reverseAtomOrdering) match {
+      val (left, right) = PredConj.findAtomsWithPred(otherAtoms, pred, order)
+      new LazyIndexedSeqSlice(otherAtoms, left, right)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Check whether there is a positive literal with the given predicate,
+   * and starting with the given arguments, and return the last argument.
+   */
+  def lookupFunctionResult(pred : Predicate,
+                           arguments : Seq[LinearCombination])
+                         : Option[LinearCombination] =
+    lookupFunctionResult(Atom(pred, arguments ++ List(LinearCombination.ZERO),
+                              order))
+
+  /**
+   * Check whether there is a positive literal with the given predicate,
+   * and starting with the given arguments, and return the last argument.
+   */
+  def lookupFunctionResult(atom : Atom) : Option[LinearCombination] = {
+    if (!(predicates contains atom.pred))
+      return None
+
+    var i = 0
+    val N = atom.length
+    while (i < N - 1) {
+      if (!(atom(i).constants subsetOf constants))
+        return None
+      i = i + 1
+    }
+
+    val a =
+      if (atom.last.constants subsetOf order.orderedConstants)
+        atom
+      else
+        Atom(atom.pred, atom.init ++ List(LinearCombination.ZERO), order)
+
+    Seqs.binSearch(positiveLits, 0, positiveLits.size, a)(
+                   order.reverseAtomOrdering) match {
       case Seqs.Found(i) =>
-        findAllAtoms(i)
-      case Seqs.NotFound(i) =>
-        if (i > 0 && otherAtoms(i-1).pred == pred)
-          findAllAtoms(i-1)
-        else if (i < otherAtoms.size && otherAtoms(i).pred == pred)
-          findAllAtoms(i)
-        else
-          // no other atoms with the same predicate exist
-          post(otherAtoms.slice(0, 0))
+        Some(positiveLits(i).last)
+      case Seqs.NotFound(i) => {
+        if (i > 0 && Atom.sameFunctionApp(positiveLits(i-1), a)) {
+          Some(positiveLits(i-1).last)
+        } else if (i >= 0 && i < positiveLits.size &&
+                   Atom.sameFunctionApp(positiveLits(i), a)) {
+          Some(positiveLits(i).last)
+        } else {
+          None
+        }
       }
     }
   }
-                
+
   //////////////////////////////////////////////////////////////////////////////
 
   def implies(that : PredConj) : Boolean = {

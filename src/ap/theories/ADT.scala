@@ -797,6 +797,12 @@ class ADT (sortNames : Seq[String],
     else
       null
 
+  private val termMeasurePreds =
+    measure match {
+      case ADT.TermMeasure.RelDepth => termDepthPreds
+      case ADT.TermMeasure.Size     => termSizePreds
+    }
+
   //////////////////////////////////////////////////////////////////////////////
   // Verify that all of the sorts are inhabited, and compute witness terms
 

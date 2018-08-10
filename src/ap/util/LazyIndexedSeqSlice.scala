@@ -21,7 +21,7 @@
 
 package ap.util;
 
-class IndexedSeqView[A](seq : IndexedSeq[A], begin : Int, end : Int)
+class LazyIndexedSeqSlice[A](seq : IndexedSeq[A], begin : Int, end : Int)
       extends scala.collection.immutable.IndexedSeq[A] {
 
   def apply(n : Int) = seq(n + begin)
