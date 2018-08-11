@@ -33,10 +33,10 @@ import ap.{SimpleAPI, PresburgerTools}
 import SimpleAPI.ProverStatus
 import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
                  SortedConstantTerm, MonoSortedPredicate}
-import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics}
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 import ap.parameters.{Param, ReducerSettings}
+import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, Map => MMap,
@@ -1236,7 +1236,6 @@ class ADT (sortNames : Seq[String],
   
 //          println("Defined: " + ctorDefinedCons)
 
-
           val expCandidates : Iterator[(LinearCombination, Sort)] =
             for (a <- predFacts.positiveLits.iterator ++
                       predFacts.negativeLits.iterator;
@@ -1246,19 +1245,18 @@ class ADT (sortNames : Seq[String],
                  if (nonEnumSorts contains sort))
             yield (lc, sort)
 
-/*
-          val expCandidates : Iterator[(LinearCombination, Sort)] =
-            for ((sort, pred) <- sorts.iterator zip termSizePreds.iterator;
-                 a <- (predFacts positiveLitsWithPred pred).iterator;
-                 lc = a.head;
-                 if !(ctorDefinedCons contains lc))
-            yield (lc, sort)
-*/
-
           if (expCandidates.hasNext) {
             import TerForConvenience._
 
-            val (lc, sort) = expCandidates.next
+            val (lc, sort) = Seqs.partialMinBy(expCandidates, {
+              x:(LinearCombination, Sort) => {
+                val sortNum = x._2.asInstanceOf[ADTProxySort].sortNum
+                predFacts.lookupFunctionResult(
+                  termMeasurePreds(sortNum), List(x._1)).getOrElse(
+                    LinearCombination.ZERO)
+              }
+            })(LinearCombination.ValueOrdering)
+            
             val sortNum = sort.asInstanceOf[ADTProxySort].sortNum
 
 //            println("Expanding: " + lc + ", " + sort)

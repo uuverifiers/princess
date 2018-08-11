@@ -87,7 +87,6 @@ class SeqStringTheory private (val bitWidth : Int) extends {
   
   val (funPredicates, axioms, _, funPredMap) =
     Theory.genAxioms(theoryFunctions = functions)
-println("axioms: " + axioms)
   val predicates = predefPredicates ++ funPredicates
 
   val functionPredicateMapping = functions zip funPredicates
@@ -451,7 +450,7 @@ println("axioms: " + axioms)
             }
           }
         }
-println(actions)
+
         actions
       } else {
         List()
