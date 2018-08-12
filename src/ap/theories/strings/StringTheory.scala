@@ -21,12 +21,83 @@
 
 package ap.theories.strings
 
-import ap.parser.{IFunction, ITerm}
+import ap.parser.{IFunction, ITerm, IFunApp, IIntLit}
 import ap.parser.IExpression.Predicate
-import ap.theories.Theory
+import ap.theories.{Theory, ModuloArithmetic}
 import ap.types.{Sort, MonoSortedPredicate, MonoSortedIFunction}
 
+import scala.collection.mutable.{HashMap => MHashMap}
+
 object StringTheory {
+
+  private val representationFunctions = new MHashMap[IFunction, StringTheory]
+
+  def lookupRepresentationFunction(f : IFunction) : Option[StringTheory] =
+    synchronized { representationFunctions get f }
+
+  def register(t : StringTheory) : Unit = synchronized {
+    representationFunctions.put(t.str_empty, t)
+    representationFunctions.put(t.str_cons,  t)
+    representationFunctions.put(t.str_head,  t)
+    representationFunctions.put(t.str_tail,  t)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Extractor to recognise the string <code>str.empty</code> function.
+   */
+  object StrEmpty {
+    def unapply(f : IFunction) : Option[StringTheory] =
+      for (t <- lookupRepresentationFunction(f); if f == t.str_empty) yield t
+  }
+
+  /**
+   * Extractor to recognise the string <code>str.cons</code> function.
+   */
+  object StrCons {
+    def unapply(f : IFunction) : Option[StringTheory] =
+      for (t <- lookupRepresentationFunction(f); if f == t.str_cons) yield t
+  }
+
+  /**
+   * Translate a concrete string in term representation to a list of integers.
+   */
+  def term2List(t : ITerm) : List[Int] = t match {
+    case IFunApp(StrEmpty(_), Seq()) =>
+      List()
+    case IFunApp(StrCons(_), Seq(IIntLit(value), tail)) =>
+      value.intValueSafe :: term2List(tail)
+    case IFunApp(StrCons(_), Seq(IFunApp(ModuloArithmetic.mod_cast,
+                                         Seq(IIntLit(lower), IIntLit(upper),
+                                             IIntLit(value))),
+                                 tail))
+      if lower <= value && value <= upper =>
+      value.intValueSafe :: term2List(tail)
+    case _ =>
+      throw NotAStringException
+  }
+
+  private object NotAStringException
+          extends IllegalArgumentException("not a string")
+
+  /**
+   * Translate a concrete string in term representation to a string.
+   */
+  def term2String(t : ITerm) : String =
+    (for (c <- term2List(t)) yield c.toChar).mkString
+
+  /**
+   * Extractor to recognise terms that represent concrete strings.
+   */
+  object ConcreteString {
+    def unapply(t : ITerm) : Option[String] =
+      try {
+        Some(term2String(t))
+      } catch {
+        case NotAStringException => None
+      }
+  }
 
 }
 

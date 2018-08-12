@@ -24,6 +24,7 @@ package ap.parser
 import ap._
 import ap.basetypes.IdealInt
 import ap.theories._
+import ap.theories.strings.StringTheory
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
@@ -497,7 +498,7 @@ class SMTLineariser(benchmarkName : String,
                            IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
                     prettyBitvectors : Boolean = true) {
 
-  import SMTLineariser.{quoteIdentifier, toSMTExpr,
+  import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
                         printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge}
 
@@ -992,6 +993,7 @@ class SMTLineariser(benchmarkName : String,
         print(ctxt.vars(index)._1)
         ShortCutResult(())
       }
+      
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
                        IIntLit(value)))
@@ -1001,6 +1003,15 @@ class SMTLineariser(benchmarkName : String,
               (upper.getHighestSetBit + 1) + ")")
         ShortCutResult(())
       }
+
+      case StringTheory.ConcreteString(str) => {
+        addSpace
+        print("\"")
+        print(escapeString(str))
+        print("\"")
+        ShortCutResult(())
+      }
+
       case t@IFunApp(fun, args) => {
         // check if any Boolean arguments have to be decoded
         var changed = false

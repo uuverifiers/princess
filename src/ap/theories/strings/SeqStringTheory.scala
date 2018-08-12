@@ -468,5 +468,6 @@ class SeqStringTheory private (val bitWidth : Int) extends {
   //////////////////////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
+  StringTheory register this
 
 }
