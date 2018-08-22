@@ -68,7 +68,8 @@ TESTS="division.pri \
        mult-diff.pri \
        mult-model.pri \
        shift.pri \
-       diffsquare.pri"
+       diffsquare.pri \
+       mult-icp.pri"
 
 $PRI "$@" $TESTS 2>&1
 
