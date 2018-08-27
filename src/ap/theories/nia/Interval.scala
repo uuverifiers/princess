@@ -694,13 +694,16 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     }
   }
 
-  // If a variable occurs in two terms, do not make a limit
   def lowerLimit(p : Polynomial) : (IntervalInt, BitSet) = {
+    // If a variable occurs in two terms, do not make a limit
+    // actually, why not?
+    /*
     for (t1 <- p.terms;
       t2 <- p.terms
       if (t1 != t2);
       if (t1.hasCommonVariables(t2)))
       return (IntervalNegInf, BitSet())
+     */
     
       ((for (t <- p.terms) yield lowerLimit(t)).toList :\
               (IntervalVal(0) : IntervalInt, BitSet())) {
