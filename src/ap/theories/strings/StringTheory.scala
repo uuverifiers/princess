@@ -158,6 +158,8 @@ trait StringTheory extends Theory {
   
   val str_replace    : IFunction    // StringSort x StringSort x StringSort
                                     //  -> StringSort
+  val str_replacere  : IFunction    // StringSort x RegexSort x StringSort
+                                    //  -> StringSort
   val str_replaceall : IFunction    // StringSort x StringSort x StringSort
                                     //  -> StringSort
   val str_replaceallre : IFunction  // StringSort x RegexSort x StringSort
@@ -170,8 +172,11 @@ trait StringTheory extends Theory {
   val str_to_re      : IFunction    // StringSort -> RegexSort
 
   val re_none        : IFunction    // -> RegexSort
+  val re_eps         : IFunction    // -> RegexSort
   val re_all         : IFunction    // -> RegexSort
   val re_allchar     : IFunction    // -> RegexSort
+
+  val re_charrange   : IFunction    // CharSort x CharSort -> RegexSort
 
   // val re_range       : IFunction    // ???
 

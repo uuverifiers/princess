@@ -2451,12 +2451,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("re.none") =>
       (translateStringFun(stringTheory.re_none, args,
                           List()), regexType)
+    case PlainSymbol("re.eps") =>
+      (translateStringFun(stringTheory.re_eps, args,
+                          List()), regexType)
     case PlainSymbol("re.all") =>
       (translateStringFun(stringTheory.re_all, args,
                           List()), regexType)
     case PlainSymbol("re.allchar") =>
       (translateStringFun(stringTheory.re_allchar, args,
                           List()), regexType)
+    case PlainSymbol("re.charrange") =>
+      (translateStringFun(stringTheory.re_charrange, args,
+                          List(charType, charType)), regexType)
     case PlainSymbol("re.++") =>
       (translateNAryStringFun(stringTheory.re_++, args,
                               regexType), regexType)
@@ -2502,6 +2508,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.replace") =>
       (translateStringFun(stringTheory.str_replace, args,
                           List(stringType, stringType, stringType)), stringType)
+    case PlainSymbol("str.replacere") =>
+      (translateStringFun(stringTheory.str_replacere, args,
+                          List(stringType, regexType, stringType)), stringType)
+
     case PlainSymbol("str.replaceall") =>
       (translateStringFun(stringTheory.str_replaceall, args,
                           List(stringType, stringType, stringType)), stringType)
