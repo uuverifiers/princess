@@ -24,22 +24,30 @@ package ap.theories.strings
 import ap.parser.{IFunction, ITerm, IFunApp, IIntLit}
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ModuloArithmetic}
-import ap.types.{Sort, MonoSortedPredicate, MonoSortedIFunction}
+import ap.types.Sort
 
-import scala.collection.mutable.{HashMap => MHashMap}
+
+import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
+                                 ArrayBuffer}
 
 object StringTheory {
 
   private val representationFunctions = new MHashMap[IFunction, StringTheory]
 
+  private val stringSorts = new MHashMap[Sort, StringTheory]
+
   def lookupRepresentationFunction(f : IFunction) : Option[StringTheory] =
     synchronized { representationFunctions get f }
+
+  def lookupStringSort(s : Sort) : Option[StringTheory] =
+    synchronized { stringSorts get s }
 
   def register(t : StringTheory) : Unit = synchronized {
     representationFunctions.put(t.str_empty, t)
     representationFunctions.put(t.str_cons,  t)
     representationFunctions.put(t.str_head,  t)
     representationFunctions.put(t.str_tail,  t)
+    stringSorts.put(t.StringSort, t)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -179,102 +187,7 @@ trait StringTheory extends Theory {
 
   // Transducer pool
 
-  val transducers : Map[String, Predicate]
+  val relations : Map[String, Predicate]
 
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Abstract class defining relevant string operations as sorted
- * functions/predicates
- */
-abstract class AbstractStringTheory extends StringTheory {
-
-  private val CSo = CharSort
-  private val SSo = StringSort
-  private val RSo = RegexSort
-  import Sort.{Nat, Integer}
-
-  val char_is_digit =
-    new MonoSortedPredicate("char_is_digit", List(CSo))
-
-  val str =
-    new MonoSortedIFunction("str", List(SSo), SSo, true, false)
-
-  val str_++ =
-    new MonoSortedIFunction("str_++", List(SSo, SSo), SSo, true, false)
-  val str_len =
-    new MonoSortedIFunction("str_len", List(SSo), Nat, true, false)
-
-  val str_<= =
-    new MonoSortedPredicate("char_<=", List(SSo, SSo))
-  val str_at =
-    new MonoSortedIFunction("str_at", List(SSo, Nat), SSo, true, false)
-  val str_char =
-    new MonoSortedIFunction("str_char", List(SSo, Nat), CSo, true, false)
-    
-  val str_substr =
-    new MonoSortedIFunction("str_substr", List(SSo, Nat, Nat), SSo, true, false)
-  val str_prefixof =
-    new MonoSortedPredicate("str_prefixof", List(SSo, SSo))
-  val str_suffixof =
-    new MonoSortedPredicate("str_suffixof", List(SSo, SSo))
-
-  val str_contains =
-    new MonoSortedPredicate("str_contains", List(SSo, SSo))
-  val str_indexof =
-    new MonoSortedIFunction("str_indexof",
-                            List(SSo, SSo, Integer), Integer, true, false)
-
-  val str_replace =
-    new MonoSortedIFunction("str_replace",
-                            List(SSo, SSo, SSo), CSo, true, false)
-  val str_replaceall =
-    new MonoSortedIFunction("str_replaceall",
-                            List(SSo, SSo, SSo), CSo, true, false)
-  val str_replaceallre =
-    new MonoSortedIFunction("str_replaceallre",
-                            List(SSo, RSo, SSo), CSo, true, false)
-
-  val str_in_re =
-    new MonoSortedPredicate("str_in_re", List(SSo, RSo))
-
-  val str_to_re =
-    new MonoSortedIFunction("str_to_re", List(SSo), RSo, true, false)
-
-  val re_none =
-    new MonoSortedIFunction("re_none", List(), RSo, true, false)
-  val re_all =
-    new MonoSortedIFunction("re_all", List(), RSo, true, false)
-  val re_allchar =
-    new MonoSortedIFunction("re_allchar", List(), RSo, true, false)
-
-  // re_range, re_^, re_loop
-
-  val re_++ =
-    new MonoSortedIFunction("re_++", List(RSo, RSo), RSo, true, false)
-  val re_union =
-    new MonoSortedIFunction("re_union", List(RSo, RSo), RSo, true, false)
-  val re_inter =
-    new MonoSortedIFunction("re_inter", List(RSo, RSo), RSo, true, false)
-
-  val re_* =
-    new MonoSortedIFunction("re_*", List(RSo), RSo, true, false)
-  val re_+ =
-    new MonoSortedIFunction("re_+", List(RSo), RSo, true, false)
-  val re_opt =
-    new MonoSortedIFunction("re_opt", List(RSo), RSo, true, false)
-
-  protected val predefFunctions =
-    List(str, str_++, str_len, str_at, str_char,
-         str_substr, str_indexof,
-         str_replace, str_replaceall, str_replaceallre,
-         str_to_re, re_none, re_all, re_allchar, re_++,
-         re_union, re_inter, re_*, re_+, re_opt)
-
-  protected val predefPredicates =
-    List(char_is_digit, str_<=, str_prefixof,
-         str_suffixof, str_contains, str_in_re)
-
-}

@@ -51,7 +51,7 @@ object SeqStringTheory {
 }
 
 /**
- * Generic class describing string theories.
+ * String theory implemented using a list ADT.
  */
 class SeqStringTheory private (val bitWidth : Int) extends {
 
@@ -79,7 +79,7 @@ class SeqStringTheory private (val bitWidth : Int) extends {
 
   def char2Int(t : ITerm) : ITerm = t
 
-  val transducers : Map[String, Predicate] = Map()
+  val relations : Map[String, Predicate] = Map()
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -101,9 +101,9 @@ class SeqStringTheory private (val bitWidth : Int) extends {
 
   private val adtSize    = seqADT.termSize.head
   private val _adtSize   = seqADT.termSizePreds.head
-  private val _str_empty = seqADT.constructorPreds(0)
-  private val _str_cons  = seqADT.constructorPreds(1)
-  private val _str_++    = funPredMap(str_++)
+  val _str_empty = seqADT.constructorPreds(0)
+  val _str_cons  = seqADT.constructorPreds(1)
+  val _str_++    = funPredMap(str_++)
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -164,40 +164,6 @@ class SeqStringTheory private (val bitWidth : Int) extends {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-
-  case class SymWord(chars : IndexedSeq[Term], tail : Option[Term]) {
-    def prepend(t : Term) = SymWord(Vector(t) ++ chars, tail)
-    def map(f : Term => Term) = SymWord(chars map f, tail map f)
-  }
-
-  val EmptyWord = SymWord(Vector(), None)
-
-  private object InconsistentStringsException extends Exception
-
-  private def extractWord(t : Term,
-                         allConses : Term => Option[Atom]) : SymWord = {
-    val chars = new ArrayBuffer[Term]
-    val seenNodes = new MHashSet[Term]
-      
-    var curT = t
-    seenNodes += t
-
-    while (true) {
-      allConses(curT) match {
-        case Some(a) if a.pred == _str_empty =>
-          return SymWord(chars, None)
-        case Some(a) if a.pred == _str_cons => {
-          chars += a(0)
-          curT = a(1)
-          if (!(seenNodes add curT))
-            throw InconsistentStringsException
-        }
-        case _ =>
-          return SymWord(chars, Some(curT))
-      }
-    }
-    null
-  }
 
 /*
   object ReducerFactory extends ReducerPluginFactory {
@@ -408,20 +374,17 @@ class SeqStringTheory private (val bitWidth : Int) extends {
       val concatAtoms = facts.predConj.positiveLitsWithPred(_str_++)
 
       if (!concatAtoms.isEmpty) {
-        val consAtoms = facts.predConj.positiveLitsWithPred(_str_cons)
-        val emptAtoms = facts.predConj.positiveLitsWithPred(_str_empty)
-        val conses =
-          (for (a <- consAtoms.iterator ++ emptAtoms.iterator)
-           yield (a.last.asInstanceOf[Term], a)).toMap
+        import WordExtractor.{SymWord, EmptyWord}
 
+        val extractor = WordExtractor(goal)
         val actions = new ArrayBuffer[Plugin.Action]
 
         for (a <- concatAtoms) {
-          extractWord(a(1), conses get _) match {
+          extractor.extractWord(a(1)) match {
             case EmptyWord =>
               actions ++= List(Plugin.AddFormula(a(0) =/= a(2)),
                                Plugin.RemoveFacts(a))
-            case _ => extractWord(a(0), conses get _) match {
+            case _ => extractor.extractWord(a(0)) match {
               case EmptyWord =>
                 actions ++= List(Plugin.AddFormula(a(1) =/= a(2)),
                                  Plugin.RemoveFacts(a))

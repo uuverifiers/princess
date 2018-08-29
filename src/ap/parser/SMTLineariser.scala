@@ -287,7 +287,7 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
-                              SMTBitVec, SMTFunctionType}
+                              SMTBitVec, SMTString, SMTFunctionType}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -323,6 +323,7 @@ object SMTLineariser {
     case SMTBool             => print("Bool")
     case t : SMTADT          => print(t)
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
+    case SMTString(_)        => print("String")
     case SMTArray(args, res) => {
       print("(Array")
       for (s <- args) {
@@ -343,6 +344,8 @@ object SMTLineariser {
       (SMTInteger, Some(sort.membershipConstraint _))
     case Sort.Bool | Sort.MultipleValueBool =>
       (SMTBool, None)
+    case sort if (StringTheory lookupStringSort sort).isDefined =>
+      (SMTString(sort), None)
     case sort : ADT.ADTProxySort =>
       (SMTADT(sort.adtTheory, sort.sortNum), None)
     case ModuloArithmetic.UnsignedBVSort(width) =>
