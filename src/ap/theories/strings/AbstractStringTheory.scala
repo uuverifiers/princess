@@ -27,7 +27,7 @@ import ap.parser.{IFunction, ITerm, IFunApp, IIntLit}
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ModuloArithmetic}
 import ap.types.{Sort, MonoSortedPredicate, MonoSortedIFunction, ProxySort}
-import ap.terfor.Term
+import ap.terfor.{Term, Formula, TermOrder, TerForConvenience}
 import ap.terfor.preds.{Atom, PredConj}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -247,6 +247,46 @@ abstract class AbstractStringTheory extends StringTheory {
             throw new IllegalRegexException
         }
       }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Augment goal facts with the given assignment of strings to terms.
+   * At the moment this assumes that all string terms are constants.
+   */
+  protected def assignStringValues(
+                  facts : Conjunction,
+                  assignment : Map[Term, Seq[Int]],
+                  order : TermOrder) : Conjunction = {
+    import TerForConvenience._
+    implicit val _ = order
+
+    val epsId = 0
+    val stringIds = new MHashMap[(Int, Int), Int]
+    val extraFors = new ArrayBuffer[Formula]
+
+    extraFors += Atom(_str_empty, List(LinearCombination.ZERO), order)
+
+    def idFor(c : Int, tail : Int) : Int =
+      stringIds.getOrElseUpdate((c, tail), {
+        val id = stringIds.size + 1
+        extraFors += Atom(_str_cons,
+                          List(LinearCombination(c),
+                               LinearCombination(tail),
+                               LinearCombination(id)),
+                          order)
+        id
+      })
+
+    for (t <- order sort assignment.keySet) {
+      val str = assignment(t)
+      extraFors += (t === (str :\ epsId)(idFor _))
+    }
+
+    extraFors += facts
+
+    Conjunction.conj(extraFors, order)
   }
 
 }
