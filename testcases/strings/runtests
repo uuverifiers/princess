@@ -4,6 +4,7 @@ PRI=../../princess
 
 TESTS="simple-cycle.smt2 \
        simple-cycle2.smt2 \
+       simple-cycle3.smt2 \
        concat-1.smt2 \
        concat-2.smt2 \
        concat-3.smt2"
