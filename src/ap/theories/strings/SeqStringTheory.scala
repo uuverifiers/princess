@@ -79,7 +79,7 @@ class SeqStringTheory private (val bitWidth : Int) extends {
 
   def char2Int(t : ITerm) : ITerm = t
 
-  val relations : Map[String, Predicate] = Map()
+  val extraOps : Map[String, Either[IFunction, Predicate]] = Map()
   
   //////////////////////////////////////////////////////////////////////////////
 

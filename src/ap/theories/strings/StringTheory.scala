@@ -190,9 +190,9 @@ trait StringTheory extends Theory {
   val re_+           : IFunction    // RegexSort -> RegexSort
   val re_opt         : IFunction    // RegexSort -> RegexSort
 
-  // Transducer pool
+  // Further functions or predicates that a string theory might define
 
-  val relations : Map[String, Predicate]
+  val extraOps : Map[String, Either[IFunction, Predicate]]
 
 }
 

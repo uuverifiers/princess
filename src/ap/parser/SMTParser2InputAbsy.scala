@@ -751,8 +751,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   stringTheoryBuilder setBitWidth 18
 
-  private def stringTheory =
+  private var usingStrings = false
+
+  private def stringTheory = {
+    usingStrings = true
     stringTheoryBuilder.theory
+  }
 
   private def charType =   SMTChar(stringTheory.CharSort)
   private def stringType = SMTString(stringTheory.StringSort)
@@ -2541,6 +2545,22 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     // str.to-int, str.from-int
 
+    case PlainSymbol(id)
+      if usingStrings && (stringTheory.extraOps contains id) =>
+      stringTheory.extraOps(id) match {
+        case Left(f : MonoSortedIFunction) => {
+          val argTypes = f.argSorts map (stringSort2SMTType _)
+          val resType = stringSort2SMTType(f.resSort)
+          (translateStringFun(f, args, argTypes), resType)
+        }
+        case Right(p : MonoSortedPredicate) => {
+          val argTypes = p.argSorts map (stringSort2SMTType _)
+          translateStringPred(p, args, argTypes)
+        }
+        case u =>
+          throw new TranslationException("cannot handle string operator " + u)
+      }
+
     ////////////////////////////////////////////////////////////////////////////
     // Declared symbols from the environment
     case id => unintFunApp(asString(id), sym, args, polarity)
@@ -2660,6 +2680,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         p.name + " cannot be applied to arguments of type " +
         (transArgs map (_._2) mkString ", "))
     (IAtom(p, transArgs map (asTerm(_))), SMTBool)
+  }
+
+  private def stringSort2SMTType(s : TSort) : SMTType = {
+    val t = stringTheory
+    s match {
+      case t.CharSort   => charType
+      case t.RegexSort  => regexType
+      case t.StringSort => stringType
+      case s => throw new TranslationException("" + s + " is not a string sort")
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
