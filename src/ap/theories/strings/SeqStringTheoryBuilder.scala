@@ -44,6 +44,11 @@ class SeqStringTheoryBuilder extends StringTheoryBuilder {
 
   private var bitWidth : Option[Int] = None
 
+  def getTransducerTheory : Option[StringTheory] = None
+
+  def addTransducer(name : String,
+                    transducer : StringTheoryBuilder.SymTransducer) : Unit = ()
+
   lazy val theory = SeqStringTheory(bitWidth.get)
 
 }

@@ -32,14 +32,15 @@ import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic}
-import ap.theories.strings.StringTheoryBuilder
+import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
 import ap.util.{Debug, Logic, PlainRange}
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap}
+import scala.collection.mutable.{ArrayBuffer,
+                                 HashMap => MHashMap, HashSet => MHashSet}
 
 object SMTParser2InputAbsy {
 
@@ -740,7 +741,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    * Timeout per query, in incremental mode
    */
   private var timeoutPer = Int.MaxValue
-  
+  /**
+   * Parse recursive predicates over strings as transducers
+   */  
+  private var recFunctionsAsTransducers = false
+
   private def needCertificates : Boolean =
     genProofs || genInterpolants || genUnsatCores
 
@@ -753,9 +758,21 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private var usingStrings = false
 
+  private var transducerStringTheory : scala.Option[StringTheory] = None
+
+  private def maybeParseTransducer[A](cont : => A) = {
+    if (recFunctionsAsTransducers)
+      transducerStringTheory = stringTheoryBuilder.getTransducerTheory
+    try {
+      cont
+    } finally {
+      transducerStringTheory = None
+    }
+  }
+
   private def stringTheory = {
     usingStrings = true
-    stringTheoryBuilder.theory
+    transducerStringTheory getOrElse stringTheoryBuilder.theory
   }
 
   private def charType =   SMTChar(stringTheory.CharSort)
@@ -835,6 +852,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     genProofs            = false
     genInterpolants      = false
     genUnsatCores        = false
+    recFunctionsAsTransducers = false
     assumptions.clear
     functionDefs         = Map()
     nextPartitionNumber  = 0
@@ -1000,6 +1018,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         } ||
         handleNumAnnot(":timeout-per", annot) {
           value => timeoutPer = (value min IdealInt(Int.MaxValue)).intValue
+        } ||
+        handleBooleanAnnot(":parse-transducers", annot) {
+          value => recFunctionsAsTransducers = value
         }
 
         if (handled) {
@@ -1285,7 +1306,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : RecFunctionDefCommand => {
+      case cmd : RecFunctionDefCommand => maybeParseTransducer {
         val name = asString(cmd.symbol_)
         val args : Seq[SMTType] = 
           for (sortedVar <- cmd.listesortedvarc_)
@@ -1317,7 +1338,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : RecFunctionDefsCommand => {
+      case cmd : RecFunctionDefsCommand => maybeParseTransducer {
         // create functions
         val functions = for (sigc <- cmd.listfunsignaturec_) yield {
           val sig = sigc.asInstanceOf[FunSignature]
@@ -2429,7 +2450,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.str_head, args,
                           List(stringType)), charType)
     case PlainSymbol("str.tail") =>
-      (translateStringFun(stringTheory.str_head, args,
+      (translateStringFun(stringTheory.str_tail, args,
                           List(stringType)), stringType)
 
     case PlainSymbol("str") =>
@@ -2642,6 +2663,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         
       case Environment.Variable(i, SubstExpression(e, t)) =>
         (e, t)
+
+      case r =>
+        throw new TranslationException("did not expect " + r)
     }
   
   //////////////////////////////////////////////////////////////////////////////
@@ -2690,6 +2714,117 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case t.StringSort => stringType
       case s => throw new TranslationException("" + s + " is not a string sort")
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Translate a set of recursive functions to a letter-to-letter transducer
+   * over strings.
+   */
+  private def recFunctions2Transducer(funs : Seq[(IFunction, IFormula)])
+                                       : StringTheoryBuilder.SymTransducer = {
+    import StringTheoryBuilder._
+
+    val theory = stringTheory
+    import theory.{str_empty, str_head, str_tail}
+
+    val stateFuns = funs map (_._1)
+    val tracks = stateFuns.head.arity
+
+    object StrHeadReplacer extends ContextAwareVisitor[Unit, IExpression] {
+      def postVisit(t : IExpression, ctxt : Context[Unit],
+                    subres : Seq[IExpression]) : IExpression = t match {
+        case IFunApp(str_head, Seq(IVariable(ind)))
+          if ind >= ctxt.binders.size &&
+             ind - ctxt.binders.size < tracks =>
+          IVariable(tracks - ind - 1 + 2 * ctxt.binders.size)
+        case _ =>
+          t update subres
+      }
+    }
+
+    if (!(stateFuns forall { f => f.arity == tracks }))
+      throw new TranslationException(
+        "Can only handle transducers with a uniform number of tracks")
+
+    val funs2Index = stateFuns.iterator.zipWithIndex.toMap
+    val symTransitions = new ArrayBuffer[TransducerTransition]
+    val accepting = new MHashSet[Int]
+
+    for ((f, transitions) <- funs) {
+      for (trans <-
+             LineariseVisitor(Transform2NNF(transitions), IBinJunctor.Or)) {
+        val conjuncts = LineariseVisitor(trans, IBinJunctor.And)
+
+        val (targetConds, otherConds1) = conjuncts partition {
+          case EqZ(IFunApp(f, _)) if stateFuns contains f => true
+          case _ => false
+        }
+
+        val (emptinessConds, otherConds2) = otherConds1 partition {
+          case Eq(_ : IVariable, IFunApp(`str_empty`, _)) => true
+          case Eq(IFunApp(`str_empty`, _), _ : IVariable) => true
+          case _ => false
+        }
+
+        val (nonEmptinessConds, otherConds) = otherConds2 partition {
+          case INot(Eq(_ : IVariable, IFunApp(`str_empty`, _))) => true
+          case INot(Eq(IFunApp(`str_empty`, _), _ : IVariable)) => true
+          case _ => false
+        }
+
+        if (conjuncts.size == emptinessConds.size &&
+            (SymbolCollector variables and(emptinessConds)) ==
+              ((0 until tracks) map (v(_))).toSet) {
+
+          accepting += funs2Index(f)
+
+        } else {
+          if (!emptinessConds.isEmpty)
+            throw new TranslationException(
+              "inconsistent string emptiness conditions in transducer: " +
+              and(emptinessConds))
+
+          val (epsilons, targetIndex) = targetConds match {
+            case Seq(EqZ(IFunApp(targetFun, args)))
+              if (stateFuns contains targetFun) =>
+              (for ((t, n) <- args.zipWithIndex;
+                    trackVar = tracks - n - 1) yield t match {
+                 case IVariable(`trackVar`)                         => true
+                 case IFunApp(str_tail, Seq(IVariable(`trackVar`))) => false
+                 case t =>
+                   throw new TranslationException(
+                     "unsupported track modifier in transducer: " + t)
+               },
+               funs2Index(targetFun))
+            case c =>
+              throw new TranslationException(
+                "need exactly one target constraint in transducer, not " + c)
+          }
+        
+          val nonEmptyTracks =
+            for (IVariable(n) <-
+                   SymbolCollector variables and(nonEmptinessConds))
+            yield (tracks - n - 1)
+          if (nonEmptyTracks !=
+              (for ((false, n) <- epsilons.iterator.zipWithIndex)
+               yield n).toSet)
+            throw new TranslationException(
+              "inconsistent constraints in transducer: " +
+              "read tracks have to be non-empty strings")
+
+          val constraint = StrHeadReplacer.visit(and(otherConds), Context())
+                                          .asInstanceOf[IFormula]
+
+          symTransitions +=
+            TransducerTransition(funs2Index(f), targetIndex,
+                                 epsilons, constraint)
+        }
+      }
+    }
+
+    SymTransducer(symTransitions, accepting.toSet)
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -3076,10 +3211,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   protected def registerRecFunctions(
                   funs : Seq[(IFunction, (IExpression, SMTType))]) : Unit =
-    for ((f, body) <- funs) {
-      // set up a defining equation and formula
-      warn("assuming that recursive function " + f.name + " is partial")
-      addAxiomEquation(f, body)
+    if (recFunctionsAsTransducers) {
+      val name = funs.head._1.name
+      val transducer =
+        recFunctions2Transducer(
+          for ((f, trans) <- funs) yield (f, asFormula(trans)))
+      stringTheoryBuilder.addTransducer(name, transducer)
+    } else {
+      for ((f, body) <- funs) {
+        // set up a defining equation and formula
+        warn("assuming that recursive function " + f.name + " is partial")
+        addAxiomEquation(f, body)
+      }
     }
 
   private def addAxiomEquation(f : IFunction,

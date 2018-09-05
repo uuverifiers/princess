@@ -37,6 +37,20 @@ sat
   (define-fun x () String "\x4095F")
 )
 
+Loading transducer1.smt2 ...
+Warning: assuming that recursive function succ is partial
+Warning: assuming that recursive function succH is partial
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y () String "100")
+  (define-fun x () String "011")
+  (define-fun succ ((x!0 String) (x!1 String)) Bool (ite (and (= x!0 "011") (= x!1 "100")) true true))
+  (define-fun succH ((x!0 String) (x!1 String)) Bool (ite (and (= x!0 "") (= x!1 "")) true (ite (and (= x!0 "11") (= x!1 "00")) true (ite (and (= x!0 "1") (= x!1 "0")) true true))))
+)
+
 Loading concat-3.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...

@@ -120,7 +120,7 @@ class SeqStringTheory private (val bitWidth : Int) extends {
       case IFunApp(`str`, _) =>
         str_cons(subres.head.asInstanceOf[ITerm], str_empty())
       case IFunApp(`str_len`, _) =>
-        adtSize(subres.head.asInstanceOf[ITerm])
+        adtSize(subres.head.asInstanceOf[ITerm]) - 1
       case t =>
         t update subres
     }

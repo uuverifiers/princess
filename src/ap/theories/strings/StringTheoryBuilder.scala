@@ -21,12 +21,30 @@
 
 package ap.theories.strings
 
+import ap.parser.IFormula
 import ap.theories.TheoryBuilder
 
 object StringTheoryBuilder {
 
   def apply(desc : String) : StringTheoryBuilder =
     TheoryBuilder(desc).asInstanceOf[StringTheoryBuilder]
+
+  /**
+   * n-track transducers represented as a set of transitions over the states
+   * <code>0, 1, ..., n</code> with symbolic labels.
+   */
+  case class SymTransducer(transitions : Seq[TransducerTransition],
+                           accepting : Set[Int])
+
+  /**
+   * Transition of a transducer. The constraint is a formula over
+   * variables <code>_0, _1, ...</code> representing the head symbols of the
+   * transducer tracks.
+   */
+  case class TransducerTransition(fromState : Int,
+                                  toState : Int,
+                                  epsilons : Seq[Boolean],
+                                  constraint : IFormula)
 
 }
 
@@ -38,5 +56,18 @@ abstract class StringTheoryBuilder extends TheoryBuilder {
   type T = StringTheory
 
   def setBitWidth(w : Int) : Unit
+
+  /**
+   * Optionally, return a simplified string theory used to parse transducers
+   * represented as recursive functions. Return <code>None</code> if the
+   * string theory does not support transducers.
+   */
+  def getTransducerTheory : Option[StringTheory]
+
+  /**
+   * Add a transducer to the constructed string theory.
+   */
+  def addTransducer(name : String,
+                    transducer : StringTheoryBuilder.SymTransducer) : Unit
 
 }

@@ -7,6 +7,9 @@ TESTS="simple-cycle.smt2 \
        simple-cycle3.smt2 \
        concat-1.smt2 \
        concat-2.smt2 \
-       concat-3.smt2"
+       transducer1.smt2"
 
 $PRI "$@" $TESTS
+
+# disabling assertions for the next test case, which otherwise takes very long
+$PRI "$@" -assert concat-3.smt2
