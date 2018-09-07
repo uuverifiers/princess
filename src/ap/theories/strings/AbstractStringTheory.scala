@@ -36,7 +36,7 @@ import ap.util.Seqs
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  ArrayBuffer, Map => MMap, ArrayStack,
-                                 LinkedHashMap, LinkedHashSet}
+                                 LinkedHashMap, LinkedHashSet, Set => MSet}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -450,13 +450,19 @@ object AbstractStringTheoryWithSort {
     override def individuals : Stream[ITerm] = Sort.Integer.individuals
 
     override def augmentModelTermSet(
-                   model : Conjunction,
-                   terms : MMap[(IdealInt, Sort), ITerm]) : Unit = {
+                            model : Conjunction,
+                            terms : MMap[(IdealInt, Sort), ITerm],
+                            allTerms : Set[(IdealInt, Sort)],
+                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
       val t = theory
       import t.{str_empty, str_cons, _str_empty, _str_cons, CharSort}
 
       val predConj = model.predConj
       
+      val conses =
+        (for (a <- predConj positiveLitsWithPred _str_cons) yield
+           (a(1).constant, (a(0).constant, a(2).constant))) groupBy (_._1)
+
       for (lc <- predConj.lookupFunctionResult(_str_empty, List())) {
         val emptyIndex = lc.constant
         val emptyString = IFunApp(str_empty, List())
@@ -464,10 +470,6 @@ object AbstractStringTheoryWithSort {
 
         val todo = new ArrayStack[(IdealInt, ITerm)]
         todo push ((emptyIndex, emptyString))
-
-        val conses =
-          (for (a <- predConj positiveLitsWithPred _str_cons) yield
-             (a(1).constant, (a(0).constant, a(2).constant))) groupBy (_._1)
 
         while (!todo.isEmpty) {
           val (nextIndex, nextString) = todo.pop
@@ -481,6 +483,14 @@ object AbstractStringTheoryWithSort {
               }
           }
         }
+      }
+
+      // check whether any of the terms to be constructed are blocked by
+      // missing character terms
+      for (ind <- conses.keysIterator) {
+        val p = (ind, this.asInstanceOf[Sort])
+        if (!(terms contains p))
+          definedTerms += p
       }
     }
   }

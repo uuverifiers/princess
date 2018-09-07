@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,11 +23,12 @@ package ap.types
 
 import ap.basetypes.IdealInt
 import ap.theories.Theory
-import ap.parser.ITerm
+import ap.parser.{ITerm, SizeVisitor}
 import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, NegatedConjunctions,
                                ReduceWithConjunction}
 import ap.terfor.preds.Atom
+import ap.util.Debug
 
 import scala.collection.mutable.{ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet,
@@ -37,6 +38,8 @@ import scala.collection.mutable.{ArrayBuffer,
  * Theory taking care of types of declared symbols.
  */
 object TypeTheory extends Theory {
+
+  private val AC = Debug.AC_TYPES
 
   override def preprocess(f : Conjunction,
                           order : TermOrder) : Conjunction = {
@@ -188,66 +191,90 @@ object TypeTheory extends Theory {
 
   override def generateDecoderData(model : Conjunction)
                                   : Option[Theory.TheoryDecoderData] = {
-    // find all relevant sorts
+    val assignment = new LinkedHashMap[(IdealInt, Sort), ITerm]
+
+    // find all relevant sorts and indexes
     val sorts = new LinkedHashSet[Sort]
+    val allTerms = new LinkedHashSet[(IdealInt, Sort)]
 
-    for (c <- model.constants) c match {
-      case c : SortedConstantTerm =>
-        sorts += c.sort
-      case _ =>
-        // nothing
-    }
+    for (c <- model.constants)
+      sorts += Sort sortOf c
 
-    for (a <- atoms(model)) a.pred match {
-      case sortedPred : SortedPredicate =>
-        sorts ++= sortedPred argumentSorts a
-      case _ =>
-        // nothing
+    for (a <- atoms(model))
+      sorts ++= SortedPredicate argumentSorts a
+
+    // for models, we have to make sure that we construct symbolic expressions
+    // for all relevant index-sort pairs
+
+    for (lc <- model.arithConj.positiveEqs)
+      if (lc.constants.size == 1)
+        lc.leadingTerm match {
+          case c : SortedConstantTerm =>
+            allTerms += ((-lc.constant, c.sort))
+          case _ => // nothing
+        }
+
+    for (a <- model.predConj.positiveLits.iterator ++
+              model.predConj.negativeLits.iterator;
+         argSorts = SortedPredicate.argumentSorts(a.pred, a);
+         (lc, sort) <- a.iterator zip argSorts.iterator;
+         if lc.isConstant) {
+      val key = (lc.constant, sort)
+      allTerms += key
+      sort match {
+        case Sort.Numeric(_) =>
+          assignment.put(key, lc.constant)
+        case sort =>
+          // nothing
+      }
     }
+    
+    val allTermsSet = allTerms.toSet
 
     // reconstruct terms from definitions in the model
 
-    val terms = new LinkedHashMap[(IdealInt, Sort), ITerm]
+    val definedIndexes = new MHashSet[(IdealInt, Sort)]
 
     var size = -1
-    while (terms.size > size) {
-      size = terms.size
+    while (assignment.size > size) {
+      size = assignment.size
       for (s <- sorts)
-        s.augmentModelTermSet(model, terms)
+        s.augmentModelTermSet(model, assignment, allTermsSet, definedIndexes)
+
+      if (size == assignment.size) {
+        // possibly add further terms to the map, for sorted constants
+        // that are mentioned but not further defined in the model
+
+        val missing =
+          for (p <- allTerms.iterator; if !(assignment contains p)) yield p
+
+        if (missing.hasNext) {
+          val usedTerms =
+            (for (((_, sort), t) <- assignment.iterator) yield (sort, t)).toSet
+          val witnesses =
+            for (p@(ind, sort) <- missing) yield {
+              val witness = (sort.individuals.iterator filterNot {
+                               t => usedTerms contains (sort, t) }).next
+              (p, witness)
+            }
+
+          // as a convention, we always add a term of minimum size that is
+          // not currently used. Some theories, for instance ADTs depend
+          // on the fact that the smallest term is used
+
+          val (key, t) =
+            witnesses minBy { case (_, t) => SizeVisitor(t) }
+          assignment.put(key, t)
+        }
+      }
     }
 
-    // possibly add further terms to the map, for sorted constants
-    // that are mentioned but not further defined in the model
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    // all terms have been assigned
+    Debug.assertPost(AC, allTerms subsetOf assignment.keySet)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val allTerms = new MHashSet[(ITerm, Sort)]
-    for (((_, sort), term) <- terms.iterator)
-      allTerms += ((term, sort))
-
-    for (lc <- model.arithConj.positiveEqs)
-      lc.leadingTerm match {
-        case c : SortedConstantTerm => c.sort match {
-          case Sort.Numeric(_) =>
-            // nothing
-          case sort => {
-            val index = -lc.constant
-            if (!(terms contains ((index, sort)))) {
-              val chosenPair =
-                (for (ind <- sort.individuals;
-                      pair = (ind, sort);
-                      if !(allTerms contains pair))
-                 yield pair).headOption
-              for (p@(term, sort) <- chosenPair) {
-                terms.put((-lc.constant, sort), term)
-                allTerms += p
-              }
-            }
-          }
-        }
-
-        case _ => // nothing
-      }
-
-    Some(DecoderData(terms))
+    Some(DecoderData(assignment))
   }
 
   private def atoms(c : Conjunction) : Iterator[Atom] =

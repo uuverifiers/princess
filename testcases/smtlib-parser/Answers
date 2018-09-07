@@ -302,6 +302,27 @@ sat
   (define-fun f1 ((x!0 TList)) Bool (ite (= x!0 nil) true (ite (= x!0 (cons (int 41) (cons (int 17) (cons (int 42) nil)))) true (ite (= x!0 (cons (int 17) (cons (int 42) nil))) true (ite (= x!0 (cons (int 42) nil)) true true)))))
 )
 
+Loading datatype6.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun t () Tree (node (cons 1 nil) leaf (node (cons 0 nil) leaf (node nil leaf leaf))))
+)
+
+Loading datatype6b.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun b () List nil)
+  (define-fun a () List (cons 0 nil))
+)
+
 Loading cvc-datatype-1.smt2 ...
 Preprocessing ...
 Constructing countermodel ...
@@ -608,6 +629,17 @@ sat
   (define-fun x () S B)
 )
 unsat
+Loading datatype6.smt2 ...
+sat
+(model
+  (define-fun t () Tree (node (cons 1 nil) leaf (node (cons 0 nil) leaf (node nil leaf leaf))))
+)
+Loading datatype6b.smt2 ...
+sat
+(model
+  (define-fun b () List nil)
+  (define-fun a () List (cons 0 nil))
+)
 Loading cvc-datatype-1.smt2 ...
 sat
 Loading unsat-core.smt2 ...

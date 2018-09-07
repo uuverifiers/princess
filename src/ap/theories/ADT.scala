@@ -39,7 +39,7 @@ import ap.parameters.{Param, ReducerSettings}
 import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs}
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
-                                 HashSet => MHashSet, Map => MMap,
+                                 HashSet => MHashSet, Map => MMap, Set => MSet,
                                  BitSet => MBitSet, ArrayStack,
                                  LinkedHashSet}
 import scala.collection.{Set => GSet}
@@ -163,27 +163,24 @@ object ADT {
         1)
 
     override def augmentModelTermSet(
-                   model : Conjunction,
-                   terms : MMap[(IdealInt, Sort), ITerm]) : Unit =
+                            model : Conjunction,
+                            terms : MMap[(IdealInt, Sort), ITerm],
+                            allTerms : Set[(IdealInt, Sort)],
+                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
       if (adtTheory.isEnum(sortNum)) {
         if (!(terms contains (IdealInt.ZERO, this)))
           for ((f, num) <-
                  adtTheory.constructorsPerSort(sortNum).iterator.zipWithIndex)
             terms.put((IdealInt(num), this), IFunApp(f, List()))
       } else {
-        val atoms = model.predConj.positiveLits filter {
-          a => adtTheory.constructorPredsSet contains a.pred
-        }
-
-        var changed = false
-        val blockedKeys = new MHashSet[(IdealInt, Sort)]
-        val missingKeys = new LinkedHashSet[(IdealInt, Sort)]
+        val atoms =
+          for (p <- adtTheory.constructorPreds;
+               a <- model.predConj positiveLitsWithPred p)
+          yield a
 
         var oldSize = -1
         while (oldSize < terms.size) {
           oldSize = terms.size
-          blockedKeys.clear
-          missingKeys.clear
 
           for (a <- atoms) {
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
@@ -196,59 +193,24 @@ object ADT {
             val key = (a.last.constant, ctor.resSort)
             if (!(terms contains key))
               getSubTerms(a.init, ctor.argSorts, terms) match {
-                case Left(argTerms) => {
+                case Left(argTerms) =>
                   terms.put(key, IFunApp(ctor, argTerms))
-                  changed = true
-                }
-                case Right(missing) => {
-                  missingKeys ++= missing
-                  blockedKeys += key
-                }
+                case Right(_) =>
+                  definedTerms += key
               }
-          }
-        }
-
-        if (!changed) {
-          // check whether we have to introduce some further individuals in the
-          // model
-
-          // TODO: this might sometimes not work when terms of nested
-          // sort have to be constructed?
-
-          missingKeys --= blockedKeys
-
-          for (lc <- model.arithConj.positiveEqs.iterator;
-               c = lc.leadingTerm.asInstanceOf[IExpression.ConstantTerm];
-               sort = SortedConstantTerm sortOf c;
-               if (sort match {
-                 case adtTheory.SortNum(_) => true
-                 case _ => false
-               });
-               key = (-lc.constant, sort);
-               if !(terms contains key) && !(blockedKeys contains key))
-            missingKeys += key
-
-          if (!missingKeys.isEmpty) {
-            val existingTerms =
-              (for ((_, t) <- terms.iterator;
-                    if (t match {
-                      case IFunApp(f, _) => adtTheory.constructorsSet contains f
-                      case _ => false
-                    }))
-               yield t).toSet
-
-            val witnesses =
-              for ((_, sort) <- missingKeys)
-              yield (sort.individuals.iterator filterNot existingTerms).next
-            val (key, ind) =
-              (missingKeys.iterator zip witnesses.iterator) minBy {
-                case (_, ind) => ctorTermDepth(ind)
-              }
-
-            terms.put(key, ind)
           }
         }
       }
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertPost(AC,
+        // distinct indices have been mapped to distinct terms
+        (for (((_, s), t) <- terms.iterator; if s == this)
+         yield t).toSet.size ==
+        (for (((ind, s), _) <- terms.iterator; if s == this)
+         yield ind).toSet.size)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////

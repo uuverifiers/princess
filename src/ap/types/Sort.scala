@@ -30,7 +30,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.theories.Theory
 import ap.util.Debug
 
-import scala.collection.mutable.{Map => MMap}
+import scala.collection.mutable.{Map => MMap, Set => MSet}
 
 object Sort {
 
@@ -58,8 +58,9 @@ object Sort {
       yield IExpression.i(n)
 
     def augmentModelTermSet(model : Conjunction,
-                            terms : MMap[(IdealInt, Sort), ITerm])
-                           : Unit = ()
+                            assignment : MMap[(IdealInt, Sort), ITerm],
+                            allTerms : Set[(IdealInt, Sort)],
+                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = ()
 
     override def newConstant(name : String) : ConstantTerm =
       new ConstantTerm(name)
@@ -132,8 +133,9 @@ object Sort {
       }
 
     def augmentModelTermSet(model : Conjunction,
-                            terms : MMap[(IdealInt, Sort), ITerm])
-                           : Unit = ()
+                            assignment : MMap[(IdealInt, Sort), ITerm],
+                            allTerms : Set[(IdealInt, Sort)],
+                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = ()
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -213,27 +215,29 @@ object Sort {
                  })
        yield IExpression.i(n))
 
-    override def augmentModelTermSet(model : Conjunction,
-                                     terms : MMap[(IdealInt, Sort), ITerm])
-                                    : Unit = {
+    override def augmentModelTermSet(
+                   model : Conjunction,
+                   assignment : MMap[(IdealInt, Sort), ITerm],
+                   allTerms : Set[(IdealInt, Sort)],
+                   definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
       // at the moment, just a naive traversal that introduces terms
       // <code>True</code>, <code>False</code> for every integer literal
       // in the model
 
-      terms.put((IdealInt.ZERO, this), True)
-      terms.put((IdealInt.ONE, this), False)
+      assignment.put((IdealInt.ZERO, this), True)
+      assignment.put((IdealInt.ONE, this), False)
       
       for (lc <- model.arithConj.positiveEqs) lc.constant match {
         case IdealInt.ZERO => // nothing
         case IdealInt.MINUS_ONE  => // nothing
-        case num => terms.put((-num, this), False)
+        case num => assignment.put((-num, this), False)
       }
 
       for (a <- model.groundAtoms.iterator;
            lc <- a.iterator) lc.constant match {
         case IdealInt.ZERO => // nothing
         case IdealInt.ONE  => // nothing
-        case num => terms.put((num, this), False)
+        case num => assignment.put((num, this), False)
       }
     }
   }
@@ -349,7 +353,9 @@ trait Sort {
    * considered sort.
    */
   def augmentModelTermSet(model : Conjunction,
-                          terms : MMap[(IdealInt, Sort), ITerm]) : Unit
+                          assignment : MMap[(IdealInt, Sort), ITerm],
+                          allTerms : Set[(IdealInt, Sort)],
+                          definedTerms : MSet[(IdealInt, Sort)]) : Unit
 
   protected def getSubTerms(ids : Seq[Term],
                             sorts : Seq[Sort],
@@ -570,8 +576,10 @@ class ProxySort(underlying : Sort) extends Sort {
   def individuals : Stream[ITerm] = underlying.individuals
 
   def augmentModelTermSet(model : Conjunction,
-                          terms : MMap[(IdealInt, Sort), ITerm]) : Unit =
-    underlying.augmentModelTermSet(model, terms)
+                          assignment : MMap[(IdealInt, Sort), ITerm],
+                          allTerms : Set[(IdealInt, Sort)],
+                          definedTerms : MSet[(IdealInt, Sort)]) : Unit =
+    underlying.augmentModelTermSet(model, assignment, allTerms, definedTerms)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

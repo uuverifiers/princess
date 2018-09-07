@@ -51,6 +51,22 @@ sat
   (define-fun succH ((x!0 String) (x!1 String)) Bool (ite (and (= x!0 "") (= x!1 "")) true (ite (and (= x!0 "11") (= x!1 "00")) true (ite (and (= x!0 "1") (= x!1 "0")) true true))))
 )
 
+Loading adt.smt2 ...
+Warning: assuming that recursive function cat is partial
+Warning: assuming that recursive function nonEmpty is partial
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun t () Tree (node leaf "Hello World" leaf))
+  (define-fun c () String "Hello World")
+  (define-fun b () String "")
+  (define-fun a () String "")
+  (define-fun cat ((x!0 Tree)) String (ite (= x!0 (node leaf "Hello World" leaf)) "Hello World" (ite (= x!0 leaf) "" "")))
+  (define-fun nonEmpty ((x!0 Tree)) Bool (ite (= x!0 (node leaf "Hello World" leaf)) true (ite (= x!0 leaf) true true)))
+)
+
 Loading concat-3.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
