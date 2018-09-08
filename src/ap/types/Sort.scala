@@ -141,7 +141,16 @@ object Sort {
   //////////////////////////////////////////////////////////////////////////////
   // Uninterpreted sorts
 
-  class InfUninterpreted(override val name : String) extends ProxySort(Integer)
+  class InfUninterpreted(override val name : String)
+        extends ProxySort(Integer) {
+    
+    /**
+     * We just create numbered constants to represent the individuals.
+     */
+    override val individuals : Stream[ITerm] =
+      for (n <- Stream.iterate(0)(_ + 1))
+      yield IConstant(newConstant(name + "!" + n))
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -208,7 +217,7 @@ object Sort {
      */
     def isFalse(t : ITerm) : IFormula = !IExpression.eqZero(t)
 
-    override def individuals : Stream[ITerm] =
+    override val individuals : Stream[ITerm] =
       True #:: False #::
       (for (n <- Stream.iterate(IdealInt.MINUS_ONE){
                    n => if (n.signum <= 0) (-n+1) else -n
