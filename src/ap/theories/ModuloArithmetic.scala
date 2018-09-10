@@ -1507,7 +1507,7 @@ object ModuloArithmetic extends Theory {
 
         case BVPred(_) => {
           Console.err.println("Warning: don't know how to handle " + a)
-          (incompletenessFlag.value)(0) = true
+          Incompleteness.set
           a
         }
 
@@ -1539,12 +1539,7 @@ object ModuloArithmetic extends Theory {
     def unapply(p : Predicate) : Option[IFunction] = reverseMapping get p
   }
 
-  // a simple flag to detect problems with operators that are not yet
-  // supported
   // TODO: add support for all operators
-
-  val incompletenessFlag =
-    new scala.util.DynamicVariable[Array[Boolean]] (Array(false))
 
   //////////////////////////////////////////////////////////////////////////////
 

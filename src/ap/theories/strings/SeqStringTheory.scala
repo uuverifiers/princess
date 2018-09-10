@@ -24,7 +24,8 @@ package ap.theories.strings
 import ap.Signature
 import ap.parser._
 import ap.parser.IExpression.Predicate
-import ap.theories.{Theory, ADT, ModuloArithmetic, TheoryRegistry}
+import ap.theories.{Theory, ADT, ModuloArithmetic, TheoryRegistry,
+                    Incompleteness}
 import ap.types.Sort
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                ReducerPlugin, ReducerPluginFactory}
@@ -142,6 +143,9 @@ class SeqStringTheory private (val bitWidth : Int) extends {
   override def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
     implicit val _ = order
     import TerForConvenience._
+
+    if (!Seqs.disjoint(f.predicates, unsupportedPreds))
+      Incompleteness.set
 
 //    println("init: " + f)
 
@@ -426,7 +430,17 @@ class SeqStringTheory private (val bitWidth : Int) extends {
   override def isSoundForSat(
                  theories : Seq[Theory],
                  config : Theory.SatSoundnessConfig.Value) : Boolean =
-    config == Theory.SatSoundnessConfig.Existential
+    config match {
+      case Theory.SatSoundnessConfig.Elementary  => true
+      case Theory.SatSoundnessConfig.Existential => true
+      case _                                     => false
+    }
+
+  // Set of the predicates that are fully supported at this point
+  private val supportedPreds : Set[Predicate] =
+    (for (f <- Set(str_++, str_len)) yield funPredMap(f)) ++ seqADT.predicates
+
+  private val unsupportedPreds = predicates.toSet -- supportedPreds
   
   //////////////////////////////////////////////////////////////////////////////
 

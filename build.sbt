@@ -59,4 +59,7 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
+//
+    libraryDependencies +=
+      "dk.brics.automaton" % "automaton" % "1.11-8")

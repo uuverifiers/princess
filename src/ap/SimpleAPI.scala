@@ -40,7 +40,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction, SeqReducerPluginFactory}
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
-                    SimpleArray, MulTheory}
+                    SimpleArray, MulTheory, Incompleteness}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
@@ -4000,14 +4000,13 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addToProver(preCompleteFor : Conjunction,
                           preAxioms : Conjunction) : Unit = {
-    val incomp = Array(false)
-    val completeFor = ap.theories.ModuloArithmetic.incompletenessFlag.withValue(incomp) {
+    val (completeFor, incomp) = Incompleteness.track {
       convertQuantifiers(Theory.preprocess(preCompleteFor,
                                            theories,
                                            currentOrder))
     }
 
-    if (incomp(0))
+    if (incomp)
       ignoredQuantifiers = true
 
     val axioms =
