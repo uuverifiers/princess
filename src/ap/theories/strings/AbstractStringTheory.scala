@@ -131,7 +131,7 @@ abstract class AbstractStringTheory extends StringTheory {
   protected def predefFunctions =
     List(str, str_++, str_len, str_at, str_char,
          str_substr, str_indexof,
-         str_replace, str_replaceall, str_replaceallre,
+         str_replace, str_replacere, str_replaceall, str_replaceallre,
          str_to_re, re_none, re_eps, re_all, re_allchar, re_charrange, re_++,
          re_union, re_inter, re_*, re_+, re_opt)
 
