@@ -217,7 +217,7 @@ abstract class AbstractStringTheory extends StringTheory {
   object RegexExtractor {
     private val regexFunctions =
       Set(str_empty, str_cons, re_none, str_to_re, re_all, re_allchar,
-          re_++, re_union, re_inter, re_*, re_+, re_opt)
+          re_charrange, re_++, re_union, re_inter, re_*, re_+, re_opt)
     private lazy val regexPredicates =
       regexFunctions map functionPredicateMapping.toMap
 
