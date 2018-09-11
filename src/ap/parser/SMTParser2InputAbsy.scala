@@ -2821,6 +2821,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             TransducerTransition(funs2Index(f), targetIndex,
                                  epsilons, constraint)
         }
+
+        () // work-around for Scala 2.12
       }
     }
 
