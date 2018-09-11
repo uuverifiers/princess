@@ -761,8 +761,11 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var transducerStringTheory : scala.Option[StringTheory] = None
 
   private def maybeParseTransducer[A](cont : => A) = {
-    if (recFunctionsAsTransducers)
+    if (recFunctionsAsTransducers) {
       transducerStringTheory = stringTheoryBuilder.getTransducerTheory
+      if (transducerStringTheory.isEmpty)
+        warn("ignoring :parse-transducers, which is not supported by solver " + stringTheoryBuilder.name)
+    }
     try {
       cont
     } finally {
@@ -2812,7 +2815,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                yield n).toSet)
             throw new TranslationException(
               "inconsistent constraints in transducer: " +
-              "read tracks have to be non-empty strings")
+              "accessed tracks have to be non-empty strings")
 
           val constraint = StrHeadReplacer.visit(and(otherConds), Context())
                                           .asInstanceOf[IFormula]
@@ -3213,7 +3216,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   protected def registerRecFunctions(
                   funs : Seq[(IFunction, (IExpression, SMTType))]) : Unit =
-    if (recFunctionsAsTransducers) {
+    if (transducerStringTheory.isDefined) {
       val name = funs.head._1.name
       val transducer =
         recFunctions2Transducer(
