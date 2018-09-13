@@ -447,7 +447,7 @@ object AbstractStringTheoryWithSort {
                              _theory : AbstractStringTheoryWithSort) : Unit =
       theory = _theory
 
-    override val individuals : Stream[ITerm] =
+    override lazy val individuals : Stream[ITerm] =
       IFunApp(theory.str_empty, List()) #::
       (for (t <- individuals;
             n <- theory.CharSort.individuals)
