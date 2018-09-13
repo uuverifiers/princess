@@ -447,7 +447,11 @@ object AbstractStringTheoryWithSort {
                              _theory : AbstractStringTheoryWithSort) : Unit =
       theory = _theory
 
-    override def individuals : Stream[ITerm] = Sort.Integer.individuals
+    override val individuals : Stream[ITerm] =
+      IFunApp(theory.str_empty, List()) #::
+      (for (t <- individuals;
+            n <- theory.CharSort.individuals)
+       yield IFunApp(theory.str_cons, List(n, t)))
 
     override def augmentModelTermSet(
                             model : Conjunction,
