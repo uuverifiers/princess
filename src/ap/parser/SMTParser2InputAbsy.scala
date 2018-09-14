@@ -3069,12 +3069,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case c : StringConstant => {
       import IExpression._
 
-      val it =
-        SMTLineariser.deescapeIt(
-          c.smtstring_.substring(1, c.smtstring_.size - 1).iterator)
+      val escSeq =
+        SMTLineariser.unescapeIt(
+          c.smtstring_.substring(1, c.smtstring_.size - 1)
+                      .iterator.map(_.toInt))
 
-      ((stringTheory.str_empty() /: it) {
-         case (s, c) => stringTheory.str_cons(stringTheory int2Char c, s)
+      ((escSeq :\ stringTheory.str_empty()) {
+         case (c, s) => stringTheory.str_cons(stringTheory int2Char c, s)
        }, stringType)
     }
   }

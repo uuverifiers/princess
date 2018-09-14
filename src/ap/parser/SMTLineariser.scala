@@ -56,131 +56,117 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
   // Operations for escapeing/de-escaping SMT-LIB strings
 
-  def deescapeString(str : String) : String =
-    deescapeIt(str.iterator).mkString.reverse
+  class IllegalStringException extends Exception("Incorrectly escaped string")
 
-  def deescapeIt(it: Iterator[Char]) : Iterator[Char] = {
-    var res: List[Char] = List.empty
-    var isEscape = false
+  def unescapeIt(it : Iterator[Int]) : Seq[Int] = {
+    var state = 0
+    val res = new ArrayBuffer[Int]
+    val charBuffer = new ArrayBuffer[Char]
 
-    def isNumber(c: Int) = (c >= '0' && c <= '9')
-    def isHex(c: Int) =
-      (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || isNumber(c)
-    def decode(body: List[Char] => List[Char],
-               numeralSystem: Int => Boolean)
-              (list: List[Char]) =
-      if (it.hasNext) {
-        val char = it.next
-
-        if (numeralSystem(char)) {
-          body(char :: list)
-        } else if(char == '\\') {
-          list
-        } else {
-          isEscape = false
-          char :: list
-        }
-      } else {
-        list
-      }
-
-    while(it.hasNext) {
-      it.next match {
-        case '\\' if isEscape=>
-          res ::= 92  // \\
-          isEscape = false
-        case '\\' =>
-          isEscape = true
-        case 'a' if isEscape =>
-          res ::= 7   // \a
-          isEscape = false
-        case 'b' if isEscape =>
-          res ::= 8   // \b
-          isEscape = false
-        case 'e' if isEscape =>
-          res ::= 27  // \e
-          isEscape = false
-        case 'f' if isEscape =>
-          res ::= 12  // \f
-          isEscape = false
-        case 'n' if isEscape =>
-          res ::= 10  // \n
-          isEscape = false
-        case 'r' if isEscape =>
-          res ::= 13  // \r
-          isEscape = false
-        case 't' if isEscape =>
-          res ::= 9   // \t
-          isEscape = false
-        case 'v' if isEscape =>
-          res ::= 11  // \v
-          isEscape = false
-        case 'x' if isEscape => // \xNN
-          res :::= decode(decode({ case list =>
-            isEscape = false
-            Integer.parseInt(list.reverse.tail mkString, 16).toChar :: Nil
-          }, isHex), isHex) (List('x'))
-
-        case c if isEscape && isNumber(c) =>
-          res :::= decode(decode({ case list =>
-            var oct: List[Char] = list.reverse
-            oct = (oct.head + 48).toChar :: oct.tail
-            isEscape = false
-
-            if((oct mkString).toInt > 377)
-              Integer.parseInt(oct.init mkString, 8).toChar :: oct.last :: Nil
-            else
-              Integer.parseInt(oct mkString, 8).toChar :: Nil
-          }, isNumber), isNumber) (List((c - 48).toChar))
-
-        case c =>
-          isEscape = false
-          res ::= c
-      }
+    def parseHex : Unit = {
+          if (charBuffer.size > 5)
+            throw new IllegalStringException
+          res += Integer.parseInt(charBuffer.mkString, 16)
+          charBuffer.clear
     }
 
-    //    res foreach {c => print(c.toInt + " ")}
-    //    println
-    //    println(res.reverse mkString)
-    //    println
-    //    res.reverse foreach {c => print(escapeChar(c))}
-    //    println
-    //    println
-    res.iterator
+    def parseOct : Unit = {
+          if (charBuffer.size != 3)
+            throw new IllegalStringException
+          res += Integer.parseInt(charBuffer.mkString, 8)
+          charBuffer.clear
+    }
+
+    def isOct(c : Int) : Boolean =
+          48 <= c && c <= 55
+
+    def isHex(c : Int) : Boolean =
+          (48 <= c && c <= 57) ||
+          (65 <= c && c <= 70) ||
+          (97 <= c && c <= 102)
+
+    while (it.hasNext)
+      (state, it.next) match {
+        case (0, 92) =>                                   // \
+          state = 1
+
+        case (1, 117) =>                                  // u
+          state = 2
+        case (2, 123) =>                                  // {
+          state = 3
+        case (2, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          state = 7
+        }
+        case (3, c) if isHex(c) =>                        // [0-9a-fA-F]
+          charBuffer += c.toChar
+        case (3, 125) => {                                // }
+          parseHex
+          state = 0
+        }
+
+        case (1, 120) =>                                  // x
+          state = 6
+        case (6, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          state = 7
+        }
+        case (7, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          parseHex
+          state = 0
+        }
+
+        case (1, c) if isOct(c) => {                      // [0-7]
+          charBuffer += c.toChar
+          state = 8
+        }
+        case (8, c) if isOct(c) => {                      // [0-7]
+          charBuffer += c.toChar
+          state = 9
+        }
+        case (9, c) if isOct(c) => {                      // [0-7]
+          charBuffer += c.toChar
+          parseOct
+          state = 0
+        }
+
+        case (0, 34) =>                                   // "
+          state = 20
+        case (20, 34) => {                                // "
+          state = 0
+          res += 34
+        }
+
+        case (0, c) =>
+          res += c
+
+        case _ =>
+          throw new IllegalStringException
+      }
+
+    if (state != 0)
+      throw new IllegalStringException
+
+    res
   }
 
-  private def escapeChar(c: Int): String = {
-    def int2hex(n: Int) = n match {
-      case 10 => "A"
-      case 11 => "B"
-      case 12 => "C"
-      case 13 => "D"
-      case 14 => "E"
-      case 15 => "F"
-      case _  => "" + n
-    }
-
-    c match {
-      case 7  => "\\a"
-      case 8  => "\\b"
-      case 27 => "\\e"
-      case 12 => "\\f"
-      case 10 => "\\n"
-      case 13 => "\\r"
-      case 9  => "\\t"
-      case 11 => "\\v"
-      case c if c > 31 && c < 127 =>
-        "" + c.toChar
-      case c =>
-        val n1 = int2hex(c >> 4)
-        val n2 = int2hex(c & 0x0f)
-
-        "\\x" + n1 + n2
-    }
+  private def escapeChar(c: Int): String = c match {
+    case 34 =>
+      "\"\""
+    case c if c >= 32 && c <= 126 && c != 92 =>
+      "" + c.toChar
+    case c if c >= 16 && c <= 255 =>
+      "\\u" + Integer.toString(c, 16)
+    case c =>
+      "\\u{" + Integer.toString(c, 16) + "}"
   }
 
   def escapeString(str : String) : String =
     for (c <- str; d <- escapeChar(c)) yield d
+
+  def unescapeString(str : String) : String =
+    (unescapeIt(str.iterator map (_.toInt)) map (_.toChar)).mkString
 
   //////////////////////////////////////////////////////////////////////////////
 

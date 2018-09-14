@@ -22,9 +22,9 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun z () String "\x4095F")
+  (define-fun z () String "\u{ffff}")
   (define-fun y () String "")
-  (define-fun x () String "\x4095F")
+  (define-fun x () String "\u{ffff}")
 )
 
 Loading concat-2.smt2 ...
@@ -33,8 +33,8 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun z () String "\x4095F\x4095F")
-  (define-fun x () String "\x4095F")
+  (define-fun z () String "\u{ffff}\u{ffff}")
+  (define-fun x () String "\u{ffff}")
 )
 
 Loading transducer1.smt2 ...
@@ -66,6 +66,12 @@ sat
   (define-fun cat ((x!0 Tree)) String (ite (= x!0 (node leaf "Hello World" leaf)) "Hello World" (ite (= x!0 leaf) "" "")))
   (define-fun nonEmpty ((x!0 Tree)) Bool (ite (= x!0 (node leaf "Hello World" leaf)) true (ite (= x!0 leaf) true true)))
 )
+
+Loading escape.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
 
 Loading concat-3.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
