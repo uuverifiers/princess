@@ -754,7 +754,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private var stringTheoryBuilder =
     StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
 
-  stringTheoryBuilder setBitWidth 18
+  private val defaultStringAlphabetSize = 3 * (1 << 16)
+  stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
 
   private var usingStrings = false
 
@@ -862,7 +863,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     partNameIndexes      = Map()
     stringTheoryBuilder =
       StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
-    stringTheoryBuilder setBitWidth 18
+    stringTheoryBuilder setAlphabetSize defaultStringAlphabetSize
   }
 
   protected override def addAxiom(f : IFormula) : Unit =

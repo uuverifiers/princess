@@ -32,23 +32,23 @@ class SeqStringTheoryBuilder extends StringTheoryBuilder {
 
   val name = "SeqString"
 
-  def setBitWidth(w : Int) : Unit = bitWidth match {
+  def setAlphabetSize(w : Int) : Unit = alphabetSize match {
     case None =>
-      bitWidth = Some(w)
+      alphabetSize = Some(w)
     case Some(`w`) =>
       // nothing
-    case Some(oldWidth) =>
+    case Some(oldSize) =>
       throw new TheoryBuilderException(
-        "Inconsistent string bit-widths: " + oldWidth + " and " + w)
+        "Inconsistent string alphabets: " + oldSize + " and " + w)
   }
 
-  private var bitWidth : Option[Int] = None
+  private var alphabetSize : Option[Int] = None
 
   def getTransducerTheory : Option[StringTheory] = None
 
   def addTransducer(name : String,
                     transducer : StringTheoryBuilder.SymTransducer) : Unit = ()
 
-  lazy val theory = SeqStringTheory(bitWidth.get)
+  lazy val theory = SeqStringTheory(alphabetSize.get)
 
 }

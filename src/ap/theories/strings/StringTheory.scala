@@ -116,7 +116,7 @@ object StringTheory {
  */
 trait StringTheory extends Theory {
 
-  val bitWidth       : Int
+  val alphabetSize   : Int
 
   val CharSort       : Sort
   val StringSort     : Sort

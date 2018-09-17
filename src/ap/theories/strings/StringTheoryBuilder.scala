@@ -55,7 +55,7 @@ abstract class StringTheoryBuilder extends TheoryBuilder {
 
   type T = StringTheory
 
-  def setBitWidth(w : Int) : Unit
+  def setAlphabetSize(w : Int) : Unit
 
   /**
    * Optionally, return a simplified string theory used to parse transducers

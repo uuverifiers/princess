@@ -22,6 +22,7 @@
 package ap.theories.strings
 
 import ap.Signature
+import ap.basetypes.IdealInt
 import ap.parser._
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ADT, ModuloArithmetic, TheoryRegistry,
@@ -45,8 +46,8 @@ object SeqStringTheory {
 
   private val instances = new MHashMap[Int, SeqStringTheory]
 
-  def apply(bitWidth : Int) : SeqStringTheory = synchronized {
-    instances.getOrElseUpdate(bitWidth, new SeqStringTheory(bitWidth))
+  def apply(alphabetSize : Int) : SeqStringTheory = synchronized {
+    instances.getOrElseUpdate(alphabetSize, new SeqStringTheory(alphabetSize))
   }
 
 }
@@ -54,9 +55,10 @@ object SeqStringTheory {
 /**
  * String theory implemented using a list ADT.
  */
-class SeqStringTheory private (val bitWidth : Int) extends {
+class SeqStringTheory private (val alphabetSize : Int) extends {
 
-  val CharSort = ModuloArithmetic.UnsignedBVSort(bitWidth)
+  val upperBound = IdealInt(alphabetSize - 1)
+  val CharSort = ModuloArithmetic.ModSort(IdealInt.ZERO, upperBound)
   val RegexSort = new Sort.InfUninterpreted("RegLan")
 
   val seqADT =
@@ -76,7 +78,7 @@ class SeqStringTheory private (val bitWidth : Int) extends {
   val Seq(_, Seq(str_head, str_tail)) = seqADT.selectors
 
   def int2Char(t : ITerm) : ITerm =
-    ModuloArithmetic.cast2UnsignedBV(bitWidth, t)
+    ModuloArithmetic.cast2Interval(IdealInt.ZERO, upperBound, t)
 
   def char2Int(t : ITerm) : ITerm = t
 
