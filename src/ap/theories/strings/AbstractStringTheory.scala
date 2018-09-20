@@ -145,10 +145,6 @@ abstract class AbstractStringTheory extends StringTheory {
   //////////////////////////////////////////////////////////////////////////////
   // Helper classes to reconstruct strings and regexes from the facts in a goal
 
-  val _str_empty : Predicate
-  val _str_cons : Predicate
-  val _str_++ : Predicate
-
   object WordExtractor {
     case class SymWord(chars : IndexedSeq[Term], tail : Option[Term]) {
       def prepend(t : Term) = SymWord(Vector(t) ++ chars, tail)

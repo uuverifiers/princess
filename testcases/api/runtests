@@ -29,7 +29,7 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        ADTTest.scala ADTTest2.scala ADTTest3.scala ADTTest4.scala \
        pred-simplify.scala empty-stack-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
-       dnfTest.scala"
+       dnfTest.scala TestStrings.scala"
 
 for testname in $TESTS; do
   echo

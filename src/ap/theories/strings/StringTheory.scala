@@ -21,10 +21,12 @@
 
 package ap.theories.strings
 
+import ap.basetypes.IdealInt
 import ap.parser.{IFunction, ITerm, IFunApp, IIntLit}
 import ap.parser.IExpression.Predicate
 import ap.theories.{Theory, ModuloArithmetic}
 import ap.types.Sort
+import ap.terfor.conjunctions.Conjunction
 
 
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
@@ -118,11 +120,29 @@ trait StringTheory extends Theory {
 
   val alphabetSize   : Int
 
+  /**
+   * Sort representing characters
+   */
   val CharSort       : Sort
+
+  /**
+   * Sort representing strings
+   */
   val StringSort     : Sort
+
+  /**
+   * Sort representing regular expressions
+   */
   val RegexSort      : Sort
 
+  /**
+   * Convert an integer term to a character term
+   */
   def int2Char(t : ITerm) : ITerm
+
+  /**
+   * Convert a character term to an integer term
+   */
   def char2Int(t : ITerm) : ITerm
 
   // Character functions
@@ -193,6 +213,95 @@ trait StringTheory extends Theory {
   // Further functions or predicates that a string theory might define
 
   val extraOps : Map[String, Either[IFunction, Predicate]]
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Helper class providing string infix operators
+   */
+  class RichWord(t : ITerm) {
+    /**
+     * Concatenate two words
+     */
+    def ++(that : ITerm) : ITerm =
+      IFunApp(str_++, List(t, that))
+  }
+
+  /**
+   * Convert a term to a rich term, providing some infix operators
+   */
+  implicit def term2RichWord(t : ITerm) : RichWord = new RichWord(t)
+
+  /**
+   * Convert a string to a term
+   */
+  implicit def string2Term(str : String) : ITerm =
+    (str :\ IFunApp(str_empty, List())) {
+      case (c, s) => IFunApp(str_cons, List(int2Char(c), s))
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * The predicate corresponding to <code>str_empty</code>
+   */
+  val _str_empty : Predicate
+
+  /**
+   * The predicate corresponding to <code>str_cons</code>
+   */
+  val _str_cons : Predicate
+
+  /**
+   * The predicate corresponding to <code>str_++</code>
+   */
+  val _str_++ : Predicate
+
+  /**
+   * Translate a numeric value from a model to a string.
+   */
+  val asString = new Theory.Decoder[String] {
+    def apply(d : IdealInt)
+             (implicit ctxt : Theory.DecoderContext) : String =
+      asStringPartial(d).get
+  }
+
+  /**
+   * Translate a numeric value from a model to a string.
+   */
+  val asStringPartial = new Theory.Decoder[Option[String]] {
+    def apply(d : IdealInt)
+             (implicit ctxt : Theory.DecoderContext) : Option[String] =
+      (ctxt getDataFor StringTheory.this) match {
+        case DecoderData(m) =>
+          for (s <- m get d)
+          yield ("" /: s) { case (res, c) => res + c.intValueSafe.toChar }
+      }
+  }
+
+  case class DecoderData(m : Map[IdealInt, Seq[IdealInt]])
+       extends Theory.TheoryDecoderData
+
+  override def generateDecoderData(model : Conjunction)
+                                  : Option[Theory.TheoryDecoderData] = {
+    val atoms = model.predConj
+
+    val stringMap = new MHashMap[IdealInt, List[IdealInt]]
+
+    for (a <- atoms positiveLitsWithPred _str_empty)
+      stringMap.put(a(0).constant, List())
+
+    var oldMapSize = 0
+    while (stringMap.size != oldMapSize) {
+      oldMapSize = stringMap.size
+      for (a <- atoms positiveLitsWithPred _str_cons) {
+        for (s1 <- stringMap get a(1).constant)
+          stringMap.put(a(2).constant, a(0).constant :: s1)
+      }
+    }
+
+    Some(DecoderData(stringMap.toMap))
+  }
 
 }
 
