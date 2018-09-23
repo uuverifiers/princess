@@ -561,6 +561,24 @@ x - y >= 2
 dnfTest.scala
 List((P1 != 0), (P0 != 0), (P4 = 0), (P3 = 0), (P2 = 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P10 = 0 & P7 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P11 != 0 & P6 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P11 = 0 & P6 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P9 = 0 & P5 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P10 != 0 & P11 != 0 & P6 != 0 & P7 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P11 = 0 & P6 = 0 & P7 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P10 = 0 & P7 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P11 != 0 & P6 != 0 & P5 != 0), (P6 != 0 & P7 != 0 & P5 != 0), (P30 + -1*P31 = 0 & P28 + -1*P29 = 0 & P26 + -1*P27 = 0 & P24 + -1*P25 = 0 & P22 + -1*P23 = 0 & P20 + -1*P21 = 0 & P18 + -1*P19 = 0 & P16 + -1*P17 = 0 & P15 = 0 & P8 = 0 & P11 = 0 & P14 != 0 & P13 != 0 & P12 != 0 & P9 != 0 & P10 != 0 & P7 != 0 & P5 != 0))
 
+TestStrings.scala
+Sat
+x = str_cons(mod_cast(0, 255, 97), str_cons(mod_cast(0, 255, 98), str_cons(mod_cast(0, 255, 99), str_empty)))
+x = "abc"
+Sat
+y = str_empty
+z = str_cons(mod_cast(0, 255, 97), str_cons(mod_cast(0, 255, 98), str_cons(mod_cast(0, 255, 99), str_cons(mod_cast(0, 255, 120), str_cons(mod_cast(0, 255, 121), str_cons(mod_cast(0, 255, 122), str_empty))))))
+z = "abcxyz"
+Sat
+y = str_cons(mod_cast(0, 255, 122), str_empty)
+z = str_cons(mod_cast(0, 255, 97), str_cons(mod_cast(0, 255, 98), str_cons(mod_cast(0, 255, 99), str_cons(mod_cast(0, 255, 122), str_cons(mod_cast(0, 255, 120), str_cons(mod_cast(0, 255, 121), str_cons(mod_cast(0, 255, 122), str_empty)))))))
+z = "abczxyz"
+Unsat
+Sat
+x = str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_empty))
+y = str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_empty)))))
+Valid
+
 readSMTLIB.scala
 x - y >= 1 & y + -1*50 >= 1
 Sat

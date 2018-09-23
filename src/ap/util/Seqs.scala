@@ -141,8 +141,10 @@ object Seqs {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC,
                     end >= begin &&
-                    Logic.forall(begin, end - 1,
-                                 (i:Int) => ord.lteq(seq(i), seq(i+1))))
+                    (begin >= end - 1 || ord.lteq(seq(0), seq(end - 1)))
+//                    Logic.forall(begin, end - 1,
+//                                 (i:Int) => ord.lteq(seq(i), seq(i+1)))
+                    )
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     def post(res:BS_Result) = {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -808,7 +810,31 @@ object Seqs {
     
     res
   }
-     
+
+  /**
+   * Determine a minimum element of a sequence of things under a given measure
+   */
+  def partialMinBy[A, B](it : Iterator[A], f : (A) => B)
+                        (implicit cmp: PartialOrdering[B]) : A = {
+    if (it.isEmpty)
+      throw new UnsupportedOperationException
+
+    var minF: B = null.asInstanceOf[B]
+    var minElem: A = null.asInstanceOf[A]
+    var first = true
+
+    for (elem <- it) {
+      val fx = f(elem)
+      if (first || cmp.lt(fx, minF)) {
+        minElem = elem
+        minF = fx
+        first = false
+      }
+    }
+    
+    minElem
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   
   /**

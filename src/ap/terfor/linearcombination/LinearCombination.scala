@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -40,7 +40,24 @@ object LinearCombination {
   val MINUS_ONE : LinearCombination = new LinearCombination0(IdealInt.MINUS_ONE)
 
   //////////////////////////////////////////////////////////////////////////////
-  
+
+  /**
+   * Ordering that relates linear combinations <code>a, b</code> if the value of
+   * <code>a</code> is always going to be in relationship with <code>b</code>.
+   * E.g., <code> x + 3 < x + 5 </code>.
+   */
+  object ValueOrdering extends PartialOrdering[LinearCombination] {
+    def lteq(a : LinearCombination, b : LinearCombination) =
+      tryCompare(a, b) match {
+        case Some(d) => d <= 0
+        case None    => false
+      }
+    def tryCompare(a : LinearCombination, b : LinearCombination) =
+      for (d <- a constantDiff b) yield d.signum
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   /**
    * Create a linear combination from an arbitrary set of terms with
    * coefficients

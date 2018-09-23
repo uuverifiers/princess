@@ -186,6 +186,8 @@ object GlobalSettings {
           Param.ADT_MEASURE.set(settings, ap.theories.ADT.TermMeasure.RelDepth)
         case ValueOpt("realRatSaturationRounds", IntVal(value)) =>
           Param.REAL_RAT_SATURATION_ROUNDS.set(settings, value)
+        case ValueOpt("stringSolver", value) =>
+          Param.STRING_THEORY_DESC.set(settings, value)
         case ValueOpt("randomSeed", "off") =>
           Param.RANDOM_SEED.set(settings, None)
         case ValueOpt("randomSeed", IntVal(value)) =>
@@ -218,7 +220,7 @@ object GlobalSettings {
          Param.GENERATE_TOTALITY_AXIOMS,
          Param.ELIMINATE_INTERPOLANT_QUANTIFIERS, Param.IGNORE_QUANTIFIERS,
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
-         Param.USE_FUNCTIONAL_CONSISTENCY_THEORY,
+         Param.USE_FUNCTIONAL_CONSISTENCY_THEORY, Param.STRING_THEORY_DESC,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
          Param.MULTI_STRATEGY,
          Param.MUL_PROCEDURE, Param.ADT_MEASURE,
@@ -256,7 +258,8 @@ object ParserSettings {
                        Param.TRIGGERS_IN_CONJECTURE,
                        Param.MAKE_QUERIES_PARTIAL,
                        Param.MUL_PROCEDURE, Param.ADT_MEASURE,
-                       Param.REAL_RAT_SATURATION_ROUNDS)
+                       Param.REAL_RAT_SATURATION_ROUNDS,
+                       Param.STRING_THEORY_DESC)
 
   val DEFAULT =
     new ParserSettings (scala.collection.immutable.HashMap[Param, Any]())

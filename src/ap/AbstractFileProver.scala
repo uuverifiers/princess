@@ -34,7 +34,7 @@ import ap.terfor.{Formula, TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                IterativeClauseMatcher, SeqReducerPluginFactory}
 import ap.terfor.preds.Predicate
-import ap.theories.{Theory, TheoryRegistry}
+import ap.theories.{Theory, TheoryRegistry, Incompleteness}
 import ap.types.{TypeTheory, IntToTermTranslator}
 import ap.proof.{ModelSearchProver, ExhaustiveProver, ConstraintSimplifier,
                  QuantifierElimProver}
@@ -230,12 +230,11 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
            yield (n -> Conjunction.conj(InputAbsy2Internal(f, order), order)))
         val reducedNamedParts =
           for ((n, c) <- rawNamedParts) yield {
-            val incomp = Array(false)
-            val redC = ap.theories.ModuloArithmetic.incompletenessFlag.withValue(incomp) {
+            val (redC, incomp) = Incompleteness.track {
               Theory.preprocess(reducer(c), signature.theories, order)
             }
   
-            if (incomp(0))
+            if (incomp)
               ignoredQuantifiers = true
   
             n match {
@@ -260,13 +259,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
           InputAbsy2Internal(
             IExpression.or(for (f <- inputFormulas.iterator)
                            yield (IExpression removePartName f)), order)
-        val incomp = Array(false)
-        val redF =  ap.theories.ModuloArithmetic.incompletenessFlag.withValue(incomp) {
+        val (redF, incomp) = Incompleteness.track {
           Theory.preprocess(reducer(Conjunction.conj(rawF, order)),
                             signature.theories, order)
         }
   
-        if (incomp(0))
+        if (incomp)
           ignoredQuantifiers = true
   
         val f =

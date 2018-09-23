@@ -41,7 +41,8 @@ import ap.proof.goal.Goal
 import ap.theories.nia.GroebnerMultiplication
 import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
 
-import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
+                                 Set => MSet}
 
 /**
  * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
@@ -225,9 +226,11 @@ object ModuloArithmetic extends Theory {
     
     val modulus = upper - lower + IdealInt.ONE
 
-    override def augmentModelTermSet(model : Conjunction,
-                                     terms : MMap[(IdealInt, Sort), ITerm])
-                                    : Unit = {
+    override def augmentModelTermSet(
+                            model : Conjunction,
+                            terms : MMap[(IdealInt, Sort), ITerm],
+                            allTerms : Set[(IdealInt, Sort)],
+                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
       // at the moment, just a naive traversal that introduces mod_cast terms
       // for every integer literal in the model
 
@@ -1504,7 +1507,7 @@ object ModuloArithmetic extends Theory {
 
         case BVPred(_) => {
           Console.err.println("Warning: don't know how to handle " + a)
-          (incompletenessFlag.value)(0) = true
+          Incompleteness.set
           a
         }
 
@@ -1536,12 +1539,7 @@ object ModuloArithmetic extends Theory {
     def unapply(p : Predicate) : Option[IFunction] = reverseMapping get p
   }
 
-  // a simple flag to detect problems with operators that are not yet
-  // supported
   // TODO: add support for all operators
-
-  val incompletenessFlag =
-    new scala.util.DynamicVariable[Array[Boolean]] (Array(false))
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -2003,6 +2001,7 @@ object ModuloArithmetic extends Theory {
   private def atomsContainVariables(atoms : Seq[Atom]) : Boolean =
     atoms exists { a => !a.variables.isEmpty }
 
+  // TODO: this is quite slow?
   private def extractModulos(atoms : Seq[Atom], order : TermOrder)
                             (t : Term) : Iterator[Atom] =
     for (a <- atoms.iterator;

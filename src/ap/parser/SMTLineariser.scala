@@ -24,6 +24,7 @@ package ap.parser
 import ap._
 import ap.basetypes.IdealInt
 import ap.theories._
+import ap.theories.strings.StringTheory
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
@@ -51,6 +52,121 @@ object SMTLineariser {
     case SaneId() => str
     case _        => "|" + str.replace("|", "\\|") + "|"
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Operations for escapeing/de-escaping SMT-LIB strings
+
+  class IllegalStringException extends Exception("Incorrectly escaped string")
+
+  def unescapeIt(it : Iterator[Int]) : Seq[Int] = {
+    var state = 0
+    val res = new ArrayBuffer[Int]
+    val charBuffer = new ArrayBuffer[Char]
+
+    def parseHex : Unit = {
+          if (charBuffer.size > 5)
+            throw new IllegalStringException
+          res += Integer.parseInt(charBuffer.mkString, 16)
+          charBuffer.clear
+    }
+
+    def parseOct : Unit = {
+          if (charBuffer.size != 3)
+            throw new IllegalStringException
+          res += Integer.parseInt(charBuffer.mkString, 8)
+          charBuffer.clear
+    }
+
+    def isOct(c : Int) : Boolean =
+          48 <= c && c <= 55
+
+    def isHex(c : Int) : Boolean =
+          (48 <= c && c <= 57) ||
+          (65 <= c && c <= 70) ||
+          (97 <= c && c <= 102)
+
+    while (it.hasNext)
+      (state, it.next) match {
+        case (0, 92) =>                                   // \
+          state = 1
+
+        case (1, 117) =>                                  // u
+          state = 2
+        case (2, 123) =>                                  // {
+          state = 3
+        case (2, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          state = 7
+        }
+        case (3, c) if isHex(c) =>                        // [0-9a-fA-F]
+          charBuffer += c.toChar
+        case (3, 125) => {                                // }
+          parseHex
+          state = 0
+        }
+
+        case (1, 120) =>                                  // x
+          state = 6
+        case (6, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          state = 7
+        }
+        case (7, c) if isHex(c) => {                      // [0-9a-fA-F]
+          charBuffer += c.toChar
+          parseHex
+          state = 0
+        }
+
+        case (1, c) if isOct(c) => {                      // [0-7]
+          charBuffer += c.toChar
+          state = 8
+        }
+        case (8, c) if isOct(c) => {                      // [0-7]
+          charBuffer += c.toChar
+          state = 9
+        }
+        case (9, c) if isOct(c) => {                      // [0-7]
+          charBuffer += c.toChar
+          parseOct
+          state = 0
+        }
+
+        case (0, 34) =>                                   // "
+          state = 20
+        case (20, 34) => {                                // "
+          state = 0
+          res += 34
+        }
+
+        case (0, c) =>
+          res += c
+
+        case _ =>
+          throw new IllegalStringException
+      }
+
+    if (state != 0)
+      throw new IllegalStringException
+
+    res
+  }
+
+  private def escapeChar(c: Int): String = c match {
+    case 34 =>
+      "\"\""
+    case c if c >= 32 && c <= 126 && c != 92 =>
+      "" + c.toChar
+    case c if c >= 16 && c <= 255 =>
+      "\\u" + Integer.toString(c, 16)
+    case c =>
+      "\\u{" + Integer.toString(c, 16) + "}"
+  }
+
+  def escapeString(str : String) : String =
+    for (c <- str; d <- escapeChar(c)) yield d
+
+  def unescapeString(str : String) : String =
+    (unescapeIt(str.iterator map (_.toInt)) map (_.toChar)).mkString
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -157,7 +273,7 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
-                              SMTBitVec, SMTFunctionType}
+                              SMTBitVec, SMTString, SMTFunctionType}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -193,6 +309,7 @@ object SMTLineariser {
     case SMTBool             => print("Bool")
     case t : SMTADT          => print(t)
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
+    case SMTString(_)        => print("String")
     case SMTArray(args, res) => {
       print("(Array")
       for (s <- args) {
@@ -213,6 +330,8 @@ object SMTLineariser {
       (SMTInteger, Some(sort.membershipConstraint _))
     case Sort.Bool | Sort.MultipleValueBool =>
       (SMTBool, None)
+    case sort if (StringTheory lookupStringSort sort).isDefined =>
+      (SMTString(sort), None)
     case sort : ADT.ADTProxySort =>
       (SMTADT(sort.adtTheory, sort.sortNum), None)
     case ModuloArithmetic.UnsignedBVSort(width) =>
@@ -368,7 +487,7 @@ class SMTLineariser(benchmarkName : String,
                            IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
                     prettyBitvectors : Boolean = true) {
 
-  import SMTLineariser.{quoteIdentifier, toSMTExpr,
+  import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
                         printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge}
 
@@ -863,6 +982,7 @@ class SMTLineariser(benchmarkName : String,
         print(ctxt.vars(index)._1)
         ShortCutResult(())
       }
+      
       case IFunApp(ModuloArithmetic.mod_cast,
                    Seq(IIntLit(IdealInt.ZERO), IIntLit(upper),
                        IIntLit(value)))
@@ -872,6 +992,15 @@ class SMTLineariser(benchmarkName : String,
               (upper.getHighestSetBit + 1) + ")")
         ShortCutResult(())
       }
+
+      case StringTheory.ConcreteString(str) => {
+        addSpace
+        print("\"")
+        print(escapeString(str))
+        print("\"")
+        ShortCutResult(())
+      }
+
       case t@IFunApp(fun, args) => {
         // check if any Boolean arguments have to be decoded
         var changed = false
