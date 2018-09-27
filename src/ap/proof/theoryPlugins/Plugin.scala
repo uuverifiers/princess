@@ -26,10 +26,11 @@ import ap.theories.Theory
 import ap.proof.goal.{Goal, Task, EagerTask, PrioritisedTask}
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates._
-import ap.terfor.{Formula, TermOrder, TerForConvenience}
+import ap.terfor.{Formula, TermOrder, TerForConvenience, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
 import ap.terfor.linearcombination.LinearCombination
-import ap.parameters.Param
+import ap.terfor.arithconj.ReducableModelElement
+import ap.parameters.{Param, ReducerSettings}
 import ap.util.Debug
 
 import scala.collection.mutable.{Stack, ArrayBuffer}
@@ -49,6 +50,16 @@ object Plugin {
    * Remove some facts from the handled proof goal.
    */
   case class RemoveFacts (facts : Conjunction)      extends Action
+
+  /**
+   * Record that values of the given constants can be reconstructed from
+   * the provided facts.
+   */
+  case class AddReducableModelElement
+                         (facts : Conjunction,
+                          constants : Set[ConstantTerm],
+                          reducerSettings : ReducerSettings)
+                                                    extends Action
   
   /**
    * Split a proof goal into multiple sub-goals. This action does not
@@ -618,7 +629,14 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
 
         ptf.andInOrder(List(leftSubtree, rightSubtree), pCert, goal.vocabulary)
       }
-      
+     
+      case AddReducableModelElement(facts, constants, settings) :: rest =>
+        ptf.eliminatedConstant(handleActionsRec(rest, contActions, goal,
+                                                branchInferences, ptf),
+                               ReducableModelElement(facts, constants,
+                                                     settings),
+                               goal.vocabulary)
+ 
       case (a@(_ : RemoveFacts | _ : ScheduleTask)) :: rest =>
         handleActionsRec(rest, a :: contActions, goal, branchInferences, ptf)
 
@@ -765,15 +783,24 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         formulaTasks
       }
 
-    if (branchInferences == null)
-      ptf.updateGoal(newFacts,
-                     tasksToSchedule ++ allFormulaTasks,
-                     goal)
-    else
-      ptf.updateGoal(newFacts,
-                     tasksToSchedule ++ allFormulaTasks,
-                     branchInferences,
-                     goal)
+    val newTree =
+      if (branchInferences == null)
+        ptf.updateGoal(newFacts,
+                       tasksToSchedule ++ allFormulaTasks,
+                       goal)
+      else
+        ptf.updateGoal(newFacts,
+                       tasksToSchedule ++ allFormulaTasks,
+                       branchInferences,
+                       goal)
+
+    (actions.iterator :\ newTree) {
+      case (AddReducableModelElement(f, consts, settings), t) =>
+        ptf.eliminatedConstant(t, ReducableModelElement(f, consts, settings),
+                               goal.vocabulary)
+      case (_, t) =>
+        t
+    }
   }
 }
 

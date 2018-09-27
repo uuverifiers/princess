@@ -24,8 +24,8 @@ package ap.theories
 import ap.Signature
 import ap.parser._
 import ap.parameters.{Param, ReducerSettings, GoalSettings}
-import ap.terfor.{Term, VariableTerm, TermOrder, Formula, ComputationLogger,
-                  TerForConvenience}
+import ap.terfor.{Term, VariableTerm, ConstantTerm, TermOrder, Formula,
+                  ComputationLogger, TerForConvenience}
 import ap.terfor.preds.{Atom, Predicate, PredConj}
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.inequalities.InEqConj
@@ -1570,27 +1570,114 @@ object ModuloArithmetic extends Theory {
 
       } else {
 
-        val actions1 = modCastActions(goal)
-        val actions2 = shiftCastActions(goal)
+        // check whether there are atoms that we can eliminate
+        val elimAtoms = eliminatableAtoms(goal)
 
-        val resActions1 =
-          if (actions1 exists (_.isInstanceOf[Plugin.AxiomSplit]))
-            // delayed splitting through a separate task
-            List(Plugin.ScheduleTask(ModCastSplitter, 30))
-          else
-            actions1
+        if (!elimAtoms.isEmpty) {
 
-        val resActions2 =
-          if (actions2 exists (_.isInstanceOf[Plugin.AxiomSplit]))
-            // delayed splitting through a separate task
-            List(Plugin.ScheduleTask(ShiftCastSplitter, 20))
-          else
-            actions2
+          val elimConsts =
+            (for (a <- elimAtoms; c <- a.last.constants) yield c).toSet
+          val elimInEqs =
+            InEqConj(
+              for (lc <- goal.facts.arithConj.inEqs.iterator;
+                   if !Seqs.disjoint(elimConsts, lc.constants))
+              yield lc,
+              goal.order)
+          val elimFormulas =
+            Conjunction.conj(elimAtoms ++ List(elimInEqs), goal.order)
 
-        resActions1 ++ resActions2
+          List(Plugin.RemoveFacts(elimFormulas),
+               Plugin.AddReducableModelElement(elimFormulas, elimConsts,
+                                               goal.reducerSettings))
+
+        } else {
+
+          val actions1 = modCastActions(goal)
+          val actions2 = shiftCastActions(goal)
+
+          val resActions1 =
+            if (actions1 exists (_.isInstanceOf[Plugin.AxiomSplit]))
+              // delayed splitting through a separate task
+              List(Plugin.ScheduleTask(ModCastSplitter, 30))
+            else
+              actions1
+
+          val resActions2 =
+            if (actions2 exists (_.isInstanceOf[Plugin.AxiomSplit]))
+              // delayed splitting through a separate task
+              List(Plugin.ScheduleTask(ShiftCastSplitter, 20))
+            else
+              actions2
+
+          resActions1 ++ resActions2
+
+        }
       }
     }
   })
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Find positive atoms in the goal that can be eliminated.
+   */
+  private def eliminatableAtoms(goal : Goal) : Seq[Atom] = {
+    val eliminatedIsolatedConstants = goal.eliminatedIsolatedConstants
+
+    if (eliminatedIsolatedConstants.isEmpty)
+      return List()
+
+    val facts = goal.facts
+
+    val predConj = facts.predConj
+    val allLits = predConj.positiveLitsWithPred(_mod_cast) ++
+                  predConj.positiveLitsWithPred(_l_shift_cast)
+
+    if (allLits.isEmpty)
+      return List()
+
+    // find constants that can be eliminated
+
+    val constOccurs, unelimConsts = new MHashSet[ConstantTerm]
+    unelimConsts ++= facts.arithConj.positiveEqs.constants
+    unelimConsts ++= facts.arithConj.negativeEqs.constants
+    unelimConsts ++= (for (a <- predConj.negativeLits.iterator;
+                           c <- a.constants.iterator) yield c)
+
+    for (a <- predConj.positiveLits.iterator;
+         lc <- a.iterator;
+         c <- lc.constants.iterator)
+      if (!(constOccurs add c))
+        unelimConsts add c
+
+    // find atoms with those constants
+
+    for (a@Atom(_,
+                Seq(LinearCombination.Constant(lower),
+                    LinearCombination.Constant(upper),
+                    _*),
+                  _) <- allLits;
+         LinearCombination.SingleTerm(resConst : ConstantTerm) <-List(a.last);
+           if (eliminatedIsolatedConstants contains resConst) &&
+              !(unelimConsts contains resConst) &&
+              hasImpliedIneqConstraints(resConst, lower, upper,
+                                        facts.arithConj.inEqs))
+    yield a
+  }
+
+  private def hasImpliedIneqConstraints(c : ConstantTerm,
+                                        lower : IdealInt,
+                                        upper : IdealInt,
+                                        ineqs : InEqConj) : Boolean =
+      ineqs forall { lc =>
+        !(lc.constants contains c) ||
+        (lc.constants.size == 1 &&
+         (lc.leadingCoeff match {
+            case IdealInt.ONE       => -lc.constant <= lower
+            case IdealInt.MINUS_ONE => lc.constant >= upper
+            case _                  => false
+          }))
+      }
 
   //////////////////////////////////////////////////////////////////////////////
 

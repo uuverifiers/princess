@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2015 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,10 +27,12 @@ import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{Predicate, Atom, PredConj}
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
 import ap.basetypes.IdealInt
+import ap.parameters.ReducerSettings
 import ap.terfor.substitutions.{Substitution, ConstantSubst, ComposeSubsts}
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, LazyMappedMap, Seqs}
 
+import scala.collection.{Set => GSet}
 import scala.collection.mutable.{HashMap => MHashMap}
 
 object ModelElement {
@@ -72,6 +74,13 @@ object ModelElement {
       modelElements exists { me => !Seqs.disjoint(me.cs, allConsts) ||
                                    !Seqs.disjoint(me.preds, allPreds) }
     }
+
+  protected[arithconj]
+    def toEqs(constModel : MHashMap[ConstantTerm, IdealInt],
+              order : TermOrder) : EquationConj =
+      EquationConj(for ((c, value) <- constModel.iterator)
+                     yield LinearCombination(IdealInt.ONE, c, -value, order),
+                   order)
   
   protected[arithconj]
     def toPredConj(predModel : MHashMap[Atom, Boolean],
@@ -90,9 +99,8 @@ object ModelElement {
  * of <code>Formula</code>, for certain
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
-abstract sealed class ModelElement(
-                        val cs : scala.collection.Set[ConstantTerm],
-                        val preds : scala.collection.Set[Predicate]) {
+abstract sealed class ModelElement(val cs : GSet[ConstantTerm],
+                                   val preds : GSet[Predicate]) {
   /**
    * Extend the given model, in such a way that the conditions of this model
    * element are satisfied.
@@ -109,8 +117,7 @@ abstract sealed class ModelElement(
  * integer literals to constants) of <code>Formula</code>, for certain
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
-case class EqModelElement(eqs : EquationConj,
-                          _cs : scala.collection.Set[ConstantTerm])
+case class EqModelElement(eqs : EquationConj, _cs : GSet[ConstantTerm])
            extends ModelElement(_cs, Set()) {
   
   def extendModel(model : MHashMap[ConstantTerm, IdealInt],
@@ -158,6 +165,51 @@ case class EqModelElement(eqs : EquationConj,
                 if (assignedCoeff.isOne) -constant else constant)
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Class for creating models based on formulas from which a reducer is
+ * able to extract an assignment.
+ */
+case class ReducableModelElement(f : Conjunction,
+                                 _cs : GSet[ConstantTerm],
+                                 reducerSettings : ReducerSettings)
+           extends ModelElement(_cs, Set()) {
+
+  def extendModel(constModel : MHashMap[ConstantTerm, IdealInt],
+                  predModel : MHashMap[Atom, Boolean],
+                  order : TermOrder) : Unit = {
+    import ModelElement.{toEqs, toPredConj}
+
+    for (c <- f.constants)
+      if (!(cs contains c) && !(constModel contains c))
+        constModel.put(c, IdealInt.ZERO)
+
+    val reducer =
+      ReduceWithConjunction(Conjunction.conj(List(toEqs(constModel, order),
+                                                  toPredConj(predModel, order)),
+                                             order),
+                            order, reducerSettings)
+
+    val reduced = reducer(f)
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ModelElement.AC,
+                    !reduced.isFalse &&
+                    reduced.quans.isEmpty &&
+                    reduced.arithConj.positiveEqs.size == reduced.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    for (lc <- reduced.arithConj.positiveEqs) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(ModelElement.AC,
+                      lc.constants.size == 1 && lc.leadingCoeff.isOne)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      constModel.put(lc.leadingTerm.asInstanceOf[ConstantTerm], -lc.constant)
+    }
+  }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -250,10 +302,7 @@ case class EquivModelElement(booleanAssignments : Seq[(Atom, Conjunction)])
       for (c <- a._2.constants)
         constModel.getOrElseUpdate(c, IdealInt.ZERO)
 
-    val eqs =
-      EquationConj(for ((c, value) <- constModel.iterator)
-                     yield LinearCombination(IdealInt.ONE, c, -value, order),
-                   order)
+    val eqs = ModelElement.toEqs(constModel, order)
 
     for ((a, c) <- booleanAssignments) {
       // assign some arbitrary value to predicates that do not occur in the

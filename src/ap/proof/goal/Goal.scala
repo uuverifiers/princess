@@ -361,7 +361,15 @@ class Goal private (val facts : Conjunction,
 
   lazy val reduceWithFacts : ReduceWithConjunction =
     ReduceWithConjunction(facts, order, reducerSettings)
-   
+  
+  /**
+   * Constants that can be eliminated in this goal because they are
+   * universal, and they do not occur in any tasks or compound formulas
+   * (but they might occur in the facts)
+   */
+  lazy val eliminatedIsolatedConstants : Set[ConstantTerm] =
+    eliminatedConstants --tasks.taskInfos.constants --compoundFormulas.constants
+ 
   //////////////////////////////////////////////////////////////////////////////
 
   val stepPossible : Boolean = !tasks.isEmpty
