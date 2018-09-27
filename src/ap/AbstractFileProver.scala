@@ -448,7 +448,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       
       val closedFor =
         Conjunction.quantify(Quantifier.ALL,
-                             order sort signature.nullaryFunctions,
+                             (order sort signature.nullaryFunctions).reverse,
                              Conjunction.disj(formulas, order), order)
   
       val closedExFor =
