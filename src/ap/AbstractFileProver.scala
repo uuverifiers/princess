@@ -25,6 +25,7 @@ import ap.parameters._
 import ap.parser.{InputAbsy2Internal,
                   ApParser2InputAbsy, SMTParser2InputAbsy, TPTPTParser,
                   Preprocessing, IsUniversalFormulaVisitor,
+                  UniformSubstVisitor,
                   FunctionEncoder, IExpression, INamedPart, PartName,
                   IFunction, IInterpolantSpec, IBinJunctor, Environment,
                   Internal2InputAbsy, IFormula, SymbolCollector,
@@ -126,9 +127,10 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
    * Class taking care of pre-processing, and translation to
    * internal data-structures.
    */
-  protected class Translation(rawFormula : IFormula) {
+  protected class Translation(rawFormula : IFormula,
+                              settings : GlobalSettings) {
     
-    val (inputFormulas, preprocInterpolantSpecs, signature,
+    val (inputFormulas, preprocInterpolantSpecs, transSignature,
          gcedFunctions, functionEncoder) = {
   
       val preprocSettings = settings.toPreprocessingSettings
@@ -173,8 +175,8 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       (inputFormulas, interpolantS, sig2, gcedFunctions, functionEnc)
     }
   
-    val theories = signature.theories
-    val order = signature.order
+    val theories = transSignature.theories
+    val order = transSignature.order
   
     private val theoryAxioms =
       Conjunction.conj(for (t <- theories) yield t.axioms, order).negate
@@ -212,7 +214,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         if (constructProofs || Param.IGNORE_QUANTIFIERS(settings)) {
           val withoutQuans =
             IterativeClauseMatcher.convertQuantifiers(
-              c, signature.predicateMatchConfig)
+              c, transSignature.predicateMatchConfig)
           if (!ignoredQuantifiers && !(withoutQuans eq c)) {
             Console.err.println("Warning: ignoring some quantifiers")
             ignoredQuantifiers = true
@@ -231,7 +233,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         val reducedNamedParts =
           for ((n, c) <- rawNamedParts) yield {
             val (redC, incomp) = Incompleteness.track {
-              Theory.preprocess(reducer(c), signature.theories, order)
+              Theory.preprocess(reducer(c), transSignature.theories, order)
             }
   
             if (incomp)
@@ -261,7 +263,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
                            yield (IExpression removePartName f)), order)
         val (redF, incomp) = Incompleteness.track {
           Theory.preprocess(reducer(Conjunction.conj(rawF, order)),
-                            signature.theories, order)
+                            transSignature.theories, order)
         }
   
         if (incomp)
@@ -280,7 +282,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     private def checkMatchedTotalFunctions(conjs : Iterable[Conjunction])
                                           : Boolean =
       Param.POS_UNIT_RESOLUTION(settings) && {
-        val config = signature.predicateMatchConfig
+        val config = transSignature.predicateMatchConfig
         conjs exists { c =>
           IterativeClauseMatcher.matchedPredicatesRec(c, config) exists {
             p => (functionEncoder.predTranslation get p) match {
@@ -316,7 +318,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
            (for (t <- theories.iterator;
                  p <- t.singleInstantiationPredicates.iterator) yield p).toSet)
-      gs = Param.PREDICATE_MATCH_CONFIG.set(gs, signature.predicateMatchConfig)
+      gs = Param.PREDICATE_MATCH_CONFIG.set(gs, transSignature.predicateMatchConfig)
       val plugin =
         PluginSequence(for (t <- theories; p <- t.plugin.toSeq) yield p)
       gs = Param.THEORY_PLUGIN.set(gs, plugin)
@@ -338,9 +340,9 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       val config = Param.PREDICATE_MATCH_CONFIG(goalSettings)
 
       (!Param.COMPUTE_MODEL(settings) ||
-       signature.existentialConstants.isEmpty) &&
+       transSignature.existentialConstants.isEmpty) &&
       ((formulas exists (_.isTrue)) ||
-       (Seqs.disjoint(rawConstants, signature.existentialConstants) &&
+       (Seqs.disjoint(rawConstants, transSignature.existentialConstants) &&
         (if (Param.POS_UNIT_RESOLUTION(goalSettings))
            formulas forall (IterativeClauseMatcher isMatchableRec(_, config))
          else
@@ -414,7 +416,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       val formula = Conjunction.conj(formulas, order)
       val exConstraintFormula = 
         TypeTheory.addExConstraints(formula.negate,
-                                    signature.existentialConstants,
+                                    transSignature.existentialConstants,
                                     order)
 
       findCounterModelTimeout(List(exConstraintFormula.negate))
@@ -423,7 +425,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
     def findModel(f : Conjunction) : Conjunction = {
       val exConstraintFormula = 
         TypeTheory.addExConstraints(f,
-                                    signature.existentialConstants,
+                                    transSignature.existentialConstants,
                                     order)
       ModelSearchProver(exConstraintFormula.negate, f.order)
     }
@@ -448,12 +450,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
       
       val closedFor =
         Conjunction.quantify(Quantifier.ALL,
-                             (order sort signature.nullaryFunctions).reverse,
+                             (order sort transSignature.nullaryFunctions).reverse,
                              Conjunction.disj(formulas, order), order)
   
       val closedExFor =
         TypeTheory.addExConstraints(closedFor,
-                                    signature.existentialConstants,
+                                    transSignature.existentialConstants,
                                     order)
       
       Console.withOut(Console.err) {
@@ -466,12 +468,12 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
         val prover =
           new ExhaustiveProver(!Param.MOST_GENERAL_CONSTRAINT(settings) ||
-                               Seqs.disjoint(signature.existentialConstants,
+                               Seqs.disjoint(transSignature.existentialConstants,
                                              formulaConstants),
                                goalSettings)
-        val tree = prover(closedExFor, signature)
+        val tree = prover(closedExFor, transSignature)
         val validConstraint =
-          prover.isValidConstraint(tree.closingConstraint, signature)
+          prover.isValidConstraint(tree.closingConstraint, transSignature)
         (tree, validConstraint)
       }
     }
@@ -479,9 +481,72 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
 
   //////////////////////////////////////////////////////////////////////////////
 
-  protected lazy val posTranslation = new Translation(rawInputFormula)
+  /**
+   * Visitor to check whether a formula is in the forall-exists fragment
+   * (when proving that the formula is valid)
+   */
+  protected object AllExVisitor
+            extends ap.parser.ContextAwareVisitor[Unit, Unit] {
+    object NotInFragment extends Exception
 
-  protected lazy val negTranslation = new Translation(~rawInputFormula)
+    import ap.parser._
+
+    def apply(t : IExpression) : Boolean = try {
+      visit(t, Context(()))
+      true
+    } catch {
+      case NotInFragment => false
+    }
+
+    override def preVisit(t : IExpression,
+                          ctxt : Context[Unit]) : PreVisitResult = t match {
+      case IQuantified(Quantifier.ALL, _)
+        if ctxt.polarity >= 0 && (ctxt.binders contains Context.EX) =>
+          throw NotInFragment
+      case IQuantified(Quantifier.EX, _)
+        if ctxt.polarity <= 0 && (ctxt.binders contains Context.EX) =>
+          throw NotInFragment
+      case _ =>
+        super.preVisit(t, ctxt)
+    }
+
+    def postVisit(t : IExpression,
+                  ctxt : Context[Unit],
+                  subres : Seq[Unit]) : Unit = ()    
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  protected lazy val posTranslation =
+    new Translation(rawInputFormula, settings)
+
+  protected lazy val negTranslation = {
+    val order =
+      rawSignature.order
+
+    val booleanVars =
+      for (p <- order sortPreds order.orderedPredicates; if p.arity == 0)
+      yield p
+    val booleanConsts =
+      for (p <- booleanVars) yield new ConstantTerm (p.name)
+
+    val subst =
+      (for ((p, c) <- booleanVars.iterator zip booleanConsts.iterator)
+       yield (p -> IExpression.eqZero(c))).toMap
+    val substFor =
+      UniformSubstVisitor(rawInputFormula, subst)
+
+    val quantifiedConsts =
+      (order sort (rawSignature.nullaryFunctions ++
+                   rawSignature.universalConstants)).reverse ++ booleanConsts
+
+    val quanFor =
+      IExpression.quanConsts(Quantifier.ALL, quantifiedConsts, substFor)
+
+    new Translation(!quanFor,
+                    Param.CLAUSIFIER.set(settings,
+                                         Param.ClausifierOptions.ExMaxiscope))
+  }
 
   protected val usedTranslation : Translation
 
@@ -492,7 +557,7 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
   def interpolantSpecs : List[IInterpolantSpec] =
     usedTranslation.preprocInterpolantSpecs
   def signature : Signature =
-    usedTranslation.signature
+    usedTranslation.transSignature
 
   override def getFormulaParts : Map[PartName, Conjunction] =
     usedTranslation.getFormulaParts

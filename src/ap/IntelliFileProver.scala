@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -73,24 +73,65 @@ class IntelliFileProver(reader : java.io.Reader,
     case _                               => false
   }
 
-  // do all function or predicate symbols in the raw input formula
-  // belong to a theory?
-  private lazy val onlyInterpretedSymbols = 
+  // is the problem free of uninterpreted Boolean variables?
+  // (nullary predicates)
+  private lazy val noBooleanVars =
     !ContainsSymbol(rawInputFormula, (e:IExpression) => e match {
       case IAtom(p, _)   => (TheoryRegistry lookupSymbol p).isEmpty
+      case _             => false
+    })
+
+  // do all function or predicate symbols (with arguments) in the raw input
+  // formula belong to a theory?
+  private lazy val onlyInterpretedSymbols = 
+    !ContainsSymbol(rawInputFormula, (e:IExpression) => e match {
+      case IAtom(p, _)   => p.arity > 0 &&
+                            (TheoryRegistry lookupSymbol p).isEmpty
       case IFunApp(f, _) => (TheoryRegistry lookupSymbol f).isEmpty
       case _             => false
     })
 
+  // does the input formula contain functions or predicates?
+  private lazy val containsFunctionsPreds = 
+    ContainsSymbol(rawInputFormula, (e:IExpression) => e match {
+      case IFunApp(f, _) => true
+      case IAtom(p, _)   => p.arity > 0
+      case _             => false
+    })
+
+  private lazy val onlyExistentialConstsVars =
+    (rawConstants subsetOf rawSignature.existentialConstants) &&
+    (rawQuantifiers subsetOf Set(Quantifier.EX)) &&
+    noBooleanVars
+
+  private lazy val canUseNegatedSolving =
+    !constructProofs &&
+    onlyCompleteTheories &&
+    onlyInterpretedSymbols &&
+    (!Param.MOST_GENERAL_CONSTRAINT(settings) ||
+       (onlyQEEnabledTheories && noBooleanVars)) &&
+    (onlyExistentialConstsVars || onlyQEEnabledTheories)
+
+  private lazy val preferNegatedSolving =
+    //
+    // purely existential formulas can best be handled by negation
+    (!rawConstants.isEmpty &&
+     onlyExistentialConstsVars) ||
+    //
+    // formulas in the forall-exists fragment can also be handled better
+    // by negation
+    (onlyQEEnabledTheories &&
+     (rawConstants subsetOf rawSignature.nullaryFunctions) &&
+     (rawQuantifiers contains Quantifier.EX) &&
+     containsFunctionsPreds &&
+     AllExVisitor(rawInputFormula) &&
+     (!rawConstants.isEmpty ||
+      !(rawQuantifiers contains Quantifier.ALL) ||
+      !AllExVisitor(~rawInputFormula)))
+
   // do we work with the positive or negative input formula?
   val (usedTranslation, usingNegatedFormula) =
-    if (!constructProofs &&
-        onlyCompleteTheories &&
-        !rawConstants.isEmpty &&
-        (rawConstants subsetOf rawSignature.existentialConstants) &&
-        (rawQuantifiers subsetOf Set(Quantifier.EX)) &&
-        onlyInterpretedSymbols &&
-        (!Param.MOST_GENERAL_CONSTRAINT(settings) || onlyQEEnabledTheories)) {
+    if (canUseNegatedSolving && preferNegatedSolving) {
       // try to find a model of the negated formula
       (negTranslation, true)
     } else {
@@ -115,8 +156,8 @@ class IntelliFileProver(reader : java.io.Reader,
       val (tree, validConstraint) = constructProofTree("Proving")
       if (validConstraint) {
         if (Seqs.disjoint(tree.closingConstraint.constants,
-                          posTranslation.signature.universalConstants) &&
-            !posTranslation.signature.existentialConstants.isEmpty &&
+                          transSignature.universalConstants) &&
+            !transSignature.existentialConstants.isEmpty &&
             Param.COMPUTE_MODEL(settings))
           ProofWithModel(tree,
                          toIFormula(tree.closingConstraint),
@@ -125,6 +166,23 @@ class IntelliFileProver(reader : java.io.Reader,
           Proof(tree, toIFormula(tree.closingConstraint))
       } else if (soundForSat) {
         Invalid(tree)
+      } else {
+        NoProof(tree)
+      }
+    } {
+      case x : ProofTree => TimeoutProof(x)
+      case _ => TimeoutProof(null)
+    }
+
+  lazy val negProofResult : ProofResult =
+    Timeout.catchTimeout[ProofResult] {
+      import negTranslation._
+      val (tree, validConstraint) =
+        constructProofTree("Proving negated formula")
+      if (validConstraint) {
+        Invalid(tree)
+      } else if (soundForSat) {
+        Proof(tree, ap.parser.IBoolLit(true))
       } else {
         NoProof(tree)
       }
@@ -265,8 +323,12 @@ class IntelliFileProver(reader : java.io.Reader,
 
   val result : Prover.Result = {
     if (usingNegatedFormula) {
-      // try to find a model
-      modelResult
+      if (onlyExistentialConstsVars)
+        // try to find a model
+        modelResult
+      else
+        // try to construct a proof
+        negProofResult
     } else if (usedTranslation.canUseModelSearchProver) {
       // try to find a countermodel
       counterModelResult

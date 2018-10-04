@@ -146,7 +146,7 @@ object Param {
   }
   
   object ClausifierOptions extends Enumeration {
-    val None, Simple = Value
+    val None, Simple, ExMaxiscope = Value
   }
   case object CLAUSIFIER extends Param {
     type Value = ClausifierOptions.Value

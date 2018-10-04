@@ -86,8 +86,13 @@ object Preprocessing {
       for (f <- fors1b)
       yield EquivExpander(PartialEvaluator(f)).asInstanceOf[INamedPart]
 
-    // simple mini-scoping for existential quantifiers
-    val fors2b = for (f <- fors2a) yield SimpleMiniscoper(f)
+    // mini/maxi-scoping of existential quantifiers
+    val fors2b = Param.CLAUSIFIER(settings) match {
+      case Param.ClausifierOptions.None | Param.ClausifierOptions.Simple=>
+        for (f <- fors2a) yield SimpleMiniscoper(f)
+      case Param.ClausifierOptions.ExMaxiscope =>
+        for (f <- fors2a) yield ExMaxiscoper(f)
+    }
 
     // compress chains of implications
 //    val fors2b = for (INamedPart(n, f) <- fors2a)
@@ -288,7 +293,7 @@ println
     
     // do clausification
     val fors6 = Param.CLAUSIFIER(settings) match {
-      case Param.ClausifierOptions.None =>
+      case Param.ClausifierOptions.None | Param.ClausifierOptions.ExMaxiscope =>
         fors5
       case Param.ClausifierOptions.Simple =>
         for (f <- fors5) yield SimpleClausifier(f).asInstanceOf[INamedPart]

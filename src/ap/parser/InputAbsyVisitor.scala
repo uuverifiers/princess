@@ -948,15 +948,21 @@ abstract class ContextAwareVisitor[A, R] extends CollectingVisitor[Context[A], R
 
   override def preVisit(t : IExpression, arg : Context[A]) : PreVisitResult =
     t match {
-      case INot(_) => UniSubArgs(arg.togglePolarity)
-      case IBinFormula(IBinJunctor.Eqv, _, _) => UniSubArgs(arg.noPolarity)
+      case INot(_) =>
+        UniSubArgs(arg.togglePolarity)
+      case IBinFormula(IBinJunctor.Eqv, _, _) =>
+        UniSubArgs(arg.noPolarity)
       case IQuantified(quan, _) => {
         val actualQuan = if (arg.polarity < 0) quan.dual else quan
         UniSubArgs(arg push actualQuan)
       }
-      case IEpsilon(_) => UniSubArgs(arg push Context.EPS)
-      case _ => UniSubArgs(arg) // a subclass might have overridden this method
-                                // and substituted a different context
+      case IEpsilon(_) =>
+        UniSubArgs(Context(Context.EPS :: arg.binders, -1, arg.a))
+      case IFormulaITE(_, _, _) | ITermITE(_, _, _) =>
+        SubArgs(List(arg.noPolarity, arg, arg))
+      case _ =>
+        UniSubArgs(arg) // a subclass might have overridden this method
+                        // and substituted a different context
     }
 
 }
@@ -1200,10 +1206,16 @@ object Transform2Prenex {
               QuantifierCountVisitor(f))
 
   def apply(f : IFormula,
-            consideredQuantifiers : Set[Quantifier]) : IFormula =
+            consideredQuantifiers : Set[Quantifier]) : IFormula = {
+    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+    // the more general case needs more thinking, it does not work correctly
+    // at the moment
+    Debug.assertPre(AC, consideredQuantifiers.size == 2)
+    //-END-ASSERTION-/////////////////////////////////////////////////////////
     applyHelp(f,
               consideredQuantifiers,
               QuantifierCountVisitor(f, consideredQuantifiers))
+  }
 
   private def applyHelp(f : IFormula,
                         consideredQuantifiers : Set[Quantifier],
