@@ -309,9 +309,9 @@ object CmdlMain {
     }
   }
   
-  private def determineInputFormat(filename : String,
-                                   settings : GlobalSettings)
-                                  : Param.InputFormat.Value =
+  protected[ap] def determineInputFormat(filename : String,
+                                         settings : GlobalSettings)
+                                       : Param.InputFormat.Value =
     Param.INPUT_FORMAT(settings) match {
       case Param.InputFormat.Auto =>
         // try to guess the file type from the extension
@@ -499,7 +499,7 @@ object CmdlMain {
   //////////////////////////////////////////////////////////////////////////////
   
   def proveMultiSMT(settings : GlobalSettings,
-                    input : java.io.BufferedReader,
+                    input : java.io.Reader,
                     userDefStoppingCond : => Boolean) = try {
     val assertions = Param.ASSERTIONS(settings)
     Debug.enableAllAssertions(assertions)
@@ -533,7 +533,7 @@ object CmdlMain {
   
   def proveProblems(settings : GlobalSettings,
                     name : String,
-                    input : () => java.io.BufferedReader,
+                    input : () => java.io.Reader,
                     userDefStoppingCond : => Boolean)
                    (implicit format : Param.InputFormat.Value) = {
     Console.err.println("Loading " + name + " ...")

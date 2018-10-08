@@ -519,6 +519,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         }
         false
       }
+      override def report_error(message : String, info : Object) : Unit = {
+        Console.err.println(message)
+      }
     }
 
     try { p.pScriptC } catch {

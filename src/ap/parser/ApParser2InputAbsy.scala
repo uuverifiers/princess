@@ -73,7 +73,11 @@ object ApParser2InputAbsy {
                                 env : Env,
                                 entry : (parser) => T) : T = {
     val l = new Yylex(new CRRemover2 (input))
-    val p = new parser(l)
+    val p = new parser(l) {
+      override def report_error(message : String, info : Object) : Unit = {
+        Console.err.println(message)
+      }
+    }
     
     try { entry(p) } catch {
       case e : Exception =>
