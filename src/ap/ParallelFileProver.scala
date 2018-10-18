@@ -457,8 +457,10 @@ object ParallelFileProver {
                   Console.err.println(prover.result match {
                     case Prover.ValidResult() =>
                       "proved (" + runtime + "ms)"
-                    case Prover.InvalidResult() |
-                         Prover.InconclusiveResult() => "gave up"
+                    case Prover.InvalidResult() =>
+                      "proven invalid (" + runtime + "ms)"
+                    case Prover.InconclusiveResult() =>
+                      "gave up"
                     case _ => "terminated"
                   })
                   messageQueue put SubProverFinished(num, Some(prover))
@@ -527,9 +529,11 @@ class ParallelFileProver(createReader : () => java.io.Reader,
     // we currently ignore the NoProof result, since the way in which
     // finite domain guards are introduced destroys completeness in some
     // rare cases
-    case Prover.NoProof(_) |
-         Prover.Invalid(_) |
-         Prover.MaybeCounterModel(_) => true
+    case // Prover.NoProof(_) |
+         // Prover.Invalid(_) |
+         // Prover.MaybeCounterModel(_) => true
+         Prover.InconclusiveResult() |
+         Prover.TimeoutResult() => true
     case _ => false
   }
   
