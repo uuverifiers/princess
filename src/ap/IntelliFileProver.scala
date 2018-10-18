@@ -113,21 +113,28 @@ class IntelliFileProver(reader : java.io.Reader,
     (onlyExistentialConstsVars || onlyQEEnabledTheories)
 
   private lazy val preferNegatedSolving =
-    //
-    // purely existential formulas can best be handled by negation
-    (!rawConstants.isEmpty &&
-     onlyExistentialConstsVars) ||
-    //
-    // formulas in the forall-exists fragment can also be handled better
-    // by negation
-    (onlyQEEnabledTheories &&
-     (rawConstants subsetOf rawSignature.nullaryFunctions) &&
-     (rawQuantifiers contains Quantifier.EX) &&
-     containsFunctionsPreds &&
-     AllExVisitor(rawInputFormula) &&
-     (!rawConstants.isEmpty ||
-      !(rawQuantifiers contains Quantifier.ALL) ||
-      !AllExVisitor(~rawInputFormula)))
+    Param.NEG_SOLVING(settings) match {
+      case Param.NegSolvingOptions.Positive =>
+        false
+      case Param.NegSolvingOptions.Negative =>
+        true
+      case Param.NegSolvingOptions.Auto =>
+        //
+        // purely existential formulas can best be handled by negation
+        (!rawConstants.isEmpty &&
+         onlyExistentialConstsVars) ||
+        //
+        // formulas in the forall-exists fragment can also be handled better
+        // by negation
+        (onlyQEEnabledTheories &&
+         (rawConstants subsetOf rawSignature.nullaryFunctions) &&
+         (rawQuantifiers contains Quantifier.EX) &&
+         containsFunctionsPreds &&
+         AllExVisitor(rawInputFormula) &&
+         (!rawConstants.isEmpty ||
+          !(rawQuantifiers contains Quantifier.ALL) ||
+          !AllExVisitor(~rawInputFormula)))
+    }
 
   // do we work with the positive or negative input formula?
   val (usedTranslation, usingNegatedFormula) =
@@ -136,6 +143,8 @@ class IntelliFileProver(reader : java.io.Reader,
       (negTranslation, true)
     } else {
       // work positively
+      if (Param.NEG_SOLVING(settings) == Param.NegSolvingOptions.Negative)
+        Console.err.println("Warning: ignoring option -formulaSign=negative")
       (posTranslation, false)
     }
 

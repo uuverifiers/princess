@@ -201,9 +201,24 @@ object Param {
     val defau : Int = 0
   }
 
-  case object MULTI_STRATEGY extends Param {
-    type Value = Boolean
-    val defau : Boolean = false
+  // Portfolios optimised for particular domains
+  object PortfolioOptions extends Enumeration {
+    val None, CASC, QF_LIA, BV = Value
+  }
+
+  case object PORTFOLIO extends Param {
+    type Value = PortfolioOptions.Value
+    val defau : PortfolioOptions.Value = PortfolioOptions.None
+  }
+
+  object NegSolvingOptions extends Enumeration {
+    val Auto, Positive, Negative = Value
+  }
+  
+  // Options for solving problems in positive or negated version
+  case object NEG_SOLVING extends Param {
+    type Value = NegSolvingOptions.Value
+    val defau : NegSolvingOptions.Value = NegSolvingOptions.Auto
   }
   
   case object SYMBOL_WEIGHTS extends Param {
@@ -316,7 +331,7 @@ object Param {
   // globally, we can also choose to construct proofs depending on whether
   // interpolation specs were given (the default)
   object ProofConstructionOptions extends Enumeration {
-    val Never, Always, IfInterpolating, Portfolio = Value
+    val Never, Always, IfInterpolating = Value
   }
   case object PROOF_CONSTRUCTION_GLOBAL extends Param {
     type Value = ProofConstructionOptions.Value

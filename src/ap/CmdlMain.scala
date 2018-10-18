@@ -94,7 +94,15 @@ object CmdlMain {
     println(" -printSMT=filename        Output the problem in SMT-LIB format    (default: \"\")")
     println(" -printTPTP=filename       Output the problem in TPTP format       (default: \"\")")
     println(" -printDOT=filename        Output the proof in GraphViz format     (default: \"\")")
-    println(" [+-]multiStrategy         Use a portfolio of different strategies  (default: -)")
+    println(" -portfolio=val            Use a strategy portfolio              (default: none)")
+    println("                             none:   off")
+    println("                             casc:   Optimised for CASC/TPTP")
+    println("                             qf_lia: Optimised for quantifier-free LIA")
+    println("                             bv:     Optimised for quantified BV")
+    println(" -formulaSign=val          Optionally negate input formula       (default: auto)")
+    println("                             positive: do not negate")
+    println("                             negative: negate")
+    println("                             auto:     choose automatically")
     println(" -randomSeed=val           Seed for randomisation")
     println("                             <seed>: numeric seed             (default: 1234567)")
     println("                             off:    disable randomisation")
@@ -381,9 +389,8 @@ object CmdlMain {
             val timeBefore = System.currentTimeMillis
             val baseSettings = Param.INPUT_FORMAT.set(settings, format)
             
-            val prover = if (Param.MULTI_STRATEGY(settings) ||
-                             Param.PROOF_CONSTRUCTION_GLOBAL(settings) ==
-                               Param.ProofConstructionOptions.Portfolio) {
+            val prover = if (Param.PORTFOLIO(settings) !=
+                             Param.PortfolioOptions.None) {
               import ParallelFileProver._
 
               def prelPrinter(p : Prover) : Unit = {
@@ -391,48 +398,81 @@ object CmdlMain {
                 printResult(p, baseSettings)
                 Console.err.println
               }
+              
+              val needProof =
+                Param.COMPUTE_UNSAT_CORE(settings) ||
+                Param.PRINT_CERTIFICATE(settings) ||
+                Param.PRINT_DOT_CERTIFICATE_FILE(settings) != ""
 
-              if (Param.MULTI_STRATEGY(settings)) {
-                ParallelFileProver(reader,
-                                   Param.TIMEOUT(settings),
-                                   true,
-                                   userDefStoppingCond,
-                                   baseSettings,
-                                   cascStrategies2016,
-                                   1,
-                                   3,
-                                   Param.COMPUTE_UNSAT_CORE(settings) ||
-                                     Param.PRINT_CERTIFICATE(settings) ||
-                                     Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
-                                   prelPrinter _)
-              } else {
-                val strategies =
-                  List(ParallelFileProver.Configuration(
-                         Param.PROOF_CONSTRUCTION_GLOBAL.set(
-                                baseSettings,
-                                Param.ProofConstructionOptions.Never),
-                         "-constructProofs=never",
-                         1000000000,
-                         10000),
-                       ParallelFileProver.Configuration(
-                         Param.PROOF_CONSTRUCTION_GLOBAL.set(
-                                baseSettings,
-                                Param.ProofConstructionOptions.Always),
-                         "-constructProofs=always",
-                         1000000000,
-                         10000))
-                ParallelFileProver(reader,
-                                   Param.TIMEOUT(settings),
-                                   true,
-                                   userDefStoppingCond,
-                                   strategies,
-                                   1,
-                                   2,
-                                   Param.COMPUTE_UNSAT_CORE(settings) ||
-                                     Param.PRINT_CERTIFICATE(settings) ||
-                                     Param.PRINT_DOT_CERTIFICATE_FILE(settings) != "",
-                                   prelPrinter _)
+              Param.PORTFOLIO(settings) match {
+
+                case Param.PortfolioOptions.CASC =>
+                  ParallelFileProver(reader,
+                                     Param.TIMEOUT(settings),
+                                     true,
+                                     userDefStoppingCond,
+                                     baseSettings,
+                                     cascStrategies2016,
+                                     1,
+                                     3,
+                                     needProof,
+                                     prelPrinter _)
+
+                case Param.PortfolioOptions.QF_LIA => {
+                  val strategies =
+                    List(ParallelFileProver.Configuration(
+                           Param.PROOF_CONSTRUCTION_GLOBAL.set(
+                                  baseSettings,
+                                  Param.ProofConstructionOptions.Never),
+                           "-constructProofs=never",
+                           1000000000,
+                           10000),
+                         ParallelFileProver.Configuration(
+                           Param.PROOF_CONSTRUCTION_GLOBAL.set(
+                                  baseSettings,
+                                  Param.ProofConstructionOptions.Always),
+                           "-constructProofs=always",
+                           1000000000,
+                           10000))
+                  ParallelFileProver(reader,
+                                     Param.TIMEOUT(settings),
+                                     true,
+                                     userDefStoppingCond,
+                                     strategies,
+                                     1,
+                                     2,
+                                     needProof,
+                                     prelPrinter _)
+                }
+
+                case Param.PortfolioOptions.BV => {
+                  val strategies =
+                    List(ParallelFileProver.Configuration(
+                           Param.NEG_SOLVING.set(
+                                  baseSettings,
+                                  Param.NegSolvingOptions.Positive),
+                           "-formulaSign=positive",
+                           1000000000,
+                           1000),
+                         ParallelFileProver.Configuration(
+                           Param.NEG_SOLVING.set(
+                                  baseSettings,
+                                  Param.NegSolvingOptions.Negative),
+                           "-formulaSign=negative",
+                           1000000000,
+                           1000))
+                  ParallelFileProver(reader,
+                                     Param.TIMEOUT(settings),
+                                     true,
+                                     userDefStoppingCond,
+                                     strategies,
+                                     1,
+                                     2,
+                                     needProof,
+                                     prelPrinter _)
+                }
               }
+
             } else {
               new IntelliFileProver(reader(),
                                     Param.TIMEOUT(settings),

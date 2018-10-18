@@ -116,9 +116,6 @@ object GlobalSettings {
         case ValueOpt("constructProofs", "ifInterpolating") =>
           Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
                                               Param.ProofConstructionOptions.IfInterpolating)
-        case ValueOpt("constructProofs", "portfolio") =>
-          Param.PROOF_CONSTRUCTION_GLOBAL.set(settings,
-                                              Param.ProofConstructionOptions.Portfolio)
         case Opt("simplifyProofs", value) =>
           Param.PROOF_SIMPLIFICATION.set(settings, value)
         case Opt("unsatCore", value) =>
@@ -193,7 +190,21 @@ object GlobalSettings {
         case ValueOpt("randomSeed", IntVal(value)) =>
           Param.RANDOM_SEED.set(settings, Some(value))
         case Opt("multiStrategy", value) =>
-          Param.MULTI_STRATEGY.set(settings, value)
+          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.CASC)
+        case ValueOpt("portfolio", "none") =>
+          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.None)
+        case ValueOpt("portfolio", "casc") =>
+          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.CASC)
+        case ValueOpt("portfolio", "qf_lia") =>
+          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.QF_LIA)
+        case ValueOpt("portfolio", "bv") =>
+          Param.PORTFOLIO.set(settings, Param.PortfolioOptions.BV)
+        case ValueOpt("formulaSign", "positive") =>
+          Param.NEG_SOLVING.set(settings, Param.NegSolvingOptions.Positive)
+        case ValueOpt("formulaSign", "negative") =>
+          Param.NEG_SOLVING.set(settings, Param.NegSolvingOptions.Negative)
+        case ValueOpt("formulaSign", "auto") =>
+          Param.NEG_SOLVING.set(settings, Param.NegSolvingOptions.Auto)
         case Opt(_, _) =>
           throw new UnknownArgumentException(arg)
         case _ => { inputs += arg; settings }
@@ -222,7 +233,7 @@ object GlobalSettings {
          Param.MATCHING_BASE_PRIORITY, Param.REVERSE_FUNCTIONALITY_PROPAGATION,
          Param.USE_FUNCTIONAL_CONSISTENCY_THEORY, Param.STRING_THEORY_DESC,
          Param.TRIGGER_STRATEGY, Param.TRIGGERS_IN_CONJECTURE,
-         Param.MULTI_STRATEGY,
+         Param.PORTFOLIO, Param.NEG_SOLVING,
          Param.MUL_PROCEDURE, Param.ADT_MEASURE,
          Param.REAL_RAT_SATURATION_ROUNDS, Param.RANDOM_SEED)
 
