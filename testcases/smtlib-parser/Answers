@@ -335,6 +335,17 @@ sat
   (define-fun x1 () nat (succ zero))
 )
 
+Loading adt-model-bug.smt2 ...
+Warning: treating sort T1 as infinite sort
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x () ListT1 (insertT1 T1!2 (insertT1 T1!1 (insertT1 T1!0 nilT1))))
+)
+
 Loading define-fun-rec.smt2 ...
 Warning: assuming that recursive function square is partial
 Preprocessing ...
@@ -642,6 +653,12 @@ sat
 )
 Loading cvc-datatype-1.smt2 ...
 sat
+Loading adt-model-bug.smt2 ...
+Warning: treating sort T1 as infinite sort
+sat
+(model
+  (define-fun x () ListT1 (insertT1 T1!2 (insertT1 T1!1 (insertT1 T1!0 nilT1))))
+)
 Loading unsat-core.smt2 ...
 unsat
 (NQS QR RS)

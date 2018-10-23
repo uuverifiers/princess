@@ -22,7 +22,7 @@ TESTS="bignum_quant.smt2 \
        boolean-array.smt2 distinctBug.smt2 \
        reductionBug.smt2 epsilon.smt2 \
        datatype.smt2 datatype4b.smt2 datatype6.smt2 datatype6b.smt2 \
-       cvc-datatype-1.smt2 \
+       cvc-datatype-1.smt2 adt-model-bug.smt2 \
        define-fun-rec.smt2 define-fun-recs.smt2 bv0.smt2 bv1.smt2 bv1b.smt2 \
        bitops1.smt2 division_by_zero0.smt2 bvmul.smt2"
 
@@ -37,7 +37,8 @@ TESTS="multiple-check-sat.smt2 simple-joogie.smt2 \
        datatype2.smt2 datatype3.smt2 datatype3b.smt2 datatype3c.smt2 \
        datatype4.smt2 datatype4b.smt2 datatype5.smt2 \
        datatype6.smt2 datatype6b.smt2 \
-       cvc-datatype-1.smt2 unsat-core.smt2 define-fun-recs2.smt2 \
+       cvc-datatype-1.smt2 adt-model-bug.smt2 \
+       unsat-core.smt2 define-fun-recs2.smt2 \
        define-fun-bug2.smt2 define-fun-bug3.smt2 \
        run_00007.trace.Alloc_large__008268.smt2 bench_586.smt2"
 

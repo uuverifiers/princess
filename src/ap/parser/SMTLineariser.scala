@@ -273,7 +273,7 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
-                              SMTBitVec, SMTString, SMTFunctionType}
+                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -339,6 +339,8 @@ object SMTLineariser {
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
+    case sort : Sort.InfUninterpreted =>
+      (SMTUnint(sort), None)
   }
 
   def sort2SMTString(sort : Sort) : String =
