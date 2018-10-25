@@ -12,7 +12,7 @@
 -injars dist/parser.jar
 -injars dist/smt-parser.jar
 -injars dist/scala-library.jar(!META-INF/**)
--injars dist/scala-actors.jar(!META-INF/**)
+#-injars dist/scala-actors.jar(!META-INF/**)
 -injars dist/scala-parser-combinators.jar(!META-INF/**)
 -libraryjars /usr/share/java/ant.jar
 -outjars dist/princess-all.jar
@@ -60,53 +60,55 @@
 
 -keep class * implements org.xml.sax.EntityResolver
 
+-keep class * extends ap.theories.TheoryBuilder
+
 -keepclassmembers class * {
     ** MODULE$;
 }
 
--keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool {
-    long ctl;
-    long eventCount;
-    int  workerCounts;
-    int  runControl;
-    int  runState;
-    long stealCount;
-    int plock;
-    int indexSeed;
-    scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode syncStack;
-    scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode spareStack;
-}
-
-
--keepclassmembernames class scala.actors.threadpool.SynchronousQueue {
-    scala.actors.threadpool.locks.ReentrantLock qlock;
-}
-
--keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool$WorkQueue {
-    int  runState;
-    int  qlock;
-}
-
--keepclassmembernames class scala.concurrent.forkjoin.ForkJoinWorkerThread {
-    int base;
-    int sp;
-    int runState;
-}
-
--keepclassmembernames class scala.concurrent.forkjoin.ForkJoinTask {
-    int status;
-    int runState;
-}
-
--keepclassmembernames class scala.actors.threadpool.ThreadPoolExecutor {
-    int runState;
-}
-
--keepclassmembernames class scala.concurrent.forkjoin.LinkedTransferQueue {
-    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference head;
-    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference tail;
-    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference cleanMe;
-}
+#-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool {
+#    long ctl;
+#    long eventCount;
+#    int  workerCounts;
+#    int  runControl;
+#    int  runState;
+#    long stealCount;
+#    int plock;
+#    int indexSeed;
+#    scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode syncStack;
+#    scala.concurrent.forkjoin.ForkJoinPool$WaitQueueNode spareStack;
+#}
+#
+#
+#-keepclassmembernames class scala.actors.threadpool.SynchronousQueue {
+#    scala.actors.threadpool.locks.ReentrantLock qlock;
+#}
+#
+#-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinPool$WorkQueue {
+#    int  runState;
+#    int  qlock;
+#}
+#
+#-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinWorkerThread {
+#    int base;
+#    int sp;
+#    int runState;
+#}
+#
+#-keepclassmembernames class scala.concurrent.forkjoin.ForkJoinTask {
+#    int status;
+#    int runState;
+#}
+#
+#-keepclassmembernames class scala.actors.threadpool.ThreadPoolExecutor {
+#    int runState;
+#}
+#
+#-keepclassmembernames class scala.concurrent.forkjoin.LinkedTransferQueue {
+#    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference head;
+#    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference tail;
+#    scala.concurrent.forkjoin.LinkedTransferQueue$PaddedAtomicReference cleanMe;
+#}
 
 # Preserve some classes and class members that are accessed by means of
 # introspection in the Scala compiler library, if it is processed as well.
