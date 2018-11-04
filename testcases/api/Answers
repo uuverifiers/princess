@@ -580,9 +580,9 @@ y = str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod
 Valid
 
 readSMTLIB.scala
-x - y >= 1 & y + -1*50 >= 1
+x - y >= 1 & y + -50 >= 1
 Sat
 Unsat
-x - y >= 1 & y + -1*50 >= 1
+x - y >= 1 & y + -50 >= 1
 Sat
 Unsat

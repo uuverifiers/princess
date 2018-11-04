@@ -1166,9 +1166,10 @@ abstract class ITerm extends IExpression {
    * if one of the terms disappears.
    */
   def ---(that : ITerm) : ITerm = (this, that) match {
+    case (IExpression.Const(a), IExpression.Const(b)) => IIntLit(a - b)
     case (IExpression.Const(IdealInt.ZERO), t) => -t
     case (t, IExpression.Const(IdealInt.ZERO)) => t
-    case (IExpression.Const(a), IExpression.Const(b)) => IIntLit(a - b)
+    case (t, IExpression.Const(b)) => t + IIntLit(-b)
     case _ => this - that
   }
 
