@@ -1206,16 +1206,10 @@ object Transform2Prenex {
               QuantifierCountVisitor(f))
 
   def apply(f : IFormula,
-            consideredQuantifiers : Set[Quantifier]) : IFormula = {
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-    // the more general case needs more thinking, it does not work correctly
-    // at the moment
-    Debug.assertPre(AC, consideredQuantifiers.size == 2)
-    //-END-ASSERTION-/////////////////////////////////////////////////////////
+            consideredQuantifiers : Set[Quantifier]) : IFormula =
     applyHelp(f,
               consideredQuantifiers,
               QuantifierCountVisitor(f, consideredQuantifiers))
-  }
 
   private def applyHelp(f : IFormula,
                         consideredQuantifiers : Set[Quantifier],
