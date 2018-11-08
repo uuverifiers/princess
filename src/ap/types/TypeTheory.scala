@@ -207,12 +207,18 @@ object TypeTheory extends Theory {
     // for all relevant index-sort pairs
 
     for (lc <- model.arithConj.positiveEqs)
-      if (lc.constants.size == 1)
-        lc.leadingTerm match {
-          case c : SortedConstantTerm =>
-            allTerms += ((-lc.constant, c.sort))
-          case _ => // nothing
+      if (lc.constants.size == 1) {
+        val sort =
+          SortedConstantTerm sortOf lc.leadingTerm.asInstanceOf[ConstantTerm]
+        val key = (-lc.constant, sort)
+        allTerms += key
+        sort match {
+          case Sort.Numeric(_) =>
+            assignment.put(key, -lc.constant)
+          case _ =>
+            // nothing
         }
+      }
 
     for (a <- model.predConj.positiveLits.iterator ++
               model.predConj.negativeLits.iterator;
