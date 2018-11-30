@@ -338,6 +338,19 @@ object ModuloArithmetic extends Theory {
   }
 
   /**
+   * Evaluate <code>mod_cast</code> with concrete arguments
+   */
+  def evalModCast(lower : IdealInt, upper : IdealInt,
+                  number : IdealInt) : IdealInt =
+    if (lower <= number && number <= upper) {
+      number
+    } else {
+      val modulus = upper - lower + IdealInt.ONE
+      val lowerFactor = (number - lower) / modulus
+      number - (lowerFactor * modulus)
+    }
+
+  /**
    * Cast a term to a modulo sort.
    */
   def cast2Sort(sort : ModSort, t : ITerm) : ITerm =
@@ -862,6 +875,16 @@ object ModuloArithmetic extends Theory {
                    case _                  => IdealInt.ZERO
                  })
     }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def evalFun(f : IFunction,
+                       args : Seq[IdealInt]) : Option[IdealInt] = f match {
+    case `mod_cast` =>
+      Some(evalModCast(args(0), args(1), args(2)))
+    case _ =>
+      None
   }
 
   //////////////////////////////////////////////////////////////////////////////

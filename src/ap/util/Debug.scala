@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -142,6 +142,11 @@ object Debug {
   /** Method-internal assertions (invariants) */
   def assertInt(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_INTERNAL, ac, assertion)
+
+  /** Method-internal assertions (invariants) */
+  def assertInt(ac : ASSERTION_CATEGORY, assertion : => Boolean,
+                message : => String) : Unit =
+    assertTrue(AT_METHOD_INTERNAL, ac, assertion, message)
 
   def assertIntFast(ac : ASSERTION_CATEGORY, assertion : => Boolean) : Unit =
     assertTrue(AT_METHOD_INTERNAL, ac, withoutAssertions(assertion))

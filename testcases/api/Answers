@@ -579,6 +579,16 @@ x = str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_empty))
 y = str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_cons(mod_cast(0, 255, 255), str_empty)))))
 Valid
 
+TestBVEval.scala
+Sat
+Some(3)
+Some(true)
+Some(3)
+Some(3)
+Some(3)
+3
+3
+
 readSMTLIB.scala
 x - y >= 1 & y + -50 >= 1
 Sat

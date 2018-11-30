@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -184,6 +184,10 @@ object Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * In some theories, complex values will internally be encoded as integers.
+   * Decoders are used to translate back to foreground objects.
+   */
   trait Decoder[A] {
     def apply(d : IdealInt)(implicit ctxt : DecoderContext) : A
   }
@@ -332,6 +336,18 @@ trait Theory {
    * and during proving.
    */
   val reducerPlugin : ReducerPluginFactory = IdentityReducerPluginFactory
+
+  /**
+   * Optionally, a function evaluating theory functions applied to concrete
+   * arguments.
+   */
+  def evalFun(f : IFunction, args : Seq[IdealInt]) : Option[IdealInt] = None
+
+  /**
+   * Optionally, a function evaluating theory predicates applied to concrete
+   * arguments.
+   */
+  def evalPred(p : Predicate, args : Seq[IdealInt]) : Option[Boolean] = None
 
   /**
    * If this theory defines any <code>Theory.Decoder</code>, which

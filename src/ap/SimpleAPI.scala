@@ -284,13 +284,19 @@ object SimpleAPI {
         case _ : IPlus =>
           for (IntValue(v1) <- subres(0); IntValue(v2) <- subres(1))
           yield IntValue(v1 + v2)
+
         case IFunApp(f, _) => {
           val actualArgs = for (Some(IntValue(v)) <- subres) yield v
-          if (actualArgs.size == f.arity)
-            interpretation get IntFunctionLoc(f, actualArgs)
-          else
+          if (actualArgs.size == f.arity) {
+            (interpretation get IntFunctionLoc(f, actualArgs)) orElse
+            (for (theory <- TheoryRegistry lookupSymbol f;
+                  res <- theory.evalFun(f, actualArgs))
+             yield IntValue(res))
+          } else {
             None
+          }
         }
+
         case _ : ITermITE =>
           for (BoolValue(b) <- subres(0);
                r <- subres(if (b) 1 else 2)) yield r
@@ -317,13 +323,19 @@ object SimpleAPI {
         case IBinFormula(IBinJunctor.Eqv, _, _) =>
           for (BoolValue(v1) <- subres(0); BoolValue(v2) <- subres(1))
           yield BoolValue(v1 == v2)
+
         case IAtom(p, _) => {
           val actualArgs = for (Some(IntValue(v)) <- subres) yield v
-          if (actualArgs.size == p.arity)
-            interpretation get PredicateLoc(p, actualArgs)
-          else
+          if (actualArgs.size == p.arity) {
+            (interpretation get PredicateLoc(p, actualArgs)) orElse
+            (for (theory <- TheoryRegistry lookupSymbol p;
+                  res <- theory.evalPred(p, actualArgs))
+             yield BoolValue(res))
+          } else {
             None
+          }
         }
+
         case IIntFormula(IIntRelation.EqZero, _) =>
           for (IntValue(v) <- subres(0)) yield BoolValue(v.isZero)
         case IIntFormula(IIntRelation.GeqZero, _) =>
@@ -4156,7 +4168,10 @@ class SimpleAPI private (enableAssert : Boolean,
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(AC, order == newSig.order &&
                         !(fors exists { case INamedPart(PartName.NO_NAME, _) => true
-                                        case _ => false }))
+                                        case _ => false }),
+                    "Unexpected new symbols or axioms. This might be due " +
+                    "to theories not yet loaded in SimpleAPI, consider " +
+                    "adding them explicitly using addTheory(...)")
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val formula = 
