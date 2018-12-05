@@ -339,15 +339,15 @@ trait Theory {
 
   /**
    * Optionally, a function evaluating theory functions applied to concrete
-   * arguments.
+   * arguments, represented as constructor terms.
    */
-  def evalFun(f : IFunction, args : Seq[IdealInt]) : Option[IdealInt] = None
+  def evalFun(f : IFunApp) : Option[ITerm] = None
 
   /**
    * Optionally, a function evaluating theory predicates applied to concrete
-   * arguments.
+   * arguments, represented as constructor terms.
    */
-  def evalPred(p : Predicate, args : Seq[IdealInt]) : Option[Boolean] = None
+  def evalPred(p : IAtom) : Option[Boolean] = None
 
   /**
    * If this theory defines any <code>Theory.Decoder</code>, which

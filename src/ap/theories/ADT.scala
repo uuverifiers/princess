@@ -38,6 +38,7 @@ import ap.proof.goal.Goal
 import ap.parameters.{Param, ReducerSettings}
 import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs}
 
+import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
                                  HashSet => MHashSet, Map => MMap, Set => MSet,
                                  BitSet => MBitSet, ArrayStack,
@@ -162,17 +163,26 @@ object ADT {
                yield IFunApp(f, args)),
         1)
 
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      if (adtTheory.isEnum(sortNum)) {
+        val index = d.intValueSafe
+        val ctors = adtTheory.constructorsPerSort(sortNum)
+        if (0 <= index && index < ctors.size)
+          Some(IFunApp(ctors(index), List()))
+        else
+          None
+      } else {
+        assignment get ((d, this))
+      }
+
     override def augmentModelTermSet(
                             model : Conjunction,
                             terms : MMap[(IdealInt, Sort), ITerm],
                             allTerms : Set[(IdealInt, Sort)],
                             definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
-      if (adtTheory.isEnum(sortNum)) {
-        if (!(terms contains (IdealInt.ZERO, this)))
-          for ((f, num) <-
-                 adtTheory.constructorsPerSort(sortNum).iterator.zipWithIndex)
-            terms.put((IdealInt(num), this), IFunApp(f, List()))
-      } else {
+      if (!adtTheory.isEnum(sortNum)) {
         val atoms =
           for (p <- adtTheory.constructorPreds;
                a <- model.predConj positiveLitsWithPred p)
@@ -687,6 +697,14 @@ class ADT (sortNames : Seq[String],
    */
   def getCtorPerSort(sortNum : Int, ctorNum : Int) : MonoSortedIFunction =
     constructors(globalCtorIdsPerSort(sortNum)(ctorNum))
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  override def evalFun(f : IFunApp) : Option[ITerm] =
+    if (constructorsSet contains f.fun)
+      Some(f)
+    else
+      None
 
   //////////////////////////////////////////////////////////////////////////////
 

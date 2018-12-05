@@ -41,6 +41,7 @@ import ap.proof.goal.Goal
 import ap.theories.nia.GroebnerMultiplication
 import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
 
+import scala.collection.{Map => GMap}
 import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
                                  Set => MSet}
 
@@ -226,22 +227,12 @@ object ModuloArithmetic extends Theory {
     
     val modulus = upper - lower + IdealInt.ONE
 
-    override def augmentModelTermSet(
-                            model : Conjunction,
-                            terms : MMap[(IdealInt, Sort), ITerm],
-                            allTerms : Set[(IdealInt, Sort)],
-                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
-      // at the moment, just a naive traversal that introduces mod_cast terms
-      // for every integer literal in the model
+    import IExpression._
 
-      import IExpression._
-
-      for (lc <- model.arithConj.positiveEqs)
-        terms.put((-lc.constant, this), mod_cast(lower, upper, -lc.constant))
-
-      for (a <- model.groundAtoms.iterator; lc <- a.iterator)
-        terms.put((lc.constant, this), mod_cast(lower, upper, lc.constant))
-    }
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      Some(mod_cast(lower, upper, d))
   }
 
   /**
@@ -879,12 +870,33 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  override def evalFun(f : IFunction,
-                       args : Seq[IdealInt]) : Option[IdealInt] = f match {
-    case `mod_cast` =>
-      Some(evalModCast(args(0), args(1), args(2)))
-    case _ =>
+  override def evalFun(f : IFunApp) : Option[ITerm] =
+    if (f.args forall (isLit _)) {
+      val sort = Sort sortOf f
+      val res = Preproc.visit(f, VisitorArg(None, List(), false))
+      if (res.isConstant)
+        Some(IIntLit(res.lowerBound))
+      else
+        None
+    } else {
       None
+    }
+
+  override def evalPred(a : IAtom) : Option[Boolean] =
+    if (a.args forall (isLit _)) {
+      Preproc.visit(a, VisitorArg(None, List(), false)).res match {
+        case IBoolLit(v) => Some(v)
+        case _           => None
+      }
+    } else {
+      None
+    }
+
+  private def isLit(t : ITerm) : Boolean = t match {
+    case _ : IIntLit                                         => true
+    case IFunApp(`mod_cast`,
+                 Seq(_ : IIntLit, _ : IIntLit, _ : IIntLit)) => true
+    case _                                                   => false
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1412,9 +1424,16 @@ object ModuloArithmetic extends Theory {
         ////////////////////////////////////////////////////////////////////////
 
         case IAtom(`bv_ult`, _) =>
-          VisitorRes(subres(1).resTerm < subres(2).resTerm)
+          if (subres(1).isConstant && subres(2).isConstant)
+            VisitorRes(subres(1).lowerBound < subres(2).lowerBound)
+          else
+            VisitorRes(subres(1).resTerm < subres(2).resTerm)
+ 
         case IAtom(`bv_ule`, _) =>
-          VisitorRes(subres(1).resTerm <= subres(2).resTerm)
+          if (subres(1).isConstant && subres(2).isConstant)
+            VisitorRes(subres(1).lowerBound <= subres(2).lowerBound)
+          else
+            VisitorRes(subres(1).resTerm <= subres(2).resTerm)
 
         case IAtom(`bv_slt`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant &&

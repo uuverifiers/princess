@@ -243,7 +243,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun a () (Array Int Int) 0)
+  (define-fun a () (Array Int Int) 43)
 )
 
 Loading distinctBug.smt2 ...
@@ -343,7 +343,7 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () ListT1 (insertT1 T1!2 (insertT1 T1!1 (insertT1 T1!0 nilT1))))
+  (define-fun x () ListT1 (insertT1 T1!14 (insertT1 T1!18 (insertT1 T1!22 nilT1))))
 )
 
 Loading define-fun-rec.smt2 ...
@@ -657,7 +657,7 @@ Loading adt-model-bug.smt2 ...
 Warning: treating sort T1 as infinite sort
 sat
 (model
-  (define-fun x () ListT1 (insertT1 T1!2 (insertT1 T1!1 (insertT1 T1!0 nilT1))))
+  (define-fun x () ListT1 (insertT1 T1!14 (insertT1 T1!18 (insertT1 T1!22 nilT1))))
 )
 Loading unsat-core.smt2 ...
 unsat

@@ -45,7 +45,7 @@ Eliminating quantifiers ...
 VALID
 
 Equivalent constraint:
-a = 0
+a = 0.\as[bv[3]]
 
 Concrete witness:
 a = 0.\as[bv[3]]
@@ -69,7 +69,7 @@ Eliminating quantifiers ...
 VALID
 
 Equivalent constraint:
-(b != 2 | a = 3221225497 | a = 2147483673 | a = 1073741849 | a = 25) & (b != 1 | a = 2147483698 | a = 50) & (b = 2 | b = 1)
+(b != 2.\as[bv[32]] | a = 3221225497.\as[bv[32]] | a = 2147483673.\as[bv[32]] | a = 1073741849.\as[bv[32]] | a = 25.\as[bv[32]]) & (b != 1.\as[bv[32]] | a = 2147483698.\as[bv[32]] | a = 50.\as[bv[32]]) & (b = 2.\as[bv[32]] | b = 1.\as[bv[32]])
 
 Concrete witness:
 b = 2.\as[bv[32]] & a = 3221225497.\as[bv[32]]

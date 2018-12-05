@@ -25,6 +25,7 @@ import ap.basetypes.IdealInt
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.Quantifier
 import ap.terfor.preds.Predicate
+import ap.theories.TheoryRegistry
 import ap.types.SortedConstantTerm
 import ap.util.{Debug, Seqs}
 
@@ -1059,6 +1060,13 @@ object IExpression {
           case _ => t update newSubExpr
         }
 
+        case t@IAtom(p, _) => {
+          val newAtom = t update newSubExpr
+          (for (theory <- TheoryRegistry lookupSymbol p;
+                res <- theory evalPred newAtom)
+           yield IBoolLit(res)) getOrElse newAtom
+        }
+
         case t =>
           t update newSubExpr
   }
@@ -1099,6 +1107,12 @@ object IExpression {
                  left.isInstanceOf[IVariable]) &&
                 left == right) => left
           case _ => t update newSubExpr
+        }
+
+        case t@IFunApp(f, _) => {
+          val newApp = t update newSubExpr
+          (for (theory <- TheoryRegistry lookupSymbol f;
+                res <- theory evalFun newApp) yield res) getOrElse newApp
         }
         
         case t =>

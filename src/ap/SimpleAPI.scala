@@ -40,7 +40,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction, SeqReducerPluginFactory}
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
-                    SimpleArray, MulTheory, Incompleteness}
+                    SimpleArray, MulTheory, Incompleteness, ModuloArithmetic}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
@@ -226,20 +226,23 @@ object SimpleAPI {
 
   /**
    * Class representing (usually partial) models of formulas computed
-   * through the API.
+   * through the API. Partial models represent values/individuals as
+   * constructor terms, in case of integers as instances of <code>IIntLit</code>
    */
   class PartialModel(
-         val interpretation : scala.collection.Map[ModelLocation, ModelValue],
-         val constructorTerms : scala.collection.Map[(IdealInt, Sort), ITerm]) {
+         val interpretation : scala.collection.Map[IExpression, IExpression]) {
 
     import IExpression._
 
+    /**
+     * Locations on which this model is defined.
+     */
     def definedLocations = interpretation.keySet
 
     /**
      * Evaluate an expression to some value in the current model, if possible.
      */
-    def evalExpression(e : IExpression) : Option[ModelValue] =
+    def evalExpression(e : IExpression) : Option[IExpression] =
       Evaluator.visit(e, ())
 
     /**
@@ -247,21 +250,31 @@ object SimpleAPI {
      * if possible.
      */
     def eval(t : ITerm) : Option[IdealInt] =
-      for (IntValue(v) <- evalExpression(t)) yield v
+      for (s <- evalExpression(t);
+           res <- s match {
+             case IIntLit(v) => Some(v)
+             // TODO: this is just the special of bit-vector literals,
+             // generalise
+             case IFunApp(ModuloArithmetic.mod_cast,
+                          Seq(IIntLit(lower), IIntLit(upper), IIntLit(v))) =>
+               Some(ModuloArithmetic.evalModCast(lower, upper, v))
+             case _ =>
+               None
+           })
+        yield res
 
     /**
      * Evaluate a term to a constructor term in the model, if possible.
      */
     def evalToTerm(t : ITerm) : Option[ITerm] =
-      for (IntValue(v) <- evalExpression(t)) yield {
-        (constructorTerms get (v, Sort sortOf t)) getOrElse i(v)
-      }
+      for (s <- evalExpression(t); if s.isInstanceOf[ITerm])
+      yield s.asInstanceOf[ITerm]
 
     /**
      * Evaluate a formula to a truth value, if possible.
      */
     def eval(f : IFormula) : Option[Boolean] =
-      for (BoolValue(b) <- evalExpression(f)) yield b
+      for (IBoolLit(b) <- evalExpression(f)) yield b
 
     override def toString =
       "{" +
@@ -269,108 +282,95 @@ object SimpleAPI {
        yield ("" + l + " -> " + v)).mkString(", ") +
       "}"
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    private def toCtorTerm(t : ITerm, s : Sort) : ITerm = t match {
+      case IIntLit(v) => s.decodeToTerm(v, Map()) getOrElse t
+      case t          => t
+    }
+
     private object Evaluator
-            extends CollectingVisitor[Unit, Option[ModelValue]] {
+            extends CollectingVisitor[Unit, Option[IExpression]] {
       def postVisit(t : IExpression, arg : Unit,
-                    subres : Seq[Option[ModelValue]]) = t match {
+                    subres : Seq[Option[IExpression]]) = t match {
         ////////////////////////////////////////////////////////////////////////
         // Terms
-        case IIntLit(v) =>
-          Some(IntValue(v))
-        case IConstant(c) =>
-          interpretation get ConstantLoc(c)
-        case ITimes(coeff, _) =>
-          for (IntValue(v) <- subres(0)) yield IntValue(v * coeff)
-        case _ : IPlus =>
-          for (IntValue(v1) <- subres(0); IntValue(v2) <- subres(1))
-          yield IntValue(v1 + v2)
 
-        case IFunApp(f, _) => {
-          val actualArgs = for (Some(IntValue(v)) <- subres) yield v
-          if (actualArgs.size == f.arity) {
-            (interpretation get IntFunctionLoc(f, actualArgs)) orElse
-            (for (theory <- TheoryRegistry lookupSymbol f;
-                  res <- theory.evalFun(f, actualArgs))
-             yield IntValue(res))
-          } else {
+        case t : IIntLit =>
+          Some(t)
+        case t : IConstant =>
+          interpretation get t
+        case ITimes(coeff, _) =>
+          for (IIntLit(v) <- subres(0)) yield IIntLit(v * coeff)
+        case _ : IPlus =>
+          for (IIntLit(v1) <- subres(0); IIntLit(v2) <- subres(1))
+          yield IIntLit(v1 + v2)
+
+        case t@IFunApp(f, _) =>
+          if (subres exists (_.isEmpty)) {
             None
+          } else {
+            val actualArgs = subres map (_.get.asInstanceOf[ITerm])
+            val ctorF = t update actualArgs
+
+            (interpretation get ctorF) orElse
+            (for (theory <- TheoryRegistry lookupSymbol f;
+                  res <- theory evalFun ctorF)
+             yield toCtorTerm(res, Sort sortOf t))
           }
-        }
 
         case _ : ITermITE =>
-          for (BoolValue(b) <- subres(0);
+          for (IBoolLit(b) <- subres(0);
                r <- subres(if (b) 1 else 2)) yield r
+
         ////////////////////////////////////////////////////////////////////////
         // Formulas
-        case IBoolLit(b) =>
-          Some(BoolValue(b))
+
+        case f : IBoolLit =>
+          Some(f)
         case _ : INot =>
-          for (BoolValue(b) <- subres(0)) yield BoolValue(!b)
+          for (IBoolLit(b) <- subres(0)) yield IBoolLit(!b)
         case IBinFormula(IBinJunctor.And, _, _) => subres match {
-          case Seq(v@Some(BoolValue(false)), _) => v
-          case Seq(_, v@Some(BoolValue(false))) => v
-          case Seq(Some(BoolValue(true)), v)    => v
-          case Seq(v, Some(BoolValue(true)))    => v
-          case _                                => None
+          case Seq(v@Some(IBoolLit(false)), _) => v
+          case Seq(_, v@Some(IBoolLit(false))) => v
+          case Seq(Some(IBoolLit(true)), v)    => v
+          case Seq(v, Some(IBoolLit(true)))    => v
+          case _                               => None
         }
         case IBinFormula(IBinJunctor.Or, _, _) => subres match {
-          case Seq(v@Some(BoolValue(true)), _)  => v
-          case Seq(_, v@Some(BoolValue(true)))  => v
-          case Seq(Some(BoolValue(false)), v)   => v
-          case Seq(v, Some(BoolValue(false)))   => v
-          case _                                => None
+          case Seq(v@Some(IBoolLit(true)), _) => v
+          case Seq(_, v@Some(IBoolLit(true))) => v
+          case Seq(Some(IBoolLit(false)), v)  => v
+          case Seq(v, Some(IBoolLit(false)))  => v
+          case _                              => None
         }
         case IBinFormula(IBinJunctor.Eqv, _, _) =>
-          for (BoolValue(v1) <- subres(0); BoolValue(v2) <- subres(1))
-          yield BoolValue(v1 == v2)
+          for (IBoolLit(v1) <- subres(0); IBoolLit(v2) <- subres(1))
+          yield IBoolLit(v1 == v2)
 
-        case IAtom(p, _) => {
-          val actualArgs = for (Some(IntValue(v)) <- subres) yield v
-          if (actualArgs.size == p.arity) {
-            (interpretation get PredicateLoc(p, actualArgs)) orElse
-            (for (theory <- TheoryRegistry lookupSymbol p;
-                  res <- theory.evalPred(p, actualArgs))
-             yield BoolValue(res))
-          } else {
+        case f@IAtom(p, _) =>
+          if (subres exists (_.isEmpty)) {
             None
+          } else {
+            val actualArgs = subres map (_.get.asInstanceOf[ITerm])
+            val ctorF = f update actualArgs
+
+            (interpretation get ctorF) orElse
+            (for (theory <- TheoryRegistry lookupSymbol p;
+                  res <- theory evalPred ctorF) yield res)
           }
-        }
 
         case IIntFormula(IIntRelation.EqZero, _) =>
-          for (IntValue(v) <- subres(0)) yield BoolValue(v.isZero)
+          for (IIntLit(v) <- subres(0)) yield IBoolLit(v.isZero)
         case IIntFormula(IIntRelation.GeqZero, _) =>
-          for (IntValue(v) <- subres(0)) yield BoolValue(v.signum >= 0)
+          for (IIntLit(v) <- subres(0)) yield IBoolLit(v.signum >= 0)
         case _ : IFormulaITE =>
-          for (BoolValue(b) <- subres(0);
+          for (IBoolLit(b) <- subres(0);
                r <- subres(if (b) 1 else 2)) yield r
         case _ : INamedPart =>
           subres(0)
       }
     }
-  }
-
-  abstract sealed class ModelLocation
-  case class ConstantLoc(c : IExpression.ConstantTerm)
-                                     extends ModelLocation {
-    override def toString = c.toString
-  }
-  case class IntFunctionLoc(f : IFunction, args : Seq[IdealInt])
-                                     extends ModelLocation {
-    override def toString =
-      f.name + (if (args.isEmpty) "" else "(" + (args mkString ", ") + ")")
-  }
-  case class PredicateLoc(p : IExpression.Predicate, args : Seq[IdealInt])
-                                     extends ModelLocation {
-    override def toString =
-      p.name + (if (args.isEmpty) "" else "(" + (args mkString ", ") + ")")
-  }
-  
-  abstract sealed class ModelValue
-  case class IntValue(v : IdealInt)  extends ModelValue {
-    override def toString = v.toString
-  }
-  case class BoolValue(v : Boolean)  extends ModelValue {
-    override def toString = v.toString
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -3065,15 +3065,19 @@ class SimpleAPI private (enableAssert : Boolean,
                       currentModel.negatedConjs.isEmpty)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      val interpretation = new LinkedHashMap[ModelLocation, ModelValue]
+      val interpretation = new LinkedHashMap[IExpression, IExpression]
 
-      val TypeTheory.DecoderData(ctorTerms) =
-        decoderContext getDataFor TypeTheory
+      implicit val context = decoderContext
+
+      def toTerm(n : IdealInt, s : Sort) : ITerm = (s asTerm n) getOrElse n
+
+//      val TypeTheory.DecoderData(ctorTerms) =
+//        decoderContext getDataFor TypeTheory
 
       // nullary constructor terms can be added to the interpretation
       // (other terms should be part of the model returned by the prover)
-      for (((num, _), IFunApp(ctor, Seq())) <- ctorTerms)
-        interpretation.put(IntFunctionLoc(ctor, List()), IntValue(num))
+//      for (((num, _), t@IFunApp(ctor, Seq())) <- ctorTerms)
+//        interpretation.put(t, IntValue(num))
   
       for (l <- currentModel.arithConj.positiveEqs) {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -3081,11 +3085,12 @@ class SimpleAPI private (enableAssert : Boolean,
                         l.constants.size == 1 && l.variables.isEmpty &&
                         l.leadingCoeff.isOne)
         //-END-ASSERTION-///////////////////////////////////////////////////////
-        interpretation.put(ConstantLoc(l.leadingTerm.asInstanceOf[ConstantTerm]),
-                           IntValue(-l.constant))
+        val c = l.leadingTerm.asInstanceOf[ConstantTerm]
+        val sort = Sort sortOf c
+        interpretation.put(IConstant(c), toTerm(-l.constant, sort))
       }
-  
-      for (a <- currentModel.predConj.positiveLits) {
+
+      def getArgTerms(a : Atom) : Seq[ITerm] = {
         val argValues =
           (for (l <- a.iterator) yield {
              //-BEGIN-ASSERTION-////////////////////////////////////////////////
@@ -3094,31 +3099,32 @@ class SimpleAPI private (enableAssert : Boolean,
              //-END-ASSERTION-//////////////////////////////////////////////////
              l.constant
            }).toIndexedSeq
+
+        val argSorts =
+          SortedPredicate argumentSorts a
+
+        for ((num, sort) <- argValues zip argSorts) yield toTerm(num, sort)
+      }
+
+      for (a <- currentModel.predConj.positiveLits) {
+        val argTerms = getArgTerms(a)
+
         (functionEnc.predTranslation get a.pred) match {
           case Some(f) =>
-            interpretation.put(IntFunctionLoc(f, argValues.init),
-                               IntValue(argValues.last))
+            interpretation.put(IFunApp(f, argTerms.init), argTerms.last)
           case None =>
-            interpretation.put(PredicateLoc(a.pred, argValues),
-                               BoolValue(true))
+            interpretation.put(IAtom(a.pred, argTerms),
+                               IBoolLit(true))
         }
       }
   
       for (a <- currentModel.predConj.negativeLits)
         if (!(functionEnc.predTranslation contains a.pred)) {
-          val argValues =
-            (for (l <- a.iterator) yield {
-               //-BEGIN-ASSERTION-//////////////////////////////////////////////
-               Debug.assertInt(SimpleAPI.AC,
-                               l.constants.isEmpty && l.variables.isEmpty)
-               //-END-ASSERTION-////////////////////////////////////////////////
-               l.constant
-             }).toIndexedSeq
-          interpretation.put(PredicateLoc(a.pred, argValues),
-                             BoolValue(false))
+          val argTerms = getArgTerms(a)
+          interpretation.put(IAtom(a.pred, argTerms), IBoolLit(false))
         }
 
-      lastPartialModel = new PartialModel (interpretation, ctorTerms)
+      lastPartialModel = new PartialModel (interpretation)
       lastPartialModel
     }
   }

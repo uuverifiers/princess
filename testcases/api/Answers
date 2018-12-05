@@ -77,7 +77,7 @@ b = -5
 
 -- Boolean functions and triggers
 Sat
-Partial model: {true -> 0, false -> 115, c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> 0, r(1, 5) -> 0, p1 -> true, p0 -> true}
+Partial model: {c2 -> 5, c1 -> 100, c0 -> 115, r(5, 1) -> true, r(1, 5) -> true, p1 -> true, p0 -> true}
 Valid
 
 -- Existential constants
@@ -344,7 +344,7 @@ finished
 ADTTest.scala
 Vector(nil)
 Sat
-{nil -> 45, c2 -> 44, c1 -> 43, c0 -> 42, list_depth(46) -> 0, list_depth(45) -> -1, list_depth(44) -> 1, list_ctor(46) -> 1, list_ctor(45) -> 0, list_ctor(44) -> 1, tail(46) -> 45, tail(44) -> 46, head(46) -> 43, head(44) -> 42, cons(43, 45) -> 46, cons(42, 46) -> 44}
+{c2 -> 44, c1 -> 43, c0 -> 42, list_depth(cons(43, nil)) -> 0, list_depth(nil) -> -1, list_depth(cons(42, cons(43, nil))) -> 1, list_ctor(cons(43, nil)) -> 1, list_ctor(nil) -> 0, list_ctor(cons(42, cons(43, nil))) -> 1, tail(cons(43, nil)) -> nil, tail(cons(42, cons(43, nil))) -> cons(43, nil), head(cons(43, nil)) -> 43, head(cons(42, cons(43, nil))) -> 42, cons(43, nil) -> cons(43, nil), cons(42, cons(43, nil)) -> cons(42, cons(43, nil)), nil -> nil}
 Unsat
 Unsat
 Valid
@@ -374,7 +374,7 @@ ADTTest3.scala
 Vector(red, nil)
 Test 1
 Sat
-{nil -> 4, red -> 0, blue -> 1, green -> 2, c2 -> 3, c1 -> 2, c0 -> 0, colour_list_depth(5) -> 0, colour_list_depth(4) -> -1, colour_list_depth(3) -> 1, colour_list_ctor(5) -> 1, colour_list_ctor(4) -> 0, colour_list_ctor(3) -> 1, tail(5) -> 4, tail(3) -> 5, head(5) -> 2, head(3) -> 0, cons(2, 4) -> 5, cons(0, 5) -> 3}
+{c2 -> 3, c1 -> 2, c0 -> 0, colour_list_depth(cons(green, nil)) -> 0, colour_list_depth(nil) -> -1, colour_list_depth(cons(red, cons(green, nil))) -> 1, colour_list_ctor(cons(green, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(green, nil))) -> 1, tail(cons(green, nil)) -> nil, tail(cons(red, cons(green, nil))) -> cons(green, nil), head(cons(green, nil)) -> green, head(cons(red, cons(green, nil))) -> red, cons(green, nil) -> cons(green, nil), cons(red, cons(green, nil)) -> cons(red, cons(green, nil)), nil -> nil}
 Test 2
 Unsat
 Test 3
@@ -389,7 +389,7 @@ Test 11
 Valid
 Test 12
 Invalid
-{red -> 0, blue -> 1, green -> 2, c5 -> 2}
+{c5 -> green}
 2
 Some(green)
 Test 13
@@ -434,7 +434,7 @@ Invalid
 Vector(red, nil)
 Test 1
 Sat
-{nil -> 8, red -> 0, blue -> 1, green -> 2, c2 -> 7, c1 -> 2, c0 -> 0, colour_list_size(9) -> 3, colour_list_size(8) -> 1, colour_list_size(7) -> 5, colour_list_ctor(9) -> 1, colour_list_ctor(8) -> 0, colour_list_ctor(7) -> 1, tail(9) -> 8, tail(7) -> 9, head(9) -> 2, head(7) -> 0, cons(2, 8) -> 9, cons(0, 9) -> 7}
+{c2 -> 7, c1 -> 2, c0 -> 0, colour_list_size(cons(green, nil)) -> 3, colour_list_size(nil) -> 1, colour_list_size(cons(red, cons(green, nil))) -> 5, colour_list_ctor(cons(green, nil)) -> 1, colour_list_ctor(nil) -> 0, colour_list_ctor(cons(red, cons(green, nil))) -> 1, tail(cons(green, nil)) -> nil, tail(cons(red, cons(green, nil))) -> cons(green, nil), head(cons(green, nil)) -> green, head(cons(red, cons(green, nil))) -> red, cons(green, nil) -> cons(green, nil), cons(red, cons(green, nil)) -> cons(red, cons(green, nil)), nil -> nil}
 Test 2
 Unsat
 Test 3
@@ -449,7 +449,7 @@ Test 11
 Valid
 Test 12
 Invalid
-{red -> 0, blue -> 1, green -> 2, c5 -> 2}
+{c5 -> green}
 2
 Some(green)
 Test 13
@@ -513,11 +513,11 @@ Sat
 TestModuloArithmetic.scala
 Test 1
 Sat
-{b2 -> 0, b1 -> 13}
+{b2 -> mod_cast(0, 255, 0), b1 -> mod_cast(0, 255, 13)}
 b1 = mod_cast(0, 255, 13)
 Test 2
 Sat
-{w2 -> 0, w1 -> 13}
+{w2 -> mod_cast(0, 4294967295, 0), w1 -> mod_cast(0, 4294967295, 13)}
 Test 3
 Sat
 h1 = mod_cast(0, 65535, 11007)
@@ -581,13 +581,35 @@ Valid
 
 TestBVEval.scala
 Sat
-Some(3)
-Some(true)
-Some(3)
-Some(3)
-Some(3)
-3
-3
+1: Some(3)
+2: Some(true)
+3: Some(3)
+4: Some(mod_cast(0, 15, 3))
+5: Some(3)
+6: mod_cast(0, 15, 3)
+7: 3
+8: Some(4)
+9: Some(6)
+10: Some(4)
+11: mod_cast(0, 15, 4)
+12: 4
+Sat
+13: Some(mod_cast(0, 15, 3))
+14: Some(3)
+15: mod_cast(0, 15, 3)
+16: 3
+Sat
+17: Some(mod_cast(0, 15, 3))
+18: Some(3)
+19: mod_cast(0, 15, 3)
+20: 3
+21: Some(mod_cast(0, 15, 3))
+22: Some(3)
+23: mod_cast(0, 15, 3)
+24: 3
+25: Some(true)
+26: true
+27: 1
 
 readSMTLIB.scala
 x - y >= 1 & y + -50 >= 1

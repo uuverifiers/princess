@@ -30,6 +30,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.theories.Theory
 import ap.util.Debug
 
+import scala.collection.{Map => GMap}
 import scala.collection.mutable.{Map => MMap, Set => MSet}
 
 object Sort {
@@ -56,6 +57,11 @@ object Sort {
                   n => if (n.signum <= 0) (-n+1) else -n
                 })
       yield IExpression.i(n)
+
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      Some(IIntLit(d))
 
     def augmentModelTermSet(model : Conjunction,
                             assignment : MMap[(IdealInt, Sort), ITerm],
@@ -132,6 +138,11 @@ object Sort {
           Sort.Integer.individuals
       }
 
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      Some(IIntLit(d))
+
     def augmentModelTermSet(model : Conjunction,
                             assignment : MMap[(IdealInt, Sort), ITerm],
                             allTerms : Set[(IdealInt, Sort)],
@@ -143,13 +154,23 @@ object Sort {
 
   class InfUninterpreted(override val name : String)
         extends ProxySort(Integer) {
-    
+
     /**
      * We just create numbered constants to represent the individuals.
      */
     override val individuals : Stream[ITerm] =
       for (n <- Stream.iterate(0)(_ + 1))
       yield IConstant(newConstant(name + "!" + n))
+
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] = {
+      val ind = d.intValueSafe
+      if (ind >= 0)
+        Some(individuals(2*ind))
+      else
+        Some(individuals(-2*ind - 1))
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -224,31 +245,16 @@ object Sort {
                  })
        yield IExpression.i(n))
 
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      Some(if (d.isZero) True else False)
+
     override def augmentModelTermSet(
                    model : Conjunction,
                    assignment : MMap[(IdealInt, Sort), ITerm],
                    allTerms : Set[(IdealInt, Sort)],
-                   definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
-      // at the moment, just a naive traversal that introduces terms
-      // <code>True</code>, <code>False</code> for every integer literal
-      // in the model
-
-      assignment.put((IdealInt.ZERO, this), True)
-      assignment.put((IdealInt.ONE, this), False)
-      
-      for (lc <- model.arithConj.positiveEqs) lc.constant match {
-        case IdealInt.ZERO => // nothing
-        case IdealInt.MINUS_ONE  => // nothing
-        case num => assignment.put((-num, this), False)
-      }
-
-      for (a <- model.groundAtoms.iterator;
-           lc <- a.iterator) lc.constant match {
-        case IdealInt.ZERO => // nothing
-        case IdealInt.ONE  => // nothing
-        case num => assignment.put((num, this), False)
-      }
-    }
+                   definedTerms : MSet[(IdealInt, Sort)]) : Unit = {}
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -352,9 +358,17 @@ trait Sort {
     def apply(d : IdealInt)
              (implicit ctxt : Theory.DecoderContext) : Option[ITerm] =
       (ctxt getDataFor TypeTheory) match {
-        case TypeTheory.DecoderData(transl) => transl get ((d, Sort.this))
+        case TypeTheory.DecoderData(transl) => decodeToTerm(d, transl)
       }
   }
+
+  /**
+   * Extract a term representation of some value in the sort. This method
+   * can be overwritten in sub-classes to decode in a sort-specific way
+   */
+  def decodeToTerm(d : IdealInt,
+                   assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+    assignment get ((d, this))
 
   /**
    * Extract terms from a model. Such terms will always be encoded as
@@ -369,7 +383,7 @@ trait Sort {
   protected def getSubTerms(ids : Seq[Term],
                             sorts : Seq[Sort],
                             terms : MMap[(IdealInt, Sort), ITerm])
-                           : Either[Seq[ITerm],Seq[(IdealInt, Sort)]] = {
+                           : Either[Seq[ITerm], Seq[(IdealInt, Sort)]] = {
     val subTerms : Seq[Either[ITerm, (IdealInt, Sort)]] =
       for ((idTerm, sort) <- ids zip sorts) yield {
         val id = idTerm match {
@@ -379,16 +393,9 @@ trait Sort {
             throw new IllegalArgumentException
         }
 
-        sort match {
-          case Sort.Numeric(_) =>
-            Left(IIntLit(id))
-          case sort => {
-            val key = (id, sort)
-            (terms get key) match {
-              case Some(t) => Left(t)
-              case None => Right(key)
-            }
-          }
+        sort.decodeToTerm(id, terms) match {
+          case Some(t) => Left(t)
+          case None    => Right((id, sort))
         }
       }
 
@@ -583,6 +590,11 @@ class ProxySort(underlying : Sort) extends Sort {
   val cardinality : Option[IdealInt] = underlying.cardinality
 
   def individuals : Stream[ITerm] = underlying.individuals
+
+  override def decodeToTerm(
+                 d : IdealInt,
+                 assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+    underlying.decodeToTerm(d, assignment)
 
   def augmentModelTermSet(model : Conjunction,
                           assignment : MMap[(IdealInt, Sort), ITerm],

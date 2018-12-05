@@ -210,14 +210,7 @@ object TypeTheory extends Theory {
       if (lc.constants.size == 1) {
         val sort =
           SortedConstantTerm sortOf lc.leadingTerm.asInstanceOf[ConstantTerm]
-        val key = (-lc.constant, sort)
-        allTerms += key
-        sort match {
-          case Sort.Numeric(_) =>
-            assignment.put(key, -lc.constant)
-          case _ =>
-            // nothing
-        }
+        allTerms += ((-lc.constant, sort))
       }
 
     for (a <- model.predConj.positiveLits.iterator ++
@@ -225,16 +218,9 @@ object TypeTheory extends Theory {
          argSorts = SortedPredicate.argumentSorts(a.pred, a);
          (lc, sort) <- a.iterator zip argSorts.iterator;
          if lc.isConstant) {
-      val key = (lc.constant, sort)
-      allTerms += key
-      sort match {
-        case Sort.Numeric(_) =>
-          assignment.put(key, lc.constant)
-        case sort =>
-          // nothing
-      }
+      allTerms += ((lc.constant, sort))
     }
-    
+
     val allTermsSet = allTerms.toSet
 
     // reconstruct terms from definitions in the model
@@ -252,11 +238,15 @@ object TypeTheory extends Theory {
         // that are mentioned but not further defined in the model
 
         val missing =
-          for (p <- allTerms.iterator; if !(assignment contains p)) yield p
+          for (p@(n, sort) <- allTerms.iterator;
+               if sort.decodeToTerm(n, assignment).isEmpty)
+          yield p
 
         if (missing.hasNext) {
           val usedTerms =
-            (for (((_, sort), t) <- assignment.iterator) yield (sort, t)).toSet
+            (for ((n, sort) <- allTerms.iterator;
+                  t <- sort.decodeToTerm(n, assignment).iterator)
+             yield (sort, t)).toSet
           val witnesses =
             for (p@(ind, sort) <- missing) yield {
               val witness = (sort.individuals.iterator filterNot {
@@ -277,7 +267,9 @@ object TypeTheory extends Theory {
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     // all terms have been assigned
-    Debug.assertPost(AC, allTerms subsetOf assignment.keySet)
+    Debug.assertPost(AC,
+      allTerms forall { case (n, sort) =>
+                          sort.decodeToTerm(n, assignment).isDefined })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     Some(DecoderData(assignment))

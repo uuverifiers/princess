@@ -195,7 +195,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-green:\\'Color' = Color!0 & red:Color = Color!1
+green:\\'Color' = Color!0 & red:Color = Color!2
 
 Loading multiple-conjectures.p ...
 Warning: You are using the normal version of Princess to solve TPTP problems.

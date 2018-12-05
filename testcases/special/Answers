@@ -97,7 +97,7 @@ Constructing countermodel ...
 UNKNOWN
 
 Possible countermodel:
-not_orthogonal_lines($i!0, $i!1) & orthogonal_lines($i!2, $i!3) & convergent_lines($i!4, $i!5) & !not_orthogonal_lines($i!1, $i!6) & !unorthogonal_lines($i!2, $i!3) & !convergent_lines($i!0, $i!6)
+not_orthogonal_lines($i!6, $i!8) & orthogonal_lines($i!12, $i!14) & convergent_lines($i!2, $i!4) & !not_orthogonal_lines($i!8, $i!10) & !unorthogonal_lines($i!12, $i!14) & !convergent_lines($i!6, $i!10)
 
 Loading diamonds.10.2-no-interpolant.i.a.u.pri ...
 Preprocessing ...
@@ -133,7 +133,7 @@ Found proof (size 665), simplifying (676), interpolating ...
 VALID
 
 Interpolants:
-y.\as[int] + x.\as[int] >= 12 | -1*y.\as[int] - x.\as[int] >= -2 | (z = 7 & x = 2) | (z = 6 & x = 0) | (z = 5 & x = 6) | (z = 4 & x = 4) | (3 >= z & ((1 >= z & ((z = 1 & x = 6) | (z = 0 & x = 4))) | (z >= 2 & ((z = 3 & x = 2) | (z = 2 & x = 0))))) | (-1*y.\as[int] - x.\as[int] >= -10 & y.\as[int] + x.\as[int] >= 8) | (-1*y.\as[int] - x.\as[int] >= -6 & y.\as[int] + x.\as[int] >= 4)
-(z = 7 & x = 2 & (y = 5 | y = 1)) | (z = 6 & x = 0 & (y = 3 | y >= 7)) | (z = 5 & x = 6 & (y = 5 | y = 1)) | (z = 4 & x = 4 & (y = 3 | y >= 7)) | (y.\as[int] + x.\as[int] = 11 & 1 >= z & x >= 4 & ((z = 1 & x = 6) | (z = 0 & x = 4))) | (y.\as[int] + x.\as[int] = 7 & 3 >= z & ((1 >= z & ((z = 1 & x = 6) | (z = 0 & x = 4))) | (z >= 2 & ((z = 3 & x = 2) | (z = 2 & x = 0))))) | (y.\as[int] + x.\as[int] = 3 & 3 >= z & z >= 2 & 3 >= x & ((z = 3 & x = 2) | (z = 2 & x = 0)))
+y.\as[int] + x.\as[int] >= 12 | -1*y.\as[int] - x.\as[int] >= -2 | (z = 7.\as[bv[3]] & x = 2.\as[bv[3]]) | (z = 6.\as[bv[3]] & x = 0.\as[bv[3]]) | (z = 5.\as[bv[3]] & x = 6.\as[bv[3]]) | (z = 4.\as[bv[3]] & x = 4.\as[bv[3]]) | (3 >= z & ((1 >= z & ((z = 1.\as[bv[3]] & x = 6.\as[bv[3]]) | (z = 0.\as[bv[3]] & x = 4.\as[bv[3]]))) | (z >= 2 & ((z = 3.\as[bv[3]] & x = 2.\as[bv[3]]) | (z = 2.\as[bv[3]] & x = 0.\as[bv[3]]))))) | (-1*y.\as[int] - x.\as[int] >= -10 & y.\as[int] + x.\as[int] >= 8) | (-1*y.\as[int] - x.\as[int] >= -6 & y.\as[int] + x.\as[int] >= 4)
+(z = 7.\as[bv[3]] & x = 2.\as[bv[3]] & (y = 5.\as[bv[3]] | y = 1.\as[bv[3]])) | (z = 6.\as[bv[3]] & x = 0.\as[bv[3]] & (y = 3.\as[bv[3]] | y >= 7)) | (z = 5.\as[bv[3]] & x = 6.\as[bv[3]] & (y = 5.\as[bv[3]] | y = 1.\as[bv[3]])) | (z = 4.\as[bv[3]] & x = 4.\as[bv[3]] & (y = 3.\as[bv[3]] | y >= 7)) | (y.\as[int] + x.\as[int] = 11 & 1 >= z & x >= 4 & ((z = 1.\as[bv[3]] & x = 6.\as[bv[3]]) | (z = 0.\as[bv[3]] & x = 4.\as[bv[3]]))) | (y.\as[int] + x.\as[int] = 7 & 3 >= z & ((1 >= z & ((z = 1.\as[bv[3]] & x = 6.\as[bv[3]]) | (z = 0.\as[bv[3]] & x = 4.\as[bv[3]]))) | (z >= 2 & ((z = 3.\as[bv[3]] & x = 2.\as[bv[3]]) | (z = 2.\as[bv[3]] & x = 0.\as[bv[3]]))))) | (y.\as[int] + x.\as[int] = 3 & 3 >= z & z >= 2 & 3 >= x & ((z = 3.\as[bv[3]] & x = 2.\as[bv[3]]) | (z = 2.\as[bv[3]] & x = 0.\as[bv[3]])))
 (2*y.\as[int] + 2*x.\as[int] + 2).\as[bv[3]] != 0.\as[bv[3]]
 
