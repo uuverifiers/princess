@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,10 +24,16 @@ package ap.util;
 import scala.collection.mutable.{ArrayStack => Stack, HashMap, ArrayBuilder}
 import scala.util.Sorting
 
+import java.lang.Thread
+
 /**
  * Object for measuring the time needed by the various tasks, methods, etc.
  * The object, in particular, supports nested operations that call each other
  * and correctly measures the time spent in each of the operations.
+ *
+ * The current implementation of the timer is not thread-safe;
+ * if we detect that the class is used from multiple threads
+ * we disable time measurements altogether. Calls are still counted.
  */
 object Timer {
 
@@ -52,32 +58,56 @@ object Timer {
     startTime = now
   }
   
-  def measure[A](op : String)(comp : => A) : A = {
-    addTime
-    callCounters += (op -> (callCounters(op) + 1))
-    runningOps push op
+  private var lastThread : Thread = null
+  private var timerDisabled = false
+
+  def measure[A](op : String)(comp : => A) : A =
+    if (timerDisabled) {
+
+      synchronized {
+        callCounters += (op -> (callCounters(op) + 1))
+      }
+      comp
+
+    } else {
+
+      if (lastThread == null) {
+        lastThread = Thread.currentThread
+      } else if (!(lastThread eq Thread.currentThread)) {
+        Console.err.println(
+          "Warning: disabling ap.util.Timer due to multi-threading")
+        timerDisabled = true
+        return measure(op)(comp)
+      }
+
+      addTime
+      callCounters += (op -> (callCounters(op) + 1))
+      runningOps push op
     
-    val res =
       try {
         comp
       } finally {
-        addTime
-        runningOps.pop
+        if (!timerDisabled) {
+          addTime
+          runningOps.pop
+        }
       }
-    
-    res
-  }
+
+    }
   
   def reset : Unit = {
     accumulatedTimes.clear
     callCounters.clear
+    runningOps.clear
+    lastThread    = null
+    timerDisabled = false
   }
   
   override def toString : String = {
     val resBuf = ArrayBuilder.make[(String, Int, Long)]
 
     for ((op, time) <- accumulatedTimes)
-      resBuf += ((op, callCounters(op), time))
+      resBuf += ((op, callCounters(op), if (timerDisabled) 0l else time))
 
     val resAr = resBuf.result
     Sorting.stableSort(resAr)
@@ -95,8 +125,10 @@ object Timer {
       (paddedOp + "\t" + count + "\t" + timeInMS + "ms")
     }) mkString "\n"
     
-    val totalTime = (0l /: accumulatedTimes.valuesIterator)(_ + _)
-    val totalTimeInMS = totalTime.toDouble / 1000000.0
+    val totalTime =
+      if (timerDisabled) 0l else (0l /: accumulatedTimes.valuesIterator)(_ + _)
+    val totalTimeInMS =
+      totalTime.toDouble / 1000000.0
     
     val totalCalls = (0 /: callCounters.valuesIterator)(_ + _)
     
