@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,6 +34,7 @@ import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.Seqs
 
+import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  ArrayBuffer, Map => MMap, ArrayStack,
                                  LinkedHashMap, LinkedHashSet, Set => MSet}
@@ -448,6 +449,12 @@ object AbstractStringTheoryWithSort {
       (for (t <- individuals;
             n <- theory.CharSort.individuals)
        yield IFunApp(theory.str_cons, List(n, t)))
+
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      assignment get ((d, this))
+      
 
     override def augmentModelTermSet(
                             model : Conjunction,
