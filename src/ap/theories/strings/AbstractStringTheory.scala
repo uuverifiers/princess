@@ -454,7 +454,6 @@ object AbstractStringTheoryWithSort {
                    d : IdealInt,
                    assignment : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       assignment get ((d, this))
-      
 
     override def augmentModelTermSet(
                             model : Conjunction,
@@ -482,7 +481,7 @@ object AbstractStringTheoryWithSort {
           val (nextIndex, nextString) = todo.pop
           for (consedStrings <- conses get nextIndex) {
             for ((_, (char, stringIndex)) <- consedStrings)
-              for (charTerm <- terms get ((char, CharSort))) {
+              for (charTerm <- CharSort.decodeToTerm(char, terms)) {
                 val consedString =
                   IFunApp(str_cons, List(charTerm, nextString))
                 if (terms.put((stringIndex, this), consedString).isEmpty)
