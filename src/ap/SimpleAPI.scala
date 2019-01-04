@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -40,7 +40,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction, SeqReducerPluginFactory}
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
-                    SimpleArray, MulTheory, Incompleteness, ModuloArithmetic}
+                    SimpleArray, MulTheory, Incompleteness}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
@@ -243,25 +243,14 @@ object SimpleAPI {
      * Evaluate an expression to some value in the current model, if possible.
      */
     def evalExpression(e : IExpression) : Option[IExpression] =
-      Evaluator.visit(e, ())
+      Evaluator(e)
 
     /**
      * Evaluate a term to its internal integer representation in the model,
      * if possible.
      */
     def eval(t : ITerm) : Option[IdealInt] =
-      for (s <- evalExpression(t);
-           res <- s match {
-             case IIntLit(v) => Some(v)
-             // TODO: this is just the special of bit-vector literals,
-             // generalise
-             case IFunApp(ModuloArithmetic.mod_cast,
-                          Seq(IIntLit(lower), IIntLit(upper), IIntLit(v))) =>
-               Some(ModuloArithmetic.evalModCast(lower, upper, v))
-             case _ =>
-               None
-           })
-        yield res
+      for (EncodedInt(v) <- evalExpression(t)) yield v
 
     /**
      * Evaluate a term to a constructor term in the model, if possible.
@@ -289,8 +278,41 @@ object SimpleAPI {
       case t          => t
     }
 
+    private object EncodedInt {
+      def unapply(t : IExpression) : Option[IdealInt] = t match {
+        case IIntLit(v) =>
+          Some(v)
+        case t@IFunApp(f, _) =>
+          // check whether some theory can turn the term into an int
+          for (theory <- TheoryRegistry lookupSymbol f;
+               IIntLit(v) <- theory evalFun t)
+          yield v
+        case _ =>
+          None
+      }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
     private object Evaluator
             extends CollectingVisitor[Unit, Option[IExpression]] {
+      def apply(t : IExpression) = visit(t, ())
+
+      override def preVisit(t : IExpression,
+                            arg : Unit) : PreVisitResult = t match {
+        // handle equations directly, since we might not be able to
+        // compute the difference between two constructor tems
+        case Eq(left, right) =>
+          ShortCutResult(
+            for (l <- apply(left); r <- apply(right))
+            yield IBoolLit((l, r) match {
+                             case (EncodedInt(lv), EncodedInt(lr)) => lv == lr
+                             case _ => l == r
+                           }))
+        case _ =>
+          KeepArg
+      }
+
       def postVisit(t : IExpression, arg : Unit,
                     subres : Seq[Option[IExpression]]) = t match {
         ////////////////////////////////////////////////////////////////////////
@@ -301,9 +323,9 @@ object SimpleAPI {
         case t : IConstant =>
           interpretation get t
         case ITimes(coeff, _) =>
-          for (IIntLit(v) <- subres(0)) yield IIntLit(v * coeff)
+          for (EncodedInt(v) <- subres(0)) yield IIntLit(v * coeff)
         case _ : IPlus =>
-          for (IIntLit(v1) <- subres(0); IIntLit(v2) <- subres(1))
+          for (EncodedInt(v1) <- subres(0); EncodedInt(v2) <- subres(1))
           yield IIntLit(v1 + v2)
 
         case t@IFunApp(f, _) =>
@@ -361,9 +383,9 @@ object SimpleAPI {
           }
 
         case IIntFormula(IIntRelation.EqZero, _) =>
-          for (IIntLit(v) <- subres(0)) yield IBoolLit(v.isZero)
+          for (EncodedInt(v) <- subres(0)) yield IBoolLit(v.isZero)
         case IIntFormula(IIntRelation.GeqZero, _) =>
-          for (IIntLit(v) <- subres(0)) yield IBoolLit(v.signum >= 0)
+          for (EncodedInt(v) <- subres(0)) yield IBoolLit(v.signum >= 0)
         case _ : IFormulaITE =>
           for (IBoolLit(b) <- subres(0);
                r <- subres(if (b) 1 else 2)) yield r

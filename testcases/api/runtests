@@ -24,12 +24,12 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        getConstraint-bug.scala TheoryTest.scala TheoryTest2.scala \
        TheoryTest3.scala TypeTests.scala nonlinear.scala \
        nonlinearInterpolation.scala division.scala \
-        deadlock.scala exception.scala incremental.scala \
+       deadlock.scala exception.scala incremental.scala \
        divmodprint.scala \
        ADTTest.scala ADTTest2.scala ADTTest3.scala ADTTest4.scala \
        pred-simplify.scala empty-stack-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
-       dnfTest.scala TestStrings.scala TestBVEval.scala"
+       dnfTest.scala dnfTest2.scala TestStrings.scala TestBVEval.scala"
 
 for testname in $TESTS; do
   echo
