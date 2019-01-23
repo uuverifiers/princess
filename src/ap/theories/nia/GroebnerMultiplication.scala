@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -680,6 +680,11 @@ println(unprocessed)
 
     private val CROSS_COEFF_BOUND = IdealInt(5)
 
+    private def lcWithSmallCoeffs(lc : LinearCombination) = lc forall {
+      case (_, OneTerm) => true
+      case (coeff, _) => coeff.abs <= CROSS_COEFF_BOUND
+    }
+
     /**
      * Generate linear approximations of quadratic terms using
      * cross-multiplication. This version considers all inequalities
@@ -723,10 +728,7 @@ println(unprocessed)
         (for (lc <- goal.facts.arithConj.inEqs.iterator ++
                     goal.facts.arithConj.inEqs.geqZeroInfs.iterator;
               if (lc.constants subsetOf mappedTerms) &&
-                 (lc forall {
-                    case (_, OneTerm) => true
-                    case (coeff, _) => coeff.abs <= CROSS_COEFF_BOUND
-                  }))
+                 lcWithSmallCoeffs(lc))
          yield lc).toIndexedSeq
 
       val crossLC = new ArrayBuffer[(IdealInt, ap.terfor.Term)]
@@ -803,7 +805,7 @@ println(unprocessed)
                             ineq2 : LinearCombination,
                             intervalSet : IntervalSet) : Boolean =
       ineq1.constants == ineq2.constants && {
-        var diff = ineq2.constant - ineq2.constant
+        var diff = ineq2.constant - ineq1.constant
 
         val n = ineq1.size min ineq2.size
         var ind = 0
@@ -851,6 +853,22 @@ println(unprocessed)
         diff.signum >= 0
       }
 
+    /**
+     * Check whether <code>ineq1 >= 0</code> implies <code>ineq2 >= 0</code>
+     * talk about the same variables, and have coefficients with the same
+     * sign.
+     */
+    private def similarIneqs(ineq1 : LinearCombination,
+                             ineq2 : LinearCombination) : Boolean =
+      (ineq1.iterator zip ineq2.iterator) forall {
+        case ((coeff1, c1 : ConstantTerm), (coeff2, c2 : ConstantTerm))
+          if c1 == c2 => coeff1.signum == coeff2.signum
+        case ((_, OneTerm), (_, OneTerm)) =>
+          true
+        case _ =>
+          false
+      }
+
     private def filterSubsumedActions(actions : Seq[Plugin.Action],
                                       goal : Goal,
                                       intervalSet : IntervalSet)
@@ -866,11 +884,17 @@ println(unprocessed)
              c.constants.size > 1 => {
 
           val ineq = c.arithConj.inEqs.head
-          if (ineqs.findInEqsWithLeadingTerm(ineq.leadingTerm, true) exists (
-                ineqImplies(_, ineq, intervalSet))) {
+          if (ineqs.findInEqsWithLeadingTerm(ineq.leadingTerm, true) exists {
+                lc => ineqImplies(lc, ineq, intervalSet) ||
+                      (!lcWithSmallCoeffs(ineq) && similarIneqs(lc, ineq))
+              }) {
             // forward subsumption:
             // this inequality is implied by some inequalities that already
             // exists in the goal, skip it
+            // or
+            // the inequality contains large coefficients, and is similar
+            // to some other inequality that we already know (-> heuristic
+            // to prevent looping)
           } else {
             res += act
 
