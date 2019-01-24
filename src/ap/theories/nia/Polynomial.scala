@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ import ap.terfor.ConstantTerm
 import ap.terfor.TermOrder
 import ap.basetypes.IdealInt
 import scala.math.Ordering.Implicits.infixOrderingOps
-import ap.util.{Debug, Timeout}
+import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.{HashMap => MHashMap, PriorityQueue,
@@ -47,26 +47,27 @@ import scala.collection.mutable.{HashMap => MHashMap, PriorityQueue,
  * ConstantTerm orderings
  * 
  */
-class StringOrdering extends Ordering[ConstantTerm] {
+object StringOrdering extends Ordering[ConstantTerm] {
   def compare(c1 : ConstantTerm, c2 : ConstantTerm) : Int =
-    c1.toString.compare(c2.toString)
+    Seqs.lexCombineInts(c1.name compare c2.name,
+                        c1.hashCode compare c2.hashCode)
 }
 
 // If an element is earlier in list it has lower order
-class ListOrdering(list : List[ConstantTerm]) extends Ordering[ConstantTerm] {
-  def compare(c1 : ConstantTerm, c2 : ConstantTerm) : Int = {
-    val i1 = list indexOf c1
-    val i2 = list indexOf c2
+class ListOrdering(list : Seq[ConstantTerm]) extends Ordering[ConstantTerm] {
+  private val indexes = list.iterator.zipWithIndex.toMap
 
-    if (i1 >= 0 && i2 < 0)
-      1
-    else if (i2 >= 0 && i1 < 0)
-      -1 
-    else if (i1 >= 0 && i2 >= 0)
-      i2 - i1
-    else
-      c1.toString.compare(c2.toString)
-  }
+  def compare(c1 : ConstantTerm, c2 : ConstantTerm) : Int =
+    (indexes get c1, indexes get c2) match {
+      case (Some(_), None) =>
+        1
+      case (None, Some(_)) =>
+        -1
+      case (Some(i1), Some(i2)) =>
+        i2 - i1
+      case _ =>
+        StringOrdering.compare(c1, c2)
+    }
 }
 
 
@@ -94,17 +95,10 @@ abstract class MonomialOrdering(val termOrdering : Ordering[ConstantTerm])
       val (v1, e1) = keys1.head
       val (v2, e2) = keys2.head
 
-      if (v1.toString > v2.toString)
-        1
-      else if(v2.toString > v1.toString)
-        -1
-      // If v1.toString == v2.toString, check exponent
-      else if (e1 > e2)
-        1
-      else if (e2 > e1)
-        -1
-      else
-        lexcompare(keys1.tail, keys2.tail)
+      Seqs.lexCombineInts(StringOrdering.compare(v1, v2),
+                          // If v1 == v2, check exponent
+                          e1 compare e2,
+                          lexcompare(keys1.tail, keys2.tail))
     }
   }
 }
@@ -116,7 +110,7 @@ private object DegenOrdering {
 
 // Exception class, shouldn't be used
 private class DegenOrdering(implicit termOrdering : Ordering[ConstantTerm] =
-                            new StringOrdering)
+                            StringOrdering)
       extends MonomialOrdering(termOrdering) {
   throw DegenOrdering.DegenOrderingException
   def compare(m1 : Monomial, m2 : Monomial) : Int = 0

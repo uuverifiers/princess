@@ -934,7 +934,7 @@ println(unprocessed)
         // An order is needed to construct polynomials, since Buchberger isn't used,
         // the order shouldn't matter.
         implicit val order = goal.order
-        implicit val monOrder = new GrevlexOrdering(new StringOrdering)
+        implicit val monOrder = new GrevlexOrdering(StringOrdering)
         implicit val ctOrder = monOrder.termOrdering
   
 //   println("Splitter: " + goal.facts)
