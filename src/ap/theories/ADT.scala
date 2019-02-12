@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -700,11 +700,42 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
-  override def evalFun(f : IFunApp) : Option[ITerm] =
-    if (constructorsSet contains f.fun)
-      Some(f)
-    else
+  override def evalFun(f : IFunApp) : Option[ITerm] = {
+    val adt = this
+    f match {
+      case IFunApp(Constructor(`adt`, _), _) =>
+        Some(f)
+      case IFunApp(Selector(`adt`, ctorNum1, selNum),
+                   Seq(IFunApp(Constructor(`adt`, ctorNum2), ctorArgs)))
+        if ctorNum1 == ctorNum2 =>
+        Some(ctorArgs(selNum))
+      case IFunApp(CtorId(`adt`, sortNum),
+                   Seq(IFunApp(Constructor(`adt`, ctorNum), _)))
+        if ctorSignatures(ctorNum)._2.result.num == sortNum =>
+        Some(ctorId2PerSortId(ctorNum))
+      case IFunApp(TermSize(`adt`, _), Seq(t)) =>
+        for (n <- ctorTermSize(t)) yield n
+      case _ =>
+        None
+    }
+  }
+
+  /**
+   * Compute the size (number of constructor occurrences) of
+   * a constructor term; return <code>None</code> if parts of the term
+   * are symbolic, and the size cannot be determined.
+   */
+  def ctorTermSize(f : ITerm) : Option[Int] = f match {
+    case IFunApp(Constructor(adt, ctorNum), args) if adt == this => {
+      val (_, sig) = ctorSignatures(ctorNum)
+      Seqs.optionSum(
+        Iterator(Some(1)) ++
+        (for ((a, (_, ADTSort(_))) <- args.iterator zip sig.arguments.iterator)
+         yield ctorTermSize(a)))
+    }
+    case _ =>
       None
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

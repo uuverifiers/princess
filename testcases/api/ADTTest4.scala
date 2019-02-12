@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -81,6 +81,24 @@
 
         println(expect(???, ProverStatus.Unsat))
       }
+    }
+
+    println("Test 2")
+    scope {
+      !! (cons(c1, cons(c2, nil())) === z)
+      !! (head(z) === red())
+      !! (c1 === c2)
+
+      println(expect(???, ProverStatus.Sat))
+
+      val model = partialModel
+      println(model evalToTerm z)
+      println(model eval colADT.hasCtor(z, 3))
+      println(model eval colADT.hasCtor(z, 4))
+      println(model evalToTerm head(z))
+      println(model evalToTerm head(tail(z)))
+      println(model evalToTerm head(tail(cons(green(), z))))
+      println(model evalToTerm colour_list_size(cons(green(), z)))
     }
 
   }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -624,6 +624,21 @@ object Seqs {
    
   def some[A](vals : Iterable[Option[A]]) : Option[A] =
     some(vals.iterator)
+
+  /**
+   * Return the sum of the given numbers if all numbers are defined,
+   * <code>None</code> otherwise.
+   */
+  def optionSum(vals : Iterator[Option[Int]]) : Option[Int] = {
+    var res = 0
+    while (vals.hasNext) vals.next match {
+      case Some(n) =>
+        res = res + n
+      case None =>
+        return None
+    }
+    Some(res)
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
