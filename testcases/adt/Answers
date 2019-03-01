@@ -52,6 +52,7 @@ sat
 )
 
 Loading cvc-datatype-1.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
@@ -157,9 +158,106 @@ sat
 )
 Loading cvc-datatype-1.smt2 ...
 sat
+(model
+  (define-fun x3 () tree (leaf zero))
+  (define-fun x2 () list (cons (leaf zero) null))
+  (define-fun x1 () nat (succ zero))
+)
 Loading adt-model-bug.smt2 ...
 Warning: treating sort T1 as infinite sort
 sat
 (model
   (define-fun x () ListT1 (insertT1 T1!14 (insertT1 T1!18 (insertT1 T1!22 nilT1))))
+)
+Loading datatype.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading datatype6b.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun b () List nil)
+  (define-fun a () List (cons 0 nil))
+)
+
+Loading cvc-datatype-1.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun _let_3_0 () tree (leaf zero))
+  (define-fun x3 () tree (node null))
+  (define-fun x2 () list (cons (leaf (succ (succ zero))) null))
+  (define-fun x1 () nat (succ zero))
+)
+
+Loading datatype2.smt2 ...
+unsat
+unsat
+sat
+((y 2) (y2 1))
+sat
+unsat
+Loading datatype3.smt2 ...
+sat
+sat
+(((data (right x)) 42))
+unsat
+sat
+((y 43) (y2 43))
+unsat
+((= (data x) 1))
+unsat
+((not (is-leaf (right x))))
+Loading datatype3b.smt2 ...
+sat
+sat
+(((data (right x)) 42))
+unsat
+sat
+((y 43) (y2 43))
+unsat
+((= (data x) 1))
+unsat
+((not (is-leaf (right x))))
+Loading datatype3c.smt2 ...
+sat
+sat
+(((data (head (children x))) 42))
+unsat
+unsat
+sat
+((y2 42))
+unsat
+((not (is-nil (tail (children x)))))
+Loading datatype4.smt2 ...
+sat
+Loading datatype5.smt2 ...
+sat
+(model
+  (define-fun z () S A)
+  (define-fun y () S C)
+  (define-fun x () S B)
+)
+unsat
+Loading datatype6b.smt2 ...
+sat
+(model
+  (define-fun b () List nil)
+  (define-fun a () List (cons 0 nil))
+)
+Loading cvc-datatype-1.smt2 ...
+sat
+(model
+  (define-fun x3 () tree (leaf zero))
+  (define-fun x2 () list (cons (leaf zero) null))
+  (define-fun x1 () nat (succ zero))
 )

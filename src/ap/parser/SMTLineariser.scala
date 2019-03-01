@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -1086,6 +1086,16 @@ class SMTLineariser(benchmarkName : String,
                        IPlus(IIntLit(v), BooleanTerm(t))) if (!v.isZero) =>
         // strip off the integer encoding
         TryAgain(!IExpression.eqZero(t), ctxt)
+
+      // ADT expression
+      case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
+                             num) => {
+        // insert a dummy predicate to represent the tester
+        val testPred =
+          new Predicate("is-" + adt.getCtorPerSort(sortNum,
+                                                   num.intValueSafe).name, 1)
+        TryAgain(new IAtom (testPred, List(arg)), ctxt)
+      }
 
       // General equations
       case IExpression.Eq(s, t) =>

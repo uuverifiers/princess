@@ -17,3 +17,4 @@
 (declare-fun data_uf_2 (tree) nat)
 (declare-fun car_uf_3 (list) tree)
 (check-sat)
+(get-model)

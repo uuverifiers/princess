@@ -7,11 +7,20 @@ PRI=../../princess
 TESTS="datatype.smt2 datatype4b.smt2 datatype6.smt2 datatype6b.smt2 \
        cvc-datatype-1.smt2 adt-model-bug.smt2"
 
-$PRI "$@" $TESTS
+$PRI "$@" -adtMeasure=size $TESTS
 
 TESTS="datatype2.smt2 datatype3.smt2 datatype3b.smt2 datatype3c.smt2 \
        datatype4.smt2 datatype4b.smt2 datatype5.smt2 \
        datatype6.smt2 datatype6b.smt2 \
        cvc-datatype-1.smt2 adt-model-bug.smt2"
 
-$PRI "$@" +incremental $TESTS
+$PRI "$@" +incremental -adtMeasure=size $TESTS
+
+TESTS="datatype.smt2 datatype6b.smt2 cvc-datatype-1.smt2"
+
+$PRI "$@" -adtMeasure=relDepth $TESTS
+
+TESTS="datatype2.smt2 datatype3.smt2 datatype3b.smt2 datatype3c.smt2 \
+       datatype4.smt2 datatype5.smt2 datatype6b.smt2 cvc-datatype-1.smt2"
+
+$PRI "$@" +incremental -adtMeasure=relDepth $TESTS
