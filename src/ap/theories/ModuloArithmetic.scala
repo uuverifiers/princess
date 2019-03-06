@@ -1514,35 +1514,35 @@ object ModuloArithmetic extends Theory {
         case `bv_ult` | `bv_ule` | `bv_slt` | `bv_sle` =>
           throw new Exception("unexpected predicate " + a.pred)
 
-        case BVPred(`bv_extract`) => { // to be improved!
-          val bits1 =
-            a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-          val bits2 =
-            a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+        // case BVPred(`bv_extract`) => { // to be improved!
+        //   val bits1 =
+        //     a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+        //   val bits2 =
+        //     a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
 
-          val castSort = UnsignedBVSort(bits1 + bits2)
-          val remSort =  UnsignedBVSort(bits2)
+        //   val castSort = UnsignedBVSort(bits1 + bits2)
+        //   val remSort =  UnsignedBVSort(bits2)
 
-          val subst = VariableShiftSubst(0, 1, order)
-          val pred = _mod_cast(List(l(0), l(castSort.upper),
-                                    subst(a(3)),
-                                    subst(a(4))*remSort.modulus + v(0)))
+        //   val subst = VariableShiftSubst(0, 1, order)
+        //   val pred = _mod_cast(List(l(0), l(castSort.upper),
+        //     subst(a(3)),
+        //     subst(a(4))*remSort.modulus + v(0)))
 
-          if (negated)
-            existsSorted(List(remSort), pred)
-          else
-            // forall int v0, BV[bits2] v1.
-            //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
-            // <=>
-            // forall int v0, BV[bits2] v1.
-            //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
-            // <=>
-            // forall int v0.
-            //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
-            forall(pred ==>
-                     Conjunction.negate(remSort membershipConstraint v(0),
-                                        order))
-        }
+        //   if (negated)
+        //     existsSorted(List(remSort), pred)
+        //   else
+        //     // forall int v0, BV[bits2] v1.
+        //     //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
+        //     // <=>
+        //     // forall int v0, BV[bits2] v1.
+        //     //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
+        //     // <=>
+        //     // forall int v0.
+        //     //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
+        //     forall(pred ==>
+        //       Conjunction.negate(remSort membershipConstraint v(0),
+        //         order))
+        // }
 
         case `_mod_cast` | `_l_shift_cast` =>
           a
@@ -1592,6 +1592,8 @@ object ModuloArithmetic extends Theory {
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+      println("HandleGoal")
+      
       val negPreds =
         goal.facts.predConj.negativeLitsWithPred(_mod_cast) ++
         goal.facts.predConj.negativeLitsWithPred(_l_shift_cast)
@@ -1616,7 +1618,6 @@ object ModuloArithmetic extends Theory {
         val elimAtoms = eliminatableAtoms(goal)
 
         if (!elimAtoms.isEmpty) {
-
           val elimConsts =
             (for (a <- elimAtoms; c <- a.last.constants) yield c).toSet
           val elimInEqs =
@@ -1633,7 +1634,6 @@ object ModuloArithmetic extends Theory {
                                                goal.reducerSettings))
 
         } else {
-
           val actions1 = modCastActions(goal)
           val actions2 = shiftCastActions(goal)
 
@@ -1651,8 +1651,56 @@ object ModuloArithmetic extends Theory {
             else
               actions2
 
-          resActions1 ++ resActions2
+          if ((resActions1 ++ resActions2).isEmpty) {
+            implicit val _ = goal.order
+            import TerForConvenience._
+            println("Let's split an extract!")
+            val extracts = goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract")
+            if (extracts.isEmpty) {
+              List()
+            } else {
+              val extract = extracts.head
+              println("\t: " + extract)
+              val a = extract
 
+              val bits1 =
+                a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+              val bits2 =
+                a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+
+              val castSort = UnsignedBVSort(bits1 + bits2)
+              val remSort =  UnsignedBVSort(bits2)
+
+              val subst = VariableShiftSubst(0, 1, order)
+              val pred = _mod_cast(List(l(0), l(castSort.upper),
+                subst(a(3)),
+                subst(a(4))*remSort.modulus + v(0)))
+
+              // if (negated)
+              //   existsSorted(List(remSort), pred)
+              // else
+              // forall int v0, BV[bits2] v1.
+              //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
+              // <=>
+              // forall int v0, BV[bits2] v1.
+              //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
+              // <=>
+              // forall int v0.
+              //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
+              // val res =
+              //   forall(pred ==>
+              //     Conjunction.negate(remSort membershipConstraint v(0),
+              //       order))
+              val res = existsSorted(List(remSort), pred)
+              println("\t" + res)
+              val res2 =
+                List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), res, ModuloArithmetic.this))
+              println("\t" + res2)
+              res2
+            }
+          } else {
+            resActions1 ++ resActions2
+          }
         }
       }
     }
