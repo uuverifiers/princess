@@ -1226,7 +1226,7 @@ class ADT (sortNames : Seq[String],
   //////////////////////////////////////////////////////////////////////////////
 
   def plugin: Option[Plugin] =
-    if (!nonEnumSorts.isEmpty) Some(new Plugin {
+    if (!nonEnumSorts.isEmpty && termSize != null) Some(new Plugin {
       // not used
       def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] =
         None
@@ -1236,36 +1236,36 @@ class ADT (sortNames : Seq[String],
           implicit val order = goal.order
           val predFacts = goal.facts.predConj
 
-          val ctorDefinedCons = new MHashSet[(LinearCombination, Sort)]
+          lazy val ctorDefinedCons = {
+            val ctorDefinedCons = new MHashSet[(LinearCombination, Sort)]
 
-          for (a <- predFacts.positiveLits) (adtPreds get a.pred) match {
-            case Some(ADTCtorPred(_, sortNum, _)) =>
-              ctorDefinedCons += ((a.last, sorts(sortNum)))
-            case _ =>
-              // nothing
+            for ((p, i) <- constructorPreds.iterator.zipWithIndex) {
+              val (_, CtorSignature(_, ADTSort(sortNum))) = ctorSignatures(i)
+              for (a <- predFacts positiveLitsWithPred p)
+                ctorDefinedCons += ((a.last, sorts(sortNum)))
+            }
+
+            ctorDefinedCons
           }
-  
+
 //          println("Defined: " + ctorDefinedCons)
 
-          val expCandidates : Iterator[(LinearCombination, Sort)] =
-            for (a <- predFacts.positiveLits.iterator ++
-                      predFacts.negativeLits.iterator;
-                 argSorts = SortedPredicate.argumentSorts(a.pred, a);
-                 p@(lc, sort) <- a.iterator zip argSorts.iterator;
-                 if !(ctorDefinedCons contains p);
-                 if (nonEnumSorts contains sort))
-            yield (lc, sort)
+          // We only consider ADT terms with some size constraint for expansion
+          val expCandidates
+                : Iterator[(LinearCombination, LinearCombination, Sort)] =
+            for ((s, sortNum) <- termSizePreds.iterator.zipWithIndex;
+                 if !isEnum(sortNum);
+                 sort = sorts(sortNum);
+                 a <- (predFacts positiveLitsWithPred s).iterator;
+                 lc = a.head;
+                 if !(ctorDefinedCons contains ((lc, sort))))
+            yield (lc, a.last, sort)
 
           if (expCandidates.hasNext) {
             import TerForConvenience._
 
-            val (lc, sort) = Seqs.partialMinBy(expCandidates, {
-              x:(LinearCombination, Sort) => {
-                val sortNum = x._2.asInstanceOf[ADTProxySort].sortNum
-                predFacts.lookupFunctionResult(
-                  termMeasurePreds(sortNum), List(x._1)).getOrElse(
-                    LinearCombination.ZERO)
-              }
+            val (lc, _, sort) = Seqs.partialMinBy(expCandidates, {
+              x:(LinearCombination, LinearCombination, Sort) => x._2
             })(LinearCombination.ValueOrdering)
             
             val sortNum = sort.asInstanceOf[ADTProxySort].sortNum

@@ -9,10 +9,9 @@
 }
 
 \problem {
-  \forall (int x; Dec d)
-    {value(dig(x, d))} value(dig(x, d)) = x + 10*value(d)
-&
-  value(null) = 0
+  \forall Dec c;
+    {value(c)} ((c.is_null & value(c) = 0) |
+                (c.is_dig & (value(c) = c.val + 10*value(c.prefix))))
 
 ->
 
