@@ -1681,23 +1681,20 @@ object ModuloArithmetic extends Theory {
       import TerForConvenience._
       val lv0 : LinearCombination = l(v(0))
       val args : List[LinearCombination] = List(LinearCombination(lb), LinearCombination(ub-lb), LinearCombination(total-ub))
-      val conj : Conjunction = Atom(extract.pred, args ++ List(t1, lv0), order) & Atom(extract.pred, args ++ List(t2, lv0), order)
-      val newExtract = TerForConvenience.exists(conj)
+      val extractConj : Conjunction = Atom(extract.pred, args ++ List(t1, lv0), order) & Atom(extract.pred, args ++ List(t2, lv0), order)
+      val domainConj : Conjunction = (lv0 >= 0) & (lv0 < pow2(ub-lb))
+      val newExtract = TerForConvenience.exists(extractConj & domainConj)
       // println("\t\tnewExtract: " + newExtract) 
       List(newExtract)
     }).flatten
   }
 
 
-  def findExtractTask(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
+  def findExtractTask(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : (Option[Term], Seq[Plugin.Action]) = {
     import TerForConvenience._
-    var allTasks = List() : List[Plugin.Action]
     for ((term, parts) <- partitions) {
-      // println("Let's split: " + term)
-      // println("\t" + parts.mkString(", "))
       val tasks =
         (for (ex <- extracts) yield {
-          // println("Let's split (using " + term + "): " + ex)
           val sth = 
             if (ex(3) == term || ex(4) == term)
               splitExtract(ex, parts)
@@ -1706,18 +1703,45 @@ object ModuloArithmetic extends Theory {
           if (sth.isEmpty) {
             List()
           } else {
-            // println("Split on " + ex + " using " + term)
-            // println("\t" + List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this)))
             List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
           }
         }).flatten
-      allTasks = tasks.toList ++ allTasks
-    }
-    // println("No Extract Task Found!")    
-    allTasks
 
-    // List()
+      if (!tasks.isEmpty)
+        return (Some(term), tasks)
+    }
+    (None, List())
   }
+
+  // def findExtractTask(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
+  //   import TerForConvenience._
+  //   var allTasks = List() : List[Plugin.Action]
+  //   for ((term, parts) <- partitions) {
+  //     // println("Let's split: " + term)
+  //     // println("\t" + parts.mkString(", "))
+  //     val tasks =
+  //       (for (ex <- extracts) yield {
+  //         // println("Let's split (using " + term + "): " + ex)
+  //         val sth = 
+  //           if (ex(3) == term || ex(4) == term)
+  //             splitExtract(ex, parts)
+  //           else
+  //             List()
+  //         if (sth.isEmpty) {
+  //           List()
+  //         } else {
+  //           // println("Split on " + ex + " using " + term)
+  //           // println("\t" + List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this)))
+  //           List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
+  //         }
+  //       }).flatten
+  //     allTasks = tasks.toList ++ allTasks
+  //   }
+  //   // println("No Extract Task Found!")    
+  //   allTasks
+
+  //   // List()
+  // }
 
 
   def extractToArithmetic(extract : Atom)(implicit order : TermOrder) : Seq[Plugin.Action] = {
@@ -1837,11 +1861,23 @@ object ModuloArithmetic extends Theory {
 
   override val dependencies : Iterable[Theory] = List(MultTheory)
 
+
+
   def plugin = Some(new Plugin {
     // not used
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
+    var translateOnce = false
+
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
+
+      counter += 1
+      println("COUNTER:" + counter)
+      if (counter > 1000)
+        throw new Exception("counter max")
+
+      if (counter > 10000)
+        throw new Exception("counter max max")
 
       implicit val _ = goal.order
       import TerForConvenience._
@@ -1849,9 +1885,9 @@ object ModuloArithmetic extends Theory {
       // check if we can use extract partitioning
       val extracts = goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract")
 
-      // println("HandleGoal")
-      // for (ex <- goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract"))
-      //   println("\t*" + ex)
+      println("HandleGoal")
+      for (ex <- goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract"))
+        println("\t*" + ex)
 
       val negExtract = negExtractPreds(goal)
       if (!negExtract.isEmpty)
@@ -1869,44 +1905,37 @@ object ModuloArithmetic extends Theory {
         return msc
       }
 
-      if (!extracts.isEmpty) {
-        return extractToArithmetic(extracts.head)
-      } 
-      List()
 
-      // // return extractToArithmetic(extracts.head)
-      // var equations = List() : List[(Term, Term)]
-      // for (eq <- goal.facts.arithConj.positiveEqs) {
-      //   if (eq.length == 2) {
-      //     val (c1, t1) = eq(0)
-      //     val (c2, t2) = eq(1)
-      //     if (c1 == -c2 && (c1.isOne || c2.isOne) && (t1.constants.size == 1 && t2.constants.size == 1))
-      //       equations = (t1, t2) :: equations
-      //   }
-      // }
+
+      var equations = List() : List[(Term, Term)]
+      for (eq <- goal.facts.arithConj.positiveEqs) {
+        if (eq.length == 2) {
+          val (c1, t1) = eq(0)
+          val (c2, t2) = eq(1)
+          if (c1 == -c2 && (c1.isOne || c2.isOne) && (t1.constants.size == 1 && t2.constants.size == 1))
+            equations = (t1, t2) :: equations
+        }
+      }
 
       // println("Eqs:")
       // for (eq <- equations)
       //   println("\t" + eq)
-      // val partitions = partitionExtracts(extracts, equations)
+      val partitions = partitionExtracts(extracts, equations)
 
-      // // Let's start by only splitting one variable
-      // val tasks = findExtractTask(extracts, partitions)
+      // Let's start by only splitting one variable
+      val (term, tasks) = findExtractTask(extracts, partitions)
 
-      // counter += 1
-      // println("COUNTER:" + counter)
-      // if (counter > 500)
-      //   throw new Exception("counter max")
+      if (translateOnce && term.isDefined) {
+        println("Splitting on variable (" + term.get + ")")
+        for (t <- tasks)
+          println("\t>" + t)
+        translateOnce = false
+        return tasks
+      }
 
-      // if (counter > 10000)
-      //   throw new Exception("counter max max")
-
-      // if (!tasks.isEmpty) {
-      //   println("Splitting on variable (?)")
-      //   for (t <- tasks)
-      //     println("\t>" + t)
-      //   return tasks
-      // }
+      if (!extracts.isEmpty) {
+        return extractToArithmetic(extracts.head)
+      }      
 
 
       // if (extracts.isEmpty) {
@@ -1917,7 +1946,7 @@ object ModuloArithmetic extends Theory {
 
       // val extract = extracts.head
       // extractToArithmetic(extract)
-      
+      List()
     }
   })
 
