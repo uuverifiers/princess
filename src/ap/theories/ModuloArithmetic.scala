@@ -53,6 +53,8 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
  */
 object ModuloArithmetic extends Theory {
 
+  var counter = 0
+
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
   override def toString = "ModuloArithmetic"
@@ -1514,6 +1516,7 @@ object ModuloArithmetic extends Theory {
         case `bv_ult` | `bv_ule` | `bv_slt` | `bv_sle` =>
           throw new Exception("unexpected predicate " + a.pred)
 
+          // TRANSLATE BVEXTRACT
         // case BVPred(`bv_extract`) => { // to be improved!
         //   val bits1 =
         //     a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
@@ -1585,6 +1588,253 @@ object ModuloArithmetic extends Theory {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  //
+  //   |EXTRACT| PROPAGATION
+  //
+  // extract(lb, mb, ub, bv, bv2)
+  // bv == |lb| ++ |mb| ++ |ub|
+  // bv2 == mb
+
+  //
+  //  Let interval (0,3) mean ... [0,3)
+  //
+
+  // Let's start by doing it simple
+
+  def partitionExtracts(extracts : Seq[Atom], eqs : List[(Term, Term)]) : Map[Term, List[(Int, Int)]] = {
+    val cutPoints = MMap() : MMap[Term, Set[Int]]
+
+    // Extract all initial cut-points
+    for (e <- extracts) {
+      val lb = e(0).asInstanceOf[LinearCombination0].constant.intValueSafe
+      val mb = e(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+      val ub = e(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+      if (lb > 0 || ub > 0) {
+        val t = e(3)
+        cutPoints += t -> ((Set(lb, lb + mb, lb + mb + ub) : Set[Int]) ++ (cutPoints.getOrElse(t, Set() : Set[Int])))
+      }
+    }
+
+    // Fix-Point operation: for all equalities, propagate cut-points
+    var changed = true
+    while (changed) {
+      changed = false
+      for ((t1, t2) <- eqs) {
+        val cut1 = cutPoints.getOrElse(t1, Set())
+        val cut2 = cutPoints.getOrElse(t2, Set())
+        if (cut1 != cut2) {
+          cutPoints += t1 -> (cut1 ++ cut2)
+          cutPoints += t2 -> (cut1 ++ cut2)
+          changed = true
+        }
+      }
+    }
+
+    // println("cut-points")
+    // for (c <- cutPoints)
+    //   println("\t" + c)
+
+    (for ((k, v) <-
+      cutPoints) yield {
+      val cuts = v.toList.sorted
+      val partitions = cuts.sliding(2).map{ case List(a, b) => (a, b) }.toList
+      k -> partitions
+    }).toMap
+  }
+
+  // PRE-CONDITION: parts must have been created using extract (i.e., we can't have
+  // extract(1,3) and parts being (0,2) ^ (2,4), but parts should be (0,1) ^ (1,2) ^ (2,3) ^ (3,4)
+
+  def splitExtract(extract : Atom, parts : List[(Int, Int)])(implicit order : TermOrder) : List[Conjunction] = {
+    // println("SplitExtract(" + extract + ", " + parts.mkString(", "))
+    // Given extract(_, _, _, t1, t2),
+    // WHAT WE NEED TO DO HERE IS FIND WHICH PARTITIONS ARE CONTAINED WITHIN THIS EXTRACT,
+    // AND FOR ALL THOSE WE CREATE A NEW EXISTENTIAL VARIABLE AND ADD CORRESPONDING
+    // PREDICATE-PAIRS TO ENSURE EQUALTIY...
+    // replace for each partition (lb, ub) (of t1):
+    // -Introduce a new term t3
+    // -Introduce two new predicates
+    // ---extract(lb, ub, bitwidth - ub, t1, t3)
+    // ---extract(lb, ub, bitwidth - ub, t2, t3)    
+    // exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
+    //   (v(0) >= a(0)) & (v(0) <= a(1)) &
+    //   (v(0) =/= a.last))
+
+    // i1 contained in i2 (and i1 != i2)
+    def properSubset(i1 : (Int, Int), i2 : (Int, Int)) = {
+      val (lb1, ub1) = i1
+      val (lb2, ub2) = i2
+      lb1 >= lb2 && ub1 <= ub2 && i1 != i2
+    }
+
+    import IExpression._
+      val a = extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
+      val b = extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+      val c = extract(2).asInstanceOf[LinearCombination0].constant.intValueSafe    
+    val (lowerBound, upperBound, total) = (a, a+b, a+b+c)
+    val t1 = extract(3)
+    val t2 = extract(4)
+    // println("\tt1: " + t1)
+    // println("\tt2: " + t2)
+    (for ((lb, ub) <- parts; if (properSubset((lb, ub), (lowerBound, upperBound)))) yield {
+      // println("\t\t" + (lb, ub))
+      import TerForConvenience._
+      val lv0 : LinearCombination = l(v(0))
+      val args : List[LinearCombination] = List(LinearCombination(lb), LinearCombination(ub-lb), LinearCombination(total-ub))
+      val conj : Conjunction = Atom(extract.pred, args ++ List(t1, lv0), order) & Atom(extract.pred, args ++ List(t2, lv0), order)
+      val newExtract = TerForConvenience.exists(conj)
+      // println("\t\tnewExtract: " + newExtract) 
+      List(newExtract)
+    }).flatten
+  }
+
+
+  def findExtractTask(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    var allTasks = List() : List[Plugin.Action]
+    for ((term, parts) <- partitions) {
+      // println("Let's split: " + term)
+      // println("\t" + parts.mkString(", "))
+      val tasks =
+        (for (ex <- extracts) yield {
+          // println("Let's split (using " + term + "): " + ex)
+          val sth = 
+            if (ex(3) == term || ex(4) == term)
+              splitExtract(ex, parts)
+            else
+              List()
+          if (sth.isEmpty) {
+            List()
+          } else {
+            // println("Split on " + ex + " using " + term)
+            // println("\t" + List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this)))
+            List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
+          }
+        }).flatten
+      allTasks = tasks.toList ++ allTasks
+    }
+    // println("No Extract Task Found!")    
+    allTasks
+
+    // List()
+  }
+
+
+  def extractToArithmetic(extract : Atom)(implicit order : TermOrder) : Seq[Plugin.Action] = {
+        import TerForConvenience._    
+    // println("\t: " + extract)
+    val a = extract
+
+    val bits1 =
+      a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+    val bits2 =
+      a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+
+    val castSort = UnsignedBVSort(bits1 + bits2)
+    val remSort =  UnsignedBVSort(bits2)
+
+    val subst = VariableShiftSubst(0, 1, order)
+    val pred = _mod_cast(List(l(0), l(castSort.upper),
+      subst(a(3)),
+      subst(a(4))*remSort.modulus + v(0)))
+
+    // if (negated)
+    //   existsSorted(List(remSort), pred)
+    // else
+    // forall int v0, BV[bits2] v1.
+    //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
+    // <=>
+    // forall int v0, BV[bits2] v1.
+    //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
+    // <=>
+    // forall int v0.
+    //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
+    // val res =
+    //   forall(pred ==>
+    //     Conjunction.negate(remSort membershipConstraint v(0),
+    //       order))
+    val res = existsSorted(List(remSort), pred)
+    // println("\t" + res)
+    val res2 =
+      List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), res, ModuloArithmetic.this))
+    // println("\t" + res2)
+    println("Translating to arithmetic")
+    println("\t" + a + " -> " + res)
+    res2
+  }
+
+  def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
+    // check if we have modcast or shiftcast actions
+    val actions1 = modCastActions(goal)
+    val actions2 = shiftCastActions(goal)
+
+    val resActions1 =
+      if (actions1 exists (_.isInstanceOf[Plugin.AxiomSplit]))
+        // delayed splitting through a separate task
+        List(Plugin.ScheduleTask(ModCastSplitter, 30))
+      else
+        actions1
+
+    val resActions2 =
+      if (actions2 exists (_.isInstanceOf[Plugin.AxiomSplit]))
+        // delayed splitting through a separate task
+        List(Plugin.ScheduleTask(ShiftCastSplitter, 20))
+      else
+        actions2
+
+    resActions1 ++ resActions2
+  }
+
+  def elimExtractAtoms(goal : Goal) : Seq[Plugin.Action] = {
+    // check whether there are atoms that we can eliminate
+    val elimAtoms = eliminatableAtoms(goal)
+
+    if (!elimAtoms.isEmpty) {
+      val elimConsts =
+        (for (a <- elimAtoms; c <- a.last.constants) yield c).toSet
+      val elimInEqs =
+        InEqConj(
+          for (lc <- goal.facts.arithConj.inEqs.iterator;
+            if !Seqs.disjoint(elimConsts, lc.constants))
+          yield lc,
+          goal.order)
+      val elimFormulas =
+        Conjunction.conj(elimAtoms ++ List(elimInEqs), goal.order)
+
+      List(Plugin.RemoveFacts(elimFormulas),
+        Plugin.AddReducableModelElement(elimFormulas, elimConsts,
+          goal.reducerSettings))
+    } else {
+      List()
+    }
+  }
+
+  def negExtractPreds(goal : Goal) : Seq[Plugin.Action] = {
+    val negPreds =
+      goal.facts.predConj.negativeLitsWithPred(_mod_cast) ++
+    goal.facts.predConj.negativeLitsWithPred(_l_shift_cast)
+    
+    if (!negPreds.isEmpty) {
+      // replace negated predicates with positive predicates
+
+      implicit val order = goal.order
+      import TerForConvenience._
+
+      (for (a <- negPreds) yield {
+        val axiom =
+          exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
+            (v(0) >= a(0)) & (v(0) <= a(1)) &
+            (v(0) =/= a.last))
+        Plugin.AddAxiom(List(!conj(a)), axiom, ModuloArithmetic.this)
+      }) ++ List(Plugin.RemoveFacts(conj(for (a <- negPreds) yield !conj(a))))
+    } else {
+      List()
+    }
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////  
+
   override val dependencies : Iterable[Theory] = List(MultTheory)
 
   def plugin = Some(new Plugin {
@@ -1592,117 +1842,82 @@ object ModuloArithmetic extends Theory {
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      println("HandleGoal")
-      
-      val negPreds =
-        goal.facts.predConj.negativeLitsWithPred(_mod_cast) ++
-        goal.facts.predConj.negativeLitsWithPred(_l_shift_cast)
-      
-      if (!negPreds.isEmpty) {
-        // replace negated predicates with positive predicates
 
-        implicit val order = goal.order
-        import TerForConvenience._
+      implicit val _ = goal.order
+      import TerForConvenience._
 
-        (for (a <- negPreds) yield {
-          val axiom =
-            exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
-                   (v(0) >= a(0)) & (v(0) <= a(1)) &
-                   (v(0) =/= a.last))
-          Plugin.AddAxiom(List(!conj(a)), axiom, ModuloArithmetic.this)
-        }) ++ List(Plugin.RemoveFacts(conj(for (a <- negPreds) yield !conj(a))))
+      // check if we can use extract partitioning
+      val extracts = goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract")
 
-      } else {
+      // println("HandleGoal")
+      // for (ex <- goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract"))
+      //   println("\t*" + ex)
 
-        // check whether there are atoms that we can eliminate
-        val elimAtoms = eliminatableAtoms(goal)
+      val negExtract = negExtractPreds(goal)
+      if (!negExtract.isEmpty)
+        return  negExtract
 
-        if (!elimAtoms.isEmpty) {
-          val elimConsts =
-            (for (a <- elimAtoms; c <- a.last.constants) yield c).toSet
-          val elimInEqs =
-            InEqConj(
-              for (lc <- goal.facts.arithConj.inEqs.iterator;
-                   if !Seqs.disjoint(elimConsts, lc.constants))
-              yield lc,
-              goal.order)
-          val elimFormulas =
-            Conjunction.conj(elimAtoms ++ List(elimInEqs), goal.order)
+      val elimActions = elimExtractAtoms(goal)
+      if (!elimActions.isEmpty)
+        return elimActions
 
-          List(Plugin.RemoveFacts(elimFormulas),
-               Plugin.AddReducableModelElement(elimFormulas, elimConsts,
-                                               goal.reducerSettings))
-
-        } else {
-          val actions1 = modCastActions(goal)
-          val actions2 = shiftCastActions(goal)
-
-          val resActions1 =
-            if (actions1 exists (_.isInstanceOf[Plugin.AxiomSplit]))
-              // delayed splitting through a separate task
-              List(Plugin.ScheduleTask(ModCastSplitter, 30))
-            else
-              actions1
-
-          val resActions2 =
-            if (actions2 exists (_.isInstanceOf[Plugin.AxiomSplit]))
-              // delayed splitting through a separate task
-              List(Plugin.ScheduleTask(ShiftCastSplitter, 20))
-            else
-              actions2
-
-          if ((resActions1 ++ resActions2).isEmpty) {
-            implicit val _ = goal.order
-            import TerForConvenience._
-            println("Let's split an extract!")
-            val extracts = goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract")
-            if (extracts.isEmpty) {
-              List()
-            } else {
-              val extract = extracts.head
-              println("\t: " + extract)
-              val a = extract
-
-              val bits1 =
-                a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-              val bits2 =
-                a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
-
-              val castSort = UnsignedBVSort(bits1 + bits2)
-              val remSort =  UnsignedBVSort(bits2)
-
-              val subst = VariableShiftSubst(0, 1, order)
-              val pred = _mod_cast(List(l(0), l(castSort.upper),
-                subst(a(3)),
-                subst(a(4))*remSort.modulus + v(0)))
-
-              // if (negated)
-              //   existsSorted(List(remSort), pred)
-              // else
-              // forall int v0, BV[bits2] v1.
-              //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
-              // <=>
-              // forall int v0, BV[bits2] v1.
-              //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
-              // <=>
-              // forall int v0.
-              //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
-              // val res =
-              //   forall(pred ==>
-              //     Conjunction.negate(remSort membershipConstraint v(0),
-              //       order))
-              val res = existsSorted(List(remSort), pred)
-              println("\t" + res)
-              val res2 =
-                List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), res, ModuloArithmetic.this))
-              println("\t" + res2)
-              res2
-            }
-          } else {
-            resActions1 ++ resActions2
-          }
-        }
+      val msc = modShiftCast(goal)
+      if (!msc.isEmpty) {
+        println("Mod Shift Casting:")
+        for (a <- msc)
+          println("\t" + a)
+        return msc
       }
+
+      if (!extracts.isEmpty) {
+        return extractToArithmetic(extracts.head)
+      } 
+      List()
+
+      // // return extractToArithmetic(extracts.head)
+      // var equations = List() : List[(Term, Term)]
+      // for (eq <- goal.facts.arithConj.positiveEqs) {
+      //   if (eq.length == 2) {
+      //     val (c1, t1) = eq(0)
+      //     val (c2, t2) = eq(1)
+      //     if (c1 == -c2 && (c1.isOne || c2.isOne) && (t1.constants.size == 1 && t2.constants.size == 1))
+      //       equations = (t1, t2) :: equations
+      //   }
+      // }
+
+      // println("Eqs:")
+      // for (eq <- equations)
+      //   println("\t" + eq)
+      // val partitions = partitionExtracts(extracts, equations)
+
+      // // Let's start by only splitting one variable
+      // val tasks = findExtractTask(extracts, partitions)
+
+      // counter += 1
+      // println("COUNTER:" + counter)
+      // if (counter > 500)
+      //   throw new Exception("counter max")
+
+      // if (counter > 10000)
+      //   throw new Exception("counter max max")
+
+      // if (!tasks.isEmpty) {
+      //   println("Splitting on variable (?)")
+      //   for (t <- tasks)
+      //     println("\t>" + t)
+      //   return tasks
+      // }
+
+
+      // if (extracts.isEmpty) {
+      //   println("No extracts found!")
+      //   return List()
+      // }
+
+
+      // val extract = extracts.head
+      // extractToArithmetic(extract)
+      
     }
   })
 
