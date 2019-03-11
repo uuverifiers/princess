@@ -451,7 +451,7 @@ object ModuloArithmetic extends Theory {
    * bit-widths.
    */
   abstract class IndexedBVOp(_name : String, indexArity : Int, bvArity : Int)
-           extends SortedIFunction(_name, indexArity + bvArity, true, true) {
+           extends SortedIFunction(_name, indexArity + bvArity, true, false) {
 
     /**
      * Given the vector of indexes, compute the argument and the result
