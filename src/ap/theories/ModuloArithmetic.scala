@@ -43,7 +43,7 @@ import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
-                                 Set => MSet}
+                                 Set => MSet, ListBuffer}
 
 /**
  * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
@@ -1622,11 +1622,17 @@ object ModuloArithmetic extends Theory {
     val sizes = MMap() : MMap[Term, Int]
 
     def setSize(t : Term, i : Int) = {
-      if ((sizes contains t) && sizes(t) != i) {
-        throw new Exception("diff sizes: " + t)
+      t match {
+        case lc : LinearCombination => {
+          if (lc.isConstant) {
+          } else {
+            if ((sizes contains t) && sizes(t) != i) {
+              throw new Exception("diff sizes: " + t)
+            }
+            sizes += t -> i
+          }
+        }
       }
-
-      sizes += t -> i
     }
 
     // Extract all initial cut-points
@@ -1688,7 +1694,7 @@ object ModuloArithmetic extends Theory {
     }
 
     for (t <- cutPoints.keys) {
-      cutPoints += (t -> (Set(0, sizes(t)) ++cutPoints(t)))
+      cutPoints += (t -> (Set(0, sizes.getOrElse(t, 0)) ++cutPoints(t)))
     }
 
     // println("cut-points")
@@ -1756,9 +1762,9 @@ object ModuloArithmetic extends Theory {
       val args : List[LinearCombination] = List(t1aBits, t1bBits, t1cBits, t1, lv0)
       val args2 : List[LinearCombination] = List(t2aBits, t2bBits, t2cBits, t2, lv0)      
       val extractConj : Conjunction = Atom(extract.pred, args, order) & Atom(extract.pred, args2, order)
-      val domainConj2 : Conjunction = (lv0 >= 0) & (lv0 < pow2(ub-lb))
+      // val domainConj2 : Conjunction = (lv0 >= 0) & (lv0 < pow2(ub-lb))
       val domainConj : Conjunction = (t2 >= 0 & t2 < pow2(b))
-      val newExtract = TerForConvenience.exists(extractConj & domainConj & domainConj2)
+      val newExtract = TerForConvenience.exists(extractConj & domainConj )
       // println("\t\tnewExtract: " + newExtract) 
       List(newExtract)
     }).flatten
@@ -1931,6 +1937,58 @@ object ModuloArithmetic extends Theory {
     }
   }
 
+  def constantExtracts(extracts : Seq[Atom]) = {
+    val exs = ListBuffer() : ListBuffer[Atom]
+
+    for (ex <- extracts) {
+      // Is this always sound?
+      val lhs = ex(3).asInstanceOf[LinearCombination]
+      val rhs = ex(4).asInstanceOf[LinearCombination]
+
+      if (lhs.isConstant)
+        exs += ex
+    }
+
+    exs.toList
+  }
+
+  // LHS is constant
+  def handleConstantExtract(extract : Atom)(implicit order : TermOrder) = {
+    val lhs = extract(3).asInstanceOf[LinearCombination]
+    assert(extract(4).asInstanceOf[LinearCombination].constants.size == 1)
+    val rhs = extract(4).asInstanceOf[LinearCombination].constants.head
+
+    val lb = extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
+    val mb = extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+    val ub = extract(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+
+    // println("HANDLE CONSTANT")
+    // println(extract)
+    // println("\tlb: "+ lb)
+    // println("\tmb: "+ mb)
+    // println("\tub: "+ ub)    
+    // println("\tlhs: " + lhs)
+    val c = lhs.constant
+    val cc = c / pow2(ub)    
+    val ccc = cc % pow2(mb)
+
+    // println("\tc: " + c + "(" + c.getClass + ")")
+    // println("\tcc: " + cc + " (" + cc.getClass + ")")
+    // println("\tccc: " + ccc + " (" + ccc.getClass + ")")
+    // println("\t" + ccc)
+
+    val sth = ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs, -ccc, order), order)
+    import TerForConvenience._
+
+    // println("\t" + sth)
+    val ac1 = Plugin.RemoveFacts(extract)
+    val con = conj(sth)
+    val ac2 = Plugin.AddAxiom(List(extract), con, ModuloArithmetic.this)
+    // println("\t" + ac1)
+    // println("\t" + ac2)    
+    List(ac1, ac2)
+  }
+
 
   //////////////////////////////////////////////////////////////////////////////  
 
@@ -1958,8 +2016,28 @@ object ModuloArithmetic extends Theory {
       val extracts = goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract")
 
       println("HandleGoal")
+      println("+-------------------------------------------------------+")
       for (ex <- extracts) 
-        println("\t*" + ex)
+        println("|\t" + ex)
+      println("+-------------------------------------------------------+")      
+
+      val conExtracts = constantExtracts(extracts)
+      val conActions =
+        for (ce <- conExtracts) yield
+          handleConstantExtract(ce)
+
+      if (!conActions.isEmpty) {
+        println("Convert constants")
+        for (a <- conActions.flatten)
+          println("\t" + a)
+        return conActions.flatten
+      }
+
+      // THEN GET LARGER EXAMPLE WITH EXTRACT (NO CONCAT)
+      // MAYBE CONVERT CONCATS?
+
+      // THEN FIX SOURCE CODE (CLEAN UP)
+
 
       val negExtract = negExtractPreds(goal)
       if (!negExtract.isEmpty)
@@ -2000,7 +2078,7 @@ object ModuloArithmetic extends Theory {
       if (!tasks.isEmpty) {
         println("Splitting extracts")
         for (t <- tasks)
-          println("\t>" + t)
+          println("\t" + t)
 
         return tasks
       }
@@ -2018,6 +2096,7 @@ object ModuloArithmetic extends Theory {
 
       // val extract = extracts.head
       // extractToArithmetic(extract)
+      println("Nothing..")
       List()
     }
   })
