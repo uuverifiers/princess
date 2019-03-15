@@ -450,8 +450,10 @@ object ModuloArithmetic extends Theory {
    * Generic class to represent families of functions, indexed by a vector of
    * bit-widths.
    */
-  abstract class IndexedBVOp(_name : String, indexArity : Int, bvArity : Int)
-           extends SortedIFunction(_name, indexArity + bvArity, true, false) {
+  abstract class IndexedBVOp(_name : String, indexArity : Int, bvArity : Int,
+                             functional : Boolean = false)
+           extends SortedIFunction(_name, indexArity + bvArity, true,
+                                   !functional) {
 
     /**
      * Given the vector of indexes, compute the argument and the result
@@ -518,7 +520,7 @@ object ModuloArithmetic extends Theory {
   // Arguments: N1, N2, N3, number mod 2^(N1 + N2 + N3)
   // Result:    number mod 2^N2
 
-  object BVExtract extends IndexedBVOp("bv_extract", 3, 1) {
+  object BVExtract extends IndexedBVOp("bv_extract", 3, 1, functional = true) {
     def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
       (List(Sort.Integer, Sort.Integer, Sort.Integer,
             UnsignedBVSort(indexes(0) + indexes(1) + indexes(2))),
@@ -602,9 +604,11 @@ object ModuloArithmetic extends Theory {
 
   val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)
 
-  val (functionalPredSeq, _, preOrder, functionTranslation) =
+  // TODO: prevent functionality axioms for shift_cast, mod_cast?
+
+  val (functionalPredSeq, axioms, preOrder, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions)
-  val axioms = Conjunction.TRUE
+//  val axioms = Conjunction.TRUE
 
   val functionPredicateMapping = functions zip functionalPredSeq
   val functionalPredicates = functionalPredSeq.toSet
@@ -614,8 +618,11 @@ object ModuloArithmetic extends Theory {
   val predicates = otherPreds ++ functionalPredSeq
   val totalityAxioms = Conjunction.TRUE
 
+  private val _bv_extract = functionTranslation(bv_extract)
+
   val predicateMatchConfig: Signature.PredicateMatchConfig =
-    (for (p <- predicates)
+    (for (p <- predicates.toSet --
+           List(_mod_cast, _l_shift_cast, _r_shift_cast, _bv_extract))
      yield (p -> Signature.PredicateMatchStatus.None)).toMap
   val triggerRelevantFunctions: Set[ap.parser.IFunction] = Set()
 
@@ -976,8 +983,23 @@ object ModuloArithmetic extends Theory {
             case res  => res
           }
 
+/*
         case IFunApp(`bv_concat`, Seq(_, IIntLit(IdealInt(bits)), _*)) =>
           (subres(2) * pow2(bits)) + subres(3)
+ */
+        case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
+                                      IIntLit(IdealInt(bits2)), _*)) => {
+          val sort =
+            UnsignedBVSort(bits1 + bits2)
+          val res =
+            sort.eps(
+              bv_extract(0, bits1, bits2, v(0)) === subres(2).resTerm &
+              bv_extract(bits1, bits2, 0, v(0)) === subres(3).resTerm
+            )
+println(res)
+          VisitorRes(res, sort.lower, sort.upper)
+        }
+
 /*
    This is currently handled in the Theory.preprocess method
    (but has to be further optimised)
@@ -1784,7 +1806,8 @@ object ModuloArithmetic extends Theory {
           if (sth.isEmpty) {
             List()
           } else {
-            List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
+            Plugin.RemoveFacts(ex) :: (for (c <- sth) yield Plugin.AddAxiom(List(ex), c, ModuloArithmetic.this))
+//            List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
           }
         }).flatten
 
@@ -1813,7 +1836,8 @@ object ModuloArithmetic extends Theory {
           } else {
             // println("Split on " + ex + " using " + term)
             // println("\t" + List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this)))
-            List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
+            Plugin.RemoveFacts(ex) :: (for (c <- sth) yield Plugin.AddAxiom(List(ex), c, ModuloArithmetic.this))
+//            List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
           }
         }).flatten
       allTasks = tasks.toList ++ allTasks
