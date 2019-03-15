@@ -996,7 +996,8 @@ object ModuloArithmetic extends Theory {
               bv_extract(0, bits1, bits2, v(0)) === subres(2).resTerm &
               bv_extract(bits1, bits2, 0, v(0)) === subres(3).resTerm
             )
-println(res)
+          println(t)
+          println("\t" + res)
           VisitorRes(res, sort.lower, sort.upper)
         }
 
@@ -1538,8 +1539,7 @@ println(res)
         case `bv_ult` | `bv_ule` | `bv_slt` | `bv_sle` =>
           throw new Exception("unexpected predicate " + a.pred)
 
-          // TRANSLATE BVEXTRACT
-        // case BVPred(`bv_extract`) => { // to be improved!
+        // TRANSLATE BVEXTRACT
         //   val bits1 =
         //     a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
         //   val bits2 =
@@ -1621,49 +1621,29 @@ println(res)
   //  Let interval (0,3) mean ... [0,3)
   //
 
-  // Let's start by doing it simple
-
-  def bitWidth(t : Term) : Int =
-    t match {
-      case lc : ap.terfor.linearcombination.LinearCombination1 => {
-        lc.constants.head match {
-          case ap.types.SortedConstantTerm(name, sort) => {
-            println((name, sort))
-            sort match {
-              case UnsignedBVSort(width) => {
-                width
-              }
-            }
-          }
-        }
-      }
-    }
 
   def partitionExtracts(extracts : Seq[Atom]) : Map[Term, List[(Int, Int)]] = {
     val cutPoints = MMap() : MMap[Term, Set[Int]]
     val sizes = MMap() : MMap[Term, Int]
 
+    // Here we are saving sizes of terms, maybe there is a better way?
     def setSize(t : Term, i : Int) = {
       t match {
         case lc : LinearCombination => {
-          if (lc.isConstant) {
-          } else {
-            if ((sizes contains t) && sizes(t) != i) {
-              throw new Exception("diff sizes: " + t)
-            }
-            sizes += t -> i
-          }
+          if (!lc.isConstant && (sizes contains t) && sizes(t) != i) 
+            throw new Exception("diff sizes: " + t)
+          sizes += t -> i
         }
       }
     }
 
     // Extract all initial cut-points
     for (e <- extracts) {
-      val lb = e(0).asInstanceOf[LinearCombination0].constant.intValueSafe
-      val mb = e(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-      val ub = e(2).asInstanceOf[LinearCombination0].constant.intValueSafe
-      val t = e(3)
-      val t2 = e(4)
+      val List(lb, mb, ub) = List(e(0), e(1), e(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+      val (t, t2) = (e(3), e(4))
+
+      setSize(t, lb+mb+ub)
+      setSize(t2, mb)
 
       val cuts =
         (lb, ub) match {
@@ -1673,32 +1653,25 @@ println(res)
           case _ => Set(lb, lb+mb)
         }
 
-      setSize(t, lb+mb+ub)
-      setSize(t2, mb)
       cutPoints += t -> (cuts ++ (cutPoints.getOrElse(t, Set())))
     }
-
-    // println("Initial cut-points:")
-    // for ((t, cuts) <- cutPoints)
-    //   println("\t" + t + " (" + sizes(t) + "): " + cuts)
 
     // Fix-Point operation: for all equalities, propagate cut-points
     var changed = true
     while (changed) {
       changed = false
       for (ex <- extracts) {
+
         // We have to go both ways
-        val t1 = ex(3)
-        val t2 = ex(4)
+        val (t1, t2) = (ex(3), ex(4))
         val cut1 = cutPoints.getOrElse(t1, Set())
         val cut2 = cutPoints.getOrElse(t2, Set())        
 
         // bitwidth(t1) > bitwidth(t2)
 
         // propagate FROM t1 TO t2
-        val lb = ex(0).asInstanceOf[LinearCombination0].constant.intValueSafe
-        val mb = ex(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-        val ub = ex(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+        val List(lb, mb, ub) =
+          List(ex(0), ex(1), ex(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
 
         val t1transformed = cut1.map(_ - lb).filter{p => p > 0 && p < lb+mb}
         if (!(t1transformed subsetOf cut2)) {
@@ -1715,43 +1688,19 @@ println(res)
       }
     }
 
-    for (t <- cutPoints.keys) {
+    for (t <- cutPoints.keys)
       cutPoints += (t -> (Set(0, sizes.getOrElse(t, 0)) ++cutPoints(t)))
-    }
-
-    // println("cut-points")
-    // for ((t, cuts) <- cutPoints) {
-    //   println("\t" + t + " ( " + t.constants.head + "): " + cuts.toList.sorted)
-    // }
-
-
 
     (for ((k, v) <-
       cutPoints) yield {
-      val cuts = v.toList.sorted
-      val partitions = cuts.sliding(2).map{ case List(a, b) => (a, b) }.toList
-      k -> partitions
+      k -> (v.toList.sorted.sliding(2).map{ case List(a, b) => (a, b) }.toList)
     }).toMap
   }
 
   // PRE-CONDITION: parts must have been created using extract (i.e., we can't have
   // extract(1,3) and parts being (0,2) ^ (2,4), but parts should be (0,1) ^ (1,2) ^ (2,3) ^ (3,4)
 
-  def splitExtract(extract : Atom, parts : List[(Int, Int)])(implicit order : TermOrder) : List[Conjunction] = {
-    // println("SplitExtract(" + extract + ", " + parts.mkString(", "))
-    // Given extract(_, _, _, t1, t2),
-    // WHAT WE NEED TO DO HERE IS FIND WHICH PARTITIONS ARE CONTAINED WITHIN THIS EXTRACT,
-    // AND FOR ALL THOSE WE CREATE A NEW EXISTENTIAL VARIABLE AND ADD CORRESPONDING
-    // PREDICATE-PAIRS TO ENSURE EQUALTIY...
-    // replace for each partition (lb, ub) (of t1):
-    // -Introduce a new term t3
-    // -Introduce two new predicates
-    // ---extract(lb, ub, bitwidth - ub, t1, t3)
-    // ---extract(lb, ub, bitwidth - ub, t2, t3)    
-    // exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
-    //   (v(0) >= a(0)) & (v(0) <= a(1)) &
-    //   (v(0) =/= a.last))
-
+  def splitExtract(extract : Atom, parts : List[(Int, Int)])(implicit order : TermOrder) : List[Plugin.Action] = {
     // i1 contained in i2 (and i1 != i2)
     def properSubset(i1 : (Int, Int), i2 : (Int, Int)) = {
       val (lb1, ub1) = i1
@@ -1760,92 +1709,56 @@ println(res)
     }
 
     import IExpression._
-      val a = extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
-      val b = extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-      val c = extract(2).asInstanceOf[LinearCombination0].constant.intValueSafe    
+
+
+    val List(a, b, c) =
+      List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
     val (lowerBound, upperBound, total) = (a, a+b, a+b+c)
     val t2Total = b
-    val t1 = extract(3)
-    val t2 = extract(4)
-    // println("\tt1: " + t1)
-    // println("\tt2: " + t2)
-    (for ((lb, ub) <- parts; if (properSubset((lb, ub), (lowerBound, upperBound)))) yield {
-      // println("\t\t" + (lb, ub))
-      val t1aBits = LinearCombination(lb)
-      val t1bBits = LinearCombination(ub-lb)
-      val t1cBits = LinearCombination(total-ub)
+    val (t1, t2) = (extract(3), extract(4))
 
-      val t2aBits = LinearCombination(lb - lowerBound)
-      val t2bBits = LinearCombination(ub -lb)
-      // println("t2Total: " + t2Total)
-      val t2cBits = LinearCombination(t2Total - (lb - lowerBound) - (ub - lb))
-      import TerForConvenience._
-      val lv0 : LinearCombination = l(v(0))
-      val args : List[LinearCombination] = List(t1aBits, t1bBits, t1cBits, t1, lv0)
-      val args2 : List[LinearCombination] = List(t2aBits, t2bBits, t2cBits, t2, lv0)      
-      val extractConj : Conjunction = Atom(extract.pred, args, order) & Atom(extract.pred, args2, order)
-      // val domainConj2 : Conjunction = (lv0 >= 0) & (lv0 < pow2(ub-lb))
-      val domainConj : Conjunction = (t2 >= 0 & t2 < pow2(b))
-      val newExtract = TerForConvenience.exists(extractConj & domainConj )
-      // println("\t\tnewExtract: " + newExtract) 
-      List(newExtract)
-    }).flatten
-  }
+    val newExtracts = 
+      for ((lb, ub) <- parts; if (properSubset((lb, ub), (lowerBound, upperBound)))) yield {
+        val t1aBits = LinearCombination(lb)
+        val t1bBits = LinearCombination(ub-lb)
+        val t1cBits = LinearCombination(total-ub)
 
+        val t2aBits = LinearCombination(lb - lowerBound)
+        val t2bBits = LinearCombination(ub -lb)
+        val t2cBits = LinearCombination(t2Total - (lb - lowerBound) - (ub - lb))
 
-  def findExtractTask(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : (Option[Term], Seq[Plugin.Action]) = {
+    import TerForConvenience._        
+        val lv0 : LinearCombination = l(v(0))
+        val args : List[LinearCombination] = List(t1aBits, t1bBits, t1cBits, t1, lv0)
+        val args2 : List[LinearCombination] = List(t2aBits, t2bBits, t2cBits, t2, lv0)
+        val extractConj : Conjunction = Atom(extract.pred, args, order) & Atom(extract.pred, args2, order)
+
+        // This could be efficient...
+        // val domainConj2 : Conjunction = (lv0 >= 0) & (lv0 < pow2(ub-lb))
+
+        // Let's figure out if this one is needed!
+        // val domainConj : Conjunction = (t2 >= 0 & t2 < pow2(b))
+        exists(extractConj)
+      }
     import TerForConvenience._
-    for ((term, parts) <- partitions) {
-      val tasks =
-        (for (ex <- extracts) yield {
-          val sth = 
-            if (ex(3) == term || ex(4) == term)
-              splitExtract(ex, parts)
-            else
-              List()
-          if (sth.isEmpty) {
-            List()
-          } else {
-            Plugin.RemoveFacts(ex) :: (for (c <- sth) yield Plugin.AddAxiom(List(ex), c, ModuloArithmetic.this))
-//            List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
-          }
-        }).flatten
-
-      if (!tasks.isEmpty)
-        return (Some(term), tasks)
-    }
-    (None, List())
+    Plugin.RemoveFacts(extract) ::
+    (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), c, ModuloArithmetic.this))
   }
 
-  def findExtractTasks(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
+  def splitExtractActions(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
     import TerForConvenience._
     var allTasks = List() : List[Plugin.Action]
     for ((term, parts) <- partitions) {
-      // println("Let's split: " + term)
-      // println("\t" + parts.mkString(", "))
       val tasks =
         (for (ex <- extracts) yield {
-          // println("Let's split (using " + term + "): " + ex)
-          val sth = 
-            if (ex(3) == term || ex(4) == term)
-              splitExtract(ex, parts)
-            else
-              List()
-          if (sth.isEmpty) {
+          if (ex(3) == term || ex(4) == term)
+            splitExtract(ex, parts)
+          else
             List()
-          } else {
-            // println("Split on " + ex + " using " + term)
-            // println("\t" + List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this)))
-            Plugin.RemoveFacts(ex) :: (for (c <- sth) yield Plugin.AddAxiom(List(ex), c, ModuloArithmetic.this))
-//            List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(sth), ModuloArithmetic.this))
-          }
-        }).flatten
-      allTasks = tasks.toList ++ allTasks
+        }).flatten.toList
+      allTasks = tasks ++ allTasks
     }
-    // println("No Extract Task Found!")    
     allTasks
-
-    // List()
   }
 
 
@@ -1982,35 +1895,14 @@ println(res)
     assert(extract(4).asInstanceOf[LinearCombination].constants.size == 1)
     val rhs = extract(4).asInstanceOf[LinearCombination].constants.head
 
-    val lb = extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
-    val mb = extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-    val ub = extract(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+    val List(lb, mb, ub) =
+      List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
 
-    // println("HANDLE CONSTANT")
-    // println(extract)
-    // println("\tlb: "+ lb)
-    // println("\tmb: "+ mb)
-    // println("\tub: "+ ub)    
-    // println("\tlhs: " + lhs)
-    val c = lhs.constant
-    val cc = c / pow2(ub)    
-    val ccc = cc % pow2(mb)
+    val newConstant = (lhs.constant / pow2(ub)) % pow2(mb)
 
-    // println("\tc: " + c + "(" + c.getClass + ")")
-    // println("\tcc: " + cc + " (" + cc.getClass + ")")
-    // println("\tccc: " + ccc + " (" + ccc.getClass + ")")
-    // println("\t" + ccc)
-
-    val sth = ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs, -ccc, order), order)
+    val newEquation = ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs, -newConstant, order), order)
     import TerForConvenience._
-
-    // println("\t" + sth)
-    val ac1 = Plugin.RemoveFacts(extract)
-    val con = conj(sth)
-    val ac2 = Plugin.AddAxiom(List(extract), con, ModuloArithmetic.this)
-    // println("\t" + ac1)
-    // println("\t" + ac2)    
-    List(ac1, ac2)
+    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), conj(newEquation), ModuloArithmetic.this))
   }
 
 
@@ -2027,6 +1919,7 @@ println(res)
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       counter += 1
       println("COUNTER:" + counter)
+      println(goal)
       if (counter > 1000)
         throw new Exception("counter max")
 
@@ -2045,6 +1938,8 @@ println(res)
         println("|\t" + ex)
       println("+-------------------------------------------------------+")      
 
+
+
       val conExtracts = constantExtracts(extracts)
       val conActions =
         for (ce <- conExtracts) yield
@@ -2056,12 +1951,6 @@ println(res)
           println("\t" + a)
         return conActions.flatten
       }
-
-      // THEN GET LARGER EXAMPLE WITH EXTRACT (NO CONCAT)
-      // MAYBE CONVERT CONCATS?
-
-      // THEN FIX SOURCE CODE (CLEAN UP)
-
 
       val negExtract = negExtractPreds(goal)
       if (!negExtract.isEmpty)
@@ -2097,29 +1986,20 @@ println(res)
       val partitions = partitionExtracts(extracts)
 
       // Let's start by only splitting one variable
-      val tasks = findExtractTasks(extracts, partitions)
+      val splitActions = splitExtractActions(extracts, partitions)
 
-      if (!tasks.isEmpty) {
+      if (!splitActions.isEmpty) {
         println("Splitting extracts")
-        for (t <- tasks)
+        for (t <- splitActions)
           println("\t" + t)
 
-        return tasks
+        return splitActions
       }
 
       // if (!extracts.isEmpty) {
       //   return extractToArithmetic(extracts.head)
       // }      
 
-
-      // if (extracts.isEmpty) {
-      //   println("No extracts found!")
-      //   return List()
-      // }
-
-
-      // val extract = extracts.head
-      // extractToArithmetic(extract)
       println("Nothing..")
       List()
     }
