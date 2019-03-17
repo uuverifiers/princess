@@ -991,13 +991,20 @@ object ModuloArithmetic extends Theory {
                                       IIntLit(IdealInt(bits2)), _*)) => {
           val sort =
             UnsignedBVSort(bits1 + bits2)
-          val res =
-            sort.eps(
-              bv_extract(0, bits1, bits2, v(0)) === subres(2).resTerm &
+          val formula =
+            bv_extract(0, bits1, bits2, v(0)) === subres(2).resTerm &
               bv_extract(bits1, bits2, 0, v(0)) === subres(3).resTerm
-            )
+          val res =
+            sort.eps(formula)
           println(t)
-          println("\t" + res)
+          // println("\tsubres(2): " + subres(2))
+          // println("\tsubres(3): " + subres(3))          
+          // println("\tformula: " + formula)
+          println("\tres: " + res)
+          // println(sort)
+          // val e = new Exception(".")
+          // e.printStackTrace()
+          // assert(false)
           VisitorRes(res, sort.lower, sort.upper)
         }
 
@@ -1501,10 +1508,13 @@ object ModuloArithmetic extends Theory {
   //////////////////////////////////////////////////////////////////////////////
 
   override def iPreprocess(f : IFormula, signature : Signature)
-                          : (IFormula, Signature) = {
-    (Preproc.visit(f,
+      : (IFormula, Signature) = {
+    val res = 
+      (Preproc.visit(f,
         VisitorArg(None, List(), false)).res.asInstanceOf[IFormula],
-     signature)
+        signature)
+    println(res)
+    res
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1885,7 +1895,6 @@ object ModuloArithmetic extends Theory {
       if (lhs.isConstant)
         exs += ex
     }
-
     exs.toList
   }
 
@@ -1900,7 +1909,8 @@ object ModuloArithmetic extends Theory {
 
     val newConstant = (lhs.constant / pow2(ub)) % pow2(mb)
 
-    val newEquation = ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs, -newConstant, order), order)
+    val newEquation =
+      ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs, -newConstant, order), order)
     import TerForConvenience._
     List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), conj(newEquation), ModuloArithmetic.this))
   }
