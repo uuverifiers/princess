@@ -32,11 +32,13 @@
   (not and3)
   (not and4)
   (or
-    (and (= ?v_0 or1) (= ?v_1 or2))
-    (and (= ?v_0 or3) (= ?v_1 or4))
-    (and (= ?v_0 or5) (= ?v_1 or6))
-    (and (= ?v_0 or7) (= ?v_1 or8))))
-))
+;    (and (= ?v_0 or1) (= ?v_1 or2))
+;    (and (= ?v_0 or3) (= ?v_1 or4))
+;    (and (= ?v_0 or5) (= ?v_1 or6))
+    (and (= ?v_0 or7) (= ?v_1 or8))
+  )
+)))
+
 (check-sat)
 
 
