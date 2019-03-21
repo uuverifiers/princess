@@ -54,6 +54,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 object ModuloArithmetic extends Theory {
 
   var counter = 0
+  val debug = false
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
@@ -1001,6 +1002,12 @@ object ModuloArithmetic extends Theory {
           bv_extract(bits1, bits2, 0, v(0)) === subres(3).resTerm
           val res =
             sort.eps(formula)
+
+          if (debug) {
+            println(t)
+            println("\t" + res)
+          }
+
           VisitorRes(res, sort.lower, sort.upper)
         }
 
@@ -1062,6 +1069,8 @@ object ModuloArithmetic extends Theory {
 
           ////////////////////////////////////////////////////////////////////////
 
+
+          // TODO: Translate to extract instead!
         case IFunApp(`bv_shl`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
             (subres(1) * pow2(subres(2).lowerBound.intValueSafe))
@@ -1073,22 +1082,40 @@ object ModuloArithmetic extends Theory {
               IdealInt.ZERO, upper)
           }
 
-        case IFunApp(`bv_lshr`, Seq(IIntLit(IdealInt(bits)), _*)) =>
-          if (subres(2).isConstant) {
-            subres(2).lowerBound match {
-              case IdealInt.ZERO =>
-                subres(1)
-              case IdealInt(shift) =>
-                VisitorRes(
-                  bv_extract(0, bits - shift, shift, subres(1).resTerm),
-                  IdealInt.ZERO, pow2MinusOne(bits - shift))
+        case IFunApp(`bv_lshr`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          println("BV_LSHR")
+          println("\t" + t)
+          println("\tsubres:" + subres.length)
+          println("\t" + subres(0))
+          println("\t" + subres(1))
+          println("\t" + subres(2))
+          val res = 
+            if (subres(2).isConstant) {
+              println("\tconstant")
+              subres(2).lowerBound match {
+                case IdealInt.ZERO => {
+                  println("\tZERO")
+                  subres(1)
+                }
+                case IdealInt(shift) => {
+                  println("\tshift")
+                  println("\t(" + shift + ")")
+                  // TODO: We need to append #shift zeroes in front
+                  // throw new Exception("bv_lshr broken")
+                  VisitorRes(
+                    bv_extract(0, bits - shift, shift, subres(1).resTerm),
+                    IdealInt.ZERO, pow2MinusOne(bits - shift))
+                }
+              }
+            } else {
+              val upper = pow2MinusOne(bits)
+              VisitorRes(r_shift_cast(IdealInt.ZERO, upper,
+                subres(1).resTerm, subres(2).resTerm),
+                IdealInt.ZERO, upper)
             }
-          } else {
-            val upper = pow2MinusOne(bits)
-            VisitorRes(r_shift_cast(IdealInt.ZERO, upper,
-              subres(1).resTerm, subres(2).resTerm),
-              IdealInt.ZERO, upper)
-          }
+          println("\t" + res)
+          res
+        }
 
         case IFunApp(`bv_ashr`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
@@ -1646,7 +1673,10 @@ object ModuloArithmetic extends Theory {
 
       val cuts =
         (lb, ub) match {
-          case (0, 0) => throw new Exception("bv_extract with no initial or tail bits")
+          case (0, 0) => {
+            // TODO: Do we want to replace this by an equality?
+            Set()
+          }
           case (0, _) => Set(lb + mb)
           case (_, 0) => Set(lb)
           case _ => Set(lb, lb+mb)
@@ -1772,39 +1802,38 @@ object ModuloArithmetic extends Theory {
 
 
   def extractToArithmetic(extract : Atom)(implicit order : TermOrder) : Seq[Plugin.Action] = {
-        import TerForConvenience._    
-    val a = extract
+    import TerForConvenience._
 
     val bits1 =
-      a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+      extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
     val bits2 =
-      a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+      extract(2).asInstanceOf[LinearCombination0].constant.intValueSafe
 
     val castSort = UnsignedBVSort(bits1 + bits2)
     val remSort =  UnsignedBVSort(bits2)
 
     val subst = VariableShiftSubst(0, 1, order)
     val pred = _mod_cast(List(l(0), l(castSort.upper),
-      subst(a(3)),
-      subst(a(4))*remSort.modulus + v(0)))
+      subst(extract(3)),
+      subst(extract(4))*remSort.modulus + v(0)))
 
     // if (negated)
     //   existsSorted(List(remSort), pred)
     // else
     // forall int v0, BV[bits2] v1.
-    //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
+    //   mod_cast(extract(3), v0) => extract(4)*modulus + v1 != v0
     // <=>
     // forall int v0, BV[bits2] v1.
-    //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
+    //   mod_cast(extract(3), extract(4)*modulus + v0) => v1 != v0
     // <=>
     // forall int v0.
-    //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
+    //   mod_cast(extract(3), extract(4)*modulus + v0) => v0 \not\in BV[bits2]
     // val res =
     //   forall(pred ==>
     //     Conjunction.negate(remSort membershipConstraint v(0),
     //       order))
     val res = existsSorted(List(remSort), pred)
-    List(Plugin.RemoveFacts(a), Plugin.AddAxiom(List(a), res, ModuloArithmetic.this))
+    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
   }
 
   def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
@@ -1891,28 +1920,23 @@ object ModuloArithmetic extends Theory {
   }
 
   // LHS is constant
+  // Check if totally correct and refactor
   def handleConstantExtract(extract : Atom)(implicit order : TermOrder) = {
       import TerForConvenience._    
     val lhs = extract(3).asInstanceOf[LinearCombination]
     val rhs = extract(4).asInstanceOf[LinearCombination]
+    val List(lb, mb, ub) =
+      List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+    val newConstant = (lhs.constant / pow2(ub)) % pow2(mb)
 
-    if (rhs.constants.size == 0) {
-      // Check if totally correct and refactor
-      // This means a constant right hand side as well!
-      // Replace with lhs == rhs (as integers)
-      val eq = ap.terfor.equations.EquationConj((lhs - rhs), order)
-      List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), eq, ModuloArithmetic.this))
-    } else {
-      val List(lb, mb, ub) =
-        List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-
-      val newConstant = (lhs.constant / pow2(ub)) % pow2(mb)
-
-      val newEquation =
+    val newEquation =
+      if (rhs.constants.size == 0) {
+        // This means a constant right hand side as well!
+        ap.terfor.equations.EquationConj((newConstant - rhs), order)
+      } else {
         ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs.constants.head, -newConstant, order), order)
-
-      List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), conj(newEquation), ModuloArithmetic.this))
-    }
+      }
+    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), conj(newEquation), ModuloArithmetic.this))
   }
 
 
@@ -1929,7 +1953,6 @@ object ModuloArithmetic extends Theory {
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
       // counter += 1
       // println("COUNTER:" + counter)
-      // println(goal)
       // if (counter > 100)
       //   throw new Exception("counter max")
 
@@ -1939,42 +1962,58 @@ object ModuloArithmetic extends Theory {
       // check if we can use extract partitioning
       val extracts = goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract")
 
-      // println("HandleGoal")
-      // println("+-------------------------------------------------------+")
-      // for (ex <- extracts) 
-      //   println("|\t" + ex)
-      // println("+-------------------------------------------------------+")      
-
-
-
-      val conExtracts = constantExtracts(extracts)
-      val conActions =
-        for (ce <- conExtracts) yield
-          handleConstantExtract(ce)
-
-      if (!conActions.isEmpty) {
-        // println("Convert constants")
-        // for (a <- conActions.flatten)
-        //   println("\t" + a)
-        return conActions.flatten
+      if (debug) {
+        println("HandleGoal")
+        // println(goal)
+        println("+-------------------------------------------------------+")
+        for (ex <- extracts)
+          println("|\t" + ex)
+        println("+-------------------------------------------------------+")
       }
 
       val negExtract = negExtractPreds(goal)
-      if (!negExtract.isEmpty)
+      if (!negExtract.isEmpty) {
+        if (debug) {
+          println("Negative Extracts:")
+          for (a <- negExtract)
+            println("\t" + a)
+        }
         return  negExtract
+      }
 
       val elimActions = elimExtractAtoms(goal)
-      if (!elimActions.isEmpty)
+      if (!elimActions.isEmpty) {
+        if (debug) {
+          println("Elim Action:")
+          for (a <- elimActions)
+            println("\t" + a)
+        }
         return elimActions
+      }
+
+      val partitions = partitionExtracts(extracts)
+
+      // Let's start by only splitting one variable
+      val splitActions = splitExtractActions(extracts, partitions)
+
+      if (!splitActions.isEmpty) {
+        if (debug) {
+          println("Splitting extracts")
+          for (t <- splitActions)
+            println("\t" + t)
+        }
+        return splitActions
+      }
 
       val msc = modShiftCast(goal)
       if (!msc.isEmpty) {
-        // println("Mod Shift Casting:")
-        // for (a <- msc)
-        //   println("\t" + a)
+        if (debug) {
+          println("Mod Shift Casting:")
+          for (a <- msc)
+            println("\t" + a)
+        }
         return msc
       }
-
 
       //
       // At some point we need to address negative equations
@@ -1990,28 +2029,38 @@ object ModuloArithmetic extends Theory {
       //   }
       // }
 
-      val partitions = partitionExtracts(extracts)
 
-      // Let's start by only splitting one variable
-      val splitActions = splitExtractActions(extracts, partitions)
-
-      if (!splitActions.isEmpty) {
-        // println("Splitting extracts")
-        // for (t <- splitActions)
-        //   println("\t" + t)
-
-        return splitActions
+      //Status funktion i
+        // if (goalState(goal) == Plugin.GoalState.Final) {      
+      if (!extracts.isEmpty) {
+        val arithActions =
+          (for (ex <- extracts) yield
+            extractToArithmetic(ex)).flatten
+        if (debug) {
+          println("Translating to arithmetic")
+          for (ac <- arithActions)
+            println("\t" + ac)
+        }
+        return arithActions
       }
 
-      // if (!extracts.isEmpty) {
-      //   val arithActions = extractToArithmetic(extracts.head)
-      //   // println("Translating to arithmetic")
-      //   // for (ac <- arithActions)
-      //   //   println("\t" + ac)
-      //   return arithActions
+      // val conExtracts = constantExtracts(extracts)
+      // val conActions =
+      //   for (ce <- conExtracts) yield
+      //     handleConstantExtract(ce)
+
+      // if (!conActions.isEmpty) {
+      //   if (debug) {
+      //     println("Convert constants")
+      //     for (a <- conActions.flatten)
+      //       println("\t" + a)
+      //   }
+      //   return conActions.flatten
       // }      
 
-      // println("Nothing..")
+      if (debug) {
+        println("Nothing..")
+      }
       List()
     }
   })
@@ -2205,6 +2254,8 @@ object ModuloArithmetic extends Theory {
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(AC, vanishing)
             //-END-ASSERTION-///////////////////////////////////////////////////
+
+            // TRANSLATE TO BV_EXTRACT
             simpleElims =
               Plugin.RemoveFacts(a) ::
               Plugin.AddAxiom(assumptions,
