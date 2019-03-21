@@ -54,7 +54,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 object ModuloArithmetic extends Theory {
 
   var counter = 0
-  val debug = false
+  val debug = true
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
@@ -1645,8 +1645,10 @@ object ModuloArithmetic extends Theory {
 
   //
   //  Let interval (0,3) mean ... [0,3)
+  //  Now we use cut-points instead.
+  //  Cut-points Set(3,7) means vectors
+  //  [0,2], [3, 6], [7,?]
   //
-
 
   def partitionExtracts(extracts : Seq[Atom]) : Map[Term, List[(Int, Int)]] = {
     val cutPoints = MMap() : MMap[Term, Set[Int]]
@@ -1738,8 +1740,6 @@ object ModuloArithmetic extends Theory {
     }
 
     import IExpression._
-
-
     val List(a, b, c) =
       List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
     val (lowerBound, upperBound, total) = (a, a+b, a+b+c)
@@ -1817,21 +1817,6 @@ object ModuloArithmetic extends Theory {
       subst(extract(3)),
       subst(extract(4))*remSort.modulus + v(0)))
 
-    // if (negated)
-    //   existsSorted(List(remSort), pred)
-    // else
-    // forall int v0, BV[bits2] v1.
-    //   mod_cast(extract(3), v0) => extract(4)*modulus + v1 != v0
-    // <=>
-    // forall int v0, BV[bits2] v1.
-    //   mod_cast(extract(3), extract(4)*modulus + v0) => v1 != v0
-    // <=>
-    // forall int v0.
-    //   mod_cast(extract(3), extract(4)*modulus + v0) => v0 \not\in BV[bits2]
-    // val res =
-    //   forall(pred ==>
-    //     Conjunction.negate(remSort membershipConstraint v(0),
-    //       order))
     val res = existsSorted(List(remSort), pred)
     List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
   }
@@ -1945,6 +1930,19 @@ object ModuloArithmetic extends Theory {
   override val dependencies : Iterable[Theory] = List(MultTheory)
 
 
+  def getSize(t : Term, inEqs : InEqConj)(implicit order : TermOrder) = {
+
+    val lb = inEqs.findLowerBound(LinearCombination(IdealInt.ONE, t, order))
+    val ub = inEqs.findLowerBound(LinearCombination(IdealInt.MINUS_ONE, t, order))
+      (lb, ub) match {
+      case (Some(l), Some(u)) => {
+        println("size(" + t + ") := " + l + " <= " + t + " <=" + -u)
+        (lb, ub)
+      }
+      case _ => throw new Exception("Missing bound: " + ((lb, ub)))
+    }
+  }
+
 
   def plugin = Some(new Plugin {
     // not used
@@ -1966,10 +1964,13 @@ object ModuloArithmetic extends Theory {
         println("HandleGoal")
         // println(goal)
         println("+-------------------------------------------------------+")
-        for (ex <- extracts)
+        for (ex <- extracts) {
+          getSize(ex(3), goal.facts.arithConj.inEqs)
           println("|\t" + ex)
+        }
         println("+-------------------------------------------------------+")
       }
+
 
       val negExtract = negExtractPreds(goal)
       if (!negExtract.isEmpty) {
@@ -2031,8 +2032,7 @@ object ModuloArithmetic extends Theory {
 
 
       //Status funktion i
-        // if (goalState(goal) == Plugin.GoalState.Final) {      
-      if (!extracts.isEmpty) {
+      if ((goalState(goal) == Plugin.GoalState.Final) && (!extracts.isEmpty)) {
         val arithActions =
           (for (ex <- extracts) yield
             extractToArithmetic(ex)).flatten
