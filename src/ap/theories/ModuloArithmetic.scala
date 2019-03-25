@@ -54,7 +54,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 object ModuloArithmetic extends Theory {
 
   var counter = 0
-  val debug = true
+  val debug = false
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
@@ -131,9 +131,7 @@ object ModuloArithmetic extends Theory {
   def concat(t1 : ITerm, t2 : ITerm) : ITerm =
     IFunApp(bv_concat, List(extractBitWidth(t1), extractBitWidth(t2), t1, t2))
   def extract(begin : Int, end : Int, t : ITerm) : ITerm = {
-    val width = extractBitWidth(t)
-    IFunApp(bv_extract,
-            List(width - begin - 1, begin - end + 1, end, t))
+    IFunApp(bv_extract, List(end, begin, t))
   }
 
   def bvnot(t : ITerm) : ITerm =
@@ -521,11 +519,9 @@ object ModuloArithmetic extends Theory {
   // Arguments: N1, N2, N3, number mod 2^(N1 + N2 + N3)
   // Result:    number mod 2^N2
 
-  object BVExtract extends IndexedBVOp("bv_extract", 3, 1, functional = true) {
+  object BVExtract extends IndexedBVOp("bv_extract", 2, 1, functional = true) {
     def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
-      (List(Sort.Integer, Sort.Integer, Sort.Integer,
-            UnsignedBVSort(indexes(0) + indexes(1) + indexes(2))),
-       UnsignedBVSort(indexes(1)))
+      (List(Sort.Integer, Sort.Integer, Sort.Integer), Sort.Integer)
     }
   }
 
@@ -990,25 +986,43 @@ object ModuloArithmetic extends Theory {
 
         case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
           IIntLit(IdealInt(bits2)), _*)) => {
-          val sort =
-            UnsignedBVSort(bits1 + bits2)
+          val sort = ap.types.Sort.Integer
+
           // Make sure the bits are in the right order
           // val formula =
           //   bv_extract(bits2, bits1, 0, v(0)) === subres(2).resTerm &
           //     bv_extract(0, bits2, bits1, v(0)) === subres(3).resTerm
+          //  concat x y ... x[bits1] y[bits2]
+                      // 0 ....  bits1-1  bits1 ...  bits1+bits2-1
+          //  eps = x[0]...x[bits1-1] y[0] ... y[bits2-1]
+          // extract(bits1+bits2, 
+          // 
 
-          val formula =
-            bv_extract(0, bits1, bits2, v(0)) === subres(2).resTerm &
-          bv_extract(bits1, bits2, 0, v(0)) === subres(3).resTerm
+          // println("BV_CONCAT")
+          // println(t)
+          // println("\t" + bits1)
+          // println("\t" + bits2)
+
+          val bv1a = bv_extract(bits1+bits2-1, bits2, v(0))
+          val bv1b = subres(2).resTerm
+          val bv1 = (bv1a === bv1b)
+          val bv2 = bv_extract(bits2-1, 0, v(0)) === subres(3).resTerm
+
+          // println("\t" + bv1)
+          // println("\t\t" + bv1a)
+          // println("\t\t" + bv1b)          
+          // println("\t" + bv2)          
+
           val res =
-            sort.eps(formula)
+            sort.eps(bv1 & bv2)
 
           if (debug) {
             println(t)
             println("\t" + res)
           }
 
-          VisitorRes(res, sort.lower, sort.upper)
+          // TODO: Is this bound correct
+          VisitorRes(res, 0, pow2(bits1+bits2))
         }
 
           /*
@@ -1101,10 +1115,10 @@ object ModuloArithmetic extends Theory {
                   println("\tshift")
                   println("\t(" + shift + ")")
                   // TODO: We need to append #shift zeroes in front
-                  // throw new Exception("bv_lshr broken")
-                  VisitorRes(
-                    bv_extract(0, bits - shift, shift, subres(1).resTerm),
-                    IdealInt.ZERO, pow2MinusOne(bits - shift))
+                  throw new Exception("bv_lshr broken")
+                  // VisitorRes(
+                  //   bv_extract(0, bits - shift, shift, subres(1).resTerm),
+                  //   IdealInt.ZERO, pow2MinusOne(bits - shift))
                 }
               }
             } else {
@@ -1151,7 +1165,7 @@ object ModuloArithmetic extends Theory {
               case Seq(0, length) => {
                 // pattern starting with a single block of ones
                 VisitorRes(
-                  bv_extract(bits - length, length, 0, arg.resTerm),
+                  bv_extract(length-1, 0, arg.resTerm),
                   IdealInt.ZERO, pattern)
               }
 
@@ -1167,9 +1181,11 @@ object ModuloArithmetic extends Theory {
                     bit = !bit
                     if (len > 0) {
                       offset = offset + len
-                      bv_extract(bits - offset, len, offset - len, v(1)) ===
+                      // bv_extract(bits - offset, len, offset - len, v(1)) ===
+                      bv_extract(offset-1, (offset-len), v(1)) === 
                       (if (bit)
-                        bv_extract(bits - offset, len, offset - len, v(0))
+                        bv_extract(offset-1, (offset-len), v(0))
+                        // bv_extract(bits - offset, len, offset - len, v(0))
                       else
                         i(0))
                     } else {
@@ -1211,7 +1227,7 @@ object ModuloArithmetic extends Theory {
               case Seq(offset, length) if offset + length == bits => {
                 // pattern ending with a single block of ones
                 VisitorRes(
-                  bv_extract(length, offset, 0, arg.resTerm) + pattern,
+                  bv_extract(offset-1, 0, arg.resTerm) + pattern,
                   pattern, pow2MinusOne(bits))
               }
                 
@@ -1227,11 +1243,13 @@ object ModuloArithmetic extends Theory {
                     bit = !bit
                     if (len > 0) {
                       offset = offset + len
-                      bv_extract(bits - offset, len, offset - len, v(1)) ===
+                      // bv_extract(bits - offset, len, offset - len, v(1)) ===
+                      bv_extract(offset-1, offset-len, v(1)) ===                      
                       (if (bit)
                         i(pow2MinusOne(len))
                       else
-                        bv_extract(bits - offset, len, offset - len, v(0)))
+                        // bv_extract(bits - offset, len, offset - len, v(0)))
+                        bv_extract(offset-1, offset - len, v(0)))                      
                     } else {
                       i(true)
                     }
@@ -1650,40 +1668,17 @@ object ModuloArithmetic extends Theory {
   //  [0,2], [3, 6], [7,?]
   //
 
-  def partitionExtracts(extracts : Seq[Atom]) : Map[Term, List[(Int, Int)]] = {
+
+  // def partitionExtracts(extracts : Seq[Atom]) : Map[Term, List[(Int, Int)]] = {
+  def partitionExtracts(extracts : Seq[Atom]) : Map[Term, List[Int]] = {  
     val cutPoints = MMap() : MMap[Term, Set[Int]]
     val sizes = MMap() : MMap[Term, Int]
-
-    // Here we are saving sizes of terms, maybe there is a better way?
-    def setSize(t : Term, i : Int) = {
-      t match {
-        case lc : LinearCombination => {
-          if (!lc.isConstant && (sizes contains t) && sizes(t) != i) 
-            throw new Exception("diff sizes: " + t)
-          sizes += t -> i
-        }
-      }
-    }
-
     // Extract all initial cut-points
-    for (e <- extracts) {
-      val List(lb, mb, ub) = List(e(0), e(1), e(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-      val (t, t2) = (e(3), e(4))
+    for (ex <- extracts) {
+      val List(ub, lb) = List(ex(0), ex(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+      val (t, t2) = (ex(2), ex(3))
 
-      setSize(t, lb+mb+ub)
-      setSize(t2, mb)
-
-      val cuts =
-        (lb, ub) match {
-          case (0, 0) => {
-            // TODO: Do we want to replace this by an equality?
-            Set()
-          }
-          case (0, _) => Set(lb + mb)
-          case (_, 0) => Set(lb)
-          case _ => Set(lb, lb+mb)
-        }
-
+      val cuts = Set(lb, ub+1)
       cutPoints += t -> (cuts ++ (cutPoints.getOrElse(t, Set())))
     }
 
@@ -1694,17 +1689,17 @@ object ModuloArithmetic extends Theory {
       for (ex <- extracts) {
 
         // We have to go both ways
-        val (t1, t2) = (ex(3), ex(4))
+        val (t1, t2) = (ex(2), ex(3))
         val cut1 = cutPoints.getOrElse(t1, Set())
         val cut2 = cutPoints.getOrElse(t2, Set())        
 
         // bitwidth(t1) > bitwidth(t2)
 
         // propagate FROM t1 TO t2
-        val List(lb, mb, ub) =
-          List(ex(0), ex(1), ex(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+        val List(lb, ub) =
+          List(ex(0), ex(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
 
-        val t1transformed = cut1.map(_ - lb).filter{p => p > 0 && p < lb+mb}
+        val t1transformed = cut1.filter(c => c > lb && c < ub).map(_ - lb)
         if (!(t1transformed subsetOf cut2)) {
           cutPoints += t2 -> (cut2 ++ t1transformed)
           changed = true
@@ -1719,106 +1714,84 @@ object ModuloArithmetic extends Theory {
       }
     }
 
-    for (t <- cutPoints.keys)
-      cutPoints += (t -> (Set(0, sizes.getOrElse(t, 0)) ++cutPoints(t)))
+    // for (t <- cutPoints.keys)
+    //   cutPoints += (t -> (Set(0, sizes.getOrElse(t, 0)) ++cutPoints(t)))
+    cutPoints.map{case (k,v) => k ->v. toList.sorted.reverse}.toMap
 
-    (for ((k, v) <-
-      cutPoints) yield {
-      k -> (v.toList.sorted.sliding(2).map{ case List(a, b) => (a, b) }.toList)
-    }).toMap
+    // (for ((k, v) <-
+    //   cutPoints) yield {
+    //   k -> (v.toList.sorted.sliding(2).map{ case List(a, b) => (a, b) }.toList)
+    // }).toMap
   }
 
   // PRE-CONDITION: parts must have been created using extract (i.e., we can't have
   // extract(1,3) and parts being (0,2) ^ (2,4), but parts should be (0,1) ^ (1,2) ^ (2,3) ^ (3,4)
 
-  def splitExtract(extract : Atom, parts : List[(Int, Int)])(implicit order : TermOrder) : List[Plugin.Action] = {
-    // i1 contained in i2 (and i1 != i2)
-    def properSubset(i1 : (Int, Int), i2 : (Int, Int)) = {
-      val (lb1, ub1) = i1
-      val (lb2, ub2) = i2
-      lb1 >= lb2 && ub1 <= ub2 && i1 != i2
-    }
-
+// def splitExtract(extract : Atom, parts : List[(Int, Int)])(implicit order : TermOrder) : List[Plugin.Action] = {
+  def splitExtract(extract : Atom, cutPoints : List[Int])(implicit order : TermOrder) : List[Plugin.Action] = {
     import IExpression._
-    val List(a, b, c) =
-      List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-    val (lowerBound, upperBound, total) = (a, a+b, a+b+c)
-    val t2Total = b
-    val (t1, t2) = (extract(3), extract(4))
+    val List(upper, lower) =
+      List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+    val (t1, t2) = (extract(2), extract(3))
 
-    val newExtracts = 
-      for ((lb, ub) <- parts; if (properSubset((lb, ub), (lowerBound, upperBound)))) yield {
-        val t1aBits = LinearCombination(lb)
-        val t1bBits = LinearCombination(ub-lb)
-        val t1cBits = LinearCombination(total-ub)
+    var filterCutPoints = cutPoints.filter(x => x >= lower && x < upper)
 
-        val t2aBits = LinearCombination(lb - lowerBound)
-        val t2bBits = LinearCombination(ub -lb)
-        val t2cBits = LinearCombination(t2Total - (lb - lowerBound) - (ub - lb))
+    if (filterCutPoints.length > 1) {
 
-    import TerForConvenience._        
-        val lv0 : LinearCombination = l(v(0))
-        val args : List[LinearCombination] = List(t1aBits, t1bBits, t1cBits, t1, lv0)
-        val args2 : List[LinearCombination] = List(t2aBits, t2bBits, t2cBits, t2, lv0)
-        val extractConj : Conjunction = Atom(extract.pred, args, order) & Atom(extract.pred, args2, order)
+      var curPoint = upper
+      var newExtracts = List() : List[Conjunction]
 
-        // This could be efficient...
-        // val domainConj2 : Conjunction = (lv0 >= 0) & (lv0 < pow2(ub-lb))
+      while (!filterCutPoints.isEmpty) {
+        val ub = curPoint
+        val lb = filterCutPoints.head
+        filterCutPoints = filterCutPoints.tail
+        curPoint = lb - 1
 
-        // Let's figure out if this one is needed!
-        // val domainConj : Conjunction = (t2 >= 0 & t2 < pow2(b))
-        exists(extractConj)
+        import TerForConvenience._
+        val tmp : LinearCombination = l(v(0))
+
+        val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(t1), tmp), order)
+        val bv2 = Atom(_bv_extract, List(l(ub-lower), l(lb-lower), l(t2), tmp), order)
+        newExtracts = exists(bv1 & bv2) :: newExtracts
       }
-    import TerForConvenience._
-    if (newExtracts.isEmpty)
-      List()
-    else
+
+      import TerForConvenience._
       Plugin.RemoveFacts(extract) ::
-    (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), c, ModuloArithmetic.this))
+      (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), c, ModuloArithmetic.this))
+    } else {
+      List()
+    }
   }
 
-
-  def splitExtractActions(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
-    // import TerForConvenience._
-    // var allTasks = List() : List[Plugin.Action]
+// def splitExtractActions(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
+  def splitExtractActions(extracts : Seq[Atom], partitions : Map[Term, List[Int]])(implicit order : TermOrder) : Seq[Plugin.Action] = {  
     (for (ex <- extracts) yield {
-      // Only choosing one term is enough, since the fix-point calculation should have propagate the partitions to both terms
-      val parts = partitions(ex(3))
+      val parts = partitions(ex(2))
       splitExtract(ex, parts)
-    // }
-    // for ((term, parts) <- partitions) {
-    //   val tasks =
-    //     (for (ex <- extracts) yield {
-    //       if (ex(3) == term || ex(4) == term)
-    //         splitExtract(ex, parts)
-    //       else
-    //         List()
-    //     }).flatten.toList
     }).flatten
-    //   allTasks = tasks ++ allTasks
-    // }
-    // allTasks
   }  
 
 
   def extractToArithmetic(extract : Atom)(implicit order : TermOrder) : Seq[Plugin.Action] = {
-    import TerForConvenience._
+    throw new Exception("to Arithmetic not implemented")
+    return List()
+    // import TerForConvenience._
 
-    val bits1 =
-      extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-    val bits2 =
-      extract(2).asInstanceOf[LinearCombination0].constant.intValueSafe
+    // val bits1 =
+    //   extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+    // val bits2 =
+    //   extract(2).asInstanceOf[LinearCombination0].constant.intValueSafe
 
-    val castSort = UnsignedBVSort(bits1 + bits2)
-    val remSort =  UnsignedBVSort(bits2)
+    // val castSort = UnsignedBVSort(bits1 + bits2)
+    // val remSort =  UnsignedBVSort(bits2)
 
-    val subst = VariableShiftSubst(0, 1, order)
-    val pred = _mod_cast(List(l(0), l(castSort.upper),
-      subst(extract(3)),
-      subst(extract(4))*remSort.modulus + v(0)))
+    // val subst = VariableShiftSubst(0, 1, order)
+    // val pred = _mod_cast(List(l(0), l(castSort.upper),
+    //   subst(extract(3)),
+    //   subst(extract(4))*remSort.modulus + v(0)))
 
-    val res = existsSorted(List(remSort), pred)
-    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
+    // val res = existsSorted(List(remSort), pred)
+    // List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
   }
 
   def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
@@ -1890,59 +1863,44 @@ object ModuloArithmetic extends Theory {
     }
   }
 
-  def constantExtracts(extracts : Seq[Atom]) = {
-    val exs = ListBuffer() : ListBuffer[Atom]
+  // def constantExtracts(extracts : Seq[Atom]) = {
+  //   val exs = ListBuffer() : ListBuffer[Atom]
 
-    for (ex <- extracts) {
-      // Is this always sound?
-      val lhs = ex(3).asInstanceOf[LinearCombination]
-      val rhs = ex(4).asInstanceOf[LinearCombination]
+  //   for (ex <- extracts) {
+  //     // Is this always sound?
+  //     val lhs = ex(2).asInstanceOf[LinearCombination]
+  //     val rhs = ex(3).asInstanceOf[LinearCombination]
 
-      if (lhs.isConstant)
-        exs += ex
-    }
-    exs.toList
-  }
+  //     if (lhs.isConstant)
+  //       exs += ex
+  //   }
+  //   exs.toList
+  // }
 
-  // LHS is constant
-  // Check if totally correct and refactor
-  def handleConstantExtract(extract : Atom)(implicit order : TermOrder) = {
-      import TerForConvenience._    
-    val lhs = extract(3).asInstanceOf[LinearCombination]
-    val rhs = extract(4).asInstanceOf[LinearCombination]
-    val List(lb, mb, ub) =
-      List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-    val newConstant = (lhs.constant / pow2(ub)) % pow2(mb)
+  // // LHS is constant
+  // // Check if totally correct and refactor
+  // def handleConstantExtract(extract : Atom)(implicit order : TermOrder) = {
+  //     import TerForConvenience._    
+  //   val lhs = extract(3).asInstanceOf[LinearCombination]
+  //   val rhs = extract(4).asInstanceOf[LinearCombination]
+  //   val List(lb, mb, ub) =
+  //     List(extract(0), extract(1), extract(2)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+  //   val newConstant = (lhs.constant / pow2(ub)) % pow2(mb)
 
-    val newEquation =
-      if (rhs.constants.size == 0) {
-        // This means a constant right hand side as well!
-        ap.terfor.equations.EquationConj((newConstant - rhs), order)
-      } else {
-        ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs.constants.head, -newConstant, order), order)
-      }
-    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), conj(newEquation), ModuloArithmetic.this))
-  }
+  //   val newEquation =
+  //     if (rhs.constants.size == 0) {
+  //       // This means a constant right hand side as well!
+  //       ap.terfor.equations.EquationConj((newConstant - rhs), order)
+  //     } else {
+  //       ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs.constants.head, -newConstant, order), order)
+  //     }
+  //   List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), conj(newEquation), ModuloArithmetic.this))
+  // }
 
 
   //////////////////////////////////////////////////////////////////////////////  
 
   override val dependencies : Iterable[Theory] = List(MultTheory)
-
-
-  def getSize(t : Term, inEqs : InEqConj)(implicit order : TermOrder) = {
-
-    val lb = inEqs.findLowerBound(LinearCombination(IdealInt.ONE, t, order))
-    val ub = inEqs.findLowerBound(LinearCombination(IdealInt.MINUS_ONE, t, order))
-      (lb, ub) match {
-      case (Some(l), Some(u)) => {
-        println("size(" + t + ") := " + l + " <= " + t + " <=" + -u)
-        (lb, ub)
-      }
-      case _ => throw new Exception("Missing bound: " + ((lb, ub)))
-    }
-  }
-
 
   def plugin = Some(new Plugin {
     // not used
@@ -1965,7 +1923,6 @@ object ModuloArithmetic extends Theory {
         // println(goal)
         println("+-------------------------------------------------------+")
         for (ex <- extracts) {
-          getSize(ex(3), goal.facts.arithConj.inEqs)
           println("|\t" + ex)
         }
         println("+-------------------------------------------------------+")
@@ -2031,17 +1988,17 @@ object ModuloArithmetic extends Theory {
       // }
 
 
-      //Status funktion i
       if ((goalState(goal) == Plugin.GoalState.Final) && (!extracts.isEmpty)) {
-        val arithActions =
-          (for (ex <- extracts) yield
-            extractToArithmetic(ex)).flatten
-        if (debug) {
-          println("Translating to arithmetic")
-          for (ac <- arithActions)
-            println("\t" + ac)
-        }
-        return arithActions
+        throw new Exception("TO ARITHMETIC!")
+        // val arithActions =
+        //   (for (ex <- extracts) yield
+        //     extractToArithmetic(ex)).flatten
+        // if (debug) {
+        //   println("Translating to arithmetic")
+        //   for (ac <- arithActions)
+        //     println("\t" + ac)
+        // }
+        // return arithActions
       }
 
       // val conExtracts = constantExtracts(extracts)
