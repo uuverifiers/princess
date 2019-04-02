@@ -1655,8 +1655,10 @@ object ModuloArithmetic extends Theory {
 
   // TODO: add support for all operators
 
-  //////////////////////////////////////////////////////////////////////////////
 
+
+
+  //////////////////////////////////////////////////////////////////////////////
   //
   //   |EXTRACT| PROPAGATION
   //
@@ -1669,189 +1671,147 @@ object ModuloArithmetic extends Theory {
   // Thus, when looping we get (7,3) and (2,0) in SMT-lib semantics
 
 
-  /// If we 
+  def propagateExtract(extract : Atom, cutPoints : MMap[Term, Set[Int]]) : Boolean = {
+    if (extract(2).constants.isEmpty || extract(3).constants.isEmpty) {
+      false
+    } else {
+      var changed = false
+      val (t1, t2) = (extract(2).constants.head, extract(3).constants.head)
 
+      val cut1 = cutPoints.getOrElse(t1, Set())
+      val cut2 = cutPoints.getOrElse(t2, Set())
 
-  // def partitionExtracts(extracts : Seq[Atom]) : Map[Term, List[(Int, Int)]] = {
-  def partitionExtracts(extracts : Seq[Atom], disequalities : Seq[LinearCombination]) : Map[Term, List[Int]] = {  
-    val cutPoints = MMap() : MMap[Term, Set[Int]]
-    val sizes = MMap() : MMap[Term, Int]
-    // Extract all initial cut-points
-    for (ex <- extracts; if (!ex(2).constants.isEmpty)) {
-      val List(ub, lb) = List(ex(0), ex(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-      val t = ex(2).constants.head
-      val cuts = Set(lb, ub+1).filter(_ >= 0)
-      cutPoints += t -> (cuts ++ (cutPoints.getOrElse(t, Set())))
+      val List(ub, lb) =
+        List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+
+      val t1transformed = cut1.filter(c => c > lb && c < ub).map(_ - lb)
+      if (!(t1transformed subsetOf cut2)) {
+        cutPoints += t2 -> (cut2 ++ t1transformed)
+        changed = true
+      }
+
+      // propagate FROM t2 TO t1
+      val t2transformed = cut2.map(_ + lb)
+      if (!(t2transformed subsetOf cut1)) {
+        cutPoints += t1 -> (cut1 ++ t2transformed)
+        changed = true
+      }
+
+      changed
     }
+  }
 
-    def propagateExtract(extract : Atom) : Boolean = {
-      // println("propExtract(" + extract + ")")
-      if (extract(2).constants.isEmpty || extract(3).constants.isEmpty) {
+  def propagateDisequality(disequality : LinearCombination, cutPoints : MMap[Term, Set[Int]])
+      : Boolean = {
+    // Two cases:
+    // -Constant and Integer
+    // -Constant and Constant
+    (disequality(0), disequality(1)) match {
+      // -Constant and Integer
+      case ((IdealInt(1), _), (_,ap.terfor.OneTerm)) => {
         false
-      } else {
+      }
+
+      // -Constant and Constant
+      case ((IdealInt(1), t1), (IdealInt(-1),t2)) => {
         var changed = false
-        val (t1, t2) = (extract(2).constants.head, extract(3).constants.head)
+        val constant1 = t1.constants.head
+        val constant2 = t2.constants.head
 
-        val cut1 = cutPoints.getOrElse(t1, Set())
-        val cut2 = cutPoints.getOrElse(t2, Set())
-        // println("\tcut1: " + cut1)
-        // println("\tcut2: " + cut2)        
-
-        // bitwidth(t1) > bitwidth(t2)
-
-        // propagate FROM t1 TO t2
-        val List(ub, lb) =
-          List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-
-        val t1transformed = cut1.filter(c => c > lb && c < ub).map(_ - lb)
-        if (!(t1transformed subsetOf cut2)) {
-          cutPoints += t2 -> (cut2 ++ t1transformed)
+        val t1cuts = cutPoints.getOrElse(t1, Set())
+        val t2cuts = cutPoints.getOrElse(t2, Set())
+        
+        if (!(t1cuts subsetOf t2cuts)) {
+          cutPoints += t2 -> (t2cuts ++ t1cuts)
           changed = true
         }
 
-        // propagate FROM t2 TO t1
-        val t2transformed = cut2.map(_ + lb)
-        if (!(t2transformed subsetOf cut1)) {
-          cutPoints += t1 -> (cut1 ++ t2transformed)
+        if (!(t2cuts subsetOf t1cuts)) {
+          cutPoints += t1 -> (t1cuts ++ t2cuts)
           changed = true
         }
 
-        // println("\t" + changed)
         changed
       }
-    }
-
-    def propagateDisequality(disequality : LinearCombination) : Boolean = {
-      // Two cases:
-      // -Constant and Integer
-      // -Constant and Constant
-      (disequality(0), disequality(1)) match {
-        // -Constant and Integer
-        case ((IdealInt(1), t1), (c2,ap.terfor.OneTerm)) => {
-          val constant = t1.constants.head
-          val integer = c2.intValue
-          // println("\t" + constant + " (" + constant.getClass + ") != " + integer + " (" + integer.getClass + ")")
-          false
-        }
-
-          // -Constant and Constant
-        case ((IdealInt(1), t1), (IdealInt(-1),t2)) => {
-          var changed = false
-          val constant1 = t1.constants.head
-          val constant2 = t2.constants.head          
-          // println("\t" + constant1 + " (" + constant1.getClass + ") != " + constant2 + " (" + constant2.getClass + ")")
-
-          val t1cuts = cutPoints.getOrElse(t1, Set())
-          val t2cuts = cutPoints.getOrElse(t2, Set())
-
-          // println("\t\tt1cuts: " + t1cuts)
-          // println("\t\tt2cuts: " + t2cuts)
-          
-          if (!(t1cuts subsetOf t2cuts)) {
-            cutPoints += t2 -> (t2cuts ++ t1cuts)
-            changed = true
-          }
-
-          if (!(t2cuts subsetOf t1cuts)) {
-            cutPoints += t1 -> (t1cuts ++ t2cuts)
-            changed = true
-          }          
-
-          changed
-        }          
-        case _ => {
-          // println("here?")
-          // println(disequality(0), disequality(1))
-          throw new Exception("Unmatched types: " + (disequality(0).getClass, disequality(1).getClass))
-        }
+      case _ => {
+        throw new Exception("Unmatched type: " + (disequality(0).getClass, disequality(1).getClass))
       }
+    }
+  }
+
+  def partition(extracts : Seq[Atom], disequalities : Seq[LinearCombination])
+      : Map[Term, List[Int]] = {
+    val cutPoints = MMap() : MMap[Term, Set[Int]]
+    for (ex <- extracts; if (!ex(2).constants.isEmpty)) {    
+      val List(ub, lb) =
+        List(ex(0), ex(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+      val t = ex(2).constants.head
+      cutPoints += t -> (Set(lb, ub+1).filter(_ >= 0) ++ (cutPoints.getOrElse(t, Set())))
     }    
 
-    // Fix-Point operation: for all equalities, propagate cut-points
     var changed = true
     while (changed) {
       changed = false
       for (ex <- extracts) {
-        if (propagateExtract(ex))
+        if (propagateExtract(ex, cutPoints))
           changed = true
       }
 
       for (diseq <- disequalities) {
-        if (propagateDisequality(diseq))
+        if (propagateDisequality(diseq, cutPoints))
           changed = true        
       }
     }
 
-    // for (t <- cutPoints.keys)
-    //   cutPoints += (t -> (Set(0, sizes.getOrElse(t, 0)) ++cutPoints(t)))
     cutPoints.map{case (k,v) => k ->v. toList.sorted.reverse}.toMap
-
-    // (for ((k, v) <-
-    //   cutPoints) yield {
-    //   k -> (v.toList.sorted.sliding(2).map{ case List(a, b) => (a, b) }.toList)
-    // }).toMap
   }
 
   // PRE-CONDITION: parts must have been created using extract (i.e., we can't have
   // extract(1,3) and parts being (0,2) ^ (2,4), but parts should be (0,1) ^ (1,2) ^ (2,3) ^ (3,4)
-
-// def splitExtract(extract : Atom, parts : List[(Int, Int)])(implicit order : TermOrder) : List[Plugin.Action] = {
-  def splitExtract(extract : Atom, cutPoints : List[Int])(implicit order : TermOrder) : List[Plugin.Action] = {
-    import IExpression._
+  def splitExtract(extract : Atom, cutPoints : List[Int])
+    (implicit order : TermOrder) : List[Plugin.Action] = {
+    import TerForConvenience._
     val List(upper, lower) =
       List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
     val (t1, t2) = (extract(2), extract(3))
 
     var filterCutPoints = cutPoints.filter(x => x >= lower && x <= upper)
 
-    if (filterCutPoints.length > 1) {
-
+    if (filterCutPoints.length < 2) {
+      List()
+    } else {
       var curPoint = upper
       var newExtracts = List() : List[Conjunction]
 
       while (!filterCutPoints.isEmpty) {
-        val ub = curPoint
-        val lb = filterCutPoints.head
-
-        // println("\t\t" + ((ub, lb)))
-
+        val (ub, lb) = (curPoint, filterCutPoints.head)
         filterCutPoints = filterCutPoints.tail
         curPoint = lb - 1
 
-        import TerForConvenience._
-        val tmp : LinearCombination = l(v(0))
-
-        val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(t1), tmp), order)
-        val bv2 = Atom(_bv_extract, List(l(ub-lower), l(lb-lower), l(t2), tmp), order)
-        val domain = tmp >= 0 & tmp < pow2(ub-lb+1)
+        val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(t1), l(v(0))), order)
+        val bv2 = Atom(_bv_extract, List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order)
+        val domain = l(v(0)) >= 0 & l(v(0)) < pow2(ub-lb+1)
         newExtracts = exists(bv1 & bv2 & domain) :: newExtracts
-        // bv1 bv2 bv3 bv4
-        // forall_n((bv1 & ... & bv4) --> !(v0 = v1 & v2 =v3))
-        // newExtracts = exists(bv1 & bv2) :: newExtracts         ;
       }
-
-      // println("NewExtracts:")
-      // for (ex <- newExtracts)
-      //   println("\t" + ex)
-
-      import TerForConvenience._
       Plugin.RemoveFacts(extract) ::
       (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), c, ModuloArithmetic.this))
-    } else {
-      List()
     }
   }
 
 
-  // def splitExtract(extract : Atom, parts : List[(Int, Int)])(implicit order : TermOrder) : List[Plugin.Action] = {
-  def splitDiseq(disequality : LinearCombination, cutPoints : List[Int], goal : Goal)(implicit order : TermOrder) : List[Plugin.Action] = {
+
+  def splitDiseq(disequality : LinearCombination, cutPoints : List[Int], goal : Goal)
+    (implicit order : TermOrder) : List[Plugin.Action] = {
+    import TerForConvenience._
 
     def split(c1 : Term, c2 : Term) : List[Plugin.Action] = {
-      import TerForConvenience._
-      val upper1 = -(goal.facts.arithConj.inEqs.findLowerBound(LinearCombination(IdealInt.MINUS_ONE, c1, order)).get).intValue
-      val upper2 = -(goal.facts.arithConj.inEqs.findLowerBound(LinearCombination(IdealInt.MINUS_ONE, c2, order)).get).intValue
-      val upper = upper1.max(upper2)
-      val bits = (scala.math.log10(upper + 1.0)/scala.math.log10(2.0)).ceil.toInt
+      val upper = (List(c1,c2).map{
+        x => {
+          val lc = LinearCombination(IdealInt.MINUS_ONE, x, order)
+          -goal.facts.arithConj.inEqs.findLowerBound(lc).get
+        }}).max
+
+      val bits = upper.getHighestSetBit + 1
 
       val allPoints =
         (if (cutPoints.head != bits)
@@ -1890,159 +1850,46 @@ object ModuloArithmetic extends Theory {
       List(Plugin.AddAxiom(List(disequality =/= 0), finalConj, ModuloArithmetic.this))
     }
 
-    if (cutPoints.isEmpty)
-      return List()
-    // Two cases:
-    // -Constant and Integer
-    // -Constant and Constant
-    (disequality(0), disequality(1)) match {
-      // -Constant and Integer
+    if (cutPoints.isEmpty) {
+      List()
+    } else {
+      (disequality(0), disequality(1)) match {
+        // -Constant and Integer
         case ((IdealInt(1), t1), (c2,ap.terfor.OneTerm)) => {
-          import TerForConvenience._
-          val res =
-            split(t1, l(c2))
-          println(res)
-          res
-      //   val constant = t1.constants.head
-      //   val integer = -c2.intValue
-      //   // println("\t" + constant + " (" + constant.getClass + ") != " + integer + " (" + integer.getClass + ")")
-      //   // println("\tcutPoints: " + cutPoints.mkString(", "))
+          // TODO: Let's fix this case!
+          throw new Exception("Constant and integer disequality")
+          split(t1, l(c2))
+        }
 
-      //   val lower = goal.facts.arithConj.inEqs.findLowerBound(LinearCombination(IdealInt.ONE, constant, order)).get.intValue
-      //   val upper = -(goal.facts.arithConj.inEqs.findLowerBound(LinearCombination(IdealInt.MINUS_ONE, constant, order)).get).intValue
-      //   // println(constant)
-      //   // println("\tlower : "+ lower)
-      //   // println("\tupper : "+ upper)
-      //   val bits = (scala.math.log10(upper + 1.0)/scala.math.log10(2.0)).ceil.toInt - 1
-      //   // println("BITS: " + bits)
-      //   // !(extract(all, 0, 0) = extract(2, 0, 0) & extract(all, 1, 1) = extract(2, 1, 1))
-
-      //   val allPoints = bits :: (cutPoints.filter(_ <= bits))
-
-      //   var curPoint = allPoints.head
-      //   var iterPoints = allPoints.tail
-      //   var newExtracts = List() : List[Conjunction]
-
-
-      //   var variables = List() : List[VariableTerm]
-      //   var extracts = List() : List[Conjunction]
-
-      //   // println("POINTS: " + iterPoints.mkString(", "))
-      //   while (!iterPoints.isEmpty) {
-      //     val ub = curPoint
-      //     val lb = iterPoints.head
-      //     iterPoints = iterPoints.tail
-      //     curPoint = lb - 1
-
-      //     import TerForConvenience._
-      //     val v1 = v(variables.length)
-      //     variables = v1 :: variables          
-      //     val tmp1 : LinearCombination = l(v1)
-
-      //     val v2 = v(variables.length)
-      //     variables = v2 :: variables          
-      //     val tmp2 : LinearCombination = l(v2)          
-
-      //     // println((ub, lb))
-      //     val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(constant), tmp1), order)
-      //     val bv2 = Atom(_bv_extract, List(l(ub), l(lb), l(integer), tmp2), order)
-      //     newExtracts = conj(bv1 & bv2) :: newExtracts
-
-      //     // forall_n((bv1 & ... & bv4) --> !(v0 = v1 & v2 =v3))
-      //   }
-
-
-
-      //   // println(newExtracts.mkString(" & "))
-      //   // println(variables.mkString(", "))
-      //   val diseqs =
-      //     for (i <- variables.indices; j <- variables.indices; if i < j) yield {
-      //       import TerForConvenience._
-      //       variables(i) === variables(j)
-      //     }
-
-      //       import TerForConvenience._        
-      //   // val finalConj = conj(newExtracts) -> !conj(diseqs)
-      //   val finalConj = forall(variables.length, !(!conj(newExtracts) & conj(diseqs)))
-
-      //   // val finalConj = 
-      //   // forall r1, r2, r3, r4. extract(0, 0, all, r1) & extract(0, 0, 2, r2) extract(1, 1, all, r3) & extract(1, 1, 2, r4) -> r1 != r2 v r3 != r4
-      //  // (bv_extract(0, 0, all_1_0, _0) & bv_extract(0, 0, 2, _0)) & (bv_extract(1, 1, all_1_0, _0) & bv_extract(1, 1, 2, _0)) & (bv_extract(2, 2, all_1_0, _0) & bv_extract(2, 2, 2, _0))
-
-
-      // // Plugin.RemoveFacts(!conj(disequality === 0)) ::
-      // // (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), c, ModuloArithmetic.this))
-      //   List(Plugin.AddAxiom(List(disequality =/= 0), finalConj, ModuloArithmetic.this))
-      //   throw new Exception("Split case 1")
-      }
-
-      // -Constant and Constant
+        // -Constant and Constant
         case ((IdealInt(1), t1), (IdealInt(-1), t2)) => {
           val (c1, c2) = (t1.constants.head, t2.constants.head)
           split(c1, c2)
-      }
+        }
 
-      case _ => {
-        throw new Exception("Unmatched types: " + (disequality(0).getClass, disequality(1).getClass))
+        case _ => {
+          throw new Exception("Unmatched types: " + (disequality(0).getClass, disequality(1).getClass))
+        }
       }
     }
-
-    // val List(upper, lower) =
-    //   List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-    // val (t1, t2) = (extract(2), extract(3))
-
-    // var filterCutPoints = cutPoints.filter(x => x >= lower && x < upper)
-
-    // if (filterCutPoints.length > 1) {
-
-    //   var curPoint = upper
-    //   var newExtracts = List() : List[Conjunction]
-
-    //   while (!filterCutPoints.isEmpty) {
-    //     val ub = curPoint
-    //     val lb = filterCutPoints.head
-    //     filterCutPoints = filterCutPoints.tail
-    //     curPoint = lb - 1
-
-    //     import TerForConvenience._
-    //     val tmp : LinearCombination = l(v(0))
-
-    //     val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(t1), tmp), order)
-    //     val bv2 = Atom(_bv_extract, List(l(ub-lower), l(lb-lower), l(t2), tmp), order)
-    //     newExtracts = exists(bv1 & bv2) :: newExtracts
-    //     // bv1 bv2 bv3 bv4
-    //     // forall_n((bv1 & ... & bv4) --> !(v0 = v1 & v2 =v3))
-    //     // newExtracts = exists(bv1 & bv2) :: newExtracts         ;
-    //   }
-
-    //   import TerForConvenience._
-    //   Plugin.RemoveFacts(extract) ::
-    //   (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), c, ModuloArithmetic.this))
-    // } else {
-    //   List()
-    // }
-    // throw new Exception("splitDiseq")
   }  
 
 
-
-  // def splitExtractActions(extracts : Seq[Atom], partitions : Map[Term, List[(Int, Int)]])(implicit order : TermOrder) : Seq[Plugin.Action] = {
-
-  def splitExtractActions(extracts : Seq[Atom], partitions : Map[Term, List[Int]], goal : Goal)(implicit order : TermOrder) : Seq[Plugin.Action] = {
+  def splitExtractActions(extracts : Seq[Atom], partitions : Map[Term, List[Int]], goal : Goal)
+    (implicit order : TermOrder) : Seq[Plugin.Action] = {
     (for (ex <- extracts) yield {
-      // println("\t" + ex)
-      val parts = partitions(ex(2).constants.head)
-      // println("\t" + parts)
-      splitExtract(ex, parts)
+      splitExtract(ex, partitions(ex(2).constants.head))
     }).flatten
   }
 
 
-  def splitDisequalityActions(disequalities : Seq[LinearCombination], partitions : Map[Term, List[Int]], goal : Goal)(implicit order : TermOrder) : Seq[Plugin.Action] = {
+  def splitDisequalityActions(disequalities : Seq[LinearCombination],
+    partitions : Map[Term, List[Int]], goal : Goal)
+    (implicit order : TermOrder) : Seq[Plugin.Action] = {
     (for (diseq <- disequalities) yield {
-      val lc = diseq(0)._2
-      if (partitions contains lc) {
-        val parts = partitions(lc)
+      val lhs = diseq(0)._2
+      if (partitions contains lhs) {
+        val parts = partitions(lhs)
         splitDiseq(diseq, parts, goal)
       } else {
         List()
@@ -2140,47 +1987,66 @@ object ModuloArithmetic extends Theory {
     }
   }
 
-  def handleConstantExtracts(extracts : Seq[Atom])(implicit order : TermOrder) : List[Plugin.Action] = {
+  def handleConstantExtracts(extracts : Seq[Atom])
+    (implicit order : TermOrder) : List[Plugin.Action] = {
     import TerForConvenience._
     val constantExtracts = extracts.filter(_(2).isConstant).toList
 
     (for (ex <- constantExtracts) yield {
-      val lhs = ex(2).asInstanceOf[LinearCombination]
-      val rhs = ex(3).asInstanceOf[LinearCombination]
+      val List(lhs, rhs) = List(ex(2), ex(3)).map(_.asInstanceOf[LinearCombination])
       val List(ub, lb) =
         List(ex(0), ex(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
       val newConstant = (lhs.constant % pow2(ub+1)) / pow2(lb)
-
       val newEquation =
         if (rhs.constants.size == 0) {
           // This means a constant right hand side as well!
           ap.terfor.equations.EquationConj((newConstant - rhs), order)
         } else {
-          ap.terfor.equations.EquationConj(LinearCombination(IdealInt.ONE, rhs.constants.head, -newConstant, order), order)
+          val lc = LinearCombination(IdealInt.ONE, rhs.constants.head, -newConstant, order)
+          ap.terfor.equations.EquationConj(lc, order)
         }
       List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(newEquation), ModuloArithmetic.this))
     }).flatten
   }
 
 
-  def handleNegativeInequality(lc : LinearCombination, lhs : ConstantTerm, rhs : IdealInt)(implicit order : TermOrder) : List[Plugin.Action] = {
-    println("HANDLE NEGATIVE INEQUALITIES")
-    // CURRENTLY WE TRANSLATE EVERYTHING TO BIT-VECTORS...
-    // CAN WE JUST TAKE ANY UPPER BOUND?
-    // RIGHT NOW HAVE LHS == x and RHS == integer
+  def printBVgoal(goal : Goal) = {
 
-    import TerForConvenience._
-    val lb = 0
-    val ub = (scala.math.log10(9)/scala.math.log10(2.0)).ceil.toInt      
-    val newExtract = Atom(_bv_extract, List(l(ub), l(lb), l(rhs), l(lhs)), order)
-    val negExtract = !conj(newExtract)
+    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+    val diseqs = goal.facts.arithConj.negativeEqs.filter(_.size == 2)
 
-    // PROBLEM    
-    val form : Conjunction = (lc =/= 0)
-    List(Plugin.RemoveFacts(form), Plugin.AddAxiom(List(form), negExtract, ModuloArithmetic.this))
+    println("HandleGoal")
+    println(goal)
+    if (!goal.facts.predConj.positiveLits.filterNot(_.pred.name == "bv_extract").isEmpty) {
+      println("+--------------------------PREDCONJ----------------------+")
+      for (f <- goal.facts.predConj.positiveLits.filterNot(_.pred.name == "bv_extract"))
+        println("|\t" + f)
+    }
+
+    if (!goal.facts.arithConj.positiveEqs.isEmpty || !goal.facts.arithConj.negativeEqs.isEmpty) {
+      println("+-------------------------ARITHCONJ----------------------+")
+      for (f <- goal.facts.arithConj.positiveEqs)
+        println("|\t" + f)
+      println("+       ------------------ negated ---------------       +")
+      for (f <- goal.facts.arithConj.negativeEqs)
+        println("|\t" + f)
+    }
+
+    if (!extracts.isEmpty) {
+      println("+--------------------BVEXTRACTS--------------------------+")
+      for (ex <- extracts) {
+        println("|\t" + ex)
+      }
+    }
+
+    if (!diseqs.isEmpty) {
+      println("+----------------------DISEQS---------------------------+")
+      for (diseq <- diseqs) {
+        println("|\t" + diseq)
+      }
+    }
+    println("+-------------------------------------------------------+")
   }
-
-
   //////////////////////////////////////////////////////////////////////////////  
 
   override val dependencies : Iterable[Theory] = List(MultTheory)
@@ -2190,54 +2056,15 @@ object ModuloArithmetic extends Theory {
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      // counter += 1
-      // println("COUNTER:" + counter)
-      // if (counter > 10) {
-      //   println(debugs.mkString("\n"))
-      //   throw new Exception("counter max")
-      // }
-
       implicit val _ = goal.order
       import TerForConvenience._
 
-      // check if we can use extract partitioning
-      val extracts = goal.facts.predConj.positiveLits.filter(_.pred.name == "bv_extract")
+      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
       val diseqs = goal.facts.arithConj.negativeEqs.filter(_.size == 2)
 
       if (debug) {
-        println("HandleGoal")
-        println(goal)
-        if (!goal.facts.predConj.positiveLits.filterNot(_.pred.name == "bv_extract").isEmpty) {
-          println("+--------------------------PREDCONJ----------------------+")
-          for (f <- goal.facts.predConj.positiveLits.filterNot(_.pred.name == "bv_extract"))
-            println("|\t" + f)
-        }
-
-        if (!goal.facts.arithConj.positiveEqs.isEmpty || !goal.facts.arithConj.negativeEqs.isEmpty) {
-          println("+-------------------------ARITHCONJ----------------------+")
-          for (f <- goal.facts.arithConj.positiveEqs)
-            println("|\t" + f)
-          println("+       ------------------ negated ---------------       +")
-          for (f <- goal.facts.arithConj.negativeEqs)
-            println("|\t" + f)
-        }
-
-        if (!extracts.isEmpty) {
-          println("+--------------------BVEXTRACTS--------------------------+")
-          for (ex <- extracts) {
-            println("|\t" + ex)
-          }
-        }
-
-        if (!diseqs.isEmpty) {
-          println("+----------------------DISEQS---------------------------+")
-          for (diseq <- diseqs) {
-            println("|\t" + diseq)
-          }
-        }
-        println("+-------------------------------------------------------+")        
+        printBVgoal(goal)
       }
-
 
       val negExtract = negExtractPreds(goal)
       if (!negExtract.isEmpty) {
@@ -2269,7 +2096,7 @@ object ModuloArithmetic extends Theory {
         return constantExtractActions
       }
 
-      val partitions = partitionExtracts(extracts, diseqs)
+      val partitions = partition(extracts, diseqs)
 
       if (!partitions.isEmpty) {
         if (debug) {
@@ -2312,49 +2139,7 @@ object ModuloArithmetic extends Theory {
         return msc
       }
 
-      // var equations = List() : List[(Term, Term)]
-      // val negEqActions = 
-      //   (for (eq <- goal.facts.arithConj.negativeEqs) yield {
-      //     println("eq: " + eq)
-      //     if (eq.length == 2) {
-      //       val (c1, t1) = eq(0)
-      //       val (c2, t2) = eq(1)
-      //       val action : List[Plugin.Action] =
-      //         (c1, t1, c2, t2) match {
-      //           case (IdealInt(1), ct : ConstantTerm, c2, ap.terfor.OneTerm) =>
-      //             handleNegativeInequality(eq, ct, c2)
-      //           case _ => {
-      //             println("<<<")
-      //             println("\t" + c1 + " (" + c1.getClass + ")")
-      //             println("\t" + t1 + " (" + t1.getClass + ")")
-      //             println("\t" + c2 + " (" + c2.getClass + ")")
-      //             println("\t" + t2 + " (" + t2.getClass + ")")
-      //             throw new Exception("Unhandled Negative Equation")
-      //             // if (c1.isOne && (t1.constants.size == 1) && (t2 == ap.terfor.OneTerm))
-      //             //   handleNegativeInequality(t1, c2)
-      //           }
-      //         }
-
-      //       println("\t" + action)
-      //       action
-      //     } else {
-      //       throw new Exception("Problematic equation : " + eq)
-      //     }
-      //   }).flatten
-
-      // if (!negEqActions.isEmpty) {
-      //   if (debug) {
-      //     println("Converting negative equations")
-      //     for (a <- negEqActions) {
-      //       println("\t" + a)
-      //     }
-      //   }
-      //   return negEqActions
-      // }
-
-
       if ((goalState(goal) == Plugin.GoalState.Final) && (!extracts.isEmpty)) {
-        // throw new Exception("TO ARITHMETIC!")
         val arithActions =
           (for (ex <- extracts) yield
             extractToArithmetic(ex)).flatten
