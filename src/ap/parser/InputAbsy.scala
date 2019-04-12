@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -863,8 +863,14 @@ object IExpression {
     def +++(that : Seq[ITerm]) : Seq[ITerm] = for (t <- that) yield (term + t)
     def ---(that : Seq[ITerm]) : Seq[ITerm] = for (t <- that) yield (term - t)
   
-    // component-wise disequation on vectors
-    def =/=(that : Seq[ITerm]) = and(for (t <- that.iterator) yield (term =/= t))
+    /** Disequation of vectors (vectors differ in at least one component) */
+    def =/=(that : Seq[ITerm]) =
+      or(for (t <- that.iterator) yield (term =/= t))
+
+    /** Component-wise disequation of vectors
+     * (all components of the vector are different from a term) */
+    def =/=/=(that : Seq[ITerm]) =
+      and(for (t <- that.iterator) yield (term =/= t))
   }
 
   /**
@@ -906,10 +912,20 @@ object IExpression {
     def <(that : Seq[ITerm]) = and((that --- terms --- 1) map (geqZero(_)))
     def <(that : ITerm) = and((that --- terms --- 1) map (geqZero(_)))
 
-    // component-wise disequation on vectors
+    /** Negated equation between two vectors */
     def =/=(that : Seq[ITerm]) =
-      and(for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 =/= t2))
+      or(for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 =/= t2))
+    /** Negated equation a vector and a term */
     def =/=(that : ITerm) =
+      or(for (t <- terms.iterator) yield (t =/= that))
+
+    /** Component-wise disequation of vectors
+     * (all components of the vectors are different) */
+    def =/=/=(that : Seq[ITerm]) =
+      and(for ((t1, t2) <- terms.iterator zip that.iterator) yield (t1 =/= t2))
+    /** Component-wise disequation of vectors
+     * (all components of the vectors are different) */
+    def =/=/=(that : ITerm) =
       and(for (t <- terms.iterator) yield (t =/= that))
   }
   

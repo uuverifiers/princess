@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -267,9 +267,14 @@ class RichLinearCombination(lc : LinearCombination, order : TermOrder) {
   def <(that : Seq[Term]) = InEqConj(that --- lc --- 1, order)
 
   def =/=(that : Term) = NegEquationConj(lc - that, order)
+  /** Disequation of vectors (vector differs in at least one component) */
+  def =/=(that : Seq[Term]) =
+    Conjunction.negate(EquationConj(this --- that, order), order)
 
-  // component-wise disequation on vectors
-  def =/=(that : Seq[Term]) = NegEquationConj(this --- that, order)
+  /** Component-wise disequation of vectors
+    * (all components of the vector are different from a linear combination) */
+  def =/=/=(that : Seq[Term]) =
+    NegEquationConj(this --- that, order)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -295,13 +300,16 @@ class RichLinearCombinationSeq(lcs : Seq[LinearCombination], order : TermOrder) 
   def ***(that : Term) : Seq[LinearCombination] =
     for (lc <- lcs) yield (lc * that)
   
-  // the dot-product
+  /** The dot-product of two vectors */
   def *:*(that : Seq[Term]) : LinearCombination =
     lcSum(for ((lc1, lc2) <- lcs.iterator zip that.iterator) yield (lc1 * lc2))
 
   def unary_- : Seq[LinearCombination] =
     for (lc <- lcs) yield -lc
+
+  /** Equation of two vectors */
   def ===(that : Seq[Term]) = EquationConj(this --- that, order)
+  /** Component-wise equation */
   def ===(that : Term) = EquationConj(this --- that, order)
   def >=(that : Seq[Term]) = InEqConj(this --- that, order)
   def >=(that : Term) = InEqConj(this --- that, order)
@@ -312,9 +320,21 @@ class RichLinearCombinationSeq(lcs : Seq[LinearCombination], order : TermOrder) 
   def <(that : Seq[Term]) = InEqConj(that --- lcs --- 1, order)
   def <(that : Term) = InEqConj(that --- lcs --- 1, order)
 
-  // component-wise disequation on vectors
-  def =/=(that : Seq[Term]) = NegEquationConj(this --- that, order)
-  def =/=(that : Term) = NegEquationConj(this --- that, order)
+  /** Disequation of vectors (vectors differ in at least one component) */
+  def =/=(that : Seq[Term]) =
+    Conjunction.negate(EquationConj(this --- that, order), order)
+  /** Disequation of vectors (vector differs in at least one component) */
+  def =/=(that : Term) =
+    Conjunction.negate(EquationConj(this --- that, order), order)
+
+  /** Component-wise disequation of vectors
+    * (all components of the vectors are different) */
+  def =/=/=(that : Seq[Term]) =
+    NegEquationConj(this --- that, order)
+  /** Component-wise disequation of vectors
+    * (all components of the vectors are different) */
+  def =/=/=(that : Term) =
+    NegEquationConj(this --- that, order)
 }
 
 
