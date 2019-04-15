@@ -2,7 +2,7 @@
 -- arithmetic with uninterpreted predicates.
 -- <http://www.philipp.ruemmer.org/princess.shtml>
 --
--- Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+-- Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
 --
 -- Princess is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Lesser General Public License as published by
@@ -69,6 +69,7 @@ ExprMinus.	Expression7	::= Expression7 "-" Expression8;
 ExprMult.	Expression8	::= Expression8 "*" Expression9;
 ExprDiv.	Expression8	::= Expression8 "/" Expression9;
 ExprMod.	Expression8	::= Expression8 "%" Expression9;
+ExprConcat.	Expression8	::= Expression8 "++" Expression9;
 ExprCast.	Expression9	::= "\\as" "[" Type "]" Expression9;
 ExprUnPlus.	Expression9	::= "+" Expression10;
 ExprUnMinus.	Expression9	::= "-" Expression10;
@@ -86,6 +87,8 @@ ExprDotAttr.    Expression11    ::= Expression11 "." Ident;
 ExprDotCast.	Expression11	::= Expression11 "." "\\as" "[" Type "]" ;
 ExprDotSize.	Expression11	::= Expression11 "." "\\size";
 ExprDotAbs.	Expression11	::= Expression11 "." "\\abs";
+ExprBracket.	Expression11	::= Expression11 "[" Expression "]";
+ExprBitRange.	Expression11	::= Expression11 "[" IntLit ":" IntLit "]";
 ExprTrue.	Expression11	::= "true";
 ExprFalse.	Expression11	::= "false";
 ExprLit.	Expression11	::= IntLit;

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -769,6 +769,20 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       translateNumUnTerConnective("+", t.expression_, (lc) => lc)
     case t : ExprUnMinus =>
       translateNumUnTerConnective("-", t.expression_, - _)
+    case t : ExprConcat =>
+      (translateExpression(t.expression_1),
+       translateExpression(t.expression_2)) match {
+        case ((left : ITerm,
+                 ModuloArithmetic.UnsignedBVSort(leftBits)),
+              (right : ITerm,
+                 ModuloArithmetic.UnsignedBVSort(rightBits))) =>
+            (ModuloArithmetic.bv_concat(leftBits, rightBits, left, right),
+             ModuloArithmetic.UnsignedBVSort(leftBits + rightBits))
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Concatenation ++ can only be applied to unsigned bit-vector " +
+            "expressions")
+      }
     case t : ExprExp =>
       wrapResult(translateBinTerConnective("^", t.expression_1, t.expression_2,
                                            mulTheory.pow _, powSortCoercion _))
@@ -806,6 +820,32 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       translateSize(t.expression_)
     case t : ExprDotSize =>
       translateSize(t.expression_)
+    case t : ExprBracket =>
+      (translateExpression(t.expression_1),
+       translateExpression(t.expression_2)) match {
+        case ((left : ITerm, _ : ModuloArithmetic.ModSort | Sort.Numeric(_)),
+              (IIntLit(IdealInt(bit)), _)) if bit >= 0 =>
+            (1 - ModuloArithmetic.extract(bit, bit, left),
+             Sort.MultipleValueBool)
+        case ((left, _), (right, _)) =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Cannot extract bit " + right + " of " + left)
+      }
+    case t : ExprBitRange =>
+      translateExpression(t.expression_) match {
+        case (left : ITerm, _ : ModuloArithmetic.ModSort | Sort.Numeric(_)) => {
+          val begin = t.intlit_1.toInt
+          val end   = t.intlit_2.toInt
+          if (!(begin >= end && end >= 0))
+            throw new Parser2InputAbsy.TranslationException(
+              "Cannot extracts bits " + begin + ":" + end + " of " + left)
+          (ModuloArithmetic.extract(begin, end, left),
+           ModuloArithmetic.UnsignedBVSort(begin - end + 1))
+        }
+        case (left, _) =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Cannot extracts any bits from " + left)
+      }
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)
     case t : ExprIfThenElse => {

@@ -33,6 +33,9 @@ TESTS="existential.pri \
        bench_977e.smt2 \
        rewriting_cycle.pri \
        nested_casts.pri \
-       Primes_true-unreach-call.c_2207.smt2"
+       Primes_true-unreach-call.c_2207.smt2 \
+       simple-extracts.pri \
+       simple-concat.pri \
+       simple-concat2.pri"
 
 $PRI "$@" $TESTS
