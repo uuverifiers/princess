@@ -1,11 +1,8 @@
 (set-info :smt-lib-version 2.6)
 (set-logic QF_BV)
 (set-info :status unsat)
-(declare-fun x () (_ BitVec 32))
-(declare-fun y () (_ BitVec 32))
-(assert
 
-;;; PART1
+; ; PART1
 ; (declare-fun a () (_ BitVec 2))
 ; (declare-fun b () (_ BitVec 2))
 
@@ -37,37 +34,45 @@
 ; )
 ; )
 
-    (and
+
+(declare-fun x () (_ BitVec 32))
+(declare-fun y () (_ BitVec 32))
+
+(assert
+
+
+
+ ;    (and
+;         (=
+;           ((_ extract 2 0) x)
+;           ((_ extract 2 0) y)
+;         )
+
+;       (not
+;         (=
+;           ((_ extract 1 1) x)
+;           ((_ extract 1 1) y)
+;         )
+;       )
+;     )  
+; )
+
+  (not
+    (or
+      (not
         (=
           ((_ extract 2 0) x)
           ((_ extract 2 0) y)
         )
+      )
 
-      (not
+      (and
         (=
           ((_ extract 1 1) x)
           ((_ extract 1 1) y)
         )
       )
     )  
-
-
-  ; (not
-  ;   (or
-  ;     (not
-  ;       (=
-  ;         ((_ extract 2 0) x)
-  ;         ((_ extract 2 0) y)
-  ;       )
-  ;     )
-
-  ;     (and
-  ;       (=
-  ;         ((_ extract 1 1) x)
-  ;         ((_ extract 1 1) y)
-  ;       )
-  ;     )
-  ;   )  
-  ; )
-)
+  )
+  )
 (check-sat)
