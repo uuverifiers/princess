@@ -1673,11 +1673,7 @@ object ModuloArithmetic extends Theory {
     }
 
     var changed = true
-    var count = 0
     while (changed) {
-      count += 1
-      if (count > 10)
-        throw new Exception("..")
       changed = false
       for (ex <- extracts) {
         if (propagateExtract(ex, cutPoints)) {
