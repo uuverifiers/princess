@@ -1593,8 +1593,8 @@ object ModuloArithmetic extends Theory {
 
   // This propagates all cut-points from lhs <-> rhs in extract
   // TODO: Do we need to fix for broken extracts, i.e. extract(1, 1, x, x)...
+
   def propagateExtract(extract : Atom, cutPoints : MMap[Term, Set[Int]]) : Boolean = {
-    // println("propEx(" + extract + ")")
     if (extract(2).constants.isEmpty || extract(3).constants.isEmpty) {
       false
     } else {
@@ -1607,19 +1607,11 @@ object ModuloArithmetic extends Theory {
       val List(ub, lb) =
         List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
 
-      // println("\tt1: " + t1)
-      // println("\t\t" + cut1)
-      // println("\tt2: " + t2)
-      // println("\t\t2: " + cut2)
-
-
       /// T1 ===> T2
-      val t1transformed = Set(0, ub - lb) ++ cut1.map(_ - lb).filter(c => c > 0 && c < (ub - lb))
+      val t1transformed = Set(ub - lb + 1, 0) ++ cut1.map(_ - lb).filter(c => c > 0 && c < (ub - lb + 1))
 
       if (!(t1transformed subsetOf cut2)) {
         cutPoints += t2 -> (cut2 ++ t1transformed)
-        // println("\t" + t1 + "transformed: " + t1transformed.mkString(", "))
-        // println("\t\tChanged!")
         changed = true
       }
 
@@ -1628,8 +1620,6 @@ object ModuloArithmetic extends Theory {
 
       if (!(t2transformed subsetOf cut1)) {
         cutPoints += t1 -> (cut1 ++ t2transformed)
-        // println("\t" + t2 + "transformed: " + t2transformed.mkString(", "))
-        // println("\t\tChanged!")
         changed = true
       }
 
@@ -1692,20 +1682,15 @@ object ModuloArithmetic extends Theory {
       count += 1
       if (count > 10)
         throw new Exception("..")
-      // println("CUT-POINTS!")
-      // for ((k, v) <- cutPoints)
-      //   println("\t" + k + " -> " + v.mkString(", "))
       changed = false
       for (ex <- extracts) {
         if (propagateExtract(ex, cutPoints)) {
-          // println("propEx")
           changed = true
         }
       }
 
       for (diseq <- disequalities) {
         if (propagateDisequality(diseq, cutPoints)) {
-          // println("propDiseq")
           changed = true
         }
       }
@@ -1714,6 +1699,13 @@ object ModuloArithmetic extends Theory {
     cutPoints.map{case (k,v) => k ->v. toList.sorted.reverse}.toMap
   }
 
+
+  ///////////////////////////
+  //
+  // EXTRACT (and Diseq) SPLIT FUNCTIONS
+  //
+  //
+  //
   // PRE-CONDITION: parts must have been created using extract (i.e., we can't have
   // extract(1,3) and parts being (0,2) ^ (2,4), but parts should be (0,1) ^ (1,2) ^ (2,3) ^ (3,4)
   def splitExtract(extract : Atom, cutPoints : List[Int])
@@ -1736,10 +1728,10 @@ object ModuloArithmetic extends Theory {
         filterCutPoints = filterCutPoints.tail
         curPoint = lb - 1
 
-        val bv1 = !conj(Atom(_bv_extract, List(l(ub), l(lb), l(t1), l(v(0))), order))
-        val bv2 = !conj(Atom(_bv_extract, List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order))
-        val domain = !conj(l(v(0)) >= 0 & l(v(0)) < pow2(ub-lb+1))
-        newExtracts = exists(!conj(bv1,bv2,domain)) :: newExtracts
+        val bv1 = conj(Atom(_bv_extract, List(l(ub),       l(lb),       l(t1), l(v(0))), order))
+        val bv2 = conj(Atom(_bv_extract, List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order))
+        val domain = conj(l(v(0)) >= 0 & l(v(0)) < pow2(ub-lb+1))
+        newExtracts = forall(!conj(bv1,bv2,domain)) :: newExtracts
       }
       Plugin.RemoveFacts(extract) ::
       (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), !c, ModuloArithmetic.this))
@@ -1750,7 +1742,6 @@ object ModuloArithmetic extends Theory {
 
   def splitDiseq(disequality : LinearCombination, cutPoints : List[Int], goal : Goal)
     (implicit order : TermOrder) : List[Plugin.Action] = {
-    // println("splitDiseq(" + disequality + ")")
     import TerForConvenience._
 
     // Make sure c1 != c2 according to cutPoints
@@ -1760,15 +1751,10 @@ object ModuloArithmetic extends Theory {
           val lc = LinearCombination(IdealInt.MINUS_ONE, x, order)
           goal.facts.arithConj.inEqs.findLowerBound(lc) match {
             case Some(b) => -b
+            case None => IdealInt(0)
           }
         }})
 
-      // println("Upper Bounds")
-      // println("\t" + c1)
-      // println("\t\t" + upperBounds(0))
-      // println("\t" + c2)
-      // println("\t\t" + upperBounds(1))      
-      // assert(upperBounds(0) == upperBounds(1))
       // TODO: Can equality between bit-vectors of diff size be equal?
       val upper = upperBounds.max
 
@@ -1785,6 +1771,9 @@ object ModuloArithmetic extends Theory {
       var newExtracts = List() : List[Conjunction]
       var variables = List() : List[(VariableTerm, Int)]
 
+      if (iterPoints.length == 1)
+        return List()
+
       while (!iterPoints.isEmpty) {
         val (ub, lb) = (curPoint, iterPoints.head)
         val bitLength = ub - lb + 1
@@ -1800,22 +1789,41 @@ object ModuloArithmetic extends Theory {
 
         val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(c1), tmp1), order)
         val bv2 = Atom(_bv_extract, List(l(ub), l(lb), l(c2), tmp2), order)
-        // println("\tRES: " + (conj(bv1 & bv2)))
+
         newExtracts = conj(bv1 & bv2) :: newExtracts
+
+        // val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(c1), tmp), order)
+        // val bv2 = Atom(_bv_extract, List(l(ub), l(lb), l(c2), tmp), order)        
+        // // println("\tRES: " + (conj(bv1 & bv2)))
+        // val formula = conj(bv1) & bv2
+        // // println("formula: " + formula)
+        // val f2 = !conj(bv1) & bv2
+        // // println("f2: " + f2)
+        // val f3 = conj(!conj(bv1) & bv2)
+        // // println("f3: " + f3)
+        // newExtracts = f3 :: newExtracts
       }
 
       val diseqs =
         (for (List((v1, bl1), (v2, bl2)) <- variables.sliding(2,2)) yield {
           // TODO: Remove this if domains are not relevant
           assert(bl1 == bl2)
-          conj(v1 =/= v2)          
+          conj(v1 === v2)          
           // conj(v1 >= 0, v1 < pow2(bl1), v2 >= 0, v2 < pow2(bl2), v1 === v2)
-        }).toList
+        })
 
-      val finalConj = forall(variables.length, !(conj(newExtracts) & conj(diseqs)))
+      // val finalConj = forall(variables.length, !(conj(newExtracts) & !conj(diseqs)))
       // val finalConj = forall(variables.length, !conj(newExtracts))
+      // println("newextracts")
+      // println(newExtracts.mkString("\n"))
+      // val subFormula = !conj(newExtracts.map(!_))
+      val subFormula = conj(newExtracts) & !conj(diseqs)
+      // println(subFormula)
+      val finalConj = exists(variables.length, subFormula)
+      // println("FINAL CONJ: " + finalConj)
+      // println("!FINAL CONJ: " + (!finalConj))
       (Plugin.RemoveFacts(disequality =/= 0)) ::
-      List(Plugin.AddAxiom(List(disequality =/= 0), !finalConj, ModuloArithmetic.this))      
+      List(Plugin.AddAxiom(List(disequality =/= 0), finalConj, ModuloArithmetic.this))      
     }
 
     if (cutPoints.isEmpty) {
@@ -1932,7 +1940,7 @@ object ModuloArithmetic extends Theory {
 
     // println("\tpred: " + pred)
     val res = existsSorted(List(remSort), pred)
-    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
+    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), !res, ModuloArithmetic.this))
   }
 
   def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
@@ -2078,14 +2086,14 @@ object ModuloArithmetic extends Theory {
       val diseqs = goal.facts.arithConj.negativeEqs.filter(_.size == 2)
       val partitions = partition(extracts, diseqs)      
 
-      // if (!partitions.isEmpty) {
-      //   if (debug) {
-      //     println("<<Partitions>>")
-      //     for ((k, v) <- partitions){
-      //       println("\t" + k + " --> " + v)
-      //     }
-      //   }
-      // }
+      if (!partitions.isEmpty) {
+        if (debug) {
+          println("<<Partitions>>")
+          for ((k, v) <- partitions){
+            println("\t" + k + " --> " + v)
+          }
+        }
+      }
 
       val negExtract = negExtractPreds(goal)
       if (!negExtract.isEmpty) {

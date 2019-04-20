@@ -1,78 +1,18 @@
 (set-info :smt-lib-version 2.6)
 (set-logic QF_BV)
+(set-info :source |
+Hand-crafted bit-vector benchmarks.  Some are from the SVC benchmark suite.
+Contributed by Vijay Ganesh (vganesh@stanford.edu).  Translated into SMT-LIB
+format by Clark Barrett using CVC3.
+
+|)
+(set-info :category "crafted")
 (set-info :status unsat)
-
-; ; PART1
-; (declare-fun a () (_ BitVec 2))
-; (declare-fun b () (_ BitVec 2))
-
-; (assert
-; (and
-; (= ((_ extract 1 0) a) ((_ extract 1 0) b))
-; (not (= a b))
-; )
-; )
-
-; (declare-fun a () (_ BitVec 8))
-; (declare-fun b () (_ BitVec 8))
-; (declare-fun c () (_ BitVec 4))
-; (declare-fun d () (_ BitVec 4))
-; (assert
-; (and
-;   (not (= a b))
-;   ; (not (= c d))
-;   ; a[7:4] = c
-;   ; a[3:0] = d
-;   ;
-;   ; b[7:4] = c
-;   ; b[3:0] = d
-;   (= ((_ extract 7 4) a) c)
-;   (= ((_ extract 7 4) b) c)
-  
-;   (= ((_ extract 3 0) a) d)
-;   (= ((_ extract 3 0) b) d)    
-; )
-; )
-
-
-(declare-fun x () (_ BitVec 32))
-(declare-fun y () (_ BitVec 32))
-
-(assert
-
-
-
- ;    (and
-;         (=
-;           ((_ extract 2 0) x)
-;           ((_ extract 2 0) y)
-;         )
-
-;       (not
-;         (=
-;           ((_ extract 1 1) x)
-;           ((_ extract 1 1) y)
-;         )
-;       )
-;     )  
-; )
-
-  (not
-    (or
-      (not
-        (=
-          ((_ extract 2 0) x)
-          ((_ extract 2 0) y)
-        )
-      )
-
-      (and
-        (=
-          ((_ extract 1 1) x)
-          ((_ extract 1 1) y)
-        )
-      )
-    )  
-  )
-  )
+(declare-fun a () (_ BitVec 3))
+(declare-fun b () (_ BitVec 3))
+(declare-fun x () (_ BitVec 4))
+(declare-fun y () (_ BitVec 4))
+(declare-fun z () (_ BitVec 2))
+(assert (let ((?v_0 (= x y)) (?v_2 (concat (_ bv0 1) x))) (let ((?v_1 (bvadd ?v_2 (concat (_ bv0 1) y)))) (not (and (and (and (= ((_ extract 1 1) (bvnot (concat (_ bv0 1) ((_ extract 3 3) (bvadd (concat (_ bv0 1) a) (concat (_ bv0 1) b)))))) (_ bv1 1)) (=> ?v_0 (= ((_ extract 4 4) ?v_1) ((_ extract 3 3) x)))) (=> ?v_0 (= ?v_1 (bvmul (_ bv2 5) ?v_2)))) (= ((_ extract 3 3) (bvadd (_ bv7 4) (concat (_ bv0 1) (concat z (_ bv1 1))))) (_ bv1 1)))))))
 (check-sat)
+(exit)
