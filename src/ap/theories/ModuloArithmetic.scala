@@ -55,12 +55,7 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
 object ModuloArithmetic extends Theory {
 
   // TODO: Options for debugging, remove before placing on trunk
-  val debug = true
-  val DIRECT_ARITHMETIC = false
-
-  if (DIRECT_ARITHMETIC) {
-    println("WARNING: DIRECT encoding to ARITHMETIC")
-  }
+  val debug = false
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
@@ -1051,6 +1046,7 @@ object ModuloArithmetic extends Theory {
           (subres.last * IdealInt.MINUS_ONE).modCastPow2(bits, ctxt)
 
         case IFunApp(`bv_add`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          println("WARNING: bv_add not fully supported?")
           (subres(1) + subres(2)).modCastPow2(bits, ctxt)
         }
         case IFunApp(`bv_sub`, Seq(IIntLit(IdealInt(bits)), _*)) =>
@@ -1783,25 +1779,11 @@ object ModuloArithmetic extends Theory {
         val (v1, v2) = (v(variables.length), v(variables.length+1))
         variables = (v2, bitLength) :: (v1, bitLength) :: variables
         val (tmp1, tmp2) = (l(v1), l(v2))
-        // val v1 = v(variables.length)
-        // variables = (v1, bitLength) :: variables                
-        // val tmp = l(v1)
 
         val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(c1), tmp1), order)
         val bv2 = Atom(_bv_extract, List(l(ub), l(lb), l(c2), tmp2), order)
 
         newExtracts = conj(bv1 & bv2) :: newExtracts
-
-        // val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(c1), tmp), order)
-        // val bv2 = Atom(_bv_extract, List(l(ub), l(lb), l(c2), tmp), order)        
-        // // println("\tRES: " + (conj(bv1 & bv2)))
-        // val formula = conj(bv1) & bv2
-        // // println("formula: " + formula)
-        // val f2 = !conj(bv1) & bv2
-        // // println("f2: " + f2)
-        // val f3 = conj(!conj(bv1) & bv2)
-        // // println("f3: " + f3)
-        // newExtracts = f3 :: newExtracts
       }
 
       val diseqs =
@@ -1812,16 +1794,8 @@ object ModuloArithmetic extends Theory {
           // conj(v1 >= 0, v1 < pow2(bl1), v2 >= 0, v2 < pow2(bl2), v1 === v2)
         })
 
-      // val finalConj = forall(variables.length, !(conj(newExtracts) & !conj(diseqs)))
-      // val finalConj = forall(variables.length, !conj(newExtracts))
-      // println("newextracts")
-      // println(newExtracts.mkString("\n"))
-      // val subFormula = !conj(newExtracts.map(!_))
       val subFormula = conj(newExtracts) & !conj(diseqs)
-      // println(subFormula)
       val finalConj = exists(variables.length, subFormula)
-      // println("FINAL CONJ: " + finalConj)
-      // println("!FINAL CONJ: " + (!finalConj))
       (Plugin.RemoveFacts(disequality =/= 0)) ::
       List(Plugin.AddAxiom(List(disequality =/= 0), finalConj, ModuloArithmetic.this))      
     }
@@ -1839,7 +1813,6 @@ object ModuloArithmetic extends Theory {
         case ((IdealInt(1), t1), (IdealInt(-1), t2)) => {
           val (c1, c2) = (t1.constants.head, t2.constants.head)
           val res = split(c1, c2)
-          // println("res: " + res)
           res
         }
 
@@ -1864,12 +1837,9 @@ object ModuloArithmetic extends Theory {
     partitions : Map[Term, List[Int]], goal : Goal)
     (implicit order : TermOrder) : Seq[Plugin.Action] = {
     (for (diseq <- disequalities) yield {
-      // println("splitDiseq(" + diseq + ")")
       val lhs = diseq(0)._2
-      // println(diseq)
       if (partitions contains lhs) {
         val parts = partitions(lhs)
-        // println("\t" + parts)
         splitDiseq(diseq, parts, goal)
       } else {
         List()
@@ -1911,36 +1881,21 @@ object ModuloArithmetic extends Theory {
         //       Conjunction.negate(remSort membershipConstraint v(0),
         //         order))
         // }p    
-    // println("toArith(" + extract + ")")
     val ub =
       extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
     val lb =
       extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
 
-    // println("\tbits: " + (ub, lb))
     val castSort = UnsignedBVSort(ub+1)
     val remSort =  UnsignedBVSort(lb)
     val subst = VariableShiftSubst(0, 1, order)
 
-    // println("\tcastSort: " + castSort)
-    // println("\tremSort: " + remSort)
-
-
-    // for (a <- 
-    //   List(
-    //     l(0),
-    //     l(castSort.upper),
-    //     subst(extract(2)),
-    //     subst(extract(3))*remSort.modulus + v(0)
-    //   ))
-      // println("\t\t" + a)
     val pred = _mod_cast(List(l(0), l(castSort.upper),
       subst(extract(2)),
       subst(extract(3))*remSort.modulus + v(0)))
 
-    // println("\tpred: " + pred)
     val res = existsSorted(List(remSort), pred)
-    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), !res, ModuloArithmetic.this))
+    List(Plugin.RemoveFacts(extract), Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
   }
 
   def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
