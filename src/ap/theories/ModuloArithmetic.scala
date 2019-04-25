@@ -1035,10 +1035,11 @@ object ModuloArithmetic extends Theory {
           val resultDef = 
             and(for (i <- 0 until bits) yield{
               val ex1 = bv_extract(i, i, v(0))
-              val ex2 = (1 - bv_extract(i, i, v(1)))
+              val ex2 = 1 - bv_extract(i, i, v(1))
               (ex1 === ex2)
             })
-          val res = sort.eps(ex(v(0) == VariableShiftVisitor(subres(1).resTerm, 0, 1) & resultDef))
+
+          val res = sort.eps(ex(v(0) === VariableShiftVisitor(subres(1).resTerm, 0, 1) & resultDef))
           VisitorRes(res, IdealInt.ZERO, pow2(bits))
         }
 
@@ -1159,73 +1160,114 @@ object ModuloArithmetic extends Theory {
           val res =
             sort.eps(
               ex(ex((v(1) === VariableShiftVisitor(subres(1).resTerm, 0, 2) &
-                v(0) == VariableShiftVisitor(subres(2).resTerm, 0, 2) &
+                v(0) === VariableShiftVisitor(subres(2).resTerm, 0, 2) &
                 resultDef))))
+
           val ub = pow2(bits)
           VisitorRes(res, IdealInt.ZERO, ub)
         }
 
+
         case IFunApp(`bv_or`, Seq(IIntLit(IdealInt(bits)), _*)) => {
-          def oneConstant(arg : VisitorRes, pattern : IdealInt) : VisitorRes =
-            runlengths(pattern) match {
-              case Seq(_) => {
-                //-BEGIN-ASSERTION-/////////////////////////////////////////////
-                // Pattern must be constantly zero
-                Debug.assertInt(AC, pattern.isZero)
-                //-END-ASSERTION-///////////////////////////////////////////////
-                arg
-              }
-              case Seq(offset, length) if offset + length == bits => {
-                // pattern ending with a single block of ones
-                VisitorRes(
-                  bv_extract(offset-1, 0, arg.resTerm) + pattern,
-                  pattern, pow2MinusOne(bits))
-              }
-              
-              case preLens => {
-                // multiple blocks of zeros, handle using an epsilon term
-                val lens = completedRunlengths(preLens, bits)
+          val sort = UnsignedBVSort(bits)
+          val resultDef = 
+            and(for (i <- 0 until bits) yield{
+              val tmp = bv_extract(i, i, v(2))              
+              val lhs = bv_extract(i, i, v(1))
+              val rhs = bv_extract(i, i, v(0))
+              (tmp >= lhs) & (tmp >= rhs) & (tmp <= lhs + rhs) & (tmp <= 1)              
+            })
+          val res =
+            sort.eps(
+              ex(ex((v(1) === VariableShiftVisitor(subres(1).resTerm, 0, 2) &
+                v(0) === VariableShiftVisitor(subres(2).resTerm, 0, 2) &
+                resultDef))))
 
-                var offset : Int = 0
-                var bit = true
-
-                val resultDef =
-                  and(for (len <- lens) yield {
-                        bit = !bit
-                        if (len > 0) {
-                          offset = offset + len
-                          // bv_extract(bits - offset, len, offset - len, v(1)) ===
-                          bv_extract(offset-1, offset-len, v(1)) ===                      
-                          (if (bit)
-                             i(pow2MinusOne(len))
-                           else
-                             // bv_extract(bits - offset, len, offset - len, v(0)))
-                             bv_extract(offset-1, offset - len, v(0)))                      
-                        } else {
-                          i(true)
-                        }
-                      })
-                
-                val res =
-                  UnsignedBVSort(bits).eps(
-                    ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
-                       resultDef))
-
-                VisitorRes(res, pattern, pow2MinusOne(bits))
-              }
-            }
-
-          (subres(1).isConstant, subres(2).isConstant) match {
-            case (true, true) =>
-              VisitorRes(subres(1).lowerBound | subres(2).lowerBound)
-            case (true, false) =>
-              oneConstant(subres(2), subres(1).lowerBound)
-            case (false, true) =>
-              oneConstant(subres(1), subres(2).lowerBound)
-            case (false, false) =>
-              VisitorRes.update(t, subres)
-          }
+          val ub = pow2(bits)
+          VisitorRes(res, IdealInt.ZERO, ub)
         }
+
+
+        case IFunApp(`bv_xor`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+          val sort = UnsignedBVSort(bits)
+          val resultDef = 
+            and(for (i <- 0 until bits) yield{
+              val tmp = bv_extract(i, i, v(2))              
+              val lhs = bv_extract(i, i, v(1))
+              val rhs = bv_extract(i, i, v(0))
+              import TerForConvenience._
+              mod_cast(0, 1, lhs+rhs) === tmp
+            })
+          val res =
+            sort.eps(
+              ex(ex((v(1) === VariableShiftVisitor(subres(1).resTerm, 0, 2) &
+                v(0) === VariableShiftVisitor(subres(2).resTerm, 0, 2) &
+                resultDef))))
+          val ub = pow2(bits)
+          VisitorRes(res, IdealInt.ZERO, ub)          
+        }
+
+        // case IFunApp(`bv_or`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+        //   def oneConstant(arg : VisitorRes, pattern : IdealInt) : VisitorRes =
+        //     runlengths(pattern) match {
+        //       case Seq(_) => {
+        //         //-BEGIN-ASSERTION-/////////////////////////////////////////////
+        //         // Pattern must be constantly zero
+        //         Debug.assertInt(AC, pattern.isZero)
+        //         //-END-ASSERTION-///////////////////////////////////////////////
+        //         arg
+        //       }
+        //       case Seq(offset, length) if offset + length == bits => {
+        //         // pattern ending with a single block of ones
+        //         VisitorRes(
+        //           bv_extract(offset-1, 0, arg.resTerm) + pattern,
+        //           pattern, pow2MinusOne(bits))
+        //       }
+              
+        //       case preLens => {
+        //         // multiple blocks of zeros, handle using an epsilon term
+        //         val lens = completedRunlengths(preLens, bits)
+
+        //         var offset : Int = 0
+        //         var bit = true
+
+        //         val resultDef =
+        //           and(for (len <- lens) yield {
+        //                 bit = !bit
+        //                 if (len > 0) {
+        //                   offset = offset + len
+        //                   // bv_extract(bits - offset, len, offset - len, v(1)) ===
+        //                   bv_extract(offset-1, offset-len, v(1)) ===                      
+        //                   (if (bit)
+        //                      i(pow2MinusOne(len))
+        //                    else
+        //                      // bv_extract(bits - offset, len, offset - len, v(0)))
+        //                      bv_extract(offset-1, offset - len, v(0)))                      
+        //                 } else {
+        //                   i(true)
+        //                 }
+        //               })
+                
+        //         val res =
+        //           UnsignedBVSort(bits).eps(
+        //             ex(v(0) === VariableShiftVisitor(arg.resTerm, 0, 2) &
+        //                resultDef))
+
+        //         VisitorRes(res, pattern, pow2MinusOne(bits))
+        //       }
+        //     }
+
+        //   (subres(1).isConstant, subres(2).isConstant) match {
+        //     case (true, true) =>
+        //       VisitorRes(subres(1).lowerBound | subres(2).lowerBound)
+        //     case (true, false) =>
+        //       oneConstant(subres(2), subres(1).lowerBound)
+        //     case (false, true) =>
+        //       oneConstant(subres(1), subres(2).lowerBound)
+        //     case (false, false) =>
+        //       VisitorRes.update(t, subres)
+        //   }
+        // }
 
         ////////////////////////////////////////////////////////////////////////
 
@@ -1604,7 +1646,7 @@ object ModuloArithmetic extends Theory {
         List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
 
       /// T1 ===> T2
-      val t1transformed = Set(ub - lb + 1, 0) ++ cut1.map(_ - lb).filter(c => c > 0 && c < (ub - lb + 1))
+      val t1transformed = (Set(ub - lb + 1, 0) ++ cut1.map(_ - lb)).filter(c => c > 0 && c < (ub - lb + 1))
 
       if (!(t1transformed subsetOf cut2)) {
         cutPoints += t2 -> (cut2 ++ t1transformed)
@@ -1612,12 +1654,14 @@ object ModuloArithmetic extends Theory {
       }
 
       // propagate FROM t2 TO t1
-      val t2transformed = Set(ub + 1, lb) ++ (cut2.map(_ + lb).filter(c => c > lb && c <= ub + 1))
+      val t2transformed = (Set(ub + 1, lb) ++ (cut2.map(_ + lb)).filter(c => c > lb && c <= ub + 1))
 
       if (!(t2transformed subsetOf cut1)) {
         cutPoints += t1 -> (cut1 ++ t2transformed)
         changed = true
       }
+
+      assert(cutPoints.values.flatten.forall(_ >= 0))      
 
       changed
     }
@@ -1677,17 +1721,25 @@ object ModuloArithmetic extends Theory {
       changed = false
       for (ex <- extracts) {
         if (propagateExtract(ex, cutPoints)) {
+          assert(cutPoints.values.flatten.forall(_ >= 0))          
           changed = true
         }
       }
 
       for (diseq <- disequalities) {
         if (propagateDisequality(diseq, cutPoints)) {
+          assert(cutPoints.values.flatten.forall(_ >= 0))
           changed = true
         }
       }
     }
 
+    if (cutPoints.values.flatten.exists(_ < 0)) {
+      println(extracts.mkString("\n"))
+      println("CutPoints")
+      println(cutPoints.mkString("\n"))
+      throw new Exception("Negative Cut-Point")
+    }
     cutPoints.map{case (k,v) => k ->v. toList.sorted.reverse}.toMap
   }
 
@@ -1776,6 +1828,9 @@ object ModuloArithmetic extends Theory {
         variables = (v2, bitLength) :: (v1, bitLength) :: variables
         val (tmp1, tmp2) = (l(v1), l(v2))
 
+        assert(ub >= 0)
+        assert(lb >= 0)
+
         val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(c1), tmp1), order)
         val bv2 = Atom(_bv_extract, List(l(ub), l(lb), l(c2), tmp2), order)
 
@@ -1814,7 +1869,7 @@ object ModuloArithmetic extends Theory {
 
         case _ => {
           println("WARNING: cannot split " + disequality)
-          List()
+          List() // 
         }
       }
     }
@@ -1881,6 +1936,7 @@ object ModuloArithmetic extends Theory {
       extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
     val lb =
       extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+
 
     val castSort = UnsignedBVSort(ub+1)
     val remSort =  UnsignedBVSort(lb)
@@ -1968,7 +2024,6 @@ object ModuloArithmetic extends Theory {
     (implicit order : TermOrder) : List[Plugin.Action] = {
     import TerForConvenience._
     val constantExtracts = extracts.filter(_(2).isConstant).toList
-
     (for (ex <- constantExtracts) yield {
       val List(lhs, rhs) = List(ex(2), ex(3)).map(_.asInstanceOf[LinearCombination])
       val List(ub, lb) =
@@ -1980,9 +2035,32 @@ object ModuloArithmetic extends Theory {
           // This means a constant right hand side as well!
           ap.terfor.equations.EquationConj((newConstant - rhs), order)
         } else {
-          val lc = LinearCombination(IdealInt.ONE, rhs.constants.head, -newConstant, order)
+          val (newRhs, newNewConstant) = 
+            rhs match {
+              case lc : ap.terfor.linearcombination.LinearCombination0 => {
+                throw new Exception("LinearCombination0 in handleConstantExtracts")
+              }
+              case lc : ap.terfor.linearcombination.LinearCombination1 => {
+                val cc = lc.constant.intValueSafe
+
+                val (i,c) = lc(0)
+                i match {
+                  case IdealInt(1) => (c, newConstant + cc)
+                  case IdealInt(-1) => (c, -newConstant + cc)
+                }
+              }
+              case lc : ap.terfor.linearcombination.LinearCombination2 => {
+                throw new Exception("LinearCombination2 in handleConstantExtracts")
+              }
+
+              case lc => {
+                throw new Exception(lc.getClass + " in handleConstantExtracts")
+              }
+            }
+          val lc = LinearCombination(IdealInt.ONE, newRhs, -newNewConstant, order)
           ap.terfor.equations.EquationConj(lc, order)
         }
+
       List(Plugin.RemoveFacts(ex), Plugin.AddAxiom(List(ex), conj(newEquation), ModuloArithmetic.this))
     }).flatten
   }
@@ -2034,6 +2112,13 @@ object ModuloArithmetic extends Theory {
       }
 
       val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+
+      for (ex <- extracts) {
+        assert(ex(0).asInstanceOf[LinearCombination0].constant.intValueSafe >= 0)
+        assert(ex(1).asInstanceOf[LinearCombination0].constant.intValueSafe >= 0)        
+      }
+
+
       val diseqs = goal.facts.arithConj.negativeEqs.filter(_.size == 2)
       val partitions = partition(extracts, diseqs)      
 
