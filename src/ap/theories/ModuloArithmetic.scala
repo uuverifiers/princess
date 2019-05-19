@@ -879,9 +879,19 @@ object ModuloArithmetic extends Theory {
       case b    => b
     }
 
+    def lowerBoundMin(minimum : IdealInt) : IdealInt = lowerBound match {
+      case null => minimum
+      case b    => b max minimum
+    }
+
     def upperBoundOrElse(that : IdealInt) : IdealInt = upperBound match {
       case null => that
       case b    => b
+    }
+
+    def upperBoundMax(maximum : IdealInt) : IdealInt = upperBound match {
+      case null => maximum
+      case b    => b min maximum
     }
   }
 
@@ -1032,15 +1042,31 @@ object ModuloArithmetic extends Theory {
         case IFunApp(`bv_not`, Seq(IIntLit(IdealInt(bits)), _)) => {
           val sort = UnsignedBVSort(bits)
 
+          val rawArg = subres(1).resTerm
+          val simple = isSimpleTerm(rawArg)
+
+          val (arg, resTerm) =
+            if (simple)
+              (VariableShiftVisitor(rawArg, 0, 1), v(0))
+            else
+              (v(0), v(1))
+
           val resultDef = 
-            and(for (i <- 0 until bits) yield{
-              val ex1 = bv_extract(i, i, v(0))
-              val ex2 = 1 - bv_extract(i, i, v(1))
-              (ex1 === ex2)
+            and(for (i <- 0 until bits) yield {
+              eqZero(bv_extract(i, i, arg) + bv_extract(i, i, resTerm) +
+                     IdealInt.MINUS_ONE)
             })
 
-          val res = sort.eps(ex(v(0) === VariableShiftVisitor(subres(1).resTerm, 0, 1) & resultDef))
-          VisitorRes(res, IdealInt.ZERO, pow2(bits))
+          val res =
+            if (simple)
+              sort.eps(resultDef)
+            else
+              sort.eps(ex(v(0) === VariableShiftVisitor(rawArg, 0, 2) &
+                          resultDef))
+
+          VisitorRes(res,
+                     sort.upper - (subres(1) upperBoundMax sort.upper),
+                     sort.upper - (subres(1) lowerBoundMin IdealInt.ZERO))
         }
 
         case IFunApp(`bv_neg`, Seq(IIntLit(IdealInt(bits)), _)) =>
@@ -1163,10 +1189,8 @@ object ModuloArithmetic extends Theory {
                 v(0) === VariableShiftVisitor(subres(2).resTerm, 0, 2) &
                 resultDef))))
 
-          val ub = pow2(bits)
-          VisitorRes(res, IdealInt.ZERO, ub)
+          VisitorRes(res, IdealInt.ZERO, pow2(bits))
         }
-
 
         case IFunApp(`bv_or`, Seq(IIntLit(IdealInt(bits)), _*)) => {
           val sort = UnsignedBVSort(bits)

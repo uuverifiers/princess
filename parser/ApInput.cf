@@ -54,7 +54,9 @@ ExprEqv.	Expression	::= Expression "<->" Expression1;
 ExprImp.	Expression1	::= Expression2 "->" Expression1;
 ExprImpInv.	Expression1	::= Expression1 "<-" Expression2;
 ExprOr.		Expression2	::= Expression2 "|" Expression3;
+ExprOrOr.	Expression2	::= Expression2 "||" Expression3;
 ExprAnd.	Expression3	::= Expression3 "&" Expression4;
+ExprAndAnd.	Expression3	::= Expression3 "&&" Expression4;
 ExprNot.	Expression4	::= "!" Expression4;
 ExprQuant.	Expression4	::= Quant DeclBinder Expression4;
 ExprEpsilon.	Expression4	::= "\\eps" DeclSingleVarC ";" Expression4;
@@ -73,6 +75,7 @@ ExprConcat.	Expression8	::= Expression8 "++" Expression9;
 ExprCast.	Expression9	::= "\\as" "[" Type "]" Expression9;
 ExprUnPlus.	Expression9	::= "+" Expression10;
 ExprUnMinus.	Expression9	::= "-" Expression10;
+ExprTilde.	Expression9	::= "~" Expression10;
 ExprExp.	Expression10	::= Expression10 "^" Expression11;
 ExprIfThenElse. Expression11    ::= "\\if" "(" Expression ")"
                                     "\\then" "(" Expression ")"
@@ -110,7 +113,11 @@ Args.		OptArgs		::= "(" [ArgC] ")";
 Arg.		ArgC		::= Expression;
 separator ArgC ",";
 
-token IntLit digit+;
+DIntLit.	IntLit		::= DecIntLit;
+HIntLit.	IntLit		::= HexIntLit;
+
+token DecIntLit digit+;
+token HexIntLit (({"0x"} | {"0X"}) ["0123456789ABCDEFabcdef"]+);
 
 --------------------------------------------------------------------------------
 -- Variable and constant declarations

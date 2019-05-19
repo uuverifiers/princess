@@ -36,6 +36,9 @@ TESTS="existential.pri \
        Primes_true-unreach-call.c_2207.smt2 \
        simple-extracts.pri \
        simple-concat.pri \
-       simple-concat2.pri"
+       simple-concat2.pri \
+       bv-ops.pri \
+       bv-ops2.pri"
+#       bv-ops3.pri"
 
 $PRI "$@" $TESTS
