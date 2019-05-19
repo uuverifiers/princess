@@ -1,5 +1,5 @@
 \functions {
-  bv[32] x;
+  bv[4] x;
 }
 
 \problem {

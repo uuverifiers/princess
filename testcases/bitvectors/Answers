@@ -247,7 +247,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-y = 235.\as[bv[8]] & x = 214.\as[bv[8]]
+y = 255.\as[bv[8]] & x = 255.\as[bv[8]]
 
 Loading simple-concat.pri ...
 Preprocessing ...
@@ -280,5 +280,5 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-z = 3.\as[bv[8]] & x = 14.\as[bv[8]]
+z = 3.\as[bv[8]] & x = 15.\as[bv[8]]
 
