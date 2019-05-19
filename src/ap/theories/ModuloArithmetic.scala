@@ -1718,44 +1718,37 @@ object ModuloArithmetic extends Theory {
   // This propagates all cut-points from lhs <-> rhs in extract
   // TODO: Do we need to fix for broken extracts, i.e. extract(1, 1, x, x)...
 
-  private def propagateExtract(extract : Atom,
+  private def propagateExtract(extract : (Int, Int, ConstantTerm, ConstantTerm),
                                cutPoints : MMap[Term, Set[Int]]) : Boolean = {
-    if (extract(2).constants.isEmpty || extract(3).constants.isEmpty) {
-      false
-    } else {
-      var changed = false
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, extract(2).constants.size == 1 &&
-                          extract(3).constants.size == 1)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      val (t1, t2) = (extract(2).constants.head, extract(3).constants.head)
-      val cut1 = cutPoints.getOrElse(t1, Set())
-      val cut2 = cutPoints.getOrElse(t2, Set())
-      val List(ub, lb) =
-        List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
+    val (ub, lb, t1, t2) = extract
 
-      /// T1 ===> T2
-      val t1transformed = (Set(ub - lb + 1, 0) ++ cut1.map(_ - lb)).filter(c => c > 0 && c < (ub - lb + 1))
+    var changed = false
 
-      if (!(t1transformed subsetOf cut2)) {
-        cutPoints += t2 -> (cut2 ++ t1transformed)
-        changed = true
-      }
+    val cut1 = cutPoints.getOrElse(t1, Set())
+    val cut2 = cutPoints.getOrElse(t2, Set())
 
-      // propagate FROM t2 TO t1
-      val t2transformed = (Set(ub + 1, lb) ++ (cut2.map(_ + lb)).filter(c => c > lb && c <= ub + 1))
+    /// T1 ===> T2
+    val t1transformed =
+      cut1.map(_ - lb).filter(c => c > 0 && c < (ub - lb + 1))
 
-      if (!(t2transformed subsetOf cut1)) {
-        cutPoints += t1 -> (cut1 ++ t2transformed)
-        changed = true
-      }
-
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, cutPoints.values.flatten.forall(_ >= 0))
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-
-      changed
+    if (!(t1transformed subsetOf cut2)) {
+      cutPoints += t2 -> (cut2 ++ t1transformed)
+      changed = true
     }
+
+    // propagate FROM t2 TO t1
+    val t2transformed = cut2.map(_ + lb)
+
+    if (!(t2transformed subsetOf cut1)) {
+      cutPoints += t1 -> (cut1 ++ t2transformed)
+      changed = true
+    }
+
+    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+    Debug.assertInt(AC, cutPoints.values.flatten.forall(_ >= 0))
+    //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+    changed
   }
 
   private def propagateDisequality(disequality : LinearCombination,
@@ -1802,41 +1795,39 @@ object ModuloArithmetic extends Theory {
                         disequalities : Seq[LinearCombination])
                       : Map[Term, List[Int]] = {
     val cutPoints = MMap() : MMap[Term, Set[Int]]
-    for (ex <- extracts; if (!ex(2).constants.isEmpty)) {    
-      val List(ub, lb) =
-        List(ex(0), ex(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-      val t = ex(2).constants.head
-      cutPoints += t -> (Set(lb, ub+1).filter(_ >= 0) ++ (cutPoints.getOrElse(t, Set())))
+    val extractTuples = new ArrayBuffer[(Int, Int, ConstantTerm, ConstantTerm)]
+
+    for (Seq(LinearCombination.Constant(IdealInt(ub)),
+             LinearCombination.Constant(IdealInt(lb)),
+             LinearCombination.SingleTerm(t : ConstantTerm),
+             res) <- extracts) {
+      cutPoints += t -> (Set(lb, ub+1) ++ (cutPoints.getOrElse(t, Set())))
+      res match {
+        case LinearCombination.SingleTerm(s : ConstantTerm) =>
+          extractTuples += ((ub, lb, t, s))
+        case _ =>
+          // nothing
+      }
     }
 
     var changed = true
     while (changed) {
       changed = false
-      for (ex <- extracts) {
-        if (propagateExtract(ex, cutPoints)) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, cutPoints.values.flatten.forall(_ >= 0))
-          //-END-ASSERTION-/////////////////////////////////////////////////////
+      for (t <- extractTuples) {
+        if (propagateExtract(t, cutPoints))
           changed = true
-        }
       }
 
       for (diseq <- disequalities) {
-        if (propagateDisequality(diseq, cutPoints)) {
-          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
-          Debug.assertInt(AC, cutPoints.values.flatten.forall(_ >= 0))
-          //-END-ASSERTION-/////////////////////////////////////////////////////
+        if (propagateDisequality(diseq, cutPoints))
           changed = true
-        }
       }
     }
 
-    if (cutPoints.values.flatten.exists(_ < 0)) {
-      println(extracts.mkString("\n"))
-      println("CutPoints")
-      println(cutPoints.mkString("\n"))
-      throw new Exception("Negative Cut-Point")
-    }
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPost(AC, cutPoints.values.flatten.forall(_ >= 0))
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     cutPoints.map{case (k,v) => k ->v. toList.sorted.reverse}.toMap
   }
 
@@ -2078,7 +2069,7 @@ object ModuloArithmetic extends Theory {
     resActions1 ++ resActions2
   }
 
-  private def elimExtractAtoms(goal : Goal) : Seq[Plugin.Action] = {
+  private def elimAtoms(goal : Goal) : Seq[Plugin.Action] = {
     // check whether there are atoms that we can eliminate
     val elimAtoms = eliminatableAtoms(goal)
 
@@ -2102,11 +2093,11 @@ object ModuloArithmetic extends Theory {
     }
   }
 
-  private def negExtractPreds(goal : Goal) : Seq[Plugin.Action] = {
+  private def negPreds(goal : Goal) : Seq[Plugin.Action] = {
     val negPreds =
       goal.facts.predConj.negativeLitsWithPred(_mod_cast) ++
-    goal.facts.predConj.negativeLitsWithPred(_l_shift_cast) ++
-        goal.facts.predConj.negativeLitsWithPred(_bv_extract)
+      goal.facts.predConj.negativeLitsWithPred(_l_shift_cast) ++
+      goal.facts.predConj.negativeLitsWithPred(_bv_extract)
     
     if (!negPreds.isEmpty) {
       // replace negated predicates with positive predicates
@@ -2217,13 +2208,33 @@ object ModuloArithmetic extends Theory {
         printBVgoal(goal)
       }
 
+      val negPs = negPreds(goal)
+      if (!negPs.isEmpty) {
+        if (debug) {
+          println("Negative predicate actions:")
+          for (a <- negPs)
+            println("\t" + a)
+        }
+        return negPs
+      }
+
+      val elimActions = elimAtoms(goal)
+      if (!elimActions.isEmpty) {
+        if (debug) {
+          println("Eliminatable atoms actions:")
+          for (a <- elimActions)
+            println("\t" + a)
+        }
+        return elimActions
+      }
+
       val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       for (ex <- extracts) {
         Debug.assertInt(AC,
-          ex(0).asInstanceOf[LinearCombination0].constant.intValueSafe >= 0 &&
-          ex(1).asInstanceOf[LinearCombination0].constant.intValueSafe >= 0)
+          ex(0).asInstanceOf[LinearCombination0].constant.signum >= 0 &&
+          ex(1).asInstanceOf[LinearCombination0].constant.signum >= 0)
       }
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
@@ -2239,30 +2250,10 @@ object ModuloArithmetic extends Theory {
         }
       }
 
-      val negExtract = negExtractPreds(goal)
-      if (!negExtract.isEmpty) {
-        if (debug) {
-          println("Negative Extracts:")
-          for (a <- negExtract)
-            println("\t" + a)
-        }
-        return  negExtract
-      }
-
-      val elimActions = elimExtractAtoms(goal)
-      if (!elimActions.isEmpty) {
-        if (debug) {
-          println("Elim Action:")
-          for (a <- elimActions)
-            println("\t" + a)
-        }
-        return elimActions
-      }
-
       val diseqActions = splitDisequalityActions(diseqs, partitions, goal)
       if (!diseqActions.isEmpty) {
         if (debug) {
-          println("Splitting disequalities")
+          println("Splitting disequalities actions:")
           for (t <- diseqActions)
             println("\t" + t)
         }

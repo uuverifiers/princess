@@ -38,7 +38,21 @@ TESTS="existential.pri \
        simple-concat.pri \
        simple-concat2.pri \
        bv-ops.pri \
-       bv-ops2.pri"
-#       bv-ops3.pri"
+       bv-ops2.pri \
+       bv-ops3.pri \
+       bitops-1.smt2 \
+       bitops.smt2 \
+       concatcore.smt2 \
+       concat.smt2 \
+       concore.smt2 \
+       ext_con_004_001_0016.smt2 \
+       extractcore.smt2 \
+       intcore.smt2 \
+       intsplitcore.smt2 \
+       mycore.smt2 \
+       smallcore.smt2 \
+       smallercore.smt2 \
+       splitcore.smt2 \
+       split-diseq.smt2"
 
 $PRI "$@" $TESTS
