@@ -34,6 +34,7 @@ import ap.terfor.conjunctions.{Conjunction, Quantifier, ReduceWithConjunction,
                                ReducerPluginFactory, IdentityReducerPlugin,
                                ReducerPlugin, NegatedConjunctions}
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination0}
+import LinearCombination.SingleTerm
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.basetypes.IdealInt
 import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
@@ -44,7 +45,7 @@ import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
-                                 Set => MSet, ListBuffer}
+                                 Set => MSet, ListBuffer, HashMap => MHashMap}
 
 /**
  * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
@@ -1751,64 +1752,55 @@ object ModuloArithmetic extends Theory {
     changed
   }
 
-  private def propagateDisequality(disequality : LinearCombination,
+  private def propagateDisequality(disequality : (ConstantTerm, ConstantTerm),
                                    cutPoints : MMap[Term, Set[Int]])
                                  : Boolean = {
-    // Two cases:
-    // -Constant and Integer
-    // -Constant and Constant
-    (disequality(0), disequality(1)) match {
-      // -Constant and Integer
-      case ((IdealInt(1), _), (_,ap.terfor.OneTerm)) => {
-        false
-      }
+    val (t1, t2) = disequality
+    var changed = false
 
-      // -Constant and Constant
-      case ((IdealInt(1), t1), (IdealInt(-1),t2)) => {
-        var changed = false
-        val constant1 = t1.constants.head
-        val constant2 = t2.constants.head
-
-        val t1cuts = cutPoints.getOrElse(t1, Set())
-        val t2cuts = cutPoints.getOrElse(t2, Set())
+    val t1cuts = cutPoints.getOrElse(t1, Set())
+    val t2cuts = cutPoints.getOrElse(t2, Set())
         
-        if (!(t1cuts subsetOf t2cuts)) {
-          cutPoints += t2 -> (t2cuts ++ t1cuts)
-          changed = true
-        }
-
-        if (!(t2cuts subsetOf t1cuts)) {
-          cutPoints += t1 -> (t1cuts ++ t2cuts)
-          changed = true
-        }
-
-        changed
-      }
-      case _ => {
-        println("WARNING: cannot propagate (disequality(0).getClass, disequality(1).getClass)")
-        false
-      }
+    if (!(t1cuts subsetOf t2cuts)) {
+      cutPoints += t2 -> (t2cuts ++ t1cuts)
+      changed = true
     }
+
+    if (!(t2cuts subsetOf t1cuts)) {
+      cutPoints += t1 -> (t1cuts ++ t2cuts)
+      changed = true
+    }
+
+    changed
   }
 
-  private def partition(extracts : Seq[Atom],
-                        disequalities : Seq[LinearCombination])
-                      : Map[Term, List[Int]] = {
+  private def computeCutPoints(extracts : Seq[Atom],
+                               disequalities : Seq[LinearCombination])
+                             : Map[Term, List[Int]] = {
     val cutPoints = MMap() : MMap[Term, Set[Int]]
     val extractTuples = new ArrayBuffer[(Int, Int, ConstantTerm, ConstantTerm)]
+    val diseqTuples = new ArrayBuffer[(ConstantTerm, ConstantTerm)]
 
     for (Seq(LinearCombination.Constant(IdealInt(ub)),
              LinearCombination.Constant(IdealInt(lb)),
-             LinearCombination.SingleTerm(t : ConstantTerm),
+             SingleTerm(t : ConstantTerm),
              res) <- extracts) {
       cutPoints += t -> (Set(lb, ub+1) ++ (cutPoints.getOrElse(t, Set())))
       res match {
-        case LinearCombination.SingleTerm(s : ConstantTerm) =>
+        case SingleTerm(s : ConstantTerm) =>
           extractTuples += ((ub, lb, t, s))
         case _ =>
           // nothing
       }
     }
+
+    for (lc <- disequalities)
+      if (lc.size == 2 &&
+          lc.getCoeff(0) == IdealInt.ONE &&
+          lc.getCoeff(1) == IdealInt.MINUS_ONE &&
+          lc.constants.size == 2)
+        diseqTuples += ((lc.getTerm(0).asInstanceOf[ConstantTerm],
+                         lc.getTerm(1).asInstanceOf[ConstantTerm]))
 
     var changed = true
     while (changed) {
@@ -1818,7 +1810,7 @@ object ModuloArithmetic extends Theory {
           changed = true
       }
 
-      for (diseq <- disequalities) {
+      for (diseq <- diseqTuples) {
         if (propagateDisequality(diseq, cutPoints))
           changed = true
       }
@@ -1828,7 +1820,7 @@ object ModuloArithmetic extends Theory {
     Debug.assertPost(AC, cutPoints.values.flatten.forall(_ >= 0))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    cutPoints.map{case (k,v) => k ->v. toList.sorted.reverse}.toMap
+    cutPoints.map{case (k, v) => k -> v.toList.sorted.reverse}.toMap
   }
 
 
@@ -1843,9 +1835,10 @@ object ModuloArithmetic extends Theory {
   private def splitExtract(extract : Atom, cutPoints : List[Int])
                           (implicit order : TermOrder) : List[Plugin.Action] = {
     import TerForConvenience._
-    val List(upper, lower) =
-      List(extract(0), extract(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-    val (t1, t2) = (extract(2), extract(3))
+
+    val Seq(LinearCombination.Constant(IdealInt(upper)),
+            LinearCombination.Constant(IdealInt(lower)),
+            t1, t2) = extract
 
     var filterCutPoints = cutPoints.filter(x => x >= lower && x <= upper)
 
@@ -1939,7 +1932,7 @@ object ModuloArithmetic extends Theory {
       val subFormula = conj(newExtracts) & !conj(diseqs)
       val finalConj = exists(variables.length, subFormula)
       (Plugin.RemoveFacts(disequality =/= 0)) ::
-      List(Plugin.AddAxiom(List(disequality =/= 0), finalConj, ModuloArithmetic.this))      
+      List(Plugin.AddAxiom(List(disequality =/= 0), finalConj, ModuloArithmetic.this))
     }
 
     if (cutPoints.isEmpty) {
@@ -1947,12 +1940,12 @@ object ModuloArithmetic extends Theory {
     } else {
       (disequality(0), disequality(1)) match {
         // -Constant and Integer
-        case ((IdealInt(1), t1), (c2,ap.terfor.OneTerm)) => {
+        case ((IdealInt.ONE, t1), (c2,ap.terfor.OneTerm)) => {
           split(t1, l(-c2))
         }
 
         // -Constant and Constant
-        case ((IdealInt(1), t1), (IdealInt(-1), t2)) => {
+        case ((IdealInt.ONE, t1), (IdealInt(-1), t2)) => {
           val (c1, c2) = (t1.constants.head, t2.constants.head)
           val res = split(c1, c2)
           res
@@ -1964,18 +1957,21 @@ object ModuloArithmetic extends Theory {
         }
       }
     }
-  }  
+  }
 
   private def splitExtractActions(extracts : Seq[Atom],
                                   partitions : Map[Term, List[Int]],
                                   goal : Goal)
                                  (implicit order : TermOrder)
-                                : Seq[Plugin.Action] = {
-    (for (ex <- extracts) yield {
-      splitExtract(ex, partitions(ex(2).constants.head))
-    }).flatten
-  }
-
+                                : Seq[Plugin.Action] =
+    for (ex <- extracts;
+         action <- ex(2) match {
+           case SingleTerm(c : ConstantTerm) =>
+             splitExtract(ex, partitions(c))
+           case _ =>
+             List()
+         }) 
+    yield action
 
   private def splitDisequalityActions(disequalities : Seq[LinearCombination],
                                       partitions : Map[Term, List[Int]],
@@ -1992,7 +1988,6 @@ object ModuloArithmetic extends Theory {
       }
     }).flatten
   }
-
 
   private def extractToArithmetic(extract : Atom)
                                  (implicit order : TermOrder)
@@ -2071,26 +2066,50 @@ object ModuloArithmetic extends Theory {
 
   private def elimAtoms(goal : Goal) : Seq[Plugin.Action] = {
     // check whether there are atoms that we can eliminate
-    val elimAtoms = eliminatableAtoms(goal)
+    val (castAtoms, (extractConsts, extractAtoms, extractDefs)) =
+      eliminatableAtoms(goal)
 
-    if (!elimAtoms.isEmpty) {
-      val elimConsts =
-        (for (a <- elimAtoms; c <- a.last.constants) yield c).toSet
-      val elimInEqs =
-        InEqConj(
-          for (lc <- goal.facts.arithConj.inEqs.iterator;
-            if !Seqs.disjoint(elimConsts, lc.constants))
-          yield lc,
-          goal.order)
-      val elimFormulas =
-        Conjunction.conj(elimAtoms ++ List(elimInEqs), goal.order)
+    val castActions =
+      if (!castAtoms.isEmpty) {
+        val elimConsts =
+          (for (a <- castAtoms; c <- a.last.constants) yield c).toSet
+        val elimInEqs =
+          InEqConj(
+            for (lc <- goal.facts.arithConj.inEqs.iterator;
+              if !Seqs.disjoint(elimConsts, lc.constants))
+            yield lc,
+            goal.order)
+        val elimFormulas =
+          Conjunction.conj(castAtoms ++ List(elimInEqs), goal.order)
 
-      List(Plugin.RemoveFacts(elimFormulas),
-        Plugin.AddReducableModelElement(elimFormulas, elimConsts,
-          goal.reducerSettings))
-    } else {
-      List()
-    }
+        List(Plugin.RemoveFacts(elimFormulas),
+          Plugin.AddReducableModelElement(elimFormulas, elimConsts,
+            goal.reducerSettings))
+      } else {
+        List()
+      }
+
+    val extractActions =
+      if (!extractConsts.isEmpty) {
+        val elimInEqs =
+          InEqConj(
+            for (lc <- goal.facts.arithConj.inEqs.iterator;
+              if !Seqs.disjoint(extractConsts, lc.constants))
+            yield lc,
+            goal.order)
+        val elimFormulas =
+          Conjunction.conj(extractAtoms ++ List(elimInEqs), goal.order)
+        val allExtractDefs =
+          Conjunction.conj(List(extractDefs, elimInEqs), goal.order)
+
+        List(Plugin.RemoveFacts(elimFormulas),
+          Plugin.AddReducableModelElement(allExtractDefs, extractConsts,
+            goal.reducerSettings))
+      } else {
+        List()
+      }
+
+    castActions ++ extractActions
   }
 
   private def negPreds(goal : Goal) : Seq[Plugin.Action] = {
@@ -2204,9 +2223,8 @@ object ModuloArithmetic extends Theory {
       implicit val _ = goal.order
       import TerForConvenience._
 
-      if (debug) {
+      if (debug)
         printBVgoal(goal)
-      }
 
       val negPs = negPreds(goal)
       if (!negPs.isEmpty) {
@@ -2228,7 +2246,12 @@ object ModuloArithmetic extends Theory {
         return elimActions
       }
 
+      // extract-predicates in the goal
+
       val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+      val extractedConsts =
+        (for (Seq(_, _, SingleTerm(c : ConstantTerm), _) <- extracts.iterator)
+         yield c).toSet
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       for (ex <- extracts) {
@@ -2238,8 +2261,21 @@ object ModuloArithmetic extends Theory {
       }
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      val diseqs = goal.facts.arithConj.negativeEqs.filter(_.size == 2)
-      val partitions = partition(extracts, diseqs)      
+      // TODO: this should really happen in the rewriter!
+      val constantExtractActions = handleConstantExtracts(extracts)
+      if (!constantExtractActions.isEmpty) {
+        if (debug) {
+          println("Convert constants")
+          for (a <- constantExtractActions)
+            println("\t" + a)
+        }
+        return constantExtractActions
+      }
+
+      val diseqs = for (lc <- goal.facts.arithConj.negativeEqs;
+                        if !Seqs.disjoint(lc.constants, extractedConsts))
+                   yield lc
+      val partitions = computeCutPoints(extracts, diseqs)
 
       if (!partitions.isEmpty) {
         if (debug) {
@@ -2258,16 +2294,6 @@ object ModuloArithmetic extends Theory {
             println("\t" + t)
         }
         return diseqActions
-      }
-
-      val constantExtractActions = handleConstantExtracts(extracts)
-      if (!constantExtractActions.isEmpty) {
-        if (debug) {
-          println("Convert constants")
-          for (a <- constantExtractActions)
-            println("\t" + a)
-        }
-        return constantExtractActions
       }
 
       // Let's start by only splitting one variable
@@ -2316,20 +2342,26 @@ object ModuloArithmetic extends Theory {
   /**
    * Find positive atoms in the goal that can be eliminated.
    */
-  private def eliminatableAtoms(goal : Goal) : Seq[Atom] = {
+  private def eliminatableAtoms(goal : Goal)
+                  : (Seq[Atom],                     // cast lits
+                     (Set[ConstantTerm], Seq[Atom], // extract lits
+                      Conjunction)) = {
     val eliminatedIsolatedConstants = goal.eliminatedIsolatedConstants
 
     if (eliminatedIsolatedConstants.isEmpty)
-      return List()
+      return (List(), (Set(), List(), Conjunction.TRUE))
 
     val facts = goal.facts
 
     val predConj = facts.predConj
-    val allLits = predConj.positiveLitsWithPred(_mod_cast) ++
-                  predConj.positiveLitsWithPred(_l_shift_cast)
+    val castLits = predConj.positiveLitsWithPred(_mod_cast) ++
+                   predConj.positiveLitsWithPred(_l_shift_cast)
+    val extractLits = predConj.positiveLitsWithPred(_bv_extract)
 
-    if (allLits.isEmpty)
-      return List()
+    if (castLits.isEmpty && extractLits.isEmpty)
+      return (List(), (Set(), List(), Conjunction.TRUE))
+
+    val inEqs = facts.arithConj.inEqs
 
     // find constants that can be eliminated
 
@@ -2339,25 +2371,88 @@ object ModuloArithmetic extends Theory {
     unelimConsts ++= (for (a <- predConj.negativeLits.iterator;
                            c <- a.constants.iterator) yield c)
 
-    for (a <- predConj.positiveLits.iterator;
-         lc <- a.iterator;
-         c <- lc.constants.iterator)
-      if (!(constOccurs add c))
-        unelimConsts add c
+    val lastLB = new MHashMap[ConstantTerm, Int]
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    val lastUB = new MHashMap[ConstantTerm, Int]
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    // find atoms with those constants
+    for (a <- predConj.positiveLits) a match {
+      case Atom(`_bv_extract`,
+                Seq(LinearCombination.Constant(IdealInt(ub)),
+                    LinearCombination.Constant(IdealInt(lb)),
+                    SingleTerm(c : ConstantTerm),
+                    res),
+                _)
+          if !(unelimConsts contains c) &&
+             ((lastLB get c) match {
+               case Some(oldLB) =>
+                 oldLB > ub
+               case None =>
+                 // if we haven't seen this constant in
+                 // an extract literal yet, we must not have
+                 // seen it at all
+                 !(constOccurs contains c) &&
+                 hasImpliedIneqConstraints(c, IdealInt.ZERO,
+                                           pow2MinusOne(ub + 1), inEqs)
+             }) => {
+        constOccurs add c
+        lastLB.put(c, lb)
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        // we rely on the fact that the extract literals are sorted
+        // in decreasing order
+        Debug.assertInt(AC, ub <= lastUB.getOrElse(c, Int.MaxValue))
+        lastUB.put(c, ub)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        unelimConsts ++= res.constants
+      }
+      case a =>
+        for (lc <- a.iterator; c <- lc.constants.iterator)
+          if (!(constOccurs add c))
+            unelimConsts add c
+    }
 
-    for (a@Atom(_,
-                Seq(LinearCombination.Constant(lower),
-                    LinearCombination.Constant(upper),
-                    _*),
-                  _) <- allLits;
-         LinearCombination.SingleTerm(resConst : ConstantTerm) <-List(a.last);
+    // find cast atoms with those constants
+
+    val castElims =
+      for (a@Atom(_,
+                  Seq(LinearCombination.Constant(lower),
+                      LinearCombination.Constant(upper),
+                      _*),
+                  _) <- castLits;
+           SingleTerm(resConst : ConstantTerm) <- List(a.last);
            if (eliminatedIsolatedConstants contains resConst) &&
-              !(unelimConsts contains resConst) &&
-              hasImpliedIneqConstraints(resConst, lower, upper,
-                                        facts.arithConj.inEqs))
-    yield a
+               !(unelimConsts contains resConst) &&
+               hasImpliedIneqConstraints(resConst, lower, upper, inEqs))
+      yield a
+
+    // find extract atoms with those constants
+
+    val backTranslation =
+      new MHashMap[ConstantTerm, ArrayBuffer[(IdealInt, LinearCombination)]]
+
+    val extractElims =
+      for (a@Atom(_,
+                  Seq(_,
+                      LinearCombination.Constant(lb),
+                      SingleTerm(c : ConstantTerm),
+                      res),
+                  _) <- extractLits;
+           if (eliminatedIsolatedConstants contains c) &&
+               !(unelimConsts contains c)) yield {
+        backTranslation.getOrElseUpdate(c, new ArrayBuffer) += ((pow2(lb), res))
+        a
+      }
+
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val extractDefs : Conjunction =
+      eqZ(for ((c, parts) <- backTranslation) yield {
+            parts += ((IdealInt.MINUS_ONE, LinearCombination(c, order)))
+            LinearCombination.sum(parts, order)
+          })
+
+    (castElims, (backTranslation.keySet.toSet, extractElims, extractDefs))
   }
 
   private def hasImpliedIneqConstraints(c : ConstantTerm,
@@ -3034,7 +3129,7 @@ object ModuloArithmetic extends Theory {
                     Seq(LinearCombination.Constant(lower),
                         LinearCombination.Constant(upper),
                         _,
-                        LinearCombination.SingleTerm(resVar : VariableTerm)),
+                        SingleTerm(resVar : VariableTerm)),
                     _) <- castLits;
              if resVar.index < quanNum &&
                 quans(resVar.index) == Quantifier.EX &&
@@ -3062,8 +3157,7 @@ object ModuloArithmetic extends Theory {
 
       val elimLits =
         (for (a@Atom(_,
-                     Seq(_, _, _,
-                         LinearCombination.SingleTerm(resVar : VariableTerm)),
+                     Seq(_, _, _, SingleTerm(resVar : VariableTerm)),
                      _) <- varLits.iterator;
               if !(unelimVars contains resVar))
          yield a).toSet
