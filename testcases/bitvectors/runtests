@@ -40,6 +40,7 @@ TESTS="existential.pri \
        bv-ops.pri \
        bv-ops2.pri \
        bv-ops3.pri \
+       bv-ops3b.pri \
        bv-ops4.pri \
        bv-ops5.pri \
        bitops-1.smt2 \
@@ -58,3 +59,6 @@ TESTS="existential.pri \
        split-diseq.smt2"
 
 $PRI "$@" $TESTS
+
+$PRI "$@" +printProof bv-ops3c.pri
+

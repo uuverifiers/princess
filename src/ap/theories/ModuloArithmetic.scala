@@ -26,7 +26,7 @@ import ap.Signature
 import ap.parser._
 import ap.parameters.{Param, ReducerSettings, GoalSettings}
 import ap.terfor.{Term, VariableTerm, ConstantTerm, TermOrder, Formula,
-                  ComputationLogger, TerForConvenience}
+                  ComputationLogger, TerForConvenience, OneTerm}
 import ap.terfor.preds.{Atom, Predicate, PredConj}
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.inequalities.InEqConj
@@ -237,6 +237,12 @@ object ModuloArithmetic extends Theory {
       Some(mod_cast(lower, upper, d))
   }
 
+  private def isPowerOf2(n : IdealInt) : Option[Int] =
+    if (n.signum > 0 && (n & (n - 1)).isZero)
+      Some(n.getHighestSetBit)
+    else
+      None
+
   /**
    * Object to create and recognise modulo sorts representing
    * unsigned bit-vectors.
@@ -245,9 +251,8 @@ object ModuloArithmetic extends Theory {
     def apply(bits : Int) : ModSort =
       ModSort(IdealInt.ZERO, pow2MinusOne(bits))
     def unapply(s : Sort) : Option[Int] = s match {
-      case ModSort(IdealInt.ZERO, upper)
-        if (upper.signum > 0 && (upper & (upper + 1)).isZero) =>
-          Some(upper.getHighestSetBit + 1)
+      case ModSort(IdealInt.ZERO, upper) =>
+        isPowerOf2(upper + 1)
       case _ =>
         None
     }
@@ -1853,13 +1858,18 @@ object ModuloArithmetic extends Theory {
         filterCutPoints = filterCutPoints.tail
         curPoint = lb - 1
 
-        val bv1 = conj(Atom(_bv_extract, List(l(ub),       l(lb),       l(t1), l(v(0))), order))
-        val bv2 = conj(Atom(_bv_extract, List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order))
-        val domain = conj(l(v(0)) >= 0 & l(v(0)) < pow2(ub-lb+1))
-        newExtracts = forall(!conj(bv1,bv2,domain)) :: newExtracts
+        val bv1 =
+          Atom(_bv_extract,
+               List(l(ub),       l(lb),       l(t1), l(v(0))), order)
+        val bv2 =
+          Atom(_bv_extract,
+               List(l(ub-lower), l(lb-lower), l(t2), l(v(0))), order)
+        val domain = List(l(v(0)) >= 0, l(v(0)) < pow2(ub-lb+1))
+        newExtracts = forall(!conj(bv1 :: bv2 :: domain)) :: newExtracts
       }
       Plugin.RemoveFacts(extract) ::
-      (for (c <- newExtracts) yield Plugin.AddAxiom(List(extract), !c, ModuloArithmetic.this))
+      (for (c <- newExtracts)
+       yield Plugin.AddAxiom(List(extract), !c, ModuloArithmetic.this))
     }
   }
 
@@ -1882,26 +1892,28 @@ object ModuloArithmetic extends Theory {
       // TODO: Can equality between bit-vectors of diff size be equal?
       val upper = upperBounds.max
 
+      if (upper.signum <= 0)
+        return List()
+
       val bits = upper.getHighestSetBit + 1
-      val allPoints =
-        (if (cutPoints.head != bits)
-          bits :: cutPoints
-        else
-          cutPoints) ++ (if (cutPoints contains 0) List() else List(0))
+      val remCutPoints = for (p <- cutPoints; if 0 < p && p < bits) yield p
+      val allPoints = bits :: remCutPoints ::: List(0)
 
       // We store with upper bound non-exclusive
       var curPoint = allPoints.head - 1
       var iterPoints = allPoints.tail
-      var newExtracts = List() : List[Conjunction]
+      var newExtracts = List() : List[Formula]
       var variables = List() : List[(VariableTerm, Int)]
 
       if (iterPoints.length == 1)
         return List()
 
       while (!iterPoints.isEmpty) {
-        val (ub, lb) = (curPoint, iterPoints.head)
-        val bitLength = ub - lb + 1
+        val ub = curPoint
+        val lb = iterPoints.head
         iterPoints = iterPoints.tail
+
+        val bitLength = ub - lb + 1
         curPoint = lb - 1
 
         val (v1, v2) = (v(variables.length), v(variables.length+1))
@@ -1916,7 +1928,10 @@ object ModuloArithmetic extends Theory {
         val bv1 = Atom(_bv_extract, List(l(ub), l(lb), l(c1), tmp1), order)
         val bv2 = Atom(_bv_extract, List(l(ub), l(lb), l(c2), tmp2), order)
 
-        newExtracts = conj(bv1 & bv2) :: newExtracts
+        val upper = pow2MinusOne(bitLength)
+        newExtracts =
+          (tmp1 >= 0) :: (tmp1 <= upper) ::
+          (tmp2 >= 0) :: (tmp2 <= upper) :: bv1 :: bv2 :: newExtracts
       }
 
       val diseqs =
@@ -1925,14 +1940,16 @@ object ModuloArithmetic extends Theory {
           //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           Debug.assertInt(AC, bl1 == bl2)
           //-END-ASSERTION-/////////////////////////////////////////////////////
-          conj(v1 === v2)          
+          v1 === v2
           // conj(v1 >= 0, v1 < pow2(bl1), v2 >= 0, v2 < pow2(bl2), v1 === v2)
         })
 
       val subFormula = conj(newExtracts) & !conj(diseqs)
       val finalConj = exists(variables.length, subFormula)
       (Plugin.RemoveFacts(disequality =/= 0)) ::
-      List(Plugin.AddAxiom(List(disequality =/= 0), finalConj, ModuloArithmetic.this))
+       List(Plugin.AddAxiom(List(disequality =/= 0),
+                            finalConj,
+                            ModuloArithmetic.this))
     }
 
     if (cutPoints.isEmpty) {
@@ -1940,7 +1957,7 @@ object ModuloArithmetic extends Theory {
     } else {
       (disequality(0), disequality(1)) match {
         // -Constant and Integer
-        case ((IdealInt.ONE, t1), (c2,ap.terfor.OneTerm)) => {
+        case ((IdealInt.ONE, t1), (c2, OneTerm)) => {
           split(t1, l(-c2))
         }
 
@@ -1973,20 +1990,75 @@ object ModuloArithmetic extends Theory {
          }) 
     yield action
 
+  /**
+   * Splitting of disequalities x != N or x != y
+   */
   private def splitDisequalityActions(disequalities : Seq[LinearCombination],
                                       partitions : Map[Term, List[Int]],
                                       goal : Goal)
                                      (implicit order : TermOrder)
-                                    : Seq[Plugin.Action] = {
-    (for (diseq <- disequalities) yield {
-      val lhs = diseq(0)._2
-      if (partitions contains lhs) {
-        val parts = partitions(lhs)
-        splitDiseq(diseq, parts, goal)
-      } else {
-        List()
-      }
-    }).flatten
+                                    : Seq[Plugin.Action] =
+    for (diseq <- disequalities;
+         lhs = diseq(0)._2;
+         parts <- (partitions get lhs).toSeq;
+         action <- splitDiseq(diseq, parts, goal))
+    yield action
+
+  /**
+   * Splitting of inequalities x >= 1, translated to a conjunction
+   * x != 0 & x >= 0
+   */
+  private def splitDisInequalityActions(extractedConsts : Set[ConstantTerm],
+                                        partitions : Map[Term, List[Int]],
+                                        goal : Goal)
+                                       (implicit order : TermOrder)
+                                      : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    val ineqs = goal.facts.arithConj.inEqs
+
+    for (lc <- ineqs;
+         if lc.constants.size == 1;
+         c = lc.leadingTerm.asInstanceOf[ConstantTerm];
+         if (extractedConsts contains c) &&
+            lc.leadingCoeff.isOne && lc.constant.isMinusOne;
+         parts <- (partitions get c).toSeq;
+         action <- splitDiseq(LinearCombination(c, order), parts, goal))
+    yield action match {// translate the actions back to actions on inequalities
+      case Plugin.RemoveFacts(_) =>
+        Plugin.RemoveFacts(lc >= 0)
+      case Plugin.AddAxiom(List(_), f, t) =>
+        Plugin.AddAxiom(List(lc >= 0), (c >= 0) & f, t)
+    }
+  }
+
+  /**
+   * Splitting of inequalities x < 2^N-1, translated to a conjunction
+   * x != 2^N-1 & x <= 2^N-1
+   */
+  private def splitDisInequalityActions2(extractedConsts : Set[ConstantTerm],
+                                         partitions : Map[Term, List[Int]],
+                                         goal : Goal)
+                                        (implicit order : TermOrder)
+                                       : Seq[Plugin.Action] = {
+    import TerForConvenience._
+    val ineqs = goal.facts.arithConj.inEqs
+
+    for (lc <- ineqs;
+         if lc.constants.size == 1;
+         c = lc.leadingTerm.asInstanceOf[ConstantTerm];
+         if (extractedConsts contains c) && lc.leadingCoeff.isMinusOne;
+         ub <- isPowerOf2(lc.constant + 2).toSeq;
+         parts <- (partitions get c).toSeq;
+         newLC = LinearCombination(List((IdealInt.ONE, c),
+                                        (-(lc.constant + 1), OneTerm)),
+                                   order);
+         action <- splitDiseq(newLC, parts, goal))
+    yield action match {// translate the actions back to actions on inequalities
+      case Plugin.RemoveFacts(_) =>
+        Plugin.RemoveFacts(lc >= 0)
+      case Plugin.AddAxiom(List(_), f, t) =>
+        Plugin.AddAxiom(List(lc >= 0), (newLC <= 0) & f, t)
+    }
   }
 
   private def extractToArithmetic(extract : Atom)
@@ -2286,7 +2358,11 @@ object ModuloArithmetic extends Theory {
         }
       }
 
-      val diseqActions = splitDisequalityActions(diseqs, partitions, goal)
+      val diseqActions = splitDisequalityActions(diseqs, partitions, goal) ++
+                         splitDisInequalityActions(extractedConsts, partitions,
+                                                   goal) ++
+                         splitDisInequalityActions2(extractedConsts, partitions,
+                                                    goal)
       if (!diseqActions.isEmpty) {
         if (debug) {
           println("Splitting disequalities actions:")

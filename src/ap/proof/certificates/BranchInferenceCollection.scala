@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -167,6 +167,14 @@ class BranchInferenceCollection private (val inferences : List[BranchInference])
     BranchInferenceCollection((inferences /: newInferences) {
                                 case (infs, inf) => inf :: infs
                               })
+
+  def addWithDefaultInfs(inf : BranchInference) : BranchInferenceCollection = {
+    val defaultInfs =
+      (for (f <- inf.providedFormulas;
+            i <- BranchInferenceCollection.genDefaultInferences(f))
+       yield i).toList
+    BranchInferenceCollection(defaultInfs ::: inf :: inferences)
+  }
   
   def getCertificate(child : Certificate, order : TermOrder) : Certificate =
     BranchInferenceCollection.getCertificateHelp(inferences, child, order)
