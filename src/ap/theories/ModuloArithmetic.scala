@@ -1078,10 +1078,9 @@ object ModuloArithmetic extends Theory {
         case IFunApp(`bv_neg`, Seq(IIntLit(IdealInt(bits)), _)) =>
           (subres.last * IdealInt.MINUS_ONE).modCastPow2(bits, ctxt)
 
-        case IFunApp(`bv_add`, Seq(IIntLit(IdealInt(bits)), _*)) => {
-          println("WARNING: bv_add not fully supported?")
+        case IFunApp(`bv_add`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           (subres(1) + subres(2)).modCastPow2(bits, ctxt)
-        }
+
         case IFunApp(`bv_sub`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           (subres(1) + (subres(2) * IdealInt.MINUS_ONE)).modCastPow2(bits, ctxt)
 
