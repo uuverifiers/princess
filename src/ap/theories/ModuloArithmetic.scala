@@ -609,11 +609,15 @@ object ModuloArithmetic extends Theory {
 
   val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)
 
-  // TODO: prevent functionality axioms for shift_cast, mod_cast?
-
-  val (functionalPredSeq, axioms, preOrder, functionTranslation) =
+  val (functionalPredSeq, preAxioms, preOrder, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions)
-//  val axioms = Conjunction.TRUE
+
+  private val _bv_extract = functionTranslation(bv_extract)
+
+  // We only keep the functionality axiom for the bv_extract function
+  val axioms =
+    (Conjunction.conj(preAxioms, preOrder).iterator filter (
+       _.predicates == Set(_bv_extract))).next
 
   val functionPredicateMapping = functions zip functionalPredSeq
   val functionalPredicates = functionalPredSeq.toSet
@@ -622,8 +626,6 @@ object ModuloArithmetic extends Theory {
 
   val predicates = otherPreds ++ functionalPredSeq
   val totalityAxioms = Conjunction.TRUE
-
-  private val _bv_extract = functionTranslation(bv_extract)
 
   val predicateMatchConfig: Signature.PredicateMatchConfig =
     (for (p <- predicates.toSet --
