@@ -45,7 +45,8 @@ import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
-                                 Set => MSet, ListBuffer, HashMap => MHashMap}
+                                 Set => MSet, ListBuffer, HashMap => MHashMap,
+                                 LinkedHashMap}
 
 /**
  * Theory for performing bounded modulo-arithmetic (arithmetic modulo some
@@ -1668,6 +1669,39 @@ object ModuloArithmetic extends Theory {
         case `bv_ult` | `bv_ule` | `bv_slt` | `bv_sle` =>
           throw new Exception("unexpected predicate " + a.pred)
 
+/*
+        case `_bv_extract` => { // old version
+          val bits1 =
+            a(0).asInstanceOf[LinearCombination0].constant.intValueSafe -
+            a(1).asInstanceOf[LinearCombination0].constant.intValueSafe + 1
+          val bits2 =
+            a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
+
+          val castSort = UnsignedBVSort(bits1 + bits2)
+          val remSort =  UnsignedBVSort(bits2)
+
+          val subst = VariableShiftSubst(0, 1, order)
+          val pred = _mod_cast(List(l(0), l(castSort.upper),
+                                    subst(a(2)),
+                                    subst(a(3))*remSort.modulus + v(0)))
+
+          if (negated)
+            existsSorted(List(remSort), pred)
+          else
+            // forall int v0, BV[bits2] v1.
+            //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
+            // <=>
+            // forall int v0, BV[bits2] v1.
+            //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
+            // <=>
+            // forall int v0.
+            //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
+            forall(pred ==>
+                     Conjunction.negate(remSort membershipConstraint v(0),
+                                        order))
+        }
+ */
+
         case `_mod_cast` | `_l_shift_cast` | `_bv_extract` =>
           a
 
@@ -2007,6 +2041,7 @@ object ModuloArithmetic extends Theory {
    * Splitting of inequalities x >= 1, translated to a conjunction
    * x != 0 & x >= 0
    */
+/*
   private def splitDisInequalityActions(extractedConsts : Set[ConstantTerm],
                                         partitions : Map[Term, List[Int]],
                                         goal : Goal)
@@ -2021,19 +2056,23 @@ object ModuloArithmetic extends Theory {
          if (extractedConsts contains c) &&
             lc.leadingCoeff.isOne && lc.constant.isMinusOne;
          parts <- (partitions get c).toSeq;
-         action <- splitDiseq(LinearCombination(c, order), parts, goal))
-    yield action match {// translate the actions back to actions on inequalities
-      case Plugin.RemoveFacts(_) =>
-        Plugin.RemoveFacts(lc >= 0)
-      case Plugin.AddAxiom(List(_), f, t) =>
-        Plugin.AddAxiom(List(lc >= 0), (c >= 0) & f, t)
-    }
+         action <- splitDiseq(LinearCombination(c, order), parts, goal);
+         // translate the actions back to actions on inequalities
+         newAction <- action match {
+           case Plugin.RemoveFacts(_) =>
+             List()
+           case Plugin.AddAxiom(List(_), f, t) =>
+             List(Plugin.AddAxiom(List(lc >= 0), f, t))
+         })
+    yield newAction
   }
+*/
 
   /**
    * Splitting of inequalities x < 2^N-1, translated to a conjunction
    * x != 2^N-1 & x <= 2^N-1
    */
+/*
   private def splitDisInequalityActions2(extractedConsts : Set[ConstantTerm],
                                          partitions : Map[Term, List[Int]],
                                          goal : Goal)
@@ -2051,54 +2090,28 @@ object ModuloArithmetic extends Theory {
          newLC = LinearCombination(List((IdealInt.ONE, c),
                                         (-(lc.constant + 1), OneTerm)),
                                    order);
-         action <- splitDiseq(newLC, parts, goal))
-    yield action match {// translate the actions back to actions on inequalities
-      case Plugin.RemoveFacts(_) =>
-        Plugin.RemoveFacts(lc >= 0)
-      case Plugin.AddAxiom(List(_), f, t) =>
-        Plugin.AddAxiom(List(lc >= 0), (newLC <= 0) & f, t)
-    }
+         action <- splitDiseq(newLC, parts, goal);
+         // translate the actions back to actions on inequalities
+         newAction <- action match {
+           case Plugin.RemoveFacts(_) =>
+             List()
+           case Plugin.AddAxiom(List(_), f, t) =>
+             List(Plugin.AddAxiom(List(lc >= 0), f, t))
+         })
+    yield newAction
   }
+*/
 
+/*
   private def extractToArithmetic(extract : Atom)
                                  (implicit order : TermOrder)
                                 : Seq[Plugin.Action] = {
     import TerForConvenience._
 
-        // TRANSLATE BVEXTRACT
-        //   val bits1 =
-        //     a(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-        //   val bits2 =
-        //     a(2).asInstanceOf[LinearCombination0].constant.intValueSafe
-
-        //   val castSort = UnsignedBVSort(bits1 + bits2)
-        //   val remSort =  UnsignedBVSort(bits2)
-
-        //   val subst = VariableShiftSubst(0, 1, order)
-        //   val pred = _mod_cast(List(l(0), l(castSort.upper),
-        //     subst(a(3)),
-        //     subst(a(4))*remSort.modulus + v(0)))
-
-        //   if (negated)
-        //     existsSorted(List(remSort), pred)
-        //   else
-        //     // forall int v0, BV[bits2] v1.
-        //     //   mod_cast(a(3), v0) => a(4)*modulus + v1 != v0
-        //     // <=>
-        //     // forall int v0, BV[bits2] v1.
-        //     //   mod_cast(a(3), a(4)*modulus + v0) => v1 != v0
-        //     // <=>
-        //     // forall int v0.
-        //     //   mod_cast(a(3), a(4)*modulus + v0) => v0 \not\in BV[bits2]
-        //     forall(pred ==>
-        //       Conjunction.negate(remSort membershipConstraint v(0),
-        //         order))
-        // }p    
     val ub =
       extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
     val lb =
       extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-
 
     val castSort = UnsignedBVSort(ub+1)
     val remSort =  UnsignedBVSort(lb)
@@ -2111,6 +2124,27 @@ object ModuloArithmetic extends Theory {
     val res = existsSorted(List(remSort), pred)
     List(Plugin.RemoveFacts(extract),
          Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
+  }
+ */
+
+  /**
+   * Determine constants that occur both in bv_extract literals and in
+   * general arithmetic context.
+   */
+  private def arithmeticExtractedConsts(goal : Goal) : Set[ConstantTerm] = {
+    val arithConsts = new MHashSet[ConstantTerm]
+
+    val facts = goal.facts
+    val ac = facts.arithConj
+
+    arithConsts ++= ac.positiveEqs.constants
+
+    for (lc <- ac.inEqs.iterator;
+         if lc.constants.size > 1;
+         c <- lc.constants.iterator)
+      arithConsts += c
+
+    arithConsts.toSet
   }
 
   private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
@@ -2280,6 +2314,12 @@ object ModuloArithmetic extends Theory {
         println("|\t" + diseq)
       }
     }
+     {
+      println("+----------------------INEQS---------------------------+")
+      for (ie <- goal.facts.arithConj.inEqs) {
+        println("|\t" + ie + " >= 0")
+      }
+    }
     println("+-------------------------------------------------------+")
   }
   //////////////////////////////////////////////////////////////////////////////
@@ -2357,20 +2397,6 @@ object ModuloArithmetic extends Theory {
         }
       }
 
-      val diseqActions = splitDisequalityActions(diseqs, partitions, goal) ++
-                         splitDisInequalityActions(extractedConsts, partitions,
-                                                   goal) ++
-                         splitDisInequalityActions2(extractedConsts, partitions,
-                                                    goal)
-      if (!diseqActions.isEmpty) {
-        if (debug) {
-          println("Splitting disequalities actions:")
-          for (t <- diseqActions)
-            println("\t" + t)
-        }
-        return diseqActions
-      }
-
       // Let's start by only splitting one variable
       val splitActions = splitExtractActions(extracts, partitions, goal)
 
@@ -2383,6 +2409,54 @@ object ModuloArithmetic extends Theory {
         return splitActions
       }
 
+      var actions = new ArrayBuffer[Plugin.Action]
+
+      if (!extracts.isEmpty) {
+        // If necessary, turn extracts in arithmetic context into
+        // just arithmetic constaints
+        actions += Plugin.ScheduleTask(ExtractArithEncoder, 10)
+
+/*
+        val arithActions =
+          for (ex <- extracts;
+               if (ex(2) match {
+                     case SingleTerm(c : ConstantTerm) =>
+                       arithExtractedConsts contains c
+                     case _ =>
+                       true
+                   });
+               action <- extractToArithmetic(ex))
+          yield action
+        if (!arithActions.isEmpty) {
+          if (debug) {
+            println("Translating to arithmetic")
+            for (ac <- arithActions)
+              println("\t" + ac)
+          }
+          return arithActions
+        }
+ */
+      }
+
+//      val pureExtractedConsts =
+//        extractedConsts -- arithExtractedConsts
+
+      val diseqActions = splitDisequalityActions(diseqs, partitions, goal) /* ++
+                         splitDisInequalityActions(pureExtractedConsts,
+                                                   partitions,
+                                                   goal) ++
+                         splitDisInequalityActions2(pureExtractedConsts,
+                                                    partitions,
+                                                    goal) */
+      if (!diseqActions.isEmpty) {
+        if (debug) {
+          println("Splitting disequalities actions:")
+          for (t <- diseqActions)
+            println("\t" + t)
+        }
+        return actions ++ diseqActions
+      }
+
       val msc = modShiftCast(goal)
       if (!msc.isEmpty) {
         if (debug) {
@@ -2390,9 +2464,10 @@ object ModuloArithmetic extends Theory {
           for (a <- msc)
             println("\t" + a)
         }
-        return msc
+        return actions ++ msc
       }
 
+/*
       if ((goalState(goal) == Plugin.GoalState.Final) && (!extracts.isEmpty)) {
         val arithActions =
           (for (ex <- extracts) yield
@@ -2402,13 +2477,15 @@ object ModuloArithmetic extends Theory {
           for (ac <- arithActions)
             println("\t" + ac)
         }
-        return arithActions
+        return actions ++ arithActions
       }
+ */
 
       if (debug) {
         println("Nothing..")
       }
-      List()
+
+      actions
     }
   })
 
@@ -2445,6 +2522,9 @@ object ModuloArithmetic extends Theory {
     unelimConsts ++= facts.arithConj.negativeEqs.constants
     unelimConsts ++= (for (a <- predConj.negativeLits.iterator;
                            c <- a.constants.iterator) yield c)
+    unelimConsts ++= (for (lc <- inEqs.iterator;
+                           if lc.constants.size >= 2;
+                           c <- lc.constants.iterator) yield c)
 
     val lastLB = new MHashMap[ConstantTerm, Int]
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -2480,6 +2560,9 @@ object ModuloArithmetic extends Theory {
         //-END-ASSERTION-///////////////////////////////////////////////////////
         unelimConsts ++= res.constants
       }
+      case Atom(`_bv_extract`, _, _) =>
+        for (lc <- a.iterator; c <- lc.constants.iterator)
+          unelimConsts add c
       case a =>
         for (lc <- a.iterator; c <- lc.constants.iterator)
           if (!(constOccurs add c))
@@ -2565,6 +2648,124 @@ object ModuloArithmetic extends Theory {
     def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
 //println("shift splitter " + goal.facts)
       shiftCastActions(goal)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * ExtractArithEncoder translates bv_extract to an existentially quantified
+   * equation
+   */
+  private object ExtractArithEncoder extends TheoryProcedure {
+    def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
+      import TerForConvenience._
+      implicit val order = goal.order
+
+      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+      val inEqs = goal.facts.arithConj.inEqs
+
+      if (extracts.isEmpty)
+        return List()
+
+      val terms =
+        new LinkedHashMap[LinearCombination,
+                          (Int, Int, List[(IdealInt, Term)],
+                           Int, List[LinearCombination],
+                           List[Atom])]
+
+      def elimExtract(ex : Atom,
+                      ub : Int, lb : Int,
+                      arg : LinearCombination,
+                      res : LinearCombination) : Unit = {
+        (terms get arg) match {
+          case None =>
+            terms.put(arg, (ub, lb, List((pow2(lb), res)), 0, List(), List(ex)))
+          case Some((firstUB, lastLB, ts, nextVarInd, constraints, atoms)) =>
+            if (lastLB > ub + 1) {
+              // need to put a quantified variable in between
+              val vv = v(nextVarInd)
+              val newTS = (pow2(lb), res) :: (pow2(ub + 1), vv) :: ts
+              val newConstraints =
+                (pow2MinusOne(lastLB - ub - 1) - l(vv)) ::
+                (l(vv)) :: constraints
+              terms.put(arg, (firstUB, lb, newTS,
+                              nextVarInd+1, newConstraints, ex :: atoms))
+            } else if (lastLB == ub + 1) {
+              // no variable needed
+              terms.put(arg, (firstUB, lb, (pow2(lb), res) :: ts,
+                              nextVarInd, constraints, ex :: atoms))
+            } else {
+              // nothing; this extract cannot be eliminated, since it
+              // overlaps with the last one
+            }
+        }
+      }
+
+      val arithExtractedConsts = new MHashSet[ConstantTerm]
+      arithExtractedConsts ++= arithmeticExtractedConsts(goal)
+
+      for (ex <- extracts) ex match {
+        case Atom(`_bv_extract`,
+                  Seq(LinearCombination.Constant(IdealInt(ub)),
+                      LinearCombination.Constant(IdealInt(lb)),
+                      arg@SingleTerm(c : ConstantTerm),
+                      res),
+                  _) =>
+          if ((arithExtractedConsts contains c) ||
+              !hasImpliedIneqConstraints(c, IdealInt.ZERO,
+                                         pow2MinusOne(ub + 1), inEqs)) {
+            arithExtractedConsts += c
+            elimExtract(ex, ub, lb, arg, res)
+          }
+        case Atom(`_bv_extract`,
+                  Seq(LinearCombination.Constant(IdealInt(ub)),
+                      LinearCombination.Constant(IdealInt(lb)),
+                      arg,
+                      res),
+                  _) =>
+          elimExtract(ex, ub, lb, arg, res)
+        case _ =>
+          // nothing
+      }
+
+      if (terms.isEmpty)
+        return List()
+
+      // if necessary, add a variable for the least-significant bits
+      for (arg <- terms.keys) terms(arg) match {
+        case (_, 0, _, _, _, _) =>
+          // nothing
+        case (_, lastUB, _, _, _, atoms) =>
+          elimExtract(atoms.head, -1, 0, arg, l(0))
+      }
+
+      val axioms =
+        for ((arg, (firstUB, lastLB, ts, varNum,
+                    constraints, atoms)) <- terms) yield {
+          val modRes = LinearCombination(ts, order)
+          val defFor =
+            exists(varNum,
+                   conj(constraints >= 0,
+                        _mod_cast(List(l(0), l(pow2MinusOne(firstUB+1)),
+                                       l(arg), modRes))))
+          Plugin.AddAxiom(atoms.distinct, defFor, ModuloArithmetic.this)
+        }
+
+      val toRemove =
+        conj(for (Plugin.AddAxiom(atoms, _, _) <- axioms.iterator;
+                  a <- atoms.iterator)
+             yield a)
+
+      val actions = List(Plugin.RemoveFacts(toRemove)) ++ axioms
+
+      if (debug) {
+        println("Extract to arithmetic:")
+        for (a <- actions)
+          println("\t" + a)
+      }
+
+      actions
     }
   }
 

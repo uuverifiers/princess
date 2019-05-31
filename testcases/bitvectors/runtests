@@ -56,7 +56,8 @@ TESTS="existential.pri \
        smallcore.smt2 \
        smallercore.smt2 \
        splitcore.smt2 \
-       split-diseq.smt2"
+       split-diseq.smt2 \
+       example13.pri"
 
 $PRI "$@" $TESTS
 
