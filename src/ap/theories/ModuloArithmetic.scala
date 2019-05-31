@@ -1143,7 +1143,7 @@ object ModuloArithmetic extends Theory {
               }
 
               case IdealInt(shift) => {
-                println("WARNING: using BV_LSHR")
+                Console.err.println("WARNING: using BV_LSHR")
                 // TODO: We (maybe) need to append #shift zeroes in front
                 VisitorRes(
                   bv_extract(bits-1, shift, subres(1).resTerm),
@@ -2002,8 +2002,8 @@ object ModuloArithmetic extends Theory {
         }
 
         case _ => {
-          println("WARNING: cannot split " + disequality)
-          List() // 
+          //println("WARNING: cannot split " + disequality)
+          List()
         }
       }
     }
@@ -2241,6 +2241,7 @@ object ModuloArithmetic extends Theory {
     }
   }
 
+/*
   private def handleConstantExtracts(extracts : Seq[Atom])
                                     (implicit order : TermOrder)
                                    : List[Plugin.Action] = {
@@ -2287,7 +2288,7 @@ object ModuloArithmetic extends Theory {
            Plugin.AddAxiom(List(ex), conj(newEquation), ModuloArithmetic.this))
     }).flatten
   }
-
+ */
 
   private def printBVgoal(goal : Goal) = {
     val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
@@ -2373,7 +2374,7 @@ object ModuloArithmetic extends Theory {
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       // TODO: this should really happen in the rewriter!
-      val constantExtractActions = handleConstantExtracts(extracts)
+/*      val constantExtractActions = handleConstantExtracts(extracts)
       if (!constantExtractActions.isEmpty) {
         if (debug) {
           println("Convert constants")
@@ -2381,7 +2382,7 @@ object ModuloArithmetic extends Theory {
             println("\t" + a)
         }
         return constantExtractActions
-      }
+      } */
 
       val diseqs = for (lc <- goal.facts.arithConj.negativeEqs;
                         if !Seqs.disjoint(lc.constants, extractedConsts))
@@ -3235,9 +3236,14 @@ object ModuloArithmetic extends Theory {
         // TODO: eliminate mod_cast arguments with large coefficients
 
         {
-          // First try to eliminate some modulo atoms
+          // Cache for uniquely defined bits of given lcs
+          val bitCache = new LRUCache[LinearCombination,
+                                      (Int, IdealInt, Seq[Formula])](32)
+
+          // First eliminate some atoms that can be evaluated
           ReducerPlugin.rewritePreds(predConj,
-                                     List(_mod_cast, _l_shift_cast),
+                                     List(_mod_cast, _l_shift_cast,
+                                          _bv_extract),
                                      order,
                                      logger) { a =>
               a.pred match {
@@ -3301,6 +3307,59 @@ object ModuloArithmetic extends Theory {
                       }
                       case _ =>
                         a
+                    }
+                  }
+
+                case `_bv_extract` =>
+                  if (a(2).isConstant) {
+                    val LinearCombination.Constant(IdealInt(ub)) = a(0)
+                    val LinearCombination.Constant(IdealInt(lb)) = a(1)
+
+                    val newConstant = (a(2).constant % pow2(ub+1)) / pow2(lb)
+                    val newEq = a(3) === newConstant
+
+                    if (debug) {
+                      println("Evaluating bv_extract:")
+                      println("\t" + a)
+                      println("\t" + newEq)
+                    }
+
+                    logger.otherComputation(List(a), newEq, order,
+                                            ModuloArithmetic.this)
+                    newEq
+                  } else {
+                    val (bitBoundary, lower, asses) = bitCache(a(2)) {
+                      (reducer.lowerBound(a(2), logging),
+                       reducer.upperBound(a(2), logging)) match {
+                        case (Some((lb, lbA)),
+                              Some((ub, ubA))) if lb.signum >= 0 =>
+                          ((lb ^ ub).getHighestSetBit + 1, lb, lbA ++ ubA)
+                        case _ =>
+                          (-1, IdealInt.ZERO, List())
+                      }
+                    }
+
+                    if (bitBoundary >= 0) {
+                      val LinearCombination.Constant(IdealInt(lb)) = a(1)
+                      if (lb >= bitBoundary) {
+                        val LinearCombination.Constant(IdealInt(ub)) = a(0)
+                        val newConstant = (lower % pow2(ub+1)) / pow2(lb)
+                        val newEq = a(3) === newConstant
+
+                        if (debug) {
+                          println("Evaluating bv_extract:")
+                          println("\t" + a)
+                          println("\t" + newEq)
+                        }
+
+                        logger.otherComputation(List(a) ++ asses, newEq, order,
+                                                ModuloArithmetic.this)
+                        newEq
+                      } else {
+                        a
+                      }
+                    } else {
+                      a
                     }
                   }
               }

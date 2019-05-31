@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -644,6 +644,19 @@ final class IdealInt private (private val longStore : Long,
       IdealInt(this.longStore | that.longStore)
     else
       IdealInt(this.getBI or that.getBI)
+  }
+
+  /**
+   * Bit-wise xor.
+   */
+  def ^  (that: IdealInt): IdealInt = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(IdealInt.AC, this.signum >= 0 && that.signum >= 0)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    if (this.usesLong && that.usesLong)
+      IdealInt(this.longStore ^ that.longStore)
+    else
+      IdealInt(this.getBI xor that.getBI)
   }
 
   def getHighestSetBit : Int = {
