@@ -3299,9 +3299,12 @@ object ModuloArithmetic extends Theory {
                   } else {
                     (reducer.lowerBound(a(3), logging)) match {
                       case Some((lb, lbAsses)) if lb.signum > 0 => {
+                        val sort@ModSort(_, _) =
+                          (SortedPredicate argumentSorts a).last
                         val newA = Atom(_l_shift_cast,
                                         Array(a(0), a(1),
-                                              a(2) * pow2(lb), a(3) - lb, a(4)),
+                                              a(2) * pow2Mod(lb, sort.modulus),
+                                              a(3) - lb, a(4)),
                                         order)
                         logger.otherComputation(lbAsses ++ List(a), newA, order,
                                                 ModuloArithmetic.this)
