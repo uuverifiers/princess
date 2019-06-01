@@ -569,9 +569,20 @@ object ModuloArithmetic extends Theory {
   val bv_xor           = new BVNAryOp ("bv_xor", 2)
   val bv_xnor          = new BVNAryOp ("bv_xnor",2)
 
+  //////////////////////////////////////////////////////////////////////////////
+
   // Arguments: N, number mod 2^N, number mod 2^N
   // Result:    number mod 2
-  val bv_comp          = new IFunction("bv_comp",        3, true, true)
+  object BVComp extends IndexedBVOp("bv_comp", 1, 2) {
+    def computeSorts(indexes : Seq[Int]) : (Seq[Sort], Sort) = {
+      val sort = UnsignedBVSort(indexes.head)
+      (Sort.Integer :: List.fill(2)(sort), UnsignedBVSort(1))
+    }
+  }
+
+  val bv_comp = BVComp
+
+  //////////////////////////////////////////////////////////////////////////////
 
   // Arguments: N, number mod 2^N, number mod 2^N
   val bv_ult           = new Predicate("bv_ult", 3) // X
@@ -1370,6 +1381,22 @@ object ModuloArithmetic extends Theory {
                 resultDef)))
           VisitorRes(res, IdealInt.ZERO, sort.upper)
         }
+
+        ////////////////////////////////////////////////////////////////////////
+
+        case IFunApp(`bv_comp`, Seq(IIntLit(IdealInt(bits)), _*)) =>
+          if (subres(1).isConstant && subres(2).isConstant) {
+            VisitorRes(if (subres(1).lowerBound == subres(2).lowerBound)
+                         IdealInt.ONE
+                       else
+                         IdealInt.ZERO)
+          } else {
+            // could be optimised further: handle cases where the bounds imply
+            // that the terms have different values
+            VisitorRes(ite(subres(1).resTerm === subres(2).resTerm,
+                           IdealInt.ONE, IdealInt.ZERO),
+                       IdealInt.ZERO, IdealInt.ONE)
+          }
 
         ////////////////////////////////////////////////////////////////////////
 
