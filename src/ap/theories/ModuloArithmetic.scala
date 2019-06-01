@@ -1000,6 +1000,12 @@ object ModuloArithmetic extends Theory {
         UniSubArgs(ctxt.noMod)
     }
 
+    def doExtract(start : Int, end : Int, arg : ITerm, argBits : Int) : ITerm =
+      if (start == argBits - 1 && end == 0)
+        arg
+      else
+        IFunApp(bv_extract, Vector(start, end, arg))
+
     def postVisit(t : IExpression,
                   ctxt : VisitorArg, subres : Seq[VisitorRes]) : VisitorRes =
       t match {
@@ -1062,7 +1068,8 @@ object ModuloArithmetic extends Theory {
 
           val resultDef = 
             and(for (i <- 0 until bits) yield {
-              eqZero(bv_extract(i, i, arg) + bv_extract(i, i, resTerm) +
+              eqZero(doExtract(i, i, arg, bits) +
+                     doExtract(i, i, resTerm, bits) +
                      IdealInt.MINUS_ONE)
             })
 
@@ -1148,15 +1155,15 @@ object ModuloArithmetic extends Theory {
                 Console.err.println("WARNING: using BV_LSHR")
                 // TODO: We (maybe) need to append #shift zeroes in front
                 VisitorRes(
-                  bv_extract(bits-1, shift, subres(1).resTerm),
+                  doExtract(bits-1, shift, subres(1).resTerm, bits),
                   IdealInt.ZERO, pow2MinusOne(bits - shift))                
               }
             }
           } else {
             val upper = pow2MinusOne(bits)
             VisitorRes(r_shift_cast(IdealInt.ZERO, upper,
-              subres(1).resTerm, subres(2).resTerm),
-              IdealInt.ZERO, upper)
+                                    subres(1).resTerm, subres(2).resTerm),
+                       IdealInt.ZERO, upper)
           }
         }
 
@@ -1196,7 +1203,7 @@ object ModuloArithmetic extends Theory {
               case Seq(0, length) => {
                 // pattern starting with a single block of ones
                 VisitorRes(
-                  bv_extract(length - 1, 0, arg.resTerm),
+                  doExtract(length - 1, 0, arg.resTerm, bits),
                   IdealInt.ZERO, pattern)
               }
 
@@ -1212,9 +1219,9 @@ object ModuloArithmetic extends Theory {
                         bit = !bit
                         if (len > 0) {
                           offset = offset + len
-                          bv_extract(offset-1, (offset-len), v(1)) === 
+                          doExtract(offset-1, (offset-len), v(1), bits) === 
                           (if (bit)
-                             bv_extract(offset-1, (offset-len), v(0))
+                             doExtract(offset-1, (offset-len), v(0), bits)
                            else
                              i(0))
                         } else {
@@ -1242,9 +1249,9 @@ object ModuloArithmetic extends Theory {
             case (false, false) => {
               val resultDef = 
                 and(for (i <- 0 until bits) yield{
-                  val res = bv_extract(i, i, v(2))              
-                  val lhs = bv_extract(i, i, v(1))
-                  val rhs = bv_extract(i, i, v(0))
+                  val res = doExtract(i, i, v(2), bits)
+                  val lhs = doExtract(i, i, v(1), bits)
+                  val rhs = doExtract(i, i, v(0), bits)
                   (res <= lhs) & (res <= rhs) & (res >= lhs + rhs - 1)
                 })
               val res =
@@ -1278,7 +1285,7 @@ object ModuloArithmetic extends Theory {
               case Seq(offset, length) if offset + length == bits => {
                 // pattern ending with a single block of ones
                 VisitorRes(
-                  bv_extract(offset-1, 0, arg.resTerm) + pattern,
+                  doExtract(offset-1, 0, arg.resTerm, bits) + pattern,
                   pattern, pow2MinusOne(bits))
               }
               
@@ -1294,11 +1301,11 @@ object ModuloArithmetic extends Theory {
                         bit = !bit
                         if (len > 0) {
                           offset = offset + len
-                          bv_extract(offset-1, offset-len, v(1)) ===                      
+                          doExtract(offset-1, offset-len, v(1), bits) ===
                           (if (bit)
                              i(pow2MinusOne(len))
                            else
-                             bv_extract(offset-1, offset - len, v(0)))                      
+                             doExtract(offset-1, offset - len, v(0), bits))
                         } else {
                           i(true)
                         }
@@ -1324,9 +1331,9 @@ object ModuloArithmetic extends Theory {
             case (false, false) => {
               val resultDef = 
                 and(for (i <- 0 until bits) yield{
-                  val res = bv_extract(i, i, v(2))              
-                  val lhs = bv_extract(i, i, v(1))
-                  val rhs = bv_extract(i, i, v(0))
+                  val res = doExtract(i, i, v(2), bits)
+                  val lhs = doExtract(i, i, v(1), bits)
+                  val rhs = doExtract(i, i, v(0), bits)
                   (res >= lhs) & (res >= rhs) & (res <= lhs + rhs)
                 })
               val res =
@@ -1350,9 +1357,9 @@ object ModuloArithmetic extends Theory {
           val sort = UnsignedBVSort(bits)
           val resultDef = 
             and(for (i <- 0 until bits) yield{
-              val res = bv_extract(i, i, v(2))              
-              val lhs = bv_extract(i, i, v(1))
-              val rhs = bv_extract(i, i, v(0))
+              val res = doExtract(i, i, v(2), bits)
+              val lhs = doExtract(i, i, v(1), bits)
+              val rhs = doExtract(i, i, v(0), bits)
               import TerForConvenience._
               mod_cast(0, 1, lhs+rhs) === res
             })
