@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -214,6 +214,8 @@ object SMTLineariser {
         predPoints.getOrElseUpdate(p, new ArrayBuffer) += ((args, true))
       case INot(IAtom(p, args)) =>
         predPoints.getOrElseUpdate(p, new ArrayBuffer) += ((args, false))
+      case IBoolLit(true) =>
+        // can be ignored, empty model
     }
 
     for ((f, points) <- funPoints) {

@@ -661,6 +661,13 @@ object ModuloArithmetic extends Theory {
         copy(modN = Some(n), underQuantifier = false)
     }
 
+    def multMod(factor : IdealInt, localMod : IdealInt) = modN match {
+      case Some(oldN) =>
+        copy(modN = Some(oldN * factor), underQuantifier = false)
+      case None =>
+        copy(modN = Some(localMod), underQuantifier = false)
+    }
+
     def divideMod(divisor : IdealInt) = modN match {
       case Some(oldN) => {
         val g = oldN gcd divisor
@@ -844,7 +851,10 @@ object ModuloArithmetic extends Theory {
                 this
               } else {
                 val corr = lowerFactor * modulus
-                VisitorRes(resTerm - corr, lowerBound - corr, upperBound - corr)
+                if (isConstant)
+                  VisitorRes(lowerBound - corr)
+                else
+                  VisitorRes(resTerm - corr, lowerBound - corr, upperBound - corr)
               }
             } else {
               null // mod_cast is needed!
@@ -982,10 +992,9 @@ object ModuloArithmetic extends Theory {
       case IFunApp(`bv_extract`,
                    Seq(IIntLit(IdealInt(begin)), IIntLit(IdealInt(end)), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod,
-                     ctxt addMod pow2(begin + 1)))
+                     ctxt.multMod(pow2(end), pow2(begin + 1))))
 
-      case IFunApp(`bv_not` | `bv_neg` |
-                   `bv_add` | `bv_sub` | `bv_mul` | `bv_srem`,
+      case IFunApp(`bv_neg` | `bv_add` | `bv_sub` | `bv_mul` | `bv_srem`,
                    Seq(IIntLit(IdealInt(n)), _*)) =>
         // TODO: handle bit-width argument correctly
         UniSubArgs(ctxt addMod pow2(n))
@@ -1012,10 +1021,14 @@ object ModuloArithmetic extends Theory {
     }
 
     def doExtract(start : Int, end : Int, arg : ITerm, argBits : Int) : ITerm =
-      if (start == argBits - 1 && end == 0)
+      if (start == argBits - 1 && end == 0) {
         arg
-      else
-        IFunApp(bv_extract, Vector(start, end, arg))
+      } else arg match {
+        case IIntLit(argVal) =>
+          (argVal % pow2(start+1)) / pow2(end)
+        case arg =>
+          IFunApp(bv_extract, Vector(start, end, arg))
+      }
 
     def postVisit(t : IExpression,
                   ctxt : VisitorArg, subres : Seq[VisitorRes]) : VisitorRes =
@@ -1026,75 +1039,74 @@ object ModuloArithmetic extends Theory {
             case res  => res
           }
 
-          /*
-           case IFunApp(`bv_concat`, Seq(_, IIntLit(IdealInt(bits)), _*)) =>
-           (subres(2) * pow2(bits)) + subres(3)
-           */
+        case IFunApp(`bv_extract`, Seq(IIntLit(IdealInt(start)),
+                                       IIntLit(IdealInt(end)), _*)) =>
+          if (subres(2).isConstant)
+            VisitorRes((subres(2).lowerBound % pow2(start+1)) / pow2(end))
+          else
+            VisitorRes.update(t, subres)
 
         case IFunApp(`bv_concat`, Seq(IIntLit(IdealInt(bits1)),
-          IIntLit(IdealInt(bits2)), _*)) => {
-          val sort = UnsignedBVSort(bits1+bits2)
+                                      IIntLit(IdealInt(bits2)), _*)) =>
+          if (subres(2).isConstant && subres(3).isConstant) {
+            VisitorRes(subres(2).lowerBound * pow2(bits2) +
+                       subres(3).lowerBound)
+          } else {
+            val sort = UnsignedBVSort(bits1+bits2)
 
-          // We create a new variable v(0) which is
-          // existentially quantified, representing
-          // the result of the concat
+            // We create a new variable v(0) which is existentially
+            // quantified, representing the result of the concat
 
-          val bv1lhs = bv_extract(bits1+bits2-1, bits2, v(0))
-          val bv1rhs = VariableShiftVisitor(subres(2).resTerm, 0, 1)
-          val bv1 = (bv1lhs === bv1rhs)
+            val bv1lhs = bv_extract(bits1+bits2-1, bits2, v(0))
+            val bv1rhs = VariableShiftVisitor(subres(2).resTerm, 0, 1)
+            val bv1 = (bv1lhs === bv1rhs)
 
-          val bv2lhs = bv_extract(bits2-1, 0, v(0))
-          val bv2rhs = VariableShiftVisitor(subres(3).resTerm, 0, 1)
-          val bv2 = (bv2lhs === bv2rhs)
+            val bv2lhs = bv_extract(bits2-1, 0, v(0))
+            val bv2rhs = VariableShiftVisitor(subres(3).resTerm, 0, 1)
+            val bv2 = (bv2lhs === bv2rhs)
 
-          val res = sort.eps(bv1 & bv2)
+            val res = sort.eps(bv1 & bv2)
 
-          VisitorRes(res,
-                     (subres(2).lowerBoundOrElse(IdealInt.ZERO) * pow2(bits2)) +
-                     subres(3).lowerBoundOrElse(IdealInt.ZERO),
-                     (subres(2).upperBoundOrElse(pow2(bits1)) * pow2(bits2)) +
-                     subres(3).upperBoundOrElse(pow2(bits2)))
-        }
+            VisitorRes(res,
+                       (subres(2).lowerBoundOrElse(IdealInt.ZERO) * pow2(bits2)) +
+                         subres(3).lowerBoundOrElse(IdealInt.ZERO),
+                       (subres(2).upperBoundOrElse(pow2(bits1)) * pow2(bits2)) +
+                         subres(3).upperBoundOrElse(pow2(bits2)))
+          }
 
-          /*
-           This is currently handled in the Theory.preprocess method
-           (but has to be further optimised)
+        case IFunApp(`bv_not`, Seq(IIntLit(IdealInt(bits)), _)) =>
+          if (subres(1).isConstant) {
+            VisitorRes(pow2MinusOne(bits) - subres(1).lowerBound)
+          } else {
+            val sort = UnsignedBVSort(bits)
 
-           case IFunApp(`bv_extract`, Seq(_, IIntLit(IdealInt(n1)),
-           IIntLit(IdealInt(n2)), _*)) =>
-           (subres.last eDiv pow2(n2)).modCastPow2(n1, ctxt)
-           */
+            val rawArg = subres(1).resTerm
+            val simple = isSimpleTerm(rawArg)
 
-        case IFunApp(`bv_not`, Seq(IIntLit(IdealInt(bits)), _)) => {
-          val sort = UnsignedBVSort(bits)
+            val (arg, resTerm) =
+              if (simple)
+                (VariableShiftVisitor(rawArg, 0, 1), v(0))
+              else
+                (v(0), v(1))
 
-          val rawArg = subres(1).resTerm
-          val simple = isSimpleTerm(rawArg)
+            val resultDef =
+              and(for (i <- 0 until bits) yield {
+                eqZero(doExtract(i, i, arg, bits) +
+                       doExtract(i, i, resTerm, bits) +
+                       IdealInt.MINUS_ONE)
+              })
 
-          val (arg, resTerm) =
-            if (simple)
-              (VariableShiftVisitor(rawArg, 0, 1), v(0))
-            else
-              (v(0), v(1))
+            val res =
+              if (simple)
+                sort.eps(resultDef)
+              else
+                sort.eps(ex(v(0) === VariableShiftVisitor(rawArg, 0, 2) &
+                            resultDef))
 
-          val resultDef = 
-            and(for (i <- 0 until bits) yield {
-              eqZero(doExtract(i, i, arg, bits) +
-                     doExtract(i, i, resTerm, bits) +
-                     IdealInt.MINUS_ONE)
-            })
-
-          val res =
-            if (simple)
-              sort.eps(resultDef)
-            else
-              sort.eps(ex(v(0) === VariableShiftVisitor(rawArg, 0, 2) &
-                          resultDef))
-
-          VisitorRes(res,
-                     sort.upper - (subres(1) upperBoundMax sort.upper),
-                     sort.upper - (subres(1) lowerBoundMin IdealInt.ZERO))
-        }
+            VisitorRes(res,
+                       sort.upper - (subres(1) upperBoundMax sort.upper),
+                       sort.upper - (subres(1) lowerBoundMin IdealInt.ZERO))
+          }
 
         case IFunApp(`bv_neg`, Seq(IIntLit(IdealInt(bits)), _)) =>
           (subres.last * IdealInt.MINUS_ONE).modCastPow2(bits, ctxt)
@@ -1108,21 +1120,31 @@ object ModuloArithmetic extends Theory {
         ////////////////////////////////////////////////////////////////////////
 
         case IFunApp(`bv_mul`, Seq(IIntLit(IdealInt(bits)), _*)) =>
-          if (subres(1).isConstant)
-            (subres(2) * subres(1).lowerBound).modCastPow2(bits, ctxt)
-          else if (subres(2).isConstant)
-            (subres(1) * subres(2).lowerBound).modCastPow2(bits, ctxt)
-          else
-            (subres(1) * subres(2)).modCastPow2(bits, ctxt)
+          (subres(1).isConstant, subres(2).isConstant) match {
+            case (true, true) =>
+              VisitorRes(subres(1).lowerBound *
+                         subres(2).lowerBound).modCastPow2(bits, ctxt)
+            case (true, false) =>
+              (subres(2) * subres(1).lowerBound).modCastPow2(bits, ctxt)
+            case (false, true) =>
+              (subres(1) * subres(2).lowerBound).modCastPow2(bits, ctxt)
+            case (false, false) =>
+              (subres(1) * subres(2)).modCastPow2(bits, ctxt)
+          }
 
         // TODO: move this clause to the multiplication theory?
         case IFunApp(MulTheory.Mul(), Seq(IIntLit(IdealInt(bits)), _*)) =>
-          if (subres(1).isConstant)
-            subres(2) * subres(1).lowerBound
-          else if (subres(2).isConstant)
-            subres(1) * subres(2).lowerBound
-          else
-            VisitorRes.update(t, subres)
+          (subres(1).isConstant, subres(2).isConstant) match {
+            case (true, true) =>
+              VisitorRes(subres(1).lowerBound *
+                         subres(2).lowerBound).modCastPow2(bits, ctxt)
+            case (true, false) =>
+              subres(2) * subres(1).lowerBound
+            case (false, true) =>
+              subres(1) * subres(2).lowerBound
+            case (false, false) =>
+              VisitorRes.update(t, subres)
+          }
 
         ////////////////////////////////////////////////////////////////////////
 
@@ -1163,7 +1185,7 @@ object ModuloArithmetic extends Theory {
               }
 
               case IdealInt(shift) => {
-                Console.err.println("WARNING: using BV_LSHR")
+                //Console.err.println("WARNING: using BV_LSHR")
                 // TODO: We (maybe) need to append #shift zeroes in front
                 VisitorRes(
                   doExtract(bits-1, shift, subres(1).resTerm, bits),
