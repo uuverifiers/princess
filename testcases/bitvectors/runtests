@@ -45,6 +45,7 @@ TESTS="existential.pri \
        bv-ops5.pri \
        bitops-1.smt2 \
        bitops.smt2 \
+       bitops1.smt2 \
        concatcore.smt2 \
        concat.smt2 \
        concore.smt2 \

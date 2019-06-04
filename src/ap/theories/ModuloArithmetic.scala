@@ -2023,25 +2023,20 @@ object ModuloArithmetic extends Theory {
 
     if (cutPoints.isEmpty) {
       List()
+    } else if (disequality.constants.size == 1) {
+      // -Constant and Integer
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertInt(AC, disequality.leadingCoeff.isOne)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+      split(disequality.leadingTerm, l(-disequality.constant))
+    } else if (disequality.constants.size == 2 &&
+               disequality.constant.isZero &&
+               disequality.getCoeff(0).isOne &&
+               disequality.getCoeff(1).isMinusOne) {
+      split(disequality.getTerm(0), disequality.getTerm(1))
     } else {
-      (disequality(0), disequality(1)) match {
-        // -Constant and Integer
-        case ((IdealInt.ONE, t1), (c2, OneTerm)) => {
-          split(t1, l(-c2))
-        }
-
-        // -Constant and Constant
-        case ((IdealInt.ONE, t1), (IdealInt(-1), t2)) => {
-          val (c1, c2) = (t1.constants.head, t2.constants.head)
-          val res = split(c1, c2)
-          res
-        }
-
-        case _ => {
-          //println("WARNING: cannot split " + disequality)
-          List()
-        }
-      }
+      //println("WARNING: cannot split " + disequality)
+      List()
     }
   }
 
