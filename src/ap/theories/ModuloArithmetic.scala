@@ -2158,26 +2158,6 @@ object ModuloArithmetic extends Theory {
   }
  */
 
-  /**
-   * Determine constants that occur both in bv_extract literals and in
-   * general arithmetic context.
-   */
-  private def arithmeticExtractedConsts(goal : Goal) : Set[ConstantTerm] = {
-    val arithConsts = new MHashSet[ConstantTerm]
-
-    val facts = goal.facts
-    val ac = facts.arithConj
-
-    arithConsts ++= ac.positiveEqs.constants
-
-    for (lc <- ac.inEqs.iterator;
-         if lc.constants.size > 1;
-         c <- lc.constants.iterator)
-      arithConsts += c
-
-    arithConsts.toSet
-  }
-
   private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
     // check if we have modcast or shiftcast actions
     val actions1 = modCastActions(goal)
@@ -2798,6 +2778,39 @@ object ModuloArithmetic extends Theory {
       }
 
       actions
+    }
+
+    /**
+     * Determine constants that occur in general arithmetic context.
+     */
+    private def arithmeticExtractedConsts(goal : Goal)
+                                        : MHashSet[ConstantTerm] = {
+      val arithConsts = new MHashSet[ConstantTerm]
+
+      val facts = goal.facts
+      val ac = facts.arithConj
+
+      arithConsts ++= ac.positiveEqs.constants
+
+      for (lc <- ac.inEqs)
+        if (lc.constants.size > 1)
+          arithConsts ++= lc.constants
+
+      for (a <- facts.predConj.positiveLits) a match {
+        case Atom(`_bv_extract`,
+                  Seq(_, _, SingleTerm(_), _), _) =>
+          // nothing
+        case Atom(`_bv_extract`,
+                  Seq(_,  _, arg, _), _) =>
+          arithConsts ++= arg.constants
+        case a =>
+          arithConsts ++= a.constants
+      }
+
+      for (a <- facts.predConj.negativeLits)
+        arithConsts ++= a.constants
+
+      arithConsts
     }
   }
 
