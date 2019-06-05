@@ -350,6 +350,12 @@ object ModuloArithmetic extends Theory {
     }
 
   /**
+   * Evaluate <code>bv_extract</code> with concrete arguments
+   */
+  def evalExtract(start : Int, end : Int, number : IdealInt) : IdealInt =
+    (number % pow2(start+1)) / pow2(end)
+
+  /**
    * Cast a term to a modulo sort.
    */
   def cast2Sort(sort : ModSort, t : ITerm) : ITerm =
@@ -654,25 +660,33 @@ object ModuloArithmetic extends Theory {
                                 underQuantifier : Boolean) {
     import IExpression._
 
+    def setMod(n : IdealInt) =
+      copy(modN = Some(n), underQuantifier = false)
+
     def addMod(n : IdealInt) = modN match {
       case Some(oldN) if (oldN divides n) =>
         this.notUnderQuantifier
       case _ =>
-        copy(modN = Some(n), underQuantifier = false)
+        this.setMod(n)
     }
 
     def multMod(factor : IdealInt, localMod : IdealInt) = modN match {
-      case Some(oldN) =>
-        copy(modN = Some(oldN * factor), underQuantifier = false)
+      case Some(oldN) => {
+        val prod = oldN * factor
+        if (prod divides localMod)
+          setMod(prod)
+        else
+          setMod(localMod)
+      }
       case None =>
-        copy(modN = Some(localMod), underQuantifier = false)
+        setMod(localMod)
     }
 
     def divideMod(divisor : IdealInt) = modN match {
       case Some(oldN) => {
         val g = oldN gcd divisor
         if (g > IdealInt.ONE)
-          copy(modN = Some(oldN / g), underQuantifier = false)
+          setMod(oldN / g)
         else
           this.notUnderQuantifier
       }
@@ -1025,10 +1039,12 @@ object ModuloArithmetic extends Theory {
         arg
       } else arg match {
         case IIntLit(argVal) =>
-          (argVal % pow2(start+1)) / pow2(end)
+          evalExtract(start, end, argVal)
         case arg =>
           IFunApp(bv_extract, Vector(start, end, arg))
       }
+
+    ////////////////////////////////////////////////////////////////////////////
 
     def postVisit(t : IExpression,
                   ctxt : VisitorArg, subres : Seq[VisitorRes]) : VisitorRes =
@@ -1042,7 +1058,7 @@ object ModuloArithmetic extends Theory {
         case IFunApp(`bv_extract`, Seq(IIntLit(IdealInt(start)),
                                        IIntLit(IdealInt(end)), _*)) =>
           if (subres(2).isConstant)
-            VisitorRes((subres(2).lowerBound % pow2(start+1)) / pow2(end))
+            VisitorRes(evalExtract(start, end, subres(2).lowerBound))
           else
             VisitorRes.update(t, subres)
 
@@ -2090,96 +2106,6 @@ object ModuloArithmetic extends Theory {
          action <- splitDiseq(diseq, parts, goal))
     yield action
 
-  /**
-   * Splitting of inequalities x >= 1, translated to a conjunction
-   * x != 0 & x >= 0
-   */
-/*
-  private def splitDisInequalityActions(extractedConsts : Set[ConstantTerm],
-                                        partitions : Map[Term, List[Int]],
-                                        goal : Goal)
-                                       (implicit order : TermOrder)
-                                      : Seq[Plugin.Action] = {
-    import TerForConvenience._
-    val ineqs = goal.facts.arithConj.inEqs
-
-    for (lc <- ineqs;
-         if lc.constants.size == 1;
-         c = lc.leadingTerm.asInstanceOf[ConstantTerm];
-         if (extractedConsts contains c) &&
-            lc.leadingCoeff.isOne && lc.constant.isMinusOne;
-         parts <- (partitions get c).toSeq;
-         action <- splitDiseq(LinearCombination(c, order), parts, goal);
-         // translate the actions back to actions on inequalities
-         newAction <- action match {
-           case Plugin.RemoveFacts(_) =>
-             List()
-           case Plugin.AddAxiom(List(_), f, t) =>
-             List(Plugin.AddAxiom(List(lc >= 0), f, t))
-         })
-    yield newAction
-  }
-*/
-
-  /**
-   * Splitting of inequalities x < 2^N-1, translated to a conjunction
-   * x != 2^N-1 & x <= 2^N-1
-   */
-/*
-  private def splitDisInequalityActions2(extractedConsts : Set[ConstantTerm],
-                                         partitions : Map[Term, List[Int]],
-                                         goal : Goal)
-                                        (implicit order : TermOrder)
-                                       : Seq[Plugin.Action] = {
-    import TerForConvenience._
-    val ineqs = goal.facts.arithConj.inEqs
-
-    for (lc <- ineqs;
-         if lc.constants.size == 1;
-         c = lc.leadingTerm.asInstanceOf[ConstantTerm];
-         if (extractedConsts contains c) && lc.leadingCoeff.isMinusOne;
-         ub <- isPowerOf2(lc.constant + 2).toSeq;
-         parts <- (partitions get c).toSeq;
-         newLC = LinearCombination(List((IdealInt.ONE, c),
-                                        (-(lc.constant + 1), OneTerm)),
-                                   order);
-         action <- splitDiseq(newLC, parts, goal);
-         // translate the actions back to actions on inequalities
-         newAction <- action match {
-           case Plugin.RemoveFacts(_) =>
-             List()
-           case Plugin.AddAxiom(List(_), f, t) =>
-             List(Plugin.AddAxiom(List(lc >= 0), f, t))
-         })
-    yield newAction
-  }
-*/
-
-/*
-  private def extractToArithmetic(extract : Atom)
-                                 (implicit order : TermOrder)
-                                : Seq[Plugin.Action] = {
-    import TerForConvenience._
-
-    val ub =
-      extract(0).asInstanceOf[LinearCombination0].constant.intValueSafe
-    val lb =
-      extract(1).asInstanceOf[LinearCombination0].constant.intValueSafe
-
-    val castSort = UnsignedBVSort(ub+1)
-    val remSort =  UnsignedBVSort(lb)
-    val subst = VariableShiftSubst(0, 1, order)
-
-    val pred = _mod_cast(List(l(0), l(castSort.upper),
-      subst(extract(2)),
-      subst(extract(3))*remSort.modulus + v(0)))
-
-    val res = existsSorted(List(remSort), pred)
-    List(Plugin.RemoveFacts(extract),
-         Plugin.AddAxiom(List(extract), res, ModuloArithmetic.this))
-  }
- */
-
   private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
     // check if we have modcast or shiftcast actions
     val actions1 = modCastActions(goal)
@@ -2274,55 +2200,6 @@ object ModuloArithmetic extends Theory {
     }
   }
 
-/*
-  private def handleConstantExtracts(extracts : Seq[Atom])
-                                    (implicit order : TermOrder)
-                                   : List[Plugin.Action] = {
-    import TerForConvenience._
-    val constantExtracts = extracts.filter(_(2).isConstant).toList
-    (for (ex <- constantExtracts) yield {
-      val List(lhs, rhs) = List(ex(2), ex(3)).map(_.asInstanceOf[LinearCombination])
-      val List(ub, lb) =
-        List(ex(0), ex(1)).map(_.asInstanceOf[LinearCombination0].constant.intValueSafe)
-
-      val newConstant = (lhs.constant % pow2(ub+1)) / pow2(lb)
-      val newEquation =
-        if (rhs.constants.size == 0) {
-          // This means a constant right hand side as well!
-          ap.terfor.equations.EquationConj((newConstant - rhs), order)
-        } else {
-          val (newRhs, newNewConstant) = 
-            rhs match {
-              case lc : ap.terfor.linearcombination.LinearCombination0 => {
-                throw new Exception("LinearCombination0 in handleConstantExtracts")
-              }
-              case lc : ap.terfor.linearcombination.LinearCombination1 => {
-                val cc = lc.constant.intValueSafe
-
-                val (i,c) = lc(0)
-                i match {
-                  case IdealInt(1) => (c, newConstant + cc)
-                  case IdealInt(-1) => (c, -newConstant + cc)
-                }
-              }
-              case lc : ap.terfor.linearcombination.LinearCombination2 => {
-                throw new Exception("LinearCombination2 in handleConstantExtracts")
-              }
-
-              case lc => {
-                throw new Exception(lc.getClass + " in handleConstantExtracts")
-              }
-            }
-          val lc = LinearCombination(IdealInt.ONE, newRhs, -newNewConstant, order)
-          ap.terfor.equations.EquationConj(lc, order)
-        }
-
-      List(Plugin.RemoveFacts(ex),
-           Plugin.AddAxiom(List(ex), conj(newEquation), ModuloArithmetic.this))
-    }).flatten
-  }
- */
-
   private def printBVgoal(goal : Goal) = {
     val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
     val diseqs = goal.facts.arithConj.negativeEqs
@@ -2406,17 +2283,6 @@ object ModuloArithmetic extends Theory {
       }
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      // TODO: this should really happen in the rewriter!
-/*      val constantExtractActions = handleConstantExtracts(extracts)
-      if (!constantExtractActions.isEmpty) {
-        if (debug) {
-          println("Convert constants")
-          for (a <- constantExtractActions)
-            println("\t" + a)
-        }
-        return constantExtractActions
-      } */
-
       val diseqs = for (lc <- goal.facts.arithConj.negativeEqs;
                         if !Seqs.disjoint(lc.constants, extractedConsts))
                    yield lc
@@ -2449,31 +2315,7 @@ object ModuloArithmetic extends Theory {
         // If necessary, turn extracts in arithmetic context into
         // just arithmetic constaints
         actions += Plugin.ScheduleTask(ExtractArithEncoder, 10)
-
-/*
-        val arithActions =
-          for (ex <- extracts;
-               if (ex(2) match {
-                     case SingleTerm(c : ConstantTerm) =>
-                       arithExtractedConsts contains c
-                     case _ =>
-                       true
-                   });
-               action <- extractToArithmetic(ex))
-          yield action
-        if (!arithActions.isEmpty) {
-          if (debug) {
-            println("Translating to arithmetic")
-            for (ac <- arithActions)
-              println("\t" + ac)
-          }
-          return arithActions
-        }
- */
       }
-
-//      val pureExtractedConsts =
-//        extractedConsts -- arithExtractedConsts
 
       val diseqActions = splitDisequalityActions(diseqs, partitions, goal) /* ++
                          splitDisInequalityActions(pureExtractedConsts,
@@ -2500,20 +2342,6 @@ object ModuloArithmetic extends Theory {
         }
         return actions ++ msc
       }
-
-/*
-      if ((goalState(goal) == Plugin.GoalState.Final) && (!extracts.isEmpty)) {
-        val arithActions =
-          (for (ex <- extracts) yield
-            extractToArithmetic(ex)).flatten
-        if (debug) {
-          println("Translating to arithmetic")
-          for (ac <- arithActions)
-            println("\t" + ac)
-        }
-        return actions ++ arithActions
-      }
- */
 
       if (debug) {
         println("Nothing..")
@@ -3384,8 +3212,7 @@ object ModuloArithmetic extends Theory {
                     val LinearCombination.Constant(IdealInt(ub)) = a(0)
                     val LinearCombination.Constant(IdealInt(lb)) = a(1)
 
-                    val newConstant = (a(2).constant % pow2(ub+1)) / pow2(lb)
-                    val newEq = a(3) === newConstant
+                    val newEq = a(3) === evalExtract(ub, lb, a(2).constant)
 
                     if (debug) {
                       println("Evaluating bv_extract:")
@@ -3412,8 +3239,7 @@ object ModuloArithmetic extends Theory {
                       val LinearCombination.Constant(IdealInt(lb)) = a(1)
                       if (lb >= bitBoundary) {
                         val LinearCombination.Constant(IdealInt(ub)) = a(0)
-                        val newConstant = (lower % pow2(ub+1)) / pow2(lb)
-                        val newEq = a(3) === newConstant
+                        val newEq = a(3) === evalExtract(ub, lb, lower)
 
                         if (debug) {
                           println("Evaluating bv_extract:")
