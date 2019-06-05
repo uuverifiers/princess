@@ -1000,9 +1000,6 @@ object ModuloArithmetic extends Theory {
                      ctxt addMod (upper - lower + IdealInt.ONE),
                      ctxt.noMod))
 
-      case IFunApp(`bv_concat`, Seq(_, IIntLit(IdealInt(n)), _*)) =>
-        SubArgs(List(ctxt.noMod, ctxt.noMod,
-                     ctxt.noMod, ctxt.noMod))
       case IFunApp(`bv_extract`,
                    Seq(IIntLit(IdealInt(begin)), IIntLit(IdealInt(end)), _*)) =>
         SubArgs(List(ctxt.noMod, ctxt.noMod,
@@ -1193,20 +1190,21 @@ object ModuloArithmetic extends Theory {
                        IdealInt.ZERO, upper)
           }
 
-        case IFunApp(`bv_lshr`, Seq(IIntLit(IdealInt(bits)), _*)) => {
+        case IFunApp(`bv_lshr`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
             subres(2).lowerBound match {
-              case IdealInt.ZERO => {
+              case IdealInt.ZERO =>
                 subres(1)
-              }
-
-              case IdealInt(shift) => {
-                //Console.err.println("WARNING: using BV_LSHR")
-                // TODO: We (maybe) need to append #shift zeroes in front
+              case shift if shift < IdealInt(bits) => {
+                val ivShift = shift.intValueSafe
+                val divisor = pow2(ivShift)
                 VisitorRes(
-                  doExtract(bits-1, shift, subres(1).resTerm, bits),
-                  IdealInt.ZERO, pow2MinusOne(bits - shift))                
+                  doExtract(bits-1, ivShift, subres(1).resTerm, bits),
+                  subres(1).lowerBoundMin(IdealInt.ZERO) / divisor,
+                  subres(1).upperBoundMax(pow2MinusOne(bits+1)) / divisor)
               }
+              case _ =>
+                VisitorRes(IdealInt.ZERO)
             }
           } else {
             val upper = pow2MinusOne(bits)
@@ -1214,7 +1212,6 @@ object ModuloArithmetic extends Theory {
                                     subres(1).resTerm, subres(2).resTerm),
                        IdealInt.ZERO, upper)
           }
-        }
 
         case IFunApp(`bv_ashr`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
