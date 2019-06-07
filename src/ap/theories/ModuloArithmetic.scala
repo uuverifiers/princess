@@ -1195,11 +1195,12 @@ object ModuloArithmetic extends Theory {
             subres(2).lowerBound match {
               case IdealInt.ZERO =>
                 subres(1)
-              case shift if shift < IdealInt(bits) => {
-                val ivShift = shift.intValueSafe
-                val divisor = pow2(ivShift)
+              case shift if shift.signum < 0 =>
+                throw new Exception("negative shift")
+              case IdealInt(shift) if shift < bits => {
+                val divisor = pow2(shift)
                 VisitorRes(
-                  doExtract(bits-1, ivShift, subres(1).resTerm, bits),
+                  doExtract(bits-1, shift, subres(1).resTerm, bits),
                   subres(1).lowerBoundMin(IdealInt.ZERO) / divisor,
                   subres(1).upperBoundMax(pow2MinusOne(bits+1)) / divisor)
               }
@@ -1218,6 +1219,8 @@ object ModuloArithmetic extends Theory {
             subres(2).lowerBound match {
               case IdealInt.ZERO =>
                 subres(1).modCastPow2(bits, ctxt)
+              case shift if shift.signum < 0 =>
+                throw new Exception("negative shift")
               case IdealInt(shift) =>
                 subres(1).modCastSignedPow2(bits, ctxt.noMod)
                          .eDiv(pow2(shift))
@@ -2173,28 +2176,53 @@ object ModuloArithmetic extends Theory {
     castActions ++ extractActions
   }
 
+  /**
+   * Replace negated predicates with positive predicates
+   */
   private def negPreds(goal : Goal) : Seq[Plugin.Action] = {
-    val negPreds =
+    implicit val order = goal.order
+    import TerForConvenience._
+
+    val negPreds1 =
       goal.facts.predConj.negativeLitsWithPred(_mod_cast) ++
-      goal.facts.predConj.negativeLitsWithPred(_l_shift_cast) ++
-      goal.facts.predConj.negativeLitsWithPred(_bv_extract)
-    
-    if (!negPreds.isEmpty) {
-      // replace negated predicates with positive predicates
+      goal.facts.predConj.negativeLitsWithPred(_l_shift_cast)
 
-      implicit val order = goal.order
-      import TerForConvenience._
+    val actions1 =
+      if (!negPreds1.isEmpty) {
+        (for (a <- negPreds1) yield {
+          val axiom =
+            exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
+              (v(0) >= a(0)) & (v(0) <= a(1)) & (v(0) =/= a.last))
+          Plugin.AddAxiom(List(!conj(a)), axiom, ModuloArithmetic.this)
+        }) ++ List(Plugin.RemoveFacts(conj(
+                            for (a <- negPreds1) yield !conj(a))))
+      } else {
+        List()
+      }
 
-      (for (a <- negPreds) yield {
-        val axiom =
-          exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
-            (v(0) >= a(0)) & (v(0) <= a(1)) &
-            (v(0) =/= a.last))
-        Plugin.AddAxiom(List(!conj(a)), axiom, ModuloArithmetic.this)
-      }) ++ List(Plugin.RemoveFacts(conj(for (a <- negPreds) yield !conj(a))))
-    } else {
-      List()
-    }
+    val negPreds2 =
+      for (a <- goal.facts.predConj.negativeLitsWithPred(_bv_extract);
+           // negative predicates can be handled only if bit arguments
+           // are concrete (would need exponentiation function otherwise)
+           if a(0).isConstant && a(1).isConstant)
+      yield a
+
+    val actions2 =
+      if (!negPreds2.isEmpty) {
+        (for (a <- negPreds2) yield {
+          val sort@ModSort(sortLB, sortUB) =
+            (SortedPredicate argumentSorts a).last
+          val axiom =
+            exists(Atom(a.pred, a.init ++ List(l(v(0))), order) &
+              (v(0) >= sortLB) & (v(0) <= sortUB) & (v(0) =/= a.last))
+          Plugin.AddAxiom(List(!conj(a)), axiom, ModuloArithmetic.this)
+        }) ++ List(Plugin.RemoveFacts(conj(
+                            for (a <- negPreds2) yield !conj(a))))
+      } else {
+        List()
+      }
+
+    actions1 ++ actions2
   }
 
   private def printBVgoal(goal : Goal) = {
