@@ -165,6 +165,8 @@ object CmdlMain {
     println(" -adtMeasure=val           Measure to ensure acyclicity of ADTs")
     println("                             relDepth: relative depth of terms")
     println("                             size:     size of terms                (default)")
+    println(" -stringSolver=val         Specify the used string solver")
+    println("                             (default: ap.theories.strings.SeqStringTheory)")
   }
 
   //////////////////////////////////////////////////////////////////////////////
