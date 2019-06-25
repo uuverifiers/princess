@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -35,7 +35,7 @@ import ap.proof.goal.{Goal, NegLitClauseTask, AddFactsTask, CompoundFormulas,
 import ap.proof.certificates.{Certificate, CertFormula, PartialCertificate,
                               LemmaBase, BranchInferenceCertificate,
                               TheoryAxiomInference}
-import ap.theories.nia.GroebnerMultiplication
+import ap.theories.GroebnerMultiplication
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.tree._
 import ap.util.{Debug, Logic, LRUCache, FilterIt, Seqs, Timeout}

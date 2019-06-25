@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -234,7 +234,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
   protected lazy val mulTheory : MulTheory =
     Param.MUL_PROCEDURE(settings) match {
       case Param.MulProcedure.BitShift => ap.theories.BitShiftMultiplication
-      case Param.MulProcedure.Native   => ap.theories.nia.GroebnerMultiplication
+      case Param.MulProcedure.Native   => ap.theories.GroebnerMultiplication
     }
   
   protected def mult(t1 : ITerm, t2 : ITerm) : ITerm = mulTheory.mult(t1, t2)

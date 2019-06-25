@@ -20,7 +20,9 @@
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ap.theories
+package ap.theories.bitvectors
+
+import ap.theories._
 
 import ap.Signature
 import ap.parser._
@@ -40,7 +42,6 @@ import ap.basetypes.IdealInt
 import ap.types.{Sort, ProxySort, SortedIFunction, SortedPredicate}
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
-import ap.theories.nia.GroebnerMultiplication
 import ap.util.{Debug, IdealRange, LRUCache, Seqs, Timeout}
 
 import scala.collection.{Map => GMap}
