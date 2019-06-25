@@ -57,8 +57,9 @@ import scala.collection.mutable.{ArrayBuffer, Map => MMap, HashSet => MHashSet,
  */
 object ModuloArithmetic extends Theory {
 
-  // TODO: Options for debugging, remove before placing on trunk
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   val debug = false
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
@@ -2226,6 +2227,7 @@ object ModuloArithmetic extends Theory {
     actions1 ++ actions2
   }
 
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   private def printBVgoal(goal : Goal) = {
     val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
     val diseqs = goal.facts.arithConj.negativeEqs
@@ -2259,7 +2261,7 @@ object ModuloArithmetic extends Theory {
     }
     println("+-------------------------------------------------------+")
   }
-  //////////////////////////////////////////////////////////////////////////////
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   override val dependencies : Iterable[Theory] = List(MultTheory)
 
@@ -2271,26 +2273,32 @@ object ModuloArithmetic extends Theory {
       implicit val _ = goal.order
       import TerForConvenience._
 
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       if (debug)
         printBVgoal(goal)
+     //-END-ASSERTION-//////////////////////////////////////////////////////////
 
       val negPs = negPreds(goal)
       if (!negPs.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         if (debug) {
           println("Negative predicate actions:")
           for (a <- negPs)
             println("\t" + a)
         }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return negPs
       }
 
       val elimActions = elimAtoms(goal)
       if (!elimActions.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         if (debug) {
           println("Eliminatable atoms actions:")
           for (a <- elimActions)
             println("\t" + a)
         }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return elimActions
       }
 
@@ -2314,24 +2322,26 @@ object ModuloArithmetic extends Theory {
                    yield lc
       val partitions = computeCutPoints(extracts, diseqs)
 
-      if (!partitions.isEmpty) {
-        if (debug) {
-          println("<<Partitions>>")
-          for ((k, v) <- partitions){
-            println("\t" + k + " --> " + v)
-          }
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      if (debug && !partitions.isEmpty) {
+        println("<<Partitions>>")
+        for ((k, v) <- partitions){
+          println("\t" + k + " --> " + v)
         }
       }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       // Let's start by only splitting one variable
       val splitActions = splitExtractActions(extracts, partitions, goal)
 
       if (!splitActions.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         if (debug) {
           println("Splitting extracts")
           for (t <- splitActions)
             println("\t" + t)
         }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return splitActions
       }
 
@@ -2351,27 +2361,32 @@ object ModuloArithmetic extends Theory {
                                                     partitions,
                                                     goal) */
       if (!diseqActions.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         if (debug) {
           println("Splitting disequalities actions:")
           for (t <- diseqActions)
             println("\t" + t)
         }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return actions ++ diseqActions
       }
 
       val msc = modShiftCast(goal)
       if (!msc.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         if (debug) {
           println("Mod Shift Casting:")
           for (a <- msc)
             println("\t" + a)
         }
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return actions ++ msc
       }
 
-      if (debug) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      if (debug)
         println("Nothing..")
-      }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       actions
     }
@@ -2647,11 +2662,13 @@ object ModuloArithmetic extends Theory {
 
       val actions = List(Plugin.RemoveFacts(toRemove)) ++ axioms
 
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       if (debug) {
         println("Extract to arithmetic:")
         for (a <- actions)
           println("\t" + a)
       }
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       actions
     }
@@ -3240,11 +3257,13 @@ object ModuloArithmetic extends Theory {
 
                     val newEq = a(3) === evalExtract(ub, lb, a(2).constant)
 
+                    //-BEGIN-ASSERTION-/////////////////////////////////////////
                     if (debug) {
                       println("Evaluating bv_extract:")
                       println("\t" + a)
                       println("\t" + newEq)
                     }
+                    //-END-ASSERTION-///////////////////////////////////////////
 
                     logger.otherComputation(List(a), newEq, order,
                                             ModuloArithmetic.this)
@@ -3267,11 +3286,13 @@ object ModuloArithmetic extends Theory {
                         val LinearCombination.Constant(IdealInt(ub)) = a(0)
                         val newEq = a(3) === evalExtract(ub, lb, lower)
 
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
                         if (debug) {
                           println("Evaluating bv_extract:")
                           println("\t" + a)
                           println("\t" + newEq)
                         }
+                        //-END-ASSERTION-///////////////////////////////////////
 
                         logger.otherComputation(List(a) ++ asses, newEq, order,
                                                 ModuloArithmetic.this)
