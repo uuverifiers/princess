@@ -1089,6 +1089,16 @@ class SMTLineariser(benchmarkName : String,
         // strip off the integer encoding
         TryAgain(!IExpression.eqZero(t), ctxt)
 
+      // ADT expression
+      case IExpression.EqLit(IFunApp(ADT.CtorId(adt, sortNum), Seq(arg)),
+                             num) => {
+        // insert a dummy predicate to represent the tester
+        val testPred =
+          new Predicate("is-" + adt.getCtorPerSort(sortNum,
+                                                   num.intValueSafe).name, 1)
+        TryAgain(new IAtom (testPred, List(arg)), ctxt)
+      }
+
       // General equations
       case IExpression.Eq(s, t) =>
         // rewrite to a proper equation

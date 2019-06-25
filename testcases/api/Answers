@@ -626,6 +626,16 @@ Sat
 26: true
 27: 1
 
+simplifier-bug.scala
+true
+true
+false
+false
+true
+true
+false
+false
+
 readSMTLIB.scala
 x - y >= 1 & y + -50 >= 1
 Sat

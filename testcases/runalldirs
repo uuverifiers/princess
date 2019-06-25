@@ -7,6 +7,7 @@
 ./rundir api ""
 
 ./rundir smtlib-parser "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
+./rundir adt "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
 ./rundir tptp-parser "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
 
 ./rundir interpolation "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution -constructProofs=always -generateTriggers=none
