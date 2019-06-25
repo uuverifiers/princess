@@ -208,7 +208,6 @@ object ModPlugin extends Plugin {
 
 
   // This propagates all cut-points from lhs <-> rhs in extract
-  // TODO: Do we need to fix for broken extracts, i.e. extract(1, 1, x, x)...
 
   private def propagateExtract(extract : (Int, Int, ConstantTerm, ConstantTerm),
                                cutPoints : MMap[Term, Set[Int]]) : Boolean = {
@@ -221,7 +220,7 @@ object ModPlugin extends Plugin {
 
     /// T1 ===> T2
     val t1transformed =
-      cut1.map(_ - lb).filter(c => c > 0 && c < (ub - lb + 1))
+      cut1.map(_ - lb).filter(c => c > 0 && c <= ub - lb + 1)
 
     if (!(t1transformed subsetOf cut2)) {
       cutPoints += t2 -> (cut2 ++ t1transformed)
@@ -229,7 +228,7 @@ object ModPlugin extends Plugin {
     }
 
     // propagate FROM t2 TO t1
-    val t2transformed = cut2.map(_ + lb)
+    val t2transformed = cut2.map(_ + lb).filter(c => c <= ub)
 
     if (!(t2transformed subsetOf cut1)) {
       cutPoints += t1 -> (cut1 ++ t2transformed)

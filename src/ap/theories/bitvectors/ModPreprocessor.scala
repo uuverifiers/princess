@@ -334,7 +334,7 @@ object ModPreprocessor {
   /**
    * First-level preprocessor:
    * Visitor that translates bit-vector operations to a basic set of operations
-   * (mod_cast, ...) and simplify.
+   * (mod_cast, ...) and simplifies.
    */
   object Preproc extends CollectingVisitor[VisitorArg, VisitorRes] {
     import IExpression._
@@ -398,6 +398,54 @@ object ModPreprocessor {
           evalExtract(start, end, argVal)
         case arg =>
           IFunApp(bv_extract, Vector(start, end, arg))
+      }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    def constantBVSHL(bits : Int, arg : VisitorRes,
+                      shift : IdealInt) : VisitorRes =
+      shift match {
+        case IdealInt.ZERO =>
+          arg
+        case shift if shift.signum < 0 =>
+          throw new Exception("negative shift")
+        case IdealInt(shift) if shift < bits => {
+          val sort =
+            UnsignedBVSort(bits)
+          val res =
+            sort.eps(eqZero(doExtract(shift - 1, 0, v(0), bits)) &
+                            (doExtract(bits - 1, shift, v(0), bits) ===
+                             doExtract(bits - shift - 1, 0,
+                                       VariableShiftVisitor(arg.resTerm, 0, 1),
+                                       bits)))
+
+          val f1 = pow2(bits - shift)
+          val f2 = pow2(shift)
+          VisitorRes(
+            res,
+            (arg.lowerBoundMin(IdealInt.ZERO) % f1) * f2,
+            (arg.upperBoundMax(pow2MinusOne(bits+1)) % f1) * f2)
+        }
+        case _ =>
+          VisitorRes(IdealInt.ZERO)
+      }
+
+    def constantBVLSHR(bits : Int, arg : VisitorRes,
+                       shift : IdealInt) : VisitorRes =
+      shift match {
+        case IdealInt.ZERO =>
+          arg
+        case shift if shift.signum < 0 =>
+          throw new Exception("negative shift")
+        case IdealInt(shift) if shift < bits => {
+          val divisor = pow2(shift)
+          VisitorRes(
+            doExtract(bits-1, shift, arg.resTerm, bits),
+            arg.lowerBoundMin(IdealInt.ZERO) / divisor,
+            arg.upperBoundMax(pow2MinusOne(bits+1)) / divisor)
+        }
+        case _ =>
+          VisitorRes(IdealInt.ZERO)
       }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -521,16 +569,30 @@ object ModPreprocessor {
         ////////////////////////////////////////////////////////////////////////
 
         case IFunApp(`l_shift_cast`, Seq(IIntLit(lower), IIntLit(upper), _*)) =>
-          if (subres(3).isConstant)
-            (subres(2) * pow2(subres(3).lowerBound max IdealInt.ZERO))
-                .modCast(lower, upper, ctxt)
-          else
+          if (subres(3).isConstant) {
+            ModSort(lower, upper) match {
+              case UnsignedBVSort(bits) =>
+                constantBVSHL(bits, subres(2), subres(3).lowerBound)
+              // signed arithmetic?
+              case sort =>
+                (subres(2) * pow2(subres(3).lowerBound max IdealInt.ZERO))
+                  .modCast(lower, upper, ctxt)
+            }
+          } else {
             VisitorRes.update(t, subres)
+          }
 
         case IFunApp(`r_shift_cast`, Seq(IIntLit(lower), IIntLit(upper), _*)) =>
           if (subres(3).isConstant) {
-            val denom = pow2(subres(3).lowerBound max IdealInt.ZERO)
-            subres(2).eDiv(denom).modCast(lower, upper, ctxt)
+            ModSort(lower, upper) match {
+              case UnsignedBVSort(bits) =>
+                constantBVLSHR(bits, subres(2), subres(3).lowerBound)
+              // signed arithmetic?
+              case sort => {
+                val denom = pow2(subres(3).lowerBound max IdealInt.ZERO)
+                subres(2).eDiv(denom).modCast(lower, upper, ctxt)
+              }
+            }
           } else {
             VisitorRes.update(t, subres)
           }
@@ -540,8 +602,9 @@ object ModPreprocessor {
         // TODO: Translate to extract instead!
         case IFunApp(`bv_shl`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
-            (subres(1) * pow2(subres(2).lowerBound.intValueSafe))
-              .modCastPow2(bits, ctxt)
+            constantBVSHL(bits, subres(1), subres(2).lowerBound)
+//          (subres(1) * pow2(subres(2).lowerBound.intValueSafe))
+//            .modCastPow2(bits, ctxt)
           } else {
             val upper = pow2MinusOne(bits)
             VisitorRes(l_shift_cast(IdealInt.ZERO, upper,
@@ -551,21 +614,7 @@ object ModPreprocessor {
 
         case IFunApp(`bv_lshr`, Seq(IIntLit(IdealInt(bits)), _*)) =>
           if (subres(2).isConstant) {
-            subres(2).lowerBound match {
-              case IdealInt.ZERO =>
-                subres(1)
-              case shift if shift.signum < 0 =>
-                throw new Exception("negative shift")
-              case IdealInt(shift) if shift < bits => {
-                val divisor = pow2(shift)
-                VisitorRes(
-                  doExtract(bits-1, shift, subres(1).resTerm, bits),
-                  subres(1).lowerBoundMin(IdealInt.ZERO) / divisor,
-                  subres(1).upperBoundMax(pow2MinusOne(bits+1)) / divisor)
-              }
-              case _ =>
-                VisitorRes(IdealInt.ZERO)
-            }
+            constantBVLSHR(bits, subres(1), subres(2).lowerBound)
           } else {
             val upper = pow2MinusOne(bits)
             VisitorRes(r_shift_cast(IdealInt.ZERO, upper,
