@@ -54,6 +54,12 @@ object ModPlugin extends Plugin {
       implicit val _ = goal.order
       import TerForConvenience._
 
+      val predConj = goal.facts.predConj
+
+      if (Seqs.disjoint(predConj.predicates,
+                        Set(_bv_extract, _mod_cast, _l_shift_cast)))
+        return List()
+
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       if (debug)
         printBVgoal(goal)
@@ -85,7 +91,7 @@ object ModPlugin extends Plugin {
 
       // extract-predicates in the goal
 
-      val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+      val extracts = predConj.positiveLitsWithPred(_bv_extract)
       val extractedConsts =
         (for (Seq(_, _, SingleTerm(c : ConstantTerm), _) <- extracts.iterator)
          yield c).toSet
@@ -131,7 +137,12 @@ object ModPlugin extends Plugin {
       if (!extracts.isEmpty) {
         // If necessary, turn extracts in arithmetic context into
         // just arithmetic constaints
-        actions += Plugin.ScheduleTask(ExtractArithEncoder, 10)
+
+        actions ++= ExtractArithEncoder.handleGoal(goal)
+        if (!actions.isEmpty)
+          return actions
+
+//        actions += Plugin.ScheduleTask(ExtractArithEncoder, 10)
       }
 
       val diseqActions = splitDisequalityActions(diseqs, partitions, goal) /* ++

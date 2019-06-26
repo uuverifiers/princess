@@ -281,7 +281,7 @@ Constructing countermodel ...
 INVALID
 
 Countermodel:
-z = 2.\as[bv[3]] & y = 6.\as[bv[3]] & x = 3.\as[bv[3]]
+z = 2.\as[bv[3]] & y = 3.\as[bv[3]] & x = 6.\as[bv[3]]
 
 Loading bv-ops2.pri ...
 Preprocessing ...
@@ -446,10 +446,16 @@ Constructing countermodel ...
 
 unsat
 
+Loading bvashr.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
 Loading bv-ops3c.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 27)
+Found proof (size 42)
 
 VALID
 
@@ -508,101 +514,146 @@ Begin of proof
 | 
 | ALPHA: (4) implies:
 |   (5)  all_5_1 >= 0
-|   (6)  all_5_0 >= 0
-|   (7)  bv_extract(0, 0, all_5_2) = all_5_1
-|   (8)  bv_extract(1, 1, all_5_2) = all_5_0
-|   (9)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 - all_2_0 >= -1 &
+|   (6)  bv_extract(0, 0, all_5_2) = all_5_1
+|   (7)  bv_extract(1, 1, all_5_2) = all_5_0
+|   (8)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 - all_2_0 >= -1 &
 |          all_2_0 >= all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1
 |          & 3 >= all_5_2 & all_5_2 >= 1 & bv_extract(1, 1, v0) = 1 - all_2_0 &
 |          bv_extract(0, 0, v0) = 1 - all_2_1)
 | 
-| DELTA: instantiating (9) with fresh symbol all_8_0 gives:
-|   (10)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 - all_2_0 >= -1 & all_2_0 >=
-|         all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1 & 3 >=
-|         all_5_2 & all_5_2 >= 1 & bv_extract(1, 1, all_8_0) = 1 - all_2_0 &
-|         bv_extract(0, 0, all_8_0) = 1 - all_2_1
+| DELTA: instantiating (8) with fresh symbol all_8_0 gives:
+|   (9)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 - all_2_0 >= -1 & all_2_0 >=
+|        all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1 & 3 >=
+|        all_5_2 & all_5_2 >= 1 & bv_extract(1, 1, all_8_0) = 1 - all_2_0 &
+|        bv_extract(0, 0, all_8_0) = 1 - all_2_1
 | 
-| ALPHA: (10) implies:
-|   (11)  all_5_2 >= 1
-|   (12)  3 >= all_5_2
-|   (13)  all_2_1 >= all_5_1
-|   (14)  -1*all_5_1 - all_2_1 >= -1
-|   (15)  all_2_0 >= all_5_0
-|   (16)  -1*all_5_0 - all_2_0 >= -1
-| 
-| COMBINE_INEQS: (13), (14) imply:
-|   (17)  0 >= all_5_1
-| 
-| SIMP: (17) implies:
-|   (18)  0 >= all_5_1
-| 
-| COMBINE_INEQS: (15), (16) imply:
-|   (19)  0 >= all_5_0
-| 
-| SIMP: (19) implies:
-|   (20)  0 >= all_5_0
-| 
-| ANTI_SYMM: (6), (20) imply:
-|   (21)  all_5_0 = 0
-| 
-| ANTI_SYMM: (5), (18) imply:
-|   (22)  all_5_1 = 0
-| 
-| REDUCE: (8), (21) imply:
-|   (23)  bv_extract(1, 1, all_5_2) = 0
-| 
-| REDUCE: (7), (22) imply:
-|   (24)  bv_extract(0, 0, all_5_2) = 0
+| ALPHA: (9) implies:
+|   (10)  all_5_2 >= 1
+|   (11)  3 >= all_5_2
+|   (12)  all_2_1 >= all_5_1
+|   (13)  -1*all_5_1 - all_2_1 >= -1
+|   (14)  all_2_0 >= all_5_0
+|   (15)  -1*all_5_0 - all_2_0 >= -1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
-|   (25)  \forall int v0; (bv_extract(1, 1, v0) != 0 | bv_extract(0, 0, v0) != 0
-|           | v0.\as[bv[2]] = 0)
+|   (16)  \forall int v0, v1, v2; (bv_extract(1, 1, v0) != v2 | bv_extract(0, 0,
+|             v0) != v1 | v0.\as[bv[2]] = 2*v2 + v1)
 | 
-| GROUND_INST: instantiating (25) with all_5_2, simplifying with (23), (24)
-|              gives:
-|   (26)  all_5_2.\as[bv[2]] = 0
+| GROUND_INST: instantiating (16) with all_5_2, all_5_1, all_5_0, simplifying
+|              with (6), (7) gives:
+|   (17)  all_5_2.\as[bv[2]] = 2*all_5_0 + all_5_1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
-|   (27)  \forall int v0; (v0 = 0 | !(3 >= v0) | !(v0 >= 1) | v0.\as[bv[2]] !=
-|           0)
+|   (18)  \forall int v0, v1, v2; (2*v2 + v1 = v0 | !(3 >= v0) | !(v0 >= 1) |
+|           v0.\as[bv[2]] != 2*v2 + v1)
 | 
-| GROUND_INST: instantiating (27) with all_5_2, simplifying with (26) gives:
-|   (28)  all_5_2 = 0 | !(3 >= all_5_2) | !(all_5_2 >= 1)
+| GROUND_INST: instantiating (18) with all_5_2, all_5_1, all_5_0, simplifying
+|              with (17) gives:
+|   (19)  2*all_5_0 + all_5_1 = all_5_2 | !(3 >= all_5_2) | !(all_5_2 >= 1)
 | 
-| BETA: splitting (28) gives:
+| BETA: splitting (19) gives:
 | 
 | Case 1:
 | | 
-| |   (29)  0 >= all_5_2
+| |   (20)  0 >= all_5_2
 | | 
-| | COMBINE_INEQS: (11), (29) imply:
-| |   (30)  false
+| | COMBINE_INEQS: (10), (20) imply:
+| |   (21)  false
 | | 
-| | CLOSE: (30) is inconsistent.
+| | CLOSE: (21) is inconsistent.
 | | 
 | Case 2:
 | | 
-| |   (31)  all_5_2 = 0 | !(3 >= all_5_2)
+| |   (22)  2*all_5_0 + all_5_1 = all_5_2 | !(3 >= all_5_2)
 | | 
-| | BETA: splitting (31) gives:
+| | BETA: splitting (22) gives:
 | | 
 | | Case 1:
 | | | 
-| | |   (32)  all_5_2 >= 4
+| | |   (23)  all_5_2 >= 4
 | | | 
-| | | COMBINE_INEQS: (12), (32) imply:
-| | |   (33)  false
+| | | COMBINE_INEQS: (11), (23) imply:
+| | |   (24)  false
 | | | 
-| | | CLOSE: (33) is inconsistent.
+| | | CLOSE: (24) is inconsistent.
 | | | 
 | | Case 2:
 | | | 
-| | |   (34)  all_5_2 = 0
+| | |   (25)  2*all_5_0 + all_5_1 = all_5_2
 | | | 
-| | | REDUCE: (11), (34) imply:
-| | |   (35)  false
+| | | REDUCE: (15), (25) imply:
+| | |   (26)  all_5_0 + all_5_1 - all_5_2 - all_2_0 >= -1
 | | | 
-| | | CLOSE: (35) is inconsistent.
+| | | REDUCE: (14), (25) imply:
+| | |   (27)  all_5_0 + all_5_1 - all_5_2 + all_2_0 >= 0
+| | | 
+| | | COL_REDUCE: introducing fresh symbol sc_17_1_0 defined by:
+| | |   (28)  all_5_0 - all_5_2 = sc_17_1_0
+| | | 
+| | | COMBINE_EQS: (25), (28) imply:
+| | |   (29)  all_5_1 + all_5_2 + 2*sc_17_1_0 = 0
+| | | 
+| | | REDUCE: (26), (28), (29) imply:
+| | |   (30)  -1*all_5_2 - sc_17_1_0 - all_2_0 >= -1
+| | | 
+| | | REDUCE: (27), (28), (29) imply:
+| | |   (31)  -1*all_5_2 - sc_17_1_0 + all_2_0 >= 0
+| | | 
+| | | REDUCE: (13), (29) imply:
+| | |   (32)  all_5_2 + 2*sc_17_1_0 - all_2_1 >= -1
+| | | 
+| | | REDUCE: (12), (29) imply:
+| | |   (33)  all_5_2 + 2*sc_17_1_0 + all_2_1 >= 0
+| | | 
+| | | REDUCE: (5), (29) imply:
+| | |   (34)  -1*all_5_2 >= 2*sc_17_1_0
+| | | 
+| | | COMBINE_INEQS: (30), (32) imply:
+| | |   (35)  sc_17_1_0 - all_2_0 - all_2_1 >= -2
+| | | 
+| | | COMBINE_INEQS: (31), (32) imply:
+| | |   (36)  sc_17_1_0 + all_2_0 - all_2_1 >= -1
+| | | 
+| | | COMBINE_INEQS: (30), (33) imply:
+| | |   (37)  sc_17_1_0 - all_2_0 + all_2_1 >= -1
+| | | 
+| | | COMBINE_INEQS: (31), (33) imply:
+| | |   (38)  sc_17_1_0 + all_2_0 + all_2_1 >= 0
+| | | 
+| | | COMBINE_INEQS: (10), (34) imply:
+| | |   (39)  -1 >= sc_17_1_0
+| | | 
+| | | SIMP: (39) implies:
+| | |   (40)  -1 >= sc_17_1_0
+| | | 
+| | | COMBINE_INEQS: (35), (40) imply:
+| | |   (41)  -1*all_2_0 - all_2_1 >= -1
+| | | 
+| | | COMBINE_INEQS: (37), (40) imply:
+| | |   (42)  all_2_1 >= all_2_0
+| | | 
+| | | COMBINE_INEQS: (36), (40) imply:
+| | |   (43)  all_2_0 >= all_2_1
+| | | 
+| | | COMBINE_INEQS: (38), (40) imply:
+| | |   (44)  all_2_0 + all_2_1 >= 1
+| | | 
+| | | COMBINE_INEQS: (41), (43) imply:
+| | |   (45)  0 >= all_2_1
+| | | 
+| | | SIMP: (45) implies:
+| | |   (46)  0 >= all_2_1
+| | | 
+| | | COMBINE_INEQS: (42), (44) imply:
+| | |   (47)  all_2_1 >= 1
+| | | 
+| | | SIMP: (47) implies:
+| | |   (48)  all_2_1 >= 1
+| | | 
+| | | COMBINE_INEQS: (46), (48) imply:
+| | |   (49)  false
+| | | 
+| | | CLOSE: (49) is inconsistent.
 | | | 
 | | End of split
 | | 

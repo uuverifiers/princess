@@ -62,6 +62,8 @@ object ExtractArithEncoder extends TheoryProcedure {
                           (Int, Int, List[(IdealInt, Term)],
                            Int, List[LinearCombination],
                            List[Atom])]
+      val ignoredTerms =
+        new MHashSet[LinearCombination]
 
       def elimExtract(ex : Atom,
                       ub : Int, lb : Int,
@@ -85,8 +87,11 @@ object ExtractArithEncoder extends TheoryProcedure {
               terms.put(arg, (firstUB, lb, (pow2(lb), res) :: ts,
                               nextVarInd, constraints, ex :: atoms))
             } else {
-              // nothing; this extract cannot be eliminated, since it
-              // overlaps with the last one
+              // This extract cannot be eliminated, since it
+              // overlaps with the last one. In this case we don't
+              // eliminate extracts for this term altogether
+              terms -= arg
+              ignoredTerms += arg
             }
         }
       }
@@ -95,6 +100,13 @@ object ExtractArithEncoder extends TheoryProcedure {
       arithExtractedConsts ++= arithmeticExtractedConsts(goal)
 
       for (ex <- extracts) ex match {
+        case Atom(`_bv_extract`,
+                  Seq(_,
+                      _,
+                      arg,
+                      _),
+                  _) if (ignoredTerms contains arg) =>
+          // nothing
         case Atom(`_bv_extract`,
                   Seq(LinearCombination.Constant(IdealInt(ub)),
                       LinearCombination.Constant(IdealInt(lb)),
