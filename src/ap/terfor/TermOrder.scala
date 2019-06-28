@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -53,6 +53,8 @@ object TermOrder {
                             FastImmutableMap.empty,
                             FastImmutableMap.empty)
   
+  val CONSTANT_NUM_SEP = 100
+
   /**
    * Weight objects that are used to abstract from the concrete terms. There are
    * three types of weights: for variables, and for constants, and for the
@@ -96,7 +98,92 @@ object TermOrder {
 
     protected def toCoeffWeight : CoeffWeight = this
   }
+
+  /**
+   * Insert a new constant into the maps <code>constantNum</code> and
+   * <code>constantWeight</code>
+   */
+  private def insertIntoMaps(
+            constant : ConstantTerm,
+            pos : Int,
+            newConstantSeq : List[ConstantTerm],
+            newConstantWeight : FastImmutableMap[ConstantTerm, NonCoeffWeight],
+            newConstantNum : FastImmutableMap[ConstantTerm, Int])
+         : (FastImmutableMap[ConstantTerm, NonCoeffWeight],
+            FastImmutableMap[ConstantTerm, Int]) =
+    insertIntoMaps(constant,
+                   if (pos > 0)
+                     newConstantSeq(pos - 1)
+                   else
+                     null,
+                   if (pos < newConstantSeq.size - 1)
+                     newConstantSeq(pos + 1)
+                   else
+                     null,
+                   newConstantSeq, newConstantWeight, newConstantNum)
+
+  /**
+   * Insert a new constant into the maps <code>constantNum</code> and
+   * <code>constantWeight</code>
+   */
+  private def insertIntoMaps(
+            constant : ConstantTerm,
+            pred : ConstantTerm,  // maybe null
+            succ : ConstantTerm,  // maybe null
+            newConstantSeq : List[ConstantTerm],
+            newConstantWeight : FastImmutableMap[ConstantTerm, NonCoeffWeight],
+            newConstantNum : FastImmutableMap[ConstantTerm, Int])
+         : (FastImmutableMap[ConstantTerm, NonCoeffWeight],
+            FastImmutableMap[ConstantTerm, Int]) = {
+    val o = (pred, succ) match {
+      case (null, null) =>
+        newConstantSeq match {
+          case List() => 0
+          case c :: _ => newConstantNum(c) + CONSTANT_NUM_SEP
+        }
+      case (pred, null) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(TermOrder.AC,
+                        pred == newConstantSeq(newConstantSeq.size - 2))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        newConstantNum(pred) - CONSTANT_NUM_SEP
+      }
+      case (null, succ) => {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(TermOrder.AC, succ == newConstantSeq(1))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        newConstantNum(succ) + CONSTANT_NUM_SEP
+      }
+      case (pred, succ) => {
+        val pw = newConstantNum(pred)
+        val sw = newConstantNum(succ)
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        Debug.assertInt(TermOrder.AC, pw > sw)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+        if (pw == sw + 1) {
+          // we need to make space for the new constant first
+          val cWeight =
+            (for ((c, i) <- newConstantSeq.iterator.zipWithIndex)
+             yield (c -> ConstantWeight(-i * CONSTANT_NUM_SEP))).toMap
+          val cNum =
+            (for ((c, i) <- newConstantSeq.iterator.zipWithIndex)
+             yield (c -> -i * CONSTANT_NUM_SEP)).toMap
+          return insertIntoMaps(constant, pred, succ, newConstantSeq,
+                                FastImmutableMap(cWeight),
+                                FastImmutableMap(cNum))
+        } else {
+          (pw + sw) / 2
+        }
+      }
+    }
+
+    (newConstantWeight + (constant -> ConstantWeight(o)),
+     newConstantNum + (constant -> o))
+  }
+
 }
+
+////////////////////////////////////////////////////////////////////////////////
    
 class TermOrder private (
   private val constantSeq : List[ConstantTerm],
@@ -111,11 +198,14 @@ class TermOrder private (
   Debug.assertCtor(TermOrder.AC,
                    constantSeq.toSet.size == constantSeq.size &&
                    predicateSeq.toSet.size == predicateSeq.size &&
-                   (constantSeq.iterator.zipWithIndex forall {
-                     case (c, i) =>
-                       constantWeight(c) == ConstantWeight(constantSeq.size - i - 1) &&
-                       constantNum(c) == constantSeq.size - i - 1
-                   }) &&
+                   ((constantSeq sliding 2) forall {
+                     case Seq(c, d) =>
+                       constantNum(c) > constantNum(d) &&
+                       constantWeight(c) == ConstantWeight(constantNum(c)) &&
+                       constantWeight(d) == ConstantWeight(constantNum(d))
+                     case Seq(c) =>
+                       constantWeight(c) == ConstantWeight(constantNum(c))
+                    }) &&
                    (predicateSeq.iterator.zipWithIndex forall {
                      case (p, i) =>
                        predicateWeight(p) == predicateSeq.size - i - 1
@@ -168,6 +258,12 @@ class TermOrder private (
       predicateWeight(a) < predicateWeight(b)
     Sorting.stableSort(res, comesBefore _)
   }
+
+  private def newMaxConstantWeight : Int =
+    constantSeq match {
+      case List() => 0
+      case c :: _ => constantNum(c) + CONSTANT_NUM_SEP
+    }
   
   //////////////////////////////////////////////////////////////////////////////
 
@@ -446,20 +542,21 @@ class TermOrder private (
           newConstantSeq = newConstantSeq.tail
         }
         
+        val succ = newConstantSeq match {
+          case List() => null
+          case c :: _ => c
+        }
+
         newConstantSeq = newConst :: newConstantSeq
         newConstantSeq = (storedBigConsts :\ newConstantSeq) (_ :: _)
+
+        val pred = storedBigConsts.last
         
-        val o = newConstantSeq.size
+        val (cWeight, cNum) =
+          insertIntoMaps(newConst, pred, succ,
+                         newConstantSeq, constantWeight, constantNum)
         new TermOrder(newConstantSeq, predicateSeq,
-                      constantWeight ++ (
-                        for ((c, i) <-
-                             newConstantSeq.iterator.zipWithIndex take (insertionPos + 2))
-                        yield (c -> ConstantWeight(o - i - 1))),
-                      constantNum ++ (
-                        for ((c, i) <-
-                             newConstantSeq.iterator.zipWithIndex take (insertionPos + 2))
-                        yield (c -> (o - i - 1))),
-                      predicateWeight)
+                      cWeight, cNum, predicateWeight)
       }
     
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
@@ -480,7 +577,7 @@ class TermOrder private (
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(TermOrder.AC, !(constantWeight contains newConst))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val o = constantNum.size
+    val o = newMaxConstantWeight
     new TermOrder(newConst :: constantSeq, predicateSeq,
                   constantWeight + (newConst -> ConstantWeight(o)),
                   constantNum + (newConst -> o),
@@ -492,15 +589,15 @@ class TermOrder private (
     Debug.assertPre(TermOrder.AC,
                     newConsts forall { c => !(constantWeight contains c) })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
-    val o = constantNum.size
+    val o = newMaxConstantWeight
     new TermOrder((constantSeq /: newConsts) { case (l, c) => c :: l },
                   predicateSeq,
                   constantWeight ++ (
                     for ((c, i) <- newConsts.iterator.zipWithIndex) yield (
-                      c -> ConstantWeight(o + i))),
+                      c -> ConstantWeight(o + (i * CONSTANT_NUM_SEP)))),
                   constantNum ++ (
                     for ((c, i) <- newConsts.iterator.zipWithIndex) yield (
-                      c -> (o + i))),
+                      c -> (o + (i * CONSTANT_NUM_SEP)))),
                   predicateWeight)
   }
 
@@ -517,7 +614,7 @@ class TermOrder private (
                     !(biggerConstants contains movedConst))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val oldPos = constantNum.size - constantNum(movedConst) - 1
+    val oldPos = constantSeq indexOf movedConst
     val newPos = (constantSeq lastIndexWhere biggerConstants) + 1
     
     val res =
@@ -544,20 +641,16 @@ class TermOrder private (
           newConstantSeq = newConstantSeq.tail
         
           newConstantSeq = (storedBetweenConsts :\ newConstantSeq) (_ :: _)
+          val succ = newConstantSeq.head
           newConstantSeq = movedConst :: newConstantSeq
           newConstantSeq = (storedBigConsts :\ newConstantSeq) (_ :: _)
+          val pred = storedBigConsts.last
 
-          val o = newConstantSeq.size
+          val (cWeight, cNum) =
+            insertIntoMaps(movedConst, pred, succ,
+                           newConstantSeq, constantWeight, constantNum)
           new TermOrder(newConstantSeq, predicateSeq,
-                        constantWeight ++ (
-                          for ((c, i) <-
-                               newConstantSeq.iterator.zipWithIndex.slice(newPos, oldPos + 1))
-                          yield (c -> ConstantWeight(o - i - 1))),
-                        constantNum ++ (
-                          for ((c, i) <-
-                               newConstantSeq.iterator.zipWithIndex.slice(newPos, oldPos + 1))
-                          yield (c -> (o - i - 1))),
-                        predicateWeight)
+                        cWeight, cNum, predicateWeight)
         } else {
           
           val storedBigConsts = new Array[ConstantTerm](oldPos)
@@ -577,23 +670,22 @@ class TermOrder private (
             newConstantSeq = newConstantSeq.tail
           }
 
+          val succ = newConstantSeq match {
+            case List() => null
+            case c :: _ => c
+          }
+
           newConstantSeq = movedConst :: newConstantSeq
           newConstantSeq = (storedBetweenConsts :\ newConstantSeq) (_ :: _)
+          val pred = storedBetweenConsts.last
           newConstantSeq = (storedBigConsts :\ newConstantSeq) (_ :: _)
 
-          val o = newConstantSeq.size
+          val (cWeight, cNum) =
+            insertIntoMaps(movedConst, pred, succ,
+                           newConstantSeq, constantWeight, constantNum)
           new TermOrder(newConstantSeq, predicateSeq,
-                        constantWeight ++ (
-                          for ((c, i) <-
-                               newConstantSeq.iterator.zipWithIndex.slice(oldPos, newPos))
-                          yield (c -> ConstantWeight(o - i - 1))),
-                        constantNum ++ (
-                          for ((c, i) <-
-                               newConstantSeq.iterator.zipWithIndex.slice(oldPos, newPos))
-                          yield (c -> (o - i - 1))),
-                        predicateWeight)
+                        cWeight, cNum, predicateWeight)
         }
-        
       }
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
