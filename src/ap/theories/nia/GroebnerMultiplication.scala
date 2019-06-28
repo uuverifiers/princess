@@ -431,17 +431,9 @@ println(unprocessed)
         }
       }
 
-      def makeMatrix(polylist : Seq[Polynomial]) : Array[Array[IdealInt]] = {
+      def makeMatrix(polylist : Seq[Polynomial]) : Vector[Vector[IdealInt]] = {
         var monomialMap = makeMap(polylist)
-        val list = for (p <- polylist) yield polyToRow(p, monomialMap)
-
-        val array = Array.ofDim[IdealInt](list.length, monomialMap.length)
-
-        for (i <- 0 until list.length)
-          for (j <- 0 until list(i).length)
-            array(i)(j) = list(i)(j)
-
-        array
+        (for (p <- polylist) yield polyToRow(p, monomialMap).toVector).toVector
       }
 
       def rowToPolynomial(map : List[Monomial], row : Array[IdealInt]) = {
@@ -472,10 +464,9 @@ println(unprocessed)
 
           val map = makeMap(linearEq)
           val m = makeMatrix(linearEq)
-          val gaussian = new Gaussian(m)
 
           val implications =
-            (for ((r, preLabel) <- gaussian.getRows.iterator;
+            (for ((r, preLabel) <- Gaussian(m).iterator;
                   poly = rowToPolynomial(map, r);
                   if (poly.isLinear))
              yield (polynomialToAtom(poly),

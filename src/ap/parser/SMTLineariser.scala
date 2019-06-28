@@ -969,17 +969,6 @@ class SMTLineariser(benchmarkName : String,
     private def closeWithParen(ctxt : PrintContext, arity : Int = 1) =
       allButLast(ctxt, " ", ")", arity)
 
-    private def printTypedQuantifier(op : String,
-                                     t : SMTType,
-                                     subF : IFormula,
-                                     ctxt : PrintContext) : PreVisitResult = {
-      val varName = "var" + ctxt.vars.size
-      print("(" + op + " ((" + varName + " ")
-      printSMTType(t)
-      print(")) ")
-      TryAgain(subF, ctxt.pushVar(varName, Some(t), ")" + ctxt.parentOp))
-    }
-
     override def preVisit(t : IExpression,
                           ctxt : PrintContext) : PreVisitResult = {
     import ctxt.variableType
@@ -1144,29 +1133,80 @@ class SMTLineariser(benchmarkName : String,
         closeWithParen(ctxt)
       }
 
-      case IQuantified(Quantifier.ALL,
-                       IBinFormula(IBinJunctor.Or,
-                                   INot(TypePredicate(IVariable(0), t)),
-                                   subF)) =>
-        printTypedQuantifier("forall", t, subF, ctxt)
+      case f@IQuantified(Quantifier.ALL, _) => {
+        print("(forall (")
 
-      case IQuantified(Quantifier.EX,
-                       IBinFormula(IBinJunctor.And,
-                                   TypePredicate(IVariable(0), t),
-                                   subF)) =>
-        printTypedQuantifier("exists", t, subF, ctxt)
+        var curCtxt = ctxt
+        var curF : IFormula = f
+        var sep = ""
 
-      case IQuantified(quan, _) => {
-        val varName = "var" + ctxt.vars.size
-        print("(")
-        print(quan match {
-          case Quantifier.ALL => "forall"
-          case Quantifier.EX => "exists"
-        })
-        print(" ((" + varName + " ")
-        printSMTType(SMTInteger)
-        print(")) ")
-        UniSubArgs(ctxt.pushVar(varName, None, ")"))
+        def pushVar(t : SMTType) = {
+          val varName = "var" + curCtxt.vars.size
+          curCtxt = curCtxt.pushVar(varName, Some(t), curCtxt.parentOp)
+          print(sep + "(" + varName + " ")
+          printSMTType(t)
+          print(")")
+          sep = " "
+        }
+
+        var cont = true
+        while (cont) curF match {
+          case IQuantified(Quantifier.ALL,
+                           IBinFormula(IBinJunctor.Or,
+                                       INot(TypePredicate(IVariable(0), t)),
+                                       g)) => {
+            pushVar(t)
+            curF = g
+          }
+          case IQuantified(Quantifier.ALL, g) => {
+            pushVar(SMTInteger)
+            curF = g
+          }
+          case _ => {
+            cont = false
+          }
+        }
+
+        print(") ")
+        TryAgain(curF, curCtxt addParentOp ")")
+      }
+
+      case f@IQuantified(Quantifier.EX, _) => {
+        print("(exists (")
+
+        var curCtxt = ctxt
+        var curF : IFormula = f
+        var sep = ""
+
+        def pushVar(t : SMTType) = {
+          val varName = "var" + curCtxt.vars.size
+          curCtxt = curCtxt.pushVar(varName, Some(t), curCtxt.parentOp)
+          print(sep + "(" + varName + " ")
+          printSMTType(t)
+          print(")")
+          sep = " "
+        }
+
+        var cont = true
+        while (cont) curF match {
+          case IQuantified(Quantifier.EX,
+                           IBinFormula(IBinJunctor.And,
+                                       TypePredicate(IVariable(0), t),
+                                       g)) => {
+            pushVar(t)
+            curF = g
+          }
+          case IQuantified(Quantifier.EX, g) => {
+            pushVar(SMTInteger)
+            curF = g
+          }
+          case _ => {
+            cont = false
+          }
+        }
+
+        print(") ")
+        TryAgain(curF, curCtxt addParentOp ")")
       }
 
       // Euclidian integer division can be translated to "div"
@@ -1202,8 +1242,13 @@ class SMTLineariser(benchmarkName : String,
 
       case IEpsilon(IBinFormula(IBinJunctor.And,
                                 TypePredicate(IVariable(0), t),
-                                subF)) =>
-        printTypedQuantifier("_eps", t, subF, ctxt)
+                                subF)) => {
+        val varName = "var" + ctxt.vars.size
+        print("(_eps ((" + varName + " ")
+        printSMTType(t)
+        print(")) ")
+        TryAgain(subF, ctxt.pushVar(varName, Some(t), ")" + ctxt.parentOp))
+      }
 
       case _ : IEpsilon => {
         val varName = "var" + ctxt.vars.size
@@ -1235,4 +1280,14 @@ class SMTLineariser(benchmarkName : String,
   
   }
   
+}
+
+
+object Main extends App {
+
+  import IExpression._
+
+  val f = all(x => all(y => ex((z1, z2) => x+z1 === y+z2)))
+  SMTLineariser(f)
+
 }

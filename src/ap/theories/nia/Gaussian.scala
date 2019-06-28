@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -26,17 +26,26 @@ import ap.basetypes.IdealInt
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.{TerForConvenience, TermOrder, ConstantTerm}
 import ap.terfor.preds.Atom
+import ap.terfor.equations.EquationConj
 import ap.terfor.TerForConvenience._
 import ap.SimpleAPI
 import ap.parser._
-import ap.util.Debug
+import ap.util.{Debug, LRUCache}
 
 import scala.collection.immutable.BitSet
 
 
+object Gaussian {
+  private val cache = new LRUCache[Vector[Vector[IdealInt]],
+                                   List[(Array[IdealInt], BitSet)]](3)
+
+  def apply(array : Vector[Vector[IdealInt]]) =
+    cache(array) { (new Gaussian(array)).getRows }
+}
+
 
 // Assuming rectangular matrix
-class Gaussian(array : Array[Array[IdealInt]]) {
+class Gaussian private (array : Vector[Vector[IdealInt]]) {
   val rows = array.length
   val cols = array(0).length
 
@@ -47,7 +56,7 @@ class Gaussian(array : Array[Array[IdealInt]]) {
   //  GAUSSIAN ELIMINATION PART
   // 
 
-  def getRows : List[(Array[IdealInt], BitSet)] =
+  val getRows : List[(Array[IdealInt], BitSet)] =
     // prevent confusing debugging output from here
     Console.withOut(ap.CmdlMain.NullStream) {
 
@@ -56,26 +65,32 @@ class Gaussian(array : Array[Array[IdealInt]]) {
     import p._
 
     // Create flags for the individual rows
-    val rowFlags = createExistentialConstants(rows)
+    val rowFlags = createConstantsRaw("rowFlags", 0 until rows)
     // Create temporary constants
-    val vars = createExistentialConstants(cols)
+    val vars = createConstantsRaw("var", 0 until cols)
 
-    val colIndex =
-      vars.iterator.map({ case (c : IConstant) => c.c }).zipWithIndex.toMap
-    val rowIndex =
-      rowFlags.iterator.map({ case (c : IConstant) => c.c }).zipWithIndex.toMap
+    makeExistentialRaw(rowFlags)
+    makeExistentialRaw(vars)
+
+    val colIndex = vars.iterator.zipWithIndex.toMap
+    val rowIndex = rowFlags.iterator.zipWithIndex.toMap
 
     setMostGeneralConstraints(true)
 
-    // Convert each row to an equation
-    for (r <- 0 until rows) {
-      var formula = 0 : ap.parser.ITerm
-      for (c <- 0 until cols)
-        if (array(r)(c) != 0)
-          formula = formula + array(r)(c)*vars(c)
+    val o = order
 
-      !! (formula === rowFlags(r))
-    }
+    // Convert each row to an equation
+    val eqs = EquationConj(
+      for (r <- 0 until rows) yield {
+        val terms =
+          (Iterator single ((IdealInt.MINUS_ONE, rowFlags(r)))) ++
+          (for (p@(coeff, v) <- array(r).iterator zip vars.iterator;
+                if !coeff.isZero)
+           yield p)
+        LinearCombination(terms, o)
+      }, o)
+
+    addAssertion(eqs)
 
     // run system
     ???
