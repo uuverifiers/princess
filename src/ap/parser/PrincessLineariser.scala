@@ -277,10 +277,7 @@ object PrincessLineariser {
 
         case IFunApp(ModuloArithmetic.bv_extract,
                      Seq(IIntLit(upper), IIntLit(lower), t)) =>
-          if (upper == lower)
-            TryAgain(t, ctxt.addOpPrec("[" + upper + "]", 10))
-          else
-            TryAgain(t, ctxt.addOpPrec("[" + upper + ":" + lower + "]", 10))
+          TryAgain(t, ctxt.addOpPrec("[" + upper + ":" + lower + "]", 10))
 
         case IFunApp(fun, _) => {
           print(fun2Identifier(fun))
