@@ -47,7 +47,10 @@ object ExtractArithEncoder extends TheoryProcedure {
 
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
-    def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
+    def handleGoal(goal : Goal) : Seq[Plugin.Action] =
+      encode(goal, false)
+
+    def encode(goal : Goal, encodeAll : Boolean) : Seq[Plugin.Action] =  {
       import TerForConvenience._
       implicit val order = goal.order
 
@@ -97,7 +100,11 @@ object ExtractArithEncoder extends TheoryProcedure {
       }
 
       val arithExtractedConsts = new MHashSet[ConstantTerm]
-      arithExtractedConsts ++= arithmeticExtractedConsts(goal)
+
+      if (encodeAll)
+        arithExtractedConsts ++= goal.facts.constants
+      else
+        arithExtractedConsts ++= arithmeticExtractedConsts(goal)
 
       for (ex <- extracts) ex match {
         case Atom(`_bv_extract`,

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2010-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2010-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -270,11 +270,17 @@ object PrincessLineariser {
         }
 
         case IFunApp(ModuloArithmetic.mod_cast,
-                     Seq(IIntLit(lower), IIntLit(upper), t)) => {
+                     Seq(IIntLit(lower), IIntLit(upper), t)) =>
           TryAgain(t, ctxt.addOpPrec(".\\as[" +
                                      ModuloArithmetic.ModSort(lower, upper) +
                                      "]", 10))
-        }
+
+        case IFunApp(ModuloArithmetic.bv_extract,
+                     Seq(IIntLit(upper), IIntLit(lower), t)) =>
+          if (upper == lower)
+            TryAgain(t, ctxt.addOpPrec("[" + upper + "]", 10))
+          else
+            TryAgain(t, ctxt.addOpPrec("[" + upper + ":" + lower + "]", 10))
 
         case IFunApp(fun, _) => {
           print(fun2Identifier(fun))

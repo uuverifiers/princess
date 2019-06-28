@@ -417,7 +417,8 @@ object PresburgerTools {
    * predicates, provided that predicates never occur in the scope of
    * quantifiers. Quantifiers above predicate occurrences are left in the
    * formula. The method can also handle formulas with bit-vector arithmetic
-   * or non-linear multiplication.
+   * or non-linear multiplication, and is optimised for post-processing of
+   * interpolants.
    */
   def elimQuantifiersWithPreds(c : Conjunction) : Conjunction = {
     implicit val order = c.order
@@ -509,8 +510,10 @@ object PresburgerTools {
     
     def quanElimPossible(c : Conjunction) : Boolean = c.predicates forall {
       p => (TheoryRegistry lookupSymbol p) match {
-        case Some(ModuloArithmetic)       => true
-        case _                            => false
+        case Some(ModuloArithmetic) =>
+          p != ModuloArithmetic._bv_extract
+        case _ =>
+          false
       }
     }
 

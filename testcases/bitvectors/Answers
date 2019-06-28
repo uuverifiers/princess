@@ -424,7 +424,17 @@ Found proof (size 17), simplifying (38), interpolating ...
 VALID
 
 Interpolants:
-bv_extract(5, 2, x) != 6.\as[bv[4]]
+x[5:2] != 6.\as[bv[4]]
+
+Loading example13.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+Found proof (size 17), simplifying (38), interpolating ...
+
+unsat
+(
+  (not (= ((_ extract 5 2) x) (_ bv6 4)))
+)
 
 Loading bvcomp.smt2 ...
 Preprocessing ...
@@ -465,12 +475,11 @@ Assumptions after simplification:
   (axioms)
   3 >= x & x >= 0 & \forall int v0, v1, v2, v3, v4; (v1 = v0 | bv_extract(v4,
       v3, v2) != v1 | bv_extract(v4, v3, v2) != v0) & \exists int v0, v1; (1 >=
-    v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & bv_extract(1, 1, x) = v1 & bv_extract(0,
-      0, x) = v0 & \exists int v2, v3, v4; (v2 != 0 & 1 >= v4 & v4 >= 0 & 1 >=
-      v3 & v3 >= 0 & bv_extract(1, 1, v2) = v4 & bv_extract(0, 0, v2) = v3 &
-      \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 - v1 >= -1 & v1 >= v4 & -1*v3 -
-        v0 >= -1 & v0 >= v3 & 3 >= v2 & v2 >= 1 & bv_extract(1, 1, v5) = 1 - v1
-        & bv_extract(0, 0, v5) = 1 - v0)))
+    v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & x[1] = v1 & x[0] = v0 & \exists int v2,
+    v3, v4; (v2 != 0 & 1 >= v4 & v4 >= 0 & 1 >= v3 & v3 >= 0 & v2[1] = v4 &
+      v2[0] = v3 & \exists int v5; (3 >= v5 & v5 >= 0 & -1*v4 - v1 >= -1 & v1 >=
+        v4 & -1*v3 - v0 >= -1 & v0 >= v3 & 3 >= v2 & v2 >= 1 & v5[1] = 1 - v1 &
+        v5[0] = 1 - v0)))
 
 Those formulas are unsatisfiable:
 ---------------------------------
@@ -478,54 +487,48 @@ Those formulas are unsatisfiable:
 Begin of proof
 | 
 | ALPHA: (axioms) implies:
-|   (1)  \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 &
-|          bv_extract(1, 1, x) = v1 & bv_extract(0, 0, x) = v0 & \exists int v2,
-|          v3, v4; (v2 != 0 & 1 >= v4 & v4 >= 0 & 1 >= v3 & v3 >= 0 &
-|            bv_extract(1, 1, v2) = v4 & bv_extract(0, 0, v2) = v3 & \exists int
-|            v5; (3 >= v5 & v5 >= 0 & -1*v4 - v1 >= -1 & v1 >= v4 & -1*v3 - v0
-|              >= -1 & v0 >= v3 & 3 >= v2 & v2 >= 1 & bv_extract(1, 1, v5) = 1 -
-|              v1 & bv_extract(0, 0, v5) = 1 - v0)))
+|   (1)  \exists int v0, v1; (1 >= v1 & v1 >= 0 & 1 >= v0 & v0 >= 0 & x[1] = v1
+|          & x[0] = v0 & \exists int v2, v3, v4; (v2 != 0 & 1 >= v4 & v4 >= 0 &
+|            1 >= v3 & v3 >= 0 & v2[1] = v4 & v2[0] = v3 & \exists int v5; (3 >=
+|              v5 & v5 >= 0 & -1*v4 - v1 >= -1 & v1 >= v4 & -1*v3 - v0 >= -1 &
+|              v0 >= v3 & 3 >= v2 & v2 >= 1 & v5[1] = 1 - v1 & v5[0] = 1 - v0)))
 | 
 | DELTA: instantiating (1) with fresh symbols all_2_0, all_2_1 gives:
-|   (2)  1 >= all_2_0 & all_2_0 >= 0 & 1 >= all_2_1 & all_2_1 >= 0 &
-|        bv_extract(1, 1, x) = all_2_0 & bv_extract(0, 0, x) = all_2_1 & \exists
-|        int v0, v1, v2; (v0 != 0 & 1 >= v2 & v2 >= 0 & 1 >= v1 & v1 >= 0 &
-|          bv_extract(1, 1, v0) = v2 & bv_extract(0, 0, v0) = v1 & \exists int
+|   (2)  1 >= all_2_0 & all_2_0 >= 0 & 1 >= all_2_1 & all_2_1 >= 0 & x[1] =
+|        all_2_0 & x[0] = all_2_1 & \exists int v0, v1, v2; (v0 != 0 & 1 >= v2 &
+|          v2 >= 0 & 1 >= v1 & v1 >= 0 & v0[1] = v2 & v0[0] = v1 & \exists int
 |          v3; (3 >= v3 & v3 >= 0 & -1*v2 - all_2_0 >= -1 & all_2_0 >= v2 &
-|            -1*v1 - all_2_1 >= -1 & all_2_1 >= v1 & 3 >= v0 & v0 >= 1 &
-|            bv_extract(1, 1, v3) = 1 - all_2_0 & bv_extract(0, 0, v3) = 1 -
-|            all_2_1))
+|            -1*v1 - all_2_1 >= -1 & all_2_1 >= v1 & 3 >= v0 & v0 >= 1 & v3[1] =
+|            1 - all_2_0 & v3[0] = 1 - all_2_1))
 | 
 | ALPHA: (2) implies:
 |   (3)  \exists int v0, v1, v2; (v0 != 0 & 1 >= v2 & v2 >= 0 & 1 >= v1 & v1 >=
-|          0 & bv_extract(1, 1, v0) = v2 & bv_extract(0, 0, v0) = v1 & \exists
-|          int v3; (3 >= v3 & v3 >= 0 & -1*v2 - all_2_0 >= -1 & all_2_0 >= v2 &
-|            -1*v1 - all_2_1 >= -1 & all_2_1 >= v1 & 3 >= v0 & v0 >= 1 &
-|            bv_extract(1, 1, v3) = 1 - all_2_0 & bv_extract(0, 0, v3) = 1 -
-|            all_2_1))
+|          0 & v0[1] = v2 & v0[0] = v1 & \exists int v3; (3 >= v3 & v3 >= 0 &
+|            -1*v2 - all_2_0 >= -1 & all_2_0 >= v2 & -1*v1 - all_2_1 >= -1 &
+|            all_2_1 >= v1 & 3 >= v0 & v0 >= 1 & v3[1] = 1 - all_2_0 & v3[0] = 1
+|            - all_2_1))
 | 
 | DELTA: instantiating (3) with fresh symbols all_5_0, all_5_1, all_5_2 gives:
 |   (4)  all_5_2 != 0 & 1 >= all_5_0 & all_5_0 >= 0 & 1 >= all_5_1 & all_5_1 >=
-|        0 & bv_extract(1, 1, all_5_2) = all_5_0 & bv_extract(0, 0, all_5_2) =
-|        all_5_1 & \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 - all_2_0 >=
-|          -1 & all_2_0 >= all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >=
-|          all_5_1 & 3 >= all_5_2 & all_5_2 >= 1 & bv_extract(1, 1, v0) = 1 -
-|          all_2_0 & bv_extract(0, 0, v0) = 1 - all_2_1)
+|        0 & all_5_2[1] = all_5_0 & all_5_2[0] = all_5_1 & \exists int v0; (3 >=
+|          v0 & v0 >= 0 & -1*all_5_0 - all_2_0 >= -1 & all_2_0 >= all_5_0 &
+|          -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1 & 3 >= all_5_2 &
+|          all_5_2 >= 1 & v0[1] = 1 - all_2_0 & v0[0] = 1 - all_2_1)
 | 
 | ALPHA: (4) implies:
 |   (5)  all_5_1 >= 0
-|   (6)  bv_extract(0, 0, all_5_2) = all_5_1
-|   (7)  bv_extract(1, 1, all_5_2) = all_5_0
+|   (6)  all_5_2[0] = all_5_1
+|   (7)  all_5_2[1] = all_5_0
 |   (8)  \exists int v0; (3 >= v0 & v0 >= 0 & -1*all_5_0 - all_2_0 >= -1 &
 |          all_2_0 >= all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1
-|          & 3 >= all_5_2 & all_5_2 >= 1 & bv_extract(1, 1, v0) = 1 - all_2_0 &
-|          bv_extract(0, 0, v0) = 1 - all_2_1)
+|          & 3 >= all_5_2 & all_5_2 >= 1 & v0[1] = 1 - all_2_0 & v0[0] = 1 -
+|          all_2_1)
 | 
 | DELTA: instantiating (8) with fresh symbol all_8_0 gives:
 |   (9)  3 >= all_8_0 & all_8_0 >= 0 & -1*all_5_0 - all_2_0 >= -1 & all_2_0 >=
 |        all_5_0 & -1*all_5_1 - all_2_1 >= -1 & all_2_1 >= all_5_1 & 3 >=
-|        all_5_2 & all_5_2 >= 1 & bv_extract(1, 1, all_8_0) = 1 - all_2_0 &
-|        bv_extract(0, 0, all_8_0) = 1 - all_2_1
+|        all_5_2 & all_5_2 >= 1 & all_8_0[1] = 1 - all_2_0 & all_8_0[0] = 1 -
+|        all_2_1
 | 
 | ALPHA: (9) implies:
 |   (10)  all_5_2 >= 1
@@ -536,8 +539,8 @@ Begin of proof
 |   (15)  -1*all_5_0 - all_2_0 >= -1
 | 
 | THEORY_AXIOM ModuloArithmetic: 
-|   (16)  \forall int v0, v1, v2; (bv_extract(1, 1, v0) != v2 | bv_extract(0, 0,
-|             v0) != v1 | v0.\as[bv[2]] = 2*v2 + v1)
+|   (16)  \forall int v0, v1, v2; (v0[1] != v2 | v0[0] != v1 | v0.\as[bv[2]] =
+|           2*v2 + v1)
 | 
 | GROUND_INST: instantiating (16) with all_5_2, all_5_1, all_5_0, simplifying
 |              with (6), (7) gives:

@@ -57,7 +57,8 @@ object ModPlugin extends Plugin {
       val predConj = goal.facts.predConj
 
       if (Seqs.disjoint(predConj.predicates,
-                        Set(_bv_extract, _mod_cast, _l_shift_cast)))
+                        Set(_bv_extract, _mod_cast,
+                            _l_shift_cast, _r_shift_cast)))
         return List()
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -132,13 +133,11 @@ object ModPlugin extends Plugin {
         return splitActions
       }
 
-      var actions = new ArrayBuffer[Plugin.Action]
-
       if (!extracts.isEmpty) {
         // If necessary, turn extracts in arithmetic context into
         // just arithmetic constaints
 
-        actions ++= ExtractArithEncoder.handleGoal(goal)
+        val actions = ExtractArithEncoder.handleGoal(goal)
         if (!actions.isEmpty)
           return actions
 
@@ -160,7 +159,7 @@ object ModPlugin extends Plugin {
             println("\t" + t)
         }
         //-END-ASSERTION-///////////////////////////////////////////////////////
-        return actions ++ diseqActions
+        return diseqActions
       }
 
       val msc = modShiftCast(goal)
@@ -172,7 +171,15 @@ object ModPlugin extends Plugin {
             println("\t" + a)
         }
         //-END-ASSERTION-///////////////////////////////////////////////////////
-        return actions ++ msc
+        return msc
+      }
+
+      if ((goalState(goal) == Plugin.GoalState.Final) && (!extracts.isEmpty)) {
+        // if there is nothing else we can do, replace all extracts with
+        // arithmetic constraints
+        val actions = ExtractArithEncoder.encode(goal, true)
+        if (!actions.isEmpty)
+          return actions
       }
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
@@ -180,7 +187,7 @@ object ModPlugin extends Plugin {
         println("Nothing..")
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      actions
+      List()
     }
 
   private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {

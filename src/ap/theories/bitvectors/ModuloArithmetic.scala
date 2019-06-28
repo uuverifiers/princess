@@ -590,7 +590,7 @@ object ModuloArithmetic extends Theory {
   val (functionalPredSeq, preAxioms, preOrder, functionTranslation) =
     Theory.genAxioms(theoryFunctions = functions)
 
-  protected[bitvectors] val _bv_extract = functionTranslation(bv_extract)
+  val _bv_extract = functionTranslation(bv_extract)
 
   // We only keep the functionality axiom for the bv_extract function
   val axioms =
