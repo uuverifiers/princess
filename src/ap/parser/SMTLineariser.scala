@@ -1282,12 +1282,3 @@ class SMTLineariser(benchmarkName : String,
   
 }
 
-
-object Main extends App {
-
-  import IExpression._
-
-  val f = all(x => all(y => ex((z1, z2) => x+z1 === y+z2)))
-  SMTLineariser(f)
-
-}
