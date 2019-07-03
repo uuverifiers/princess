@@ -37,8 +37,12 @@ reserved words excluded.
 \subsection*{Literals}
 
 
-IntLit literals are recognized by the regular expression
+
+DecIntLit literals are recognized by the regular expression\\
 \({\nonterminal{digit}}+\)
+
+HexIntLit literals are recognized by the regular expression\\
+\((\{\mbox{``0x''}\} \mid \{\mbox{``0X''}\}) [\mbox{``0123456789ABCDEFabcdef''}]+\)
 
 
 \subsection*{Reserved words and symbols}
@@ -47,34 +51,35 @@ The set of reserved words is the set of terminals appearing in the grammar. Thos
 The reserved words used in ApInput are the following: \\
 
 \begin{tabular}{lll}
-{\reserved{bool}} &{\reserved{bv}} &{\reserved{false}} \\
-{\reserved{inf}} &{\reserved{int}} &{\reserved{mod}} \\
-{\reserved{nat}} &{\reserved{signed}} &{\reserved{true}} \\
+{\reserved{$\backslash$abs}} &{\reserved{$\backslash$as}} &{\reserved{$\backslash$distinct}} \\
+{\reserved{$\backslash$else}} &{\reserved{$\backslash$eps}} &{\reserved{$\backslash$existentialConstants}} \\
+{\reserved{$\backslash$exists}} &{\reserved{$\backslash$forall}} &{\reserved{$\backslash$functions}} \\
+{\reserved{$\backslash$if}} &{\reserved{$\backslash$interpolant}} &{\reserved{$\backslash$max}} \\
+{\reserved{$\backslash$metaVariables}} &{\reserved{$\backslash$min}} &{\reserved{$\backslash$negMatch}} \\
+{\reserved{$\backslash$noMatch}} &{\reserved{$\backslash$part}} &{\reserved{$\backslash$partial}} \\
+{\reserved{$\backslash$predicates}} &{\reserved{$\backslash$problem}} &{\reserved{$\backslash$relational}} \\
+{\reserved{$\backslash$size}} &{\reserved{$\backslash$sorts}} &{\reserved{$\backslash$then}} \\
+{\reserved{$\backslash$universalConstants}} &{\reserved{$\backslash$variables}} &{\reserved{bool}} \\
+{\reserved{bv}} &{\reserved{false}} &{\reserved{inf}} \\
+{\reserved{int}} &{\reserved{mod}} &{\reserved{nat}} \\
+{\reserved{signed}} &{\reserved{true}} & \\
 \end{tabular}\\
 
 The symbols used in ApInput are the following: \\
 
 \begin{tabular}{lll}
-{\symb{$\backslash$problem}} &{\symb{\{}} &{\symb{\}}} \\
-{\symb{$\backslash$functions}} &{\symb{$\backslash$universalConstants}} &{\symb{$\backslash$predicates}} \\
-{\symb{$\backslash$interpolant}} &{\symb{;}} &{\symb{$\backslash$existentialConstants}} \\
-{\symb{$\backslash$metaVariables}} &{\symb{{$<$}{$-$}{$>$}}} &{\symb{{$-$}{$>$}}} \\
-{\symb{{$<$}{$-$}}} &{\symb{{$|$}}} &{\symb{\&}} \\
-{\symb{!}} &{\symb{$\backslash$abs}} &{\symb{$\backslash$max}} \\
-{\symb{$\backslash$min}} &{\symb{$\backslash$distinct}} & {\symb{$\backslash$as}}\\
-{\symb{$\backslash$eps}} &{\symb{$\backslash$part}} & \\
-{\symb{[}} &{\symb{]}} &{\symb{{$+$}}} \\
-{\symb{{$-$}}} &{\symb{*}} &{\symb{/}} \\
-{\symb{\%}} &{\symb{\^}} &{\symb{$\backslash$if}} \\
-{\symb{(}} &{\symb{)}} &{\symb{$\backslash$then}} &{\symb{$\backslash$else}} \\
-{\symb{$\backslash$forall}} &{\symb{$\backslash$exists}} &{\symb{{$=$}}} \\
-{\symb{!{$=$}}} &{\symb{{$<$}{$=$}}} &{\symb{{$>$}{$=$}}} \\
-{\symb{{$<$}}} &{\symb{{$>$}}} &{\symb{,}} \\
-{\symb{$\backslash$partial}} &{\symb{$\backslash$relational}} &
-{\symb{$\backslash$sorts}} \\
-{\symb{$\backslash$size}} & {\symb{$\backslash$negMatch}} &
-{\symb{$\backslash$noMatch}} \\
-{\symb{.}}
+{\symb{\{}} &{\symb{\}}} &{\symb{;}} \\
+{\symb{{$<$}{$-$}{$>$}}} &{\symb{{$-$}{$>$}}} &{\symb{{$<$}{$-$}}} \\
+{\symb{{$|$}}} &{\symb{{$|$}{$|$}}} &{\symb{\&}} \\
+{\symb{\&\&}} &{\symb{!}} &{\symb{[}} \\
+{\symb{]}} &{\symb{{$<$}{$<$}}} &{\symb{{$>$}{$>$}}} \\
+{\symb{{$+$}}} &{\symb{{$-$}}} &{\symb{*}} \\
+{\symb{/}} &{\symb{\%}} &{\symb{{$+$}{$+$}}} \\
+{\symb{\~{}}} &{\symb{\^}} &{\symb{(}} \\
+{\symb{)}} &{\symb{.}} &{\symb{:}} \\
+{\symb{{$=$}}} &{\symb{!{$=$}}} &{\symb{{$<$}{$=$}}} \\
+{\symb{{$>$}{$=$}}} &{\symb{{$<$}}} &{\symb{{$>$}}} \\
+{\symb{,}} & & \\
 \end{tabular}\\
 
 \subsection*{Comments}
@@ -107,12 +112,22 @@ All other symbols are terminals.\\
  & {\delimit}  &{\nonterminal{ExConstantsSec}} {\terminal{\{}} {\nonterminal{ListDeclConstantC}} {\terminal{\}}}  \\
  & {\delimit}  &{\terminal{$\backslash$universalConstants}} {\terminal{\{}} {\nonterminal{ListDeclConstantC}} {\terminal{\}}}  \\
  & {\delimit}  &{\terminal{$\backslash$predicates}} {\terminal{\{}} {\nonterminal{ListDeclPredC}} {\terminal{\}}}  \\
- & {\delimit}  &{\terminal{$\backslash$interpolant}} {\terminal{\{}} {\nonterminal{ListIdent}} {\terminal{;}} {\nonterminal{ListIdent}} {\terminal{\}}}  \\
+ & {\delimit}  &{\terminal{$\backslash$interpolant}} {\terminal{\{}} {\nonterminal{ListInterpBlockC}} {\terminal{\}}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
 {\nonterminal{ExConstantsSec}} & {\arrow}  &{\terminal{$\backslash$existentialConstants}}  \\
  & {\delimit}  &{\terminal{$\backslash$metaVariables}}  \\
+ & {\delimit}  &{\terminal{$\backslash$variables}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{InterpBlockC}} & {\arrow}  &{\nonterminal{ListIdent}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{ListInterpBlockC}} & {\arrow}  &{\nonterminal{InterpBlockC}}  \\
+ & {\delimit}  &{\nonterminal{InterpBlockC}} {\terminal{;}} {\nonterminal{ListInterpBlockC}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
@@ -128,11 +143,13 @@ All other symbols are terminals.\\
 
 \begin{tabular}{lll}
 {\nonterminal{Expression2}} & {\arrow}  &{\nonterminal{Expression2}} {\terminal{{$|$}}} {\nonterminal{Expression3}}  \\
+ & {\delimit}  &{\nonterminal{Expression2}} {\terminal{{$|$}{$|$}}} {\nonterminal{Expression3}}  \\
  & {\delimit}  &{\nonterminal{Expression3}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
 {\nonterminal{Expression3}} & {\arrow}  &{\nonterminal{Expression3}} {\terminal{\&}} {\nonterminal{Expression4}}  \\
+ & {\delimit}  &{\nonterminal{Expression3}} {\terminal{\&\&}} {\nonterminal{Expression4}}  \\
  & {\delimit}  &{\nonterminal{Expression4}}  \\
 \end{tabular}\\
 
@@ -151,40 +168,52 @@ All other symbols are terminals.\\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression6}} & {\arrow}  &{\nonterminal{Expression6}} {\terminal{{$+$}}} {\nonterminal{Expression7}}  \\
- & {\delimit}  &{\nonterminal{Expression6}} {\terminal{{$-$}}} {\nonterminal{Expression7}}  \\
+{\nonterminal{Expression6}} & {\arrow}  &{\nonterminal{Expression6}} {\terminal{{$<$}{$<$}}} {\nonterminal{Expression7}}  \\
+ & {\delimit}  &{\nonterminal{Expression6}} {\terminal{{$>$}{$>$}}} {\nonterminal{Expression7}}  \\
  & {\delimit}  &{\nonterminal{Expression7}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression7}} & {\arrow}  &{\nonterminal{Expression7}} {\terminal{*}} {\nonterminal{Expression8}}  \\
- & {\delimit}  &{\nonterminal{Expression7}} {\terminal{/}} {\nonterminal{Expression8}}  \\
- & {\delimit}  &{\nonterminal{Expression7}} {\terminal{\%}} {\nonterminal{Expression8}}  \\
+{\nonterminal{Expression7}} & {\arrow}  &{\nonterminal{Expression7}} {\terminal{{$+$}}} {\nonterminal{Expression8}}  \\
+ & {\delimit}  &{\nonterminal{Expression7}} {\terminal{{$-$}}} {\nonterminal{Expression8}}  \\
  & {\delimit}  &{\nonterminal{Expression8}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression8}} & {\arrow}  &{\terminal{$\backslash$as}} {\terminal{[}} {\nonterminal{Type}} {\terminal{]}} {\nonterminal{Expression8}}  \\
-{\nonterminal{Expression8}} & {\arrow}  &{\terminal{{$+$}}} {\nonterminal{Expression9}}  \\
- & {\delimit}  &{\terminal{{$-$}}} {\nonterminal{Expression9}}  \\
- & {\delimit}  &{\nonterminal{Expression10}} {\terminal{.}} {\terminal{$\backslash$as}} {\terminal{[}} {\nonterminal{Type}} {\terminal{]}}  \\
+{\nonterminal{Expression8}} & {\arrow}  &{\nonterminal{Expression8}} {\terminal{*}} {\nonterminal{Expression9}}  \\
+ & {\delimit}  &{\nonterminal{Expression8}} {\terminal{/}} {\nonterminal{Expression9}}  \\
+ & {\delimit}  &{\nonterminal{Expression8}} {\terminal{\%}} {\nonterminal{Expression9}}  \\
+ & {\delimit}  &{\nonterminal{Expression8}} {\terminal{{$+$}{$+$}}} {\nonterminal{Expression9}}  \\
  & {\delimit}  &{\nonterminal{Expression9}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression9}} & {\arrow}  &{\nonterminal{Expression9}} {\terminal{\^}} {\nonterminal{Expression10}}  \\
+{\nonterminal{Expression9}} & {\arrow}  &{\terminal{$\backslash$as}} {\terminal{[}} {\nonterminal{Type}} {\terminal{]}} {\nonterminal{Expression9}}  \\
+ & {\delimit}  &{\terminal{{$+$}}} {\nonterminal{Expression10}}  \\
+ & {\delimit}  &{\terminal{{$-$}}} {\nonterminal{Expression10}}  \\
+ & {\delimit}  &{\terminal{\~{}}} {\nonterminal{Expression10}}  \\
  & {\delimit}  &{\nonterminal{Expression10}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
-{\nonterminal{Expression10}} & {\arrow}  &{\terminal{$\backslash$if}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$then}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$else}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
+{\nonterminal{Expression10}} & {\arrow}  &{\nonterminal{Expression10}} {\terminal{\^}} {\nonterminal{Expression11}}  \\
+ & {\delimit}  &{\nonterminal{Expression11}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{Expression11}} & {\arrow}  &{\terminal{$\backslash$if}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$then}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}} {\terminal{$\backslash$else}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
  & {\delimit}  &{\terminal{$\backslash$abs}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
  & {\delimit}  &{\terminal{$\backslash$max}} {\nonterminal{OptArgs}}  \\
  & {\delimit}  &{\terminal{$\backslash$min}} {\nonterminal{OptArgs}}  \\
  & {\delimit}  &{\terminal{$\backslash$distinct}} {\nonterminal{OptArgs}}  \\
  & {\delimit}  &{\terminal{$\backslash$size}} {\terminal{(}} {\nonterminal{Expression}} {\terminal{)}}  \\
  & {\delimit}  &{\nonterminal{Ident}} {\nonterminal{OptArgs}}  \\
- & {\delimit}  &{\nonterminal{Expression10}} {\terminal{.}} {\nonterminal{Ident}}  \\
+ & {\delimit}  &{\nonterminal{Expression11}} {\terminal{.}} {\nonterminal{Ident}}  \\
+ & {\delimit}  &{\nonterminal{Expression11}} {\terminal{.}} {\terminal{$\backslash$as}} {\terminal{[}} {\nonterminal{Type}} {\terminal{]}}  \\
+ & {\delimit}  &{\nonterminal{Expression11}} {\terminal{.}} {\terminal{$\backslash$size}}  \\
+ & {\delimit}  &{\nonterminal{Expression11}} {\terminal{.}} {\terminal{$\backslash$abs}}  \\
+ & {\delimit}  &{\nonterminal{Expression11}} {\terminal{[}} {\nonterminal{Expression}} {\terminal{]}}  \\
+ & {\delimit}  &{\nonterminal{Expression11}} {\terminal{[}} {\nonterminal{IntLit}} {\terminal{:}} {\nonterminal{IntLit}} {\terminal{]}}  \\
  & {\delimit}  &{\terminal{true}}  \\
  & {\delimit}  &{\terminal{false}}  \\
  & {\delimit}  &{\nonterminal{IntLit}}  \\
@@ -218,6 +247,11 @@ All other symbols are terminals.\\
 {\nonterminal{ListArgC}} & {\arrow}  &{\emptyP} \\
  & {\delimit}  &{\nonterminal{ArgC}}  \\
  & {\delimit}  &{\nonterminal{ArgC}} {\terminal{,}} {\nonterminal{ListArgC}}  \\
+\end{tabular}\\
+
+\begin{tabular}{lll}
+{\nonterminal{IntLit}} & {\arrow}  &{\nonterminal{DecIntLit}}  \\
+ & {\delimit}  &{\nonterminal{HexIntLit}}  \\
 \end{tabular}\\
 
 \begin{tabular}{lll}
