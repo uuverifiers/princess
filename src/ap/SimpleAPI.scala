@@ -1867,8 +1867,7 @@ class SimpleAPI private (enableAssert : Boolean,
   /**
    * The current theory used for non-linear problems.
    */
-  def mulTheory : MulTheory =
-    ap.theories.nia.GroebnerMultiplication
+  def mulTheory : MulTheory = ap.theories.GroebnerMultiplication
 
   /**
    * Generate the product of the given terms. Depending on the arguments,

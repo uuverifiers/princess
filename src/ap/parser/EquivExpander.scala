@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,7 +23,8 @@ package ap.parser
 
 /**
  * Class to turn <-> into conjunction and disjunctions, eliminate
- * if-then-else expressions and epsilon terms
+ * if-then-else expressions and epsilon terms, and move universal quantifiers
+ * outwards (to make later Skolemisation more efficient; currently disabled)
  */
 object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
 
@@ -99,8 +100,59 @@ object EquivExpander extends ContextAwareVisitor[Unit, IExpression] {
       TryAgain((cond ===> left) &&& (~cond ===> right), c)
   
   def postVisit(t : IExpression, c : Context[Unit],
-                subres : Seq[IExpression]) : IExpression =
-    updateAndSimplifyLazily(t, subres)
+                subres : Seq[IExpression]) : IExpression = t match {
+    // Pull up existential quantifiers, if there are any. E.g.,
+    // EX f1 & EX f2  ~~>   EX EX (f1 & f2)
+    // This speeds up solving of formulas with many eps-expressions, which
+    // otherwise lead to many quantifiers distributed throughout the formula
+
+/*
+ Disabled, since it breaks some test cases; needs more work
+
+    case IBinFormula(IBinJunctor.And | IBinJunctor.Or, _, _) => {
+      val q = Quantifier(c.polarity > 0)
+      val (leftQuans,  leftF)  = extrQuans(subres(0).asInstanceOf[IFormula], q)
+      val (rightQuans, rightF) = extrQuans(subres(1).asInstanceOf[IFormula], q)
+      val shiftedLeft  = VariableShiftVisitor(leftF,  0,          rightQuans)
+      val shiftedRight = VariableShiftVisitor(rightF, rightQuans, leftQuans)
+      quan(for (_ <- 0 until (leftQuans + rightQuans)) yield q,
+           updateAndSimplifyLazily(t,
+             List(shiftedLeft, shiftedRight)).asInstanceOf[IFormula])
+    }
+
+    case _ : INot => {
+      val q = Quantifier(c.polarity > 0)
+      val dualQ = q.dual
+      val (quans, subfor) = extrQuans(subres(0).asInstanceOf[IFormula], q)
+      quan(for (_ <- 0 until quans) yield dualQ, ~subfor)
+    }
+ */
+    case t =>
+      updateAndSimplifyLazily(t, subres)
+  }
+
+  /**
+   * Strip a formula of leading quantifiers
+   */
+  private def extrQuans(f : IFormula, q : Quantifier) : (Int, IFormula) = {
+    var quanNum = 0
+    var resF = f
+
+    while (resF.isInstanceOf[IQuantified] &&
+           resF.asInstanceOf[IQuantified].quan == q) {
+      quanNum = quanNum + 1
+      resF = resF.asInstanceOf[IQuantified].subformula
+    }
+
+    resF match {
+      case _ : ITrigger =>
+        // we need to keep the quantifiers in place in this case, otherwise
+        // we get dangling triggers
+        (0, f)
+      case _ =>
+        (quanNum, resF)
+    }
+  }
 
 }
 

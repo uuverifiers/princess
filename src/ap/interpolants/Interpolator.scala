@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *                         Angelo Brillout <bangelo@inf.ethz.ch>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -81,7 +81,9 @@ object Interpolator
                                 (for (a <- certificate.theoryAxioms.iterator;
                                       p <- a.predicates.iterator) yield p)))
     })
-    // the following assertions are quite expensive ...
+    // the following assertions are quite expensive; in case of theories,
+    // they might also fail, because quantifier elimination could need
+    // further theory axioms (TODO)
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS, {
       implicit val o = certificate.order
       val allCommon = iContext.commonFormulae ++ certificate.theoryAxioms

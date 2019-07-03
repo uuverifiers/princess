@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -440,9 +440,9 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       ModuloArithmetic.ModSort(lb.get, ub.get)
     }
     case t : TypeBV =>
-      ModuloArithmetic.UnsignedBVSort(t.intlit_.toInt)
+      ModuloArithmetic.UnsignedBVSort(translateIntLit2Int(t.intlit_))
     case t : TypeSignedBV =>
-      ModuloArithmetic.SignedBVSort(t.intlit_.toInt)
+      ModuloArithmetic.SignedBVSort(translateIntLit2Int(t.intlit_))
     case t : TypeIdent =>
       env lookupSort t.ident_
   }
@@ -461,14 +461,14 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
 
   private def bound2IdealInt(b : IntervalLower) : Option[IdealInt] = b match {
     case _ : InfLower =>      None
-    case iv : NumLower =>     Some(IdealInt(iv.intlit_))
-    case iv : NegNumLower =>  Some(-IdealInt(iv.intlit_))
+    case iv : NumLower =>     Some(translateIntLit(iv.intlit_))
+    case iv : NegNumLower =>  Some(-translateIntLit(iv.intlit_))
   }
 
   private def bound2IdealInt(b : IntervalUpper) : Option[IdealInt] = b match {
     case _ : InfUpper =>      None
-    case iv : NumUpper =>     Some(IdealInt(iv.intlit_))
-    case iv : NegNumUpper =>  Some(-IdealInt(iv.intlit_))
+    case iv : NumUpper =>     Some(translateIntLit(iv.intlit_))
+    case iv : NegNumUpper =>  Some(-translateIntLit(iv.intlit_))
   }
 
   private def toMVBool(s : Sort) : Sort = s match {
@@ -666,20 +666,31 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       translateBinForConnective(f.expression_1, f.expression_2, _ ==> _)
     case f : ExprImpInv =>
       translateBinForConnective(f.expression_2, f.expression_1, _ ==> _)
-    case f : ExprOr => {
-      val subs = collectSubExpressions(f, _.isInstanceOf[ExprOr], ApConnective)
-      ((for (f <- subs.iterator)
-          yield asFormula(translateExpression(f))) reduceLeft (_ | _),
-       Sort.Bool)
-    }
-    case f : ExprAnd => {
-      val subs = collectSubExpressions(f, _.isInstanceOf[ExprAnd], ApConnective)
-      ((for (f <- subs.iterator)
-          yield asFormula(translateExpression(f))) reduceLeft (_ & _),
-       Sort.Bool)
-    }
+    case f : ExprOr =>
+      translateBoolBinConnectiveOp("|", f, _.isInstanceOf[ExprOr], _ | _,
+                                   ModuloArithmetic.bv_or)
+    case f : ExprOrOr =>
+      translateBoolBinConnective("||", f, _.isInstanceOf[ExprOrOr],_ | _,
+                                 (bits : Int, t1 : ITerm, t2 : ITerm) =>
+                                 throw new TranslationException(
+                                   "|| can only be applied to formulas"))
+    case f : ExprAnd =>
+      translateBoolBinConnectiveOp("&", f, _.isInstanceOf[ExprAnd],_ & _,
+                                   ModuloArithmetic.bv_and)
+    case f : ExprAndAnd =>
+      translateBoolBinConnective("&&", f, _.isInstanceOf[ExprAndAnd], _ & _,
+                                 (bits : Int, t1 : ITerm, t2 : ITerm) =>
+                                 throw new TranslationException(
+                                   "&& can only be applied to formulas"))
     case f : ExprNot =>
       translateUnForConnective(f.expression_, ! _)
+    case f : ExprTilde => translateExpression(f.expression_) match {
+      case p@(_, s@ModuloArithmetic.UnsignedBVSort(bits)) =>
+        (IFunApp(ModuloArithmetic.bv_not, List(bits, asTerm(p))), s)
+      case (t, s) =>
+        throw new TranslationException(
+          "~ can only be applied to bit-vectors, not to " + t)
+    }
     case f : ExprQuant =>
       (translateQuant(f), Sort.Bool)
     case _ : ExprTrue =>
@@ -769,11 +780,25 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       translateNumUnTerConnective("+", t.expression_, (lc) => lc)
     case t : ExprUnMinus =>
       translateNumUnTerConnective("-", t.expression_, - _)
+    case t : ExprConcat =>
+      (translateExpression(t.expression_1),
+       translateExpression(t.expression_2)) match {
+        case ((left : ITerm,
+                 ModuloArithmetic.UnsignedBVSort(leftBits)),
+              (right : ITerm,
+                 ModuloArithmetic.UnsignedBVSort(rightBits))) =>
+            (ModuloArithmetic.bv_concat(leftBits, rightBits, left, right),
+             ModuloArithmetic.UnsignedBVSort(leftBits + rightBits))
+        case _ =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Concatenation ++ can only be applied to unsigned bit-vector " +
+            "expressions")
+      }
     case t : ExprExp =>
       wrapResult(translateBinTerConnective("^", t.expression_1, t.expression_2,
                                            mulTheory.pow _, powSortCoercion _))
     case t : ExprLit =>
-      (IIntLit(IdealInt(t.intlit_)), Sort.Integer)
+      (IIntLit(translateIntLit(t.intlit_)), Sort.Integer)
     case t : ExprEpsilon => {
       collectSingleVarDecl(t.declsinglevarc_)
       val cond = asFormula(translateExpression(t.expression_))
@@ -806,6 +831,32 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
       translateSize(t.expression_)
     case t : ExprDotSize =>
       translateSize(t.expression_)
+    case t : ExprBracket =>
+      (translateExpression(t.expression_1),
+       translateExpression(t.expression_2)) match {
+        case ((left : ITerm, _ : ModuloArithmetic.ModSort | Sort.Numeric(_)),
+              (IIntLit(IdealInt(bit)), _)) if bit >= 0 =>
+            (1 - ModuloArithmetic.extract(bit, bit, left),
+             Sort.MultipleValueBool)
+        case ((left, _), (right, _)) =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Cannot extract bit " + right + " of " + left)
+      }
+    case t : ExprBitRange =>
+      translateExpression(t.expression_) match {
+        case (left : ITerm, _ : ModuloArithmetic.ModSort | Sort.Numeric(_)) => {
+          val begin = translateIntLit2Int(t.intlit_1)
+          val end   = translateIntLit2Int(t.intlit_2)
+          if (!(begin >= end && end >= 0))
+            throw new Parser2InputAbsy.TranslationException(
+              "Cannot extracts bits " + begin + ":" + end + " of " + left)
+          (ModuloArithmetic.extract(begin, end, left),
+           ModuloArithmetic.UnsignedBVSort(begin - end + 1))
+        }
+        case (left, _) =>
+          throw new Parser2InputAbsy.TranslationException(
+            "Cannot extracts any bits from " + left)
+      }
     ////////////////////////////////////////////////////////////////////////////
     // If-then-else (can be formula or term)
     case t : ExprIfThenElse => {
@@ -833,6 +884,8 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     def unapplySeq(f : Expression) : Option[Seq[Expression]] = f match {
       case f : ExprAnd => Some(List(f.expression_1, f.expression_2))
       case f : ExprOr => Some(List(f.expression_1, f.expression_2))
+      case f : ExprAndAnd => Some(List(f.expression_1, f.expression_2))
+      case f : ExprOrOr => Some(List(f.expression_1, f.expression_2))
     }
   }
   
@@ -1036,6 +1089,47 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     }
     (con(asTerm(left), asTerm(right)), resSort)
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def translateBoolBinConnectiveOp(
+                 opName : String,
+                 f : Expression,
+                 cont : GrammarExpression => Boolean,
+                 forCon : (IFormula, IFormula) => IFormula,
+                 bvOp : IFunction) : (IExpression, Sort) =
+    translateBoolBinConnective(opName, f, cont, forCon,
+                               (bits : Int, t1 : ITerm, t2 : ITerm) =>
+                                  IFunApp(bvOp, List(bits, t1, t2)))
+
+  private def translateBoolBinConnective(
+                 opName : String,
+                 f : Expression,
+                 cont : GrammarExpression => Boolean,
+                 forCon : (IFormula, IFormula) => IFormula,
+                 bvCon : (Int, ITerm, ITerm) => ITerm) : (IExpression, Sort) = {
+    val subs = collectSubExpressions(f, cont, ApConnective)
+    val transSubst = subs map (translateExpression _)
+
+    transSubst.head._2 match {
+      case Sort.Bool | Sort.MultipleValueBool =>
+        ((for (p <- transSubst.iterator) yield asFormula(p)) reduceLeft forCon,
+         Sort.Bool)
+      case s@ModuloArithmetic.UnsignedBVSort(bits) => {
+        if (transSubst exists (_._2 != s))
+          throw new TranslationException(
+            opName + " can only be applied to operands with consistent sorts")
+        ((for (p <- transSubst.iterator) yield asTerm(p)) reduceLeft {
+           (t1, t2) => bvCon(bits, t1, t2)
+         }, s)
+      }
+      case s =>
+        throw new TranslationException(
+          opName + " cannot be applied to operands of sort " + s)
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
   
   private def translateQuant(f : ExprQuant) : IFormula = {
     // add the bound variables to the environment and record their number
@@ -1174,5 +1268,13 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
     (for (arg <- args.iterator) yield arg match {
        case arg : Arg => translateExpression(arg.expression_)
      }).toSeq
+
+  private def translateIntLit(l : IntLit) : IdealInt = l match {
+    case l : DIntLit => IdealInt(l.decintlit_)
+    case l : HIntLit => IdealInt(l.hexintlit_ substring 2, 16)
+  }
+
+  private def translateIntLit2Int(l : IntLit) : Int =
+    translateIntLit(l).intValueSafe
 
 }

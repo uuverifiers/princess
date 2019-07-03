@@ -542,7 +542,7 @@ Test 6
 Valid
 Test 7
 Unsat
-Vector(((x + -1 * mod_cast(0, 1, 1)) = 0), ((-1 + y) >= 0))
+Vector(((x + -1 * mod_cast(0, 1, 1)) = 0), !((y + -1 * mod_cast(0, 1, 0)) = 0))
 Test 8
 \exists int v0; (v0 >= 0 & 3 >= v0 & bv_mul(2, x, v0) = 1.\as[bv[2]])
 x = 1 | x >= 3

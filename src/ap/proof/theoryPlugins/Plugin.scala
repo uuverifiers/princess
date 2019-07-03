@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -504,7 +504,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                                           Set(providedFormula),
                                           Set())
 
-            val newInferences = branchInferences ++ List(pCertInf)
+            val newInferences = branchInferences addWithDefaultInfs pCertInf
 
             handleActionsRec(restActions,
                              AddFormula(addedFormula) :: contActions,

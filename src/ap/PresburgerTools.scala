@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,7 +23,7 @@ package ap
 
 import ap.basetypes.IdealInt
 import ap.theories.{TheoryRegistry, ModuloArithmetic}
-import ap.theories.nia.GroebnerMultiplication
+import ap.theories.GroebnerMultiplication
 import ap.types.TypeTheory
 import ap.proof.{ConstraintSimplifier, ModelSearchProver, ExhaustiveProver}
 import ap.proof.theoryPlugins.PluginSequence
@@ -417,7 +417,8 @@ object PresburgerTools {
    * predicates, provided that predicates never occur in the scope of
    * quantifiers. Quantifiers above predicate occurrences are left in the
    * formula. The method can also handle formulas with bit-vector arithmetic
-   * or non-linear multiplication.
+   * or non-linear multiplication, and is optimised for post-processing of
+   * interpolants.
    */
   def elimQuantifiersWithPreds(c : Conjunction) : Conjunction = {
     implicit val order = c.order
@@ -509,8 +510,10 @@ object PresburgerTools {
     
     def quanElimPossible(c : Conjunction) : Boolean = c.predicates forall {
       p => (TheoryRegistry lookupSymbol p) match {
-        case Some(ModuloArithmetic)       => true
-        case _                            => false
+        case Some(ModuloArithmetic) =>
+          p != ModuloArithmetic._bv_extract
+        case _ =>
+          false
       }
     }
 

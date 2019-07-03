@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -2300,11 +2300,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       val a0@(transArg0, type0) = translateTerm(args(0), 0)
       val width0 = extractBVWidth("extract", type0, args(0))
       val resType = SMTBitVec(begin - end + 1)
-      (ModuloArithmetic.bv_extract(i(width0 - begin - 1),
-                                   i(begin - end + 1),
-                                   i(end),
-                                   asTerm(a0)),
-       resType)
+      (ModuloArithmetic.bv_extract(i(begin),
+        i(end),
+        asTerm(a0)),
+        resType)
     }
 
     case PlainSymbol("bvnot") =>
