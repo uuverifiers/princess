@@ -27,7 +27,7 @@ import ap.theories._
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
 import ap.basetypes.IdealInt
-import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm}
+import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm, OneTerm}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
 import LinearCombination.SingleTerm
@@ -81,7 +81,9 @@ object ExtractArithEncoder extends TheoryProcedure {
               val vv = v(nextVarInd)
               val newTS = (pow2(lb), res) :: (pow2(ub + 1), vv) :: ts
               val newConstraints =
-                (pow2MinusOne(lastLB - ub - 1) - l(vv)) ::
+                LinearCombination(List((IdealInt.MINUS_ONE, l(vv)),
+                                      (pow2MinusOne(lastLB - ub - 1), OneTerm)),
+                                  order) ::
                 (l(vv)) :: constraints
               terms.put(arg, (firstUB, lb, newTS,
                               nextVarInd+1, newConstraints, ex :: atoms))
