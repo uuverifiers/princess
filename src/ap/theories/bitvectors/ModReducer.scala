@@ -72,8 +72,7 @@ object ModReducer {
    * for simplifying modulo the given <code>modulus</code>.
    */
   private def effectiveLeadingCoeff(a : Atom,
-                                    modulus : IdealInt,
-                                    order : TermOrder) : IdealInt = {
+                                    modulus : IdealInt) : IdealInt = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(AC, a.pred == _mod_cast && !a(2).isConstant)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -83,7 +82,7 @@ object ModReducer {
 
     val leadingCoeff =
       if (a(3).isConstant ||
-          order.compare(a(2).leadingTerm, a(3).leadingTerm) > 0)
+          a.order.compare(a(2).leadingTerm, a(3).leadingTerm) > 0)
         a(2).leadingCoeff
       else
         a(3).leadingCoeff
@@ -167,7 +166,7 @@ object ModReducer {
         Timeout.check
         val logging = logger.isLogging
 
-        implicit val order = predConj.order
+        implicit val reducerOrder = order
         import TerForConvenience._
 
         // TODO: eliminate mod_cast arguments with large coefficients
@@ -334,8 +333,7 @@ object ModReducer {
                 for ((coeff, t) <- a(2).iterator;
                      knownAtom <- getModulos(t);
                      if knownAtom != a;
-                     simpCoeff = effectiveLeadingCoeff(knownAtom, modulus,
-                                                       order);
+                     simpCoeff = effectiveLeadingCoeff(knownAtom, modulus);
                      reduceMult = (coeff reduceAbs simpCoeff)._1;
                      if !reduceMult.isZero)
                 yield (knownAtom, reduceMult * simpCoeff)
