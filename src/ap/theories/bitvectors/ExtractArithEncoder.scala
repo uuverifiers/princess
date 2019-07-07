@@ -91,12 +91,18 @@ object ExtractArithEncoder extends TheoryProcedure {
               // no variable needed
               terms.put(arg, (firstUB, lb, (pow2(lb), res) :: ts,
                               nextVarInd, constraints, ex :: atoms))
-            } else {
+            } else if (SingleTerm.unapply(arg).isDefined) {
               // This extract cannot be eliminated, since it
               // overlaps with the last one. In this case we don't
-              // eliminate extracts for this term altogether
+              // eliminate extracts for this term altogether at this
+              // point, we wait until the extracts have been split
               terms -= arg
               ignoredTerms += arg
+            } else {
+              // Extract applied to a complex term, and the ranges overlap
+              // with the previous extract. Such extracts will not be
+              // fully split, so we just ignore this literal for the time
+              // being, and translate the other ones to arithmetic.
             }
         }
       }

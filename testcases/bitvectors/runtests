@@ -64,7 +64,8 @@ TESTS="existential.pri \
        bvcomp.smt2 \
        problem_24.smt2 \
        large_shift.smt2 \
-       bvashr.smt2"
+       bvashr.smt2 \
+       arith-extracts.pri"
 
 $PRI "$@" $TESTS
 
