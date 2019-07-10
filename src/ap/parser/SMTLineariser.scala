@@ -466,6 +466,37 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private def findTheorys(formulas : Iterable[IFormula],
+                          consts : Iterable[ConstantTerm],
+                          preds : Iterable[Predicate]) : Seq[Theory] = {
+    val theoryCollector = new TheoryCollector
+    for (f <- formulas)
+      theoryCollector(f)
+
+    def checkSort(s : Sort) : Unit = s match {
+      case s : ADT.ADTProxySort =>
+        theoryCollector addTheory s.adtTheory
+      case _ =>
+        // nothing
+    }
+
+    // also collect ADT types
+    for (c <- consts)
+      checkSort(SortedConstantTerm sortOf c)
+
+    for (p <- preds) p match {
+      case p : MonoSortedPredicate =>
+        for (s <- p.argSorts)
+          checkSort(s)
+      case _ =>
+        // nothing
+    }
+
+    theoryCollector.theories
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def apply(formulas : Seq[IFormula], signature : Signature,
             benchmarkName : String) : Unit =
     apply(formulas, signature, "AUFLIA", "unknown", benchmarkName)
@@ -474,7 +505,6 @@ object SMTLineariser {
             logic : String, status : String,
             benchmarkName : String) : Unit = {
     val order = signature.order
-    val theoryCollector = new TheoryCollector
     
     val (finalFormulas, constsToDeclare) : (Seq[IFormula], Set[ConstantTerm]) =
       if (Seqs.disjoint(order.orderedConstants, signature.existentialConstants)) {
@@ -505,14 +535,13 @@ object SMTLineariser {
            if (TheoryRegistry lookupSymbol p).isEmpty)
       yield p
 
-    for (f <- finalFormulas)
-      theoryCollector(f)
-
     val lineariser = new SMTLineariser(benchmarkName,
                                        logic, status,
                                        constsToDeclare.toList,
                                        predsToDeclare,
-                                       theoryCollector.theories,
+                                       findTheorys(finalFormulas,
+                                                   constsToDeclare,
+                                                   predsToDeclare),
                                        "", "", "",
                                        constantTypeFromSort,
                                        functionTypeFromSort)
@@ -529,14 +558,13 @@ object SMTLineariser {
             constsToDeclare : Seq[ConstantTerm],
             predsToDeclare : Seq[Predicate],
             formulas : Seq[IFormula]) : Unit = {
-    val theoryCollector = new TheoryCollector
-    for (f <- formulas)
-      theoryCollector(f)
     val lineariser = new SMTLineariser(benchmarkName,
                                        logic, status,
                                        constsToDeclare,
                                        predsToDeclare,
-                                       theoryCollector.theories,
+                                       findTheorys(formulas,
+                                                   constsToDeclare,
+                                                   predsToDeclare),
                                        "", "", "",
                                        constantTypeFromSort,
                                        functionTypeFromSort)
