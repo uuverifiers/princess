@@ -177,10 +177,21 @@ object CmdlMain {
       println
       
       def linearise : Unit = {
+        // TODO: this should be reimplemented, in particular functions be
+        // handled properly!
+        
         import IExpression._
-        val formulas = prover.interpolantSpecs match {
+        prover.interpolantSpecs match {
           case List() =>
-            for (f <- prover.inputFormulas) yield removePartName(f)
+            if (prover.signature.existentialConstants.isEmpty &&
+                prover.signature.universalConstants.isEmpty) {
+              SMTLineariser(List(prover.rawInputFormula),
+                            prover.rawSignature, filename)
+            } else {
+              val formulas =
+                for (f <- prover.inputFormulas) yield removePartName(f)
+              SMTLineariser(formulas, prover.signature, filename)
+            }
           case IInterpolantSpec(left, right) :: _ => {
             def formula(name : PartName) =
               removePartName(prover.inputFormulas.find({
@@ -194,11 +205,11 @@ object CmdlMain {
             // interpolant specification; this does not quite do the right
             // thing for the axioms of uninterpreted functions, but should
             // work otherwise
-            for (part <- left ++ right) yield (common ||| formula(part))
+            val formulas =
+              for (part <- left ++ right) yield (common ||| formula(part))
+            SMTLineariser(formulas, prover.signature, filename)
           }
         }
-
-        SMTLineariser(formulas, prover.signature, filename)
       }
       
       if (Param.PRINT_SMT_FILE(settings) != "-") {

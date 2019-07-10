@@ -30,7 +30,7 @@ import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
 import IExpression.Sort
 import ap.types.{SortedIFunction, SortedPredicate, MonoSortedIFunction,
-                 SortedConstantTerm}
+                 SortedConstantTerm, MonoSortedPredicate}
 import ap.util.{Seqs, Debug}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
@@ -350,6 +350,67 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
+  def printADTDeclarations(adts : Seq[ADT]) : Unit = {
+    // we need to sort the ADTs, because they might depend on each other
+    val allADTs, declaredADTs = new MHashSet[ADT]
+    allADTs ++= adts
+
+    while (declaredADTs.size < adts.size)
+      for (adt <- adts; if !(declaredADTs contains adt)) {
+        val allSorts = for (sels <- adt.selectors; f <- sels) yield f.resSort
+        if (allSorts forall {
+              case s : ADT.ADTProxySort =>
+                (declaredADTs contains s.adtTheory) ||
+                !(allADTs contains s.adtTheory)
+              case _ =>
+                true
+            }) {
+          printADTDeclaration(adt)
+          declaredADTs += adt
+        }
+      }
+  }
+  
+  def printADTDeclaration(adt : ADT) : Unit =
+    if (adt.sorts.size == 1) {
+      val sortName = adt.sorts.head.name
+      println("(declare-datatype " + quoteIdentifier(sortName) + " (")
+      for ((f, sels) <- adt.constructors zip adt.selectors)
+        printADTCtor(f, sels)
+      println("))")
+    } else {
+      println("(declare-datatypes (")
+      print((for (s <- adt.sorts)
+             yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
+      println(") (")
+      for (num <- 0 until adt.sorts.size) {
+        println("  (")
+        for ((f, sels) <- adt.constructors zip adt.selectors;
+             if (f.resSort match {
+               case s : ADT.ADTProxySort =>
+                 s.sortNum == num && s.adtTheory == adt
+               case _ =>
+                 false
+             }))
+          printADTCtor(f, sels)
+        println("  )")
+      }
+      println("))")
+    }
+
+  private def printADTCtor(ctor : MonoSortedIFunction,
+                           selectors : Seq[MonoSortedIFunction]) : Unit = {
+    print("  (" + quoteIdentifier(ctor.name))
+    for ((s, g) <- ctor.argSorts zip selectors) {
+      print(" (" + quoteIdentifier(g.name) + " ")
+      printSMTType(sort2SMTType(s)._1)
+      print(")")
+    }
+    println(")")
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   def apply(expr : IExpression) : Unit = expr match {
     case f : IFormula => apply(f)
     case t : ITerm =>    apply(t)
@@ -371,7 +432,8 @@ object SMTLineariser {
       case IBoolLit(value) => print(value)
       case _ => {
         val lineariser =
-          new SMTLineariser("", "", "", List(), List(), "", "", "",
+          new SMTLineariser("", "", "", List(), List(), List(),
+                            "", "", "",
                             constantType, functionType, prettyBitvectors)
         lineariser printFormula formula
       }
@@ -379,14 +441,14 @@ object SMTLineariser {
 
   def apply(term : ITerm) : Unit = {
     val lineariser =
-      new SMTLineariser("", "", "", List(), List(), "", "", "",
+      new SMTLineariser("", "", "", List(), List(), List(), "", "", "",
                         constantTypeFromSort, functionTypeFromSort)
     lineariser printTerm term
   }
 
   def applyNoPrettyBitvectors(term : ITerm) : Unit = {
     val lineariser =
-      new SMTLineariser("", "", "", List(), List(), "", "", "",
+      new SMTLineariser("", "", "", List(), List(), List(), "", "", "",
                         constantTypeFromSort, functionTypeFromSort, false)
     lineariser printTerm term
   }
@@ -412,6 +474,7 @@ object SMTLineariser {
             logic : String, status : String,
             benchmarkName : String) : Unit = {
     val order = signature.order
+    val theoryCollector = new TheoryCollector
     
     val (finalFormulas, constsToDeclare) : (Seq[IFormula], Set[ConstantTerm]) =
       if (Seqs.disjoint(order.orderedConstants, signature.existentialConstants)) {
@@ -436,12 +499,20 @@ object SMTLineariser {
         
         (List(~withUniConstants), Set())
       }
-    
+
+    val predsToDeclare =
+      for (p <- order.orderedPredicates.toList;
+           if (TheoryRegistry lookupSymbol p).isEmpty)
+      yield p
+
+    for (f <- finalFormulas)
+      theoryCollector(f)
+
     val lineariser = new SMTLineariser(benchmarkName,
                                        logic, status,
                                        constsToDeclare.toList,
-                                       order.orderedPredicates.toList,
-//                                       "fun", "pred", "const",
+                                       predsToDeclare,
+                                       theoryCollector.theories,
                                        "", "", "",
                                        constantTypeFromSort,
                                        functionTypeFromSort)
@@ -458,10 +529,14 @@ object SMTLineariser {
             constsToDeclare : Seq[ConstantTerm],
             predsToDeclare : Seq[Predicate],
             formulas : Seq[IFormula]) : Unit = {
+    val theoryCollector = new TheoryCollector
+    for (f <- formulas)
+      theoryCollector(f)
     val lineariser = new SMTLineariser(benchmarkName,
                                        logic, status,
                                        constsToDeclare,
                                        predsToDeclare,
+                                       theoryCollector.theories,
                                        "", "", "",
                                        constantTypeFromSort,
                                        functionTypeFromSort)
@@ -484,6 +559,7 @@ class SMTLineariser(benchmarkName : String,
                     status : String,
                     constsToDeclare : Seq[ConstantTerm],
                     predsToDeclare : Seq[Predicate],
+                    theoriesToDeclare : Seq[Theory],
                     funPrefix : String, predPrefix : String, constPrefix : String,
                     constantType :
                            ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
@@ -493,7 +569,8 @@ class SMTLineariser(benchmarkName : String,
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
-                        printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge}
+                        printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge,
+                        printADTDeclarations, sort2SMTString}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -544,16 +621,41 @@ class SMTLineariser(benchmarkName : String,
   
     println("(set-info :status " + status + ")")
 
+    // declare the required theories
+    val adts = for (theory <- theoriesToDeclare;
+                    if (theory match {
+                      case _ : ADT =>
+                        true
+                      case _ => {
+                        Console.err.println("Warning: do not know how to " +
+                                            "declare " + theory)
+                        false
+                      }
+                    }))
+               yield theory.asInstanceOf[ADT]
+    printADTDeclarations(adts)
+
     // declare the required predicates
     for (pred <- predsToDeclare) {
       print("(declare-fun " + pred2Identifier(pred) + " (")
-      print((for (_ <- 1 to pred.arity) yield "Int") mkString " ")
+      
+      val argSorts = pred match {
+        case pred : MonoSortedPredicate =>
+          pred.argSorts
+        case _ =>
+          for (_ <- 1 to pred.arity) yield Sort.Integer
+      }
+
+      print((argSorts map (sort2SMTString(_))) mkString " ")
       println(") Bool)")
     }
     
     // declare universal constants
-    for (const <- constsToDeclare)
-      println("(declare-fun " + const2Identifier(const) + " () Int)")
+    for (const <- constsToDeclare) {
+      print("(declare-fun " + const2Identifier(const) + " () ")
+      printSMTType(constantType(const) getOrElse SMTParser2InputAbsy.SMTInteger)
+      println(")")
+    }
   }
   
   def printFormula(clauseName : String, formula : IFormula) {
