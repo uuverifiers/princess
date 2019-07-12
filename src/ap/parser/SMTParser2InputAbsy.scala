@@ -90,13 +90,16 @@ object SMTParser2InputAbsy {
 
   case class SMTFunctionType(arguments : List[SMTType],
                              result : SMTType)
-  
+
+  val SMTBoolVariableType = SMTFunctionType(List(), SMTBool)
+
   sealed abstract class VariableType
   case class BoundVariable(varType : SMTType)              extends VariableType
   case class SubstExpression(e : IExpression, t : SMTType) extends VariableType
   
   private type Env =
-    Environment[SMTType, VariableType, Unit, SMTFunctionType, SMTType]
+    Environment[SMTType, VariableType,
+                SMTFunctionType, SMTFunctionType, SMTType]
   
   def apply(settings : ParserSettings) =
     new SMTParser2InputAbsy (new Env, settings, null)
@@ -436,7 +439,7 @@ object SMTParser2InputAbsy {
 
 class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                               SMTParser2InputAbsy.VariableType,
-                                              Unit,
+                                              SMTParser2InputAbsy.SMTFunctionType,
                                               SMTParser2InputAbsy.SMTFunctionType,
                                               SMTParser2InputAbsy.SMTType],
                            settings : ParserSettings,
@@ -444,7 +447,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       extends Parser2InputAbsy
           [SMTParser2InputAbsy.SMTType,
            SMTParser2InputAbsy.VariableType,
-           Unit,
+           SMTParser2InputAbsy.SMTFunctionType,
            SMTParser2InputAbsy.SMTFunctionType,
            SMTParser2InputAbsy.SMTType,
            (Map[IFunction, (IExpression, SMTParser2InputAbsy.SMTType)], // functionDefs
@@ -662,7 +665,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
          true
        }
        case Some(p : Predicate) if (args.size == p.arity && res == SMTBool) => {
-         env.addPredicate(p, ())
+         env.addPredicate(p, SMTFunctionType(args.toList, SMTBool))
          true
        }
        case Some(_) => {
@@ -673,7 +676,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def importProverSymbol(name : String) : Boolean = {
     import ap.types.SortedConstantTerm
-    import SMTLineariser.{sort2SMTType, functionTypeFromSort}
+    import SMTLineariser.{sort2SMTType, functionTypeFromSort, predTypeFromSort}
 
     incremental &&
     ((reusedSymbols get name) match {
@@ -694,9 +697,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
            false
          }
        }
-       case Some(p : Predicate) => {
-         env.addPredicate(p, ())
-         true
+       case Some(p : Predicate) => predTypeFromSort(p) match {
+         case Some(t) => {
+           env.addPredicate(p, t)
+           true
+         }
+         case None => {
+           warn("cannot reconstruct type of symbol " + name)
+           false
+         }
        }
        case _ => {
          warn("cannot handle symbol " + name)
@@ -899,8 +908,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case _ => None
     }
 
+  private val predTypeFunction =
+    (p : Predicate) => (env lookupSymPartial p.name) match {
+      case Some(Environment.Predicate(_, _, t)) => Some(t)
+      case _ => None
+    }
+
   private def smtLinearise(f : IFormula) : Unit =
-    SMTLineariser(f, constantTypeFunction, functionTypeFunction)
+    SMTLineariser(f, constantTypeFunction,
+                  functionTypeFunction, predTypeFunction)
   
   //////////////////////////////////////////////////////////////////////////////
   
@@ -1182,7 +1198,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             } else {
               // use a predicate
               val p = MonoSortedPredicate(name, args map (_.toSort))
-              env.addPredicate(p, ())
+              env.addPredicate(p, SMTFunctionType(args.toList, SMTBool))
               if (incremental)
                 prover.addRelation(p)
             }
@@ -1192,7 +1208,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           } else {
             // use a nullary predicate (propositional variable)
             val p = new Predicate(name, 0)
-            env.addPredicate(p, ())
+            env.addPredicate(p, SMTBoolVariableType)
             if (incremental)
               prover.addRelation(p)
           }
@@ -1216,7 +1232,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           } else {
             // use a nullary predicate (propositional variable)
             val p = new Predicate(name, 0)
-            env.addPredicate(p, ())
+            env.addPredicate(p, SMTBoolVariableType)
             if (incremental)
               prover.addRelation(p)
           }

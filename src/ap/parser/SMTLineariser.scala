@@ -294,6 +294,20 @@ object SMTLineariser {
                SMTInteger))
     }
 
+  val predTypeFromSort =
+    (p : Predicate) => p match {
+      case p : MonoSortedPredicate =>
+        Some(SMTFunctionType(
+               (p.argSorts map { s => sort2SMTType(s)._1 }).toList,
+               SMTBool))
+      case _ : SortedPredicate =>
+        None
+      case _ : Predicate =>
+        Some(SMTFunctionType(
+               (for (_ <- 0 until p.arity) yield SMTInteger).toList,
+               SMTBool))
+    }
+
   private val trueConstant  = IConstant(Sort.Bool newConstant "true")
   private val falseConstant = IConstant(Sort.Bool newConstant "false")
   private val eqPredicate   = new Predicate ("=", 2)
@@ -417,16 +431,19 @@ object SMTLineariser {
   }
 
   def apply(formula : IFormula) : Unit =
-    apply(formula, constantTypeFromSort, functionTypeFromSort)
+    apply(formula, constantTypeFromSort, functionTypeFromSort, predTypeFromSort)
 
   def applyNoPrettyBitvectors(formula : IFormula) : Unit =
-    apply(formula, constantTypeFromSort, functionTypeFromSort, false)
+    apply(formula, constantTypeFromSort, functionTypeFromSort, predTypeFromSort,
+          false)
 
   def apply(formula : IFormula,
             constantType :
               ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
             functionType :
               IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+            predType :
+              Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
             prettyBitvectors : Boolean = true) : Unit =
     formula match {
       case IBoolLit(value) => print(value)
@@ -434,7 +451,8 @@ object SMTLineariser {
         val lineariser =
           new SMTLineariser("", "", "", List(), List(), List(),
                             "", "", "",
-                            constantType, functionType, prettyBitvectors)
+                            constantType, functionType, predType,
+                            prettyBitvectors)
         lineariser printFormula formula
       }
     }
@@ -442,14 +460,17 @@ object SMTLineariser {
   def apply(term : ITerm) : Unit = {
     val lineariser =
       new SMTLineariser("", "", "", List(), List(), List(), "", "", "",
-                        constantTypeFromSort, functionTypeFromSort)
+                        constantTypeFromSort,
+                        functionTypeFromSort, predTypeFromSort)
     lineariser printTerm term
   }
 
   def applyNoPrettyBitvectors(term : ITerm) : Unit = {
     val lineariser =
       new SMTLineariser("", "", "", List(), List(), List(), "", "", "",
-                        constantTypeFromSort, functionTypeFromSort, false)
+                        constantTypeFromSort,
+                        functionTypeFromSort, predTypeFromSort,
+                        false)
     lineariser printTerm term
   }
 
@@ -544,7 +565,8 @@ object SMTLineariser {
                                                    predsToDeclare),
                                        "", "", "",
                                        constantTypeFromSort,
-                                       functionTypeFromSort)
+                                       functionTypeFromSort,
+                                       predTypeFromSort)
    
     lineariser.open
     for (f <- finalFormulas)
@@ -567,7 +589,8 @@ object SMTLineariser {
                                                    predsToDeclare),
                                        "", "", "",
                                        constantTypeFromSort,
-                                       functionTypeFromSort)
+                                       functionTypeFromSort,
+                                       predTypeFromSort)
    
     lineariser.open
     for (f <- formulas)
@@ -593,6 +616,8 @@ class SMTLineariser(benchmarkName : String,
                            ConstantTerm => Option[SMTParser2InputAbsy.SMTType],
                     functionType :
                            IFunction => Option[SMTParser2InputAbsy.SMTFunctionType],
+                    predType :
+                           Predicate => Option[SMTParser2InputAbsy.SMTFunctionType],
                     prettyBitvectors : Boolean = true) {
 
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
@@ -750,6 +775,11 @@ class SMTLineariser(benchmarkName : String,
     }
   }
 
+  private def getArgTypes(t : IAtom) : Option[Seq[SMTType]] = {
+    val IAtom(pred, args) = t
+    for (SMTFunctionType(argTypes, _) <- predType(pred)) yield argTypes
+  }
+
   private object BooleanTerm {
     def unapply(t : IExpression)
                (implicit variableType : Int => Option[SMTType])
@@ -867,6 +897,11 @@ class SMTLineariser(benchmarkName : String,
         case ITermITE(_, s, t) =>
           equalTypes(s, t)
         case t@IFunApp(_, args) =>
+          for (argTypes <- getArgTypes(t)) {
+            for ((IVariable(ind), s) <- args.iterator zip argTypes.iterator)
+              setVariableType(ind, s)
+          }
+        case t@IAtom(_, args) =>
           for (argTypes <- getArgTypes(t)) {
             for ((IVariable(ind), s) <- args.iterator zip argTypes.iterator)
               setVariableType(ind, s)
