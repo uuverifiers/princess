@@ -24,6 +24,7 @@ package ap.theories.bitvectors
 
 import ap.theories._
 
+import ap.theories.nia.IntervalPropagator
 import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
@@ -56,7 +57,7 @@ object ModCastSplitter extends TheoryProcedure {
 
       Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
 
-      val reducer = goal.reduceWithFacts
+      val propagator = IntervalPropagator(goal)
       implicit val order = goal.order
       import TerForConvenience._
 
@@ -81,28 +82,30 @@ object ModCastSplitter extends TheoryProcedure {
       for (a <- castPreds) {
         var assumptions : List[Formula] = List(a)
 
-        def addInEqAssumption(ineqs : Seq[LinearCombination]) =
-          for (lc <- ineqs)
-            assumptions = InEqConj(lc, order) :: assumptions
+        def addInEqAssumption(ineqs : Seq[Formula]) =
+          for (f <- ineqs)
+            assumptions = f :: assumptions
 
         val lBound =
           if (proofs)
-            for ((b, assum) <- reducer lowerBoundWithAssumptions a(2)) yield {
+            for ((b, assum) <-
+                   propagator lowerBoundWithAssumptions a(2)) yield {
               addInEqAssumption(assum)
               b
             }
           else
-            reducer lowerBound a(2)
+            propagator lowerBound a(2)
 
         val uBound =
           if (lBound.isDefined) {
             if (proofs)
-              for ((b, assum) <- reducer upperBoundWithAssumptions a(2)) yield {
+              for ((b, assum) <-
+                     propagator upperBoundWithAssumptions a(2)) yield {
                 addInEqAssumption(assum)
                 b
               }
             else
-              reducer upperBound a(2)
+              propagator upperBound a(2)
           } else {
             None
           }

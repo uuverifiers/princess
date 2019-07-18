@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -682,7 +682,7 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
 
   // If t is negative, the lower limit is equal to the upper limit of
   // the negation
-  def lowerLimit(t : Term) : (IntervalInt, BitSet) = {
+  def lowerLimit(t : CoeffMonomial) : (IntervalInt, BitSet) = {
     if (t.isConstant)
       (IntervalVal(t.c), BitSet())
     else if (t.c < 0) {
@@ -764,7 +764,7 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
 
   // If t is negative, the upper limit is equal to the lower limit of the
   // negation
-  def upperLimit(t : Term) : (IntervalInt, BitSet) = {
+  def upperLimit(t : CoeffMonomial) : (IntervalInt, BitSet) = {
     if (t.isConstant)
       (IntervalVal(t.c), BitSet())
     else if (t.c < 0) {
@@ -800,7 +800,7 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     * 
     */
 
-  def propagateGreaterThan(term : Term, ct : ConstantTerm,
+  def propagateGreaterThan(term : CoeffMonomial, ct : ConstantTerm,
                            exp : Int, divMon : Monomial,
                            rhs : Polynomial)
                           : (Interval, BitSet) = {
@@ -849,7 +849,7 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
         (Interval(IntervalNegInf, IntervalPosInf), BitSet())
   }
 
-  def propagateLessThan(term : Term, ct : ConstantTerm, exp : Int,
+  def propagateLessThan(term : CoeffMonomial, ct : ConstantTerm, exp : Int,
                         divMon : Monomial, rhs : Polynomial)
                        : (Interval, BitSet) = {
     val (ul, ulLabel) =

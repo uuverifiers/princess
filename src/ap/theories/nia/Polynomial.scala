@@ -412,7 +412,7 @@ case class Monomial(val pairs : Monomial.PairList)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-case class Term(coeff : IdealInt, monomial : Monomial)
+case class CoeffMonomial(coeff : IdealInt, monomial : Monomial)
                (implicit val ordering : MonomialOrdering) {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   Debug.assertCtor(Debug.AC_NIA, !coeff.isZero)
@@ -442,34 +442,34 @@ case class Term(coeff : IdealInt, monomial : Monomial)
 
   def variables : Set[ConstantTerm] = monomial.variables
 
-  def >(that : Term) = this.m > that.m
+  def >(that : CoeffMonomial) = this.m > that.m
 
   // Maybe add GCD calculation on this.c and that.c
-  def lcm(that : Term) = Term(this.c*that.c, this.m.lcm(that.m))
+  def lcm(that : CoeffMonomial) = CoeffMonomial(this.c*that.c, this.m.lcm(that.m))
 
-  def mul(that : IdealInt) : Term = Term(this.c * that, this.m)
+  def mul(that : IdealInt) : CoeffMonomial = CoeffMonomial(this.c * that, this.m)
 
-  def *(that : Term) : Term =
-    Term(this.c * that.c, this.m * that.m)
+  def *(that : CoeffMonomial) : CoeffMonomial =
+    CoeffMonomial(this.c * that.c, this.m * that.m)
 
-  def /(that : Term) : Term =
-    Term(this.c / that.c, this.m / that.m)
+  def /(that : CoeffMonomial) : CoeffMonomial =
+    CoeffMonomial(this.c / that.c, this.m / that.m)
 
   def isLinear : Boolean = m.isLinear
 
-  def neg = Term(-coeff, monomial)
+  def neg = CoeffMonomial(-coeff, monomial)
 
   def c = coeff
   def m = monomial
 
-  def isDividedBy(that : Term) = this.m.isDividedBy(that.m)
-  def hasCommonVariables(that : Term) = this.m.hasCommonVariables(that.m)
+  def isDividedBy(that : CoeffMonomial) = this.m.isDividedBy(that.m)
+  def hasCommonVariables(that : CoeffMonomial) = this.m.hasCommonVariables(that.m)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 object Polynomial {
-  type TermList = List[Term]
+  type CoeffMonomialList = List[CoeffMonomial]
 }
 
 /**
@@ -477,7 +477,7 @@ object Polynomial {
  * 
  * TODO: Fix zero-polynomial representation
  */
-case class Polynomial(val terms : Polynomial.TermList)
+case class Polynomial(val terms : Polynomial.CoeffMonomialList)
                      (implicit val ordering : MonomialOrdering =
                         new DegenOrdering) {
   import Polynomial._
@@ -486,7 +486,7 @@ case class Polynomial(val terms : Polynomial.TermList)
   lazy val isLinear = terms.forall(t => t.isLinear)
   lazy val isConstant = terms.forall(t => t.isConstant)
 
-  def containsTerm(term : Term) : Boolean = terms contains term
+  def containsTerm(term : CoeffMonomial) : Boolean = terms contains term
 
   def neg : Polynomial = Polynomial(for (t <- terms) yield t.neg)
   def normalized : Polynomial = if (terms.head.c < 0) neg else this
@@ -508,7 +508,7 @@ case class Polynomial(val terms : Polynomial.TermList)
     }
   } // + " -> " + lt
 
-  def lt : Term = {
+  def lt : CoeffMonomial = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Debug.AC_NIA, !isZero)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
@@ -517,10 +517,10 @@ case class Polynomial(val terms : Polynomial.TermList)
 
   def lm : Monomial = lt.m
 
-  def lcm(that : Polynomial) : Term = this.lt.lcm(that.lt)
+  def lcm(that : Polynomial) : CoeffMonomial = this.lt.lcm(that.lt)
 
-  private def merge_terms_aux(terms1 : TermList,
-                              terms2 : TermList) : TermList = {
+  private def merge_terms_aux(terms1 : CoeffMonomialList,
+                              terms2 : CoeffMonomialList) : CoeffMonomialList = {
     (terms1, terms2) match {
       case (Nil, terms2) => terms2
       case (terms1, Nil) => terms1
@@ -532,11 +532,11 @@ case class Polynomial(val terms : Polynomial.TermList)
         else if ((h1.c + h2.c).isZero)
           merge_terms_aux(t1, t2)
         else
-          Term(h1.c + h2.c, h1.m) :: merge_terms_aux(t1, t2)
+          CoeffMonomial(h1.c + h2.c, h1.m) :: merge_terms_aux(t1, t2)
     }
   }
 
-  private def merge_terms(terms1 : TermList, terms2 : TermList) : TermList = {
+  private def merge_terms(terms1 : CoeffMonomialList, terms2 : CoeffMonomialList) : CoeffMonomialList = {
     val newterms1 = terms1.filter(x => !x.isZero)
     val newterms2 = terms2.filter(x => !x.isZero)
 
@@ -544,11 +544,11 @@ case class Polynomial(val terms : Polynomial.TermList)
   }
 
   def mul(that : IdealInt) : Polynomial =
-    Polynomial(for (t <- terms) yield Term(that*t.c, t.m))
+    Polynomial(for (t <- terms) yield CoeffMonomial(that*t.c, t.m))
 
-  def +(that : Term) : Polynomial =
+  def +(that : CoeffMonomial) : Polynomial =
     Polynomial(merge_terms(this.terms, List(that)))
-  def -(that : Term) : Polynomial =
+  def -(that : CoeffMonomial) : Polynomial =
     this + that.neg
 
   def +(that : Polynomial) : Polynomial =

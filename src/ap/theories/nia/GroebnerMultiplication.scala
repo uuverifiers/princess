@@ -28,7 +28,8 @@ import ap.theories._
 import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
-import ap.terfor.{TermOrder, ConstantTerm, OneTerm, Formula, ComputationLogger}
+import ap.terfor.{TermOrder, ConstantTerm, OneTerm, Formula, ComputationLogger,
+                  Term}
 import ap.terfor.TerForConvenience._
 import ap.terfor.linearcombination.LinearCombination
 import ap.terfor.preds.{Atom, Predicate, PredConj}
@@ -39,7 +40,7 @@ import ap.terfor.arithconj.ArithConj
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.basetypes.IdealInt
-import ap.util.{Timeout, Seqs, Debug}
+import ap.util.{Timeout, Seqs, Debug, LRUCache}
 
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
@@ -73,6 +74,7 @@ object GroebnerMultiplication extends MulTheory {
                   theories : Seq[Theory],
                   config : Theory.SatSoundnessConfig.Value) : Boolean = true
 
+  //////////////////////////////////////////////////////////////////////////////
   /**
    * Conversion functions
    */
@@ -80,27 +82,88 @@ object GroebnerMultiplication extends MulTheory {
   /**
    * Converts an LinearCombination (Princess) to a Polynomial (Groebner)
    */
-  def lcToPolynomial(lc : LinearCombination)
-                    (implicit ordering : MonomialOrdering) : Polynomial = {
+  protected[nia] def lcToPolynomial
+                       (lc : LinearCombination)
+                       (implicit ordering : MonomialOrdering) : Polynomial = {
     var retPoly = Polynomial(List())
 
     for ((coeff, term) <- lc) {
       retPoly +=
         (term match {
           case (OneTerm) =>
-            new Term(coeff, Monomial(List()))
+            new CoeffMonomial(coeff, Monomial(List()))
           case (x : ConstantTerm) =>
-            new Term(coeff, Monomial(List((x, 1))))
+            new CoeffMonomial(coeff, Monomial(List((x, 1))))
         })
     }
     retPoly
   }
 
   // Converts an atom (Princess) to a Polynomial (Groebner)
-  def atomToPolynomial(a : Atom)
-                      (implicit ordering : MonomialOrdering) : Polynomial =
+  protected[nia] def atomToPolynomial
+                       (a : Atom)
+                       (implicit ordering : MonomialOrdering) : Polynomial =
     lcToPolynomial(a(0))*lcToPolynomial(a(1)) - lcToPolynomial(a(2))
 
+
+  protected[nia] def genMonomialOrder(predicates : Seq[Atom])
+                                    : MonomialOrdering = {
+      var definedList = Set[ConstantTerm]()
+
+      // Add all elements from LHS as defined
+      for (a <- predicates)
+        for (aa <- a(0).termIterator ++ a(1).termIterator) aa match {
+          case OneTerm => ()
+          case x : ConstantTerm => definedList += x
+        }
+
+      // Remove all elements that occurs on RHS from defined
+      for (a <- predicates)
+        for (aa <- a(2).termIterator) aa match {
+          case OneTerm => ()
+          case x : ConstantTerm =>
+            if ((x.toString startsWith "all") ||
+                (x.toString startsWith "ex") ||
+                (x.toString startsWith "sc"))
+              definedList -= x
+        }
+
+      // Fix-point computation to find the defined-set
+      def genDefsymbols(predicates : Seq[Atom],
+                        defined : Set[ConstantTerm],
+                        undefined : List[ConstantTerm]) : List[ConstantTerm] =
+        if (predicates.isEmpty) {
+          undefined.reverse
+        } else {
+          val predIt = predicates.iterator
+          while (predIt.hasNext) {
+            val a = predIt.next
+
+            var allDefined = true
+            for (aa <- a(0).termIterator ++ a(1).termIterator) aa match {
+              case OneTerm => ()
+              case x : ConstantTerm =>
+                if (!(defined contains x))
+                  allDefined = false
+            }
+
+            if (allDefined)
+              a(2)(0)._2 match {
+                case OneTerm =>
+                  return genDefsymbols(predicates diff List(a),
+                                       defined, undefined)
+                case (x : ConstantTerm) =>
+                  return genDefsymbols(predicates diff List(a),
+                                       defined + x, x :: undefined)
+              }
+          }
+          undefined.reverse
+        }
+
+      val orderList = genDefsymbols(predicates, definedList, List())
+      new PartitionOrdering(orderList,
+                            new GrevlexOrdering(new ListOrdering(orderList)))
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -146,8 +209,8 @@ object GroebnerMultiplication extends MulTheory {
 
   def plugin = Some(new Plugin {
 
-    private var oldGBSrc : Seq[Atom] = List()
-    private var oldGBRes : Option[(Basis, Seq[Atom], MonomialOrdering)] = None
+    private val gbCache =
+      new LRUCache[Seq[Atom], (Basis, Seq[Atom], MonomialOrdering)](5)
 
     // not used
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
@@ -253,7 +316,7 @@ println(unprocessed)
      */
     private def polynomialToAtom(p : Polynomial)
                                 (implicit order : TermOrder) : Conjunction = {
-      def termToLc(t : Term) : LinearCombination = {
+      def termToLc(t : CoeffMonomial) : LinearCombination = {
         if (t.m.pairs == Nil)
           t.c
         else
@@ -266,64 +329,6 @@ println(unprocessed)
 
       val LHS = (terms.tail).foldLeft(terms.head) ((t1,t2) => t1 + t2)
       conj(LHS === 0)
-    }
-
-    private def genMonomialOrder(predicates : Seq[Atom]) : MonomialOrdering = {
-      var definedList = Set[ConstantTerm]()
-
-      // Add all elements from LHS as defined
-      for (a <- predicates)
-        for (aa <- a(0).termIterator ++ a(1).termIterator) aa match {
-          case OneTerm => ()
-          case x : ConstantTerm => definedList += x
-        }
-
-      // Remove all elements that occurs on RHS from defined
-      for (a <- predicates)
-        for (aa <- a(2).termIterator) aa match {
-          case OneTerm => ()
-          case x : ConstantTerm =>
-            if ((x.toString startsWith "all") ||
-                (x.toString startsWith "ex") ||
-                (x.toString startsWith "sc"))
-              definedList -= x
-        }
-
-      // Fix-point computation to find the defined-set
-      def genDefsymbols(predicates : Seq[Atom],
-                        defined : Set[ConstantTerm],
-                        undefined : List[ConstantTerm]) : List[ConstantTerm] =
-        if (predicates.isEmpty) {
-          undefined.reverse
-        } else {
-          val predIt = predicates.iterator
-          while (predIt.hasNext) {
-            val a = predIt.next
-
-            var allDefined = true
-            for (aa <- a(0).termIterator ++ a(1).termIterator) aa match {
-              case OneTerm => ()
-              case x : ConstantTerm =>
-                if (!(defined contains x))
-                  allDefined = false
-            }
-
-            if (allDefined)
-              a(2)(0)._2 match {
-                case OneTerm =>
-                  return genDefsymbols(predicates diff List(a),
-                                       defined, undefined)
-                case (x : ConstantTerm) =>
-                  return genDefsymbols(predicates diff List(a),
-                                       defined + x, x :: undefined)
-              }
-          }
-          undefined.reverse
-        }
-
-      val orderList = genDefsymbols(predicates, definedList, List())
-      new PartitionOrdering(orderList,
-                            new GrevlexOrdering(new ListOrdering(orderList)))
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -358,12 +363,7 @@ println(unprocessed)
             NegEquationConj(disequalities(ind - negeqOffset), order)
         }
 
-      val predicatesList = predicates.toList
-      val (simplifiedGB, factsToRemove, monOrder) =
-        if (oldGBSrc == predicatesList) {
-//          println("Reusing ...")
-          oldGBRes.get
-        } else {
+      val (simplifiedGB, factsToRemove, monOrder) = gbCache(predicates.toList) {
           // Create a monomial ordering
           implicit val monOrder = genMonomialOrder(predicates)
     
@@ -381,9 +381,6 @@ println(unprocessed)
  
           val gb = buchberger(basis)
           val simplified = gb.simplify
-
-          oldGBSrc = predicatesList
-          oldGBRes = Some((simplified, factsToRemove, monOrder))
 
           (simplified, factsToRemove, monOrder)
         }
@@ -440,7 +437,7 @@ println(unprocessed)
         var retPoly = Polynomial(List())
         for (i <- 0 until row.length;
           if (!row(i).isZero))
-          retPoly += new Term(row(i), map(i))
+          retPoly += new CoeffMonomial(row(i), map(i))
 
         retPoly
       }
@@ -487,32 +484,8 @@ println(unprocessed)
       // If Gröbner basis calculation does nothing
       // Lets try to do some interval propagation
 
-      val preds =
-        ((for ((a, n) <- predicates.iterator.zipWithIndex;
-               poly = atomToPolynomial(a);
-               if !poly.isZero)
-          yield (poly, BitSet(n))) ++
-         (for (p <- simplifiedGB.polyIterator)
-          yield (p, simplifiedGB labelFor p))).toList
-
-      val ineqs =
-        ((for ((lc, n) <- inequalities.iterator.zipWithIndex)
-          yield (lcToPolynomial(lc), BitSet(n + ineqOffset))) ++
-         (for ((lc, n) <- inequalities.geqZeroInfs.iterator.zipWithIndex;
-               if lc.constants.size == 1)
-          yield (lcToPolynomial(lc), BitSet(n + ineqInfsOffset))) ++
-         // For square predicates t*t = s, add an inequality s >= 0
-         (for ((a, n) <- predicates.iterator.zipWithIndex;
-               if a(0) == a(1))
-          yield (lcToPolynomial(a(2)), BitSet(n)))).toList
-
-      val negeqs =
-        (for ((lc, n) <- goal.facts.arithConj.negativeEqs.iterator.zipWithIndex)
-         yield (lcToPolynomial(lc), BitSet(n + negeqOffset))).toList
-
-      val intervalSet = new IntervalSet(preds, ineqs, negeqs)
-
-      intervalSet.propagate
+      val propagator = IntervalPropagator(goal, monOrder, simplifiedGB)
+      val intervalSet = propagator.intervalSet
 
       val intActions =
         filterActions(intervals2Actions(
@@ -722,7 +695,7 @@ println(unprocessed)
                  lcWithSmallCoeffs(lc))
          yield lc).toIndexedSeq
 
-      val crossLC = new ArrayBuffer[(IdealInt, ap.terfor.Term)]
+      val crossLC = new ArrayBuffer[(IdealInt, Term)]
       val assumptions = new ArrayBuffer[Formula]
 
       val res = new ArrayBuffer[Plugin.Action]

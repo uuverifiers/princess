@@ -66,3 +66,11 @@ $PRI "$@" -elimInterpolantQuants -simplifyProofs -assert $TESTS
 # Testing proof simplification
 
 $PRI "$@" +simplifyProofs -constructProofs=always ring_2exp10_3vars_0ite_unsat.pri | grep -v "^Certificate" | grep -v "^Assumed"
+
+# We switch off quantifier elimination in interpolants for those
+# examples, because we want to verify that we do not get any quantifiers
+# in any case
+
+TESTS="bv-interpolation-9.pri"
+
+$PRI "$@" -elimInterpolantQuants $TESTS

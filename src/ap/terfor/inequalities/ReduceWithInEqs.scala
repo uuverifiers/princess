@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -191,6 +191,8 @@ class ReduceWithInEqsImpl protected[inequalities]
                            order : TermOrder)
       extends ReduceWithInEqs {
 
+  import Seqs.{optionMax, optionMin}
+
   override def addInEqs(furtherInEqs : InEqConj) : ReduceWithInEqs = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(ReduceWithInEqs.AC, furtherInEqs isSortedBy order)
@@ -200,27 +202,11 @@ class ReduceWithInEqsImpl protected[inequalities]
     else
       new ReduceWithInEqsImpl((lc:LinearCombination) => (
                               // we compute the maximum of all known lower bounds
-                              max(ineqLowerBound(lc),
-                                  furtherInEqs findLowerBound lc)),
+                              optionMax(ineqLowerBound(lc),
+                                        furtherInEqs findLowerBound lc)),
                               containsVariables ||
                                 !furtherInEqs.variables.isEmpty,
                               order)
-  }
-
-  private def max(a : Option[IdealInt],
-                  b : Option[IdealInt]) : Option[IdealInt] = (a, b) match {
-    case (Some(c), Some(d)) => Some(c max d)
-    case (x@Some(_), _) => x
-    case (_, x@Some(_)) => x
-    case _ => None
-  }
-
-  private def min(a : Option[IdealInt],
-                  b : Option[IdealInt]) : Option[IdealInt] = (a, b) match {
-    case (Some(c), Some(d)) => Some(c min d)
-    case (x@Some(_), _) => x
-    case (_, x@Some(_)) => x
-    case _ => None
   }
 
   /**
@@ -240,10 +226,10 @@ class ReduceWithInEqsImpl protected[inequalities]
       if (t.coeff0.isOne && t.constant.isZero) {
         lowerBound(t.term0)
       } else {
-        toOption(coeffBound(t.coeff0, t.term0, t.constant, false))
+        Option(coeffBound(t.coeff0, t.term0, t.constant, false))
       }
     case t : LinearCombination => lowerBoundsCache(t) {
-      max(linCompBound(t, false), ineqLowerBound(t))
+      optionMax(linCompBound(t, false), ineqLowerBound(t))
     }
   }
 
@@ -259,7 +245,7 @@ class ReduceWithInEqsImpl protected[inequalities]
       if (t.coeff0.isOne && t.constant.isZero) {
         lowerBoundWithAssumptions(t.term0)
       } else {
-        toOption(coeffBoundWithAssumptions(
+        Option(coeffBoundWithAssumptions(
                    t.coeff0, t.term0, t.constant, false))
       }
     case t : LinearCombination =>  // TODO: optimise this case? caching?
@@ -292,10 +278,10 @@ class ReduceWithInEqsImpl protected[inequalities]
       if (t.coeff0.isOne && t.constant.isZero) {
         upperBound(t.term0)
       } else {
-        toOption(coeffBound(t.coeff0, t.term0, t.constant, true))
+        Option(coeffBound(t.coeff0, t.term0, t.constant, true))
       }
     case t : LinearCombination => upperBoundsCache(t) {
-      min(linCompBound(t, true), for (b <- ineqLowerBound(-t)) yield -b)
+      optionMin(linCompBound(t, true), for (b <- ineqLowerBound(-t)) yield -b)
     }
   }
 
@@ -311,7 +297,7 @@ class ReduceWithInEqsImpl protected[inequalities]
       if (t.coeff0.isOne && t.constant.isZero) {
         upperBoundWithAssumptions(t.term0)
       } else {
-        toOption(coeffBoundWithAssumptions(
+        Option(coeffBoundWithAssumptions(
                    t.coeff0, t.term0, t.constant, true))
       }
     case t : LinearCombination => // TODO: optimise this case? caching?
@@ -367,7 +353,7 @@ class ReduceWithInEqsImpl protected[inequalities]
   }
 
   /**
-   * Returns null if there is no lower bound.
+   * Returns null if there is no bound.
    */
   private def coeffBound(coeff : IdealInt, term : Term,
                          offset : IdealInt, upper : Boolean) : IdealInt =
@@ -380,7 +366,7 @@ class ReduceWithInEqsImpl protected[inequalities]
     }
 
   /**
-   * Returns null if there is no lower bound.
+   * Returns null if there is no bound.
    */
   private def coeffBoundWithAssumptions
                    (coeff : IdealInt, term : Term,
@@ -404,7 +390,7 @@ class ReduceWithInEqsImpl protected[inequalities]
       bound = coeffBound(t getCoeff i, t getTerm i, bound, upper)
       i = i + 1        
     }
-    toOption(bound)
+    Option(bound)
   }
 
   private def linCompBoundWithAssumptions
@@ -428,9 +414,6 @@ class ReduceWithInEqsImpl protected[inequalities]
     else
       Some((bound, assumptions.toIndexedSeq))
   }
-
-  private def toOption[A <: AnyRef](n : A) : Option[A] =
-    if (n == null) None else Some(n)
 
   private val lowerBoundsCache, upperBoundsCache =
     new LRUCache[Term, Option[IdealInt]](5000)

@@ -24,6 +24,7 @@ package ap.theories.bitvectors
 
 import ap.theories._
 
+import ap.theories.nia.IntervalPropagator
 import ap.parameters.Param
 import ap.proof.theoryPlugins.{Plugin, TheoryProcedure}
 import ap.proof.goal.Goal
@@ -51,7 +52,8 @@ object ShiftCastSplitter extends TheoryProcedure {
 
     Param.RANDOM_DATA_SOURCE(goal.settings).shuffle(castPreds)
 
-    val reducer = goal.reduceWithFacts
+    val propagator = IntervalPropagator(goal)
+      
     implicit val order = goal.order
     import TerForConvenience._
 
@@ -71,9 +73,9 @@ object ShiftCastSplitter extends TheoryProcedure {
     for (a <- castPreds) {
       var assumptions : List[Formula] = List(a)
 
-      def addInEqAssumption(ineqs : Seq[LinearCombination]) =
-        for (lc <- ineqs)
-          assumptions = InEqConj(lc, order) :: assumptions
+      def addInEqAssumption(ineqs : Seq[Formula]) =
+        for (f <- ineqs)
+          assumptions = f :: assumptions
 
       if (a(2).isZero) {
 
@@ -104,21 +106,23 @@ object ShiftCastSplitter extends TheoryProcedure {
 
         val lBound =
           if (proofs)
-            for ((b, assum) <- reducer lowerBoundWithAssumptions a(3)) yield {
+            for ((b, assum) <-
+                   propagator lowerBoundWithAssumptions a(3)) yield {
               // only non-negative bounds matter at this point!
               if (b.signum >= 0)
                 addInEqAssumption(assum)
               b
             }
           else
-            reducer lowerBound a(3)
+            propagator lowerBound a(3)
 
         val (uBound, vanishing) =
-          (reducer upperBound a(3)) match {
+          (propagator upperBound a(3)) match {
             case Some(ub)
               if (!pow2Modulus || ub < IdealInt(modulus.getHighestSetBit)) =>
                 if (proofs) {
-                  val Some((b, assum)) = reducer upperBoundWithAssumptions a(3)
+                  val Some((b, assum)) =
+                    propagator upperBoundWithAssumptions a(3)
                   addInEqAssumption(assum)
                   (Some(b), false)
                 } else {

@@ -21,6 +21,8 @@
 
 package ap.util;
 
+import ap.basetypes.IdealInt
+
 import scala.util.Sorting
 import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
 import scala.reflect.ClassTag
@@ -1305,5 +1307,29 @@ object Seqs {
     } else {
       Set()
     }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Max on optional integers
+   */
+  def optionMax(a : Option[IdealInt],
+                b : Option[IdealInt]) : Option[IdealInt] = (a, b) match {
+    case (Some(c), Some(d)) => Some(c max d)
+    case (x@Some(_), _) => x
+    case (_, x@Some(_)) => x
+    case _ => None
+  }
+
+  /**
+   * Min on optional integers
+   */
+  def optionMin(a : Option[IdealInt],
+                b : Option[IdealInt]) : Option[IdealInt] = (a, b) match {
+    case (Some(c), Some(d)) => Some(c min d)
+    case (x@Some(_), _) => x
+    case (_, x@Some(_)) => x
+    case _ => None
+  }
 
 }
