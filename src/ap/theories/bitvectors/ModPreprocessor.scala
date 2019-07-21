@@ -1228,8 +1228,7 @@ object ModPreprocessor {
         case `bv_ult` | `bv_ule` | `bv_slt` | `bv_sle` =>
           throw new Exception("unexpected predicate " + a.pred)
 
-/*
-        case `_bv_extract` => { // old version
+        case `_bv_extract` if ModuloArithmetic.directlyEncodeExtract => {
           val bits1 =
             a(0).asInstanceOf[LinearCombination0].constant.intValueSafe -
             a(1).asInstanceOf[LinearCombination0].constant.intValueSafe + 1
@@ -1259,7 +1258,6 @@ object ModPreprocessor {
                      Conjunction.negate(remSort membershipConstraint v(0),
                                         order))
         }
- */
 
         case `_mod_cast` | `_l_shift_cast` | `_bv_extract` =>
           a

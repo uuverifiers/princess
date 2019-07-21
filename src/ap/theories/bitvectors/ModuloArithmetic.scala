@@ -59,6 +59,8 @@ object ModuloArithmetic extends Theory {
   protected[bitvectors] val debug = false
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
+  protected[bitvectors] val directlyEncodeExtract = false
+
   private val AC = Debug.AC_MODULO_ARITHMETIC
 
   override def toString = "ModuloArithmetic"
