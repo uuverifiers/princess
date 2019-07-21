@@ -187,6 +187,8 @@ class IntervalPropagator private (goal : Goal,
           reducer.lowerBoundWithAssumptions(c)
         Some((b, for (lc <- assumptions) yield InEqConj(lc, order)))
       }
+      case (None, None) =>
+        None
     }
 
   def upperBoundWithAssumptions(c : ConstantTerm)
@@ -201,6 +203,8 @@ class IntervalPropagator private (goal : Goal,
           reducer.upperBoundWithAssumptions(c)
         Some((b, for (lc <- assumptions) yield InEqConj(lc, order)))
       }
+      case (None, None) =>
+        None
     }
 
   //////////////////////////////////////////////////////////////////////////////
