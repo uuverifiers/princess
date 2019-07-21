@@ -31,6 +31,8 @@ import ap.types.{Sort, SortedIFunction, SortedPredicate}
 import ap.terfor.{TermOrder, TerForConvenience}
 import ap.terfor.preds.Predicate
 import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction}
+import ap.terfor.linearcombination.LinearCombination0
+import ap.terfor.substitutions.VariableShiftSubst
 import ap.util.Debug
 
 import scala.collection.mutable.ArrayBuffer

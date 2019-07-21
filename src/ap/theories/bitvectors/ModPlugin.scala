@@ -92,7 +92,19 @@ object ModPlugin extends Plugin {
 
       // extract-predicates in the goal
 
-      val extracts = predConj.positiveLitsWithPred(_bv_extract)
+      val extracts = predConj.positiveLitsWithPred(_bv_extract) //  getExtracts(goal)
+
+      if (!extracts.isEmpty) {
+        // If necessary, turn extracts in arithmetic context into
+        // just arithmetic constaints
+
+        val actions = ExtractArithEncoder.handleGoal(goal)
+        if (!actions.isEmpty)
+          return actions
+
+//        actions += Plugin.ScheduleTask(ExtractArithEncoder, 10)
+      }
+
       val extractedConsts =
         (for (Seq(_, _, SingleTerm(c : ConstantTerm), _) <- extracts.iterator)
          yield c).toSet
@@ -131,17 +143,6 @@ object ModPlugin extends Plugin {
         }
         //-END-ASSERTION-///////////////////////////////////////////////////////
         return splitActions
-      }
-
-      if (!extracts.isEmpty) {
-        // If necessary, turn extracts in arithmetic context into
-        // just arithmetic constaints
-
-        val actions = ExtractArithEncoder.handleGoal(goal)
-        if (!actions.isEmpty)
-          return actions
-
-//        actions += Plugin.ScheduleTask(ExtractArithEncoder, 10)
       }
 
       val diseqActions = splitDisequalityActions(diseqs, partitions, goal) /* ++
@@ -224,6 +225,31 @@ object ModPlugin extends Plugin {
   // e.g., extract(7,3) is cut-point 8 and 3
   // Thus, when looping we get (7,3) and (2,0) in SMT-lib semantics
 
+  private def getExtracts(goal : Goal) : Seq[Atom] = {
+    // first check if congruence closure has been fully applied
+
+    val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
+
+    var lastAtom : Atom = null
+    val atomIt = extracts.iterator
+    while (atomIt.hasNext) {
+      val a = atomIt.next
+      
+      if (a(2).isConstant)
+        // extract can be evaluated, delay all operations on extracts
+        return List()
+        
+      if (lastAtom != null &&
+          lastAtom(0) == a(0) && lastAtom(1) == a(1) && lastAtom(2) == a(2))
+        // a case where functionality axiom can be applied;
+        // in this case, delay all operations of the extracts
+        return List()
+        
+      lastAtom = a
+    }
+
+    extracts
+  }
 
   // This propagates all cut-points from lhs <-> rhs in extract
 

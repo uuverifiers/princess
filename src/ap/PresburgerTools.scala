@@ -57,13 +57,13 @@ object PresburgerTools {
   
   //////////////////////////////////////////////////////////////////////////////
   
-  def isPresburger(f : Conjunction) : Boolean =
+  def isPresburger(f : Formula) : Boolean =
     f.predicates.isEmpty && f.variables.isEmpty
   
-  def isQFPresburger(f : Conjunction) : Boolean =
+  def isQFPresburger(f : Formula) : Boolean =
     f.predicates.isEmpty && f.variables.isEmpty && collectQuantifiers(f).isEmpty
   
-  def isExistentialPresburger(f : Conjunction) : Boolean =
+  def isExistentialPresburger(f : Formula) : Boolean =
     f.predicates.isEmpty && f.variables.isEmpty &&
     (collectQuantifiers(f) subsetOf Set(Quantifier.EX))
   
@@ -71,7 +71,7 @@ object PresburgerTools {
     isQFPresburger(f) &&
     !(f.negatedConjs exists ((c) => !c.isDivisibility && !c.isNonDivisibility))
   
-  def containsBVNonlin(f : Conjunction) : Boolean =
+  def containsBVNonlin(f : Formula) : Boolean =
     f.predicates exists {
       p => (TheoryRegistry lookupSymbol p) match {
         case Some(ModuloArithmetic)       => true
@@ -79,6 +79,9 @@ object PresburgerTools {
         case _                            => false
       }
     }
+
+  def containsTheories(f : Formula) : Boolean =
+    !(f.predicates forall { p => (TheoryRegistry lookupSymbol p).isEmpty })
 
   //////////////////////////////////////////////////////////////////////////////
   

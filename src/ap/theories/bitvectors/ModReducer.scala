@@ -249,6 +249,10 @@ object ModReducer {
                     }
                   }
 
+                // TODO: we should also identify extracts that completely
+                // determine the value of a bit-vector, and just replace
+                // with the value then
+                
                 case `_bv_extract` =>
                   if (a(2).isConstant) {
                     val LinearCombination.Constant(IdealInt(ub)) = a(0)

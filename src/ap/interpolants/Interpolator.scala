@@ -82,13 +82,18 @@ object Interpolator
                                       p <- a.predicates.iterator) yield p)))
     })
     // the following assertions are quite expensive; in case of theories,
-    // they might also fail, because quantifier elimination could need
-    // further theory axioms (TODO)
+    // they might also fail, because quantifier elimination or the
+    // reducer could rely on further unspecified theory axioms (TODO)
     Debug.assertPostFast(Debug.AC_INTERPOLATION_IMPLICATION_CHECKS, {
       implicit val o = certificate.order
+      val withTheories = certificate.assumedFormulas exists {
+                           f => PresburgerTools.containsTheories(f.toFormula) }
+      val to = if (withTheories) 1000 else 5000
       val allCommon = iContext.commonFormulae ++ certificate.theoryAxioms
-      isValid(certConj(iContext.leftFormulae ++ allCommon) ==> res) &&
-      isValid(!(certConj(iContext.rightFormulae ++ allCommon) & res))
+      isValid(certConj(iContext.leftFormulae ++ allCommon) ==> res,
+              timeout = to) &&
+      isValid(!(certConj(iContext.rightFormulae ++ allCommon) & res),
+              timeout = to)
     })
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
@@ -96,10 +101,11 @@ object Interpolator
 
   lazy val assertionProver = new ExhaustiveProver(true, GoalSettings.DEFAULT)
 
-  private def isValid(f : Conjunction, default : Boolean = true) : Boolean = {
+  private def isValid(f : Conjunction, default : Boolean = true,
+                      timeout : Long = 60000) : Boolean = {
     implicit val o = f.order
     val closedF = forall(o sort f.constants, f)
-    Timeout.withTimeoutMillis(60000) {
+    Timeout.withTimeoutMillis(timeout) {
       assertionProver(
         ReduceWithConjunction(Conjunction.TRUE, f.order)(closedF), f.order)
                      .closingConstraint.isTrue

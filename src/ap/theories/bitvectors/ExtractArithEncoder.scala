@@ -30,11 +30,12 @@ import ap.basetypes.IdealInt
 import ap.terfor.{TerForConvenience, Formula, Term, ConstantTerm, OneTerm}
 import ap.terfor.preds.Atom
 import ap.terfor.linearcombination.LinearCombination
-import LinearCombination.SingleTerm
+import LinearCombination.{SingleTerm, Constant}
 import ap.types.SortedPredicate
 import ap.util.Debug
 
-import scala.collection.mutable.{LinkedHashMap, HashSet => MHashSet}
+import scala.collection.mutable.{LinkedHashMap, HashSet => MHashSet,
+                                 HashMap => MHashMap}
 
 /**
  * ExtractArithEncoder translates bv_extract to an existentially quantified
@@ -123,8 +124,7 @@ object ExtractArithEncoder extends TheoryProcedure {
                   _) if (ignoredTerms contains arg) =>
           // nothing
         case Atom(`_bv_extract`,
-                  Seq(LinearCombination.Constant(IdealInt(ub)),
-                      LinearCombination.Constant(IdealInt(lb)),
+                  Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
                       arg@SingleTerm(c : ConstantTerm),
                       res),
                   _) =>
@@ -135,8 +135,7 @@ object ExtractArithEncoder extends TheoryProcedure {
             elimExtract(ex, ub, lb, arg, res)
           }
         case Atom(`_bv_extract`,
-                  Seq(LinearCombination.Constant(IdealInt(ub)),
-                      LinearCombination.Constant(IdealInt(lb)),
+                  Seq(Constant(IdealInt(ub)), Constant(IdealInt(lb)),
                       arg,
                       res),
                   _) =>
@@ -195,6 +194,7 @@ object ExtractArithEncoder extends TheoryProcedure {
 
       val facts = goal.facts
       val ac = facts.arithConj
+      val reduceWithFacts = goal.reduceWithFacts
 
       arithConsts ++= ac.positiveEqs.constants
 
@@ -202,10 +202,41 @@ object ExtractArithEncoder extends TheoryProcedure {
         if (lc.constants.size > 1)
           arithConsts ++= lc.constants
 
+      for (a <- facts.predConj.negativeLits)
+        arithConsts ++= a.constants
+
+      // find constants whose value is completely determined by
+      // extracts, as well as extracts on more complex terms
+
+      val lastLB = new MHashMap[ConstantTerm, IdealInt]
+      val blockedConsts = new MHashSet[ConstantTerm]
+
       for (a <- facts.predConj.positiveLits) a match {
         case Atom(`_bv_extract`,
-                  Seq(_, _, SingleTerm(_), _), _) =>
-          // nothing
+                  Seq(Constant(IdealInt(upper)), Constant(IdealInt(lower)),
+                      SingleTerm(c : ConstantTerm), Constant(_)),
+                  _) =>
+          if (!(arithConsts contains c) &&
+              !(blockedConsts contains c)) (lastLB get c) match {
+            case Some(lb) =>
+              if (upper + IdealInt.ONE == lb)
+                lastLB.put(c, lower)
+              else
+                blockedConsts += c
+            case None => {
+              for (ub <- reduceWithFacts.upperBound(c);
+                   if ub <= pow2MinusOne(upper+1);
+                   lb <- reduceWithFacts.lowerBound(c);
+                   if lb.signum >= 0)
+                lastLB.put(c, lower)
+              if (!(lastLB contains c))
+                blockedConsts += c
+            }
+          }
+        case Atom(`_bv_extract`,
+                  Seq(_, _, SingleTerm(c : ConstantTerm), _),
+                  _) =>
+          blockedConsts += c
         case Atom(`_bv_extract`,
                   Seq(_,  _, arg, _), _) =>
           arithConsts ++= arg.constants
@@ -213,8 +244,9 @@ object ExtractArithEncoder extends TheoryProcedure {
           arithConsts ++= a.constants
       }
 
-      for (a <- facts.predConj.negativeLits)
-        arithConsts ++= a.constants
+      for ((c, IdealInt.ZERO) <- lastLB)
+        if (!(blockedConsts contains c))
+          arithConsts += c
 
       arithConsts
     }
