@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Princess",
     organization := "uuverifiers",
-    version := "unstable-SNAPSHOT",
+    version := "2019-07-24",
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.8"),
     publishTo := Some(Resolver.file("file",  new File( "/tmp/shared-repo" )) )
