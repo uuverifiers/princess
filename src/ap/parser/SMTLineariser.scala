@@ -369,11 +369,14 @@ object SMTLineariser {
     val allADTs, declaredADTs = new MHashSet[ADT]
     allADTs ++= adts
 
-    while (declaredADTs.size < adts.size)
+    while (declaredADTs.size < adts.size) {
+      val oldSize = declaredADTs.size
+
       for (adt <- adts; if !(declaredADTs contains adt)) {
         val allSorts = for (sels <- adt.selectors; f <- sels) yield f.resSort
         if (allSorts forall {
               case s : ADT.ADTProxySort =>
+                adt == s.adtTheory ||
                 (declaredADTs contains s.adtTheory) ||
                 !(allADTs contains s.adtTheory)
               case _ =>
@@ -383,6 +386,11 @@ object SMTLineariser {
           declaredADTs += adt
         }
       }
+
+      if (oldSize == declaredADTs.size)
+        throw new IllegalArgumentException(
+          "Could not sort ADTs due to cyclic dependencies")
+    }
   }
   
   def printADTDeclaration(adt : ADT) : Unit =
