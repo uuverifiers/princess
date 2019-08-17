@@ -346,6 +346,14 @@ object SMTParser2InputAbsy {
 //      sanitise(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
       s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1)
   }
+
+  def asString(s : Sort) : String = s match {
+    case s : IdentSort =>
+      asString(s.identifier_)
+    case s : CompositeSort =>
+      asString(s.identifier_) + "_" +
+      (s.listsort_ map (asString(_))).mkString("_")
+  }
   
   object PlainSymbol {
     def unapply(s : SymbolRef) : scala.Option[String] = s match {
@@ -357,8 +365,12 @@ object SMTParser2InputAbsy {
   object PlainIdentifier {
     def unapply(id : Identifier) : scala.Option[String] = id match {
       case id : SymbolIdent => id.symbol_ match {
-        case s : NormalSymbol => Some(s.normalsymbolt_)
-        case _ => None
+        case s : NormalSymbol =>
+          Some(s.normalsymbolt_)
+        case s : QuotedSymbol =>
+          Some(s.quotedsymbolt_.substring(1, s.quotedsymbolt_.length - 1))
+        case _ =>
+          None
       }
       case _ => None
     }
@@ -3160,7 +3172,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
               val selName = asString(selDecl.symbol_)
 
               val (adtSort, smtSort) =
-                (sortNames indexOf (printer print selDecl.sort_)) match {
+                (sortNames indexOf asString(selDecl.sort_)) match {
                   case -1 => {
                     val t = translateSort(selDecl.sort_)
                     (ADT.OtherSort(t.toSort), t)
