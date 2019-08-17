@@ -323,7 +323,7 @@ object SMTLineariser {
   def printSMTType(t : SMTType) : Unit = t match {
     case SMTInteger          => print("Int")
     case SMTBool             => print("Bool")
-    case t : SMTADT          => print(t)
+    case t : SMTADT          => print(quoteIdentifier(t.toString))
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
     case SMTString(_)        => print("String")
     case SMTArray(args, res) => {
