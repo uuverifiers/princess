@@ -31,7 +31,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
-import ap.theories.{SimpleArray, ADT, ModuloArithmetic}
+import ap.theories.{SimpleArray, ADT, ModuloArithmetic, Theory}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
@@ -898,6 +898,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       super.addAxiom(f)
     }
 
+  protected override def addTheory(t : Theory) : Unit = {
+    if (incremental)
+      prover addTheory t
+    super.addTheory(t)
+  }
+
   private def addConstant(c : ConstantTerm, cType : SMTType) : Unit = {
     env.addConstant(c, Environment.NullaryFunction, cType)
     if (incremental)
@@ -1083,9 +1089,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
             "Polymorphic sorts are not supported yet")
 
         val name = asString(cmd.symbol_)
-        warn("treating sort " + name + " as infinite sort")
-
-        val sort = new TSort.InfUninterpreted(name)
+        val sort = TSort.createUninterpretedSort(name)
+        addTheory(sort.theory)
 
         env.addSort(name, SMTUnint(sort))
 

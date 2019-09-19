@@ -178,8 +178,13 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
           for (decl <- block.listdeclsortc_.iterator) decl match {
             case decl : DeclUnintSort => {
               val name = decl.ident_
-              warn("treating sort " + name + " as infinite sort")
-              env.addSort(name, new Sort.InfUninterpreted(name))
+              val sort = Sort.createUninterpretedSort(name)
+              addTheory(sort.theory)
+              env.addSort(name, sort)
+            }
+            case decl : DeclInfUnintSort => {
+              val name = decl.ident_
+              env.addSort(name, Sort.createInfUninterpretedSort(name))
             }
             case _ => // nothing
           }

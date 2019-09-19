@@ -149,6 +149,7 @@ separator FunOption "";
 
 DeclADT.        DeclSortC       ::= Ident "{" [DeclCtorC] "}";
 DeclUnintSort.  DeclSortC       ::= Ident;
+DeclInfUnintSort.DeclSortC      ::= "\\infinite" Ident;
 terminator DeclSortC ";";
 
 DeclCtor.       DeclCtorC       ::= Ident OptFormalArgs;

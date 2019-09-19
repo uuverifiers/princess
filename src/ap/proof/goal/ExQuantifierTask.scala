@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,7 +26,9 @@ import ap.parameters.Param
 import ap.proof.Vocabulary
 import ap.terfor.ConstantTerm
 import ap.terfor.conjunctions.{Conjunction, Quantifier}
+import ap.terfor.equations.NegEquationConj
 import ap.terfor.inequalities.InEqConj
+import ap.types.UninterpretedSortTheory.DomainPredicate
 import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.util.{Debug, Seqs}
 
@@ -54,22 +56,22 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
    * Perform the actual task (whatever needs to be done with <code>formula</code>)
    */
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
-    val (instantiatedConj, constants, newOrder, newBindingContext) =
+    val (instantiatedConj, constants, newO, newBindingContext) =
       instantiateWithConstants(goal)
 
     val newVocabulary =
-      Vocabulary(newOrder, newBindingContext, goal.constantFreedom)
+      Vocabulary(newO, newBindingContext, goal.constantFreedom)
 
     val singleInstantiation =
       formula.predicates subsetOf
         Param.SINGLE_INSTANTIATION_PREDICATES(goal.settings)
 
     val subtree = {
-      implicit val _ = newOrder
+      implicit val _ = newO
       val ineqs = instantiatedConj.arithConj.inEqs
 
-      // extract bounds on the quantified variables, which are handled
-      // using constraints in the proof tree
+      // extract inequality bounds on the quantified variables, which are
+      // handled/ using constraints in the proof tree
       val (varBounds, remainingConj) =
         if (Seqs.disjointSeq(ineqs.constants, constants) ||
             !Param.STRENGTHEN_TREE_FOR_SIDE_CONDITIONS(goal.settings)) {
@@ -84,25 +86,60 @@ class ExQuantifierTask(_formula : Conjunction, _age : Int)
            instantiatedConj.updateInEqs(ineqs updateGeqZeroSubset lc2))
         }
 
+      // extract domain bounds on the quantified variables, which are also
+      // handled using constraints in the proof tree
+      val predConj = remainingConj.predConj
+      val domGuards =
+        for (a <- predConj.positiveLits;
+             if DomainPredicate.unapply(a.pred).isDefined)
+        yield a
+
+      val (domConstraints, remainingConj2) =
+        if (domGuards.isEmpty) {
+          (List(), remainingConj)
+        } else {
+          val otherLits =
+            predConj.positiveLits filterNot (domGuards contains _)
+          val newPredConj =
+            predConj.updateLitsSubset(otherLits, predConj.negativeLits, newO)
+          val newInst =
+            remainingConj updatePredConj newPredConj
+          val factPreds =
+            goal.facts.predConj
+          val eqGuards =
+            for (g <- domGuards) yield {
+              Conjunction.negate(
+                NegEquationConj(for (a <- factPreds positiveLitsWithPred g.pred)
+                                yield g.unify(a, newO)(0), newO), newO)
+            }
+          (eqGuards, newInst)
+        }
+
       val instantiatedConjTasks =
-        Goal.formulaTasks(remainingConj, goal.age,
+        Goal.formulaTasks(remainingConj2, goal.age,
                           Set.empty, newVocabulary, goal.settings) ++
-        Goal.formulaTasks(Conjunction.negate(varBounds, newOrder), goal.age,
+        Goal.formulaTasks(Conjunction.negate(varBounds, newO), goal.age,
                           Set.empty, newVocabulary, goal.settings) ++
+        (for (a <- domGuards;
+              t <- Goal.formulaTasks(Conjunction.negate(a, newO), goal.age,
+                                     Set.empty, newVocabulary, goal.settings))
+         yield t) ++
         (if (singleInstantiation) List() else goal.formulaTasks(formula))
 
       val newGoal =
         ptf.updateGoal(Set.empty.asInstanceOf[Set[ConstantTerm]],
                        newVocabulary, instantiatedConjTasks, goal)
 
-      if (varBounds.isTrue)
+      val treeConstraints =
+        Conjunction.conj(domConstraints ++ List(varBounds), newO)
+
+      if (treeConstraints.isTrue)
         newGoal
       else
-        ptf.strengthen(newGoal, Conjunction.conj(varBounds, newOrder),
-                       newVocabulary)
+        ptf.strengthen(newGoal, treeConstraints, newVocabulary)
     }
 
-    ptf.quantify(subtree, Quantifier.EX, constants, goal.vocabulary, newOrder)
+    ptf.quantify(subtree, Quantifier.EX, constants, goal.vocabulary, newO)
   }
   
   /**

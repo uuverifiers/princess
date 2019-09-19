@@ -65,14 +65,13 @@ sat
 )
 
 Loading adt-model-bug.smt2 ...
-Warning: treating sort T1 as infinite sort
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
 
 sat
 (model
-  (define-fun x () ListT1 (insertT1 T1!14 (insertT1 T1!18 (insertT1 T1!22 nilT1))))
+  (define-fun x () ListT1 (insertT1 T1!16 (insertT1 T1!20 (insertT1 T1!24 nilT1))))
 )
 
 Loading quoted-datatype.smt2 ...
@@ -170,10 +169,9 @@ sat
   (define-fun x1 () nat (succ zero))
 )
 Loading adt-model-bug.smt2 ...
-Warning: treating sort T1 as infinite sort
 sat
 (model
-  (define-fun x () ListT1 (insertT1 T1!14 (insertT1 T1!18 (insertT1 T1!22 nilT1))))
+  (define-fun x () ListT1 (insertT1 T1!16 (insertT1 T1!20 (insertT1 T1!24 nilT1))))
 )
 Loading quoted-datatype.smt2 ...
 unsat

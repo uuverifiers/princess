@@ -30,7 +30,8 @@ import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
 import IExpression.Sort
 import ap.types.{SortedIFunction, SortedPredicate, MonoSortedIFunction,
-                 SortedConstantTerm, MonoSortedPredicate}
+                 SortedConstantTerm, MonoSortedPredicate,
+                 UninterpretedSortTheory}
 import ap.util.{Seqs, Debug}
 
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
@@ -355,7 +356,9 @@ object SMTLineariser {
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
-    case sort : Sort.InfUninterpreted =>
+    case sort : UninterpretedSortTheory.UninterpretedSort =>
+      (SMTUnint(sort), None)
+    case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
   }
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -152,26 +152,17 @@ object Sort {
   //////////////////////////////////////////////////////////////////////////////
   // Uninterpreted sorts
 
-  class InfUninterpreted(override val name : String)
-        extends ProxySort(Integer) {
-
-    /**
-     * We just create numbered constants to represent the individuals.
-     */
-    override val individuals : Stream[ITerm] =
-      for (n <- Stream.iterate(0)(_ + 1))
-      yield IConstant(newConstant(name + "!" + n))
-
-    override def decodeToTerm(
-                   d : IdealInt,
-                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] = {
-      val ind = d.intValueSafe
-      if (ind >= 0)
-        Some(individuals(2*ind))
-      else
-        Some(individuals(-2*ind - 1))
-    }
-  }
+  /**
+   * Create a new uninterpreted sort of infinite cardinality.
+   */
+  def createInfUninterpretedSort(name : String) =
+    UninterpretedSortTheory.createInfUninterpretedSort(name)
+  
+  /**
+   * Create a new uninterpreted sort of finite or infinite cardinality.
+   */
+  def createUninterpretedSort(name : String) =
+    UninterpretedSortTheory.createUninterpretedSort(name)
 
   //////////////////////////////////////////////////////////////////////////////
 

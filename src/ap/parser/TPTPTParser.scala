@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2019 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -56,7 +56,7 @@ object TPTPTParser {
   // cannot call the object iType because if so Scala pattern matching assumes i
   // Type is a *variable*
   private object IType
-          extends Type("$i", new Sort.InfUninterpreted("$i"))
+          extends Type("$i", Sort.createInfUninterpretedSort("$i"))
 
   // Truth values
   private object OType
@@ -64,13 +64,13 @@ object TPTPTParser {
   
   // The type of types (kinds)
   private object TType
-          extends Type("$tType", new Sort.InfUninterpreted("$tType"))
+          extends Type("$tType", Sort.createInfUninterpretedSort("$tType"))
   private object IntType
           extends Type("$int", Sort.Integer)
   private object RatType
-          extends Type("$rat", new Sort.InfUninterpreted("$rat"))
+          extends Type("$rat", Sort.createInfUninterpretedSort("$rat"))
   private object RealType
-          extends Type("$real", new Sort.InfUninterpreted("$real"))
+          extends Type("$real", Sort.createInfUninterpretedSort("$real"))
   
   private val preDeclaredTypes =
     Set(TType, OType, IType, IntType, RatType, RealType)
@@ -781,10 +781,9 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
      ( ( tff_untyped_atom ~ ":" ~ tff_top_level_type ) ^^ { 
 	        // could declare a new type or a symbol of an existing type
        case typeName ~ ":" ~ Rank((Nil, TType)) => { () =>
-         // TODO: we have to add guards to encode that uninterpreted domains
-         // could be finite
-         env.addSort(typeName,
-                     Type(typeName, new Sort.InfUninterpreted(typeName)))
+         val sort = Sort.createUninterpretedSort(typeName)
+         addTheory(sort.theory)
+         env.addSort(typeName, Type(typeName, sort))
          ()
        }
        case symbolName ~ ":" ~ rank => { () =>

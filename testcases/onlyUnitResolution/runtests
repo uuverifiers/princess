@@ -19,7 +19,7 @@ TESTS="arrays0.pri arrays1.pri arrays2.pri \
        adt-cexes.pri adt-totality.pri adt-expand-nonterm.pri \
        pairs.pri pairs2.pri adt-nats.pri \
        adt-size.pri adt-size2.pri adt-size3.pri adt-finite-ctor-args.pri \
-       adt-unfold3.pri adt-existential.pri"
+       adt-unfold3.pri adt-existential.pri two-element-sort.pri"
 
 $PRI "$@" $TESTS
 

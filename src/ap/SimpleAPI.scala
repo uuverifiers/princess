@@ -40,7 +40,7 @@ import ap.terfor.conjunctions.{Conjunction, ReduceWithConjunction,
                                IterativeClauseMatcher, Quantifier,
                                LazyConjunction, SeqReducerPluginFactory}
 import ap.theories.{Theory, TheoryCollector, TheoryRegistry,
-                    SimpleArray, MulTheory, Incompleteness}
+                    SimpleArray, MulTheory, Incompleteness, ADT}
 import ap.proof.theoryPlugins.{Plugin, PluginSequence}
 import IExpression.Sort
 import ap.types.{SortedConstantTerm, SortedIFunction,
@@ -700,7 +700,40 @@ class SimpleAPI private (enableAssert : Boolean,
   //////////////////////////////////////////////////////////////////////////////
   //
   // Working with the vocabulary
+
+  /**
+   * Create a new uninterpreted sort of infinite cardinality.
+   *
+   * TODO: logging
+   */
+  def createInfUninterpretedSort(name : String) =
+    Sort.createInfUninterpretedSort(name)
   
+  /**
+   * Create a new uninterpreted sort of finite or infinite cardinality.
+   *
+   * TODO: logging
+   */
+  def createUninterpretedSort(name : String) = {
+    val res = Sort.createUninterpretedSort(name)
+    addTheory(res.theory)
+    res
+  }
+
+  /**
+   * Create an algebraic data-type.
+   *
+   * TODO: logging
+   */
+  def createADT(sortNames : Seq[String],
+                ctorSignatures : Seq[(String, ADT.CtorSignature)],
+                measure : ADT.TermMeasure.Value =
+                  ADT.TermMeasure.RelDepth) : ADT = {
+    val res = new ADT(sortNames, ctorSignatures, measure)
+    addTheory(res)
+    res
+  }
+
   /**
    * Create a new symbolic constant.
    */

@@ -22,7 +22,7 @@
 package ap.parser;
 
 import ap._
-import ap.theories.{TheoryCollector, MulTheory}
+import ap.theories.{TheoryCollector, MulTheory, Theory}
 import ap.parameters.{ParserSettings, Param}
 import ap.terfor.{ConstantTerm, OneTerm, TermOrder}
 import ap.terfor.conjunctions.Conjunction
@@ -124,7 +124,6 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
   
   import IExpression._
 
-
   type GrammarExpression
   
   /**
@@ -136,12 +135,18 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
   def apply(input : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature)
 
+  //////////////////////////////////////////////////////////////////////////////
+
+  // TODO: also push/pop/reset the theory collector
+  // (this functionality is currently not used anywhere)
+  private val theoryCollector = new TheoryCollector
+
+  protected def addTheory(t : Theory) : Unit =
+    theoryCollector addTheory t
+
   protected def genSignature(completeFor : IExpression) : Signature = {
-    val coll = new TheoryCollector
-    coll(completeFor)
-//    for (t <- coll.theories find (_.isInstanceOf[MulTheory]))
-//      Parser2InputAbsy.warn("using theory to encode multiplication: " + t)
-    env.toSignature addTheories coll.theories
+    theoryCollector(completeFor)
+    env.toSignature addTheories theoryCollector.theories
   }
 
   //////////////////////////////////////////////////////////////////////////////
