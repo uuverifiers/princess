@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -187,7 +187,7 @@ object ParallelFileProver {
                                         case '0' => "-"
                                         case '1' => "+"
                                         case '2' => "+"
-                                      }) + "genTotalityAxioms="
+                                      }) + "genTotalityAxioms"
     s = s + " " + (if (strategy.charAt(2)=='0') "-" else "+") + "tightFunctionScopes"
     s = s + " -clausifier=" + (if (strategy.charAt(3)=='0') "simple" else "none")
     s = s + " " + (if (strategy.charAt(4)=='0') "-" else "+") + "reverseFunctionalityPropagation"

@@ -1084,15 +1084,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       case cmd : SortDeclCommand => {
         ensureEnvironmentCopy
 
-        if (cmd.numeral_.toInt != 0)
-          throw new Parser2InputAbsy.TranslationException(
-            "Polymorphic sorts are not supported yet")
-
         val name = asString(cmd.symbol_)
-        val sort = TSort.createUninterpretedSort(name)
-        addTheory(sort.theory)
 
-        env.addSort(name, SMTUnint(sort))
+        if (cmd.numeral_.toInt != 0) {
+          warn("treating sort constructor " + name + " as int")
+        } else {
+          val sort = TSort.createUninterpretedSort(name)
+          addTheory(sort.theory)
+          env.addSort(name, SMTUnint(sort))
+        }
 
         success
       }
