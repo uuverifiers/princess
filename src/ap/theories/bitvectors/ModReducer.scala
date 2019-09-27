@@ -178,7 +178,8 @@ object ModReducer {
 
           // First eliminate some atoms that can be evaluated
           ReducerPlugin.rewritePreds(predConj,
-                                     List(_mod_cast, _l_shift_cast,
+                                     List(_mod_cast,
+                                          _l_shift_cast, _r_shift_cast,
                                           _bv_extract),
                                      order,
                                      logger) { a =>
@@ -211,6 +212,7 @@ object ModReducer {
 
                 case `_l_shift_cast` =>
                   if (a(2).isZero) {
+                    // TODO: use evalModCast
                     val newA =
                       Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
                     logger.otherComputation(List(a), newA, order,
@@ -247,6 +249,44 @@ object ModReducer {
                       case _ =>
                         a
                     }
+                  }
+
+                case `_r_shift_cast` =>
+                  if (RShiftCastSplitter.isShiftInvariant(a(2))) {
+                    val newA =
+                      Atom(_mod_cast, Array(a(0), a(1), a(2), a(4)), order)
+                    logger.otherComputation(List(a), newA, order,
+                                            ModuloArithmetic)
+                    newA
+                  } else if (a(3).isConstant) {
+                    val shift = a(3).constant
+                    if (shift.signum < 0)
+                      throw new Exception("negative shift: " + a)
+                    (SortedPredicate argumentSorts a).last match {
+                      case UnsignedBVSort(bits) => {
+                        val newA =
+                          Atom(_bv_extract,
+                               Array(l(shift + bits - 1), l(shift), a(2), a(4)),
+                               order)
+                        //-BEGIN-ASSERTION-/////////////////////////////////////
+                        if (debug) {
+                          println("Reducing _r_shift_cast:")
+                          println("\t" + a)
+                          println("\t" + newA)
+                        }
+                        //-END-ASSERTION-///////////////////////////////////////
+                        logger.otherComputation(List(a), newA, order,
+                                                ModuloArithmetic)
+                        newA
+                      }
+                      case SignedBVSort(bits) =>
+                        // TODO
+                        a
+                      case _ =>
+                        a
+                    }
+                  } else {
+                    a
                   }
 
                 // TODO: we should also identify extracts that completely

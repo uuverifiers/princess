@@ -191,26 +191,38 @@ object ModPlugin extends Plugin {
       List()
     }
 
+  object NEEDS_SPLITTING extends Exception
+
   private def modShiftCast(goal : Goal) : Seq[Plugin.Action] = {
     // check if we have modcast or shiftcast actions
-    val actions1 = ModCastSplitter.modCastActions(goal)
-    val actions2 = ShiftCastSplitter.shiftCastActions(goal)
+    val actions1 =
+      try {
+        ModCastSplitter.modCastActions(goal, true)
+      } catch {
+        case NEEDS_SPLITTING =>
+          // delayed splitting through a separate task
+          List(Plugin.ScheduleTask(ModCastSplitter, 30))
+      }
 
-    val resActions1 =
-      if (actions1 exists (_.isInstanceOf[Plugin.AxiomSplit]))
-        // delayed splitting through a separate task
-        List(Plugin.ScheduleTask(ModCastSplitter, 30))
-      else
-        actions1
+    val actions2 =
+      try {
+        LShiftCastSplitter.shiftCastActions(goal, true)
+      } catch {
+        case NEEDS_SPLITTING =>
+          // delayed splitting through a separate task
+          List(Plugin.ScheduleTask(LShiftCastSplitter, 20))
+      }
 
-    val resActions2 =
-      if (actions2 exists (_.isInstanceOf[Plugin.AxiomSplit]))
-        // delayed splitting through a separate task
-        List(Plugin.ScheduleTask(ShiftCastSplitter, 20))
-      else
-        actions2
+    val actions3 =
+      try {
+        RShiftCastSplitter.shiftCastActions(goal, true)
+      } catch {
+        case NEEDS_SPLITTING =>
+          // delayed splitting through a separate task
+          List(Plugin.ScheduleTask(RShiftCastSplitter, 20))
+      }
 
-    resActions1 ++ resActions2
+    actions1 ++ actions2 ++ actions3
   }
 
   //////////////////////////////////////////////////////////////////////////////

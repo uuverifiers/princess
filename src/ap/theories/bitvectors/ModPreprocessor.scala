@@ -396,6 +396,7 @@ object ModPreprocessor {
       if (start == argBits - 1 && end == 0) {
         arg
       } else arg match {
+        // TODO: simplify nested extracts, shifts, etc.
         case IIntLit(argVal) =>
           evalExtract(start, end, argVal)
         case arg =>
@@ -1259,7 +1260,7 @@ object ModPreprocessor {
                                         order))
         }
 
-        case `_mod_cast` | `_l_shift_cast` | `_bv_extract` =>
+        case `_mod_cast` | `_l_shift_cast` | `_r_shift_cast` | `_bv_extract` =>
           a
 
         case BVPred(_) => {

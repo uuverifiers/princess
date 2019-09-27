@@ -50,7 +50,8 @@ object ModCastSplitter extends TheoryProcedure {
 
   private val SPLIT_LIMIT = IdealInt(20)
 
-    protected[bitvectors] def modCastActions(goal : Goal) : Seq[Plugin.Action]={
+    protected[bitvectors] def modCastActions(goal : Goal, noSplits : Boolean)
+                                           : Seq[Plugin.Action]={
       val castPreds =
         goal.facts.predConj.positiveLitsWithPred(_mod_cast).toBuffer
       // TODO: handle occurring _mul predicates in a special way?
@@ -160,6 +161,9 @@ object ModCastSplitter extends TheoryProcedure {
 
       } else if (bestSplitPred.isDefined) {
 
+        if (noSplits)
+          throw ModPlugin.NEEDS_SPLITTING
+
         val Some((a, lowerFactor, upperFactor,
                   wastedLower, wastedUpper, assumptions, sort)) =
           bestSplitPred
@@ -205,7 +209,12 @@ object ModCastSplitter extends TheoryProcedure {
     }
 
   def handleGoal(goal : Goal) : Seq[Plugin.Action] =  {
-//println("mod splitter " + goal.facts)
-    modCastActions(goal)
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    if (debug) {
+      println
+      println("mod_cast splitter ...")
+    }
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    modCastActions(goal, false)
   }
 }
