@@ -139,15 +139,39 @@ class IntervalPropagator private (goal : Goal,
   def upperBound(lc : LinearCombination) : Option[IdealInt] =
     linCompBound(lc, true)
 
-  def lowerBound(c : ConstantTerm) : Option[IdealInt] =
-    for (iv <- intervalSet getTermIntervalOption c;
-         if iv.lower.isInstanceOf[IntervalVal])
-    yield iv.lower.get
+  def lowerBound(c : ConstantTerm) : Option[IdealInt] = {
+    val b1 = for (iv <- intervalSet getTermIntervalOption c;
+                  if iv.lower.isInstanceOf[IntervalVal])
+             yield iv.lower.get
+    val b2 = reducer.lowerBound(c)
+    (b1, b2) match {
+      case (Some(b1), Some(b2)) =>
+        Some(b1 max b2)
+      case (r@Some(_), None) =>
+        r
+      case (None, r@Some(_)) =>
+        r
+      case (None, None) =>
+        None
+    }
+  }
 
-  def upperBound(c : ConstantTerm) : Option[IdealInt] =
-    for (iv <- intervalSet getTermIntervalOption c;
-         if iv.upper.isInstanceOf[IntervalVal])
-    yield iv.upper.get
+  def upperBound(c : ConstantTerm) : Option[IdealInt] = {
+    val b1 = for (iv <- intervalSet getTermIntervalOption c;
+                  if iv.upper.isInstanceOf[IntervalVal])
+             yield iv.upper.get
+    val b2 = reducer.upperBound(c)
+    (b1, b2) match {
+      case (Some(b1), Some(b2)) =>
+        Some(b1 min b2)
+      case (r@Some(_), None) =>
+        r
+      case (None, r@Some(_)) =>
+        r
+      case (None, None) =>
+        None
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

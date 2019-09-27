@@ -404,6 +404,8 @@ object RShiftCastSplitter extends TheoryProcedure {
           }
 
         }
+      } else {
+        println("WARNING: cannot handle unbounded shift " + a)
       }
     }
 
