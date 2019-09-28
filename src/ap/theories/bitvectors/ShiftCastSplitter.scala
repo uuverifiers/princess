@@ -356,6 +356,19 @@ object RShiftCastSplitter extends TheoryProcedure {
             (true, true, b)
         }
 
+      val shiftLower =
+        (if (proofs)
+           for ((b, assum) <- propagator lowerBoundWithAssumptions a(3);
+                if b.signum > 0) yield {
+             addInEqAssumption(assum)
+             b
+           }
+         else
+           for (b <- propagator lowerBound a(3);
+                 if b.signum > 0) yield {
+             b
+           }) getOrElse IdealInt.ZERO
+
       if (bounded) {
         if (proofs) {
           if (usingMantUpper) {
@@ -368,19 +381,6 @@ object RShiftCastSplitter extends TheoryProcedure {
             addInEqAssumption(assum)
           }
         }
-
-        val shiftLower =
-          (if (proofs)
-             for ((b, assum) <- propagator lowerBoundWithAssumptions a(3);
-                  if b.signum > 0) yield {
-               addInEqAssumption(assum)
-               b
-             }
-           else
-             for (b <- propagator lowerBound a(3);
-                  if b.signum > 0) yield {
-               b
-             }) getOrElse IdealInt.ZERO
 
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(AC, shiftLower.signum >= 0)
@@ -405,7 +405,11 @@ object RShiftCastSplitter extends TheoryProcedure {
 
         }
       } else {
-        println("WARNING: cannot handle unbounded shift " + a)
+        println("WARNING: unbounded shift " + a)
+
+        if (bestSplitNum == Int.MaxValue)
+          splitPred = Some((a, shiftLower, null, assumptions))
+
       }
     }
 
@@ -421,20 +425,37 @@ object RShiftCastSplitter extends TheoryProcedure {
       val Some((a, lower, upper, assumptions)) = splitPred
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(AC, lower < upper && lower.signum >= 0)
+      Debug.assertInt(AC, lower.signum >= 0)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
-      val cases =
-        (for (n <- IdealRange(lower, upper + 1)) yield {
-           (rshiftToExtract(a, n.intValueSafe) &
-            (if (n == lower)
-               a(3) <= lower
-             else if (n == upper)
-               a(3) >= upper
-             else
-               a(3) === n),
-            List())
-         }).toList
+      val cases = upper match {
+        case null => {
+          // an unbounded shift predicate; in this case we just apply
+          // binary splitting
+
+          List(
+            (rshiftToExtract(a, lower.intValueSafe) & (a(3) <= lower), List()),
+            (conj(a(3) > lower), List())
+          )
+        }
+
+        case upper => {
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+          Debug.assertInt(AC, lower < upper)
+          //-END-ASSERTION-/////////////////////////////////////////////////////
+
+          (for (n <- IdealRange(lower, upper + 1)) yield {
+             (rshiftToExtract(a, n.intValueSafe) &
+             (if (n == lower)
+                a(3) <= lower
+              else if (n == upper)
+                a(3) >= upper
+              else
+                a(3) === n),
+             List())
+          }).toList
+        }
+      }
 
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       if (debug) {
