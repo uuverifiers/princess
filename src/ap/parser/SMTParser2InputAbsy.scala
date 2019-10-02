@@ -1839,31 +1839,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case t : AnnotationTerm => {
       val triggers = for (annot <- t.listannotation_;
                           a = annot.asInstanceOf[AttrAnnotation];
-                          if (a.annotattribute_ == ":pattern")) yield {
-        a.attrparam_ match {
-          case p : SomeAttrParam => p.sexpr_ match {
-            case e : ParenSExpr => 
-              for (expr <- e.listsexpr_.toList;
-                   transTriggers = {
-                     try { List(translateTrigger(expr)) }
-                     catch { case _ : TranslationException |
-                                  _ : Environment.EnvironmentException => {
-                       warn("could not parse trigger " +
-                            (printer print expr) +
-                            ", ignoring")
-                       List()
-                     } }
-                   };
-                   t <- transTriggers) yield t
-            case _ =>
-              throw new Parser2InputAbsy.TranslationException(
-                 "Expected list of patterns after \":pattern\"")
-          }
-          case _ : NoAttrParam =>
-            throw new Parser2InputAbsy.TranslationException(
-               "Expected trigger patterns after \":pattern\"")
-        }
-      }
+                          if (a.annotattribute_ == ":pattern");
+                          trigs = translateTriggerAttr(a.attrparam_);
+                          if !trigs.isEmpty)
+                     yield trigs
 
       val baseExpr =
         if (needCertificates) {
@@ -2971,6 +2950,31 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
   
+  private def translateTriggerAttr(attrparam : AttrParam) : Seq[IExpression] =
+        attrparam match {
+          case p : SomeAttrParam => p.sexpr_ match {
+            case e : ParenSExpr => 
+              for (expr <- e.listsexpr_.toList;
+                   transTriggers = {
+                     try { List(translateTrigger(expr)) }
+                     catch { case _ : TranslationException |
+                                  _ : Environment.EnvironmentException => {
+                       warn("could not parse trigger " +
+                            (printer print expr) +
+                            ", ignoring")
+                       List()
+                     } }
+                   };
+                   t <- transTriggers) yield t
+            case _ =>
+              throw new Parser2InputAbsy.TranslationException(
+                 "Expected list of patterns after \":pattern\"")
+          }
+          case _ : NoAttrParam =>
+            throw new Parser2InputAbsy.TranslationException(
+               "Expected trigger patterns after \":pattern\"")
+        }
+
   private def translateTrigger(expr : SExpr) : IExpression = expr match {
     
     case expr : ConstantSExpr => translateSpecConstant(expr.specconstant_)._1
@@ -2987,7 +2991,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         IAtom(pred, List())
       }
       case Environment.Constant(c, _, _) => c
-      case Environment.Variable(i, BoundVariable(t)) if (t != SMTBool) => v(i)
+      case Environment.Variable(i, BoundVariable(t)) => v(i)
       case _ =>
         throw new Parser2InputAbsy.TranslationException(
           "Unexpected symbol in a trigger: " +
@@ -3024,7 +3028,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
                                0, expr.listsexpr_.tail)
               c
             }
-            case Environment.Variable(i, BoundVariable(t)) if (t != SMTBool) => {
+            case Environment.Variable(i, BoundVariable(t)) => {
               checkArgNumSExpr(printer print funExpr.symbol_,
                                0, expr.listsexpr_.tail)
               v(i)
