@@ -53,14 +53,18 @@ import scala.collection.mutable.{HashSet => MHashSet, ArrayBuffer}
  */
 object GroebnerMultiplication extends MulTheory {
 
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  protected[nia] val debug = false
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
   private val AC = Debug.AC_NIA
 
-  val mul = new IFunction("mul", 2, true, false)
-  val _mul = new Predicate("mul", 3)
-  val functions = List(mul)
+  val mul        = new IFunction("mul", 2, true, false)
+  val _mul       = new Predicate("mul", 3)
+  val functions  = List(mul)
   val predicates = List(_mul)
 
-  val axioms = Conjunction.TRUE
+  val axioms         = Conjunction.TRUE
   val totalityAxioms = Conjunction.TRUE
 
   val predicateMatchConfig : Signature.PredicateMatchConfig =
@@ -337,12 +341,14 @@ println(unprocessed)
                       calledFromSplitter : Boolean) : Seq[Plugin.Action] = {
       implicit val order = goal.order
 
-// println("Groebner: " + goal.facts)
-
       // Fetch all predicates, if none nothing we can do
       val predicates = goal.facts.predConj.positiveLitsWithPred(_mul)
       if (predicates.isEmpty)
         return List()
+
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      printNIAgoal("Calling theory solver: NIA", goal)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       val inequalities = goal.facts.arithConj.inEqs
       val disequalities = goal.facts.arithConj.negativeEqs
@@ -385,11 +391,16 @@ println(unprocessed)
           (simplified, factsToRemove, monOrder)
         }
 
-      for (p <- simplifiedGB.containsUnit)
-        // we have an inconsistency
+      for (p <- simplifiedGB.containsUnit) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        if (debug)
+          println("GB found inconsistency: " +
+                  label2Assumptions(simplifiedGB labelFor p))
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return List(Plugin.CloseByAxiom(
                              label2Assumptions(simplifiedGB labelFor p),
                              GroebnerMultiplication.this))
+      }
 
       implicit val xMonOrder = monOrder
 
@@ -454,8 +465,12 @@ println(unprocessed)
              yield Plugin.AddAxiom(label2Assumptions(simplifiedGB labelFor p),
                                    c, GroebnerMultiplication.this)).toList
           
-          if (!actions.isEmpty)
+          if (!actions.isEmpty) {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            printActions("GB discovered implied linear formulas", actions)
+            //-END-ASSERTION-///////////////////////////////////////////////////
             return removeFactsActions ::: actions
+          }
 
         } else if (linearEq.size > 1) {
 
@@ -472,11 +487,16 @@ println(unprocessed)
                             ind2 <- simplifiedGB labelFor linearEq(ind))
                        yield ind2))).toList
 
-          if (!implications.isEmpty)
-            return removeFactsActions ::: (
-                     for ((eq, label) <- implications)
-                     yield Plugin.AddAxiom(label2Assumptions(label), eq,
-                                           GroebnerMultiplication.this))
+          if (!implications.isEmpty) {
+            val actions =
+              for ((eq, label) <- implications)
+              yield Plugin.AddAxiom(label2Assumptions(label), eq,
+                                    GroebnerMultiplication.this)
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            printActions("GB discovered implied linear formulas", actions)
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            return removeFactsActions ::: actions
+          }
         }
       }
 
@@ -497,8 +517,13 @@ println(unprocessed)
                                             goal, intervalSet),
                       order)
 
-      if (!intActions.isEmpty)
+      if (!intActions.isEmpty) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        printActions("ICP/cross-multiplication discovered inequalities",
+                     intActions)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         return removeFactsActions ++ intActions
+      }
 
       // Do splitting
       if (calledFromSplitter)
@@ -895,13 +920,15 @@ println(unprocessed)
         if (predicates.isEmpty)
           return List()
   
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        printNIAgoal("Calling NIA splitter", goal)
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+
         // An order is needed to construct polynomials, since Buchberger isn't used,
         // the order shouldn't matter.
         implicit val order = goal.order
         implicit val monOrder = new GrevlexOrdering(StringOrdering)
         implicit val ctOrder = monOrder.termOrdering
-  
-//   println("Splitter: " + goal.facts)
   
         val preds =
           (for ((a, n) <- predicates.iterator.zipWithIndex;
@@ -1176,9 +1203,14 @@ println(unprocessed)
   
           intervalSet.propagate
 
-          for ((_, _, l) <- intervalSet.getInconsistency)
+          for ((_, _, l) <- intervalSet.getInconsistency) {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            if (debug)
+              println("ICP found inconsistency: " + label2Assumptions(l))
+            //-END-ASSERTION-///////////////////////////////////////////////////
             return List(Plugin.CloseByAxiom(label2Assumptions(l),
                                             GroebnerMultiplication.this))
+          }
 
           // Let the target set be the smallest set such that all
           // predicates are made linear
@@ -1202,8 +1234,6 @@ println(unprocessed)
 
             if (Param.PROOF_CONSTRUCTION(goal.settings)) {
               // just apply the split that we found
-//              println("Splitting: " + s)
-              
               val splitActions =
                 if (actions == null)
                   List(Plugin.AxiomSplit(label2Assumptions(label),
@@ -1218,7 +1248,9 @@ println(unprocessed)
                                                 label2Assumptions _), order)
               val res = intActions ++ splitActions
 
-//              println("res: " + res)
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              printActions("Splitting", res)
+              //-END-ASSERTION-/////////////////////////////////////////////////
               return res
 
             } else {
@@ -1245,12 +1277,18 @@ println(unprocessed)
               } else {
 //                println("Splitting: " + s)
 
+                //-BEGIN-ASSERTION-/////////////////////////////////////////////
+                printActions("Splitting", lastAlternative)
+                //-END-ASSERTION-///////////////////////////////////////////////
                 return lastAlternative
               }
             }
 
           } else if (lastAlternative != null) {
 
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            printActions("Splitting", lastAlternative)
+            //-END-ASSERTION-///////////////////////////////////////////////////
             return lastAlternative
 
           } else {
@@ -1258,8 +1296,12 @@ println(unprocessed)
             val intActions =
               filterActions(intervals2Actions(intervalSet, predicates,
                                               goal, label2Assumptions _), order)
-            if (!intActions.isEmpty)
+            if (!intActions.isEmpty) {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              printActions("Implied intervals", intActions)
+              //-END-ASSERTION-/////////////////////////////////////////////////
               return intActions
+            }
 
           }
         }
@@ -1273,6 +1315,43 @@ println(unprocessed)
     }
   })
 
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  private def printNIAgoal(t : String, goal : Goal) = if (debug) {
+    val muls = goal.facts.predConj.positiveLitsWithPred(_mul)
+    val diseqs = goal.facts.arithConj.negativeEqs
+    val ineqs = goal.facts.arithConj.inEqs
+
+    println
+    println(t)
+
+    if (!muls.isEmpty) {
+      println("+----------------------MUL------------------------------+")
+      for (ex <- muls) {
+        println("|\t" + ex)
+      }
+    }
+    if (!diseqs.isEmpty) {
+      println("+----------------------DISEQS---------------------------+")
+      for (diseq <- diseqs) {
+        println("|\t" + diseq + " != 0")
+      }
+    }
+    if (!ineqs.isTrue) {
+      println("+----------------------INEQS----------------------------+")
+      for (ie <- ineqs) {
+        println("|\t" + ie + " >= 0")
+      }
+    }
+    println("+-------------------------------------------------------+")
+  }
+
+  private def printActions(t : String, actions : Seq[Plugin.Action]) : Unit =
+    if (debug) {
+      println(t + ":")
+      for (a <- actions)
+        println("\t" + a)
+    }
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   TheoryRegistry register this
 

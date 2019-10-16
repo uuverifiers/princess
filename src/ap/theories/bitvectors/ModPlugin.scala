@@ -790,9 +790,11 @@ object ModPlugin extends Plugin {
   private def printBVgoal(goal : Goal) = {
     val extracts = goal.facts.predConj.positiveLitsWithPred(_bv_extract)
     val diseqs = goal.facts.arithConj.negativeEqs
+    val ineqs = goal.facts.arithConj.inEqs
 
-    println("HandleGoal")
-    // println(goal)
+    println
+    println("Calling theory solver: ModuloArithmetic")
+
     if (!goal.facts.predConj.positiveLits.filterNot(_.pred.name == "bv_extract").isEmpty) {
       println("+--------------------------PREDCONJ----------------------+")
       for (f <- goal.facts.predConj.positiveLits.filterNot(_.pred.name == "bv_extract"))
@@ -805,14 +807,13 @@ object ModPlugin extends Plugin {
         println("|\t" + ex)
       }
     }
-
     if (!diseqs.isEmpty) {
       println("+----------------------DISEQS---------------------------+")
       for (diseq <- diseqs) {
-        println("|\t" + diseq)
+        println("|\t" + diseq + " != 0")
       }
     }
-     {
+     if (!ineqs.isTrue) {
       println("+----------------------INEQS---------------------------+")
       for (ie <- goal.facts.arithConj.inEqs) {
         println("|\t" + ie + " >= 0")
