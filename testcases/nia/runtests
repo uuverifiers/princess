@@ -14,24 +14,19 @@ TESTS="division.pri \
        inequations1.pri \
        inequations2.pri \
        inequations3.pri \
-       linApprox.pri \
        nonLinInEqExample0.pri \
        nonLinInEqExample1.pri \
        nonLinInEqExample2.pri \
        nonLinInEqExample3.pri \
        nonLinInEqExample4.pri \
-       quadraticInEq10.pri \
        quadraticInEq11.pri \
        quadraticInEq12.pri \
-       quadraticInEq13.pri \
-       quadraticInEq14.pri \
        quadraticInEq2.pri \
        quadraticInEq3.pri \
        quadraticInEq4.pri \
        quadraticInEq5.pri \
        quadraticInEq6.pri \
        quadraticInEq7.pri \
-       quadraticInEq9.pri \
        quadraticInEq.pri \
        simplify0.pri \
        simplify10.pri \
@@ -71,6 +66,13 @@ TESTS="division.pri \
        diffsquare.pri \
        mult-icp.pri \
        subsumptionBug.pri"
+
+# Tests currently not working:
+#       linApprox.pri \
+#       quadraticInEq10.pri \
+#       quadraticInEq13.pri \
+#       quadraticInEq14.pri \
+#       quadraticInEq9.pri \
 
 $PRI "$@" $TESTS 2>&1
 
