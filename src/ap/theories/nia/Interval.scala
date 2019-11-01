@@ -25,10 +25,12 @@ package ap.theories.nia
 import ap.terfor.ConstantTerm
 import ap.terfor.preds.Atom
 import ap.terfor.OneTerm
+import ap.terfor.linearcombination.LinearCombination
 import ap.basetypes.IdealInt
 import ap.util.{Debug, Timeout, IdealRange}
 
-import scala.collection.mutable.{LinkedHashMap, LinkedHashSet}
+import scala.collection.mutable.{LinkedHashMap, LinkedHashSet,
+                                 HashMap => MHashMap, Queue, ArrayBuffer}
 import scala.collection.immutable.BitSet
 
 
@@ -44,7 +46,14 @@ case class IntervalVal(val value : IdealInt) extends IntervalInt {
   def isZero = value.isZero
   def isPositive = value > 0
   def isNegative = value < 0
+  def isInfinite = false
   def get = value
+
+  def <(that : IntervalInt) : Boolean = that match {
+    case IntervalNegInf => false
+    case IntervalPosInf => true
+    case IntervalVal(v) => value < v
+  }
 
   def +(that : IntervalInt) = {
     that match {
@@ -144,6 +153,13 @@ case object IntervalNegInf extends IntervalInt {
   def isZero = false
   def isPositive = false
   def isNegative = true
+  def isInfinite = true
+
+  def <(that : IntervalInt) : Boolean = that match {
+    case IntervalNegInf => false
+    case _ => true
+  }
+
   def get = throw new IntervalException(
                    "Calling get on Infinity IntervalInt: " + this)
 
@@ -205,6 +221,10 @@ case object IntervalPosInf extends IntervalInt {
   def isZero = false
   def isPositive = true
   def isNegative = false
+  def isInfinite = true
+
+  def <(that : IntervalInt) : Boolean = false
+
   def get = throw new IntervalException(
                 "Calling get on Infinity IntervalInt: " + this)
 
@@ -265,6 +285,7 @@ abstract class IntervalInt {
   def isZero : Boolean
   def isPositive : Boolean
   def isNegative : Boolean
+  def isInfinite : Boolean
   def get : IdealInt
   def +(that : IntervalInt) : IntervalInt
   def *(that : IntervalInt) : IntervalInt
@@ -276,11 +297,14 @@ abstract class IntervalInt {
   def divtozero(that : IdealInt) : IntervalInt
   def min(that : IntervalInt) : IntervalInt
   def max(that : IntervalInt) : IntervalInt
+  def <(that : IntervalInt) : Boolean
 }
 
 object Interval {
   val minBound = IdealInt("-1000000000000")
   val maxBound = IdealInt("1000000000000")
+  def isInBounds(v : IdealInt) : Boolean =
+    minBound <= v && v <= maxBound
 }
 
 case class Interval(lower : IntervalInt, upper : IntervalInt,
@@ -499,18 +523,25 @@ case class Interval(lower : IntervalInt, upper : IntervalInt,
 }
 
 
-class IntervalSet(predicates : List[(Polynomial, BitSet)],
-                  oriInEqs : List[(Polynomial, BitSet)],
-                  negEqs : List[(Polynomial, BitSet)]) {
+/**
+ * Main class for interval constraint propagation.
+ */
+class IntervalSet(equations   : Seq[(Polynomial, BitSet)],
+                  oriInEqs    : Seq[(Polynomial, BitSet)],
+                  negEqs      : Seq[(Polynomial, BitSet)],
+                  basicBounds : Seq[(LinearCombination, BitSet)]) {
 
-  // Propagate predicates ( ab = c ) as double inequalities ( ab >= c ^ ab <= c)
-  val inEqs =
-    (for ((p, l) <- predicates; q <- List(p, p.neg)) yield (q, l)) ::: oriInEqs
+  // Propagate equations ( ab = c ) as double inequalities ( ab >= c ^ ab <= c)
+  val inEqs : IndexedSeq[(Polynomial, BitSet)] =
+    ((for ((p, l) <- equations; q <- List(p, p.neg)) yield (q, l)) ++
+     oriInEqs).toVector
 
   // Get all symbols and create all-covering intervals
   val intervals =
     new LinkedHashMap[ConstantTerm,
-                      (Interval, (Boolean, Boolean, Boolean), BitSet)]
+                      (Interval,                   // the interval for the term
+                       (Boolean, Boolean, Boolean),// lower/upper/gap updated
+                       (BitSet, BitSet, BitSet))]  // lower/upper/gap assumption
 
   // Find all the symbols
   val symbols = {
@@ -519,37 +550,99 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     for ((p, _) <- inEqs.iterator ++ negEqs.iterator;
          s <- p.variables.iterator)
       symbols += s
+    for ((lc, _) <- basicBounds.iterator;
+         s <- lc.constants.iterator)
+      symbols += s
 
     symbols.toSeq
   }
 
-  // Create intervals for the symbols
-  for (s <- symbols)
-    intervals += (s -> ((Interval(IntervalNegInf, IntervalPosInf),
-                         (false, false, false), BitSet())))
+  // Create intervals for all symbols
+  {
+    val lowerBounds, upperBounds =
+      new MHashMap[ConstantTerm, (IdealInt, BitSet)]
+
+    for ((lc, b) <- basicBounds) {
+      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
+      Debug.assertCtor(Debug.AC_NIA, lc.constants.size == 1)
+      //-END-ASSERTION-/////////////////////////////////////////////////////////
+
+      val const = lc.leadingTerm.asInstanceOf[ConstantTerm]
+
+      if (lc.leadingCoeff.isOne && Interval.isInBounds(-lc.constant))
+        lowerBounds.put(const, (-lc.constant, b))
+      if (lc.leadingCoeff.isMinusOne && Interval.isInBounds(lc.constant))
+        upperBounds.put(const, (lc.constant, b))
+    }
+
+    for (s <- symbols) {
+      val (iv, flags) =
+        (lowerBounds get s, upperBounds get s) match {
+          case (None, None) =>
+            (Interval(IntervalNegInf, IntervalPosInf),
+             (BitSet(), BitSet(), BitSet()))
+          case (Some((lb, b)), None) =>
+            (Interval(IntervalVal(lb), IntervalPosInf),
+             (b, BitSet(), BitSet()))
+          case (None, Some((ub, b))) =>
+            (Interval(IntervalNegInf, IntervalVal(ub)),
+             (BitSet(), b, BitSet()))
+          case (Some((lb, b1)), Some((ub, b2))) =>
+            (Interval(IntervalVal(lb), IntervalVal(ub)),
+             (b1, b2, BitSet()))
+        }
+
+      intervals.put(s, (iv, (false, false, false), flags))
+    }
+  }
+
+  private val workQueue = new Queue[Int]
+
+  // initially we put all inequalities in the work queue
+  workQueue ++= 0 until inEqs.size
+
+  private val queuedInEqs = Array.fill(inEqs.size)(true)
+
+  private val inEqsWithConst = new MHashMap[ConstantTerm, ArrayBuffer[Int]]
+
+  for (((p, _), n) <- inEqs.iterator.zipWithIndex;
+       c <- p.variables.iterator)
+    inEqsWithConst.getOrElseUpdate(c, new ArrayBuffer) += n
+
+  private def queueInEqsFor(c : ConstantTerm) : Unit =
+    (inEqsWithConst get c) match {
+      case None =>
+        // nothing
+      case Some(indexes) =>
+        for (n <- indexes)
+          if (!queuedInEqs(n)) {
+            queuedInEqs(n) = true
+            workQueue += n
+          }
+    }
+
+  //////////////////////////////////////////////////////////////////////////////
 
   def getInconsistency : Option[(ConstantTerm, Interval, BitSet)] = {
-    for ((ct, (i, _, l)) <- intervals)
+    for ((ct, (i, _, (b1, b2, b3))) <- intervals)
       if (i.isEmpty)
-        return Some((ct, i, l))
+        return Some((ct, i, b1 | b2 | b3))
     None
   }
 
-  // Returns the intervals that has been updated
+  // Returns the intervals that have been updated
   def getIntervals : List[(ConstantTerm, Interval,
-                           (Boolean, Boolean, Boolean), BitSet)] = {
-    (for ( (ct, (i, (ul, uu, gu), l)) <- intervals;
-      if (ul == true || uu == true))
-      yield
-        (ct, i, (ul, uu, gu), l)).toList
-  }
+                           (Boolean, Boolean, Boolean),
+                           (BitSet, BitSet, BitSet))] =
+    (for ((c, (i, (ul, uu, gu), l)) <- intervals;
+          if (ul == true || uu == true))
+     yield (c, i, (ul, uu, gu), l)).toList
 
   // Returns ALL intervals
-  def getAllIntervals : List[(ConstantTerm, Interval, BitSet)] = {
-    (for ((ct, (i, _, l)) <- intervals)
-    yield
-      (ct, i, l)).toList
-  }
+  def getAllIntervals : List[(ConstantTerm,
+                              Interval,
+                              (BitSet, BitSet, BitSet))] =
+    (for ((ct, (i, _, l)) <- intervals) yield (ct, i, l)).toList
 
   def getTermInterval(ct : ConstantTerm) : Interval = {
     val (i, _, _) = intervals(ct)
@@ -559,68 +652,82 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
   def getTermIntervalOption(ct : ConstantTerm) : Option[Interval] =
     for ((i, _, _) <- intervals get ct) yield i
 
-  def getLabelledTermInterval(ct : ConstantTerm) : (Interval, BitSet) = {
+  def getLabelledTermInterval(ct : ConstantTerm)
+                             : (Interval, (BitSet, BitSet, BitSet)) = {
     val (i, _, l) = intervals(ct)
     (i, l)
   }
 
   def getGaps : List[(ConstantTerm, Interval, BitSet)] = {
-    (for ((ct, (i, _, l)) <- intervals;
-          if (!i.gap.isEmpty))
+    (for ((ct, (i, _, (_, _, l))) <- intervals; if (!i.gap.isEmpty))
      yield (ct, i, l)).toList
   }
 
   def updateInterval(term : ConstantTerm, interval : Interval,
-                     addLabel : BitSet) : Boolean = {
-    val (oldInterval, (oldul, olduu, oldug), oldLabel) = intervals(term)
+                     lowerLabel : BitSet, upperLabel : BitSet,
+                     gapLabel : BitSet) : Unit = {
+    val (oldInterval, (oldul, olduu, oldug),
+         (oldLowerLabel, oldUpperLabel, oldGapLabel)) = intervals(term)
 
-    val newLower = oldInterval.lower.max(interval.lower)
-    val newUpper = oldInterval.upper.min(interval.upper)
-    val newGap = 
-      if (interval.gap.isEmpty) 
-        oldInterval.gap 
-      else 
-        interval.gap
+    val (newLower, newLowerLabel) =
+      if (oldInterval.lower < interval.lower)
+        (interval.lower, lowerLabel)
+      else
+        (oldInterval.lower, oldLowerLabel)
 
-    val checkedGap =
+    val (newUpper, newUpperLabel) =
+      if (interval.upper < oldInterval.upper)
+        (interval.upper, upperLabel)
+      else
+        (oldInterval.upper, oldUpperLabel)
+
+    // TODO: can we use the gap information to make the intervals smaller?
+    val (newGap, newGapLabel) = {
+      val (newGap, newGapLabel) =
+        if (interval.gap.isEmpty)
+          (oldInterval.gap, oldGapLabel)
+        else 
+          (interval.gap, gapLabel)
+
       newGap match {
-        case None => None
+        case None => (None, BitSet())
         case Some((l, u)) =>
           val i = Interval(newLower, newUpper, None)
           if (i.containsInt(l) && i.containsInt(u))
-            newGap
+            (newGap, newGapLabel)
           else
-            None
+            (None, BitSet())
       }
+    }
 
     if (newLower != oldInterval.lower ||
         newUpper != oldInterval.upper ||
-        checkedGap != oldInterval.gap) {
-      val newInterval = Interval(newLower, newUpper, checkedGap)
+        newGap != oldInterval.gap) {
+      val newInterval = Interval(newLower, newUpper, newGap)
 
       val lowerChange = (newLower != oldInterval.lower || oldul)
       val upperChange = (newUpper != oldInterval.upper || olduu)
-      val gapChange = (checkedGap != oldInterval.gap || oldug)
+      val gapChange   = (newGap != oldInterval.gap || oldug)
 
-      val newLabel = oldLabel | addLabel
+      intervals.put(term,
+                    (newInterval,
+                     (lowerChange, upperChange, gapChange),
+                     (newLowerLabel, newUpperLabel, newGapLabel)))
 
-      intervals +=
-        (term -> (newInterval, (lowerChange, upperChange, gapChange), newLabel))
+      queueInEqsFor(term)
 
       if (newInterval.isEmpty)
         throw InconsistentIntervalsException
-
-      true
     }
-    else
-      false
   }
 
   override def toString = 
     ">>>   IntervalSet   <<<\n" +
-    intervals.mkString("\n") + "\npredicates:\n" + predicates.mkString("\n") +
-    "\ninEqs:\n" + inEqs.mkString("\n") + "\nnegEqs:\n" +
-    negEqs.mkString("\n") + "\n"
+    intervals.mkString("\n") +
+    "\nbasicBounds:\n" + basicBounds.mkString("\n") +
+    "\nequations:\n" + equations.mkString("\n") +
+    "\ninEqs:\n" +     inEqs.mkString("\n") +
+    "\nnegEqs:\n" +    negEqs.mkString("\n") + "\n"
 
 
 
@@ -634,34 +741,36 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     if (m.pairs.length == 1 && m.pairs(0)._2 == 1) {
       // The lower limit of "x" is the lowest value of x
       val (x, _) = m.pairs(0)
-      val (xInterval, _, l) = intervals(x)
+      val (xInterval, _, (l, _, _)) = intervals(x)
       (xInterval.lower, l)
     }
     else if (m.pairs.length == 1 && m.pairs(0)._2 == 2) {
       // The lower limit of "x^2", is either 0 or the smallest of
       // X_low^2 and X_high^2
       val (x, _) = m.pairs(0)
-      val (xInterval, _, l) = intervals(x)
-      if (xInterval.containsInt(0))
-        (IntervalVal(0), l)
-      else
-        ((xInterval.lower*xInterval.lower).min(
-         xInterval.upper*xInterval.upper), l)
+      val (xInterval, _, (l1, l2, _)) = intervals(x)
+      if (xInterval.lower.isPositive) {
+        (xInterval.lower * xInterval.lower, l1)
+      } else if (xInterval.upper.isNegative) {
+        (xInterval.upper * xInterval.upper, l2)
+      } else {
+        (IntervalVal(0), BitSet())
+      }
     } else if (m.pairs.length == 1 && m.pairs(0)._2 == 3) {
       // The lower limit of "x^3", is  the lowest value of x to the
       // power of 3 (since sign is kept)
       val (x, _) = m.pairs(0)
-      val (xInterval, _, l) = intervals(x)
-      (xInterval.lower*xInterval.lower*xInterval.lower, l)
+      val (xInterval, _, (l, _, _)) = intervals(x)
+      (xInterval.lower * xInterval.lower * xInterval.lower, l)
     } else if (m.pairs.length == 2 &&
                m.pairs(0)._2 == 1 && m.pairs(1)._2 == 1) {
       // The lower limit of "x*y" is
       //   min(X_low*Y_low, X_low*Y_high, X_high*Y_low, X_high*Y_high)
       // or 0 if all of the above are >0, and x or y can be 0
       val (x, _) = m.pairs(0)
-      val (xInterval, _, lx) = intervals(x)
+      val (xInterval, _, (lx1, lx2, _)) = intervals(x)
       val (y, _) = m.pairs(1)
-      val (yInterval, _, ly) = intervals(y)
+      val (yInterval, _, (ly1, ly2, _)) = intervals(y)
 
       val xtrms = List(
         xInterval.lower * yInterval.lower, xInterval.lower * yInterval.upper,
@@ -671,9 +780,9 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
 
       if (xtrm.isPositive &&
           (xInterval.containsInt(0) || yInterval.containsInt(0)))
-        (IntervalVal(0), lx | ly)
+        (IntervalVal(0), lx1 | lx2 | ly1 | ly2)
       else
-        (xtrm, lx | ly)
+        (xtrm, lx1 | lx2 | ly1 | ly2)
     }
     else
       // Anything else we just skip for now, -Inf is always a safe bet
@@ -694,23 +803,11 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     }
   }
 
-  def lowerLimit(p : Polynomial) : (IntervalInt, BitSet) = {
-    // If a variable occurs in two terms, do not make a limit
-    // actually, why not?
-    /*
-    for (t1 <- p.terms;
-      t2 <- p.terms
-      if (t1 != t2);
-      if (t1.hasCommonVariables(t2)))
-      return (IntervalNegInf, BitSet())
-     */
-    
-      ((for (t <- p.terms) yield lowerLimit(t)).toList :\
-              (IntervalVal(0) : IntervalInt, BitSet())) {
-         case ((t1, l1), (t2, l2)) => (t1 + t2, l1 | l2)
-      }
-  }
-
+  def lowerLimit(p : Polynomial) : (IntervalInt, BitSet) =
+    ((for (t <- p.terms) yield lowerLimit(t)).toList :\
+      (IntervalVal(0) : IntervalInt, BitSet())) {
+        case ((t1, l1), (t2, l2)) => (t1 + t2, l1 | l2)
+     }
 
   /**
     * Upper Limit functions
@@ -722,28 +819,32 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     if (m.pairs.length == 1 && m.pairs(0)._2 == 1) {
       // The upper limit of "x" is the highest value of x
       val (x, _) = m.pairs(0)
-      val (xInterval, _, l) = intervals(x)
+      val (xInterval, _, (_, l, _)) = intervals(x)
       (xInterval.upper, l)
     } else if (m.pairs.length == 1 && m.pairs(0)._2 == 2) {
     // The upper limit of "x^2" is the highest of X_low^2 and X_high^2
       val (x, _) = m.pairs(0)
-      val (xInterval, _, l) = intervals(x)
-      ((xInterval.lower*xInterval.lower).max(xInterval.upper*xInterval.upper),
-       l)
+      val (xInterval, _, (l1, l2, _)) = intervals(x)
+      if (xInterval.lower.isInfinite || xInterval.upper.isInfinite)
+        (IntervalPosInf, BitSet())
+      else
+        ((xInterval.lower * xInterval.lower) max
+         (xInterval.upper * xInterval.upper),
+         l1 | l2)
     } else if (m.pairs.length == 1 && m.pairs(0)._2 == 3) {
       // The upper limit of "x^3", is X_high^3
       val (x, _) = m.pairs(0)
-      val (xInterval, _, l) = intervals(x)
-      (xInterval.upper*xInterval.upper*xInterval.upper, l)
+      val (xInterval, _, (_, l, _)) = intervals(x)
+      (xInterval.upper * xInterval.upper * xInterval.upper, l)
     } else if (m.pairs.length == 2 &&
                m.pairs(0)._2 == 1 && m.pairs(1)._2 == 1) {
       // The upper limit of "x*y" is
       //   max(X_low*Y_low, X_low*Y_high, X_high*Y_low, X_high*Y_high)
       // or 0 if all of the above are <0, and x or y can be 0
       val (x, _) = m.pairs(0)
-      val (xInterval, _, lx) = intervals(x)
+      val (xInterval, _, (lx1, lx2, _)) = intervals(x)
       val (y, _) = m.pairs(1)
-      val (yInterval, _, ly) = intervals(y)
+      val (yInterval, _, (ly1, ly2, _)) = intervals(y)
 
       val xtrms = List(
         xInterval.lower * yInterval.lower, xInterval.lower * yInterval.upper,
@@ -753,9 +854,9 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
 
       if (xtrm.isNegative &&
           (xInterval.containsInt(0) || yInterval.containsInt(0)))
-        (IntervalVal(0), lx | ly)
+        (IntervalVal(0), lx1 | lx2 | ly1 | ly2)
       else
-        (xtrm, lx | ly)
+        (xtrm, lx1 | lx2 | ly1 | ly2)
     }
     else
       // Anything else we just skip for now, +Inf is always a safe bet
@@ -776,34 +877,22 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
     }
   }
 
-  def upperLimit(p : Polynomial) : (IntervalInt, BitSet) = {
-    // If a variable occurs in two terms, do not make a limit
-    // actually, why not?
-    /*
-    for (
-      t1 <- p.terms;
-      t2 <- p.terms
-      if (t1 != t2);
-      if (t1.hasCommonVariables(t2)))
-      return IntervalPosInf
-    */
-
+  def upperLimit(p : Polynomial) : (IntervalInt, BitSet) =
     ((for (t <- p.terms.iterator) yield upperLimit(t)) :\
            (IntervalVal(0) : IntervalInt, BitSet())) {
        case ((t1, l1), (t2, l2)) => (t1 + t2, l1 | l2)
      }
-  }
 
+  private val propDefaultResult =
+    (Interval(IntervalNegInf, IntervalPosInf), (BitSet(), BitSet(), BitSet()))
 
   /**
-    * Propagation functions
-    * 
-    */
-
+   * Propagation functions
+   */
   def propagateGreaterThan(term : CoeffMonomial, ct : ConstantTerm,
                            exp : Int, divMon : Monomial,
                            rhs : Polynomial)
-                          : (Interval, BitSet) = {
+                          : (Interval, (BitSet, BitSet, BitSet)) = {
     // If the constant before t is positive, propagate t >= -ts
     val (ll, llLabel) =
       if (divMon.isEmpty) {
@@ -819,15 +908,14 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
         (IntervalNegInf, BitSet())
 
     if (exp == 1) {
-      (if (ll.isPositive)
-         Interval(ll.divceil(term.c), IntervalPosInf)
-       else
-         Interval(ll.divfloor(term.c), IntervalPosInf),
-       llLabel)
+      val newLower =
+        if (ll.isPositive) (ll divceil term.c) else (ll divfloor term.c)
+      (Interval(newLower, IntervalPosInf), (llLabel, BitSet(), BitSet()))
     } else if (exp == 2) {
         ll match {
           case IntervalVal(v) => {
             if (v > 0) {
+              // TODO: fix this
               val sqrt = Math.sqrt(v.doubleValue) / term.c.doubleValue
               val (gapNeg, gapPos) =
                 // If this value is exact
@@ -837,21 +925,21 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
                   (Math.ceil(-sqrt).toInt, Math.floor(sqrt).toInt)
 
               (Interval(IntervalNegInf, IntervalPosInf, Some(gapNeg, gapPos)),
-               llLabel)
+               (BitSet(), BitSet(), llLabel))
             }
             else
-              (Interval(IntervalNegInf, IntervalPosInf), BitSet())
+              propDefaultResult
           }
-          case _ => (Interval(IntervalNegInf, IntervalPosInf), BitSet())
+          case _ => propDefaultResult
         }
       }
       else
-        (Interval(IntervalNegInf, IntervalPosInf), BitSet())
+        propDefaultResult
   }
 
   def propagateLessThan(term : CoeffMonomial, ct : ConstantTerm, exp : Int,
                         divMon : Monomial, rhs : Polynomial)
-                       : (Interval, BitSet) = {
+                       : (Interval, (BitSet, BitSet, BitSet)) = {
     val (ul, ulLabel) =
       if (divMon.isEmpty) {
         upperLimit(rhs)
@@ -867,39 +955,38 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
 
       if (exp == 1) {
         val newUpper = 
-          if (ul.isPositive)
-            ul.divfloor(term.c)
-          else
-            ul.divceil(term.c)
-
-        (Interval(IntervalNegInf, newUpper), ulLabel)
+          if (ul.isPositive) (ul divfloor term.c) else (ul divceil term.c)
+        (Interval(IntervalNegInf, newUpper), (BitSet(), ulLabel, BitSet()))
       } else if (exp == 2) {
-        val limit = ul.divfloor(term.c.abs)
+        val limit = ul divfloor term.c.abs
 
-        // If we have a^2 < 0, complex solution
+        // If we have a^2 < 0 -> contradiction
         if (limit.isNegative) {
-          (Interval(IntervalVal(1), IntervalVal(-1)), ulLabel)
+          (Interval(IntervalVal(1), IntervalVal(-1)),
+           (ulLabel, ulLabel, BitSet()))
         } else {
           limit match {
             case IntervalVal(l) => {
+              // TODO: fix this
               val bound = Math.floor(Math.sqrt(l.doubleValue)).toInt
-              (Interval(IntervalVal(-bound), IntervalVal(bound)), ulLabel)
+              (Interval(IntervalVal(-bound), IntervalVal(bound)),
+               (ulLabel, ulLabel, BitSet()))
             }
-            case _ => (Interval(IntervalNegInf, IntervalPosInf), BitSet())
+            case _ => propDefaultResult
           }
         }
       }
       else
-        (Interval(IntervalNegInf, IntervalPosInf), BitSet())
+        propDefaultResult
   }
 
-  def propagateIneq(p : Polynomial, pLabel : BitSet) : Boolean = {
+  def propagateIneq(p : Polynomial, pLabel : BitSet) : Unit = {
     implicit val _ = p.ordering
-    var changed = false
 
     // Go through all terms in this inequality (t1 + t2 + ... >= 0)
     for (t <- p.terms)
       if (!t.isConstant &&
+          // TODO: is this restriction really needed?
           (p.terms forall { tt => t == tt || !(t hasCommonVariables tt) })) {
 
         // Normalize expression (i.e. transform to t >= -(t# + t# + ...))
@@ -908,36 +995,32 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
   
         for (p@(ct, exp) <- t.m.pairs) {
           val divMon = new Monomial(t.m.pairs diff List(p))
-          val (newInterval, propLabel) =
+          val (newInterval, (l1, l2, l3)) =
             if (t.c > 0)
               propagateGreaterThan(lhs, ct, exp, divMon, rhs)
             else
               propagateLessThan(lhs, ct, exp, divMon, rhs)
   
-          if (updateInterval(ct, newInterval.widen, pLabel | propLabel)) {
-            changed = true
-          }
+          updateInterval(ct, newInterval.widen,
+                         l1 | pLabel, l2 | pLabel, l3 | pLabel)
         }
       }
-
-    changed
   }
 
   def intWithLabel(lower : (IntervalInt, BitSet),
                    upper : (IntervalInt, BitSet))
                   : (Interval, BitSet) =
-    (Interval(lower._1, upper._1), lower._2 | lower._2)
+    (Interval(lower._1, upper._1), lower._2 | upper._2)
 
   /**
     * Propagates equations s.t. f*g = g
     * -- (f != 1) => (g = 0)
     * -- (g != 0) => (f = 1)
     * 
-    * This works on predicates only 
+    * This works on equations only 
     */
-  def propagateSpecials : Boolean = {
-    var changed = false
-    for ((p, label) <- predicates;
+  def propagateSpecials : Unit = {
+    for ((p, label) <- equations;
       if (p.size == 2 && 
         (p.terms(0).c.isMinusOne || p.terms(0).c.isOne) &&
         (p.terms(1).c.isMinusOne || p.terms(1).c.isOne))) {
@@ -966,20 +1049,21 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
           // -- (f != 1) => g = 0
           val (fi, flabel) = intWithLabel(lowerLimit(f.neg), upperLimit(f.neg))
           if (!fi.containsInt(1) && !fi.isEmpty &&
-              g.variables.size == 1 && g.order == 1)
-            if (updateInterval(g.variables.toList.head,
+              g.variables.size == 1 && g.order == 1) {
+            val l = label | flabel
+            updateInterval(g.variables.toList.head,
                            (Interval(IntervalVal(0), IntervalVal(0))).widen,
-                           label | flabel))
-              changed = true
+                           l, l, BitSet())
+          }
 
           // -- (g != 0) => f = 1
           val (gi, glabel) = intWithLabel(lowerLimit(g), upperLimit(g))
           if (!gi.containsInt(0) && !gi.isEmpty &&
               f.variables.size == 1 && f.order == 1) {
-            if (updateInterval(f.variables.toList.head,
+            val l = label | glabel
+            updateInterval(f.variables.toList.head,
                            (Interval(IntervalVal(1), IntervalVal(1))).widen,
-                           label | glabel))
-              changed = true
+                           l, l, BitSet())
           }
         } else {
           // -- (f*g = -g)
@@ -987,48 +1071,46 @@ class IntervalSet(predicates : List[(Polynomial, BitSet)],
           // -- (f != -1) => g = 0
           val (fi, flabel) = intWithLabel(lowerLimit(f), upperLimit(f))
           if (!fi.containsInt(-1) && !fi.isEmpty &&
-              g.variables.size == 1 && g.order == 1)
-            if (updateInterval(g.variables.toList.head,
+              g.variables.size == 1 && g.order == 1) {
+            val l = label | flabel
+            updateInterval(g.variables.toList.head,
                            (Interval(IntervalVal(0), IntervalVal(0))).widen,
-                           label | flabel))
-              changed = true
+                           l, l, BitSet())
+          }
 
           // -- (g != 0) => f = -1
           val (gi, glabel) = intWithLabel(lowerLimit(g), upperLimit(g))
           if (!gi.containsInt(0) && !gi.isEmpty &&
               f.variables.size == 1 && f.order == 1) {
-            if (updateInterval(f.variables.toList.head,
+            val l = label | glabel
+            updateInterval(f.variables.toList.head,
                            (Interval(IntervalVal(-1), IntervalVal(-1))).widen,
-                           label | glabel))
-              changed = true
+                           l, l, BitSet())
           }
         }
       }
     }
-
-    changed
   }
 
-  def propagate : Unit = {
-    var iterations = 0
+  private val propagationLimit = inEqs.size * 5
 
-    try {
-      propagateSpecials
+  try {
+    propagateSpecials
 
-      var changed = true
-      while (changed && iterations < 15) {
-        Timeout.check
-        changed = false
-        for ((ineq, label) <- inEqs)
-          if (propagateIneq(ineq, label))
-            changed = true
+    var i = 0
 
-        iterations += 1
-      }
+    while (!workQueue.isEmpty && i < propagationLimit) {
+      Timeout.check
+      val nextIndex = workQueue.dequeue
+      queuedInEqs(nextIndex) = false
+      val (ineq, label) = inEqs(nextIndex)
 
-      propagateSpecials
-    } catch {
-      case InconsistentIntervalsException => // nothing, return
+      propagateIneq(ineq, label)
+      i = i + 1
     }
+
+    propagateSpecials
+  } catch {
+    case InconsistentIntervalsException => // nothing, return
   }
 }

@@ -275,6 +275,14 @@ class TermOrder private (
   }
 
   /**
+   * Ordering on terms that lists large terms last
+   */
+  lazy val constOrdering = new Ordering[ConstantTerm] {
+    def compare(a : ConstantTerm, b : ConstantTerm) =
+      TermOrder.this.compare(a, b)
+  }
+
+  /**
    * Ordering on terms that lists large terms first
    */
   lazy val reverseTermOrdering = new Ordering[Term] {

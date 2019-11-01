@@ -22,17 +22,17 @@
 
 package ap.theories.nia
 
-import scala.annotation.tailrec
-import scala.collection.mutable.Map
-import ap.terfor.ConstantTerm
-import ap.terfor.TermOrder
 import ap.basetypes.IdealInt
+import ap.terfor.{ConstantTerm, TermOrder, OneTerm}
+import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.preds.Atom
 import scala.math.Ordering.Implicits.infixOrderingOps
 import ap.util.{Debug, Timeout, Seqs}
 
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.{HashMap => MHashMap, PriorityQueue,
-                                 ArrayBuffer, LinkedHashMap}
+                                 ArrayBuffer, LinkedHashMap, Map}
+import scala.annotation.tailrec
 
 
 /**
@@ -69,7 +69,6 @@ class ListOrdering(list : Seq[ConstantTerm]) extends Ordering[ConstantTerm] {
         StringOrdering.compare(c1, c2)
     }
 }
-
 
 
 /**
@@ -185,6 +184,9 @@ class GrevlexOrdering(termOrdering : Ordering[ConstantTerm])
       compare_keys(m1.pairs, m2.pairs)
     }
   }
+
+  override def toString : String =
+    "GrevlexOrdering(" + termOrdering + ")"
 }
 
 
@@ -243,6 +245,10 @@ class PartitionOrdering(val list : List[ConstantTerm],
 
 object Monomial {
   type PairList = List[(ConstantTerm, Int)]
+
+  def fromConstantTerm(c : ConstantTerm)
+                      (implicit ordering : MonomialOrdering) =
+    Monomial(List((c, 1)))
 }
 
 /**
@@ -470,6 +476,68 @@ case class CoeffMonomial(coeff : IdealInt, monomial : Monomial)
 
 object Polynomial {
   type CoeffMonomialList = List[CoeffMonomial]
+
+  /**
+   * Converts an LinearCombination (Princess) to a Polynomial (Groebner).
+   * This method assumes that the TermOrder and the used MonomialOrdering
+   * are compatible, so that the elements of the linear combination are
+   * sorted correctly.
+   */
+  def fromLinearCombination
+          (lc : LinearCombination)
+          (implicit ordering : MonomialOrdering) : Polynomial =
+    Polynomial((for ((coeff, t) <- lc.iterator)
+                yield CoeffMonomial(
+                        coeff,
+                        t match {
+                          case t : ConstantTerm => Monomial fromConstantTerm t
+                          case OneTerm          => Monomial(List())
+                        })).toList)
+
+  /**
+   * Converts an atom (Princess) to a Polynomial (Groebner).
+   * This method assumes that the TermOrder and the used MonomialOrdering
+   * are compatible, so that the elements of the arguments are
+   * sorted correctly.
+   */
+  def fromMulAtom(a : Atom)
+                 (implicit ordering : MonomialOrdering) : Polynomial = {
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertPre(Debug.AC_NIA, a.pred == GroebnerMultiplication._mul)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+    (fromLinearCombination(a(0)) * fromLinearCombination(a(1))) -
+      fromLinearCombination(a(2))
+  }
+
+  /**
+   * Converts an LinearCombination (Princess) to a Polynomial (Groebner).
+   */
+  def fromLinearCombinationGen
+                       (lc : LinearCombination)
+                       (implicit ordering : MonomialOrdering) : Polynomial = {
+    var retPoly = Polynomial(List())
+
+    for ((coeff, term) <- lc) {
+      retPoly +=
+        (term match {
+          case (OneTerm) =>
+            new CoeffMonomial(coeff, Monomial(List()))
+          case (x : ConstantTerm) =>
+            new CoeffMonomial(coeff, Monomial(List((x, 1))))
+        })
+    }
+    retPoly
+  }
+
+  /**
+   * Converts an atom (Princess) to a Polynomial (Groebner).
+   */
+  def fromMulAtomGen
+                       (a : Atom)
+                       (implicit ordering : MonomialOrdering) : Polynomial =
+    (fromLinearCombinationGen(a(0)) * fromLinearCombinationGen(a(1))) -
+      fromLinearCombinationGen(a(2))
+
 }
 
 /**
@@ -481,6 +549,12 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
                      (implicit val ordering : MonomialOrdering =
                         new DegenOrdering) {
   import Polynomial._
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(Debug.AC_NIA,
+                   (terms sliding 2) forall { case Seq(a, b) => a > b
+                                              case Seq(_) => true })
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
   def isZero = terms.isEmpty
   lazy val isLinear = terms.forall(t => t.isLinear)

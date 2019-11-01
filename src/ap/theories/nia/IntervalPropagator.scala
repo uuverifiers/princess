@@ -28,6 +28,7 @@ import ap.terfor.{ConstantTerm, Formula, Term, OneTerm, VariableTerm}
 import ap.terfor.inequalities.InEqConj
 import ap.terfor.equations.{EquationConj, NegEquationConj}
 import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.preds.Atom
 import ap.util.Seqs
 
 import scala.collection.immutable.BitSet
@@ -37,15 +38,12 @@ object IntervalPropagator {
   def apply(goal : Goal,
             ordering : MonomialOrdering,
             simplifiedGB : Basis) : IntervalPropagator =
-    new IntervalPropagator(goal, ordering, simplifiedGB)
+    new IntervalPropagator(goal, ordering, simplifiedGB, false)
 
-  def apply(goal : Goal) : IntervalPropagator =
-    new IntervalPropagator(
-                      goal,
-                      GroebnerMultiplication.genMonomialOrder(
-                        goal.facts.predConj.positiveLitsWithPred(
-                          GroebnerMultiplication._mul)),
-                      null)
+  def apply(goal : Goal) : IntervalPropagator = {
+    val order = new GrevlexOrdering(goal.order.constOrdering)
+    new IntervalPropagator(goal, order, null, true)
+  }
 }
 
 /**
@@ -54,66 +52,89 @@ object IntervalPropagator {
  */
 class IntervalPropagator private (goal : Goal,
                                   ordering : MonomialOrdering,
-                                  simplifiedGB : Basis         // might be null
-                                  ) {
+                                  simplifiedGB : Basis,         // might be null
+                                  compatibleOrder : Boolean) {
 
-  import GroebnerMultiplication.{_mul, atomToPolynomial, lcToPolynomial}
+  import GroebnerMultiplication._mul
   import Seqs.{optionMax, optionMin}
 
   private implicit val _ = ordering
-  private val order = goal.order
+  private val order      = goal.order
+
+  private def fromLinearCombination(lc : LinearCombination) =
+    if (compatibleOrder)
+      Polynomial fromLinearCombination lc
+    else
+      Polynomial fromLinearCombinationGen lc
+
+  private def fromMulAtom(a : Atom) =
+    if (compatibleOrder)
+      Polynomial fromMulAtom a
+    else
+      Polynomial fromMulAtomGen a
 
   private val reducer = goal.reduceWithFacts
 
   private val mulPredicates =
     goal.facts.predConj.positiveLitsWithPred(_mul)
 
-  private val inequalities = goal.facts.arithConj.inEqs
-  private val disequalities = goal.facts.arithConj.negativeEqs
-  private val ineqOffset = mulPredicates.size
+  private val inequalities   = goal.facts.arithConj.inEqs
+  private val disequalities  = goal.facts.arithConj.negativeEqs
+  private val ineqOffset     = mulPredicates.size
   private val ineqInfsOffset = ineqOffset + inequalities.size
-  private val negeqOffset = ineqInfsOffset + inequalities.geqZeroInfs.size
+  private val negeqOffset    = ineqInfsOffset + inequalities.geqZeroInfs.size
 
-  private def label2Assumptions(l : BitSet) : Seq[Formula] =
-        for (ind <- l.toSeq) yield {
-          if (ind < ineqOffset)
-            mulPredicates(ind)
-          else if (ind < ineqInfsOffset)
-            InEqConj(inequalities(ind - ineqOffset), order)
-          else if (ind < negeqOffset)
-            InEqConj(inequalities.geqZeroInfs(ind - ineqInfsOffset), order)
-          else
-            NegEquationConj(disequalities(ind - negeqOffset), order)
-        }
+  private def label2Assum(l : BitSet) : Seq[Formula] =
+    for (ind <- l.toSeq) yield {
+      if (ind < ineqOffset)
+        mulPredicates(ind)
+      else if (ind < ineqInfsOffset)
+        InEqConj(inequalities(ind - ineqOffset), order)
+      else if (ind < negeqOffset)
+        InEqConj(inequalities.geqZeroInfs(ind - ineqInfsOffset), order)
+      else
+        NegEquationConj(disequalities(ind - negeqOffset), order)
+    }
 
   private val preds =
-      ((for ((a, n) <- mulPredicates.iterator.zipWithIndex;
-             poly = atomToPolynomial(a);
-             if !poly.isZero)
-        yield (poly, BitSet(n))) ++
-       (if (simplifiedGB == null)
-          Iterator.empty
-        else
-          (for (p <- simplifiedGB.polyIterator)
-           yield (p, simplifiedGB labelFor p)))).toList
+    ((for ((a, n) <- mulPredicates.iterator.zipWithIndex;
+           poly = fromMulAtom(a);
+           if !poly.isZero)
+      yield (poly, BitSet(n))) ++
+     (if (simplifiedGB == null)
+        Iterator.empty
+      else
+        (for (p <- simplifiedGB.polyIterator)
+         yield (p, simplifiedGB labelFor p)))).toArray
 
   private val ineqs =
-    ((for ((lc, n) <- inequalities.iterator.zipWithIndex)
-      yield (lcToPolynomial(lc), BitSet(n + ineqOffset))) ++
-     (for ((lc, n) <- inequalities.geqZeroInfs.iterator.zipWithIndex;
-           if lc.constants.size == 1)
-      yield (lcToPolynomial(lc), BitSet(n + ineqInfsOffset))) ++
+    ((for ((lc, n) <- inequalities.iterator.zipWithIndex;
+           if lc.constants.size > 1)
+      yield (fromLinearCombination(lc), BitSet(n + ineqOffset))) ++
      // For square predicates t*t = s, add an inequality s >= 0
      (for ((a, n) <- mulPredicates.iterator.zipWithIndex;
            if a(0) == a(1))
-      yield (lcToPolynomial(a(2)), BitSet(n)))).toList
+      yield (fromLinearCombination(a(2)), BitSet(n)))).toArray
 
   private val negeqs =
     (for ((lc, n) <- goal.facts.arithConj.negativeEqs.iterator.zipWithIndex)
-     yield (lcToPolynomial(lc), BitSet(n + negeqOffset))).toList
+     yield (fromLinearCombination(lc), BitSet(n + negeqOffset))).toArray
 
-  val intervalSet = new IntervalSet(preds, ineqs, negeqs)
-  intervalSet.propagate
+  val intervalSet : Option[IntervalSet] =
+    if (preds.isEmpty && ineqs.isEmpty && negeqs.isEmpty) {
+      // if there are only basic bounds, don't even construct the IntervalSet
+      None
+    } else {
+      val basicBounds =
+        ((for ((lc, n) <- inequalities.iterator.zipWithIndex;
+               if lc.constants.size == 1)
+          yield (lc, BitSet(n + ineqOffset))) ++
+         (for ((lc, n) <- inequalities.geqZeroInfs.iterator.zipWithIndex;
+               if lc.constants.size == 1)
+          yield (lc, BitSet(n + ineqInfsOffset)))).toArray
+
+      Some(new IntervalSet(preds, ineqs, negeqs, basicBounds))
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -140,10 +161,11 @@ class IntervalPropagator private (goal : Goal,
     linCompBound(lc, true)
 
   def lowerBound(c : ConstantTerm) : Option[IdealInt] = {
-    val b1 = for (iv <- intervalSet getTermIntervalOption c;
+    val b1 = for (set <- intervalSet;
+                  iv <- set getTermIntervalOption c;
                   if iv.lower.isInstanceOf[IntervalVal])
              yield iv.lower.get
-    val b2 = reducer.lowerBound(c)
+    val b2 = reducer lowerBound c
     (b1, b2) match {
       case (Some(b1), Some(b2)) =>
         Some(b1 max b2)
@@ -157,10 +179,11 @@ class IntervalPropagator private (goal : Goal,
   }
 
   def upperBound(c : ConstantTerm) : Option[IdealInt] = {
-    val b1 = for (iv <- intervalSet getTermIntervalOption c;
+    val b1 = for (set <- intervalSet;
+                  iv <- set getTermIntervalOption c;
                   if iv.upper.isInstanceOf[IntervalVal])
              yield iv.upper.get
-    val b2 = reducer.upperBound(c)
+    val b2 = reducer upperBound c
     (b1, b2) match {
       case (Some(b1), Some(b2)) =>
         Some(b1 min b2)
@@ -200,36 +223,47 @@ class IntervalPropagator private (goal : Goal,
   }
 
   def lowerBoundWithAssumptions(c : ConstantTerm)
-                              : Option[(IdealInt, Seq[Formula])] =
-    (lowerBound(c), reducer.lowerBound(c)) match {
+                              : Option[(IdealInt, Seq[Formula])] = {
+    val b1 = for (set <- intervalSet;
+                  iv <- set getTermIntervalOption c;
+                  if iv.lower.isInstanceOf[IntervalVal])
+             yield iv.lower.get
+    val b2 = reducer lowerBound c
+    (b1, b2) match {
       case (Some(b), None) =>
-        Some((b, label2Assumptions((intervalSet getLabelledTermInterval c)._2)))
-      case (Some(b), Some(b2)) if b < b2 =>
-        Some((b, label2Assumptions((intervalSet getLabelledTermInterval c)._2)))
+        Some((b, label2Assum((intervalSet.get getLabelledTermInterval c)._2._1)))
+      case (Some(b), Some(b2)) if b > b2 =>
+        Some((b, label2Assum((intervalSet.get getLabelledTermInterval c)._2._1)))
       case (_, Some(_)) => {
-        val Some((b, assumptions)) =
-          reducer.lowerBoundWithAssumptions(c)
+        val Some((b, assumptions)) = reducer lowerBoundWithAssumptions c
         Some((b, for (lc <- assumptions) yield InEqConj(lc, order)))
       }
       case (None, None) =>
         None
     }
+  }
 
   def upperBoundWithAssumptions(c : ConstantTerm)
-                              : Option[(IdealInt, Seq[Formula])] =
-    (upperBound(c), reducer.upperBound(c)) match {
+                              : Option[(IdealInt, Seq[Formula])] = {
+    val b1 = for (set <- intervalSet;
+                  iv <- set getTermIntervalOption c;
+                  if iv.upper.isInstanceOf[IntervalVal])
+             yield iv.upper.get
+    val b2 = reducer upperBound c
+
+    (b1, b2) match {
       case (Some(b), None) =>
-        Some((b, label2Assumptions((intervalSet getLabelledTermInterval c)._2)))
-      case (Some(b), Some(b2)) if b > b2 =>
-        Some((b, label2Assumptions((intervalSet getLabelledTermInterval c)._2)))
+        Some((b, label2Assum((intervalSet.get getLabelledTermInterval c)._2._2)))
+      case (Some(b), Some(b2)) if b < b2 =>
+        Some((b, label2Assum((intervalSet.get getLabelledTermInterval c)._2._2)))
       case (_, Some(_)) => {
-        val Some((b, assumptions)) =
-          reducer.upperBoundWithAssumptions(c)
+        val Some((b, assumptions)) = reducer upperBoundWithAssumptions c
         Some((b, for (lc <- assumptions) yield InEqConj(lc, order)))
       }
       case (None, None) =>
         None
     }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
