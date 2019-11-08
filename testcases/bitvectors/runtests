@@ -77,3 +77,8 @@ $PRI "$@" $TESTS
 
 $PRI "$@" +printProof bv-ops3c.pri
 
+TESTS="bvsdiv6.smt2 \
+       bvsrem2.smt2"
+
+$PRI "$@" -constructProofs=always $TESTS
+

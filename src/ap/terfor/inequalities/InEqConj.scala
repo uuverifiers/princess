@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -376,12 +376,13 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
    * Currently, we do not use the subset information in the best possible way
    */
   def updateGeqZeroSubset(newGeqZero : Iterable[LinearCombination],
-                          logger : ComputationLogger)(implicit newOrder : TermOrder)
-                   : InEqConj = {
+                          logger : ComputationLogger)
+                         (implicit newOrder : TermOrder)
+                        : InEqConj = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InEqConj.AC,
                     newGeqZero forall ((lc:LinearCombination) =>
-                                         findLowerBound(lc) == Some(IdealInt.ZERO)))
+                                   findLowerBound(lc) == Some(IdealInt.ZERO)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     if (completeInfs)
@@ -404,17 +405,23 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
    * Update the inequalities of this conjunction; if nothing has changed,
    * inferences are not recomputed
    */
-  def updateGeqZero(newGeqZero : Iterator[LinearCombination])(implicit newOrder : TermOrder)
+  def updateGeqZero(newGeqZero : Iterator[LinearCombination])
+                   (implicit newOrder : TermOrder)
                    : InEqConj =
     updateGeqZero(Seqs toArray newGeqZero)
 
   //////////////////////////////////////////////////////////////////////////////
 
   def --(that : InEqConj) : InEqConj =
+    remove(that, ComputationLogger.NonLogger)
+
+  def remove(that : InEqConj,
+             logger : ComputationLogger) : InEqConj =
     if (that.isTrue)
       this
     else
-      updateGeqZeroSubset(Seqs.diff(this, that)(order.lcOrdering)._2)(order)
+      updateGeqZeroSubset(Seqs.diff(this, that)(order.lcOrdering)._2,
+                          logger)(order)
 
   //////////////////////////////////////////////////////////////////////////////
 

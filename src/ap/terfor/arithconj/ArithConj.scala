@@ -212,10 +212,14 @@ class ArithConj private (val positiveEqs : EquationConj,
         
   //////////////////////////////////////////////////////////////////////////////
 
-  def --(that : ArithConj) : ArithConj = {
+  def --(that : ArithConj) : ArithConj =
+    remove(that, ComputationLogger.NonLogger)
+
+  def remove(that : ArithConj,
+             logger : ComputationLogger) : ArithConj = {
     val newPE = this.positiveEqs -- that.positiveEqs
     val newNE = this.negativeEqs -- that.negativeEqs
-    val newIE = this.inEqs -- that.inEqs
+    val newIE = this.inEqs.remove(that.inEqs, logger)
 
     if ((newPE eq this.positiveEqs) &&
         (newNE eq this.negativeEqs) &&

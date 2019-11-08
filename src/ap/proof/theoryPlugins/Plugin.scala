@@ -282,8 +282,10 @@ object PluginTask {
       (assumptions exists (!_.constants.isEmpty))
 
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    // There should not be any trivial assumptions
-    Debug.assertInt(Plugin.AC, assumptions forall { a => !a.isTrue })
+    // There should not be any trivial assumptions, and no duplicate assumptions
+    Debug.assertInt(Plugin.AC,
+                    (assumptions forall { a => !a.isTrue }) &&
+                    assumptions.size == assumptions.toSet.size)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     // TODO: avoid conversion to conjunction
@@ -762,11 +764,22 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         yield t
       }
 
-    val newFacts =
-      if (factsToRemove.isTrue)
-        goal.facts
-      else
-        goal.facts -- factsToRemove
+    // we have to be careful when removing facts; sometimes, removing facts
+    // will lead to new facts being derived implicitly, because the number
+    // of derived inequalities is bounded
+
+    val (newFacts, newInferences) =
+      if (factsToRemove.isTrue) {
+        (goal.facts, branchInferences)
+      } else {
+        val logger =
+          if (branchInferences == null)
+            NonLoggingBranchInferenceCollector
+          else
+            branchInferences.getCollector
+        val newFacts = goal.facts.remove(factsToRemove, logger)
+        (newFacts, logger.getCollection)
+      }
 
     val allFormulaTasks =
       if (formulaTasks.isEmpty &&
@@ -784,14 +797,14 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
       }
 
     val newTree =
-      if (branchInferences == null)
+      if (newInferences == null)
         ptf.updateGoal(newFacts,
                        tasksToSchedule ++ allFormulaTasks,
                        goal)
       else
         ptf.updateGoal(newFacts,
                        tasksToSchedule ++ allFormulaTasks,
-                       branchInferences,
+                       newInferences,
                        goal)
 
     (actions.iterator :\ newTree) {

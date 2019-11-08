@@ -125,7 +125,7 @@ object ModCastSplitter extends TheoryProcedure {
               simpleElims =
                 Plugin.RemoveFacts(a) ::
                 Plugin.AddAxiom(
-                       assumptions,
+                       assumptions.distinct,
                        a(2) === a(3) + (lowerFactor * sort.modulus),
                        ModuloArithmetic) :: simpleElims
                        
@@ -185,7 +185,7 @@ object ModCastSplitter extends TheoryProcedure {
            yield (f, List())).toBuffer
 
         List(Plugin.RemoveFacts(a),
-             Plugin.AxiomSplit(assumptions,
+             Plugin.AxiomSplit(assumptions.distinct,
                                cases.toList,
                                ModuloArithmetic))
         

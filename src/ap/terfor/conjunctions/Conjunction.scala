@@ -865,12 +865,16 @@ class Conjunction private (val quans : Seq[Quantifier],
    
   //////////////////////////////////////////////////////////////////////////////
 
-  def --(that : Conjunction) : Conjunction = {
+  def --(that : Conjunction) : Conjunction =
+    remove(that, ComputationLogger.NonLogger)
+
+  def remove(that : Conjunction,
+             logger : ComputationLogger) : Conjunction = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(Conjunction.AC, that.quans.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val newAC = this.arithConj -- that.arithConj
+    val newAC = this.arithConj.remove(that.arithConj, logger)
     val newPC = this.predConj -- that.predConj
     val newNegConjs = this.negatedConjs -- that.negatedConjs
 

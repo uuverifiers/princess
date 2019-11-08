@@ -477,7 +477,9 @@ println(unprocessed)
       // If Gröbner basis calculation does nothing
       // Lets try to do some interval propagation
 
-      val propagator = IntervalPropagator(goal, monOrder, simplifiedGB)
+      val propagator =
+        IntervalPropagator(goal, monOrder, simplifiedGB,
+                           alwaysCreateIntervalSet = true)
       val Some(intervalSet) = propagator.intervalSet
 
       val intActions =
@@ -750,7 +752,7 @@ println(unprocessed)
             assumptions += InEqConj(ineq1, order)
             assumptions += InEqConj(ineq2, order)
 
-            res += Plugin.AddAxiom(assumptions.toList, newInEq,
+            res += Plugin.AddAxiom(assumptions.toList.distinct, newInEq,
                                    GroebnerMultiplication.this)
           }
         }

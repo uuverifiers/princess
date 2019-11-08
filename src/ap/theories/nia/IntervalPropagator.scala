@@ -37,12 +37,14 @@ import scala.collection.mutable.ArrayBuffer
 object IntervalPropagator {
   def apply(goal : Goal,
             ordering : MonomialOrdering,
-            simplifiedGB : Basis) : IntervalPropagator =
-    new IntervalPropagator(goal, ordering, simplifiedGB, false)
+            simplifiedGB : Basis,
+            alwaysCreateIntervalSet : Boolean = false) : IntervalPropagator =
+    new IntervalPropagator(goal, ordering, simplifiedGB,
+                           false, alwaysCreateIntervalSet)
 
   def apply(goal : Goal) : IntervalPropagator = {
     val order = new GrevlexOrdering(goal.order.constOrdering)
-    new IntervalPropagator(goal, order, null, true)
+    new IntervalPropagator(goal, order, null, true, false)
   }
 }
 
@@ -53,7 +55,8 @@ object IntervalPropagator {
 class IntervalPropagator private (goal : Goal,
                                   ordering : MonomialOrdering,
                                   simplifiedGB : Basis,         // might be null
-                                  compatibleOrder : Boolean) {
+                                  compatibleOrder : Boolean,
+                                  alwaysCreateIntervalSet : Boolean) {
 
   import GroebnerMultiplication._mul
   import Seqs.{optionMax, optionMin}
@@ -121,7 +124,8 @@ class IntervalPropagator private (goal : Goal,
      yield (fromLinearCombination(lc), BitSet(n + negeqOffset))).toArray
 
   val intervalSet : Option[IntervalSet] =
-    if (preds.isEmpty && ineqs.isEmpty && negeqs.isEmpty) {
+    if (!alwaysCreateIntervalSet &&
+        preds.isEmpty && ineqs.isEmpty && negeqs.isEmpty) {
       // if there are only basic bounds, don't even construct the IntervalSet
       None
     } else {

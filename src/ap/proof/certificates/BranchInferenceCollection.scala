@@ -516,4 +516,7 @@ class LoggingBranchInferenceCollector private
     }
   }
 
+  override def toString : String =
+    "LoggingBranchInferenceCollector(" + (inferences mkString ", ") + ")"
+
 }

@@ -140,11 +140,11 @@ object LShiftCastSplitter extends TheoryProcedure {
           case (_, Some(upper)) if upper.signum <= 0 => {
             simpleElims =
               Plugin.RemoveFacts(a) ::
-              Plugin.AddAxiom(assumptions,
-                          Atom(_mod_cast,
-                               Array(a(0), a(1), a(2), a(4)),
-                               order),
-                          ModuloArithmetic) ::
+              Plugin.AddAxiom(assumptions.distinct,
+                              Atom(_mod_cast,
+                                   Array(a(0), a(1), a(2), a(4)),
+                                   order),
+                              ModuloArithmetic) ::
               simpleElims
           }
           case (Some(lower), Some(upper)) if lower >= upper => {
@@ -155,12 +155,12 @@ object LShiftCastSplitter extends TheoryProcedure {
             // TRANSLATE TO BV_EXTRACT
             simpleElims =
               Plugin.RemoveFacts(a) ::
-              Plugin.AddAxiom(assumptions,
-                          Atom(_mod_cast,
-                               Array(a(0), a(1),
-                                     LinearCombination.ZERO, a(4)),
-                               order),
-                          ModuloArithmetic) ::
+              Plugin.AddAxiom(assumptions.distinct,
+                              Atom(_mod_cast,
+                                   Array(a(0), a(1),
+                                         LinearCombination.ZERO, a(4)),
+                                   order),
+                              ModuloArithmetic) ::
               simpleElims
           }
           case (rawLower, Some(upper)) if simpleElims.isEmpty => {
@@ -218,7 +218,7 @@ object LShiftCastSplitter extends TheoryProcedure {
          }).toBuffer
 
       List(Plugin.RemoveFacts(a),
-           Plugin.AxiomSplit(assumptions,
+           Plugin.AxiomSplit(assumptions.distinct,
                              cases.toList,
                              ModuloArithmetic))
 
@@ -390,7 +390,7 @@ object RShiftCastSplitter extends TheoryProcedure {
 
           simpleElims =
             Plugin.RemoveFacts(a) ::
-            Plugin.AddAxiom(assumptions,
+            Plugin.AddAxiom(assumptions.distinct,
                             rshiftToExtract(a, shiftLower.intValueSafe),
                             ModuloArithmetic) ::
             simpleElims
@@ -466,7 +466,7 @@ object RShiftCastSplitter extends TheoryProcedure {
       //-END-ASSERTION-/////////////////////////////////////////////////////////
 
       List(Plugin.RemoveFacts(a),
-           Plugin.AxiomSplit(assumptions, cases, ModuloArithmetic))
+           Plugin.AxiomSplit(assumptions.distinct, cases, ModuloArithmetic))
 
     } else {
 

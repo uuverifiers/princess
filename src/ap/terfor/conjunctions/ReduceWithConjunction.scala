@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -125,8 +125,12 @@ object ReduceWithConjunction {
                 if (addArithConj.isTrue) {
                   // continue in the inner loop
                 } else {
+                  // the reduction has made some new equations available, continue
+                  // in the outer loop
+
                   currentArithConj =
-                    ArithConj.conj(List(currentArithConj, addArithConj), order)
+                    ArithConj.conj(Iterator(currentArithConj, addArithConj),
+                                   logger, order)
                   if (currentArithConj.isFalse) throw FALSE_EXCEPTION
                   contInner = false
                 }
@@ -140,10 +144,10 @@ object ReduceWithConjunction {
             // in the outer loop
 
             currentPredConj = newPredConj
-            currentArithConj = ArithConj.conj(List(currentArithConj, newEqs),
-                                              order)
+            currentArithConj =
+              ArithConj.conj(Iterator(currentArithConj, newEqs),
+                             logger, order)
             if (currentArithConj.isFalse) throw FALSE_EXCEPTION
-
             contInner = false
           }
 
