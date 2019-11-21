@@ -59,7 +59,7 @@ object CmdlMain {
     println("Free software under GNU Lesser General Public License (LGPL).")
     println("Bug reports to peter@backeman.se")
     println
-    println("For more information, visit http://user.it.uu.se/~petba168/breu/")
+    println("For more information, visit http://user.it.uu.se/~petba168/#eprincess")
   }
   
   def printUsage = {
