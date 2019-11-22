@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -166,10 +166,13 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
         case Param.FunctionGCOptions.None =>
           Set[Predicate]()
         case Param.FunctionGCOptions.Total =>
-          (for ((p, f) <- functionEnc.predTranslation.iterator; if (!f.partial))
-            yield p).toSet
+          (for ((p, f) <- functionEnc.predTranslation.iterator;
+                if !f.partial && (TheoryRegistry lookupSymbol f).isEmpty)
+           yield p).toSet
         case Param.FunctionGCOptions.All =>
-          functionEnc.predTranslation.keySet.toSet
+          (for (p <- functionEnc.predTranslation.keySet.iterator;
+                if (TheoryRegistry lookupSymbol p).isEmpty)
+           yield p).toSet
       }
       
       (inputFormulas, interpolantS, sig2, gcedFunctions, functionEnc)

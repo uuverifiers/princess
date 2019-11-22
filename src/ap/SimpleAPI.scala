@@ -4329,9 +4329,11 @@ class SimpleAPI private (enableAssert : Boolean,
     gs = Param.ABBREV_LABELS.set(gs, abbrevPredicates mapValues (_._2))
 
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
+
     // currently done for all predicates encoding functions; should this be
-    // restricted?
+    // restricted? -> definitely theory functions should not be included here!
 //    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
+
     gs = Param.FUNCTIONAL_PREDICATES.set(gs, functionalPreds)
     gs = Param.SINGLE_INSTANTIATION_PREDICATES.set(gs,
            (for (t <- theories.iterator;
@@ -4365,9 +4367,11 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def exhaustiveProverGoalSettings = {
     var gs = goalSettings
-    // currently done for all predicates encoding functions; should this be
-    // restricted?
-    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, functionalPreds)
+    val gcedFunctions =
+      (for (p <- functionalPreds.iterator;
+            if (TheoryRegistry lookupSymbol p).isEmpty)
+       yield p).toSet
+    gs = Param.GARBAGE_COLLECTED_FUNCTIONS.set(gs, gcedFunctions)
     gs
   }
 

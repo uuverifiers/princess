@@ -339,6 +339,19 @@ sat
   (define-fun x0 () (_ BitVec 32) (_ bv46341 32))
 )
 
+Loading modelConstructionBug2.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+unknown
+(model
+  (define-fun o () Obj (WrappedInt 42))
+  (define-fun p1 () Int 45)
+  (define-fun h2 () Heap (Heap 46 49))
+  (define-fun h1 () Heap (Heap 45 48))
+)
+
 Loading multiple-check-sat.smt2 ...
 unsat
 unsat
