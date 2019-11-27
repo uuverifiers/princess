@@ -2506,6 +2506,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("re.charrange") =>
       (translateStringFun(stringTheory.re_charrange, args,
                           List(charType, charType)), regexType)
+    case PlainSymbol("re.range") =>
+      (translateStringFun(stringTheory.re_range, args,
+                          List(stringType, stringType)), regexType)
     case PlainSymbol("re.++") =>
       (translateNAryStringFun(stringTheory.re_++, args,
                               regexType), regexType)
