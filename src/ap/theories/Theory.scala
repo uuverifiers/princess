@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -89,7 +89,7 @@ object Theory {
   /**
    * Apply preprocessing to a formula over some set of
    * theories, prior to sending the formula to a prover.
-   * This method will be called form within 
+   * This method will be called form within <code>ap.parser.Preprocessing</code>
    */
   def iPreprocess(f : IFormula,
                   theories : Seq[Theory], signature : Signature)
