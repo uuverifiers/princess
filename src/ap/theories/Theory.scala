@@ -59,8 +59,10 @@ object Theory {
 
     var currentOrder = preOrder extendPred extraPredicates
 
-    for (t <- otherTheories)
+    for (t <- otherTheories) {
       currentOrder = t extend currentOrder
+      functionEnc addTheory t
+    }
 
     for (f <- theoryFunctions) {
       val (_, o) =
