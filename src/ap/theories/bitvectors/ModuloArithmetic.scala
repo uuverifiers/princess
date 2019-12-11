@@ -589,23 +589,22 @@ object ModuloArithmetic extends Theory {
 
   val otherPreds = List(bv_ult, bv_ule, bv_slt, bv_sle)
 
-  val (functionalPredSeq, preAxioms, preOrder, functionTranslation) =
-    Theory.genAxioms(theoryFunctions = functions)
+  val (predicates, preAxioms, order, functionTranslation) =
+    Theory.genAxioms(theoryFunctions = functions, extraPredicates = otherPreds)
 
   val _bv_extract = functionTranslation(bv_extract)
 
   // We only keep the functionality axiom for the bv_extract function
   val axioms =
-    (Conjunction.conj(preAxioms, preOrder).iterator filter (
+    (Conjunction.conj(preAxioms, order).iterator filter (
        _.predicates == Set(_bv_extract))).next
 
-  val functionPredicateMapping = functions zip functionalPredSeq
-  val functionalPredicates = functionalPredSeq.toSet
-
-  val order = preOrder extendPred otherPreds
-
-  val predicates = otherPreds ++ functionalPredSeq
   val totalityAxioms = Conjunction.TRUE
+
+  val functionPredicateMapping =
+    for (f <- functions) yield (f, functionTranslation(f))
+  val functionalPredicates =
+    (functionPredicateMapping map (_._2)).toSet
 
   val predicateMatchConfig: Signature.PredicateMatchConfig =
     (for (p <- predicates.toSet --

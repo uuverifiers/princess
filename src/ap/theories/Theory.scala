@@ -40,19 +40,28 @@ object Theory {
 
   private val AC = Debug.AC_THEORY
 
+  /**
+   * Preprocess a set of axioms and convert them to internal representation.
+   */
   def genAxioms(theoryFunctions : Seq[IFunction] = List(),
                 theoryAxioms : IFormula = IExpression.i(true),
+                extraPredicates : Seq[Predicate] = List(),
                 genTotalityAxioms : Boolean = false,
-                order : TermOrder = TermOrder.EMPTY,
+                preOrder : TermOrder = TermOrder.EMPTY,
                 functionEnc : FunctionEncoder =
-                  new FunctionEncoder(true, false))
+                  new FunctionEncoder(true, false),
+                otherTheories : Seq[Theory] = List())
               : (Seq[Predicate],
                  Formula,
                  TermOrder,
                  Map[IFunction, IExpression.Predicate]) = {
     import IExpression._
 
-    var currentOrder = order
+    var currentOrder = preOrder extendPred extraPredicates
+
+    for (t <- otherTheories)
+      currentOrder = t extend currentOrder
+
     for (f <- theoryFunctions) {
       val (_, o) =
         functionEnc(eqZero(IFunApp(f, for (_ <- 0 until f.arity) yield i(0))),
@@ -60,14 +69,14 @@ object Theory {
       currentOrder = o
     }
 
-    val sig = Signature(Set(), Set(),
-                        currentOrder.orderedConstants, currentOrder)
+    val sig = Signature(Set(), Set(), currentOrder.orderedConstants,
+                        Map(), currentOrder, otherTheories)
     val preprocSettings = PreprocessingSettings.DEFAULT
-    val (fors, _, sig3) =
+    val (fors, _, newSig) =
       Preprocessing(INamedPart(PartName.NO_NAME, ~theoryAxioms),
                     List(), sig, preprocSettings, functionEnc)
 
-    val newOrder = sig3.order
+    val newOrder = newSig.order
     val formula = 
       !ReduceWithConjunction(Conjunction.TRUE, newOrder)(
          Conjunction.conj(InputAbsy2Internal(
@@ -83,7 +92,7 @@ object Theory {
     Debug.assertPost(AC, funPredicates == (newOrder sortPreds funPredicates))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    (funPredicates, formula, newOrder, functionTranslation)
+    (extraPredicates ++ funPredicates, formula, newOrder, functionTranslation)
   }
 
   /**
@@ -95,7 +104,7 @@ object Theory {
                   theories : Seq[Theory], signature : Signature)
                  : (IFormula, Signature) =
 //  ap.util.Timer.measure("theory iPreprocessing") {
-    ((f, signature) /: theories) { case ((f, s), t) => t.iPreprocess(f, s) }
+    (theories :\ (f, signature)) { case (t, (f, s)) => t.iPreprocess(f, s) }
 //  }
 
   /**
@@ -106,7 +115,7 @@ object Theory {
                  theories : Seq[Theory],
                  order : TermOrder) : Conjunction =
 //  ap.util.Timer.measure("theory preprocessing") {
-    (f /: theories) { case (f, t) => t.preprocess(f, order) }
+    (theories :\ f) { case (t, f) => t.preprocess(f, order) }
 //  }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -312,7 +321,9 @@ trait Theory {
   def plugin : Option[Plugin]
 
   /**
-   * Optionally, other theories that this theory depends on.
+   * Optionally, other theories that this theory depends on. Specified
+   * dependencies will be loaded before this theory, but the preprocessors
+   * of the dependencies will be called after the preprocessor of this theory.
    */
   val dependencies : Iterable[Theory] = List()
 
