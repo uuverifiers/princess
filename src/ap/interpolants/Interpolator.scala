@@ -200,7 +200,8 @@ object Interpolator
           (iContext isCommon originalForm) && {
             // check whether any of the predicate literals of the formula can be
             // unified with known literals (from left or right)
-            canMapCommonFormulaToLeft(enumToplevelAtoms(originalForm),
+            canMapCommonFormulaToLeft(originalForm,
+                                      enumToplevelAtoms(originalForm),
                                       originalForm.constants,
                                       iContext)
           }
@@ -859,7 +860,7 @@ object Interpolator
               else
                 atomsIterator(resConj.predConj, true)
 
-            canMapCommonFormulaToLeft(instAtoms, termConsts, iContext)
+            canMapCommonFormulaToLeft(qFormula, instAtoms, termConsts, iContext)
           }
 
         val newContext =
@@ -889,7 +890,8 @@ object Interpolator
           (iContext isCommon qFormula) && {
             // check whether any of the predicate literals of the formula can be
             // unified with known literals (from left or right)
-            canMapCommonFormulaToLeft(enumToplevelAtoms(qFormula),
+            canMapCommonFormulaToLeft(qFormula,
+                                      enumToplevelAtoms(qFormula),
                                       qFormula.constants,
                                       iContext)
           }
@@ -981,7 +983,8 @@ object Interpolator
   }
 
   private def canMapCommonFormulaToLeft
-                (forAtoms : Iterator[CertPredLiteral],
+                (f : CertFormula,
+                 forAtoms : Iterator[CertPredLiteral],
                  consts : Set[ConstantTerm],
                  iContext : InterpolationContext) : Boolean = {
     val atomLRValue =
@@ -1009,7 +1012,8 @@ object Interpolator
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(Interpolator.AC, {
             Console.err.println(
-              "Warning: cannot map formula to interpolation partition" +
+              "Warning: cannot map formula " + f +
+              " to interpolation partition" +
               (if (consts.isEmpty)
                  ""
                else
