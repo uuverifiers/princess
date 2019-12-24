@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -40,6 +40,12 @@ object ConjunctEliminator {
   
   val AC = Debug.AC_ELIM_CONJUNCTS
   
+  /**
+   * When eliminating symbols through Fourier-Motzkin, accept at most this
+   * many additional inequalities
+   */
+  private val FM_ELIM_MAX_GROWTH = 50
+
 }
 
 /**
@@ -549,10 +555,15 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
                    (c:Term) => {
                      val l = lowerBounds(c)
                      val u = upperBounds(c)
-                     if (l == 0 && u == 0)
+                     if (l == 0 && u == 0) {
                        None
-                     else
-                       Some(l*u - l - u)
+                     } else {
+                       val growth = l*u - l - u
+                       if (growth <= ConjunctEliminator.FM_ELIM_MAX_GROWTH)
+                         Some(growth)
+                       else
+                         None
+                     }
                    })
   }
 
