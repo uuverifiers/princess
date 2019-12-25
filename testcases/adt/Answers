@@ -145,8 +145,8 @@ sat
 Loading datatype5.smt2 ...
 sat
 (model
-  (define-fun z () S A)
-  (define-fun y () S C)
+  (define-fun z () S C)
+  (define-fun y () S A)
   (define-fun x () S B)
 )
 unsat
@@ -249,8 +249,8 @@ sat
 Loading datatype5.smt2 ...
 sat
 (model
-  (define-fun z () S A)
-  (define-fun y () S C)
+  (define-fun z () S C)
+  (define-fun y () S A)
   (define-fun x () S B)
 )
 unsat

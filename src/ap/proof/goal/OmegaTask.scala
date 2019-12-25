@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -38,7 +38,9 @@ import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificat
                               OmegaCertificate, CertInequality,
                               CertEquation, CertFormula, BranchInferenceCollection}
 
-import scala.collection.mutable.ArrayBuffer
+import ap.theories.nia.IntervalPropagator
+
+import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
 
 /**
  * Task for eliminating inequalities using the equivalence from the Omega-test
@@ -46,10 +48,22 @@ import scala.collection.mutable.ArrayBuffer
 case object OmegaTask extends EagerTask {
   private val AC = Debug.AC_OMEGA
 
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  private val debug = false
+  private def printDebug(msg : String) = if (debug) println(msg)
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
   def apply(goal : Goal, ptf : ProofTreeFactory) : ProofTree = {
     val ac = goal.facts.arithConj
     val order = goal.order
-    
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    printDebug("========================================================")
+    printDebug("Calling Omega")
+    printDebug("Inequalities: " + ac.inEqs.size)
+    printDebug("Constants:    " + goal.facts.constants.size)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
     if (!Seqs.disjoint(goal.eliminatedConstants, ac.positiveEqs.constants)) {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
       // the reason has to be that we are constructing a proof, and that certain
@@ -105,7 +119,7 @@ case object OmegaTask extends EagerTask {
     findOmegaPossibilities(goal, ptf, ec, store)
     for (n <- store.currentCases)
       if (n <= 1)
-        // that's good enough
+        // just a single case, we can directly apply this rule
         return store.currentBest()
     
     val formulaSplitStore = new BestSplitPossibilityStore
@@ -114,12 +128,20 @@ case object OmegaTask extends EagerTask {
                                   formulaSplitStore)
     store push formulaSplitStore
     
-    if (store.currentCases == None)
-      // the best case: there are no inequalities that have to be eliminated
-      return ptf updateGoal goal
+    store.currentCases match {
+      case None =>
+        // the best case: there are no inequalities that have to be eliminated
+        return ptf updateGoal goal
+      case Some(n) =>
+        if (n <= 5)
+          return store.currentBest()
+    }
 
     findSplitInEqsPossibilities(goal, ptf, goal.eliminatedConstants, store)
-    
+
+    if (!Param.PROOF_CONSTRUCTION(goal.settings))
+      findBoundedConstantsICP(goal, ptf, goal.eliminatedConstants, store)
+
     if (goal.constants subsetOf goal.eliminatedConstants) {
       // this is just a satisfiability-problem
       
@@ -140,10 +162,6 @@ case object OmegaTask extends EagerTask {
       }
       
     } else {
-      
-      // the following test seems to slow down Princess when all constants are
-      // to be eliminated, but it is a good idea in general
-      findBoundedConstantsFast(goal, ptf, goal.eliminatedConstants, store)
 
 // commented out, because it can make the prover loop in some (seldom) cases
 //
@@ -235,12 +253,29 @@ case object OmegaTask extends EagerTask {
         }
       }
       
-      val lowerSplittingNum = predictOmegaSplitting(elimConst, lowerBounds, upperBounds)
-      val upperSplittingNum = predictOmegaSplitting(elimConst, upperBounds, lowerBounds)
+      val lowerSplittingNum =
+        predictOmegaSplitting(elimConst, lowerBounds, upperBounds)
+      val upperSplittingNum =
+        predictOmegaSplitting(elimConst, upperBounds, lowerBounds)
       
-      val lowerSplitting = lowerSplittingNum <= upperSplittingNum
-      
-      store.push(if (lowerSplitting) lowerSplittingNum else upperSplittingNum) {
+      val lowerSplitting =
+        lowerSplittingNum <= upperSplittingNum
+      val splittingNum =
+        if (lowerSplitting) lowerSplittingNum else upperSplittingNum
+
+      // The Omega rule can explode for two reasons: too many cases are
+      // generated, or too many inequalities are created in the dark shadow.
+      // We take the average of the two numbers to reflect this.
+
+      val lbSize =     IdealInt(lowerBounds.size)
+      val ubSize =     IdealInt(upperBounds.size)
+      val ineqGrowth = (lbSize * ubSize) - lbSize - ubSize
+
+      store.push((splittingNum + (ineqGrowth max 1)) / 2) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        printDebug("Applying Omega rule")
+        //-END-ASSERTION-///////////////////////////////////////////////////////
+    
         val newGoals = new ArrayBuffer[ProofTree]
         val (boundsA, boundsB) = if (lowerSplitting)
                                    (lowerBounds, upperBounds)
@@ -414,9 +449,10 @@ case object OmegaTask extends EagerTask {
     findFormulaSplitPossibilitiesHelp(goal, ptf, elimCandidates, store)
   }
 
-  private def findFormulaSplitPossibilitiesHelp(goal : Goal, ptf : ProofTreeFactory,
-                                                elimCandidates : Set[ConstantTerm],
-                                                store : BestSplitPossibilityStore) : Unit = {
+  private def findFormulaSplitPossibilitiesHelp(
+                goal : Goal, ptf : ProofTreeFactory,
+                elimCandidates : Set[ConstantTerm],
+                store : BestSplitPossibilityStore) : Unit = {
     val ac = goal.facts.arithConj
     val order = goal.order
     
@@ -429,6 +465,9 @@ case object OmegaTask extends EagerTask {
       // in the worst case, we have to split each of the equations and
       // compound formulas
       store.push(IdealInt(2) pow (eqs.size + clauses.size)) {
+        //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+        printDebug("Splitting formula")
+        //-END-ASSERTION-///////////////////////////////////////////////////////
         if (clauses.isEmpty)
           splitEq(eqs.last, goal, ptf)
         else
@@ -545,6 +584,10 @@ case object OmegaTask extends EagerTask {
             
             val cases = -negDistance + 1
             store.push(cases) {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              printDebug("Enumerating inequality cases for " + lc +
+                         " (" + cases + ")")
+              //-END-ASSERTION-/////////////////////////////////////////////////
               val goals = for (d <- IdealRange(cases)) yield {
                 Timeout.check
                 val shiftedLC = lc + (-d)
@@ -620,35 +663,93 @@ case object OmegaTask extends EagerTask {
     ptf.updateGoal(newTasks, goal)
   }
 
+
   //////////////////////////////////////////////////////////////////////////////
 
   /**
    * Check whether we can find an eliminated symbol whose value is bounded (in
    * this case, we can just split over all possible values)
    */
-  private def findBoundedConstantsFast(goal : Goal, ptf : ProofTreeFactory,
-                                       eConsts : Set[ConstantTerm],
-                                       store : BestSplitPossibilityStore) : Unit = {
+  private def findBoundedConstantsICP(
+                goal : Goal, ptf : ProofTreeFactory,
+                eConsts : Set[ConstantTerm],
+                store : BestSplitPossibilityStore) : Unit = {
     val ac = goal.facts.arithConj
+    val inEqs = ac.inEqs
     val order = goal.order
 
-    val elimCandidates = (ac.inEqs.constants & eConsts)
+    val prop = IntervalPropagator(goal)
+
+    for (elimConst <- order sort eConsts)
+      for (lb <- prop lowerBound elimConst;
+           ub <- prop upperBound elimConst)
+        if (ub < lb) {
+          // we found an inconsistency, the goal can be closed directly
+          store.push(0) {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            printDebug("Closing goal")
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            ptf.updateGoal(Conjunction.FALSE, goal)
+          }
+        } else {
+          val cases = ub - lb + 1
+          store.push(cases) {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            printDebug("Enumerating values for " + elimConst +
+                       " (" + cases + ")")
+            //-END-ASSERTION-///////////////////////////////////////////////////
+            val goals = for (d <- IdealRange(cases)) yield {
+              val lc =
+                LinearCombination(IdealInt.ONE, elimConst, -(lb + d), order)
+              val newFacts =
+                Conjunction.conj(NegEquationConj(lc, order), order)
+              ptf.updateGoal(goal.formulaTasks(newFacts), goal)
+            }
+              
+            ptf.and(goals, goal.vocabulary)
+          }
+        }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Check whether we can find an eliminated symbol whose value is bounded (in
+   * this case, we can just split over all possible values)
+   */
+  private def findBoundedConstantsFast(
+                goal : Goal, ptf : ProofTreeFactory,
+                eConsts : Set[ConstantTerm],
+                store : BestSplitPossibilityStore) : Unit = {
+    val ac = goal.facts.arithConj
+    val inEqs = ac.inEqs
+    val order = goal.order
+
+    // We consider constants that have both lower and upper bounds
+    val lower, upper = new MHashSet[ConstantTerm]
+    for (lc <- inEqs.iterator; (coeff, c : ConstantTerm) <- lc.iterator)
+      (if (coeff.signum > 0) lower else upper) += c
+
+    val elimCandidates = lower.toSet & upper.toSet & eConsts
 
     for (elimConst <- order sort elimCandidates) store.currentCases match {
-      case Some(n) if (n <= 1) =>
+      case Some(n) if n <= 1 =>
         // nothing, we do not have to continue searching
       case _ => {
-        
+
         // We change the order so that the constant to be eliminated is minimal.
         // The Fourier-Motzkin rule will then derive bounds for the constant
         
         val reOrder = order.makeMaximal(elimConst, order.orderedConstants - elimConst)
-        val reorderedInEqs = ac.inEqs sortBy reOrder
+        val reorderedInEqs = inEqs sortBy reOrder
       
         if (reorderedInEqs.isFalse) {
           // the the considered <code>ac</code> really is unsatisfiable, and we
-          // can directly clorse the goal
+          // can directly close the goal
           store.push(0) {
+            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
+            printDebug("Closing goal")
+            //-END-ASSERTION-///////////////////////////////////////////////////
             ptf.updateGoal(Conjunction.FALSE, goal)
           }
         } else {
@@ -660,6 +761,10 @@ case object OmegaTask extends EagerTask {
             val upperBound = -negUpperBound
             val cases = upperBound - lowerBound + 1
             store.push(cases) {
+              //-BEGIN-ASSERTION-///////////////////////////////////////////////
+              printDebug("Enumerating values for " + elimConst +
+                         " (" + cases + ")")
+              //-END-ASSERTION-/////////////////////////////////////////////////
               val goals = for (d <- IdealRange(cases)) yield {
                 val lc =
                   LinearCombination(IdealInt.ONE, elimConst, -(lowerBound + d), order)
