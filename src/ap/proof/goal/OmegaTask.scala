@@ -516,22 +516,29 @@ case object OmegaTask extends EagerTask {
   private def splitEq(eq : LinearCombination,
                       goal : Goal,
                       ptf : ProofTreeFactory) : ProofTree = {
-    val order = goal.order
+    implicit val order = goal.order
+    val facts = goal.facts
+    val ac = facts.arithConj
 
     // We have to split the goal directly,
     // because when just adding a formula eq >= 0 & eq <= 0 this will
     // directly be simplified to an equation
 
-    // TODO: directly remove the negated equation
-    
+    val remNegEqs =
+      ac.negativeEqs.updateEqsSubset(ac.negativeEqs filterNot (_ == eq))
+    val newFacts =
+      facts.updateNegativeEqs(remNegEqs)
+
     val lowerBoundInEq = InEqConj(eq, order)
-    val lowerBound = Conjunction.conj(lowerBoundInEq, order)
+    val lowerBound =     Conjunction.conj(lowerBoundInEq, order)
     val upperBoundInEq = InEqConj(-eq, order)
-    val upperBound = Conjunction.conj(upperBoundInEq, order)
-    val goal1 = ptf.updateGoal(goal.formulaTasks(lowerBound),
+    val upperBound =     Conjunction.conj(upperBoundInEq, order)
+    val goal1 = ptf.updateGoal(newFacts,
+                               goal.formulaTasks(lowerBound),
                                goal.startNewInferenceCollection,
                                goal)
-    val goal2 = ptf.updateGoal(goal.formulaTasks(upperBound),
+    val goal2 = ptf.updateGoal(newFacts,
+                               goal.formulaTasks(upperBound),
                                goal.startNewInferenceCollection,
                                goal)
     
