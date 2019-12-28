@@ -328,7 +328,7 @@ println(unprocessed)
 
       val ineqOffset = predicates.size
       val ineqInfsOffset = ineqOffset + inequalities.size
-      val negeqOffset = ineqInfsOffset + inequalities.geqZeroInfs.size
+      val negeqOffset = ineqInfsOffset + inequalities.allGeqZeroInfs.size
 
       def label2Assumptions(l : BitSet) : Seq[Formula] =
         for (ind <- l.toSeq) yield {
@@ -337,7 +337,7 @@ println(unprocessed)
           else if (ind < ineqInfsOffset)
             InEqConj(inequalities(ind - ineqOffset), order)
           else if (ind < negeqOffset)
-            InEqConj(inequalities.geqZeroInfs(ind - ineqInfsOffset), order)
+            InEqConj(inequalities.allGeqZeroInfs(ind - ineqInfsOffset), order)
           else
             NegEquationConj(disequalities(ind - negeqOffset), order)
         }
@@ -692,7 +692,7 @@ println(unprocessed)
 
       val ineqs =
         (for (lc <- goal.facts.arithConj.inEqs.iterator ++
-                    goal.facts.arithConj.inEqs.geqZeroInfs.iterator;
+                    goal.facts.arithConj.inEqs.allGeqZeroInfs.iterator;
               if (lc.constants subsetOf mappedTerms) &&
                  lcWithSmallCoeffs(lc))
          yield lc).toIndexedSeq
@@ -917,7 +917,7 @@ println(unprocessed)
 
         val ineqOffset = predicates.size
         val ineqInfsOffset = ineqOffset + inequalities.size
-        val negeqOffset = ineqInfsOffset + inequalities.geqZeroInfs.size
+        val negeqOffset = ineqInfsOffset + inequalities.allGeqZeroInfs.size
         val eqOffset = negeqOffset + disequalities.size
   
         val ineqPolys, negeqPolys = new ArrayBuffer[(Polynomial, BitSet)]
@@ -938,7 +938,7 @@ println(unprocessed)
           for ((lc, n) <- conj.inEqs.iterator.zipWithIndex;
                if lc.constants.size == 1)
             basicBounds += ((lc, BitSet(n + ineqOffset)))
-          for ((lc, n) <- conj.inEqs.geqZeroInfs.iterator.zipWithIndex;
+          for ((lc, n) <- conj.inEqs.allGeqZeroInfs.iterator.zipWithIndex;
                if lc.constants.size == 1)
             basicBounds += ((lc, BitSet(n + ineqInfsOffset)))
         }
@@ -950,7 +950,7 @@ println(unprocessed)
             else if (ind < ineqInfsOffset)
               InEqConj(inequalities(ind - ineqOffset), order)
             else if (ind < negeqOffset)
-              InEqConj(inequalities.geqZeroInfs(ind - ineqInfsOffset), order)
+              InEqConj(inequalities.allGeqZeroInfs(ind - ineqInfsOffset), order)
             else if (ind < eqOffset)
               NegEquationConj(disequalities(ind - negeqOffset), order)
             else

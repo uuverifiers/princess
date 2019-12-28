@@ -931,11 +931,28 @@ object Seqs {
       return b
     if (b.isEmpty)
       return a
-    
+
+    mergeSortedSeqs(a.iterator, b.iterator)
+  }
+
+  /**
+   * Merge two sequences that are sorted in strictly descending order and
+   * produce a descending sequence with all elements occurring in at least one
+   * of the sequences
+   */
+  def mergeSortedSeqs[A](aIt : Iterator[A], bIt : Iterator[A])
+                        (implicit ord : Ordering[A]) : IndexedSeq[A] = {
     val res = Vector.newBuilder[A]
-    val aIt = a.iterator
-    val bIt = b.iterator
-    
+
+    if (!aIt.hasNext) {
+      res ++= bIt
+      return res.result
+    }
+    if (!bIt.hasNext) {
+      res ++= aIt
+      return res.result
+    }
+
     var aNext = aIt.next
     var bNext = bIt.next
       

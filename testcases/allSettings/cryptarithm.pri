@@ -1,5 +1,23 @@
 
 
+/*
+  Shorter version:
+
+\existentialConstants {
+  int[0,9] W, A, S, H, Y, O, U, R, N, D;
+}
+
+\problem {
+  \distinct ( W, A, S, H, Y, O, U, R, N, D )
+
+&	            1000 * W + 100 * A + 10 * S + H
++	            1000 * Y + 100 * O + 10 * U + R
+=	10000 * H + 1000 * A + 100 * N + 10 * D + S
+}
+
+ */
+
+
 
 \existentialConstants {
 	int W; int A; int S; int H; int Y; int O; int U; int R; int N; int D;

@@ -139,8 +139,8 @@ case object OmegaTask extends EagerTask {
 
     findSplitInEqsPossibilities(goal, ptf, goal.eliminatedConstants, store)
 
-    if (!Param.PROOF_CONSTRUCTION(goal.settings))
-      findBoundedConstantsICP(goal, ptf, goal.eliminatedConstants, store)
+//    if (!Param.PROOF_CONSTRUCTION(goal.settings))
+//      findBoundedConstantsICP(goal, ptf, goal.eliminatedConstants, store)
 
     if (goal.constants subsetOf goal.eliminatedConstants) {
       // this is just a satisfiability-problem
@@ -577,11 +577,12 @@ case object OmegaTask extends EagerTask {
                                           store : BestSplitPossibilityStore) : Unit = {
     val ac = goal.facts.arithConj
     val inEqs = ac.inEqs
+    val allGeqZero = inEqs.allGeqZero
     val order = goal.order
 
     var i = 0
-    while (i < inEqs.size && (goal eliminates inEqs(i).leadingTerm)) {
-      val lc = inEqs(i)
+    while (i < allGeqZero.size && (goal eliminates allGeqZero(i).leadingTerm)) {
+      val lc = allGeqZero(i)
       if (lc.leadingCoeff.signum > 0 && !Seqs.disjoint(lc.constants, eConsts)) {
         inEqs.findLowerBound(-lc) match {
           case Some(negDistance) => {

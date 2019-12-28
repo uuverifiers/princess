@@ -85,7 +85,7 @@ class IntervalPropagator private (goal : Goal,
   private val disequalities  = goal.facts.arithConj.negativeEqs
   private val ineqOffset     = mulPredicates.size
   private val ineqInfsOffset = ineqOffset + inequalities.size
-  private val negeqOffset    = ineqInfsOffset + inequalities.geqZeroInfs.size
+  private val negeqOffset    = ineqInfsOffset + inequalities.allGeqZeroInfs.size
 
   private def label2Assum(l : BitSet) : Seq[Formula] =
     for (ind <- l.toSeq) yield {
@@ -94,7 +94,7 @@ class IntervalPropagator private (goal : Goal,
       else if (ind < ineqInfsOffset)
         InEqConj(inequalities(ind - ineqOffset), order)
       else if (ind < negeqOffset)
-        InEqConj(inequalities.geqZeroInfs(ind - ineqInfsOffset), order)
+        InEqConj(inequalities.allGeqZeroInfs(ind - ineqInfsOffset), order)
       else
         NegEquationConj(disequalities(ind - negeqOffset), order)
     }
@@ -133,7 +133,7 @@ class IntervalPropagator private (goal : Goal,
         ((for ((lc, n) <- inequalities.iterator.zipWithIndex;
                if lc.constants.size == 1)
           yield (lc, BitSet(n + ineqOffset))) ++
-         (for ((lc, n) <- inequalities.geqZeroInfs.iterator.zipWithIndex;
+         (for ((lc, n) <- inequalities.allGeqZeroInfs.iterator.zipWithIndex;
                if lc.constants.size == 1)
           yield (lc, BitSet(n + ineqInfsOffset)))).toArray
 

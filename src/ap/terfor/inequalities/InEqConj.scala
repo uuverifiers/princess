@@ -25,10 +25,11 @@ import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet
 
 import ap.terfor._
 import ap.basetypes.IdealInt
-import ap.terfor.linearcombination.LinearCombination
+import ap.terfor.linearcombination.{LinearCombination, LinearCombination1}
 import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{Predicate, Atom}
-import ap.util.{Debug, Logic, Seqs, PriorityQueueWithIterators, FilterIt, Timeout}
+import ap.util.{Debug, Logic, Seqs, PriorityQueueWithIterators,
+                Timeout, LazyIndexedSeqConcat}
 
 object InEqConj {
   
@@ -54,21 +55,46 @@ object InEqConj {
             order : TermOrder) : InEqConj =
     if (!lhss.hasNext)
       TRUE
-    else
-    try {
+    else try {
       val c = new FMInfsComputer (INF_THROTTLE_THRESHOLD, THROTTLED_INF_NUM,
                                   INF_STOP_THRESHOLD, logger, order)
-      for (lc <- lhss) c.addGeqTodo(lc)
+      c.addGeqsTodo(lhss)
       c.compute
-      val eqs = EquationConj(c.equalityInfs.iterator, logger, order)
+      constructInEqConj(c, logger, order)
+    } catch {
+      case FMInfsComputer.UNSATISFIABLE_INEQS_EXCEPTION => FALSE
+    }
+
+  private def constructInEqConj(fmInfs : FMInfsComputer,
+                                logger : ComputationLogger,
+                                order : TermOrder) : InEqConj =
+    try {
+      val geqZero = fmInfs.geqZero.result
+      val geqZeroInfs = fmInfs.geqZeroInfs.result
+
+      val (bounds, boundEqs) =
+        if (geqZero.size > 1 && !logger.isLogging) {
+          val icpInput = LazyIndexedSeqConcat(geqZero, geqZeroInfs)
+          if (IntervalProp icpMayWork icpInput) {
+            val icp = new IntervalProp(icpInput)
+            val bounds = icp.updatedBoundsAsInequalities(order)
+            (bounds, icp.impliedEquations(order))
+          } else {
+            (IndexedSeq.empty, IndexedSeq.empty)
+          }
+        } else {
+          (IndexedSeq.empty, IndexedSeq.empty)
+        }
+
+      val eqs = EquationConj(fmInfs.equalityInfs.iterator ++ boundEqs.iterator,
+                             logger, order)
       if (eqs.isFalse)
         FALSE
       else
-        new InEqConj (c.geqZero.toArray[LinearCombination],
-                      c.geqZeroInfs.toArray[LinearCombination],
-                      eqs, c.completeInfs, order)
+        new InEqConj (geqZero, geqZeroInfs, bounds, eqs,
+                      fmInfs.completeInfs, order)
     } catch {
-      case `UNSATISFIABLE_CONJUNCTION_EXCEPTION` => FALSE
+      case IntervalProp.UNSATISFIABLE_INEQS_EXCEPTION   => FALSE
     }
 
   def apply(lhss : Iterator[LinearCombination], order : TermOrder) : InEqConj =
@@ -94,13 +120,15 @@ object InEqConj {
         TRUE
     } else {
       new InEqConj (Array(lhs.makePrimitive),
-                    IndexedSeq.empty, EquationConj.TRUE, true, order)
+                    IndexedSeq.empty, IndexedSeq.empty,
+                    EquationConj.TRUE, true, order)
     }
     
-  val TRUE = new InEqConj (IndexedSeq.empty, IndexedSeq.empty,
+  val TRUE = new InEqConj (IndexedSeq.empty, IndexedSeq.empty, IndexedSeq.empty,
                            EquationConj.TRUE, true, TermOrder.EMPTY)
 
-  val FALSE = new InEqConj (Array(LinearCombination.MINUS_ONE), IndexedSeq.empty,
+  val FALSE = new InEqConj (Array(LinearCombination.MINUS_ONE),
+                            IndexedSeq.empty, IndexedSeq.empty,
                             EquationConj.TRUE, true, TermOrder.EMPTY)
 
   /**
@@ -122,15 +150,9 @@ object InEqConj {
                                conj.equalityInfs.iterator)
         }
         c.compute
-        val eqs = EquationConj(c.equalityInfs.iterator, logger, order)
-        if (eqs.isFalse)
-          FALSE
-        else
-          new InEqConj (c.geqZero.toArray[LinearCombination],
-                        c.geqZeroInfs.toArray[LinearCombination],
-                        eqs, c.completeInfs, order)
+        constructInEqConj(c, logger, order)
       } catch {
-        case `UNSATISFIABLE_CONJUNCTION_EXCEPTION` => FALSE
+        case FMInfsComputer.UNSATISFIABLE_INEQS_EXCEPTION => FALSE
       } } )
 
   def conj(conjs : Iterator[InEqConj], order : TermOrder) : InEqConj =
@@ -141,21 +163,22 @@ object InEqConj {
    */
   def conj(conjs : Iterable[InEqConj], order : TermOrder) : InEqConj = {
     val res = conj(conjs.iterator, order)
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPost(AC, !res.completeInfs || {
                        val otherRes =
                          apply(for (conj <- conjs.iterator; lc <- conj.iterator)
                                yield lc, order)
                        !res.completeInfs || res == otherRes
                      })
-    //-END-ASSERTION-///////////////////////////////////////////////////////
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
     res
   }
 
   /**
-   * Perform Fourier-Motzkin elimination on one particular symbol <code>t</code>.
-   * The result is the collection of eliminated inequalities, and the collection of
-   * remaining inequalities (including inferences from the removed inequalities).
+   * Perform Fourier-Motzkin elimination on one particular symbol
+   * <code>t</code>. The result is the collection of eliminated inequalities,
+   * and the collection of remaining inequalities (including inferences from
+   * the removed inequalities).
    * If an unsatisfiable inequality is derived, the exception
    * <code>UNSATISFIABLE_INEQ_EXCEPTION</code> is thrown.
    */
@@ -197,7 +220,8 @@ object InEqConj {
       } else {
         val primLC = lc.makePrimitive
         if (remainder add primLC)
-          logger.combineInequalities(coeff1, lc1, coeff2, lc2, lc, primLC, order)
+          logger.combineInequalities(coeff1, lc1, coeff2, lc2, lc, primLC,
+                                     order)
       }
     }
 
@@ -218,6 +242,8 @@ object InEqConj {
   object UNSATISFIABLE_INEQ_EXCEPTION extends Exception
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 /**
  * Class for storing a conjunction of inequalities that are normalised to the
  * form <code>t >= 0</code>. Together with the actual inequalities, also all
@@ -234,6 +260,9 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                         // Fourier-Motzkin inferences that can be drawn from the
                         // inequalities above
                         val geqZeroInfs : IndexedSeq[LinearCombination],
+                        // additional bounds that have been derived by
+                        // interval constraint propagation
+                        val geqZeroBounds : IndexedSeq[LinearCombination],
                         // equations that are implied by the inequalities above
                         // (not necessarily /all/ implied equations)
                         val equalityInfs : EquationConj,
@@ -258,9 +287,11 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   Debug.assertCtor(InEqConj.AC,
                    (validLCSeq(geqZero) ||
                     // special case to represent unsatisfiable inequalities
-                    geqZero.size == 1 && geqZeroInfs.isEmpty && equalityInfs.isTrue &&
+                    geqZero.size == 1 &&
+                    geqZeroInfs.isEmpty && equalityInfs.isTrue &&
                     geqZero(0) == LinearCombination.MINUS_ONE) &&
                    validLCSeq(geqZeroInfs) &&
+                   validLCSeq(geqZeroBounds) &&
                    // the two lists of inequalities do not contain bounds for
                    // the same linear combination
                    (geqZeroInfs forall (findBound(_, geqZero) == None)) &&
@@ -277,10 +308,21 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
 
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * All inferred inequalities, including both Fourier-Motzkin inferences and
+   * bounds derived using interval constraint propagation.
+   */
+  lazy val allGeqZeroInfs = LazyIndexedSeqConcat(geqZeroInfs, geqZeroBounds)
+
+  /**
+   * All stored or inferred inequalities.
+   */
+  lazy val allGeqZero = LazyIndexedSeqConcat(geqZero, allGeqZeroInfs)
+
   def isTrue : Boolean = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertInt(InEqConj.AC, !geqZero.isEmpty ||
-                                 geqZeroInfs.isEmpty && equalityInfs.isTrue)      
+                                 geqZeroInfs.isEmpty && equalityInfs.isTrue)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     geqZero.isEmpty
   }
@@ -302,12 +344,13 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       // Then we try to compute more inferences up to the given limit
       // TODO: use a more efficient elimination order
       val c = new FMInfsComputer (infLimit, InEqConj.THROTTLED_INF_NUM,
-                                  10*infLimit, ComputationLogger.NonLogger, order)
-      for (lc <- geqZero) c.addGeqTodo(lc)
+                                  10*infLimit, ComputationLogger.NonLogger,
+                                  order)
+      c.addGeqsTodo(geqZero)
       c.compute
       false
     } catch {
-      case `UNSATISFIABLE_CONJUNCTION_EXCEPTION` => true
+      case FMInfsComputer.UNSATISFIABLE_INEQS_EXCEPTION => true
     }
   
   /**
@@ -382,12 +425,13 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InEqConj.AC,
                     newGeqZero forall ((lc:LinearCombination) =>
-                                   findLowerBound(lc) == Some(IdealInt.ZERO)))
+                                        geqZero contains lc))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     
     if (completeInfs)
       // we can assume that no computations have to be logged in this case,
       // because they were already performed at an earlier point
+      // TODO: is this true also with ICP?
       updateGeqZero(newGeqZero)
     else
       updateGeqZero(newGeqZero, logger)
@@ -439,7 +483,8 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
   //////////////////////////////////////////////////////////////////////////////
 
   private def findBound(lc : LinearCombination,
-                        bounds : IndexedSeq[LinearCombination]) : Option[IdealInt] = {
+                        bounds : IndexedSeq[LinearCombination])
+                      : Option[IdealInt] = {
     
     Seqs.binSearch(bounds, 0, bounds.size, lc)(order.reverseLCOrdering) match {
     case Seqs.Found(_) => Some(IdealInt.ZERO)
@@ -465,12 +510,15 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       if (lc.isPrimitive) {
-        findBound(lc, geqZero) orElse findBound(lc, geqZeroInfs)
+        findBound(lc, geqZeroBounds) orElse
+        findBound(lc, geqZero) orElse
+        findBound(lc, geqZeroInfs)
       } else {
         // we have to make the linear combination primitive before we can search
         // for it
         val primLC = lc.makePrimitive
-        for (bound <- (findBound(primLC, geqZero) orElse
+        for (bound <- (findBound(primLC, geqZeroBounds) orElse
+                       findBound(primLC, geqZero) orElse
                        findBound(primLC, geqZeroInfs))) yield
           ((bound - primLC.constant) * lc.nonConstCoeffGcd + lc.constant)
       }
@@ -495,10 +543,12 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
     } else {
       val lc = LinearCombination(lt, order)
       val ineqs = findInEqsWithLeadingTerm(lc, geqZero)
-      if (includeInfs)
-        ineqs ++ findInEqsWithLeadingTerm(lc, geqZeroInfs)
-      else
+      if (includeInfs) {
+        ineqs ++ findInEqsWithLeadingTerm(lc, geqZeroInfs) ++
+                 findInEqsWithLeadingTerm(lc, geqZeroBounds)
+      } else {
         ineqs
+      }
     }
   }
 
@@ -616,239 +666,4 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
 
   override def hashCode = hashCodeVal
 
-}
-
-
-private abstract class InEquality {
-  val lc : LinearCombination
-  val kind : Int
-  // for merging conjunctions of inequalities (without recomputing all
-  // inferences) we store an integer that describes the source of this
-  // inequality. only inferences between inequalities from different sources, 
-  // or with inequalities from source <code>-1</code> have to be computed
-  val source : Int
-  def inferenceNecessary(that : InEquality) : Boolean =
-    this.source == -1 || that.source == -1 || this.source != that.source
-}
-private case class GeqZero(val lc : LinearCombination, val source : Int)
-                   extends InEquality { val kind = 2 }
-private case class GeqZeroInf(val lc : LinearCombination, val source : Int)
-                   extends InEquality { val kind = 4 }
-
-private object UNSATISFIABLE_CONJUNCTION_EXCEPTION extends Exception
-
-private class FMInfsComputer(infThrottleThreshold : Int,
-                             throttledInfNum : Int,
-                             infStopThreshold : Int,
-                             logger : ComputationLogger,
-                             order : TermOrder) {
-
-  /**
-   * Add a single input geq-zero-inequality
-   */
-  def addGeqTodo(lc : LinearCombination) : Unit = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(InEqConj.AC, lc isSortedBy order)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-    addGeqTodo(lc, false, -1)
-  }
-
-  private var runningSource : Int = 0
-  
-  /**
-   * Add a sorted sequence of geq-zero-inequalities to the queue, together with
-   * the (sorted) inferences that can be derived from the inequalities.
-   * Typically, <code>lcs</code> will be <code>conj.geqZero</code> and
-   * <code>lcInfs</code> will be <code>conj.geqZeroInfs</code> for some
-   * existing conjunction of inequalities.
-   */
-  def addPrecomputedGeqs(lcs : Iterator[LinearCombination],
-                         inEqInfs : Iterator[LinearCombination],
-                         eqInfs : Iterator[LinearCombination]) : Unit = {
-    val source = runningSource
-    runningSource = runningSource + 1
-
-    inEqsQueue += (for (lc <- lcs) yield {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(InEqConj.AC, (lc isSortedBy order) && lc.isPrimitive)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      GeqZero(lc, source)
-    })
-    
-    inEqsQueue += (for (lc <- inEqInfs) yield {
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPre(InEqConj.AC, (lc isSortedBy order) && lc.isPrimitive)
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-      GeqZeroInf(lc, source)
-    })
-    
-    equalityInfs ++= eqInfs
-  }
-  
-  
-  /**
-   * Sort the available inequalities by first comparing the linear combination
-   * and then the kind of the inequality (geq is greater than leq, inferences
-   * are greater than independent inequalities) 
-   */
-  private implicit val orderTodo = new Ordering[InEquality] {
-    def compare(thisIE : InEquality, thatIE : InEquality) =
-      Seqs.lexCombineInts((thisIE.lc constantDiff thatIE.lc) match {
-                            case None => 0
-                            case Some(d) =>
-                              Seqs.lexCombineInts(-(d.signum),
-                                                  thisIE.kind - thatIE.kind,
-                                                  thisIE.source - thatIE.source)
-                          },
-                          order.compare(thisIE.lc, thatIE.lc))
-    }
-
-  /**
-   * The main working queue of inequalities
-   */
-  private val inEqsQueue = new PriorityQueueWithIterators[InEquality]
-
-  /**
-   * Add a further geq-inequality to the working queue
-   */
-  private def addGeqTodo(lc : LinearCombination, inf : Boolean, source : Int) : Unit =
-    if (lc.isConstant) {
-      if (lc.constant.signum < 0) {
-        logger.cieScope.finish(lc, lc)
-        throw UNSATISFIABLE_CONJUNCTION_EXCEPTION
-      }
-      // otherwise: we can simply remove the trivial inequality
-    } else {
-      if (!inf ||
-          infsTodoCount < infThrottleThreshold ||
-          infsLocalTodoCount < throttledInfNum) {
-        val primLC = lc.makePrimitive // round the constant term downwards
-        logger.cieScope.finish(lc, primLC)
-        inEqsQueue +=
-          (if (inf) GeqZeroInf(primLC, source) else GeqZero(primLC, source))
-      } else {
-        if (inf)
-          // this means that some inferences have or will be dropped
-          completeInfs = false
-      }
-      
-      if (inf) {
-        infsTodoCount = infsTodoCount + 1
-        infsLocalTodoCount = infsLocalTodoCount + 1
-      }
-    }
-
-  private var infsTodoCount : Int = 0
-  private var infsLocalTodoCount : Int = 0
-
-  //////////////////////////////////////////////////////////////////////////////
-  // The results of the computation
-    
-  // linear combinations that are stated to be geq zero
-  val geqZero = new ArrayBuffer [LinearCombination]
-  // Fourier-Motzkin inferences that can be drawn from the inequalities above
-  val geqZeroInfs = new ArrayBuffer [LinearCombination]
-  // equations that are implied by the inequalities above
-  // (not necessarily /all/ implied equations)
-  val equalityInfs = new ArrayBuffer [LinearCombination]
-  
-  // have all Fourier-Motzkin inferences been computed?
-  // (in general, only a subset of them will be generated)
-  var completeInfs : Boolean = true
-  
-  //////////////////////////////////////////////////////////////////////////////
-  // The main loop
-
-  /**
-   * Two lists of geq-zero-inequalities and leq-zero-inequalities
-   * (i.e., negative geq-zero-inequalities) that have the same leading term
-   */
-  private val currentGeqs = new ArrayBuffer[InEquality]
-  private val currentLeqs = new ArrayBuffer[InEquality]
-
-  private def addCurrentInEq(ie : InEquality) : Unit =
-    if (ie.lc.isPositive)
-      addCurrentInEq(ie, currentGeqs) // a real geq-zero
-    else
-      addCurrentInEq(ie, currentLeqs) // a real leq-zero
-
-  private def addCurrentInEq(ie : InEquality,
-                             buffer : ArrayBuffer[InEquality]) : Unit =
-    if (!buffer.isEmpty && (ie.lc sameNonConstantTerms buffer.last.lc)) {
-      // then the new inequality is subsumed by the last inequality
-      // already in the buffer. Note that <code>GeqZeroInf</code> comes
-      // before <code>GeqZero</code>, so that inequalities that are inferred
-      // by other inequalities are also detected and removed
-      //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertInt(InEqConj.AC,
-                      { val diff = (ie.lc constantDiff buffer.last.lc).get
-                        diff.signum > 0 ||
-                        diff.isZero &&
-                        !(ie.isInstanceOf[GeqZeroInf] &&
-                          buffer.last.isInstanceOf[GeqZero]) &&
-                        !(ie.isInstanceOf[GeqZeroInf] &&
-                          buffer.last.isInstanceOf[GeqZeroInf] &&
-                          buffer.last.source < ie.source)})
-      //-END-ASSERTION-/////////////////////////////////////////////////////////
-    } else {
-      buffer += ie
-      addToResult(ie)
-    }
-  
-  private def addToResult(ie : InEquality) : Unit = ie match {
-    case GeqZero(lc, _) => geqZero += lc
-    case GeqZeroInf(lc, _) => geqZeroInfs += lc
-  }
-  
-  
-  private def computeInferences : Unit = {
-    infsLocalTodoCount = 0
-    for (geq <- currentGeqs; leq <- currentLeqs)
-      if (geq inferenceNecessary leq) {
-        val geqLC = geq.lc
-        val leqLC = leq.lc
-
-        if (infsLocalTodoCount <= infStopThreshold ||
-            (geqLC inverseNonConstantTerms leqLC)) {
-          val gcd = geqLC.leadingCoeff gcd leqLC.leadingCoeff
-          val leqCoeff = leqLC.leadingCoeff / -gcd
-          val geqCoeff = geqLC.leadingCoeff / gcd
-        
-          val inf =
-            LinearCombination.sum(leqCoeff, geqLC, geqCoeff, leqLC, order)
-        
-          logger.cieScope.start((leqCoeff, geqLC, geqCoeff, leqLC, order)) {
-            addGeqTodo(inf, true, -1)
-          }
-        
-          if (inf.isZero) {
-            // an implied equation has been found
-            logger.antiSymmetry(geqLC, leqLC, order)
-            equalityInfs += geqLC
-          }
-        }
-        
-        if (infsTodoCount % 1000 == 0 & infsLocalTodoCount > 0)
-          Timeout.check
-      }
-    }
-  
-  //////////////////////////////////////////////////////////////////////////////
-  
-  def compute = 
-    while (!inEqsQueue.isEmpty) {
-      val firstIE = inEqsQueue.dequeue
-      val leadingTerm = firstIE.lc.leadingTerm
-      addCurrentInEq(firstIE)
-    
-      while (!inEqsQueue.isEmpty && inEqsQueue.max.lc.leadingTerm == leadingTerm)
-        addCurrentInEq(inEqsQueue.dequeue)
-      
-      computeInferences
-    
-      currentGeqs.clear
-      currentLeqs.clear
-    }
-  //////////////////////////////////////////////////////////////////////////////
-  
 }

@@ -627,6 +627,8 @@ class ReduceWithInEqsImpl protected[inequalities]
       if (conj.isTrue || conj.isFalse) {
         conj
       } else try {
+// TODO: also check for inconsistencies in derived inequalities?
+
         val newLCs = new ArrayBuffer[LinearCombination]
         var changed = false
 
