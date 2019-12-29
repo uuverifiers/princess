@@ -194,17 +194,21 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
    */
   def +(that : Conjunction)
        (implicit order : TermOrder) : NegatedConjunctions = {
-    implicit val revConjOrder = Conjunction reverseConjOrdering order
     val N = this.size
-    Seqs.binSearch(conjs, 0, N, that) match {
-      case Seqs.Found(_) =>
-        this
-      case Seqs.NotFound(i) => {
-        val newConjs = new Array[Conjunction] (N + 1)
-        Array.copy(conjs, 0, newConjs, 0, i)
-        newConjs(i) = that
-        Array.copy(conjs, i, newConjs, i + 1, N - i)
-        new NegatedConjunctions(newConjs, order)
+    if (N == 0) {
+      new NegatedConjunctions(Array(that), order)
+    } else {
+      implicit val revConjOrder = Conjunction reverseConjOrdering order
+      Seqs.binSearch(conjs, 0, N, that) match {
+        case Seqs.Found(_) =>
+          this
+        case Seqs.NotFound(i) => {
+          val newConjs = new Array[Conjunction] (N + 1)
+          Array.copy(conjs, 0, newConjs, 0, i)
+          newConjs(i) = that
+          Array.copy(conjs, i, newConjs, i + 1, N - i)
+          new NegatedConjunctions(newConjs, order)
+        }
       }
     }
   }
