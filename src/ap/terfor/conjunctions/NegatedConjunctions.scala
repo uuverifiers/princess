@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -52,7 +52,7 @@ object NegatedConjunctions {
                                     c => c, compareConjs _) match {
       case Seqs.FilteredSorted(sortedConjs) => {
         val contractedConjs = Seqs.removeDuplicates(sortedConjs).toArray
-        new NegatedConjunctions (contractedConjs, order)      
+        new NegatedConjunctions (contractedConjs, order)
       }
       case Seqs.FoundBadElement(_) => FALSE
     }
@@ -180,11 +180,34 @@ class NegatedConjunctions private (private val conjs : Array[Conjunction],
   
   //////////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Remove some negated conjunctions.
+   */
   def --(that : NegatedConjunctions) : NegatedConjunctions =
     if (that.isTrue)
       this
     else
       (this diff that)._2
+
+  /**
+   * Add a further negated conjunction.
+   */
+  def +(that : Conjunction)
+       (implicit order : TermOrder) : NegatedConjunctions = {
+    implicit val revConjOrder = Conjunction reverseConjOrdering order
+    val N = this.size
+    Seqs.binSearch(conjs, 0, N, that) match {
+      case Seqs.Found(_) =>
+        this
+      case Seqs.NotFound(i) => {
+        val newConjs = new Array[Conjunction] (N + 1)
+        Array.copy(conjs, 0, newConjs, 0, i)
+        newConjs(i) = that
+        Array.copy(conjs, i, newConjs, i + 1, N - i)
+        new NegatedConjunctions(newConjs, order)
+      }
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 

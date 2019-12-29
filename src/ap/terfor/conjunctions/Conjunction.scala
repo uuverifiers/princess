@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -377,6 +377,14 @@ object Conjunction {
   def conjOrdering(order : TermOrder) = new Ordering[Conjunction] {
     def compare(c1 : Conjunction, c2 : Conjunction) =
       Conjunction.compare(c1, c2, order)
+  }
+
+  /**
+   * Rudimentary reverse sorting of conjunctions. TODO: improve this (a lot)
+   */
+  def reverseConjOrdering(order : TermOrder) = new Ordering[Conjunction] {
+    def compare(c1 : Conjunction, c2 : Conjunction) =
+      Conjunction.compare(c2, c1, order)
   }
 
   private val quanOrdering = new Ordering[Quantifier] {
