@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -53,6 +53,9 @@ object ComputationLogger {
                             result : LinearCombination,
                             resultAfterRounding : LinearCombination,
                             order : TermOrder) : Unit = {}
+    def combineInequalitiesLazy(ineqs : Iterator[(IdealInt, LinearCombination)],
+                                resultAfterRounding : LinearCombination,
+                                order : TermOrder) : Unit = {}
     def antiSymmetry(leftInEq : LinearCombination, rightInEq : LinearCombination,
                      order : TermOrder) : Unit = {}
     def directStrengthen(inequality : LinearCombination, equation : LinearCombination,
@@ -155,14 +158,23 @@ trait ComputationLogger {
                         order : TermOrder) : Unit
 
   /**
-   * Fourier-Motzkin Inference. The given terms shall be primitive, which means
-   * that the result will be implicitly rounded 
+   * Fourier-Motzkin Inference. The given terms shall be primitive, and
+   * the result will be implicitly rounded 
    */
   def combineInequalities(leftCoeff : IdealInt, leftInEq : LinearCombination,
                           rightCoeff : IdealInt, rightInEq : LinearCombination,
                           result : LinearCombination,
                           resultAfterRounding : LinearCombination,
                           order : TermOrder) : Unit
+
+  /**
+   * Compute the sum of multiple inequalities, and round the result afterwards.
+   * The argument <code>ineqs</code> might be stored and evaluated much later,
+   * or not at all if the represented inference turns out to be unnecessary.
+   */
+  def combineInequalitiesLazy(ineqs : Iterator[(IdealInt, LinearCombination)],
+                              resultAfterRounding : LinearCombination,
+                              order : TermOrder) : Unit
 
   /**
    * Turn two complementary inequalities into an equation

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -893,4 +893,34 @@ case class PartialCertificateInference(pCert : PartialCertificate,
   
   override def toString : String =
     "PartialCertificateInference(" + pCert + ")"
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+object MacroInference {
+  private val AC = Debug.AC_CERTIFICATES
+}
+
+/**
+ * An inference encapsulating multiple inferences, to be expanded on demand.
+ */
+abstract class MacroInference(_providedFormulas : Set[CertFormula],
+                              _boundConstants : Set[ConstantTerm])
+     extends {
+
+  val assumedFormulas = Set[CertFormula]() // never accessed!
+  val providedFormulas = _providedFormulas
+  override val localBoundConstants : Set[ConstantTerm] = _boundConstants
+
+} with BranchInference {
+
+  def propagateConstraint(closingConstraint : Conjunction) =
+    throw new UnsupportedOperationException
+
+  /**
+   * The represented inferences.
+   */
+  def expand : Iterator[BranchInference]
+                              
+  override def toString : String = "MacroInference"
 }

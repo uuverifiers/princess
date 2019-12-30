@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -476,16 +476,96 @@ object LinearCombination {
   //////////////////////////////////////////////////////////////////////////////
 
   private[linearcombination]
-    def rawSum(coeff1 : IdealInt, lc1 : LinearCombination,
-               coeff2 : IdealInt, lc2 : LinearCombination,
+    def rawSum(aCoeff : IdealInt, a : LinearCombination,
+               bCoeff : IdealInt, b : LinearCombination,
                order : TermOrder) : LinearCombination = {
-//    println("" + coeff1 + " *** " + lc1 + " +++++ " + coeff2 + " *** " + lc2)
-    val blender = new LCBlender(order)
-    blender.+=(coeff1, lc1, coeff2, lc2)
-    blender.dropAll
-    blender.result
+    if (aCoeff.isZero)
+      return b
+    if (bCoeff.isZero)
+      return a
+
+    val res = ArrayBuilder.make[(IdealInt, Term)]
+
+    val Na = a.size
+    val Nb = b.size
+
+    var aInd = 0
+    var bInd = 0
+
+    var aNextCoeff : IdealInt = aCoeff * (a getCoeff aInd)
+    var bNextCoeff : IdealInt = bCoeff * (b getCoeff bInd)
+    var aNextTerm : Term = a getTerm aInd
+    var bNextTerm : Term = b getTerm bInd
+
+    aInd = aInd + 1
+    bInd = bInd + 1
+
+    while (true) {
+      val c = order.compare(aNextTerm, bNextTerm)
+      
+      if (c > 0) {
+        res += ((aNextCoeff, aNextTerm))
+        if (aInd < Na) {
+          aNextCoeff = aCoeff * (a getCoeff aInd)
+          aNextTerm = a getTerm aInd
+          aInd = aInd + 1
+        } else {
+          res += ((bNextCoeff, bNextTerm))
+          while (bInd < Nb) {
+            res += ((bCoeff * (b getCoeff bInd), b getTerm bInd))
+            bInd = bInd + 1
+          }
+          return createFromSortedArray(res.result, order)
+        }
+      } else if (c < 0) {
+        res += ((bNextCoeff, bNextTerm))
+        if (bInd < Nb) {
+          bNextCoeff = bCoeff * (b getCoeff bInd)
+          bNextTerm = b getTerm bInd
+          bInd = bInd + 1
+        } else {
+          res += ((aNextCoeff, aNextTerm))
+          while (aInd < Na) {
+            res += ((aCoeff * (a getCoeff aInd), a getTerm aInd))
+            aInd = aInd + 1
+          }
+          return createFromSortedArray(res.result, order)
+        }
+      } else {
+        // both elements have the same term, so we compute their sum
+        val coeff = aNextCoeff + bNextCoeff
+        if (!coeff.isZero)
+          res += ((coeff, aNextTerm))
+          if (aInd >= Na) {
+            while (bInd < Nb) {
+            res += ((bCoeff * (b getCoeff bInd), b getTerm bInd))
+            bInd = bInd + 1
+          }
+          return createFromSortedArray(res.result, order)
+        }
+        if (bInd >= Nb) {
+          while (aInd < Na) {
+            res += ((aCoeff * (a getCoeff aInd), a getTerm aInd))
+            aInd = aInd + 1
+          }
+          return createFromSortedArray(res.result, order)
+        }
+
+        aNextCoeff = aCoeff * (a getCoeff aInd)
+        aNextTerm = a getTerm aInd
+        aInd = aInd + 1
+
+        bNextCoeff = bCoeff * (b getCoeff bInd)
+        bNextTerm = b getTerm bInd
+        bInd = bInd + 1
+      }
+    }
+    
+    null // never reached
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  
   private[linearcombination]
     def sum_2_1(lc1 : LinearCombination2,
                 coeff2 : IdealInt, lc2 : LinearCombination1,

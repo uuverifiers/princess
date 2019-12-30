@@ -137,6 +137,9 @@ object BranchInferenceCollection {
                 pCert(List(infCert))
               return getCertificateHelp(remInferences, newChild, order)
             }
+            case inf : MacroInference =>
+              for (n <- inf.expand)
+                remInferences = n :: remInferences
             case inf => {
               requiredFormulas --= inf.providedFormulas
               requiredFormulas ++= inf.assumedFormulas
@@ -373,6 +376,41 @@ class LoggingBranchInferenceCollector private
     if (result != resultAfterRounding)
       addDirectly(SimpInference(resultF, CertInequality(resultAfterRounding), order))
   }
+
+  def combineInequalitiesLazy(ineqs : Iterator[(IdealInt, LinearCombination)],
+                              resultAfterRounding : LinearCombination,
+                              order : TermOrder) : Unit =
+    addDirectly(
+      new MacroInference(Set(CertInequality(resultAfterRounding)), Set()) {
+        lazy val pairAr = ineqs.toArray
+        
+        def expand : Iterator[BranchInference] = {
+          val it                    = pairAr.iterator
+          val (firstCoeff, firstLC) = it.next
+          var curCoeff              = firstCoeff
+          var curIneq               = CertInequality(firstLC)
+
+          (for ((coeff, lc) <- it) yield {
+             val sum  = LinearCombination.sum(curCoeff, curIneq.lhs,
+                                              coeff, lc, order)
+             val ineq = CertInequality(sum)
+             val inf  = CombineInequalitiesInference(curCoeff, curIneq,
+                                                     coeff, CertInequality(lc),
+                                                     ineq, order)
+             curIneq  = ineq
+             curCoeff = IdealInt.ONE
+             inf
+           }) ++ {
+             if (curIneq.lhs == resultAfterRounding)
+               Iterator.empty
+             else
+               Iterator(SimpInference(curIneq,
+                                      CertInequality(resultAfterRounding),
+                                      order))
+           }
+        }
+      }
+    )
 
   def antiSymmetry(leftInEq : LinearCombination, rightInEq : LinearCombination,
                    order : TermOrder) : Unit =
