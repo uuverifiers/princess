@@ -394,14 +394,19 @@ object LinearCombination {
   /**
    * Compute the sum of exactly two linear combinations with arbitrary
    * coefficients. This method is optimised and tries to avoid the
-   * <code>LCBlender</code> as far as possible
+   * the general case as far as possible
    */
   def sum(coeff1 : IdealInt, lc1 : LinearCombination,
           coeff2 : IdealInt, lc2 : LinearCombination,
           order : TermOrder) : LinearCombination = lc1 match {
+    case lc1 : LinearCombination0 if lc1.isZero =>
+      lc2 scale coeff2
     case lc1 : LinearCombination0 => lc2 match {
       case lc2 : LinearCombination0 =>
-        apply(lc1.constant * coeff1 + lc2.constant * coeff2)
+        if (lc2.isZero)
+          lc1 scale coeff1
+        else
+          apply(lc1.constant * coeff1 + lc2.constant * coeff2)
       case lc2 : LinearCombination1 =>
         createFromFlatTerm(lc2.coeff0 * coeff2, lc2.term0,
                            lc1.constant * coeff1 + lc2.constant * coeff2,
@@ -416,9 +421,12 @@ object LinearCombination {
     }
     case lc1 : LinearCombination1 => lc2 match {
       case lc2 : LinearCombination0 =>
-        createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
-                           lc1.constant * coeff1 + lc2.constant * coeff2,
-                           order)
+        if (lc2.isZero)
+          lc1 scale coeff1
+        else
+          createFromFlatTerm(lc1.coeff0 * coeff1, lc1.term0,
+                             lc1.constant * coeff1 + lc2.constant * coeff2,
+                             order)
       case lc2 : LinearCombination1 => {
         val c0 = order.compare(lc1.term0, lc2.term0)
         if (c0 > 0)
@@ -446,10 +454,13 @@ object LinearCombination {
     }
     case lc1 : LinearCombination2 => lc2 match {
       case lc2 : LinearCombination0 =>
-        createFromFlatTerms(lc1.coeff0 * coeff1, lc1.term0,
-                            lc1.coeff1 * coeff1, lc1.term1,
-                            lc1.constant * coeff1 + lc2.constant * coeff2,
-                            order)
+        if (lc2.isZero)
+          lc1 scale coeff1
+        else
+          createFromFlatTerms(lc1.coeff0 * coeff1, lc1.term0,
+                              lc1.coeff1 * coeff1, lc1.term1,
+                              lc1.constant * coeff1 + lc2.constant * coeff2,
+                              order)
       case lc2 : LinearCombination1 if (coeff1.isOne) =>
         sum_2_1(lc1, coeff2, lc2, order)
       case lc2 : LinearCombination1 if (coeff2.isOne) =>
@@ -460,7 +471,10 @@ object LinearCombination {
         rawSum(coeff1, lc1, coeff2, lc2, order)
     }
     case _ =>
-      rawSum(coeff1, lc1, coeff2, lc2, order)
+      if (lc2.isZero)
+        lc1 scale coeff1
+      else        
+        rawSum(coeff1, lc1, coeff2, lc2, order)
   }
 
   /**
@@ -480,9 +494,9 @@ object LinearCombination {
                bCoeff : IdealInt, b : LinearCombination,
                order : TermOrder) : LinearCombination = {
     if (aCoeff.isZero)
-      return b
+      return b scale bCoeff
     if (bCoeff.isZero)
-      return a
+      return a scale aCoeff
 
     val res = ArrayBuilder.make[(IdealInt, Term)]
 
@@ -536,8 +550,8 @@ object LinearCombination {
         val coeff = aNextCoeff + bNextCoeff
         if (!coeff.isZero)
           res += ((coeff, aNextTerm))
-          if (aInd >= Na) {
-            while (bInd < Nb) {
+        if (aInd >= Na) {
+          while (bInd < Nb) {
             res += ((bCoeff * (b getCoeff bInd), b getTerm bInd))
             bInd = bInd + 1
           }
