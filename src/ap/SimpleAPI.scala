@@ -4174,7 +4174,7 @@ class SimpleAPI private (enableAssert : Boolean,
 
   private def addFormula(f : LazyConjunction) : Unit = {
     doDumpSMT {
-      print("; adding internal formula: " + f)
+      println("; adding internal formula: " + f)
     }
     resetModel
 
