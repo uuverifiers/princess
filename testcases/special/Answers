@@ -151,15 +151,15 @@ Constructing countermodel ...
 
 sat
 (model
-  (define-fun x9 () Int (- 2))
+  (define-fun x9 () Int (- 1))
   (define-fun x8 () Int (- 1))
-  (define-fun x7 () Int (- 1))
-  (define-fun x6 () Int (- 2))
-  (define-fun x5 () Int (- 3))
-  (define-fun x4 () Int (- 3))
+  (define-fun x7 () Int 1)
+  (define-fun x6 () Int (- 3))
+  (define-fun x5 () Int (- 2))
+  (define-fun x4 () Int (- 2))
   (define-fun x3 () Int (- 3))
-  (define-fun x2 () Int 3)
-  (define-fun x1 () Int 2)
+  (define-fun x2 () Int 2)
+  (define-fun x1 () Int 3)
   (define-fun x0 () Int (- 4))
 )
 
