@@ -41,16 +41,16 @@ VALID
 (& (>= (lit 7) (sym y) ) (>= (sym y) (lit -2147483648) ) ) 
 (>= (lit 20) (sym z) ) 
 .
-Found proof (size 208), simplifying (254)
+Found proof (size 214), simplifying (238)
 VALID
 (true) 
 (true) 
 (true) 
-(& (= (sym sym2) (sym sym1) ) (| (| (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 3) ) ) (= (sym sym1) (lit 2) ) ) (= (sym sym1) (lit 1) ) ) (= (sym sym1) (lit 0)) ) ) 
-(& (= (sym sym2) (sym sym1) ) (| (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 3) ) ) (= (sym sym1) (lit 2) ) ) (= (sym sym1) (lit 1) ) ) ) 
+(& (= (sym sym2) (sym sym1) ) (| (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (= (sym sym1) (lit 0)) ) (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) ) ) 
+(& (= (sym sym2) (sym sym1) ) (| (| (= (sym sym1) (lit 4) ) (= (sym sym1) (lit 1) ) ) (& (>= (lit 3) (sym sym1) ) (>= (sym sym1) (lit 2) ) ) ) ) 
 (>= (+ (* (lit -1) (sym sym3) ) (sym sym1) ) (lit 1) ) 
 .
-Found proof (size 37), simplifying (44)
+Found proof (size 38), simplifying (44)
 VALID
 (= (sym sym1) (sym sym0) ) 
 (& (= (sym sym1) (sym sym0) ) (>= (sym sym0) (lit 1) ) ) 
