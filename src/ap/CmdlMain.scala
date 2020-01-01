@@ -439,14 +439,14 @@ object CmdlMain {
                                   Param.ProofConstructionOptions.Never),
                            "-constructProofs=never",
                            1000000000,
-                           10000),
+                           2000),
                          ParallelFileProver.Configuration(
                            Param.PROOF_CONSTRUCTION_GLOBAL.set(
                                   baseSettings,
                                   Param.ProofConstructionOptions.Always),
                            "-constructProofs=always",
                            1000000000,
-                           10000))
+                           2000))
                   ParallelFileProver(reader,
                                      Param.TIMEOUT(settings),
                                      true,
