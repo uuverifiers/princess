@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -637,7 +637,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
         bestExactShadow(inEqs) match {
           case None => inEqs
           case Some(c) => {
-            val (eliminated, remaining) = InEqConj.exactShadow(c, inEqs, logger, order)
+            val (eliminated, remaining) =
+              InEqConj.exactShadow(c, inEqs, logger, order)
             //-BEGIN-ASSERTION-/////////////////////////////////////////////////
             Debug.assertInt(ConjunctEliminator.AC,
                             remaining forall (!occursIn(_, c)))

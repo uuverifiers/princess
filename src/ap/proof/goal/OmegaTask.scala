@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -275,106 +275,156 @@ case object OmegaTask extends EagerTask {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         printDebug("Applying Omega rule")
         //-END-ASSERTION-///////////////////////////////////////////////////////
-    
-        val newGoals = new ArrayBuffer[ProofTree]
-        val (boundsA, boundsB) = if (lowerSplitting)
-                                   (lowerBounds, upperBounds)
-                                 else
-                                   (upperBounds, lowerBounds)
-        
-        // the splinters
-        for (lc <- splinterEqs(elimConst, boundsA, boundsB, order)) {
+
+        val allBounds = lowerBounds ++ upperBounds
+
+        if (Param.PROOF_CONSTRUCTION(goal.settings) && splittingNum.isOne) {
+          //////////////////////////////////////////////////////////////////////
+          // This means that we can directly compute the exact shadow, and do
+          // not need the full Omega rule at all
+
+          val collector = goal.getInferenceCollector
+          val (eliminated, shadowLCs) =
+            InEqConj.exactShadow(elimConst, allBounds, collector, order)
+
+          val remainingInEq =
+            InEqConj(remainingInEqs.iterator, collector, order)
+          val darkShadowFacts =
+            goal.facts.updateInEqs(remainingInEq)(order)
           val newTasks =
-            goal formulaTasks Conjunction.conj(NegEquationConj(lc, order), order)
-          val newCollection =
-            goal startNewInferenceCollectionCert List(CertEquation(lc))
+            for (lc <- shadowLCs;
+                 c = Conjunction.negate(InEqConj(lc, order), order);
+                 t <- goal formulaTasks c)
+            yield t
+
+          val shadowGoal =
+            ptf.updateGoal(darkShadowFacts,
+                           newTasks,
+                           collector.getCollection,
+                           goal)
+
+          // we add a <code>ModelFinder</code> so that a witness for the
+          // eliminated constant can be constructed
+          val eliminatedInEqs =
+            ArithConj.conj(InEqConj(allBounds, order), order)
+          ptf.eliminatedConstant(shadowGoal,
+                                 InNegEqModelElement(eliminatedInEqs,
+                                                     elimConst),
+                                 goal.vocabulary)
+
+        } else {
+          //////////////////////////////////////////////////////////////////////
+          // Otherwise, use the full Omega rule
+
+          val newGoals = new ArrayBuffer[ProofTree]
+          val (boundsA, boundsB) = if (lowerSplitting)
+                                     (lowerBounds, upperBounds)
+                                   else
+                                     (upperBounds, lowerBounds)
+        
+          // the splinters
+          for (lc <- splinterEqs(elimConst, boundsA, boundsB, order)) {
+            val newTasks =
+              goal formulaTasks Conjunction.conj(NegEquationConj(lc, order),
+                                                 order)
+            val newCollection =
+              goal startNewInferenceCollectionCert List(CertEquation(lc))
             
-          newGoals += ptf.updateGoal(newTasks, newCollection, goal)
-        }
+            newGoals += ptf.updateGoal(newTasks, newCollection, goal)
+          }
         
-        // the dark shadow
-        val darkShadowInEqs = darkShadow(elimConst, boundsA, boundsB, order)
+          // the dark shadow
+          val darkShadowInEqs = darkShadow(elimConst, boundsA, boundsB, order)
         
-        /**
-         * If proofs are constructed, the dark shadow inequalities are added
-         * one by one; otherwise, we create a big conjunction first
-         */
-        val darkShadowFors = if (Param.PROOF_CONSTRUCTION(goal.settings))
-                               for (lc <- darkShadowInEqs) yield InEqConj(lc, order)
-                             else
-                               List(InEqConj(darkShadowInEqs, order))
+          /**
+           * If proofs are constructed, the dark shadow inequalities are added
+           * one by one; otherwise, we create a big conjunction first
+           */
+          val darkShadowFors =
+            if (Param.PROOF_CONSTRUCTION(goal.settings))
+              for (lc <- darkShadowInEqs) yield InEqConj(lc, order)
+            else
+              List(InEqConj(darkShadowInEqs, order))
 
-        val newCollector =
-          goal.startNewInferenceCollectionCert(
-                 for (lc <- darkShadowInEqs) yield CertInequality(lc))
-              .getCollector
-                       
-        val remainder = InEqConj(remainingInEqs.iterator, newCollector, order)
+          val newCollector =
+            goal.startNewInferenceCollectionCert(
+                   for (lc <- darkShadowInEqs) yield CertInequality(lc))
+                .getCollector
 
-        val newFormulas =
-          if (darkShadowFors forall (_.isTrue))
-            // We have to make sure that the Omega task is repeated if there are
-            // inequalities left. To ensure this, we simply add the remaining
-            // inequalities as a task if the dark shadow is trivial
-            List(remainder)
-          else
-            darkShadowFors
+          val remainder = InEqConj(remainingInEqs.iterator, newCollector, order)
 
-        val newTasks =
-          for (f <- newFormulas;
-               t <- goal.formulaTasks(Conjunction.conj(f, order).negate))
-          yield t
+          val newFormulas =
+            if (darkShadowFors forall (_.isTrue))
+              // We have to make sure that the Omega task is repeated if there
+              // are
+              // inequalities left. To ensure this, we simply add the remaining
+              // inequalities as a task if the dark shadow is trivial
+              List(remainder)
+            else
+              darkShadowFors
 
-        val darkShadowFacts = goal.facts.updateInEqs(remainder)(order)
-        val darkShadowGoal = ptf.updateGoal(darkShadowFacts,
-                                            newTasks, newCollector.getCollection,
-                                            goal)
+          val newTasks =
+            for (f <- newFormulas;
+                 t <- goal.formulaTasks(Conjunction.conj(f, order).negate))
+            yield t
+
+          val darkShadowFacts = goal.facts.updateInEqs(remainder)(order)
+          val darkShadowGoal  = ptf.updateGoal(darkShadowFacts,
+                                               newTasks,
+                                               newCollector.getCollection,
+                                               goal)
         
-        newGoals += (if (darkShadowFacts.isFalse) {
-            darkShadowGoal
-          } else {
-            // we add a <code>ModelFinder</code> so that a witness for the eliminated
-            // constant can be constructed
-            val eliminatedInEqs =
-              ArithConj.conj(InEqConj(lowerBounds.iterator ++ upperBounds.iterator,
-                                      order), order)
-            ptf.eliminatedConstant(darkShadowGoal,
-                                   InNegEqModelElement(eliminatedInEqs, elimConst),
-                                   goal.vocabulary)
-          })
+          newGoals +=
+           (if (darkShadowFacts.isFalse) {
+              darkShadowGoal
+            } else {
+              // we add a <code>ModelFinder</code> so that a witness for the
+              // eliminated constant can be constructed
+              val eliminatedInEqs =
+                ArithConj.conj(InEqConj(allBounds, order), order)
+              ptf.eliminatedConstant(darkShadowGoal,
+                                     InNegEqModelElement(eliminatedInEqs,
+                                                         elimConst),
+                                     goal.vocabulary)
+            })
                                              
-        if (Param.PROOF_CONSTRUCTION(goal.settings)) {
-          val order = goal.order
+          if (Param.PROOF_CONSTRUCTION(goal.settings)) {
+            val order = goal.order
 
-          val boundsAInEqs = for (b <- boundsA) yield CertInequality(b)
-          val boundsBInEqs = for (b <- boundsB) yield CertInequality(b)
+            val boundsAInEqs = for (b <- boundsA) yield CertInequality(b)
+            val boundsBInEqs = for (b <- boundsB) yield CertInequality(b)
 
-          def pCertFunction(children : Seq[Certificate]) : Certificate =
-            OmegaCertificate(elimConst, boundsAInEqs, boundsBInEqs,
-                             children, order)
-      
-          def pCert =
-            PartialCertificate(pCertFunction _,
-                               OmegaCertificate.providedFormulas(
+            def pCertFunction(children : Seq[Certificate]) : Certificate =
+              OmegaCertificate(elimConst, boundsAInEqs, boundsBInEqs,
+                               children, order)
+
+            val providedFormulas =
+              OmegaCertificate.providedFormulas(
                                  elimConst,
                                  boundsAInEqs, boundsBInEqs, order,
                                  OmegaCertificate.strengthenCases(
-                                   elimConst, boundsAInEqs, boundsBInEqs)),
-                               goal.branchInferences,
-                               order)
+                                   elimConst, boundsAInEqs, boundsBInEqs))
+            val pCert =
+              PartialCertificate(pCertFunction _,
+                                 providedFormulas,
+                                 goal.branchInferences,
+                                 order)
 
-          ptf.and(newGoals, pCert, goal.vocabulary)
-        } else {
-          ptf.and(newGoals, goal.vocabulary)
+            ptf.and(newGoals, pCert, goal.vocabulary)
+          } else {
+            ptf.and(newGoals, goal.vocabulary)
+          }
         }
       }
     }
   }
   
-  private def predictOmegaSplitting(elimConst : ConstantTerm,
-                                    lowerBounds : Seq[LinearCombination],
-                                    upperBounds : Seq[LinearCombination]) : IdealInt = {
-    val m = IdealInt.max(for (lc <- upperBounds.iterator) yield (lc get elimConst).abs)
+  private def predictOmegaSplitting(
+                 elimConst : ConstantTerm,
+                 lowerBounds : Seq[LinearCombination],
+                 upperBounds : Seq[LinearCombination]) : IdealInt = {
+    val m = IdealInt.max(for (lc <- upperBounds.iterator)
+                         yield (lc get elimConst).abs)
     (IdealInt.ONE /: 
        (for (lc <- lowerBounds.iterator) yield {
           val coeff = (lc get elimConst).abs
