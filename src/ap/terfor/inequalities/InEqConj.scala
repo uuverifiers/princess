@@ -73,10 +73,10 @@ object InEqConj {
       val geqZeroInfs = fmInfs.geqZeroInfs.result
 
       val (bounds, boundEqs) =
-        if (geqZero.size > 1 && !logger.isLogging) {
+        if (geqZero.size > 1) {
           val icpInput = LazyIndexedSeqConcat(geqZero, geqZeroInfs)
           if (IntervalProp icpMayWork icpInput) {
-            val icp = new IntervalProp(icpInput)
+            val icp = new IntervalProp(icpInput, logger, order)
             val bounds = icp.updatedBoundsAsInequalities(order)
             (bounds, icp.impliedEquations(order))
           } else {

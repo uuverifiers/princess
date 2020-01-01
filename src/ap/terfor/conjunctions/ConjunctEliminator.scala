@@ -644,9 +644,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
             //-END-ASSERTION-///////////////////////////////////////////////////
             c match {
               case c : ConstantTerm => {
-              // TODO: we shouldn't need the logger here?
                 val eliminatedFor =
-                  ArithConj.conj(InEqConj(eliminated.iterator, logger, order), order)
+                  ArithConj.conj(InEqConj(eliminated.iterator, order), order)
                 if (eliminatedFor.isFalse) {
                   // In this case, the full set of inequalities is unsat,
                   // but this was not detected earlier due to incompleteness
