@@ -25,7 +25,8 @@ import ap.basetypes.IdealInt
 import ap.terfor.{Term, VariableTerm, ConstantTerm, OneTerm,
                   TermOrder, ComputationLogger}
 import ap.terfor.linearcombination.{LinearCombination, LinearCombination0,
-                                    LinearCombination1, LinearCombination2}
+                                    LinearCombination1, LinearCombination2,
+                                    ArrayLinearCombination}
 import ap.util.Debug
 
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Queue,
@@ -56,7 +57,7 @@ object IntervalProp {
             return true
           found1 = true
         }
-        case _ : LinearCombination2 => {
+        case _ : LinearCombination | _ : ArrayLinearCombination => {
           if (found1)
             return true
           found2 = true
