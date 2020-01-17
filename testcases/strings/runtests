@@ -9,7 +9,8 @@ TESTS="simple-cycle.smt2 \
        concat-2.smt2 \
        transducer1.smt2 \
        adt.smt2 \
-       escape.smt2"
+       escape.smt2 \
+       escape2.smt2"
 
 $PRI "$@" $TESTS
 
