@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -93,6 +93,29 @@ object SMTLineariser {
 
         case (1, 117) =>                                  // u
           state = 2
+
+        // C++-style escape sequences. Add \e?
+        case (1, c@(97 | 98 | 102)) => {                  // a, b, f
+          res += c - 90
+          state = 0
+        }
+        case (1, 110) => {                                // n
+          res += 10
+          state = 0
+        }
+        case (1, 114) => {                                // r
+          res += 13
+          state = 0
+        }
+        case (1, 116) => {                                // t
+          res += 9
+          state = 0
+        }
+        case (1, 118) => {                                // v
+          res += 11
+          state = 0
+        }
+
         case (2, 123) =>                                  // {
           state = 3
         case (2, c) if isHex(c) => {                      // [0-9a-fA-F]
