@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2010-2012 NICTA/Peter Baumgartner <Peter.Baumgartner@nicta.com.au>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -140,13 +140,6 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
     
   def apply(reader : java.io.Reader)
            : (IFormula, List[IInterpolantSpec], Signature) = {
-    warn("You are using the normal version of Princess to solve TPTP problems.\n" +
-         "         Note that this version assumes a non-standard semantics\n" +
-         "         of uninterpreted sorts, defining all domains to be infinite.\n" +
-         "         For full support of TPTP please download the dedicated\n" +
-         "         CASC/TPTP of Princess from\n" +
-         "         http://www.philipp.ruemmer.org/princess.shtml#tptp")
-
     parseAll[List[List[(Boolean, IFormula)]]](TPTP_input, reader) match {
       case Success(formulas, _) => {
         val axiomFors =
