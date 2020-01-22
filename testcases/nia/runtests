@@ -45,7 +45,6 @@ TESTS="division.pri \
        simplify23.pri \
        simplify24.pri \
        simplify25.pri \
-       simplify26.pri \
        simplify27.pri \
        simplify2.pri \
        simplify3.pri \

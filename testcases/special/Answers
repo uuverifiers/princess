@@ -84,12 +84,6 @@ Concrete witness:
 MinNum = 10
 
 Loading GEO212+3-complete.p ...
-Warning: You are using the normal version of Princess to solve TPTP problems.
-         Note that this version assumes a non-standard semantics
-         of uninterpreted sorts, defining all domains to be infinite.
-         For full support of TPTP please download the dedicated
-         CASC/TPTP of Princess from
-         http://www.philipp.ruemmer.org/princess.shtml#tptp
 Preprocessing ...
 Warning: ignoring some quantifiers
 Constructing countermodel ...
@@ -162,4 +156,13 @@ sat
   (define-fun x1 () Int 3)
   (define-fun x0 () Int (- 4))
 )
+
+Loading simplify26.pri ...
+Preprocessing ...
+Constructing countermodel ...
+
+INVALID
+
+Countermodel:
+w = -17 & v = -148 & u = -33333 & t = -1111111106 & z = -1 & y = -1 & x = -1
 

@@ -22,5 +22,6 @@ $PRI "$@" -timeout=15000 adt-large.pri
 $PRI "$@" -timeout=30000 -assert bv-interpolation-7.pri
 $PRI "$@" +ignoreQuantifiers boolean-triggers.smt2
 $PRI "$@" -timeout=30000 -constructProofs=always 10-40.smt2
+$PRI "$@" -timeout=30000 simplify26.pri
 
 
