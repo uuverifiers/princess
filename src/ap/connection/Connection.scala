@@ -26,7 +26,7 @@ package ap.connection;
 import ap.terfor.ConstantTerm
 
 package object connection {
-  type BREUOrder = List[(ConstantTerm, Boolean)]  
+  type BCTOrder = List[(ConstantTerm, Boolean)]  
 }
 
 abstract class Connection

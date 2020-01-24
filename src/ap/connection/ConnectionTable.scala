@@ -117,7 +117,7 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
   def isOpen = openBranches > 0
 
   // Extend branch branchIdx with clause(idx) and add new branches to the right
-  def extendBranch(branchIdx : Int, clause : PseudoClause, idx : Int, newOrder : BREUOrder) = {
+  def extendBranch(branchIdx : Int, clause : PseudoClause, idx : Int, newOrder : BCTOrder) = {
     val preBranches = branches.take(branchIdx)
     val postBranches = branches.drop(branchIdx + 1)
     val newBranches = (for (c <- clause.pseudoLiterals) yield branches(branchIdx).extend(c, newOrder)).toList
@@ -226,7 +226,7 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
     * then the domain should be the intersection of its
     * domain on each branch.
     */
-  def combineOrders(orders : Seq[BREUOrder], disequalities : Seq[(ConstantTerm, ConstantTerm)]) = {
+  def combineOrders(orders : Seq[BCTOrder], disequalities : Seq[(ConstantTerm, ConstantTerm)]) = {
     val maps = orders.map(orderToMap)
     val keys : Set[ConstantTerm] = (for (m <- maps) yield m.keys).foldLeft(Set() : Set[ConstantTerm])(_ ++ _)
 
@@ -257,7 +257,7 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
     // finalDomains
   }
 
-  def orderToMap(order : BREUOrder) = {
+  def orderToMap(order : BCTOrder) = {
     val domain = MMap() : MMap[ConstantTerm,Set[ConstantTerm]]
 
     for ((t, uni) <- order.reverse) {
@@ -306,8 +306,8 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
   }
 
 
-  def branchToBREU(breuSolver : breu.BREUSolver[ConstantTerm, Predicate], breuBranches : Seq[ConnectionBranch], disequalities : Seq[(ConstantTerm, ConstantTerm)])
-      : breu.BREUInstance[ConstantTerm, Predicate]  = {
+  def branchToBREU(breuSolver : breu.Solver[ConstantTerm, Predicate], breuBranches : Seq[ConnectionBranch], disequalities : Seq[(ConstantTerm, ConstantTerm)])
+      : breu.Instance[ConstantTerm, Predicate]  = {
     // We need to keep track of domains
     val domains = combineOrders(for (branch <- breuBranches) yield branch.order, disequalities)
 
@@ -331,8 +331,8 @@ class ConnectionTable(val branches : Seq[ConnectionBranch], preSettings : GoalSe
   // TODO: Maybe we can replace with default arguments instead...
   // TODO: Make datatype for disequalities
 
-  def branchToBREU(breuSolver : breu.BREUSolver[ConstantTerm, Predicate], disequalities : Seq[(ConstantTerm, ConstantTerm)])
-      : breu.BREUInstance[ConstantTerm, Predicate]  = {
+  def branchToBREU(breuSolver : breu.Solver[ConstantTerm, Predicate], disequalities : Seq[(ConstantTerm, ConstantTerm)])
+      : breu.Instance[ConstantTerm, Predicate]  = {
     val closedBranches = branches.filter(!_.isOpen)
     branchToBREU(breuSolver, closedBranches, disequalities)
   }

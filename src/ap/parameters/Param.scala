@@ -384,8 +384,8 @@ object Param {
   }
 
   case object BREU_SOLVER extends Param {
-    type Value = Option[breu.BREUSolver[ConstantTerm, Predicate]]
-    val defau : Option[breu.BREUSolver[ConstantTerm, Predicate]] = None
+    type Value = Option[breu.Solver[ConstantTerm, Predicate]]
+    val defau : Option[breu.Solver[ConstantTerm, Predicate]] = None
   }
 
 

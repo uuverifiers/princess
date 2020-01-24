@@ -3,7 +3,7 @@ package ap.connection; //
 import ap.terfor.{TermOrder, ConstantTerm}
 import ap.terfor.conjunctions.{Conjunction}
 import ap.terfor.preds.{Atom, PredConj, Predicate}
-import ap.connection.connection.BREUOrder
+import ap.connection.connection.BCTOrder
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug}
@@ -27,7 +27,7 @@ object PseudoClause {
   //
   //
 
-  def convertNegFunEq(funEq : Atom) : (FunEquation, NegEquation, BREUOrder) = {
+  def convertNegFunEq(funEq : Atom) : (FunEquation, NegEquation, BCTOrder) = {
     dprintln("convertNegFunEq(" + funEq + ")")
     val fun = funEq.pred
 
@@ -40,7 +40,7 @@ object PseudoClause {
     dprintln("\tres: " + res)    
 
     val newTerm = new ConstantTerm("DUMMY_TERM_" + nextTerm)
-    val newBREUOrder = List((newTerm, false))
+    val newBCTOrder = List((newTerm, false))
     val newTermOrder = funEq.order.extend(newTerm)
 
     val negEqLC = LinearCombination(List((ap.basetypes.IdealInt.ONE, newTerm), (ap.basetypes.IdealInt.MINUS_ONE, res)), newTermOrder)
@@ -54,7 +54,7 @@ object PseudoClause {
     val (lhs, rhs, newEq) = eqTerms(negEqLC, newTermOrder)
     val eq = NegEquation(lhs, rhs)
     dprintln("\teq: " + eq)
-    (newFunEq, eq, newBREUOrder)
+    (newFunEq, eq, newBCTOrder)
   }
 
 
@@ -338,9 +338,9 @@ object PseudoClause {
     * 
     *  So it seems we should be able to put positive fun equations to other branches? (If we change quantifiers)
     */
-  def disjunctionToClause(conj : Conjunction, funPreds : Set[Predicate]) : (PseudoClause, BREUOrder) = {
+  def disjunctionToClause(conj : Conjunction, funPreds : Set[Predicate]) : (PseudoClause, BCTOrder) = {
     dprintln("disjToClause(" + conj + ")")
-    var newBREUOrder = List() : BREUOrder
+    var newBCTOrder = List() : BCTOrder
     var newOrder = conj.order
 
     
@@ -371,8 +371,8 @@ object PseudoClause {
 
     val funEqs = 
       (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield {
-        val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
-        newBREUOrder ++= tmpBREUOrder
+        val (feq, neq, tmpBCTOrder) = convertNegFunEq(p)
+        newBCTOrder ++= tmpBCTOrder
         new PseudoLiteral(List(feq), neq)
       }).toList
 
@@ -401,12 +401,12 @@ object PseudoClause {
 
     // val funLiterals =
     //   for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield {
-    //     val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
-    //     newBREUOrder ++= tmpBREUOrder        
+    //     val (feq, neq, tmpBCTOrder) = convertNegFunEq(p)
+    //     newBCTOrder ++= tmpBCTOrder        
     //     new PseudoLiteral(List(feq), neq)
     //   }
 
-    val ret = (new PseudoClause((negFunEqs ++ funEqs ++ arithLiterals ++ posPredLits ++ negPredLits ++ pseudoLiterals).toList), newBREUOrder)
+    val ret = (new PseudoClause((negFunEqs ++ funEqs ++ arithLiterals ++ posPredLits ++ negPredLits ++ pseudoLiterals).toList), newBCTOrder)
     dprintln("resClause: " + ret)
     ret
   }
@@ -418,13 +418,13 @@ object PseudoClause {
   // (A) It is a single positive or negative literal (this corresponds to a unit-clause)
 
   // (B) Negated conjs is larger than 0, and we have a disjunction (and then the predconj should be empty)
-  def conjToClause(conj : Conjunction, funPreds : Set[Predicate]) : (PseudoClause, BREUOrder) = {
+  def conjToClause(conj : Conjunction, funPreds : Set[Predicate]) : (PseudoClause, BCTOrder) = {
     dprintln("conjToClause(" + conj + ")")
 
     val predConj = conj.predConj
     val arithConj = conj.arithConj
 
-    var breuOrder = List() : BREUOrder
+    var bctOrder = List() : BCTOrder
     var termOrder = conj.order    
 
     val topLevelFunEqs : Seq[FunEquation] =
@@ -459,7 +459,7 @@ object PseudoClause {
 
     dprintln("TopLevelFunEqs: " + topLevelFunEqs.mkString(","))
     dprintln("topLevelLiteral: " + topLevelLiteral.mkString(","))    
-    val (pl, bo) : (PseudoClause, BREUOrder) = 
+    val (pl, bo) : (PseudoClause, BCTOrder) = 
       if (topLevelLiteral.isEmpty && topLevelFunEqs.isEmpty) {
         disjunctionToClause(conj.negatedConjs(0), funPreds)
       } else {
@@ -479,7 +479,7 @@ object PseudoClause {
   }  
 
 
-  def fromConjunction(conj : Conjunction, funPreds : Set[Predicate], debug : Boolean = false) : (PseudoClause, BREUOrder) = {
+  def fromConjunction(conj : Conjunction, funPreds : Set[Predicate], debug : Boolean = false) : (PseudoClause, BCTOrder) = {
     DEBUGPrint = debug
     val (pc, order) = conjToClause(conj, funPreds)
     dprintln("" + conj)
@@ -502,11 +502,11 @@ object PseudoClause {
   // if something is introduced, variables further down can see it, right?
   // So the order should be extended on the way up such that the new symbols are placed after the old ones (or v.v.) Lets Try!
 
-  def ctc(conj : Conjunction, funEqs : List[FunEquation], funPreds : Set[Predicate], negated : Boolean) : (List[PseudoLiteral], BREUOrder) = {
+  def ctc(conj : Conjunction, funEqs : List[FunEquation], funPreds : Set[Predicate], negated : Boolean) : (List[PseudoLiteral], BCTOrder) = {
     dprintln("ctc")
     dprintln("conj: " + conj)
 
-    var newBREUOrder = List() : BREUOrder
+    var newBCTOrder = List() : BCTOrder
 
     val (newFunEqs, newLiterals) : (List[FunEquation], List[PseudoLiteral]) = 
       if (negated) {
@@ -530,8 +530,8 @@ object PseudoClause {
         // positive funPreds => negative funPreds
         val lits3 =
           (for (p <- conj.predConj.positiveLits.iterator; if p.predicates subsetOf funPreds) yield {
-            val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
-            newBREUOrder ++= tmpBREUOrder
+            val (feq, neq, tmpBCTOrder) = convertNegFunEq(p)
+            newBCTOrder ++= tmpBCTOrder
             new PseudoLiteral(nfe ++ List(feq), neq)
           }).toList
 
@@ -569,8 +569,8 @@ object PseudoClause {
         // negative funPreds
         val lits3 =
           (for (p <- conj.predConj.negativeLits.iterator; if p.predicates subsetOf funPreds) yield {
-            val (feq, neq, tmpBREUOrder) = convertNegFunEq(p)
-            newBREUOrder ++= tmpBREUOrder
+            val (feq, neq, tmpBCTOrder) = convertNegFunEq(p)
+            newBCTOrder ++= tmpBCTOrder
             new PseudoLiteral(nfe ++ List(feq), neq)
           }).toList
 
@@ -597,24 +597,24 @@ object PseudoClause {
     //-END-ASSERTION-//////////////////////////////////////////////////////////
     if (conj.negatedConjs.size == 0) {
       if (newLiterals.length == 0) {
-        (List(new PseudoLiteral(newFunEqs.tail, newFunEqs.head)), newBREUOrder)
+        (List(new PseudoLiteral(newFunEqs.tail, newFunEqs.head)), newBCTOrder)
       } else {
-        (newLiterals, newBREUOrder)
+        (newLiterals, newBCTOrder)
       }
     } else {
       var deeperLiterals = List() : List[PseudoLiteral]
-      var deeperOrder = List() : BREUOrder
+      var deeperOrder = List() : BCTOrder
       for (nc <- conj.negatedConjs) {
         val (dlit, dord) = ctc(nc, newFunEqs, funPreds, !negated)
         deeperLiterals ++= dlit
         deeperOrder ++= dord
       }
-      (newLiterals ++ deeperLiterals, deeperOrder ++ newBREUOrder)
+      (newLiterals ++ deeperLiterals, deeperOrder ++ newBCTOrder)
     }
   }
 
 
-  def CTC(conj : Conjunction, funPreds : Set[Predicate], debug : Boolean = false) : (PseudoClause, BREUOrder) = {
+  def CTC(conj : Conjunction, funPreds : Set[Predicate], debug : Boolean = false) : (PseudoClause, BCTOrder) = {
     DEBUGPrint = debug    
     dprintln(" CTC")
     dprintln("-----")

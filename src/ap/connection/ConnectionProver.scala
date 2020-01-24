@@ -28,7 +28,7 @@
 // TODO RIGHT NOW:
 //
 // Line 705 fix on geo118+1.p
-// TODO: Fix terms vs order (BREUterms?)
+// TODO: Fix terms vs order (BCTterms?)
 
 package ap.connection;
 
@@ -41,7 +41,7 @@ import ap.proof.goal.Goal
 import ap.util.{Debug, Timer, Combinatorics, Seqs}
 import ap.parameters.{GoalSettings, Param}
 import ap.proof.Vocabulary
-import ap.connection.connection.BREUOrder
+import ap.connection.connection.BCTOrder
 import scala.collection.mutable.{ListBuffer}
 
 object ConnectionProver {
@@ -59,9 +59,9 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
   val funPreds = Param.FUNCTIONAL_PREDICATES(preSettings)
 
   /**
-    * Instantiate top-level of conjuction, returning instantiated conj, updated BREUorder and TermOrder 
+    * Instantiate top-level of conjuction, returning instantiated conj, updated BCTorder and TermOrder 
     */
-  def inst(conj : Conjunction, prefix : String, order : TermOrder) : (Conjunction, BREUOrder, TermOrder) = {
+  def inst(conj : Conjunction, prefix : String, order : TermOrder) : (Conjunction, BCTOrder, TermOrder) = {
     var allCount = -1
     var exCount = -1
 
@@ -94,7 +94,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
     *    -Updated TermOrder (which might be thrown away...)
     */
   def instantiateAux(conj : Conjunction, prefix : String, to : TermOrder) :
-      (Conjunction, BREUOrder, TermOrder) = {
+      (Conjunction, BCTOrder, TermOrder) = {
     
     // Instantiate top-level
     val allTerms : ListBuffer[(ConstantTerm, Boolean)] = ListBuffer()
@@ -124,9 +124,9 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
     // Pull out all universals to the front...
 
-    val newBREUOrder = allTerms.toList.reverse.filter(!_._2) ++ allTerms.toList.reverse.filter(_._2)
+    val newBCTOrder = allTerms.toList.reverse.filter(!_._2) ++ allTerms.toList.reverse.filter(_._2)
 
-    (finalConj, newBREUOrder, termOrder)
+    (finalConj, newBCTOrder, termOrder)
   }
 
   /**
@@ -178,14 +178,14 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
       } else ap.util.Timer.measure("Extending Table") {
         val (clause, idx) = findLiteral(inputClauses, step - 1)
         dprintln("\tExtending with: " + clause)
-        val (instClause, newBREUOrder) = fullInst(clause, "branch_" + iteration)
-        val (pseudoClause, tmpBREUOrder) = PseudoClause.CTC(instClause, funPreds)
+        val (instClause, newBCTOrder) = fullInst(clause, "branch_" + iteration)
+        val (pseudoClause, tmpBCTOrder) = PseudoClause.CTC(instClause, funPreds)
         val firstLiteral = pseudoClause(idx)
-        val finalBREUOrder = tmpBREUOrder ++ newBREUOrder
-        dprintln("\tpicked literal: " + firstLiteral + " $ " + finalBREUOrder)
+        val finalBCTOrder = tmpBCTOrder ++ newBCTOrder
+        dprintln("\tpicked literal: " + firstLiteral + " $ " + finalBCTOrder)
 
-        // TODO: tmpBREUOrder should only be existentials...
-        val extendedTable = table.extendBranch(branchIdx, pseudoClause, idx, finalBREUOrder)
+        // TODO: tmpBCTOrder should only be existentials...
+        val extendedTable = table.extendBranch(branchIdx, pseudoClause, idx, finalBCTOrder)
         extendedTable.closeSafe(branchIdx, strong)
       }
 
@@ -270,7 +270,7 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
   // TODO: Is this sound, ask Philipp!
   def isUnitClause(conj : Conjunction) : Boolean = conj.boundVariables.size == 0
 
-  def extractConstants(conjs : List[Conjunction]) : BREUOrder = {
+  def extractConstants(conjs : List[Conjunction]) : BCTOrder = {
     (for (c <- conjs) yield c.constants).toSet.flatten.toList.map((_, false))
   }
 
@@ -298,13 +298,13 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
     val strs = 
       for (c <- clauses) yield {
-        val (pseudoClause, breuOrder) = PseudoClause.CTC(fullInst(c, "")._1, funPreds, DEBUGPrint)
+        val (pseudoClause, bctOrder) = PseudoClause.CTC(fullInst(c, "")._1, funPreds, DEBUGPrint)
         "" + c + "\n\t->" + pseudoClause
       }
 
     // println("Input Clauses (fromConjunction):")
     // for (c <- clauses) {
-    //   val (pseudoClause, breuOrder) = PseudoClause.fromConjunction(fullInst(c, "")._1, funPreds, DEBUGPrint)
+    //   val (pseudoClause, bctOrder) = PseudoClause.fromConjunction(fullInst(c, "")._1, funPreds, DEBUGPrint)
     //   println("\t" + pseudoClause)
     // }
 
@@ -315,11 +315,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
 
     // Put all unit clauses on the main branch
 
-    var initBREUOrder = List() : BREUOrder
+    var initBCTOrder = List() : BCTOrder
     val unitClauses : List[PseudoClause] =
       for (c <- clauses if isUnitClause(c)) yield {
-        val (clause, tmpBREUOrder) = PseudoClause.CTC((fullInst(c, "conv")._1), funPreds)
-        initBREUOrder ++= tmpBREUOrder
+        val (clause, tmpBCTOrder) = PseudoClause.CTC((fullInst(c, "conv")._1), funPreds)
+        initBCTOrder ++= tmpBCTOrder
         clause
       }
 
@@ -330,11 +330,11 @@ class ConnectionProver(depthFirst : Boolean, preSettings : GoalSettings, strong 
         (Option[ConnectionTable], Boolean) = {
 
       val (firstClause, newTerms) = fullInst(clauses(idx), "base")
-      val baseOrder = initBREUOrder ++ extractConstants(clauses) ++ List((new ConstantTerm("MIN"), false))
-      val (initClause, someBREUOrder) = PseudoClause.CTC(firstClause, funPreds)
+      val baseOrder = initBCTOrder ++ extractConstants(clauses) ++ List((new ConstantTerm("MIN"), false))
+      val (initClause, someBCTOrder) = PseudoClause.CTC(firstClause, funPreds)
 
       // TODO: This is not very elegant, but hopefully correct?
-      val initOrder = (newTerms ++ someBREUOrder ++ baseOrder)
+      val initOrder = (newTerms ++ someBCTOrder ++ baseOrder)
 
       println("\n//-----------------------------")      
       println("||Trying with initial clause: " + initClause)

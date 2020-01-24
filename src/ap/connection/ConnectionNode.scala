@@ -34,7 +34,7 @@ import ap.util.Debug
 // [0 .. branch.length - 1 .. branch.length - 1 + |Input Clauses*Clause length|].
 // I.e., first we try the nodes on the branch, then the input clauses.
 
-// A term in a BREUOrder which is (_, false) is a constant while
+// A term in a BCTOrder which is (_, false) is a constant while
 // (_, true) is a variable which can take the value of any variable or
 // constant earlier in the order.
 abstract class Node {

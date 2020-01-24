@@ -23,7 +23,7 @@
 
 package ap.connection;
 
-import ap.connection.connection.{BREUOrder}
+import ap.connection.connection.{BCTOrder}
 import ap.terfor.ConstantTerm
 import ap.util.Debug
 import scala.collection.mutable.ListBuffer
@@ -38,7 +38,7 @@ import ClosedStyle._
 
 // TODO: Maybe store how branch was closed?
 // This could be useful for reusing old solutions!
-class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val order : BREUOrder) {
+class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val order : BCTOrder) {
 
   // Output formatting helper methods
   // def longestPrefix(that : List[Node]) : List[Node] =
@@ -80,7 +80,7 @@ class ConnectionBranch(val nodes : List[Node], val closed : ClosedStyle, val ord
   def apply(idx : Int) = nodes(idx)
 
   // TODO: Extra order, yuck...
-  def extend(literal : PseudoLiteral, extraOrder : BREUOrder) = {
+  def extend(literal : PseudoLiteral, extraOrder : BCTOrder) = {
     // TODO: Correct combination order?
     val mergeOrder = extraOrder ++ order
     new ConnectionBranch(literal.lit :: literal.funs ++ nodes, ClosedStyle.Open, mergeOrder)

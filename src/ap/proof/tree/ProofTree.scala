@@ -32,7 +32,7 @@ import ap.terfor.preds.Predicate
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Seqs, Timeout}
 
-import breu.{BREUSolver, LazySolver, TableSolver, BREUInstance}
+import breu.{Solver, LazySolver, TableSolver, Instance}
 
 import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet,
                                  Map => MMap, LinkedHashMap}
@@ -200,7 +200,7 @@ trait ProofTree {
   // HACK: remember whether we have already checked cc-unifiability here
   private var unifiabilityChecked = false
 
-  private lazy val breuSolver : BREUSolver[ConstantTerm, Predicate] =
+  private lazy val breuSolver : Solver[ConstantTerm, Predicate] =
     this match {
       case goal : Goal =>
         Param.BREU_SOLVER(goal.settings) match {
@@ -226,7 +226,7 @@ trait ProofTree {
       subtree.constructingProofs
   }
 
-  // private lazy val breuSolvers : List[BREUSolver[ConstantTerm, Predicate]] =
+  // private lazy val breuSolvers : List[Solver[ConstantTerm, Predicate]] =
   //   List(new breu.TableSolver[ConstantTerm, Predicate], 
   //     new breu.LazySolver[ConstantTerm, Predicate])
 
@@ -511,7 +511,7 @@ trait ProofTree {
   private def createBREUInstance(
                  globalDomains : Map[ConstantTerm, Set[ConstantTerm]],
                  unificationProblems : List[BREUProblem])
-               : BREUInstance[ConstantTerm, Predicate] = {
+               : Instance[ConstantTerm, Predicate] = {
 
     val domains = unificationProblems map (_._1)
     val goals =   unificationProblems map (_._2)
