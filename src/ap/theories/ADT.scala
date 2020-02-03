@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -36,7 +36,7 @@ import ap.types.{Sort, ProxySort, MonoSortedIFunction, SortedPredicate,
 import ap.proof.theoryPlugins.Plugin
 import ap.proof.goal.Goal
 import ap.parameters.{Param, ReducerSettings}
-import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs}
+import ap.util.{Debug, UnionSet, LazyMappedSet, Combinatorics, Seqs, LRUCache}
 
 import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer,
@@ -1225,6 +1225,44 @@ class ADT (sortNames : Seq[String],
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private val quanCtorCasesCache, quanCtorCasesCache2 =
+    new LRUCache[Int, Seq[Conjunction]](1000)
+
+  /**
+   * Generate a sequence of formulas describing the possible constructors
+   * for the given sort; the variable <code>_0</code> in each formula
+   * represents the ADT term.
+   */
+  private def quanCtorCaseWithVars(sortNum : Int)
+                                  (implicit order : TermOrder)
+                                 : Seq[Conjunction] =
+    quanCtorCasesCache(sortNum) {
+      import TerForConvenience._
+      for (c <- quanCtorCases(sortNum, l(v(0))))
+      yield (PresburgerTools toPrenex c)
+    }
+
+  /**
+   * Generate a sequence of formulas describing the possible constructors
+   * for the given sort; the variable <code>_0</code> in each formula
+   * represents the ADT term, and the variable<code>_1</code> the size of
+   * the term.
+   */
+  private def quanCtorCaseWithVars2(sortNum : Int)
+                                   (implicit order : TermOrder)
+                                  : Seq[Conjunction] =
+    quanCtorCasesCache2(sortNum) {
+      import TerForConvenience._
+      val p = termSizePreds(sortNum)
+      val a = Atom(p, Array(l(v(0)), l(v(1))), order)
+      val reducerSettings =
+        Param.FUNCTIONAL_PREDICATES.set(ReducerSettings.DEFAULT,
+                                        functionalPredicates)
+      val reducer = ReduceWithConjunction(Conjunction.conj(a, order), order,
+                                          reducerSettings)
+      for (c <- quanCtorCaseWithVars(sortNum)) yield reducer(c)
+    }
+
   def plugin: Option[Plugin] =
     if (!nonEnumSorts.isEmpty && termSize != null) Some(new Plugin {
       // not used
@@ -1264,29 +1302,32 @@ class ADT (sortNames : Seq[String],
           if (expCandidates.hasNext) {
             import TerForConvenience._
 
-            val (lc, _, sort) = Seqs.partialMinBy(expCandidates, {
+            val (valLC, lenLC, sort) = Seqs.partialMinBy(expCandidates, {
               x:(LinearCombination, LinearCombination, Sort) => x._2
             })(LinearCombination.ValueOrdering)
             
             val sortNum = sort.asInstanceOf[ADTProxySort].sortNum
 
-//            println("Expanding: " + lc + ", " + sort)
-
-//            List(Plugin.SplitGoal(
-//              for (c <- quanCtorCases(sortNum, lc))
-//              yield List(Plugin.AddFormula(!(PresburgerTools toPrenex c)))))
+//            println("Expanding: " + valLC + ", " + sort)
 
             val assumptions : Seq[Formula] = sort.cardinality match {
-              case Some(card) if !lc.isConstant =>
-                List(lc >= 0, lc < card)
+              case Some(card) if !valLC.isConstant =>
+                List(valLC >= 0, valLC < card)
               case _ =>
                 List()
             }
 
+            val cases =
+              if (Param.PROOF_CONSTRUCTION(goal.settings))
+                quanCtorCaseWithVars(sortNum)
+              else
+                quanCtorCaseWithVars2(sortNum)
+            val subst = VariableSubst(0, List(valLC, lenLC), order)
+
             List(Plugin.AxiomSplit(
               assumptions,
-              for (c <- quanCtorCases(sortNum, lc))
-                yield (PresburgerTools toPrenex c, List()),
+              for (c <- cases; substC = subst(c); if !c.isFalse)
+                yield (subst(c), List()),
               ADT.this))
           } else {
             List()
