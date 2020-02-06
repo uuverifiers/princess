@@ -80,8 +80,8 @@ object Theory {
 
     val newOrder = newSig.order
     val formula = 
-      Theory.preprocess(
-        !ReduceWithConjunction(Conjunction.TRUE, newOrder)(
+      !Theory.preprocess(
+        ReduceWithConjunction(Conjunction.TRUE, newOrder)(
            Conjunction.conj(InputAbsy2Internal(
              IExpression.or(for (INamedPart(_, f) <- fors.iterator) yield f),
              newOrder), newOrder)),
