@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -80,10 +80,12 @@ object Theory {
 
     val newOrder = newSig.order
     val formula = 
-      !ReduceWithConjunction(Conjunction.TRUE, newOrder)(
-         Conjunction.conj(InputAbsy2Internal(
-           IExpression.or(for (INamedPart(_, f) <- fors.iterator) yield f),
-           newOrder), newOrder))
+      Theory.preprocess(
+        !ReduceWithConjunction(Conjunction.TRUE, newOrder)(
+           Conjunction.conj(InputAbsy2Internal(
+             IExpression.or(for (INamedPart(_, f) <- fors.iterator) yield f),
+             newOrder), newOrder)),
+        newSig.theories, newOrder)
 
     val functionTranslation =
       (for ((p, f) <- functionEnc.predTranslation.iterator) yield (f, p)).toMap
