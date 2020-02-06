@@ -698,6 +698,17 @@ class ADT (sortNames : Seq[String],
   def getCtorPerSort(sortNum : Int, ctorNum : Int) : MonoSortedIFunction =
     constructors(globalCtorIdsPerSort(sortNum)(ctorNum))
 
+  /**
+   * The sort <code>sorts(n)</code> belonging to the constructor
+   * <code>constructors(ctorNum)</code>.
+   */
+  def sortOfCtor(ctorNum : Int) : Int = ctorNum2SortNum(ctorNum)
+
+  private val ctorNum2SortNum =
+    (for (((_, CtorSignature(_, ADTSort(sortNum))), ctorNum) <-
+            ctorSignatures.iterator.zipWithIndex)
+     yield (ctorNum -> sortNum)).toMap
+
   //////////////////////////////////////////////////////////////////////////////
 
   override def evalFun(f : IFunApp) : Option[ITerm] = {
