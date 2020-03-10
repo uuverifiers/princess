@@ -49,6 +49,8 @@ lazy val root = (project in file(".")).
 //
     mainClass in Compile := Some("ap.CmdlMain"),
 //
+    scalaSource in Test := baseDirectory.value / "test/scala",
+//
     scalacOptions in Compile ++=
       List("-feature",
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
@@ -61,4 +63,8 @@ lazy val root = (project in file(".")).
       "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
 //
     libraryDependencies +=
-      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a")
+      "net.sf.squirrel-sql.thirdparty-non-maven" % "java-cup" % "0.11a",
+//
+    libraryDependencies +=
+      "org.scalatest" %% "scalatest" % "3.1.0" % "test")
+

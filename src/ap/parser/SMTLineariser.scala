@@ -29,14 +29,12 @@ import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
 import IExpression.Sort
-import ap.types.{SortedIFunction, SortedPredicate, MonoSortedIFunction,
-                 SortedConstantTerm, MonoSortedPredicate,
-                 UninterpretedSortTheory}
-import ap.util.{Seqs, Debug}
+import ap.types.{MonoSortedIFunction, MonoSortedPredicate, SortedConstantTerm,
+                 SortedIFunction, SortedPredicate, UninterpretedSortTheory}
+import ap.util.{Debug, Seqs}
 
-import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
-                                 HashSet => MHashSet, LinkedHashMap}
-
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer,
+                                 HashMap => MHashMap, HashSet => MHashSet}
 import java.io.PrintStream
 
 /**
@@ -299,7 +297,8 @@ object SMTLineariser {
   //////////////////////////////////////////////////////////////////////////////
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
-                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint}
+                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint,
+                              SMTHeapSort, SMTHeapAddressSort}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -360,6 +359,8 @@ object SMTLineariser {
       printSMTType(res)
       print(")")
     }
+    case SMTHeapSort(s)      => print(s.name)
+    case SMTHeapAddressSort(s) => print(s.name)
   }
 
   def sort2SMTType(sort : Sort) : (SMTType,
@@ -383,6 +384,10 @@ object SMTLineariser {
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
+    case sort : Heap.HeapSort =>
+      (SMTHeapSort(sort), None)
+    case sort : Heap.AddressSort =>
+      (SMTHeapAddressSort(sort), None)
   }
 
   def sort2SMTString(sort : Sort) : String =
@@ -455,6 +460,38 @@ object SMTLineariser {
       print(")")
     }
     println(")")
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  def printHeapDeclarations(heaps : Seq[Heap]) : Unit = {
+      for (heap <- heaps) printHeapDeclaration(heap)
+  }
+
+  def printHeapDeclaration(heap : Heap) : Unit = {
+    print("(declare-heap ")
+    println(heap.HeapSort.name + " " + heap.AddressSort.name + " " +
+          heap.ObjectSort.name)
+    println("(" + heap._defObj + ")")
+    print(" (")
+    print((for(s <- heap.ObjectADT.sorts)
+      yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
+    println(") (")
+    for (num <- heap.ObjectADT.sorts.indices) {
+      println("  (")
+      for ((f, sels) <- heap.ObjectADT.constructors zip heap.ObjectADT.selectors;
+           if (f.resSort match {
+             case s: ADT.ADTProxySort =>
+               s.sortNum == num && s.adtTheory == heap.ObjectADT
+             case _ =>
+               false
+           })) {
+        print(" ")
+        printADTCtor(f, sels)
+      }
+      println("  )")
+    }
+    println("))")
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -657,7 +694,8 @@ class SMTLineariser(benchmarkName : String,
   import SMTLineariser.{quoteIdentifier, toSMTExpr, escapeString,
                         trueConstant, falseConstant, eqPredicate,
                         printSMTType, bvadd, bvmul, bvneg, bvuge, bvsge,
-                        printADTDeclarations, sort2SMTString}
+                        printADTDeclarations, printHeapDeclarations,
+                        sort2SMTString}
 
   private def fun2Identifier(fun : IFunction) =
     (TheoryRegistry lookupSymbol fun) match {
@@ -709,10 +747,20 @@ class SMTLineariser(benchmarkName : String,
     println("(set-info :status " + status + ")")
 
     // declare the required theories
+    val heaps = for (theory <- theoriesToDeclare;
+                     if (theory match {
+                       case _ : ADT  => false // will be handled later
+                       case _ : Heap => true
+                       case _ => false
+                     }))
+      yield theory.asInstanceOf[Heap]
+    printHeapDeclarations(heaps)
+
     val adts = for (theory <- theoriesToDeclare;
                     if (theory match {
-                      case _ : ADT =>
-                        true
+                      case adt : ADT =>
+                        !heaps.forall(h => h.containsADTSort(adt))
+                      case _ : Heap => false // handled before
                       case _ => {
                         Console.err.println("Warning: do not know how to " +
                                             "declare " + theory)

@@ -31,7 +31,7 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.preds.Atom
 import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
-import ap.theories.{SimpleArray, ADT, ModuloArithmetic, Theory}
+import ap.theories.{SimpleArray, ADT, ModuloArithmetic, Theory, Heap}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
@@ -69,6 +69,14 @@ object SMTParser2InputAbsy {
   case class SMTADT(adt : ADT, sortNum : Int)      extends SMTType {
     def toSort = adt sorts sortNum
     override def toString = (adt sorts sortNum).name
+  }
+  case class SMTHeapSort(sort : TSort) extends SMTType {
+    def toSort = sort
+    override def toString = sort.name
+  }
+  case class SMTHeapAddressSort(sort : TSort) extends SMTType {
+    def toSort = sort
+    override def toString = sort.name
   }
   case class SMTUnint(sort : TSort)                extends SMTType {
     def toSort = sort

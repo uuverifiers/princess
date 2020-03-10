@@ -35,14 +35,14 @@ object Heap {
   abstract sealed class CtorArgSort
   case class ADTSort(num : Int) extends CtorArgSort
   case class OtherSort(sort : Sort) extends CtorArgSort
-  case object AddressCtorArgsSort extends CtorArgSort
+  case object AddressCtor extends CtorArgSort
   case class CtorSignature(arguments : Seq[(String, CtorArgSort)],
                            result : ADTSort)
 
   class HeapException(m : String) extends Exception(m)
 
-  class Address(sortName : String,
-                heapTheory : Heap) extends ProxySort(Sort.Nat) {
+  class AddressSort(sortName : String,
+                    heapTheory : Heap) extends ProxySort(Sort.Nat) {
     import IExpression.toFunApplier
 
     override val name = sortName
@@ -144,7 +144,7 @@ object Heap {
               // write(prevHeapId, addr, obj, heapId)
               writeAtoms.find(p => p(3).constant == heapId) match {
                 case Some(p) => (p(0).constant, p(1).constant, p(2).constant)
-                case None => throw new HeapException(
+                case None => throw new HeapException( // todo: fix this
                   "No allocs or writes found" + "for heap id: " + heapId)
               }
           }
@@ -204,11 +204,11 @@ class Heap(heapSortName : String, addressSortName : String,
         ((sig.arguments map (_._2)) ++ List(sig.result)) forall {
           case Heap.ADTSort(id) => id >= 0 && id < sortNames.size
           case _ : OtherSort => true
-          case Heap.AddressCtorArgsSort => true
+          case Heap.AddressCtor => true
         }
     })
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
-  val AddressSort = new Address(addressSortName, this)
+  val AddressSort = new AddressSort(addressSortName, this)
   val HeapSort = new HeapSort(heapSortName, this)
   val emptyHeap = new MonoSortedIFunction("emptyHeap", argSorts = List(),
     resSort = HeapSort, _partial = false, _relational = false)
@@ -221,7 +221,7 @@ class Heap(heapSortName : String, addressSortName : String,
     s match {
       case t : ADTSort => ADT.ADTSort(t.num)
       case t : OtherSort => ADT.OtherSort(t.sort)
-      case AddressCtorArgsSort => ADT.OtherSort(AddressSort)
+      case AddressCtor => ADT.OtherSort(AddressSort)
     }
 
   private implicit def HeapSortToADTSort(l : Seq[(String, Heap.CtorSignature)]):
@@ -243,6 +243,10 @@ class Heap(heapSortName : String, addressSortName : String,
   val AllocResSort = AllocResADT.sorts.head
   val newHeap = AllocResADT.selectors(0)(0)
   val newAddr = AllocResADT.selectors(0)(1)
+
+  /** Helper predicate to learn if the argument ADT sort is declared as part of
+   * this theory. */
+  def containsADTSort(adt : ADT) = adt == ObjectADT || adt == AllocResADT
 
   /** Functions and predicates of the theory
    * ***************************************************************************
@@ -389,7 +393,7 @@ class Heap(heapSortName : String, addressSortName : String,
                        counter, nthAddr)
   val predefPredicates = List(isAlloc)
 
-  private val _defObj : ITerm = defaultObjectCtor(ObjectADT)
+  val _defObj : ITerm = defaultObjectCtor(ObjectADT)
   private def _isAlloc(h: ITerm , p: ITerm) : IFormula = {
     import IExpression._
     counter(h) >= p & p > 0
