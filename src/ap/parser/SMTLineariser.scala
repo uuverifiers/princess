@@ -34,6 +34,7 @@ import ap.types.{SortedIFunction, SortedPredicate, MonoSortedIFunction,
                  UninterpretedSortTheory}
 import ap.util.{Seqs, Debug}
 
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{ArrayBuffer, HashMap => MHashMap,
                                  HashSet => MHashSet, LinkedHashMap}
 
@@ -61,7 +62,7 @@ object SMTLineariser {
 
   def unescapeIt(it : Iterator[Int]) : Seq[Int] = {
     var state = 0
-    val res = new ArrayBuffer[Int]
+    val res = new VectorBuilder[Int]
     val charBuffer = new ArrayBuffer[Char]
 
     def parseHex : Unit = {
@@ -172,7 +173,7 @@ object SMTLineariser {
     if (state != 0)
       throw new IllegalStringException
 
-    res
+    res.result
   }
 
   private def escapeChar(c: Int): String = c match {
@@ -960,7 +961,7 @@ class SMTLineariser(benchmarkName : String,
            IEpsilon(IBinFormula(IBinJunctor.And,
                                 TypePredicate(IVariable(0), _),
                                 _)) => {
-        variableTypes reduceToSize (variableTypes.size - 1)
+        Seqs removeLast variableTypes
         t update subres
       }
       case _ : IQuantified => {
@@ -975,7 +976,7 @@ class SMTLineariser(benchmarkName : String,
           }
           case None => f
         }
-        variableTypes reduceToSize (variableTypes.size - 1)
+        Seqs removeLast variableTypes
         res
       }
       case _ : IEpsilon => {
@@ -985,7 +986,7 @@ class SMTLineariser(benchmarkName : String,
           case Some(t) => eps(getTypePredicate(t)(v(0)) & subF)
           case None => f
         }
-        variableTypes reduceToSize (variableTypes.size - 1)
+        Seqs removeLast variableTypes
         res
       }
       case _ => t update subres
@@ -1089,7 +1090,7 @@ class SMTLineariser(benchmarkName : String,
                   arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
       case _ : IQuantified | _ : IEpsilon => {
-        variableTypes reduceToSize (variableTypes.size - 1)
+        Seqs removeLast variableTypes
         t update subres
       }
         

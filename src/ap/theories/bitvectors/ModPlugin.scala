@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -51,7 +51,7 @@ object ModPlugin extends Plugin {
     def generateAxioms(goal : Goal) : Option[(Conjunction, Conjunction)] = None
 
     override def handleGoal(goal : Goal) : Seq[Plugin.Action] = {
-      implicit val _ = goal.order
+      implicit val order = goal.order
       import TerForConvenience._
 
       val predConj = goal.facts.predConj

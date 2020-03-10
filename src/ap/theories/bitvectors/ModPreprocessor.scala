@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *               2019      Peter Backeman <peter@backeman.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -35,6 +35,7 @@ import ap.terfor.linearcombination.LinearCombination0
 import ap.terfor.substitutions.VariableShiftSubst
 import ap.util.Debug
 
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -1169,7 +1170,7 @@ object ModPreprocessor {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     val two = IdealInt(2)
-    val res = new ArrayBuffer[Int]
+    val res = new VectorBuilder[Int]
 
     var curBit = IdealInt.ZERO
     var curNum = 0
@@ -1190,7 +1191,7 @@ object ModPreprocessor {
     }
 
     res += curNum
-    res
+    res.result
   }
 
   private def completedRunlengths(lens : Seq[Int],
@@ -1212,7 +1213,7 @@ object ModPreprocessor {
    */
   protected[bitvectors]
     def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
-    implicit val _ = order
+    implicit val o = order
     import TerForConvenience._
 
 //    println("init: " + f)

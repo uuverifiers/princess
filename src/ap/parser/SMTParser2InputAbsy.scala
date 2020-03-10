@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -39,6 +39,7 @@ import ap.parser.smtlib._
 import ap.parser.smtlib.Absyn._
 import ap.util.{Debug, Logic, PlainRange}
 
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{ArrayBuffer,
                                  HashMap => MHashMap, HashSet => MHashSet}
 
@@ -322,8 +323,14 @@ object SMTParser2InputAbsy {
   //////////////////////////////////////////////////////////////////////////////
 
   /** Implicit conversion so that we can get a Scala-like iterator from a
-   * a Java list */
-  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
+    * a Java list */
+  import scala.collection.JavaConverters.asScala
+
+  implicit def impToScalaList[A](l : java.util.List[A]) : Seq[A] =
+    asScala(l).toSeq
+
+  implicit def impToScalaIterator[A](l : java.util.Iterator[A]) : Iterator[A] =
+    asScala(l)
 
   def asString(s : SymbolRef) : String = s match {
     case s : IdentifierRef     => asString(s.identifier_)
@@ -473,7 +480,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   
   /** Implicit conversion so that we can get a Scala-like iterator from a
     * a Java list */
-  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
+  import SMTParser2InputAbsy.{impToScalaList, impToScalaIterator}
 
   type GrammarExpression = Term
 
@@ -2770,7 +2777,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         "Can only handle transducers with a uniform number of tracks")
 
     val funs2Index = stateFuns.iterator.zipWithIndex.toMap
-    val symTransitions = new ArrayBuffer[TransducerTransition]
+    val symTransitions = new VectorBuilder[TransducerTransition]
     val accepting = new MHashSet[Int]
 
     for ((f, transitions) <- funs) {
@@ -2847,7 +2854,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       }
     }
 
-    SymTransducer(symTransitions, accepting.toSet)
+    SymTransducer(symTransitions.result, accepting.toSet)
   }
 
   //////////////////////////////////////////////////////////////////////////////

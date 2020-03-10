@@ -897,7 +897,7 @@ class ADT (sortNames : Seq[String],
    * constraints
    */
   def rewriteADTFormula(f : Conjunction, order : TermOrder) : Conjunction = {
-    implicit val _ = order
+    implicit val o = order
     preprocessHelp(f, false, Set())
   }
 

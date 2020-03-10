@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,7 +33,8 @@ import ap.terfor.preds.Atom
 import ap.util.{Debug, Logic, PlainRange}
 import ap.basetypes.IdealInt
 
-import scala.collection.mutable.{ArrayStack => Stack, ArrayBuffer}
+import scala.collection.immutable.VectorBuilder
+import scala.collection.mutable.{ArrayStack => Stack}
 
 object Parser2InputAbsy {
 
@@ -213,7 +214,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
                                       Connective : ASTConnective)
                                      : Seq[GrammarExpression] = {
     val todo = new Stack[GrammarExpression]
-    val res = new ArrayBuffer[GrammarExpression]
+    val res = new VectorBuilder[GrammarExpression]
     
     todo push f
     while (!todo.isEmpty) {
@@ -226,7 +227,7 @@ abstract class Parser2InputAbsy[CT, VT, PT, FT, ST, StackState]
         res += next
     }
     
-    res
+    res.result
   }
   
   //////////////////////////////////////////////////////////////////////////////

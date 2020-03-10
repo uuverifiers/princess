@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,9 @@
 
 package ap.terfor.inequalities;
 
-import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
+import scala.collection.{SeqView, View}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet,
+                                 HashSet => MHashSet}
 
 import ap.terfor._
 import ap.basetypes.IdealInt
@@ -195,9 +197,8 @@ object InEqConj {
                                              (lc get t) >= IdealInt.MINUS_ONE)))
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val geqs = new ArrayBuffer[LinearCombination]
-    val leqs = new ArrayBuffer[LinearCombination]
-    val remainder = new LinkedHashSet[LinearCombination]
+    val geqs, leqs = new ArrayBuffer[LinearCombination]
+    val remainder  = new LinkedHashSet[LinearCombination]
     
     for (lc <- inEqs) {
       (lc get t).signum match {
@@ -236,7 +237,7 @@ object InEqConj {
     }
 
     geqs ++= leqs
-    (geqs, remainder.toSeq)
+    (geqs.toSeq, remainder.toSeq)
   }
   
   object UNSATISFIABLE_INEQ_EXCEPTION extends Exception
@@ -530,7 +531,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
    * inferred inequalities.
    */
   def findInEqsWithLeadingTerm(lt : Term, includeInfs : Boolean = false)
-                              : Seq[LinearCombination] = {
+                              : View[LinearCombination] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(InEqConj.AC,
                     lt.isInstanceOf[ConstantTerm] ||
@@ -539,7 +540,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
 
     if (lt.isInstanceOf[ConstantTerm] &&
         !(order.orderedConstants contains lt.asInstanceOf[ConstantTerm])) {
-      List()
+      List().view
     } else {
       val lc = LinearCombination(lt, order)
       val ineqs = findInEqsWithLeadingTerm(lc, geqZero)
@@ -554,7 +555,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
 
   private def findInEqsWithLeadingTerm(lc : LinearCombination,
                                        bounds : IndexedSeq[LinearCombination])
-                                       : Seq[LinearCombination] = {
+                                       : SeqView[LinearCombination] = {
     val initInd =
       Seqs.binSearch(bounds, 0, bounds.size, lc)(
                      order.reverseLCOrdering) match {
@@ -581,7 +582,7 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (start == end)
-      List()
+      List().view
     else
       bounds.view(start, end)
   }
@@ -610,8 +611,8 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
       case Some(IdealInt.ZERO) => true
       case _ => false
     }
-    def +(elem: LinearCombination) = throw new UnsupportedOperationException
-    def -(elem: LinearCombination) = throw new UnsupportedOperationException
+    def diff(that : scala.collection.Set[LinearCombination]) =
+      (iterator filterNot that).toSet
   }
 
   //////////////////////////////////////////////////////////////////////////////

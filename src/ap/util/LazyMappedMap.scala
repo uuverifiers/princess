@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -62,7 +62,10 @@ class LazyMappedMap[A,B,C,D] (oriMap : scala.collection.Map[A,B],
       (mappedKey, mappedValue)
     }
   
+  def removed(key: C) =
+    throw new UnsupportedOperationException
 
-  def + [D1 >: D](kv: (C, D1)) = throw new UnsupportedOperationException
-  def -(key: C) = throw new UnsupportedOperationException
+  def updated[V1 >: D](key: C, value: V1) =
+    throw new UnsupportedOperationException
+
 }

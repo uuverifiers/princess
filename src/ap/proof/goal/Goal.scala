@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,8 +20,6 @@
  */
 
 package ap.proof.goal;
-
-import scala.collection.mutable.ArrayBuffer
 
 import ap.proof._
 import ap.terfor.{Formula, ConstantTerm, VariableTerm,
@@ -42,6 +40,8 @@ import ap.proof.certificates.{Certificate, CloseCertificate,
                               BranchInferenceCollector,
                               NonLoggingBranchInferenceCollector,
                               CertCompoundFormula, CertFormula}
+
+import scala.collection.immutable.VectorBuilder
 
 object Goal {
   
@@ -148,33 +148,33 @@ object Goal {
       Debug.assertInt(Goal.AC, disj.quans.isEmpty)
       //-END-ASSERTION-///////////////////////////////////////////////////////
 
-      {
-        var negLitClauses = List[Conjunction]()
-        val otherTasks = new ArrayBuffer[FormulaTask]
-        val unitResolution = Param.POS_UNIT_RESOLUTION(settings)
+      var negLitClauses = List[Conjunction]()
+      val otherTasks = new VectorBuilder[FormulaTask]
+      val unitResolution = Param.POS_UNIT_RESOLUTION(settings)
+
+      for (f <- disj.negatedConjs)
+        if (unitResolution &&
+            NegLitClauseTask.isCoveredFormula(f, settings))
+          negLitClauses = f :: negLitClauses
+        else
+          otherTasks ++= formulaTasks(f, age, eliminatedConstants, vocabulary,
+                                      settings)
         
-        for (f <- disj.negatedConjs)
-          if (unitResolution &&
-              NegLitClauseTask.isCoveredFormula(f, settings))
-            negLitClauses = f :: negLitClauses
-          else
-            otherTasks ++= formulaTasks(f, age, eliminatedConstants, vocabulary, settings)
-        
-        if (!negLitClauses.isEmpty)
-          otherTasks +=
-            NegLitClauseTask(Conjunction.disj(negLitClauses, formula.order), age,
-                             settings)
-        
-        otherTasks
-      } ++
-      (if (disj.arithConj.isTrue && disj.predConj.isTrue) {
-         List()
-       } else {
-         val facts = Conjunction(List(), disj.arithConj, disj.predConj,
-                                 NegatedConjunctions.TRUE, formula.order).negate
-         List(new AddFactsTask(facts, age))})
+      if (!negLitClauses.isEmpty)
+        otherTasks +=
+          NegLitClauseTask(Conjunction.disj(negLitClauses, formula.order), age,
+                           settings)
+ 
+      if (!disj.arithConj.isTrue || !disj.predConj.isTrue) {
+        val facts = Conjunction(List(), disj.arithConj, disj.predConj,
+                                NegatedConjunctions.TRUE, formula.order).negate
+        otherTasks += new AddFactsTask(facts, age)
+      }
+       
+      otherTasks.result
     } else if (formula.quans.isEmpty) {
-      List(BetaFormulaTask(formula, age, eliminatedConstants, vocabulary, settings))
+      List(BetaFormulaTask(formula, age, eliminatedConstants, vocabulary,
+                           settings))
     } else formula.quans.last match {
       case Quantifier.ALL => List(new AllQuantifierTask(formula, age))
       case Quantifier.EX => List(
@@ -242,8 +242,9 @@ class Goal private (val facts : Conjunction,
                    (order constantsAreMaximal eliminatedConstants))
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
 
-  private def elimConstants(tfs : Seq[LinearCombination]) : Seq[LinearCombination] = {
-    val res = new ArrayBuffer[LinearCombination]
+  private def elimConstants(tfs : Seq[LinearCombination])
+                          : Seq[LinearCombination] = {
+    val res = new VectorBuilder[LinearCombination]
     for (tf <- tfs) {
       if (!tf.isEmpty && !(this eliminates tf.leadingTerm)) {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
@@ -252,7 +253,7 @@ class Goal private (val facts : Conjunction,
         res += tf
       }
     }
-    res
+    res.result
   }
   
   private def elimConstants(tfs : Iterator[LinearCombination])

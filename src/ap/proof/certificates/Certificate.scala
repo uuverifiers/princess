@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,7 +26,7 @@ import ap.terfor.{TermOrder, SortedWithOrder, ConstantTerm}
 import ap.terfor.conjunctions.Conjunction
 import ap.util.{Debug, FilterIt, Seqs}
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.immutable.VectorBuilder
 
 object Certificate {
   
@@ -289,7 +289,7 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
     Debug.assertPre(PartialCertificate.AC, subCerts.size == arity)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val subRes = new ArrayBuffer[Certificate]
+    val subRes = new VectorBuilder[Certificate]
     var offset : Int = 0
     for (pc <- first) {
       val newOffset = offset + pc.arity
@@ -297,7 +297,7 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
       offset = newOffset
     }
 
-    second(subRes)
+    second(subRes.result)
   }
 
   override def after(those : Seq[PartialCertificate]) : PartialCertificate = {
@@ -305,7 +305,7 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
     Debug.assertPre(PartialCertificate.AC, those.size == arity)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    val newFirst = new ArrayBuffer[PartialCertificate]
+    val newFirst = new VectorBuilder[PartialCertificate]
     var offset : Int = 0
     for (pc <- first) {
       val newOffset = offset + pc.arity
@@ -313,7 +313,7 @@ case class PartialCompositionCertificate(first : Seq[PartialCertificate],
       offset = newOffset
     }
 
-    PartialCompositionCertificate(newFirst, second)
+    PartialCompositionCertificate(newFirst.result, second)
   }
 
   def bindFirst(cert : Certificate) : Either[PartialCertificate, Certificate] = {
@@ -495,7 +495,7 @@ class PartialCombCertificate protected[certificates]
   def dfExplore(certBuilder : PartialCertificate.CertBuilder,
                 lemmaBase : LemmaBase,
                 lemmaBaseAssumedInferences : Int) : Certificate = {
-    val subRes = new ArrayBuffer[Certificate]
+    val subRes = new VectorBuilder[Certificate]
     val providedForsIt = providedFormulas.iterator
 
     while (providedForsIt.hasNext) {
@@ -539,7 +539,7 @@ class PartialCombCertificate protected[certificates]
       subRes += sub
     }
 
-    comb(subRes)
+    comb(subRes.result)
   }
 
   def shuffle(implicit randomDataSource : RandomDataSource) = {
@@ -553,7 +553,7 @@ class PartialCombCertificate protected[certificates]
                            sortedCerts(ind) = cert
                          comb(sortedCerts)
                        },
-                       providedFormulasBuf),
+                       providedFormulasBuf.toSeq),
      perm)
   }
 

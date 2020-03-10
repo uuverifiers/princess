@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,6 +32,7 @@ import ap.terfor.substitutions.VariableShiftSubst
 import ap.basetypes.IdealInt
 import ap.util.{Debug, Logic, Seqs, UnionMap, LazyMappedMap}
 
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{Buffer, ArrayBuffer}
 
 /**
@@ -377,7 +378,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
                              changed = true
                            if (terms != null && !terms.isEmpty) {
                              if (!newLC.isNonZero)
-                               logger.reduceNegEquation(terms, lc, order)
+                               logger.reduceNegEquation(terms.toSeq, lc, order)
                              terms.clear
                            }
                            newLC
@@ -417,7 +418,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
                            if (terms != null && !terms.isEmpty) {
                              if (!(newLC.isConstant &&
                                    newLC.constant.signum >= 0))
-                               logger.reduceInequality(terms, lc, order)
+                               logger.reduceInequality(terms.toSeq, lc, order)
                              terms.clear
                            }
                            newLC
@@ -449,7 +450,7 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         
       } else if (logger.isLogging) {
         
-        val argModifiers = new ArrayBuffer[Seq[(IdealInt, LinearCombination)]]
+        val argModifiers = new VectorBuilder[Seq[(IdealInt, LinearCombination)]]
         val terms = createTermBuffer(logger)
         var changed = false
 
@@ -466,7 +467,8 @@ class ReduceWithEqs private (equations : scala.collection.Map[Term, LinearCombin
         
         if (changed) {
           val newAtom = Atom(a.pred, newArgs, order)
-          logger.reducePredFormula(argModifiers, a, !positive, newAtom, order)
+          logger.reducePredFormula(argModifiers.result,
+                                   a, !positive, newAtom, order)
           newAtom
         } else {
           a

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,8 +21,6 @@
 
 package ap.terfor.conjunctions;
 
-import scala.collection.mutable.ArrayBuffer
-
 import ap.basetypes.IdealInt
 import ap.terfor._
 import ap.terfor.equations.{EquationConj, NegEquationConj}
@@ -33,6 +31,9 @@ import ap.terfor.substitutions.{IdentitySubst, VariableShiftSubst, Substitution,
 import ap.terfor.arithconj.ArithConj
 import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, Logic, Seqs, PlainRange}
+
+import scala.collection.immutable.VectorBuilder
+import scala.collection.mutable.ArrayBuffer
 
 object Conjunction {
   
@@ -307,7 +308,7 @@ object Conjunction {
     if ((0 until quans.size) forall (occurringVars contains VariableTerm(_))) {
       (quans, new IdentitySubst(order))
     } else {
-      val resultingQuans = new ArrayBuffer[Quantifier]
+      val resultingQuans = new VectorBuilder[Quantifier]
       val variableShifts = new Array[Int] (quans.size)
       
       var usedVars : Int = 0
@@ -322,7 +323,7 @@ object Conjunction {
       var resultingSubst : Substitution =
         VariableShiftSubst(variableShifts, usedVars - quans.size, order)
 
-      (resultingQuans, resultingSubst)
+      (resultingQuans.result, resultingSubst)
     }
    
   //////////////////////////////////////////////////////////////////////////////

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -176,7 +176,7 @@ object LinearCombination {
    * Create a linear combination from an array of coefficient-term pairs that 
    * is already sorted, flattened, and contracted.
    */
-  def createFromSortedSeq(terms : Seq[(IdealInt, Term)],
+  def createFromSortedSeq(terms : scala.collection.Seq[(IdealInt, Term)],
                           order : TermOrder) : LinearCombination =
     terms.size match {
       case 0 =>
@@ -365,8 +365,9 @@ object LinearCombination {
    * coefficients). This method is more optimised than direct usage of
    * <code>LCBlender</code>
    */
-  def sum(lcs : Seq[(IdealInt, LinearCombination)], order : TermOrder)
-                                                       : LinearCombination =
+  def sum(lcs : scala.collection.Seq[(IdealInt, LinearCombination)],
+          order : TermOrder)
+        : LinearCombination =
      lcs.size match {
      case 0 => ZERO
      case 1 => {

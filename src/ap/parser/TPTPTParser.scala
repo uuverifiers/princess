@@ -345,14 +345,16 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
       case TPTPType.TFF => connect(
         // add full axioms
         (if (containsRat)
-           generalRatAxioms("rat_", RatType, allLits mapValues (_._1)) ++
+           generalRatAxioms("rat_", RatType,
+                            allLits.view.mapValues(_._1).toMap) ++
            (for ((value, (const, _)) <- allLits; if (value.denom.isOne))
             yield (checkUnintFunTerm("int_$to_rat", List(i(value.num)), List(IntType))._1 ===
                      const))
          else
            List()) ++
         (if (containsReal)
-           generalRatAxioms("real_", RealType, allLits mapValues (_._2)) ++
+           generalRatAxioms("real_", RealType,
+                            allLits.view.mapValues(_._2).toMap) ++
            (for ((value, (_, const)) <- allLits; if (value.denom.isOne))
             yield (checkUnintFunTerm("int_$to_real", List(i(value.num)), List(IntType))._1 ===
                      const))
@@ -408,7 +410,7 @@ class TPTPTParser(_env : Environment[TPTPTParser.Type,
                                constants : Map[IdealRat, ConstantTerm]) = {
     // instances of axioms for the defined literals
     
-    implicit val _ = t
+    implicit val impType = t
     
     val verySmall = t newConstant (prefix + "very_small")
     val veryLarge = t newConstant (prefix + "very_large")

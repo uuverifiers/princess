@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -220,7 +220,7 @@ object GroebnerMultiplication extends MulTheory {
      * <code>unprocessed</code>
      */
     private def buchberger(unprocessed : Basis) : Basis = {
-      implicit val _ = unprocessed.ordering
+      implicit val ordering = unprocessed.ordering
 
       // First move from unprocessed =>
       //   passive - reducing all polynomials in active
@@ -526,7 +526,7 @@ println(unprocessed)
                                   predicates : IndexedSeq[Atom],
                                   goal : Goal)
                                  : Conjunction = {
-      implicit val _ = goal.order
+      implicit val order = goal.order
 
       (goal reduceWithFacts conj(
          for (Plugin.AddAxiom(_, f, _) <-
@@ -758,7 +758,7 @@ println(unprocessed)
         }
       }
 
-      res
+      res.toSeq
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -867,7 +867,7 @@ println(unprocessed)
             // check possible backward subsumptions
             val toElim =
               (ineqs.findInEqsWithLeadingTerm(ineq.leadingTerm) filter {
-                 lc => ineqImplies(ineq, lc, intervalSet) }) >= 0
+                 lc => ineqImplies(ineq, lc, intervalSet) }).toSeq >= 0
             if (!toElim.isTrue)
               res += Plugin.RemoveFacts(toElim)
           }
@@ -876,7 +876,7 @@ println(unprocessed)
           res += act
       }
 
-      res
+      res.toSeq
     }
 
     ////////////////////////////////////////////////////////////////////////////

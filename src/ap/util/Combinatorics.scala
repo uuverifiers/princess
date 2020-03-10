@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,24 +21,34 @@
 
 package ap.util;
 
+import scala.collection.SeqView
+
 object Combinatorics {
 
   def genSubsequences[A](seq : Seq[A], num : Int) : Iterator[List[A]] =
+    genSubsequencesHelp(seq.view, num)
+
+  private def genSubsequencesHelp[A](seq : SeqView[A],
+                                     num : Int) : Iterator[List[A]] =
     if (num == 0)
       Iterator single List()
     else
       for (i <- (0 until (seq.size - num + 1)).iterator;
            p = seq(i);
-           s <- genSubsequences(seq.view(i + 1, seq.size), num - 1))
+           s <- genSubsequencesHelp(seq drop (i + 1), num - 1))
       yield p :: s
 
   def genSubsequencesWithDups[A](seq : Seq[A], num : Int) : Iterator[List[A]] =
+    genSubsequencesWithDupsHelp(seq.view, num)
+
+  private def genSubsequencesWithDupsHelp[A](seq : SeqView[A],
+                                             num : Int) : Iterator[List[A]] =
     if (num == 0)
       Iterator single List()
     else
       for (i <- (0 until seq.size).iterator;
            p = seq(i);
-           s <- genSubsequencesWithDups(seq.view(i, seq.size), num - 1))
+           s <- genSubsequencesWithDupsHelp(seq drop i, num - 1))
       yield p :: s
 
   def cartesianProduct[A](seqs : List[Seq[A]]) : Iterator[List[A]] = seqs match {

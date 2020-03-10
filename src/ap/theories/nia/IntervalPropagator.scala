@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -61,7 +61,7 @@ class IntervalPropagator private (goal : Goal,
   import GroebnerMultiplication._mul
   import Seqs.{optionMax, optionMin}
 
-  private implicit val _ = ordering
+  private implicit val o = ordering
   private val order      = goal.order
 
   private def fromLinearCombination(lc : LinearCombination) =

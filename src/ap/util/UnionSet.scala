@@ -100,9 +100,6 @@ class UnionSet[A] private (set1 : scala.collection.Set[A],
         copy.iterator
     }
 
-  def +(elem: A) = throw new UnsupportedOperationException
-  def -(elem: A) = throw new UnsupportedOperationException
-
   private var accessCnt = 0
 
   private var localCopy : MHashSet[A] = null
@@ -116,5 +113,8 @@ class UnionSet[A] private (set1 : scala.collection.Set[A],
       localCopy = copy
     }
   }
+
+  def diff(that : scala.collection.Set[A]) =
+    (iterator filterNot that).toSet
 
 }

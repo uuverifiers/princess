@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2013 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -515,7 +515,10 @@ private class RowSolver(lhss : Iterator[LinearCombination],
     // When logging computations, we have to extract the precise terms added
     // by the reducer
     val reducerTerms =
-      if (logger.isLogging) new ArrayBuffer[(IdealInt, LinearCombination)] else null
+      if (logger.isLogging)
+        new ArrayBuffer[(IdealInt, LinearCombination)]
+      else
+        null
     
     while (eqIndex >= 0) {
       val nextToReduce = nonRedLhss(eqIndex)
@@ -529,7 +532,9 @@ private class RowSolver(lhss : Iterator[LinearCombination],
       val primAndReduced =
         if (logger.isLogging && reducerTerms.size > 0) {
           reducerTerms += ((IdealInt.ONE, nextToReduce))
-          logger.ceScope.start((reducerTerms, order)) { addReduced(reduced) }
+          logger.ceScope.start((reducerTerms, order)) {
+            addReduced(reduced)
+          }
         } else {
           addReduced(reduced)
         }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -119,13 +119,13 @@ object Plugin {
   def isRelevantAxiomAction(action : Action,
                             order : TermOrder) : Boolean = action match {
     case AddAxiom(assumptions, axiom, _) => {
-      implicit val _ = order
+      implicit val o = order
       import TerForConvenience._
 
       !(conj(assumptions) ==> axiom).isTrue
     }
     case AxiomSplit(assumptions, cases, _) => {
-      implicit val _ = order
+      implicit val o = order
       import TerForConvenience._
 
       !(conj(assumptions) ==> disj(for ((a, _) <- cases) yield a)).isTrue
@@ -684,7 +684,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
                                   rest)
             }
             case SplitDisequality(eqLC, left, right) => {
-              implicit val _ = goal.order
+              implicit val order = goal.order
               import TerForConvenience._
 
               val otherActions = actions.init
@@ -704,7 +704,7 @@ abstract class PluginTask(plugin : TheoryProcedure) extends Task {
         if (resultingTrees.isEmpty)
           applyActions(List(AddFormula(Conjunction.TRUE)), goal, null, ptf)
         else
-          ptf.andInOrder(resultingTrees, goal.vocabulary)
+          ptf.andInOrder(resultingTrees.toSeq, goal.vocabulary)
       }
 
       case _ =>

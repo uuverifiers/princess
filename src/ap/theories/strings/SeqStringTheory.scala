@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -143,7 +143,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
   }
 
   override def preprocess(f : Conjunction, order : TermOrder) : Conjunction = {
-    implicit val _ = order
+    implicit val o = order
     import TerForConvenience._
 
     if (!Seqs.disjoint(f.predicates, unsupportedPreds))
@@ -420,7 +420,7 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
           }
         }
 
-        actions
+        actions.toSeq
       } else {
         List()
       }

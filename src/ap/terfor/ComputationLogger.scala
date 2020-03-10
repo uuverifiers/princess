@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -231,11 +231,13 @@ trait ComputationLogger {
    * Convenient interface for <code>combineEquations</code>
    */
   val ceScope =
-    new LogScope[(Seq[(IdealInt, LinearCombination)], TermOrder),
+    new LogScope[(scala.collection.Seq[(IdealInt, LinearCombination)],
+                  TermOrder),
                  (LinearCombination, LinearCombination)](isLogging) {
-      def log(input : (Seq[(IdealInt, LinearCombination)], TermOrder),
+      def log(input : (scala.collection.Seq[(IdealInt, LinearCombination)],
+                       TermOrder),
               result : (LinearCombination, LinearCombination)) : Unit =
-        combineEquations(input _1, result _1, result _2, input _2)
+        combineEquations(input._1.toSeq, result _1, result _2, input _2)
     }
 
   /**

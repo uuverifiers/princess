@@ -40,6 +40,7 @@ import ap.proof.certificates.{Certificate, PartialCertificate, SplitEqCertificat
 
 import ap.theories.nia.IntervalPropagator
 
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet}
 
 /**
@@ -259,18 +260,21 @@ case object OmegaTask extends EagerTask {
     
     for (elimConst <- order sort elimCandidates) {
       // select inequalities that contain c
-      val lowerBounds = new ArrayBuffer[LinearCombination]        
-      val upperBounds = new ArrayBuffer[LinearCombination]        
-      val remainingInEqs = new ArrayBuffer[LinearCombination]
+      val _lowerBounds, _upperBounds, _remainingInEqs =
+        new VectorBuilder[LinearCombination]
         
       for (lc <- ac.inEqs) {
         (lc get elimConst).signum match {
-          case 0  => remainingInEqs += lc
-          case 1  => lowerBounds += lc
-          case -1 => upperBounds += lc
+          case 0  => _remainingInEqs += lc
+          case 1  => _lowerBounds += lc
+          case -1 => _upperBounds += lc
         }
       }
       
+      val lowerBounds    = _lowerBounds.result
+      val upperBounds    = _upperBounds.result
+      val remainingInEqs = _remainingInEqs.result
+
       val lowerSplittingNum =
         predictOmegaSplitting(elimConst, lowerBounds, upperBounds)
       val upperSplittingNum =
@@ -428,9 +432,9 @@ case object OmegaTask extends EagerTask {
                                  goal.branchInferences,
                                  order)
 
-            ptf.and(newGoals, pCert, goal.vocabulary)
+            ptf.and(newGoals.toSeq, pCert, goal.vocabulary)
           } else {
-            ptf.and(newGoals, goal.vocabulary)
+            ptf.and(newGoals.toSeq, goal.vocabulary)
           }
         }
       }

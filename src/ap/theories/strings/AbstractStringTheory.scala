@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -35,6 +35,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.util.Seqs
 
 import scala.collection.{Map => GMap}
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.{HashSet => MHashSet, HashMap => MHashMap,
                                  ArrayBuffer, Map => MMap, ArrayStack,
                                  LinkedHashMap, LinkedHashSet, Set => MSet}
@@ -187,7 +188,7 @@ abstract class AbstractStringTheory extends StringTheory {
     import WordExtractor._
 
     def extractWord(t : Term) : SymWord = {
-      val chars = new ArrayBuffer[Term]
+      val chars = new VectorBuilder[Term]
       val seenNodes = new MHashSet[Term]
       
       var curT = t
@@ -196,7 +197,7 @@ abstract class AbstractStringTheory extends StringTheory {
       while (true) {
         allConses(curT) match {
           case Some(a) if a.pred == _str_empty =>
-            return SymWord(chars, None)
+            return SymWord(chars.result, None)
           case Some(a) if a.pred == _str_cons => {
             chars += a(0)
             curT = a(1)
@@ -204,7 +205,7 @@ abstract class AbstractStringTheory extends StringTheory {
               throw InconsistentStringsException
           }
           case _ =>
-            return SymWord(chars, Some(curT))
+            return SymWord(chars.result, Some(curT))
         }
       }
 
@@ -263,7 +264,7 @@ abstract class AbstractStringTheory extends StringTheory {
                   assignment : Map[Term, Seq[Int]],
                   order : TermOrder) : Conjunction = {
     import TerForConvenience._
-    implicit val _ = order
+    implicit val o = order
 
     val epsId = 0
     val stringIds = new MHashMap[(Int, Int), Int]
@@ -304,7 +305,7 @@ abstract class AbstractStringTheory extends StringTheory {
                     : Option[Seq[Plugin.Action]] = {
 
       import TerForConvenience._
-      implicit val _ = goal.order
+      implicit val order = goal.order
       val predConj = goal.facts.predConj
 
       val newAtoms = new ArrayBuffer[Formula]
@@ -488,7 +489,7 @@ object AbstractStringTheoryWithSort {
                 val consedString =
                   IFunApp(str_cons, List(charTerm, nextString))
                 if (terms.put((stringIndex, this), consedString).isEmpty)
-                  todo push (stringIndex, consedString)
+                  todo push ((stringIndex, consedString))
               }
           }
         }

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,7 +21,6 @@
 
 package ap.basetypes;
 
-import scala.collection.IterableLike
 import scala.collection.mutable.{ArrayBuffer, ArrayStack => Stack}
 
 import ap.util.Debug
@@ -56,8 +55,7 @@ object LeftistHeap {
  */
 abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
                           (implicit ord : Ordering[T])
-               extends Iterable[T]
-               with IterableLike[T, LeftistHeap[T, HC]] {
+               extends Iterable[T] {
 
    /**
     * @return true iff this heap is empty
@@ -93,7 +91,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
    /**
     * Construct an empty heap
     */
-   protected def empty : LeftistHeap[T, HC]
+   protected def emptyHeap : LeftistHeap[T, HC]
    
    /**
     * Add an element to this heap object
@@ -125,7 +123,8 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
         val s = new Stack[LeftistHeap[T, HC]]
         s.push(this)
         while (elements.hasNext) {
-            var h : LeftistHeap[T, HC] = new Node(elements.next, empty, empty, empty)
+            var h : LeftistHeap[T, HC] =
+              new Node(elements.next, emptyHeap, emptyHeap, emptyHeap)
             while (!s.isEmpty && h.size >= s.top.size) h = h.insertHeap(s.pop)
             s.push(h)
         }
@@ -163,11 +162,6 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
    
    def ++(els : Iterable[T]) : LeftistHeap[T, HC] = this.insertIt(els.iterator)
 
-   protected[this] override def newBuilder =
-     (new ArrayBuffer[T]) mapResult {
-       (vals : Iterable[T]) => empty ++ vals
-     }
-
    /////////////////////////////////////////////////////////////////////////////
 
    /**
@@ -178,7 +172,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
    def flatMap(f : (T) => Iterator[T],
                stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] = {
       val todo = new Stack[LeftistHeap[T, HC]]
-      var res = empty
+      var res = emptyHeap
 
       def push(h : LeftistHeap[T, HC]) = if (!h.isEmpty) todo push h
       
@@ -304,7 +298,7 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
     /**
      * Construct an empty heap
      */
-    protected def empty : LeftistHeap[T, HC] = this
+    protected def emptyHeap : LeftistHeap[T, HC] = this
       
     /**
      * Add an element to this heap object
@@ -357,7 +351,7 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
 case class Node[T, HC <: HeapCollector[T, HC]]
                (data : T,
                 left : LeftistHeap[T, HC], right : LeftistHeap[T, HC],
-                emptyHeap : LeftistHeap[T, HC])
+                _emptyHeap : LeftistHeap[T, HC])
                (implicit ord : Ordering[T])
            extends LeftistHeap[T, HC] {
 
@@ -391,7 +385,7 @@ case class Node[T, HC <: HeapCollector[T, HC]]
   /**
    * Construct an empty heap
    */
-  protected def empty : LeftistHeap[T, HC] = emptyHeap
+  protected def emptyHeap : LeftistHeap[T, HC] = _emptyHeap
 
   /**
    * Add an element to this heap object
@@ -401,9 +395,9 @@ case class Node[T, HC <: HeapCollector[T, HC]]
    */
   def insert(element : T) : LeftistHeap[T, HC] =
     if (ord.lteq(element, data))
-      LeftistHeap.node(element, this, empty, empty)
+      LeftistHeap.node(element, this, emptyHeap, emptyHeap)
     else
-      LeftistHeap.node(data, left, right.insert(element), empty)
+      LeftistHeap.node(data, left, right.insert(element), emptyHeap)
 
   /**
    * Add multiple elements to this heap object
@@ -415,9 +409,9 @@ case class Node[T, HC <: HeapCollector[T, HC]]
     case _ : EmptyHeap[_, _] => this
     case Node(hdata, hleft, hright, _) =>
       if (ord.lteq(data, hdata))
-        LeftistHeap.node(data, left, right.insertHeap(h), empty)
+        LeftistHeap.node(data, left, right.insertHeap(h), emptyHeap)
       else
-        LeftistHeap.node(hdata, hleft, this.insertHeap(hright), empty)
+        LeftistHeap.node(hdata, hleft, this.insertHeap(hright), emptyHeap)
   }
 
   /**
@@ -451,7 +445,7 @@ case class Node[T, HC <: HeapCollector[T, HC]]
       if ( c == 0 && data == element ) {
         newLeft.insertHeap ( newRight )
       } else {
-        LeftistHeap.node(data, newLeft, newRight, empty)
+        LeftistHeap.node(data, newLeft, newRight, emptyHeap)
       }
     }
   }

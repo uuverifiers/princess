@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -981,7 +981,7 @@ class IntervalSet(equations   : Seq[(Polynomial, BitSet)],
   }
 
   def propagateIneq(p : Polynomial, pLabel : BitSet) : Unit = {
-    implicit val _ = p.ordering
+    implicit val ordering = p.ordering
 
     // Go through all terms in this inequality (t1 + t2 + ... >= 0)
     for (t <- p.terms)

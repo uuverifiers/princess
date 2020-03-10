@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -96,7 +96,7 @@ object IterativeClauseMatcher {
                    conditional)
             }
           
-          selectedLits reduceToSize selLitsNum
+          Seqs.reduceToSize(selectedLits, selLitsNum)
         }
         
         case SelectMayAliasLiteral(pred, negative, arguments) :: progTail => {
@@ -133,7 +133,7 @@ object IterativeClauseMatcher {
             }
           }
           
-          selectedLits reduceToSize selLitsNum
+          Seqs.reduceToSize(selectedLits, selLitsNum)
         }
         
         case CheckMayAlias(litNrA, argNrA, litNrB, argNrB) :: progTail =>
@@ -739,7 +739,8 @@ object IterativeClauseMatcher {
   //////////////////////////////////////////////////////////////////////////////
   
   private def constructAxiomMatcher(pred : Predicate,
-                                    negStartLit : Boolean) : List[MatchStatement] = {
+                                    negStartLit : Boolean)
+                                  : List[MatchStatement] = {
     val res = new ArrayBuffer[MatchStatement]
 
     res += SelectLiteral(pred, !negStartLit)
@@ -753,11 +754,12 @@ object IterativeClauseMatcher {
 
   //////////////////////////////////////////////////////////////////////////////
   
-  private def combineMatchers(programs : Seq[List[MatchStatement]])
-              : List[MatchStatement] = programs match {
-    case Seq() => List()
-    case Seq(prog) => prog
-    case programs => {
+  private def combineMatchers(
+                     programs : scala.collection.Seq[List[MatchStatement]])
+                   : List[MatchStatement] = programs match {
+    case scala.collection.Seq()     => List()
+    case scala.collection.Seq(prog) => prog
+    case programs  => {
       val res = new ArrayBuffer[List[MatchStatement]]
 
       // sort programs according to first SelectLiteral statement
@@ -811,8 +813,8 @@ object IterativeClauseMatcher {
       res ++= otherProgs
 
       res match {
-        case Seq(prog) => prog
-        case programs => List(Choice(programs))
+        case scala.collection.Seq(prog) => prog
+        case programs => List(Choice(programs.toIndexedSeq))
       }
     }
   }
@@ -831,7 +833,7 @@ object IterativeClauseMatcher {
       if (aliasChecks.isEmpty)
         stmt :: optimiseMayAlias(rest, litNr + 1)
       else
-        SelectMayAliasLiteral(pred, negative, aliasChecks) ::
+        SelectMayAliasLiteral(pred, negative, aliasChecks.toSeq) ::
           optimiseMayAlias(newRest, litNr + 1)
     }
     case List(Choice(options)) =>
@@ -929,7 +931,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
     if (currentFacts == newFacts) {
       (List(), this)
     } else {
-      implicit val _ = order
+      implicit val o = order
       val (oldFacts, addedFacts) = newFacts diff currentFacts
     
       val instances = new scala.collection.mutable.LinkedHashSet[Conjunction]
@@ -1031,7 +1033,7 @@ class IterativeClauseMatcher private (currentFacts : PredConj,
     if (addedClauses.isEmpty) {
       (List(), this)
     } else {
-      implicit val _ = order
+      implicit val o = order
       val newClauses =
         NegatedConjunctions(clauses.iterator ++ addedClauses.iterator, order)
 

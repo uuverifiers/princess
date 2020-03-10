@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2016-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -125,7 +125,7 @@ class DagCertificateConverter {
 
     if (certOccurrences exists { case (_, num) => num > 1 }) {
       finalCertificates += daggify(cert)
-      finalCertificates
+      finalCertificates.toSeq
     } else {
       List(cert)
     }

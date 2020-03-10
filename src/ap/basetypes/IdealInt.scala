@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -78,6 +78,9 @@ object IdealInt {
     * into an <code>IdealInt</code>.
     */
   def apply(intString: String) : IdealInt = apply(new BigInteger(intString))
+
+  def parseString(intString : String) : Option[IdealInt] =
+    Some(apply(intString))
 
   /** Translates the String representation of an <code>IdealInt</code>
     * with base <code>b</code> into an <code>IdealInt</code>.
@@ -316,7 +319,8 @@ object IdealInt {
    * Extended euclidean algorithm for computing both the gcd and the cofactors
    * of a sequence of <code>IdealInt</code>.
    */
-  def gcdAndCofactors(vals : Seq[IdealInt]) : (IdealInt, Seq[IdealInt]) = {
+  def gcdAndCofactors(vals : scala.collection.Seq[IdealInt])
+                    : (IdealInt, Seq[IdealInt]) = {
      // we order the value to start with the smallest ones
      // (this is expected to give a higher performance that is determined by the
      // absolute value of the smallest element)
@@ -412,6 +416,8 @@ object IdealInt {
     def toFloat(x: IdealInt): Float = x.floatValue
     def toDouble(x: IdealInt): Double = x.doubleValue
     def compare(x: IdealInt, y: IdealInt) : Int = x compare y
+    def parseString(intString : String) : Option[IdealInt] =
+      Some(IdealInt(intString))
   }
 }
 

@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,6 +29,7 @@ import ap.theories.TheoryRegistry
 import ap.types.SortedConstantTerm
 import ap.util.{Debug, Seqs}
 
+import scala.collection.immutable.VectorBuilder
 import scala.collection.mutable.ArrayBuffer
 import scala.runtime.ScalaRunTime
 
@@ -932,14 +933,15 @@ object IExpression {
   //////////////////////////////////////////////////////////////////////////////
   
   protected[parser] def toTermSeq(newExprs : Seq[IExpression],
-                                  oldExprs : Seq[ITerm]) : Option[Seq[ITerm]] = {
+                                  oldExprs : Seq[ITerm])
+                                : Option[IndexedSeq[ITerm]] = {
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
     Debug.assertPre(IExpression.AC, newExprs.length == oldExprs.length)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
     if (oldExprs.length == 0) {
       None
     } else {
-      val newArgs = new scala.collection.mutable.ArrayBuffer[ITerm]
+      val newArgs = new VectorBuilder[ITerm]
       var changed = false
 
       val newEIt = newExprs.iterator
@@ -949,7 +951,7 @@ object IExpression {
         if (!(newArg eq oldEIt.next)) changed = true
         newArgs += newArg
       }
-      if (changed) Some(newArgs) else None
+      if (changed) Some(newArgs.result) else None
     }
   }
   

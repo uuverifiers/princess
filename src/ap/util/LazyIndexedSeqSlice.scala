@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,8 +29,6 @@ class LazyIndexedSeqSlice[A](seq : IndexedSeq[A], begin : Int, end : Int)
   def apply(n : Int) = seq(n + begin)
 
   def length = end - begin
-
-  override def toIndexedSeq : scala.collection.immutable.IndexedSeq[A] = this
 
   override def hashCode() = scala.util.hashing.MurmurHash3.seqHash(this)
 

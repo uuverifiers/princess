@@ -21,8 +21,6 @@
 
 package ap.terfor.conjunctions;
 
-import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
-                                 LinkedHashSet, HashMap => MHashMap}
 import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.{TerFor, Term, Formula, ConstantTerm, TermOrder}
@@ -35,6 +33,10 @@ import ap.terfor.inequalities.InEqConj
 import ap.terfor.substitutions.{Substitution, ConstantSubst, VariableShiftSubst}
 import ap.util.{Logic, Debug, Seqs, FilterIt}
 import ap.terfor.arithconj.InNegEqModelElement
+
+import scala.collection.immutable.VectorBuilder
+import scala.collection.mutable.{HashSet => MHashSet,
+                                 LinkedHashSet, HashMap => MHashMap}
 
 object ConjunctEliminator {
   
@@ -156,7 +158,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
 
   private def elimPositiveEqs(c : Term) : Unit = {
     val oriEqs = conj.arithConj.positiveEqs
-    val remainingEqs = new ArrayBuffer[LinearCombination]
+    val remainingEqs = new VectorBuilder[LinearCombination]
    
     for (lc <- oriEqs)
       if (occursIn(lc, c))
@@ -164,7 +166,8 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       else
         remainingEqs += lc
 
-    conj = conj.updatePositiveEqs(oriEqs.updateEqsSubset(remainingEqs)(order))(order)
+    conj = conj.updatePositiveEqs(
+                  oriEqs.updateEqsSubset(remainingEqs.result)(order))(order)
   }
 
   private def elimPositiveEquationHelp(lc : LinearCombination, c : Term) : Unit =
@@ -227,7 +230,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
 
     // now eliminate equations
     
-    val remainingEqs, eliminatedEqs = new ArrayBuffer[LinearCombination]
+    val remainingEqs, eliminatedEqs = new VectorBuilder[LinearCombination]
     val eliminatedConsts = new MHashSet[ConstantTerm]
     
     {
@@ -260,10 +263,12 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       }
     }
     
-    universalElimination(EqModelElement(oriEqs.updateEqsSubset(eliminatedEqs)(order),
-                                        eliminatedConsts))
+    universalElimination(
+      EqModelElement(oriEqs.updateEqsSubset(eliminatedEqs.result)(order),
+                    eliminatedConsts))
     
-    conj = conj.updatePositiveEqs(oriEqs.updateEqsSubset(remainingEqs)(order))(order)
+    conj = conj.updatePositiveEqs(
+             oriEqs.updateEqsSubset(remainingEqs.result)(order))(order)
   }
 
   //////////////////////////////////////////////////////////////////////////////

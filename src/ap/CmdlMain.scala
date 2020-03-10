@@ -283,9 +283,9 @@ object CmdlMain {
                       rawFormulaParts : Map[PartName, Conjunction],
                       predTranslation : Map[Predicate, IFunction],
                       format : Param.InputFormat.Value) : Unit = {
-    val formulaParts = rawFormulaParts mapValues {
+    val formulaParts = rawFormulaParts.view.mapValues({
       f => CertFormula(f.negate)
-    }
+    }).toMap
     val dagCert = DagCertificateConverter(cert)
 
     val formulaPrinter = format match {
@@ -912,37 +912,37 @@ object CmdlMain {
       println
       return
     }
-          
-    if (Param.QUIET(settings))
-      Console setErr NullStream
-          
-    if (Param.LOGO(settings)) Console.withOut(Console.err) {
-      printGreeting
-      println
-    }
-
-    if (inputs.isEmpty && !Param.STDIN(settings)) {
-      Console.err.println("No inputs given, exiting")
-      return
-    }
-
-    for (filename <- inputs) try {
-      implicit val format = determineInputFormat(filename, settings)
-      proveProblems(settings,
-                    filename,
-                    () => new java.io.BufferedReader (
-                            new java.io.FileReader(new java.io.File (filename))),
-                    userDefStoppingCond)
-    } catch {
-      case e : Throwable => {
-        println("ERROR: " + e.getMessage)
-//        e.printStackTrace
+   
+    Console.withErr(if (Param.QUIET(settings)) NullStream else Console.err) {
+      if (Param.LOGO(settings)) Console.withOut(Console.err) {
+        printGreeting
+        println
       }
-    }
 
-    if (Param.STDIN(settings)) {
-      Console.err.println("Reading SMT-LIB 2 input from stdin ...")
-      proveMultiSMT(settings, Console.in, userDefStoppingCond)
+      if (inputs.isEmpty && !Param.STDIN(settings)) {
+        Console.err.println("No inputs given, exiting")
+        return
+      }
+
+      for (filename <- inputs) try {
+        implicit val format = determineInputFormat(filename, settings)
+        proveProblems(settings,
+                      filename,
+                      () => new java.io.BufferedReader (
+                              new java.io.FileReader(
+                                new java.io.File (filename))),
+                      userDefStoppingCond)
+      } catch {
+        case e : Throwable => {
+          println("ERROR: " + e.getMessage)
+//          e.printStackTrace
+        }
+      }
+
+      if (Param.STDIN(settings)) {
+        Console.err.println("Reading SMT-LIB 2 input from stdin ...")
+        proveMultiSMT(settings, Console.in, userDefStoppingCond)
+      }
     }
   }
 

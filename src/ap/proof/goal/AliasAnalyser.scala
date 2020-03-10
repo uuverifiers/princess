@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,7 +30,7 @@ import ap.terfor.conjunctions.ReduceWithConjunction
 import ap.terfor.preds.{Atom, Predicate, PredConj}
 import ap.util.{Debug, LRUCache, Seqs}
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.immutable.VectorBuilder
 
 object AliasAnalyser {
   
@@ -180,16 +180,16 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
     if (predLeft >= predRight)
       return Map()
 
-    val arguments = _arguments.toIndexedSeq
+    val arguments =    _arguments.toIndexedSeq
     val argumentSize = arguments.size
-    val arity = pred.arity
-    val lcOrdering = order.lcOrdering
+    val arity =        pred.arity
+    val lcOrdering =   order.lcOrdering
     val termOrdering = order.termOrdering
 
     import lcOrdering.{lt => lcLT, lteq => lcLTeq}
     import termOrdering.{lt => teLT}
 
-    val mayResult = new ArrayBuffer[Atom]
+    val mayResult = new VectorBuilder[Atom]
 
     def selectAtoms(left : Int, right : Int, aInd : Int) : Unit = {
       if (left >= right) {
@@ -282,7 +282,7 @@ class AliasAnalyser (reducer : ReduceWithConjunction,
 
     selectAtoms(predLeft, predRight, 0)
 
-    Map(May -> mayResult)
+    Map(May -> mayResult.result)
   }
 
   /**

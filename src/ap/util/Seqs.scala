@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,7 +24,7 @@ package ap.util;
 import ap.basetypes.IdealInt
 
 import scala.util.Sorting
-import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet}
+import scala.collection.mutable.{ArrayBuilder, HashSet => MHashSet, Buffer}
 import scala.reflect.ClassTag
 
 object Seqs {
@@ -1348,5 +1348,25 @@ object Seqs {
     case (_, x@Some(_)) => x
     case _ => None
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Remove the last element of some buffer.
+   */
+  def removeLast[A](b : Buffer[A]) : Unit =
+    b remove (b.size - 1)
+
+  /**
+   * Remove last elements from the buffer
+   */
+  def reduceToSize[A](b : Buffer[A], newSize : Int) : Unit =
+    b.remove(newSize, b.size - newSize)
+
+  /**
+   * Strict function to apply a function to the values of some map.
+   */
+  def mapValuesStrict[A, B, C](m : Map[A, B], f : B => C) : Map[A, C] =
+    m.view.mapValues(f).toMap
 
 }

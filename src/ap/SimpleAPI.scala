@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2012-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2012-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -2603,7 +2603,7 @@ class SimpleAPI private (enableAssert : Boolean,
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     for (c <- interpolants) yield {
-       implicit val _ = new Theory.DefaultDecoderContext(c)
+       implicit val ctxt = new Theory.DefaultDecoderContext(c)
        IntToTermTranslator(
          simp(Internal2InputAbsy(c, functionEnc.predTranslation)))
     }
@@ -2679,7 +2679,7 @@ class SimpleAPI private (enableAssert : Boolean,
             }
 
           val simpInt = {
-            implicit val _ = new Theory.DefaultDecoderContext(rawInt)
+            implicit val ctxt = new Theory.DefaultDecoderContext(rawInt)
             IntToTermTranslator(
               simp(Internal2InputAbsy(rawInt, functionEnc.predTranslation)))
           }
@@ -3217,7 +3217,7 @@ class SimpleAPI private (enableAssert : Boolean,
                     currentModel.negatedConjs.isEmpty)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
-    implicit val _ = currentModel.order
+    implicit val order = currentModel.order
     val remainingPredConj = currentModel.predConj filter {
       a => (TheoryRegistry lookupSymbol a.pred).isEmpty
     }
@@ -3928,17 +3928,17 @@ class SimpleAPI private (enableAssert : Boolean,
     flushTodo
     initProver
     
-    storedStates push (currentProver, needExhaustiveProver,
-                       matchedTotalFunctions, ignoredQuantifiers,
-                       currentOrder, existentialConstants,
-                       functionalPreds, functionEnc.clone,
-                       formulaeInProver.clone,
-                       currentPartitionNum,
-                       constructProofs, mostGeneralConstraints,
-                       validityMode, lastStatus,
-                       theoryPlugin, theoryCollector.clone,
-                       abbrevFunctions,
-                       abbrevPredicates)
+    storedStates push ((currentProver, needExhaustiveProver,
+                        matchedTotalFunctions, ignoredQuantifiers,
+                        currentOrder, existentialConstants,
+                        functionalPreds, functionEnc.clone,
+                        formulaeInProver.clone,
+                        currentPartitionNum,
+                        constructProofs, mostGeneralConstraints,
+                        validityMode, lastStatus,
+                        theoryPlugin, theoryCollector.clone,
+                        abbrevFunctions,
+                        abbrevPredicates))
   }
 
   /**
@@ -4219,7 +4219,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         order.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         order,
-                        theoryCollector.theories)
+                        theories)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings,
                     functionEnc)
@@ -4247,7 +4247,7 @@ class SimpleAPI private (enableAssert : Boolean,
                         currentOrder.orderedConstants -- existentialConstants,
                         Map(), // TODO: also handle predicate_match_config
                         currentOrder,
-                        theoryCollector.theories)
+                        theories)
     val (fors, _, newSig) =
       Preprocessing(INamedPart(FormulaPart, f), List(), sig, preprocSettings, functionEnc)
     functionEnc.clearAxioms
@@ -4326,7 +4326,8 @@ class SimpleAPI private (enableAssert : Boolean,
         }
     })
 
-    gs = Param.ABBREV_LABELS.set(gs, abbrevPredicates mapValues (_._2))
+    gs = Param.ABBREV_LABELS.set(gs,
+                                 abbrevPredicates.view.mapValues(_._2).toMap)
 
     gs = Param.PROOF_CONSTRUCTION.set(gs, constructProofs)
 

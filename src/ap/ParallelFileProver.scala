@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -420,8 +420,8 @@ object ParallelFileProver {
           }
         }
     
-        Console.setOut(new MessageOutputStream(1))
-        Console.setErr(new MessageOutputStream(2))
+        Console.withOut(new MessageOutputStream(1)) {
+        Console.withErr(new MessageOutputStream(2)) {
       
         subProverCommands.take match {
           case SubProverStop => {
@@ -483,7 +483,7 @@ object ParallelFileProver {
             }
           }
         }
-      }})
+      }}}})
 
       def startSubProver : Unit = proofThread.start
     }

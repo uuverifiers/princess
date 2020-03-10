@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -100,7 +100,13 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
   
   /** Implicit conversion so that we can get a Scala-like iterator from a
     * a Java list */
-  import scala.collection.JavaConversions.{asScalaBuffer, asScalaIterator}
+  import scala.collection.JavaConverters.asScala
+
+  implicit def impToScalaList[A](l : java.util.List[A]) : Seq[A] =
+    asScala(l).toSeq
+
+  implicit def impToScalaIterator[A](l : java.util.Iterator[A]) : Iterator[A] =
+    asScala(l)
 
   type GrammarExpression = Expression
 
@@ -308,7 +314,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
                   determineSorts(args.formalargsc_)
               }
 
-              val wrappedOpts = asScalaBuffer(decl.listpredoption_)
+              val wrappedOpts = decl.listpredoption_
               val (negMatchOpts, otherOpts1) =
                 wrappedOpts partition (_.isInstanceOf[NegMatch])
               val (noMatchOpts, otherOpts2) =
@@ -351,7 +357,7 @@ class ApParser2InputAbsy(_env : ApParser2InputAbsy.Env,
         val resSort = type2Sort(decl.type_)
         val argSorts = determineSorts(decl.formalargsc_)
 
-        val wrappedOpts = asScalaBuffer(decl.listfunoption_)
+        val wrappedOpts = decl.listfunoption_
         val (partialOpts, otherOpts1) =
           wrappedOpts partition (_.isInstanceOf[Partial])
         val (relationalOpts, otherOpts2) =

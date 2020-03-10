@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,7 +23,7 @@ package ap;
 
 import ap.parameters.{GlobalSettings, Param}
 
-import scala.collection.JavaConversions
+import scala.collection.JavaConverters
 
 /**
  * A simple class to simulate commandline calls of Princess from within
@@ -32,7 +32,7 @@ import scala.collection.JavaConversions
 object JavaWrapper {
 
   import DialogUtil.asString
-  import JavaConversions.asScalaBuffer
+  import JavaConverters.asScala
 
   /**
    * Read inputs through a reader. The format of the problem has to be specified
@@ -83,7 +83,8 @@ object JavaWrapper {
   def read(input : () => java.io.Reader,
            options : java.util.List[String]) : String = {
     val (settings, inputs) =
-      GlobalSettings.fromArguments(options, GlobalSettings.DEFAULT)
+      GlobalSettings.fromArguments(asScala(options).toSeq,
+                                   GlobalSettings.DEFAULT)
 
     Console.withErr(if (Param.QUIET(settings))
                       CmdlMain.NullStream

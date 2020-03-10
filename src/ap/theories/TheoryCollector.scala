@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2013-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2013-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -39,10 +39,10 @@ class TheoryCollector extends CollectingVisitor[Unit, Unit]
   private var theoriesList = new ArrayBuffer[Theory]
   private var theoriesDiff = new ArrayBuffer[Theory]
 
-  def theories : Seq[Theory] = theoriesList
+  def theories : Seq[Theory] = theoriesList.toSeq
 
   def reset       = theoriesDiff.clear
-  def newTheories : Seq[Theory] = theoriesDiff
+  def newTheories : Seq[Theory] = theoriesDiff.toSeq
 
   override def clone : TheoryCollector = {
     val res = new TheoryCollector

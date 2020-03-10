@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2017 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2017-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -52,7 +52,7 @@ abstract class RandomDataSource {
   def nextInt(bound : Int) : Int
 
   /**
-   * Shuffle the given sequence
+   * Shuffle the given buffer
    */
   def shuffle[A](seq : Buffer[A]) : Unit =
     if (isRandom) {
@@ -66,6 +66,15 @@ abstract class RandomDataSource {
         }
       }
     }
+
+  /**
+   * Shuffle the given sequence
+   */
+  def shuffleSeq[A](seq : Seq[A]) : Seq[A] = {
+    val buf = seq.toBuffer
+    shuffle(buf)
+    buf.toIndexedSeq
+  }
 
   /**
    * Shuffle the given sequence, and return the new ordering

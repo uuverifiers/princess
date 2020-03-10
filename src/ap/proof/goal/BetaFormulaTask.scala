@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2016 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -36,7 +36,7 @@ import ap.proof.tree.{ProofTree, ProofTreeFactory}
 import ap.proof.certificates.{BranchInferenceCollection, Certificate,
                               BetaCertificate, PartialCertificate, CertFormula}
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.immutable.VectorBuilder
 
 object BetaFormulaTask {
   
@@ -249,22 +249,26 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
         selectCutLiteral(conj.arithConj, goal.eliminatedConstants, weights)
       (Conjunction.conj(sel, conj.order), conj.updateArithConj(rem)(conj.order))      
     } else {
-      val (sel, rem) = selectHeaviestLiteral(conj.predConj, (p) => weights maxWeight p)
+      val (sel, rem) =
+        selectHeaviestLiteral(conj.predConj, (p) => weights maxWeight p)
       (Conjunction.conj(sel, goal.order), conj.updatePredConj(rem)(conj.order))
     }
   }
 
   //////////////////////////////////////////////////////////////////////////////
    
-  private def selectHeaviestLiteral(conj : PredConj, weighter : (PredConj) => Int)
-                                                 : (PredConj, PredConj) = {
-    val (bestLit, remainingLits) = selectHeaviestLiteral(conj.iterator, weighter)    
+  private def selectHeaviestLiteral(conj : PredConj,
+                                    weighter : (PredConj) => Int)
+                                 : (PredConj, PredConj) = {
+    val (bestLit, remainingLits) =
+      selectHeaviestLiteral(conj.iterator, weighter)
     (bestLit, PredConj.conj(remainingLits, conj.order))
   }
 
   private def selectHeaviestLiteral[A <: TerFor]
-              (lits : Iterator[A], weighter : (A) => Int) : (A, ArrayBuffer[A]) = {
-    val remainingLits = new ArrayBuffer[A]
+                                   (lits : Iterator[A], weighter : (A) => Int)
+                                 : (A, IndexedSeq[A]) = {
+    val remainingLits = new VectorBuilder[A]
     var bestLit : A = lits.next  // lits has to be non-empty
     var bestVal : Int = weighter(bestLit)
     
@@ -279,7 +283,7 @@ class BetaFormulaTask(_formula : Conjunction, val addToQFClauses : Boolean,
       }
     }
     
-    (bestLit, remainingLits)
+    (bestLit, remainingLits.result)
   }
   
   //////////////////////////////////////////////////////////////////////////////
