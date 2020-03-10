@@ -1216,6 +1216,10 @@ class SMTLineariser(benchmarkName : String,
     private def closeWithParen(ctxt : PrintContext, arity : Int = 1) =
       allButLast(ctxt, " ", ")", arity)
 
+    val emptyHeapFuns =
+      for (theory <- theoriesToDeclare; if (theory.isInstanceOf[Heap]))
+        yield theory.asInstanceOf[Heap].emptyHeap
+
     override def preVisit(t : IExpression,
                           ctxt : PrintContext) : PreVisitResult = {
     import ctxt.variableType
@@ -1264,7 +1268,7 @@ class SMTLineariser(benchmarkName : String,
         shortCut(ctxt)
       }
 
-      case IFunApp(f, _) if f.name contains "emptyHeap" =>
+      case IFunApp(f, _) if emptyHeapFuns contains f =>
         val heapName = f.asInstanceOf[MonoSortedIFunction].resSort.name
         print("(as emptyHeap " + heapName + ")")
         shortCut(ctxt)
