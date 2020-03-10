@@ -1269,8 +1269,8 @@ class SMTLineariser(benchmarkName : String,
       }
 
       case IFunApp(f, _) if emptyHeapFuns contains f =>
-        val heapName = f.asInstanceOf[MonoSortedIFunction].resSort.name
-        print("(as emptyHeap " + heapName + ")")
+        val fun = f.asInstanceOf[MonoSortedIFunction]
+        print("(as " + fun.name + " " + fun.resSort.name + ")")
         shortCut(ctxt)
 
       case t@IFunApp(fun, args) => {
