@@ -1264,6 +1264,11 @@ class SMTLineariser(benchmarkName : String,
         shortCut(ctxt)
       }
 
+      case IFunApp(f, _) if f.name contains "emptyHeap" =>
+        val heapName = f.asInstanceOf[MonoSortedIFunction].resSort.name
+        print("(as emptyHeap " + heapName + ")")
+        shortCut(ctxt)
+
       case t@IFunApp(fun, args) => {
         // check if any Boolean arguments have to be decoded
         var changed = false
