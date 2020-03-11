@@ -2,7 +2,7 @@
 lazy val commonSettings = Seq(
     name := "Princess",
     organization := "uuverifiers",
-    version := "unstable-SNAPSHOT",
+    version := "2020-03-12",
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.10"),
     fork in run := true,
