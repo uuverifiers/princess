@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2014 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -184,14 +184,21 @@ class TaskManager private (// the regular tasks that have a priority
         var foundFactsTask : Boolean = false
         
         def updateTask(prioTask : PrioritisedTask)
-                         : Iterator[PrioritisedTask] = {
-          val res = prioTask.updateTask(goal, factCollector _)
-          if (res exists stopUpdating)
-            foundFactsTask = true
-          res.iterator
-        }
+                         : Iterator[PrioritisedTask] =
+          prioTask.updateTask(goal, factCollector _) match {
+            case Seq(newTask) if (prioTask eq newTask) => {
+              if (stopUpdating(newTask))
+                foundFactsTask = true
+              null
+            }
+            case res => {
+              if (res exists stopUpdating)
+                foundFactsTask = true
+              res.iterator
+            }
+          }
         
-        val tasks = prioTasks.flatMap(updateTask _, (h) => foundFactsTask)
+        val tasks = prioTasks.flatItMap(updateTask _, (h) => foundFactsTask)
         if (facts.isEmpty)
           tasks
         else
@@ -211,9 +218,9 @@ class TaskManager private (// the regular tasks that have a priority
   def filter(p : PrioritisedTask => Boolean) : TaskManager = {
     var changed = false
 
-    val newPrioTasks = prioTasks.flatMap({ t =>
+    val newPrioTasks = prioTasks.flatItMap({ t =>
       if (p(t)) {
-        Iterator single t
+        null
       } else {
         changed = true
         Iterator.empty
