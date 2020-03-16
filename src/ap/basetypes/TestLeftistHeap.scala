@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2011 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -34,6 +34,7 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
       case "testLargeHeap" => testLargeHeap
       case "testHeapCollector" => testHeapCollector
       case "testFlatMap" => testFlatMap
+      case "testFlatMap2" => testFlatMap2
     }
   }
 
@@ -215,8 +216,20 @@ class TestLeftistHeap(n : String) extends APTestCase(n) {
     
     h = h.insertIt ( l.iterator )
 
-    val h2 = h.flatMap((i) => Iterator.single(i+1), (h) => false)
-    val h3 = h2.flatMap((i) => Iterator.single(i-1), (h) => false)
+    val h2 = h.flatItMapIter((i) => Iterator.single(i+1), (h) => false)
+    val h3 = h2.flatItMapIter((i) => Iterator.single(i-1), (h) => false)
+    
+    checkHeap ( l, h3 )
+  }
+
+  def testFlatMap2 = {
+    var h = LeftistHeap.EMPTY_HEAP[Int]
+    val l = Debug.randoms(0, 1000000).take(1000).toList
+    
+    h = h.insertIt ( l.iterator )
+
+    val h2 = h.flatItMapRec((i) => Iterator.single(i+1), (h) => false)
+    val h3 = h2.flatItMapRec((i) => Iterator.single(i-1), (h) => false)
     
     checkHeap ( l, h3 )
   }

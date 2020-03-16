@@ -166,11 +166,13 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
 
    /**
     * Apply a function <code>f</code> to all elements in this heap. The heap
-    * traversal is skipped for a subheap if the the function <code>stop</code>
-    * applied to this subheap returns <code>true</code> 
+    * traversal is skipped for a subheap if the function <code>stop</code>
+    * applied to this subheap returns <code>true</code>. The function
+    * <code>f</code> can return <code>null</code> to signal that a data
+    * element has not changed.
     */
-   def flatMap(f : (T) => Iterator[T],
-               stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] = {
+   def flatItMapIter(f : (T) => Iterator[T],
+                     stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] = {
       val todo = new Stack[LeftistHeap[T, HC]]
       var res = emptyHeap
 
@@ -186,7 +188,15 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
         } else {
           next match {
             case Node(data, left, right, _) => {
-              res = res insertIt f(data)
+              res = f(data) match {
+                case null => res insert data
+                case it => res insertIt it
+              }
+/*              val it = f(data) match {
+                case null => Iterator single data
+                case it   => it
+              }
+              res = res insertIt it */
               push(left)
               push(right)
             }
@@ -196,6 +206,27 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
       
       res
    }
+
+   /**
+    * Apply a function <code>f</code> to all elements in this heap. The heap
+    * traversal is skipped for a subheap if the function <code>stop</code>
+    * applied to this subheap returns <code>true</code>. The function
+    * <code>f</code> can return <code>null</code> to signal that a data
+    * element has not changed.
+    */
+   def flatItMapRec(f : (T) => Iterator[T],
+                    stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC]
+     
+   /**
+    * Apply a function <code>f</code> to all elements in this heap. The heap
+    * traversal is skipped for a subheap if the function <code>stop</code>
+    * applied to this subheap returns <code>true</code>. The function
+    * <code>f</code> can return <code>null</code> to signal that a data
+    * element has not changed.
+    */
+   def flatItMap(f : (T) => Iterator[T],
+                 stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] =
+     flatItMapIter(f, stop)
      
    /////////////////////////////////////////////////////////////////////////////
 
@@ -338,6 +369,17 @@ class SortedIterator[A, HC <: HeapCollector[A, HC]](var remainder : LeftistHeap[
      */
     def removeAll(element : T) : LeftistHeap[T, HC] = this
 
+    /**
+     * Apply a function <code>f</code> to all elements in this heap. The heap
+     * traversal is skipped for a subheap if the function <code>stop</code>
+     * applied to this subheap returns <code>true</code>. The function
+     * <code>f</code> can return <code>null</code> to signal that a data
+     * element has not changed.
+     */
+    def flatItMapRec(f : (T) => Iterator[T],
+                     stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] =
+      this
+
   }
 
 
@@ -449,6 +491,51 @@ case class Node[T, HC <: HeapCollector[T, HC]]
       }
     }
   }
+
+  /**
+   * Apply a function <code>f</code> to all elements in this heap. The heap
+   * traversal is skipped for a subheap if the function <code>stop</code>
+   * applied to this subheap returns <code>true</code>. The function
+   * <code>f</code> can return <code>null</code> to signal that a data
+   * element has not changed.
+   */
+  def flatItMapRec(f : (T) => Iterator[T],
+                   stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] =
+    if (stop(this)) {
+      this
+    } else {
+      val newData  = f(data)
+      val newLeft  = left.flatItMapRec(f, stop)
+      val newRight = right.flatItMapRec(f, stop)
+
+      if ((left eq newLeft) && (right eq newRight)) {
+        // the sub-trees have not changed, maybe the node can be kept altogether
+        newData match {
+          case null =>
+            this
+          case newData =>
+            if (newData.hasNext) {
+              val nextData = newData.next
+              if (!newData.hasNext &&
+                  (left.isEmpty || ord.lteq(nextData, left.findMin)) &&
+                  (right.isEmpty || ord.lteq(nextData, right.findMin)))
+                // then we can keep at least the structure of the tree, which
+                // minimises the number of objects that have to be created
+                Node(nextData, left, right, emptyHeap)
+              else
+                (left insertHeap right) insert nextData insertIt newData
+            } else {
+              left insertHeap right
+            }
+        }
+      } else {
+        val h = newLeft insertHeap newRight
+        newData match {
+          case null    => h insert data
+          case newData => h insertIt newData
+        }
+      }
+    }
 
 }
 
