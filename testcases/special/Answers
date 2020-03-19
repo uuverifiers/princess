@@ -39,14 +39,14 @@ Constructing countermodel ...
 
 unknown
 (model
-  (define-fun time () Int 2)
+  (define-fun time () Int 1)
   (define-fun q () Int 2)
   (define-fun p () Int 1)
   (define-fun s3 ((x!0 Int)) Bool (ite (= x!0 1) false true))
   (define-fun ro ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 2)) false true))
   (define-fun rd ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 2) (= x!1 1)) false true))
   (define-fun s4 ((x!0 Int)) Bool (ite (= x!0 1) true true))
-  (define-fun sn ((x!0 Int)) Int (ite (= x!0 1) 1 (ite (= x!0 2) 0 0)))
+  (define-fun sn ((x!0 Int)) Int (ite (= x!0 1) 0 (ite (= x!0 2) (- 1) 0)))
   (define-fun s6 ((x!0 Int)) Bool (ite (= x!0 1) false (ite (= x!0 2) true true)))
   (define-fun rcs2 ((x!0 Int)) Bool (ite (= x!0 2) true true))
   (define-fun x ((x!0 Int) (x!1 Int)) Bool (ite (and (= x!0 1) (= x!1 2)) false (ite (and (= x!0 2) (= x!1 1)) false true)))

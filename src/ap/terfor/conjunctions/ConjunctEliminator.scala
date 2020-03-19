@@ -23,6 +23,8 @@ package ap.terfor.conjunctions;
 
 import scala.collection.mutable.{ArrayBuffer, HashSet => MHashSet,
                                  LinkedHashSet, HashMap => MHashMap}
+import scala.collection.{Set => GSet}
+
 import ap.terfor._
 import ap.basetypes.IdealInt
 import ap.terfor.{TerFor, Term, Formula, ConstantTerm, TermOrder}
@@ -79,12 +81,18 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     case c : ConstantTerm => f.constants contains c
     case v : VariableTerm => f.variables contains v
   }
-  
+
+  private def someTermOccursIn(f : TerFor, cs : GSet[Term]) =
+    (f.constants exists cs) || (f.variables exists cs)
+
   private def occursInPositiveEqs(c : Term) =
     occursIn(conj.arithConj.positiveEqs, c)
 
   private def onlyOccursInPositiveEqs(c : Term) =
     !occursInNegativeEqs(c) && !occursInInEqs(c) && !occursInPreds(c)
+
+  private def onlyOccursInNegativeEqs(c : Term) =
+    !occursInPositiveEqs(c) && !occursInInEqs(c) && !occursInPreds(c)
 
   private def occursInNegativeEqs(c : Term) =
     occursIn(conj.arithConj.negativeEqs, c)
@@ -184,7 +192,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     case _ : VariableTerm => // nothing
   }
 
-  private def elimPositiveUniversalEqs : Unit = {
+  private def elimAllPositiveUniversalEqs : Unit = {
     val oriEqs = conj.arithConj.positiveEqs
     
     // first determine all constants that can be eliminated based on occurrence
@@ -318,7 +326,107 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
     // we give back the eliminated inequalities
     InEqConj(eliminatedInEqs, order)
   }
+
+  private def elimAllOnesidedInEqsU(logger : ComputationLogger) : Unit = {
+    val oriInEqs  = conj.arithConj.inEqs
+    val oriNegEqs = conj.arithConj.negativeEqs
     
+    // first determine all constants that can be eliminated based on occurrence
+    // in inequalities or negative equalities
+
+    val elimSyms = new MHashSet[Term]
+
+    {
+      val lowerBound, upperBound = new MHashSet[Term]
+
+      // first scan the inequality symbols
+      val lcIt = oriInEqs.iterator
+      while (lcIt.hasNext) {
+        val lc = lcIt.next
+        val N = lc.size
+      
+        var i = 0
+        while (i < N) {
+          val c = lc getTerm i
+          if (universalSymbols contains c)
+            (lc getCoeff i).signum match {
+              case -1 => upperBound += c
+              case 1  => lowerBound += c
+            }
+          i = i + 1
+        }
+      }
+
+      for (c <- lowerBound)
+        if (!(upperBound contains c) &&
+            isEliminationCandidate(c) &&
+            !occursInPositiveEqs(c) &&
+            !occursInPreds(c))
+          elimSyms += c
+      for (c <- upperBound)
+        if (!(lowerBound contains c) &&
+            isEliminationCandidate(c) &&
+            !occursInPositiveEqs(c) &&
+            !occursInPreds(c))
+          elimSyms += c
+
+      // then add symbols only occurring in negative equations
+      val lcIt2 = oriNegEqs.iterator
+      while (lcIt2.hasNext) {
+        val lc = lcIt2.next
+        val N = lc.size
+      
+        var i = 0
+        while (i < N) {
+          val c = lc getTerm i
+          if (!(elimSyms contains c) &&
+              (universalSymbols contains c) &&
+              isEliminationCandidate(c) &&
+              onlyOccursInNegativeEqs(c))
+            elimSyms += c
+          i = i + 1
+        }
+      }
+    }
+
+    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
+    Debug.assertInt(ConjunctEliminator.AC, !elimSyms.isEmpty)
+    //-END-ASSERTION-///////////////////////////////////////////////////////////
+
+    // now eliminate
+
+    val (eliminatedInEqs, remainingInEqs) =
+      oriInEqs partition (someTermOccursIn(_ : LinearCombination, elimSyms))
+    val (eliminatedNegEqs, remainingNegEqs) =
+      oriNegEqs partition (someTermOccursIn(_ : LinearCombination, elimSyms))
+
+    val newInEqs =
+      oriInEqs.updateGeqZeroSubset(remainingInEqs, logger)(order)
+    val newNegEqs =
+      oriNegEqs.updateEqsSubset(remainingNegEqs)(order)
+    val newArithConj =
+      ArithConj(conj.arithConj.positiveEqs, newNegEqs, newInEqs, order)
+
+    conj = conj.updateArithConj(newArithConj)(order)
+
+    val elimInEqs =
+      oriInEqs.updateGeqZeroSubset(eliminatedInEqs)(order)
+    val elimNegEqs =
+      oriNegEqs.updateEqsSubset(eliminatedNegEqs)(order)
+    val elimArithConj =
+      ArithConj(EquationConj.TRUE, elimNegEqs, elimInEqs, order)
+
+    // only constants are needed for model construction
+    val elimConsts = new MHashSet[ConstantTerm]
+    for (c <- elimSyms) c match {
+      case c : ConstantTerm => elimConsts += c
+      case _                => // nothing
+    }
+
+    if (!elimConsts.isEmpty)
+      universalElimination(InNegEqModelElement(elimArithConj, elimConsts))
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // Non-eliminated constants that occur in negative equations
 
@@ -597,7 +705,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
       
       case (true, false, false, false, true) if (eliminablePositiveEqs(c))
           => //elimPositiveEqs(c)
-             elimPositiveUniversalEqs
+             elimAllPositiveUniversalEqs
    
       case (true, false, false, false, false)
         if (eliminablePositiveEqsNonU(c) && eliminablePositiveEqs(c))
@@ -607,16 +715,7 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
           => elimNegativeEqs(c)
 
       case (false, _, _, false, true) if (onesidedInEqsU(c))
-          => {
-        val eliminatedFor = ArithConj.conj(Array(elimNegativeEqsU(c),
-                                                 elimOnesidedInEqsU(c, logger)),
-                                           order)
-        c match {
-          case c : ConstantTerm =>
-            universalElimination(InNegEqModelElement(eliminatedFor, c))
-          case _ : VariableTerm => // nothing
-        }
-      }
+          => elimAllOnesidedInEqsU(logger)
     
       case (false, false, true, false, true) => eliminableDivInEqs(c) match {
         case Some((d, otherUniSyms))
