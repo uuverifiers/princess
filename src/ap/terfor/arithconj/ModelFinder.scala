@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2018 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,7 +33,7 @@ import ap.terfor.linearcombination.LinearCombination
 import ap.util.{Debug, LazyMappedMap, Seqs}
 
 import scala.collection.{Set => GSet}
-import scala.collection.mutable.{HashMap => MHashMap}
+import scala.collection.mutable.{HashMap => MHashMap, HashSet => MHashSet}
 
 object ModelElement {
   
@@ -213,21 +213,27 @@ case class ReducableModelElement(f : Conjunction,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+object InNegEqModelElement {
+  def apply(ac : ArithConj, c : ConstantTerm) : InNegEqModelElement =
+    InNegEqModelElement(ac, Set(c))
+}
+
 /**
  * Class for creating models (assignments of
  * integer literals to constants) of <code>Formula</code>, for certain
  * special cases. This class is used in <code>EliminateFactsTask</code>
  */
-case class InNegEqModelElement(ac : ArithConj, c : ConstantTerm)
-           extends ModelElement(Set(c), Set()) {
+case class InNegEqModelElement(ac : ArithConj, _cs : GSet[ConstantTerm])
+           extends ModelElement(_cs, Set()) {
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
   // The handled case: a conjunction of negated equations and inequalities
-  Debug.assertCtor(ModelElement.AC, ac.positiveEqs.isEmpty && cs.size == 1)
+  Debug.assertCtor(ModelElement.AC, ac.positiveEqs.isEmpty)
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   
   def extendModel(model : MHashMap[ConstantTerm, IdealInt],
                   predModel : MHashMap[Atom, Boolean],
                   order : TermOrder) : Unit = {
+
     val replacement =
       new LazyMappedMap[ConstantTerm, IdealInt, ConstantTerm, Term](
                         model,
@@ -239,7 +245,8 @@ case class InNegEqModelElement(ac : ArithConj, c : ConstantTerm)
     // it might be that the formula contains further constants apart
     // from cs, we eliminate them by replacing them with 0
     val furtherConstsZero =
-      ConstantSubst((for (d <- (instantiatedACRaw.constants - c).iterator)
+      ConstantSubst((for (d <- instantiatedACRaw.constants.iterator;
+                          if !(cs contains d))
                      yield {
                        model.put(d, IdealInt.ZERO)
                        (d, LinearCombination.ZERO)
@@ -247,26 +254,49 @@ case class InNegEqModelElement(ac : ArithConj, c : ConstantTerm)
     
     val instantiatedAC = furtherConstsZero(instantiatedACRaw)
 
-    val negEqs = instantiatedAC.negativeEqs
-    val inEqs = instantiatedAC.inEqs
-      
-    //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-    Debug.assertInt(ModelElement.AC,
-                    inEqs.size <= 2 && (instantiatedAC.constants subsetOf Set(c)) &&
-                    (inEqs.isEmpty || (inEqs(0) get c).isUnit))
-    //-END-ASSERTION-/////////////////////////////////////////////////////////
-    
-    // seach for the right value (we know that one must exist ...)
-    var value =
-      if (inEqs.isEmpty) IdealInt.ZERO else (-inEqs(0).constant * (inEqs(0) get c))
-    val step = if (inEqs.isEmpty) IdealInt.ONE else (inEqs(0) get c)
-    
-    while (ConstantSubst(c, LinearCombination(value), order)(negEqs).isFalse)
-      value = value + step
-    
-    model.put(c, value)
+    // then assign values to the constants one by one
+
+    var negEqs = instantiatedAC.negativeEqs
+    var inEqs  = instantiatedAC.inEqs
+
+    var constsRemaining = cs.size
+    while (constsRemaining > 0) {
+      // look for inequalities that 
+      val it = for (lc <- inEqs.iterator; if lc.constants.size == 1) yield lc
+
+      val (c, _value, step) =
+        if (it.hasNext) {
+          // found a constant with an upper or lower bound
+          val lc = it.next
+          (lc.constants.head,
+           -lc.constant * lc.leadingCoeff,
+           IdealInt(lc.leadingCoeff.signum))
+        } else {
+          // take any of the constants
+          val c = (for (c <- (order sort cs).iterator; if !(model contains c))
+                   yield c).next
+          (c, IdealInt.ZERO, IdealInt.ONE)
+        }
+
+      var value = _value
+
+      while (ConstantSubst(c, LinearCombination(value), order)(negEqs).isFalse)
+        value = value + step
+
+      model.put(c, value)
+
+      constsRemaining = constsRemaining - 1
+
+      if (constsRemaining > 0) {
+        val subst = ConstantSubst(c, LinearCombination(value), order)
+        negEqs = subst(negEqs)
+        inEqs = subst(inEqs)
+      }
+    }
+
     //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPost(ModelElement.AC, ConstantSubst(replacement, order)(ac).isTrue)
+    Debug.assertPost(ModelElement.AC,
+                     ConstantSubst(replacement, order)(ac).isTrue)
     //-END-ASSERTION-///////////////////////////////////////////////////////////
   }
 }
