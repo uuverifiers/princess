@@ -5,9 +5,9 @@ echo -n "Running unit tests "
 BASEDIR=`dirname $0`
 EXTLIBSDIR=$BASEDIR/extlibs
 
-export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
+#export CLASSPATH=$CLASSPATH:$BASEDIR/bin:$BASEDIR/parser/parser.jar:$EXTLIBSDIR/java-cup-11a.jar
 
-scala ap.AllTests "$@"
+java -cp target/scala-2.13/Princess-assembly-*.jar ap.AllTests "$@"
 
 
 echo "Running regression tests"
