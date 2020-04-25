@@ -91,14 +91,15 @@ Constructing countermodel ...
 UNKNOWN
 
 Possible countermodel:
-not_orthogonal_lines($i!6, $i!8) & orthogonal_lines($i!12, $i!14) & convergent_lines($i!2, $i!4) & !not_orthogonal_lines($i!8, $i!10) & !unorthogonal_lines($i!12, $i!14) & !convergent_lines($i!6, $i!10)
+not_orthogonal_lines($i!10, $i!12) & orthogonal_lines($i!6, $i!8) & convergent_lines($i!2, $i!4) & !not_orthogonal_lines($i!12, $i!14) & !unorthogonal_lines($i!6, $i!8) & !convergent_lines($i!10, $i!14)
 
-Loading diamonds.10.2-no-interpolant.i.a.u.pri ...
+Loading diamonds.16.3.i.a.u.smt2 ...
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 1182576658)
+Found proof (size 508063)
 
-VALID
+unsat
 
 Loading abbrev-interpolation.smt2 ...
 unsat

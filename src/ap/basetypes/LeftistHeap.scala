@@ -232,7 +232,7 @@ abstract class LeftistHeap[T, HC <: HeapCollector[T, HC]]
     */
    def flatItMap(f : (T) => Iterator[T],
                  stop : (LeftistHeap[T, HC]) => Boolean) : LeftistHeap[T, HC] =
-     flatItMapIter(f, stop)
+     flatItMapRec(f, stop)
      
    /////////////////////////////////////////////////////////////////////////////
 
