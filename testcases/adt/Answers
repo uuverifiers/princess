@@ -59,8 +59,8 @@ Constructing countermodel ...
 sat
 (model
   (define-fun _let_3_0 () tree (leaf zero))
-  (define-fun x3 () tree (node null))
-  (define-fun x2 () list (cons (leaf (succ (succ zero))) null))
+  (define-fun x3 () tree (leaf zero))
+  (define-fun x2 () list (cons (leaf zero) null))
   (define-fun x1 () nat (succ zero))
 )
 
@@ -165,7 +165,7 @@ Loading cvc-datatype-1.smt2 ...
 sat
 (model
   (define-fun x3 () tree (leaf zero))
-  (define-fun x2 () list (cons (leaf zero) null))
+  (define-fun x2 () list null)
   (define-fun x1 () nat (succ zero))
 )
 Loading adt-model-bug.smt2 ...
@@ -200,9 +200,9 @@ Constructing countermodel ...
 sat
 (model
   (define-fun _let_3_0 () tree (leaf zero))
-  (define-fun x3 () tree (leaf (succ (succ (succ zero)))))
-  (define-fun x2 () list (cons (leaf (succ (succ zero))) null))
-  (define-fun x1 () nat (succ (succ (succ (succ zero)))))
+  (define-fun x3 () tree (leaf (succ zero)))
+  (define-fun x2 () list (cons (leaf zero) null))
+  (define-fun x1 () nat (succ (succ zero)))
 )
 
 Loading datatype2.smt2 ...
@@ -263,7 +263,7 @@ sat
 Loading cvc-datatype-1.smt2 ...
 sat
 (model
-  (define-fun x3 () tree (leaf (succ (succ (succ (succ (succ (succ zero))))))))
+  (define-fun x3 () tree (leaf (succ (succ (succ zero)))))
   (define-fun x2 () list null)
-  (define-fun x1 () nat (succ (succ (succ (succ (succ (succ (succ zero))))))))
+  (define-fun x1 () nat (succ (succ (succ (succ zero)))))
 )

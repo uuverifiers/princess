@@ -48,7 +48,8 @@ object ExQuantifierTask {
 class ExQuantifierTask(_formula : Conjunction, _age : Int)
       extends QuantifierTask(_formula, _age) {
 
-  val priority : Int = 5 + age
+  // add the size of the formula to make behaviour more deterministic
+  val priority : Int = 2 + age + formula.opCount
 
   protected val constantNameBase : String = "ex_"
     

@@ -4,7 +4,7 @@
 ./rundir bitvectors "" -logo +assert +model -timeout=30000
 ./rundir nia "" -logo +assert +model -timeout=5000 -clausifier=none +posUnitResolution
 
-./rundir api ""
+#./rundir api ""
 
 ./rundir smtlib-parser "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
 ./rundir adt "" -logo +assert +model -timeout=30000 -clausifier=none +posUnitResolution
