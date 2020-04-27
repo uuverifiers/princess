@@ -18,7 +18,7 @@ SCALADOC_OPTIONS:=-doc-title Princess -d $(BASEDIR)/doc -classpath $(CLASSPATH)
 JLEX_PATH:=/usr/share/java/JLex.jar
 
 JAVAC:=javac
-JAVAC_FLAGS:=-target 1.5
+JAVAC_FLAGS:=-target 1.8
 
 JAVA:=java
 JAVA_FLAGS:=

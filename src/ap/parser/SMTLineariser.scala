@@ -359,8 +359,8 @@ object SMTLineariser {
       printSMTType(res)
       print(")")
     }
-    case SMTHeapSort(s)      => print(s.name)
-    case SMTHeapAddressSort(s) => print(s.name)
+    case SMTHeapSort(s)      => print(s.HeapSort.name)
+    case SMTHeapAddressSort(s) => print(s.AddressSort.name)
   }
 
   def sort2SMTType(sort : Sort) : (SMTType,
@@ -385,9 +385,9 @@ object SMTLineariser {
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
     case sort : Heap.HeapSort =>
-      (SMTHeapSort(sort), None)
+      (SMTHeapSort(sort.heapTheory), None)
     case sort : Heap.AddressSort =>
-      (SMTHeapAddressSort(sort), None)
+      (SMTHeapAddressSort(sort.heapTheory), None)
   }
 
   def sort2SMTString(sort : Sort) : String =
@@ -472,7 +472,7 @@ object SMTLineariser {
     print("(declare-heap ")
     println(heap.HeapSort.name + " " + heap.AddressSort.name + " " +
           heap.ObjectSort.name)
-    println("(" + heap._defObj + ")")
+    println(" " ++ asString(heap._defObj))
     print(" (")
     print((for(s <- heap.ObjectADT.sorts)
       yield ("(" + quoteIdentifier(s.name) + " 0)")) mkString " ")
@@ -781,7 +781,7 @@ class SMTLineariser(benchmarkName : String,
           for (_ <- 1 to pred.arity) yield Sort.Integer
       }
 
-      print((argSorts map (sort2SMTString(_))) mkString " ")
+      print((argSorts map sort2SMTString) mkString " ")
       println(") Bool)")
     }
     

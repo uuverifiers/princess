@@ -18,7 +18,7 @@
 -- along with Princess.  If not, see <http://www.gnu.org/licenses/>.
 
 --------------------------------------------------------------------------------
--- BNF Grammar of the SMT-LIB 2 Format
+-- BNF Grammar of the SMT-LIB 2 Format (extended with Heap theory)
 
 comment ";";
 
@@ -45,6 +45,10 @@ DataDeclsOldCommand.    Command         ::= "(" "declare-datatypes"
                                                 "(" [OldDataDeclC] ")" ")";
 DataDeclCommand.        Command         ::= "(" "declare-datatype" Symbol
                                                 "(" [ConstructorDeclC] ")" ")";
+HeapDeclCommand.        Command         ::= "(" "declare-heap" Identifier Identifier Identifier
+                                                Term
+                                                "(" [PolySortC] ")"
+                                                "(" [MaybeParDataDecl] ")" ")";
 FunctionDeclCommand.	Command	        ::= "(" "declare-fun" Symbol
                                                 "(" MESorts ")" Sort ")";
 ConstDeclCommand.	Command	        ::= "(" "declare-const" Symbol Sort ")";

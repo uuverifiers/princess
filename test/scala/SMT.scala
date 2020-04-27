@@ -12,7 +12,7 @@ class SMTHornTests extends FlatSpec {
   val ObjADTSort = Heap.ADTSort(0)
   val NodeADTSort = Heap.ADTSort(1)
 
-  def defObjCtor(objectADT : ADT) : ITerm = {
+  def defObjCtor(objectADT : ADT, allocResADT : ADT) : ITerm = {
     import IExpression.toFunApplier
     //h.ObjectADT.constructors.last
     //objectADT.constructors.last()

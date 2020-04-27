@@ -42,7 +42,7 @@ object Heap {
   class HeapException(m : String) extends Exception(m)
 
   class AddressSort(sortName : String,
-                    heapTheory : Heap) extends ProxySort(Sort.Nat) {
+                    val heapTheory : Heap) extends ProxySort(Sort.Nat) {
     import IExpression.toFunApplier
 
     override val name = sortName
@@ -56,7 +56,7 @@ object Heap {
   }
 
   class HeapSort(sortName : String,
-                 heapTheory : Heap) extends ProxySort(Sort.Integer) {
+                 val heapTheory : Heap) extends ProxySort(Sort.Integer) {
     import IExpression.toFunApplier
     import ap.terfor.conjunctions.Conjunction
     import ap.terfor.preds.Atom
@@ -194,7 +194,7 @@ object Heap {
 class Heap(heapSortName : String, addressSortName : String,
            objectSort : Heap.ADTSort, sortNames : Seq[String],
            ctorSignatures : Seq[(String, Heap.CtorSignature)],
-           defaultObjectCtor : ADT => ITerm)
+           defaultObjectCtor : (ADT, ADT) => ITerm)
     extends Theory {
   import Heap._
   //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
@@ -393,7 +393,7 @@ class Heap(heapSortName : String, addressSortName : String,
                        counter, nthAddr)
   val predefPredicates = List(isAlloc)
 
-  val _defObj : ITerm = defaultObjectCtor(ObjectADT)
+  val _defObj : ITerm = defaultObjectCtor(ObjectADT, AllocResADT)
   private def _isAlloc(h: ITerm , p: ITerm) : IFormula = {
     import IExpression._
     counter(h) >= p & p > 0
@@ -501,7 +501,6 @@ class Heap(heapSortName : String, addressSortName : String,
         val counterLits = positiveLitsWithPred(heapFunPredMap(counter))
 
         //println(goal.facts + "\n")
-
         import ap.terfor.TerForConvenience._
         import ap.terfor.linearcombination.{LinearCombination => LC}
         import ap.terfor.Term
