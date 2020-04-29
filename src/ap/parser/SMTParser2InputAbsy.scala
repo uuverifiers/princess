@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2011-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2011-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -612,6 +612,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   //////////////////////////////////////////////////////////////////////////////
 
   private val incremental = (prover != null)
+
+  private def incrementalNoExtract = incremental && !justStoreAssertions
   
   protected def incrementalityMessage(thing : String, warnOnly : Boolean) =
     thing +
@@ -631,9 +633,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       throw new Parser2InputAbsy.TranslationException(
                   incrementalityMessage(thing, false))
 
+  private def checkNotExtracting(thing : String) =
+    if (justStoreAssertions)
+      throw new Parser2InputAbsy.TranslationException(
+                  thing + " cannot be handled when extracting assertions")
+
   private def checkIncrementalWarn(thing : String) : Boolean =
     if (incremental) {
-      true
+      !justStoreAssertions
     } else {
       warn(incrementalityMessage(thing, true))
       false
@@ -841,6 +848,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   protected def push : Unit = {
     checkIncremental("push")
+    checkNotExtracting("push")
     pushState((functionDefs, nextPartitionNumber, partNameIndexes))
     prover.push
   }
@@ -850,6 +858,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
    */
   protected def pop : Unit = {
     checkIncremental("pop")
+    checkNotExtracting("pop")
     prover.pop
 
     val (oldFunctionDefs, oldNextPartitionNumber, oldPartNameIndexes) = popState
@@ -1184,7 +1193,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
       
       case cmd : FunctionDeclCommand => {
-        // Functions are always declared to have integer inputs and outputs
         val name = asString(cmd.symbol_)
         val args : Seq[SMTType] = cmd.mesorts_ match {
           case sorts : SomeSorts =>
@@ -1440,7 +1448,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
       case cmd : AssertCommand => {
         val f = asFormula(translateTerm(cmd.term_, -1))
-        if (incremental && !justStoreAssertions) {
+        if (incrementalNoExtract) {
           if (needCertificates) {
             PartExtractor(f, false) match {
               case List(INamedPart(PartName.NO_NAME, g)) => {
@@ -1467,7 +1475,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
       //////////////////////////////////////////////////////////////////////////
 
-      case cmd : CheckSatCommand => if (incremental) try {
+      case cmd : CheckSatCommand => if (incrementalNoExtract) try {
         var res = prover checkSat false
         val startTime = System.currentTimeMillis
 
