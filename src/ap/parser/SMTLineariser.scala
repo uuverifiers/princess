@@ -91,6 +91,10 @@ object SMTLineariser {
       (state, it.next) match {
         case (0, 92) =>                                   // \
           state = 1
+        case (1, 92) => {                                 // \
+          res += 92
+          state = 0
+        }
 
         case (1, 117) =>                                  // u
           state = 2
@@ -181,8 +185,6 @@ object SMTLineariser {
       "\"\""
     case c if c >= 32 && c <= 126 && c != 92 =>
       "" + c.toChar
-    case c if c >= 16 && c <= 255 =>
-      "\\u" + Integer.toString(c, 16)
     case c =>
       "\\u{" + Integer.toString(c, 16) + "}"
   }
