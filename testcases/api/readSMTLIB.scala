@@ -35,4 +35,11 @@ println(???) // sat
 !! (x < 50)
 println(???) // unsat
 }
+
+scope {
+// read a file that includes symbol definitions and some other commands
+// that should be ignored
+val Seq(f) = extractSMTLIBAssertions(new java.io.FileReader("testfile3.smt2"))
+println(pp(f))
+}
 }

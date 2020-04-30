@@ -636,6 +636,9 @@ true
 false
 false
 
+ManyEqvs.scala
+Sat
+
 readSMTLIB.scala
 x - y >= 1 & y + -50 >= 1
 Sat
@@ -643,3 +646,4 @@ Unsat
 x - y >= 1 & y + -50 >= 1
 Sat
 Unsat
+x - y >= 1 & y + -50 >= 1
