@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2018-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2018-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -155,16 +155,21 @@ trait StringTheory extends Theory {
   val str_cons       : IFunction    // CharSort x StringSort -> StringSort
 
   val str_head       : IFunction    // StringSort -> CharSort
+  val str_head_code  : IFunction    // StringSort -> Nat
   val str_tail       : IFunction    // StringSort -> StringSort
 
   // SMT-LIB String functions
 
   val str            : IFunction    // CharSort -> StringSort
 
+  val str_from_code  : IFunction    // Int -> StringSort
+  val str_to_code    : IFunction    // StringSort -> Int
+
   val str_++         : IFunction    // StringSort x StringSort -> StringSort
 
   val str_len        : IFunction    // StringSort -> Nat
 
+  // missing: val str_< : Predicate   // StringSort x StringSort -> Boolean
   val str_<=         : Predicate    // StringSort x StringSort -> Boolean
   val str_at         : IFunction    // StringSort x Nat -> StringSort
   val str_char       : IFunction    // StringSort x Nat -> CharSort
@@ -199,11 +204,13 @@ trait StringTheory extends Theory {
   val re_charrange   : IFunction    // CharSort x CharSort -> RegexSort
   val re_range       : IFunction    // StringSort x StringSort -> RegexSort
 
-  // re_^, re_loop
+  // missing: re_^, re_loop, re_diff
 
   val re_++          : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_union       : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_inter       : IFunction    // RegexSort x RegexSort -> RegexSort
+
+  // missing: val re_comp           : IFunction    // RegexSort -> RegexSort
   
   val re_*           : IFunction    // RegexSort -> RegexSort
   val re_+           : IFunction    // RegexSort -> RegexSort
