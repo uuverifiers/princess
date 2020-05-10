@@ -803,7 +803,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     if (recFunctionsAsTransducers) {
       transducerStringTheory = stringTheoryBuilder.getTransducerTheory
       if (transducerStringTheory.isEmpty)
-        warn("ignoring :parse-transducers, which is not supported by solver " + stringTheoryBuilder.name)
+        warn("ignoring :parse-transducers, which is not supported by solver " +
+             stringTheoryBuilder.name)
     }
     try {
       cont
@@ -2482,6 +2483,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.head") =>
       (translateStringFun(stringTheory.str_head, args,
                           List(stringType)), charType)
+    case PlainSymbol("str.head_code") =>
+      (translateStringFun(stringTheory.str_head_code, args,
+                          List(stringType)), SMTInteger)
     case PlainSymbol("str.tail") =>
       (translateStringFun(stringTheory.str_tail, args,
                           List(stringType)), stringType)
@@ -2489,6 +2493,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str") =>
       (translateStringFun(stringTheory.str, args,
                           List(charType)), stringType)
+
+    case PlainSymbol("str.from_code") =>
+      (translateStringFun(stringTheory.str_from_code, args,
+                          List(SMTInteger)), stringType)
+    case PlainSymbol("str.to_code") =>
+      (translateStringFun(stringTheory.str_to_code, args,
+                          List(stringType)), SMTInteger)
 
     case PlainSymbol("str.++") =>
       (translateNAryStringFun(stringTheory.str_++, args,
@@ -2569,15 +2580,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("str.replace") =>
       (translateStringFun(stringTheory.str_replace, args,
                           List(stringType, stringType, stringType)), stringType)
-    case PlainSymbol("str.replacere") =>
+    case PlainSymbol("str.replacere" | "str.replace_re") =>
       (translateStringFun(stringTheory.str_replacere, args,
                           List(stringType, regexType, stringType)), stringType)
 
-    case PlainSymbol("str.replaceall") =>
+    case PlainSymbol("str.replaceall" | "str.replace_all") =>
       (translateStringFun(stringTheory.str_replaceall, args,
                           List(stringType, stringType, stringType)), stringType)
 
-    case PlainSymbol("str.replaceallre") =>
+    case PlainSymbol("str.replaceallre" | "str.replace_re_all") =>
       (translateStringFun(stringTheory.str_replaceallre, args,
                           List(stringType, regexType, stringType)), stringType)
 
@@ -2591,14 +2602,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (translateStringFun(stringTheory.re_opt, args,
                           List(regexType)), regexType)
 
-    // re.range, re.^, re.loop
+    // re.^, re.loop
 
     case PlainSymbol("char.code") =>
       (stringTheory.char2Int(asTerm(translateTerm(args.head, 0))), SMTInteger)
     case PlainSymbol("char.from-int") =>
       (stringTheory.int2Char(asTerm(translateTerm(args.head, 0))), charType)
-
-    // char.code, char.from-int
 
     // str.to-int, str.from-int
 
@@ -2763,7 +2772,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     import StringTheoryBuilder._
 
     val theory = stringTheory
-    import theory.{str_empty, str_head, str_tail}
+    import theory.{str_empty, str_head, str_head_code, str_tail}
 
     val stateFuns = funs map (_._1)
     val tracks = stateFuns.head.arity
@@ -2771,7 +2780,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     object StrHeadReplacer extends ContextAwareVisitor[Unit, IExpression] {
       def postVisit(t : IExpression, ctxt : Context[Unit],
                     subres : Seq[IExpression]) : IExpression = t match {
-        case IFunApp(str_head, Seq(IVariable(ind)))
+        case IFunApp(`str_head` | `str_head_code`, Seq(IVariable(ind)))
           if ind >= ctxt.binders.size &&
              ind - ctxt.binders.size < tracks =>
           IVariable(tracks - ind - 1 + 2 * ctxt.binders.size)

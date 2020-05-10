@@ -124,6 +124,15 @@ class SeqStringTheory private (val alphabetSize : Int) extends {
         str_cons(subres.head.asInstanceOf[ITerm], str_empty())
       case IFunApp(`str_len`, _) =>
         adtSize(subres.head.asInstanceOf[ITerm]) - 1
+      case IFunApp(`str_head_code`, _) =>
+        str_head(subres.head.asInstanceOf[ITerm])
+      case IFunApp(`str_to_code`, _) =>
+        subres.head match {
+          case IFunApp(`str_cons`, Seq(c, IFunApp(`str_empty`, Seq()))) =>
+            c
+          case t : ITerm =>
+            ite(adtSize(t) === 2, str_head(t), -1)
+        }
       case t =>
         t update subres
     }

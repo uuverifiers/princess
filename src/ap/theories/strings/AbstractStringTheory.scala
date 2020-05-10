@@ -56,8 +56,16 @@ abstract class AbstractStringTheory extends StringTheory {
   val char_is_digit =
     new MonoSortedPredicate("char_is_digit", List(CSo))
 
+  val str_head_code =
+    new MonoSortedIFunction("str_head_code", List(SSo), Integer, true, false)
+
   val str =
     new MonoSortedIFunction("str", List(CSo), SSo, true, false)
+
+  val str_from_code =
+    new MonoSortedIFunction("str_from_code", List(Integer), SSo, true, false)
+  val str_to_code =
+    new MonoSortedIFunction("str_to_code", List(SSo), Integer, true, false)
 
   val str_++ =
     new MonoSortedIFunction("str_++", List(SSo, SSo), SSo, true, false)
@@ -133,7 +141,8 @@ abstract class AbstractStringTheory extends StringTheory {
     new MonoSortedIFunction("re_opt", List(RSo), RSo, true, false)
 
   protected def predefFunctions =
-    List(str, str_++, str_len, str_at, str_char,
+    List(str_head_code, str, str_from_code, str_to_code,
+         str_++, str_len, str_at, str_char,
          str_substr, str_indexof,
          str_replace, str_replacere, str_replaceall, str_replaceallre,
          str_to_re, re_none, re_eps, re_all, re_allchar,
