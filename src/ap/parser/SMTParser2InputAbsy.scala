@@ -3386,6 +3386,10 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     env.addSort(heapSortName, SMTHeapSort(heap))
 
     // Add heap functions to the environment
+
+// At this point we cannot add the functions directly to the environment.
+// Instead we need individual cases in the symApp(...) method.
+
     for (fun <- heap.functions) {
       val smtArgSorts = (for (arg <- fun.argSorts) yield
         SMTLineariser.sort2SMTType(arg)._1).toList
@@ -3394,11 +3398,15 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
 
     // Add heap predicates (not function predicates) to the environment
-    for (pred <- heap.predefPredicates) {
+
+// This code leads to an assertion failure; this also has to be handled
+// using a case in symApp(...)
+
+/*    for (pred <- heap.predefPredicates) {
       val smtArgSorts = (for (arg <- pred.argSorts) yield
         SMTLineariser.sort2SMTType(arg)._1).toList
       env.addPredicate(pred, SMTFunctionType(smtArgSorts, SMTBool))
-    }
+    } */
 
     addTheory(heap) // todo: is this required?
   }
