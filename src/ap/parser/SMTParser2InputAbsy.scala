@@ -2601,13 +2601,48 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("re.opt") =>
       (translateStringFun(stringTheory.re_opt, args,
                           List(regexType)), regexType)
+    case PlainSymbol("re.comp" | "re.complement") =>
+      (translateStringFun(stringTheory.re_comp, args,
+                          List(regexType)), regexType)
 
-    // re.^, re.loop
+    case IndexedSymbol("re.^", n) => {
+      val Seq(arg) = translateStringArgs("re.^", args, List(regexType))
+      val res = n.toInt match {
+        case 0 =>
+          stringTheory.re_eps()
+        case n =>
+          (for (_ <- 0 until n) yield arg) reduceRight (stringTheory.re_++(_,_))
+      }
+      (res, regexType)
+    }
+
+    case IndexedSymbol("re.loop", n1, n2) => {
+      val Seq(arg) = translateStringArgs("re.loop", args, List(regexType))
+      val res = (n1.toInt, n2.toInt) match {
+        case (n1, n2) if n1 > n2 =>
+          stringTheory.re_none()
+        case (n1, n2) => {
+          var power = (for (_ <- 0 until n1)
+                         yield arg) reduceRight (stringTheory.re_++(_,_))
+          var res   = power
+          for (_ <- n1 until n2) {
+            power = stringTheory.re_++(arg, power)
+            res   = stringTheory.re_union(res, power)
+          }
+          res
+        }
+      }
+      (res, regexType)
+    }
 
     case PlainSymbol("char.code") =>
-      (stringTheory.char2Int(asTerm(translateTerm(args.head, 0))), SMTInteger)
+      (stringTheory.char2Int(
+         translateStringArgs("char.code", args, List(charType)).head),
+       SMTInteger)
     case PlainSymbol("char.from-int") =>
-      (stringTheory.int2Char(asTerm(translateTerm(args.head, 0))), charType)
+      (stringTheory.int2Char(
+         translateStringArgs("char.from-int", args, List(SMTInteger)).head),
+       charType)
 
     // str.to-int, str.from-int
 
@@ -2717,13 +2752,18 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   private def translateStringFun(f : IFunction,
                                  args : Seq[Term],
-                                 argTypes : Seq[SMTType]) : IExpression = {
+                                 argTypes : Seq[SMTType]) : IExpression =
+    IFunApp(f, translateStringArgs(f.name, args, argTypes))
+
+  private def translateStringArgs(name : String,
+                                  args : Seq[Term],
+                                  argTypes : Seq[SMTType]) : Seq[ITerm] = {
     val transArgs = for (a <- args) yield translateTerm(a, 0)
     if (argTypes != (transArgs map (_._2)))
       throw new TranslationException(
-        f.name + " cannot be applied to arguments of type " +
+        name + " cannot be applied to arguments of type " +
         (transArgs map (_._2) mkString ", "))
-    IFunApp(f, transArgs map (asTerm(_)))
+    transArgs map (asTerm(_))
   }
 
   private def translateNAryStringFun(f : IFunction,
