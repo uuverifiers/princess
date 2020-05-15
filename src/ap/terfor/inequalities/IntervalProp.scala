@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2019-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,6 +29,7 @@ import ap.terfor.linearcombination.{LinearCombination, LinearCombination0,
                                     ArrayLinearCombination}
 import ap.util.Debug
 
+import scala.collection.{Map => GMap}
 import scala.collection.mutable.{HashMap => MHashMap, ArrayBuffer, Queue,
                                  HashSet => MHashSet}
 import scala.util.Sorting
@@ -42,8 +43,6 @@ object IntervalProp {
   /**
    * If result is <code>false</code>, then interval constraint propagation
    * will definitely not be able to derive any bounds for the given inequalities
-   *
-   * TODO: make this faster
    */
   def icpMayWork(geqZero : Seq[LinearCombination]) : Boolean = {
     val it = geqZero.iterator
@@ -639,13 +638,13 @@ class IntervalProp(geqZero : IndexedSeq[LinearCombination],
    * All derived lower bounds of <code>VariableTerm</code> and
    * <code>ConstantTerm</code>.
    */
-  lazy val lowerBounds = curLowerBound.toMap
+  def lowerBounds : GMap[Term, IdealInt] = curLowerBound
   
   /**
    * All derived upper bounds of <code>VariableTerm</code> and
    * <code>ConstantTerm</code>.
    */
-  lazy val upperBounds = curUpperBound.toMap
+  def upperBounds : GMap[Term, IdealInt] = curUpperBound
 
   /**
    * Could any bounds be derived that were not already known from the input?

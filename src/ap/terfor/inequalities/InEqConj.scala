@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,11 +21,13 @@
 
 package ap.terfor.inequalities;
 
+import scala.collection.{Map => GMap}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashSet, HashSet => MHashSet}
 
 import ap.terfor._
 import ap.basetypes.IdealInt
-import ap.terfor.linearcombination.{LinearCombination, LinearCombination1}
+import ap.terfor.linearcombination.{LinearCombination,
+                                    LinearCombination0, LinearCombination1}
 import ap.terfor.equations.EquationConj
 import ap.terfor.preds.{Predicate, Atom}
 import ap.util.{Debug, Logic, Seqs, PriorityQueueWithIterators,
@@ -72,18 +74,19 @@ object InEqConj {
       val geqZero = fmInfs.geqZero.result
       val geqZeroInfs = fmInfs.geqZeroInfs.result
 
-      val (bounds, boundEqs) =
+      val (boundLCs, lowerBounds, upperBounds, boundEqs) =
         if (geqZero.size > 1) {
           val icpInput = LazyIndexedSeqConcat(geqZero, geqZeroInfs)
           if (IntervalProp icpMayWork icpInput) {
             val icp = new IntervalProp(icpInput, logger, order)
-            val bounds = icp.updatedBoundsAsInequalities(order)
-            (bounds, icp.impliedEquations(order))
+            val boundLCs = icp.updatedBoundsAsInequalities(order)
+            (boundLCs, icp.lowerBounds, icp.upperBounds,
+             icp.impliedEquations(order))
           } else {
-            (IndexedSeq.empty, IndexedSeq.empty)
+            (IndexedSeq.empty, null, null, IndexedSeq.empty)
           }
         } else {
-          (IndexedSeq.empty, IndexedSeq.empty)
+          (IndexedSeq.empty, null, null, IndexedSeq.empty)
         }
 
       val eqs = EquationConj(fmInfs.equalityInfs.iterator ++ boundEqs.iterator,
@@ -91,8 +94,8 @@ object InEqConj {
       if (eqs.isFalse)
         FALSE
       else
-        new InEqConj (geqZero, geqZeroInfs, bounds, eqs,
-                      fmInfs.completeInfs, order)
+        new InEqConj (geqZero, geqZeroInfs, boundLCs, eqs,
+                      fmInfs.completeInfs, lowerBounds, upperBounds, order)
     } catch {
       case IntervalProp.UNSATISFIABLE_INEQS_EXCEPTION   => FALSE
     }
@@ -121,15 +124,17 @@ object InEqConj {
     } else {
       new InEqConj (Array(lhs.makePrimitive),
                     IndexedSeq.empty, IndexedSeq.empty,
-                    EquationConj.TRUE, true, order)
+                    EquationConj.TRUE, true, null, null, order)
     }
     
   val TRUE = new InEqConj (IndexedSeq.empty, IndexedSeq.empty, IndexedSeq.empty,
-                           EquationConj.TRUE, true, TermOrder.EMPTY)
+                           EquationConj.TRUE, true, Map.empty, Map.empty,
+                           TermOrder.EMPTY)
 
   val FALSE = new InEqConj (Array(LinearCombination.MINUS_ONE),
                             IndexedSeq.empty, IndexedSeq.empty,
-                            EquationConj.TRUE, true, TermOrder.EMPTY)
+                            EquationConj.TRUE, true, Map.empty, Map.empty,
+                            TermOrder.EMPTY)
 
   /**
    * Compute the conjunction of a number of inequality conjunctions.
@@ -269,6 +274,11 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                         // have all Fourier-Motzkin inferences been computed?
                         // (in general, only a subset of them will be generated)
                         val completeInfs : Boolean,
+                        // lower and upper bounds known for individual
+                        // symbols. those arguments can be chosen to be null
+                        // if the bounds have not been computed yet
+                        lowerBounds : GMap[Term, IdealInt],
+                        upperBounds : GMap[Term, IdealInt],
                         val order : TermOrder)
       extends Formula with SortedWithOrder[InEqConj]
                       with IndexedSeq[LinearCombination] {
@@ -494,19 +504,13 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
     }
   }
 
-  /**
-   * Determine whether a lower bound can be inferred from <code>this</code>
-   * conjunction of inequalities for the given linear combination.
-   */
-  def findLowerBound(lc : LinearCombination) : Option[IdealInt] =
-    if (lc.isConstant) {
-      Some(lc.constant)
-    } else if (!(lc.constants subsetOf this.constants) ||
-               !(lc.variables subsetOf this.variables)) {
+  private def findLowerBoundHelp(lc : LinearCombination) : Option[IdealInt] =
+    if (!(lc.constants subsetOf this.constants) ||
+        !(lc.variables subsetOf this.variables)) {
       None
     } else {
       //-BEGIN-ASSERTION-///////////////////////////////////////////////////////
-      Debug.assertPost(InEqConj.AC, lc isSortedBy order)
+      Debug.assertPre(InEqConj.AC, lc isSortedBy order)
       //-END-ASSERTION-/////////////////////////////////////////////////////////
       
       if (lc.isPrimitive) {
@@ -522,6 +526,36 @@ class InEqConj private (// Linear combinations that are stated to be geq zero.
                        findBound(primLC, geqZeroInfs))) yield
           ((bound - primLC.constant) * lc.nonConstCoeffGcd + lc.constant)
       }
+    }
+
+  /**
+   * Determine whether a lower bound can be inferred from <code>this</code>
+   * conjunction of inequalities for the given linear combination.
+   */
+  def findLowerBound(lc : LinearCombination) : Option[IdealInt] =
+    lc match {
+      case lc : LinearCombination0 =>
+        Some(lc.constant)
+      case lc : LinearCombination1 if lowerBounds != null => {
+        val res = lc.leadingCoeff.signum match {
+          case -1 =>
+            // for alpha < 0:
+            // c <= b
+            //    =>   alpha * c >= alpha * b
+            //    =>   alpha * c + constant >= alpha * b + constant
+            for (b <- upperBounds get lc.leadingTerm)
+            yield (b * lc.leadingCoeff + lc.constant)
+          case 1 =>
+            for (b <- lowerBounds get lc.leadingTerm)
+            yield (b * lc.leadingCoeff + lc.constant)
+        }
+        //-BEGIN-ASSERTION-///////////////////////////////////////////////////
+        Debug.assertPost(InEqConj.AC, res == findLowerBoundHelp(lc))
+        //-END-ASSERTION-/////////////////////////////////////////////////////
+        res
+      }
+      case lc =>
+        findLowerBoundHelp(lc)
     }
 
   /**
