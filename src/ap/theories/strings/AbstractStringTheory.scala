@@ -138,6 +138,8 @@ abstract class AbstractStringTheory extends StringTheory {
     new MonoSortedIFunction("re_+", List(RSo), RSo, true, false)
   val re_opt =
     new MonoSortedIFunction("re_opt", List(RSo), RSo, true, false)
+  val re_comp =
+    new MonoSortedIFunction("re_comp", List(RSo), RSo, true, false)
 
   protected def predefFunctions =
     List(str_head_code, str, str_from_code, str_to_code,
@@ -146,7 +148,7 @@ abstract class AbstractStringTheory extends StringTheory {
          str_replace, str_replacere, str_replaceall, str_replaceallre,
          str_to_re, re_none, re_eps, re_all, re_allchar,
          re_charrange, re_range, re_++,
-         re_union, re_inter, re_*, re_+, re_opt)
+         re_union, re_inter, re_*, re_+, re_opt, re_comp)
 
   protected def predefPredicates =
     List(char_is_digit, str_<=, str_prefixof,
@@ -226,7 +228,8 @@ abstract class AbstractStringTheory extends StringTheory {
   object RegexExtractor {
     private val regexFunctions =
       Set(str_empty, str_cons, re_none, str_to_re, re_all, re_allchar,
-          re_charrange, re_range, re_++, re_union, re_inter, re_*, re_+, re_opt)
+          re_charrange, re_range, re_++, re_union, re_inter, re_*, re_+, re_opt,
+          re_comp)
     private lazy val regexPredicates =
       regexFunctions map functionPredicateMapping.toMap
 

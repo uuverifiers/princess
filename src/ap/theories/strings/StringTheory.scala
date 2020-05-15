@@ -210,11 +210,10 @@ trait StringTheory extends Theory {
   val re_union       : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_inter       : IFunction    // RegexSort x RegexSort -> RegexSort
 
-  // missing: val re_comp           : IFunction    // RegexSort -> RegexSort
-  
   val re_*           : IFunction    // RegexSort -> RegexSort
   val re_+           : IFunction    // RegexSort -> RegexSort
   val re_opt         : IFunction    // RegexSort -> RegexSort
+  val re_comp        : IFunction    // RegexSort -> RegexSort
 
   // Further functions or predicates that a string theory might define
 
