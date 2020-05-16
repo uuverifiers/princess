@@ -115,6 +115,16 @@ sat
   (define-fun x () String "B")
 )
 
+Loading regex.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+unknown
+(model
+  (define-fun R () RegLan RegLan!2)
+)
+
 Loading concat-3.smt2 ...
 Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
 Preprocessing ...

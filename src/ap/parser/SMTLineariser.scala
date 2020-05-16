@@ -362,6 +362,7 @@ object SMTLineariser {
       printSMTType(res)
       print(")")
     }
+    case SMTUnint(sort)      => print(sort)
   }
 
   def sort2SMTType(sort : Sort) : (SMTType,
