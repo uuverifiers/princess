@@ -2600,32 +2600,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case IndexedSymbol("re.^", n) => {
       val Seq(arg) = translateStringArgs("re.^", args, List(regexType))
-      val res = n.toInt match {
-        case 0 =>
-          stringTheory.re_eps()
-        case n =>
-          (for (_ <- 0 until n) yield arg) reduceRight (stringTheory.re_++(_,_))
-      }
-      (res, regexType)
+      val num = n.toInt
+      (stringTheory.re_loop(num, num, arg), regexType)
     }
-
     case IndexedSymbol("re.loop", n1, n2) => {
       val Seq(arg) = translateStringArgs("re.loop", args, List(regexType))
-      val res = (n1.toInt, n2.toInt) match {
-        case (n1, n2) if n1 > n2 =>
-          stringTheory.re_none()
-        case (n1, n2) => {
-          var power = (for (_ <- 0 until n1)
-                         yield arg) reduceRight (stringTheory.re_++(_,_))
-          var res   = power
-          for (_ <- n1 until n2) {
-            power = stringTheory.re_++(arg, power)
-            res   = stringTheory.re_union(res, power)
-          }
-          res
-        }
-      }
-      (res, regexType)
+      (stringTheory.re_loop(n1.toInt, n2.toInt, arg), regexType)
     }
 
     case PlainSymbol("char.code") =>

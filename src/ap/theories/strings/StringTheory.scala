@@ -204,7 +204,7 @@ trait StringTheory extends Theory {
   val re_charrange   : IFunction    // CharSort x CharSort -> RegexSort
   val re_range       : IFunction    // StringSort x StringSort -> RegexSort
 
-  // missing: re_^, re_loop, re_diff
+  // missing: re_diff
 
   val re_++          : IFunction    // RegexSort x RegexSort -> RegexSort
   val re_union       : IFunction    // RegexSort x RegexSort -> RegexSort
@@ -214,6 +214,8 @@ trait StringTheory extends Theory {
   val re_+           : IFunction    // RegexSort -> RegexSort
   val re_opt         : IFunction    // RegexSort -> RegexSort
   val re_comp        : IFunction    // RegexSort -> RegexSort
+
+  val re_loop        : IFunction    // Int x Int x RegexSort -> RegexSort
 
   // Further functions or predicates that a string theory might define
 
