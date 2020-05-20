@@ -2826,10 +2826,14 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           case _ => false
         }
 
-        val (nonEmptinessConds, otherConds) = otherConds2 partition {
+        val (nonEmptinessConds, otherConds3) = otherConds2 partition {
           case INot(Eq(_ : IVariable, IFunApp(`str_empty`, _))) => true
           case INot(Eq(IFunApp(`str_empty`, _), _ : IVariable)) => true
           case _ => false
+        }
+
+        val (blockedTransitionConds, otherConds) = otherConds3 partition {
+          c => checkBlockedTransitionCond(c, 0).isDefined
         }
 
         if (conjuncts.size == emptinessConds.size &&
@@ -2875,9 +2879,16 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           val constraint = StrHeadReplacer.visit(and(otherConds), Context())
                                           .asInstanceOf[IFormula]
 
+          val blockedTransitions =
+            for (f <- blockedTransitionConds) yield {
+              val Some((targetFun, quantifiedTracks)) =
+                checkBlockedTransitionCond(f, 0)
+              BlockedTransition(funs2Index(targetFun), quantifiedTracks)
+            }
+
           symTransitions +=
             TransducerTransition(funs2Index(f), targetIndex,
-                                 epsilons, constraint)
+                                 epsilons, constraint, blockedTransitions)
         }
 
         () // work-around for Scala 2.12
@@ -2885,6 +2896,17 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
 
     SymTransducer(symTransitions, accepting.toSet)
+  }
+
+  private def checkBlockedTransitionCond(f : IFormula, quanNum : Int)
+                           : scala.Option[(IFunction, Seq[Boolean])] = f match {
+    case IQuantified(Quantifier.ALL, g) =>
+      checkBlockedTransitionCond(g, quanNum + 1)
+    case INot(EqZ(IFunApp(f, args)))
+      if args forall (_.isInstanceOf[IVariable]) =>
+      Some((f, for (IVariable(ind) <- args) yield (ind < quanNum)))
+    case _ =>
+      None
   }
 
   //////////////////////////////////////////////////////////////////////////////
