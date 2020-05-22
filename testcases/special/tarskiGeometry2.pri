@@ -14,9 +14,11 @@
 ->
   \forall int x, y, z, u, v, w; (cg(x, y, z, u) -> cg(x, y, v, w) -> cg(z, u, v, w))
 ->
+
+/*
   \forall int x, y; (bw(x, y, x) -> x=y)
 ->
-/*  \forall int x, y, z, u, v; (bw(x, u, z) -> bw(y, v, z) ->
+  \forall int x, y, z, u, v; (bw(x, u, z) -> bw(y, v, z) ->
                               \exists int a; (bw(u, a, y) & bw(v, a, x)))
 ->
   //
@@ -31,6 +33,7 @@
                                  bw(x,u,v) & cg(x,u,u,v) &
                                  bw(y,u,z) & cg(y,u,u,z) -> cg(y,z,v,w))
 ->*/ 
+
   //cg(a, b, a, b)
   cg(a, b, c, d) -> cg(a, b, d, c)
 }

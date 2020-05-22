@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C) 2009-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C) 2009-2020 Philipp Ruemmer <ph_r@gmx.net>
  *
  * Princess is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -83,6 +83,7 @@ object ModelSearchProver {
   private case object UnsatResult                       extends FindModelResult
   private case class  UnsatEFResult(extraFFors : Seq[Conjunction])
                                                         extends FindModelResult
+  // because of new formulas that were added, we have to redo part of the proof
   private case class  EFRerunResult(extraFFors : Seq[Conjunction])
                                                         extends FindModelResult
   private case class  UnsatCertResult(cert : Certificate)
@@ -390,96 +391,116 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
     Timeout.check
     
     tree match {
-      case goal : Goal =>
-        if (goal.facts.isFalse) {
-          // we have to backtrack
+      case goal : Goal if !extraFormulae.isEmpty => {
+        // there are some further formulae to be added to be goal before
+        // we continue with the proof
           
-//          println("backtracking " + depth)
-          if (Param.PROOF_CONSTRUCTION(settings)) {
-            val cert = goal.getCertificate
-            //-BEGIN-ASSERTION-/////////////////////////////////////////////////
-            Debug.assertInt(ModelSearchProver.AC,
-              lemmaBase == null ||
-              ((lemmaBase allKnownWitness cert.assumedFormulas) match {
-                  case Some(f) => {
-                    throw new Exception("unasserted, but assumed formula: " + f)
-                    false
-                  }
-                  case None =>
-                    true
-               }))
-            //-END-ASSERTION-///////////////////////////////////////////////////
-            UnsatCertResult(cert)
-          } else
-            UnsatResult
+        val (uGoal, _) =
+          goal addTasksFor (
+                    for (f <- extraFormulae) yield (goal reduceWithFacts f))
 
-        } else if (!extraFormulae.isEmpty) {
-          // there are some further formulae to be added to be goal before
-          // we continue with the proof
-          
-          val (uGoal, _) =
-            goal addTasksFor (
-                      for (f <- extraFormulae) yield (goal reduceWithFacts f))
+        findModel(uGoal,
+                  List(), witnesses,
+                  constsToIgnore, depth, settings, searchDirector,
+                  lemmaBase, lemmaBaseAssumedInferences) match {
+          case r@EFRerunResult(formulas) =>
+            EFRerunResult(extraFormulae ++ formulas)
+          case r@UnsatEFResult(formulas) =>
+            UnsatEFResult(extraFormulae ++ formulas)
+          case r => r
+        }
+      }
 
-          findModel(uGoal,
-                    List(), witnesses,
-                    constsToIgnore, depth, settings, searchDirector,
-                    lemmaBase, lemmaBaseAssumedInferences)
-          
-        } else {
+      case goal : Goal => {
+        // we use a loop to apply rules to this proof goal
 
-          // if the constant freedom of the goal has changed, we need to confirm
-          // the update
-          val uGoal =
-            if ((!goal.stepPossible ||
-                 (ExhaustiveProver ruleApplicationYield goal)) &&
-                !goal.fixedConstantFreedom)
-              goal updateConstantFreedom goal.closingConstantFreedom
-            else
-              goal
-          
-          val newLemmaBaseAssumedInferences =
-            if (lemmaBase == null) {
-              lemmaBaseAssumedInferences
+        var result : FindModelResult            = null
+        var newGoal : Goal                      = goal
+        var newLemmaBaseAssumedInferences : Int = lemmaBaseAssumedInferences
+
+        while (result == null) {
+          val goal = newGoal
+
+          // we might have to backtrack, if we are in an inconsistent state
+          if (goal.facts.isFalse) {
+            //   println("backtracking " + depth)
+            if (Param.PROOF_CONSTRUCTION(settings)) {
+              val cert = goal.getCertificate
+              //-BEGIN-ASSERTION-/////////////////////////////////////////////
+              Debug.assertInt(ModelSearchProver.AC,
+                lemmaBase == null ||
+                ((lemmaBase allKnownWitness cert.assumedFormulas) match {
+                    case Some(f) => {
+                      throw new Exception(
+                        "unasserted, but assumed formula: " + f)
+                      false
+                    }
+                    case None =>
+                      true
+                 }))
+              //-END-ASSERTION-///////////////////////////////////////////////
+              return UnsatCertResult(cert)
             } else {
-              val (formulaIt, newSize) =
-                uGoal.branchInferences newProvidedFormulas
-                                         lemmaBaseAssumedInferences
-              (lemmaBase assumeFormulas formulaIt) match {
-                case Some(cert) =>
-                  return UnsatCertResult(uGoal.branchInferences.getCertificate(
-                                           cert, uGoal.order))
-                case None => // nothing
-              }
-              newSize
+              return UnsatResult
+            }
+          }
+
+          // take newly generated formulas into account in the lemma base
+          if (lemmaBase != null) {
+            val (formulaIt, newSize) =
+              goal.branchInferences newProvidedFormulas
+                                       newLemmaBaseAssumedInferences
+            (lemmaBase assumeFormulas formulaIt) match {
+              case Some(cert) =>
+                return UnsatCertResult(goal.branchInferences.getCertificate(
+                                         cert, goal.order))
+              case None => // nothing
             }
 
-          val res =
-            if (uGoal.stepPossible)
-              findModel(uGoal step ptf, extraFormulae, witnesses,
-                        constsToIgnore, depth, settings, searchDirector,
-                        lemmaBase, newLemmaBaseAssumedInferences)
-            else
-              handleSatGoal(uGoal, witnesses, constsToIgnore, depth,
-                            settings, searchDirector,
-                            lemmaBase, newLemmaBaseAssumedInferences)
-          
-          res match {
-            case EFRerunResult(formulas)
-              if (!ModelElement.containAffectedSymbols(formulas, witnesses)) =>
-              // we have to start over from this point
-              findModel(uGoal, formulas, witnesses,
-                        constsToIgnore, depth, settings, searchDirector,
-                        lemmaBase, newLemmaBaseAssumedInferences) match {
-                case UnsatResult =>         UnsatEFResult(formulas)
-                case UnsatEFResult(fors) => UnsatEFResult(formulas ++ fors)
-                case EFRerunResult(fors) => EFRerunResult(formulas ++ fors)
-                case UnsatCertResult(_) =>  throw new IllegalArgumentException
-                case r =>                   r
-              }
-            case r => r
+            newLemmaBaseAssumedInferences = newSize
+          }
+
+          // if the constant freedom of the goal has changed, we need to
+          // confirm the update
+          if ((!goal.stepPossible ||
+               (ExhaustiveProver ruleApplicationYield goal)) &&
+              !goal.fixedConstantFreedom) {
+            newGoal = goal updateConstantFreedom goal.closingConstantFreedom
+          } else if (goal.stepPossible) {
+            (goal step ptf) match {
+              case g : Goal =>
+                newGoal = g
+              case newTree =>
+                // the goal have turned into a more complicated tree,
+                // do a recursive call
+                result = findModel(newTree, List(), witnesses,
+                                   constsToIgnore, depth, settings,
+                                   searchDirector, lemmaBase,
+                                   newLemmaBaseAssumedInferences)
+            }
+          } else {
+            result = handleSatGoal(goal, witnesses, constsToIgnore, depth,
+                                   settings, searchDirector,
+                                   lemmaBase, newLemmaBaseAssumedInferences)
           }
         }
+
+        result match {
+          case EFRerunResult(formulas)
+            if (!ModelElement.containAffectedSymbols(formulas, witnesses)) =>
+            // we can start over from this point
+            findModel(goal, formulas, witnesses,
+                      constsToIgnore, depth, settings, searchDirector,
+                      lemmaBase, newLemmaBaseAssumedInferences) match {
+              case UnsatResult =>         UnsatEFResult(formulas)
+              case UnsatEFResult(fors) => UnsatEFResult(formulas ++ fors)
+              case EFRerunResult(fors) => EFRerunResult(formulas ++ fors)
+              case UnsatCertResult(_) =>  throw new IllegalArgumentException
+              case r =>                   r
+            }
+          case r => r
+        }
+      }
         
       case tree : WitnessTree =>
         findModel(tree.subtree, extraFormulae,
@@ -490,9 +511,12 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
       case tree : ProofTreeOneChild => {
         //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
         Debug.assertInt(ModelSearchProver.AC, tree match {
-                          case _ : WeakenTree => false
-                          case tree : QuantifiedTree => tree.quan == Quantifier.ALL
-                          case _ => true
+                          case _ : WeakenTree =>
+                            false
+                          case tree : QuantifiedTree =>
+                            tree.quan == Quantifier.ALL
+                          case _ =>
+                            true
                         })
         //-END-ASSERTION-///////////////////////////////////////////////////////
 
@@ -682,13 +706,13 @@ class ModelSearchProver(defaultSettings : GoalSettings) {
                               List(), witnesses, constsToIgnore, depth,
                               newSettings, FullModelDirector, null, 0)
 
-          //-BEGIN-ASSERTION-/////////////////////////////////////////////////////
+          //-BEGIN-ASSERTION-///////////////////////////////////////////////////
           // We should be able to derive a counterexample
           Debug.assertPost(ModelSearchProver.AC, res match {
                              case ModelResult(model) => !model.isFalse
                              case _ => false
                            })
-          //-END-ASSERTION-///////////////////////////////////////////////////////
+          //-END-ASSERTION-/////////////////////////////////////////////////////
           res.asInstanceOf[ModelResult].model
 
         } else if (goal.constantFreedom.isBottom) {

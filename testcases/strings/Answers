@@ -51,6 +51,20 @@ sat
   (define-fun succH ((x!0 String) (x!1 String)) Bool (ite (and (= x!0 "") (= x!1 "")) true (ite (and (= x!0 "11") (= x!1 "00")) true (ite (and (= x!0 "1") (= x!1 "0")) true true))))
 )
 
+Loading transducer1b.smt2 ...
+Warning: assuming that recursive function succ is partial
+Warning: assuming that recursive function succH is partial
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y () String "100")
+  (define-fun x () String "011")
+  (define-fun succ ((x!0 String) (x!1 String)) Bool (ite (and (= x!0 "011") (= x!1 "100")) true true))
+  (define-fun succH ((x!0 String) (x!1 String)) Bool (ite (and (= x!0 "") (= x!1 "")) true (ite (and (= x!0 "11") (= x!1 "00")) true (ite (and (= x!0 "1") (= x!1 "0")) true true))))
+)
+
 Loading adt.smt2 ...
 Warning: assuming that recursive function cat is partial
 Warning: assuming that recursive function nonEmpty is partial
@@ -81,6 +95,34 @@ sat
 (model
   (define-fun y () String "\u{9}")
   (define-fun x () String "\u{c}")
+)
+
+Loading escape3.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x () String "\u{5c}.")
+)
+
+Loading head.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x () String "B")
+)
+
+Loading regex.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+unknown
+(model
+  (define-fun R () RegLan RegLan!2)
 )
 
 Loading concat-3.smt2 ...

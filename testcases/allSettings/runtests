@@ -8,13 +8,12 @@ PRI=../../princess
 
 TESTS="cryptarithm.pri \
        functions0.pri functions1.pri functions2.pri \
-       functions0b.pri functions1b.pri \
+       functions0b.pri \
        functions0c.pri functions1c.pri functions2c.pri \
        inequalities0.pri inequalities2.pri \
        inequalities3.pri inequalities4.pri inequalities5.pri \
        inequalities6.pri inequalities7.pri inequalities8.pri \
        optimisation0.pri optimisation1.pri optimisation4.pri \
-       optimisation5.pri optimisation6.pri \
        predicates0.pri predicates1.pri predicates2.pri predicates3.pri \
        predicates4.pri predicates5.pri predicates6.pri predicates7.pri \
        sameModule.pri sameModule2.pri sameModule3.pri \

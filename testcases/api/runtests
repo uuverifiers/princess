@@ -30,7 +30,7 @@ TESTS="interpolation-bug.scala scope-bug.scala incrementality-bug.scala \
        pred-simplify.scala empty-stack-bug.scala variable-names-bug.scala \
        TestModuloArithmetic.scala TreeInterpolation.scala TestFrame.scala \
        dnfTest.scala dnfTest2.scala TestStrings.scala TestBVEval.scala \
-       simplifier-bug.scala"
+       simplifier-bug.scala ManyEqvs.scala"
 
 for testname in $TESTS; do
   echo

@@ -4,7 +4,7 @@ lazy val commonSettings = Seq(
     organization := "uuverifiers",
     version := "unstable-SNAPSHOT",
     scalaVersion := "2.11.12",
-    crossScalaVersions := Seq("2.11.12", "2.12.8"),
+    crossScalaVersions := Seq("2.11.12", "2.12.10"),
     fork in run := true,
     cancelable in Global := true,
     publishTo := Some(Resolver.file("file",  new File( "/tmp/shared-repo" )) )
@@ -56,7 +56,7 @@ lazy val root = (project in file(".")).
            "-language:implicitConversions,postfixOps,reflectiveCalls"),
     scalacOptions += (scalaVersion map { sv => sv match {
       case "2.11.12" => "-optimise"
-      case "2.12.8" => "-opt:_"
+      case "2.12.10" => "-opt:_"
     }}).value,
 //
     libraryDependencies +=
