@@ -210,10 +210,12 @@ class Heap(heapSortName : String, addressSortName : String,
   //-END-ASSERTION-/////////////////////////////////////////////////////////////
   val AddressSort = new AddressSort(addressSortName, this)
   val HeapSort = new HeapSort(heapSortName, this)
-  val emptyHeap = new MonoSortedIFunction("emptyHeap", argSorts = List(),
+  val emptyHeap = new MonoSortedIFunction("empty" + heapSortName,
+    argSorts = List(),
     resSort = HeapSort, _partial = false, _relational = false)
 
-  val nthAddr = new MonoSortedIFunction("nthAddr", List(Sort.Nat), AddressSort,
+  val nthAddr = new MonoSortedIFunction("nth" + addressSortName,
+    List(Sort.Nat), AddressSort,
     false, false) // todo: make private?
 
   /** implicit converters from Heap.CtorArgSort to ADT.CtorArgSort */
@@ -236,10 +238,11 @@ class Heap(heapSortName : String, addressSortName : String,
 
   /** Create return sort of alloc as an ADT: Heap x Address */
   private val AllocResCtorSignature = ADT.CtorSignature(
-    List(("newHeap", ADT.OtherSort(HeapSort)),
-      ("newAddress", ADT.OtherSort(AddressSort))), ADT.ADTSort(0))
-  private val AllocResADT = new ADT(List("AllocRes"),
-    List(("AllocRes", AllocResCtorSignature)))
+    List(("new" + heapSortName, ADT.OtherSort(HeapSort)),
+      ("new" + addressSortName, ADT.OtherSort(AddressSort))), ADT.ADTSort(0))
+
+  val AllocResADT = new ADT(List("AllocRes" + heapSortName),
+    List(("AllocRes" + heapSortName, AllocResCtorSignature)))
   val AllocResSort = AllocResADT.sorts.head
   val newHeap = AllocResADT.selectors(0)(0)
   val newAddr = AllocResADT.selectors(0)(1)
@@ -252,12 +255,12 @@ class Heap(heapSortName : String, addressSortName : String,
    * ***************************************************************************
    * Public functions and predicates
    * ***************************************************************************
-   * emptyHeap: ()                   --> Heap
-   * alloc    : Heap x Obj           --> Heap x Address (allocRes)
-   * read     : Heap x Address       --> Obj
-   * write    : Heap x Address x Obj --> Heap
-   * isAlloc  : Heap x Address       --> Bool
-   * nthAddr  : Nat                  --> Address
+   * empty<heapSortName>  : ()                   --> Heap
+   * alloc                : Heap x Obj           --> Heap x Address (allocRes)
+   * read                 : Heap x Address       --> Obj
+   * write                : Heap x Address x Obj --> Heap
+   * isAlloc              : Heap x Address       --> Bool
+   * nth<addressSortName> : Nat                  --> Address
    *
    *             0     1
    * writeADT : Obj x Obj --> Heap
@@ -272,15 +275,15 @@ class Heap(heapSortName : String, addressSortName : String,
    * * They return a single value instead of the pair <Heap x Addr>.
    * * This is done to get rid of quantifiers related to the ADT in the
    * * generated interpolants.
-   * allocHeap: Heap x Obj           --> Heap
-   * allocAddr: Heap x Obj           --> Addr
+   * alloc<heapSortName>   : Heap x Obj           --> Heap
+   * allocAddr             : Heap x Obj           --> Addr
    *
    * * allocAddr is further removed by reducing it to counter(h) + 1
    * ***************************************************************************
    * */
   val alloc = new MonoSortedIFunction("alloc", List(HeapSort, ObjectSort),
     AllocResSort, false, false)
-  val allocHeap = new MonoSortedIFunction("allocHeap",
+  val allocHeap = new MonoSortedIFunction("alloc" + heapSortName,
     List(HeapSort, ObjectSort), HeapSort, false, false)
 
   val read = new MonoSortedIFunction("read", List(HeapSort, AddressSort),
@@ -288,8 +291,8 @@ class Heap(heapSortName : String, addressSortName : String,
   val write = new MonoSortedIFunction("write",
     List(HeapSort, AddressSort, ObjectSort), HeapSort, false, false)
   val isAlloc = new MonoSortedPredicate("isAlloc", List(HeapSort, AddressSort))
-  val nullAddr = new MonoSortedIFunction("null", List(), AddressSort,
-    false, false)
+  val nullAddr = new MonoSortedIFunction("null" + addressSortName,
+    List(), AddressSort, false, false)
 
   /**
    * Helper function to write to ADT fields.
@@ -385,8 +388,8 @@ class Heap(heapSortName : String, addressSortName : String,
     (ADTUpdateStack.toList, rootTerm)
   }
 
-  val counter = new MonoSortedIFunction("counter", List(HeapSort),
-    Sort.Nat, false, false)
+  val counter = new MonoSortedIFunction("counter" + addressSortName,
+    List(HeapSort), Sort.Nat, false, false)
 
   val functions = List(emptyHeap, alloc, allocHeap, /*allocAddr,*/ read, write,
                        nullAddr,

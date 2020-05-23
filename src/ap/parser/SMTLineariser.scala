@@ -300,7 +300,7 @@ object SMTLineariser {
 
   import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
                               SMTBitVec, SMTString, SMTFunctionType, SMTUnint,
-                              SMTHeapSort, SMTHeapAddressSort}
+                              SMTHeap, SMTHeapAddress}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -361,9 +361,9 @@ object SMTLineariser {
       printSMTType(res)
       print(")")
     }
-    case SMTHeapSort(s)      => print(s.HeapSort.name)
-    case SMTHeapAddressSort(s) => print(s.AddressSort.name)
-    case SMTUnint(sort)      => print(sort)
+    case SMTHeap(s)        => print(s.HeapSort.name)
+    case SMTHeapAddress(s) => print(s.AddressSort.name)
+    case SMTUnint(sort)    => print(sort)
   }
 
   def sort2SMTType(sort : Sort) : (SMTType,
@@ -388,9 +388,9 @@ object SMTLineariser {
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
       (SMTUnint(sort), None)
     case sort : Heap.HeapSort =>
-      (SMTHeapSort(sort.heapTheory), None)
+      (SMTHeap(sort.heapTheory), None)
     case sort : Heap.AddressSort =>
-      (SMTHeapAddressSort(sort.heapTheory), None)
+      (SMTHeapAddress(sort.heapTheory), None)
   }
 
   def sort2SMTString(sort : Sort) : String =

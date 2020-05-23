@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# test the heap theory
+
+PRI=../../princess
+
+TESTS="simple-heap.smt2"
+
+$PRI "$@" $TESTS
+
+TESTS="incremental-heap.smt2"
+
+$PRI "$@" +incremental $TESTS

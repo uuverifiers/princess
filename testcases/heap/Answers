@@ -1,0 +1,16 @@
+Loading simple-heap.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+unsat
+
+Loading incremental-heap.smt2 ...
+unsat
+unsat
+sat
+(model
+  (define-fun A2 () addr (nthaddr 2))
+  (define-fun A () addr (nthaddr 1))
+  (define-fun H2 () heap (newheap (alloc (newheap (alloc emptyheap defObj)) (Wrappedsimple (simple 42)))))
+  (define-fun H () heap (newheap (alloc emptyheap (WrappedInt 10))))
+)
