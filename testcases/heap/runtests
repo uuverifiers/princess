@@ -4,10 +4,12 @@
 
 PRI=../../princess
 
-TESTS="simple-heap.smt2"
+TESTS="simple-heap.smt2 \
+       bug-model-1.smt2"
 
 $PRI "$@" $TESTS
 
-TESTS="incremental-heap.smt2"
+TESTS="incremental-heap.smt2 \
+       swap-interpolation.smt2"
 
 $PRI "$@" +incremental $TESTS
