@@ -1,101 +1,46 @@
+/**
+ * This file is part of Princess, a theorem prover for Presburger
+ * arithmetic with uninterpreted predicates.
+ * <http://www.philipp.ruemmer.org/princess.shtml>
+ *
+ * Copyright (C) 2020 Philipp Ruemmer <ph_r@gmx.net>
+ *
+ * Princess is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2.1 of the License, or
+ * (at your option) any later version.
+ *
+ * Princess is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
-
-
-package ap.theories.algebra;
+package ap.theories.algebra
 
 import ap.basetypes.IdealInt
 import ap.parser._
 import ap.types.Sort
 import ap.util.Debug
 
-trait Semigroup {
-
-  /**
-   * Domain of the semigroup
-   */
-  val dom : Sort
-
-  /**
-   * Binary operation of the semigroup
-   */
-  def op(s : ITerm, t : ITerm) : ITerm
-
-  /**
-   * <code>num * s</code>, for <code>n > 0</code>
-   */
-  def times(num : IdealInt, s : ITerm) : ITerm = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(Debug.AC_ALGEBRA, num > 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    var powers = s
-    var res : ITerm = null
-    var c = num
-
-    while (c.signum > 0) {
-      val (div, mod) = c /% IdealInt(2)
-
-      if (!mod.isZero)
-        res = if (res == null) powers else op(res, powers)
-
-      powers = op(powers, powers)
-      c = div
-    }
-
-    res
-  }
-
-}
-
-trait Abelian extends Semigroup
-
-trait Monoid extends Semigroup {
-
-  /**
-   * The neutral element of this monoid
-   */
-  def zero : ITerm
-
-  /**
-   * <code>num * s</code>, for <code>n >= 0</code>
-   */
-  override def times(num : IdealInt, s : ITerm) : ITerm = {
-    //-BEGIN-ASSERTION-/////////////////////////////////////////////////////////
-    Debug.assertPre(Debug.AC_ALGEBRA, num >= 0)
-    //-END-ASSERTION-///////////////////////////////////////////////////////////
-
-    if (num.isZero)
-      zero
-    else
-      super.times(num, s)
-  }
-}
-
-trait Group extends Monoid {
-
-  /**
-   * Inverse elements
-   */
-  def minus(s : ITerm) : ITerm
-
-  /**
-   * <code>num * s</code>
-   */
-  override def times(num : IdealInt, s : ITerm) : ITerm =
-    num.signum match {
-      case -1 => minus(super.times(-num, s))
-      case 0  => zero
-      case 1  => super.times(num, s)
-    }
-
-}
-
-trait Ring {
+/**
+ * A Pseudo-ring is a structure with the same operations as a ring, but
+ * no guarantee that multiplication satisfies the ring axioms
+ */
+trait PseudoRing {
 
   /**
    * Domain of the ring
    */
   val dom : Sort
+
+  /**
+   * Conversion of an integer term to a ring term
+   */
+  def int2ring(s : ITerm) : ITerm
 
   /**
    * The zero element of this ring
@@ -113,9 +58,19 @@ trait Ring {
   def plus(s : ITerm, t : ITerm) : ITerm
 
   /**
+   * N-ary sums
+   */
+  def sum(terms : ITerm*) : ITerm = (zero /: terms)(plus)
+
+  /**
    * Additive inverses
    */
   def minus(s : ITerm) : ITerm
+
+  /**
+   * Difference between two terms
+   */
+  def minus(s : ITerm, t : ITerm) : ITerm = plus(s, minus(t))
 
   /**
    * Ring multiplication
@@ -123,14 +78,29 @@ trait Ring {
   def mul(s : ITerm, t : ITerm) : ITerm
 
   /**
+   * N-ary sums
+   */
+  def product(terms : ITerm*) : ITerm = (one /: terms)(mul)
+
+  /**
    * Addition gives rise to an Abelian group
    */
   def additiveGroup : Group with Abelian = new Group with Abelian {
-    val dom = Ring.this.dom
-    def zero = Ring.this.zero
+    val dom = PseudoRing.this.dom
+    def zero = PseudoRing.this.zero
     def op(s : ITerm, t : ITerm) = plus(s, t)
-    def minus(s : ITerm) = Ring.this.minus(s)
+    def minus(s : ITerm) = PseudoRing.this.minus(s)
+
+    override def times(num : IdealInt, s : ITerm) : ITerm =
+      mul(int2ring(IIntLit(num)), s)
   }
+
+}
+
+/**
+ * Rings are structures with both addition and multiplication
+ */
+trait Ring extends PseudoRing {
 
   /**
    * Multiplication gives rise to a monoid
