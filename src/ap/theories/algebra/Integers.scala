@@ -27,7 +27,7 @@ import ap.theories.GroebnerMultiplication
 
 /**
  * The built-in ring of integers
- */  
+ */
 object IntegerRing extends Ring {
 
   val dom = Sort.Integer
