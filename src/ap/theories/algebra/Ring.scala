@@ -112,3 +112,17 @@ trait Ring extends PseudoRing {
   }
 
 }
+
+trait EuclidianRing extends Ring {
+
+  /**
+   * Euclidian division
+   */
+  def div(s : ITerm, t : ITerm) : ITerm
+
+  /**
+   * Euclidian remainder
+   */
+  def mod(s : ITerm, t : ITerm) : ITerm
+
+}

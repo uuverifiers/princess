@@ -28,7 +28,7 @@ import ap.theories.GroebnerMultiplication
 /**
  * The built-in ring of integers
  */
-object IntegerRing extends Ring {
+object IntegerRing extends EuclidianRing {
 
   val dom = Sort.Integer
   def int2ring(s : ITerm) = s
@@ -40,5 +40,8 @@ object IntegerRing extends Ring {
   def mul (s: ITerm, t: ITerm): ITerm = GroebnerMultiplication.mult(s, t)
 
   def minus(s: ITerm): ITerm = -s
+
+  def div(s : ITerm, t : ITerm) : ITerm = GroebnerMultiplication.eDiv(s, t)
+  def mod(s : ITerm, t : ITerm) : ITerm = GroebnerMultiplication.eMod(s, t)
 
 }
