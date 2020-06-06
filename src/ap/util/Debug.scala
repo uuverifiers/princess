@@ -89,6 +89,7 @@ object Debug {
   case object AC_NIA extends ASSERTION_CATEGORY
   case object AC_ADT extends ASSERTION_CATEGORY
   case object AC_MODULO_ARITHMETIC extends ASSERTION_CATEGORY
+  case object AC_ALGEBRA extends ASSERTION_CATEGORY
 
   private val everythingEnabled : (ASSERTION_TYPE, ASSERTION_CATEGORY) => Boolean =
     (at, ac) => true
