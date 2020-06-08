@@ -113,6 +113,13 @@ trait Ring extends PseudoRing {
 
 }
 
+/**
+ * Euclidian rings extend rings with operations for division and
+ * remainder, with the Euclidian definition:
+ * <code>plus(mul(div(s, t), t), mod(s, t)) === s</code>,
+ * with <code>f(mod(s, t)) in [0, abs(t))</code> for some appropriate
+ * embedding into real numbers.
+ */
 trait EuclidianRing extends Ring {
 
   /**
@@ -126,3 +133,29 @@ trait EuclidianRing extends Ring {
   def mod(s : ITerm, t : ITerm) : ITerm
 
 }
+
+/**
+ * Rings that also possess an ordering relation
+ */
+trait RingWithOrder extends PseudoRing {
+
+  /**
+   * Less-than operator
+   */
+  def lt(s : ITerm, t : ITerm) : IFormula
+
+  /**
+   * Less-than-or-equal operator
+   */
+  def leq(s : ITerm, t : ITerm) : IFormula
+
+}
+
+/**
+ * Ordered rings are rings with ordering relation in which
+ * addition, multiplication, and ordering are consistent:
+ * <code>leq(s, t) ==> leq(plus(s, a), plus(t, a))</code> and
+ * <code>leq(zero, s) & leq(zero, t) ==> leq(zero, mul(s, t))</code>.
+ */
+trait OrderedRing extends Ring with RingWithOrder
+
