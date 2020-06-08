@@ -24,7 +24,7 @@ package ap.theories.bitvectors
 import ap.parser._
 import ap.basetypes.IdealInt
 import ap.theories.{GroebnerMultiplication => Mul}
-import ap.theories.algebra.{PseudoRing, RingWithOrder, EuclidianRing}
+import ap.theories.algebra.{Ring, PseudoRing, RingWithOrder, EuclidianRing}
 
 /**
  * Modular arithmetic in the interval <code>[lower, upper]</code>.
@@ -45,7 +45,7 @@ object ModRing {
  * Modular arithmetic in the interval <code>[lower, upper]</code>.
  */
 class ModRing(val lower : IdealInt, val upper : IdealInt)
-      extends RingWithOrder {
+      extends Ring with RingWithOrder {
 
   import ModuloArithmetic.{cast2Interval, ModSort}
 
