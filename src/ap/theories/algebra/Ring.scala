@@ -59,6 +59,8 @@ trait PseudoRing {
 
   /**
    * N-ary sums
+   * 
+   * TODO: this clashes with the method in IExpression
    */
   def sum(terms : ITerm*) : ITerm = (zero /: terms)(plus)
 
@@ -78,6 +80,11 @@ trait PseudoRing {
   def mul(s : ITerm, t : ITerm) : ITerm
 
   /**
+   * <code>num * s</code>
+   */
+  def times(num : IdealInt, s : ITerm) : ITerm = mul(int2ring(IIntLit(num)), s)
+
+  /**
    * N-ary sums
    */
   def product(terms : ITerm*) : ITerm = (one /: terms)(mul)
@@ -92,7 +99,7 @@ trait PseudoRing {
     def minus(s : ITerm) = PseudoRing.this.minus(s)
 
     override def times(num : IdealInt, s : ITerm) : ITerm =
-      mul(int2ring(IIntLit(num)), s)
+      PseudoRing.this.times(num, s)
   }
 
 }
