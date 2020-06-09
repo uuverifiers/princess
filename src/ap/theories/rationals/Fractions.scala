@@ -65,10 +65,11 @@ class Fractions(name : String,
                    assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
       assign get ((d, this))
 
-    override def augmentModelTermSet(model : Conjunction,
-                            assignment : MMap[(IdealInt, Sort), ITerm],
-                            allTerms : Set[(IdealInt, Sort)],
-                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
+    override def augmentModelTermSet(
+                   model : Conjunction,
+                   assignment : MMap[(IdealInt, Sort), ITerm],
+                   allTerms : Set[(IdealInt, Sort)],
+                   definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
       for (LinearCombination.Constant(d) <-
              model.predConj.lookupFunctionResult(_denom, List());
            denomTerm <-
