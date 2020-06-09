@@ -27,7 +27,11 @@ import ap.theories._
 import ap.theories.algebra.{Ring, PseudoRing, IntegerRing}
 import ap.types.{Sort, ProxySort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
+import ap.terfor.linearcombination.LinearCombination
 import ap.Signature
+
+import scala.collection.{Map => GMap}
+import scala.collection.mutable.{Map => MMap, Set => MSet}
 
 /**
  * The theory of fractions <code>s / t</code>, with <code>s, t</code>
@@ -43,16 +47,48 @@ class Fractions(name : String,
 
   import underlyingRing.{dom => RingSort, mul => ringMul}
 
-  val dom = new ProxySort (RingSort) {
+  private val ringZero = underlyingRing.zero
+  private val ringOne  = underlyingRing.one
+
+  /**
+   * Method that can be overwritten in sub-classes to term concrete
+   * fractions into canonical form.
+   */
+  protected def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d)
+
+  val dom : Sort = new ProxySort (RingSort) {
+
     override val name = Fractions.this.name
-    // TODO: decode fractions
+
+    override def decodeToTerm(
+                   d : IdealInt,
+                   assign : GMap[(IdealInt, Sort), ITerm]) : Option[ITerm] =
+      assign get ((d, this))
+
+    override def augmentModelTermSet(model : Conjunction,
+                            assignment : MMap[(IdealInt, Sort), ITerm],
+                            allTerms : Set[(IdealInt, Sort)],
+                            definedTerms : MSet[(IdealInt, Sort)]) : Unit = {
+      for (LinearCombination.Constant(d) <-
+             model.predConj.lookupFunctionResult(_denom, List());
+           denomTerm <-
+             RingSort.decodeToTerm(d, assignment))
+        for (p@(num, `dom`) <- allTerms;
+             numTerm <- RingSort.decodeToTerm(num, assignment)) {
+          val (n, d) = simplifyFraction(numTerm, denomTerm)
+          assignment.put(p, IFunApp(frac, List(n, d)))
+        }
+
+      // TODO: add terms to definedTerms?
+      super.augmentModelTermSet(model, assignment, allTerms, definedTerms)
+    }
   }
 
   /**
    * Function to represent fractions, where numerator and denominator
    * are expressions from the underlying ring
    */
-  val frac =
+  val frac : IFunction =
     MonoSortedIFunction(name + "_frac", List(RingSort, RingSort), dom,
                         true, false)
 
@@ -60,7 +96,7 @@ class Fractions(name : String,
    * Function used internally to represent the unique denominator for all
    * fractions
    */
-  val denom =
+  val denom : IFunction =
     MonoSortedIFunction(name + "_denom", List(), RingSort,
                         true, false)
 
@@ -76,8 +112,7 @@ class Fractions(name : String,
   val functionalPredicates = predicates.toSet
   val plugin = None
 
-// TODO
-//   override val dependencies = List(GroebnerMultiplication)
+  private val _denom : IExpression.Predicate = predicates(1)
 
   override def iPreprocess(f : IFormula, signature : Signature)
                         : (IFormula, Signature) =
@@ -93,21 +128,29 @@ class Fractions(name : String,
     eps(ex((denom() === v(0)) & denomConstraint &
            (v(1) === ringMul(v(0), VariableShiftVisitor(s, 0, 2)))))
 
-  def zero: ITerm = underlyingRing.zero
-  def one : ITerm =
-    eps((denom() === v(0)) & denomConstraint)
+  val zero: ITerm = ringZero
+  val one : ITerm = eps((denom() === v(0)) & denomConstraint)
 
   def plus(s: ITerm, t: ITerm): ITerm =
     underlyingRing.plus(s, t)
 
-  def mul (s: ITerm, t: ITerm): ITerm =
-    // (s / denom) * (t / denom) =
-    // s * t / denom^2 =
-    // (s * t / denom) / denom
-    eps(ex((denom() === v(0)) & denomConstraint &
-           (ringMul(v(0), v(1)) ===
-              ringMul(VariableShiftVisitor(s, 0, 2),
-                      VariableShiftVisitor(t, 0, 2)))))
+  def mul (s: ITerm, t: ITerm): ITerm = (s, t) match {
+    case (IFunApp(`frac`, Seq(num1, denom1)),
+          IFunApp(`frac`, Seq(num2, denom2))) =>
+      frac(ringMul(num1, num2), ringMul(denom1, denom2))
+    case (IFunApp(`frac`, Seq(IIntLit(num), `ringOne`)), t) =>
+      times(num, t)
+    case (t, IFunApp(`frac`, Seq(IIntLit(num), `ringOne`))) =>
+      times(num, t)
+    case (s, t) =>
+      // (s / denom) * (t / denom) =
+      // s * t / denom^2 =
+      // (s * t / denom) / denom
+      eps(ex((denom() === v(0)) & denomConstraint &
+             (ringMul(v(0), v(1)) ===
+                ringMul(VariableShiftVisitor(s, 0, 2),
+                        VariableShiftVisitor(t, 0, 2)))))
+  }
 
   override def times(num : IdealInt, s : ITerm) : ITerm =
     underlyingRing.times(num, s)
@@ -136,6 +179,22 @@ class Fractions(name : String,
 
 }
 
+/**
+ * The theory and field of rational numbers.
+ */
+object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0) {
 
-object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
+  override val dependencies = List(GroebnerMultiplication)
+
+  protected override
+    def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d) match {
+      case (IIntLit(n), IIntLit(d)) => {
+        val l = n gcd d
+        (IIntLit(n / l), IIntLit(d / l))
+      }
+      case _ =>
+        (n, d)
+    }
+
+}
 

@@ -75,6 +75,13 @@ object TestRat extends App {
       println(???)
       println(partialModel)
     }
+
+    scope {
+      !! (mul(x, x) === frac(16, 9))
+      println(???)
+      println(partialModel)
+      println(evalToTerm(x))
+    }
   }
 
 }
