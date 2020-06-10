@@ -24,7 +24,8 @@ package ap.theories.rationals
 import ap.parser._
 import ap.basetypes.IdealInt
 import ap.theories._
-import ap.theories.algebra.{Ring, RingWithDivision, IntegerRing, Field}
+import ap.theories.algebra.{Ring, RingWithDivision, IntegerRing, Field,
+                            OrderedRing}
 import ap.types.{Sort, ProxySort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -126,14 +127,20 @@ class Fractions(name : String,
   import IExpression._
 
   def int2ring(s: ITerm): ITerm =
-    eps(ex((denom() === v(0)) & denomConstraint &
-           (v(1) === ringMul(v(0), VariableShiftVisitor(s, 0, 2)))))
+    frac(underlyingRing.int2ring(s), ringOne)
+//    eps(ex((denom() === v(0)) & denomConstraint &
+//           (v(1) === ringMul(v(0), VariableShiftVisitor(s, 0, 2)))))
 
-  val zero: ITerm = ringZero
-  val one : ITerm = eps((denom() === v(0)) & denomConstraint)
+  val zero: ITerm = frac(ringZero, ringOne)
+  val one : ITerm = frac(ringOne, ringOne)
 
-  def plus(s: ITerm, t: ITerm): ITerm =
-    underlyingRing.plus(s, t)
+  def plus(s: ITerm, t: ITerm): ITerm = (s, t) match {
+    case (IFunApp(`frac`, Seq(num1, denom1)),
+          IFunApp(`frac`, Seq(num2, denom2))) if denom1 == denom2 =>
+      frac(underlyingRing.plus(num1, num2), denom1)
+    case _ =>
+      underlyingRing.plus(s, t)
+  }
 
   def mul (s: ITerm, t: ITerm): ITerm = (s, t) match {
     case (IFunApp(`frac`, Seq(num1, denom1)),
@@ -153,22 +160,44 @@ class Fractions(name : String,
                         VariableShiftVisitor(t, 0, 2)))))
   }
 
-  override def times(num : IdealInt, s : ITerm) : ITerm =
-    underlyingRing.times(num, s)
+  override def times(num : IdealInt, s : ITerm) : ITerm = s match {
+    case IFunApp(`frac`, Seq(n, d)) =>
+      frac(underlyingRing.times(num, n), d)
+    case s =>
+      underlyingRing.times(num, s)
+  }
 
-  def div(s : ITerm, t : ITerm) : ITerm = throw new UnsupportedOperationException
+  def div(s : ITerm, t : ITerm) : ITerm = t match {
+    case IFunApp(`frac`, Seq(n, d)) =>
+      mul(s, frac(d, n))
+    case t =>
+      // (s / denom) / (t / denom) =
+      // (s / denom) * (denom / t) =
+      // (s * denom / t) / denom
+      eps(ex((denom() === v(0)) & denomConstraint &
+             (ringMul(VariableShiftVisitor(t, 0, 2), v(1)) ===
+                ringMul(VariableShiftVisitor(s, 0, 2), v(0)))))
+  }
 
-  def minus(s: ITerm): ITerm = underlyingRing.minus(s)
+  def minus(s: ITerm): ITerm = s match {
+    case IFunApp(`frac`, Seq(n, d)) =>
+      frac(underlyingRing.minus(n), d)
+    case s =>
+      underlyingRing.minus(s)
+  }
 
   private object Preprocessor extends CollectingVisitor[Unit, IExpression] {
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
-      case IFunApp(`frac`, _) => {
-        val Seq(num : ITerm, den : ITerm) = subres
-        eps(ex(ex((denom() === v(0)) & denomConstraint &
-                  (v(0) === ringMul(v(1), VariableShiftVisitor(den, 0, 3))) &
-                  (v(2) === ringMul(v(1), VariableShiftVisitor(num, 0, 3))))))
-      }
+      case IFunApp(`frac`, _) =>
+        subres match {
+          case Seq(IIntLit(num), `ringOne`) =>
+            underlyingRing.times(num, denom())
+          case Seq(num : ITerm, den : ITerm) =>
+            eps(ex(ex((denom() === v(0)) & denomConstraint &
+                    (v(0) === ringMul(v(1), VariableShiftVisitor(den, 0, 3))) &
+                    (v(2) === ringMul(v(1), VariableShiftVisitor(num, 0, 3))))))
+        }
       case _ =>
         t update subres
     }
@@ -186,7 +215,7 @@ class Fractions(name : String,
  * The theory and field of rational numbers.
  */
 object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
-                 with Field {
+                 with Field with OrderedRing {
 
   override val dependencies = List(GroebnerMultiplication)
 
@@ -199,6 +228,10 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
       case _ =>
         (n, d)
     }
+
+  def lt(s : ITerm, t : ITerm) : IFormula = s < t
+
+  def leq(s : ITerm, t : ITerm) : IFormula = s <= t
 
 }
 

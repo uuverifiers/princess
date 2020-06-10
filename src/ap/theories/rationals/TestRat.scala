@@ -82,6 +82,28 @@ object TestRat extends App {
       println(partialModel)
       println(evalToTerm(x))
     }
+
+    scope {
+      !! (y =/= zero & y =/= one)
+      !! (div(x, y) === int2ring(10))
+      println(???)
+      println(partialModel)
+    }
+
+    scope {
+      !! (lt(zero, y) & lt(y, one))
+      !! (div(x, y) === int2ring(10))
+      println(???)
+      println(partialModel)
+    }
+
+    scope {
+      !! (y =/= zero)
+      !! (div(x, y) === int2ring(11))
+      !! (lt(x, zero))
+      println(???)
+      println(partialModel)
+    }
   }
 
 }
