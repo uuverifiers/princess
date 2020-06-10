@@ -59,10 +59,8 @@ trait PseudoRing {
 
   /**
    * N-ary sums
-   * 
-   * TODO: this clashes with the method in IExpression
    */
-  def sum(terms : ITerm*) : ITerm = (zero /: terms)(plus)
+  def summation(terms : ITerm*) : ITerm = (zero /: terms)(plus)
 
   /**
    * Additive inverses
@@ -120,6 +118,35 @@ trait Ring extends PseudoRing {
 
 }
 
+trait CommutativePseudoRing extends PseudoRing
+
+trait CommutativeRing extends Ring with CommutativePseudoRing {
+
+  /**
+   * Multiplication gives rise to an Abelian monoid
+   */
+  override def multiplicativeMonoid : Monoid with Abelian =
+    new Monoid with Abelian {
+      val dom = CommutativeRing.this.dom
+      def zero = CommutativeRing.this.one
+      def op(s : ITerm, t : ITerm) = mul(s, t)
+    }
+
+}
+
+/**
+ * Rings that also have a division operation (though possibly not
+ * satisfying the standard axioms)
+ */
+trait RingWithDivision extends PseudoRing {
+
+  /**
+   * Division operation
+   */
+  def div(s : ITerm, t : ITerm) : ITerm
+
+}
+
 /**
  * Euclidian rings extend rings with operations for division and
  * remainder, with the Euclidian definition:
@@ -127,7 +154,7 @@ trait Ring extends PseudoRing {
  * with <code>f(mod(s, t)) in [0, abs(t))</code> for some appropriate
  * embedding into real numbers.
  */
-trait EuclidianRing extends Ring {
+trait EuclidianRing extends Ring with RingWithDivision {
 
   /**
    * Euclidian division
@@ -156,6 +183,16 @@ trait RingWithOrder extends PseudoRing {
    */
   def leq(s : ITerm, t : ITerm) : IFormula
 
+  /**
+   * Greater-than operator
+   */
+  def gt(s : ITerm, t : ITerm) : IFormula = lt(t, s)
+
+  /**
+   * Greater-than-or-equal operator
+   */
+  def geq(s : ITerm, t : ITerm) : IFormula = leq(t, s)
+
 }
 
 /**
@@ -166,3 +203,23 @@ trait RingWithOrder extends PseudoRing {
  */
 trait OrderedRing extends Ring with RingWithOrder
 
+/**
+ * Fields are commutative rings in which all non-zero elements have
+ * multiplicative inverses.
+ */
+trait Field extends CommutativeRing with RingWithDivision {
+
+  def inverse(s : ITerm) : ITerm = div(one, s)
+
+  /**
+   * Non-zero elements now give rise to an Abelian group
+   */
+  def multiplicativeGroup : Group with Abelian =
+    new Group with Abelian {
+      val dom = Field.this.dom // TODO: how to remove the zero?
+      def zero = Field.this.one
+      def op(s : ITerm, t : ITerm) = mul(s, t)
+      def minus(s : ITerm) : ITerm = inverse(s)
+    }
+
+}

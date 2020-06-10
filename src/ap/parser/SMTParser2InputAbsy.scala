@@ -58,6 +58,9 @@ object SMTParser2InputAbsy {
   case object SMTInteger                           extends SMTType {
     def toSort = TSort.Integer
   }
+  case class  SMTReal(sort : TSort)                extends SMTType {
+    def toSort = sort
+  }
   case class  SMTArray(arguments : List[SMTType],
                        result : SMTType)           extends SMTType {
     def toSort = SimpleArray(arguments.size).sort
@@ -2267,6 +2270,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (abs(asTerm(translateTerm(args.head, 0))), SMTInteger)
     }
       
+    case PlainSymbol("/") => {
+      checkArgNum("/", 2, args)
+      (sum(for (s <- flatten("+", args))
+             yield asTerm(translateTerm(s, 0), SMTInteger)),
+       SMTInteger)
+    }
+
     ////////////////////////////////////////////////////////////////////////////
     // Array operations
     

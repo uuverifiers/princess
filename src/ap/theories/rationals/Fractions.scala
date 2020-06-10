@@ -24,7 +24,7 @@ package ap.theories.rationals
 import ap.parser._
 import ap.basetypes.IdealInt
 import ap.theories._
-import ap.theories.algebra.{Ring, PseudoRing, IntegerRing}
+import ap.theories.algebra.{Ring, PseudoRing, IntegerRing, Field}
 import ap.types.{Sort, ProxySort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
@@ -156,6 +156,8 @@ class Fractions(name : String,
   override def times(num : IdealInt, s : ITerm) : ITerm =
     underlyingRing.times(num, s)
 
+  def div(s : ITerm, t : ITerm) : ITerm = throw new UnsupportedOperationException
+
   def minus(s: ITerm): ITerm = underlyingRing.minus(s)
 
   private object Preprocessor extends CollectingVisitor[Unit, IExpression] {
@@ -183,7 +185,8 @@ class Fractions(name : String,
 /**
  * The theory and field of rational numbers.
  */
-object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0) {
+object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
+                 with Field {
 
   override val dependencies = List(GroebnerMultiplication)
 
