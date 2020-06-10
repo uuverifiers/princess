@@ -24,7 +24,7 @@ package ap.theories.rationals
 import ap.parser._
 import ap.basetypes.IdealInt
 import ap.theories._
-import ap.theories.algebra.{Ring, PseudoRing, IntegerRing, Field}
+import ap.theories.algebra.{Ring, RingWithDivision, IntegerRing, Field}
 import ap.types.{Sort, ProxySort, MonoSortedIFunction}
 import ap.terfor.conjunctions.Conjunction
 import ap.terfor.linearcombination.LinearCombination
