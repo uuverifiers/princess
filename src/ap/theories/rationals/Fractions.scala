@@ -43,7 +43,7 @@ import scala.collection.mutable.{Map => MMap, Set => MSet}
 class Fractions(name : String,
                 underlyingRing : Ring,
                 denomConstraint : IFormula)
-      extends Theory with PseudoRing {
+      extends Theory with RingWithDivision {
 
   import underlyingRing.{dom => RingSort, mul => ringMul}
 
