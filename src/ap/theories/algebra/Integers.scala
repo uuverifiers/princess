@@ -28,7 +28,9 @@ import ap.theories.GroebnerMultiplication
 /**
  * The built-in ring of integers
  */
-object IntegerRing extends EuclidianRing with OrderedRing {
+object IntegerRing extends EuclidianRing
+                   with    OrderedRing
+                   with    CommutativeRing {
 
   val dom = Sort.Integer
   def int2ring(s : ITerm) = s
