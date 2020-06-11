@@ -64,7 +64,8 @@ TESTS="division.pri \
        shift.pri \
        diffsquare.pri \
        mult-icp.pri \
-       subsumptionBug.pri"
+       subsumptionBug.pri \
+       polyReduceBug.pri"
 
 # Tests currently not working:
 #       linApprox.pri \

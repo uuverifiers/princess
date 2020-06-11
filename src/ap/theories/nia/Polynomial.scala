@@ -3,7 +3,7 @@
  * arithmetic with uninterpreted predicates.
  * <http://www.philipp.ruemmer.org/princess.shtml>
  *
- * Copyright (C)      2014-2019 Philipp Ruemmer <ph_r@gmx.net>
+ * Copyright (C)      2014-2020 Philipp Ruemmer <ph_r@gmx.net>
  *                    2014 Peter Backeman <peter.backeman@it.uu.se>
  *
  * Princess is free software: you can redistribute it and/or modify
@@ -190,52 +190,61 @@ class GrevlexOrdering(termOrdering : Ordering[ConstantTerm])
 }
 
 
+object PartitionOrdering {
+
+  private class PartitionedTermOrdering(list : List[ConstantTerm],
+                                        backup : Ordering[ConstantTerm])
+                extends Ordering[ConstantTerm] {
+    private val indexes = list.iterator.zipWithIndex.toMap
+    def compare(c1 : ConstantTerm, c2 : ConstantTerm) : Int =
+      (indexes get c1, indexes get c2) match {
+        case (Some(_), None)      =>  1
+        case (None, Some(_))      => -1
+        case (Some(i1), Some(i2)) => i1 - i2
+        case _ =>                    backup.compare(c1, c2)
+      }
+  }
+
+}
 
 /**
  * The ConstantTerms in list are given highest order according
  * to the sorting of list. Falling back on ordering if not found in list
  */
 class PartitionOrdering(val list : List[ConstantTerm],
-                        implicit val ordering : MonomialOrdering)
-      extends MonomialOrdering(ordering.termOrdering) {
+                        implicit val backup : MonomialOrdering)
+      extends MonomialOrdering(new PartitionOrdering.PartitionedTermOrdering(
+                                 list, backup.termOrdering)) {
   def compare(m1 : Monomial, m2 : Monomial) : Int = {
     def compare_keys(keys1 : List[(ConstantTerm, Int)],
-                     keys2 : List[(ConstantTerm, Int)]) : Int = {
-      // If one of the monomials are empty, that is smaller
-      if (keys1 == Nil && keys2 == Nil)
-        0
-      else if (keys1 == Nil)
-        -1
-      else if (keys2 == Nil)
-        1
-      else {
-        val (v1, e1) = keys1.head
-        val (v2, e2) = keys2.head
+                     keys2 : List[(ConstantTerm, Int)]) : Int =
+      (keys1, keys2) match {
+        // If one of the monomials are empty, that is smaller
+        case (Nil, Nil) =>  0
+        case (Nil, _  ) => -1
+        case (_,   Nil) =>  1
 
-        val i1 = list indexOf v1
-        val i2 = list indexOf v2
-
-        // If only one of the keys contains a defined element, that is greater
-        if (i1 >= 0 && i2 < 0)
-          1
-        else if (i2 >= 0 && i1 < 0)
-          -1
-        else if (i1 >= 0 && i2 >= 0) {
-          if (i1 < i2)
-            1
-          else if (i2 < i1)
-            -1
-          else if (e1 > e2)
-            1
-          else if (e2 > e1)
-            -1
-          else
-            compare_keys(keys1.tail, keys2.tail)
-        }
-        else
-          ordering.compare(Monomial(keys1), Monomial(keys2))
+        case ((v1, e1) :: tail1, (v2, e2) :: tail2) =>
+          (list indexOf v1, list indexOf v2) match {
+            // If only one of the keys contains a defined element,
+            // that is greater
+            case (-1, -1) =>
+              backup.compare(Monomial(keys1), Monomial(keys2))
+            case (_ , -1) =>  1
+            case (-1,  _) => -1
+            case (i1, i2) =>
+              if (i1 < i2)
+                1
+              else if (i2 < i1)
+                -1
+              else if (e1 > e2)
+                1
+              else if (e2 > e1)
+                -1
+              else
+                compare_keys(tail1, tail2)
+          }
       }
-    }
 
     compare_keys(m1.pairs, m2.pairs)
   }
