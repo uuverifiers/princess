@@ -413,6 +413,15 @@ INVALID
 Countermodel:
 eval0 = 2
 
+Loading polyReduceBug.pri ...
+Preprocessing ...
+Constructing countermodel ...
+
+INVALID
+
+Countermodel:
+P1 = 1 & P0 = 0
+
 Loading splittingBug.pri ...
 Preprocessing ...
 Constructing countermodel ...
@@ -425,7 +434,7 @@ x9 = 3 & x8 = 9 & x7 = 5 & x6 = 2 & x5 = 8 & x4 = 6 & x3 = 4 & x2 = 7 & x1 = 1
 Loading nonLinInEqExample2.pri ...
 Preprocessing ...
 Constructing countermodel ...
-Found proof (size 182)
+Found proof (size 193)
 
 VALID
 
@@ -1269,13 +1278,12 @@ Begin of proof
 | | | | | | | | |   (182)  a >= 1
 | | | | | | | | | 
 | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
-| | | | | | | | |   (183)  \forall int v0, v1, v2, v3; (!(v3 >= 40) | !(9 >= v1)
-| | | | | | | | |            | !(2 >= v0) | !(v0 >= 1) | v2 * v0 != v3 | v1 * v0
-| | | | | | | | |            != v2)
+| | | | | | | | |   (183)  \forall int v0, v1, v2; (!(v2 >= 40) | !(19 >= v1) |
+| | | | | | | | |            !(2 >= v0) | !(v0 >= 1) | v1 * v0 != v2)
 | | | | | | | | | 
-| | | | | | | | | GROUND_INST: instantiating (183) with a, all_0_2, all_0_1,
-| | | | | | | | |              all_0_0, simplifying with (117), (118) gives:
-| | | | | | | | |   (184)  !(all_0_0 >= 40) | !(9 >= all_0_2) | !(2 >= a) | !(a
+| | | | | | | | | GROUND_INST: instantiating (183) with a, all_0_1, all_0_0,
+| | | | | | | | |              simplifying with (118) gives:
+| | | | | | | | |   (184)  !(all_0_0 >= 40) | !(19 >= all_0_1) | !(2 >= a) | !(a
 | | | | | | | | |            >= 1)
 | | | | | | | | | 
 | | | | | | | | | BETA: splitting (184) gives:
@@ -1308,7 +1316,7 @@ Begin of proof
 | | | | | | | | | | 
 | | | | | | | | | Case 2:
 | | | | | | | | | | 
-| | | | | | | | | |   (190)  !(9 >= all_0_2) | !(a >= 1)
+| | | | | | | | | |   (190)  !(19 >= all_0_1) | !(a >= 1)
 | | | | | | | | | | 
 | | | | | | | | | | BETA: splitting (190) gives:
 | | | | | | | | | | 
@@ -1323,12 +1331,72 @@ Begin of proof
 | | | | | | | | | | | 
 | | | | | | | | | | Case 2:
 | | | | | | | | | | | 
-| | | | | | | | | | |   (193)  all_0_2 >= 10
+| | | | | | | | | | |   (193)  all_0_1 >= 20
 | | | | | | | | | | | 
-| | | | | | | | | | | COMBINE_INEQS: (154), (193) imply:
-| | | | | | | | | | |   (194)  false
+| | | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
+| | | | | | | | | | |   (194)  \forall int v0, v1, v2; (!(v2 >= 17) | !(8 >= v1)
+| | | | | | | | | | |            | !(2 >= v0) | !(v0 >= 1) | v1 * v0 != v2)
 | | | | | | | | | | | 
-| | | | | | | | | | | CLOSE: (194) is inconsistent.
+| | | | | | | | | | | GROUND_INST: instantiating (194) with a, all_0_2, all_0_1,
+| | | | | | | | | | |              simplifying with (117) gives:
+| | | | | | | | | | |   (195)  !(all_0_1 >= 17) | !(8 >= all_0_2) | !(2 >= a) |
+| | | | | | | | | | |          !(a >= 1)
+| | | | | | | | | | | 
+| | | | | | | | | | | BETA: splitting (195) gives:
+| | | | | | | | | | | 
+| | | | | | | | | | | Case 1:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (196)  !(8 >= all_0_2) | !(2 >= a)
+| | | | | | | | | | | | 
+| | | | | | | | | | | | BETA: splitting (196) gives:
+| | | | | | | | | | | | 
+| | | | | | | | | | | | Case 1:
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | |   (197)  all_0_2 >= 9
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | COMBINE_INEQS: (154), (197) imply:
+| | | | | | | | | | | | |   (198)  false
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | CLOSE: (198) is inconsistent.
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | Case 2:
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | |   (199)  a >= 3
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | COMBINE_INEQS: (148), (199) imply:
+| | | | | | | | | | | | |   (200)  false
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | CLOSE: (200) is inconsistent.
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | End of split
+| | | | | | | | | | | | 
+| | | | | | | | | | | Case 2:
+| | | | | | | | | | | | 
+| | | | | | | | | | | |   (201)  !(all_0_1 >= 17) | !(a >= 1)
+| | | | | | | | | | | | 
+| | | | | | | | | | | | BETA: splitting (201) gives:
+| | | | | | | | | | | | 
+| | | | | | | | | | | | Case 1:
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | |   (202)  0 >= a
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | COMBINE_INEQS: (182), (202) imply:
+| | | | | | | | | | | | |   (203)  false
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | CLOSE: (203) is inconsistent.
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | Case 2:
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | |   (204)  16 >= all_0_1
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | COMBINE_INEQS: (193), (204) imply:
+| | | | | | | | | | | | |   (205)  false
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | | CLOSE: (205) is inconsistent.
+| | | | | | | | | | | | | 
+| | | | | | | | | | | | End of split
+| | | | | | | | | | | | 
+| | | | | | | | | | | End of split
 | | | | | | | | | | | 
 | | | | | | | | | | End of split
 | | | | | | | | | | 

@@ -170,12 +170,26 @@ object SMTLineariser {
         case (0, c) =>
           res += c
 
-        case _ =>
-          throw new IllegalStringException
+        case (1, c) => {
+          // then we have already seen a \
+          state = 0
+          res += 92
+          res += c
+        }
+
+//        case _ =>
+///          throw new IllegalStringException
       }
 
-    if (state != 0)
-      throw new IllegalStringException
+    state match {
+      case 0 =>
+        // ok
+      case 1 =>
+        // then we have already seen a \
+        res += 92
+      case _ =>
+        throw new IllegalStringException
+    }
 
     res.result
   }
