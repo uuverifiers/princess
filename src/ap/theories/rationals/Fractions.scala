@@ -45,7 +45,8 @@ class Fractions(name : String,
                 denomConstraint : IFormula)
       extends Theory with RingWithDivision {
 
-  import underlyingRing.{dom => RingSort, mul => ringMul}
+  import underlyingRing.{dom => RingSort, plus => ringPlus, mul => ringMul,
+                         times => ringTimes, int2ring => ringInt2Ring}
 
   private val ringZero = underlyingRing.zero
   private val ringOne  = underlyingRing.one
@@ -88,12 +89,19 @@ class Fractions(name : String,
   val dom : Sort = FractionSort
 
   /**
+   * Function to embed integers in the ring of fractions
+   */
+  val int : IFunction =
+    MonoSortedIFunction(name + "_int", List(Sort.Integer), dom,
+                        true, true)
+
+  /**
    * Function to represent fractions, where numerator and denominator
    * are expressions from the underlying ring
    */
   val frac : IFunction =
     MonoSortedIFunction(name + "_frac", List(RingSort, RingSort), dom,
-                        true, false)
+                        true, true)
 
   /**
    * Extractor for fractions, where numerator and denominator
@@ -116,7 +124,7 @@ class Fractions(name : String,
     MonoSortedIFunction(name + "_denom", List(), RingSort,
                         true, false)
 
-  val functions = List(frac, denom)
+  val functions = List(frac, denom, int)
 
   val (predicates, axioms, _, _) =
     Theory.genAxioms(theoryFunctions = functions)
@@ -140,28 +148,48 @@ class Fractions(name : String,
 
   import IExpression._
 
-  def int2ring(s: ITerm): ITerm =
-    frac(underlyingRing.int2ring(s), ringOne)
+  def int2ring(s: ITerm): ITerm = int(s)
+//    frac(underlyingRing.int2ring(s), ringOne)
 
-  val zero: ITerm = frac(ringZero, ringOne)
-  val one : ITerm = frac(ringOne, ringOne)
+  val zero: ITerm = int2ring(0)   // frac(ringZero, ringOne)
+  val one : ITerm = int2ring(1)   // frac(ringOne, ringOne)
 
   def plus(s: ITerm, t: ITerm): ITerm = (s, t) match {
+    case (IFunApp(`int`, Seq(num1)),
+          IFunApp(`int`, Seq(num2))) =>
+      int(num1 +++ num2)
     case (IFunApp(`frac`, Seq(num1, denom1)),
           IFunApp(`frac`, Seq(num2, denom2))) if denom1 == denom2 =>
-      frac(underlyingRing.plus(num1, num2), denom1)
+      frac(ringPlus(num1, num2), denom1)
     case _ =>
-      underlyingRing.plus(s, t)
+      ringPlus(s, t)
+  }
+
+  override def times(num : IdealInt, s : ITerm) : ITerm = s match {
+    case IFunApp(`int`, Seq(n)) =>
+      int(n *** num)
+    case IFunApp(`frac`, Seq(n, d)) =>
+      frac(ringTimes(num, n), d)
+    case s =>
+      ringTimes(num, s)
   }
 
   def mul (s: ITerm, t: ITerm): ITerm = (s, t) match {
     case (IFunApp(`frac`, Seq(num1, denom1)),
           IFunApp(`frac`, Seq(num2, denom2))) =>
       frac(ringMul(num1, num2), ringMul(denom1, denom2))
-    case (IFunApp(`frac`, Seq(IIntLit(num), `ringOne`)), t) =>
+    case (IFunApp(`int`,  Seq(num1)),
+          IFunApp(`frac`, Seq(num2, denom2))) =>
+      frac(ringMul(ringInt2Ring(num1), num2), denom2)
+    case (IFunApp(`frac`, Seq(num1, denom1)),
+          IFunApp(`int`,  Seq(num2))) =>
+      frac(ringMul(num1, ringInt2Ring(num2)), denom1)
+    case (IFunApp(`int`, Seq(Const(num))), t) =>
       times(num, t)
-    case (t, IFunApp(`frac`, Seq(IIntLit(num), `ringOne`))) =>
+    case (t, IFunApp(`int`, Seq(Const(num)))) =>
       times(num, t)
+    case (IFunApp(`int`, Seq(num1)), IFunApp(`int`, Seq(num2))) =>
+      int(GroebnerMultiplication.mult(num1, num2))
     case (s, t) =>
       // (s / denom) * (t / denom) =
       // s * t / denom^2 =
@@ -172,14 +200,9 @@ class Fractions(name : String,
                         VariableShiftVisitor(t, 0, 2)))))
   }
 
-  override def times(num : IdealInt, s : ITerm) : ITerm = s match {
-    case IFunApp(`frac`, Seq(n, d)) =>
-      frac(underlyingRing.times(num, n), d)
-    case s =>
-      underlyingRing.times(num, s)
-  }
-
   def div(s : ITerm, t : ITerm) : ITerm = t match {
+    case IFunApp(`int`, Seq(n)) =>
+      mul(s, frac(ringOne, ringInt2Ring(n)))
     case IFunApp(`frac`, Seq(n, d)) =>
       mul(s, frac(d, n))
     case t =>
@@ -192,6 +215,8 @@ class Fractions(name : String,
   }
 
   def minus(s: ITerm): ITerm = s match {
+    case IFunApp(`int`, Seq(n)) =>
+      int(-n)
     case IFunApp(`frac`, Seq(n, d)) =>
       frac(underlyingRing.minus(n), d)
     case s =>
@@ -201,6 +226,13 @@ class Fractions(name : String,
   private object Preprocessor extends CollectingVisitor[Unit, IExpression] {
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
+      case IFunApp(`int`, _) =>
+        subres match {
+          case Seq(num : ITerm) =>
+            eps(ex((denom() === v(0)) & denomConstraint &
+                   (v(1) === ringMul(v(0),
+                               ringInt2Ring(VariableShiftVisitor(num, 0, 2))))))
+        }
       case IFunApp(`frac`, _) =>
         subres match {
           case Seq(num : ITerm, den : ITerm) =>

@@ -60,7 +60,11 @@ trait PseudoRing {
   /**
    * N-ary sums
    */
-  def summation(terms : ITerm*) : ITerm = (zero /: terms)(plus)
+  def summation(terms : ITerm*) : ITerm =
+    if (terms.isEmpty)
+      zero
+    else
+      terms reduceLeft (plus _)
 
   /**
    * Additive inverses
@@ -85,7 +89,11 @@ trait PseudoRing {
   /**
    * N-ary sums
    */
-  def product(terms : ITerm*) : ITerm = (one /: terms)(mul)
+  def product(terms : ITerm*) : ITerm =
+    if (terms.isEmpty)
+      one
+    else
+      terms reduceLeft (mul _)
 
   /**
    * Addition gives rise to an Abelian group

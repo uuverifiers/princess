@@ -129,7 +129,6 @@ abstract class AbstractFileProver(reader : java.io.Reader, output : Boolean,
    */
   protected class Translation(rawFormula : IFormula,
                               settings : GlobalSettings) {
-    
     val (inputFormulas, preprocInterpolantSpecs, transSignature,
          gcedFunctions, functionEncoder) = {
   
