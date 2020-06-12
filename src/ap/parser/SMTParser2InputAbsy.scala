@@ -33,6 +33,8 @@ import ap.proof.certificates.{Certificate, DagCertificateConverter,
                               CertificatePrettyPrinter, CertFormula}
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic, Theory}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
+import ap.theories.rationals.Rationals
+import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder}
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
@@ -785,6 +787,13 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
   //////////////////////////////////////////////////////////////////////////////
 
+  private val realAlgebra : PseudoRing with RingWithDivision
+                                       with RingWithOrder = Rationals
+
+  private val realType = SMTReal(realAlgebra.dom)
+
+  //////////////////////////////////////////////////////////////////////////////
+
   private var stringTheoryBuilder =
     StringTheoryBuilder(Param.STRING_THEORY_DESC(settings))
 
@@ -839,8 +848,6 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         ind
       }
     }
-
-  private var realSortWarning = false
 
   private var lastReasonUnknown = ""
 
@@ -1795,13 +1802,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         SMTInteger
       case PlainIdentifier("Bool") =>
         SMTBool
-      case PlainIdentifier("Real") => {
-        if (!realSortWarning) {
-          warn("treating sort Real as Int")
-          realSortWarning = true
-        }
-        SMTInteger
-      }
+      case PlainIdentifier("Real") =>
+        realType
       case IndexedIdentifier("BitVec", width) =>
         SMTBitVec(width.toInt)
       case PlainIdentifier("String") =>
@@ -2219,9 +2221,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     // Hardcoded integer operations
 
     case PlainSymbol("+") =>
-      (sum(for (s <- flatten("+", args))
-             yield asTerm(translateTerm(s, 0), SMTInteger)),
-       SMTInteger)
+      asRealIntTerms("+", flatten("+", args)) match {
+        case (terms, SMTInteger) =>
+          (sum(terms), SMTInteger)
+        case (terms, SMTReal(_)) =>
+          (realAlgebra.summation(terms : _*), realType)
+      }
 
     case PlainSymbol("-") if (args.length == 1) =>
       (-asTerm(translateTerm(args.head, 0), SMTInteger), SMTInteger)
@@ -2272,9 +2277,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
     case PlainSymbol("/") => {
       checkArgNum("/", 2, args)
-      (sum(for (s <- flatten("+", args))
-             yield asTerm(translateTerm(s, 0), SMTInteger)),
-       SMTInteger)
+      (realAlgebra.div(asRealTerm("/", translateTerm(args(0), 0)),
+                       asRealTerm("/", translateTerm(args(1), 0))),
+       realType)
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -2731,6 +2736,32 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
         throw new TranslationException("did not expect " + r)
     }
   
+  //////////////////////////////////////////////////////////////////////////////
+
+  private def asRealTerm(op : String,
+                         expr : (IExpression, SMTType)) : ITerm = expr match {
+    case (expr : ITerm, SMTReal(_)) =>
+      realAlgebra.int2ring(expr)
+    case (expr : ITerm, SMTInteger) =>
+      realAlgebra.int2ring(expr)
+    case (expr, _) =>
+      throw new Parser2InputAbsy.TranslationException(
+                   op + " expects a term of type Real, not " + expr)
+  }
+
+  private def asRealIntTerms(op : String,
+                             args : Seq[Term]) : (Seq[ITerm], SMTType) = {
+    val transArgs = for (s <- args) yield translateTerm(s, 0)
+    if (transArgs.isEmpty) {
+      (List(), SMTInteger)
+    } else if (transArgs exists { case (_, SMTReal(_)) => true
+                                  case _ => false }) {
+      (for (p <- transArgs) yield asRealTerm(op, p), realType)
+    } else {
+      (for (p <- transArgs) yield asTerm(p, SMTInteger), SMTInteger)
+    }
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   private def translateStringFun(f : IFunction,
@@ -3392,6 +3423,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       expr
     case (expr, _) =>
       throw new Parser2InputAbsy.TranslationException(
-                   "Expected a term of type " + expectedSort + ", not " + expr)
+                   "Expected a term of type " +
+                   (SMTLineariser smtTypeAsString expectedSort) + ", not " +
+                   expr)
   }
 }

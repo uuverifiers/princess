@@ -314,8 +314,9 @@ object SMTLineariser {
 
   //////////////////////////////////////////////////////////////////////////////
 
-  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTADT,
-                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint}
+  import SMTParser2InputAbsy.{SMTType, SMTArray, SMTBool, SMTInteger, SMTReal,
+                              SMTBitVec, SMTString, SMTFunctionType, SMTUnint,
+                              SMTADT}
 
   private val constantTypeFromSort =
     (c : ConstantTerm) => Some(sort2SMTType(SortedConstantTerm sortOf c)._1)
@@ -363,6 +364,7 @@ object SMTLineariser {
   def printSMTType(t : SMTType) : Unit = t match {
     case SMTInteger          => print("Int")
     case SMTBool             => print("Bool")
+    case SMTReal(_)          => print("Real")
     case t : SMTADT          => print(quoteIdentifier(t.toString))
     case SMTBitVec(width)    => print("(_ BitVec " + width + ")")
     case SMTString(_)        => print("String")
@@ -378,6 +380,9 @@ object SMTLineariser {
     }
     case SMTUnint(sort)      => print(sort)
   }
+
+  def smtTypeAsString(t : SMTType) : String =
+    DialogUtil asString { printSMTType(t) }
 
   def sort2SMTType(sort : Sort) : (SMTType,
                                    Option[ITerm => IFormula]) = sort match {
@@ -403,7 +408,7 @@ object SMTLineariser {
   }
 
   def sort2SMTString(sort : Sort) : String =
-    DialogUtil asString { printSMTType(sort2SMTType(sort)._1) }
+    smtTypeAsString(sort2SMTType(sort)._1)
 
   //////////////////////////////////////////////////////////////////////////////
 
