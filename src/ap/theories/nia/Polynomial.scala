@@ -234,9 +234,9 @@ class PartitionOrdering(val list : List[ConstantTerm],
             case (-1,  _) => -1
             case (i1, i2) =>
               if (i1 < i2)
-                1
-              else if (i2 < i1)
                 -1
+              else if (i2 < i1)
+                1
               else if (e1 > e2)
                 1
               else if (e2 > e1)
