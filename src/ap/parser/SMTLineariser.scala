@@ -25,6 +25,7 @@ import ap._
 import ap.basetypes.IdealInt
 import ap.theories._
 import ap.theories.strings.StringTheory
+import ap.theories.rationals.Rationals
 import ap.terfor.preds.Predicate
 import ap.terfor.{ConstantTerm, TermOrder}
 import ap.parser.IExpression.Quantifier
@@ -401,6 +402,8 @@ object SMTLineariser {
     case SimpleArray.ArraySort(arity) =>
       (SMTArray((for (_ <- 0 until arity) yield SMTInteger).toList, SMTInteger),
        None)
+    case Rationals.FractionSort =>
+      (SMTReal(sort), None)
     case sort : UninterpretedSortTheory.UninterpretedSort =>
       (SMTUnint(sort), None)
     case sort : UninterpretedSortTheory.InfUninterpretedSort =>
@@ -693,6 +696,8 @@ class SMTLineariser(benchmarkName : String,
       case Some(t : ADT)
         if t.termSize != null && (t.termSize contains fun) =>
         "_size"
+      case Some(Rationals) if fun == Rationals.frac =>
+        "/"
       case _ =>
         if (zeroExtendFuns contains fun)
           fun.name

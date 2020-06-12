@@ -56,7 +56,7 @@ class Fractions(name : String,
    */
   protected def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d)
 
-  val dom : Sort = new ProxySort (RingSort) {
+  object FractionSort extends ProxySort (RingSort) {
 
     override val name = Fractions.this.name
 
@@ -85,6 +85,8 @@ class Fractions(name : String,
     }
   }
 
+  val dom : Sort = FractionSort
+
   /**
    * Function to represent fractions, where numerator and denominator
    * are expressions from the underlying ring
@@ -92,6 +94,19 @@ class Fractions(name : String,
   val frac : IFunction =
     MonoSortedIFunction(name + "_frac", List(RingSort, RingSort), dom,
                         true, false)
+
+  /**
+   * Extractor for fractions, where numerator and denominator
+   * are expressions from the underlying ring
+   */
+  object Fraction {
+    def apply(num : ITerm, denom : ITerm) : ITerm =
+      IFunApp(frac, List(num, denom))
+    def unapply(t : ITerm) : Option[(ITerm, ITerm)] = t match {
+      case IFunApp(`frac`, Seq(num, denom)) => Some((num, denom))
+      case _                                => None
+    }
+  }
 
   /**
    * Function used internally to represent the unique denominator for all

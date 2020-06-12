@@ -1,0 +1,9 @@
+#!/bin/sh
+
+PRI=../../princess
+
+TESTS="simple0.smt2 \
+       simple1.smt2"
+
+$PRI "$@" $TESTS
+

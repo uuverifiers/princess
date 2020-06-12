@@ -2741,7 +2741,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   private def asRealTerm(op : String,
                          expr : (IExpression, SMTType)) : ITerm = expr match {
     case (expr : ITerm, SMTReal(_)) =>
-      realAlgebra.int2ring(expr)
+      expr
     case (expr : ITerm, SMTInteger) =>
       realAlgebra.int2ring(expr)
     case (expr, _) =>
@@ -3198,15 +3198,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case c : RatConstant => {
       val v = IdealRat(c.rational_)
-      if (v.denom.isOne) {
-        warn("mapping rational literal " + c.rational_ + " to an integer literal")
-        (i(v.num), SMTInteger)
-      } else {
-        warn("mapping rational literal " + c.rational_ + " to an integer constant")
-        val const = new ConstantTerm("rat_" + c.rational_)
-        addConstant(const, SMTInteger)
-        (const, SMTInteger)
-      }
+      (realAlgebra.div(realAlgebra.int2ring(v.num),
+                       realAlgebra.int2ring(v.denom)),
+       realType)
     }
 
     case c : StringConstant => {
