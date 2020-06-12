@@ -19,7 +19,7 @@
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ap.theories.algebra
+package ap.algebra
 
 import ap.basetypes.IdealInt
 import ap.parser._
