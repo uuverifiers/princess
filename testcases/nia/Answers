@@ -413,6 +413,33 @@ INVALID
 Countermodel:
 eval0 = 2
 
+Loading polyReduceBug.pri ...
+Preprocessing ...
+Constructing countermodel ...
+
+INVALID
+
+Countermodel:
+P1 = 1 & P0 = 0
+
+Loading polyReduceBug2.smt2 ...
+Warning: reset is only supported in incremental mode (option +incremental), ignoring it
+Warning: exit is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun FALSE_local6 () Int 0)
+  (define-fun FALSE_local5 () Int 0)
+  (define-fun FALSE_local4 () Int 0)
+  (define-fun FALSE_local3 () Int 0)
+  (define-fun FALSE_local2 () Int 0)
+  (define-fun FALSE_local1 () Int 0)
+  (define-fun FALSE_local0 () Int 0)
+  (define-fun p1 () Bool true)
+)
+
 Loading splittingBug.pri ...
 Preprocessing ...
 Constructing countermodel ...
@@ -1184,11 +1211,11 @@ Begin of proof
 | | | | | | | | | THEORY_AXIOM GroebnerMultiplication: 
 | | | | | | | | |   (164)  \forall int v0, v1, v2, v3, v4; (!(v4 >= 40) | !(v1
 | | | | | | | | |              >= 0) | !(0 >= v0) | v3 * v0 != v4 | v2 * v0 !=
-| | | | | | | | |            v3 | v1 * v0 != v2)
+| | | | | | | | |            v3 | v1 * v0 != v2 | v0 * v0 != v1)
 | | | | | | | | | 
 | | | | | | | | | GROUND_INST: instantiating (164) with a, all_0_3, all_0_2,
-| | | | | | | | |              all_0_1, all_0_0, simplifying with (55), (117),
-| | | | | | | | |              (118) gives:
+| | | | | | | | |              all_0_1, all_0_0, simplifying with (2), (55),
+| | | | | | | | |              (117), (118) gives:
 | | | | | | | | |   (165)  !(all_0_0 >= 40) | !(all_0_3 >= 0) | !(0 >= a)
 | | | | | | | | | 
 | | | | | | | | | BETA: splitting (165) gives:
