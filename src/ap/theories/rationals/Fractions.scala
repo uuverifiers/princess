@@ -127,8 +127,6 @@ class Fractions(name : String,
 
   def int2ring(s: ITerm): ITerm =
     frac(underlyingRing.int2ring(s), ringOne)
-//    eps(ex((denom() === v(0)) & denomConstraint &
-//           (v(1) === ringMul(v(0), VariableShiftVisitor(s, 0, 2)))))
 
   val zero: ITerm = frac(ringZero, ringOne)
   val one : ITerm = frac(ringOne, ringOne)
@@ -190,8 +188,6 @@ class Fractions(name : String,
                   subres : Seq[IExpression]) : IExpression = t match {
       case IFunApp(`frac`, _) =>
         subres match {
-          case Seq(IIntLit(num), `ringOne`) =>
-            underlyingRing.times(num, denom())
           case Seq(num : ITerm, den : ITerm) =>
             eps(ex(ex((denom() === v(0)) & denomConstraint &
                     (v(0) === ringMul(v(1), VariableShiftVisitor(den, 0, 3))) &
