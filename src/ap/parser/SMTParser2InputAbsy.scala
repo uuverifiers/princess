@@ -1764,7 +1764,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : ResetCommand => if (checkIncrementalWarn("reset")) {
+        val doConfirm = incremental && printSuccess
         reset
+        // We have to do this, because incremental and printSuccess are...also
+        // reset.
+        if (doConfirm)
+          println("success")
       }
 
       //////////////////////////////////////////////////////////////////////////

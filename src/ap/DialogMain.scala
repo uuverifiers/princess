@@ -138,7 +138,7 @@ class InputDialog extends JPanel {
   ss(frame, 400, 800, 400, 800)
   
   setLayout(new BorderLayout)
-  frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE)
+  frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE)
   
   //////////////////////////////////////////////////////////////////////////////
 
