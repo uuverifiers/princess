@@ -109,6 +109,8 @@ abstract class AbstractStringTheory extends StringTheory {
 
   val str_to_re =
     new MonoSortedIFunction("str_to_re", List(SSo), RSo, true, false)
+  val re_from_str =
+    new MonoSortedIFunction("re_from_str", List(SSo), RSo, true, false)
 
   val re_none =
     new MonoSortedIFunction("re_none", List(), RSo, true, false)
@@ -148,7 +150,7 @@ abstract class AbstractStringTheory extends StringTheory {
          str_++, str_len, str_at, str_char,
          str_substr, str_indexof,
          str_replace, str_replacere, str_replaceall, str_replaceallre,
-         str_to_re, re_none, re_eps, re_all, re_allchar,
+         str_to_re, re_from_str, re_none, re_eps, re_all, re_allchar,
          re_charrange, re_range, re_++,
          re_union, re_inter, re_*, re_+, re_opt, re_comp, re_loop)
 
@@ -229,9 +231,9 @@ abstract class AbstractStringTheory extends StringTheory {
 
   object RegexExtractor {
     private val regexFunctions =
-      Set(str_empty, str_cons, re_none, str_to_re, re_all, re_allchar,
-          re_charrange, re_range, re_++, re_union, re_inter, re_*, re_+, re_opt,
-          re_comp, re_loop)
+      Set(str_empty, str_cons, re_none, str_to_re, re_from_str, re_all,
+          re_allchar, re_charrange, re_range, re_++, re_union, re_inter,
+          re_*, re_+, re_opt, re_comp, re_loop)
     private lazy val regexPredicates =
       regexFunctions map functionPredicateMapping.toMap
 
