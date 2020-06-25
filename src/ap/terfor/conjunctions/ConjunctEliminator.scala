@@ -703,33 +703,39 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
        occursInPreds(c),
        universalSymbols contains c) match {
 
-      case (false, false, false, true, true) if (eliminableFunctionValue(c))
+      case (false, false, false, true, true)
+        if (eliminableFunctionValue(c))
         => elimFunctionValue(c)
       
       case (false, false, false, _, _) => // nothing
       
-      case (true, false, false, false, true) if (eliminablePositiveEqs(c))
-          => //elimPositiveEqs(c)
-             elimAllPositiveUniversalEqs
+      case (true, false, false, false, true)
+        if (eliminablePositiveEqs(c))
+        => //elimPositiveEqs(c)
+           elimAllPositiveUniversalEqs
    
       case (true, false, false, false, false)
         if (eliminablePositiveEqsNonU(c) && eliminablePositiveEqs(c))
-          => elimPositiveEqs(c)
+        => elimPositiveEqs(c)
  
-      case (false, true, false, false, false) if (eliminableNegativeEqs(c))
-          => elimNegativeEqs(c)
+      case (false, true, false, false, false)
+        if (eliminableNegativeEqs(c))
+        => elimNegativeEqs(c)
 
-      case (false, _, _, false, true) if (onesidedInEqsU(c))
-          => elimAllOnesidedInEqsU(logger)
+      case (false, _, _, false, true)
+        if (onesidedInEqsU(c))
+        => elimAllOnesidedInEqsU(logger)
     
-      case (false, false, true, false, true) => eliminableDivInEqs(c) match {
-        case Some((d, otherUniSyms))
-          if (d.isZero || (!otherUniSyms && !logger.isLogging && d <= 1)) =>
-            elimDivInEqs(c, d.intValueSafe, logger)
-        case _ => // nothing
-      }
+      case (false, false, true, false, true)
+        if (conj.arithConj.inEqs.equalityInfs.isEmpty)
+        => eliminableDivInEqs(c) match {
+          case Some((d, otherUniSyms))
+            if (d.isZero || (!otherUniSyms && !logger.isLogging && d <= 1)) =>
+              elimDivInEqs(c, d.intValueSafe, logger)
+          case _ => // nothing
+        }
     
-     case _ => // nothing
+      case _ => // nothing
         
       }
     }

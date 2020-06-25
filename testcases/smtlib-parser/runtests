@@ -23,7 +23,7 @@ TESTS="bignum_quant.smt2 \
        reductionBug.smt2 epsilon.smt2 \
        define-fun-rec.smt2 define-fun-recs.smt2 bv0.smt2 bv1.smt2 bv1b.smt2 \
        bitops1.smt2 division_by_zero0.smt2 bvmul.smt2 \
-       modelConstructionBug2.smt2"
+       modelConstructionBug2.smt2 conjunct-eliminator-bug.smt2"
 
 $PRI "$@" $TESTS
 

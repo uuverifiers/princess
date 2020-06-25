@@ -53,15 +53,16 @@ class IntelliFileProver(reader : java.io.Reader,
 
   import Prover._
 
+  private val posUnitResolution = Param.POS_UNIT_RESOLUTION(settings)
+
   // are only theories used for which we can also reason about the
   // negated formula?
   private lazy val onlyCompleteTheories = rawSignature.theories forall {
     case ap.types.TypeTheory             => true
     case _ : ap.theories.MulTheory       => true
-    case ap.theories.ModuloArithmetic    => true
-    case _ : ap.theories.ADT             => true // strictly speaking,
-                                                 // only works for guarded
-                                                 // formulas ... (TODO!)
+    case ap.theories.ModuloArithmetic    => posUnitResolution
+    // strictly speaking, only works for guarded formulas in ADT ... (TODO!)
+    case _ : ap.theories.ADT             => posUnitResolution
     case _                               => false
   }
 
@@ -69,7 +70,7 @@ class IntelliFileProver(reader : java.io.Reader,
   private lazy val onlyQEEnabledTheories = rawSignature.theories forall {
     case ap.types.TypeTheory             => true
     case _ : ap.theories.MulTheory       => true
-    case ap.theories.ModuloArithmetic    => true
+    case ap.theories.ModuloArithmetic    => posUnitResolution
     case _                               => false
   }
 
