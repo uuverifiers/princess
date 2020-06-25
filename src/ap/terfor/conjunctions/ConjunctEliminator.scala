@@ -683,11 +683,6 @@ abstract class ConjunctEliminator(oriConj : Conjunction,
   protected def isEliminationCandidate(t : Term) : Boolean
   
   def eliminate(logger : ComputationLogger) : Conjunction = {
-  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
-  Debug.assertPre(ConjunctEliminator.AC,
-                  conj.arithConj.inEqs.equalityInfs.isEmpty)
-  //-END-ASSERTION-/////////////////////////////////////////////////////////////
-
   var oldconj = conj
   do {
     oldconj = conj
