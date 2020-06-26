@@ -255,6 +255,23 @@ object ADT {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Create an ADT that implements a record type, and return the
+   * corresponding sort, the constructor symbol, and the selectors.
+   */
+  def createRecordType(name : String, fields : Seq[(String, Sort)])
+                    : (Sort, IFunction, IndexedSeq[IFunction]) = {
+    val ctorArgs =
+      (for ((n, s) <- fields.iterator) yield (n, ADT.OtherSort(s))).toIndexedSeq
+    val adt =
+      new ADT (List(name),
+               List((name, ADT.CtorSignature(ctorArgs, ADT.ADTSort(0)))),
+               ADT.TermMeasure.RelDepth)
+    (adt.sorts.head, adt.constructors.head, adt.selectors.head.toIndexedSeq)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
    * Extractor recognising the constructors of any ADT theory.
    * The extractor will produce the adt, and the index of the constructor.
    */
