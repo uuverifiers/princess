@@ -219,6 +219,10 @@ trait StringTheory extends Theory {
 
   val re_loop        : IFunction    // Int x Int x RegexSort -> RegexSort
 
+  // Capture groups and references, which are indexed symbols
+  val re_capture     : IFunction    // Int x RegexSort -> RegexSort
+  val re_reference   : IFunction    // Int -> RegexSort
+
   // Further functions or predicates that a string theory might define
 
   val extraOps : Map[String, Either[IFunction, Predicate]]
