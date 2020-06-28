@@ -196,6 +196,8 @@ trait StringTheory extends Theory {
 
   val str_to_re      : IFunction    // StringSort -> RegexSort
 
+  val re_from_str    : IFunction    // StringSort -> RegexSort
+
   val re_none        : IFunction    // -> RegexSort
   val re_eps         : IFunction    // -> RegexSort
   val re_all         : IFunction    // -> RegexSort

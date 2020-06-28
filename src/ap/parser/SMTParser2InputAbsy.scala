@@ -1774,7 +1774,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       //////////////////////////////////////////////////////////////////////////
 
       case cmd : ResetCommand => if (checkIncrementalWarn("reset")) {
+        val doConfirm = incremental && printSuccess
         reset
+        // We have to do this, because incremental and printSuccess are...also
+        // reset.
+        if (doConfirm)
+          println("success")
       }
 
       //////////////////////////////////////////////////////////////////////////
@@ -2528,6 +2533,9 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
 
     case PlainSymbol("str.to-re" | "str.to.re") =>
       (translateStringFun(stringTheory.str_to_re, args,
+                          List(stringType)), regexType)
+    case PlainSymbol("re.from.str") =>
+      (translateStringFun(stringTheory.re_from_str, args,
                           List(stringType)), regexType)
 
     case PlainSymbol("str.in-re" | "str.in.re") =>
