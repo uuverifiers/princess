@@ -78,7 +78,7 @@ trait Monoid extends Semigroup {
   /**
    * The neutral element of this monoid
    */
-  def zero : ITerm
+  def identity : ITerm
 
   /**
    * <code>num * s</code>, for <code>n >= 0</code>
@@ -89,7 +89,7 @@ trait Monoid extends Semigroup {
     //-END-ASSERTION-///////////////////////////////////////////////////////////
 
     if (num.isZero)
-      zero
+      identity
     else
       super.times(num, s)
   }
@@ -103,15 +103,15 @@ trait Group extends Monoid {
   /**
    * Inverse elements
    */
-  def minus(s : ITerm) : ITerm
+  def inverse(s : ITerm) : ITerm
 
   /**
    * <code>num * s</code>
    */
   override def times(num : IdealInt, s : ITerm) : ITerm =
     num.signum match {
-      case -1 => minus(super.times(-num, s))
-      case 0  => zero
+      case -1 => inverse(super.times(-num, s))
+      case 0  => identity
       case 1  => super.times(num, s)
     }
 

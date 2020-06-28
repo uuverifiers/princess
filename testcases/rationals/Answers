@@ -20,3 +20,13 @@ sat
   (define-fun x () Real (/ 21 10))
 )
 
+Loading simple2.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x () Real (/ 41 1))
+)
+

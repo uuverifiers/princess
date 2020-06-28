@@ -99,10 +99,10 @@ trait PseudoRing {
    * Addition gives rise to an Abelian group
    */
   def additiveGroup : Group with Abelian = new Group with Abelian {
-    val dom = PseudoRing.this.dom
-    def zero = PseudoRing.this.zero
-    def op(s : ITerm, t : ITerm) = plus(s, t)
-    def minus(s : ITerm) = PseudoRing.this.minus(s)
+    val dom                      = PseudoRing.this.dom
+    def identity                 = PseudoRing.this.zero
+    def op(s : ITerm, t : ITerm) = PseudoRing.this.plus(s, t)
+    def inverse(s : ITerm)       = PseudoRing.this.minus(s)
 
     override def times(num : IdealInt, s : ITerm) : ITerm =
       PseudoRing.this.times(num, s)
@@ -119,9 +119,9 @@ trait Ring extends PseudoRing {
    * Multiplication gives rise to a monoid
    */
   def multiplicativeMonoid : Monoid = new Monoid {
-    val dom = Ring.this.dom
-    def zero = Ring.this.one
-    def op(s : ITerm, t : ITerm) = mul(s, t)
+    val dom                      = Ring.this.dom
+    def identity                 = Ring.this.one
+    def op(s : ITerm, t : ITerm) = Ring.this.mul(s, t)
   }
 
 }
@@ -135,9 +135,9 @@ trait CommutativeRing extends Ring with CommutativePseudoRing {
    */
   override def multiplicativeMonoid : Monoid with Abelian =
     new Monoid with Abelian {
-      val dom = CommutativeRing.this.dom
-      def zero = CommutativeRing.this.one
-      def op(s : ITerm, t : ITerm) = mul(s, t)
+      val dom                      = CommutativeRing.this.dom
+      def identity                 = CommutativeRing.this.one
+      def op(s : ITerm, t : ITerm) = CommutativeRing.this.mul(s, t)
     }
 
 }
@@ -162,7 +162,7 @@ trait RingWithDivision extends PseudoRing {
  * with <code>f(mod(s, t)) in [0, abs(t))</code> for some appropriate
  * embedding into real numbers.
  */
-trait EuclidianRing extends Ring with RingWithDivision {
+trait EuclidianRing extends CommutativeRing with RingWithDivision {
 
   /**
    * Euclidian division
@@ -224,10 +224,11 @@ trait Field extends CommutativeRing with RingWithDivision {
    */
   def multiplicativeGroup : Group with Abelian =
     new Group with Abelian {
-      val dom = Field.this.dom // TODO: how to remove the zero?
-      def zero = Field.this.one
-      def op(s : ITerm, t : ITerm) = mul(s, t)
-      def minus(s : ITerm) : ITerm = inverse(s)
+      // TODO: how to remove the zero in the best way?
+      val dom                        = Field.this.dom
+      def identity                   = Field.this.one
+      def op(s : ITerm, t : ITerm)   = mul(s, t)
+      def inverse(s : ITerm) : ITerm = Field.this.inverse(s)
     }
 
 }

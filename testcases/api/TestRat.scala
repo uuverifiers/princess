@@ -19,12 +19,17 @@
  * along with Princess.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package ap.theories.rationals
+// package ap.theories.rationals
 
 import ap.parser._
 import ap.SimpleAPI
 
 object TestRat extends App {
+
+  def part(str : String) = {
+    println
+    println("-- " + str)
+  }
 
   SimpleAPI.withProver(enableAssert = true) { p =>
     import p._
@@ -38,6 +43,7 @@ object TestRat extends App {
     val y = createConstant("y", dom)
 
     scope {
+      part("Test 1")
       println(mul(frac(1, 3), frac(1, 4)))
 
       !! (x === mul(frac(1, 3), frac(1, 4)))
@@ -46,12 +52,14 @@ object TestRat extends App {
     }
 
     scope {
+      part("Test 2")
       !! (plus(frac(1, 10), x) === plus(y, int2ring(10)))
       println(???)
       println(partialModel)
     }
 
     scope {
+      part("Test 3")
       !! (times(5, x) === int2ring(3))
       println(???)
       println(partialModel)
@@ -62,6 +70,7 @@ object TestRat extends App {
     }
 
     scope {
+      part("Test 4")
       !! (times(5, x) === times(7, y))
       !! (x =/= zero)
       ?? (x =/= y)
@@ -69,6 +78,7 @@ object TestRat extends App {
     }
 
     scope {
+      part("Test 5")
       !! (times(5, x) === plus(times(7, y), int2ring(3)))
       !! (x =/= zero)
       ?? (x =/= y)
@@ -77,6 +87,7 @@ object TestRat extends App {
     }
 
     scope {
+      part("Test 6")
       !! (mul(x, x) === frac(16, 9))
       println(???)
       println(partialModel)
@@ -84,6 +95,7 @@ object TestRat extends App {
     }
 
     scope {
+      part("Test 7")
       !! (y =/= zero & y =/= one)
       !! (div(x, y) === int2ring(10))
       println(???)
@@ -91,6 +103,7 @@ object TestRat extends App {
     }
 
     scope {
+      part("Test 8")
       !! (lt(zero, y) & lt(y, one))
       !! (div(x, y) === int2ring(10))
       println(???)
@@ -98,6 +111,7 @@ object TestRat extends App {
     }
 
     scope {
+      part("Test 9")
       !! (y =/= zero)
       !! (div(x, y) === int2ring(11))
       !! (lt(x, zero))

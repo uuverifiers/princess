@@ -2174,35 +2174,28 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     case PlainSymbol("=") => {
       val transArgs = for (a <- args) yield translateTerm(a, 0)
       (if (transArgs forall (_._2 == SMTBool)) {
-         connect(for (Seq(a, b) <- (transArgs map (asFormula(_))) sliding 2)
-                   yield (a <===> b),
-                 IBinJunctor.And)
+         and(for (Seq(a, b) <- (transArgs map (asFormula(_))) sliding 2)
+               yield (a <===> b))
        } else {
-         val types = (transArgs map (_._2)).toSet
-         if (types.size > 1)
-           throw new Parser2InputAbsy.TranslationException(
-             "= cannot be applied to " +
-             ((args map (printer print _)) mkString " and "))
-         connect(for (Seq(a, b) <- (transArgs map (asTerm(_))) sliding 2)
-                   yield translateEq(a, b, types.iterator.next, polarity),
-                 IBinJunctor.And)
+         val (termArgs, typ) = asRealIntOtherTerms("=", transArgs)
+         and(for (Seq(a, b) <- termArgs sliding 2)
+               yield translateEq(a, b, typ, polarity))
        },
        SMTBool)
     }
     
     case PlainSymbol("distinct") => {
       val transArgs = for (a <- args) yield translateTerm(a, 0)
-      (if (transArgs forall (_._2 == SMTBool)) transArgs.length match {
-         case 0 | 1 => true
-         case 2 => ~(asFormula(transArgs(0)) <===> asFormula(transArgs(1)))
-         case _ => false
-       } else {
-         val types = (transArgs map (_._2)).toSet
-         if (types.size > 1)
-           throw new Parser2InputAbsy.TranslationException(
-             "distinct cannot be applied to " +
-             ((args map (printer print _)) mkString " and "))
-         distinct(for (p <- transArgs.iterator) yield asTerm(p))
+      (if (transArgs forall (_._2 == SMTBool))
+         transArgs.length match {
+           case 0 | 1 => true
+           case 2 => ~(asFormula(transArgs(0)) <===> asFormula(transArgs(1)))
+           case _ => false
+         }
+       else {
+         val (termArgs, typ) = asRealIntOtherTerms("distinct", transArgs)
+         // TODO: special case for arrays?
+         distinct(termArgs)
        }, SMTBool)
     }
     
@@ -2792,6 +2785,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       (for (p <- transArgs) yield asTerm(p, SMTInteger), SMTInteger)
     }
   }
+
+  private def asRealIntOtherTerms(op : String,
+                                  args : Seq[(IExpression, SMTType)])
+                               : (Seq[ITerm], SMTType) =
+    if (args exists (_._2.isInstanceOf[SMTReal])) {
+      (args map (asRealTerm(op, _)), realType)
+    } else {
+      val typ = args.head._2
+      if (args exists (_._2 != typ))
+        throw new Parser2InputAbsy.TranslationException(
+          op + " cannot be applied to " + (args map (_._1) mkString ", "))
+      (args map asTerm, typ)
+    }
 
   //////////////////////////////////////////////////////////////////////////////
 
