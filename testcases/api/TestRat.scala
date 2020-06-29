@@ -23,6 +23,7 @@
 
 import ap.parser._
 import ap.SimpleAPI
+import ap.theories.rationals.Rationals
 
 object TestRat extends App {
 
