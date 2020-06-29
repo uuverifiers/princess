@@ -2220,7 +2220,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
     }
       
     ////////////////////////////////////////////////////////////////////////////
-    // Hardcoded integer operations
+    // Hardcoded integer and real operations
 
     case PlainSymbol("+") =>
       asRealIntTerms("+", flatten("+", args)) match {
@@ -2280,7 +2280,7 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       checkArgNum("abs", 1, args)
       (abs(asTerm(translateTerm(args.head, 0))), SMTInteger)
     }
-      
+
     case PlainSymbol("/") => {
       checkArgNum("/", 2, args)
       (realAlgebra.div(asRealTerm("/", args(0)),
@@ -2288,6 +2288,19 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
        realType)
     }
 
+    case PlainSymbol("to_real") => {
+      checkArgNum("to_real", 1, args)
+      (asRealTerm("to_real", args(0)), realType)
+    }
+      
+    case PlainSymbol("to_int") => {
+      checkArgNum("to_int", 1, args)
+      (eps(ex(v(0) === VariableShiftVisitor(asRealTerm("to_int", args(0)), 0,2)&
+              realAlgebra.leq(realAlgebra.int2ring(v(1)), v(0)) &
+              realAlgebra.gt(realAlgebra.int2ring(v(1) + 1), v(0)))),
+       SMTInteger)
+    }
+      
     ////////////////////////////////////////////////////////////////////////////
     // Array operations
     
