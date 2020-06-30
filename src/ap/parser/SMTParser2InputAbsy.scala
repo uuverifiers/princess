@@ -34,7 +34,8 @@ import ap.proof.certificates.{Certificate, DagCertificateConverter,
 import ap.theories.{SimpleArray, ADT, ModuloArithmetic, Theory}
 import ap.theories.strings.{StringTheory, StringTheoryBuilder}
 import ap.theories.rationals.Rationals
-import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder}
+import ap.algebra.{PseudoRing, RingWithDivision, RingWithOrder,
+                   RingWithIntConversions}
 import ap.types.{MonoSortedIFunction, MonoSortedPredicate}
 import ap.basetypes.{IdealInt, IdealRat, Tree}
 import ap.parser.smtlib._
@@ -788,7 +789,8 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
   //////////////////////////////////////////////////////////////////////////////
 
   private val realAlgebra : PseudoRing with RingWithDivision
-                                       with RingWithOrder = Rationals
+                                       with RingWithOrder
+                                       with RingWithIntConversions = Rationals
 
   private val realType = SMTReal(realAlgebra.dom)
 
@@ -2295,10 +2297,12 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
       
     case PlainSymbol("to_int") => {
       checkArgNum("to_int", 1, args)
-      (eps(ex(v(0) === VariableShiftVisitor(asRealTerm("to_int", args(0)), 0,2)&
-              realAlgebra.leq(realAlgebra.int2ring(v(1)), v(0)) &
-              realAlgebra.gt(realAlgebra.int2ring(v(1) + 1), v(0)))),
-       SMTInteger)
+      (realAlgebra.ring2int(asRealTerm("to_int", args(0))), SMTInteger)
+    }
+      
+    case PlainSymbol("is_int") => {
+      checkArgNum("is_int", 1, args)
+      (realAlgebra.isInt(asRealTerm("to_int", args(0))), SMTBool)
     }
       
     ////////////////////////////////////////////////////////////////////////////

@@ -177,6 +177,25 @@ trait EuclidianRing extends CommutativeRing with RingWithDivision {
 }
 
 /**
+ * Ring that can also convert ring elements back to integers.
+ */
+trait RingWithIntConversions extends PseudoRing {
+
+  /**
+   * Conversion of a ring term to an integer term.
+   * This should have the property that
+   *  <code>isInt(s) <=> int2Ring(ring2Int(s)) === s</code>.
+   */
+  def ring2int(s : ITerm) : ITerm
+
+  /**
+   * Test whether a ring element represents an integer number.
+   */
+  def isInt(s : ITerm) : IFormula
+
+}
+
+/**
  * Rings that also possess an ordering relation
  */
 trait RingWithOrder extends PseudoRing {

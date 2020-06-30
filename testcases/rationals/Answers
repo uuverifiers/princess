@@ -30,3 +30,24 @@ sat
   (define-fun x () Real (/ 41 1))
 )
 
+Loading casts.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun y () Real (/ (- 1) 2))
+  (define-fun x () Real (/ 1 2))
+)
+
+Loading casts3.smt2 ...
+Warning: get-model is only supported in incremental mode (option +incremental), ignoring it
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun x () Real (/ (- 1) 2))
+)
+

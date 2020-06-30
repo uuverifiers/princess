@@ -252,28 +252,3 @@ class Fractions(name : String,
   override def toString = name
 
 }
-
-/**
- * The theory and field of rational numbers.
- */
-object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
-                 with Field with OrderedRing {
-
-  override val dependencies = List(GroebnerMultiplication)
-
-  protected override
-    def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d) match {
-      case (IIntLit(n), IIntLit(d)) => {
-        val l = n gcd d
-        (IIntLit(n / l), IIntLit(d / l))
-      }
-      case _ =>
-        (n, d)
-    }
-
-  def lt(s : ITerm, t : ITerm) : IFormula = s < t
-
-  def leq(s : ITerm, t : ITerm) : IFormula = s <= t
-
-}
-
