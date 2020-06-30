@@ -25,7 +25,8 @@ import ap.parser._
 import ap.basetypes.IdealInt
 import ap.theories.{GroebnerMultiplication => Mul}
 import ap.algebra.{Ring, PseudoRing, RingWithOrder, EuclidianRing,
-                   CommutativeRing}
+                   CommutativeRing, RingWithIntConversions, Field}
+import ap.util.Debug
 
 /**
  * Modular arithmetic in the interval <code>[lower, upper]</code>.
@@ -46,7 +47,9 @@ object ModRing {
  * Modular arithmetic in the interval <code>[lower, upper]</code>.
  */
 class ModRing(val lower : IdealInt, val upper : IdealInt)
-      extends Ring with RingWithOrder with CommutativeRing {
+      extends Ring with RingWithOrder
+                   with CommutativeRing
+                   with RingWithIntConversions {
 
   import ModuloArithmetic.{cast2Interval, ModSort}
 
@@ -63,6 +66,9 @@ class ModRing(val lower : IdealInt, val upper : IdealInt)
 
   def lt (s : ITerm, t : ITerm) : IFormula = (s < t)
   def leq(s : ITerm, t : ITerm) : IFormula = (s <= t)
+
+  def isInt(s: ITerm): IFormula = true
+  def ring2int(s: ITerm): ITerm = s
 
 }
 
@@ -93,5 +99,26 @@ case class SignedBVRing(bits : Int)
 
   def div(s : ITerm, t : ITerm) : ITerm = bvsdiv(s, t)
   def mod(s : ITerm, t : ITerm) : ITerm = bvsrem(s, t)
+
+}
+
+/**
+ * Galois fields of cardinality <code>p</code>, for some prime
+ * number <code>p</code>.
+ */
+case class GaloisField(p : IdealInt)
+           extends ModRing(IdealInt.ZERO, p - 1) with Field {
+
+  //-BEGIN-ASSERTION-///////////////////////////////////////////////////////////
+  Debug.assertCtor(Debug.AC_ALGEBRA, p isProbablePrime 3) // certainty level?
+  //-END-ASSERTION-/////////////////////////////////////////////////////////////
+
+  import IExpression._
+
+  def div(s : ITerm, t : ITerm) : ITerm =
+    // r = s / t <=>
+    // r * t = s
+    dom.eps(mul(v(0), VariableShiftVisitor(t, 0, 1)) ===
+              VariableShiftVisitor(s, 0, 1))
 
 }
