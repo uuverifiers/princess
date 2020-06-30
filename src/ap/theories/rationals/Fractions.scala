@@ -194,10 +194,10 @@ class Fractions(name : String,
       // (s / denom) * (t / denom) =
       // s * t / denom^2 =
       // (s * t / denom) / denom
-      eps(ex((denom() === v(0)) & denomConstraint &
-             (ringMul(v(0), v(1)) ===
-                ringMul(VariableShiftVisitor(s, 0, 2),
-                        VariableShiftVisitor(t, 0, 2)))))
+      dom.eps(ex((denom() === v(0)) & denomConstraint &
+                 (ringMul(v(0), v(1)) ===
+                    ringMul(VariableShiftVisitor(s, 0, 2),
+                            VariableShiftVisitor(t, 0, 2)))))
   }
 
   def div(s : ITerm, t : ITerm) : ITerm = t match {
@@ -209,9 +209,9 @@ class Fractions(name : String,
       // (s / denom) / (t / denom) =
       // (s / denom) * (denom / t) =
       // (s * denom / t) / denom
-      eps(ex((denom() === v(0)) & denomConstraint &
-             (ringMul(VariableShiftVisitor(t, 0, 2), v(1)) ===
-                ringMul(VariableShiftVisitor(s, 0, 2), v(0)))))
+      dom.eps(ex((denom() === v(0)) & denomConstraint &
+                 (ringMul(VariableShiftVisitor(t, 0, 2), v(1)) ===
+                    ringMul(VariableShiftVisitor(s, 0, 2), v(0)))))
   }
 
   def minus(s: ITerm): ITerm = s match {
@@ -229,14 +229,15 @@ class Fractions(name : String,
       case IFunApp(`int`, _) =>
         subres match {
           case Seq(num : ITerm) =>
-            eps(ex((denom() === v(0)) & denomConstraint &
-                   (v(1) === ringMul(v(0),
+            dom.eps(ex((denom() === v(0)) & denomConstraint &
+                       (v(1) === ringMul(v(0),
                                ringInt2Ring(VariableShiftVisitor(num, 0, 2))))))
         }
       case IFunApp(`frac`, _) =>
         subres match {
           case Seq(num : ITerm, den : ITerm) =>
-            eps(ex(ex((denom() === v(0)) & denomConstraint &
+            dom.eps(dom.ex(ex(
+                    (denom() === v(0)) & denomConstraint &
                     (v(0) === ringMul(v(1), VariableShiftVisitor(den, 0, 3))) &
                     (v(2) === ringMul(v(1), VariableShiftVisitor(num, 0, 3))))))
         }
