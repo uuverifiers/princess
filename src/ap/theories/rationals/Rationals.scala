@@ -23,6 +23,7 @@ package ap.theories.rationals
 
 import ap.parser._
 import ap.theories._
+import ap.basetypes.IdealInt
 import ap.algebra.{Ring, RingWithDivision, IntegerRing, Field, OrderedRing,
                    RingWithIntConversions}
 
@@ -45,6 +46,21 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
       case _ =>
         (n, d)
     }
+
+  protected override def individualsStream : Option[Stream[ITerm]] = Some({
+    val numStream =
+      Stream.iterate(IdealInt.ZERO){ n => if (n.signum <= 0) (-n+1) else -n }
+    val denomStream =
+      Stream.iterate(IdealInt.ONE) { n => n + 1 }
+
+    for (n  <- Stream.iterate(0)(n => n + 1);
+         nthNum   = numStream(n);
+         nthDenom = denomStream(n);
+         (num, den) <- (for (t <- denomStream take n)   yield (nthNum, t)) ++
+                       (for (t <- numStream take (n+1)) yield (t, nthDenom));
+         if (num gcd den) == IdealInt.ONE)
+    yield (frac(i(num), i(den)))
+  })
 
   def lt(s : ITerm, t : ITerm) : IFormula = s < t
 

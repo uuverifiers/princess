@@ -57,9 +57,21 @@ class Fractions(name : String,
    */
   protected def simplifyFraction(n : ITerm, d : ITerm) : (ITerm, ITerm) = (n, d)
 
+  /**
+   * Optionally, a stream of the constructor terms for this domain can be
+   * defined (e.g., the fractions with co-prime numerator and denominator).
+   */
+  protected def individualsStream : Option[Stream[ITerm]] = None
+
   object FractionSort extends ProxySort (RingSort) {
 
     override val name = Fractions.this.name
+
+    override lazy val individuals : Stream[ITerm] =
+      individualsStream match {
+        case None    => super.individuals
+        case Some(s) => s
+      }
 
     override def decodeToTerm(
                    d : IdealInt,
