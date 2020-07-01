@@ -651,6 +651,9 @@ case class Polynomial(val terms : Polynomial.CoeffMonomialList)
   def -(that : CoeffMonomial) : Polynomial =
     this + that.neg
 
+  def /(that : CoeffMonomial) : Polynomial =
+    Polynomial(for (t <- terms) yield (t / that))
+
   def +(that : Polynomial) : Polynomial =
     Polynomial(merge_terms(this.terms, that.terms))
   def -(that : Polynomial) : Polynomial =
