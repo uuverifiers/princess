@@ -51,3 +51,12 @@ sat
   (define-fun x () Real (/ (- 1) 2))
 )
 
+Loading realList.smt2 ...
+Preprocessing ...
+Constructing countermodel ...
+
+sat
+(model
+  (define-fun l () List (cons (/ 1 2) (cons (/ 1 1) (cons (/ 0 1) nil))))
+)
+

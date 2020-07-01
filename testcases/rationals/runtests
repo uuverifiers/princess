@@ -6,7 +6,8 @@ TESTS="simple0.smt2 \
        simple1.smt2 \
        simple2.smt2 \
        casts.smt2 \
-       casts3.smt2"
+       casts3.smt2 \
+       realList.smt2"
 
 $PRI "$@" $TESTS
 
