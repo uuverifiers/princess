@@ -156,7 +156,13 @@ class Fractions(name : String,
 
   override def isSoundForSat(theories : Seq[Theory],
                              config : Theory.SatSoundnessConfig.Value)
-                           : Boolean = true
+                           : Boolean =
+    config match {
+      case Theory.SatSoundnessConfig.Elementary  => true
+      case Theory.SatSoundnessConfig.Existential => true
+      case _                                     => false
+    }
+
 
   import IExpression._
 
