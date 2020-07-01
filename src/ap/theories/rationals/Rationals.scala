@@ -62,9 +62,27 @@ object Rationals extends Fractions("Rat", IntegerRing, IExpression.v(0) > 0)
     yield (frac(i(num), i(den)))
   })
 
-  def lt(s : ITerm, t : ITerm) : IFormula = s < t
+  def lt(s : ITerm, t : ITerm) : IFormula = (s, t) match {
+    case (IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
+      s < t
+    case (IFunApp(`int`, Seq(Const(IdealInt.ZERO))), t) =>
+      0 < t
+    case (s, IFunApp(`int`, Seq(Const(IdealInt.ZERO)))) =>
+      s < 0
+    case (s, t) =>
+      s < t
+  }
 
-  def leq(s : ITerm, t : ITerm) : IFormula = s <= t
+  def leq(s : ITerm, t : ITerm) : IFormula = (s, t) match {
+    case (IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
+      s <= t
+    case (IFunApp(`int`, Seq(Const(IdealInt.ZERO))), t) =>
+      0 <= t
+    case (s, IFunApp(`int`, Seq(Const(IdealInt.ZERO)))) =>
+      s <= 0
+    case (s, t) =>
+      s <= t
+  }
 
   /**
    * Conversion of a rational term to an integer term, the
