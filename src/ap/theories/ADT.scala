@@ -255,6 +255,20 @@ object ADT {
   //////////////////////////////////////////////////////////////////////////////
 
   /**
+   * Create an ADT that implements an enumeration, and return the
+   * corresponding sort and the terms representing the cases.
+   */
+  def createEnumType(name : String, cases : Seq[String])
+                  : (Sort, IndexedSeq[ITerm]) = {
+    val adt =
+      new ADT (List(name),
+               for (n <- cases)
+                 yield (n, ADT.CtorSignature(List(), ADT.ADTSort(0))),
+               ADT.TermMeasure.RelDepth)
+    (adt.sorts.head, for (f <- adt.constructors) yield IFunApp(f, List()))
+  }
+
+  /**
    * Create an ADT that implements a record type, and return the
    * corresponding sort, the constructor symbol, and the selectors.
    */
