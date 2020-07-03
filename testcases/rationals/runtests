@@ -10,7 +10,8 @@ TESTS="simple0.smt2 \
        casts3.smt2 \
        realList.smt2 \
        quantifiers.smt2 \
-       quantifiers2.smt2"
+       quantifiers2.smt2 \
+       iteBug.smt2"
 
 $PRI "$@" $TESTS
 

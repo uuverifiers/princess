@@ -39,9 +39,9 @@ object IntegerRing extends EuclidianRing
   val one: ITerm  = IIntLit(1)
 
   def plus(s: ITerm, t: ITerm): ITerm = s +++ t
-  def mul (s: ITerm, t: ITerm): ITerm = GroebnerMultiplication.mult(s, t)
+  def mul (s: ITerm, t: ITerm): ITerm = GroebnerMultiplication.multSimplify(s,t)
 
-  def minus(s: ITerm): ITerm = -s
+  def minus(s: ITerm): ITerm = s.minusSimplify
 
   def div(s : ITerm, t : ITerm) : ITerm = GroebnerMultiplication.eDiv(s, t)
   def mod(s : ITerm, t : ITerm) : ITerm = GroebnerMultiplication.eMod(s, t)

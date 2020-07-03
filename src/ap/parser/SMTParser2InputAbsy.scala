@@ -2163,10 +2163,20 @@ class SMTParser2InputAbsy (_env : Environment[SMTParser2InputAbsy.SMTType,
           (IFormulaITE(asFormula(transArgs(0)),
                        asFormula(transArgs(1)), asFormula(transArgs(2))),
            SMTBool)
-        case Seq(SMTBool, t1, t2) =>
+        case Seq(SMTBool, _ : SMTReal, _) | Seq(SMTBool, _, _ : SMTReal) =>
+          (ITermITE(asFormula(transArgs(0)),
+                    asRealTerm("ite", transArgs(1)),
+                    asRealTerm("ite", transArgs(2))),
+           realType)
+        case Seq(SMTBool, t1, t2) => {
+          if (t1 != t2)
+            throw new TranslationException(
+              "branches of ite need to have consistent type, not " +
+              t1 + " and " + t2)
           (ITermITE(asFormula(transArgs(0)),
                     asTerm(transArgs(1)), asTerm(transArgs(2))),
            t1)
+        }
       }
     }
     

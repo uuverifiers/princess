@@ -150,10 +150,6 @@ class Fractions(name : String,
 
   private val _denom : IExpression.Predicate = predicates(1)
 
-  override def iPreprocess(f : IFormula, signature : Signature)
-                        : (IFormula, Signature) =
-    (Preprocessor.visit(f, ()).asInstanceOf[IFormula], signature)
-
   override def isSoundForSat(theories : Seq[Theory],
                              config : Theory.SatSoundnessConfig.Value)
                            : Boolean =
@@ -192,7 +188,7 @@ class Fractions(name : String,
       ringTimes(num, s)
   }
 
-  def mul (s: ITerm, t: ITerm): ITerm = (s, t) match {
+  def mul(s: ITerm, t: ITerm): ITerm = (s, t) match {
     case (IFunApp(`frac`, Seq(num1, denom1)),
           IFunApp(`frac`, Seq(num2, denom2))) =>
       frac(ringMul(num1, num2), ringMul(denom1, denom2))
@@ -219,6 +215,8 @@ class Fractions(name : String,
   }
 
   def div(s : ITerm, t : ITerm) : ITerm = t match {
+    case IFunApp(`int`, Seq(Const(IdealInt.ONE))) =>
+      s
     case IFunApp(`int`, Seq(n)) =>
       mul(s, frac(ringOne, ringInt2Ring(n)))
     case IFunApp(`frac`, Seq(n, d)) =>
@@ -241,26 +239,71 @@ class Fractions(name : String,
       underlyingRing.minus(s)
   }
 
-  private object Preprocessor extends CollectingVisitor[Unit, IExpression] {
+  override def iPreprocess(f : IFormula, signature : Signature)
+                        : (IFormula, Signature) = {
+    val visitor =
+      new Preprocessor
+    val res =
+      visitor.visit(f, ()).asInstanceOf[IFormula]
+    val res2 =
+      res match {
+        case INamedPart(name, res) if visitor.usedDenom =>
+          INamedPart(name, all((denom() === v(0) & denomConstraint) ==> res))
+        case res =>
+          res
+      }
+    IncompletenessChecker.visitWithoutResult(res2, Context(()))
+    (res2, signature)
+  }
+
+  private class Preprocessor extends CollectingVisitor[Unit, IExpression] {
+    var usedDenom = false
     def postVisit(t : IExpression, arg : Unit,
                   subres : Seq[IExpression]) : IExpression = t match {
       case IFunApp(`int`, _) =>
         subres match {
-          case Seq(num : ITerm) =>
-            dom.eps(ex((denom() === v(0)) & denomConstraint &
-                       (v(1) === ringMul(v(0),
-                               ringInt2Ring(VariableShiftVisitor(num, 0, 2))))))
+          case Seq(num : ITerm) => {
+            usedDenom = true
+            ringMul(denom(), ringInt2Ring(num))
+          }
         }
       case IFunApp(`frac`, _) =>
         subres match {
-          case Seq(num : ITerm, den : ITerm) =>
-            dom.eps(dom.ex(ex(
-                    (denom() === v(0)) & denomConstraint &
-                    (v(0) === ringMul(v(1), VariableShiftVisitor(den, 0, 3))) &
-                    (v(2) === ringMul(v(1), VariableShiftVisitor(num, 0, 3))))))
+          case Seq(num : ITerm, den : ITerm) => {
+            usedDenom = true
+            dom.eps(dom.ex(
+               (denom() === ringMul(v(0), VariableShiftVisitor(den, 0, 2))) &
+               (v(1) === ringMul(v(0), VariableShiftVisitor(num, 0, 2)))))
+          }
         }
       case _ =>
-        t update subres
+        (t update subres) match {
+          case ITimes(coeff, IFunApp(`int`, Seq(s))) =>
+            int(coeff * s)
+          case IPlus(IFunApp(`int`, Seq(s)), IFunApp(`int`, Seq(t))) =>
+            int(s + t)
+          case IIntFormula(r, IFunApp(`int`, Seq(s))) =>
+            IIntFormula(r, s)
+          case res =>
+            res
+        }
+    }
+  }
+
+  /**
+   * The theory is not complete for the full first-order case; check
+   * whether the denom function occurs in the scope of a quantifier.
+   */
+  private object IncompletenessChecker
+          extends ContextAwareVisitor[Unit, Unit] {
+    def postVisit(t : IExpression, ctxt : Context[Unit],
+                  subres : Seq[Unit]) : Unit = t match {
+      case IFunApp(`denom`, _) if ctxt.binders contains Context.EX => {
+        Incompleteness.set
+        ()
+      }
+      case _ =>
+        ()
     }
   }
 
