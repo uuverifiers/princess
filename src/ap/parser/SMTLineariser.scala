@@ -294,8 +294,18 @@ object SMTLineariser {
                      formalArgs : Seq[ConstantTerm],
                      body : IExpression) : Unit = {
     val (argSorts, resSort) = functionType
+    print("(define-fun " + quoteIdentifier(f.name) + " ")
+    printArguments(argSorts, formalArgs)
+    print(" ")
+    printSMTType(sort2SMTType(resSort)._1)
+    print(" ")
+    apply(body)
+    println(")")
+  }
 
-    print("(define-fun " + quoteIdentifier(f.name) + " (")
+  def printArguments(argSorts : Seq[Sort],
+                     formalArgs : Seq[ConstantTerm]) : Unit = {
+    print("(")
     var sep = ""
     for ((a, t) <- formalArgs.iterator zip argSorts.iterator) {
       print(sep)
@@ -306,11 +316,7 @@ object SMTLineariser {
       printSMTType(sort2SMTType(t)._1)
       print(")")
     }
-    print(") ")
-    printSMTType(sort2SMTType(resSort)._1)
-    print(" ")
-    apply(body)
-    println(")")
+    print(")")
   }
 
   //////////////////////////////////////////////////////////////////////////////
